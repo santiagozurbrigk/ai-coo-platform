@@ -1,0 +1,8 @@
+{
+  "name": "@ai-coo/database",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Reserved — PostgreSQL + Supabase + pgvector (post Phase 0)",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts"
+}

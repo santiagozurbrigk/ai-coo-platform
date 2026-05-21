@@ -1,0 +1,8 @@
+{
+  "name": "@ai-coo/integrations",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Reserved — ManyChat, Notion, Airtable, Google, Fathom, Loom sync (post Phase 0)",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts"
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@ai-coo/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  },
+  "exports": {
+    "./tailwind": "./tailwind/preset.ts",
+    "./typescript/base": "./typescript/base.json",
+    "./typescript/nextjs": "./typescript/nextjs.json",
+    "./eslint/base": "./eslint/base.js"
+  }
+}
