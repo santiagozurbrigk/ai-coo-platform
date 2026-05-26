@@ -22,7 +22,7 @@ export function Topbar({
   return (
     <header
       className={cn(
-        "flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-background/80 px-6 backdrop-blur-md",
+        "flex h-14 shrink-0 items-center justify-between gap-4 border-b border-white/[0.05] bg-[rgba(8,8,16,0.60)] px-6 backdrop-blur-[30px]",
         className
       )}
     >
@@ -31,12 +31,12 @@ export function Topbar({
         {(title || subtitle) && (
           <div className="min-w-0">
             {title && (
-              <h1 className="truncate text-sm font-semibold tracking-tight">
+              <h1 className="truncate text-lg font-medium tracking-tight text-white/90">
                 {title}
               </h1>
             )}
             {subtitle && (
-              <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+              <p className="truncate text-xs text-white/30">{subtitle}</p>
             )}
           </div>
         )}
@@ -44,7 +44,7 @@ export function Topbar({
       {search && <div className="hidden max-w-sm flex-1 md:flex">{search}</div>}
       {actions && (
         <>
-          <Separator orientation="vertical" className="h-6 hidden sm:block" />
+          <Separator orientation="vertical" className="h-6 hidden sm:block bg-white/[0.08]" />
           <div className="flex items-center gap-2">{actions}</div>
         </>
       )}

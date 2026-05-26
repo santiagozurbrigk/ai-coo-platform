@@ -1,4 +1,4 @@
-import { Panel } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
 
 export function WeeklyChanges({ changes }: { changes: string[] }) {
   return (

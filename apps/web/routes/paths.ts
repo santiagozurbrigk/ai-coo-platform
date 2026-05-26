@@ -7,19 +7,53 @@ const PLATFORM = "";
 
 export const paths = {
   home: "/",
+  auth: {
+    login: "/login",
+    onboarding: "/onboarding",
+  },
   demo: "/demo",
   designSystem: "/design-system",
 
   platform: {
     dashboard: `${PLATFORM}/dashboard`,
 
+    finance: {
+      root: `${PLATFORM}/finance`,
+      expenses: `${PLATFORM}/finance/expenses`,
+    },
+
+    marketing: {
+      overview: `${PLATFORM}/marketing`,
+      content: `${PLATFORM}/marketing/content`,
+      contentDetail: (id: string) => `${PLATFORM}/marketing/content/${id}`,
+      salesConnection: `${PLATFORM}/marketing/sales-connection`,
+    },
+
     sales: {
       inbox: `${PLATFORM}/sales/inbox`,
       metrics: `${PLATFORM}/sales/metrics`,
+      closing: `${PLATFORM}/sales/closing`,
+      /** @deprecated Usar paths.platform.marketing */
+      marketingInsights: {
+        dashboard: `${PLATFORM}/marketing`,
+        library: `${PLATFORM}/marketing/content`,
+        content: (id: string) => `${PLATFORM}/marketing/content/${id}`,
+        journeys: `${PLATFORM}/marketing/sales-connection`,
+        journeyDetail: (id: string) => `${PLATFORM}/marketing/sales-connection`,
+      },
+    },
+
+    clients: {
+      root: `${PLATFORM}/clients`,
+      detail: (id: string) => `${PLATFORM}/clients/${id}`,
     },
 
     operations: {
-      weeklyInputs: `${PLATFORM}/operations/weekly-inputs`,
+      overview: `${PLATFORM}/operations/overview`,
+      sops: `${PLATFORM}/operations/sops`,
+      teamInputs: `${PLATFORM}/operations/team-inputs`,
+      /** Legacy */
+      weeklyInputs: `${PLATFORM}/operations/team-inputs`,
     },
 
     executiveReports: {
@@ -30,7 +64,8 @@ export const paths = {
     },
 
     sops: {
-      library: `${PLATFORM}/sops`,
+      root: `${PLATFORM}/operations/sops`,
+      library: `${PLATFORM}/operations/sops`,
       create: `${PLATFORM}/sops/create`,
       detail: (id: string) => `${PLATFORM}/sops/${id}`,
     },
@@ -41,6 +76,7 @@ export const paths = {
     },
 
     intelligence: {
+      root: `${PLATFORM}/intelligence`,
       insights: `${PLATFORM}/intelligence/insights`,
       recommendations: `${PLATFORM}/intelligence/recommendations`,
       bottlenecks: `${PLATFORM}/intelligence/bottlenecks`,
@@ -51,6 +87,7 @@ export const paths = {
     integrations: `${PLATFORM}/integrations`,
 
     team: {
+      root: `${PLATFORM}/team`,
       members: `${PLATFORM}/team/members`,
       roles: `${PLATFORM}/team/roles`,
     },
@@ -63,6 +100,8 @@ export const paths = {
   },
 
   superAdmin: {
+    login: "/superadmin/login",
+    dashboard: "/superadmin/dashboard",
     root: "/super-admin",
     organizations: "/super-admin/organizations",
     founders: "/super-admin/founders",
@@ -70,5 +109,11 @@ export const paths = {
     aiUsage: "/super-admin/ai-usage",
     costTracking: "/super-admin/cost-tracking",
     profitability: "/super-admin/profitability",
+    aiBrain: {
+      root: "/super-admin/ai-brain",
+      library: "/super-admin/ai-brain/library",
+      add: "/super-admin/ai-brain/add",
+      document: (id: string) => `/super-admin/ai-brain/${id}`,
+    },
   },
 } as const;

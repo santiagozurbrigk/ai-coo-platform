@@ -68,15 +68,15 @@ const QUICK_ACTIONS: PaletteItem[] = [
   },
   {
     label: "Crear SOP",
-    href: paths.platform.sops.create,
+    href: `${paths.platform.sops.root}#crear`,
     group: "Acciones",
     keywords: "sop generar",
   },
   {
-    label: "Ver reporte semanal",
-    href: paths.platform.executiveReports.detail("er1"),
+    label: "Marketing",
+    href: paths.platform.marketing.overview,
     group: "Acciones",
-    keywords: "reporte ejecutivo",
+    keywords: "contenido marketing drive reels",
   },
   {
     label: "Bandeja de ventas",

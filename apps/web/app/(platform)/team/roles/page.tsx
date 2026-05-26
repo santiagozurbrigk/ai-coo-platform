@@ -1,6 +1,6 @@
-import { RolesGrid } from "@/components/team";
-import { mockRoles } from "@/mocks";
+import { redirect } from "next/navigation";
+import { paths } from "@/routes";
 
-export default function TeamRolesPage() {
-  return <RolesGrid roles={mockRoles} />;
+export default function TeamRolesRedirectPage() {
+  redirect(`${paths.platform.team.root}#roles`);
 }

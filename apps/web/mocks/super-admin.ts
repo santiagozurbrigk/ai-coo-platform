@@ -24,7 +24,7 @@ export const mockFounders: AdminFounder[] = [
 ];
 
 export const mockTeamAccounts: AdminTeamAccount[] = [
-  { id: "ta1", name: "Alex Rivera", email: "alex@acme.co", organization: "Acme Coaching Co.", role: "Setter", lastLogin: "2026-05-21T09:00:00Z" },
+  { id: "ta1", name: "María López", email: "maria@acme.co", organization: "Acme Coaching Co.", role: "Operador", lastLogin: "2026-05-21T09:00:00Z" },
   { id: "ta2", name: "Jordan Lee", email: "jordan@acme.co", organization: "Acme Coaching Co.", role: "Operador", lastLogin: "2026-05-20T14:30:00Z" },
   { id: "ta3", name: "Sam Ortiz", email: "sam@scalementors.com", organization: "Scale Mentors LLC", role: "Gestor de proyecto", lastLogin: "2026-05-19T11:00:00Z" },
 ];

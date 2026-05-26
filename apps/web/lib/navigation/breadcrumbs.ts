@@ -54,10 +54,14 @@ export function getBreadcrumbs(pathname: string): Breadcrumb[] {
     ];
   }
 
-  if (pathname.startsWith("/sops/") && pathname !== paths.platform.sops.create) {
+  if (
+    pathname.startsWith("/sops/") &&
+    pathname !== paths.platform.sops.create &&
+    pathname !== paths.platform.sops.root
+  ) {
     return [
       root,
-      { label: "SOPs", href: paths.platform.sops.library },
+      { label: "SOPs", href: paths.platform.sops.root },
       { label: "Detalle del SOP" },
     ];
   }
@@ -70,12 +74,52 @@ export function getBreadcrumbs(pathname: string): Breadcrumb[] {
     ];
   }
 
+  if (pathname.startsWith("/marketing")) {
+    const marketing = { label: "Marketing", href: paths.platform.marketing.overview };
+    if (pathname.startsWith("/marketing/content/") && pathname !== "/marketing/content") {
+      return [
+        root,
+        marketing,
+        { label: "Contenido", href: paths.platform.marketing.content },
+        { label: "Publicación" },
+      ];
+    }
+    if (pathname === paths.platform.marketing.content) {
+      return [root, marketing, { label: "Contenido" }];
+    }
+    if (pathname === paths.platform.marketing.salesConnection) {
+      return [root, marketing, { label: "Conexión con Ventas" }];
+    }
+    return [root, marketing];
+  }
+
   if (pathname.startsWith(paths.founder.root)) {
     return [root, { label: "Área del fundador" }];
   }
 
-  if (pathname.startsWith("/super-admin")) {
+  if (pathname === paths.auth.login || pathname === paths.superAdmin.login) {
+    return [{ label: pathname === paths.auth.login ? "Iniciar sesión" : "Super Admin" }];
+  }
+
+  if (pathname.startsWith("/super-admin") || pathname.startsWith("/superadmin/")) {
     const adminRoot = { label: "Super administración", href: paths.superAdmin.organizations };
+    const brain = {
+      label: "Cerebro de IA general",
+      href: paths.superAdmin.aiBrain.root,
+    };
+    if (
+      pathname.startsWith("/super-admin/ai-brain/") &&
+      pathname !== paths.superAdmin.aiBrain.root &&
+      pathname !== paths.superAdmin.aiBrain.library &&
+      pathname !== paths.superAdmin.aiBrain.add
+    ) {
+      return [
+        adminRoot,
+        brain,
+        { label: "Biblioteca de contenido", href: paths.superAdmin.aiBrain.library },
+        { label: "Visor de documento" },
+      ];
+    }
     const match = matchInTree(superAdminNavigation, pathname, [adminRoot]);
     if (match) return match;
     return [adminRoot];

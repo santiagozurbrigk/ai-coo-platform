@@ -1,5 +1,5 @@
 import { Mic, FileText, FormInput } from "lucide-react";
-import { Panel } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
 import { formatRelativeTime } from "@/lib/format";
 import type { WeeklyInput } from "@/types/operations";
 import { DepartmentBadge } from "./department-badge";

@@ -1,0 +1,107 @@
+"use client";
+
+import { MetricCard } from "@ai-coo/ui";
+import { mockContentAssets } from "@/mocks/marketing-insights";
+import {
+  mockContentFunnel,
+  mockFollowerGrowth,
+  mockMarketingOverview,
+  mockMarketingOverviewInsights,
+  mockPublishHeatmap,
+  mockReachTimeSeries,
+  mockTypePerformance,
+} from "@/mocks/marketing";
+import { useMarketingData } from "@/providers";
+import { InstagramEmptyState } from "./instagram-empty-state";
+import {
+  ContentFunnelChart,
+  FollowerGrowthChart,
+  PublishHeatmap,
+  ReachInteractionsChart,
+  TopConvertingContentList,
+  TypeRadarChart,
+} from "./marketing-charts";
+
+function formatNum(n: number) {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
+export function MarketingOverview() {
+  const { instagramConnected } = useMarketingData();
+  if (!instagramConnected) return <InstagramEmptyState />;
+
+  const m = mockMarketingOverview;
+  const topConverting = [...mockContentAssets]
+    .sort((a, b) => b.conversationsGenerated - a.conversationsGenerated)
+    .slice(0, 4)
+    .map((c) => ({
+      contentId: c.id,
+      conversations: c.conversationsGenerated,
+      bookings: c.bookingsInfluenced,
+    }));
+
+  return (
+    <div className="space-y-8">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <MetricCard
+          title="Alcance total"
+          value={formatNum(m.totalReach)}
+          subtitle="Últimos 30 días"
+          trend="up"
+          trendValue={`+${m.reachTrendPct}%`}
+        />
+        <MetricCard
+          title="Interacciones totales"
+          value={formatNum(m.totalInteractions)}
+          subtitle={`Engagement ${m.engagementRatePct}%`}
+          trend="up"
+          trendValue={`+${m.interactionsTrendPct}%`}
+        />
+        <MetricCard
+          title="Contenido publicado"
+          value={String(m.contentPublished)}
+          subtitle={`${m.reelsCount} reels · ${m.postsCount} posts · ${m.storiesCount} stories`}
+        />
+        <MetricCard
+          title="Conversaciones generadas"
+          value={String(m.conversationsGenerated)}
+          subtitle="Vinculadas a bandeja de ventas"
+        />
+        <MetricCard
+          title="Bookings influenciados"
+          value={String(m.bookingsInfluenced)}
+          subtitle={`${m.bookingsInfluencedPct}% del total de bookings`}
+        />
+        <MetricCard
+          title="Ventas influenciadas"
+          value={String(m.salesInfluenced)}
+          subtitle={`$${m.revenueInfluenced.toLocaleString("es-ES")} atribuidos`}
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ReachInteractionsChart data={mockReachTimeSeries} />
+        <TopConvertingContentList ranked={topConverting} />
+        <ContentFunnelChart stages={mockContentFunnel} />
+        <TypeRadarChart types={mockTypePerformance} />
+        <PublishHeatmap cells={mockPublishHeatmap} />
+        <FollowerGrowthChart data={mockFollowerGrowth} />
+      </div>
+
+      <section className="space-y-3">
+        <h3 className="text-sm font-medium text-muted-foreground">Insights de IA</h3>
+        <div className="grid gap-3 md:grid-cols-2">
+          {mockMarketingOverviewInsights.map((text) => (
+            <div
+              key={text}
+              className="rounded-lg border border-border border-l-4 border-l-primary/60 bg-muted/20 px-4 py-3 text-sm leading-relaxed"
+            >
+              {text}
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}

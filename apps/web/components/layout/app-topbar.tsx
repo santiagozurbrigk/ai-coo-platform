@@ -51,7 +51,7 @@ export function AppTopbar() {
       }
       actions={
         <>
-          <Button variant="ghost" size="icon" className="relative" type="button" aria-label="Notificaciones">
+          <Button variant="outline" size="icon" className="relative h-8 w-8 rounded-lg" type="button" aria-label="Notificaciones">
             <Bell className="h-4 w-4" />
             <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary" />
           </Button>
@@ -68,7 +68,7 @@ function AccountMenu() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 to-ai text-xs font-medium text-primary-foreground ring-2 ring-transparent transition-shadow hover:ring-primary/30"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-gradient-to-br from-[#7C3AED] to-[#6D28D9] text-xs font-medium text-white shadow-[0_0_12px_rgba(124,58,237,0.25)] transition-all duration-150 hover:shadow-[0_0_16px_rgba(124,58,237,0.35)]"
           aria-label="Menú de cuenta"
         >
           F

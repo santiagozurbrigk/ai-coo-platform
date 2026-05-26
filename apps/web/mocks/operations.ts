@@ -1,36 +1,44 @@
-import type { WeeklyInput } from "@/types/operations";
+import type { TeamInput } from "@/types/operations";
 
-export const mockWeeklyInputs: WeeklyInput[] = [
+export const mockTeamInputs: TeamInput[] = [
   {
     id: "wi1",
-    department: "sales",
+    department: "operations",
     type: "text",
-    author: "Alex Rivera",
-    submittedAt: "2026-05-20T09:00:00Z",
-    preview: "Pipeline fuerte — 3 agendamientos desde DM de Instagram esta semana...",
+    importance: "high",
+    author: "Sam Ortiz",
+    submittedAt: "2026-05-21T09:00:00Z",
+    preview:
+      "El proceso de onboarding está tardando más de lo esperado esta semana",
   },
   {
     id: "wi2",
-    department: "delivery",
-    type: "audio",
+    department: "operations",
+    type: "text",
+    importance: "medium",
     author: "Jordan Lee",
-    submittedAt: "2026-05-19T16:30:00Z",
-    preview: "Nota de voz · 1:42 — retrasos en onboarding Módulo 2",
+    submittedAt: "2026-05-20T16:30:00Z",
+    preview: "Tuvimos un problema técnico menor con la plataforma el martes",
   },
   {
     id: "wi3",
-    department: "operations",
-    type: "form",
-    author: "Sam Ortiz",
-    submittedAt: "2026-05-18T11:00:00Z",
-    preview: "Formulario: capacidad — delivery al 85% de utilización",
+    department: "sales",
+    type: "text",
+    importance: "low",
+    author: "Equipo de ventas",
+    submittedAt: "2026-05-20T11:00:00Z",
+    preview: "Varios leads mencionaron el mismo competidor esta semana",
   },
   {
     id: "wi4",
     department: "founder",
     type: "text",
+    importance: "high",
     author: "Fundador",
     submittedAt: "2026-05-17T08:00:00Z",
     preview: "Foco próxima semana: reducir dependencia del fundador en QA de ventas...",
   },
 ];
+
+/** @deprecated */
+export const mockWeeklyInputs = mockTeamInputs;

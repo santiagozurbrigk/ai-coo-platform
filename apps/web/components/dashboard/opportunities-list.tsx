@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@ai-coo/ui";
-import { Panel } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
 import { flowLinks } from "@/lib/navigation/flow-links";
 import type { DashboardOpportunity } from "@/types/dashboard";
 

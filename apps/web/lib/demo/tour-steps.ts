@@ -10,77 +10,87 @@ export type DemoTourStep = {
   highlight?: string;
 };
 
-/** Recorrido recomendado para demos y validación (Fase 0.8) */
+/** Recorrido recomendado para demos y validación */
 export const DEMO_TOUR_STEPS: DemoTourStep[] = [
   {
     id: "dashboard",
     order: 1,
-    title: "Panel ejecutivo",
+    title: "Panel General",
     description:
-      "Resumen en 30 segundos: riesgos, oportunidades, métricas y recomendación de IA. Prueba los enlaces y «Qué hacer ahora».",
+      "Resumen operativo: métricas, riesgos, oportunidades y recomendación de IA. Enlaces «Qué hacer ahora».",
     duration: "~2 min",
     href: paths.platform.dashboard,
-    highlight: "Riesgos clicables · Ctrl+K",
+    highlight: "Métricas primero · Ctrl+K",
+  },
+  {
+    id: "finance",
+    order: 2,
+    title: "Finanzas",
+    description:
+      "Facturación, cash collected, por cobrar, plataformas de pago y gráficos financieros (mock).",
+    duration: "~3 min",
+    href: paths.platform.finance.root,
+    highlight: "Plataformas · 7 gráficos",
+  },
+  {
+    id: "marketing",
+    order: 3,
+    title: "Marketing",
+    description:
+      "Instagram → contenido → conversaciones y ventas atribuidas. Conexión con Ventas muestra journeys de compra.",
+    duration: "~3 min",
+    href: paths.platform.marketing.overview,
+    highlight: "Overview · Contenido · Ventas",
   },
   {
     id: "sales",
-    order: 2,
+    order: 4,
     title: "Bandeja de ventas",
     description:
-      "Lista de conversaciones, hilo de mensajes y panel de análisis (fantasma, agendamiento, insights).",
+      "Conversaciones, etiquetas, análisis IA y recorrido de contenido por lead debajo del chat.",
     duration: "~2 min",
     href: paths.platform.sales.inbox,
-    highlight: "Layout 3 columnas",
+    highlight: "Tags · Journey inline",
   },
   {
-    id: "weekly",
-    order: 3,
-    title: "Input semanal",
-    description:
-      "Envío de contexto en menos de 2 minutos. Al enviar verás toast y navegación al reporte ejecutivo.",
-    duration: "~1 min",
-    href: paths.platform.operations.weeklyInputs,
-    highlight: "Flujo interactivo mock",
-  },
-  {
-    id: "report",
-    order: 4,
-    title: "Reporte ejecutivo",
-    description:
-      "Inteligencia por departamento: riesgos, cuellos de botella y recomendaciones generadas por IA.",
-    duration: "~2 min",
-    href: paths.platform.executiveReports.detail("er1"),
-    highlight: "Vista fundador",
-  },
-  {
-    id: "sops",
+    id: "closing",
     order: 5,
-    title: "SOPs + generador",
+    title: "Closing",
     description:
-      "Biblioteca de sistemas operativos vivos. Genera un SOP y revisa el borrador resultante.",
+      "Calendario/lista de cierres. Marcar cerrada abre modal de pago → crea cliente y atribuye closer.",
     duration: "~2 min",
-    href: paths.platform.sops.create,
-    highlight: "Generar SOP → sop4",
+    href: paths.platform.sales.closing,
+    highlight: "Modal pago · Plataformas",
   },
   {
-    id: "intelligence",
+    id: "clients",
     order: 6,
-    title: "Inteligencia operativa",
+    title: "Clientes",
     description:
-      "Insights, recomendaciones con CTA, cuellos de botella y memoria organizacional enlazada.",
-    duration: "~2 min",
-    href: paths.platform.intelligence.insights,
-    highlight: "Navegación cruzada",
+      "Perfiles post-cierre: pagos, cuotas, Fathom e insights IA.",
+    duration: "~1 min",
+    href: paths.platform.clients.root,
+    highlight: "Sync desde Closing",
+  },
+  {
+    id: "operations",
+    order: 7,
+    title: "Team Inputs",
+    description:
+      "Contexto semanal para la IA con niveles de importancia. Toast al enviar.",
+    duration: "~1 min",
+    href: paths.platform.operations.teamInputs,
+    highlight: "🔴🟡⚪ importancia",
   },
   {
     id: "integrations",
-    order: 7,
+    order: 8,
     title: "Integraciones",
     description:
-      "Conecta una fuente (modal simulado) y observa el estado sincronizando → conectado.",
+      "Instagram (via Make), ManyChat, Calendly y más. Conectar es simulado (toast).",
     duration: "~1 min",
     href: paths.platform.integrations,
-    highlight: "Toast + estados",
+    highlight: "Instagram → Marketing",
   },
 ];
 
@@ -92,20 +102,20 @@ export type DemoModuleCheck = {
 };
 
 export const DEMO_MODULE_CHECKLIST: DemoModuleCheck[] = [
-  { id: "m1", group: "Operación", label: "Panel", href: paths.platform.dashboard },
-  { id: "m2", group: "Operación", label: "Ventas (bandeja + métricas)", href: paths.platform.sales.inbox },
-  { id: "m3", group: "Operación", label: "Inputs semanales", href: paths.platform.operations.weeklyInputs },
-  { id: "m4", group: "Operación", label: "Reportes ejecutivos", href: paths.platform.executiveReports.weekly },
-  { id: "m5", group: "Operación", label: "Biblioteca SOPs", href: paths.platform.sops.library },
-  { id: "m6", group: "Operación", label: "Contexto de negocio", href: paths.platform.businessContext.documents },
-  { id: "m7", group: "Inteligencia", label: "Insights", href: paths.platform.intelligence.insights },
-  { id: "m8", group: "Inteligencia", label: "Recomendaciones", href: paths.platform.intelligence.recommendations },
-  { id: "m9", group: "Inteligencia", label: "Cuellos de botella", href: paths.platform.intelligence.bottlenecks },
-  { id: "m10", group: "Inteligencia", label: "Memoria IA", href: paths.platform.intelligence.aiMemory },
-  { id: "m11", group: "Plataforma", label: "Integraciones", href: paths.platform.integrations },
-  { id: "m12", group: "Plataforma", label: "Equipo", href: paths.platform.team.members },
-  { id: "m13", group: "Plataforma", label: "Configuración", href: paths.platform.settings },
-  { id: "m14", group: "Especial", label: "Área del fundador", href: paths.founder.root },
-  { id: "m15", group: "Especial", label: "Super administración", href: paths.superAdmin.organizations },
-  { id: "m16", group: "Referencia", label: "Sistema de diseño", href: paths.designSystem },
+  { id: "m1", group: "Operación", label: "Panel General", href: paths.platform.dashboard },
+  { id: "m2", group: "Finanzas", label: "Finanzas", href: paths.platform.finance.root },
+  { id: "m2b", group: "Finanzas", label: "Gastos", href: paths.platform.finance.expenses },
+  { id: "m3", group: "Marketing", label: "Marketing", href: paths.platform.marketing.overview },
+  { id: "m4", group: "Ventas", label: "Bandeja", href: paths.platform.sales.inbox },
+  { id: "m4b", group: "Ventas", label: "Métricas + closers", href: paths.platform.sales.metrics },
+  { id: "m4c", group: "Ventas", label: "Closing", href: paths.platform.sales.closing },
+  { id: "m5", group: "Ventas", label: "Clientes", href: paths.platform.clients.root },
+  { id: "m6", group: "Operación", label: "Operaciones", href: paths.platform.operations.overview },
+  { id: "m7", group: "Operación", label: "SOPs", href: paths.platform.operations.sops },
+  { id: "m8", group: "Operación", label: "Team Inputs", href: paths.platform.operations.teamInputs },
+  { id: "m9", group: "Operación", label: "Base de conocimiento", href: paths.platform.businessContext.documents },
+  { id: "m10", group: "Plataforma", label: "Integraciones", href: paths.platform.integrations },
+  { id: "m11", group: "Plataforma", label: "Equipo", href: paths.platform.team.root },
+  { id: "m12", group: "Plataforma", label: "Configuración", href: paths.platform.settings },
+  { id: "m13", group: "Referencia", label: "Sistema de diseño", href: paths.designSystem },
 ];

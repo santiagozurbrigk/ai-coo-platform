@@ -22,10 +22,26 @@ export function DocumentCard({ document }: { document: ContextDocument }) {
           </div>
           <p className="text-2xs text-muted-foreground">{document.source}</p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          {document.thumbnailUrl && (
+            <div
+              className="aspect-video rounded-md bg-muted/40 bg-cover bg-center"
+              style={{ backgroundImage: `url(${document.thumbnailUrl})` }}
+            />
+          )}
+          {!document.thumbnailUrl && document.sourceType && (
+            <div className="aspect-video rounded-md bg-muted/30 flex items-center justify-center text-2xs text-muted-foreground uppercase">
+              {document.sourceType.replace("_", " ")}
+            </div>
+          )}
           <p className="text-sm text-muted-foreground line-clamp-3">
             {document.summary}
           </p>
+          {document.status && (
+            <Badge variant={document.status === "indexed" ? "success" : "secondary"}>
+              {document.status === "indexed" ? "Indexado" : document.status}
+            </Badge>
+          )}
           {document.linkedSops.length > 0 && (
             <p className="mt-2 text-2xs text-primary">
               {document.linkedSops.length} SOP(s) vinculado(s)

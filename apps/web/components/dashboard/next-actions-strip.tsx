@@ -18,7 +18,7 @@ const ACTIONS = [
     icon: Inbox,
   },
   {
-    href: paths.platform.sops.create,
+    href: `${paths.platform.sops.root}#crear`,
     label: "Crear SOP",
     description: "Asistido por IA",
     icon: FilePlus,

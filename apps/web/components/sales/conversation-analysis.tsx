@@ -1,4 +1,4 @@
-import { Panel } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
 import { AiCard, Badge } from "@ai-coo/ui";
 import type { ConversationAnalysis } from "@/types/sales";
 

@@ -1,6 +1,6 @@
 import { AiCard, Badge } from "@ai-coo/ui";
 import { es } from "@/lib/locale/es";
-import { Panel } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
 import type { ExecutiveReport } from "@/types/executive-reports";
 
 const DEPT_STATUS: Record<string, "success" | "warning" | "destructive"> = {

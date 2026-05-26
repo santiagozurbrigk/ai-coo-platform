@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Panel } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
 
 export function SettingsSection({
   title,

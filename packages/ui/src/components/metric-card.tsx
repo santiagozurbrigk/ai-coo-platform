@@ -1,8 +1,7 @@
 import * as React from "react";
 import { TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { cn } from "../lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "../primitives/card";
-import { Badge } from "../primitives/badge";
+import { Card, CardContent } from "../primitives/card";
 
 export type MetricTrend = "up" | "down" | "neutral";
 
@@ -18,56 +17,129 @@ export interface MetricCardProps {
 }
 
 const trendConfig = {
-  up: { icon: TrendingUp, color: "text-success", badge: "success" as const },
-  down: { icon: TrendingDown, color: "text-destructive", badge: "destructive" as const },
-  neutral: { icon: Minus, color: "text-muted-foreground", badge: "secondary" as const },
+  up: {
+    icon: TrendingUp,
+    pill: "border-emerald-400/25 bg-emerald-500/10 text-emerald-400",
+    bar: "from-emerald-400 to-emerald-300",
+    glow: "rgba(52,211,153,0.08)",
+  },
+  down: {
+    icon: TrendingDown,
+    pill: "border-red-400/25 bg-red-500/10 text-red-400",
+    bar: "from-red-400 to-red-300",
+    glow: "rgba(239,68,68,0.08)",
+  },
+  neutral: {
+    icon: Minus,
+    pill: "border-[rgba(124,58,237,0.30)] bg-[rgba(124,58,237,0.12)] text-[#A78BFA]",
+    bar: "from-[#7C3AED] to-[#A78BFA]",
+    glow: "rgba(124,58,237,0.06)",
+  },
 };
+
+function deriveProgress(
+  value: string | number,
+  trend?: MetricTrend,
+  trendValue?: string
+): number {
+  const str = String(value);
+  const pctInValue = str.match(/([\d.]+)\s*%/);
+  if (pctInValue) return Math.min(100, parseFloat(pctInValue[1]));
+
+  const pctInTrend = trendValue?.match(/([\d.]+)/);
+  if (pctInTrend) {
+    const n = parseFloat(pctInTrend[1]);
+    return Math.min(100, Math.max(12, n * 4));
+  }
+
+  if (trend === "up") return 72;
+  if (trend === "down") return 38;
+  return 56;
+}
 
 export function MetricCard({
   title,
   value,
   subtitle,
-  trend,
+  trend = "neutral",
   trendValue,
   badge,
   className,
   icon,
 }: MetricCardProps) {
-  const TrendIcon = trend ? trendConfig[trend].icon : null;
+  const cfg = trendConfig[trend];
+  const TrendIcon = cfg.icon;
+  const progress = deriveProgress(value, trend, trendValue);
+  const comparison =
+    subtitle ?? (trendValue ? `vs período anterior  ${trendValue}` : undefined);
 
   return (
-    <Card className={cn("overflow-hidden", className)}>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
-        {icon && (
-          <div className="rounded-md bg-muted/60 p-2 text-muted-foreground">
-            {icon}
+    <Card
+      className={cn(
+        "relative min-h-[120px] overflow-hidden border-t border-white/[0.14]",
+        className
+      )}
+    >
+      <div
+        className="pointer-events-none absolute left-6 top-1/2 h-[60px] w-[60px] -translate-y-1/2 rounded-full blur-2xl"
+        style={{ background: cfg.glow }}
+        aria-hidden
+      />
+      <CardContent className="relative px-6 py-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            {icon && (
+              <div className="rounded-[10px] border border-white/[0.08] bg-white/[0.04] p-1.5 text-[#A78BFA] [&_svg]:h-[18px] [&_svg]:w-[18px]">
+                {icon}
+              </div>
+            )}
+            <span className="text-[11px] font-medium uppercase tracking-[0.07em] text-white/40">
+              {title}
+            </span>
           </div>
-        )}
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-semibold tracking-tight tabular-nums">
-          {value}
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {subtitle && (
-            <span className="text-xs text-muted-foreground">{subtitle}</span>
-          )}
-          {trend && trendValue && TrendIcon && (
+          {trendValue && (
             <span
               className={cn(
-                "inline-flex items-center gap-1 text-xs font-medium",
-                trendConfig[trend].color
+                "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-[3px] text-[11px] font-medium",
+                cfg.pill
               )}
             >
               <TrendIcon className="h-3 w-3" />
               {trendValue}
             </span>
           )}
-          {badge && <Badge variant="secondary">{badge}</Badge>}
         </div>
+
+        <div className="relative mt-2">
+          <div className="text-[32px] font-semibold leading-none tracking-tight text-white tabular-nums sm:text-[36px]">
+            {value}
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-center gap-3">
+          <div className="h-0.5 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
+            <div
+              className={cn(
+                "h-full rounded-full bg-gradient-to-r shadow-[0_0_8px_rgba(124,58,237,0.5)] transition-all duration-700",
+                cfg.bar
+              )}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {(comparison || badge) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {comparison && (
+              <span className="text-xs text-white/35">{comparison}</span>
+            )}
+            {badge && (
+              <span className="rounded-full border border-[rgba(124,58,237,0.30)] bg-[rgba(124,58,237,0.12)] px-2.5 py-[3px] text-[11px] font-medium text-[#A78BFA]">
+                {badge}
+              </span>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

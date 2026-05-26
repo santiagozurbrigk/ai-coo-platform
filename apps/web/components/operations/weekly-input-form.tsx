@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mic } from "lucide-react";
 import { Button, FormField, Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from "@ai-coo/ui";
-import { Panel } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
 import { useToast } from "@/providers/toast-provider";
 import { es } from "@/lib/locale/es";
 import { flowLinks } from "@/lib/navigation/flow-links";

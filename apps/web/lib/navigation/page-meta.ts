@@ -1,19 +1,79 @@
 const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
+  "/login": {
+    title: "Iniciar sesión",
+    subtitle: "Panel cliente — fundadores y equipo",
+  },
+  "/onboarding": {
+    title: "Configuración inicial",
+    subtitle: "Contexto de negocio para personalizar la IA",
+  },
+  "/superadmin/login": {
+    title: "Super Admin",
+    subtitle: "Acceso interno restringido",
+  },
   "/dashboard": {
-    title: "Panel",
+    title: "Panel General",
     subtitle: "Vista operativa en 30 segundos",
+  },
+  "/finance": {
+    title: "Finanzas",
+    subtitle: "Salud financiera en tiempo real",
+  },
+  "/finance/expenses": {
+    title: "Gastos",
+    subtitle: "Gastos fijos, suscripciones y compensación del equipo",
+  },
+  "/marketing": {
+    title: "Marketing",
+    subtitle: "Rendimiento de contenido Instagram y conexión con ventas",
+  },
+  "/marketing/content": {
+    title: "Contenido",
+    subtitle: "Biblioteca visual de publicaciones y métricas por pieza",
+  },
+  "/marketing/sales-connection": {
+    title: "Conexión con Ventas",
+    subtitle: "Qué contenido genera conversaciones, bookings y ventas",
   },
   "/sales/inbox": {
     title: "Bandeja de ventas",
-    subtitle: "Inteligencia de conversaciones",
+    subtitle: "Conversación + recorrido de contenido del lead",
   },
   "/sales/metrics": {
     title: "Métricas de ventas",
-    subtitle: "Rendimiento y tendencias de agendamiento",
+    subtitle: "Rendimiento por closer, agendamientos y operación comercial",
+  },
+  "/sales/marketing-insights": {
+    title: "Marketing Insights",
+    subtitle: "Inteligencia de contenido — qué influye en conversaciones y ventas",
+  },
+  "/sales/marketing-insights/library": {
+    title: "Biblioteca de contenido",
+    subtitle: "Assets desde Google Drive",
+  },
+  "/sales/closing": {
+    title: "Closing",
+    subtitle: "Calendario de cierre, Calendly y resultados",
+  },
+  "/clients": {
+    title: "Clientes",
+    subtitle: "Desde el cierre hasta caso de éxito",
+  },
+  "/operations/overview": {
+    title: "Operaciones",
+    subtitle: "Salud operativa del negocio",
+  },
+  "/operations/sops": {
+    title: "SOPs",
+    subtitle: "Biblioteca y creación de sistemas operativos",
+  },
+  "/operations/team-inputs": {
+    title: "Team Inputs",
+    subtitle: "Contexto intencional para la IA y el liderazgo",
   },
   "/operations/weekly-inputs": {
-    title: "Inputs semanales",
-    subtitle: "Contexto del equipo en menos de 2 minutos",
+    title: "Team Inputs",
+    subtitle: "Contexto intencional para la IA y el liderazgo",
   },
   "/executive-reports/weekly": {
     title: "Reporte semanal",
@@ -27,8 +87,14 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Historial de reportes",
     subtitle: "Reportes ejecutivos anteriores",
   },
-  "/sops": { title: "Biblioteca de SOPs", subtitle: "Sistemas operativos vivos" },
-  "/sops/create": { title: "Crear SOP", subtitle: "Generación asistida por IA" },
+  "/sops": {
+    title: "SOPs",
+    subtitle: "Biblioteca y creación de sistemas operativos",
+  },
+  "/team": {
+    title: "Equipo",
+    subtitle: "Miembros y roles de la organización",
+  },
   "/business-context/documents": {
     title: "Contexto de negocio",
     subtitle: "Memoria organizacional",
@@ -37,28 +103,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Integraciones",
     subtitle: "Fuentes de datos conectadas",
   },
-  "/intelligence/insights": {
-    title: "Insights",
-    subtitle: "Inteligencia operativa con IA",
+  "/intelligence": {
+    title: "Inteligencia",
+    subtitle: "Insights, recomendaciones, cuellos de botella, oportunidades y memoria IA",
   },
-  "/intelligence/recommendations": {
-    title: "Recomendaciones",
-    subtitle: "Acciones sugeridas",
-  },
-  "/intelligence/bottlenecks": {
-    title: "Cuellos de botella",
-    subtitle: "Fricción detectada en la operación",
-  },
-  "/intelligence/opportunities": {
-    title: "Oportunidades",
-    subtitle: "Señales de crecimiento",
-  },
-  "/intelligence/ai-memory": {
-    title: "Memoria IA",
-    subtitle: "Grafo de conocimiento organizacional",
-  },
-  "/team/members": { title: "Miembros del equipo", subtitle: "Personas y accesos" },
-  "/team/roles": { title: "Roles", subtitle: "Modelo de permisos" },
   "/settings": { title: "Configuración", subtitle: "Organización y perfil" },
   "/founder": {
     title: "Área del fundador",
@@ -88,6 +136,18 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Rentabilidad",
     subtitle: "Márgenes por organización",
   },
+  "/super-admin/ai-brain": {
+    title: "Cerebro de IA general",
+    subtitle: "Capa global de conocimiento — metodologías, frameworks y playbooks",
+  },
+  "/super-admin/ai-brain/library": {
+    title: "Biblioteca de contenido",
+    subtitle: "Documentos cargados en el cerebro global",
+  },
+  "/super-admin/ai-brain/add": {
+    title: "Añadir contenido",
+    subtitle: "Ampliar el conocimiento global de la plataforma",
+  },
 };
 
 export function getPageMeta(pathname: string): {
@@ -113,6 +173,21 @@ export function getPageMeta(pathname: string): {
   ) {
     return { title: "Visor de contexto", subtitle: "Documento y transcripción" };
   }
-
+  if (pathname.startsWith("/marketing/content/") && pathname !== "/marketing/content") {
+    return { title: "Publicación", subtitle: "Detalle de contenido — Marketing" };
+  }
+  if (pathname.startsWith("/sales/marketing-insights/content/")) {
+    return { title: "Publicación", subtitle: "Detalle de contenido — Marketing" };
+  }
+  if (
+    pathname.startsWith("/super-admin/ai-brain/") &&
+    pathname !== "/super-admin/ai-brain/library" &&
+    pathname !== "/super-admin/ai-brain/add"
+  ) {
+    return {
+      title: "Visor de documento",
+      subtitle: "Cerebro de IA general",
+    };
+  }
   return { title: "AI COO", subtitle: undefined };
 }

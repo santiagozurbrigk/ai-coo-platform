@@ -26,8 +26,8 @@ export const mockDashboard: DashboardData = {
   opportunities: [
     {
       id: "o1",
-      title: "Setter Alex — 42% de agendamiento",
-      impact: "Replicar framework de guiones en todo el equipo",
+      title: "Tasa de agendamiento al 34,2%",
+      impact: "Optimizar guiones y follow-up del equipo de ventas",
     },
     {
       id: "o2",
@@ -45,13 +45,17 @@ export const mockDashboard: DashboardData = {
     { id: "m2", label: "Ingresos nuevos", value: "$12.4K", trend: "up", trendValue: "+2,1%" },
   ],
   salesMetrics: [
-    { id: "s1", label: "Tasa de agendamiento", value: "34,2%", trend: "up", trendValue: "+4,1%" },
-    { id: "s2", label: "Conv. activas", value: "128", trend: "neutral" },
+    { id: "s1", label: "Conversaciones totales", value: "342", trend: "up", trendValue: "+12" },
+    { id: "s2", label: "Tasa de agendamiento", value: "34,2%", trend: "up", trendValue: "+4,1%" },
+    { id: "s3", label: "Tiempo de respuesta", value: "22 min", trend: "down", trendValue: "-3 min" },
+    { id: "s4", label: "Tasa de fantasma", value: "18,5%", trend: "down", trendValue: "-2,3%" },
+    { id: "s5", label: "Conv. activas", value: "128", trend: "neutral" },
+    { id: "s6", label: "Sin responder", value: "17", trend: "down", trendValue: "-3" },
   ],
   operationalMetrics: [
     { id: "o1", label: "Carga del equipo", value: "72%", trend: "down", trendValue: "-5%" },
     { id: "o2", label: "Cuellos de botella", value: "4", trend: "up", trendValue: "+1" },
   ],
   aiRecommendation:
-    "Prioriza actualizar el SOP de onboarding antes de la próxima cohorte de junio. Redistribuye el 15% de los follow-ups de setters para equilibrar la capacidad outlier de Alex.",
+    "Prioriza actualizar el SOP de onboarding antes de la próxima cohorte de junio. Refuerza el follow-up del equipo de ventas los fines de semana para reducir conversaciones sin responder.",
 };

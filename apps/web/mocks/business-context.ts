@@ -15,9 +15,13 @@ export const mockDocuments: ContextDocument[] = [
     title: "Llamada de visión del fundador — May 2026",
     category: "meetings",
     source: "Fathom",
+    sourceType: "fathom",
     summary: "Transcripción: escalar delivery sin aumentar headcount; prioridades del AI COO.",
     updatedAt: "12 may 2026",
     linkedSops: [],
+    thumbnailUrl: "https://placehold.co/320x180/1a1a2e/94a3b8?text=Fathom",
+    status: "indexed",
+    externalUrl: "https://fathom.video/mock/founder-vision",
   },
   {
     id: "doc3",

@@ -17,11 +17,11 @@ type NavGroupProps = {
 
 function linkClass(active: boolean, indent?: boolean) {
   return cn(
-    "flex items-center gap-2.5 rounded-md py-2 text-sm transition-colors",
-    indent ? "px-2.5 pl-9" : "px-2.5",
+    "flex items-center gap-2.5 rounded-xl py-2.5 text-sm transition-all duration-150 ease-out",
+    indent ? "px-3.5 pl-9" : "px-3.5",
     active
-      ? "bg-sidebar-accent font-medium text-sidebar-active"
-      : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-active"
+      ? "border border-[rgba(124,58,237,0.25)] bg-[rgba(124,58,237,0.15)] font-medium text-[#A78BFA] shadow-[0_0_12px_rgba(124,58,237,0.15)] [&_svg]:text-[#A78BFA]"
+      : "border border-transparent text-white/38 hover:bg-white/[0.05] hover:text-white/65"
   );
 }
 
@@ -51,17 +51,17 @@ export function NavGroup({
     <div className="space-y-0.5">
       <div
         className={cn(
-          "flex items-center rounded-md",
-          sectionActive && "bg-sidebar-accent/40"
+          "flex items-center rounded-xl",
+          sectionActive && "bg-white/[0.03]"
         )}
       >
         <Link
           href={item.href}
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-2 text-sm transition-colors",
+            "flex min-w-0 flex-1 items-center gap-2.5 px-3.5 py-2.5 text-sm transition-all duration-150 ease-out",
             sectionActive
-              ? "font-medium text-sidebar-active"
-              : "text-sidebar-foreground hover:text-sidebar-active"
+              ? "font-medium text-[#A78BFA] [&_svg]:text-[#A78BFA]"
+              : "text-white/38 hover:text-white/65"
           )}
         >
           {item.icon && <NavIcon name={item.icon} />}
@@ -72,7 +72,7 @@ export function NavGroup({
           onClick={onToggle}
           aria-expanded={isExpanded}
           aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${item.label}`}
-          className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-active"
+          className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent text-white/38 transition-all duration-150 hover:bg-white/[0.05] hover:text-white/65"
         >
           <ChevronRight
             className={cn(

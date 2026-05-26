@@ -1,12 +1,6 @@
-import { RecommendationCard } from "@/components/intelligence";
-import { mockRecommendations } from "@/mocks";
+import { redirect } from "next/navigation";
+import { paths } from "@/routes";
 
-export default function IntelligenceRecommendationsPage() {
-  return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {mockRecommendations.map((r) => (
-        <RecommendationCard key={r.id} item={r} />
-      ))}
-    </div>
-  );
+export default function IntelligenceRecommendationsRedirectPage() {
+  redirect(`${paths.platform.intelligence.root}#recommendations`);
 }

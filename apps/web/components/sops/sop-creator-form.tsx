@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button, FormField, Input, Textarea } from "@ai-coo/ui";
-import { Panel } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
 import { useToast } from "@/providers/toast-provider";
 import { es } from "@/lib/locale/es";
 import { paths } from "@/routes";

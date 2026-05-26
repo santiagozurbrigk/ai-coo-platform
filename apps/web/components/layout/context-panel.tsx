@@ -53,7 +53,7 @@ export function ContextPanel() {
         <AiCard title="Insight rápido" confidence={0.89} source="Inputs + Ventas">
           Los tiempos de respuesta en delivery están subiendo.{" "}
           <Link
-            href={paths.platform.intelligence.bottlenecks}
+            href={`${paths.platform.intelligence.root}#bottlenecks`}
             className="text-primary hover:underline"
           >
             Ver cuellos de botella
@@ -79,7 +79,7 @@ export function ContextPanel() {
 
       <div className="shrink-0 border-t border-border p-4">
         <Link
-          href={paths.platform.intelligence.aiMemory}
+          href={`${paths.platform.intelligence.root}#memoria`}
           className="flex items-center gap-2 text-2xs text-muted-foreground transition-colors hover:text-foreground"
         >
           <Sparkles className="h-3 w-3 text-ai" />

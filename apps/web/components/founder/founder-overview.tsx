@@ -1,12 +1,12 @@
 import { AiCard, MetricCard } from "@ai-coo/ui";
-import { Panel } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
 
 export function FounderOverview() {
   return (
     <div className="space-y-8">
       <AiCard title="Briefing del fundador" confidence={0.95} source="Todos los módulos · Esta semana">
         Sigues siendo el cuello de botella en QA de ventas (40% de revisión). Delivery es
-        el departamento de mayor riesgo. Prioriza actualizar el SOP y cobertura de setters
+        el departamento de mayor riesgo. Prioriza actualizar el SOP y cobertura del equipo de ventas
         el fin de semana antes del lanzamiento de la cohorte de junio.
       </AiCard>
 

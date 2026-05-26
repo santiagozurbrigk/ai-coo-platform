@@ -17,6 +17,7 @@ import {
 } from "@ai-coo/ui";
 import { es } from "@/lib/locale/es";
 import { useToast } from "@/providers/toast-provider";
+import { useMarketingData } from "@/providers";
 import type { Integration } from "@/types/integrations";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -30,6 +31,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const [connectOpen, setConnectOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const { push } = useToast();
+  const { setInstagramConnected } = useMarketingData();
 
   const statusVariant =
     status === "connected"
@@ -46,6 +48,9 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     window.setTimeout(() => {
       setSyncing(false);
       setStatus("connected");
+      if (integration.provider === "instagram") {
+        setInstagramConnected(true);
+      }
       push({
         title: es.flow.integrationConnected,
         description: es.flow.integrationConnectedDesc,
@@ -64,6 +69,23 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
+          {integration.provider === "instagram" && (
+            <p className="text-xs text-muted-foreground">
+              Conectá tu Instagram para visualizar el rendimiento de tu contenido y su
+              impacto en conversaciones, agendamientos y ventas.
+            </p>
+          )}
+          {integration.provider === "calendly" && (
+            <p className="text-xs text-muted-foreground">
+              Sincroniza llamadas de cierre con Closing, importa respuestas del
+              formulario previo y registra resultados de cada llamada.
+            </p>
+          )}
+          {integration.provider === "miro" && (
+            <p className="text-xs text-muted-foreground">
+              Importa tableros con vista previa para la base de conocimiento.
+            </p>
+          )}
           {integration.lastSync && status === "connected" && (
             <p className="text-xs text-muted-foreground">
               Última sync: {integration.lastSync}

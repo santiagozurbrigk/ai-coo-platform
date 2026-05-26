@@ -1,5 +1,5 @@
 import { AiCard, Badge, Separator } from "@ai-coo/ui";
-import { Panel } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
 import type { ContextDocument } from "@/types/business-context";
 
 export function ContextViewer({ document }: { document: ContextDocument }) {

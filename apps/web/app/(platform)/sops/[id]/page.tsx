@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { SopStatusBadge } from "@/components/sops";
-import { Panel } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
 import { getSopById } from "@/mocks";
 
 export default async function SopDetailPage({

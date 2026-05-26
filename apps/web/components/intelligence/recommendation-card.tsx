@@ -2,7 +2,7 @@ import { Badge } from "@ai-coo/ui";
 import { FlowCta } from "@/components/shared/flow-cta";
 import { es } from "@/lib/locale/es";
 import { flowLinks } from "@/lib/navigation/flow-links";
-import { Panel } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
 import type { IntelligenceRecommendation } from "@/types/intelligence";
 
 export function RecommendationCard({ item }: { item: IntelligenceRecommendation }) {

@@ -10,6 +10,7 @@ import { useSidebarExpanded } from "@/hooks/use-sidebar-expanded";
 import { NavGroup } from "@/components/navigation/nav-group";
 import { isPathActive } from "@/lib/navigation/active-path";
 import { NavIcon } from "@/components/navigation/nav-icons";
+import { AppLogo } from "@/components/brand";
 import { cn } from "@ai-coo/ui";
 
 export function MobileNav() {
@@ -34,9 +35,15 @@ export function MobileNav() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="left-0 top-0 flex h-full max-h-full w-[min(100%,280px)] max-w-[280px] flex-col translate-x-0 translate-y-0 rounded-none border-r p-0">
-          <DialogTitle className="flex h-14 items-center justify-between border-b border-border px-4">
-            <span className="text-sm font-semibold">AI COO</span>
-            <Button variant="ghost" size="icon" type="button" onClick={close}>
+          <DialogTitle className="relative flex min-h-[72px] items-center justify-center border-b border-border px-3 py-3">
+            <AppLogo display="sidebar" className="max-w-[220px]" />
+            <Button
+              variant="ghost"
+              size="icon"
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2"
+              onClick={close}
+            >
               <X className="h-4 w-4" />
             </Button>
           </DialogTitle>
@@ -57,6 +64,7 @@ export function MobileNav() {
             ))}
           </nav>
 
+          {secondaryNavigation.length > 0 && (
           <div className="border-t border-border p-3 space-y-1">
             {secondaryNavigation.map((item) => (
               <Link
@@ -75,6 +83,7 @@ export function MobileNav() {
               </Link>
             ))}
           </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

@@ -3,20 +3,23 @@
 import { useState } from "react";
 import { List } from "lucide-react";
 import { Button, Dialog, DialogContent, DialogTitle, cn } from "@ai-coo/ui";
-import type { Conversation } from "@/types/sales";
+import { getLeadJourneyByLeadName } from "@/mocks/marketing-insights";
+import { usePlatformData } from "@/providers";
+import type { ConversationTagId } from "@/types/sales";
 import { ConversationList } from "./conversation-list";
 import { ConversationThread } from "./conversation-thread";
 import { ConversationAnalysisPanel } from "./conversation-analysis";
-import { EmptyState } from "@/components/shared";
+import { LeadJourneyInline } from "./lead-journey-inline";
+import { EmptyState } from "@/components/shared/empty-state";
 
-export function SalesInboxLayout({
-  conversations,
-}: {
-  conversations: Conversation[];
-}) {
+export function SalesInboxLayout() {
+  const { conversations, setConversationTag } = usePlatformData();
   const [selectedId, setSelectedId] = useState(conversations[0]?.id);
   const [listOpen, setListOpen] = useState(false);
   const selected = conversations.find((c) => c.id === selectedId);
+  const journey = selected
+    ? getLeadJourneyByLeadName(selected.leadName)
+    : undefined;
 
   const handleSelect = (id: string) => {
     setSelectedId(id);
@@ -24,8 +27,8 @@ export function SalesInboxLayout({
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-[480px] flex-col overflow-hidden rounded-xl border border-border bg-card/20 md:flex-row">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2 md:hidden">
+    <div className="flex h-[calc(100vh-8rem)] min-h-[480px] flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02] md:flex-row">
+      <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-2 md:hidden">
         <Dialog open={listOpen} onOpenChange={setListOpen}>
           <Button
             variant="outline"
@@ -48,7 +51,7 @@ export function SalesInboxLayout({
         </Dialog>
       </div>
 
-      <div className="hidden h-full w-full max-w-[280px] shrink-0 md:flex">
+      <div className="hidden h-full min-w-0 w-[280px] max-w-[280px] shrink-0 overflow-hidden md:flex">
         <ConversationList
           conversations={conversations}
           selectedId={selectedId}
@@ -56,19 +59,27 @@ export function SalesInboxLayout({
         />
       </div>
 
-      <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col md:border-r md:border-border")}>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:border-r md:border-white/[0.06]">
         {selected ? (
-          <ConversationThread conversation={selected} />
+          <>
+            <ConversationThread
+              conversation={selected}
+              onTagChange={(tag: ConversationTagId) =>
+                setConversationTag(selected.id, tag)
+              }
+            />
+            {journey && <LeadJourneyInline journey={journey} />}
+          </>
         ) : (
           <EmptyState
             title="Selecciona una conversación"
-            description="Elige un lead en la lista para ver mensajes y análisis."
+            description="Elige un lead en la lista para ver mensajes, recorrido de contenido y análisis."
             className="m-4 flex-1"
           />
         )}
       </div>
 
-      <div className="hidden h-full w-[280px] shrink-0 overflow-y-auto bg-card/30 lg:block">
+      <div className="hidden h-full w-[280px] min-w-[280px] max-w-[280px] shrink-0 overflow-y-auto overflow-x-hidden bg-white/[0.02] lg:block">
         {selected && <ConversationAnalysisPanel analysis={selected.analysis} />}
       </div>
     </div>

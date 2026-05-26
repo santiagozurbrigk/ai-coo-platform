@@ -84,7 +84,7 @@ const preset: Partial<Config> = {
       },
       keyframes: {
         "fade-in": {
-          from: { opacity: "0", transform: "translateY(4px)" },
+          from: { opacity: "0", transform: "translateY(8px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
         "pulse-glow": {
@@ -97,7 +97,7 @@ const preset: Partial<Config> = {
         },
       },
       animation: {
-        "fade-in": "fade-in 0.35s ease-out",
+        "fade-in": "fade-in 0.2s ease-out",
         "pulse-glow": "pulse-glow 2.5s ease-in-out infinite",
         shimmer: "shimmer 2s linear infinite",
       },

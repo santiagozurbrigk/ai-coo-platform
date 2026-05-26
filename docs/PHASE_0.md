@@ -1,18 +1,14 @@
-# Phase 0 — Prototipo visual (completado)
+# Phase 0 — Prototipo visual
 
-**Estado:** ✅ Fase 0.8 — cierre y listo para aprobación  
+**Estado:** ✅ Prototipo demo-ready (Fase 0.8+ extensiones)  
 **Idioma UI:** Español  
-**Backend:** Ninguno (mock data únicamente)
+**Backend:** Ninguno (mock data + React Context)
 
-## Objetivo cumplido
+**Documento maestro del estado actual:** [`ESTADO_PLATAFORMA.md`](./ESTADO_PLATAFORMA.md)
 
-Un founder puede entrar al prototipo y entender en minutos:
+## Objetivo
 
-- Qué hace el producto
-- Por qué es valioso
-- Cómo fluye la operación día a día
-
-Sin base de datos, auth ni APIs reales.
+Un founder puede navegar el producto y entender en minutos qué hace, por qué importa y cómo fluye la operación — sin base de datos ni integraciones reales.
 
 ## Entregables por sub-fase
 
@@ -21,51 +17,95 @@ Sin base de datos, auth ni APIs reales.
 | 0.1 | Monorepo, rutas, módulos, redirects |
 | 0.2 | Design system `@ai-coo/ui`, `/design-system` |
 | 0.3 | Layout 3 columnas (sidebar, main, contexto) |
-| 0.4 | Navegación colapsable, breadcrumbs, áreas founder/admin |
-| 0.5 | Componentes + pantallas con mocks |
-| 0.6 | Español completo + pulido visual |
-| 0.7 | Flujos UX, toasts, paleta Ctrl+K, enlaces cruzados |
-| 0.8 | `/demo` recorrido guiado, checklist, 404, documentación |
+| 0.4 | Navegación, breadcrumbs, founder / Super Admin |
+| 0.5 | Pantallas con mocks |
+| 0.6 | Español + pulido visual |
+| 0.7 | Toasts, Ctrl+K, flujos cruzados |
+| 0.8 | `/demo`, checklist, 404 |
+| 0.9 | Onboarding wizard + bienvenida cinematográfica |
+| 0.10 | Ventas (inbox, métricas, closing), clientes, operaciones |
+| 0.11 | **Finanzas** + **Gastos** |
+| 0.12 | **Marketing** (módulo dedicado, ex–Marketing Insights) |
+| 0.13 | Rediseño visual **VisionOS** (glass + púrpura `#7C3AED`) |
 
 ## Cómo ejecutar
 
 ```bash
 pnpm install
-pnpm --filter @ai-coo/web dev
+npx pnpm@9.15.0 --filter @ai-coo/web dev
 ```
 
-- **Inicio:** http://localhost:3000  
-- **Recorrido guiado:** http://localhost:3000/demo  
-- **Plataforma:** http://localhost:3000/dashboard  
+| URL | Uso |
+|-----|-----|
+| http://localhost:3000 | Inicio |
+| http://localhost:3000/login | Entrada cliente |
+| http://localhost:3000/onboarding | Wizard primer acceso |
+| http://localhost:3000/dashboard | **Panel General** |
+| http://localhost:3000/demo | Recorrido guiado |
+| http://localhost:3000/superadmin/login | Super Admin |
+
+## Navegación principal
+
+```
+Panel General
+Finanzas → Gastos
+Marketing → Overview · Contenido · Conexión con Ventas
+Ventas → Bandeja · Métricas · Closing
+Clientes
+Operaciones → Overview · SOPs · Team Inputs
+Base de conocimiento
+Integraciones
+Equipo
+Configuración (pie del sidebar)
+```
+
+## Rutas clave
+
+| Módulo | Ruta |
+|--------|------|
+| Panel General | `/dashboard` |
+| Finanzas | `/finance` |
+| Gastos | `/finance/expenses` |
+| Marketing | `/marketing` |
+| Contenido | `/marketing/content` |
+| Detalle publicación | `/marketing/content/[id]` |
+| Conexión con ventas | `/marketing/sales-connection` |
+| Bandeja | `/sales/inbox` |
+| Métricas ventas | `/sales/metrics` |
+| Closing | `/sales/closing` |
+| Clientes | `/clients` |
+| Cliente | `/clients/[id]` |
+| Operaciones | `/operations/overview` |
+| Team Inputs | `/operations/team-inputs` |
+| Integraciones | `/integrations` |
+
+**Legacy:** `/sales/marketing-insights/*` redirige a `/marketing/*`.
 
 ## Checklist de validación (antes de Phase 1)
 
-- [ ] Recorrido `/demo` completo (~12 min)
-- [ ] Panel: riesgos, oportunidades y «Qué hacer ahora» navegan bien
-- [ ] Bandeja de ventas: selección + análisis en desktop y móvil
-- [ ] Input semanal → toast → reporte ejecutivo
-- [ ] Generar SOP → borrador `sop4`
-- [ ] Conectar integración (mock)
-- [ ] Ctrl+K abre paleta y navega a cualquier módulo
-- [ ] Super Admin: organizaciones, fundadores, cuentas
-- [ ] Copy 100% en español en pantallas principales
+- [ ] Recorrido `/demo` (~15 min con módulos nuevos)
+- [ ] Panel General: métricas, riesgos, CTAs
+- [ ] Finanzas: plataformas, 6 métricas, gráficos
+- [ ] Gastos: 3 secciones + resumen
+- [ ] Marketing: overview, contenido, detalle, conexión ventas
+- [ ] Ventas: bandeja + etiquetas + journey inline
+- [ ] Métricas: rendimiento por closer
+- [ ] Closing → modal pago → cliente creado
+- [ ] Integraciones: Instagram (mock) + conectar
+- [ ] Ctrl+K y breadcrumbs en módulos nuevos
+- [ ] Super Admin: orgs, cerebro IA
+- [ ] UI VisionOS consistente (glass, púrpura)
 
 ## Qué NO incluye Phase 0
 
-- Supabase / PostgreSQL
-- Autenticación
-- Claude / embeddings / colas
-- Integraciones OAuth reales
-- Server Actions / API routes de negocio
+- Supabase / PostgreSQL / RLS
+- Autenticación real
+- Claude / RAG / colas en producción
+- OAuth real (Instagram, ManyChat, Calendly…)
+- API routes de negocio
 
 ## Siguiente paso: Phase 1
 
-Implementación según `PROJECT_CONSTITUTION.md`, `SYSTEM_ARCHITECTURE.md` y `AI_ENGINE_SPEC.md`:
+Ver `PROJECT_CONSTITUTION.md`, `SYSTEM_ARCHITECTURE.md`, `AI_ENGINE_SPEC.md` y `ESTADO_PLATAFORMA.md` (sección Próximos pasos).
 
-1. Auth y multi-tenant  
-2. Base de datos + RLS  
-3. Motor de contexto (RAG)  
-4. Integraciones reales  
-5. Workers y colas  
-
-Solo iniciar Phase 1 tras aprobación explícita del prototipo Phase 0.
+Solo iniciar Phase 1 tras **aprobación explícita** del prototipo.

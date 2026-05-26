@@ -1,12 +1,6 @@
-import { BottleneckCard } from "@/components/intelligence";
-import { mockBottlenecks } from "@/mocks";
+import { redirect } from "next/navigation";
+import { paths } from "@/routes";
 
-export default function IntelligenceBottlenecksPage() {
-  return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {mockBottlenecks.map((b) => (
-        <BottleneckCard key={b.id} item={b} />
-      ))}
-    </div>
-  );
+export default function IntelligenceBottlenecksRedirectPage() {
+  redirect(`${paths.platform.intelligence.root}#bottlenecks`);
 }

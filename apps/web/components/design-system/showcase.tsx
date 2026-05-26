@@ -49,6 +49,7 @@ import {
   Topbar,
   cn,
 } from "@ai-coo/ui";
+import { AppLogo } from "@/components/brand";
 import { es } from "@/lib/locale/es";
 
 const chartData = [
@@ -64,7 +65,7 @@ const chartData = [
 type DemoRow = { name: string; role: string; status: string };
 
 const tableData: DemoRow[] = [
-  { name: "Alex Rivera", role: "Setter", status: "Activo" },
+  { name: "María López", role: "Operador", status: "Activo" },
   { name: "Jordan Lee", role: "Operador", status: "Activo" },
   { name: "Sam Ortiz", role: "PM", status: "Ausente" },
 ];
@@ -215,7 +216,7 @@ export function DesignSystemShowcase() {
                 source="Inputs semanales + métricas de ventas"
               >
                 Los tiempos de respuesta del equipo de delivery subieron un 18% esta
-                semana. Considera redistribuir los follow-ups de setters antes de la
+                semana. Considera reforzar el follow-up del equipo de ventas antes de la
                 revisión del pipeline del viernes.
               </AiCard>
               <AiCard
@@ -353,11 +354,7 @@ export function DesignSystemShowcase() {
             <div className="overflow-hidden rounded-xl border border-border">
               <div className="flex h-[320px]">
                 <SidebarShell
-                  logo={
-                    <span className="text-sm font-semibold tracking-tight">
-                      AI COO
-                    </span>
-                  }
+                  logo={<AppLogo href="/dashboard" display="sidebar" />}
                   workspace={
                     <Button variant="ghost" size="sm" className="w-full justify-start">
                       Espacio principal

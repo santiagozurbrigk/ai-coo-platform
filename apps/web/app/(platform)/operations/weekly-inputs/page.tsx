@@ -1,11 +1,6 @@
-import { WeeklyInputForm, WeeklyInputsList } from "@/components/operations";
-import { mockWeeklyInputs } from "@/mocks";
+import { redirect } from "next/navigation";
+import { paths } from "@/routes";
 
-export default function WeeklyInputsPage() {
-  return (
-    <div className="space-y-8">
-      <WeeklyInputForm />
-      <WeeklyInputsList inputs={mockWeeklyInputs} />
-    </div>
-  );
+export default function WeeklyInputsLegacyPage() {
+  redirect(paths.platform.operations.teamInputs);
 }

@@ -1,12 +1,6 @@
-import { InsightCard } from "@/components/intelligence";
-import { mockInsights } from "@/mocks";
+import { redirect } from "next/navigation";
+import { paths } from "@/routes";
 
-export default function IntelligenceInsightsPage() {
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {mockInsights.map((i) => (
-        <InsightCard key={i.id} insight={i} />
-      ))}
-    </div>
-  );
+export default function IntelligenceInsightsRedirectPage() {
+  redirect(`${paths.platform.intelligence.root}#insights`);
 }

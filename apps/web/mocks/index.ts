@@ -1,5 +1,17 @@
 export { mockDashboard } from "./dashboard";
 export { mockConversations, mockSalesMetrics } from "./sales";
+export {
+  mockContentAssets,
+  mockBookingInfluence,
+  mockSalesInfluence,
+  mockCommonJourney,
+  mockFunnel,
+  mockMarketingAiInsights,
+  mockLeadJourneys,
+  getContentById,
+  getLeadJourneyById,
+  getLeadJourneyByLeadName,
+} from "./marketing-insights";
 export { mockWeeklyInputs } from "./operations";
 export { mockExecutiveReports, getReportById } from "./executive-reports";
 export { mockSops, getSopById } from "./sops";
@@ -19,3 +31,12 @@ export {
   mockFounders,
   mockTeamAccounts,
 } from "./super-admin";
+export {
+  mockBrainHealth,
+  mockBrainContentBreakdown,
+  mockBrainCoverageAreas,
+  mockBrainGlobalInsights,
+  mockBrainDocuments,
+  mockBrainRecent,
+  getBrainDocumentById,
+} from "./ai-brain";

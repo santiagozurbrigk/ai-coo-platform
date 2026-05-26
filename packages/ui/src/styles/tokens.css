@@ -1,63 +1,89 @@
 /**
- * AI COO Design Tokens — CSS variables only (imported before @tailwind in globals.css)
+ * AI COO Design Tokens — Apple VisionOS / spatial glass (Fase 0 visual)
+ * Brand: #7C3AED · Base: #080810
  */
 
 :root {
-  /* Surfaces */
-  --background: 240 10% 4%;
+  /* Surfaces — deep blue-purple base */
+  --background: 260 20% 4%;
   --foreground: 0 0% 98%;
-  --card: 240 8% 7%;
+  --card: 260 15% 6%;
   --card-foreground: 0 0% 98%;
-  --popover: 240 8% 8%;
+  --popover: 260 18% 5%;
   --popover-foreground: 0 0% 98%;
-  --muted: 240 6% 12%;
-  --muted-foreground: 240 5% 55%;
-  --accent: 240 6% 14%;
+  --muted: 260 12% 8%;
+  --muted-foreground: 0 0% 55%;
+  --accent: 260 10% 10%;
   --accent-foreground: 0 0% 98%;
 
-  /* Brand */
-  --primary: 262 72% 58%;
+  /* Brand purple #7C3AED */
+  --primary: 258 84% 58%;
   --primary-foreground: 0 0% 100%;
+  --primary-light: 258 91% 76%;
+  --primary-subtle: 258 50% 18%;
+  --primary-glow: 258 60% 45%;
+  --primary-border: 258 45% 35%;
 
   /* Semantic */
-  --success: 152 60% 45%;
+  --success: 160 84% 39%;
   --success-foreground: 0 0% 100%;
-  --warning: 38 92% 50%;
+  --warning: 43 96% 56%;
   --warning-foreground: 0 0% 10%;
-  --destructive: 0 72% 55%;
+  --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
   --info: 199 89% 48%;
   --info-foreground: 0 0% 100%;
 
   /* Chrome */
-  --border: 240 6% 14%;
-  --input: 240 6% 14%;
-  --ring: 262 72% 58%;
+  --border: 260 8% 18%;
+  --input: 260 8% 14%;
+  --ring: 258 84% 58%;
 
   /* Sidebar */
-  --sidebar: 240 10% 5%;
-  --sidebar-foreground: 240 5% 65%;
-  --sidebar-foreground-active: 0 0% 98%;
-  --sidebar-accent: 240 6% 10%;
-  --sidebar-border: 240 6% 12%;
+  --sidebar: 260 25% 5%;
+  --sidebar-foreground: 0 0% 38%;
+  --sidebar-foreground-active: 258 91% 76%;
+  --sidebar-accent: 258 50% 20%;
+  --sidebar-border: 260 8% 14%;
 
-  /* Glass */
-  --glass: 240 8% 8%;
-  --glass-border: 240 6% 18%;
+  /* Glass surfaces */
+  --glass: 260 15% 8%;
+  --glass-border: 0 0% 100% / 0.1;
 
-  /* AI accent */
-  --ai: 262 72% 58%;
-  --ai-muted: 262 40% 25%;
-  --ai-glow: 262 80% 60%;
+  /* AI accent — aligned with brand purple */
+  --ai: 258 84% 58%;
+  --ai-muted: 258 40% 35%;
+  --ai-glow: 258 91% 76%;
 
-  /* Radius */
-  --radius: 0.5rem;
-  --radius-sm: 0.375rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  /* Radius — VisionOS scale */
+  --radius: 1.25rem;
+  --radius-sm: 0.625rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.5rem;
+  --radius-page: 1.5rem;
 
-  /* Shadows */
-  --shadow-glow: 0 0 40px -8px hsl(var(--primary) / 0.35);
-  --shadow-card: 0 1px 0 0 hsl(0 0% 100% / 0.04) inset,
-    0 0 0 1px hsl(var(--border) / 0.5);
+  /* Elevation */
+  --shadow-glow: 0 0 48px -8px rgba(124, 58, 237, 0.35);
+  --shadow-card:
+    0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
+    0 1px 0 rgba(255, 255, 255, 0.1) inset,
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-float:
+    0 0 0 0.5px rgba(255, 255, 255, 0.1) inset,
+    0 1px 0 rgba(255, 255, 255, 0.15) inset,
+    0 24px 64px rgba(0, 0, 0, 0.6),
+    0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-modal:
+    0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
+    0 32px 80px rgba(0, 0, 0, 0.7);
+
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-bg-strong: rgba(12, 10, 24, 0.85);
+  --glass-bg-nested: rgba(255, 255, 255, 0.04);
+  --glass-border-color: rgba(255, 255, 255, 0.1);
+  --glass-border-subtle: rgba(255, 255, 255, 0.07);
+  --glass-blur: 40px;
+  --glass-blur-md: 20px;
 }

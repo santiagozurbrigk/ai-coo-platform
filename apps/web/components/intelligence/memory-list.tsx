@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Panel } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
 import { flowLinks } from "@/lib/navigation/flow-links";
 import type { MemoryChunk } from "@/types/intelligence";
 

@@ -1,5 +1,6 @@
-import { SopCreatorForm } from "@/components/sops";
+import { redirect } from "next/navigation";
+import { paths } from "@/routes";
 
-export default function SopCreatorPage() {
-  return <SopCreatorForm />;
+export default function SopCreateRedirectPage() {
+  redirect(`${paths.platform.sops.root}#crear`);
 }

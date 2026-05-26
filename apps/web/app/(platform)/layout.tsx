@@ -1,4 +1,6 @@
 import { AppProviders } from "@/providers";
+import { OnboardingGuard } from "@/components/platform/onboarding-guard";
+import { WelcomeGate } from "@/components/platform/welcome-gate";
 import { PlatformLayout } from "@/layouts";
 
 export default function PlatformRouteLayout({
@@ -8,7 +10,11 @@ export default function PlatformRouteLayout({
 }) {
   return (
     <AppProviders>
-      <PlatformLayout>{children}</PlatformLayout>
+      <OnboardingGuard>
+        <WelcomeGate>
+          <PlatformLayout>{children}</PlatformLayout>
+        </WelcomeGate>
+      </OnboardingGuard>
     </AppProviders>
   );
 }

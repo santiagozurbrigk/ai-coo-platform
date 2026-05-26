@@ -1,6 +1,6 @@
-import { DocumentGrid } from "@/components/business-context";
+import { KnowledgeBasePage } from "@/components/business-context/knowledge-base-page";
 import { mockDocuments } from "@/mocks";
 
 export default function BusinessContextDocumentsPage() {
-  return <DocumentGrid documents={mockDocuments} />;
+  return <KnowledgeBasePage documents={mockDocuments} />;
 }

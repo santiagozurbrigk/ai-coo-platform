@@ -32,6 +32,8 @@ Always use TypeScript.
 
 Always follow the established architecture.
 
+Before touching `apps/web` components or routes, read `.cursor/rules/nextjs-rsc-boundaries.md` and follow RSC import rules (no client exports in `shared/index.ts`; no barrel imports from `app/**`).
+
 CURRENT PHASE
 
 PHASE 0

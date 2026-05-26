@@ -8,11 +8,11 @@ export const flowLinks = {
 
   risk: (id: string): string => {
     const map: Record<string, string> = {
-      r1: paths.platform.intelligence.bottlenecks,
+      r1: `${paths.platform.intelligence.root}#bottlenecks`,
       r2: paths.platform.sales.inbox,
       r3: paths.platform.sops.detail("sop2"),
     };
-    return map[id] ?? paths.platform.intelligence.insights;
+    return map[id] ?? paths.platform.intelligence.root;
   },
 
   opportunity: (id: string): string => {
@@ -20,23 +20,23 @@ export const flowLinks = {
       o1: paths.platform.sales.metrics,
       o2: paths.platform.integrations,
     };
-    return map[id] ?? paths.platform.intelligence.opportunities;
+    return map[id] ?? `${paths.platform.intelligence.root}#opportunities`;
   },
 
   insight: (id: string): string => {
     const map: Record<string, string> = {
-      i1: paths.platform.intelligence.bottlenecks,
+      i1: `${paths.platform.intelligence.root}#bottlenecks`,
       i2: paths.platform.sales.metrics,
     };
-    return map[id] ?? paths.platform.intelligence.insights;
+    return map[id] ?? paths.platform.intelligence.root;
   },
 
   recommendation: (id: string): string => {
     const map: Record<string, string> = {
-      rec1: paths.platform.sops.create,
+      rec1: `${paths.platform.sops.root}#crear`,
       rec2: paths.platform.businessContext.viewer("doc1"),
     };
-    return map[id] ?? paths.platform.intelligence.recommendations;
+    return map[id] ?? `${paths.platform.intelligence.root}#recommendations`;
   },
 
   bottleneck: (id: string): string => {
@@ -53,7 +53,7 @@ export const flowLinks = {
       mem2: paths.platform.sops.detail("sop1"),
       mem3: paths.platform.executiveReports.detail("er1"),
     };
-    return map[id] ?? paths.platform.intelligence.aiMemory;
+    return map[id] ?? `${paths.platform.intelligence.root}#memoria`;
   },
 
   contextRelated: (label: string): string => {

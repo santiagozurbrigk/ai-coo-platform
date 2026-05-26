@@ -15,11 +15,11 @@ export const mockExecutiveReports: ExecutiveReport[] = [
     ],
     bottlenecks: [
       "Onboarding Módulo 2 — retraso promedio 3,2 días",
-      "Cola de follow-up de setters los fines de semana",
+      "Cola de follow-up de ventas los fines de semana",
     ],
     recommendations: [
       "Actualizar SOP de onboarding antes de la intake de junio",
-      "Agregar rotación de setters en fin de semana",
+      "Reforzar cobertura del equipo de ventas en fin de semana",
     ],
     departments: [
       { name: "Ventas", status: "healthy" },

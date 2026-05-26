@@ -1,7 +1,7 @@
 import { FlowCta } from "@/components/shared/flow-cta";
 import { es } from "@/lib/locale/es";
 import { flowLinks } from "@/lib/navigation/flow-links";
-import { Panel } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
 import type { IntelligenceBottleneck } from "@/types/intelligence";
 
 export function BottleneckCard({ item }: { item: IntelligenceBottleneck }) {

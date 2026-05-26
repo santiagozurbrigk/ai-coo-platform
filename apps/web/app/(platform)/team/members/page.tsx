@@ -1,6 +1,6 @@
-import { TeamMembersTable } from "@/components/team";
-import { mockTeamMembers } from "@/mocks";
+import { redirect } from "next/navigation";
+import { paths } from "@/routes";
 
-export default function TeamMembersPage() {
-  return <TeamMembersTable members={mockTeamMembers} />;
+export default function TeamMembersRedirectPage() {
+  redirect(`${paths.platform.team.root}#miembros`);
 }

@@ -1,5 +1,16 @@
 export type { DashboardData, DashboardRisk, DashboardOpportunity, DashboardMetric } from "./dashboard";
-export type { Conversation, ConversationAnalysis, SalesMessage, SetterMetric, SalesMetricsData } from "./sales";
+export type { Conversation, ConversationAnalysis, SalesMessage, SalesMetricsData } from "./sales";
+export type {
+  ContentAsset,
+  ContentType,
+  ContentStatus,
+  LeadJourney,
+  JourneyStep,
+  JourneyStepType,
+  InfluenceRankItem,
+  MarketingAiInsight,
+  BuyerJourneyPattern,
+} from "./marketing-insights";
 export type { WeeklyInput, WeeklyInputType, Department } from "./operations";
 export type { ExecutiveReport, ReportPeriod } from "./executive-reports";
 export type { Sop, SopCreatorForm } from "./sops";

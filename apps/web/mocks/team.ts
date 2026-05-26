@@ -2,7 +2,7 @@ import type { RoleDefinition, TeamMember } from "@/types/team";
 
 export const mockTeamMembers: TeamMember[] = [
   { id: "u1", name: "Nombre Fundador", email: "founder@acme.co", role: "founder", status: "active", lastLogin: "2026-05-21T08:00:00Z" },
-  { id: "u2", name: "Alex Rivera", email: "alex@acme.co", role: "setter", status: "active", lastLogin: "2026-05-21T14:00:00Z" },
+  { id: "u2", name: "María López", email: "maria@acme.co", role: "operator", status: "active", lastLogin: "2026-05-21T14:00:00Z" },
   { id: "u3", name: "Jordan Lee", email: "jordan@acme.co", role: "operator", status: "active", lastLogin: "2026-05-20T18:00:00Z" },
   { id: "u4", name: "Sam Ortiz", email: "sam@acme.co", role: "project_manager", status: "away", lastLogin: "2026-05-18T10:00:00Z" },
   { id: "u5", name: "Casey Kim", email: "casey@acme.co", role: "viewer", status: "inactive", lastLogin: "2026-05-01T12:00:00Z" },

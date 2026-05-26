@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { cn } from "@ai-coo/ui";
 import type { ContextDocument, DocumentCategory } from "@/types/business-context";
-import { EmptyState } from "@/components/shared";
+import { EmptyState } from "@/components/shared/empty-state";
 import { es } from "@/lib/locale/es";
 import { DocumentCard } from "./document-card";
 

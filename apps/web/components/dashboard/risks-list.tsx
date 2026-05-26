@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Panel, SeverityBadge } from "@/components/shared";
+import { Panel } from "@/components/shared/panel";
+import { SeverityBadge } from "@/components/shared/severity-badge";
 import { flowLinks } from "@/lib/navigation/flow-links";
 import type { DashboardRisk } from "@/types/dashboard";
 

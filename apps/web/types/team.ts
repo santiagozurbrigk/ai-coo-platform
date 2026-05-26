@@ -15,3 +15,16 @@ export type RoleDefinition = {
   description: string;
   permissions: string[];
 };
+
+export type PermissionLevel = "none" | "view" | "full";
+
+export type CustomRole = {
+  id: string;
+  name: string;
+  description?: string;
+  permissions: Record<string, PermissionLevel>;
+};
+
+export type TeamMemberWithRole = TeamMember & {
+  customRoleId?: string | null;
+};
