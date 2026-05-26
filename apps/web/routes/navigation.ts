@@ -48,11 +48,6 @@ export const platformNavigation: NavItem[] = [
     ],
   },
   {
-    label: "Clientes",
-    href: paths.platform.clients.root,
-    icon: "briefcase",
-  },
-  {
     label: "Operaciones",
     href: paths.platform.operations.overview,
     icon: "activity",
@@ -61,6 +56,11 @@ export const platformNavigation: NavItem[] = [
       { label: "SOPs", href: paths.platform.operations.sops },
       { label: "Team Inputs", href: paths.platform.operations.teamInputs },
     ],
+  },
+  {
+    label: "Clientes",
+    href: paths.platform.clients.root,
+    icon: "briefcase",
   },
   {
     label: "Base de conocimiento",

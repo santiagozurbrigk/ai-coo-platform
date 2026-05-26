@@ -1,8 +1,9 @@
 "use client";
 
-import { GlassPanel, MetricCard, cn } from "@ai-coo/ui";
+import { GlassPanel, MetricCard, Sparkline, cn } from "@ai-coo/ui";
 import { useFinanceData } from "@/providers";
 import { formatMoney } from "@/lib/finance/format";
+import { sparklineProps } from "@/lib/metrics/sparkline-series";
 
 function MarginArc({ percent }: { percent: number }) {
   const r = 36;
@@ -30,12 +31,12 @@ function MarginArc({ percent }: { percent: number }) {
         strokeDasharray={c}
         strokeDashoffset={offset}
         transform="rotate(-90 44 44)"
-        className="drop-shadow-[0_0_8px_rgba(99,102,241,0.6)]"
+        className="drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]"
       />
       <defs>
         <linearGradient id="marginGrad" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="hsl(var(--primary))" />
-          <stop offset="100%" stopColor="hsl(280 70% 60%)" />
+          <stop offset="100%" stopColor="hsl(var(--chart-tertiary))" />
         </linearGradient>
       </defs>
       <text
@@ -54,6 +55,7 @@ function MarginArc({ percent }: { percent: number }) {
 export function FinanceMetrics() {
   const { financeSummary, paymentPlatforms } = useFinanceData();
   const s = financeSummary;
+  const marginSpark = sparklineProps("margin", 400);
 
   return (
     <div className="space-y-4">
@@ -62,6 +64,7 @@ export function FinanceMetrics() {
           title="Facturación"
           value={formatMoney(s.facturacion)}
           subtitle="Mes actual · upfront + cuotas pagadas + fees"
+          {...sparklineProps("revenue", 0)}
         />
 
         <MetricCard
@@ -69,6 +72,7 @@ export function FinanceMetrics() {
           value={formatMoney(s.cashCollected)}
           subtitle="Facturación − gastos fijos, suscripciones, equipo y fees"
           trend="neutral"
+          {...sparklineProps("cashCollected", 100)}
         />
 
         <GlassPanel className="p-4 space-y-3">
@@ -76,6 +80,7 @@ export function FinanceMetrics() {
             title="Por cobrar"
             value={formatMoney(s.porCobrar)}
             subtitle="Cuotas pendientes · no cuenta en facturación"
+            {...sparklineProps("porCobrar", 200)}
           />
           <div className="flex items-end justify-between gap-2 pt-1">
             {s.porCobrarByMonth.map((m) => (
@@ -99,12 +104,24 @@ export function FinanceMetrics() {
           title="Gastos totales"
           value={formatMoney(s.gastosTotales)}
           subtitle="Fijos + suscripciones + equipo (mes)"
+          {...sparklineProps("expenses", 300)}
         />
 
         <GlassPanel className="p-4 flex items-center justify-between gap-4">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1 space-y-2">
             <p className="text-sm text-muted-foreground">Margen</p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-2xl font-semibold tabular-nums">
+                {s.margenPercent.toFixed(1)}%
+              </p>
+              <Sparkline
+                data={marginSpark.sparklineData}
+                color={marginSpark.sparklineColor}
+                animationDelay={marginSpark.sparklineAnimationDelay}
+                className="h-8 w-full shrink-0 sm:h-10 sm:w-[88px] md:h-11 md:w-[100px]"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
               Cash Collected / Facturación
             </p>
           </div>

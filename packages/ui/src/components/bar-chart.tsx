@@ -87,7 +87,7 @@ export function BarChart({
                   />
                 </div>
                 {showLabels && (
-                  <span className="max-w-full truncate text-center text-2xs text-white/35">
+                  <span className="max-w-full truncate text-center text-2xs text-white/50">
                     {datum.label}
                   </span>
                 )}
@@ -193,7 +193,7 @@ export function BarChart({
           {data.map((d) => (
             <span
               key={d.label}
-              className="flex-1 truncate text-center text-[10px] text-white/35"
+              className="flex-1 truncate text-center text-[10px] text-white/50"
             >
               {d.label}
             </span>
@@ -215,7 +215,7 @@ export function BarChart({
           <p className="text-lg font-semibold text-white tabular-nums">
             {active.datum.value}
           </p>
-          <p className="mt-0.5 text-[10px] uppercase tracking-wide text-white/40">
+          <p className="mt-0.5 text-[10px] uppercase tracking-wide text-white/50">
             {active.datum.label}
           </p>
         </div>

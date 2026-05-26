@@ -1,7 +1,10 @@
+"use client";
+
 import * as React from "react";
 import { TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Card, CardContent } from "../primitives/card";
+import { Sparkline } from "./sparkline";
 
 export type MetricTrend = "up" | "down" | "neutral";
 
@@ -14,6 +17,11 @@ export interface MetricCardProps {
   badge?: string;
   className?: string;
   icon?: React.ReactNode;
+  /** Last 7 points for inline sparkline (visual only). */
+  sparklineData?: number[];
+  sparklineColor?: string;
+  /** Stagger sparkline draw animation on mount (ms). */
+  sparklineAnimationDelay?: number;
 }
 
 const trendConfig = {
@@ -66,12 +74,16 @@ export function MetricCard({
   badge,
   className,
   icon,
+  sparklineData,
+  sparklineColor = "#7C3AED",
+  sparklineAnimationDelay = 0,
 }: MetricCardProps) {
   const cfg = trendConfig[trend];
   const TrendIcon = cfg.icon;
   const progress = deriveProgress(value, trend, trendValue);
   const comparison =
     subtitle ?? (trendValue ? `vs período anterior  ${trendValue}` : undefined);
+  const hasSparkline = Boolean(sparklineData?.length);
 
   return (
     <Card
@@ -93,7 +105,7 @@ export function MetricCard({
                 {icon}
               </div>
             )}
-            <span className="text-[11px] font-medium uppercase tracking-[0.07em] text-white/40">
+            <span className="text-[11px] font-medium uppercase tracking-[0.07em] text-white/50">
               {title}
             </span>
           </div>
@@ -110,10 +122,24 @@ export function MetricCard({
           )}
         </div>
 
-        <div className="relative mt-2">
+        <div
+          className={cn(
+            "relative mt-2",
+            hasSparkline &&
+              "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+          )}
+        >
           <div className="text-[32px] font-semibold leading-none tracking-tight text-white tabular-nums sm:text-[36px]">
             {value}
           </div>
+          {hasSparkline && (
+            <Sparkline
+              data={sparklineData!}
+              color={sparklineColor}
+              animationDelay={sparklineAnimationDelay}
+              className="h-8 w-full shrink-0 sm:h-10 sm:w-[80px] md:h-11 md:w-[96px] lg:h-12 lg:w-[120px]"
+            />
+          )}
         </div>
 
         <div className="mt-4 flex items-center gap-3">
@@ -131,7 +157,7 @@ export function MetricCard({
         {(comparison || badge) && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {comparison && (
-              <span className="text-xs text-white/35">{comparison}</span>
+              <span className="text-xs text-white/50">{comparison}</span>
             )}
             {badge && (
               <span className="rounded-full border border-[rgba(124,58,237,0.30)] bg-[rgba(124,58,237,0.12)] px-2.5 py-[3px] text-[11px] font-medium text-[#A78BFA]">

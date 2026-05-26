@@ -10,7 +10,7 @@ const badgeVariants = cva(
         default:
           "border-[rgba(124,58,237,0.30)] bg-[rgba(124,58,237,0.12)] text-[#A78BFA]",
         secondary:
-          "border-white/10 bg-white/[0.05] text-white/40",
+          "border-white/10 bg-white/[0.05] text-white/50",
         success:
           "border-emerald-400/25 bg-emerald-500/10 text-emerald-400",
         warning:

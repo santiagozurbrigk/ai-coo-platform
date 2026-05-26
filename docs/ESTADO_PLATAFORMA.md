@@ -1,7 +1,7 @@
 # Estado de la plataforma — AI COO (Fase 0)
 
 **Última actualización:** mayo 2026  
-**Fase actual:** 0 — Prototipo visual (solo UI + mocks)  
+**Fase actual:** **1** — Backend, auth e integraciones (Fase 0 ✅ cerrada y aprobada)  
 **Monorepo:** `pnpm` · App principal: `apps/web` (`@ai-coo/web`)  
 **Design system compartido:** `packages/ui` (`@ai-coo/ui`)
 
@@ -9,7 +9,7 @@
 
 ## Resumen ejecutivo
 
-La plataforma es un **prototipo navegable en español** pensado para demos con founders. No hay backend, base de datos, autenticación real ni integraciones OAuth. Todo el estado vive en **React Context + mocks** en el cliente.
+La plataforma mantiene la **UI completa de Fase 0** (demo-ready). **Phase 1** añade backend real: la UI sigue en español; el estado migrará de **React Context + mocks** hacia **Supabase + Server Actions** de forma incremental.
 
 El trabajo reciente cubre: onboarding pulido, reestructuración de módulos operativos, **Finanzas**, **Marketing** como módulo propio, **Closing → Clientes**, y un **rediseño visual estilo Apple VisionOS** (glassmorphism, púrpura `#7C3AED`).
 
@@ -247,7 +247,6 @@ Archivos clave: `packages/ui/src/styles/tokens.css`, `apps/web/app/globals.css`,
 - OAuth real (ManyChat, Instagram, Calendly, Drive…)
 - Cálculo financiero derivado en tiempo real desde DB (métricas Finanzas usan **snapshots mock** + UI)
 - Tests E2E automatizados del nuevo alcance
-- Documentación `current_phase.md` / `PHASE_0.md` del repo **aún menciona Marketing bajo Ventas** — conviene actualizarlas
 
 ---
 
@@ -273,25 +272,13 @@ Archivos clave: `packages/ui/src/styles/tokens.css`, `apps/web/app/globals.css`,
 
 ## Próximos pasos recomendados
 
-### A. Cierre Fase 0 (producto / demo) — corto plazo
+### A. Fase 0 — ✅ Cerrada (mayo 2026)
 
-1. **Actualizar docs del repo**  
-   - `docs/PHASE_0.md`, `.cursor/rules/current_phase.md`, checklist `/demo`  
-   - Reflejar Marketing, Finanzas, Panel General y rutas nuevas.
-
-2. **Validación manual** (checklist founder-ready)  
-   - Recorrido `/demo` completo  
-   - Flujo: Marketing → contenido → conexión ventas → inbox → closing → cliente  
-   - Flujo: Finanzas → gastos → closing con plataformas  
-   - Mobile: sidebar, bandeja, tablas con scroll  
-   - Ctrl+K cubre módulos nuevos  
-
-3. **Pulido visual opcional** (sin cambiar layout)  
-   - Unificar colores hardcodeados en gráficos custom de `components/finance/*` y `components/marketing/*` con tokens CSS  
-   - Revisar contraste WCAG en textos `white/30–40`  
-
-4. **Commit / tag de release Fase 0**  
-   - Tag tipo `phase-0-demo-ready` cuando el founder apruebe la demo.
+- Docs sincronizados (`PHASE_0.md`, `current_phase.md`, `PHASE_1.md`)
+- Validación founder aprobada
+- Pulido visual: tokens de gráficos (`lib/chart/colors.ts`, `tokens.css`), contraste textos secundarios (`white/45–50`)
+- Sparklines en metric cards; calendario en Closing
+- Tag git recomendado: `phase-0-demo-ready`
 
 ### B. Deuda técnica antes de Phase 1
 
@@ -302,7 +289,7 @@ Archivos clave: `packages/ui/src/styles/tokens.css`, `apps/web/app/globals.css`,
 | Permisos por módulo | Ya existen ids `finance`, `marketing`, `marketing_content` — conectar a UI de roles en Phase 1 |
 | Eliminar rutas/páginas legacy vacías bajo `/sales/marketing-insights` si ya no se necesitan (solo redirects) |
 
-### C. Phase 1 — según constitución del proyecto
+### C. Phase 1 — activa (según constitución del proyecto)
 
 Orden sugerido (alineado con `docs/PROJECT_CONSTITUTION.md` y `docs/SYSTEM_ARCHITECTURE.md`):
 
@@ -342,7 +329,8 @@ Orden sugerido (alineado con `docs/PROJECT_CONSTITUTION.md` y `docs/SYSTEM_ARCHI
 | `docs/SYSTEM_ARCHITECTURE.md` | Arquitectura objetivo |
 | `docs/AI_ENGINE_SPEC.md` | Motor IA |
 | `docs/UI_UX_SPEC.md` | UX objetivo |
-| `docs/PHASE_0.md` | Checklist Fase 0 (parcialmente desactualizado) |
+| `docs/PHASE_0.md` | Fase 0 cerrada (referencia histórica) |
+| `docs/PHASE_1.md` | Plan y orden Phase 1 |
 | `docs/DESIGN_SYSTEM.md` | Design system |
 | `routes/navigation.ts` | Menú actual |
 | `routes/paths.ts` | Constantes de rutas |
@@ -359,9 +347,10 @@ Orden sugerido (alineado con `docs/PROJECT_CONSTITUTION.md` y `docs/SYSTEM_ARCHI
 - [x] Operaciones reestructuradas  
 - [x] Rediseño VisionOS en design system  
 - [x] Integraciones: Instagram mock  
-- [ ] Docs repo sincronizados con navegación actual  
-- [ ] Checklist `/demo` actualizado y validado por founder  
-- [ ] Aprobación explícita para iniciar **Phase 1**
+- [x] Docs repo sincronizados con navegación actual  
+- [x] Checklist `/demo` validado por founder  
+- [x] Aprobación explícita — **Phase 1 iniciada**  
+- [x] Pulido visual opcional (tokens gráficos + contraste)
 
 ---
 

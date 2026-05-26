@@ -1,5 +1,6 @@
 import { BarChart, MetricCard } from "@ai-coo/ui";
 import { formatPercent } from "@/lib/format";
+import { sparklineProps } from "@/lib/metrics/sparkline-series";
 import type { SalesMetricsData } from "@/types/sales";
 import { Panel } from "@/components/shared/panel";
 import { CloserPerformancePanel } from "./closer-performance-panel";
@@ -20,17 +21,27 @@ export function SalesMetricsOverview({ data }: { data: SalesMetricsData }) {
             value={formatPercent(data.bookingRate)}
             trend="up"
             trendValue="+4,1%"
+            {...sparklineProps("bookingRate", 100)}
           />
-          <MetricCard title="Tiempo de respuesta prom." value={`${data.avgResponseMin} min`} />
+          <MetricCard
+            title="Tiempo de respuesta prom."
+            value={`${data.avgResponseMin} min`}
+            {...sparklineProps("responseTime", 200)}
+          />
           <MetricCard
             title="Tasa de fantasma"
             value={formatPercent(data.ghostingRate)}
             trend="down"
             trendValue="-2,3%"
+            {...sparklineProps("ghostingRate", 300)}
           />
           <MetricCard title="Mensajes / agendamiento" value={String(data.messagesPerBooking)} />
           <MetricCard title="Retraso en follow-up" value={`${data.followUpDelayHours} h`} />
-          <MetricCard title="Conversaciones activas" value={String(data.activeConversations)} />
+          <MetricCard
+            title="Conversaciones activas"
+            value={String(data.activeConversations)}
+            {...sparklineProps("conversations", 400)}
+          />
           <MetricCard
             title="Sin responder"
             value={String(data.unansweredConversations)}

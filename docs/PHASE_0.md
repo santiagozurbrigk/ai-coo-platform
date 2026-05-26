@@ -1,8 +1,9 @@
 # Phase 0 — Prototipo visual
 
-**Estado:** ✅ Prototipo demo-ready (Fase 0.8+ extensiones)  
+**Estado:** ✅ **CERRADA** — aprobada por founder (mayo 2026)  
+**Tag git sugerido:** `phase-0-demo-ready`  
 **Idioma UI:** Español  
-**Backend:** Ninguno (mock data + React Context)
+**Backend:** Ninguno (mock data + React Context) — sustituido en Phase 1
 
 **Documento maestro del estado actual:** [`ESTADO_PLATAFORMA.md`](./ESTADO_PLATAFORMA.md)
 
@@ -27,6 +28,7 @@ Un founder puede navegar el producto y entender en minutos qué hace, por qué i
 | 0.11 | **Finanzas** + **Gastos** |
 | 0.12 | **Marketing** (módulo dedicado, ex–Marketing Insights) |
 | 0.13 | Rediseño visual **VisionOS** (glass + púrpura `#7C3AED`) |
+| 0.14 | Sparklines en metric cards, calendario Closing, pulido tokens gráficos |
 
 ## Cómo ejecutar
 
@@ -51,8 +53,8 @@ Panel General
 Finanzas → Gastos
 Marketing → Overview · Contenido · Conexión con Ventas
 Ventas → Bandeja · Métricas · Closing
-Clientes
 Operaciones → Overview · SOPs · Team Inputs
+Clientes
 Base de conocimiento
 Integraciones
 Equipo
@@ -81,20 +83,21 @@ Configuración (pie del sidebar)
 
 **Legacy:** `/sales/marketing-insights/*` redirige a `/marketing/*`.
 
-## Checklist de validación (antes de Phase 1)
+## Checklist de validación — completado
 
-- [ ] Recorrido `/demo` (~15 min con módulos nuevos)
-- [ ] Panel General: métricas, riesgos, CTAs
-- [ ] Finanzas: plataformas, 6 métricas, gráficos
-- [ ] Gastos: 3 secciones + resumen
-- [ ] Marketing: overview, contenido, detalle, conexión ventas
-- [ ] Ventas: bandeja + etiquetas + journey inline
-- [ ] Métricas: rendimiento por closer
-- [ ] Closing → modal pago → cliente creado
-- [ ] Integraciones: Instagram (mock) + conectar
-- [ ] Ctrl+K y breadcrumbs en módulos nuevos
-- [ ] Super Admin: orgs, cerebro IA
-- [ ] UI VisionOS consistente (glass, púrpura)
+- [x] Recorrido `/demo` (~15 min con módulos nuevos)
+- [x] Panel General: métricas (con sparklines), riesgos, CTAs
+- [x] Finanzas: plataformas, métricas, gráficos (tokens unificados)
+- [x] Gastos: 3 secciones + resumen
+- [x] Marketing: overview, contenido, detalle, conexión ventas
+- [x] Ventas: bandeja + etiquetas + journey inline
+- [x] Métricas: rendimiento por closer
+- [x] Closing: calendario + modal pago → cliente creado
+- [x] Integraciones: Instagram (mock) + conectar
+- [x] Ctrl+K y breadcrumbs en módulos nuevos
+- [x] Super Admin: orgs, cerebro IA
+- [x] UI VisionOS consistente (glass, púrpura)
+- [x] Aprobación founder para Phase 1
 
 ## Qué NO incluye Phase 0
 
@@ -104,8 +107,8 @@ Configuración (pie del sidebar)
 - OAuth real (Instagram, ManyChat, Calendly…)
 - API routes de negocio
 
-## Siguiente paso: Phase 1
+## Siguiente paso: Phase 1 (en curso)
 
-Ver `PROJECT_CONSTITUTION.md`, `SYSTEM_ARCHITECTURE.md`, `AI_ENGINE_SPEC.md` y `ESTADO_PLATAFORMA.md` (sección Próximos pasos).
+Ver [`PHASE_1.md`](./PHASE_1.md), `PROJECT_CONSTITUTION.md`, `SYSTEM_ARCHITECTURE.md` y `AI_ENGINE_SPEC.md`.
 
-Solo iniciar Phase 1 tras **aprobación explícita** del prototipo.
+Fase 0 cerrada — desarrollo activo en backend, auth e integraciones.

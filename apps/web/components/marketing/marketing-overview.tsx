@@ -1,6 +1,7 @@
 "use client";
 
 import { MetricCard } from "@ai-coo/ui";
+import { sparklineProps } from "@/lib/metrics/sparkline-series";
 import { mockContentAssets } from "@/mocks/marketing-insights";
 import {
   mockContentFunnel,
@@ -50,6 +51,7 @@ export function MarketingOverview() {
           subtitle="Últimos 30 días"
           trend="up"
           trendValue={`+${m.reachTrendPct}%`}
+          {...sparklineProps("reach", 0)}
         />
         <MetricCard
           title="Interacciones totales"
@@ -57,6 +59,7 @@ export function MarketingOverview() {
           subtitle={`Engagement ${m.engagementRatePct}%`}
           trend="up"
           trendValue={`+${m.interactionsTrendPct}%`}
+          {...sparklineProps("interactions", 100)}
         />
         <MetricCard
           title="Contenido publicado"
@@ -67,6 +70,7 @@ export function MarketingOverview() {
           title="Conversaciones generadas"
           value={String(m.conversationsGenerated)}
           subtitle="Vinculadas a bandeja de ventas"
+          {...sparklineProps("conversations", 200)}
         />
         <MetricCard
           title="Bookings influenciados"
@@ -77,6 +81,7 @@ export function MarketingOverview() {
           title="Ventas influenciadas"
           value={String(m.salesInfluenced)}
           subtitle={`$${m.revenueInfluenced.toLocaleString("es-ES")} atribuidos`}
+          {...sparklineProps("salesInfluenced", 300)}
         />
       </div>
 

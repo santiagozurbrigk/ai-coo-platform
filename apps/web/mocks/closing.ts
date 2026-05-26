@@ -70,6 +70,21 @@ export const mockClosingCalls: ClosingCall[] = [
     conversationId: "c8",
     formAnswers: DEFAULT_FORM,
   },
+  {
+    id: "cl6",
+    leadName: "Valentina Ruiz",
+    scheduledAt: "2026-05-26T14:30:00Z",
+    status: "scheduled",
+    conversationId: "c9",
+    formAnswers: DEFAULT_FORM,
+  },
+  {
+    id: "cl7",
+    leadName: "Pablo Soto",
+    scheduledAt: "2026-05-28T17:00:00Z",
+    status: "scheduled",
+    formAnswers: DEFAULT_FORM,
+  },
 ];
 
 export function getClosingCallById(id: string): ClosingCall | undefined {

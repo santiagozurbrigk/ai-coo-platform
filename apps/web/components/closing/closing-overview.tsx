@@ -12,11 +12,11 @@ import { Calendar, ExternalLink, Video } from "lucide-react";
 import { ModuleSubnav } from "@/components/shared/client";
 import { PageHeader } from "@/components/shared/page-header";
 import { useHashTab } from "@/lib/hooks/use-hash-tab";
-import { formatRelativeTime } from "@/lib/format";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import { paths } from "@/routes";
 import type { ClosingCall, ClosingCallStatus } from "@/types/closing";
+import { ClosingCalendar } from "./closing-calendar";
 import { PaymentModal } from "./payment-modal";
 import { NoCloseModal } from "./no-close-modal";
 
@@ -70,6 +70,10 @@ export function ClosingOverview() {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [noCloseOpen, setNoCloseOpen] = useState(false);
   const [calendarMode, setCalendarMode] = useState<"month" | "week">("month");
+  const [calendarAnchor, setCalendarAnchor] = useState(() => {
+    const first = closingCalls[0]?.scheduledAt;
+    return first ? new Date(first) : new Date();
+  });
 
   const selected = closingCalls.find((c) => c.id === selectedId);
 
@@ -198,25 +202,35 @@ export function ClosingOverview() {
                   Sincronizado con Calendly (mock)
                 </p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {closingCalls.map((call) => (
-                  <button
-                    key={call.id}
-                    type="button"
-                    onClick={() => setSelectedId(call.id)}
-                    className={cn(
-                      "rounded-xl border border-border p-4 text-left transition-colors hover:bg-muted/30",
-                      selectedId === call.id && "border-primary bg-muted/40"
-                    )}
-                  >
-                    <p className="font-medium">{call.leadName}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatCallDate(call.scheduledAt)}
-                    </p>
-                    <Badge className="mt-2" variant={STATUS_VARIANT[call.status]}>
-                      {STATUS_LABEL[call.status]}
-                    </Badge>
-                  </button>
+              <ClosingCalendar
+                calls={closingCalls}
+                mode={calendarMode}
+                anchorDate={calendarAnchor}
+                onAnchorChange={setCalendarAnchor}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+              />
+              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                {(
+                  [
+                    ["scheduled", "Agendada"],
+                    ["closed", "Cerrada"],
+                    ["not_closed", "No cerrada"],
+                    ["no_show", "No show"],
+                  ] as const
+                ).map(([status, label]) => (
+                  <span key={status} className="flex items-center gap-1.5">
+                    <span
+                      className={cn(
+                        "h-2 w-2 rounded-full",
+                        status === "scheduled" && "bg-primary",
+                        status === "closed" && "bg-emerald-500",
+                        status === "not_closed" && "bg-amber-500",
+                        status === "no_show" && "bg-destructive"
+                      )}
+                    />
+                    {label}
+                  </span>
                 ))}
               </div>
             </>

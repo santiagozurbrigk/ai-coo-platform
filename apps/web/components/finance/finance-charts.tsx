@@ -5,6 +5,13 @@ import { GlassPanel, cn } from "@ai-coo/ui";
 import { motion } from "framer-motion";
 import { useFinanceData } from "@/providers";
 import { formatMoney } from "@/lib/finance/format";
+import {
+  chartColors,
+  chartGradients,
+  expenseSegmentColors,
+  platformRingColors,
+  revenueStackColors,
+} from "@/lib/chart/colors";
 import type { MonthlySeriesPoint } from "@/types/finance";
 
 const W = 520;
@@ -102,8 +109,8 @@ function FacturacionVsCashChart({ data }: { data: MonthlySeriesPoint[] }) {
             <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
           </linearGradient>
           <linearGradient id="cashGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="hsl(200 80% 55%)" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="hsl(200 80% 55%)" stopOpacity="0" />
+            <stop offset="0%" stopColor={chartColors.info} stopOpacity="0.35" />
+            <stop offset="100%" stopColor={chartColors.info} stopOpacity="0" />
           </linearGradient>
         </defs>
         <polygon points={area("facturacion", "factGrad")} fill="url(#factGrad)" />
@@ -116,7 +123,7 @@ function FacturacionVsCashChart({ data }: { data: MonthlySeriesPoint[] }) {
         />
         <polyline
           fill="none"
-          stroke="hsl(200 80% 55%)"
+          stroke={chartColors.info}
           strokeWidth="2"
           points={data.map((d, i) => `${x(i)},${yCash(d.cashCollected)}`).join(" ")}
         />
@@ -172,8 +179,8 @@ function PorCobrarSteppedChart({
       <svg viewBox={`0 0 ${W2} ${H2}`} className="w-full">
         <defs>
           <linearGradient id="amberLine" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#f59e0b" />
-            <stop offset="100%" stopColor="#eab308" />
+            <stop offset="0%" stopColor={chartGradients.warningLine.start} />
+            <stop offset="100%" stopColor={chartGradients.warningLine.end} />
           </linearGradient>
         </defs>
         {months.map((m, i) => {
@@ -198,8 +205,8 @@ function PorCobrarSteppedChart({
                 cx={x}
                 cy={y}
                 r="5"
-                fill="#f59e0b"
-                className="drop-shadow-[0_0_6px_rgba(245,158,11,0.8)]"
+                fill={chartColors.warning}
+                className="drop-shadow-[0_0_6px_hsl(var(--warning)/0.6)]"
               />
               <text x={x} y={H2 - 4} textAnchor="middle" fontSize="10" className="fill-muted-foreground">
                 {m.month}
@@ -221,10 +228,10 @@ function ExpenseRadialChart({
   summary: { gastosTotales: number };
 }) {
   const segments = [
-    { label: "Gastos fijos", value: 430, color: "#7C3AED" },
-    { label: "Suscripciones", value: 100, color: "#22d3ee" },
-    { label: "Salarios equipo", value: 1800, color: "#a78bfa" },
-    { label: "Comisiones", value: 9030, color: "#f472b6" },
+    { label: "Gastos fijos", value: 430, color: expenseSegmentColors[0] },
+    { label: "Suscripciones", value: 100, color: expenseSegmentColors[1] },
+    { label: "Salarios equipo", value: 1800, color: expenseSegmentColors[2] },
+    { label: "Comisiones", value: 9030, color: expenseSegmentColors[3] },
   ];
   const total = segments.reduce((s, x) => s + x.value, 0);
   const r = 70;
@@ -293,7 +300,7 @@ function PlatformRingChart({
     (p) => balances.find((b) => b.platformId === p.id)?.amount ?? 0
   );
   const total = amounts.reduce((a, b) => a + b, 0) || 1;
-  const colors = ["#7C3AED", "#A78BFA", "#f59e0b", "#c4b5fd"];
+  const colors = [...platformRingColors];
   const cx = 100;
   const cy = 100;
 
@@ -377,8 +384,12 @@ function MarginHealthChart({ data }: { data: MonthlySeriesPoint[] }) {
               cx={x(i)}
               cy={y(d.marginPercent)}
               r="4"
-              fill={above ? "#22c55e" : "#ef4444"}
-              className={above ? "drop-shadow-[0_0_6px_#22c55e]" : "drop-shadow-[0_0_6px_#ef4444]"}
+              fill={above ? chartColors.success : chartColors.destructive}
+              className={
+                above
+                  ? "drop-shadow-[0_0_6px_hsl(var(--success)/0.7)]"
+                  : "drop-shadow-[0_0_6px_hsl(var(--destructive)/0.7)]"
+              }
             />
           );
         })}
@@ -389,7 +400,7 @@ function MarginHealthChart({ data }: { data: MonthlySeriesPoint[] }) {
 
 function RevenueStackedChart({ data }: { data: MonthlySeriesPoint[] }) {
   const keys = ["upfront", "installments", "fees"] as const;
-  const colors = ["hsl(var(--primary))", "hsl(200 80% 55%)", "hsl(280 70% 60%)"];
+  const colors = [...revenueStackColors];
   const W4 = 520;
   const H4 = 200;
   const innerW = W4 - 56;
@@ -447,10 +458,10 @@ function RevenueStackedChart({ data }: { data: MonthlySeriesPoint[] }) {
           <span className="h-2 w-3 rounded bg-primary/60" /> Upfront
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2 w-3 rounded bg-cyan-500/60" /> Cuotas
+          <span className="h-2 w-3 rounded bg-[hsl(var(--info)/0.6)]" /> Cuotas
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2 w-3 rounded bg-violet-500/60" /> Fees
+          <span className="h-2 w-3 rounded bg-[hsl(var(--chart-tertiary)/0.6)]" /> Fees
         </span>
       </div>
     </ChartShell>

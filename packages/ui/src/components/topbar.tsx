@@ -36,7 +36,7 @@ export function Topbar({
               </h1>
             )}
             {subtitle && (
-              <p className="truncate text-xs text-white/30">{subtitle}</p>
+              <p className="truncate text-xs text-white/45">{subtitle}</p>
             )}
           </div>
         )}

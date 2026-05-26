@@ -86,4 +86,10 @@
   --glass-border-subtle: rgba(255, 255, 255, 0.07);
   --glass-blur: 40px;
   --glass-blur-md: 20px;
+
+  /* Charts — alineados con semántica y marca */
+  --chart-secondary: 258 91% 76%;
+  --chart-tertiary: 280 70% 60%;
+  --chart-lavender: 258 45% 72%;
+  --chart-pink: 330 70% 65%;
 }

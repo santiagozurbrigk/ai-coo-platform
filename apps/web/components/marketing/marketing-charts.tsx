@@ -13,6 +13,7 @@ import type {
 } from "@/types/marketing-insights";
 import { CONTENT_TYPE_LABEL } from "@/components/marketing-insights/content-labels";
 import { ContentThumbnail } from "@/components/marketing-insights/content-thumbnail";
+import { chartColors } from "@/lib/chart/colors";
 import { paths } from "@/routes";
 import Link from "next/link";
 
@@ -83,8 +84,8 @@ export function ReachInteractionsChart({ data }: { data: MarketingTimePoint[] })
             <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
           </linearGradient>
           <linearGradient id="intG" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="hsl(200 80% 55%)" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="hsl(200 80% 55%)" stopOpacity="0" />
+            <stop offset="0%" stopColor={chartColors.info} stopOpacity="0.35" />
+            <stop offset="100%" stopColor={chartColors.info} stopOpacity="0" />
           </linearGradient>
         </defs>
         <polygon points={area("reach")} fill="url(#reachG)" />
@@ -97,7 +98,7 @@ export function ReachInteractionsChart({ data }: { data: MarketingTimePoint[] })
         />
         <polyline
           fill="none"
-          stroke="hsl(200 80% 55%)"
+          stroke={chartColors.info}
           strokeWidth="2"
           points={data.map((d, i) => `${x(i)},${yI(d.interactions)}`).join(" ")}
         />
@@ -107,7 +108,7 @@ export function ReachInteractionsChart({ data }: { data: MarketingTimePoint[] })
           <span className="h-2 w-3 rounded bg-primary/60" /> Alcance
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-2 w-3 rounded bg-cyan-500/60" /> Interacciones
+          <span className="h-2 w-3 rounded bg-[hsl(var(--info)/0.6)]" /> Interacciones
         </span>
       </div>
     </ChartShell>
@@ -127,9 +128,9 @@ export function TopConvertingContentList({
           const content = getContentById(item.contentId);
           if (!content) return null;
           const borderColors = [
-            "border-l-primary shadow-[0_0_20px_rgba(99,102,241,0.25)]",
-            "border-l-violet-500/80",
-            "border-l-cyan-500/60",
+            "border-l-primary shadow-[0_0_20px_hsl(var(--primary)/0.25)]",
+            "border-l-[hsl(var(--chart-secondary))]",
+            "border-l-[hsl(var(--info)/0.7)]",
             "border-l-muted",
           ];
           return (
@@ -179,7 +180,7 @@ export function ContentFunnelChart({ stages }: { stages: ContentFunnelStage[] })
                 </span>
               </div>
               <div
-                className="h-9 rounded-md bg-gradient-to-r from-primary/80 to-violet-600/40 mx-auto transition-all"
+                className="h-9 rounded-md bg-gradient-to-r from-primary/80 to-[hsl(var(--chart-tertiary)/0.45)] mx-auto transition-all"
                 style={{ width: `${widthPct}%` }}
               />
             </div>
@@ -210,7 +211,7 @@ export function TypeRadarChart({ types }: { types: ContentTypePerformance[] }) {
       <polygon
         points={pts}
         fill={fill}
-        stroke={key === "reach" ? "hsl(var(--primary))" : "hsl(280 70% 60%)"}
+        stroke={key === "reach" ? chartColors.primary : chartColors.tertiary}
         strokeWidth="1.5"
         opacity={0.55}
       />
@@ -233,7 +234,7 @@ export function TypeRadarChart({ types }: { types: ContentTypePerformance[] }) {
           />
         ))}
         {poly("reach", "hsl(var(--primary) / 0.2)")}
-        {poly("conversions", "hsl(280 70% 60% / 0.25)")}
+        {poly("conversions", "hsl(var(--chart-tertiary) / 0.25)")}
         {types.map((t, i) => (
           <text
             key={t.type}

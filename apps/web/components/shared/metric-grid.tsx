@@ -1,5 +1,9 @@
 import { MetricCard, type MetricTrend } from "@ai-coo/ui";
 import type { DashboardMetric } from "@/types/dashboard";
+import {
+  DASHBOARD_SPARKLINE_BY_ID,
+  sparklineProps,
+} from "@/lib/metrics/sparkline-series";
 
 export function MetricGrid({
   metrics,
@@ -17,15 +21,21 @@ export function MetricGrid({
 
   return (
     <div className={`grid gap-4 ${colClass}`}>
-      {metrics.map((m) => (
-        <MetricCard
-          key={m.id}
-          title={m.label}
-          value={m.value}
-          trend={m.trend as MetricTrend | undefined}
-          trendValue={m.trendValue}
-        />
-      ))}
+      {metrics.map((m, index) => {
+        const preset = DASHBOARD_SPARKLINE_BY_ID[m.id];
+        const sparkline = preset ? sparklineProps(preset, index * 100) : {};
+
+        return (
+          <MetricCard
+            key={m.id}
+            title={m.label}
+            value={m.value}
+            trend={m.trend as MetricTrend | undefined}
+            trendValue={m.trendValue}
+            {...sparkline}
+          />
+        );
+      })}
     </div>
   );
 }

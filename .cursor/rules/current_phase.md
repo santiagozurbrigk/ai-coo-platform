@@ -1,18 +1,17 @@
-# Phase 0 — Prototipo visual (demo-ready)
+# Phase 1 — Backend, auth e integraciones (activa)
 
-**Estado:** UI completa con mocks. Sin backend.
-
-**Referencia:** `docs/ESTADO_PLATAFORMA.md` · `docs/PHASE_0.md`
+**Fase 0:** ✅ Cerrada y aprobada (mayo 2026)  
+**Referencia:** `docs/PHASE_1.md` · `docs/ESTADO_PLATAFORMA.md` · `docs/PHASE_0.md`
 
 ## Reglas para el agente
 
-- **Solo UI + mocks** en Fase 0. No Supabase, auth real, API de negocio ni OAuth.
-- **No cambiar layout/IA** salvo petición explícita; preferir tokens y `@ai-coo/ui`.
+- **Fase 0 terminada:** no añadir mocks de producto salvo fixtures para desarrollo Phase 1.
+- **Prioridad:** auth multi-tenant → DB + RLS → Server Actions → integraciones (ManyChat, Calendly, Instagram, pagos).
+- **Mantener UI** de `apps/web`; sustituir providers mock de forma incremental.
 - **Español** en copy de producto.
 - **Rutas:** `apps/web/routes/paths.ts` + `navigation.ts`.
-- **Estado global:** `PlatformDataProvider`, `FinanceDataProvider`, `MarketingDataProvider`.
 
-## Módulos plataforma (sidebar)
+## Módulos plataforma (UI existente — sin cambios de navegación)
 
 | Módulo | Ruta base |
 |--------|-----------|
@@ -20,15 +19,15 @@
 | Finanzas / Gastos | `/finance`, `/finance/expenses` |
 | Marketing | `/marketing` (+ content, sales-connection) |
 | Ventas | `/sales/inbox`, `/metrics`, `/closing` |
-| Clientes | `/clients` |
 | Operaciones | `/operations/overview`, `sops`, `team-inputs` |
+| Clientes | `/clients` |
 | KB | `/business-context/documents` |
 | Integraciones | `/integrations` |
 | Equipo | `/team` |
 
-## No construir hasta Phase 1
+## Primer entregable Phase 1
 
-Backend, database, auth, Claude API, integraciones reales, cálculo financiero persistido.
+Supabase + login real + una entidad persistida (ej. `clients` o `closing_calls`) con RLS por `org_id`.
 
 ## Dev
 
@@ -37,8 +36,4 @@ npx pnpm@9.15.0 --filter @ai-coo/web dev
 ```
 
 - http://localhost:3000/dashboard
-- http://localhost:3000/marketing
-- http://localhost:3000/finance
 - http://localhost:3000/demo
-
-Tras aprobación founder → **Phase 1**.

@@ -62,6 +62,7 @@ export { Heading, Text, Caption, Mono } from "./primitives/typography";
 // Composite components
 export { GlassPanel, type GlassPanelProps } from "./components/glass-panel";
 export { MetricCard, type MetricCardProps, type MetricTrend } from "./components/metric-card";
+export { Sparkline, type SparklineProps } from "./components/sparkline";
 export { AiCard, type AiCardProps } from "./components/ai-card";
 export { BarChart, type BarChartProps, type BarChartDatum } from "./components/bar-chart";
 export { FormField, type FormFieldProps } from "./components/form-field";

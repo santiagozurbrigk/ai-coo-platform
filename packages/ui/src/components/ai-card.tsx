@@ -48,7 +48,7 @@ export function AiCard({
             <span className="text-sm font-medium text-gradient-ai">{title}</span>
             <Badge variant="ai">AI</Badge>
             {confidence !== undefined && (
-              <span className="text-2xs text-white/35">
+              <span className="text-2xs text-white/50">
                 {Math.round(confidence * 100)}% confianza
               </span>
             )}
@@ -57,7 +57,7 @@ export function AiCard({
             {children}
           </div>
           {source && (
-            <p className="text-2xs text-white/30">Fuente: {source}</p>
+            <p className="text-2xs text-white/45">Fuente: {source}</p>
           )}
         </div>
       </div>
