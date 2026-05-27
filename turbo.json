@@ -3,7 +3,20 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "env": [
+        "NEXT_PUBLIC_APP_URL",
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "CALENDLY_CLIENT_ID",
+        "CALENDLY_CLIENT_SECRET",
+        "CALENDLY_REDIRECT_URI",
+        "CALENDLY_WEBHOOK_URL",
+        "CALENDLY_AUTH_BASE",
+        "CALENDLY_AUTH_TOKEN",
+        "CALENDLY_SCOPES"
+      ]
     },
     "dev": {
       "cache": false,

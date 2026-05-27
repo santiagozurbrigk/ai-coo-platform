@@ -3,6 +3,31 @@ export type CalendlyQA = {
   answer: string;
 };
 
+/** Fragmento del payload de webhooks Calendly (invitee.*). */
+export type CalendlyWebhookInviteePayload = {
+  uri?: string;
+  email?: string;
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+  firstName?: string;
+  lastName?: string;
+  questions_and_answers?: Array<{
+    question?: string;
+    answer?: string | number | null;
+  }>;
+  scheduled_event?: { start_time?: string; end_time?: string };
+  event?: string | { start_time?: string; uri?: string };
+  start_time?: string;
+  invitee?: string | { uri?: string };
+  routing_form_submission?: string | { uri?: string };
+};
+
+export type CalendlyWebhookBody = {
+  event?: string;
+  payload?: CalendlyWebhookInviteePayload;
+};
+
 export type CalendlyEventSyncPayload = {
   /** Identificador único del evento en Calendly (id/slug). */
   eventId: string;

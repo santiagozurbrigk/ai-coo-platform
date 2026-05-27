@@ -114,12 +114,14 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                 return;
               }
 
-              status === "not_connected"
-                ? setConnectOpen(true)
-                : push({
-                    title: integration.name,
-                    description: "Configuración de integración — prototipo.",
-                  });
+              if (status === "not_connected") {
+                setConnectOpen(true);
+              } else {
+                push({
+                  title: integration.name,
+                  description: "Configuración de integración — prototipo.",
+                });
+              }
             }}
           >
             {syncing

@@ -7,11 +7,6 @@ import { cookies } from "next/headers";
 
 export const runtime = "nodejs";
 
-function base64UrlDecodeToString(input: string): string {
-  // No usamos decode hoy; helper para futuras extensiones.
-  return input;
-}
-
 function safeJsonParse<T>(value: string | undefined): T | null {
   if (!value) return null;
   try {

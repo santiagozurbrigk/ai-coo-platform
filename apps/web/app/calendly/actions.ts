@@ -4,6 +4,7 @@ import {
   isMissingTableError,
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -66,7 +67,7 @@ export async function syncCalendlyEventsForOrganizationAdminAction(
 }
 
 async function syncCalendlyEventsForOrganizationImpl(
-  supabase: any,
+  supabase: SupabaseClient,
   organizationId: string,
   events: CalendlyEventSyncPayload[]
 ): Promise<{

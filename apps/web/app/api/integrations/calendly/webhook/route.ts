@@ -3,11 +3,11 @@ import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncCalendlyEventsForOrganizationAdminAction } from "@/app/calendly/actions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import type { CalendlyWebhookBody, CalendlyWebhookInviteePayload } from "@/types/calendly";
 
 export const runtime = "nodejs";
 
 function parseCalendlySignature(headerValue: string) {
-  // Formato: t=1693597064,v1=5mEzn...
   const parts = headerValue.split(",");
   if (parts.length < 2) return null;
   const t = parts[0]?.split("=")[1];
@@ -16,7 +16,11 @@ function parseCalendlySignature(headerValue: string) {
   return { timestamp: t, v1 };
 }
 
-function verifyCalendlySignature(bodyText: string, signatureHeader: string, secret: string) {
+function verifyCalendlySignature(
+  bodyText: string,
+  signatureHeader: string,
+  secret: string
+) {
   const parsed = parseCalendlySignature(signatureHeader);
   if (!parsed) return false;
   const expected = crypto
@@ -24,7 +28,6 @@ function verifyCalendlySignature(bodyText: string, signatureHeader: string, secr
     .update(`${parsed.timestamp}.${bodyText}`)
     .digest("hex");
 
-  // timingSafeEqual exige el mismo tamaño.
   if (expected.length !== parsed.v1.length) return false;
   return crypto.timingSafeEqual(
     Buffer.from(expected.toLowerCase(), "utf8"),
@@ -32,44 +35,51 @@ function verifyCalendlySignature(bodyText: string, signatureHeader: string, secr
   );
 }
 
-function extractStartTime(payload: any): string | null {
-  // Estructura común:
-  // payload.scheduled_event.start_time o payload.event.start_time
-  return (
-    payload?.scheduled_event?.start_time ??
-    payload?.event?.start_time ??
-    payload?.start_time ??
-    payload?.event?.start_time ??
-    null
-  );
+function uriFromField(
+  field: string | { uri?: string } | undefined
+): string | null {
+  if (!field) return null;
+  if (typeof field === "string") return field;
+  return field.uri ?? null;
 }
 
-function extractInviteeName(payload: any): string | null {
-  const name = payload?.name ?? null;
-  if (name) return String(name);
+function extractStartTime(payload: CalendlyWebhookInviteePayload): string | null {
+  const nested = payload.scheduled_event?.start_time;
+  if (nested) return nested;
 
-  const first = payload?.first_name ?? payload?.firstName;
-  const last = payload?.last_name ?? payload?.lastName;
+  const eventField = payload.event;
+  if (eventField && typeof eventField === "object" && "start_time" in eventField) {
+    const start = eventField.start_time;
+    if (start) return start;
+  }
+
+  return payload.start_time ?? null;
+}
+
+function extractInviteeName(payload: CalendlyWebhookInviteePayload): string | null {
+  if (payload.name) return String(payload.name);
+
+  const first = payload.first_name ?? payload.firstName;
+  const last = payload.last_name ?? payload.lastName;
   if (first || last) return `${first ?? ""} ${last ?? ""}`.trim();
 
   return null;
 }
 
-function extractEventId(payload: any): string | null {
-  // En invitee.created normalmente payload.uri es el invitee canon.
+function extractEventId(payload: CalendlyWebhookInviteePayload): string | null {
   return (
-    payload?.uri ??
-    payload?.invitee?.uri ??
-    payload?.event?.uri ??
-    payload?.routing_form_submission?.uri ??
+    payload.uri ??
+    uriFromField(payload.invitee) ??
+    (typeof payload.event === "string" ? payload.event : payload.event?.uri) ??
+    uriFromField(payload.routing_form_submission) ??
     null
   );
 }
 
-function extractQuestionsAndAnswers(payload: any) {
-  const qas = payload?.questions_and_answers;
+function extractQuestionsAndAnswers(payload: CalendlyWebhookInviteePayload) {
+  const qas = payload.questions_and_answers;
   if (!Array.isArray(qas)) return [];
-  const mapped = qas.map((qa: any) => {
+  const mapped = qas.map((qa) => {
     const question = qa?.question ?? null;
     const answer = qa?.answer ?? null;
     if (!question || answer == null) return null;
@@ -81,12 +91,13 @@ function extractQuestionsAndAnswers(payload: any) {
   );
 }
 
-function mapStatusHint(eventType: string): "scheduled" | "no_show" | "not_closed" {
+function mapStatusHint(
+  eventType: string
+): "scheduled" | "no_show" | "not_closed" {
   if (eventType === "invitee.created") return "scheduled";
   if (eventType === "invitee_no_show.created") return "no_show";
   if (eventType === "invitee.canceled") return "no_show";
   if (eventType === "invitee_no_show.deleted") return "scheduled";
-  if (eventType === "routing_form_submission.created") return "scheduled";
   return "scheduled";
 }
 
@@ -99,27 +110,35 @@ export async function POST(req: Request) {
     const bodyText = await req.text();
     const signature =
       req.headers.get("Calendly-Webhook-Signature") ??
-      req.headers.get("calendly-webhook-signature") ??
-      req.headers.get("Calendly-Webhook-Signature");
+      req.headers.get("calendly-webhook-signature");
 
     if (!signature) {
-      return NextResponse.json({ error: "Falta header de firma de Calendly" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Falta header de firma de Calendly" },
+        { status: 400 }
+      );
     }
 
-    const body = JSON.parse(bodyText);
-    const eventType = String(body?.event ?? "");
-    const payload = body?.payload ?? {};
+    const body = JSON.parse(bodyText) as CalendlyWebhookBody;
+    const eventType = String(body.event ?? "");
+    const payload: CalendlyWebhookInviteePayload = body.payload ?? {};
 
     const supabase = createAdminClient();
     const { data: integrations } = await supabase
       .from("calendly_integrations")
       .select("organization_id, webhook_signing_key");
 
-    const list = (integrations ?? []) as { organization_id: string; webhook_signing_key: string }[];
+    const list = (integrations ?? []) as {
+      organization_id: string;
+      webhook_signing_key: string;
+    }[];
 
     let matchedOrgId: string | null = null;
     for (const int of list) {
-      if (int.webhook_signing_key && verifyCalendlySignature(bodyText, signature, int.webhook_signing_key)) {
+      if (
+        int.webhook_signing_key &&
+        verifyCalendlySignature(bodyText, signature, int.webhook_signing_key)
+      ) {
         matchedOrgId = int.organization_id;
         break;
       }
@@ -129,11 +148,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Firma de Calendly inválida" }, { status: 401 });
     }
 
-    const eventId = extractEventId(payload) ?? extractEventId(body?.payload);
+    const eventId = extractEventId(payload);
     const startTime = extractStartTime(payload) ?? new Date().toISOString();
     const inviteeName = extractInviteeName(payload);
     if (!eventId || !inviteeName) {
-      return NextResponse.json({ error: "Payload incompleto para sincronizar" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Payload incompleto para sincronizar" },
+        { status: 400 }
+      );
     }
 
     const questionsAndAnswers = extractQuestionsAndAnswers(payload);
@@ -143,8 +165,8 @@ export async function POST(req: Request) {
         eventId,
         startTime,
         inviteeName,
-        inviteeEmail: payload?.email,
-        url: payload?.uri ?? null,
+        inviteeEmail: payload.email,
+        url: payload.uri,
         questionsAndAnswers,
         statusHint: mapStatusHint(eventType),
       },
@@ -158,4 +180,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
