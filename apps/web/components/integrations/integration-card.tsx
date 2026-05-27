@@ -21,7 +21,7 @@ import {
 } from "@ai-coo/ui";
 import { es } from "@/lib/locale/es";
 import { useToast } from "@/providers/toast-provider";
-import { useMarketingData } from "@/providers";
+import { useMarketingData, usePlatformData } from "@/providers";
 import type { Integration } from "@/types/integrations";
 import { CalendlyManualSyncNotice } from "./calendly-manual-sync-notice";
 
@@ -38,6 +38,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const [syncing, setSyncing] = useState(false);
   const { push } = useToast();
   const { setInstagramConnected } = useMarketingData();
+  const { refreshClosingCalls } = usePlatformData();
 
   useEffect(() => {
     if (integration.provider !== "calendly") return;
@@ -136,6 +137,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                 setSyncing(true);
                 try {
                   const result = await pullCalendlyScheduledEventsAction();
+                  await refreshClosingCalls();
                   push({
                     title: "Calendly sincronizado",
                     description: `${result.fetched} eventos · ${result.inserted} nuevos · ${result.updated} actualizados`,

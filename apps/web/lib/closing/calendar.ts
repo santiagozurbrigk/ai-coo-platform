@@ -116,3 +116,20 @@ export function addWeeks(date: Date, delta: number): Date {
 export function isSameMonth(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
 }
+
+/** Mes/semana a mostrar: próxima llamada futura, o la más reciente si todas pasaron. */
+export function pickCalendarFocusDate(
+  calls: { scheduledAt: string }[]
+): Date {
+  if (calls.length === 0) return new Date();
+
+  const sorted = [...calls].sort(
+    (a, b) =>
+      new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+  );
+  const now = Date.now();
+  const upcoming = sorted.find(
+    (c) => new Date(c.scheduledAt).getTime() >= now - 60_000
+  );
+  return new Date((upcoming ?? sorted[sorted.length - 1]).scheduledAt);
+}

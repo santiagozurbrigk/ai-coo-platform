@@ -11,6 +11,7 @@ import {
 import { Calendar, ExternalLink, Video } from "lucide-react";
 import { ModuleSubnav } from "@/components/shared/client";
 import { PageHeader } from "@/components/shared/page-header";
+import { isSameMonth, pickCalendarFocusDate } from "@/lib/closing/calendar";
 import { useHashTab } from "@/lib/hooks/use-hash-tab";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
@@ -59,6 +60,7 @@ export function ClosingOverview() {
   const {
     closingCalls,
     closingCallsLoading,
+    refreshClosingCalls,
     markCallClosed,
     markCallNotClosed,
     markCallNoShow,
@@ -70,10 +72,23 @@ export function ClosingOverview() {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [noCloseOpen, setNoCloseOpen] = useState(false);
   const [calendarMode, setCalendarMode] = useState<"month" | "week">("month");
-  const [calendarAnchor, setCalendarAnchor] = useState(() => {
-    const first = closingCalls[0]?.scheduledAt;
-    return first ? new Date(first) : new Date();
-  });
+  const [calendarAnchor, setCalendarAnchor] = useState(() =>
+    pickCalendarFocusDate(closingCalls)
+  );
+
+  useEffect(() => {
+    void refreshClosingCalls();
+  }, [refreshClosingCalls]);
+
+  useEffect(() => {
+    if (closingCalls.length === 0) return;
+    setCalendarAnchor((prev) => {
+      const hasCallInView = closingCalls.some((c) =>
+        isSameMonth(new Date(c.scheduledAt), prev)
+      );
+      return hasCallInView ? prev : pickCalendarFocusDate(closingCalls);
+    });
+  }, [closingCalls]);
 
   useEffect(() => {
     if (closingCalls.length === 0) {
