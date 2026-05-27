@@ -21,6 +21,8 @@ import {
   labelForOption,
   selectionIncludesOther,
 } from "@/lib/onboarding/steps";
+import { completeOnboardingAction } from "@/app/onboarding/actions";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import {
   markOnboardingComplete,
   saveOnboardingDraft,
@@ -73,11 +75,23 @@ export function OnboardingWizard() {
     if (stepIndex > 0) setStepIndex((i) => i - 1);
   };
 
-  const finish = () => {
-    markOnboardingComplete();
-    saveOnboardingDraft(data);
-    markWelcomePending();
-    router.push(paths.platform.dashboard);
+  const finish = async () => {
+    try {
+      if (isSupabaseConfigured()) {
+        await completeOnboardingAction(data);
+      }
+      markOnboardingComplete();
+      saveOnboardingDraft(data);
+      markWelcomePending();
+      router.push(paths.platform.dashboard);
+    } catch (e) {
+      console.error("[onboarding]", e);
+      alert(
+        e instanceof Error
+          ? e.message
+          : "No se pudo guardar el onboarding. Intenta de nuevo."
+      );
+    }
   };
 
   const toggleDepartment = (id: string) => {

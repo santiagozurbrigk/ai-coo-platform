@@ -1,0 +1,111 @@
+import type { User } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+
+function defaultOrgName(email: string): string {
+  const local = email.split("@")[0]?.trim();
+  if (local) {
+    return local.charAt(0).toUpperCase() + local.slice(1);
+  }
+  return "Mi organización";
+}
+
+/** Crea organización + perfil si el usuario aún no tiene fila en profiles. */
+export async function ensureUserBootstrap(user: User) {
+  const admin = createAdminClient();
+
+  const { data: existing } = await admin
+    .from("profiles")
+    .select("id, organization_id, role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (existing) return existing;
+
+  const email = user.email ?? "";
+  const fullName =
+    (user.user_metadata?.full_name as string | undefined) ??
+    (user.user_metadata?.name as string | undefined) ??
+    null;
+
+  const { data: org, error: orgError } = await admin
+    .from("organizations")
+    .insert({ name: defaultOrgName(email) })
+    .select("id")
+    .single();
+
+  if (orgError || !org) {
+    throw new Error(orgError?.message ?? "No se pudo crear la organización");
+  }
+
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .insert({
+      id: user.id,
+      organization_id: org.id,
+      email,
+      full_name: fullName,
+      role: "founder",
+    })
+    .select("id, organization_id, role")
+    .single();
+
+  if (profileError || !profile) {
+    throw new Error(profileError?.message ?? "No se pudo crear el perfil");
+  }
+
+  return profile;
+}
+
+export async function ensureCurrentUserBootstrap() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    throw new Error(error?.message ?? "Sesión no válida");
+  }
+
+  return ensureUserBootstrap(user);
+}
+
+export async function getCurrentProfile() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, organization_id, email, full_name, role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return profile;
+}
+
+/** Garantiza org + perfil (repara usuarios creados antes del bootstrap). */
+export async function requireOrganizationId(): Promise<string> {
+  const profile = await getCurrentProfile();
+  if (profile?.organization_id) return profile.organization_id;
+
+  const boot = await ensureCurrentUserBootstrap();
+  if (!boot.organization_id) {
+    throw new Error(
+      "No se pudo vincular tu cuenta a una organización. Revisa Supabase (tablas organizations y profiles)."
+    );
+  }
+  return boot.organization_id;
+}
+
+export function isMissingTableError(message: string): boolean {
+  return (
+    message.includes("Could not find the table") ||
+    message.includes("does not exist") ||
+    message.includes("schema cache")
+  );
+}

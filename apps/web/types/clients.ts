@@ -13,6 +13,8 @@ export type ClientInstallment = {
   label: string;
   amount: number;
   status: InstallmentStatus;
+  /** Fecha en que se cobró (YYYY-MM-DD). Obligatoria para cuotas pagadas tras la primera. */
+  paidAt?: string;
   dueDate?: string;
   proofLabel?: string;
 };

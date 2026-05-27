@@ -1,14 +1,28 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { GlassPanel, MetricCard, Sparkline, cn } from "@ai-coo/ui";
 import { useFinanceData } from "@/providers";
+import { usePlatformData } from "@/providers/platform-data-provider";
 import { formatMoney } from "@/lib/finance/format";
 import { sparklineProps } from "@/lib/metrics/sparkline-series";
+import { deriveFinanceSummary } from "@/lib/metrics/derive-finance-summary";
+import {
+  collectRevenueEvents,
+  filterRevenueEvents,
+} from "@/lib/metrics/revenue-events";
+import {
+  DEFAULT_REVENUE_RANGE,
+  resolveRevenueDateRange,
+  type RevenueDateRange,
+} from "@/lib/metrics/revenue-period";
+import { FacturacionPeriodFilter } from "./facturacion-period-filter";
 
 function MarginArc({ percent }: { percent: number }) {
   const r = 36;
   const c = 2 * Math.PI * r;
-  const offset = c * (1 - Math.min(percent, 100) / 100);
+  const display = Math.min(Math.max(percent, 0), 100);
+  const offset = c * (1 - display / 100);
   return (
     <svg width="88" height="88" className="shrink-0">
       <circle
@@ -53,24 +67,67 @@ function MarginArc({ percent }: { percent: number }) {
 }
 
 export function FinanceMetrics() {
-  const { financeSummary, paymentPlatforms } = useFinanceData();
-  const s = financeSummary;
+  const {
+    clients,
+    closingCalls,
+    clientsLoading,
+    closingCallsLoading,
+  } = usePlatformData();
+  const { paymentPlatforms, expensesSummary } = useFinanceData();
+
+  const [revenueRange, setRevenueRange] =
+    useState<RevenueDateRange>(DEFAULT_REVENUE_RANGE);
+
+  const loading = clientsLoading || closingCallsLoading;
+
+  const summary = useMemo(() => {
+    return deriveFinanceSummary(
+      clients,
+      closingCalls,
+      expensesSummary,
+      paymentPlatforms,
+      revenueRange
+    );
+  }, [
+    clients,
+    closingCalls,
+    expensesSummary,
+    paymentPlatforms,
+    revenueRange,
+  ]);
+
+  const periodEvents = useMemo(() => {
+    const period = resolveRevenueDateRange(revenueRange);
+    return filterRevenueEvents(collectRevenueEvents(clients), period);
+  }, [clients, revenueRange]);
+
+  const s = summary;
   const marginSpark = sparklineProps("margin", 400);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[200px] items-center justify-center text-sm text-white/50">
+        Cargando métricas financieras…
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <MetricCard
-          title="Facturación"
-          value={formatMoney(s.facturacion)}
-          subtitle="Mes actual · upfront + cuotas pagadas + fees"
-          {...sparklineProps("revenue", 0)}
-        />
+      <FacturacionPeriodFilter
+        value={revenueRange}
+        onChange={setRevenueRange}
+        periodLabel={s.revenuePeriod.label}
+        facturacion={s.facturacion}
+        formatMoney={(n) => formatMoney(n)}
+        eventCount={periodEvents.length}
+      />
 
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <MetricCard
           title="Cash Collected"
           value={formatMoney(s.cashCollected)}
-          subtitle="Facturación − gastos fijos, suscripciones, equipo y fees"
+          subtitle={`Facturación del período − gastos prorrateados (${s.revenuePeriod.dayCount} d)`}
           trend="neutral"
           {...sparklineProps("cashCollected", 100)}
         />
@@ -79,7 +136,7 @@ export function FinanceMetrics() {
           <MetricCard
             title="Por cobrar"
             value={formatMoney(s.porCobrar)}
-            subtitle="Cuotas pendientes · no cuenta en facturación"
+            subtitle="Pendiente total · no depende del filtro de fechas"
             {...sparklineProps("porCobrar", 200)}
           />
           <div className="flex items-end justify-between gap-2 pt-1">
@@ -88,7 +145,7 @@ export function FinanceMetrics() {
                 <div
                   className="mx-auto w-full max-w-[48px] rounded-t bg-amber-500/30 border border-amber-500/50"
                   style={{
-                    height: `${24 + (m.amount / s.porCobrar) * 48}px`,
+                    height: `${s.porCobrar > 0 ? 24 + (m.amount / s.porCobrar) * 48 : 24}px`,
                   }}
                 />
                 <p className="text-[10px] text-muted-foreground mt-1">{m.month}</p>
@@ -101,9 +158,9 @@ export function FinanceMetrics() {
         </GlassPanel>
 
         <MetricCard
-          title="Gastos totales"
+          title="Gastos (período)"
           value={formatMoney(s.gastosTotales)}
-          subtitle="Fijos + suscripciones + equipo (mes)"
+          subtitle="Prorrateo del mes según días seleccionados"
           {...sparklineProps("expenses", 300)}
         />
 
@@ -122,7 +179,7 @@ export function FinanceMetrics() {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              Cash Collected / Facturación
+              % de la facturación del período que es ganancia
             </p>
           </div>
           <MarginArc percent={s.margenPercent} />
@@ -130,7 +187,7 @@ export function FinanceMetrics() {
 
         <div className="sm:col-span-2 xl:col-span-1 space-y-2">
           <p className="text-xs font-medium text-muted-foreground px-1">
-            Balance por plataforma
+            Ingresos por plataforma (período)
           </p>
           <div className="grid gap-2">
             {paymentPlatforms.map((p) => {
@@ -145,7 +202,7 @@ export function FinanceMetrics() {
                     <p className="text-xs text-muted-foreground">{p.currency}</p>
                   </div>
                   <p className="text-sm font-semibold tabular-nums">
-                    {formatMoney(bal?.amount ?? p.totalReceived, p.currency)}
+                    {formatMoney(bal?.amount ?? 0, p.currency)}
                   </p>
                 </GlassPanel>
               );

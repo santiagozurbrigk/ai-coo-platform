@@ -1,0 +1,75 @@
+import type { Client } from "@/types/clients";
+import type { ExpensesSummary } from "@/types/expenses";
+import type { MonthlySeriesPoint } from "@/types/finance";
+import {
+  collectRevenueEvents,
+  filterRevenueEvents,
+} from "@/lib/metrics/revenue-events";
+import { resolveRevenueDateRange } from "@/lib/metrics/revenue-period";
+
+const MONTH_SHORT = [
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
+];
+
+/** Últimos 6 meses: facturación = ingresos por fecha de cobro en cada mes. */
+export function deriveMonthlySeries(
+  clients: Client[],
+  expenses: ExpensesSummary
+): MonthlySeriesPoint[] {
+  const now = new Date();
+  const events = collectRevenueEvents(clients);
+  const buckets: MonthlySeriesPoint[] = [];
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const period = resolveRevenueDateRange({
+      preset: "month",
+      anchor: d.toISOString().slice(0, 10),
+    });
+    const monthEvents = filterRevenueEvents(events, period);
+
+    let facturacion = 0;
+    let upfront = 0;
+    let installments = 0;
+    let fees = 0;
+
+    for (const event of monthEvents) {
+      facturacion += event.amount;
+      if (event.source === "upfront" || event.source === "upfront_portion") {
+        upfront += event.amount;
+      } else if (event.source === "installment") {
+        installments += event.amount;
+      } else {
+        fees += event.amount;
+      }
+    }
+
+    const gastos = expenses.totalMonthly;
+    const gananciaNeta = facturacion - gastos;
+    const marginPercent =
+      facturacion > 0 ? (gananciaNeta / facturacion) * 100 : 0;
+
+    buckets.push({
+      month: MONTH_SHORT[d.getMonth()] ?? "—",
+      facturacion,
+      cashCollected: gananciaNeta,
+      upfront,
+      installments,
+      fees,
+      marginPercent,
+    });
+  }
+
+  return buckets;
+}

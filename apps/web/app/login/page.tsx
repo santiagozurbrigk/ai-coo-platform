@@ -1,14 +1,15 @@
-"use client";
-
-import { LoginScreen } from "@/components/auth/login-screen";
-import { paths } from "@/routes";
+import { Suspense } from "react";
+import { SupabaseLoginForm } from "@/components/auth/supabase-login-form";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { MockLoginPage } from "./mock-login-page";
 
 export default function ClientLoginPage() {
+  if (!isSupabaseConfigured()) {
+    return <MockLoginPage />;
+  }
   return (
-    <LoginScreen
-      variant="client"
-      redirectTo={paths.platform.dashboard}
-      showForgotPassword
-    />
+    <Suspense fallback={<p className="text-center text-sm text-muted-foreground">Cargando…</p>}>
+      <SupabaseLoginForm />
+    </Suspense>
   );
 }

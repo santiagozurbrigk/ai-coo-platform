@@ -1,6 +1,6 @@
 # Phase 1 — Backend, auth e integraciones
 
-**Estado:** En preparación (Fase 0 cerrada y aprobada, mayo 2026)  
+**Estado:** En curso — auth Supabase integrado (mayo 2026)  
 **Prerequisito:** Prototipo visual validado — ver [`PHASE_0.md`](./PHASE_0.md)
 
 ## Objetivo
@@ -18,12 +18,40 @@ Sustituir mocks y guards simulados por **persistencia real**, **multi-tenant** e
 | 5 | **Motor IA** | RAG según [`AI_ENGINE_SPEC.md`](./AI_ENGINE_SPEC.md) |
 | 6 | **Super Admin** | Orgs, usage IA, costos con datos reales |
 
-## Primer PR sugerido
+## Progreso
 
-1. Proyecto Supabase + variables de entorno documentadas  
-2. Login real en `/login`  
-3. Una entidad persistida end-to-end (ej. `clients` o `closing_calls`)  
-4. Migración gradual: un provider mock → Supabase sin reescribir toda la app
+- [x] Proyecto Supabase + `apps/web/.env.local`
+- [x] Migración SQL `organizations` + `profiles` (`supabase/migrations/`)
+- [x] Cliente Supabase (browser, server, admin, middleware)
+- [x] Login / registro real en `/login` + callback `/auth/callback`
+- [x] Bootstrap org + perfil (`founder`) al primer acceso
+- [x] Middleware protege rutas de plataforma
+- [x] Cerrar sesión en Configuración
+- [x] Tabla `clients` + RLS (`supabase/migrations/20260521100000_clients.sql`)
+- [x] Server actions: list / create / update
+- [x] `PlatformDataProvider` sincroniza con Supabase
+- [x] Closing → crear cliente persistido
+- [x] **Oleada A:** `closing_calls` en DB + FK en `clients`
+- [x] Listado/calendario Closing desde Supabase; estados persisten
+
+- [x] **Oleada B:** `onboarding_responses` + guard/login desde DB
+- [x] **Oleada C:** `conversations` en DB + Sales Inbox + tags persistidos
+- [x] Closing actualiza tag de conversación vinculada (`closeado`, `no-closeado`, etc.)
+- [x] **Oleada D:** métricas de Ventas y Finanzas derivadas de `clients` + `closing_calls` + `conversations`
+
+## Oleada E (Calendly) — Progreso
+
+1. `closing_calls` ahora puede recibir metadata de Calendly (`calendly_event_id`, `calendly_url`).
+2. Server action: `syncCalendlyEventsAction` (upsert idempotente) y variante admin para sync incremental.
+3. OAuth + webhooks de Calendly:
+   - `GET /api/integrations/calendly/oauth/start` inicia el flujo OAuth (con PKCE)
+   - `GET /api/integrations/calendly/oauth/callback` intercambia tokens y registra webhook
+   - `POST /api/integrations/calendly/webhook` verifica firma y sincroniza `closing_calls`
+
+## Próximo PR (Oleada E.1)
+
+1. Conectar estado real de “connected/syncing” en `Integrations` (hoy la UI usa mocks).
+2. Mejorar el mapeo de payloads para `routing_form_submission.created` si fuese necesario (según los ejemplos reales de tu Calendly).
 
 ## Referencias
 

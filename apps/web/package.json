@@ -14,6 +14,8 @@
   "dependencies": {
     "@ai-coo/types": "workspace:*",
     "@ai-coo/ui": "workspace:*",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.106.2",
     "clsx": "^2.1.1",
     "framer-motion": "^12.12.1",
     "lucide-react": "^0.511.0",
@@ -24,11 +26,11 @@
   },
   "devDependencies": {
     "@ai-coo/config": "workspace:*",
+    "@eslint/eslintrc": "^3.3.1",
     "@types/node": "^22.15.21",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
     "autoprefixer": "^10.4.21",
-    "@eslint/eslintrc": "^3.3.1",
     "eslint": "^9.27.0",
     "eslint-config-next": "^15.3.2",
     "postcss": "^8.5.3",

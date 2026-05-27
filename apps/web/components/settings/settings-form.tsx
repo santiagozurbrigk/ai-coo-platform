@@ -4,6 +4,7 @@ import { Button, FormField, Input } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
 import { es } from "@/lib/locale/es";
 import { SettingsSection } from "./settings-section";
+import { SignOutButton } from "./sign-out-button";
 
 export function SettingsForm() {
   const { push } = useToast();
@@ -39,6 +40,10 @@ export function SettingsForm() {
         <p className="text-sm text-muted-foreground">
           Reporte semanal listo · Alertas de riesgo · Fallos de sincronización
         </p>
+      </SettingsSection>
+
+      <SettingsSection title="Sesión" description="Cuenta conectada a Supabase">
+        <SignOutButton />
       </SettingsSection>
 
       <Button

@@ -10,6 +10,7 @@ export const paths = {
   auth: {
     login: "/login",
     onboarding: "/onboarding",
+    callback: "/auth/callback",
   },
   demo: "/demo",
   designSystem: "/design-system",

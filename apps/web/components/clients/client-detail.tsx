@@ -31,12 +31,20 @@ export function ClientDetail({ client: initial }: { client: Client }) {
   const { push } = useToast();
   const client = clients.find((c) => c.id === initial.id) ?? initial;
 
-  const advanceStatus = (status: ClientStatus) => {
-    updateClient(client.id, {
-      status,
-      isSuccessCase: status === "success_case",
-    });
-    push({ title: "Estado actualizado", variant: "success" });
+  const advanceStatus = async (status: ClientStatus) => {
+    try {
+      await updateClient(client.id, {
+        status,
+        isSuccessCase: status === "success_case",
+      });
+      push({ title: "Estado actualizado", variant: "success" });
+    } catch (e) {
+      push({
+        title: "No se pudo actualizar",
+        description: e instanceof Error ? e.message : undefined,
+        variant: "default",
+      });
+    }
   };
 
   return (
@@ -106,7 +114,8 @@ export function ClientDetail({ client: initial }: { client: Client }) {
                   <span>
                     {inst.label} — ${inst.amount.toLocaleString()} —{" "}
                     {inst.status === "paid" ? "Pagada ✓" : "Pendiente"}
-                    {inst.dueDate && ` — Vence: ${inst.dueDate}`}
+                    {inst.status === "paid" && inst.paidAt && ` — Cobrada: ${inst.paidAt}`}
+                    {inst.status === "pending" && inst.dueDate && ` — Vence: ${inst.dueDate}`}
                   </span>
                   {inst.proofLabel && (
                     <Button size="sm" variant="ghost">

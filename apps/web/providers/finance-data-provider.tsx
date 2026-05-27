@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  mockExpensesSummaryDisplay,
   mockFixedExpenses,
   mockSubscriptions,
   mockTeamCompensation,
@@ -19,6 +18,11 @@ import {
   mockMonthlySeries,
   mockPaymentPlatforms,
 } from "@/mocks/finance";
+import { computeExpensesSummary } from "@/lib/metrics/compute-expenses-summary";
+import { deriveFinanceSummary } from "@/lib/metrics/derive-finance-summary";
+import { deriveMonthlySeries } from "@/lib/metrics/derive-monthly-series";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { usePlatformData } from "@/providers/platform-data-provider";
 import type {
   ExpensesSummary,
   FixedExpense,
@@ -26,6 +30,8 @@ import type {
   TeamCompensation,
 } from "@/types/expenses";
 import type { FinanceSummary, PaymentPlatformConfig } from "@/types/finance";
+
+const useSupabase = isSupabaseConfigured();
 
 type FinanceDataContextValue = {
   paymentPlatforms: PaymentPlatformConfig[];
@@ -54,6 +60,9 @@ function newId(prefix: string) {
 }
 
 export function FinanceDataProvider({ children }: { children: ReactNode }) {
+  const { clients, closingCalls, clientsLoading, closingCallsLoading } =
+    usePlatformData();
+
   const [paymentPlatforms, setPaymentPlatforms] = useState<PaymentPlatformConfig[]>(
     () => mockPaymentPlatforms.map((p) => ({ ...p }))
   );
@@ -132,18 +141,51 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const expensesSummary = useMemo(
+    () =>
+      computeExpensesSummary(fixedExpenses, subscriptions, teamCompensation),
+    [fixedExpenses, subscriptions, teamCompensation]
+  );
+
+  const dataReady =
+    !useSupabase || (!clientsLoading && !closingCallsLoading);
+
+  const financeSummary: FinanceSummary = useMemo(() => {
+    if (!useSupabase) return mockFinanceSummary;
+    const sourceClients = dataReady ? clients : [];
+    const sourceCalls = dataReady ? closingCalls : [];
+    return deriveFinanceSummary(
+      sourceClients,
+      sourceCalls,
+      expensesSummary,
+      paymentPlatforms
+    );
+  }, [
+    clients,
+    closingCalls,
+    expensesSummary,
+    paymentPlatforms,
+    dataReady,
+  ]);
+
+  const monthlySeries = useMemo(() => {
+    if (!useSupabase) return mockMonthlySeries;
+    const sourceClients = dataReady ? clients : [];
+    return deriveMonthlySeries(sourceClients, expensesSummary);
+  }, [clients, expensesSummary, dataReady]);
+
   const value = useMemo(
     () => ({
       paymentPlatforms,
       addPaymentPlatform,
       updatePaymentPlatform,
       removePaymentPlatform,
-      financeSummary: mockFinanceSummary,
-      monthlySeries: mockMonthlySeries,
+      financeSummary,
+      monthlySeries,
       fixedExpenses,
       subscriptions,
       teamCompensation,
-      expensesSummary: mockExpensesSummaryDisplay,
+      expensesSummary,
       addFixedExpense,
       updateFixedExpense,
       removeFixedExpense,
@@ -157,9 +199,12 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       addPaymentPlatform,
       updatePaymentPlatform,
       removePaymentPlatform,
+      financeSummary,
+      monthlySeries,
       fixedExpenses,
       subscriptions,
       teamCompensation,
+      expensesSummary,
       addFixedExpense,
       updateFixedExpense,
       removeFixedExpense,

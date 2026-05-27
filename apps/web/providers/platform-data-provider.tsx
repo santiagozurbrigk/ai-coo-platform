@@ -4,39 +4,81 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import {
+  listClosingCallsAction,
+  updateClosingCallAction,
+} from "@/app/closing/actions";
+import {
+  listConversationsAction,
+  updateConversationTagAction,
+} from "@/app/conversations/actions";
+import { getOnboardingStatusAction } from "@/app/onboarding/actions";
+import {
+  createClientAction,
+  listClientsAction,
+  updateClientAction,
+} from "@/app/clients/actions";
 import { mockClosingCalls } from "@/mocks/closing";
 import { mockClients } from "@/mocks/clients";
 import { mockConversations } from "@/mocks/sales";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { Client, ClientStatus } from "@/types/clients";
 import type {
   ClosePaymentPayload,
   ClosingCall,
   NoCloseReasonId,
 } from "@/types/closing";
-import type { Conversation, ConversationTagId } from "@/types/sales";
+import { deriveSalesMetrics } from "@/lib/metrics/derive-sales-metrics";
+import { mockSalesMetrics } from "@/mocks/sales";
+import type { Conversation, ConversationTagId, SalesMetricsData } from "@/types/sales";
+import type { OnboardingData } from "@/types/onboarding";
 import type { CustomRole } from "@/types/team";
 
 type PlatformDataContextValue = {
   conversations: Conversation[];
-  setConversationTag: (conversationId: string, tag: ConversationTagId | null) => void;
-  setConversationTagByLeadName: (leadName: string, tag: ConversationTagId) => void;
+  conversationsLoading: boolean;
+  salesMetrics: SalesMetricsData;
+  salesMetricsLoading: boolean;
+  setConversationTag: (
+    conversationId: string,
+    tag: ConversationTagId | null
+  ) => Promise<void>;
+  setConversationTagByLeadName: (
+    leadName: string,
+    tag: ConversationTagId
+  ) => Promise<void>;
   closingCalls: ClosingCall[];
-  updateClosingCall: (id: string, patch: Partial<ClosingCall>) => void;
+  closingCallsLoading: boolean;
+  updateClosingCall: (id: string, patch: Partial<ClosingCall>) => Promise<void>;
   clients: Client[];
-  addClient: (client: Client) => void;
-  updateClient: (id: string, patch: Partial<Client>) => void;
+  clientsLoading: boolean;
+  addClient: (client: Omit<Client, "id"> | Client) => Promise<Client>;
+  updateClient: (id: string, patch: Partial<Client>) => Promise<void>;
   customRoles: CustomRole[];
   addCustomRole: (role: CustomRole) => void;
-  markCallClosed: (callId: string, payment: ClosePaymentPayload) => Client;
-  markCallNotClosed: (callId: string, reason: NoCloseReasonId, notes?: string) => void;
-  markCallNoShow: (callId: string) => void;
+  markCallClosed: (callId: string, payment: ClosePaymentPayload) => Promise<Client>;
+  markCallNotClosed: (
+    callId: string,
+    reason: NoCloseReasonId,
+    notes?: string
+  ) => Promise<void>;
+  markCallNoShow: (callId: string) => Promise<void>;
+  refreshClients: () => Promise<void>;
+  refreshClosingCalls: () => Promise<void>;
+  refreshConversations: () => Promise<void>;
+  onboardingComplete: boolean | null;
+  onboardingData: OnboardingData | null;
+  refreshOnboarding: () => Promise<void>;
 };
 
 const PlatformDataContext = createContext<PlatformDataContextValue | null>(null);
+
+const useSupabase = isSupabaseConfigured();
 
 function findConversationByLead(
   conversations: Conversation[],
@@ -47,20 +89,170 @@ function findConversationByLead(
   );
 }
 
-export function PlatformDataProvider({ children }: { children: ReactNode }) {
-  const [conversations, setConversations] = useState<Conversation[]>(
-    () => mockConversations.map((c) => ({ ...c }))
-  );
-  const [closingCalls, setClosingCalls] = useState<ClosingCall[]>(
-    () => mockClosingCalls.map((c) => ({ ...c }))
-  );
-  const [clients, setClients] = useState<Client[]>(() =>
-    mockClients.map((c) => ({ ...c }))
-  );
-  const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
+function buildClientFromPayment(
+  callId: string,
+  payment: ClosePaymentPayload
+): Omit<Client, "id"> {
+  const revenue =
+    payment.paymentType === "upfront"
+      ? payment.totalAmount ?? 0
+      : payment.paymentType === "installments"
+        ? (payment.installmentAmount ?? 0) * (payment.installmentCount ?? 1)
+        : (payment.upfrontAmount ?? 0) + (payment.feeAmount ?? 0);
 
-  const setConversationTag = useCallback(
-    (conversationId: string, tag: ConversationTagId | null) => {
+  const installments =
+    payment.paymentType === "installments" && payment.installmentCount
+      ? Array.from({ length: payment.installmentCount }, (_, i) => {
+          const paidAt =
+            i === 0
+              ? (payment.firstInstallmentDate ??
+                new Date().toISOString().slice(0, 10))
+              : undefined;
+          return {
+            id: `inst-${callId}-${i + 1}`,
+            label: `Cuota ${i + 1}`,
+            amount: payment.installmentAmount ?? 0,
+            status: (i === 0 ? "paid" : "pending") as "paid" | "pending",
+            paidAt,
+            dueDate: i === 0 ? payment.firstInstallmentDate : undefined,
+            proofLabel: i === 0 ? "comprobante-inicial.pdf" : undefined,
+          };
+        })
+      : undefined;
+
+  return {
+    name: payment.clientName,
+    joinDate: new Date().toISOString().slice(0, 10),
+    paymentType: payment.paymentType,
+    platform: payment.platform,
+    totalAmount: revenue,
+    upfrontAmount: payment.upfrontAmount,
+    feeAmount: payment.feeAmount,
+    feeFrequency: payment.feeFrequency,
+    status: "pending_onboarding",
+    isSuccessCase: false,
+    installments,
+    salesFathomUrl: payment.fathomUrl,
+    closingCallId: callId,
+    aiInsights: [
+      "Cliente creado automáticamente desde Closing.",
+      payment.paymentType === "upfront"
+        ? "Pago upfront — seguimiento estándar de onboarding."
+        : "Seguimiento de cuotas activado en el perfil del cliente.",
+    ],
+    linkedCalls: payment.fathomUrl
+      ? [
+          {
+            id: `fc-${callId}`,
+            title: `Llamada de cierre — ${payment.clientName}`,
+            date: new Date().toISOString().slice(0, 10),
+            duration: "—",
+            url: payment.fathomUrl,
+          },
+        ]
+      : [],
+  };
+}
+
+export function PlatformDataProvider({ children }: { children: ReactNode }) {
+  const [conversations, setConversations] = useState<Conversation[]>(() =>
+    useSupabase ? [] : mockConversations.map((c) => ({ ...c }))
+  );
+  const [conversationsLoading, setConversationsLoading] = useState(useSupabase);
+  const [closingCalls, setClosingCalls] = useState<ClosingCall[]>(() =>
+    useSupabase ? [] : mockClosingCalls.map((c) => ({ ...c }))
+  );
+  const [closingCallsLoading, setClosingCallsLoading] = useState(useSupabase);
+
+  const salesMetricsLoading =
+    useSupabase && (conversationsLoading || closingCallsLoading);
+
+  const salesMetrics = useMemo(() => {
+    if (!useSupabase) return mockSalesMetrics;
+    if (salesMetricsLoading) {
+      return deriveSalesMetrics([], [], mockSalesMetrics.closerBreakdown);
+    }
+    return deriveSalesMetrics(conversations, closingCalls);
+  }, [conversations, closingCalls, salesMetricsLoading]);
+  const [clients, setClients] = useState<Client[]>(() =>
+    useSupabase ? [] : mockClients.map((c) => ({ ...c }))
+  );
+  const [clientsLoading, setClientsLoading] = useState(useSupabase);
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(
+    useSupabase ? null : false
+  );
+  const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(
+    null
+  );
+
+  const refreshClients = useCallback(async () => {
+    if (!useSupabase) return;
+    setClientsLoading(true);
+    try {
+      const list = await listClientsAction();
+      setClients(list);
+    } finally {
+      setClientsLoading(false);
+    }
+  }, []);
+
+  const refreshClosingCalls = useCallback(async () => {
+    if (!useSupabase) return;
+    setClosingCallsLoading(true);
+    try {
+      const list = await listClosingCallsAction();
+      setClosingCalls(list);
+    } finally {
+      setClosingCallsLoading(false);
+    }
+  }, []);
+
+  const refreshConversations = useCallback(async () => {
+    if (!useSupabase) return;
+    setConversationsLoading(true);
+    try {
+      const list = await listConversationsAction();
+      setConversations(list);
+    } finally {
+      setConversationsLoading(false);
+    }
+  }, []);
+
+  const refreshOnboarding = useCallback(async () => {
+    if (!useSupabase) {
+      setOnboardingComplete(false);
+      setOnboardingData(null);
+      return;
+    }
+    const status = await getOnboardingStatusAction();
+    setOnboardingComplete(status.completed);
+    setOnboardingData(status.data);
+  }, []);
+
+  useEffect(() => {
+    if (useSupabase) {
+      void refreshClients();
+      void refreshClosingCalls();
+      void refreshConversations();
+      void refreshOnboarding();
+    }
+  }, [
+    refreshClients,
+    refreshClosingCalls,
+    refreshConversations,
+    refreshOnboarding,
+  ]);
+
+  const persistConversationTag = useCallback(
+    async (conversationId: string, tag: ConversationTagId | null) => {
+      if (useSupabase) {
+        const saved = await updateConversationTagAction(conversationId, tag);
+        setConversations((prev) =>
+          prev.map((c) => (c.id === conversationId ? saved : c))
+        );
+        return;
+      }
       setConversations((prev) =>
         prev.map((c) => (c.id === conversationId ? { ...c, tag } : c))
       );
@@ -68,41 +260,95 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const setConversationTagByLeadName = useCallback(
-    (leadName: string, tag: ConversationTagId) => {
-      const conv = findConversationByLead(conversations, leadName);
-      if (conv) setConversationTag(conv.id, tag);
-      else {
-        setConversations((prev) => {
-          const match = findConversationByLead(prev, leadName);
-          if (!match) return prev;
-          return prev.map((c) =>
-            c.leadName.toLowerCase() === leadName.toLowerCase()
-              ? { ...c, tag }
-              : c
-          );
-        });
-      }
-    },
-    [conversations, setConversationTag]
+  const setConversationTag = useCallback(
+    (conversationId: string, tag: ConversationTagId | null) =>
+      persistConversationTag(conversationId, tag),
+    [persistConversationTag]
   );
 
-  const updateClosingCall = useCallback((id: string, patch: Partial<ClosingCall>) => {
-    setClosingCalls((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...patch } : c))
-    );
-  }, []);
-
-  const addClient = useCallback((client: Client) => {
-    setClients((prev) => {
-      if (prev.some((c) => c.id === client.id)) {
-        return prev.map((c) => (c.id === client.id ? client : c));
+  const setConversationTagByLeadName = useCallback(
+    async (leadName: string, tag: ConversationTagId) => {
+      const conv = findConversationByLead(conversations, leadName);
+      if (conv) {
+        await persistConversationTag(conv.id, tag);
+        return;
       }
-      return [client, ...prev];
-    });
-  }, []);
+      setConversations((prev) => {
+        const match = findConversationByLead(prev, leadName);
+        if (!match) return prev;
+        void persistConversationTag(match.id, tag);
+        return prev.map((c) =>
+          c.leadName.toLowerCase() === leadName.toLowerCase()
+            ? { ...c, tag }
+            : c
+        );
+      });
+    },
+    [conversations, persistConversationTag]
+  );
 
-  const updateClient = useCallback((id: string, patch: Partial<Client>) => {
+  const syncConversationTagForCall = useCallback(
+    async (call: ClosingCall | undefined, tag: ConversationTagId) => {
+      if (!call) return;
+      const conv =
+        conversations.find((c) => c.id === call.conversationId) ??
+        findConversationByLead(conversations, call.leadName);
+      if (conv) await persistConversationTag(conv.id, tag);
+    },
+    [conversations, persistConversationTag]
+  );
+
+  const updateClosingCall = useCallback(
+    async (id: string, patch: Partial<ClosingCall>) => {
+      if (useSupabase) {
+        const saved = await updateClosingCallAction(id, patch);
+        setClosingCalls((prev) =>
+          prev.map((c) => (c.id === id ? saved : c))
+        );
+        return;
+      }
+
+      setClosingCalls((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...patch } : c))
+      );
+    },
+    []
+  );
+
+  const addClient = useCallback(
+    async (client: Omit<Client, "id"> | Client): Promise<Client> => {
+      const payload =
+        "id" in client
+          ? (() => {
+              const { id: _id, ...rest } = client;
+              void _id;
+              return rest;
+            })()
+          : client;
+
+      if (useSupabase) {
+        const saved = await createClientAction(payload);
+        setClients((prev) => [saved, ...prev.filter((c) => c.id !== saved.id)]);
+        return saved;
+      }
+
+      const local: Client = {
+        ...payload,
+        id: `client-${Date.now()}`,
+      };
+      setClients((prev) => [local, ...prev]);
+      return local;
+    },
+    []
+  );
+
+  const updateClient = useCallback(async (id: string, patch: Partial<Client>) => {
+    if (useSupabase) {
+      const saved = await updateClientAction(id, patch);
+      setClients((prev) => prev.map((c) => (c.id === id ? saved : c)));
+      return;
+    }
+
     setClients((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...patch } : c))
     );
@@ -113,7 +359,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markCallClosed = useCallback(
-    (callId: string, payment: ClosePaymentPayload): Client => {
+    async (callId: string, payment: ClosePaymentPayload): Promise<Client> => {
       const call = closingCalls.find((c) => c.id === callId);
       const revenue =
         payment.paymentType === "upfront"
@@ -123,7 +369,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
               (payment.installmentCount ?? 1)
             : (payment.upfrontAmount ?? 0) + (payment.feeAmount ?? 0);
 
-      updateClosingCall(callId, {
+      await updateClosingCall(callId, {
         status: "closed",
         outcome: {
           paymentType: payment.paymentType,
@@ -135,122 +381,48 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
         paymentDestinationPlatformId: payment.paymentDestinationPlatformId,
       });
 
-      if (call) {
-        setConversations((prev) =>
-          prev.map((c) => {
-            const match =
-              c.id === call.conversationId ||
-              c.leadName.toLowerCase() === call.leadName.toLowerCase();
-            return match ? { ...c, tag: "closeado" as ConversationTagId } : c;
-          })
-        );
-      }
+      await syncConversationTagForCall(call, "closeado");
 
-      const clientId = `client-${callId}`;
-      const installments =
-        payment.paymentType === "installments" && payment.installmentCount
-          ? Array.from({ length: payment.installmentCount }, (_, i) => ({
-              id: `${clientId}-inst-${i + 1}`,
-              label: `Cuota ${i + 1}`,
-              amount: payment.installmentAmount ?? 0,
-              status: (i === 0 ? "paid" : "pending") as "paid" | "pending",
-              dueDate:
-                i === 0
-                  ? payment.firstInstallmentDate
-                  : undefined,
-              proofLabel: i === 0 ? "comprobante-inicial.pdf" : undefined,
-            }))
-          : undefined;
-
-      const newClient: Client = {
-        id: clientId,
-        name: payment.clientName,
-        joinDate: new Date().toISOString().slice(0, 10),
-        paymentType: payment.paymentType,
-        platform: payment.platform,
-        totalAmount: revenue,
-        upfrontAmount: payment.upfrontAmount,
-        feeAmount: payment.feeAmount,
-        feeFrequency: payment.feeFrequency,
-        status: "pending_onboarding",
-        isSuccessCase: false,
-        installments,
-        salesFathomUrl: payment.fathomUrl,
-        closingCallId: callId,
-        aiInsights: [
-          "Cliente creado automáticamente desde Closing.",
-          payment.paymentType === "upfront"
-            ? "Pago upfront — bajo riesgo de churn en Fase 0."
-            : "Seguimiento de cuotas activado en el perfil del cliente.",
-        ],
-        linkedCalls: payment.fathomUrl
-          ? [
-              {
-                id: `fc-${callId}`,
-                title: `Llamada de cierre — ${payment.clientName}`,
-                date: new Date().toISOString().slice(0, 10),
-                duration: "—",
-                url: payment.fathomUrl,
-              },
-            ]
-          : [],
-      };
-
-      addClient(newClient);
-      return newClient;
+      const draft = buildClientFromPayment(callId, payment);
+      return addClient(draft);
     },
-    [addClient, closingCalls, updateClosingCall]
+    [addClient, closingCalls, syncConversationTagForCall, updateClosingCall]
   );
 
   const markCallNotClosed = useCallback(
-    (callId: string, reason: NoCloseReasonId, notes?: string) => {
+    async (callId: string, reason: NoCloseReasonId, notes?: string) => {
       const call = closingCalls.find((c) => c.id === callId);
-      updateClosingCall(callId, {
+      await updateClosingCall(callId, {
         status: "not_closed",
         outcome: { noCloseReason: reason, notes },
       });
-      if (call) {
-        setConversations((prev) =>
-          prev.map((c) => {
-            const match =
-              c.id === call.conversationId ||
-              c.leadName.toLowerCase() === call.leadName.toLowerCase();
-            return match ? { ...c, tag: "no-closeado" as ConversationTagId } : c;
-          })
-        );
-      }
+      await syncConversationTagForCall(call, "no-closeado");
     },
-    [closingCalls, updateClosingCall]
+    [closingCalls, syncConversationTagForCall, updateClosingCall]
   );
 
   const markCallNoShow = useCallback(
-    (callId: string) => {
+    async (callId: string) => {
       const call = closingCalls.find((c) => c.id === callId);
-      updateClosingCall(callId, { status: "no_show" });
-      if (call) {
-        setConversations((prev) =>
-          prev.map((c) => {
-            const match =
-              c.id === call.conversationId ||
-              c.leadName.toLowerCase() === call.leadName.toLowerCase();
-            return match
-              ? { ...c, tag: "muy-descalificado" as ConversationTagId }
-              : c;
-          })
-        );
-      }
+      await updateClosingCall(callId, { status: "no_show" });
+      await syncConversationTagForCall(call, "muy-descalificado");
     },
-    [closingCalls, updateClosingCall]
+    [closingCalls, syncConversationTagForCall, updateClosingCall]
   );
 
   const value = useMemo(
     () => ({
       conversations,
+      conversationsLoading,
+      salesMetrics,
+      salesMetricsLoading,
       setConversationTag,
       setConversationTagByLeadName,
       closingCalls,
+      closingCallsLoading,
       updateClosingCall,
       clients,
+      clientsLoading,
       addClient,
       updateClient,
       customRoles,
@@ -258,14 +430,25 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       markCallClosed,
       markCallNotClosed,
       markCallNoShow,
+      refreshClients,
+      refreshClosingCalls,
+      refreshConversations,
+      onboardingComplete,
+      onboardingData,
+      refreshOnboarding,
     }),
     [
       conversations,
+      conversationsLoading,
+      salesMetrics,
+      salesMetricsLoading,
       setConversationTag,
       setConversationTagByLeadName,
       closingCalls,
+      closingCallsLoading,
       updateClosingCall,
       clients,
+      clientsLoading,
       addClient,
       updateClient,
       customRoles,
@@ -273,6 +456,12 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       markCallClosed,
       markCallNotClosed,
       markCallNoShow,
+      refreshClients,
+      refreshClosingCalls,
+      refreshConversations,
+      onboardingComplete,
+      onboardingData,
+      refreshOnboarding,
     ]
   );
 

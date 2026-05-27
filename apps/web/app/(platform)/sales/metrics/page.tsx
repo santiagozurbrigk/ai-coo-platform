@@ -1,6 +1,5 @@
-import { SalesMetricsOverview } from "@/components/sales";
-import { mockSalesMetrics } from "@/mocks";
+import { SalesMetricsPageContent } from "@/components/sales/sales-metrics-page-content";
 
 export default function SalesMetricsPage() {
-  return <SalesMetricsOverview data={mockSalesMetrics} />;
+  return <SalesMetricsPageContent />;
 }

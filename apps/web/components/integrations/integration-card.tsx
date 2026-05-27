@@ -41,6 +41,12 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         : "secondary";
 
   const handleConnect = () => {
+    if (integration.provider === "calendly") {
+      // Inicia el OAuth real redirigiendo al backend.
+      window.location.href = "/api/integrations/calendly/oauth/start";
+      return;
+    }
+
     setConnectOpen(false);
     setSyncing(true);
     setStatus("syncing");
@@ -102,14 +108,19 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
             className="w-full"
             type="button"
             disabled={syncing}
-            onClick={() =>
+            onClick={() => {
+              if (integration.provider === "calendly" && status === "not_connected") {
+                window.location.href = "/api/integrations/calendly/oauth/start";
+                return;
+              }
+
               status === "not_connected"
                 ? setConnectOpen(true)
                 : push({
                     title: integration.name,
                     description: "Configuración de integración — prototipo.",
-                  })
-            }
+                  });
+            }}
           >
             {syncing
               ? es.status.integration.syncing

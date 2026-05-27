@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Badge,
@@ -57,15 +57,14 @@ export function ClosingOverview() {
   const { push } = useToast();
   const {
     closingCalls,
+    closingCallsLoading,
     markCallClosed,
     markCallNotClosed,
     markCallNoShow,
   } = usePlatformData();
   const activeTab = useHashTab("calendario");
   const root = paths.platform.sales.closing;
-  const [selectedId, setSelectedId] = useState<string | null>(
-    closingCalls[0]?.id ?? null
-  );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [listFilter, setListFilter] = useState<ClosingCallStatus | "all">("all");
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [noCloseOpen, setNoCloseOpen] = useState(false);
@@ -74,6 +73,16 @@ export function ClosingOverview() {
     const first = closingCalls[0]?.scheduledAt;
     return first ? new Date(first) : new Date();
   });
+
+  useEffect(() => {
+    if (closingCalls.length === 0) {
+      setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !closingCalls.some((c) => c.id === selectedId)) {
+      setSelectedId(closingCalls[0].id);
+    }
+  }, [closingCalls, selectedId]);
 
   const selected = closingCalls.find((c) => c.id === selectedId);
 
@@ -101,7 +110,14 @@ export function ClosingOverview() {
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="min-w-0 flex-1 space-y-4">
-          {activeTab === "lista" ? (
+          {closingCallsLoading ? (
+            <p className="text-sm text-muted-foreground">Cargando llamadas…</p>
+          ) : closingCalls.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No hay llamadas de cierre. Ejecuta la migración SQL de closing_calls en
+              Supabase si acabas de conectar la base de datos.
+            </p>
+          ) : activeTab === "lista" ? (
             <>
               <div className="flex flex-wrap gap-2">
                 {(["all", "scheduled", "closed", "not_closed", "no_show"] as const).map(
@@ -242,9 +258,17 @@ export function ClosingOverview() {
             call={selected}
             onMarkClosed={() => setPaymentOpen(true)}
             onMarkNotClosed={() => setNoCloseOpen(true)}
-            onMarkNoShow={() => {
-              markCallNoShow(selected.id);
-              push({ title: "Marcado como no show", variant: "success" });
+            onMarkNoShow={async () => {
+              try {
+                await markCallNoShow(selected.id);
+                push({ title: "Marcado como no show", variant: "success" });
+              } catch (e) {
+                push({
+                  title: "Error al guardar",
+                  description: e instanceof Error ? e.message : undefined,
+                  variant: "default",
+                });
+              }
             }}
           />
         )}
@@ -256,22 +280,39 @@ export function ClosingOverview() {
             open={paymentOpen}
             onOpenChange={setPaymentOpen}
             defaultName={selected.leadName}
-            onSubmit={(payload) => {
-              const client = markCallClosed(selected.id, payload);
-              push({
-                title: "Cliente creado",
-                description: `${client.name} añadido con estado Realizar onboarding`,
-                variant: "success",
-              });
-              router.push(paths.platform.clients.detail(client.id));
+            onSubmit={async (payload) => {
+              try {
+                const client = await markCallClosed(selected.id, payload);
+                push({
+                  title: "Cliente creado",
+                  description: `${client.name} añadido con estado Realizar onboarding`,
+                  variant: "success",
+                });
+                router.push(paths.platform.clients.detail(client.id));
+              } catch (e) {
+                push({
+                  title: "Error al guardar cliente",
+                  description:
+                    e instanceof Error ? e.message : "Intenta de nuevo",
+                  variant: "default",
+                });
+              }
             }}
           />
           <NoCloseModal
             open={noCloseOpen}
             onOpenChange={setNoCloseOpen}
-            onSubmit={(reason, notes) => {
-              markCallNotClosed(selected.id, reason, notes);
-              push({ title: "Resultado guardado", variant: "success" });
+            onSubmit={async (reason, notes) => {
+              try {
+                await markCallNotClosed(selected.id, reason, notes);
+                push({ title: "Resultado guardado", variant: "success" });
+              } catch (e) {
+                push({
+                  title: "Error al guardar",
+                  description: e instanceof Error ? e.message : undefined,
+                  variant: "default",
+                });
+              }
             }}
           />
         </>

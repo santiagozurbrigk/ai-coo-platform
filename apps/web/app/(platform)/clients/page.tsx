@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { usePlatformData } from "@/providers";
 
 export default function ClientsPage() {
-  const { clients } = usePlatformData();
+  const { clients, clientsLoading } = usePlatformData();
 
   return (
     <div className="space-y-6">
@@ -13,7 +13,11 @@ export default function ClientsPage() {
         title="Clientes"
         description="Seguimiento desde el cierre hasta caso de éxito"
       />
-      <ClientsList clients={clients} />
+      {clientsLoading ? (
+        <p className="text-sm text-muted-foreground">Cargando clientes…</p>
+      ) : (
+        <ClientsList clients={clients} />
+      )}
     </div>
   );
 }

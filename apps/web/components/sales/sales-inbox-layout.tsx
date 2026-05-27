@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { List } from "lucide-react";
 import { Button, Dialog, DialogContent, DialogTitle, cn } from "@ai-coo/ui";
 import { getLeadJourneyByLeadName } from "@/mocks/marketing-insights";
@@ -13,10 +13,30 @@ import { LeadJourneyInline } from "./lead-journey-inline";
 import { EmptyState } from "@/components/shared/empty-state";
 
 export function SalesInboxLayout() {
-  const { conversations, setConversationTag } = usePlatformData();
-  const [selectedId, setSelectedId] = useState(conversations[0]?.id);
+  const { conversations, conversationsLoading, setConversationTag } =
+    usePlatformData();
+  const [selectedId, setSelectedId] = useState<string | undefined>();
   const [listOpen, setListOpen] = useState(false);
+
+  useEffect(() => {
+    if (conversations.length === 0) {
+      setSelectedId(undefined);
+      return;
+    }
+    if (!selectedId || !conversations.some((c) => c.id === selectedId)) {
+      setSelectedId(conversations[0]?.id);
+    }
+  }, [conversations, selectedId]);
+
   const selected = conversations.find((c) => c.id === selectedId);
+
+  if (conversationsLoading && conversations.length === 0) {
+    return (
+      <div className="flex h-[calc(100vh-8rem)] min-h-[480px] items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.02] text-sm text-white/50">
+        Cargando conversaciones…
+      </div>
+    );
+  }
   const journey = selected
     ? getLeadJourneyByLeadName(selected.leadName)
     : undefined;
@@ -64,9 +84,9 @@ export function SalesInboxLayout() {
           <>
             <ConversationThread
               conversation={selected}
-              onTagChange={(tag: ConversationTagId) =>
-                setConversationTag(selected.id, tag)
-              }
+              onTagChange={(tag: ConversationTagId) => {
+                void setConversationTag(selected.id, tag);
+              }}
             />
             {journey && <LeadJourneyInline journey={journey} />}
           </>

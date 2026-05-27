@@ -20,9 +20,7 @@ export const mockIntegrations: Integration[] = [
     id: "int8",
     provider: "calendly",
     name: "Calendly",
-    status: "connected",
-    lastSync: "hace 15 min",
-    recordsSynced: 24,
+    status: "not_connected",
   },
   { id: "int9", provider: "miro", name: "Miro", status: "not_connected" },
 ];

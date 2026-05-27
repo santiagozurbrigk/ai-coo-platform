@@ -1,0 +1,67 @@
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+import { paths } from "@/routes";
+import { getSupabaseAnonKey, getSupabaseUrl, isSupabaseConfigured } from "./env";
+
+const PUBLIC_PATHS = [
+  paths.auth.login,
+  paths.auth.callback,
+  paths.demo,
+  paths.designSystem,
+  paths.superAdmin.login,
+  "/superadmin",
+  "/super-admin",
+  "/founder",
+] as const;
+
+function isPublicPath(pathname: string): boolean {
+  if (pathname === paths.home) return true;
+  return PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
+}
+
+export async function updateSession(request: NextRequest) {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.next({ request });
+  }
+
+  let supabaseResponse = NextResponse.next({ request });
+
+  const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => {
+          request.cookies.set(name, value);
+        });
+        supabaseResponse = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) => {
+          supabaseResponse.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname } = request.nextUrl;
+
+  if (!user && !isPublicPath(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = paths.auth.login;
+    return NextResponse.redirect(url);
+  }
+
+  if (user && (pathname === paths.auth.login || pathname === paths.home)) {
+    const url = request.nextUrl.clone();
+    url.pathname = paths.platform.dashboard;
+    return NextResponse.redirect(url);
+  }
+
+  return supabaseResponse;
+}

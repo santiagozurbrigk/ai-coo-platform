@@ -25,9 +25,15 @@
 | Integraciones | `/integrations` |
 | Equipo | `/team` |
 
-## Primer entregable Phase 1
+## Phase 1 — hecho en repo
 
-Supabase + login real + una entidad persistida (ej. `clients` o `closing_calls`) con RLS por `org_id`.
+- Supabase: `lib/supabase/*`, `middleware.ts`, `/auth/callback`
+- Login/registro real en `/login` (Super Admin sigue mock en `/superadmin/login`)
+- Bootstrap `organizations` + `profiles` al primer acceso
+
+## Siguiente entregable
+
+Tabla `clients` persistida + RLS por `org_id`.
 
 ## Dev
 

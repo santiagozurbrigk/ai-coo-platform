@@ -25,11 +25,11 @@ export function FinanceOverview() {
       />
 
       <motion.div variants={fade}>
-        <PaymentPlatformsSection />
+        <FinanceMetrics />
       </motion.div>
 
       <motion.div variants={fade}>
-        <FinanceMetrics />
+        <PaymentPlatformsSection />
       </motion.div>
 
       <motion.div variants={fade}>
