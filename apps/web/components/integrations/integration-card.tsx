@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   getCalendlyIntegrationStatusAction,
@@ -32,6 +33,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export function IntegrationCard({ integration }: { integration: Integration }) {
+  const router = useRouter();
   const [status, setStatus] = useState(integration.status);
   const [calendlyWebhookEnabled, setCalendlyWebhookEnabled] = useState(true);
   const [connectOpen, setConnectOpen] = useState(false);
@@ -41,12 +43,15 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const { refreshClosingCalls } = usePlatformData();
 
   useEffect(() => {
+    setStatus(integration.status);
+  }, [integration.status]);
+
+  useEffect(() => {
     if (integration.provider !== "calendly") return;
     getCalendlyIntegrationStatusAction().then((s) => {
-      if (s.connected) setStatus("connected");
       setCalendlyWebhookEnabled(s.webhookEnabled);
     });
-  }, [integration.provider]);
+  }, [integration.provider, integration.status]);
 
   const statusVariant =
     status === "connected"
@@ -138,6 +143,8 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                 try {
                   const result = await pullCalendlyScheduledEventsAction();
                   await refreshClosingCalls();
+                  setStatus("connected");
+                  router.refresh();
                   push({
                     title: "Calendly sincronizado",
                     description: `${result.fetched} eventos · ${result.inserted} nuevos · ${result.updated} actualizados`,

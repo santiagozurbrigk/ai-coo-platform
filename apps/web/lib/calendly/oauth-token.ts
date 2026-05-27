@@ -12,6 +12,7 @@ type CalendlyIntegrationRow = {
   calendly_org_uri: string | null;
   webhook_subscription_uri: string | null;
   webhook_signing_key: string;
+  updated_at?: string;
 };
 
 function isWebhookPlanDenied(details: unknown): boolean {
@@ -82,7 +83,7 @@ export async function getCalendlyIntegrationForOrganization(
   const { data, error } = await supabase
     .from("calendly_integrations")
     .select(
-      "organization_id, access_token, refresh_token, token_expires_at, calendly_org_uri, webhook_subscription_uri, webhook_signing_key"
+      "organization_id, access_token, refresh_token, token_expires_at, calendly_org_uri, webhook_subscription_uri, webhook_signing_key, updated_at"
     )
     .eq("organization_id", organizationId)
     .maybeSingle();

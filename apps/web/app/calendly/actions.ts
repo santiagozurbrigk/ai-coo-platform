@@ -33,6 +33,7 @@ function mapSyncError(msg: string): string {
 export async function getCalendlyIntegrationStatusAction(): Promise<{
   connected: boolean;
   webhookEnabled: boolean;
+  lastSyncAt?: string;
 }> {
   if (!isSupabaseConfigured()) {
     return { connected: false, webhookEnabled: false };
@@ -45,6 +46,7 @@ export async function getCalendlyIntegrationStatusAction(): Promise<{
     return {
       connected: true,
       webhookEnabled: !isCalendlyWebhookUnavailable(row.webhook_signing_key),
+      lastSyncAt: row.updated_at ?? undefined,
     };
   } catch {
     return { connected: false, webhookEnabled: false };
@@ -67,6 +69,13 @@ export async function pullCalendlyScheduledEventsAction(): Promise<{
     organizationId,
     events
   );
+
+  const admin = createAdminClient();
+  await admin
+    .from("calendly_integrations")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("organization_id", organizationId);
+
   return { ...result, fetched: events.length };
 }
 

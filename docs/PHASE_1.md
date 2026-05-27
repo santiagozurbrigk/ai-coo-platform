@@ -47,11 +47,20 @@ Sustituir mocks y guards simulados por **persistencia real**, **multi-tenant** e
    - `GET /api/integrations/calendly/oauth/start` inicia el flujo OAuth (con PKCE)
    - `GET /api/integrations/calendly/oauth/callback` intercambia tokens y registra webhook
    - `POST /api/integrations/calendly/webhook` verifica firma y sincroniza `closing_calls`
+4. Sync manual vía API si no hay plan Standard; UI con avisos + botón «Sincronizar ahora».
+5. Integraciones: estado `connected` y conteo de llamadas desde Supabase (`listIntegrationsAction`).
 
-## Próximo PR (Oleada E.1)
+## Oleada E — Calendly (completado en repo)
 
-1. Conectar estado real de “connected/syncing” en `Integrations` (hoy la UI usa mocks).
-2. Mejorar el mapeo de payloads para `routing_form_submission.created` si fuese necesario (según los ejemplos reales de tu Calendly).
+- OAuth + sync manual (planes sin Standard) + webhooks si hay Standard
+- Avisos en Integraciones y Closing para sync manual
+- Estado **connected** real en tarjeta Calendly (`listIntegrationsAction` + DB)
+- Refresh de `closing_calls` en Closing tras sincronizar
+
+## Próximo entregable (Oleada F sugerida)
+
+1. **ManyChat** o **Gastos en DB** — elegir según prioridad de demo (inbox real vs finanzas completas).
+2. Opcional: `routing_form_submission` en webhook Calendly si el plan lo permite.
 
 ## Referencias
 

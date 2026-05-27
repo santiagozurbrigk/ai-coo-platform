@@ -33,7 +33,7 @@
 
 ## Siguiente entregable
 
-Tabla `clients` persistida + RLS por `org_id`.
+Oleada F: ManyChat (inbox) **o** gastos/compensación en Supabase. Calendly OAuth + sync manual listo.
 
 ## Dev
 
