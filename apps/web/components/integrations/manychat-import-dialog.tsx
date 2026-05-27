@@ -64,12 +64,12 @@ export function ManyChatImportDialog({
         <DialogHeader>
           <DialogTitle>Importar contacto de ManyChat</DialogTitle>
           <DialogDescription>
-            Pega el subscriber ID del contacto. Lo encuentras en el perfil del contacto
-            en ManyChat o en el payload del External Request.
+            Pega el subscriber ID numérico (recomendado), o un email registrado en
+            ManyChat. En Instagram/WhatsApp suele ser solo el ID, no el email.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <Label htmlFor="import-subscriber-id">Subscriber ID</Label>
+          <Label htmlFor="import-subscriber-id">ID, email o teléfono</Label>
           <Input
             id="import-subscriber-id"
             value={subscriberId}

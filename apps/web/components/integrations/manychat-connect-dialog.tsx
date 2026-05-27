@@ -67,16 +67,19 @@ export function ManyChatConnectDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="manychat-subscriber-id">
-              Subscriber ID (opcional)
+              Contacto de prueba (opcional)
             </Label>
             <Input
               id="manychat-subscriber-id"
               name="subscriberId"
-              placeholder="Importar un contacto de prueba"
+              type="text"
+              placeholder="Subscriber ID numérico o email"
             />
             <p className="text-xs text-muted-foreground">
-              ManyChat no permite listar todos los contactos por API. Puedes importar uno
-              por ID o recibir mensajes nuevos con External Request.
+              Lo ideal es el ID numérico de ManyChat (variable {"{{user_id}}"} en External
+              Request).
+              También puedes pegar un email si el contacto existe en ManyChat. Si falla la
+              importación, la conexión igual se guarda.
             </p>
           </div>
 

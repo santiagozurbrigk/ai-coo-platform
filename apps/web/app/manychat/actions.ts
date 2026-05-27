@@ -5,7 +5,10 @@ import {
   isMissingTableError,
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
-import { fetchManyChatPageInfo, fetchManyChatSubscriber } from "@/lib/manychat/client";
+import {
+  fetchManyChatPageInfo,
+  resolveManyChatSubscriber,
+} from "@/lib/manychat/client";
 import {
   buildManyChatWebhookUrl,
   getManyChatIntegrationForOrganization,
@@ -27,6 +30,10 @@ function mapManyChatError(msg: string): string {
   }
   if (msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("unauthorized")) {
     return "API key de ManyChat inválida. Revísala en Settings → API.";
+  }
+  const lower = msg.toLowerCase();
+  if (lower.includes("subscriber does not exist") || lower === "validation error") {
+    return "Contacto no encontrado en ManyChat. Usa el subscriber ID numérico ({{user_id}}), no el email si el lead es solo Instagram/WhatsApp.";
   }
   return msg;
 }
@@ -110,12 +117,26 @@ export async function connectManyChatAction(
 
     const webhookUrl = buildManyChatWebhookUrl(webhookToken);
 
+    let importWarning: string | undefined;
     if (subscriberId) {
-      await importManyChatSubscriberForOrganization(
-        organizationId,
-        apiToken,
-        subscriberId
-      );
+      try {
+        await importManyChatSubscriberForOrganization(
+          organizationId,
+          apiToken,
+          subscriberId
+        );
+      } catch (importError) {
+        importWarning = mapManyChatError(
+          importError instanceof Error ? importError.message : "Error al importar"
+        );
+      }
+    }
+
+    if (importWarning) {
+      return {
+        success: `ManyChat conectado, pero no se importó el contacto: ${importWarning}`,
+        webhookUrl,
+      };
     }
 
     return {
@@ -134,9 +155,9 @@ export async function connectManyChatAction(
 async function importManyChatSubscriberForOrganization(
   organizationId: string,
   apiToken: string,
-  subscriberId: string
+  subscriberLookup: string
 ) {
-  const subscriber = await fetchManyChatSubscriber(apiToken, subscriberId);
+  const subscriber = await resolveManyChatSubscriber(apiToken, subscriberLookup);
   const leadName = resolveLeadNameFromSubscriber(subscriber);
   const messageText =
     subscriber.last_text_input?.trim() ||
@@ -145,7 +166,7 @@ async function importManyChatSubscriberForOrganization(
 
   const supabase = await createClient();
   await upsertConversationFromManyChat(supabase, organizationId, {
-    subscriberId: String(subscriber.id ?? subscriberId),
+    subscriberId: String(subscriber.id ?? subscriberLookup),
     leadName,
     messageText,
     sender: "lead",
