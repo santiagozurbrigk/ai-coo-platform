@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  getCalendlyIntegrationStatusAction,
+  pullCalendlyScheduledEventsAction,
+} from "@/app/calendly/actions";
 import {
   Badge,
   Button,
@@ -19,6 +23,7 @@ import { es } from "@/lib/locale/es";
 import { useToast } from "@/providers/toast-provider";
 import { useMarketingData } from "@/providers";
 import type { Integration } from "@/types/integrations";
+import { CalendlyManualSyncNotice } from "./calendly-manual-sync-notice";
 
 const STATUS_LABEL: Record<string, string> = {
   connected: es.status.integration.connected,
@@ -28,10 +33,19 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function IntegrationCard({ integration }: { integration: Integration }) {
   const [status, setStatus] = useState(integration.status);
+  const [calendlyWebhookEnabled, setCalendlyWebhookEnabled] = useState(true);
   const [connectOpen, setConnectOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const { push } = useToast();
   const { setInstagramConnected } = useMarketingData();
+
+  useEffect(() => {
+    if (integration.provider !== "calendly") return;
+    getCalendlyIntegrationStatusAction().then((s) => {
+      if (s.connected) setStatus("connected");
+      setCalendlyWebhookEnabled(s.webhookEnabled);
+    });
+  }, [integration.provider]);
 
   const statusVariant =
     status === "connected"
@@ -81,12 +95,16 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
               impacto en conversaciones, agendamientos y ventas.
             </p>
           )}
-          {integration.provider === "calendly" && (
+          {integration.provider === "calendly" && status === "not_connected" && (
             <p className="text-xs text-muted-foreground">
-              Sincroniza llamadas de cierre con Closing, importa respuestas del
-              formulario previo y registra resultados de cada llamada.
+              Conecta tu cuenta de Calendly para importar llamadas de cierre. Si no
+              tienes plan Standard, después de conectar deberás sincronizar manualmente
+              desde esta pantalla.
             </p>
           )}
+          {integration.provider === "calendly" &&
+            status === "connected" &&
+            !calendlyWebhookEnabled && <CalendlyManualSyncNotice />}
           {integration.provider === "miro" && (
             <p className="text-xs text-muted-foreground">
               Importa tableros con vista previa para la base de conocimiento.
@@ -108,9 +126,30 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
             className="w-full"
             type="button"
             disabled={syncing}
-            onClick={() => {
+            onClick={async () => {
               if (integration.provider === "calendly" && status === "not_connected") {
                 window.location.href = "/api/integrations/calendly/oauth/start";
+                return;
+              }
+
+              if (integration.provider === "calendly" && status === "connected") {
+                setSyncing(true);
+                try {
+                  const result = await pullCalendlyScheduledEventsAction();
+                  push({
+                    title: "Calendly sincronizado",
+                    description: `${result.fetched} eventos · ${result.inserted} nuevos · ${result.updated} actualizados`,
+                    variant: "success",
+                  });
+                } catch (e) {
+                  push({
+                    title: "Error al sincronizar Calendly",
+                    description:
+                      e instanceof Error ? e.message : "Error desconocido",
+                  });
+                } finally {
+                  setSyncing(false);
+                }
                 return;
               }
 
@@ -128,7 +167,9 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
               ? es.status.integration.syncing
               : status === "not_connected"
                 ? es.common.connect
-                : es.common.manage}
+                : integration.provider === "calendly"
+                  ? "Sincronizar ahora"
+                  : es.common.manage}
           </Button>
         </CardContent>
       </Card>

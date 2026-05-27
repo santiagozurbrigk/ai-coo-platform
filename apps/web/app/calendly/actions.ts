@@ -8,6 +8,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { fetchCalendlyScheduledEventPayloads } from "@/lib/calendly/fetch-scheduled-events";
+import {
+  getCalendlyIntegrationForOrganization,
+  getValidCalendlyAccessToken,
+  isCalendlyWebhookUnavailable,
+} from "@/lib/calendly/oauth-token";
 import { repairClosingConversationLinks } from "@/lib/conversations/repair-links";
 import type { CalendlyEventSyncPayload } from "@/types/calendly";
 
@@ -24,11 +30,49 @@ function mapSyncError(msg: string): string {
   return msg;
 }
 
+export async function getCalendlyIntegrationStatusAction(): Promise<{
+  connected: boolean;
+  webhookEnabled: boolean;
+}> {
+  if (!isSupabaseConfigured()) {
+    return { connected: false, webhookEnabled: false };
+  }
+
+  try {
+    const organizationId = await requireOrganizationId();
+    const row = await getCalendlyIntegrationForOrganization(organizationId);
+    if (!row) return { connected: false, webhookEnabled: false };
+    return {
+      connected: true,
+      webhookEnabled: !isCalendlyWebhookUnavailable(row.webhook_signing_key),
+    };
+  } catch {
+    return { connected: false, webhookEnabled: false };
+  }
+}
+
+/** Pull desde Calendly API (OAuth) → closing_calls. Útil sin plan Standard (sin webhooks). */
+export async function pullCalendlyScheduledEventsAction(): Promise<{
+  inserted: number;
+  updated: number;
+  skippedClosed: number;
+  fetched: number;
+}> {
+  const organizationId = await requireOrganizationId();
+  const { accessToken, orgUri } = await getValidCalendlyAccessToken(organizationId);
+  const events = await fetchCalendlyScheduledEventPayloads(accessToken, orgUri);
+  const supabase = await createClient();
+  const result = await syncCalendlyEventsForOrganizationImpl(
+    supabase,
+    organizationId,
+    events
+  );
+  return { ...result, fetched: events.length };
+}
+
 /**
  * Sync idempotente (incremental) de eventos de Calendly → `closing_calls`.
  * No sobreescribe deals ya cerrados (status='closed').
- *
- * Nota: todavía no conecta OAuth. Se usa como “puente” para webhook/API.
  */
 export async function syncCalendlyEventsAction(
   events: CalendlyEventSyncPayload[]

@@ -16,6 +16,7 @@ import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import { paths } from "@/routes";
 import type { ClosingCall, ClosingCallStatus } from "@/types/closing";
+import { CalendlyManualSyncNotice } from "@/components/integrations/calendly-manual-sync-notice";
 import { ClosingCalendar } from "./closing-calendar";
 import { PaymentModal } from "./payment-modal";
 import { NoCloseModal } from "./no-close-modal";
@@ -102,6 +103,8 @@ export function ClosingOverview() {
         title="Closing"
         description="Calendario de llamadas de cierre, contexto Calendly y resultados"
       />
+
+      <CalendlyManualSyncNotice showIntegrationsLink />
 
       <ModuleSubnav
         tabs={navTabs}
@@ -215,7 +218,7 @@ export function ClosingOverview() {
                 </div>
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5" />
-                  Sincronizado con Calendly (mock)
+                  Llamadas importadas desde Calendly
                 </p>
               </div>
               <ClosingCalendar

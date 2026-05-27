@@ -26,6 +26,9 @@ function mapAuthError(message: string): string {
   if (lower.includes("password")) {
     return "La contraseña debe tener al menos 6 caracteres.";
   }
+  if (lower.includes("invalid api key")) {
+    return "Clave de Supabase inválida. En Vercel revisa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY (o PUBLISHABLE_KEY) del mismo proyecto.";
+  }
   return message;
 }
 
