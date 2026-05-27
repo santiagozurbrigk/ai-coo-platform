@@ -33,7 +33,7 @@
 
 ## Siguiente entregable
 
-Oleada F: ManyChat (inbox) **o** gastos/compensación en Supabase. Calendly OAuth + sync manual listo.
+Oleada F ManyChat: API key + webhook + import por subscriber ID. Siguiente: gastos en DB o Instagram.
 
 ## Dev
 

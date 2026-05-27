@@ -6,6 +6,7 @@ import {
   getCalendlyIntegrationStatusAction,
   pullCalendlyScheduledEventsAction,
 } from "@/app/calendly/actions";
+import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
 import {
   Badge,
   Button,
@@ -25,6 +26,9 @@ import { useToast } from "@/providers/toast-provider";
 import { useMarketingData, usePlatformData } from "@/providers";
 import type { Integration } from "@/types/integrations";
 import { CalendlyManualSyncNotice } from "./calendly-manual-sync-notice";
+import { ManyChatConnectDialog } from "./manychat-connect-dialog";
+import { ManyChatImportDialog } from "./manychat-import-dialog";
+import { ManyChatWebhookNotice } from "./manychat-webhook-notice";
 
 const STATUS_LABEL: Record<string, string> = {
   connected: es.status.integration.connected,
@@ -37,6 +41,9 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const [status, setStatus] = useState(integration.status);
   const [calendlyWebhookEnabled, setCalendlyWebhookEnabled] = useState(true);
   const [connectOpen, setConnectOpen] = useState(false);
+  const [manychatConnectOpen, setManychatConnectOpen] = useState(false);
+  const [manychatImportOpen, setManychatImportOpen] = useState(false);
+  const [manychatWebhookUrl, setManychatWebhookUrl] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const { push } = useToast();
   const { setInstagramConnected } = useMarketingData();
@@ -53,6 +60,16 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     });
   }, [integration.provider, integration.status]);
 
+  useEffect(() => {
+    if (integration.provider !== "manychat" || status !== "connected") {
+      setManychatWebhookUrl(null);
+      return;
+    }
+    getManyChatIntegrationStatusAction().then((s) => {
+      setManychatWebhookUrl(s.webhookUrl ?? null);
+    });
+  }, [integration.provider, status]);
+
   const statusVariant =
     status === "connected"
       ? "success"
@@ -62,8 +79,11 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
 
   const handleConnect = () => {
     if (integration.provider === "calendly") {
-      // Inicia el OAuth real redirigiendo al backend.
       window.location.href = "/api/integrations/calendly/oauth/start";
+      return;
+    }
+    if (integration.provider === "manychat") {
+      setManychatConnectOpen(true);
       return;
     }
 
@@ -101,6 +121,17 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
               impacto en conversaciones, agendamientos y ventas.
             </p>
           )}
+          {integration.provider === "manychat" && status === "not_connected" && (
+            <p className="text-xs text-muted-foreground">
+              Conecta con tu API key. Los mensajes nuevos llegan vía External Request;
+              también puedes importar contactos por subscriber ID.
+            </p>
+          )}
+          {integration.provider === "manychat" &&
+            status === "connected" &&
+            manychatWebhookUrl && (
+              <ManyChatWebhookNotice webhookUrl={manychatWebhookUrl} />
+            )}
           {integration.provider === "calendly" && status === "not_connected" && (
             <p className="text-xs text-muted-foreground">
               Conecta tu cuenta de Calendly para importar llamadas de cierre. Si no
@@ -133,6 +164,15 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
             type="button"
             disabled={syncing}
             onClick={async () => {
+              if (integration.provider === "manychat") {
+                if (status === "not_connected") {
+                  setManychatConnectOpen(true);
+                } else {
+                  setManychatImportOpen(true);
+                }
+                return;
+              }
+
               if (integration.provider === "calendly" && status === "not_connected") {
                 window.location.href = "/api/integrations/calendly/oauth/start";
                 return;
@@ -178,10 +218,22 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                 ? es.common.connect
                 : integration.provider === "calendly"
                   ? "Sincronizar ahora"
-                  : es.common.manage}
+                  : integration.provider === "manychat"
+                    ? "Importar contacto"
+                    : es.common.manage}
           </Button>
         </CardContent>
       </Card>
+
+      <ManyChatConnectDialog
+        open={manychatConnectOpen}
+        onOpenChange={setManychatConnectOpen}
+        onConnected={() => setStatus("connected")}
+      />
+      <ManyChatImportDialog
+        open={manychatImportOpen}
+        onOpenChange={setManychatImportOpen}
+      />
 
       <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
         <DialogContent>

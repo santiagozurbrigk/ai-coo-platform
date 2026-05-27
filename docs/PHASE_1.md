@@ -57,10 +57,18 @@ Sustituir mocks y guards simulados por **persistencia real**, **multi-tenant** e
 - Estado **connected** real en tarjeta Calendly (`listIntegrationsAction` + DB)
 - Refresh de `closing_calls` en Closing tras sincronizar
 
-## Próximo entregable (Oleada F sugerida)
+## Oleada F (ManyChat) — Progreso
 
-1. **ManyChat** o **Gastos en DB** — elegir según prioridad de demo (inbox real vs finanzas completas).
-2. Opcional: `routing_form_submission` en webhook Calendly si el plan lo permite.
+1. Tabla `manychat_integrations` (API key + webhook token por org).
+2. Conectar con API key (`connectManyChatAction`) + validación `getInfo`.
+3. Webhook `POST /api/integrations/manychat/webhook/[token]` (External Request).
+4. Importación manual por subscriber ID; inbox actualiza conversaciones en Supabase.
+5. Estado real en tarjeta Integraciones; sin seed mock si ManyChat está conectado.
+
+## Próximo entregable
+
+1. **Gastos en DB** o **Instagram/Make** (marketing).
+2. Opcional: historial completo ManyChat vía Meta Graph API (ManyChat no expone historial).
 
 ## Referencias
 

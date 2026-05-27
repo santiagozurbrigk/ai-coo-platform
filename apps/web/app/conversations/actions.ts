@@ -11,6 +11,7 @@ import {
   rowToConversation,
   type ConversationRow,
 } from "@/lib/conversations/mapper";
+import { getManyChatIntegrationForOrganization } from "@/lib/manychat/integration";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { mockConversations } from "@/mocks/sales";
@@ -42,6 +43,9 @@ export async function seedConversationsIfEmpty(
     .eq("organization_id", organizationId);
 
   if (countError || (count ?? 0) > 0) return;
+
+  const manychat = await getManyChatIntegrationForOrganization(organizationId);
+  if (manychat) return;
 
   const rows = mockConversations.map((conv) => {
     const { id: legacyId, ...rest } = conv;

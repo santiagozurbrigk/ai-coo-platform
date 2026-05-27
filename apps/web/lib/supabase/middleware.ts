@@ -16,6 +16,12 @@ const PUBLIC_PATHS = [
 
 function isPublicPath(pathname: string): boolean {
   if (pathname === paths.home) return true;
+  if (
+    pathname.startsWith("/api/integrations/") &&
+    (pathname.includes("/webhook") || pathname.includes("/oauth/callback"))
+  ) {
+    return true;
+  }
   return PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
