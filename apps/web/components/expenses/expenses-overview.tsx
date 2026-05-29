@@ -6,6 +6,7 @@ import {
   Button,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -355,6 +356,9 @@ function FixedExpenseModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
+          <DialogDescription className="sr-only">
+            Formulario para registrar un gasto fijo recurrente.
+          </DialogDescription>
           <DialogTitle>Añadir gasto fijo</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
@@ -428,6 +432,9 @@ function SubscriptionModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
+          <DialogDescription className="sr-only">
+            Formulario para registrar una suscripción de software o servicio.
+          </DialogDescription>
           <DialogTitle>Añadir suscripción</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">

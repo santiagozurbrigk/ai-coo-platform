@@ -5,6 +5,7 @@ import {
   Button,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -163,6 +164,9 @@ function PlatformModal({
     <Dialog open={open} onOpenChange={handleOpen}>
       <DialogContent className="max-w-md">
         <DialogHeader>
+          <DialogDescription className="sr-only">
+            Formulario para añadir o editar una plataforma de pago.
+          </DialogDescription>
           <DialogTitle>
             {initial ? "Editar plataforma" : "Añadir plataforma de pago"}
           </DialogTitle>

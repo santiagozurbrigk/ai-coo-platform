@@ -29,12 +29,32 @@ export function Sparkline({
   const glowId = `${gradientId}-glow`;
   const chartData = React.useMemo(() => toChartData(data), [data]);
   const lastIndex = data.length - 1;
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [size, setSize] = React.useState({ width: 0, height: 0 });
+
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const { width, height } = el.getBoundingClientRect();
+      if (width > 0 && height > 0) {
+        setSize({ width: Math.floor(width), height: Math.floor(height) });
+      }
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   if (data.length < 2) return null;
 
   return (
-    <div className={className} aria-hidden>
-      <ResponsiveContainer width="100%" height="100%">
+    <div ref={containerRef} className={className} style={{ minWidth: 0, minHeight: 32 }} aria-hidden>
+      {size.width > 0 && size.height > 0 ? (
+      <ResponsiveContainer width={size.width} height={size.height}>
         <AreaChart
           data={chartData}
           margin={{ top: 4, right: 6, bottom: 4, left: 4 }}
@@ -80,6 +100,7 @@ export function Sparkline({
           />
         </AreaChart>
       </ResponsiveContainer>
+      ) : null}
     </div>
   );
 }

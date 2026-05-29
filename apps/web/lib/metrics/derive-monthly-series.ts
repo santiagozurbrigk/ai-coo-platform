@@ -59,15 +59,16 @@ export function deriveMonthlySeries(
     const gananciaNeta = facturacion - gastos;
     const marginPercent =
       facturacion > 0 ? (gananciaNeta / facturacion) * 100 : 0;
+    const safe = (n: number) => (Number.isFinite(n) ? n : 0);
 
     buckets.push({
       month: MONTH_SHORT[d.getMonth()] ?? "—",
-      facturacion,
-      cashCollected: gananciaNeta,
-      upfront,
-      installments,
-      fees,
-      marginPercent,
+      facturacion: safe(facturacion),
+      cashCollected: safe(gananciaNeta),
+      upfront: safe(upfront),
+      installments: safe(installments),
+      fees: safe(fees),
+      marginPercent: safe(marginPercent),
     });
   }
 

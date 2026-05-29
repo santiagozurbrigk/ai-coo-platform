@@ -48,14 +48,25 @@ function ChartShell({
   );
 }
 
+function finite(n: number, fallback = 0): number {
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function scaleLinear(
   values: number[],
   range: [number, number]
 ): (v: number) => number {
-  const min = Math.min(...values, 0);
-  const max = Math.max(...values, 1);
+  const finiteValues = values.filter(Number.isFinite);
+  const min = finiteValues.length ? Math.min(...finiteValues, 0) : 0;
+  const max = finiteValues.length ? Math.max(...finiteValues, 1) : 1;
+  const span = max - min || 1;
   const [a, b] = range;
-  return (v) => a + ((v - min) / (max - min || 1)) * (b - a);
+  return (v) => a + ((finite(v) - min) / span) * (b - a);
+}
+
+function xAtIndex(i: number, count: number, innerW: number, padL: number): number {
+  const denom = Math.max(count - 1, 1);
+  return padL + (i / denom) * innerW;
 }
 
 export function FinanceCharts() {
@@ -80,7 +91,7 @@ function FacturacionVsCashChart({ data }: { data: MonthlySeriesPoint[] }) {
   const [tip, setTip] = useState<number | null>(null);
   const innerW = W - PAD.l - PAD.r;
   const innerH = H - PAD.t - PAD.b;
-  const x = (i: number) => PAD.l + (i / (data.length - 1)) * innerW;
+  const x = (i: number) => xAtIndex(i, data.length, innerW, PAD.l);
   const yFact = scaleLinear(
     data.map((d) => d.facturacion),
     [PAD.t + innerH, PAD.t]
@@ -169,7 +180,7 @@ function PorCobrarSteppedChart({
   const W2 = 400;
   const H2 = 160;
   const stepW = W2 / (months.length + 1);
-  const max = Math.max(...months.map((m) => m.amount));
+  const max = Math.max(...months.map((m) => m.amount), 1);
 
   return (
     <ChartShell
@@ -184,12 +195,12 @@ function PorCobrarSteppedChart({
           </linearGradient>
         </defs>
         {months.map((m, i) => {
-          const y = H2 - 24 - (m.amount / max) * (H2 - 48);
+          const y = H2 - 24 - (finite(m.amount) / max) * (H2 - 48);
           const x = stepW * (i + 1);
           const nextX = stepW * (i + 2);
           const nextY =
             i < months.length - 1
-              ? H2 - 24 - (months[i + 1].amount / max) * (H2 - 48)
+              ? H2 - 24 - (finite(months[i + 1].amount) / max) * (H2 - 48)
               : y;
           return (
             <g key={m.month}>
@@ -356,7 +367,7 @@ function MarginHealthChart({ data }: { data: MonthlySeriesPoint[] }) {
     data.map((d) => d.marginPercent),
     [innerH + 20, 20]
   );
-  const x = (i: number) => 44 + (i / (data.length - 1)) * innerW;
+  const x = (i: number) => xAtIndex(i, data.length, innerW, 44);
 
   return (
     <ChartShell title="Evolución del margen" subtitle={`Umbral objetivo ${threshold}%`}>
@@ -382,7 +393,7 @@ function MarginHealthChart({ data }: { data: MonthlySeriesPoint[] }) {
             <circle
               key={d.month}
               cx={x(i)}
-              cy={y(d.marginPercent)}
+              cy={y(finite(d.marginPercent))}
               r="4"
               fill={above ? chartColors.success : chartColors.destructive}
               className={
@@ -408,13 +419,18 @@ function RevenueStackedChart({ data }: { data: MonthlySeriesPoint[] }) {
   const totals = data.map((d) => d.upfront + d.installments + d.fees);
   const y0 = innerH + 20;
 
+  const barW = Math.max(innerW / Math.max(data.length, 1) - 8, 4);
+
   const stacks = data.map((d, i) => {
-    const x = 44 + (i / (data.length - 1)) * innerW;
+    const x = xAtIndex(i, data.length, innerW, 44);
     let yAcc = y0;
+    const monthTotal = totals[i] || 0;
     const parts = keys.map((k, ki) => {
-      const h = (d[k] / totals[i]) * innerH * 0.85;
+      const raw =
+        monthTotal > 0 ? (finite(d[k]) / monthTotal) * innerH * 0.85 : 0;
+      const h = finite(raw);
       yAcc -= h;
-      return { k, h, y: yAcc, color: colors[ki], x, w: innerW / data.length - 8 };
+      return { k, h, y: yAcc, color: colors[ki], x, w: barW };
     });
     return { month: d.month, parts, x };
   });
@@ -427,7 +443,8 @@ function RevenueStackedChart({ data }: { data: MonthlySeriesPoint[] }) {
     >
       <svg viewBox={`0 0 ${W4} ${H4}`} className="w-full">
         {stacks.map((col) =>
-          col.parts.map((p) => (
+          col.parts.map((p) =>
+            p.h > 0 ? (
             <rect
               key={`${col.month}-${p.k}`}
               x={col.x - p.w / 2}
@@ -438,12 +455,13 @@ function RevenueStackedChart({ data }: { data: MonthlySeriesPoint[] }) {
               opacity={0.55}
               rx={2}
             />
-          ))
+            ) : null
+          )
         )}
         {data.map((d, i) => (
           <text
             key={d.month}
-            x={44 + (i / (data.length - 1)) * innerW}
+            x={xAtIndex(i, data.length, innerW, 44)}
             y={H4 - 6}
             textAnchor="middle"
             fontSize="10"
