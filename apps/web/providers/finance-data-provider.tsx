@@ -4,19 +4,27 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import {
-  mockFixedExpenses,
-  mockSubscriptions,
-  mockTeamCompensation,
-} from "@/mocks/expenses";
+  createFixedExpenseAction,
+  createPaymentPlatformAction,
+  createSubscriptionAction,
+  deleteFixedExpenseAction,
+  deletePaymentPlatformAction,
+  deleteSubscriptionAction,
+  loadFinanceConfigAction,
+  updateFixedExpenseAction,
+  updatePaymentPlatformAction,
+  updateSubscriptionAction,
+  updateTeamCompensationAction,
+} from "@/app/finance/actions";
 import {
   mockFinanceSummary,
   mockMonthlySeries,
-  mockPaymentPlatforms,
 } from "@/mocks/finance";
 import { computeExpensesSummary } from "@/lib/metrics/compute-expenses-summary";
 import { deriveFinanceSummary } from "@/lib/metrics/derive-finance-summary";
@@ -35,110 +43,217 @@ const useSupabase = isSupabaseConfigured();
 
 type FinanceDataContextValue = {
   paymentPlatforms: PaymentPlatformConfig[];
-  addPaymentPlatform: (platform: Omit<PaymentPlatformConfig, "id" | "totalReceived" | "lastTransactionAt">) => void;
-  updatePaymentPlatform: (id: string, patch: Partial<PaymentPlatformConfig>) => void;
-  removePaymentPlatform: (id: string) => void;
+  financeConfigLoading: boolean;
+  addPaymentPlatform: (
+    platform: Omit<PaymentPlatformConfig, "id" | "totalReceived" | "lastTransactionAt">
+  ) => Promise<void>;
+  updatePaymentPlatform: (
+    id: string,
+    patch: Partial<PaymentPlatformConfig>
+  ) => Promise<void>;
+  removePaymentPlatform: (id: string) => Promise<void>;
   financeSummary: FinanceSummary;
   monthlySeries: typeof mockMonthlySeries;
   fixedExpenses: FixedExpense[];
   subscriptions: Subscription[];
   teamCompensation: TeamCompensation[];
   expensesSummary: ExpensesSummary;
-  addFixedExpense: (expense: Omit<FixedExpense, "id">) => void;
-  updateFixedExpense: (id: string, patch: Partial<FixedExpense>) => void;
-  removeFixedExpense: (id: string) => void;
-  addSubscription: (sub: Omit<Subscription, "id">) => void;
-  updateSubscription: (id: string, patch: Partial<Subscription>) => void;
-  removeSubscription: (id: string) => void;
-  updateTeamCompensation: (id: string, patch: Partial<TeamCompensation>) => void;
+  addFixedExpense: (expense: Omit<FixedExpense, "id">) => Promise<void>;
+  updateFixedExpense: (id: string, patch: Partial<FixedExpense>) => Promise<void>;
+  removeFixedExpense: (id: string) => Promise<void>;
+  addSubscription: (sub: Omit<Subscription, "id">) => Promise<void>;
+  updateSubscription: (id: string, patch: Partial<Subscription>) => Promise<void>;
+  removeSubscription: (id: string) => Promise<void>;
+  updateTeamCompensation: (
+    id: string,
+    patch: Partial<TeamCompensation>
+  ) => Promise<void>;
+  refreshFinanceConfig: () => Promise<void>;
 };
 
 const FinanceDataContext = createContext<FinanceDataContextValue | null>(null);
-
-function newId(prefix: string) {
-  return `${prefix}-${Date.now().toString(36)}`;
-}
 
 export function FinanceDataProvider({ children }: { children: ReactNode }) {
   const { clients, closingCalls, clientsLoading, closingCallsLoading } =
     usePlatformData();
 
+  const [financeConfigLoading, setFinanceConfigLoading] = useState(useSupabase);
   const [paymentPlatforms, setPaymentPlatforms] = useState<PaymentPlatformConfig[]>(
-    () => mockPaymentPlatforms.map((p) => ({ ...p }))
+    []
   );
-  const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>(
-    () => mockFixedExpenses.map((e) => ({ ...e }))
-  );
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>(
-    () => mockSubscriptions.map((s) => ({ ...s }))
-  );
-  const [teamCompensation, setTeamCompensation] = useState<TeamCompensation[]>(
-    () => mockTeamCompensation.map((t) => ({ ...t }))
-  );
+  const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [teamCompensation, setTeamCompensation] = useState<TeamCompensation[]>([]);
+
+  const refreshFinanceConfig = useCallback(async () => {
+    if (!useSupabase) return;
+    setFinanceConfigLoading(true);
+    try {
+      const config = await loadFinanceConfigAction();
+      setPaymentPlatforms(config.paymentPlatforms);
+      setFixedExpenses(config.fixedExpenses);
+      setSubscriptions(config.subscriptions);
+      setTeamCompensation(config.teamCompensation);
+    } finally {
+      setFinanceConfigLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (useSupabase) {
+      void refreshFinanceConfig();
+    } else {
+      void loadFinanceConfigAction().then((config) => {
+        setPaymentPlatforms(config.paymentPlatforms);
+        setFixedExpenses(config.fixedExpenses);
+        setSubscriptions(config.subscriptions);
+        setTeamCompensation(config.teamCompensation);
+      });
+    }
+  }, [refreshFinanceConfig]);
 
   const addPaymentPlatform = useCallback(
-    (platform: Omit<PaymentPlatformConfig, "id" | "totalReceived" | "lastTransactionAt">) => {
+    async (
+      platform: Omit<
+        PaymentPlatformConfig,
+        "id" | "totalReceived" | "lastTransactionAt"
+      >
+    ) => {
+      if (useSupabase) {
+        await createPaymentPlatformAction(platform);
+        await refreshFinanceConfig();
+        return;
+      }
       setPaymentPlatforms((prev) => [
         ...prev,
         {
           ...platform,
-          id: newId("pp"),
+          id: `pp-${Date.now()}`,
           totalReceived: 0,
           lastTransactionAt: new Date().toISOString().slice(0, 10),
         },
       ]);
     },
-    []
+    [refreshFinanceConfig]
   );
 
   const updatePaymentPlatform = useCallback(
-    (id: string, patch: Partial<PaymentPlatformConfig>) => {
+    async (id: string, patch: Partial<PaymentPlatformConfig>) => {
+      if (useSupabase) {
+        await updatePaymentPlatformAction(id, patch);
+        await refreshFinanceConfig();
+        return;
+      }
       setPaymentPlatforms((prev) =>
         prev.map((p) => (p.id === id ? { ...p, ...patch } : p))
       );
     },
-    []
+    [refreshFinanceConfig]
   );
 
-  const removePaymentPlatform = useCallback((id: string) => {
-    setPaymentPlatforms((prev) => prev.filter((p) => p.id !== id));
-  }, []);
+  const removePaymentPlatform = useCallback(
+    async (id: string) => {
+      if (useSupabase) {
+        await deletePaymentPlatformAction(id);
+        await refreshFinanceConfig();
+        return;
+      }
+      setPaymentPlatforms((prev) => prev.filter((p) => p.id !== id));
+    },
+    [refreshFinanceConfig]
+  );
 
-  const addFixedExpense = useCallback((expense: Omit<FixedExpense, "id">) => {
-    setFixedExpenses((prev) => [...prev, { ...expense, id: newId("fe") }]);
-  }, []);
+  const addFixedExpense = useCallback(
+    async (expense: Omit<FixedExpense, "id">) => {
+      if (useSupabase) {
+        await createFixedExpenseAction(expense);
+        await refreshFinanceConfig();
+        return;
+      }
+      setFixedExpenses((prev) => [
+        ...prev,
+        { ...expense, id: `fe-${Date.now()}` },
+      ]);
+    },
+    [refreshFinanceConfig]
+  );
 
-  const updateFixedExpense = useCallback((id: string, patch: Partial<FixedExpense>) => {
-    setFixedExpenses((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, ...patch } : e))
-    );
-  }, []);
+  const updateFixedExpense = useCallback(
+    async (id: string, patch: Partial<FixedExpense>) => {
+      if (useSupabase) {
+        await updateFixedExpenseAction(id, patch);
+        await refreshFinanceConfig();
+        return;
+      }
+      setFixedExpenses((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, ...patch } : e))
+      );
+    },
+    [refreshFinanceConfig]
+  );
 
-  const removeFixedExpense = useCallback((id: string) => {
-    setFixedExpenses((prev) => prev.filter((e) => e.id !== id));
-  }, []);
+  const removeFixedExpense = useCallback(
+    async (id: string) => {
+      if (useSupabase) {
+        await deleteFixedExpenseAction(id);
+        await refreshFinanceConfig();
+        return;
+      }
+      setFixedExpenses((prev) => prev.filter((e) => e.id !== id));
+    },
+    [refreshFinanceConfig]
+  );
 
-  const addSubscription = useCallback((sub: Omit<Subscription, "id">) => {
-    setSubscriptions((prev) => [...prev, { ...sub, id: newId("sub") }]);
-  }, []);
+  const addSubscription = useCallback(
+    async (sub: Omit<Subscription, "id">) => {
+      if (useSupabase) {
+        await createSubscriptionAction(sub);
+        await refreshFinanceConfig();
+        return;
+      }
+      setSubscriptions((prev) => [...prev, { ...sub, id: `sub-${Date.now()}` }]);
+    },
+    [refreshFinanceConfig]
+  );
 
-  const updateSubscription = useCallback((id: string, patch: Partial<Subscription>) => {
-    setSubscriptions((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, ...patch } : s))
-    );
-  }, []);
+  const updateSubscription = useCallback(
+    async (id: string, patch: Partial<Subscription>) => {
+      if (useSupabase) {
+        await updateSubscriptionAction(id, patch);
+        await refreshFinanceConfig();
+        return;
+      }
+      setSubscriptions((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, ...patch } : s))
+      );
+    },
+    [refreshFinanceConfig]
+  );
 
-  const removeSubscription = useCallback((id: string) => {
-    setSubscriptions((prev) => prev.filter((s) => s.id !== id));
-  }, []);
+  const removeSubscription = useCallback(
+    async (id: string) => {
+      if (useSupabase) {
+        await deleteSubscriptionAction(id);
+        await refreshFinanceConfig();
+        return;
+      }
+      setSubscriptions((prev) => prev.filter((s) => s.id !== id));
+    },
+    [refreshFinanceConfig]
+  );
 
   const updateTeamCompensation = useCallback(
-    (id: string, patch: Partial<TeamCompensation>) => {
+    async (id: string, patch: Partial<TeamCompensation>) => {
+      if (useSupabase) {
+        await updateTeamCompensationAction(id, patch);
+        await refreshFinanceConfig();
+        return;
+      }
       setTeamCompensation((prev) =>
         prev.map((t) => (t.id === id ? { ...t, ...patch } : t))
       );
     },
-    []
+    [refreshFinanceConfig]
   );
 
   const expensesSummary = useMemo(
@@ -148,7 +263,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
   );
 
   const dataReady =
-    !useSupabase || (!clientsLoading && !closingCallsLoading);
+    !useSupabase || (!clientsLoading && !closingCallsLoading && !financeConfigLoading);
 
   const financeSummary: FinanceSummary = useMemo(() => {
     if (!useSupabase) return mockFinanceSummary;
@@ -177,6 +292,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       paymentPlatforms,
+      financeConfigLoading,
       addPaymentPlatform,
       updatePaymentPlatform,
       removePaymentPlatform,
@@ -193,9 +309,11 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       updateSubscription,
       removeSubscription,
       updateTeamCompensation,
+      refreshFinanceConfig,
     }),
     [
       paymentPlatforms,
+      financeConfigLoading,
       addPaymentPlatform,
       updatePaymentPlatform,
       removePaymentPlatform,
@@ -212,6 +330,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       updateSubscription,
       removeSubscription,
       updateTeamCompensation,
+      refreshFinanceConfig,
     ]
   );
 

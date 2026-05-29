@@ -53,19 +53,22 @@ Tablas en Supabase:
 - Función `get_my_organization_id()` (SECURITY DEFINER) para evitar **recursión infinita** en políticas de `profiles` (bug que ya se corrigió).
 - Migraciones versionadas en `supabase/migrations/` (+ `RUN_ALL_PHASE1.sql` como script único).
 
-### Dominios persistidos (oleadas A–D)
+### Dominios persistidos (oleadas A–G)
 - **Clientes** (`clients`): CRUD + FK a `closing_calls`.
-- **Closing** (`closing_calls`): listado, estados, seed demo, vínculo `conversation_id` → `conversations`.
+- **Closing** (`closing_calls`): listado, estados, Calendly webhook/sync, FK real a clientes.
 - **Onboarding** (`onboarding_responses`): wizard completo en DB; guard en login.
 - **Conversaciones** (`conversations`): inbox, tags, mensajes/análisis JSONB.
-- **Métricas derivadas (Oleada D):** Finanzas (`financeSummary`, series mensuales) y Ventas (`/sales/metrics`) calculadas desde clientes + closing + conversaciones; gastos del módulo Gastos siguen en configuración local.
+- **Métricas derivadas:** Finanzas y Ventas calculadas desde clientes + closing + gastos en DB.
+- **Calendly** (`calendly_integrations`): OAuth, sync manual, estado real en Integraciones.
+- **ManyChat** (`manychat_integrations`): API key + webhook; inbox real bloqueado por verificación Meta.
+- **Gastos (Oleada G):** `fixed_expenses`, `subscriptions`, `team_compensation`, `payment_platforms` con CRUD vía Server Actions y `FinanceDataProvider`.
 
 ### Lo que deliberadamente NO se migró aún
-- Gastos / compensación de equipo en DB
 - Marketing (providers mock)
-- Integraciones reales (ManyChat, Calendly, Instagram, pagos)
+- Instagram / Meta API (bloqueado por verificación developer)
 - Super Admin con datos reales
 - Motor IA / RAG
+- Fathom, Loom, Notion, Google Drive (integraciones reales)
 
 ### Deuda / decisiones tomadas
 - Arquitectura original mencionaba Clerk; **se eligió Supabase Auth** en Phase 1.

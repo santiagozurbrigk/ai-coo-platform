@@ -53,6 +53,8 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     ? await countManyChatConversations()
     : 0;
 
+  const REAL_CONNECTION_PROVIDERS = new Set(["calendly", "manychat"]);
+
   return mockIntegrations.map((integration) => {
     if (integration.provider === "manychat") {
       if (!manychatStatus.connected) {
@@ -68,19 +70,30 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
       };
     }
 
-    if (integration.provider !== "calendly") return integration;
+    if (integration.provider === "calendly") {
+      if (!calendlyStatus.connected) {
+        return { ...integration, status: "not_connected" as const };
+      }
 
-    if (!calendlyStatus.connected) {
-      return { ...integration, status: "not_connected" as const };
+      return {
+        ...integration,
+        status: "connected" as const,
+        lastSync: calendlyStatus.lastSyncAt
+          ? formatRelativeTime(calendlyStatus.lastSyncAt)
+          : undefined,
+        recordsSynced: calendlyRecords > 0 ? calendlyRecords : undefined,
+      };
     }
 
-    return {
-      ...integration,
-      status: "connected" as const,
-      lastSync: calendlyStatus.lastSyncAt
-        ? formatRelativeTime(calendlyStatus.lastSyncAt)
-        : undefined,
-      recordsSynced: calendlyRecords > 0 ? calendlyRecords : undefined,
-    };
+    if (!REAL_CONNECTION_PROVIDERS.has(integration.provider)) {
+      return {
+        ...integration,
+        status: "not_connected" as const,
+        lastSync: undefined,
+        recordsSynced: undefined,
+      };
+    }
+
+    return integration;
   });
 }

@@ -5,7 +5,7 @@ import type {
   TeamCompensation,
 } from "@/types/expenses";
 
-/** Gastos mensuales desde la configuración local de Gastos (sin DB aún). */
+/** Gastos mensuales desde la configuración de Gastos (DB o mock). */
 export function computeExpensesSummary(
   fixedExpenses: FixedExpense[],
   subscriptions: Subscription[],
@@ -18,6 +18,7 @@ export function computeExpensesSummary(
   const subscriptionsMonthly = subscriptions
     .filter((s) => s.billingCycle === "monthly")
     .reduce((sum, s) => sum + s.amount, 0);
+  // Suscripciones pausadas no se cargan desde DB (filtro en listado).
 
   const teamFixedMonthly = teamCompensation.reduce(
     (sum, t) => sum + (t.hasFixed ? (t.fixedMonthly ?? 0) : 0),

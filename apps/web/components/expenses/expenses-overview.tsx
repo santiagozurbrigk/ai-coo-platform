@@ -146,8 +146,7 @@ function FixedExpensesSection({
         open={open}
         onOpenChange={setOpen}
         onSave={(data) => {
-          addFixedExpense(data);
-          setOpen(false);
+          void addFixedExpense(data).then(() => setOpen(false));
         }}
       />
     </section>
@@ -187,8 +186,7 @@ function SubscriptionsSection({
         open={open}
         onOpenChange={setOpen}
         onSave={(data) => {
-          addSubscription(data);
-          setOpen(false);
+          void addSubscription(data).then(() => setOpen(false));
         }}
       />
     </section>

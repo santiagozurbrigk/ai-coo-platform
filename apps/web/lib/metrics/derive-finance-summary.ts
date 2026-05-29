@@ -21,12 +21,24 @@ import {
 
 const DEFAULT_COMMISSION_RATE = 0.1;
 
-const PLATFORM_TO_CONFIG_ID: Record<string, string> = {
+/** Fallback si las plataformas aún usan IDs mock en local. */
+const LEGACY_PLATFORM_TO_CONFIG_ID: Record<string, string> = {
   stripe: "pp-stripe",
   mercadopago: "pp-mp",
   paypal: "pp-stripe",
   bank_transfer: "pp-wise",
 };
+
+function configIdForPaymentSlug(
+  platform: string,
+  paymentPlatforms: PaymentPlatformConfig[]
+): string | null {
+  const bySlug = paymentPlatforms.find((p) => p.slug === platform);
+  if (bySlug) return bySlug.id;
+  const legacy = LEGACY_PLATFORM_TO_CONFIG_ID[platform];
+  if (legacy && paymentPlatforms.some((p) => p.id === legacy)) return legacy;
+  return null;
+}
 
 /** Total histórico reconocido (todas las fechas de cobro). */
 export function cobradoSegunPagoForClient(client: Client): number {
@@ -110,7 +122,7 @@ export function deriveFinanceSummary(
 
   const balanceByPlatform = new Map<string, number>();
   for (const event of periodEvents) {
-    const configId = PLATFORM_TO_CONFIG_ID[event.platform];
+    const configId = configIdForPaymentSlug(event.platform, paymentPlatforms);
     if (!configId) continue;
     balanceByPlatform.set(
       configId,

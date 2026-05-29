@@ -1,6 +1,8 @@
 export type PaymentPlatformConfig = {
   id: string;
   name: string;
+  /** Clave para mapear pagos de clientes (stripe, wise, mercadopago). */
+  slug?: string;
   currency: string;
   accountLabel?: string;
   totalReceived: number;

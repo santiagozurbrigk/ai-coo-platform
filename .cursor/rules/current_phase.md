@@ -33,7 +33,7 @@
 
 ## Siguiente entregable
 
-Oleada F ManyChat: API key + webhook + import por subscriber ID. Siguiente: gastos en DB o Instagram.
+Oleada G Gastos en DB (`fixed_expenses`, `subscriptions`, `team_compensation`, `payment_platforms`). Migración: `20260521800000_finance_expenses.sql`. Instagram/ManyChat inbox real bloqueado por Meta.
 
 ## Dev
 

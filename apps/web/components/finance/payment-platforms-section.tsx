@@ -112,13 +112,15 @@ export function PaymentPlatformsSection() {
         onOpenChange={setOpen}
         initial={editing}
         onSave={(data) => {
+          const done = () => {
+            setOpen(false);
+            setEditing(null);
+          };
           if (editing) {
-            updatePaymentPlatform(editing.id, data);
+            void updatePaymentPlatform(editing.id, data).then(done);
           } else {
-            addPaymentPlatform(data);
+            void addPaymentPlatform(data).then(done);
           }
-          setOpen(false);
-          setEditing(null);
         }}
       />
     </section>

@@ -65,10 +65,19 @@ Sustituir mocks y guards simulados por **persistencia real**, **multi-tenant** e
 4. Importación manual por subscriber ID; inbox actualiza conversaciones en Supabase.
 5. Estado real en tarjeta Integraciones; sin seed mock si ManyChat está conectado.
 
+## Oleada G (Gastos) — Progreso
+
+1. Tablas `fixed_expenses`, `subscriptions`, `team_compensation`, `payment_platforms` + RLS.
+2. Server Actions CRUD en `app/finance/actions.ts`; seed inicial desde mocks si vacío.
+3. `FinanceDataProvider` lee/escribe en Supabase; métricas de Finanzas usan gastos reales.
+4. Integraciones no implementadas muestran `not_connected` (sin mock “conectado” falso).
+
+Migración: `supabase/migrations/20260521800000_finance_expenses.sql`
+
 ## Próximo entregable
 
-1. **Gastos en DB** o **Instagram/Make** (marketing).
-2. Opcional: historial completo ManyChat vía Meta Graph API (ManyChat no expone historial).
+1. **Instagram/Make** (marketing) — bloqueado por verificación Meta en ManyChat/IG.
+2. Super Admin con datos reales (baja prioridad).
 
 ## Referencias
 

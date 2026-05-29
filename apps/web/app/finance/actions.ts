@@ -1,0 +1,409 @@
+"use server";
+
+import {
+  isMissingTableError,
+  requireOrganizationId,
+} from "@/lib/auth/bootstrap";
+import {
+  rowToFixedExpense,
+  rowToPaymentPlatform,
+  rowToSubscription,
+  rowToTeamCompensation,
+  type FixedExpenseRow,
+  type PaymentPlatformRow,
+  type SubscriptionRow,
+  type TeamCompensationRow,
+} from "@/lib/expenses/mapper";
+import { collectRevenueEvents } from "@/lib/metrics/revenue-events";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import {
+  mockFixedExpenses,
+  mockSubscriptions,
+  mockTeamCompensation,
+} from "@/mocks/expenses";
+import { mockPaymentPlatforms } from "@/mocks/finance";
+import { listClientsAction } from "@/app/clients/actions";
+import type {
+  FixedExpense,
+  Subscription,
+  TeamCompensation,
+} from "@/types/expenses";
+import type { PaymentPlatformConfig } from "@/types/finance";
+
+export type FinanceConfigPayload = {
+  fixedExpenses: FixedExpense[];
+  subscriptions: Subscription[];
+  teamCompensation: TeamCompensation[];
+  paymentPlatforms: PaymentPlatformConfig[];
+};
+
+function mapFinanceError(msg: string): string {
+  if (isMissingTableError(msg)) {
+    return "Faltan tablas de gastos. Ejecuta supabase/migrations/20260521800000_finance_expenses.sql en Supabase.";
+  }
+  return msg;
+}
+
+function paymentPlatformTotals(
+  platforms: PaymentPlatformRow[],
+  clients: Awaited<ReturnType<typeof listClientsAction>>
+): PaymentPlatformConfig[] {
+  const events = collectRevenueEvents(clients);
+  const bySlug = new Map<string, { total: number; lastAt: string }>();
+
+  for (const event of events) {
+    const prev = bySlug.get(event.platform) ?? { total: 0, lastAt: "" };
+    const at = event.date.slice(0, 10);
+    bySlug.set(event.platform, {
+      total: prev.total + event.amount,
+      lastAt: at > prev.lastAt ? at : prev.lastAt || at,
+    });
+  }
+
+  return platforms.map((row) => {
+    const slug = row.slug ?? "";
+    const totals = slug ? bySlug.get(slug) : undefined;
+    return rowToPaymentPlatform(row, {
+      totalReceived: totals?.total ?? 0,
+      lastTransactionAt: totals?.lastAt || new Date().toISOString().slice(0, 10),
+    });
+  });
+}
+
+async function seedFinanceConfigIfEmpty(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string
+) {
+  const { count } = await supabase
+    .from("fixed_expenses")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId);
+
+  if ((count ?? 0) > 0) return;
+
+  const platforms = [
+    { slug: "stripe", name: "Stripe", currency: "USD", account_label: "Stripe USD" },
+    { slug: "wise", name: "Wise", currency: "USD", account_label: "Wise USD" },
+    {
+      slug: "mercadopago",
+      name: "MercadoPago",
+      currency: "ARS",
+      account_label: "Cuenta ARS",
+    },
+  ];
+
+  await supabase.from("payment_platforms").insert(
+    platforms.map((p) => ({ organization_id: organizationId, ...p }))
+  );
+
+  await supabase.from("fixed_expenses").insert(
+    mockFixedExpenses.map((e) => ({
+      organization_id: organizationId,
+      name: e.name,
+      category: e.category,
+      amount: e.amount,
+      currency: e.currency,
+      frequency: e.frequency,
+      status: e.status,
+    }))
+  );
+
+  await supabase.from("subscriptions").insert(
+    mockSubscriptions.map((s) => ({
+      organization_id: organizationId,
+      name: s.name,
+      amount: s.amount,
+      currency: s.currency,
+      billing_cycle: s.billingCycle,
+      status: "active",
+      icon: s.icon ?? null,
+    }))
+  );
+
+  await supabase.from("team_compensation").insert(
+    mockTeamCompensation.map((t) => ({
+      organization_id: organizationId,
+      member_id: t.memberId,
+      member_name: t.memberName,
+      role_label: t.roleLabel,
+      has_fixed_salary: t.hasFixed,
+      fixed_amount: t.fixedMonthly ?? null,
+      has_commission: t.hasCommission,
+      commission_basis: t.commissionBasis ?? null,
+      commission_percentage: t.commissionPercent ?? null,
+      commission_applied_to: t.commissionSummary ?? null,
+      notes: t.notes ?? null,
+      estimated_this_month: t.estimatedThisMonth,
+    }))
+  );
+}
+
+export async function loadFinanceConfigAction(): Promise<FinanceConfigPayload> {
+  if (!isSupabaseConfigured()) {
+    return {
+      fixedExpenses: mockFixedExpenses.map((e) => ({ ...e })),
+      subscriptions: mockSubscriptions.map((s) => ({ ...s })),
+      teamCompensation: mockTeamCompensation.map((t) => ({ ...t })),
+      paymentPlatforms: mockPaymentPlatforms.map((p) => ({ ...p })),
+    };
+  }
+
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  try {
+    await seedFinanceConfigIfEmpty(supabase, organizationId);
+  } catch (e) {
+    console.error("[seedFinanceConfig]", e);
+  }
+
+  const clients = await listClientsAction();
+
+  const [fixedRes, subsRes, teamRes, platRes] = await Promise.all([
+    supabase
+      .from("fixed_expenses")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("name"),
+    supabase
+      .from("subscriptions")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .eq("status", "active")
+      .order("name"),
+    supabase
+      .from("team_compensation")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("member_name"),
+    supabase
+      .from("payment_platforms")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("name"),
+  ]);
+
+  const err =
+    fixedRes.error?.message ??
+    subsRes.error?.message ??
+    teamRes.error?.message ??
+    platRes.error?.message;
+
+  if (err) {
+    console.error("[loadFinanceConfig]", err);
+    return {
+      fixedExpenses: [],
+      subscriptions: [],
+      teamCompensation: [],
+      paymentPlatforms: [],
+    };
+  }
+
+  return {
+    fixedExpenses: ((fixedRes.data ?? []) as FixedExpenseRow[]).map(rowToFixedExpense),
+    subscriptions: ((subsRes.data ?? []) as SubscriptionRow[]).map(rowToSubscription),
+    teamCompensation: ((teamRes.data ?? []) as TeamCompensationRow[]).map(
+      rowToTeamCompensation
+    ),
+    paymentPlatforms: paymentPlatformTotals(
+      (platRes.data ?? []) as PaymentPlatformRow[],
+      clients
+    ),
+  };
+}
+
+export async function createFixedExpenseAction(
+  expense: Omit<FixedExpense, "id">
+): Promise<FixedExpense> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("fixed_expenses")
+    .insert({
+      organization_id: organizationId,
+      name: expense.name,
+      category: expense.category,
+      amount: expense.amount,
+      currency: expense.currency,
+      frequency: expense.frequency,
+      status: expense.status,
+    })
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+  return rowToFixedExpense(data as FixedExpenseRow);
+}
+
+export async function updateFixedExpenseAction(
+  id: string,
+  patch: Partial<FixedExpense>
+): Promise<FixedExpense> {
+  const supabase = await createClient();
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.name != null) row.name = patch.name;
+  if (patch.category != null) row.category = patch.category;
+  if (patch.amount != null) row.amount = patch.amount;
+  if (patch.currency != null) row.currency = patch.currency;
+  if (patch.frequency != null) row.frequency = patch.frequency;
+  if (patch.status != null) row.status = patch.status;
+
+  const { data, error } = await supabase
+    .from("fixed_expenses")
+    .update(row)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+  return rowToFixedExpense(data as FixedExpenseRow);
+}
+
+export async function deleteFixedExpenseAction(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("fixed_expenses").delete().eq("id", id);
+  if (error) throw new Error(mapFinanceError(error.message));
+}
+
+export async function createSubscriptionAction(
+  sub: Omit<Subscription, "id">
+): Promise<Subscription> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .insert({
+      organization_id: organizationId,
+      name: sub.name,
+      amount: sub.amount,
+      currency: sub.currency,
+      billing_cycle: sub.billingCycle,
+      status: "active",
+      icon: sub.icon ?? null,
+    })
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+  return rowToSubscription(data as SubscriptionRow);
+}
+
+export async function updateSubscriptionAction(
+  id: string,
+  patch: Partial<Subscription>
+): Promise<Subscription> {
+  const supabase = await createClient();
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.name != null) row.name = patch.name;
+  if (patch.amount != null) row.amount = patch.amount;
+  if (patch.currency != null) row.currency = patch.currency;
+  if (patch.billingCycle != null) row.billing_cycle = patch.billingCycle;
+  if (patch.icon !== undefined) row.icon = patch.icon ?? null;
+
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .update(row)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+  return rowToSubscription(data as SubscriptionRow);
+}
+
+export async function deleteSubscriptionAction(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("subscriptions").delete().eq("id", id);
+  if (error) throw new Error(mapFinanceError(error.message));
+}
+
+export async function updateTeamCompensationAction(
+  id: string,
+  patch: Partial<TeamCompensation>
+): Promise<TeamCompensation> {
+  const supabase = await createClient();
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.memberName != null) row.member_name = patch.memberName;
+  if (patch.roleLabel != null) row.role_label = patch.roleLabel;
+  if (patch.hasFixed != null) row.has_fixed_salary = patch.hasFixed;
+  if (patch.fixedMonthly !== undefined) row.fixed_amount = patch.fixedMonthly ?? null;
+  if (patch.hasCommission != null) row.has_commission = patch.hasCommission;
+  if (patch.commissionPercent !== undefined) {
+    row.commission_percentage = patch.commissionPercent ?? null;
+  }
+  if (patch.commissionBasis !== undefined) {
+    row.commission_basis = patch.commissionBasis ?? null;
+  }
+  if (patch.commissionSummary !== undefined) {
+    row.commission_applied_to = patch.commissionSummary ?? null;
+  }
+  if (patch.notes !== undefined) row.notes = patch.notes ?? null;
+  if (patch.estimatedThisMonth != null) {
+    row.estimated_this_month = patch.estimatedThisMonth;
+  }
+
+  const { data, error } = await supabase
+    .from("team_compensation")
+    .update(row)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+  return rowToTeamCompensation(data as TeamCompensationRow);
+}
+
+export async function createPaymentPlatformAction(
+  platform: Omit<PaymentPlatformConfig, "id" | "totalReceived" | "lastTransactionAt">
+): Promise<PaymentPlatformConfig> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+  const slug =
+    platform.slug ??
+    platform.name.toLowerCase().replace(/\s+/g, "_").slice(0, 32);
+
+  const { data, error } = await supabase
+    .from("payment_platforms")
+    .insert({
+      organization_id: organizationId,
+      name: platform.name,
+      slug,
+      currency: platform.currency,
+      account_label: platform.accountLabel ?? null,
+    })
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+  return rowToPaymentPlatform(data as PaymentPlatformRow);
+}
+
+export async function updatePaymentPlatformAction(
+  id: string,
+  patch: Partial<PaymentPlatformConfig>
+): Promise<PaymentPlatformConfig> {
+  const supabase = await createClient();
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.name != null) row.name = patch.name;
+  if (patch.slug !== undefined) row.slug = patch.slug ?? null;
+  if (patch.currency != null) row.currency = patch.currency;
+  if (patch.accountLabel !== undefined) row.account_label = patch.accountLabel ?? null;
+
+  const { data, error } = await supabase
+    .from("payment_platforms")
+    .update(row)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+  const clients = await listClientsAction();
+  return paymentPlatformTotals([data as PaymentPlatformRow], clients)[0];
+}
+
+export async function deletePaymentPlatformAction(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("payment_platforms").delete().eq("id", id);
+  if (error) throw new Error(mapFinanceError(error.message));
+}
