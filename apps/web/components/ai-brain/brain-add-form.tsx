@@ -6,7 +6,15 @@ import { useRouter } from "next/navigation";
 import { Upload, Layout, CheckCircle2 } from "lucide-react";
 import { Button, GlassPanel, cn } from "@ai-coo/ui";
 import { paths } from "@/routes";
-import { uploadAiBrainDocumentAction } from "@/app/super-admin/actions";
+import {
+  createAiBrainDocumentAction,
+  prepareAiBrainFileUploadAction,
+} from "@/app/super-admin/actions";
+import {
+  AI_BRAIN_ACCEPT,
+  AI_BRAIN_FORMATS_LABEL,
+  isAllowedBrainFile,
+} from "@/lib/ai-brain/file-types";
 import type { BrainCategory, BrainContentType } from "@/types/ai-brain";
 
 const CONTENT_TYPES: { key: BrainContentType; label: string }[] = [
@@ -57,6 +65,17 @@ export function BrainAddForm() {
   const showDropzone = contentType !== "miro";
 
   function onFileSelected(f: File | null) {
+    if (!f) {
+      setFile(null);
+      return;
+    }
+    const check = isAllowedBrainFile(f.name, f.type, f.size);
+    if (!check.ok) {
+      setError(check.error);
+      setFile(null);
+      return;
+    }
+    setError(null);
     setFile(f);
   }
 
@@ -69,18 +88,53 @@ export function BrainAddForm() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const formData = new FormData();
-    formData.set("title", title);
-    formData.set("contentType", contentType);
-    formData.set("category", category);
-    formData.set("description", description);
-    formData.set("tags", tags);
-    formData.set("coverageAreas", coverage.join(","));
-    if (file) formData.set("file", file);
-    if (miroUrl.trim()) formData.set("miroUrl", miroUrl.trim());
 
     startTransition(async () => {
-      const res = await uploadAiBrainDocumentAction(formData);
+      let storagePath: string | undefined;
+      let fileMimeType: string | undefined;
+
+      if (file && file.size > 0) {
+        const prep = await prepareAiBrainFileUploadAction({
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+        });
+        if (!prep.success) {
+          setError(prep.error);
+          return;
+        }
+
+        const uploadRes = await fetch(prep.data.signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": prep.data.contentType },
+          body: file,
+        });
+
+        if (!uploadRes.ok) {
+          setError(
+            `Error al subir el archivo (${uploadRes.status}). Revisá el bucket en Supabase Storage.`
+          );
+          return;
+        }
+
+        storagePath = prep.data.storagePath;
+        fileMimeType = prep.data.contentType;
+      }
+
+      const res = await createAiBrainDocumentAction({
+        title,
+        contentType,
+        category,
+        description,
+        tags,
+        coverageAreas: coverage.join(","),
+        miroUrl: miroUrl.trim() || undefined,
+        storagePath,
+        fileName: file?.name,
+        fileSizeBytes: file?.size,
+        fileMimeType,
+      });
+
       if (!res.success) {
         setError(res.error);
         return;
@@ -161,7 +215,7 @@ export function BrainAddForm() {
             ref={fileRef}
             type="file"
             className="hidden"
-            accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp"
+            accept={AI_BRAIN_ACCEPT}
             onChange={(e) => onFileSelected(e.target.files?.[0] ?? null)}
           />
           {file ? (
@@ -177,7 +231,7 @@ export function BrainAddForm() {
               <Upload className="mb-3 h-10 w-10 text-muted-foreground" />
               <p className="font-medium">Arrastra archivos aquí</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                PDF, DOCX, TXT, MD, PNG, JPG, WEBP
+                {AI_BRAIN_FORMATS_LABEL}
               </p>
             </>
           )}

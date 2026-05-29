@@ -1,5 +1,9 @@
 import { Resend } from "resend";
 import {
+  friendlyResendApiError,
+  validateResendFromAddress,
+} from "@/lib/email/resend-from";
+import {
   welcomeEmailPlainText,
   welcomeEmailTemplate,
 } from "@/lib/email/welcome-email";
@@ -37,6 +41,11 @@ export async function sendWelcomeEmail(
     };
   }
 
+  const fromError = validateResendFromAddress(from);
+  if (fromError) {
+    return { ok: false, error: fromError };
+  }
+
   try {
     const { error } = await resend.emails.send({
       from,
@@ -47,7 +56,7 @@ export async function sendWelcomeEmail(
     });
 
     if (error) {
-      return { ok: false, error: error.message };
+      return { ok: false, error: friendlyResendApiError(error.message) };
     }
     return { ok: true };
   } catch (e) {

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { isAllowedBrainFile } from "@/lib/ai-brain/file-types";
 import { AI_BRAIN_BUCKET, uiContentTypeToDb } from "@/lib/ai-brain/mapper";
 import { sendWelcomeEmail } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -182,65 +183,97 @@ export async function deactivateUserAction(
   });
 }
 
-export async function uploadAiBrainDocumentAction(
-  formData: FormData
+/** URL firmada para subir el archivo directo a Storage (evita límite 413 en Vercel). */
+export async function prepareAiBrainFileUploadAction(input: {
+  fileName: string;
+  fileSize: number;
+  mimeType?: string;
+}): Promise<
+  MutationResult<{
+    storagePath: string;
+    signedUrl: string;
+    contentType: string;
+  }>
+> {
+  return runMutation(async () => {
+    const allowed = isAllowedBrainFile(
+      input.fileName,
+      input.mimeType,
+      input.fileSize
+    );
+    if (!allowed.ok) throw new Error(allowed.error);
+
+    const docId = crypto.randomUUID();
+    const safeName = sanitizeFilename(input.fileName);
+    const storagePath = `${docId}-${safeName}`;
+
+    const admin = createAdminClient();
+    const { data, error } = await admin.storage
+      .from(AI_BRAIN_BUCKET)
+      .createSignedUploadUrl(storagePath);
+
+    if (error || !data?.signedUrl) {
+      throw new Error(
+        error?.message ??
+          `No se pudo preparar la subida. ¿Existe el bucket "${AI_BRAIN_BUCKET}"?`
+      );
+    }
+
+    return {
+      storagePath,
+      signedUrl: data.signedUrl,
+      contentType: allowed.mimeType,
+    };
+  });
+}
+
+export type CreateAiBrainDocumentInput = {
+  title: string;
+  contentType: BrainContentType;
+  category: string;
+  description?: string;
+  tags?: string;
+  coverageAreas?: string;
+  uploadedBy?: string;
+  miroUrl?: string;
+  storagePath?: string;
+  fileName?: string;
+  fileSizeBytes?: number;
+  fileMimeType?: string;
+};
+
+export async function createAiBrainDocumentAction(
+  input: CreateAiBrainDocumentInput
 ): Promise<MutationResult<{ id: string }>> {
   return runMutation(async () => {
-    const title = String(formData.get("title") ?? "").trim();
-    const contentType = String(
-      formData.get("contentType") ?? "document"
-    ) as BrainContentType;
-    const category = String(formData.get("category") ?? "general").trim();
-    const description = String(formData.get("description") ?? "").trim();
-    const tagsRaw = String(formData.get("tags") ?? "");
-    const coverageRaw = String(formData.get("coverageAreas") ?? "");
-    const uploadedBy = String(formData.get("uploadedBy") ?? "Super Admin");
-    const miroUrl = String(formData.get("miroUrl") ?? "").trim();
-    const file = formData.get("file");
-
+    const title = input.title.trim();
     if (!title) throw new Error("El título es obligatorio.");
 
     const admin = createAdminClient();
-    const tags = tagsRaw
-      ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean)
+    const tags = input.tags
+      ? input.tags.split(",").map((t) => t.trim()).filter(Boolean)
       : [];
-    const coverage_areas = coverageRaw
-      ? coverageRaw.split(",").map((t) => t.trim()).filter(Boolean)
+    const coverage_areas = input.coverageAreas
+      ? input.coverageAreas.split(",").map((t) => t.trim()).filter(Boolean)
       : [];
+    const uploadedBy = input.uploadedBy?.trim() || "Super Admin";
+    const miroUrl = input.miroUrl?.trim() ?? "";
 
     let file_url: string | null = null;
     let file_name: string | null = null;
     let file_size_bytes: number | null = null;
     let source_url: string | null = null;
-    let dbContentType = uiContentTypeToDb(contentType);
+    let dbContentType = uiContentTypeToDb(input.contentType);
 
     if (miroUrl) {
       source_url = miroUrl;
       dbContentType = "miro_board";
-    } else if (file instanceof File && file.size > 0) {
-      const docId = crypto.randomUUID();
-      const safeName = sanitizeFilename(file.name);
-      const path = `${docId}-${safeName}`;
-      const buffer = Buffer.from(await file.arrayBuffer());
-
-      const { error: uploadError } = await admin.storage
-        .from(AI_BRAIN_BUCKET)
-        .upload(path, buffer, {
-          contentType: file.type || "application/octet-stream",
-          upsert: false,
-        });
-
-      if (uploadError) {
-        throw new Error(
-          `Error al subir archivo: ${uploadError.message}. ¿Existe el bucket "${AI_BRAIN_BUCKET}"?`
-        );
-      }
-
-      file_url = path;
-      file_name = file.name;
-      file_size_bytes = file.size;
-
-      if (file.type.startsWith("image/")) {
+    } else if (input.storagePath && input.fileName) {
+      file_url = input.storagePath;
+      file_name = input.fileName;
+      file_size_bytes = input.fileSizeBytes ?? null;
+      const mime = input.fileMimeType ?? "";
+      if (mime.startsWith("image/")) {
         dbContentType = "image";
       }
     } else if (!miroUrl) {
@@ -251,13 +284,13 @@ export async function uploadAiBrainDocumentAction(
       .from("ai_brain_documents")
       .insert({
         title,
-        category,
+        category: input.category.trim() || "general",
         content_type: dbContentType,
         file_url,
         file_name,
         file_size_bytes,
         source_url,
-        description: description || null,
+        description: input.description?.trim() || null,
         tags,
         coverage_areas,
         status: "pending_indexing",
@@ -271,6 +304,30 @@ export async function uploadAiBrainDocumentAction(
     revalidatePath(paths.superAdmin.aiBrain.root);
     revalidatePath(paths.superAdmin.aiBrain.library);
     return { id: data.id };
+  });
+}
+
+/** @deprecated Usar prepareAiBrainFileUploadAction + createAiBrainDocumentAction */
+export async function uploadAiBrainDocumentAction(
+  formData: FormData
+): Promise<MutationResult<{ id: string }>> {
+  const file = formData.get("file");
+  if (file instanceof File && file.size > 0) {
+    return {
+      success: false,
+      error:
+        "La subida de archivos grandes debe hacerse con el flujo actualizado. Recargá la página e intentá de nuevo.",
+    };
+  }
+  return createAiBrainDocumentAction({
+    title: String(formData.get("title") ?? ""),
+    contentType: String(formData.get("contentType") ?? "document") as BrainContentType,
+    category: String(formData.get("category") ?? "general"),
+    description: String(formData.get("description") ?? ""),
+    tags: String(formData.get("tags") ?? ""),
+    coverageAreas: String(formData.get("coverageAreas") ?? ""),
+    uploadedBy: String(formData.get("uploadedBy") ?? "Super Admin"),
+    miroUrl: String(formData.get("miroUrl") ?? ""),
   });
 }
 

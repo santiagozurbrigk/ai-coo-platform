@@ -11,7 +11,9 @@ export function InfrastructurePage({
     {
       name: "Resend (emails)",
       status: isResendConfigured() ? "ok" : "warn",
-      label: isResendConfigured() ? "Configurado ✓" : "Falta API key",
+      label: isResendConfigured()
+        ? "API key + remitente definidos"
+        : "Falta API key o remitente",
     },
     {
       name: "Calendly OAuth",

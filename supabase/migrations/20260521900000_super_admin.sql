@@ -69,4 +69,4 @@ create index if not exists organization_notes_org_idx
 
 -- Bucket: crear en Supabase Dashboard → Storage → New bucket
 -- Name: ai-brain-documents | Public: false
--- MIME: pdf, docx, txt, md, png, jpeg, webp
+-- MIME: pdf, docx, xlsx, txt, md, png, jpeg, webp
