@@ -43,6 +43,11 @@ export function NavGroup({
       >
         {item.icon && <NavIcon name={item.icon} />}
         <span className="truncate">{item.label}</span>
+        {item.badge != null && item.badge > 0 && (
+          <span className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-2xs font-medium text-primary-foreground tabular-nums">
+            {item.badge}
+          </span>
+        )}
       </Link>
     );
   }

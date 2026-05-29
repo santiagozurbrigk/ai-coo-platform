@@ -4,6 +4,7 @@ export type NavItem = {
   label: string;
   href: string;
   icon?: string;
+  badge?: number;
   children?: NavItem[];
 };
 
@@ -35,6 +36,7 @@ export const platformNavigation: NavItem[] = [
         label: "Conexión con Ventas",
         href: paths.platform.marketing.salesConnection,
       },
+      { label: "Formularios", href: paths.platform.marketing.forms },
     ],
   },
   {
@@ -88,4 +90,5 @@ export const superAdminNavigation: NavItem[] = [
     ],
   },
   { label: "Infrastructure", href: paths.superAdmin.infrastructure },
+  { label: "Salud de Clientes", href: paths.superAdmin.clientHealth },
 ];

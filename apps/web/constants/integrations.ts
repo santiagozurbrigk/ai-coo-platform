@@ -1,6 +1,9 @@
 export const INTEGRATION_PROVIDERS = [
   "instagram",
   "manychat",
+  "youtube",
+  "typeform",
+  "google_forms",
   "airtable",
   "notion",
   "google_sheets",

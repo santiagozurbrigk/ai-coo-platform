@@ -82,6 +82,22 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       window.location.href = "/api/integrations/calendly/oauth/start";
       return;
     }
+    if (integration.provider === "fathom") {
+      window.location.href = "/api/integrations/fathom/oauth/start";
+      return;
+    }
+    if (integration.provider === "youtube") {
+      window.location.href = "/api/integrations/youtube/oauth/start";
+      return;
+    }
+    if (integration.provider === "typeform") {
+      window.location.href = "/api/integrations/typeform/oauth/start";
+      return;
+    }
+    if (integration.provider === "google_forms") {
+      window.location.href = "/api/integrations/google-forms/oauth/start";
+      return;
+    }
     if (integration.provider === "manychat") {
       setManychatConnectOpen(true);
       return;
@@ -142,6 +158,26 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
           {integration.provider === "calendly" &&
             status === "connected" &&
             !calendlyWebhookEnabled && <CalendlyManualSyncNotice />}
+          {integration.provider === "fathom" && (
+            <p className="text-xs text-muted-foreground">
+              Conectá Fathom para importar transcripts y seguimiento automático de clientes.
+            </p>
+          )}
+          {integration.provider === "youtube" && (
+            <p className="text-xs text-muted-foreground">
+              Conectá tu canal para métricas de contenido y etiquetado IA.
+            </p>
+          )}
+          {integration.provider === "typeform" && (
+            <p className="text-xs text-muted-foreground">
+              Conectá Typeform para métricas, respuestas y lead scoring.
+            </p>
+          )}
+          {integration.provider === "google_forms" && (
+            <p className="text-xs text-muted-foreground">
+              Conectá Google Forms para centralizar respuestas y análisis de leads.
+            </p>
+          )}
           {integration.provider === "miro" && (
             <p className="text-xs text-muted-foreground">
               Importa tableros con vista previa para la base de conocimiento.

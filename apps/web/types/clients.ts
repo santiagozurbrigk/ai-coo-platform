@@ -22,6 +22,7 @@ export type ClientInstallment = {
 export type Client = {
   id: string;
   name: string;
+  nickname?: string;
   joinDate: string;
   paymentType: "upfront" | "installments" | "upfront_fee";
   platform: PaymentPlatform;

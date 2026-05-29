@@ -28,6 +28,8 @@ export const paths = {
       content: `${PLATFORM}/marketing/content`,
       contentDetail: (id: string) => `${PLATFORM}/marketing/content/${id}`,
       salesConnection: `${PLATFORM}/marketing/sales-connection`,
+      forms: `${PLATFORM}/marketing/forms`,
+      formDetail: (id: string) => `${PLATFORM}/marketing/forms/${id}`,
     },
 
     sales: {
@@ -47,6 +49,7 @@ export const paths = {
     clients: {
       root: `${PLATFORM}/clients`,
       detail: (id: string) => `${PLATFORM}/clients/${id}`,
+      pendingCalls: `${PLATFORM}/clients/pending-calls`,
     },
 
     operations: {
@@ -118,6 +121,7 @@ export const paths = {
     costTracking: "/super-admin/profitability",
     profitability: "/super-admin/profitability",
     infrastructure: "/super-admin/infrastructure",
+    clientHealth: "/super-admin/client-health",
     aiBrain: {
       root: "/super-admin/ai-brain",
       library: "/super-admin/ai-brain/library",

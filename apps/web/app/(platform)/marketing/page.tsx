@@ -1,5 +1,7 @@
 import { MarketingOverview } from "@/components/marketing/marketing-overview";
+import { getContentDistributionDataAction } from "@/app/marketing/actions";
 
-export default function MarketingPage() {
-  return <MarketingOverview />;
+export default async function MarketingPage() {
+  const distribution = await getContentDistributionDataAction();
+  return <MarketingOverview distribution={distribution} />;
 }

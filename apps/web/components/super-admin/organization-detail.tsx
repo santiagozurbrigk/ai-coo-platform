@@ -10,7 +10,9 @@ import {
   updateOrganizationMrrAction,
 } from "@/app/super-admin/actions";
 import { formatUsd, formatUsdPrecise } from "@/lib/super-admin/org-metrics";
+import type { ClientHealthTimelineItem } from "@/lib/super-admin/client-health";
 import type { AdminOrganizationDetail } from "@/types/super-admin";
+import { OrgClientHealthSection } from "@/components/super-admin/org-client-health-section";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
@@ -30,8 +32,10 @@ function onboardingField(data: Record<string, unknown> | null, key: string): str
 
 export function OrganizationDetailView({
   detail,
+  clientHealth = [],
 }: {
   detail: AdminOrganizationDetail;
+  clientHealth?: ClientHealthTimelineItem[];
 }) {
   const [note, setNote] = useState("");
   const [mrrInput, setMrrInput] = useState(String(detail.mrrUsd));
@@ -177,6 +181,8 @@ export function OrganizationDetailView({
           ))}
         </ul>
       </section>
+
+      <OrgClientHealthSection orgName={detail.name} clients={clientHealth} />
 
       <section className="rounded-xl border border-border/60 p-6">
         <h3 className="text-sm font-semibold">Notas internas</h3>

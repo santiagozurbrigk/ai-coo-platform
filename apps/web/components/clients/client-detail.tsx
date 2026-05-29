@@ -10,6 +10,7 @@ import {
 import { ExternalLink, Star, Upload } from "lucide-react";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
+import { ClientTimeline } from "@/components/clients/client-timeline";
 import type { Client, ClientStatus } from "@/types/clients";
 
 const STATUS_FLOW: ClientStatus[] = [
@@ -62,6 +63,33 @@ export function ClientDetail({ client: initial }: { client: Client }) {
         <p className="text-sm text-muted-foreground">Alta: {client.joinDate}</p>
         <Badge variant="secondary">{STATUS_LABEL[client.status]}</Badge>
       </header>
+
+      <GlassPanel className="p-5 space-y-3">
+        <label className="text-xs font-medium text-muted-foreground">
+          Apodo / identificador interno (opcional)
+        </label>
+        <input
+          className="h-9 w-full max-w-md rounded-lg border border-border/60 bg-muted/20 px-3 text-sm"
+          placeholder='Ej. "Mati Argentina", "Pedro coaching"'
+          defaultValue={client.nickname ?? ""}
+          onBlur={async (e) => {
+            const nickname = e.target.value.trim();
+            try {
+              await updateClient(client.id, {
+                nickname: nickname || undefined,
+              });
+            } catch (err) {
+              push({
+                title: "No se pudo guardar el apodo",
+                description: err instanceof Error ? err.message : undefined,
+              });
+            }
+          }}
+        />
+        <p className="text-2xs text-muted-foreground">
+          Usado para distinguir clientes con el mismo nombre en asociaciones Fathom.
+        </p>
+      </GlassPanel>
 
       <GlassPanel className="p-5">
         <p className="text-xs font-medium text-muted-foreground mb-4">
@@ -177,6 +205,11 @@ export function ClientDetail({ client: initial }: { client: Client }) {
           </ul>
         </section>
       )}
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium">Timeline</h2>
+        <ClientTimeline clientId={client.id} />
+      </section>
 
       <Button
         variant="outline"

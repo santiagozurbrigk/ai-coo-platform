@@ -23,6 +23,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "resend": "^4.5.1",
+    "@anthropic-ai/sdk": "^0.39.0",
     "tailwind-merge": "^3.3.0"
   },
   "devDependencies": {

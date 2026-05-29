@@ -18,7 +18,20 @@
         "CALENDLY_AUTH_TOKEN",
         "CALENDLY_SCOPES",
         "RESEND_API_KEY",
-        "RESEND_FROM_EMAIL"
+        "RESEND_FROM_EMAIL",
+        "ANTHROPIC_API_KEY",
+        "CRON_SECRET",
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "YOUTUBE_REDIRECT_URI",
+        "GOOGLE_FORMS_REDIRECT_URI",
+        "TYPEFORM_CLIENT_ID",
+        "TYPEFORM_CLIENT_SECRET",
+        "TYPEFORM_REDIRECT_URI",
+        "FATHOM_CLIENT_ID",
+        "FATHOM_CLIENT_SECRET",
+        "FATHOM_REDIRECT_URI",
+        "FATHOM_WEBHOOK_SECRET"
       ]
     },
     "dev": {

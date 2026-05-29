@@ -5,6 +5,7 @@ export type ClientRow = {
   id: string;
   organization_id: string;
   name: string;
+  nickname: string | null;
   join_date: string;
   payment_type: Client["paymentType"];
   platform: PaymentPlatform;
@@ -27,6 +28,7 @@ export function rowToClient(row: ClientRow): Client {
   return {
     id: row.id,
     name: row.name,
+    nickname: row.nickname ?? undefined,
     joinDate: row.join_date,
     paymentType: row.payment_type,
     platform: row.platform,
@@ -51,6 +53,7 @@ export function clientToInsertRow(
   return {
     organization_id: organizationId,
     name: client.name,
+    nickname: client.nickname ?? null,
     join_date: client.joinDate,
     payment_type: client.paymentType,
     platform: client.platform,
@@ -73,6 +76,7 @@ export function patchToUpdateRow(
 ): Partial<ClientRow> {
   const row: Partial<ClientRow> = {};
   if (patch.name != null) row.name = patch.name;
+  if (patch.nickname !== undefined) row.nickname = patch.nickname ?? null;
   if (patch.joinDate != null) row.join_date = patch.joinDate;
   if (patch.paymentType != null) row.payment_type = patch.paymentType;
   if (patch.platform != null) row.platform = patch.platform;
