@@ -1,6 +1,6 @@
-import { FoundersTable } from "@/components/super-admin";
-import { mockFounders } from "@/mocks";
+import { redirect } from "next/navigation";
+import { paths } from "@/routes";
 
-export default function SuperAdminFoundersPage() {
-  return <FoundersTable founders={mockFounders} />;
+export default function SuperAdminFoundersRedirect() {
+  redirect(paths.superAdmin.users);
 }

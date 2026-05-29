@@ -63,6 +63,7 @@ export type BrainCoverageArea = {
   id: string;
   label: string;
   level: CoverageLevel;
+  docCount?: number;
 };
 
 export type BrainGlobalInsight = {

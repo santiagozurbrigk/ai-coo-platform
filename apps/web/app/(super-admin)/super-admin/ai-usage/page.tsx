@@ -1,6 +1,6 @@
-import { UsageTable } from "@/components/super-admin";
-import { mockAiUsage } from "@/mocks";
+import { redirect } from "next/navigation";
+import { paths } from "@/routes";
 
-export default function SuperAdminAiUsagePage() {
-  return <UsageTable rows={mockAiUsage} />;
+export default function SuperAdminAiUsageRedirect() {
+  redirect(paths.superAdmin.profitability);
 }

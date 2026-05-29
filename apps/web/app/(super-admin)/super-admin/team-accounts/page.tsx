@@ -1,6 +1,6 @@
-import { TeamAccountsTable } from "@/components/super-admin";
-import { mockTeamAccounts } from "@/mocks";
+import { redirect } from "next/navigation";
+import { paths } from "@/routes";
 
-export default function SuperAdminTeamAccountsPage() {
-  return <TeamAccountsTable accounts={mockTeamAccounts} />;
+export default function SuperAdminTeamAccountsRedirect() {
+  redirect(paths.superAdmin.users);
 }

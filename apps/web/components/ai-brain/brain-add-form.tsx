@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Upload, Layout, CheckCircle2 } from "lucide-react";
 import { Button, GlassPanel, cn } from "@ai-coo/ui";
 import { paths } from "@/routes";
+import { uploadAiBrainDocumentAction } from "@/app/super-admin/actions";
 import type { BrainCategory, BrainContentType } from "@/types/ai-brain";
 
 const CONTENT_TYPES: { key: BrainContentType; label: string }[] = [
@@ -23,42 +25,89 @@ const CATEGORIES: { key: BrainCategory; label: string }[] = [
   { key: "team_management", label: "Gestión de equipo" },
   { key: "onboarding", label: "Onboarding" },
   { key: "content_strategy", label: "Estrategia de contenido" },
-  { key: "financial", label: "Financiero" },
+  { key: "financial", label: "Planificación financiera" },
   { key: "general", label: "General" },
 ];
 
+const COVERAGE_OPTIONS = [
+  "sales_methodology",
+  "operational_systems",
+  "sop_frameworks",
+  "team_management",
+  "onboarding",
+  "content_strategy",
+  "financial_planning",
+];
+
 export function BrainAddForm() {
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [contentType, setContentType] = useState<BrainContentType>("document");
   const [dragOver, setDragOver] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadDone, setUploadDone] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState<BrainCategory>("general");
+  const [tags, setTags] = useState("");
+  const [description, setDescription] = useState("");
+  const [coverage, setCoverage] = useState<string[]>([]);
   const [miroUrl, setMiroUrl] = useState("");
-  const [miroConnected, setMiroConnected] = useState(false);
-
-  const simulateUpload = () => {
-    setUploading(true);
-    setUploadDone(false);
-    setTimeout(() => {
-      setUploading(false);
-      setUploadDone(true);
-    }, 1800);
-  };
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
   const showDropzone = contentType !== "miro";
+
+  function onFileSelected(f: File | null) {
+    setFile(f);
+  }
+
+  function toggleCoverage(id: string) {
+    setCoverage((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const formData = new FormData();
+    formData.set("title", title);
+    formData.set("contentType", contentType);
+    formData.set("category", category);
+    formData.set("description", description);
+    formData.set("tags", tags);
+    formData.set("coverageAreas", coverage.join(","));
+    if (file) formData.set("file", file);
+    if (miroUrl.trim()) formData.set("miroUrl", miroUrl.trim());
+
+    startTransition(async () => {
+      const res = await uploadAiBrainDocumentAction(formData);
+      if (!res.success) {
+        setError(res.error);
+        return;
+      }
+      router.push(paths.superAdmin.aiBrain.document(res.data.id));
+    });
+  }
 
   return (
     <form
       className="mx-auto max-w-2xl space-y-8"
-      onSubmit={(e) => {
-        e.preventDefault();
-      }}
+      onSubmit={onSubmit}
     >
       <GlassPanel className="p-4">
         <p className="text-sm text-muted-foreground">
-          El contenido se aplica a <strong className="text-foreground">todas las organizaciones</strong>{" "}
-          como capa global de conocimiento (Fase 0: sin subida real).
+          El contenido se aplica a{" "}
+          <strong className="text-foreground">todas las organizaciones</strong>{" "}
+          como capa global. Estado inicial:{" "}
+          <strong className="text-foreground">pending_indexing</strong>.
         </p>
       </GlassPanel>
+
+      {error && (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
 
       <div className="space-y-3">
         <label className="text-sm font-medium">Tipo de contenido</label>
@@ -69,7 +118,7 @@ export function BrainAddForm() {
               type="button"
               onClick={() => {
                 setContentType(key);
-                setUploadDone(false);
+                setFile(null);
               }}
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
@@ -91,7 +140,7 @@ export function BrainAddForm() {
             dragOver
               ? "border-primary bg-primary/5"
               : "border-border/60 bg-muted/10",
-            uploading && "pointer-events-none opacity-70"
+            pending && "pointer-events-none opacity-70"
           )}
           onDragOver={(e) => {
             e.preventDefault();
@@ -101,41 +150,35 @@ export function BrainAddForm() {
           onDrop={(e) => {
             e.preventDefault();
             setDragOver(false);
-            simulateUpload();
+            const f = e.dataTransfer.files[0];
+            if (f) onFileSelected(f);
           }}
+          onClick={() => fileRef.current?.click()}
+          role="button"
+          tabIndex={0}
         >
-          {uploadDone ? (
+          <input
+            ref={fileRef}
+            type="file"
+            className="hidden"
+            accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp"
+            onChange={(e) => onFileSelected(e.target.files?.[0] ?? null)}
+          />
+          {file ? (
             <>
               <CheckCircle2 className="mb-3 h-10 w-10 text-emerald-500" />
-              <p className="font-medium">Archivo listo (mock)</p>
+              <p className="font-medium">{file.name}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                methodology-draft.pdf · 2.1 MB
+                {(file.size / 1024).toFixed(1)} KB
               </p>
-            </>
-          ) : uploading ? (
-            <>
-              <div className="mb-3 h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              <p className="font-medium">Subiendo… 67%</p>
-              <div className="mt-3 h-1.5 w-48 overflow-hidden rounded-full bg-muted">
-                <div className="h-full w-2/3 rounded-full bg-primary animate-pulse" />
-              </div>
             </>
           ) : (
             <>
               <Upload className="mb-3 h-10 w-10 text-muted-foreground" />
               <p className="font-medium">Arrastra archivos aquí</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                .txt, .md, .docx, .pdf · .png, .jpg
+                PDF, DOCX, TXT, MD, PNG, JPG, WEBP
               </p>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="mt-4"
-                onClick={simulateUpload}
-              >
-                Simular subida
-              </Button>
             </>
           )}
         </div>
@@ -149,6 +192,8 @@ export function BrainAddForm() {
           <input
             id="brain-title"
             required
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
             placeholder="Ej. High Ticket Sales Methodology v3"
             className="h-9 w-full rounded-lg border border-border/60 bg-muted/20 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
           />
@@ -159,6 +204,8 @@ export function BrainAddForm() {
           </label>
           <select
             id="brain-category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value as BrainCategory)}
             className="h-9 w-full rounded-lg border border-border/60 bg-muted/20 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
           >
             {CATEGORIES.map(({ key, label }) => (
@@ -174,6 +221,8 @@ export function BrainAddForm() {
           </label>
           <input
             id="brain-tags"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
             placeholder="ventas, setter, framework"
             className="h-9 w-full rounded-lg border border-border/60 bg-muted/20 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
           />
@@ -185,40 +234,50 @@ export function BrainAddForm() {
           <textarea
             id="brain-desc"
             rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
             placeholder="Qué aporta este contenido al cerebro global…"
             className="w-full rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
           />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <span className="text-sm font-medium">Áreas de cobertura</span>
+          <div className="flex flex-wrap gap-2">
+            {COVERAGE_OPTIONS.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => toggleCoverage(id)}
+                className={cn(
+                  "rounded-md px-2 py-1 text-xs",
+                  coverage.includes(id)
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {id.replace(/_/g, " ")}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       <GlassPanel className="space-y-4 p-5">
         <div className="flex items-center gap-2">
           <Layout className="h-5 w-5 text-primary" />
-          <h3 className="font-medium">Conexión Miro Board</h3>
+          <h3 className="font-medium">Miro Board</h3>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Pega la URL o ID del board (integración mock en Fase 0).
-        </p>
         <input
           value={miroUrl}
           onChange={(e) => setMiroUrl(e.target.value)}
           placeholder="https://miro.com/app/board/…"
           className="h-9 w-full rounded-lg border border-border/60 bg-muted/20 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
         />
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={!miroUrl.trim()}
-          onClick={() => setMiroConnected(true)}
-        >
-          {miroConnected ? "Board conectado ✓" : "Conectar board"}
-        </Button>
       </GlassPanel>
 
       <div className="flex flex-wrap gap-3">
-        <Button type="submit" size="lg">
-          Añadir al cerebro
+        <Button type="submit" size="lg" disabled={pending}>
+          {pending ? "Subiendo…" : "Agregar al Brain"}
         </Button>
         <Button type="button" variant="ghost" asChild>
           <Link href={paths.superAdmin.aiBrain.library}>Cancelar</Link>

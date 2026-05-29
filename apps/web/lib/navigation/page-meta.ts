@@ -116,25 +116,29 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Organizaciones",
     subtitle: "Clientes de la plataforma",
   },
+  "/super-admin/organizations/new": {
+    title: "Crear cuenta",
+    subtitle: "Nueva organización y founder",
+  },
+  "/super-admin/users": {
+    title: "Usuarios",
+    subtitle: "Todos los perfiles de la plataforma",
+  },
   "/super-admin/founders": {
-    title: "Fundadores",
-    subtitle: "Cuentas de fundadores",
+    title: "Usuarios",
+    subtitle: "Redirige a /super-admin/users",
   },
   "/super-admin/team-accounts": {
-    title: "Cuentas de equipo",
-    subtitle: "Usuarios provisionados",
-  },
-  "/super-admin/ai-usage": {
-    title: "Uso de IA",
-    subtitle: "Consumo por modelo",
-  },
-  "/super-admin/cost-tracking": {
-    title: "Seguimiento de costos",
-    subtitle: "Infraestructura y costos de IA",
+    title: "Usuarios",
+    subtitle: "Redirige a /super-admin/users",
   },
   "/super-admin/profitability": {
-    title: "Rentabilidad",
-    subtitle: "Márgenes por organización",
+    title: "Profitability",
+    subtitle: "MRR, tokens y márgenes",
+  },
+  "/super-admin/infrastructure": {
+    title: "Infrastructure",
+    subtitle: "Stack y conteos de la plataforma",
   },
   "/super-admin/ai-brain": {
     title: "Cerebro de IA general",
@@ -178,6 +182,15 @@ export function getPageMeta(pathname: string): {
   }
   if (pathname.startsWith("/sales/marketing-insights/content/")) {
     return { title: "Publicación", subtitle: "Detalle de contenido — Marketing" };
+  }
+  if (
+    pathname.startsWith("/super-admin/organizations/") &&
+    pathname !== "/super-admin/organizations/new"
+  ) {
+    return {
+      title: "Detalle de organización",
+      subtitle: "Super Admin",
+    };
   }
   if (
     pathname.startsWith("/super-admin/ai-brain/") &&

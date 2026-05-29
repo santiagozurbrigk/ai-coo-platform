@@ -105,14 +105,24 @@ export const paths = {
     dashboard: "/superadmin/dashboard",
     root: "/super-admin",
     organizations: "/super-admin/organizations",
-    founders: "/super-admin/founders",
-    teamAccounts: "/super-admin/team-accounts",
-    aiUsage: "/super-admin/ai-usage",
-    costTracking: "/super-admin/cost-tracking",
+    organizationDetail: (id: string) => `/super-admin/organizations/${id}`,
+    organizationsNew: "/super-admin/organizations/new",
+    users: "/super-admin/users",
+    /** @deprecated Usar users */
+    founders: "/super-admin/users",
+    /** @deprecated Usar users */
+    teamAccounts: "/super-admin/users",
+    /** @deprecated Usar profitability */
+    aiUsage: "/super-admin/profitability",
+    /** @deprecated Usar profitability */
+    costTracking: "/super-admin/profitability",
     profitability: "/super-admin/profitability",
+    infrastructure: "/super-admin/infrastructure",
     aiBrain: {
       root: "/super-admin/ai-brain",
       library: "/super-admin/ai-brain/library",
+      documents: "/super-admin/ai-brain/library",
+      upload: "/super-admin/ai-brain/add",
       add: "/super-admin/ai-brain/add",
       document: (id: string) => `/super-admin/ai-brain/${id}`,
     },

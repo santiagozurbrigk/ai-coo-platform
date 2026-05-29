@@ -1,11 +1,6 @@
-import { UsageTable, ProfitabilityCards } from "@/components/super-admin";
-import { mockAiUsage } from "@/mocks";
+import { redirect } from "next/navigation";
+import { paths } from "@/routes";
 
-export default function SuperAdminCostTrackingPage() {
-  return (
-    <div className="space-y-8">
-      <ProfitabilityCards />
-      <UsageTable rows={mockAiUsage} />
-    </div>
-  );
+export default function SuperAdminCostTrackingRedirect() {
+  redirect(paths.superAdmin.profitability);
 }

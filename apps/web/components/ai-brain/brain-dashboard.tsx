@@ -106,10 +106,10 @@ function CoverageAreas({ areas }: { areas: BrainCoverageArea[] }) {
             <span className={variant(area.level)}>
               {icon(area.level)}{" "}
               {area.level === "covered"
-                ? "Cubierto"
+                ? `Cubierto (${area.docCount ?? 0} docs)`
                 : area.level === "partial"
-                  ? "Parcial"
-                  : "Sin cubrir"}
+                  ? `Parcial (${area.docCount ?? 0} docs)`
+                  : "Sin cobertura"}
             </span>
           </div>
         ))}
@@ -152,12 +152,21 @@ export function BrainDashboard({
   coverage,
   insights,
   recent,
+  statusCounts,
+  phase2Note,
 }: {
   health: BrainHealth;
   breakdown: BrainContentBreakdown[];
   coverage: BrainCoverageArea[];
   insights: BrainGlobalInsight[];
   recent: BrainRecentItem[];
+  statusCounts?: {
+    active: number;
+    pending: number;
+    archived: number;
+    error: number;
+  };
+  phase2Note?: boolean;
 }) {
   return (
     <motion.div
@@ -166,6 +175,37 @@ export function BrainDashboard({
       animate="animate"
       variants={{ animate: { transition: { staggerChildren: 0.05 } } }}
     >
+      {phase2Note && (
+        <motion.div variants={fade}>
+          <GlassPanel className="border-amber-500/20 bg-amber-500/5 p-4">
+            <p className="text-sm text-muted-foreground">
+              Los documentos cargados aquí estarán disponibles para el motor de IA
+              en Phase 2. Actualmente se almacenan y categorizan pero no están
+              siendo procesados por ningún modelo.
+            </p>
+          </GlassPanel>
+        </motion.div>
+      )}
+
+      {statusCounts && (
+        <motion.div variants={fade} className="grid gap-3 sm:grid-cols-4">
+          {[
+            ["Activos", statusCounts.active],
+            ["Pendientes de indexar", statusCounts.pending],
+            ["Archivados", statusCounts.archived],
+            ["Con error", statusCounts.error],
+          ].map(([label, value]) => (
+            <div
+              key={label as string}
+              className="rounded-lg border border-border/50 bg-muted/20 px-3 py-2"
+            >
+              <p className="text-2xs text-muted-foreground">{label}</p>
+              <p className="text-lg font-semibold tabular-nums">{value}</p>
+            </div>
+          ))}
+        </motion.div>
+      )}
+
       <motion.div variants={fade}>
         <HealthStatus health={health} />
       </motion.div>

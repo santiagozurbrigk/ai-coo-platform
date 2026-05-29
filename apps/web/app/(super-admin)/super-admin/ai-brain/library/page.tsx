@@ -1,6 +1,7 @@
 import { BrainLibrary } from "@/components/ai-brain/brain-library";
-import { mockBrainDocuments } from "@/mocks/ai-brain";
+import { loadAiBrainDocuments } from "@/lib/super-admin/queries";
 
-export default function AiBrainLibraryPage() {
-  return <BrainLibrary documents={mockBrainDocuments} />;
+export default async function AiBrainLibraryPage() {
+  const documents = await loadAiBrainDocuments();
+  return <BrainLibrary documents={documents} />;
 }

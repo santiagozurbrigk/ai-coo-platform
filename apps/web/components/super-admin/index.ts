@@ -1,5 +1,6 @@
-export { OrgTable } from "./org-table";
-export { UsageTable } from "./usage-table";
-export { ProfitabilityCards } from "./profitability-cards";
-export { FoundersTable } from "./founders-table";
-export { TeamAccountsTable } from "./team-accounts-table";
+export { OrganizationsList } from "./organizations-list";
+export { OrganizationDetailView } from "./organization-detail";
+export { CreateFounderForm } from "./create-founder-form";
+export { UsersTable } from "./users-table";
+export { ProfitabilityPageContent } from "./profitability-page-content";
+export { InfrastructurePage } from "./infrastructure-page";

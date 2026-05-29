@@ -1,20 +1,17 @@
 import { BrainDashboard } from "@/components/ai-brain/brain-dashboard";
-import {
-  mockBrainContentBreakdown,
-  mockBrainCoverageAreas,
-  mockBrainGlobalInsights,
-  mockBrainHealth,
-  mockBrainRecent,
-} from "@/mocks/ai-brain";
+import { loadAiBrainDashboard } from "@/lib/super-admin/queries";
 
-export default function AiBrainDashboardPage() {
+export default async function AiBrainDashboardPage() {
+  const data = await loadAiBrainDashboard();
   return (
     <BrainDashboard
-      health={mockBrainHealth}
-      breakdown={mockBrainContentBreakdown}
-      coverage={mockBrainCoverageAreas}
-      insights={mockBrainGlobalInsights}
-      recent={mockBrainRecent}
+      health={data.health}
+      breakdown={data.breakdown}
+      coverage={data.coverage}
+      insights={[]}
+      recent={data.recent}
+      statusCounts={data.statusCounts}
+      phase2Note
     />
   );
 }

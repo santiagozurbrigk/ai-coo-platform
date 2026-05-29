@@ -32,4 +32,8 @@ export const sectionRedirects: { source: string; destination: string }[] = [
   { source: "/sops/create", destination: "/operations/sops#crear" },
   { source: "/super-admin", destination: "/super-admin/organizations" },
   { source: "/superadmin", destination: "/superadmin/login" },
+  { source: "/super-admin/founders", destination: "/super-admin/users" },
+  { source: "/super-admin/team-accounts", destination: "/super-admin/users" },
+  { source: "/super-admin/ai-usage", destination: "/super-admin/profitability" },
+  { source: "/super-admin/cost-tracking", destination: "/super-admin/profitability" },
 ];

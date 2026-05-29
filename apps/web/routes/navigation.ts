@@ -77,18 +77,15 @@ export const platformNavigation: NavItem[] = [
 
 export const superAdminNavigation: NavItem[] = [
   { label: "Organizaciones", href: paths.superAdmin.organizations },
-  { label: "Fundadores", href: paths.superAdmin.founders },
-  { label: "Cuentas de equipo", href: paths.superAdmin.teamAccounts },
-  { label: "Uso de IA", href: paths.superAdmin.aiUsage },
-  { label: "Seguimiento de costos", href: paths.superAdmin.costTracking },
-  { label: "Rentabilidad", href: paths.superAdmin.profitability },
+  { label: "Usuarios", href: paths.superAdmin.users },
+  { label: "Profitability", href: paths.superAdmin.profitability },
   {
-    label: "Cerebro de IA general",
+    label: "AI General Brain",
     href: paths.superAdmin.aiBrain.root,
     children: [
-      { label: "Panel", href: paths.superAdmin.aiBrain.root },
-      { label: "Biblioteca de contenido", href: paths.superAdmin.aiBrain.library },
-      { label: "Añadir contenido", href: paths.superAdmin.aiBrain.add },
+      { label: "Documentos", href: paths.superAdmin.aiBrain.library },
+      { label: "Subir documento", href: paths.superAdmin.aiBrain.upload },
     ],
   },
+  { label: "Infrastructure", href: paths.superAdmin.infrastructure },
 ];
