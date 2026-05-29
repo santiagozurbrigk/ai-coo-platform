@@ -226,7 +226,7 @@ export function OrganizationDetailView({
         </p>
         {tokenSpark.length > 0 && (
           <div className="mt-4 h-16 w-full max-w-md">
-            <Sparkline data={tokenSpark} />
+            <Sparkline data={tokenSpark} color="hsl(var(--primary))" />
           </div>
         )}
       </section>

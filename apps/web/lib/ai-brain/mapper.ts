@@ -124,7 +124,6 @@ export function rowToBrainDocument(row: AiBrainDocumentRow): BrainDocument {
 }
 
 export function buildBrainHealth(rows: AiBrainDocumentRow[]): BrainHealth {
-  const active = rows.filter((r) => r.status === "active").length;
   return {
     status: "active",
     documentsLoaded: rows.filter((r) => r.status !== "archived").length,

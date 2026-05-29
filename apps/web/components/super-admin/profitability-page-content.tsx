@@ -176,7 +176,7 @@ export function ProfitabilityPageContent({
             {orgNames.length > 5 ? ` +${orgNames.length - 5} más` : ""}
           </p>
           <div className="mt-4 h-20 max-w-2xl">
-            <Sparkline data={chartSeries} />
+            <Sparkline data={chartSeries} color="hsl(var(--primary))" />
           </div>
         </section>
       )}

@@ -16,7 +16,9 @@
         "CALENDLY_WEBHOOK_URL",
         "CALENDLY_AUTH_BASE",
         "CALENDLY_AUTH_TOKEN",
-        "CALENDLY_SCOPES"
+        "CALENDLY_SCOPES",
+        "RESEND_API_KEY",
+        "RESEND_FROM_EMAIL"
       ]
     },
     "dev": {
