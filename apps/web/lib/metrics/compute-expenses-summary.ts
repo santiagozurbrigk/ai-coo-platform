@@ -1,3 +1,4 @@
+import { monthlyEquivalent } from "@/lib/finance/format";
 import type {
   ExpensesSummary,
   FixedExpense,
@@ -12,12 +13,16 @@ export function computeExpensesSummary(
   teamCompensation: TeamCompensation[]
 ): ExpensesSummary {
   const fixedMonthly = fixedExpenses
-    .filter((e) => e.status === "active" && e.frequency === "monthly")
-    .reduce((sum, e) => sum + e.amount, 0);
+    .filter((e) => e.status === "active")
+    .reduce(
+      (sum, e) => sum + monthlyEquivalent(e.amount, e.frequency),
+      0
+    );
 
-  const subscriptionsMonthly = subscriptions
-    .filter((s) => s.billingCycle === "monthly")
-    .reduce((sum, s) => sum + s.amount, 0);
+  const subscriptionsMonthly = subscriptions.reduce(
+    (sum, s) => sum + monthlyEquivalent(s.amount, s.billingCycle),
+    0
+  );
   // Suscripciones pausadas no se cargan desde DB (filtro en listado).
 
   const teamFixedMonthly = teamCompensation.reduce(

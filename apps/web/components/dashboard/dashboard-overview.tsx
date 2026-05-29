@@ -19,17 +19,13 @@ const fade = {
   animate: { opacity: 1, y: 0 },
 };
 
-const chartTrend = [
-  { label: "Lun", value: 72 },
-  { label: "Mar", value: 78 },
-  { label: "Mié", value: 75 },
-  { label: "Jue", value: 82 },
-  { label: "Vie", value: 88 },
-  { label: "Sáb", value: 65 },
-  { label: "Dom", value: 70 },
-];
-
-export function DashboardOverview({ data }: { data: DashboardData }) {
+export function DashboardOverview({
+  data,
+  chartTrend,
+}: {
+  data: DashboardData;
+  chartTrend: { label: string; value: number }[];
+}) {
   const allMetrics = [
     ...data.revenueMetrics,
     ...data.salesMetrics,
@@ -54,7 +50,7 @@ export function DashboardOverview({ data }: { data: DashboardData }) {
 
       <motion.div variants={fade}>
         <Panel
-          title="Tendencia semanal — ingresos y actividad operativa"
+          title="Ingresos cobrados — últimos 7 días"
           contentClassName="p-0 pb-2"
         >
           <BarChart data={chartTrend} variant="line" height={220} />

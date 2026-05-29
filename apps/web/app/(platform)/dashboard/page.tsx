@@ -1,6 +1,5 @@
-import { DashboardOverview } from "@/components/dashboard";
-import { mockDashboard } from "@/mocks";
+import { DashboardPageContent } from "@/components/dashboard/dashboard-page-content";
 
 export default function DashboardPage() {
-  return <DashboardOverview data={mockDashboard} />;
+  return <DashboardPageContent />;
 }

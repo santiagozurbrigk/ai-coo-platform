@@ -12,6 +12,7 @@ import {
   platformRingColors,
   revenueStackColors,
 } from "@/lib/chart/colors";
+import type { ExpensesSummary } from "@/types/expenses";
 import type { MonthlySeriesPoint } from "@/types/finance";
 
 const W = 520;
@@ -70,13 +71,14 @@ function xAtIndex(i: number, count: number, innerW: number, padL: number): numbe
 }
 
 export function FinanceCharts() {
-  const { monthlySeries, financeSummary, paymentPlatforms } = useFinanceData();
+  const { monthlySeries, financeSummary, paymentPlatforms, expensesSummary } =
+    useFinanceData();
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <FacturacionVsCashChart data={monthlySeries} />
       <PorCobrarSteppedChart months={financeSummary.porCobrarByMonth} />
-      <ExpenseRadialChart summary={financeSummary} />
+      <ExpenseRadialChart expenses={expensesSummary} />
       <PlatformRingChart
         platforms={paymentPlatforms}
         balances={financeSummary.platformBalances}
@@ -233,24 +235,33 @@ function PorCobrarSteppedChart({
   );
 }
 
-function ExpenseRadialChart({
-  summary,
-}: {
-  summary: { gastosTotales: number };
-}) {
+function ExpenseRadialChart({ expenses }: { expenses: ExpensesSummary }) {
   const segments = [
-    { label: "Gastos fijos", value: 430, color: expenseSegmentColors[0] },
-    { label: "Suscripciones", value: 100, color: expenseSegmentColors[1] },
-    { label: "Salarios equipo", value: 1800, color: expenseSegmentColors[2] },
-    { label: "Comisiones", value: 9030, color: expenseSegmentColors[3] },
-  ];
-  const total = segments.reduce((s, x) => s + x.value, 0);
+    { label: "Gastos fijos", value: expenses.fixedMonthly, color: expenseSegmentColors[0] },
+    {
+      label: "Suscripciones",
+      value: expenses.subscriptionsMonthly,
+      color: expenseSegmentColors[1],
+    },
+    {
+      label: "Salarios equipo",
+      value: expenses.teamFixedMonthly,
+      color: expenseSegmentColors[2],
+    },
+    {
+      label: "Comisiones",
+      value: expenses.teamCommissionsMonthly,
+      color: expenseSegmentColors[3],
+    },
+  ].filter((s) => s.value > 0);
+
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
   const r = 70;
   const cx = 100;
   const cy = 100;
   let angle = -90;
 
-  const arcs = segments.map((seg) => {
+  const arcs = (segments.length > 0 ? segments : [{ label: "—", value: 1, color: expenseSegmentColors[0] }]).map((seg) => {
     const sweep = (seg.value / total) * 360;
     const start = angle;
     angle += sweep;
@@ -282,7 +293,7 @@ function ExpenseRadialChart({
           />
         ))}
         <text x={cx} y={cy - 4} textAnchor="middle" className="fill-foreground text-sm font-semibold" fontSize="13">
-          {formatMoney(summary.gastosTotales)}
+          {formatMoney(expenses.totalMonthly)}
         </text>
         <text x={cx} y={cy + 14} textAnchor="middle" className="fill-muted-foreground" fontSize="9">
           Total gastos

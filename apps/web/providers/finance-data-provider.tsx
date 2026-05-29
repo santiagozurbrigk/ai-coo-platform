@@ -27,6 +27,7 @@ import {
   mockMonthlySeries,
 } from "@/mocks/finance";
 import { computeExpensesSummary } from "@/lib/metrics/compute-expenses-summary";
+import { enrichTeamCompensationWithCommissions } from "@/lib/metrics/enrich-team-compensation";
 import { deriveFinanceSummary } from "@/lib/metrics/derive-finance-summary";
 import { deriveMonthlySeries } from "@/lib/metrics/derive-monthly-series";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -263,10 +264,20 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
     [refreshFinanceConfig, runFinanceMutation]
   );
 
+  const enrichedTeamCompensation = useMemo(
+    () =>
+      enrichTeamCompensationWithCommissions(teamCompensation, closingCalls),
+    [teamCompensation, closingCalls]
+  );
+
   const expensesSummary = useMemo(
     () =>
-      computeExpensesSummary(fixedExpenses, subscriptions, teamCompensation),
-    [fixedExpenses, subscriptions, teamCompensation]
+      computeExpensesSummary(
+        fixedExpenses,
+        subscriptions,
+        enrichedTeamCompensation
+      ),
+    [fixedExpenses, subscriptions, enrichedTeamCompensation]
   );
 
   const dataReady =
@@ -307,7 +318,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       monthlySeries,
       fixedExpenses,
       subscriptions,
-      teamCompensation,
+      teamCompensation: enrichedTeamCompensation,
       expensesSummary,
       addFixedExpense,
       updateFixedExpense,
@@ -328,7 +339,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       monthlySeries,
       fixedExpenses,
       subscriptions,
-      teamCompensation,
+      enrichedTeamCompensation,
       expensesSummary,
       addFixedExpense,
       updateFixedExpense,

@@ -33,7 +33,7 @@
 
 ## Siguiente entregable
 
-Oleada G Gastos en DB (`fixed_expenses`, `subscriptions`, `team_compensation`, `payment_platforms`). Migración: `20260521800000_finance_expenses.sql`. Instagram/ManyChat inbox real bloqueado por Meta.
+Oleada H: Dashboard KPIs reales + polish Gastos (editar, comisiones desde closing). Siguiente: Meta/Instagram o Super Admin.
 
 ## Dev
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Badge,
   Button,
@@ -18,7 +18,13 @@ import { PageHeader } from "@/components/shared/page-header";
 import { useFinanceData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import { formatMoney, monthlyEquivalent } from "@/lib/finance/format";
-import type { ExpenseCategory, FixedExpense, Subscription } from "@/types/expenses";
+import type {
+  CommissionBasis,
+  ExpenseCategory,
+  FixedExpense,
+  Subscription,
+  TeamCompensation,
+} from "@/types/expenses";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm";
@@ -115,9 +121,10 @@ function FixedExpensesSection({
   expenses: FixedExpense[];
   totalMonthly: number;
 }) {
-  const { addFixedExpense, removeFixedExpense } = useFinanceData();
+  const { addFixedExpense, updateFixedExpense, removeFixedExpense } = useFinanceData();
   const { push } = useToast();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<FixedExpense | null>(null);
 
   return (
     <section className="space-y-4">
@@ -141,6 +148,7 @@ function FixedExpensesSection({
           ),
           <ActionButtons
             key={e.id}
+            onEdit={() => setEditing(e)}
             onDelete={() => {
               void removeFixedExpense(e.id).then((err) => {
                 if (err) push({ title: "No se pudo eliminar", description: err });
@@ -150,16 +158,29 @@ function FixedExpensesSection({
         ])}
       />
       <FixedExpenseModal
-        open={open}
-        onOpenChange={setOpen}
+        open={open || editing !== null}
+        onOpenChange={(v) => {
+          if (!v) {
+            setOpen(false);
+            setEditing(null);
+          }
+        }}
+        title={editing ? "Editar gasto fijo" : "Añadir gasto fijo"}
+        initial={editing ?? undefined}
         onSave={(data) => {
-          void addFixedExpense(data).then((err) => {
+          const done = (err?: string) => {
             if (err) {
               push({ title: "No se pudo guardar", description: err });
               return;
             }
             setOpen(false);
-          });
+            setEditing(null);
+          };
+          if (editing) {
+            void updateFixedExpense(editing.id, data).then(done);
+          } else {
+            void addFixedExpense(data).then(done);
+          }
         }}
       />
     </section>
@@ -173,9 +194,10 @@ function SubscriptionsSection({
   subscriptions: Subscription[];
   totalMonthly: number;
 }) {
-  const { addSubscription, removeSubscription } = useFinanceData();
+  const { addSubscription, updateSubscription, removeSubscription } = useFinanceData();
   const { push } = useToast();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Subscription | null>(null);
 
   return (
     <section className="space-y-4">
@@ -195,6 +217,7 @@ function SubscriptionsSection({
           formatMoney(monthlyEquivalent(sub.amount, sub.billingCycle), sub.currency),
           <ActionButtons
             key={sub.id}
+            onEdit={() => setEditing(sub)}
             onDelete={() => {
               void removeSubscription(sub.id).then((err) => {
                 if (err) push({ title: "No se pudo eliminar", description: err });
@@ -204,36 +227,39 @@ function SubscriptionsSection({
         ])}
       />
       <SubscriptionModal
-        open={open}
-        onOpenChange={setOpen}
+        open={open || editing !== null}
+        onOpenChange={(v) => {
+          if (!v) {
+            setOpen(false);
+            setEditing(null);
+          }
+        }}
+        title={editing ? "Editar suscripción" : "Añadir suscripción"}
+        initial={editing ?? undefined}
         onSave={(data) => {
-          void addSubscription(data).then((err) => {
+          const done = (err?: string) => {
             if (err) {
               push({ title: "No se pudo guardar", description: err });
               return;
             }
             setOpen(false);
-          });
+            setEditing(null);
+          };
+          if (editing) {
+            void updateSubscription(editing.id, data).then(done);
+          } else {
+            void addSubscription(data).then(done);
+          }
         }}
       />
     </section>
   );
 }
 
-function TeamCompensationSection({
-  members,
-}: {
-  members: {
-    id: string;
-    memberName: string;
-    roleLabel: string;
-    hasFixed: boolean;
-    fixedMonthly?: number;
-    hasCommission: boolean;
-    commissionSummary?: string;
-    estimatedThisMonth: number;
-  }[];
-}) {
+function TeamCompensationSection({ members }: { members: TeamCompensation[] }) {
+  const { updateTeamCompensation } = useFinanceData();
+  const { push } = useToast();
+  const [editing, setEditing] = useState<TeamCompensation | null>(null);
   const fixedTotal = members.reduce(
     (s, m) => s + (m.hasFixed ? m.fixedMonthly ?? 0 : 0),
     0
@@ -249,7 +275,8 @@ function TeamCompensationSection({
         <h3 className="text-sm font-medium">Gastos de equipo</h3>
         <p className="text-xs text-muted-foreground mt-1">
           Total costo equipo este mes: {formatMoney(fixedTotal + commTotal)} · Fijos:{" "}
-          {formatMoney(fixedTotal)} · Comisiones: {formatMoney(commTotal)}
+          {formatMoney(fixedTotal)} · Comisiones (desde deals cerrados):{" "}
+          {formatMoney(commTotal)}
         </p>
       </div>
       <div className="space-y-3">
@@ -284,12 +311,29 @@ function TeamCompensationSection({
             <p className="text-sm font-semibold tabular-nums ml-auto">
               Est. mes: {formatMoney(m.estimatedThisMonth)}
             </p>
-            <Button size="sm" variant="outline">
+            <Button size="sm" variant="outline" onClick={() => setEditing(m)}>
               Editar
             </Button>
           </GlassPanel>
         ))}
       </div>
+      <TeamCompensationModal
+        open={editing !== null}
+        onOpenChange={(v) => {
+          if (!v) setEditing(null);
+        }}
+        initial={editing ?? undefined}
+        onSave={(patch) => {
+          if (!editing) return;
+          void updateTeamCompensation(editing.id, patch).then((err) => {
+            if (err) {
+              push({ title: "No se pudo guardar", description: err });
+              return;
+            }
+            setEditing(null);
+          });
+        }}
+      />
     </section>
   );
 }
@@ -351,10 +395,16 @@ function ExpenseTable({
   );
 }
 
-function ActionButtons({ onDelete }: { onDelete: () => void }) {
+function ActionButtons({
+  onEdit,
+  onDelete,
+}: {
+  onEdit?: () => void;
+  onDelete: () => void;
+}) {
   return (
     <div className="flex gap-1">
-      <Button size="sm" variant="ghost">
+      <Button size="sm" variant="ghost" onClick={onEdit}>
         Editar
       </Button>
       <Button size="sm" variant="ghost" className="text-destructive" onClick={onDelete}>
@@ -368,15 +418,37 @@ function FixedExpenseModal({
   open,
   onOpenChange,
   onSave,
+  initial,
+  title,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSave: (e: Omit<FixedExpense, "id">) => void;
+  initial?: FixedExpense;
+  title: string;
 }) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState<ExpenseCategory>("other");
   const [amount, setAmount] = useState("");
   const [frequency, setFrequency] = useState<"monthly" | "annual">("monthly");
+  const [status, setStatus] = useState<"active" | "paused">("active");
+
+  useEffect(() => {
+    if (!open) return;
+    if (initial) {
+      setName(initial.name);
+      setCategory(initial.category);
+      setAmount(String(initial.amount));
+      setFrequency(initial.frequency);
+      setStatus(initial.status);
+    } else {
+      setName("");
+      setCategory("other");
+      setAmount("");
+      setFrequency("monthly");
+      setStatus("active");
+    }
+  }, [open, initial]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -385,7 +457,7 @@ function FixedExpenseModal({
           <DialogDescription className="sr-only">
             Formulario para registrar un gasto fijo recurrente.
           </DialogDescription>
-          <DialogTitle>Añadir gasto fijo</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
           <FormField label="Nombre">
@@ -417,6 +489,16 @@ function FixedExpenseModal({
               <option value="annual">Anual</option>
             </select>
           </FormField>
+          <FormField label="Estado">
+            <select
+              className={selectClass}
+              value={status}
+              onChange={(e) => setStatus(e.target.value as typeof status)}
+            >
+              <option value="active">Activo</option>
+              <option value="paused">Pausado</option>
+            </select>
+          </FormField>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -428,9 +510,9 @@ function FixedExpenseModal({
                 name: name.trim() || "Gasto",
                 category,
                 amount: Number(amount) || 0,
-                currency: "USD",
+                currency: initial?.currency ?? "USD",
                 frequency,
-                status: "active",
+                status,
               })
             }
           >
@@ -446,13 +528,31 @@ function SubscriptionModal({
   open,
   onOpenChange,
   onSave,
+  initial,
+  title,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSave: (s: Omit<Subscription, "id">) => void;
+  initial?: Subscription;
+  title: string;
 }) {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
+
+  useEffect(() => {
+    if (!open) return;
+    if (initial) {
+      setName(initial.name);
+      setAmount(String(initial.amount));
+      setBillingCycle(initial.billingCycle);
+    } else {
+      setName("");
+      setAmount("");
+      setBillingCycle("monthly");
+    }
+  }, [open, initial]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -461,7 +561,7 @@ function SubscriptionModal({
           <DialogDescription className="sr-only">
             Formulario para registrar una suscripción de software o servicio.
           </DialogDescription>
-          <DialogTitle>Añadir suscripción</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
           <FormField label="Nombre">
@@ -479,18 +579,187 @@ function SubscriptionModal({
               ))}
             </div>
           </FormField>
-          <FormField label="Monto mensual">
+          <FormField label="Monto">
             <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </FormField>
+          <FormField label="Ciclo de facturación">
+            <select
+              className={selectClass}
+              value={billingCycle}
+              onChange={(e) => setBillingCycle(e.target.value as typeof billingCycle)}
+            >
+              <option value="monthly">Mensual</option>
+              <option value="annual">Anual</option>
+            </select>
           </FormField>
         </div>
         <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
           <Button
             onClick={() =>
               onSave({
                 name: name.trim() || "Suscripción",
                 amount: Number(amount) || 0,
-                currency: "USD",
-                billingCycle: "monthly",
+                currency: initial?.currency ?? "USD",
+                billingCycle,
+                icon: initial?.icon,
+              })
+            }
+          >
+            Guardar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const COMMISSION_BASIS_LABEL: Record<CommissionBasis, string> = {
+  per_deal: "% por deal cerrado",
+  monthly_revenue: "% sobre ingresos del mes",
+  upsells: "% sobre upsells",
+  custom: "Personalizado",
+};
+
+function TeamCompensationModal({
+  open,
+  onOpenChange,
+  onSave,
+  initial,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSave: (patch: Partial<TeamCompensation>) => void;
+  initial?: TeamCompensation;
+}) {
+  const [memberName, setMemberName] = useState("");
+  const [roleLabel, setRoleLabel] = useState("");
+  const [hasFixed, setHasFixed] = useState(false);
+  const [fixedMonthly, setFixedMonthly] = useState("");
+  const [hasCommission, setHasCommission] = useState(false);
+  const [commissionPercent, setCommissionPercent] = useState("");
+  const [commissionBasis, setCommissionBasis] = useState<CommissionBasis>("per_deal");
+  const [commissionSummary, setCommissionSummary] = useState("");
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    if (!open || !initial) return;
+    setMemberName(initial.memberName);
+    setRoleLabel(initial.roleLabel);
+    setHasFixed(initial.hasFixed);
+    setFixedMonthly(initial.fixedMonthly != null ? String(initial.fixedMonthly) : "");
+    setHasCommission(initial.hasCommission);
+    setCommissionPercent(
+      initial.commissionPercent != null ? String(initial.commissionPercent) : ""
+    );
+    setCommissionBasis(initial.commissionBasis ?? "per_deal");
+    setCommissionSummary(initial.commissionSummary ?? "");
+    setNotes(initial.notes ?? "");
+  }, [open, initial]);
+
+  if (!initial) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogDescription className="sr-only">
+            Editar compensación del miembro del equipo.
+          </DialogDescription>
+          <DialogTitle>Editar compensación — {initial.memberName}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
+          <FormField label="Nombre">
+            <Input value={memberName} onChange={(e) => setMemberName(e.target.value)} />
+          </FormField>
+          <FormField label="Rol">
+            <Input value={roleLabel} onChange={(e) => setRoleLabel(e.target.value)} />
+          </FormField>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={hasFixed}
+              onChange={(e) => setHasFixed(e.target.checked)}
+            />
+            Salario fijo mensual
+          </label>
+          {hasFixed && (
+            <FormField label="Monto fijo (USD/mes)">
+              <Input
+                type="number"
+                value={fixedMonthly}
+                onChange={(e) => setFixedMonthly(e.target.value)}
+              />
+            </FormField>
+          )}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={hasCommission}
+              onChange={(e) => setHasCommission(e.target.checked)}
+            />
+            Comisión
+          </label>
+          {hasCommission && (
+            <>
+              <FormField label="Porcentaje">
+                <Input
+                  type="number"
+                  value={commissionPercent}
+                  onChange={(e) => setCommissionPercent(e.target.value)}
+                />
+              </FormField>
+              <FormField label="Base de comisión">
+                <select
+                  className={selectClass}
+                  value={commissionBasis}
+                  onChange={(e) =>
+                    setCommissionBasis(e.target.value as CommissionBasis)
+                  }
+                >
+                  {Object.entries(COMMISSION_BASIS_LABEL).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <FormField label="Descripción (opcional)">
+                <Input
+                  value={commissionSummary}
+                  onChange={(e) => setCommissionSummary(e.target.value)}
+                />
+              </FormField>
+            </>
+          )}
+          <FormField label="Notas">
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </FormField>
+          <p className="text-xs text-muted-foreground">
+            La estimación del mes se calcula automáticamente desde los deals cerrados en
+            Closing (nombre del closer debe coincidir).
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={() =>
+              onSave({
+                memberName: memberName.trim() || initial.memberName,
+                roleLabel: roleLabel.trim() || initial.roleLabel,
+                hasFixed,
+                fixedMonthly: hasFixed ? Number(fixedMonthly) || 0 : undefined,
+                hasCommission,
+                commissionPercent: hasCommission
+                  ? Number(commissionPercent) || 0
+                  : undefined,
+                commissionBasis: hasCommission ? commissionBasis : undefined,
+                commissionSummary: commissionSummary.trim() || undefined,
+                notes: notes.trim() || undefined,
               })
             }
           >

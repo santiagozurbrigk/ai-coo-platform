@@ -74,6 +74,12 @@ Sustituir mocks y guards simulados por **persistencia real**, **multi-tenant** e
 
 Migración: `supabase/migrations/20260521800000_finance_expenses.sql`
 
+## Oleada H (Panel + polish Gastos) — Progreso
+
+1. **Dashboard** (`/dashboard`): KPIs derivados de clientes, conversaciones, closing y finanzas; gráfico de ingresos últimos 7 días.
+2. **Gastos:** gráfico de distribución con datos reales; editar gastos fijos, suscripciones y compensación de equipo.
+3. **Comisiones:** estimación mensual desde `closing_calls` cerradas (match por `closedByName`).
+
 ## Próximo entregable
 
 1. **Instagram/Make** (marketing) — bloqueado por verificación Meta en ManyChat/IG.
