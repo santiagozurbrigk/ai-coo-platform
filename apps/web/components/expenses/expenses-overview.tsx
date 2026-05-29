@@ -16,6 +16,7 @@ import {
 } from "@ai-coo/ui";
 import { PageHeader } from "@/components/shared/page-header";
 import { useFinanceData } from "@/providers";
+import { useToast } from "@/providers/toast-provider";
 import { formatMoney, monthlyEquivalent } from "@/lib/finance/format";
 import type { ExpenseCategory, FixedExpense, Subscription } from "@/types/expenses";
 
@@ -115,6 +116,7 @@ function FixedExpensesSection({
   totalMonthly: number;
 }) {
   const { addFixedExpense, removeFixedExpense } = useFinanceData();
+  const { push } = useToast();
   const [open, setOpen] = useState(false);
 
   return (
@@ -139,7 +141,11 @@ function FixedExpensesSection({
           ),
           <ActionButtons
             key={e.id}
-            onDelete={() => removeFixedExpense(e.id)}
+            onDelete={() => {
+              void removeFixedExpense(e.id).then((err) => {
+                if (err) push({ title: "No se pudo eliminar", description: err });
+              });
+            }}
           />,
         ])}
       />
@@ -147,7 +153,13 @@ function FixedExpensesSection({
         open={open}
         onOpenChange={setOpen}
         onSave={(data) => {
-          void addFixedExpense(data).then(() => setOpen(false));
+          void addFixedExpense(data).then((err) => {
+            if (err) {
+              push({ title: "No se pudo guardar", description: err });
+              return;
+            }
+            setOpen(false);
+          });
         }}
       />
     </section>
@@ -162,6 +174,7 @@ function SubscriptionsSection({
   totalMonthly: number;
 }) {
   const { addSubscription, removeSubscription } = useFinanceData();
+  const { push } = useToast();
   const [open, setOpen] = useState(false);
 
   return (
@@ -180,14 +193,27 @@ function SubscriptionsSection({
           formatMoney(sub.amount, sub.currency),
           sub.billingCycle === "monthly" ? "Mensual" : "Anual",
           formatMoney(monthlyEquivalent(sub.amount, sub.billingCycle), sub.currency),
-          <ActionButtons key={sub.id} onDelete={() => removeSubscription(sub.id)} />,
+          <ActionButtons
+            key={sub.id}
+            onDelete={() => {
+              void removeSubscription(sub.id).then((err) => {
+                if (err) push({ title: "No se pudo eliminar", description: err });
+              });
+            }}
+          />,
         ])}
       />
       <SubscriptionModal
         open={open}
         onOpenChange={setOpen}
         onSave={(data) => {
-          void addSubscription(data).then(() => setOpen(false));
+          void addSubscription(data).then((err) => {
+            if (err) {
+              push({ title: "No se pudo guardar", description: err });
+              return;
+            }
+            setOpen(false);
+          });
         }}
       />
     </section>

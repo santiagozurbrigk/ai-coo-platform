@@ -192,6 +192,8 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
     try {
       const list = await listClientsAction();
       setClients(list);
+    } catch (e) {
+      console.error("[PlatformDataProvider] listClients", e);
     } finally {
       setClientsLoading(false);
     }
@@ -203,6 +205,8 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
     try {
       const list = await listClosingCallsAction();
       setClosingCalls(list);
+    } catch (e) {
+      console.error("[PlatformDataProvider] listClosingCalls", e);
     } finally {
       setClosingCallsLoading(false);
     }
@@ -214,6 +218,8 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
     try {
       const list = await listConversationsAction();
       setConversations(list);
+    } catch (e) {
+      console.error("[PlatformDataProvider] listConversations", e);
     } finally {
       setConversationsLoading(false);
     }
@@ -225,18 +231,23 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       setOnboardingData(null);
       return;
     }
-    const status = await getOnboardingStatusAction();
-    setOnboardingComplete(status.completed);
-    setOnboardingData(status.data);
+    try {
+      const status = await getOnboardingStatusAction();
+      setOnboardingComplete(status.completed);
+      setOnboardingData(status.data);
+    } catch (e) {
+      console.error("[PlatformDataProvider] onboarding", e);
+    }
   }, []);
 
   useEffect(() => {
-    if (useSupabase) {
-      void refreshClients();
-      void refreshClosingCalls();
-      void refreshConversations();
-      void refreshOnboarding();
-    }
+    if (!useSupabase) return;
+    void (async () => {
+      await refreshClients();
+      await refreshClosingCalls();
+      await refreshConversations();
+      await refreshOnboarding();
+    })();
   }, [
     refreshClients,
     refreshClosingCalls,

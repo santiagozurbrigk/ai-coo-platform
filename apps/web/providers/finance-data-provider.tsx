@@ -46,28 +46,34 @@ type FinanceDataContextValue = {
   financeConfigLoading: boolean;
   addPaymentPlatform: (
     platform: Omit<PaymentPlatformConfig, "id" | "totalReceived" | "lastTransactionAt">
-  ) => Promise<void>;
+  ) => Promise<string | undefined>;
   updatePaymentPlatform: (
     id: string,
     patch: Partial<PaymentPlatformConfig>
-  ) => Promise<void>;
-  removePaymentPlatform: (id: string) => Promise<void>;
+  ) => Promise<string | undefined>;
+  removePaymentPlatform: (id: string) => Promise<string | undefined>;
   financeSummary: FinanceSummary;
   monthlySeries: typeof mockMonthlySeries;
   fixedExpenses: FixedExpense[];
   subscriptions: Subscription[];
   teamCompensation: TeamCompensation[];
   expensesSummary: ExpensesSummary;
-  addFixedExpense: (expense: Omit<FixedExpense, "id">) => Promise<void>;
-  updateFixedExpense: (id: string, patch: Partial<FixedExpense>) => Promise<void>;
-  removeFixedExpense: (id: string) => Promise<void>;
-  addSubscription: (sub: Omit<Subscription, "id">) => Promise<void>;
-  updateSubscription: (id: string, patch: Partial<Subscription>) => Promise<void>;
-  removeSubscription: (id: string) => Promise<void>;
+  addFixedExpense: (expense: Omit<FixedExpense, "id">) => Promise<string | undefined>;
+  updateFixedExpense: (
+    id: string,
+    patch: Partial<FixedExpense>
+  ) => Promise<string | undefined>;
+  removeFixedExpense: (id: string) => Promise<string | undefined>;
+  addSubscription: (sub: Omit<Subscription, "id">) => Promise<string | undefined>;
+  updateSubscription: (
+    id: string,
+    patch: Partial<Subscription>
+  ) => Promise<string | undefined>;
+  removeSubscription: (id: string) => Promise<string | undefined>;
   updateTeamCompensation: (
     id: string,
     patch: Partial<TeamCompensation>
-  ) => Promise<void>;
+  ) => Promise<string | undefined>;
   refreshFinanceConfig: () => Promise<void>;
 };
 
@@ -94,6 +100,8 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       setFixedExpenses(config.fixedExpenses);
       setSubscriptions(config.subscriptions);
       setTeamCompensation(config.teamCompensation);
+    } catch (e) {
+      console.error("[FinanceDataProvider] loadFinanceConfig", e);
     } finally {
       setFinanceConfigLoading(false);
     }
@@ -112,6 +120,15 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshFinanceConfig]);
 
+  const runFinanceMutation = useCallback(
+    async (result: { success: boolean; error?: string }) => {
+      if (!result.success) return result.error ?? "Error al guardar";
+      await refreshFinanceConfig();
+      return undefined;
+    },
+    [refreshFinanceConfig]
+  );
+
   const addPaymentPlatform = useCallback(
     async (
       platform: Omit<
@@ -120,9 +137,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       >
     ) => {
       if (useSupabase) {
-        await createPaymentPlatformAction(platform);
-        await refreshFinanceConfig();
-        return;
+        return runFinanceMutation(await createPaymentPlatformAction(platform));
       }
       setPaymentPlatforms((prev) => [
         ...prev,
@@ -133,127 +148,119 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
           lastTransactionAt: new Date().toISOString().slice(0, 10),
         },
       ]);
+      return undefined;
     },
-    [refreshFinanceConfig]
+    [refreshFinanceConfig, runFinanceMutation]
   );
 
   const updatePaymentPlatform = useCallback(
     async (id: string, patch: Partial<PaymentPlatformConfig>) => {
       if (useSupabase) {
-        await updatePaymentPlatformAction(id, patch);
-        await refreshFinanceConfig();
-        return;
+        return runFinanceMutation(await updatePaymentPlatformAction(id, patch));
       }
       setPaymentPlatforms((prev) =>
         prev.map((p) => (p.id === id ? { ...p, ...patch } : p))
       );
+      return undefined;
     },
-    [refreshFinanceConfig]
+    [refreshFinanceConfig, runFinanceMutation]
   );
 
   const removePaymentPlatform = useCallback(
     async (id: string) => {
       if (useSupabase) {
-        await deletePaymentPlatformAction(id);
-        await refreshFinanceConfig();
-        return;
+        return runFinanceMutation(await deletePaymentPlatformAction(id));
       }
       setPaymentPlatforms((prev) => prev.filter((p) => p.id !== id));
+      return undefined;
     },
-    [refreshFinanceConfig]
+    [refreshFinanceConfig, runFinanceMutation]
   );
 
   const addFixedExpense = useCallback(
     async (expense: Omit<FixedExpense, "id">) => {
       if (useSupabase) {
-        await createFixedExpenseAction(expense);
-        await refreshFinanceConfig();
-        return;
+        return runFinanceMutation(await createFixedExpenseAction(expense));
       }
       setFixedExpenses((prev) => [
         ...prev,
         { ...expense, id: `fe-${Date.now()}` },
       ]);
+      return undefined;
     },
-    [refreshFinanceConfig]
+    [refreshFinanceConfig, runFinanceMutation]
   );
 
   const updateFixedExpense = useCallback(
     async (id: string, patch: Partial<FixedExpense>) => {
       if (useSupabase) {
-        await updateFixedExpenseAction(id, patch);
-        await refreshFinanceConfig();
-        return;
+        return runFinanceMutation(await updateFixedExpenseAction(id, patch));
       }
       setFixedExpenses((prev) =>
         prev.map((e) => (e.id === id ? { ...e, ...patch } : e))
       );
+      return undefined;
     },
-    [refreshFinanceConfig]
+    [refreshFinanceConfig, runFinanceMutation]
   );
 
   const removeFixedExpense = useCallback(
     async (id: string) => {
       if (useSupabase) {
-        await deleteFixedExpenseAction(id);
-        await refreshFinanceConfig();
-        return;
+        return runFinanceMutation(await deleteFixedExpenseAction(id));
       }
       setFixedExpenses((prev) => prev.filter((e) => e.id !== id));
+      return undefined;
     },
-    [refreshFinanceConfig]
+    [refreshFinanceConfig, runFinanceMutation]
   );
 
   const addSubscription = useCallback(
     async (sub: Omit<Subscription, "id">) => {
       if (useSupabase) {
-        await createSubscriptionAction(sub);
-        await refreshFinanceConfig();
-        return;
+        return runFinanceMutation(await createSubscriptionAction(sub));
       }
       setSubscriptions((prev) => [...prev, { ...sub, id: `sub-${Date.now()}` }]);
+      return undefined;
     },
-    [refreshFinanceConfig]
+    [refreshFinanceConfig, runFinanceMutation]
   );
 
   const updateSubscription = useCallback(
     async (id: string, patch: Partial<Subscription>) => {
       if (useSupabase) {
-        await updateSubscriptionAction(id, patch);
-        await refreshFinanceConfig();
-        return;
+        return runFinanceMutation(await updateSubscriptionAction(id, patch));
       }
       setSubscriptions((prev) =>
         prev.map((s) => (s.id === id ? { ...s, ...patch } : s))
       );
+      return undefined;
     },
-    [refreshFinanceConfig]
+    [refreshFinanceConfig, runFinanceMutation]
   );
 
   const removeSubscription = useCallback(
     async (id: string) => {
       if (useSupabase) {
-        await deleteSubscriptionAction(id);
-        await refreshFinanceConfig();
-        return;
+        return runFinanceMutation(await deleteSubscriptionAction(id));
       }
       setSubscriptions((prev) => prev.filter((s) => s.id !== id));
+      return undefined;
     },
-    [refreshFinanceConfig]
+    [refreshFinanceConfig, runFinanceMutation]
   );
 
   const updateTeamCompensation = useCallback(
     async (id: string, patch: Partial<TeamCompensation>) => {
       if (useSupabase) {
-        await updateTeamCompensationAction(id, patch);
-        await refreshFinanceConfig();
-        return;
+        return runFinanceMutation(await updateTeamCompensationAction(id, patch));
       }
       setTeamCompensation((prev) =>
         prev.map((t) => (t.id === id ? { ...t, ...patch } : t))
       );
+      return undefined;
     },
-    [refreshFinanceConfig]
+    [refreshFinanceConfig, runFinanceMutation]
   );
 
   const expensesSummary = useMemo(

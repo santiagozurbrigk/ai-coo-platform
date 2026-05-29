@@ -102,6 +102,15 @@ export async function requireOrganizationId(): Promise<string> {
   return boot.organization_id;
 }
 
+/** Igual que requireOrganizationId pero sin lanzar (lecturas desde el cliente). */
+export async function tryRequireOrganizationId(): Promise<string | null> {
+  try {
+    return await requireOrganizationId();
+  } catch {
+    return null;
+  }
+}
+
 export function isMissingTableError(message: string): boolean {
   return (
     message.includes("Could not find the table") ||

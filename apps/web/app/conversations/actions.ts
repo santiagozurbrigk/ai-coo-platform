@@ -3,6 +3,7 @@
 import {
   isMissingTableError,
   requireOrganizationId,
+  tryRequireOrganizationId,
 } from "@/lib/auth/bootstrap";
 import { repairClosingConversationLinks } from "@/lib/conversations/repair-links";
 import {
@@ -61,7 +62,9 @@ export async function seedConversationsIfEmpty(
 export async function listConversationsAction(): Promise<Conversation[]> {
   if (!isSupabaseConfigured()) return [];
 
-  const organizationId = await requireOrganizationId();
+  const organizationId = await tryRequireOrganizationId();
+  if (!organizationId) return [];
+
   const supabase = await createClient();
 
   await seedConversationsIfEmpty(supabase, organizationId);

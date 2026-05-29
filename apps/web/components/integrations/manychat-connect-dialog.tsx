@@ -39,7 +39,8 @@ export function ManyChatConnectDialog({
     if (!state.success) return;
     onConnected?.();
     onOpenChange(false);
-    router.refresh();
+    const t = window.setTimeout(() => router.refresh(), 300);
+    return () => window.clearTimeout(t);
   }, [state.success, onConnected, onOpenChange, router]);
 
   return (

@@ -2,7 +2,7 @@
 
 import {
   isMissingTableError,
-  requireOrganizationId,
+  tryRequireOrganizationId,
 } from "@/lib/auth/bootstrap";
 import {
   getConversationIdByExternalRef,
@@ -72,7 +72,9 @@ async function seedClosingCallsIfEmpty(
 export async function listClosingCallsAction(): Promise<ClosingCall[]> {
   if (!isSupabaseConfigured()) return [];
 
-  const organizationId = await requireOrganizationId();
+  const organizationId = await tryRequireOrganizationId();
+  if (!organizationId) return [];
+
   const supabase = await createClient();
 
   await seedConversationsIfEmpty(supabase, organizationId);

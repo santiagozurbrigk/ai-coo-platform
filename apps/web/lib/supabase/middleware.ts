@@ -3,6 +3,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { paths } from "@/routes";
 import { getSupabaseAnonKey, getSupabaseUrl, isSupabaseConfigured } from "./env";
 
+/** POST de Server Actions: no redirigir a login (devolvería HTML y rompe el cliente). */
+function isServerActionRequest(request: NextRequest): boolean {
+  return (
+    request.headers.has("next-action") ||
+    request.headers.has("Next-Action")
+  );
+}
+
 const PUBLIC_PATHS = [
   paths.auth.login,
   paths.auth.callback,
@@ -58,6 +66,9 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (!user && !isPublicPath(pathname)) {
+    if (isServerActionRequest(request)) {
+      return supabaseResponse;
+    }
     const url = request.nextUrl.clone();
     url.pathname = paths.auth.login;
     return NextResponse.redirect(url);

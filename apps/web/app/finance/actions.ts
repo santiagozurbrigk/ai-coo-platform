@@ -3,7 +3,12 @@
 import {
   isMissingTableError,
   requireOrganizationId,
+  tryRequireOrganizationId,
 } from "@/lib/auth/bootstrap";
+import {
+  runMutation,
+  type MutationResult,
+} from "@/lib/server/action-result";
 import {
   rowToFixedExpense,
   rowToPaymentPlatform,
@@ -37,6 +42,8 @@ export type FinanceConfigPayload = {
   teamCompensation: TeamCompensation[];
   paymentPlatforms: PaymentPlatformConfig[];
 };
+
+export type { MutationResult };
 
 function mapFinanceError(msg: string): string {
   if (isMissingTableError(msg)) {
@@ -139,6 +146,13 @@ async function seedFinanceConfigIfEmpty(
   );
 }
 
+const EMPTY_FINANCE_CONFIG: FinanceConfigPayload = {
+  fixedExpenses: [],
+  subscriptions: [],
+  teamCompensation: [],
+  paymentPlatforms: [],
+};
+
 export async function loadFinanceConfigAction(): Promise<FinanceConfigPayload> {
   if (!isSupabaseConfigured()) {
     return {
@@ -149,16 +163,19 @@ export async function loadFinanceConfigAction(): Promise<FinanceConfigPayload> {
     };
   }
 
-  const organizationId = await requireOrganizationId();
-  const supabase = await createClient();
-
   try {
-    await seedFinanceConfigIfEmpty(supabase, organizationId);
-  } catch (e) {
-    console.error("[seedFinanceConfig]", e);
-  }
+    const organizationId = await tryRequireOrganizationId();
+    if (!organizationId) return EMPTY_FINANCE_CONFIG;
 
-  const clients = await listClientsAction();
+    const supabase = await createClient();
+
+    try {
+      await seedFinanceConfigIfEmpty(supabase, organizationId);
+    } catch (e) {
+      console.error("[seedFinanceConfig]", e);
+    }
+
+    const clients = await listClientsAction();
 
   const [fixedRes, subsRes, teamRes, platRes] = await Promise.all([
     supabase
@@ -190,220 +207,245 @@ export async function loadFinanceConfigAction(): Promise<FinanceConfigPayload> {
     teamRes.error?.message ??
     platRes.error?.message;
 
-  if (err) {
-    console.error("[loadFinanceConfig]", err);
-    return {
-      fixedExpenses: [],
-      subscriptions: [],
-      teamCompensation: [],
-      paymentPlatforms: [],
-    };
-  }
+    if (err) {
+      console.error("[loadFinanceConfig]", err);
+      return EMPTY_FINANCE_CONFIG;
+    }
 
-  return {
-    fixedExpenses: ((fixedRes.data ?? []) as FixedExpenseRow[]).map(rowToFixedExpense),
-    subscriptions: ((subsRes.data ?? []) as SubscriptionRow[]).map(rowToSubscription),
-    teamCompensation: ((teamRes.data ?? []) as TeamCompensationRow[]).map(
-      rowToTeamCompensation
-    ),
-    paymentPlatforms: paymentPlatformTotals(
-      (platRes.data ?? []) as PaymentPlatformRow[],
-      clients
-    ),
-  };
+    return {
+      fixedExpenses: ((fixedRes.data ?? []) as FixedExpenseRow[]).map(rowToFixedExpense),
+      subscriptions: ((subsRes.data ?? []) as SubscriptionRow[]).map(rowToSubscription),
+      teamCompensation: ((teamRes.data ?? []) as TeamCompensationRow[]).map(
+        rowToTeamCompensation
+      ),
+      paymentPlatforms: paymentPlatformTotals(
+        (platRes.data ?? []) as PaymentPlatformRow[],
+        clients
+      ),
+    };
+  } catch (e) {
+    console.error("[loadFinanceConfig]", e);
+    return EMPTY_FINANCE_CONFIG;
+  }
 }
 
 export async function createFixedExpenseAction(
   expense: Omit<FixedExpense, "id">
-): Promise<FixedExpense> {
-  const organizationId = await requireOrganizationId();
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("fixed_expenses")
-    .insert({
-      organization_id: organizationId,
-      name: expense.name,
-      category: expense.category,
-      amount: expense.amount,
-      currency: expense.currency,
-      frequency: expense.frequency,
-      status: expense.status,
-    })
-    .select()
-    .single();
+): Promise<MutationResult<FixedExpense>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("fixed_expenses")
+      .insert({
+        organization_id: organizationId,
+        name: expense.name,
+        category: expense.category,
+        amount: expense.amount,
+        currency: expense.currency,
+        frequency: expense.frequency,
+        status: expense.status,
+      })
+      .select()
+      .single();
 
-  if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
-  return rowToFixedExpense(data as FixedExpenseRow);
+    if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+    return rowToFixedExpense(data as FixedExpenseRow);
+  });
 }
 
 export async function updateFixedExpenseAction(
   id: string,
   patch: Partial<FixedExpense>
-): Promise<FixedExpense> {
-  const supabase = await createClient();
-  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (patch.name != null) row.name = patch.name;
-  if (patch.category != null) row.category = patch.category;
-  if (patch.amount != null) row.amount = patch.amount;
-  if (patch.currency != null) row.currency = patch.currency;
-  if (patch.frequency != null) row.frequency = patch.frequency;
-  if (patch.status != null) row.status = patch.status;
+): Promise<MutationResult<FixedExpense>> {
+  return runMutation(async () => {
+    const supabase = await createClient();
+    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (patch.name != null) row.name = patch.name;
+    if (patch.category != null) row.category = patch.category;
+    if (patch.amount != null) row.amount = patch.amount;
+    if (patch.currency != null) row.currency = patch.currency;
+    if (patch.frequency != null) row.frequency = patch.frequency;
+    if (patch.status != null) row.status = patch.status;
 
-  const { data, error } = await supabase
-    .from("fixed_expenses")
-    .update(row)
-    .eq("id", id)
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from("fixed_expenses")
+      .update(row)
+      .eq("id", id)
+      .select()
+      .single();
 
-  if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
-  return rowToFixedExpense(data as FixedExpenseRow);
+    if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+    return rowToFixedExpense(data as FixedExpenseRow);
+  });
 }
 
-export async function deleteFixedExpenseAction(id: string): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase.from("fixed_expenses").delete().eq("id", id);
-  if (error) throw new Error(mapFinanceError(error.message));
+export async function deleteFixedExpenseAction(
+  id: string
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const supabase = await createClient();
+    const { error } = await supabase.from("fixed_expenses").delete().eq("id", id);
+    if (error) throw new Error(mapFinanceError(error.message));
+  });
 }
 
 export async function createSubscriptionAction(
   sub: Omit<Subscription, "id">
-): Promise<Subscription> {
-  const organizationId = await requireOrganizationId();
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("subscriptions")
-    .insert({
-      organization_id: organizationId,
-      name: sub.name,
-      amount: sub.amount,
-      currency: sub.currency,
-      billing_cycle: sub.billingCycle,
-      status: "active",
-      icon: sub.icon ?? null,
-    })
-    .select()
-    .single();
+): Promise<MutationResult<Subscription>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .insert({
+        organization_id: organizationId,
+        name: sub.name,
+        amount: sub.amount,
+        currency: sub.currency,
+        billing_cycle: sub.billingCycle,
+        status: "active",
+        icon: sub.icon ?? null,
+      })
+      .select()
+      .single();
 
-  if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
-  return rowToSubscription(data as SubscriptionRow);
+    if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+    return rowToSubscription(data as SubscriptionRow);
+  });
 }
 
 export async function updateSubscriptionAction(
   id: string,
   patch: Partial<Subscription>
-): Promise<Subscription> {
-  const supabase = await createClient();
-  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (patch.name != null) row.name = patch.name;
-  if (patch.amount != null) row.amount = patch.amount;
-  if (patch.currency != null) row.currency = patch.currency;
-  if (patch.billingCycle != null) row.billing_cycle = patch.billingCycle;
-  if (patch.icon !== undefined) row.icon = patch.icon ?? null;
+): Promise<MutationResult<Subscription>> {
+  return runMutation(async () => {
+    const supabase = await createClient();
+    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (patch.name != null) row.name = patch.name;
+    if (patch.amount != null) row.amount = patch.amount;
+    if (patch.currency != null) row.currency = patch.currency;
+    if (patch.billingCycle != null) row.billing_cycle = patch.billingCycle;
+    if (patch.icon !== undefined) row.icon = patch.icon ?? null;
 
-  const { data, error } = await supabase
-    .from("subscriptions")
-    .update(row)
-    .eq("id", id)
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .update(row)
+      .eq("id", id)
+      .select()
+      .single();
 
-  if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
-  return rowToSubscription(data as SubscriptionRow);
+    if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+    return rowToSubscription(data as SubscriptionRow);
+  });
 }
 
-export async function deleteSubscriptionAction(id: string): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase.from("subscriptions").delete().eq("id", id);
-  if (error) throw new Error(mapFinanceError(error.message));
+export async function deleteSubscriptionAction(
+  id: string
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const supabase = await createClient();
+    const { error } = await supabase.from("subscriptions").delete().eq("id", id);
+    if (error) throw new Error(mapFinanceError(error.message));
+  });
 }
 
 export async function updateTeamCompensationAction(
   id: string,
   patch: Partial<TeamCompensation>
-): Promise<TeamCompensation> {
-  const supabase = await createClient();
-  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (patch.memberName != null) row.member_name = patch.memberName;
-  if (patch.roleLabel != null) row.role_label = patch.roleLabel;
-  if (patch.hasFixed != null) row.has_fixed_salary = patch.hasFixed;
-  if (patch.fixedMonthly !== undefined) row.fixed_amount = patch.fixedMonthly ?? null;
-  if (patch.hasCommission != null) row.has_commission = patch.hasCommission;
-  if (patch.commissionPercent !== undefined) {
-    row.commission_percentage = patch.commissionPercent ?? null;
-  }
-  if (patch.commissionBasis !== undefined) {
-    row.commission_basis = patch.commissionBasis ?? null;
-  }
-  if (patch.commissionSummary !== undefined) {
-    row.commission_applied_to = patch.commissionSummary ?? null;
-  }
-  if (patch.notes !== undefined) row.notes = patch.notes ?? null;
-  if (patch.estimatedThisMonth != null) {
-    row.estimated_this_month = patch.estimatedThisMonth;
-  }
+): Promise<MutationResult<TeamCompensation>> {
+  return runMutation(async () => {
+    const supabase = await createClient();
+    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (patch.memberName != null) row.member_name = patch.memberName;
+    if (patch.roleLabel != null) row.role_label = patch.roleLabel;
+    if (patch.hasFixed != null) row.has_fixed_salary = patch.hasFixed;
+    if (patch.fixedMonthly !== undefined) row.fixed_amount = patch.fixedMonthly ?? null;
+    if (patch.hasCommission != null) row.has_commission = patch.hasCommission;
+    if (patch.commissionPercent !== undefined) {
+      row.commission_percentage = patch.commissionPercent ?? null;
+    }
+    if (patch.commissionBasis !== undefined) {
+      row.commission_basis = patch.commissionBasis ?? null;
+    }
+    if (patch.commissionSummary !== undefined) {
+      row.commission_applied_to = patch.commissionSummary ?? null;
+    }
+    if (patch.notes !== undefined) row.notes = patch.notes ?? null;
+    if (patch.estimatedThisMonth != null) {
+      row.estimated_this_month = patch.estimatedThisMonth;
+    }
 
-  const { data, error } = await supabase
-    .from("team_compensation")
-    .update(row)
-    .eq("id", id)
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from("team_compensation")
+      .update(row)
+      .eq("id", id)
+      .select()
+      .single();
 
-  if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
-  return rowToTeamCompensation(data as TeamCompensationRow);
+    if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+    return rowToTeamCompensation(data as TeamCompensationRow);
+  });
 }
 
 export async function createPaymentPlatformAction(
   platform: Omit<PaymentPlatformConfig, "id" | "totalReceived" | "lastTransactionAt">
-): Promise<PaymentPlatformConfig> {
-  const organizationId = await requireOrganizationId();
-  const supabase = await createClient();
-  const slug =
-    platform.slug ??
-    platform.name.toLowerCase().replace(/\s+/g, "_").slice(0, 32);
+): Promise<MutationResult<PaymentPlatformConfig>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const slug =
+      platform.slug ??
+      platform.name.toLowerCase().replace(/\s+/g, "_").slice(0, 32);
 
-  const { data, error } = await supabase
-    .from("payment_platforms")
-    .insert({
-      organization_id: organizationId,
-      name: platform.name,
-      slug,
-      currency: platform.currency,
-      account_label: platform.accountLabel ?? null,
-    })
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from("payment_platforms")
+      .insert({
+        organization_id: organizationId,
+        name: platform.name,
+        slug,
+        currency: platform.currency,
+        account_label: platform.accountLabel ?? null,
+      })
+      .select()
+      .single();
 
-  if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
-  return rowToPaymentPlatform(data as PaymentPlatformRow);
+    if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+    return rowToPaymentPlatform(data as PaymentPlatformRow);
+  });
 }
 
 export async function updatePaymentPlatformAction(
   id: string,
   patch: Partial<PaymentPlatformConfig>
-): Promise<PaymentPlatformConfig> {
-  const supabase = await createClient();
-  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (patch.name != null) row.name = patch.name;
-  if (patch.slug !== undefined) row.slug = patch.slug ?? null;
-  if (patch.currency != null) row.currency = patch.currency;
-  if (patch.accountLabel !== undefined) row.account_label = patch.accountLabel ?? null;
+): Promise<MutationResult<PaymentPlatformConfig>> {
+  return runMutation(async () => {
+    const supabase = await createClient();
+    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (patch.name != null) row.name = patch.name;
+    if (patch.slug !== undefined) row.slug = patch.slug ?? null;
+    if (patch.currency != null) row.currency = patch.currency;
+    if (patch.accountLabel !== undefined) row.account_label = patch.accountLabel ?? null;
 
-  const { data, error } = await supabase
-    .from("payment_platforms")
-    .update(row)
-    .eq("id", id)
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from("payment_platforms")
+      .update(row)
+      .eq("id", id)
+      .select()
+      .single();
 
-  if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
-  const clients = await listClientsAction();
-  return paymentPlatformTotals([data as PaymentPlatformRow], clients)[0];
+    if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+    const clients = await listClientsAction();
+    return paymentPlatformTotals([data as PaymentPlatformRow], clients)[0];
+  });
 }
 
-export async function deletePaymentPlatformAction(id: string): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase.from("payment_platforms").delete().eq("id", id);
-  if (error) throw new Error(mapFinanceError(error.message));
+export async function deletePaymentPlatformAction(
+  id: string
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const supabase = await createClient();
+    const { error } = await supabase.from("payment_platforms").delete().eq("id", id);
+    if (error) throw new Error(mapFinanceError(error.message));
+  });
 }

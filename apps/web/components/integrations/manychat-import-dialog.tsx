@@ -44,8 +44,11 @@ export function ManyChatImportDialog({
         });
         return;
       }
-      await refreshConversations();
-      router.refresh();
+      try {
+        await refreshConversations();
+      } catch (e) {
+        console.error("[ManyChatImport] refreshConversations", e);
+      }
       push({
         title: "Contacto importado",
         description: "Revisa la bandeja en Ventas → Inbox.",
@@ -53,6 +56,15 @@ export function ManyChatImportDialog({
       });
       onOpenChange(false);
       setSubscriberId("");
+      window.setTimeout(() => router.refresh(), 0);
+    } catch (e) {
+      push({
+        title: "Error de conexión",
+        description:
+          e instanceof Error
+            ? e.message
+            : "No se pudo completar la importación. Recarga e intenta de nuevo.",
+      });
     } finally {
       setPending(false);
     }

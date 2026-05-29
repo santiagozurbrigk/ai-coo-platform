@@ -16,6 +16,7 @@ import {
 import { CreditCard, Pencil, Trash2 } from "lucide-react";
 import { PLATFORM_SUGGESTIONS } from "@/mocks/finance";
 import { useFinanceData } from "@/providers";
+import { useToast } from "@/providers/toast-provider";
 import { formatMoney } from "@/lib/finance/format";
 import type { PaymentPlatformConfig } from "@/types/finance";
 
@@ -31,6 +32,7 @@ export function PaymentPlatformsSection() {
     updatePaymentPlatform,
     removePaymentPlatform,
   } = useFinanceData();
+  const { push } = useToast();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PaymentPlatformConfig | null>(null);
 
@@ -98,7 +100,13 @@ export function PaymentPlatformsSection() {
                 size="sm"
                 variant="ghost"
                 className="gap-1 text-destructive"
-                onClick={() => removePaymentPlatform(platform.id)}
+                onClick={() => {
+                  void removePaymentPlatform(platform.id).then((err) => {
+                    if (err) {
+                      push({ title: "No se pudo eliminar", description: err });
+                    }
+                  });
+                }}
               >
                 <Trash2 className="h-3 w-3" />
                 Eliminar
@@ -113,7 +121,11 @@ export function PaymentPlatformsSection() {
         onOpenChange={setOpen}
         initial={editing}
         onSave={(data) => {
-          const done = () => {
+          const done = (err?: string) => {
+            if (err) {
+              push({ title: "No se pudo guardar", description: err });
+              return;
+            }
             setOpen(false);
             setEditing(null);
           };
