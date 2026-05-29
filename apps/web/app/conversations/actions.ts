@@ -2,7 +2,6 @@
 
 import {
   isMissingTableError,
-  requireOrganizationId,
   tryRequireOrganizationId,
 } from "@/lib/auth/bootstrap";
 import { repairClosingConversationLinks } from "@/lib/conversations/repair-links";
