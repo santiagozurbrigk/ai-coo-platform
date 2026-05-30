@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Integration } from "@/types/integrations";
+import { GOOGLE_PERMISSION_RECONNECT_MESSAGE } from "@/lib/google/errors";
 import { useToast } from "@/providers/toast-provider";
 import { IntegrationCard } from "./integration-card";
 
@@ -33,6 +34,61 @@ const WEBHOOK_TOAST: Record<string, { title: string; description: string }> = {
   },
 };
 
+const OAUTH_TOAST: Record<
+  string,
+  Record<string, { title: string; description: string; variant?: "success" | "default" }>
+> = {
+  google_forms: {
+    connected: {
+      title: "Google conectado",
+      description:
+        "Forms, Drive y YouTube quedaron vinculados con los permisos actualizados.",
+      variant: "success",
+    },
+    permissions: {
+      title: "Permisos de Google incompletos",
+      description: GOOGLE_PERMISSION_RECONNECT_MESSAGE,
+    },
+    error: {
+      title: "Error al conectar Google Forms",
+      description: "Revisá las variables de entorno y volvé a intentar.",
+    },
+  },
+  youtube: {
+    connected: {
+      title: "YouTube conectado",
+      description: "Canal vinculado. Los videos se sincronizan en Content Library.",
+      variant: "success",
+    },
+    error: {
+      title: "Error al conectar YouTube",
+      description: "Revisá la configuración OAuth en Google Cloud.",
+    },
+  },
+  typeform: {
+    connected: {
+      title: "Typeform conectado",
+      description: "Formularios y respuestas se sincronizarán automáticamente.",
+      variant: "success",
+    },
+    error: {
+      title: "Error al conectar Typeform",
+      description: "Verificá el redirect URI en Typeform Developer.",
+    },
+  },
+  fathom: {
+    connected: {
+      title: "Fathom conectado",
+      description: "Las llamadas se procesarán con IA automáticamente.",
+      variant: "success",
+    },
+    error: {
+      title: "Error al conectar Fathom",
+      description: "Revisá credenciales y redirect URI.",
+    },
+  },
+};
+
 export function IntegrationGrid({ integrations }: { integrations: Integration[] }) {
   const searchParams = useSearchParams();
   const { push } = useToast();
@@ -40,20 +96,37 @@ export function IntegrationGrid({ integrations }: { integrations: Integration[] 
 
   useEffect(() => {
     if (handled.current) return;
-    const connected = searchParams.get("calendly");
-    if (connected !== "connected") return;
 
-    handled.current = true;
-    const webhook = searchParams.get("calendly_webhook");
-    const custom = webhook ? WEBHOOK_TOAST[webhook] : null;
+    const calendlyStatus = searchParams.get("calendly");
+    if (calendlyStatus === "connected") {
+      handled.current = true;
+      const webhook = searchParams.get("calendly_webhook");
+      const custom = webhook ? WEBHOOK_TOAST[webhook] : null;
+      push({
+        title: custom?.title ?? "Calendly conectado",
+        description:
+          custom?.description ??
+          "Los eventos nuevos se sincronizarán automáticamente vía webhook.",
+        variant: "success",
+      });
+      return;
+    }
 
-    push({
-      title: custom?.title ?? "Calendly conectado",
-      description:
-        custom?.description ??
-        "Los eventos nuevos se sincronizarán automáticamente vía webhook.",
-      variant: "success",
-    });
+    for (const provider of Object.keys(OAUTH_TOAST)) {
+      const status = searchParams.get(provider);
+      if (!status) continue;
+
+      handled.current = true;
+      const toast = OAUTH_TOAST[provider]?.[status];
+      if (toast) {
+        push({
+          title: toast.title,
+          description: toast.description,
+          variant: toast.variant ?? "default",
+        });
+      }
+      return;
+    }
   }, [searchParams, push]);
 
   return (

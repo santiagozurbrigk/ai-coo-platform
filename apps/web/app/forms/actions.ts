@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { analyzeFormPatterns, scoreFormResponse } from "@/lib/forms/score-response";
 import { scorePendingFormResponses } from "@/lib/forms/sync-scoring";
+import { GOOGLE_PERMISSION_RECONNECT_MESSAGE } from "@/lib/google/errors";
 import { syncGoogleFormsForOrganization } from "@/lib/google-forms/sync";
 import { syncTypeformForOrganization } from "@/lib/typeform/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -203,6 +204,13 @@ export async function syncFormAction(
       form.platform === "typeform"
         ? await syncTypeformForOrganization(organizationId)
         : await syncGoogleFormsForOrganization(organizationId);
+
+    if (
+      "permissionDenied" in syncResult &&
+      syncResult.permissionDenied
+    ) {
+      throw new Error(GOOGLE_PERMISSION_RECONNECT_MESSAGE);
+    }
 
     const scored = await scorePendingFormResponses(organizationId, formId, 20);
 

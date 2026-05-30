@@ -2,13 +2,9 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { createGooglePkce, getGoogleEnv, googleAuthUrl } from "@/lib/google/oauth";
+import { GOOGLE_UNIFIED_SCOPES } from "@/lib/google/scopes";
 
 export const runtime = "nodejs";
-
-const SCOPES = [
-  "https://www.googleapis.com/auth/youtube.readonly",
-  "https://www.googleapis.com/auth/yt-analytics.readonly",
-];
 
 export async function GET() {
   const env = getGoogleEnv();
@@ -25,7 +21,7 @@ export async function GET() {
     googleAuthUrl({
       clientId: env.clientId,
       redirectUri,
-      scopes: SCOPES,
+      scopes: [...GOOGLE_UNIFIED_SCOPES],
       state,
       codeChallenge,
     })

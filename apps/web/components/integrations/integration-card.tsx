@@ -175,7 +175,8 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
           )}
           {integration.provider === "google_forms" && (
             <p className="text-xs text-muted-foreground">
-              Conectá Google Forms para centralizar respuestas y análisis de leads.
+              Conectá Google (Forms + Drive + YouTube en un solo OAuth) para
+              formularios, respuestas y contenido de canal.
             </p>
           )}
           {integration.provider === "miro" && (

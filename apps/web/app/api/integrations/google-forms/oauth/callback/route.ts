@@ -1,7 +1,9 @@
 import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { exchangeGoogleCode, getGoogleEnv } from "@/lib/google/oauth";
+import { isGooglePermissionError } from "@/lib/google/errors";
+import { persistUnifiedGoogleTokens } from "@/lib/google/persist-oauth";
+import { syncYoutubeChannelAndVideos } from "@/lib/google/sync-youtube";
 import { integrationsOAuthRedirect } from "@/lib/integrations/oauth-redirect";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -59,23 +61,13 @@ export async function GET(request: NextRequest) {
       codeVerifier: cookie.codeVerifier,
     });
 
-    const admin = createAdminClient();
-    const { error: upsertError } = await admin.from("google_forms_integrations").upsert(
-      {
-        organization_id: cookie.organizationId,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token ?? null,
-        token_expires_at: tokens.expires_in
-          ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
-          : null,
-        status: "connected",
-        last_sync_at: new Date().toISOString(),
-      },
-      { onConflict: "organization_id" }
+    const { formsError, youtubeError } = await persistUnifiedGoogleTokens(
+      cookie.organizationId,
+      tokens
     );
 
-    if (upsertError) {
-      console.error("[google-forms/oauth/callback] DB upsert:", upsertError.message);
+    if (formsError || youtubeError) {
+      console.error("[google-forms/oauth/callback] DB:", formsError, youtubeError);
       return integrationsOAuthRedirect(origin, "google_forms", "error", "google_forms_oauth");
     }
 
@@ -83,9 +75,36 @@ export async function GET(request: NextRequest) {
       const { syncGoogleFormsForOrganization } = await import(
         "@/lib/google-forms/sync"
       );
-      await syncGoogleFormsForOrganization(cookie.organizationId);
+      const syncResult = await syncGoogleFormsForOrganization(
+        cookie.organizationId
+      );
+      if (syncResult.permissionDenied) {
+        return integrationsOAuthRedirect(
+          origin,
+          "google_forms",
+          "permissions",
+          "google_forms_oauth"
+        );
+      }
     } catch (e) {
-      console.error("[google-forms/oauth/callback] sync inicial falló:", e);
+      if (isGooglePermissionError(e)) {
+        return integrationsOAuthRedirect(
+          origin,
+          "google_forms",
+          "permissions",
+          "google_forms_oauth"
+        );
+      }
+      console.error("[google-forms/oauth/callback] sync forms:", e);
+    }
+
+    try {
+      await syncYoutubeChannelAndVideos(
+        cookie.organizationId,
+        tokens.access_token
+      );
+    } catch (e) {
+      console.error("[google-forms/oauth/callback] sync youtube:", e);
     }
 
     return integrationsOAuthRedirect(

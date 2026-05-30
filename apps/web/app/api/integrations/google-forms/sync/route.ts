@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { GOOGLE_PERMISSION_RECONNECT_MESSAGE } from "@/lib/google/errors";
 import { assertCronAuthorized } from "@/lib/integrations/cron-auth";
 import {
   syncAllGoogleFormsOrganizations,
@@ -17,6 +18,12 @@ export async function POST(request: Request) {
 
   if (organizationId) {
     const result = await syncGoogleFormsForOrganization(organizationId);
+    if (result.permissionDenied) {
+      return NextResponse.json(
+        { ok: false, error: GOOGLE_PERMISSION_RECONNECT_MESSAGE, ...result },
+        { status: 403 }
+      );
+    }
     return NextResponse.json({ ok: true, ...result });
   }
 

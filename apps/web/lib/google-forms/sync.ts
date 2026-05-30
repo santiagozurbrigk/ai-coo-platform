@@ -1,3 +1,8 @@
+import { listGoogleFormFiles } from "@/lib/google/drive-forms";
+import {
+  GoogleIntegrationPermissionError,
+  isGooglePermissionError,
+} from "@/lib/google/errors";
 import { scorePendingFormResponses } from "@/lib/forms/sync-scoring";
 import { refreshGoogleAccessToken } from "@/lib/google/refresh-token";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -9,8 +14,6 @@ type GoogleFormsIntegration = {
   token_expires_at: string | null;
   last_sync_at: string | null;
 };
-
-type DriveFile = { id: string; name: string };
 
 type GoogleFormQuestion = {
   questionId: string;
@@ -78,10 +81,29 @@ function mapGoogleAnswers(
   return result;
 }
 
+async function fetchFormDefinition(
+  formId: string,
+  headers: Record<string, string>
+): Promise<{
+  info?: { title?: string; description?: string };
+  items?: { questionItem?: { question?: GoogleFormQuestion } }[];
+} | null> {
+  const formRes = await fetch(
+    `https://forms.googleapis.com/v1/forms/${formId}`,
+    { headers }
+  );
+  if (formRes.status === 403 || formRes.status === 401) {
+    throw new GoogleIntegrationPermissionError(formRes.status);
+  }
+  if (!formRes.ok) return null;
+  return formRes.json();
+}
+
 export type GoogleFormsSyncResult = {
   formsSynced: number;
   responsesSynced: number;
   responsesScored: number;
+  permissionDenied?: boolean;
 };
 
 export async function syncGoogleFormsForOrganization(
@@ -108,26 +130,27 @@ export async function syncGoogleFormsForOrganization(
 
   const headers = { Authorization: `Bearer ${accessToken}` };
 
-  const driveRes = await fetch(
-    "https://www.googleapis.com/drive/v3/files?q=mimeType%3D%27application%2Fvnd.google-apps.form%27&fields=files(id%2Cname)&pageSize=100",
-    { headers }
-  );
-  if (!driveRes.ok) return result;
-
-  const driveBody = (await driveRes.json()) as { files?: DriveFile[] };
-  const remoteForms = driveBody.files ?? [];
+  let remoteForms;
+  try {
+    remoteForms = await listGoogleFormFiles(accessToken);
+  } catch (e) {
+    if (isGooglePermissionError(e)) {
+      return { ...result, permissionDenied: true };
+    }
+    throw e;
+  }
 
   for (const remote of remoteForms) {
-    const formRes = await fetch(
-      `https://forms.googleapis.com/v1/forms/${remote.id}`,
-      { headers }
-    );
-    if (!formRes.ok) continue;
-
-    const formData = (await formRes.json()) as {
-      info?: { title?: string; description?: string };
-      items?: { questionItem?: { question?: GoogleFormQuestion } }[];
-    };
+    let formData;
+    try {
+      formData = await fetchFormDefinition(remote.id, headers);
+    } catch (e) {
+      if (isGooglePermissionError(e)) {
+        return { ...result, permissionDenied: true };
+      }
+      throw e;
+    }
+    if (!formData) continue;
 
     const questionMap = new Map<string, string>();
     const questions: { id: string; title: string }[] = [];
@@ -166,6 +189,9 @@ export async function syncGoogleFormsForOrganization(
     }
 
     const responsesRes = await fetch(responsesUrl, { headers });
+    if (responsesRes.status === 403 || responsesRes.status === 401) {
+      return { ...result, permissionDenied: true };
+    }
     if (!responsesRes.ok) continue;
 
     const responsesBody = (await responsesRes.json()) as {
@@ -235,6 +261,7 @@ export async function syncAllGoogleFormsOrganizations(): Promise<{
   formsSynced: number;
   responsesSynced: number;
   responsesScored: number;
+  permissionErrors: number;
 }> {
   const admin = createAdminClient();
   const { data: integrations } = await admin
@@ -245,9 +272,11 @@ export async function syncAllGoogleFormsOrganizations(): Promise<{
   let formsSynced = 0;
   let responsesSynced = 0;
   let responsesScored = 0;
+  let permissionErrors = 0;
 
   for (const row of integrations ?? []) {
     const r = await syncGoogleFormsForOrganization(row.organization_id);
+    if (r.permissionDenied) permissionErrors++;
     formsSynced += r.formsSynced;
     responsesSynced += r.responsesSynced;
     responsesScored += r.responsesScored;
@@ -258,5 +287,6 @@ export async function syncAllGoogleFormsOrganizations(): Promise<{
     formsSynced,
     responsesSynced,
     responsesScored,
+    permissionErrors,
   };
 }
