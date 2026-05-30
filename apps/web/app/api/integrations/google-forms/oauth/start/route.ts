@@ -8,6 +8,8 @@ export const runtime = "nodejs";
 const SCOPES = [
   "https://www.googleapis.com/auth/forms.responses.readonly",
   "https://www.googleapis.com/auth/forms.body.readonly",
+  // Necesario para listar formularios vía Drive API en el sync
+  "https://www.googleapis.com/auth/drive.readonly",
 ];
 
 export async function GET() {
