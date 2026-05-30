@@ -2,11 +2,17 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { disconnectGoogleIntegrationAction } from "@/app/integrations/actions";
 import {
   getCalendlyIntegrationStatusAction,
   pullCalendlyScheduledEventsAction,
 } from "@/app/calendly/actions";
 import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
+import {
+  GOOGLE_OAUTH_START_URL,
+  isGoogleIntegrationProvider,
+  type GoogleIntegrationProvider,
+} from "@/lib/google/oauth-paths";
 import {
   Badge,
   Button,
@@ -77,6 +83,34 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         ? "warning"
         : "secondary";
 
+  const googleProvider = isGoogleIntegrationProvider(integration.provider)
+    ? integration.provider
+    : null;
+
+  const startGoogleOAuth = (provider: GoogleIntegrationProvider) => {
+    window.location.href = GOOGLE_OAUTH_START_URL[provider];
+  };
+
+  const handleDisconnectGoogle = async (provider: GoogleIntegrationProvider) => {
+    setSyncing(true);
+    try {
+      const res = await disconnectGoogleIntegrationAction(provider);
+      if (!res.success) {
+        push({ title: res.error, variant: "default" });
+        return;
+      }
+      setStatus("not_connected");
+      router.refresh();
+      push({
+        title: "Integración desconectada",
+        description: "Podés volver a conectar cuando quieras.",
+        variant: "success",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleConnect = () => {
     if (integration.provider === "calendly") {
       window.location.href = "/api/integrations/calendly/oauth/start";
@@ -86,16 +120,12 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       window.location.href = "/api/integrations/fathom/oauth/start";
       return;
     }
-    if (integration.provider === "youtube") {
-      window.location.href = "/api/integrations/youtube/oauth/start";
+    if (googleProvider) {
+      startGoogleOAuth(googleProvider);
       return;
     }
     if (integration.provider === "typeform") {
       window.location.href = "/api/integrations/typeform/oauth/start";
-      return;
-    }
-    if (integration.provider === "google_forms") {
-      window.location.href = "/api/integrations/google-forms/oauth/start";
       return;
     }
     if (integration.provider === "manychat") {
@@ -194,6 +224,30 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
           {syncing && (
             <p className="text-xs text-warning">Sincronizando datos…</p>
           )}
+          {status === "connected" && googleProvider ? (
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                type="button"
+                disabled={syncing}
+                onClick={() => startGoogleOAuth(googleProvider)}
+              >
+                Reconectar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                type="button"
+                disabled={syncing}
+                onClick={() => handleDisconnectGoogle(googleProvider)}
+              >
+                Desconectar
+              </Button>
+            </div>
+          ) : (
           <Button
             variant={status === "not_connected" ? "default" : "outline"}
             size="sm"
@@ -259,6 +313,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                     ? "Importar contacto"
                     : es.common.manage}
           </Button>
+          )}
         </CardContent>
       </Card>
 

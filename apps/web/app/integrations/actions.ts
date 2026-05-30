@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { getCalendlyIntegrationStatusAction } from "@/app/calendly/actions";
 import { getFathomIntegrationStatusAction } from "@/app/fathom/actions";
 import {
@@ -10,10 +11,45 @@ import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
 import { getYoutubeIntegrationStatusAction } from "@/app/marketing/actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { formatRelativeTime } from "@/lib/format";
+import { runMutation, type MutationResult } from "@/lib/server/action-result";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { mockIntegrations } from "@/mocks/integrations";
+import type { GoogleIntegrationProvider } from "@/lib/google/oauth-paths";
+import { paths } from "@/routes";
 import type { Integration } from "@/types/integrations";
+
+const GOOGLE_INTEGRATION_TABLE: Record<
+  GoogleIntegrationProvider,
+  "google_forms_integrations" | "youtube_integrations"
+> = {
+  google_forms: "google_forms_integrations",
+  youtube: "youtube_integrations",
+};
+
+/** Desconecta una integración Google (revoca tokens en DB). */
+export async function disconnectGoogleIntegrationAction(
+  provider: GoogleIntegrationProvider
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from(GOOGLE_INTEGRATION_TABLE[provider])
+      .update({
+        status: "disconnected",
+        access_token: null,
+        refresh_token: null,
+        token_expires_at: null,
+        last_sync_at: null,
+      })
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+    revalidatePath(paths.platform.integrations);
+  });
+}
 
 async function countManyChatConversations(): Promise<number> {
   if (!isSupabaseConfigured()) return 0;

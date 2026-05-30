@@ -17,6 +17,7 @@ export async function GET() {
   const state = crypto.randomBytes(18).toString("hex");
   const { codeVerifier, codeChallenge } = createGooglePkce();
 
+  // googleAuthUrl incluye access_type=offline y prompt=consent (fuerza pantalla de permisos)
   const res = NextResponse.redirect(
     googleAuthUrl({
       clientId: env.clientId,
