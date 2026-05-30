@@ -1,38 +1,53 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
+import { cookies } from "next/headers";
 import { labelContentAsset } from "@/lib/content/label-content";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exchangeGoogleCode, getGoogleEnv } from "@/lib/google/oauth";
-import { paths } from "@/routes";
+import { integrationsOAuthRedirect } from "@/lib/integrations/oauth-redirect";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const runtime = "nodejs";
 
+type OAuthCookie = {
+  organizationId: string;
+  state: string;
+  codeVerifier: string;
+};
+
 export async function GET(request: NextRequest) {
-  const code = request.nextUrl.searchParams.get("code");
-  const state = request.nextUrl.searchParams.get("state");
-  const cookieRaw = request.cookies.get("youtube_oauth")?.value;
-  const redirectBase = `${paths.platform.integrations}?youtube=`;
-
-  if (!code || !state || !cookieRaw) {
-    return NextResponse.redirect(`${redirectBase}error`);
-  }
-
-  let cookie: { organizationId: string; state: string; codeVerifier: string };
-  try {
-    cookie = JSON.parse(cookieRaw);
-  } catch {
-    return NextResponse.redirect(`${redirectBase}error`);
-  }
-  if (cookie.state !== state) {
-    return NextResponse.redirect(`${redirectBase}error`);
-  }
-
-  const env = getGoogleEnv();
-  const redirectUri = process.env.YOUTUBE_REDIRECT_URI;
-  if (!env || !redirectUri) {
-    return NextResponse.redirect(`${redirectBase}error`);
-  }
+  const origin = request.nextUrl.origin;
 
   try {
+    const code = request.nextUrl.searchParams.get("code");
+    const state = request.nextUrl.searchParams.get("state");
+
+    if (!code || !state || !isSupabaseConfigured()) {
+      return integrationsOAuthRedirect(origin, "youtube", "error", "youtube_oauth");
+    }
+
+    const cookieStore = await cookies();
+    const cookieRaw = cookieStore.get("youtube_oauth")?.value;
+    if (!cookieRaw) {
+      return integrationsOAuthRedirect(origin, "youtube", "error", "youtube_oauth");
+    }
+
+    let cookie: OAuthCookie;
+    try {
+      cookie = JSON.parse(cookieRaw) as OAuthCookie;
+    } catch {
+      return integrationsOAuthRedirect(origin, "youtube", "error", "youtube_oauth");
+    }
+
+    if (cookie.state !== state) {
+      return integrationsOAuthRedirect(origin, "youtube", "error", "youtube_oauth");
+    }
+
+    const env = getGoogleEnv();
+    const redirectUri = process.env.YOUTUBE_REDIRECT_URI;
+    if (!env || !redirectUri) {
+      return integrationsOAuthRedirect(origin, "youtube", "error", "youtube_oauth");
+    }
+
     const tokens = await exchangeGoogleCode({
       code,
       clientId: env.clientId,
@@ -46,12 +61,18 @@ export async function GET(request: NextRequest) {
       { headers: { Authorization: `Bearer ${tokens.access_token}` } }
     );
     const channelData = (await channelRes.json()) as {
-      items?: { id: string; snippet?: { title?: string; thumbnails?: { default?: { url?: string } } } }[];
+      items?: {
+        id: string;
+        snippet?: {
+          title?: string;
+          thumbnails?: { default?: { url?: string } };
+        };
+      }[];
     };
     const channel = channelData.items?.[0];
 
     const admin = createAdminClient();
-    await admin.from("youtube_integrations").upsert(
+    const { error: upsertError } = await admin.from("youtube_integrations").upsert(
       {
         organization_id: cookie.organizationId,
         access_token: tokens.access_token,
@@ -68,20 +89,27 @@ export async function GET(request: NextRequest) {
       { onConflict: "organization_id" }
     );
 
-    // Sync inicial de videos (últimos 25)
-    if (channel?.id) {
-      await syncYoutubeVideos(
-        cookie.organizationId,
-        tokens.access_token,
-        channel.id
-      );
+    if (upsertError) {
+      console.error("[youtube/oauth/callback] DB upsert:", upsertError.message);
+      return integrationsOAuthRedirect(origin, "youtube", "error", "youtube_oauth");
     }
 
-    const res = NextResponse.redirect(`${redirectBase}connected`);
-    res.cookies.delete("youtube_oauth");
-    return res;
-  } catch {
-    return NextResponse.redirect(`${redirectBase}error`);
+    if (channel?.id) {
+      try {
+        await syncYoutubeVideos(
+          cookie.organizationId,
+          tokens.access_token,
+          channel.id
+        );
+      } catch (e) {
+        console.error("[youtube/oauth/callback] sync videos:", e);
+      }
+    }
+
+    return integrationsOAuthRedirect(origin, "youtube", "connected", "youtube_oauth");
+  } catch (e) {
+    console.error("[youtube/oauth/callback] Error:", e);
+    return integrationsOAuthRedirect(origin, "youtube", "error", "youtube_oauth");
   }
 }
 
@@ -95,7 +123,15 @@ async function syncYoutubeVideos(
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   const searchData = (await searchRes.json()) as {
-    items?: { id?: { videoId?: string }; snippet?: { title?: string; description?: string; publishedAt?: string; thumbnails?: { medium?: { url?: string } } } }[];
+    items?: {
+      id?: { videoId?: string };
+      snippet?: {
+        title?: string;
+        description?: string;
+        publishedAt?: string;
+        thumbnails?: { medium?: { url?: string } };
+      };
+    }[];
   };
 
   const admin = createAdminClient();
