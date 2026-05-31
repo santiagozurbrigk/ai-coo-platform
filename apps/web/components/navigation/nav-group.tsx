@@ -21,27 +21,6 @@ type NavGroupProps = {
   collapsed?: boolean;
 };
 
-function linkClass(active: boolean, collapsed?: boolean, sub?: boolean) {
-  return cn(
-    "flex items-center transition-all duration-150 ease-out",
-    collapsed
-      ? "mx-auto h-10 w-10 justify-center rounded-[10px]"
-      : cn(
-          "gap-2.5 rounded-[10px] py-2.5 text-sm",
-          sub ? "ml-8 px-3 text-[13px]" : "px-3"
-        ),
-    active
-      ? collapsed
-        ? "bg-sidebar-accent text-[hsl(var(--sidebar-foreground-active))] [&_svg]:text-[hsl(var(--sidebar-foreground-active))]"
-        : "border-l-2 border-primary bg-sidebar-accent font-medium text-[hsl(var(--sidebar-foreground-active))] [&_svg]:text-[hsl(var(--sidebar-foreground-active))]"
-      : collapsed
-        ? "text-sidebar-foreground hover:bg-muted hover:text-foreground"
-        : sub
-          ? "text-muted-foreground hover:bg-muted hover:text-foreground"
-          : "text-sidebar-foreground hover:bg-muted hover:text-foreground"
-  );
-}
-
 function NavTooltip({
   label,
   collapsed,
@@ -72,15 +51,22 @@ export function NavGroup({
 }: NavGroupProps) {
   const hasChildren = Boolean(item.children?.length);
   const sectionActive = isNavItemActive(item.href, pathname, item.children);
+  const leafActive = isPathActive(item.href, pathname);
 
   if (!hasChildren) {
     const link = (
       <Link
         href={item.href}
-        className={linkClass(isPathActive(item.href, pathname), collapsed)}
+        className={cn(
+          "sidebar-item",
+          collapsed && "sidebar-item-collapsed",
+          leafActive && "active"
+        )}
       >
-        {item.icon && <NavIcon name={item.icon} />}
-        {!collapsed && <span className="truncate">{item.label}</span>}
+        {item.icon && (
+          <NavIcon name={item.icon} className="sidebar-item-icon" />
+        )}
+        <span className="sidebar-item-label">{item.label}</span>
         {!collapsed && item.badge != null && item.badge > 0 && (
           <span className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-2xs font-medium text-primary-foreground tabular-nums">
             {item.badge}
@@ -101,9 +87,14 @@ export function NavGroup({
       <NavTooltip label={item.label} collapsed>
         <Link
           href={item.href}
-          className={linkClass(sectionActive, true)}
+          className={cn(
+            "sidebar-item sidebar-item-collapsed",
+            sectionActive && "active"
+          )}
         >
-          {item.icon && <NavIcon name={item.icon} />}
+          {item.icon && (
+            <NavIcon name={item.icon} className="sidebar-item-icon" />
+          )}
         </Link>
       </NavTooltip>
     );
@@ -113,45 +104,41 @@ export function NavGroup({
     <div className="space-y-0.5">
       <div
         className={cn(
-          "flex items-center rounded-[10px]",
-          sectionActive && "bg-muted/50 dark:bg-white/[0.03]"
+          "sidebar-item",
+          sectionActive && "active",
+          isExpanded && "open"
         )}
       >
         <Link
           href={item.href}
-          className={cn(
-            "flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5 text-sm transition-all duration-150 ease-out",
-            sectionActive
-              ? "font-medium text-[hsl(var(--sidebar-foreground-active))] [&_svg]:text-[hsl(var(--sidebar-foreground-active))]"
-              : "text-sidebar-foreground hover:text-foreground"
-          )}
+          className="flex min-w-0 flex-1 items-center gap-2.5"
         >
-          {item.icon && <NavIcon name={item.icon} />}
-          <span className="truncate">{item.label}</span>
+          {item.icon && (
+            <NavIcon name={item.icon} className="sidebar-item-icon" />
+          )}
+          <span className="sidebar-item-label">{item.label}</span>
         </Link>
         <button
           type="button"
           onClick={onToggle}
           aria-expanded={isExpanded}
           aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${item.label}`}
-          className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-all duration-150 hover:bg-muted hover:text-foreground"
+          className="mr-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
         >
-          <ChevronRight
-            className={cn(
-              "h-4 w-4 transition-transform duration-200",
-              isExpanded && "rotate-90"
-            )}
-          />
+          <ChevronRight className="sidebar-item-arrow" />
         </button>
       </div>
 
       {isExpanded && (
-        <div className="space-y-0.5">
+        <div className="sidebar-subitems space-y-0.5">
           {item.children!.map((child) => (
             <Link
               key={child.href}
               href={child.href}
-              className={linkClass(isPathActive(child.href, pathname), false, true)}
+              className={cn(
+                "sidebar-subitem",
+                isPathActive(child.href, pathname) && "active"
+              )}
             >
               <span className="truncate">{child.label}</span>
             </Link>

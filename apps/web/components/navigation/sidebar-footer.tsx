@@ -17,12 +17,7 @@ export function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
   const pathname = usePathname();
 
   return (
-    <div
-      className={cn(
-        "space-y-2 border-t border-sidebar-border pt-2",
-        collapsed ? "px-1 pb-2" : "mx-1 px-1 pb-2"
-      )}
-    >
+    <div className={cn("space-y-1", collapsed ? "px-0" : "px-0")}>
       <div className="space-y-0.5">
         {secondaryNavigation.map((item) => {
           const active = isPathActive(item.href, pathname);
@@ -30,19 +25,15 @@ export function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
             <Link
               href={item.href}
               className={cn(
-                "flex items-center transition-all duration-150 ease-out",
-                collapsed
-                  ? "mx-auto h-10 w-10 justify-center rounded-[10px]"
-                  : "gap-2.5 rounded-[10px] px-3 py-2.5 text-sm",
-                active
-                  ? collapsed
-                    ? "bg-sidebar-accent text-[hsl(var(--sidebar-foreground-active))]"
-                    : "border-l-2 border-primary bg-sidebar-accent font-medium text-[hsl(var(--sidebar-foreground-active))]"
-                  : "text-sidebar-foreground hover:bg-muted hover:text-foreground"
+                "sidebar-item",
+                collapsed && "sidebar-item-collapsed",
+                active && "active"
               )}
             >
-              {item.icon && <NavIcon name={item.icon} />}
-              {!collapsed && <span className="truncate">{item.label}</span>}
+              {item.icon && (
+                <NavIcon name={item.icon} className="sidebar-item-icon" />
+              )}
+              <span className="sidebar-item-label">{item.label}</span>
             </Link>
           );
 
@@ -59,7 +50,9 @@ export function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
         })}
       </div>
       {!collapsed ? (
-        <p className="px-3 text-2xs text-muted-foreground">{es.app.phasePrototype}</p>
+        <p className="px-2.5 pt-2 text-2xs text-muted-foreground/80">
+          {es.app.phasePrototype}
+        </p>
       ) : null}
     </div>
   );

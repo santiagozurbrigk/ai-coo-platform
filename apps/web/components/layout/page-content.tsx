@@ -11,14 +11,14 @@ export function PageContent({
   fullWidth?: boolean;
 }) {
   return (
-    <div
+    <main
       className={cn(
-        "flex-1 overflow-y-auto",
-        fullWidth ? "p-0" : "p-6 lg:p-8",
+        fullWidth ? "page-content-full" : "page-content",
+        "min-w-0",
         className
       )}
     >
       {children}
-    </div>
+    </main>
   );
 }

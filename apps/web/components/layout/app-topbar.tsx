@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
   Input,
   Topbar,
+  cn,
 } from "@ai-coo/ui";
 import { es } from "@/lib/locale/es";
 import { getPageMeta } from "@/lib/navigation/page-meta";
@@ -22,13 +23,17 @@ import { Breadcrumbs } from "@/components/navigation/breadcrumbs";
 import { paths } from "@/routes";
 import { secondaryNavigation } from "@/routes/navigation";
 
-export function AppTopbar() {
+export function AppTopbar({ className }: { className?: string }) {
   const pathname = usePathname();
   const { title, subtitle } = getPageMeta(pathname);
   const { setOpen } = useCommandPalette();
 
   return (
     <Topbar
+      className={cn(
+        "shell-topbar bg-transparent dark:bg-transparent dark:backdrop-blur-none",
+        className
+      )}
       breadcrumbs={
         <div className="flex min-w-0 items-center gap-3">
           <MobileNav />

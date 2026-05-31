@@ -10,13 +10,18 @@ import { ContextPanel } from "@/components/layout/context-panel";
 export function PlatformShell({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider>
-      <ThreeColumnLayout
-        sidebar={<AppSidebar />}
-        contextPanel={<ContextPanel />}
-      >
-        <div className="flex h-screen min-h-0 flex-col overflow-hidden">
-          <AppTopbar />
-          {children}
+      <ThreeColumnLayout sidebar={<AppSidebar />}>
+        <AppTopbar />
+        <div className="main-container-scroll flex min-h-0 flex-1">
+          <div className="flex min-h-full min-w-0 flex-1">
+            {children}
+            <aside
+              className="hidden h-full w-[300px] shrink-0 border-l border-border xl:flex"
+              data-slot="context-panel"
+            >
+              <ContextPanel />
+            </aside>
+          </div>
         </div>
       </ThreeColumnLayout>
     </TooltipProvider>
