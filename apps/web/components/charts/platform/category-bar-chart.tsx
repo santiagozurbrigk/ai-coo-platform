@@ -6,6 +6,7 @@ import { BarXAxis } from "@/components/charts/bar-x-axis";
 import { ChartTooltip } from "@/components/charts/tooltip";
 import { toCategoryRows } from "@/lib/chart/bklit-data";
 import { cn } from "@/lib/utils";
+import { ChartWrapper, CHART_MIN_HEIGHT } from "./chart-wrapper";
 
 export function CategoryBarChart({
   items,
@@ -17,8 +18,15 @@ export function CategoryBarChart({
   className?: string;
 }) {
   const rows = toCategoryRows(items);
+  const filtered = items.filter((i) => i.value > 0);
 
   return (
+    <ChartWrapper
+      data={filtered.length > 0 ? filtered : items}
+      minPoints={1}
+      emptyMessage="No hay cuotas pendientes"
+      minHeight={CHART_MIN_HEIGHT.sm}
+    >
     <BarChart
       data={rows}
       xDataKey="name"
@@ -33,5 +41,6 @@ export function CategoryBarChart({
       <BarXAxis showAllLabels />
       <ChartTooltip />
     </BarChart>
+    </ChartWrapper>
   );
 }

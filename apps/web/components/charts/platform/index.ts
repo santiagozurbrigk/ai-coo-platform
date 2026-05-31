@@ -1,4 +1,11 @@
 export { ChartShell } from "./chart-shell";
+export { ChartWrapper, CHART_MIN_HEIGHT } from "./chart-wrapper";
+export { MetricChartPanel } from "./metric-chart-panel";
+export { HeroAreaChart } from "./hero-area-chart";
+export { InteractiveDualAreaChart } from "./interactive-dual-area-chart";
+export { RingDistributionChart } from "./ring-distribution-chart";
+export { GaugeTargetChart } from "./gauge-target-chart";
+export { MiniMetricChart } from "./mini-metric-chart";
 export { TrendLineChart } from "./trend-line-chart";
 export { DualAreaChart } from "./dual-area-chart";
 export { StackedBarChart } from "./stacked-bar-chart";

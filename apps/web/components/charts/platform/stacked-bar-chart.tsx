@@ -5,6 +5,7 @@ import { Grid } from "@/components/charts/grid";
 import { BarXAxis } from "@/components/charts/bar-x-axis";
 import { ChartTooltip } from "@/components/charts/tooltip";
 import { cn } from "@/lib/utils";
+import { ChartWrapper, CHART_MIN_HEIGHT } from "./chart-wrapper";
 
 const PALETTE = [
   "var(--chart-1)",
@@ -29,6 +30,12 @@ export function StackedBarChart({
 
   return (
     <div className={cn("space-y-2", className)}>
+      <ChartWrapper
+        data={rows}
+        minPoints={1}
+        emptyMessage="Sin datos de facturación por mes"
+        minHeight={CHART_MIN_HEIGHT.md}
+      >
       <BarChart
         data={rows}
         xDataKey="name"
@@ -50,6 +57,7 @@ export function StackedBarChart({
         <BarXAxis showAllLabels />
         <ChartTooltip />
       </BarChart>
+      </ChartWrapper>
       <div className="flex flex-wrap justify-center gap-3 text-xs">
         {labels.map((label, i) => (
           <span key={label} className="flex items-center gap-1.5">

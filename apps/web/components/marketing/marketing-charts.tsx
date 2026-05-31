@@ -168,8 +168,11 @@ export function TypeRadarChart({ types }: { types: ContentTypePerformance[] }) {
     <ChartShell
       title="Performance por tipo"
       subtitle="Radar · alcance vs conversiones normalizadas"
+      className="min-h-[360px]"
     >
-      <RadarPerformanceChart metrics={metrics} series={series} />
+      <div className="flex min-h-[300px] items-center justify-center py-4">
+        <RadarPerformanceChart metrics={metrics} series={series} />
+      </div>
       <div className="flex justify-center gap-4 text-xs">
         <span className="flex items-center gap-1.5">
           <span className="h-2 w-3 rounded-sm bg-[var(--chart-1)]" /> Alcance
@@ -201,9 +204,10 @@ export function PublishHeatmap({ cells }: { cells: HeatmapCell[] }) {
     <ChartShell
       title="Mejores días y horarios"
       subtitle="Barras por día + mapa de calor horario"
+      className="min-h-[320px]"
     >
-      <CategoryBarChart items={byDay} />
-      <div className="mt-4 overflow-x-auto">
+      <CategoryBarChart items={byDay} className="min-h-[160px]" />
+      <div className="mt-4 min-h-[120px] overflow-x-auto">
         <div
           className="inline-grid gap-0.5"
           style={{ gridTemplateColumns: "repeat(7, 1fr)" }}
@@ -248,7 +252,9 @@ export function FollowerGrowthChart({ data }: { data: FollowerGrowthPoint[] }) {
       title="Crecimiento de seguidores"
       subtitle="Línea con marcadores · últimas 8 semanas"
     >
-      <TrendLineChart data={trend} />
+      <div className="min-h-[240px] px-6">
+        <TrendLineChart data={trend} />
+      </div>
       {data
         .filter((d) => d.spikeLabel)
         .map((d) => (

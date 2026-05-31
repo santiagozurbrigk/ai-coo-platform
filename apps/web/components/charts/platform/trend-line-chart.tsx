@@ -6,6 +6,7 @@ import { XAxis } from "@/components/charts/x-axis";
 import { ChartTooltip } from "@/components/charts/tooltip";
 import { toTimeSeriesRows } from "@/lib/chart/bklit-data";
 import { cn } from "@/lib/utils";
+import { ChartWrapper, CHART_MIN_HEIGHT } from "./chart-wrapper";
 
 export function TrendLineChart({
   data,
@@ -13,21 +14,30 @@ export function TrendLineChart({
   className,
   aspectRatio = "2.4 / 1",
   animationDuration = 900,
+  emptyMessage,
 }: {
   data: { label: string; value: number }[];
   dataKey?: string;
   className?: string;
   aspectRatio?: string;
   animationDuration?: number;
+  emptyMessage?: string;
 }) {
   const rows = toTimeSeriesRows(data);
 
   return (
+    <ChartWrapper
+      data={data}
+      minPoints={2}
+      emptyMessage={emptyMessage}
+      className={cn(CHART_MIN_HEIGHT.md, className)}
+      minHeight={CHART_MIN_HEIGHT.md}
+    >
     <LineChart
       data={rows}
       xDataKey="date"
       aspectRatio={aspectRatio}
-      className={cn("w-full", className)}
+      className="h-full w-full"
       animationDuration={animationDuration}
       margin={{ top: 24, right: 16, bottom: 36, left: 8 }}
     >
@@ -42,5 +52,6 @@ export function TrendLineChart({
       <XAxis numTicks={Math.min(data.length, 6)} />
       <ChartTooltip />
     </LineChart>
+    </ChartWrapper>
   );
 }

@@ -1,16 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { GlassPanel, MetricCard, cn } from "@ai-coo/ui";
+import { GlassPanel } from "@ai-coo/ui";
 import {
   CategoryBarChart,
-  GaugeMetricChart,
-  SparklineChart,
+  GaugeTargetChart,
+  InteractiveDualAreaChart,
+  MetricChartPanel,
+  RingDistributionChart,
 } from "@/components/charts/platform";
+import type { PieData } from "@/components/charts/pie-context";
+import { expenseSegmentColors } from "@/lib/chart/colors";
 import { useFinanceData } from "@/providers";
 import { usePlatformData } from "@/providers/platform-data-provider";
 import { formatMoney } from "@/lib/finance/format";
-import { sparklineProps } from "@/lib/metrics/sparkline-series";
 import { deriveFinanceSummary } from "@/lib/metrics/derive-finance-summary";
 import {
   collectRevenueEvents,
@@ -30,7 +33,7 @@ export function FinanceMetrics() {
     clientsLoading,
     closingCallsLoading,
   } = usePlatformData();
-  const { paymentPlatforms, expensesSummary } = useFinanceData();
+  const { paymentPlatforms, expensesSummary, monthlySeries } = useFinanceData();
 
   const [revenueRange, setRevenueRange] =
     useState<RevenueDateRange>(DEFAULT_REVENUE_RANGE);
@@ -58,8 +61,39 @@ export function FinanceMetrics() {
     return filterRevenueEvents(collectRevenueEvents(clients), period);
   }, [clients, revenueRange]);
 
+  const dualRows = useMemo(
+    () =>
+      monthlySeries.map((m) => ({
+        label: m.month,
+        primary: m.facturacion,
+        secondary: m.cashCollected,
+      })),
+    [monthlySeries]
+  );
+
+  const expenseSlices: PieData[] = useMemo(
+    () =>
+      [
+        {
+          label: "Gastos fijos",
+          value: expensesSummary.fixedMonthly,
+          color: expenseSegmentColors[0],
+        },
+        {
+          label: "Suscripciones",
+          value: expensesSummary.subscriptionsMonthly,
+          color: expenseSegmentColors[1],
+        },
+        {
+          label: "Equipo",
+          value: expensesSummary.teamFixedMonthly + expensesSummary.teamCommissionsMonthly,
+          color: expenseSegmentColors[2],
+        },
+      ].filter((s) => s.value > 0),
+    [expensesSummary]
+  );
+
   const s = summary;
-  const marginSpark = sparklineProps("margin", 400);
 
   if (loading) {
     return (
@@ -80,87 +114,83 @@ export function FinanceMetrics() {
         eventCount={periodEvents.length}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <MetricCard
-          title="Cash Collected"
-          value={formatMoney(s.cashCollected)}
-          subtitle={`Facturación del período − gastos prorrateados (${s.revenuePeriod.dayCount} d)`}
-          trend="neutral"
-          {...sparklineProps("cashCollected", 100)}
-        />
-
-        <GlassPanel className="p-4 space-y-3">
-          <MetricCard
-            title="Por cobrar"
-            value={formatMoney(s.porCobrar)}
-            subtitle="Pendiente total · no depende del filtro de fechas"
-            {...sparklineProps("porCobrar", 200)}
+      <GlassPanel className="relative overflow-hidden p-0">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-between bg-gradient-to-b from-background/95 via-background/60 to-transparent px-4 pb-8 pt-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Facturación
+            </p>
+            <p className="text-2xl font-semibold tabular-nums text-[var(--chart-2)]">
+              {formatMoney(s.facturacion)}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Cash Collected
+            </p>
+            <p className="text-2xl font-semibold tabular-nums text-[var(--chart-1)]">
+              {formatMoney(s.cashCollected)}
+            </p>
+          </div>
+        </div>
+        <div className="min-h-[280px] px-2 pb-4 pt-16">
+          <InteractiveDualAreaChart
+            data={dualRows}
+            primaryKey="facturacion"
+            secondaryKey="cashCollected"
+            primaryLabel="Facturación"
+            secondaryLabel="Cash collected"
+            primaryColor="var(--chart-2)"
+            secondaryColor="var(--chart-1)"
+            emptyMessage="Sin suficientes meses para el gráfico"
           />
+        </div>
+      </GlassPanel>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <MetricChartPanel
+          title="Margen"
+          value={`${s.margenPercent.toFixed(1)}%`}
+          subtitle="Objetivo 60%"
+          className="min-h-[240px]"
+        >
+          <GaugeTargetChart
+            value={s.margenPercent}
+            max={100}
+            target={60}
+            label="Margen"
+            variant="margin"
+          />
+        </MetricChartPanel>
+
+        <MetricChartPanel
+          title="Por cobrar"
+          value={formatMoney(s.porCobrar)}
+          subtitle="Cuotas pendientes por mes"
+          className="min-h-[240px]"
+        >
           <CategoryBarChart
             items={s.porCobrarByMonth.map((m) => ({
               label: m.month,
               value: m.amount,
             }))}
+            className="min-h-[180px]"
           />
-        </GlassPanel>
+        </MetricChartPanel>
 
-        <MetricCard
+        <MetricChartPanel
           title="Gastos (período)"
           value={formatMoney(s.gastosTotales)}
-          subtitle="Prorrateo del mes según días seleccionados"
-          {...sparklineProps("expenses", 300)}
-        />
-
-        <GlassPanel className="p-4 flex items-center justify-between gap-4">
-          <div className="min-w-0 flex-1 space-y-2">
-            <p className="text-sm text-muted-foreground">Margen</p>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-2xl font-semibold tabular-nums">
-                {s.margenPercent.toFixed(1)}%
-              </p>
-              <SparklineChart
-                data={marginSpark.sparklineData}
-                color={marginSpark.sparklineColor}
-                className="h-8 w-full shrink-0 sm:h-10 sm:w-[88px] md:h-11 md:w-[100px]"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              % de la facturación del período que es ganancia
-            </p>
-          </div>
-          <GaugeMetricChart
-            value={s.margenPercent}
-            max={100}
-            label="Margen"
-            suffix="%"
-            className="max-w-[200px] shrink-0"
+          subtitle="Distribución mensual estimada"
+          className="min-h-[240px]"
+        >
+          <RingDistributionChart
+            slices={expenseSlices}
+            centerValue={formatMoney(expensesSummary.totalMonthly)}
+            centerLabel="/ mes"
+            emptyMessage="Sin gastos configurados"
           />
-        </GlassPanel>
-
-        <div className="sm:col-span-2 xl:col-span-1 space-y-2">
-          <p className="text-xs font-medium text-muted-foreground px-1">
-            Ingresos por plataforma (período)
-          </p>
-          <div className="grid gap-2">
-            {paymentPlatforms.map((p) => {
-              const bal = s.platformBalances.find((b) => b.platformId === p.id);
-              return (
-                <GlassPanel
-                  key={p.id}
-                  className={cn("p-3 flex items-center justify-between gap-2")}
-                >
-                  <div>
-                    <p className="text-sm font-medium">{p.name}</p>
-                    <p className="text-xs text-muted-foreground">{p.currency}</p>
-                  </div>
-                  <p className="text-sm font-semibold tabular-nums">
-                    {formatMoney(bal?.amount ?? 0, p.currency)}
-                  </p>
-                </GlassPanel>
-              );
-            })}
-          </div>
-        </div>
+        </MetricChartPanel>
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ import { paths } from "@/routes";
 import { useSidebarExpanded } from "@/hooks/use-sidebar-expanded";
 import { NavGroup } from "./nav-group";
 
-export function SidebarNavigation() {
+export function SidebarNavigation({ collapsed }: { collapsed?: boolean }) {
   const pathname = usePathname();
   const [pendingCalls, setPendingCalls] = useState(0);
   const baseNav = useSidebarExpanded(pathname, platformNavigation);
@@ -36,8 +36,9 @@ export function SidebarNavigation() {
           key={item.href}
           item={item}
           pathname={pathname}
-          isExpanded={baseNav.isExpanded(item.href)}
+          isExpanded={collapsed ? false : baseNav.isExpanded(item.href)}
           onToggle={() => baseNav.toggle(item.href)}
+          collapsed={collapsed}
         />
       ))}
     </div>

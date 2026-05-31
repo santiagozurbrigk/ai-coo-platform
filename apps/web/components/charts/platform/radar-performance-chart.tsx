@@ -29,7 +29,7 @@ export function RadarPerformanceChart({
     <RadarChart
       data={series}
       metrics={metrics}
-      className={cn("mx-auto max-w-[280px]", className)}
+      className={cn("mx-auto aspect-square min-h-[300px] w-full max-w-[320px]", className)}
       levels={4}
       margin={48}
     >

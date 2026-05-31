@@ -2,13 +2,26 @@
 
 import { motion } from "framer-motion";
 import { AiCard } from "@ai-coo/ui";
-import { TrendLineChart } from "@/components/charts/platform";
+import {
+  CategoryBarChart,
+  GaugeTargetChart,
+  HeroAreaChart,
+  InteractiveDualAreaChart,
+  MetricChartPanel,
+  MiniMetricChart,
+  RingDistributionChart,
+  TrendLineChart,
+} from "@/components/charts/platform";
+import type { PieData } from "@/components/charts/pie-context";
 import { FlowCta } from "@/components/shared/flow-cta";
-import { MetricGrid } from "@/components/shared/metric-grid";
 import { Panel } from "@/components/shared/panel";
+import { formatMoney } from "@/lib/finance/format";
+import { formatPercent } from "@/lib/format";
+import { SPARKLINE_SERIES } from "@/lib/metrics/sparkline-series";
 import { flowLinks } from "@/lib/navigation/flow-links";
 import { paths } from "@/routes";
 import type { DashboardData } from "@/types/dashboard";
+import type { DashboardHeroMetrics } from "@/types/dashboard-hero";
 import { ExecutiveSummary } from "./executive-summary";
 import { RisksList } from "./risks-list";
 import { OpportunitiesList } from "./opportunities-list";
@@ -20,18 +33,37 @@ const fade = {
   animate: { opacity: 1, y: 0 },
 };
 
+const BOOKING_TARGET = 70;
+
 export function DashboardOverview({
   data,
-  chartTrend,
+  hero,
+  dualTrend,
 }: {
   data: DashboardData;
-  chartTrend: { label: string; value: number }[];
+  hero: DashboardHeroMetrics;
+  dualTrend: { label: string; primary: number; secondary: number }[];
 }) {
-  const allMetrics = [
-    ...data.revenueMetrics,
-    ...data.salesMetrics,
-    ...data.operationalMetrics,
-  ];
+  const convTrend = SPARKLINE_SERIES.conversations.map((v, i) => ({
+    label: String(i + 1),
+    value: v,
+  }));
+
+  const ghostGaugeValue = hero.ghostingRate;
+  const responseGaugeValue = Math.min(100, (hero.avgResponseMin / 30) * 100);
+
+  const clientsRing: PieData[] = [
+    {
+      label: "Activos",
+      value: Math.max(hero.activeClients, 0),
+      color: "var(--chart-3)",
+    },
+    {
+      label: "Resto",
+      value: hero.activeClients > 0 ? 1 : 0,
+      color: "var(--chart-5)",
+    },
+  ].filter((s) => s.value > 0);
 
   return (
     <motion.div
@@ -42,21 +74,106 @@ export function DashboardOverview({
         animate: { transition: { staggerChildren: 0.06 } },
       }}
     >
-      <motion.div variants={fade} className="space-y-4">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          Métricas clave
-        </h3>
-        <MetricGrid metrics={allMetrics} columns={3} />
+      <motion.div variants={fade} className="grid gap-4 lg:grid-cols-3">
+        <MetricChartPanel
+          title="Facturación"
+          value={formatMoney(hero.facturacion)}
+          subtitle="Últimos 7 días"
+          valueClassName="text-[var(--chart-2)]"
+        >
+          <HeroAreaChart
+            data={hero.facturacionTrend}
+            color="var(--chart-2)"
+            emptyMessage="Sin historial — solo valor del período"
+          />
+        </MetricChartPanel>
+
+        <MetricChartPanel
+          title="Cash Collected"
+          value={formatMoney(hero.cashCollected)}
+          subtitle="Últimos 7 días"
+          valueClassName="text-[var(--chart-2)]"
+        >
+          <HeroAreaChart
+            data={hero.cashTrend}
+            color="var(--chart-2)"
+            emptyMessage="Sin cobros en el período"
+          />
+        </MetricChartPanel>
+
+        <MetricChartPanel
+          title="Tasa de agendamiento"
+          value={formatPercent(hero.bookingRate)}
+          subtitle={`Objetivo ${BOOKING_TARGET}%`}
+        >
+          <GaugeTargetChart
+            value={hero.bookingRate}
+            max={100}
+            target={BOOKING_TARGET}
+            label="Agendamiento"
+            suffix="%"
+            variant="default"
+            className="h-full"
+          />
+        </MetricChartPanel>
+      </motion.div>
+
+      <motion.div variants={fade} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MiniMetricChart title="Conv. activas" value={String(hero.activeConversations)}>
+          <TrendLineChart
+            data={convTrend}
+            className="min-h-[120px]"
+            aspectRatio="3 / 1"
+          />
+        </MiniMetricChart>
+
+        <MiniMetricChart title="Tasa de fantasma" value={formatPercent(hero.ghostingRate)}>
+          <GaugeTargetChart
+            value={ghostGaugeValue}
+            max={100}
+            target={20}
+            label="Fantasma"
+            variant="inverted"
+            className="min-h-[120px]"
+          />
+        </MiniMetricChart>
+
+        <MiniMetricChart title="Tiempo de respuesta" value={`${hero.avgResponseMin} min`}>
+          <CategoryBarChart
+            items={SPARKLINE_SERIES.responseTime.map((v, i) => ({
+              label: `D${i + 1}`,
+              value: v,
+            }))}
+            className="min-h-[120px]"
+          />
+        </MiniMetricChart>
+
+        <MiniMetricChart title="Clientes activos" value={String(hero.activeClients)}>
+          <RingDistributionChart
+            slices={clientsRing}
+            centerValue={String(hero.activeClients)}
+            centerLabel="Activos"
+            className="max-w-[160px]"
+          />
+        </MiniMetricChart>
       </motion.div>
 
       <motion.div variants={fade}>
         <Panel
-          title="Ingresos cobrados — últimos 7 días"
-          contentClassName="p-0 pb-2"
+          title="Ingresos cobrados — últimos 30 días"
+          subtitle="Facturación vs Cash Collected · arrastra para seleccionar un rango"
+          contentClassName="p-4"
         >
-          <div className="px-2 pb-2">
-            <TrendLineChart data={chartTrend} className="min-h-[220px]" />
-          </div>
+          <InteractiveDualAreaChart
+            data={dualTrend}
+            primaryKey="facturacion"
+            secondaryKey="cashCollected"
+            primaryLabel="Facturación"
+            secondaryLabel="Cash collected"
+            primaryColor="var(--chart-2)"
+            secondaryColor="var(--chart-1)"
+            emptyMessage="Aún no hay suficientes meses de datos"
+          />
         </Panel>
       </motion.div>
 

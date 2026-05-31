@@ -2,109 +2,26 @@
 
 import { useFinanceData } from "@/providers";
 import { formatMoney } from "@/lib/finance/format";
-import { expenseSegmentColors, platformRingColors } from "@/lib/chart/colors";
-import type { ExpensesSummary } from "@/types/expenses";
+import { platformRingColors } from "@/lib/chart/colors";
 import type { MonthlySeriesPoint } from "@/types/finance";
 import {
   ChartShell,
-  DualAreaChart,
-  GaugeMetricChart,
   PieDistributionChart,
   StackedBarChart,
-  TrendLineChart,
 } from "@/components/charts/platform";
 import type { PieData } from "@/components/charts/pie-context";
 
 export function FinanceCharts() {
-  const { monthlySeries, financeSummary, paymentPlatforms, expensesSummary } =
-    useFinanceData();
+  const { monthlySeries, financeSummary, paymentPlatforms } = useFinanceData();
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <FacturacionVsCashChart data={monthlySeries} />
-      <PorCobrarSteppedChart months={financeSummary.porCobrarByMonth} />
-      <ExpensePieChart expenses={expensesSummary} />
+      <RevenueStackedChart data={monthlySeries} />
       <PlatformPieChart
         platforms={paymentPlatforms}
         balances={financeSummary.platformBalances}
       />
-      <MarginGaugeChart data={monthlySeries} />
-      <RevenueStackedChart data={monthlySeries} />
     </div>
-  );
-}
-
-function FacturacionVsCashChart({ data }: { data: MonthlySeriesPoint[] }) {
-  const rows = data.map((d) => ({
-    label: d.month,
-    primary: d.facturacion,
-    secondary: d.cashCollected,
-  }));
-
-  return (
-    <ChartShell
-      title="Facturación vs Cash Collected"
-      subtitle="Área dual · el espacio entre curvas ≈ gastos"
-      className="lg:col-span-2"
-    >
-      <DualAreaChart
-        data={rows}
-        primaryKey="facturacion"
-        secondaryKey="cashCollected"
-        primaryLabel="Facturación"
-        secondaryLabel="Cash collected"
-      />
-    </ChartShell>
-  );
-}
-
-function PorCobrarSteppedChart({
-  months,
-}: {
-  months: { month: string; amount: number }[];
-}) {
-  const trend = months.map((m) => ({ label: m.month, value: m.amount }));
-
-  return (
-    <ChartShell
-      title="Por cobrar acumulado"
-      subtitle="Línea · cuentas pendientes por mes"
-    >
-      <TrendLineChart data={trend} dataKey="value" />
-    </ChartShell>
-  );
-}
-
-function ExpensePieChart({ expenses }: { expenses: ExpensesSummary }) {
-  const slices: PieData[] = [
-    { label: "Gastos fijos", value: expenses.fixedMonthly, color: expenseSegmentColors[0] },
-    {
-      label: "Suscripciones",
-      value: expenses.subscriptionsMonthly,
-      color: expenseSegmentColors[1],
-    },
-    {
-      label: "Salarios",
-      value: expenses.teamFixedMonthly,
-      color: expenseSegmentColors[2],
-    },
-    {
-      label: "Comisiones",
-      value: expenses.teamCommissionsMonthly,
-      color: expenseSegmentColors[3],
-    },
-  ].filter((s) => s.value > 0);
-
-  return (
-    <ChartShell
-      title="Distribución de gastos"
-      subtitle="Pie · composición del burn mensual"
-    >
-      <PieDistributionChart slices={slices} />
-      <p className="text-center text-sm font-semibold tabular-nums">
-        {formatMoney(expenses.totalMonthly)} / mes
-      </p>
-    </ChartShell>
   );
 }
 
@@ -143,23 +60,6 @@ function PlatformPieChart({
   );
 }
 
-function MarginGaugeChart({ data }: { data: MonthlySeriesPoint[] }) {
-  const latest = data[data.length - 1]?.marginPercent ?? 0;
-  const threshold = 60;
-
-  return (
-    <ChartShell
-      title="Salud del margen"
-      subtitle={`Gauge · último mes vs objetivo ${threshold}%`}
-    >
-      <GaugeMetricChart value={latest} max={100} label="Margen %" suffix="%" />
-      <p className="text-center text-xs text-muted-foreground">
-        Objetivo: {threshold}% · Actual: {latest.toFixed(1)}%
-      </p>
-    </ChartShell>
-  );
-}
-
 function RevenueStackedChart({ data }: { data: MonthlySeriesPoint[] }) {
   const rows = data.map((d) => ({
     month: d.month,
@@ -174,11 +74,13 @@ function RevenueStackedChart({ data }: { data: MonthlySeriesPoint[] }) {
       subtitle="Barras apiladas · upfront, cuotas y fees"
       className="lg:col-span-2"
     >
-      <StackedBarChart
-        data={rows}
-        keys={["upfront", "installments", "fees"]}
-        labels={["Upfront", "Cuotas cobradas", "Fees"]}
-      />
+      <div className="min-h-[240px]">
+        <StackedBarChart
+          data={rows}
+          keys={["upfront", "installments", "fees"]}
+          labels={["Upfront", "Cuotas cobradas", "Fees"]}
+        />
+      </div>
     </ChartShell>
   );
 }
