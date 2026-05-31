@@ -2,7 +2,7 @@
 
 import { localPoint } from "@visx/event";
 import { ParentSize } from "@visx/responsive";
-import { scaleBand, scaleLinear } from "@visx/scale";
+import { scaleBand, scaleLinear, scaleTime } from "@visx/scale";
 import type { Transition } from "motion/react";
 import {
   Children,
@@ -305,17 +305,27 @@ const ChartCore = memo(function ChartCore({
     [data, categoryAccessor]
   );
 
-  // Create a fake time scale for compatibility with ChartContext
+  // Callable time-like scale for ChartContext (spread on scaleBand is not callable).
   const fakeTimeScale = useMemo(() => {
     const now = Date.now();
     const start = now - data.length * 24 * 60 * 60 * 1000;
-    const scale = {
-      ...categoryScale,
-      domain: () => [new Date(start), new Date(now)],
+    const band = categoryScale;
+    const span = now - start || 1;
+
+    const scale = ((value: Date | string | number) => {
+      if (value instanceof Date) {
+        return ((value.getTime() - start) / span) * innerWidth;
+      }
+      return band(String(value)) ?? 0;
+    }) as ReturnType<typeof scaleTime<number>>;
+
+    Object.assign(scale, band, {
+      domain: () => [new Date(start), new Date(now)] as [Date, Date],
       range: () => [0, innerWidth] as [number, number],
-      invert: (x: number) => new Date(start + (x / innerWidth) * (now - start)),
+      invert: (x: number) => new Date(start + (x / innerWidth) * span),
       copy: () => scale,
-    };
+    });
+
     return scale;
   }, [categoryScale, innerWidth, data.length]);
 

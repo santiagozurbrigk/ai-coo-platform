@@ -95,17 +95,46 @@ const XAxisInner = memo(function XAxisInner({
   tickMode = "domain",
   container,
 }: XAxisProps & { container: HTMLDivElement }) {
-  const { xScale, margin, tooltipData, data, xAccessor, dateLabels } =
-    useChart();
+  const {
+    xScale,
+    margin,
+    tooltipData,
+    data,
+    xAccessor,
+    dateLabels,
+    barScale,
+    bandWidth,
+    barXAccessor,
+  } = useChart();
 
   // Generate tick labels: evenly spaced along the domain, or one per data row
   const labelsToShow = useMemo(() => {
     if (tickMode === "data") {
+      if (barScale && bandWidth && barXAccessor) {
+        return data.map((d, i) => {
+          const label = barXAccessor(d);
+          const bandX = barScale(label) ?? 0;
+          return {
+            date: xAccessor(d),
+            x: bandX + bandWidth / 2 + margin.left,
+            label: dateLabels[i] ?? label,
+          };
+        });
+      }
+
+      if (typeof xScale !== "function") {
+        return [];
+      }
+
       return data.map((d, i) => ({
         date: xAccessor(d),
         x: (xScale(xAccessor(d)) ?? 0) + margin.left,
         label: dateLabels[i] ?? shortDateFmt.format(xAccessor(d)),
       }));
+    }
+
+    if (typeof xScale !== "function") {
+      return [];
     }
 
     const domain = xScale.domain();
@@ -135,7 +164,18 @@ const XAxisInner = memo(function XAxisInner({
       x: (xScale(date) ?? 0) + margin.left,
       label: shortDateFmt.format(date),
     }));
-  }, [tickMode, data, xAccessor, xScale, margin.left, dateLabels, numTicks]);
+  }, [
+    tickMode,
+    data,
+    xAccessor,
+    xScale,
+    margin.left,
+    dateLabels,
+    numTicks,
+    barScale,
+    bandWidth,
+    barXAccessor,
+  ]);
 
   const isHovering = tooltipData !== null;
   const crosshairX = tooltipData ? tooltipData.x + margin.left : null;

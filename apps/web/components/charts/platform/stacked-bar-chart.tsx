@@ -2,7 +2,7 @@
 
 import { BarChart, Bar } from "@/components/charts/bar-chart";
 import { Grid } from "@/components/charts/grid";
-import { XAxis } from "@/components/charts/x-axis";
+import { BarXAxis } from "@/components/charts/bar-x-axis";
 import { ChartTooltip } from "@/components/charts/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +47,7 @@ export function StackedBarChart({
             stroke={PALETTE[i % PALETTE.length]}
           />
         ))}
-        <XAxis tickMode="data" />
+        <BarXAxis showAllLabels />
         <ChartTooltip />
       </BarChart>
       <div className="flex flex-wrap justify-center gap-3 text-xs">

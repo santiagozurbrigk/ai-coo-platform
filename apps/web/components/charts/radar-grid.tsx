@@ -31,6 +31,10 @@ export function RadarGrid({
   const durationFactor = enterDurationMs / 1100;
   const gridStagger = 0.08 * staggerScale * durationFactor;
 
+  if (metrics.length < 1) {
+    return null;
+  }
+
   // Generate angles for the radial lines (one per metric)
   const degrees = 360;
   const angles = [...new Array(metrics.length + 1)].map((_, i) => ({

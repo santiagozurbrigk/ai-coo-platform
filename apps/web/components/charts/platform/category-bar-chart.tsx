@@ -2,7 +2,7 @@
 
 import { BarChart, Bar } from "@/components/charts/bar-chart";
 import { Grid } from "@/components/charts/grid";
-import { XAxis } from "@/components/charts/x-axis";
+import { BarXAxis } from "@/components/charts/bar-x-axis";
 import { ChartTooltip } from "@/components/charts/tooltip";
 import { toCategoryRows } from "@/lib/chart/bklit-data";
 import { cn } from "@/lib/utils";
@@ -30,7 +30,7 @@ export function CategoryBarChart({
     >
       <Grid horizontal={!horizontal} vertical={horizontal} numTicksRows={4} />
       <Bar dataKey="value" fill="var(--chart-1)" stroke="var(--chart-1)" />
-      <XAxis tickMode="data" />
+      <BarXAxis showAllLabels />
       <ChartTooltip />
     </BarChart>
   );
