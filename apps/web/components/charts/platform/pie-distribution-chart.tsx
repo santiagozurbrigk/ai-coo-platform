@@ -15,16 +15,20 @@ export function PieDistributionChart({
   className?: string;
   innerRadius?: number;
 }) {
+  const visible = slices.filter((s) => s.value > 0);
+  const chartData =
+    visible.length > 0 ? visible : [{ label: "—", value: 1, color: "var(--chart-3)" }];
+
   return (
     <PieChart
-      data={slices}
+      data={chartData}
       innerRadius={innerRadius}
       padAngle={0.02}
       cornerRadius={4}
       className={cn("mx-auto max-w-[280px]", className)}
     >
-      {slices.map((_, i) => (
-        <PieSlice key={slices[i].label} index={i} />
+      {chartData.map((slice, i) => (
+        <PieSlice key={`${slice.label}-${i}`} index={i} />
       ))}
       <PieCenter defaultLabel="Total" />
     </PieChart>

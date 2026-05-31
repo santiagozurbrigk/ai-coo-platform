@@ -100,7 +100,7 @@ function ExpensePieChart({ expenses }: { expenses: ExpensesSummary }) {
       title="Distribución de gastos"
       subtitle="Pie · composición del burn mensual"
     >
-      <PieDistributionChart slices={slices.length ? slices : [{ label: "—", value: 1 }]} />
+      <PieDistributionChart slices={slices} />
       <p className="text-center text-sm font-semibold tabular-nums">
         {formatMoney(expenses.totalMonthly)} / mes
       </p>
@@ -115,11 +115,13 @@ function PlatformPieChart({
   platforms: { id: string; name: string; currency: string }[];
   balances: { platformId: string; amount: number }[];
 }) {
-  const slices: PieData[] = platforms.map((p, i) => ({
-    label: p.name,
-    value: balances.find((b) => b.platformId === p.id)?.amount ?? 0,
-    color: platformRingColors[i % platformRingColors.length],
-  }));
+  const slices: PieData[] = platforms
+    .map((p, i) => ({
+      label: p.name,
+      value: balances.find((b) => b.platformId === p.id)?.amount ?? 0,
+      color: platformRingColors[i % platformRingColors.length],
+    }))
+    .filter((s) => s.value > 0);
 
   return (
     <ChartShell

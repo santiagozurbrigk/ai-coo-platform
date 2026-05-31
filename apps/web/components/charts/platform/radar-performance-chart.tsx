@@ -17,6 +17,14 @@ export function RadarPerformanceChart({
   series: RadarData[];
   className?: string;
 }) {
+  if (metrics.length < 3) {
+    return (
+      <p className={cn("py-8 text-center text-sm text-muted-foreground", className)}>
+        Sin datos suficientes para el radar.
+      </p>
+    );
+  }
+
   return (
     <RadarChart
       data={series}
