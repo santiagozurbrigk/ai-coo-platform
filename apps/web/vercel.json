@@ -11,6 +11,10 @@
     {
       "path": "/api/integrations/google-forms/sync",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/calendly-sync",
+      "schedule": "0 * * * *"
     }
   ]
 }

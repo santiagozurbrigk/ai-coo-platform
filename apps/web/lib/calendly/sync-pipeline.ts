@@ -1,4 +1,4 @@
-import { syncCalendlyEventsForOrganizationAdminAction } from "@/app/calendly/actions";
+import { syncCalendlyEventsForOrganization } from "@/lib/calendly/sync-events";
 import { fetchCalendlyScheduledEventPayloads } from "@/lib/calendly/fetch-scheduled-events";
 import {
   getCalendlyIntegrationForOrganization,
@@ -77,12 +77,13 @@ export async function syncCalendlyOrganizationSafe(
       return EMPTY_ORG_RESULT(organizationId, "fetch_error");
     }
 
-    const result = await syncCalendlyEventsForOrganizationAdminAction(
+    const admin = createAdminClient();
+    const result = await syncCalendlyEventsForOrganization(
+      admin,
       organizationId,
       events
     );
 
-    const admin = createAdminClient();
     await admin
       .from("calendly_integrations")
       .update({ updated_at: new Date().toISOString() })
@@ -117,7 +118,9 @@ export async function applyCalendlyEventsSafe(
       return EMPTY_ORG_RESULT(organizationId, "not_connected");
     }
 
-    const result = await syncCalendlyEventsForOrganizationAdminAction(
+    const admin = createAdminClient();
+    const result = await syncCalendlyEventsForOrganization(
+      admin,
       organizationId,
       events
     );

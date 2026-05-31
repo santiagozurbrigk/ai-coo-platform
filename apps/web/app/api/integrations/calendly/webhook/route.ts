@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { syncCalendlyEventsForOrganizationAdminAction } from "@/app/calendly/actions";
+import { syncCalendlyEventsForOrganization } from "@/lib/calendly/sync-events";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { CalendlyWebhookBody, CalendlyWebhookInviteePayload } from "@/types/calendly";
 
@@ -160,7 +160,8 @@ export async function POST(req: Request) {
 
     const questionsAndAnswers = extractQuestionsAndAnswers(payload);
 
-    await syncCalendlyEventsForOrganizationAdminAction(matchedOrgId, [
+    const admin = createAdminClient();
+    await syncCalendlyEventsForOrganization(admin, matchedOrgId, [
       {
         eventId,
         startTime,

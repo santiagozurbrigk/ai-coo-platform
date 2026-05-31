@@ -23,9 +23,13 @@ export function CalendlyManualSyncNotice({
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    getCalendlyIntegrationStatusAction().then((s) => {
-      setVisible(s.connected && !s.webhookEnabled);
-    });
+    getCalendlyIntegrationStatusAction()
+      .then((s) => {
+        setVisible(s.connected && !s.webhookEnabled);
+      })
+      .catch(() => {
+        setVisible(false);
+      });
   }, []);
 
   if (!visible) return null;

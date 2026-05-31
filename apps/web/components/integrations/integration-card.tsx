@@ -61,9 +61,13 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
 
   useEffect(() => {
     if (integration.provider !== "calendly") return;
-    getCalendlyIntegrationStatusAction().then((s) => {
-      setCalendlyWebhookEnabled(s.webhookEnabled);
-    });
+    getCalendlyIntegrationStatusAction()
+      .then((s) => {
+        setCalendlyWebhookEnabled(s.webhookEnabled);
+      })
+      .catch(() => {
+        setCalendlyWebhookEnabled(true);
+      });
   }, [integration.provider, integration.status]);
 
   useEffect(() => {
@@ -273,12 +277,20 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                 setSyncing(true);
                 try {
                   const result = await pullCalendlyScheduledEventsAction();
+                  if (!result.success) {
+                    push({
+                      title: "Error al sincronizar Calendly",
+                      description: result.error,
+                    });
+                    return;
+                  }
+                  const { fetched, inserted, updated } = result.data;
                   await refreshClosingCalls();
                   setStatus("connected");
                   router.refresh();
                   push({
                     title: "Calendly sincronizado",
-                    description: `${result.fetched} eventos · ${result.inserted} nuevos · ${result.updated} actualizados`,
+                    description: `${fetched} eventos · ${inserted} nuevos · ${updated} actualizados`,
                     variant: "success",
                   });
                 } catch (e) {

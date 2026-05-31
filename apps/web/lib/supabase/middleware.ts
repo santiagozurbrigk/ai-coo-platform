@@ -24,6 +24,7 @@ const PUBLIC_PATHS = [
 
 function isPublicPath(pathname: string): boolean {
   if (pathname === paths.home) return true;
+  if (pathname.startsWith("/api/cron/")) return true;
   if (pathname.startsWith("/api/integrations/")) {
     if (
       pathname.includes("/webhook") ||
