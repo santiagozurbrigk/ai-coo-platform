@@ -12,7 +12,6 @@ import {
 import {
   AiCard,
   Badge,
-  BarChart,
   Button,
   Caption,
   Card,
@@ -50,6 +49,7 @@ import {
   cn,
 } from "@ai-coo/ui";
 import { AppLogo } from "@/components/brand";
+import { TrendLineChart } from "@/components/charts/platform";
 import { es } from "@/lib/locale/es";
 
 const chartData = [
@@ -237,7 +237,7 @@ export function DesignSystemShowcase() {
                 <CardDescription>Últimos 7 días — datos mock</CardDescription>
               </CardHeader>
               <CardContent>
-                <BarChart data={chartData} />
+                <TrendLineChart data={chartData} />
               </CardContent>
             </Card>
           </Section>

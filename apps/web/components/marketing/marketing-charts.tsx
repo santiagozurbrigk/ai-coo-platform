@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
-import { GlassPanel, cn } from "@ai-coo/ui";
-import { motion } from "framer-motion";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { cn } from "@ai-coo/ui";
 import { getContentById } from "@/mocks/marketing-insights";
 import type {
   ContentFunnelStage,
@@ -13,104 +13,40 @@ import type {
 } from "@/types/marketing-insights";
 import { CONTENT_TYPE_LABEL } from "@/components/marketing-insights/content-labels";
 import { ContentThumbnail } from "@/components/marketing-insights/content-thumbnail";
-import { chartColors } from "@/lib/chart/colors";
+import {
+  CategoryBarChart,
+  ChartShell,
+  DualAreaChart,
+  FunnelChartPanel,
+  RadarPerformanceChart,
+  TrendLineChart,
+} from "@/components/charts/platform";
+import type { FunnelStage } from "@/components/charts/funnel-chart";
+import type { RadarData, RadarMetric } from "@/components/charts/radar-context";
 import { paths } from "@/routes";
-import Link from "next/link";
 
-function ChartShell({
-  title,
-  subtitle,
-  children,
-  className,
-}: {
-  title: string;
-  subtitle?: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <GlassPanel className={cn("p-4 space-y-3", className)}>
-      <div>
-        <h4 className="text-sm font-medium">{title}</h4>
-        {subtitle && (
-          <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
-        )}
-      </div>
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        {children}
-      </motion.div>
-    </GlassPanel>
-  );
-}
+const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 export function ReachInteractionsChart({ data }: { data: MarketingTimePoint[] }) {
-  const W = 520;
-  const H = 200;
-  const pad = { l: 36, r: 8, t: 12, b: 24 };
-  const innerW = W - pad.l - pad.r;
-  const innerH = H - pad.t - pad.b;
-  const yR = (v: number) => {
-    const max = Math.max(...data.map((d) => d.reach));
-    return pad.t + innerH - (v / max) * innerH;
-  };
-  const yI = (v: number) => {
-    const max = Math.max(...data.map((d) => d.interactions));
-    return pad.t + innerH - (v / max) * innerH;
-  };
-  const x = (i: number) => pad.l + (i / (data.length - 1)) * innerW;
-
-  const area = (key: "reach" | "interactions") => {
-    const pts = data.map((d, i) =>
-      `${x(i)},${key === "reach" ? yR(d.reach) : yI(d.interactions)}`
-    );
-    const base = pad.t + innerH;
-    return `${pts.join(" ")} ${x(data.length - 1)},${base} ${x(0)},${base}`;
-  };
+  const rows = data.map((d) => ({
+    label: d.day,
+    primary: d.reach,
+    secondary: d.interactions,
+  }));
 
   return (
     <ChartShell
       title="Alcance e interacciones"
-      subtitle="Últimos 30 días"
+      subtitle="Área dual · últimos 30 días"
       className="lg:col-span-2"
     >
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
-        <defs>
-          <linearGradient id="reachG" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id="intG" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={chartColors.info} stopOpacity="0.35" />
-            <stop offset="100%" stopColor={chartColors.info} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <polygon points={area("reach")} fill="url(#reachG)" />
-        <polygon points={area("interactions")} fill="url(#intG)" />
-        <polyline
-          fill="none"
-          stroke="hsl(var(--primary))"
-          strokeWidth="2"
-          points={data.map((d, i) => `${x(i)},${yR(d.reach)}`).join(" ")}
-        />
-        <polyline
-          fill="none"
-          stroke={chartColors.info}
-          strokeWidth="2"
-          points={data.map((d, i) => `${x(i)},${yI(d.interactions)}`).join(" ")}
-        />
-      </svg>
-      <div className="flex gap-4 text-xs justify-center">
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-3 rounded bg-primary/60" /> Alcance
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-3 rounded bg-[hsl(var(--info)/0.6)]" /> Interacciones
-        </span>
-      </div>
+      <DualAreaChart
+        data={rows}
+        primaryKey="reach"
+        secondaryKey="interactions"
+        primaryLabel="Alcance"
+        secondaryLabel="Interacciones"
+      />
     </ChartShell>
   );
 }
@@ -122,17 +58,35 @@ export function TopConvertingContentList({
 }) {
   const max = Math.max(...ranked.map((r) => r.conversations), 1);
   return (
-    <ChartShell title="Contenido que más convierte" subtitle="Por conversaciones generadas">
+    <ChartShell
+      title="Contenido que más convierte"
+      subtitle="Ranking + barras por conversaciones"
+    >
+      <CategoryBarChart
+        className="mb-4"
+        items={ranked
+          .map((item) => {
+            const content = getContentById(item.contentId);
+            if (!content) return null;
+            return {
+              label: content.title.slice(0, 18),
+              value: item.conversations,
+            };
+          })
+          .filter((x): x is { label: string; value: number } => x != null)}
+        horizontal
+      />
       <div className="space-y-3">
         {ranked.map((item, i) => {
           const content = getContentById(item.contentId);
           if (!content) return null;
           const borderColors = [
             "border-l-primary shadow-[0_0_20px_hsl(var(--primary)/0.25)]",
-            "border-l-[hsl(var(--chart-secondary))]",
-            "border-l-[hsl(var(--info)/0.7)]",
+            "border-l-[var(--chart-2)]",
+            "border-l-[var(--chart-3)]",
             "border-l-muted",
           ];
+          const widthPct = (item.conversations / max) * 100;
           return (
             <Link
               key={content.id}
@@ -142,16 +96,22 @@ export function TopConvertingContentList({
                 borderColors[i] ?? "border-l-muted"
               )}
             >
-              <span className="text-lg font-bold text-muted-foreground w-6">
+              <span className="w-6 text-lg font-bold text-muted-foreground">
                 {i + 1}
               </span>
               <ContentThumbnail content={content} size="sm" className="h-14 w-14 shrink-0" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium truncate">{content.title}</p>
+                <p className="truncate text-sm font-medium">{content.title}</p>
                 <p className="text-xs text-muted-foreground">
                   {CONTENT_TYPE_LABEL[content.type]} · {item.conversations} convs ·{" "}
                   {item.bookings} bookings
                 </p>
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-[var(--chart-1)]"
+                    style={{ width: `${widthPct}%` }}
+                  />
+                </div>
               </div>
             </Link>
           );
@@ -162,106 +122,97 @@ export function TopConvertingContentList({
 }
 
 export function ContentFunnelChart({ stages }: { stages: ContentFunnelStage[] }) {
-  const max = stages[0]?.value ?? 1;
+  const funnelData: FunnelStage[] = stages.map((s) => ({
+    label: s.stage,
+    value: s.value,
+    displayValue: s.conversionToNextPct != null ? `${s.conversionToNextPct}%` : undefined,
+  }));
+
   return (
-    <ChartShell title="Funnel de contenido a venta" subtitle="Conversión entre etapas">
-      <div className="space-y-2">
-        {stages.map((s, i) => {
-          const widthPct = 40 + (s.value / max) * 60;
-          return (
-            <div key={s.stage} className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span>{s.stage}</span>
-                <span className="tabular-nums text-muted-foreground">
-                  {s.value.toLocaleString("es-ES")}
-                  {s.conversionToNextPct != null && i < stages.length - 1 && (
-                    <> → {s.conversionToNextPct}%</>
-                  )}
-                </span>
-              </div>
-              <div
-                className="h-9 rounded-md bg-gradient-to-r from-primary/80 to-[hsl(var(--chart-tertiary)/0.45)] mx-auto transition-all"
-                style={{ width: `${widthPct}%` }}
-              />
-            </div>
-          );
-        })}
-      </div>
+    <ChartShell
+      title="Funnel de contenido a venta"
+      subtitle="Embudo animado · conversión entre etapas"
+    >
+      <FunnelChartPanel stages={funnelData} color="var(--chart-1)" />
     </ChartShell>
   );
 }
 
 export function TypeRadarChart({ types }: { types: ContentTypePerformance[] }) {
-  const cx = 100;
-  const cy = 100;
-  const maxR = 70;
-  const angles = types.map((_, i) => (i / types.length) * 2 * Math.PI - Math.PI / 2);
-  const reachMax = Math.max(...types.map((t) => t.reach));
-  const convMax = Math.max(...types.map((t) => t.conversions));
+  const metrics: RadarMetric[] = types.map((t) => ({
+    key: t.type,
+    label: CONTENT_TYPE_LABEL[t.type],
+  }));
 
-  const poly = (key: "reach" | "conversions", fill: string) => {
-    const pts = types
-      .map((t, i) => {
-        const r =
-          (key === "reach" ? t.reach / reachMax : t.conversions / convMax) * maxR;
-        return `${cx + r * Math.cos(angles[i])},${cy + r * Math.sin(angles[i])}`;
-      })
-      .join(" ");
-    return (
-      <polygon
-        points={pts}
-        fill={fill}
-        stroke={key === "reach" ? chartColors.primary : chartColors.tertiary}
-        strokeWidth="1.5"
-        opacity={0.55}
-      />
-    );
-  };
+  const reachMax = Math.max(...types.map((t) => t.reach), 1);
+  const convMax = Math.max(...types.map((t) => t.conversions), 1);
+
+  const series: RadarData[] = [
+    {
+      label: "Alcance",
+      color: "var(--chart-1)",
+      values: Object.fromEntries(
+        types.map((t) => [t.type, Math.round((t.reach / reachMax) * 100)])
+      ),
+    },
+    {
+      label: "Conversiones",
+      color: "var(--chart-3)",
+      values: Object.fromEntries(
+        types.map((t) => [t.type, Math.round((t.conversions / convMax) * 100)])
+      ),
+    },
+  ];
 
   return (
-    <ChartShell title="Performance por tipo" subtitle="Alcance vs conversiones">
-      <svg viewBox="0 0 200 200" className="w-full max-w-[240px] mx-auto">
-        {[0.25, 0.5, 0.75, 1].map((s) => (
-          <circle
-            key={s}
-            cx={cx}
-            cy={cy}
-            r={maxR * s}
-            fill="none"
-            stroke="currentColor"
-            className="text-border"
-            opacity={0.3}
-          />
-        ))}
-        {poly("reach", "hsl(var(--primary) / 0.2)")}
-        {poly("conversions", "hsl(var(--chart-tertiary) / 0.25)")}
-        {types.map((t, i) => (
-          <text
-            key={t.type}
-            x={cx + (maxR + 14) * Math.cos(angles[i])}
-            y={cy + (maxR + 14) * Math.sin(angles[i])}
-            textAnchor="middle"
-            fontSize="8"
-            className="fill-muted-foreground"
-          >
-            {CONTENT_TYPE_LABEL[t.type]}
-          </text>
-        ))}
-      </svg>
+    <ChartShell
+      title="Performance por tipo"
+      subtitle="Radar · alcance vs conversiones normalizadas"
+    >
+      <RadarPerformanceChart metrics={metrics} series={series} />
+      <div className="flex justify-center gap-4 text-xs">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-3 rounded-sm bg-[var(--chart-1)]" /> Alcance
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-3 rounded-sm bg-[var(--chart-3)]" /> Conversiones
+        </span>
+      </div>
     </ChartShell>
   );
 }
 
-const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-
 export function PublishHeatmap({ cells }: { cells: HeatmapCell[] }) {
   const [tip, setTip] = useState<HeatmapCell | null>(null);
+
+  const byDay = useMemo(() => {
+    const sums = DAY_LABELS.map((_, day) => {
+      const dayCells = cells.filter((c) => c.day === day);
+      const avg =
+        dayCells.length > 0
+          ? dayCells.reduce((s, c) => s + c.engagement, 0) / dayCells.length
+          : 0;
+      return { label: DAY_LABELS[day], value: Math.round(avg * 100) };
+    });
+    return sums;
+  }, [cells]);
+
   return (
-    <ChartShell title="Mejores días y horarios" subtitle="Intensidad = engagement">
-      <div className="overflow-x-auto">
-        <div className="inline-grid gap-0.5" style={{ gridTemplateColumns: `repeat(7, 1fr)` }}>
+    <ChartShell
+      title="Mejores días y horarios"
+      subtitle="Barras por día + mapa de calor horario"
+    >
+      <CategoryBarChart items={byDay} />
+      <div className="mt-4 overflow-x-auto">
+        <div
+          className="inline-grid gap-0.5"
+          style={{ gridTemplateColumns: "repeat(7, 1fr)" }}
+        >
           {DAY_LABELS.map((d) => (
-            <div key={d} className="text-[9px] text-center text-muted-foreground pb-1">
+            <div
+              key={d}
+              className="pb-1 text-center text-[9px] text-muted-foreground"
+            >
               {d}
             </div>
           ))}
@@ -271,7 +222,7 @@ export function PublishHeatmap({ cells }: { cells: HeatmapCell[] }) {
               type="button"
               className="h-3 w-6 rounded-sm transition-transform hover:scale-110"
               style={{
-                background: `hsl(var(--primary) / ${0.08 + cell.engagement * 0.92})`,
+                background: `color-mix(in oklch, var(--chart-1) ${8 + cell.engagement * 92}%, transparent)`,
               }}
               onMouseEnter={() => setTip(cell)}
               onMouseLeave={() => setTip(null)}
@@ -280,7 +231,7 @@ export function PublishHeatmap({ cells }: { cells: HeatmapCell[] }) {
         </div>
       </div>
       {tip && (
-        <p className="text-xs text-muted-foreground text-center">
+        <p className="text-center text-xs text-muted-foreground">
           {DAY_LABELS[tip.day]} {tip.hour}:00 — engagement{" "}
           {(tip.engagement * 100).toFixed(0)}%
         </p>
@@ -290,43 +241,21 @@ export function PublishHeatmap({ cells }: { cells: HeatmapCell[] }) {
 }
 
 export function FollowerGrowthChart({ data }: { data: FollowerGrowthPoint[] }) {
-  const W = 400;
-  const H = 160;
-  const pad = { l: 40, r: 8, t: 16, b: 28 };
-  const innerW = W - pad.l - pad.r;
-  const innerH = H - pad.t - pad.b;
-  const min = Math.min(...data.map((d) => d.followers));
-  const max = Math.max(...data.map((d) => d.followers));
-  const y = (v: number) => pad.t + innerH - ((v - min) / (max - min || 1)) * innerH;
-  const x = (i: number) => pad.l + (i / (data.length - 1)) * innerW;
+  const trend = data.map((d) => ({ label: d.week, value: d.followers }));
 
   return (
-    <ChartShell title="Crecimiento de seguidores" subtitle="Últimas 8 semanas">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-        <defs>
-          <linearGradient id="folG" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <polygon
-          points={`${data.map((d, i) => `${x(i)},${y(d.followers)}`).join(" ")} ${x(data.length - 1)},${pad.t + innerH} ${x(0)},${pad.t + innerH}`}
-          fill="url(#folG)"
-        />
-        <polyline
-          fill="none"
-          stroke="hsl(var(--primary))"
-          strokeWidth="2"
-          points={data.map((d, i) => `${x(i)},${y(d.followers)}`).join(" ")}
-        />
-        {data.map((d, i) => (
-          <circle key={d.week} cx={x(i)} cy={y(d.followers)} r="3" fill="hsl(var(--primary))" />
-        ))}
-      </svg>
+    <ChartShell
+      title="Crecimiento de seguidores"
+      subtitle="Línea con marcadores · últimas 8 semanas"
+    >
+      <TrendLineChart data={trend} />
       {data
         .filter((d) => d.spikeLabel)
         .map((d) => (
-          <p key={d.week} className="text-xs text-muted-foreground border-l-2 border-primary pl-2">
+          <p
+            key={d.week}
+            className="border-l-2 border-primary pl-2 text-xs text-muted-foreground"
+          >
             {d.spikeLabel}
           </p>
         ))}

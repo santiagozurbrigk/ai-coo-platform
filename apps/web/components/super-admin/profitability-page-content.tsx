@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { MetricCard, Sparkline } from "@ai-coo/ui";
+import { MetricCard } from "@ai-coo/ui";
+import { TrendLineChart } from "@/components/charts/platform";
 import { formatUsdPrecise } from "@/lib/super-admin/org-metrics";
 import type {
   AdminProfitabilityOrgRow,
@@ -175,8 +176,13 @@ export function ProfitabilityPageContent({
             {orgNames.slice(0, 5).join(", ")}
             {orgNames.length > 5 ? ` +${orgNames.length - 5} más` : ""}
           </p>
-          <div className="mt-4 h-20 max-w-2xl">
-            <Sparkline data={chartSeries} color="hsl(var(--primary))" />
+          <div className="mt-4 min-h-[120px] max-w-2xl">
+            <TrendLineChart
+              data={chartSeries.map((v, i) => ({
+                label: `D${i + 1}`,
+                value: v,
+              }))}
+            />
           </div>
         </section>
       )}

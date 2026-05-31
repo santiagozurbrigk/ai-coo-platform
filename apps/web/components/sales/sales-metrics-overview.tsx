@@ -1,4 +1,5 @@
-import { BarChart, MetricCard } from "@ai-coo/ui";
+import { MetricCard } from "@ai-coo/ui";
+import { TrendLineChart } from "@/components/charts/platform";
 import { formatPercent } from "@/lib/format";
 import { sparklineProps } from "@/lib/metrics/sparkline-series";
 import type { SalesMetricsData } from "@/types/sales";
@@ -52,7 +53,9 @@ export function SalesMetricsOverview({ data }: { data: SalesMetricsData }) {
       </Panel>
 
       <Panel title="Tendencia de agendamientos" contentClassName="p-0 pb-2">
-        <BarChart data={data.bookingTrend} variant="line" height={220} />
+        <div className="px-2 pb-2">
+          <TrendLineChart data={data.bookingTrend} className="min-h-[220px]" />
+        </div>
       </Panel>
     </div>
   );

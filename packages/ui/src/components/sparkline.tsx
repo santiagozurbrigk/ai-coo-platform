@@ -1,106 +1,104 @@
 "use client";
 
+import { curveMonotoneX } from "@visx/curve";
+import { ParentSize } from "@visx/responsive";
+import { scaleLinear } from "@visx/scale";
+import { AreaClosed, LinePath } from "@visx/shape";
 import * as React from "react";
-import {
-  Area,
-  AreaChart,
-  ResponsiveContainer,
-} from "recharts";
 
 export interface SparklineProps {
   data: number[];
   color: string;
-  /** Stagger mount animation (ms). */
+  /** @deprecated Bklit charts animan al montar; se ignora. */
   animationDelay?: number;
   className?: string;
 }
 
-function toChartData(data: number[]) {
-  return data.map((value, index) => ({ value, index }));
-}
-
-export function Sparkline({
+function SparklineInner({
+  width,
+  height,
   data,
   color,
-  animationDelay = 0,
-  className,
-}: SparklineProps) {
+}: {
+  width: number;
+  height: number;
+  data: number[];
+  color: string;
+}) {
+  const pad = { top: 4, right: 4, bottom: 4, left: 4 };
+  const innerW = Math.max(width - pad.left - pad.right, 1);
+  const innerH = Math.max(height - pad.top - pad.bottom, 1);
+
+  const xScale = scaleLinear({
+    domain: [0, Math.max(data.length - 1, 1)],
+    range: [pad.left, pad.left + innerW],
+  });
+
+  const yScale = scaleLinear({
+    domain: [Math.min(...data, 0), Math.max(...data, 1)],
+    range: [pad.top + innerH, pad.top],
+    nice: true,
+  });
+
+  const getX = (_: number, i: number) => xScale(i) ?? 0;
+  const getY = (v: number) => yScale(v) ?? 0;
+
   const gradientId = React.useId().replace(/:/g, "");
-  const glowId = `${gradientId}-glow`;
-  const chartData = React.useMemo(() => toChartData(data), [data]);
-  const lastIndex = data.length - 1;
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const [size, setSize] = React.useState({ width: 0, height: 0 });
 
-  React.useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
+  return (
+    <svg width={width} height={height} aria-hidden>
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.28} />
+          <stop offset="100%" stopColor={color} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <AreaClosed
+        data={data}
+        x={getX}
+        y={getY}
+        yScale={yScale}
+        curve={curveMonotoneX}
+        fill={`url(#${gradientId})`}
+      />
+      <LinePath
+        data={data}
+        x={getX}
+        y={getY}
+        curve={curveMonotoneX}
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      {data.length > 0 && (
+        <circle
+          cx={xScale(data.length - 1)}
+          cy={getY(data[data.length - 1])}
+          r={3}
+          fill={color}
+        />
+      )}
+    </svg>
+  );
+}
 
-    const update = () => {
-      const { width, height } = el.getBoundingClientRect();
-      if (width > 0 && height > 0) {
-        setSize({ width: Math.floor(width), height: Math.floor(height) });
-      }
-    };
-
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
+export function Sparkline({ data, color, className }: SparklineProps) {
   if (data.length < 2) return null;
 
   return (
-    <div ref={containerRef} className={className} style={{ minWidth: 0, minHeight: 32 }} aria-hidden>
-      {size.width > 0 && size.height > 0 ? (
-      <ResponsiveContainer width={size.width} height={size.height}>
-        <AreaChart
-          data={chartData}
-          margin={{ top: 4, right: 6, bottom: 4, left: 4 }}
-        >
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.2} />
-              <stop offset="100%" stopColor={color} stopOpacity={0} />
-            </linearGradient>
-            <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="2" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          <Area
-            type="monotone"
-            dataKey="value"
-            stroke={color}
-            strokeWidth={1.75}
-            fill={`url(#${gradientId})`}
-            isAnimationActive
-            animationDuration={800}
-            animationEasing="ease-out"
-            animationBegin={animationDelay}
-            dot={(props) => {
-              const { cx, cy, index } = props;
-              if (index !== lastIndex || cx == null || cy == null) return <g />;
-              return (
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={4}
-                  fill={color}
-                  filter={`url(#${glowId})`}
-                  style={{ opacity: 0.95 }}
-                />
-              );
-            }}
-            activeDot={false}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-      ) : null}
+    <div className={className} style={{ minWidth: 0, minHeight: 32 }}>
+      <ParentSize debounceTime={10}>
+        {({ width, height }) =>
+          width > 0 && height > 0 ? (
+            <SparklineInner
+              width={width}
+              height={height}
+              data={data}
+              color={color}
+            />
+          ) : null
+        }
+      </ParentSize>
     </div>
   );
 }

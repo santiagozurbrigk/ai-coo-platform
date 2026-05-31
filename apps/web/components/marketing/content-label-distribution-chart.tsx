@@ -1,6 +1,8 @@
 "use client";
 
 import type { ContentLabel } from "@/lib/content/label-content";
+import { ChartShell, PieDistributionChart } from "@/components/charts/platform";
+import type { PieData } from "@/components/charts/pie-context";
 
 const LABELS: ContentLabel[] = [
   "AUTORIDAD",
@@ -9,11 +11,11 @@ const LABELS: ContentLabel[] = [
   "VENTA",
 ];
 
-const BAR_COLORS: Record<ContentLabel, string> = {
-  AUTORIDAD: "bg-violet-500",
-  ATRACCION: "bg-pink-500",
-  NUTRICION: "bg-emerald-500",
-  VENTA: "bg-amber-500",
+const SLICE_COLORS: Record<ContentLabel, string> = {
+  AUTORIDAD: "var(--chart-1)",
+  ATRACCION: "var(--chart-2)",
+  NUTRICION: "var(--chart-4)",
+  VENTA: "var(--chart-5)",
 };
 
 type Props = {
@@ -29,50 +31,54 @@ export function ContentLabelDistributionChart({
 }: Props) {
   if (total === 0) {
     return (
-      <section className="rounded-xl border border-border/60 p-6">
-        <h3 className="text-sm font-semibold">
-          Distribución de contenido publicado
-        </h3>
-        <p className="mt-4 text-sm text-muted-foreground">
+      <ChartShell title="Distribución de contenido publicado">
+        <p className="text-sm text-muted-foreground">
           Sin contenido etiquetado todavía. Conectá YouTube o Instagram para ver
           la distribución por tipo.
         </p>
-      </section>
+      </ChartShell>
     );
   }
 
+  const slices: PieData[] = LABELS.filter((l) => counts[l] > 0).map((label) => ({
+    label,
+    value: counts[label],
+    color: SLICE_COLORS[label],
+  }));
+
   return (
-    <section className="rounded-xl border border-border/60 p-6 space-y-4">
-      <h3 className="text-sm font-semibold">
-        Distribución de contenido publicado
-      </h3>
-      <div className="space-y-3">
-        {LABELS.map((label) => {
-          const count = counts[label];
-          const pct = Math.round((count / total) * 100);
-          return (
-            <div key={label} className="space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium">{label}</span>
-                <span className="text-muted-foreground tabular-nums">
-                  {pct}% ({count} {count === 1 ? "pieza" : "piezas"})
+    <ChartShell
+      title="Distribución de contenido publicado"
+      subtitle="Pie animado por etiqueta de contenido"
+    >
+      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:items-center">
+        <PieDistributionChart slices={slices} />
+        <div className="space-y-2 text-xs">
+          {LABELS.map((label) => {
+            const count = counts[label];
+            const pct = Math.round((count / total) * 100);
+            return (
+              <div key={label} className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2 font-medium">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ background: SLICE_COLORS[label] }}
+                  />
+                  {label}
+                </span>
+                <span className="tabular-nums text-muted-foreground">
+                  {pct}% ({count})
                 </span>
               </div>
-              <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${BAR_COLORS[label]}`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-      {insight && (
+      {insight ? (
         <div className="rounded-lg border border-border border-l-4 border-l-primary/60 bg-muted/20 px-4 py-3 text-sm leading-relaxed">
           {insight}
         </div>
-      )}
-    </section>
+      ) : null}
+    </ChartShell>
   );
 }

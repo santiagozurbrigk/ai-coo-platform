@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { AiCard, BarChart } from "@ai-coo/ui";
+import { AiCard } from "@ai-coo/ui";
+import { TrendLineChart } from "@/components/charts/platform";
 import { FlowCta } from "@/components/shared/flow-cta";
 import { MetricGrid } from "@/components/shared/metric-grid";
 import { Panel } from "@/components/shared/panel";
@@ -53,7 +54,9 @@ export function DashboardOverview({
           title="Ingresos cobrados — últimos 7 días"
           contentClassName="p-0 pb-2"
         >
-          <BarChart data={chartTrend} variant="line" height={220} />
+          <div className="px-2 pb-2">
+            <TrendLineChart data={chartTrend} className="min-h-[220px]" />
+          </div>
         </Panel>
       </motion.div>
 

@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { GlassPanel, MetricCard, Sparkline, cn } from "@ai-coo/ui";
+import { GlassPanel, MetricCard, cn } from "@ai-coo/ui";
+import {
+  CategoryBarChart,
+  GaugeMetricChart,
+  SparklineChart,
+} from "@/components/charts/platform";
 import { useFinanceData } from "@/providers";
 import { usePlatformData } from "@/providers/platform-data-provider";
 import { formatMoney } from "@/lib/finance/format";
@@ -17,54 +22,6 @@ import {
   type RevenueDateRange,
 } from "@/lib/metrics/revenue-period";
 import { FacturacionPeriodFilter } from "./facturacion-period-filter";
-
-function MarginArc({ percent }: { percent: number }) {
-  const r = 36;
-  const c = 2 * Math.PI * r;
-  const display = Math.min(Math.max(percent, 0), 100);
-  const offset = c * (1 - display / 100);
-  return (
-    <svg width="88" height="88" className="shrink-0">
-      <circle
-        cx="44"
-        cy="44"
-        r={r}
-        fill="none"
-        stroke="currentColor"
-        className="text-muted/30"
-        strokeWidth="8"
-      />
-      <circle
-        cx="44"
-        cy="44"
-        r={r}
-        fill="none"
-        stroke="url(#marginGrad)"
-        strokeWidth="8"
-        strokeLinecap="round"
-        strokeDasharray={c}
-        strokeDashoffset={offset}
-        transform="rotate(-90 44 44)"
-        className="drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]"
-      />
-      <defs>
-        <linearGradient id="marginGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="hsl(var(--primary))" />
-          <stop offset="100%" stopColor="hsl(var(--chart-tertiary))" />
-        </linearGradient>
-      </defs>
-      <text
-        x="44"
-        y="48"
-        textAnchor="middle"
-        className="fill-foreground text-sm font-semibold"
-        fontSize="14"
-      >
-        {percent.toFixed(1)}%
-      </text>
-    </svg>
-  );
-}
 
 export function FinanceMetrics() {
   const {
@@ -139,22 +96,12 @@ export function FinanceMetrics() {
             subtitle="Pendiente total · no depende del filtro de fechas"
             {...sparklineProps("porCobrar", 200)}
           />
-          <div className="flex items-end justify-between gap-2 pt-1">
-            {s.porCobrarByMonth.map((m) => (
-              <div key={m.month} className="flex-1 text-center">
-                <div
-                  className="mx-auto w-full max-w-[48px] rounded-t bg-amber-500/30 border border-amber-500/50"
-                  style={{
-                    height: `${s.porCobrar > 0 ? 24 + (m.amount / s.porCobrar) * 48 : 24}px`,
-                  }}
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">{m.month}</p>
-                <p className="text-xs font-medium tabular-nums">
-                  ${(m.amount / 1000).toFixed(1)}k
-                </p>
-              </div>
-            ))}
-          </div>
+          <CategoryBarChart
+            items={s.porCobrarByMonth.map((m) => ({
+              label: m.month,
+              value: m.amount,
+            }))}
+          />
         </GlassPanel>
 
         <MetricCard
@@ -171,10 +118,9 @@ export function FinanceMetrics() {
               <p className="text-2xl font-semibold tabular-nums">
                 {s.margenPercent.toFixed(1)}%
               </p>
-              <Sparkline
+              <SparklineChart
                 data={marginSpark.sparklineData}
                 color={marginSpark.sparklineColor}
-                animationDelay={marginSpark.sparklineAnimationDelay}
                 className="h-8 w-full shrink-0 sm:h-10 sm:w-[88px] md:h-11 md:w-[100px]"
               />
             </div>
@@ -182,7 +128,13 @@ export function FinanceMetrics() {
               % de la facturación del período que es ganancia
             </p>
           </div>
-          <MarginArc percent={s.margenPercent} />
+          <GaugeMetricChart
+            value={s.margenPercent}
+            max={100}
+            label="Margen"
+            suffix="%"
+            className="max-w-[200px] shrink-0"
+          />
         </GlassPanel>
 
         <div className="sm:col-span-2 xl:col-span-1 space-y-2">

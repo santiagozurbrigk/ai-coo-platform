@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Badge, Button, Input, Sparkline, Textarea } from "@ai-coo/ui";
+import { Badge, Button, Input, Textarea } from "@ai-coo/ui";
+import { SparklineChart } from "@/components/charts/platform";
 import { paths } from "@/routes";
 import {
   addOrganizationNoteAction,
@@ -232,7 +233,7 @@ export function OrganizationDetailView({
         </p>
         {tokenSpark.length > 0 && (
           <div className="mt-4 h-16 w-full max-w-md">
-            <Sparkline data={tokenSpark} color="hsl(var(--primary))" />
+            <SparklineChart data={tokenSpark} color="hsl(var(--primary))" />
           </div>
         )}
       </section>
