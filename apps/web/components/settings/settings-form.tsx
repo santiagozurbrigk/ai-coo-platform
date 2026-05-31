@@ -3,6 +3,7 @@
 import { Button, FormField, Input } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
 import { es } from "@/lib/locale/es";
+import { AppearanceSettings } from "./appearance-settings";
 import { SettingsSection } from "./settings-section";
 import { SignOutButton } from "./sign-out-button";
 
@@ -35,6 +36,8 @@ export function SettingsForm() {
           </FormField>
         </div>
       </SettingsSection>
+
+      <AppearanceSettings />
 
       <SettingsSection title="Notificaciones">
         <p className="text-sm text-muted-foreground">

@@ -32,13 +32,13 @@ function linkClass(active: boolean, collapsed?: boolean, sub?: boolean) {
         ),
     active
       ? collapsed
-        ? "bg-[rgba(124,58,237,0.15)] text-[#A78BFA] [&_svg]:text-[#A78BFA]"
-        : "border-l-2 border-[#7C3AED] bg-[rgba(124,58,237,0.15)] font-medium text-[#A78BFA] [&_svg]:text-[#A78BFA]"
+        ? "bg-sidebar-accent text-[hsl(var(--sidebar-foreground-active))] [&_svg]:text-[hsl(var(--sidebar-foreground-active))]"
+        : "border-l-2 border-primary bg-sidebar-accent font-medium text-[hsl(var(--sidebar-foreground-active))] [&_svg]:text-[hsl(var(--sidebar-foreground-active))]"
       : collapsed
-        ? "text-white/45 hover:bg-white/[0.05] hover:text-white/70"
+        ? "text-sidebar-foreground hover:bg-muted hover:text-foreground"
         : sub
-          ? "text-white/55 hover:bg-white/[0.05] hover:text-white/75"
-          : "text-white/45 hover:bg-white/[0.05] hover:text-white/70"
+          ? "text-muted-foreground hover:bg-muted hover:text-foreground"
+          : "text-sidebar-foreground hover:bg-muted hover:text-foreground"
   );
 }
 
@@ -49,7 +49,7 @@ function NavTooltip({
 }: {
   label: string;
   collapsed?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   if (!collapsed) return <>{children}</>;
 
@@ -114,7 +114,7 @@ export function NavGroup({
       <div
         className={cn(
           "flex items-center rounded-[10px]",
-          sectionActive && "bg-white/[0.03]"
+          sectionActive && "bg-muted/50 dark:bg-white/[0.03]"
         )}
       >
         <Link
@@ -122,8 +122,8 @@ export function NavGroup({
           className={cn(
             "flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5 text-sm transition-all duration-150 ease-out",
             sectionActive
-              ? "font-medium text-[#A78BFA] [&_svg]:text-[#A78BFA]"
-              : "text-white/45 hover:text-white/70"
+              ? "font-medium text-[hsl(var(--sidebar-foreground-active))] [&_svg]:text-[hsl(var(--sidebar-foreground-active))]"
+              : "text-sidebar-foreground hover:text-foreground"
           )}
         >
           {item.icon && <NavIcon name={item.icon} />}
@@ -134,7 +134,7 @@ export function NavGroup({
           onClick={onToggle}
           aria-expanded={isExpanded}
           aria-label={`${isExpanded ? "Contraer" : "Expandir"} ${item.label}`}
-          className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/40 transition-all duration-150 hover:bg-white/[0.05] hover:text-white/65"
+          className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-all duration-150 hover:bg-muted hover:text-foreground"
         >
           <ChevronRight
             className={cn(

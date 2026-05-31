@@ -34,3 +34,5 @@ export function AppProviders({ children }: { children: ReactNode }) {
 export { usePlatformData } from "./platform-data-provider";
 export { useFinanceData } from "./finance-data-provider";
 export { useMarketingData } from "./marketing-data-provider";
+export { ThemeProvider, useTheme } from "./theme-provider";
+export type { Theme } from "./theme-provider";

@@ -1,10 +1,85 @@
 /**
- * AI COO Design Tokens — Apple VisionOS / spatial glass (Fase 0 visual)
- * Brand: #7C3AED · Base: #080810
+ * AI COO Design Tokens
+ * :root = light · .dark = modo oscuro (VisionOS / spatial glass)
+ * Brand: #7C3AED
  */
 
 :root {
-  /* Surfaces — deep blue-purple base */
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222 47% 11%;
+
+  --primary: 258 84% 58%;
+  --primary-foreground: 0 0% 100%;
+  --primary-light: 258 91% 76%;
+  --primary-subtle: 250 100% 97%;
+  --primary-glow: 258 60% 45%;
+  --primary-border: 258 45% 75%;
+
+  --success: 142 76% 36%;
+  --success-foreground: 0 0% 100%;
+  --warning: 32 95% 44%;
+  --warning-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --info: 199 89% 48%;
+  --info-foreground: 0 0% 100%;
+
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 258 84% 58%;
+
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 215 16% 47%;
+  --sidebar-foreground-active: 263 70% 50%;
+  --sidebar-accent: 250 100% 97%;
+  --sidebar-border: 214 32% 91%;
+
+  --glass: 0 0% 100%;
+  --glass-border: 214 32% 91%;
+
+  --ai: 258 84% 58%;
+  --ai-muted: 258 40% 55%;
+  --ai-glow: 258 91% 76%;
+
+  --radius: 1.25rem;
+  --radius-sm: 0.625rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.5rem;
+  --radius-page: 1.5rem;
+
+  --shadow-glow: 0 0 32px -8px rgba(124, 58, 237, 0.2);
+  --shadow-card:
+    0 1px 3px rgba(15, 23, 42, 0.06),
+    0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-float:
+    0 4px 12px rgba(124, 58, 237, 0.08),
+    0 8px 24px rgba(15, 23, 42, 0.08);
+  --shadow-modal: 0 20px 60px rgba(15, 23, 42, 0.15);
+
+  --glass-bg: hsl(var(--card));
+  --glass-bg-strong: hsl(var(--card));
+  --glass-bg-nested: hsl(var(--muted));
+  --glass-border-color: hsl(var(--border));
+  --glass-border-subtle: hsl(var(--border));
+  --glass-blur: 0px;
+  --glass-blur-md: 0px;
+
+  --chart-secondary: 258 91% 76%;
+  --chart-tertiary: 280 70% 60%;
+  --chart-lavender: 258 45% 72%;
+  --chart-pink: 330 70% 65%;
+}
+
+.dark {
   --background: 260 20% 4%;
   --foreground: 0 0% 98%;
   --card: 260 15% 6%;
@@ -16,7 +91,6 @@
   --accent: 260 10% 10%;
   --accent-foreground: 0 0% 98%;
 
-  /* Brand purple #7C3AED */
   --primary: 258 84% 58%;
   --primary-foreground: 0 0% 100%;
   --primary-light: 258 91% 76%;
@@ -24,7 +98,6 @@
   --primary-glow: 258 60% 45%;
   --primary-border: 258 45% 35%;
 
-  /* Semantic */
   --success: 160 84% 39%;
   --success-foreground: 0 0% 100%;
   --warning: 43 96% 56%;
@@ -34,36 +107,23 @@
   --info: 199 89% 48%;
   --info-foreground: 0 0% 100%;
 
-  /* Chrome */
   --border: 260 8% 18%;
   --input: 260 8% 14%;
   --ring: 258 84% 58%;
 
-  /* Sidebar */
   --sidebar: 260 25% 5%;
   --sidebar-foreground: 0 0% 38%;
   --sidebar-foreground-active: 258 91% 76%;
   --sidebar-accent: 258 50% 20%;
   --sidebar-border: 260 8% 14%;
 
-  /* Glass surfaces */
   --glass: 260 15% 8%;
   --glass-border: 0 0% 100% / 0.1;
 
-  /* AI accent — aligned with brand purple */
   --ai: 258 84% 58%;
   --ai-muted: 258 40% 35%;
   --ai-glow: 258 91% 76%;
 
-  /* Radius — VisionOS scale */
-  --radius: 1.25rem;
-  --radius-sm: 0.625rem;
-  --radius-md: 1rem;
-  --radius-lg: 1.25rem;
-  --radius-xl: 1.5rem;
-  --radius-page: 1.5rem;
-
-  /* Elevation */
   --shadow-glow: 0 0 48px -8px rgba(124, 58, 237, 0.35);
   --shadow-card:
     0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
@@ -87,7 +147,6 @@
   --glass-blur: 40px;
   --glass-blur-md: 20px;
 
-  /* Charts — alineados con semántica y marca */
   --chart-secondary: 258 91% 76%;
   --chart-tertiary: 280 70% 60%;
   --chart-lavender: 258 45% 72%;

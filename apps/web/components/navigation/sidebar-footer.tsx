@@ -19,7 +19,7 @@ export function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
   return (
     <div
       className={cn(
-        "space-y-2 border-t border-white/[0.06] pt-2",
+        "space-y-2 border-t border-sidebar-border pt-2",
         collapsed ? "px-1 pb-2" : "mx-1 px-1 pb-2"
       )}
     >
@@ -36,9 +36,9 @@ export function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
                   : "gap-2.5 rounded-[10px] px-3 py-2.5 text-sm",
                 active
                   ? collapsed
-                    ? "bg-[rgba(124,58,237,0.15)] text-[#A78BFA]"
-                    : "border-l-2 border-[#7C3AED] bg-[rgba(124,58,237,0.15)] font-medium text-[#A78BFA]"
-                  : "text-white/45 hover:bg-white/[0.05] hover:text-white/70"
+                    ? "bg-sidebar-accent text-[hsl(var(--sidebar-foreground-active))]"
+                    : "border-l-2 border-primary bg-sidebar-accent font-medium text-[hsl(var(--sidebar-foreground-active))]"
+                  : "text-sidebar-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               {item.icon && <NavIcon name={item.icon} />}
@@ -59,7 +59,7 @@ export function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
         })}
       </div>
       {!collapsed ? (
-        <p className="px-3 text-2xs text-white/25">{es.app.phasePrototype}</p>
+        <p className="px-3 text-2xs text-muted-foreground">{es.app.phasePrototype}</p>
       ) : null}
     </div>
   );

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Topbar } from "@ai-coo/ui";
+import { ThemeToggle } from "@/components/navigation/theme-toggle";
 import { superAdminNavigation } from "@/routes/navigation";
 import { useSidebarExpanded } from "@/hooks/use-sidebar-expanded";
 import { NavGroup } from "@/components/navigation/nav-group";
@@ -57,6 +58,7 @@ export function SuperAdminLayout({ children }: { children: ReactNode }) {
           breadcrumbs={<SuperAdminBreadcrumbs className="hidden sm:flex" />}
           title={title}
           subtitle={subtitle}
+          actions={<ThemeToggle />}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">{children}</main>
       </div>

@@ -17,6 +17,7 @@ import {
 import { es } from "@/lib/locale/es";
 import { getPageMeta } from "@/lib/navigation/page-meta";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { ThemeToggle } from "@/components/navigation/theme-toggle";
 import { Breadcrumbs } from "@/components/navigation/breadcrumbs";
 import { paths } from "@/routes";
 import { secondaryNavigation } from "@/routes/navigation";
@@ -55,6 +56,7 @@ export function AppTopbar() {
             <Bell className="h-4 w-4" />
             <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary" />
           </Button>
+          <ThemeToggle />
           <AccountMenu />
         </>
       }
