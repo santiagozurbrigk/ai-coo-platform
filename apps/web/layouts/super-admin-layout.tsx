@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { Topbar, TooltipProvider, cn } from "@ai-coo/ui";
+import { Topbar, TooltipProvider } from "@ai-coo/ui";
 import { ThemeToggle } from "@/components/navigation/theme-toggle";
 import { SuperAdminBreadcrumbs } from "@/components/navigation/super-admin-breadcrumbs";
 import { SuperAdminSidebar } from "@/components/super-admin/super-admin-sidebar";
@@ -16,17 +16,16 @@ export function SuperAdminLayout({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider>
       <ThreeColumnLayout sidebar={<SuperAdminSidebar />}>
-        <Topbar
-          className={cn(
-            "shell-topbar bg-transparent dark:bg-transparent dark:backdrop-blur-none"
-          )}
-          breadcrumbs={<SuperAdminBreadcrumbs className="hidden sm:flex" />}
-          title={title}
-          subtitle={subtitle}
-          actions={<ThemeToggle />}
-        />
-        <div className="main-container-scroll flex min-h-0 flex-1">
-          <main className="page-content min-w-0 flex-1">{children}</main>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <Topbar
+            breadcrumbs={<SuperAdminBreadcrumbs className="hidden sm:flex" />}
+            title={title}
+            subtitle={subtitle}
+            actions={<ThemeToggle className="topbar-icon h-8 w-8 rounded-lg" />}
+          />
+          <div className="main-container-scroll flex min-h-0 flex-1">
+            <main className="page-content min-w-0 flex-1">{children}</main>
+          </div>
         </div>
       </ThreeColumnLayout>
     </TooltipProvider>

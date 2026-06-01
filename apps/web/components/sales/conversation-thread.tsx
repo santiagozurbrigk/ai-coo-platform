@@ -18,7 +18,7 @@ export function ConversationThread({
         <p className="truncate font-medium">{conversation.leadName}</p>
         {onTagChange && (
           <div className="min-w-0 max-w-full">
-            <p className="mb-2 text-2xs text-white/45">Etiqueta</p>
+            <p className="mb-2 text-2xs text-muted-foreground">Etiqueta</p>
             <ConversationTagSelect
               value={conversation.tag}
               onChange={onTagChange}

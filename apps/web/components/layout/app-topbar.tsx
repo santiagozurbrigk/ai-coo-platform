@@ -29,11 +29,7 @@ export function AppTopbar({ className }: { className?: string }) {
   const { setOpen } = useCommandPalette();
 
   return (
-    <Topbar
-      className={cn(
-        "shell-topbar bg-transparent dark:bg-transparent dark:backdrop-blur-none",
-        className
-      )}
+    <Topbar className={className}
       breadcrumbs={
         <div className="flex min-w-0 items-center gap-3">
           <MobileNav />
@@ -57,7 +53,7 @@ export function AppTopbar({ className }: { className?: string }) {
       }
       actions={
         <>
-          <Button variant="outline" size="icon" className="relative h-8 w-8 rounded-lg" type="button" aria-label="Notificaciones">
+          <Button variant="outline" size="icon" className="topbar-icon relative h-8 w-8 rounded-lg" type="button" aria-label="Notificaciones">
             <Bell className="h-4 w-4" />
             <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary" />
           </Button>

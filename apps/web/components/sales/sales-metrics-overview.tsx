@@ -61,7 +61,7 @@ export function SalesMetricsOverview({ data }: { data: SalesMetricsData }) {
               max={100}
               target={70}
               label="Agendamiento"
-              variant="default"
+              variant="booking"
             />
           </MetricChartPanel>
 

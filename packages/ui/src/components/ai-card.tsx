@@ -28,12 +28,16 @@ export function AiCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
-      className={cn("ai-card relative overflow-hidden rounded-[20px] p-5", className)}
+      className={cn(
+        "ai-card relative overflow-hidden rounded-[20px] p-5",
+        variant === "recommendation" && "ai-card-recommendation",
+        className
+      )}
       data-variant={variant}
     >
       <div className="relative flex items-start gap-3">
-        <div className="ai-card-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]">
-          <Sparkles className="h-4 w-4" />
+        <div className="ai-card-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-border bg-muted text-foreground dark:border-white/10 dark:bg-white/[0.06]">
+          <Sparkles className="h-4 w-4 text-primary dark:text-[#A78BFA]" />
         </div>
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">

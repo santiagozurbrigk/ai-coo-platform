@@ -6,6 +6,8 @@ export const chartColors = {
   secondary: "var(--chart-2)",
   tertiary: "var(--chart-3)",
   accent: "var(--chart-accent)",
+  /** Solid primary line (charts) */
+  line: "var(--chart-1)",
   info: "hsl(var(--info))",
   success: "hsl(var(--success))",
   warning: "hsl(var(--warning))",

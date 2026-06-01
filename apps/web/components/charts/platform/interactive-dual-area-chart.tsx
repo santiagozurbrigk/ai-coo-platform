@@ -61,14 +61,16 @@ export function InteractiveDualAreaChart({
             dataKey={primaryKey}
             fill={primaryColor}
             stroke={primaryColor}
-            fillOpacity={0.35}
+            fillOpacity={0.08}
+            strokeWidth={1.5}
             showHighlight
           />
           <Area
             dataKey={secondaryKey}
             fill={secondaryColor}
             stroke={secondaryColor}
-            fillOpacity={0.22}
+            fillOpacity={0.05}
+            strokeWidth={1.5}
             showHighlight
           />
           <XAxis numTicks={Math.min(data.length, 8)} />

@@ -112,7 +112,7 @@ export function DashboardOverview({
             target={BOOKING_TARGET}
             label="Agendamiento"
             suffix="%"
-            variant="default"
+            variant="booking"
             className="h-full"
           />
         </MetricChartPanel>

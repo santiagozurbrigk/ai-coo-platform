@@ -22,8 +22,7 @@ export function Topbar({
   return (
     <header
       className={cn(
-        "flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-6",
-        "dark:border-white/[0.05] dark:bg-[rgba(8,8,16,0.60)] dark:backdrop-blur-[30px]",
+        "shell-topbar topbar flex h-14 shrink-0 items-center justify-between gap-4 rounded-none border-b border-border bg-transparent px-6",
         className
       )}
     >
@@ -32,7 +31,7 @@ export function Topbar({
         {(title || subtitle) && (
           <div className="min-w-0">
             {title && (
-              <h1 className="truncate text-lg font-medium tracking-tight text-foreground">
+              <h1 className="truncate text-lg font-semibold tracking-tight text-foreground">
                 {title}
               </h1>
             )}
@@ -47,9 +46,9 @@ export function Topbar({
         <>
           <Separator
             orientation="vertical"
-            className="hidden h-6 sm:block bg-border dark:bg-white/[0.08]"
+            className="hidden h-6 sm:block bg-border"
           />
-          <div className="flex items-center gap-2">{actions}</div>
+          <div className="topbar-actions flex items-center gap-2">{actions}</div>
         </>
       )}
     </header>

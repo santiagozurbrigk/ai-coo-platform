@@ -1,41 +1,55 @@
 "use client";
 
 import { Gauge } from "@/components/charts/gauge";
+import { useTheme } from "@/providers/theme-provider";
 import { cn } from "@/lib/utils";
 import { ChartWrapper, CHART_MIN_HEIGHT } from "./chart-wrapper";
 
-export type GaugeVariant = "default" | "inverted" | "margin";
+export type GaugeVariant = "default" | "inverted" | "margin" | "booking";
+
+function neutralGradients(isDark: boolean): {
+  active: [string, string];
+  inactive: [string, string];
+} {
+  if (isDark) {
+    return {
+      active: ["#FFFFFF", "#FFFFFF"],
+      inactive: ["#222228", "#1a1a20"],
+    };
+  }
+  return {
+    active: ["#0A0A0A", "#0A0A0A"],
+    inactive: ["#e8e8ec", "#e2e2e8"],
+  };
+}
+
+function accentGradients(isDark: boolean): {
+  active: [string, string];
+  inactive: [string, string];
+} {
+  if (isDark) {
+    return {
+      active: ["#7C3AED", "#A78BFA"],
+      inactive: ["#2a2540", "#1a1828"],
+    };
+  }
+  return {
+    active: ["#7C3AED", "#6D28D9"],
+    inactive: ["#ede9fe", "#e9e5ff"],
+  };
+}
 
 function resolveGradients(
   variant: GaugeVariant,
-  value: number,
-  target?: number
+  isDark: boolean
 ): {
   active: [string, string];
   inactive: [string, string];
 } {
-  if (variant === "margin" && target != null) {
-    if (value >= target) {
-      return { active: ["#34D399", "#10B981"], inactive: ["#1a2e24", "#142820"] };
-    }
-    if (value >= target * 0.9) {
-      return { active: ["#FBBF24", "#F59E0B"], inactive: ["#2a2418", "#1f1a12"] };
-    }
-    return { active: ["#F87171", "#EF4444"], inactive: ["#2a1818", "#1f1212"] };
+  if (variant === "margin" || variant === "booking") {
+    return accentGradients(isDark);
   }
-
-  if (variant === "inverted") {
-    const good = value <= (target ?? 20);
-    return good
-      ? { active: ["#34D399", "#10B981"], inactive: ["#1a2e24", "#142820"] }
-      : { active: ["#F87171", "#EF4444"], inactive: ["#2a1818", "#1f1212"] };
-  }
-
-  const pct = target != null && target > 0 ? (value / target) * 100 : value;
-  if (pct >= 100) {
-    return { active: ["#34D399", "#10B981"], inactive: ["#1a2e24", "#142820"] };
-  }
-  return { active: ["#7C3AED", "#A78BFA"], inactive: ["#2a2540", "#1a1828"] };
+  return neutralGradients(isDark);
 }
 
 export function GaugeTargetChart({
@@ -59,8 +73,10 @@ export function GaugeTargetChart({
   className?: string;
   subtitle?: string;
 }) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
-  const { active, inactive } = resolveGradients(variant, value, target);
+  const { active, inactive } = resolveGradients(variant, isDark);
 
   return (
     <div className={cn("flex flex-col items-center", className)}>

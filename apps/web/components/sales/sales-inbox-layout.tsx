@@ -32,7 +32,7 @@ export function SalesInboxLayout() {
 
   if (conversationsLoading && conversations.length === 0) {
     return (
-      <div className="flex h-[calc(100vh-8rem)] min-h-[480px] items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.02] text-sm text-white/50">
+      <div className="flex h-[calc(100vh-8rem)] min-h-[480px] items-center justify-center rounded-xl border border-border bg-muted/30 text-sm text-muted-foreground">
         Cargando conversaciones…
       </div>
     );

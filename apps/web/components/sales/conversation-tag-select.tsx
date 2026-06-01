@@ -7,7 +7,7 @@ import type { ConversationTagId } from "@/types/sales";
 const TAG_IDS = Object.keys(CONVERSATION_TAG_CONFIG) as ConversationTagId[];
 
 const selectClass =
-  "h-9 w-full max-w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm text-white/90 outline-none ring-primary/30 focus:ring-2";
+  "h-9 w-full max-w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none ring-primary/30 focus:ring-2";
 
 export function ConversationTagSelect({
   value,

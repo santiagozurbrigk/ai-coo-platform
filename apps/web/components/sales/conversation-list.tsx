@@ -27,7 +27,7 @@ export function ConversationList({
   return (
     <div className="flex h-full min-w-0 w-full flex-col overflow-hidden border-r border-white/[0.06]">
       <div className="shrink-0 border-b border-white/[0.06] px-3 py-3 space-y-3">
-        <p className="px-1 text-xs font-medium text-white/45">
+        <p className="px-1 text-xs font-medium text-muted-foreground">
           {filtered.length} conversaciones
         </p>
         <div className="flex max-w-full gap-1.5 overflow-x-auto overflow-y-hidden pb-1 [scrollbar-width:thin]">
@@ -40,7 +40,7 @@ export function ConversationList({
                 "shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-2xs font-medium transition-colors",
                 tagFilter === f.id
                   ? "bg-primary text-primary-foreground"
-                  : "bg-white/[0.06] text-white/45 hover:text-white/70"
+                  : "bg-muted/50 text-muted-foreground hover:text-foreground"
               )}
             >
               {f.label}
@@ -66,13 +66,13 @@ export function ConversationList({
                   <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
                 )}
               </div>
-              <p className="mt-0.5 truncate text-xs text-white/45">
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
                 {c.lastMessage}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {c.tag && <ConversationTagBadge tag={c.tag} />}
                 <ConversationStatusBadge status={c.status} />
-                <span className="ml-auto text-2xs text-white/35">
+                <span className="ml-auto text-2xs text-muted-foreground/80">
                   {formatRelativeTime(c.lastMessageAt)}
                 </span>
               </div>
