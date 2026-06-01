@@ -22,7 +22,7 @@ export function AppSidebar() {
             <AppLogo display="sidebar" />
           </div>
         ) : (
-          <span className="sr-only">OTC</span>
+          <AppLogo display="sidebarCollapsed" />
         )}
         <button
           type="button"
