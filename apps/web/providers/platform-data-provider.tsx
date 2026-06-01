@@ -120,6 +120,16 @@ function buildClientFromPayment(
         })
       : undefined;
 
+  const contextInsights = [
+    payment.offeredProduct
+      ? `Producto ofrecido: ${payment.offeredProduct}`
+      : null,
+    payment.avatar ? `Avatar / ICP: ${payment.avatar}` : null,
+    payment.mainPain ? `Dolor principal: ${payment.mainPain}` : null,
+    payment.objections ? `Objeciones: ${payment.objections}` : null,
+    payment.feedbackNotes ? `Feedback: ${payment.feedbackNotes}` : null,
+  ].filter((line): line is string => Boolean(line));
+
   return {
     name: payment.clientName,
     joinDate: new Date().toISOString().slice(0, 10),
@@ -134,11 +144,17 @@ function buildClientFromPayment(
     installments,
     salesFathomUrl: payment.fathomUrl,
     closingCallId: callId,
+    offeredProduct: payment.offeredProduct,
+    feedbackNotes: payment.feedbackNotes,
+    avatar: payment.avatar,
+    mainPain: payment.mainPain,
+    objections: payment.objections,
     aiInsights: [
       "Cliente creado automáticamente desde Closing.",
       payment.paymentType === "upfront"
         ? "Pago upfront — seguimiento estándar de onboarding."
         : "Seguimiento de cuotas activado en el perfil del cliente.",
+      ...contextInsights,
     ],
     linkedCalls: payment.fathomUrl
       ? [

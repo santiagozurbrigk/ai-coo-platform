@@ -58,4 +58,9 @@ export type ClosePaymentPayload = {
   feeAmount?: number;
   feeFrequency?: "monthly" | "weekly";
   fathomUrl?: string;
+  offeredProduct?: string;
+  feedbackNotes?: string;
+  avatar?: string;
+  mainPain?: string;
+  objections?: string;
 };

@@ -37,4 +37,9 @@ export type Client = {
   closingCallId?: string;
   aiInsights: string[];
   linkedCalls: { id: string; title: string; date: string; duration: string; url: string }[];
+  offeredProduct?: string;
+  feedbackNotes?: string;
+  avatar?: string;
+  mainPain?: string;
+  objections?: string;
 };
