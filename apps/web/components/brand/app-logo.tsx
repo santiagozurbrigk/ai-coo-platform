@@ -1,19 +1,10 @@
-"use client";
-
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { cn } from "@ai-coo/ui";
-import { brandAssets, getThemeIsotipoSrc } from "@/lib/brand";
-import { useTheme } from "@/providers/theme-provider";
+import { brandAssets } from "@/lib/brand";
 import { paths } from "@/routes";
 
-type AppLogoDisplay =
-  | "default"
-  | "sidebar"
-  | "sidebarCollapsed"
-  | "hero"
-  | "compact"
-  | "login";
+type AppLogoDisplay = "default" | "sidebar" | "hero" | "compact" | "login";
 
 type AppLogoProps = {
   variant?: "full" | "icon";
@@ -30,12 +21,8 @@ const displayStyles: Record<
 > = {
   sidebar: {
     link: "flex w-full justify-center",
-    img: "h-auto w-full max-w-[140px] object-contain object-center",
-    style: { maxHeight: 48 },
-  },
-  sidebarCollapsed: {
-    link: "mx-auto flex h-9 w-9 items-center justify-center",
-    img: "h-8 w-8 object-contain object-center",
+    img: "h-auto w-full max-w-[212px] object-contain object-center",
+    style: { maxHeight: 72 },
   },
   hero: {
     link: "flex w-full justify-center",
@@ -44,7 +31,7 @@ const displayStyles: Record<
   },
   compact: {
     link: "inline-flex items-center",
-    img: "h-8 w-8 object-contain object-center",
+    img: "h-8 w-auto max-w-[200px] object-contain object-left",
   },
   login: {
     link: "flex w-full justify-center",
@@ -56,24 +43,6 @@ const displayStyles: Record<
   },
 };
 
-function resolveLogoSrc(
-  variant: "full" | "icon",
-  display: AppLogoDisplay,
-  theme: "light" | "dark"
-): string {
-  const useIsotipo =
-    variant === "icon" ||
-    display === "sidebar" ||
-    display === "sidebarCollapsed" ||
-    display === "compact";
-
-  if (useIsotipo) {
-    return getThemeIsotipoSrc(theme);
-  }
-
-  return brandAssets.logo;
-}
-
 export function AppLogo({
   variant = "full",
   display = "default",
@@ -81,18 +50,15 @@ export function AppLogo({
   className,
   height = variant === "icon" ? 28 : 32,
 }: AppLogoProps) {
-  const { theme } = useTheme();
-  const src = resolveLogoSrc(variant, display, theme);
+  const src = variant === "icon" ? brandAssets.logoIcon : brandAssets.logo;
   const preset = displayStyles[display];
-  const useFixedHeight =
-    display === "default" ||
-    (display === "compact" && variant === "full");
+  const useFixedHeight = display === "default" || display === "compact";
 
   const image = (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
-      alt="OTC"
+      alt="AI COO"
       className={cn(preset.img, className)}
       style={
         useFixedHeight
