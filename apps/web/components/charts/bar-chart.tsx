@@ -58,6 +58,8 @@ export interface BarChartProps {
   orientation?: BarOrientation;
   /** Whether to stack bars instead of grouping them. Default: false */
   stacked?: boolean;
+  /** Y-axis max multiplier above data max. Default: 1.1 */
+  yDomainPadding?: number;
   /** Gap between stacked bar segments in pixels. Default: 0 */
   stackGap?: number;
   /** Child components (Bar, Grid, ChartTooltip, etc.) */
@@ -140,6 +142,7 @@ interface ChartInnerProps {
   orientation: BarOrientation;
   stacked: boolean;
   stackGap: number;
+  yDomainPadding: number;
   children: ReactNode;
   containerRef: React.RefObject<HTMLDivElement | null>;
 }
@@ -167,6 +170,7 @@ const ChartCore = memo(function ChartCore({
   orientation,
   stacked,
   stackGap,
+  yDomainPadding,
   children,
   containerRef,
 }: ChartInnerProps) {
@@ -578,6 +582,7 @@ export function BarChart({
   orientation = "vertical",
   stacked = false,
   stackGap = 0,
+  yDomainPadding = 1.1,
   children,
 }: BarChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -605,6 +610,7 @@ export function BarChart({
             revealSignature={revealSignature}
             stacked={stacked}
             stackGap={stackGap}
+            yDomainPadding={yDomainPadding}
             width={width}
             xDataKey={xDataKey}
           >

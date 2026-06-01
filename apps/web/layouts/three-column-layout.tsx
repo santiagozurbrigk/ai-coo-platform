@@ -19,7 +19,7 @@ export function ThreeColumnLayout({
         {sidebar}
       </div>
 
-      <div className="main-container" data-slot="main-panel">
+      <div className="main-container relative" data-slot="main-panel">
         {children}
       </div>
     </div>

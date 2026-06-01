@@ -24,7 +24,7 @@ export function Breadcrumbs({ className }: { className?: string }) {
         return (
           <span key={`${crumb.label}-${i}`} className="flex items-center gap-1">
             {i > 0 && (
-              <ChevronRight className="h-3 w-3 shrink-0 text-white/30" />
+              <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground/50" />
             )}
             {crumb.href && !isLast ? (
               <Link
@@ -37,7 +37,7 @@ export function Breadcrumbs({ className }: { className?: string }) {
               <span
                 className={cn(
                   "truncate",
-                  isLast ? "font-medium text-white/90" : "text-white/30"
+                  isLast ? "font-medium text-foreground" : "text-muted-foreground"
                 )}
               >
                 {crumb.label}

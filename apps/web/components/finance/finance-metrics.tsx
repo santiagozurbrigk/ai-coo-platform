@@ -97,7 +97,7 @@ export function FinanceMetrics() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center text-sm text-white/50">
+      <div className="flex min-h-[200px] items-center justify-center text-sm text-muted-foreground">
         Cargando métricas financieras…
       </div>
     );
@@ -120,7 +120,7 @@ export function FinanceMetrics() {
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Facturación
             </p>
-            <p className="text-2xl font-semibold tabular-nums text-[var(--chart-2)]">
+            <p className="metric-value text-2xl tabular-nums">
               {formatMoney(s.facturacion)}
             </p>
           </div>
@@ -128,7 +128,7 @@ export function FinanceMetrics() {
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Cash Collected
             </p>
-            <p className="text-2xl font-semibold tabular-nums text-[var(--chart-1)]">
+            <p className="metric-value text-2xl tabular-nums">
               {formatMoney(s.cashCollected)}
             </p>
           </div>
@@ -140,8 +140,8 @@ export function FinanceMetrics() {
             secondaryKey="cashCollected"
             primaryLabel="Facturación"
             secondaryLabel="Cash collected"
-            primaryColor="var(--chart-2)"
-            secondaryColor="var(--chart-1)"
+            primaryColor="var(--chart-1)"
+            secondaryColor="var(--chart-2)"
             emptyMessage="Sin suficientes meses para el gráfico"
           />
         </div>

@@ -27,21 +27,21 @@ export interface MetricCardProps {
 const trendConfig = {
   up: {
     icon: TrendingUp,
-    pill: "border-emerald-400/25 bg-emerald-500/10 text-emerald-400",
-    bar: "from-emerald-400 to-emerald-300",
-    glow: "rgba(52,211,153,0.08)",
+    pill: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-400",
+    bar: "from-emerald-500 to-emerald-400",
+    glow: "rgba(52,211,153,0.06)",
   },
   down: {
     icon: TrendingDown,
-    pill: "border-red-400/25 bg-red-500/10 text-red-400",
-    bar: "from-red-400 to-red-300",
-    glow: "rgba(239,68,68,0.08)",
+    pill: "border-red-200 bg-red-50 text-red-700 dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-400",
+    bar: "from-red-500 to-red-400",
+    glow: "rgba(239,68,68,0.06)",
   },
   neutral: {
     icon: Minus,
-    pill: "border-[rgba(124,58,237,0.30)] bg-[rgba(124,58,237,0.12)] text-[#A78BFA]",
-    bar: "from-[#7C3AED] to-[#A78BFA]",
-    glow: "rgba(124,58,237,0.06)",
+    pill: "border-border bg-muted text-muted-foreground dark:border-white/10 dark:bg-white/[0.08] dark:text-white/60",
+    bar: "from-foreground/40 to-foreground/25",
+    glow: "rgba(255,255,255,0.03)",
   },
 };
 
@@ -75,7 +75,7 @@ export function MetricCard({
   className,
   icon,
   sparklineData,
-  sparklineColor = "#7C3AED",
+  sparklineColor = "hsl(var(--foreground))",
   sparklineAnimationDelay = 0,
 }: MetricCardProps) {
   const cfg = trendConfig[trend];
@@ -86,12 +86,7 @@ export function MetricCard({
   const hasSparkline = Boolean(sparklineData?.length);
 
   return (
-    <Card
-      className={cn(
-        "relative min-h-[120px] overflow-hidden border-t border-white/[0.14]",
-        className
-      )}
-    >
+    <Card className={cn("relative min-h-[120px] overflow-hidden", className)}>
       <div
         className="pointer-events-none absolute left-6 top-1/2 h-[60px] w-[60px] -translate-y-1/2 rounded-full blur-2xl"
         style={{ background: cfg.glow }}
@@ -101,13 +96,11 @@ export function MetricCard({
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
             {icon && (
-              <div className="rounded-[10px] border border-white/[0.08] bg-white/[0.04] p-1.5 text-[#A78BFA] [&_svg]:h-[18px] [&_svg]:w-[18px]">
+              <div className="rounded-[10px] border border-border bg-muted p-1.5 text-muted-foreground [&_svg]:h-[18px] [&_svg]:w-[18px] dark:border-white/[0.08] dark:bg-white/[0.04]">
                 {icon}
               </div>
             )}
-            <span className="text-[11px] font-medium uppercase tracking-[0.07em] text-white/50">
-              {title}
-            </span>
+            <span className="metric-label">{title}</span>
           </div>
           {trendValue && (
             <span
@@ -129,7 +122,7 @@ export function MetricCard({
               "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
           )}
         >
-          <div className="text-[32px] font-semibold leading-none tracking-tight text-white tabular-nums sm:text-[36px]">
+          <div className="metric-value text-[32px] leading-none tracking-tight tabular-nums sm:text-[36px]">
             {value}
           </div>
           {hasSparkline && (
@@ -143,10 +136,10 @@ export function MetricCard({
         </div>
 
         <div className="mt-4 flex items-center gap-3">
-          <div className="h-0.5 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
+          <div className="h-0.5 flex-1 overflow-hidden rounded-full bg-muted dark:bg-white/[0.06]">
             <div
               className={cn(
-                "h-full rounded-full bg-gradient-to-r shadow-[0_0_8px_rgba(124,58,237,0.5)] transition-all duration-700",
+                "h-full rounded-full bg-gradient-to-r transition-all duration-700",
                 cfg.bar
               )}
               style={{ width: `${progress}%` }}
@@ -157,10 +150,10 @@ export function MetricCard({
         {(comparison || badge) && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {comparison && (
-              <span className="text-xs text-white/50">{comparison}</span>
+              <span className="text-xs text-muted-foreground">{comparison}</span>
             )}
             {badge && (
-              <span className="rounded-full border border-[rgba(124,58,237,0.30)] bg-[rgba(124,58,237,0.12)] px-2.5 py-[3px] text-[11px] font-medium text-[#A78BFA]">
+              <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-[3px] text-[11px] font-medium text-primary dark:text-[#A78BFA]">
                 {badge}
               </span>
             )}

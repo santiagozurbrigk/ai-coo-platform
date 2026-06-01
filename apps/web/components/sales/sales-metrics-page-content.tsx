@@ -8,7 +8,7 @@ export function SalesMetricsPageContent() {
 
   if (salesMetricsLoading) {
     return (
-      <div className="flex min-h-[240px] items-center justify-center text-sm text-white/50">
+      <div className="flex min-h-[240px] items-center justify-center text-sm text-muted-foreground">
         Cargando métricas de ventas…
       </div>
     );

@@ -20,11 +20,16 @@ export function StackedBarChart({
   keys,
   labels,
   className,
+  minHeight,
+  yDomainPadding,
 }: {
   data: { month: string; [key: string]: string | number }[];
   keys: string[];
   labels: string[];
   className?: string;
+  minHeight?: string;
+  /** Multiplier for Y max (default 1.1). Use 1.3 for sparse monthly data. */
+  yDomainPadding?: number;
 }) {
   const rows = data.map((d) => ({ name: d.month, ...d }));
 
@@ -34,13 +39,14 @@ export function StackedBarChart({
         data={rows}
         minPoints={1}
         emptyMessage="Sin datos de facturación por mes"
-        minHeight={CHART_MIN_HEIGHT.md}
+        minHeight={minHeight ?? CHART_MIN_HEIGHT.md}
       >
       <BarChart
         data={rows}
         xDataKey="name"
         stacked
-        aspectRatio="2.2 / 1"
+        yDomainPadding={yDomainPadding}
+        aspectRatio={data.length <= 2 ? "3 / 1" : "2.2 / 1"}
         className="w-full"
         animationDuration={1000}
         margin={{ top: 20, right: 12, bottom: 36, left: 8 }}

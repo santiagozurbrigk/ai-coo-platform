@@ -2,7 +2,7 @@
 
 import { useFinanceData } from "@/providers";
 import { formatMoney } from "@/lib/finance/format";
-import { platformRingColors } from "@/lib/chart/colors";
+import { chartSeriesColors } from "@/lib/chart/colors";
 import type { MonthlySeriesPoint } from "@/types/finance";
 import {
   ChartShell,
@@ -10,6 +10,7 @@ import {
   StackedBarChart,
 } from "@/components/charts/platform";
 import type { PieData } from "@/components/charts/pie-context";
+import { cn } from "@ai-coo/ui";
 
 export function FinanceCharts() {
   const { monthlySeries, financeSummary, paymentPlatforms } = useFinanceData();
@@ -36,26 +37,59 @@ function PlatformPieChart({
     .map((p, i) => ({
       label: p.name,
       value: balances.find((b) => b.platformId === p.id)?.amount ?? 0,
-      color: platformRingColors[i % platformRingColors.length],
+      color: chartSeriesColors[i % chartSeriesColors.length],
     }))
     .filter((s) => s.value > 0);
+
+  const showPie = slices.length >= 2;
 
   return (
     <ChartShell
       title="Ingresos por plataforma"
-      subtitle="Pie · volumen por pasarela"
+      subtitle={
+        showPie ? "Pie · volumen por pasarela" : "Listado · volumen por pasarela"
+      }
     >
-      <PieDistributionChart slices={slices} innerRadius={48} />
-      <div className="flex flex-wrap justify-center gap-2 text-xs">
-        {platforms.map((p) => {
-          const amount = balances.find((b) => b.platformId === p.id)?.amount ?? 0;
-          return (
-            <span key={p.id}>
-              {p.name}: {formatMoney(amount, p.currency)}
-            </span>
-          );
-        })}
-      </div>
+      {showPie ? (
+        <PieDistributionChart slices={slices} innerRadius={48} />
+      ) : (
+        <ul className="space-y-3 py-2">
+          {platforms.map((p) => {
+            const amount =
+              balances.find((b) => b.platformId === p.id)?.amount ?? 0;
+            return (
+              <li
+                key={p.id}
+                className="flex items-center justify-between gap-4 text-sm"
+              >
+                <span className="text-muted-foreground">
+                  {p.name} ({p.currency})
+                </span>
+                <span className="font-medium tabular-nums text-foreground">
+                  {formatMoney(amount, p.currency)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {showPie ? (
+        <div className="flex flex-wrap justify-center gap-2 text-xs text-muted-foreground">
+          {platforms.map((p) => {
+            const amount =
+              balances.find((b) => b.platformId === p.id)?.amount ?? 0;
+            return (
+              <span key={p.id}>
+                {p.name}: {formatMoney(amount, p.currency)}
+              </span>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-center text-2xs text-muted-foreground">
+          El gráfico circular aparece cuando hay 2 o más plataformas con ingresos.
+        </p>
+      )}
     </ChartShell>
   );
 }
@@ -67,6 +101,8 @@ function RevenueStackedChart({ data }: { data: MonthlySeriesPoint[] }) {
     installments: d.installments,
     fees: d.fees,
   }));
+  const periodCount = rows.length;
+  const compact = periodCount <= 2;
 
   return (
     <ChartShell
@@ -74,13 +110,20 @@ function RevenueStackedChart({ data }: { data: MonthlySeriesPoint[] }) {
       subtitle="Barras apiladas · upfront, cuotas y fees"
       className="lg:col-span-2"
     >
-      <div className="min-h-[240px]">
+      <div className={cn(compact ? "min-h-[200px]" : "min-h-[240px]")}>
         <StackedBarChart
           data={rows}
           keys={["upfront", "installments", "fees"]}
           labels={["Upfront", "Cuotas cobradas", "Fees"]}
+          minHeight={compact ? "min-h-[200px]" : undefined}
+          yDomainPadding={1.3}
         />
       </div>
+      {compact ? (
+        <p className="mt-2 text-center text-2xs text-muted-foreground">
+          Mostrando datos desde que se conectó el sistema
+        </p>
+      ) : null}
     </ChartShell>
   );
 }
