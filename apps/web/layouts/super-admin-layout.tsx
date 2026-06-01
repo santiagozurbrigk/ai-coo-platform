@@ -16,16 +16,14 @@ export function SuperAdminLayout({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider>
       <ThreeColumnLayout sidebar={<SuperAdminSidebar />}>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <Topbar
-            breadcrumbs={<SuperAdminBreadcrumbs className="hidden sm:flex" />}
-            title={title}
-            subtitle={subtitle}
-            actions={<ThemeToggle className="topbar-icon h-8 w-8 rounded-lg" />}
-          />
-          <div className="main-container-scroll flex min-h-0 flex-1">
-            <main className="page-content min-w-0 flex-1">{children}</main>
-          </div>
+        <Topbar
+          breadcrumbs={<SuperAdminBreadcrumbs className="hidden sm:flex" />}
+          title={title}
+          subtitle={subtitle}
+          actions={<ThemeToggle className="topbar-icon h-8 w-8 rounded-lg" />}
+        />
+        <div className="main-container-scroll flex min-h-0 flex-1">
+          <main className="page-content min-w-0 flex-1">{children}</main>
         </div>
       </ThreeColumnLayout>
     </TooltipProvider>

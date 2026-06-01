@@ -10,14 +10,14 @@ import { ContextPanelDrawer } from "@/components/layout/context-panel-drawer";
 export function PlatformShell({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider>
-      <ThreeColumnLayout sidebar={<AppSidebar />}>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <AppTopbar />
-          <div className="main-container-scroll flex min-h-0 flex-1">
-            <div className="flex min-h-full min-w-0 flex-1">{children}</div>
-          </div>
+      <ThreeColumnLayout
+        sidebar={<AppSidebar />}
+        overlay={<ContextPanelDrawer />}
+      >
+        <AppTopbar />
+        <div className="main-container-scroll flex min-h-0 flex-1">
+          <div className="flex min-h-full min-w-0 flex-1">{children}</div>
         </div>
-        <ContextPanelDrawer />
       </ThreeColumnLayout>
     </TooltipProvider>
   );

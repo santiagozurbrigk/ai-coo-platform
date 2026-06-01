@@ -241,7 +241,7 @@
 
 @layer components {
   .app-shell {
-    @apply flex h-screen w-full gap-2.5 overflow-hidden;
+    @apply flex h-screen w-full min-h-0 gap-2.5 overflow-hidden;
     padding: 10px 10px 10px 0;
     background: rgb(241 245 249);
   }
@@ -251,7 +251,14 @@
   }
 
   .main-container {
-    @apply isolate flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl;
+    display: flex;
+    min-height: 0;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+    overflow: clip;
+    border-radius: 16px;
     background: rgb(var(--color-surface-2));
     box-shadow:
       0 1px 3px rgba(0, 0, 0, 0.06),
@@ -287,9 +294,13 @@
 
   .shell-topbar,
   .topbar {
-    @apply shrink-0 rounded-none border-b border-border/80 bg-transparent px-6;
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
+    @apply shrink-0 border-b border-border/80 px-6;
+    flex-shrink: 0;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    background-color: rgb(var(--color-surface-2));
   }
 
   html.dark .shell-topbar,
@@ -311,7 +322,7 @@
   }
 
   .sidebar {
-    @apply flex h-screen shrink-0 flex-col gap-0.5 overflow-x-hidden overflow-y-auto bg-transparent px-3 py-4;
+    @apply flex h-full min-h-0 shrink-0 flex-col gap-0.5 overflow-x-hidden overflow-y-auto bg-transparent px-3 py-4;
     width: 220px;
     min-width: 220px;
     scrollbar-width: none;

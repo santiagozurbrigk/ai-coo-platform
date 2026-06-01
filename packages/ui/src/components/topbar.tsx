@@ -22,7 +22,7 @@ export function Topbar({
   return (
     <header
       className={cn(
-        "shell-topbar topbar flex h-14 shrink-0 items-center justify-between gap-4 rounded-none border-b border-border bg-transparent px-6",
+        "shell-topbar topbar flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border px-6",
         className
       )}
     >

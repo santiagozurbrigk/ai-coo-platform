@@ -26,7 +26,7 @@ export function SuperAdminSidebar() {
 
   return (
     <aside
-      className={cn("sidebar", collapsed && "collapsed")}
+      className={cn("sidebar h-full", collapsed && "collapsed")}
       data-collapsed={collapsed ? "true" : "false"}
     >
       <div className="sidebar-logo">
