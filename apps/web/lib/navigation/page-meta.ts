@@ -75,6 +75,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Team Inputs",
     subtitle: "Contexto intencional para la IA y el liderazgo",
   },
+  "/workboard": {
+    title: "Tablero de trabajo",
+    subtitle: "Tareas del equipo por área y estado",
+  },
   "/operations/weekly-inputs": {
     title: "Team Inputs",
     subtitle: "Contexto intencional para la IA y el liderazgo",

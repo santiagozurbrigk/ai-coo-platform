@@ -30,6 +30,10 @@ export const paths = {
       stage: (id: string) => `${PLATFORM}/agent/stage/${id}`,
     },
 
+    workboard: {
+      root: `${PLATFORM}/workboard`,
+    },
+
     marketing: {
       overview: `${PLATFORM}/marketing`,
       content: `${PLATFORM}/marketing/content`,

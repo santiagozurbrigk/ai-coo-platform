@@ -26,11 +26,6 @@ export const platformNavigation: NavItem[] = [
     children: [{ label: "Gastos", href: paths.platform.finance.expenses }],
   },
   {
-    label: "Agente de negocio",
-    href: paths.platform.agent.root,
-    icon: "sparkles",
-  },
-  {
     label: "Marketing",
     href: paths.platform.marketing.overview,
     icon: "megaphone",
@@ -63,6 +58,16 @@ export const platformNavigation: NavItem[] = [
       { label: "SOPs", href: paths.platform.operations.sops },
       { label: "Team Inputs", href: paths.platform.operations.teamInputs },
     ],
+  },
+  {
+    label: "Tablero de trabajo",
+    href: paths.platform.workboard.root,
+    icon: "kanban",
+  },
+  {
+    label: "Agente de negocio",
+    href: paths.platform.agent.root,
+    icon: "sparkles",
   },
   {
     label: "Clientes",

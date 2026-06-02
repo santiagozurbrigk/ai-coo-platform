@@ -121,18 +121,6 @@ export function MarketingOverview({
               sparklineAnimationDelay={50}
             />
             <MetricCard
-              title="Conversaciones generadas"
-              value={formatNum(
-                additionalMarketingMetrics.conversationsGenerated.value
-              )}
-              subtitle="Total del período"
-              trend="up"
-              trendValue={formatTrend(
-                additionalMarketingMetrics.conversationsGenerated.trend
-              )}
-              {...sparklineProps("conversations", 100)}
-            />
-            <MetricCard
               title="Comentarios totales"
               value={formatNum(additionalMarketingMetrics.totalComments.value)}
               subtitle="Últimos 30 días"
