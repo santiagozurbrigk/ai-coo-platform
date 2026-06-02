@@ -149,8 +149,12 @@ export function ContentFunnelChart({ stages }: { stages: ContentFunnelStage[] })
       subtitle="Embudo animado · conversión entre etapas"
       className="w-full"
     >
-      <div className="funnel-container flex w-full min-h-[400px] justify-center overflow-visible px-2 py-4">
-        <FunnelChartPanel stages={funnelData} color="var(--chart-1)" />
+      <div className="funnel-container flex w-full min-h-[280px] justify-center overflow-visible px-2 py-4">
+        <FunnelChartPanel
+          stages={funnelData}
+          color="var(--chart-1)"
+          orientation="horizontal"
+        />
       </div>
     </ChartShell>
   );
