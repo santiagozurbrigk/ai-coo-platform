@@ -14,6 +14,10 @@ export const SPARKLINE_SERIES = {
   expenses: [8200, 7900, 8100, 7800, 7600, 7400, 7200],
   teamLoad: [68, 70, 74, 71, 69, 73, 72],
   salesInfluenced: [2, 3, 2, 4, 5, 4, 6],
+  storyReplies: [45, 52, 48, 61, 58, 73, 89],
+  totalComments: [1200, 1340, 1280, 1450, 1560, 1720, 1847],
+  profileGrowth: [420, 580, 510, 720, 890, 1040, 1240],
+  viewsToFollowers: [1.8, 2.0, 1.9, 2.1, 2.2, 2.3, 2.4],
 } as const;
 
 export const SPARKLINE_COLORS = {
@@ -30,6 +34,10 @@ export const SPARKLINE_COLORS = {
   expenses: "#F87171",
   teamLoad: "#FBBF24",
   salesInfluenced: "#34D399",
+  storyReplies: "#F472B6",
+  totalComments: "#60A5FA",
+  profileGrowth: "#34D399",
+  viewsToFollowers: "#A78BFA",
 } as const;
 
 export type SparklinePreset = keyof typeof SPARKLINE_SERIES;

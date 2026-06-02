@@ -5,6 +5,7 @@ import type { ContentLabel } from "@/lib/content/label-content";
 import { sparklineProps } from "@/lib/metrics/sparkline-series";
 import { mockContentAssets } from "@/mocks/marketing-insights";
 import {
+  additionalMarketingMetrics,
   mockContentFunnel,
   mockFollowerGrowth,
   mockMarketingOverview,
@@ -27,7 +28,12 @@ import {
 
 function formatNum(n: number) {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return String(n);
+  return n.toLocaleString("es-ES");
+}
+
+function formatTrend(trend: number, suffix = "%") {
+  const sign = trend >= 0 ? "+" : "";
+  return `${sign}${trend}${suffix}`;
 }
 
 type DistributionData = {
@@ -56,6 +62,7 @@ export function MarketingOverview({
   return (
     <div className="space-y-8">
       {instagramConnected ? (
+        <>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <MetricCard
             title="Alcance total"
@@ -96,6 +103,74 @@ export function MarketingOverview({
             {...sparklineProps("salesInfluenced", 300)}
           />
         </div>
+
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <MetricCard
+              title="Respuestas a historias"
+              value={formatNum(additionalMarketingMetrics.storyReplies.value)}
+              subtitle="Últimos 30 días"
+              trend="up"
+              trendValue={formatTrend(
+                additionalMarketingMetrics.storyReplies.trend
+              )}
+              sparklineData={[
+                ...additionalMarketingMetrics.storyReplies.sparkData,
+              ]}
+              sparklineColor="#F472B6"
+              sparklineAnimationDelay={50}
+            />
+            <MetricCard
+              title="Conversaciones generadas"
+              value={formatNum(
+                additionalMarketingMetrics.conversationsGenerated.value
+              )}
+              subtitle="Total del período"
+              trend="up"
+              trendValue={formatTrend(
+                additionalMarketingMetrics.conversationsGenerated.trend
+              )}
+              {...sparklineProps("conversations", 100)}
+            />
+            <MetricCard
+              title="Comentarios totales"
+              value={formatNum(additionalMarketingMetrics.totalComments.value)}
+              subtitle="Últimos 30 días"
+              trend="up"
+              trendValue={formatTrend(
+                additionalMarketingMetrics.totalComments.trend
+              )}
+              {...sparklineProps("totalComments", 150)}
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <MetricCard
+              title="Crecimiento del perfil"
+              value={`+${formatNum(additionalMarketingMetrics.profileGrowth.value)}`}
+              subtitle={
+                additionalMarketingMetrics.profileGrowth.label ??
+                "Nuevos seguidores"
+              }
+              trend="up"
+              trendValue={formatTrend(
+                additionalMarketingMetrics.profileGrowth.trend
+              )}
+              {...sparklineProps("profileGrowth", 200)}
+            />
+            <MetricCard
+              title="Conversión views → seguidores"
+              value={`${additionalMarketingMetrics.viewsToFollowersRate.value}${additionalMarketingMetrics.viewsToFollowersRate.suffix ?? "%"}`}
+              subtitle="Últimos 30 días"
+              trend="up"
+              trendValue={formatTrend(
+                additionalMarketingMetrics.viewsToFollowersRate.trend,
+                " pts"
+              )}
+              {...sparklineProps("viewsToFollowers", 250)}
+            />
+          </div>
+        </div>
+        </>
       ) : null}
 
       <ContentLabelDistributionChart

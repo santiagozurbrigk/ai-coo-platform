@@ -122,6 +122,52 @@ export const mockClosedBuyerJourneys: ClosedBuyerJourney[] = [
   },
 ];
 
+export type AdditionalMarketingMetric = {
+  value: number;
+  trend: number;
+  sparkData: number[];
+  label?: string;
+  suffix?: string;
+};
+
+export const additionalMarketingMetrics: Record<
+  | "storyReplies"
+  | "conversationsGenerated"
+  | "totalComments"
+  | "profileGrowth"
+  | "viewsToFollowersRate",
+  AdditionalMarketingMetric
+> = {
+  storyReplies: {
+    value: 89,
+    trend: 12.3,
+    sparkData: [45, 52, 48, 61, 58, 73, 89],
+  },
+  conversationsGenerated: {
+    value: 228,
+    trend: 8.7,
+    sparkData: [142, 158, 149, 171, 183, 196, 228],
+  },
+  totalComments: {
+    value: 1847,
+    trend: 5.2,
+    sparkData: [1200, 1340, 1280, 1450, 1560, 1720, 1847],
+  },
+  profileGrowth: {
+    value: 1240,
+    label: "Nuevos seguidores",
+    trend: 18.4,
+    sparkData: [420, 580, 510, 720, 890, 1040, 1240],
+  },
+  viewsToFollowersRate: {
+    value: 2.4,
+    label: "% views → seguidores",
+    trend: 0.3,
+    sparkData: [1.8, 2.0, 1.9, 2.1, 2.2, 2.3, 2.4],
+    suffix: "%",
+  },
+};
+
 export const mockMarketingOverviewInsights = [
   "Tus Reels generan 3.4x más conversaciones que tus Posts. Priorizá Reels este mes.",
   "El 68% de las ventas cerradas este mes interactuaron con al menos un Reel antes de escribirte.",

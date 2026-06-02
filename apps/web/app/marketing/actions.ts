@@ -21,11 +21,17 @@ export type ContentAssetView = {
   contentType: string | null;
   publishedAt: string | null;
   views: number;
+  viewsOrganic: number;
+  viewsPaid: number;
   likes: number;
   comments: number;
   shares: number;
   saves: number;
   reach: number;
+  reelType: "reel" | "trial_reel" | null;
+  distribution: "organic" | "paid";
+  storyReplies: number;
+  multiplier: number;
   effectiveLabel: ContentLabel | null;
   aiLabel: ContentLabel | null;
   manualLabel: ContentLabel | null;
@@ -47,11 +53,20 @@ function rowToView(row: Record<string, unknown>): ContentAssetView {
     contentType: (row.content_type as string) ?? null,
     publishedAt: (row.published_at as string) ?? null,
     views: Number(row.views ?? 0),
+    viewsOrganic: Number(row.views_organic ?? row.views ?? 0),
+    viewsPaid: Number(row.views_paid ?? 0),
     likes: Number(row.likes ?? 0),
     comments: Number(row.comments ?? 0),
     shares: Number(row.shares ?? 0),
     saves: Number(row.saves ?? 0),
     reach: Number(row.reach ?? 0),
+    reelType: (row.reel_type as "reel" | "trial_reel") ?? null,
+    distribution:
+      row.distribution === "paid"
+        ? "paid"
+        : "organic",
+    storyReplies: Number(row.story_replies ?? 0),
+    multiplier: Number(row.multiplier ?? 0),
     effectiveLabel: (row.effective_label as ContentLabel) ?? null,
     aiLabel: (row.ai_content_label as ContentLabel) ?? null,
     manualLabel: (row.manual_content_label as ContentLabel) ?? null,
