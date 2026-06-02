@@ -670,4 +670,58 @@
     background: rgba(255, 255, 255, 0.03);
     border-color: rgba(255, 255, 255, 0.08);
   }
+
+  /* Tablero de trabajo: velo semitransparente — el patrón del panel se nota poco */
+  .workboard-surface {
+    position: relative;
+    min-height: min(100%, 100%);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.78);
+  }
+
+  html.dark .workboard-surface {
+    background: rgba(18, 18, 24, 0.8);
+  }
+
+  .workboard-calendar-panel {
+    background: rgba(255, 255, 255, 0.52);
+    border-color: hsl(var(--border) / 0.75);
+  }
+
+  html.dark .workboard-calendar-panel {
+    background: rgba(22, 22, 30, 0.48);
+  }
+
+  .workboard-calendar-header {
+    background: rgb(var(--color-surface-2) / 0.35);
+  }
+
+  .workboard-day-cell {
+    background: rgba(255, 255, 255, 0.22);
+  }
+
+  html.dark .workboard-day-cell {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .workboard-day-cell--outside {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  html.dark .workboard-day-cell--outside {
+    background: rgba(255, 255, 255, 0.015);
+  }
+
+  .workboard-day-cell--today {
+    background: hsl(var(--primary) / 0.08);
+  }
+
+  .workboard-kanban-column {
+    background: rgba(255, 255, 255, 0.35);
+    border-color: hsl(var(--border) / 0.65);
+  }
+
+  html.dark .workboard-kanban-column {
+    background: rgba(255, 255, 255, 0.04);
+  }
 }

@@ -54,7 +54,7 @@ export function WorkboardKanban() {
       {columns.map((column) => (
         <div
           key={column.id}
-          className="flex min-h-[320px] flex-col rounded-xl border border-border bg-muted/20 p-3"
+          className="workboard-kanban-column flex min-h-[320px] flex-col rounded-xl border p-3"
           onDragOver={handleDragOver}
           onDrop={() => handleDrop(column.id as TaskStatus)}
         >

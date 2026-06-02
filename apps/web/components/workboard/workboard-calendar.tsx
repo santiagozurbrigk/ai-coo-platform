@@ -79,8 +79,8 @@ export function WorkboardCalendar() {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border">
-        <div className="grid grid-cols-7 border-b border-border bg-muted/30">
+      <div className="workboard-calendar-panel overflow-hidden rounded-xl border border-border">
+        <div className="workboard-calendar-header grid grid-cols-7 border-b border-border">
           {WEEKDAY_LABELS.map((label) => (
             <div
               key={label}
@@ -101,9 +101,9 @@ export function WorkboardCalendar() {
               <div
                 key={key}
                 className={cn(
-                  "min-h-[100px] border-b border-r border-border/60 p-1.5",
-                  !inMonth && "bg-muted/15",
-                  isToday && "bg-primary/5"
+                  "workboard-day-cell min-h-[100px] border-b border-r border-border/60 p-1.5",
+                  !inMonth && "workboard-day-cell--outside",
+                  isToday && "workboard-day-cell--today"
                 )}
               >
                 <span

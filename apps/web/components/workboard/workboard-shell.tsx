@@ -88,7 +88,7 @@ export function WorkboardShell() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="workboard-surface space-y-4">
       {emptyMembers ? (
         <p className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
           Invitá miembros a tu organización para asignar tareas. Mientras tanto,
