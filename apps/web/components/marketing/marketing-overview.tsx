@@ -110,8 +110,10 @@ export function MarketingOverview({
         <>
           <div className="grid gap-4 lg:grid-cols-2">
             <ReachInteractionsChart data={mockReachTimeSeries} />
-            <TopConvertingContentList ranked={topConverting} />
-            <ContentFunnelChart stages={mockContentFunnel} />
+            <div className="flex w-full flex-col gap-6 lg:col-span-2">
+              <ContentFunnelChart stages={mockContentFunnel} />
+              <TopConvertingContentList ranked={topConverting} />
+            </div>
             <TypeRadarChart types={mockTypePerformance} />
             <PublishHeatmap cells={mockPublishHeatmap} />
             <FollowerGrowthChart data={mockFollowerGrowth} />

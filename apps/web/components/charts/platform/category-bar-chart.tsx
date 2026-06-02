@@ -12,10 +12,13 @@ export function CategoryBarChart({
   items,
   horizontal = false,
   className,
+  barFill = "var(--chart-1)",
 }: {
   items: { label: string; value: number; color?: string }[];
   horizontal?: boolean;
   className?: string;
+  /** Fill de barras; usar `var(--chart-bar-mono)` para barras neutras por tema */
+  barFill?: string;
 }) {
   const rows = toCategoryRows(items);
   const filtered = items.filter((i) => i.value > 0);
@@ -37,7 +40,7 @@ export function CategoryBarChart({
       margin={{ top: 16, right: 12, bottom: horizontal ? 12 : 36, left: horizontal ? 80 : 8 }}
     >
       <Grid horizontal={!horizontal} vertical={horizontal} numTicksRows={4} />
-      <Bar dataKey="value" fill="var(--chart-1)" stroke="var(--chart-1)" />
+      <Bar dataKey="value" fill={barFill} stroke={barFill} />
       <BarXAxis showAllLabels />
       <ChartTooltip />
     </BarChart>

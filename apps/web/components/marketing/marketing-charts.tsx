@@ -57,27 +57,30 @@ export function TopConvertingContentList({
   ranked: { contentId: string; conversations: number; bookings: number }[];
 }) {
   const max = Math.max(...ranked.map((r) => r.conversations), 1);
+  const barItems = ranked
+    .map((item) => {
+      const content = getContentById(item.contentId);
+      if (!content) return null;
+      return {
+        label: content.title.slice(0, 18),
+        value: item.conversations,
+      };
+    })
+    .filter((x): x is { label: string; value: number } => x != null);
+
   return (
     <ChartShell
       title="Contenido que más convierte"
       subtitle="Ranking + barras por conversaciones"
+      className="w-full min-h-[320px]"
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <CategoryBarChart
-          className="min-h-[200px] flex-1 lg:max-w-[45%]"
-          items={ranked
-            .map((item) => {
-              const content = getContentById(item.contentId);
-              if (!content) return null;
-              return {
-                label: content.title.slice(0, 18),
-                value: item.conversations,
-              };
-            })
-            .filter((x): x is { label: string; value: number } => x != null)}
-          horizontal
-        />
-        <div className="min-w-0 flex-1 space-y-3">
+      <CategoryBarChart
+        className="min-h-[200px] w-full"
+        items={barItems}
+        horizontal
+        barFill="var(--chart-bar-mono)"
+      />
+      <div className="mt-4 space-y-3">
         {ranked.map((item, i) => {
           const content = getContentById(item.contentId);
           if (!content) return null;
@@ -93,31 +96,41 @@ export function TopConvertingContentList({
               key={content.id}
               href={paths.platform.marketing.contentDetail(content.id)}
               className={cn(
-                "flex gap-3 rounded-lg border border-border border-l-4 bg-card p-3 transition-all hover:scale-[1.01] hover:border-primary/40",
+                "flex items-center gap-3 rounded-lg border border-border border-l-4 bg-card p-3 transition-all hover:border-primary/40",
                 borderColors[i] ?? "border-l-muted"
               )}
             >
-              <span className="w-6 text-lg font-bold text-muted-foreground">
+              <span className="w-6 shrink-0 text-lg font-bold text-muted-foreground">
                 {i + 1}
               </span>
-              <ContentThumbnail content={content} size="sm" className="h-14 w-14 shrink-0" />
+              <ContentThumbnail
+                content={content}
+                size="sm"
+                className="h-14 w-14 shrink-0"
+              />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{content.title}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="line-clamp-2 text-sm font-medium leading-snug">
+                  {content.title}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {CONTENT_TYPE_LABEL[content.type]} · {item.conversations} convs ·{" "}
                   {item.bookings} bookings
                 </p>
-                <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
+              </div>
+              <div className="flex w-28 shrink-0 flex-col justify-center gap-1 pl-2">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div
-                    className="h-full rounded-full bg-[var(--chart-1)]"
+                    className="h-full rounded-full bg-[var(--chart-bar-mono)]"
                     style={{ width: `${widthPct}%` }}
                   />
                 </div>
+                <span className="text-right text-[10px] tabular-nums text-muted-foreground">
+                  {item.conversations}
+                </span>
               </div>
             </Link>
           );
         })}
-        </div>
       </div>
     </ChartShell>
   );
@@ -134,8 +147,11 @@ export function ContentFunnelChart({ stages }: { stages: ContentFunnelStage[] })
     <ChartShell
       title="Funnel de contenido a venta"
       subtitle="Embudo animado · conversión entre etapas"
+      className="w-full"
     >
-      <FunnelChartPanel stages={funnelData} color="var(--chart-1)" />
+      <div className="funnel-container flex w-full min-h-[400px] justify-center overflow-visible px-2 py-4">
+        <FunnelChartPanel stages={funnelData} color="var(--chart-1)" />
+      </div>
     </ChartShell>
   );
 }

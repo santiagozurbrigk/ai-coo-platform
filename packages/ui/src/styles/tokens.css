@@ -77,6 +77,7 @@
   --chart-tertiary: 280 70% 60%;
   --chart-lavender: 258 45% 72%;
   --chart-pink: 330 70% 65%;
+  --chart-bar-mono: rgba(0, 0, 0, 0.8);
 }
 
 .dark {
@@ -151,4 +152,5 @@
   --chart-tertiary: 280 70% 60%;
   --chart-lavender: 258 45% 72%;
   --chart-pink: 330 70% 65%;
+  --chart-bar-mono: rgba(255, 255, 255, 0.85);
 }
