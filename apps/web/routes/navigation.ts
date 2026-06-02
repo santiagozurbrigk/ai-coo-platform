@@ -27,7 +27,7 @@ export const platformNavigation: NavItem[] = [
   },
   {
     label: "Agente de negocio",
-    href: paths.platform.agent,
+    href: paths.platform.agent.root,
     icon: "sparkles",
   },
   {

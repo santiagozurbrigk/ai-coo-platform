@@ -23,7 +23,12 @@ export const paths = {
       expenses: `${PLATFORM}/finance/expenses`,
     },
 
-    agent: `${PLATFORM}/agent`,
+    agent: {
+      root: `${PLATFORM}/agent`,
+      conversation: (id: string) => `${PLATFORM}/agent/${id}`,
+      project: (id: string) => `${PLATFORM}/agent/project/${id}`,
+      stage: (id: string) => `${PLATFORM}/agent/stage/${id}`,
+    },
 
     marketing: {
       overview: `${PLATFORM}/marketing`,

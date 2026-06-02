@@ -1,0 +1,441 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import {
+  isMissingTableError,
+  requireOrganizationId,
+  tryRequireOrganizationId,
+} from "@/lib/auth/bootstrap";
+import {
+  callClaudeText,
+  isAnthropicConfigured,
+} from "@/lib/ai/anthropic";
+import {
+  rowToConversation,
+  rowToMessage,
+  rowToProject,
+  rowToStage,
+  type AgentConversationRow,
+  type AgentMessageRow,
+} from "@/lib/agent/mapper";
+import {
+  cleanAgentResponse,
+  parseAgentActions,
+} from "@/lib/agent/parse-actions";
+import {
+  buildAgentSystemPrompt,
+  buildRecentContextSummary,
+  buildStageContext,
+} from "@/lib/agent/prompt";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { paths } from "@/routes/paths";
+import type {
+  AgentConversation,
+  AgentMessage,
+  AgentProject,
+  AgentProjectColor,
+  AgentWorkspaceData,
+  BusinessStage,
+} from "@/types/agent";
+
+const MOCK_REPLY =
+  "Gracias por tu consulta. Conecta ANTHROPIC_API_KEY y ejecuta la migración del agente en Supabase para respuestas reales con contexto de tu negocio.";
+
+function revalidateAgent() {
+  revalidatePath(paths.platform.agent.root);
+}
+
+async function getOrgName(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string
+) {
+  const { data } = await supabase
+    .from("organizations")
+    .select("name")
+    .eq("id", organizationId)
+    .maybeSingle();
+  return data?.name ?? "tu negocio";
+}
+
+export async function listAgentWorkspaceAction(): Promise<AgentWorkspaceData> {
+  const empty: AgentWorkspaceData = {
+    projects: [],
+    stages: [],
+    conversations: [],
+  };
+  if (!isSupabaseConfigured()) return empty;
+
+  const organizationId = await tryRequireOrganizationId();
+  if (!organizationId) return empty;
+
+  const supabase = await createClient();
+
+  const [projectsRes, stagesRes, conversationsRes] = await Promise.all([
+    supabase
+      .from("agent_projects")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("business_stages")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("order_index", { ascending: true }),
+    supabase
+      .from("agent_conversations")
+      .select(
+        "*, agent_projects(id, name, color), business_stages(id, name)"
+      )
+      .eq("organization_id", organizationId)
+      .order("updated_at", { ascending: false }),
+  ]);
+
+  if (
+    isMissingTableError(projectsRes.error?.message ?? "") ||
+    isMissingTableError(stagesRes.error?.message ?? "") ||
+    isMissingTableError(conversationsRes.error?.message ?? "")
+  ) {
+    return empty;
+  }
+
+  return {
+    projects: (projectsRes.data ?? []).map(rowToProject),
+    stages: (stagesRes.data ?? []).map(rowToStage),
+    conversations: (conversationsRes.data ?? []).map((row) =>
+      rowToConversation(row as AgentConversationRow)
+    ),
+  };
+}
+
+export async function listAgentMessagesAction(
+  conversationId: string
+): Promise<AgentMessage[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  const organizationId = await tryRequireOrganizationId();
+  if (!organizationId) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("agent_messages")
+    .select("*")
+    .eq("conversation_id", conversationId)
+    .eq("organization_id", organizationId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    if (isMissingTableError(error.message)) return [];
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => rowToMessage(row as AgentMessageRow));
+}
+
+export async function createAgentProjectAction(input: {
+  name: string;
+  description?: string;
+  color: AgentProjectColor;
+}): Promise<AgentProject | null> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("agent_projects")
+    .insert({
+      organization_id: organizationId,
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      color: input.color,
+    })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+  revalidateAgent();
+  return rowToProject(data);
+}
+
+export async function createBusinessStageAction(input: {
+  name: string;
+  description?: string;
+}): Promise<BusinessStage | null> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { count } = await supabase
+    .from("business_stages")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId);
+
+  const { data, error } = await supabase
+    .from("business_stages")
+    .insert({
+      organization_id: organizationId,
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      order_index: count ?? 0,
+      is_active: true,
+    })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+  revalidateAgent();
+  return rowToStage(data);
+}
+
+export async function createAgentConversationAction(opts?: {
+  projectId?: string | null;
+  stageId?: string | null;
+  title?: string | null;
+}): Promise<AgentConversation | null> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("agent_conversations")
+    .insert({
+      organization_id: organizationId,
+      project_id: opts?.projectId ?? null,
+      stage_id: opts?.stageId ?? null,
+      title: opts?.title ?? null,
+    })
+    .select(
+      "*, agent_projects(id, name, color), business_stages(id, name)"
+    )
+    .single();
+
+  if (error) throw new Error(error.message);
+  revalidateAgent();
+  return rowToConversation(data as AgentConversationRow);
+}
+
+export async function deleteAgentConversationAction(
+  conversationId: string
+): Promise<void> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("agent_conversations")
+    .delete()
+    .eq("id", conversationId)
+    .eq("organization_id", organizationId);
+
+  if (error) throw new Error(error.message);
+  revalidateAgent();
+}
+
+async function generateConversationTitle(
+  organizationId: string,
+  conversationId: string,
+  firstMessage: string
+) {
+  const title =
+    (await callClaudeText({
+      organizationId,
+      model: "claude-haiku-4-5",
+      feature: "agent_conversation_title",
+      system:
+        "Genera títulos breves en español. Responde SOLO con el título, máximo 5 palabras, sin puntuación final.",
+      messages: [
+        {
+          role: "user",
+          content: `Resume en máximo 5 palabras de qué trata esta pregunta: "${firstMessage}"`,
+        },
+      ],
+      maxTokens: 30,
+    })) ?? firstMessage.slice(0, 48);
+
+  const supabase = await createClient();
+  await supabase
+    .from("agent_conversations")
+    .update({ title: title.replace(/[.!?]+$/, "").trim() })
+    .eq("id", conversationId)
+    .eq("organization_id", organizationId);
+}
+
+async function getRecentOrgMessages(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  excludeConversationId: string
+): Promise<AgentMessage[]> {
+  const { data } = await supabase
+    .from("agent_messages")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .neq("conversation_id", excludeConversationId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  return (data ?? [])
+    .reverse()
+    .map((row) => rowToMessage(row as AgentMessageRow));
+}
+
+async function executeAgentActions(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  actions: ReturnType<typeof parseAgentActions>
+): Promise<{ actionType: AgentMessage["actionType"]; actionRefId: string } | null> {
+  for (const action of actions) {
+    if (action.type === "CREATE_SOP") {
+      const title = String(action.data.title ?? "SOP sin título");
+      const department = String(action.data.department ?? "general");
+      const content = String(action.data.content ?? "");
+      const goal = String(action.data.goal ?? title);
+
+      const { data, error } = await supabase
+        .from("sops")
+        .insert({
+          organization_id: organizationId,
+          title,
+          department,
+          content,
+          goal,
+          status: "draft",
+          created_by: "agent",
+        })
+        .select("id")
+        .single();
+
+      if (error) throw new Error(error.message);
+      revalidatePath(paths.platform.sops.root);
+      return { actionType: "created_sop", actionRefId: data.id };
+    }
+  }
+  return null;
+}
+
+export async function sendAgentMessageAction(input: {
+  conversationId?: string | null;
+  content: string;
+  projectId?: string | null;
+  stageId?: string | null;
+}): Promise<{
+  conversationId: string;
+  messages: AgentMessage[];
+}> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+  const trimmed = input.content.trim();
+  if (!trimmed) throw new Error("Mensaje vacío");
+
+  let conversationId = input.conversationId ?? null;
+
+  if (!conversationId) {
+    const created = await createAgentConversationAction({
+      projectId: input.projectId,
+      stageId: input.stageId,
+    });
+    if (!created) throw new Error("No se pudo crear la conversación");
+    conversationId = created.id;
+  }
+
+  const { data: convRow } = await supabase
+    .from("agent_conversations")
+    .select(
+      "*, agent_projects(id, name, color), business_stages(id, name, description)"
+    )
+    .eq("id", conversationId)
+    .eq("organization_id", organizationId)
+    .single();
+
+  if (!convRow) throw new Error("Conversación no encontrada");
+
+  const conversation = rowToConversation(convRow as AgentConversationRow);
+
+  const { count: priorCount } = await supabase
+    .from("agent_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("conversation_id", conversationId);
+
+  const { error: userErr } = await supabase
+    .from("agent_messages")
+    .insert({
+      conversation_id: conversationId,
+      organization_id: organizationId,
+      role: "user",
+      content: trimmed,
+    })
+    .select("*")
+    .single();
+
+  if (userErr) throw new Error(userErr.message);
+
+  await supabase
+    .from("agent_conversations")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", conversationId);
+
+  const history = await listAgentMessagesAction(conversationId);
+  const recentOrg = await getRecentOrgMessages(
+    supabase,
+    organizationId,
+    conversationId
+  );
+
+  let stageForPrompt: BusinessStage | null = null;
+  if (conversation.stageId) {
+    const { data: stageRow } = await supabase
+      .from("business_stages")
+      .select("*")
+      .eq("id", conversation.stageId)
+      .maybeSingle();
+    if (stageRow) stageForPrompt = rowToStage(stageRow);
+  }
+
+  const orgName = await getOrgName(supabase, organizationId);
+  const system = buildAgentSystemPrompt({
+    orgName,
+    stageContext: buildStageContext(stageForPrompt),
+    recentContext: buildRecentContextSummary(recentOrg),
+    projectName: conversation.project?.name,
+  });
+
+  const claudeMessages = history.map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
+
+  let rawAssistant = isAnthropicConfigured()
+    ? await callClaudeText({
+        organizationId,
+        model: "claude-sonnet-4-5",
+        feature: "agent_chat",
+        system,
+        messages: claudeMessages,
+      })
+    : null;
+
+  if (!rawAssistant) rawAssistant = MOCK_REPLY;
+
+  const actions = parseAgentActions(rawAssistant);
+  const actionResult = await executeAgentActions(
+    supabase,
+    organizationId,
+    actions
+  );
+  const displayContent = cleanAgentResponse(rawAssistant);
+
+  const { error: assistantErr } = await supabase.from("agent_messages").insert({
+    conversation_id: conversationId,
+    organization_id: organizationId,
+    role: "assistant",
+    content: displayContent,
+    action_type: actionResult?.actionType ?? null,
+    action_ref_id: actionResult?.actionRefId ?? null,
+  });
+
+  if (assistantErr) throw new Error(assistantErr.message);
+
+  if ((priorCount ?? 0) === 0 && isAnthropicConfigured()) {
+    void generateConversationTitle(organizationId, conversationId, trimmed);
+  }
+
+  revalidateAgent();
+
+  const messages = await listAgentMessagesAction(conversationId);
+  return { conversationId, messages };
+}

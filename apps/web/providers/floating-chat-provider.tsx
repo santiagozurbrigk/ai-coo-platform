@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { sendAgentMessageAction } from "@/app/agent/actions";
 
 export type AgentChatMessage = {
   id: string;
@@ -37,6 +38,8 @@ type FloatingChatContextValue = {
   needsAgentReply: boolean;
   clearNeedsAgentReply: () => void;
   runAgentReply: () => Promise<void>;
+  pendingConversationId: string | null;
+  clearPendingConversationId: () => void;
 };
 
 const FloatingChatCtx = createContext<FloatingChatContextValue | null>(null);
@@ -46,7 +49,7 @@ function newId() {
 }
 
 const MOCK_REPLY =
-  "Gracias por tu consulta. En la próxima fase conectaré datos reales de finanzas, ventas y marketing para darte una respuesta precisa con el contexto de tu negocio.";
+  "Gracias por tu consulta. Conecta ANTHROPIC_API_KEY y ejecuta la migración del agente en Supabase para respuestas reales con contexto de tu negocio.";
 
 export function FloatingChatProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -57,6 +60,7 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
   const [needsAgentReply, setNeedsAgentReply] = useState(false);
+  const [pendingConversationId, setPendingConversationId] = useState<string | null>(null);
 
   const open = useCallback(() => {
     setIsOpen(true);
@@ -113,18 +117,32 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
 
   const clearNeedsAgentReply = useCallback(() => setNeedsAgentReply(false), []);
 
+  const clearPendingConversationId = useCallback(
+    () => setPendingConversationId(null),
+    []
+  );
+
   const sendFromFloating = useCallback(
-    (message: string) => {
+    async (message: string) => {
       const trimmed = message.trim();
       if (!trimmed) return;
-      appendUserMessage(trimmed);
       setInputValue("");
       setIsOpen(false);
       setIsMinimized(false);
-      setNeedsAgentReply(true);
       setIsExpanding(true);
+      setPendingConversationId(null);
+      try {
+        const result = await sendAgentMessageAction({ content: trimmed });
+        setPendingConversationId(result.conversationId);
+      } catch (error) {
+        console.error("[sendFromFloating]", error);
+        setIsExpanding(false);
+        appendUserMessage(trimmed);
+        appendAssistantMessage(MOCK_REPLY);
+        setHasNewMessage(true);
+      }
     },
-    [appendUserMessage]
+    [appendUserMessage, appendAssistantMessage]
   );
 
   const sendFromAgent = useCallback(
@@ -164,6 +182,8 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
       needsAgentReply,
       clearNeedsAgentReply,
       runAgentReply: simulateReply,
+      pendingConversationId,
+      clearPendingConversationId,
     }),
     [
       isOpen,
@@ -184,6 +204,8 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
       needsAgentReply,
       clearNeedsAgentReply,
       simulateReply,
+      pendingConversationId,
+      clearPendingConversationId,
     ]
   );
 

@@ -1,16 +1,16 @@
 "use client";
 
-import { useFloatingChat } from "@/providers/floating-chat-provider";
-
-const SUGGESTIONS = [
-  "¿Cuál es mi tasa de agendamiento esta semana?",
-  "¿Dónde están los cuellos de botella operacionales?",
-  "¿Qué contenido está generando más ventas?",
-  "¿Cómo mejorar el cash collected este mes?",
-];
-
-export function AgentEmptyState() {
-  const { applySuggestion } = useFloatingChat();
+export function AgentEmptyState({
+  onSuggestion,
+}: {
+  onSuggestion?: (text: string) => void;
+}) {
+  const suggestions = [
+    "¿Cuál es mi tasa de agendamiento esta semana?",
+    "¿Dónde están los cuellos de botella operacionales?",
+    "¿Qué contenido está generando más ventas?",
+    "¿Cómo mejorar el cash collected este mes?",
+  ];
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-8 py-12">
@@ -24,11 +24,11 @@ export function AgentEmptyState() {
         </p>
       </div>
       <div className="grid w-full max-w-lg grid-cols-1 gap-2 sm:grid-cols-2">
-        {SUGGESTIONS.map((suggestion) => (
+        {suggestions.map((suggestion) => (
           <button
             key={suggestion}
             type="button"
-            onClick={() => applySuggestion(suggestion)}
+            onClick={() => onSuggestion?.(suggestion)}
             className="agent-suggestion rounded-xl border px-4 py-3 text-left text-sm text-muted-foreground transition-all duration-150 hover:text-foreground"
           >
             {suggestion}

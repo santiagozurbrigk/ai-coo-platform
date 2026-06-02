@@ -27,6 +27,47 @@ export type ClaudeJsonRequest = {
   maxTokens?: number;
 };
 
+export type ClaudeTextRequest = {
+  organizationId: string;
+  model: ClaudeModel;
+  feature: string;
+  system: string;
+  messages: { role: "user" | "assistant"; content: string }[];
+  maxTokens?: number;
+};
+
+export async function callClaudeText(
+  req: ClaudeTextRequest
+): Promise<string | null> {
+  const client = getClient();
+  if (!client) {
+    console.warn("[callClaudeText] ANTHROPIC_API_KEY no configurada");
+    return null;
+  }
+
+  const response = await client.messages.create({
+    model: MODEL_MAP[req.model],
+    max_tokens: req.maxTokens ?? 4096,
+    system: req.system,
+    messages: req.messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    })),
+  });
+
+  await trackTokenUsage({
+    organizationId: req.organizationId,
+    model: req.model as TokenUsageModel,
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+    feature: req.feature,
+  });
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") return null;
+  return textBlock.text.trim();
+}
+
 export async function callClaudeJson<T>(
   req: ClaudeJsonRequest
 ): Promise<T | null> {

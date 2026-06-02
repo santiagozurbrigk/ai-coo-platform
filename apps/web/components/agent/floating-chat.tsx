@@ -12,6 +12,7 @@ import { paths } from "@/routes/paths";
 export function FloatingChat() {
   const pathname = usePathname();
   const router = useRouter();
+  const agentRoot = paths.platform.agent.root;
   const {
     isOpen,
     isMinimized,
@@ -24,20 +25,32 @@ export function FloatingChat() {
     minimize,
     sendFromFloating,
     setIsExpanding,
+    pendingConversationId,
+    clearPendingConversationId,
   } = useFloatingChat();
 
   const isAgentRoute =
-    pathname === paths.platform.agent ||
-    pathname.startsWith(`${paths.platform.agent}/`);
+    pathname === agentRoot || pathname.startsWith(`${agentRoot}/`);
 
   useEffect(() => {
     if (!isExpanding) return;
     const timer = window.setTimeout(() => {
-      router.push(paths.platform.agent);
+      const target = pendingConversationId
+        ? paths.platform.agent.conversation(pendingConversationId)
+        : agentRoot;
+      router.push(target);
+      clearPendingConversationId();
       setIsExpanding(false);
     }, 380);
     return () => window.clearTimeout(timer);
-  }, [isExpanding, router, setIsExpanding]);
+  }, [
+    isExpanding,
+    router,
+    setIsExpanding,
+    pendingConversationId,
+    clearPendingConversationId,
+    agentRoot,
+  ]);
 
   if (isAgentRoute) {
     return null;
@@ -149,7 +162,7 @@ export function FloatingChat() {
               <PromptInputBox
                 value={inputValue}
                 onValueChange={setInputValue}
-                onSend={(message) => sendFromFloating(message)}
+                onSend={(message) => void sendFromFloating(message)}
                 placeholder="Preguntale algo a tu agente..."
                 className="rounded-t-none rounded-b-2xl border-t-0 !rounded-t-none"
               />
