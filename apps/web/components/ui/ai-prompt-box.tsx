@@ -432,8 +432,7 @@ const PromptInputTextarea: React.FC<
   );
 };
 
-interface PromptInputActionsProps
-  extends React.HTMLAttributes<HTMLDivElement> {}
+type PromptInputActionsProps = React.HTMLAttributes<HTMLDivElement>;
 const PromptInputActions: React.FC<PromptInputActionsProps> = ({
   children,
   className,
