@@ -23,6 +23,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Gastos",
     subtitle: "Gastos fijos, suscripciones y compensación del equipo",
   },
+  "/agent": {
+    title: "Agente de negocio",
+    subtitle: "Con acceso a todo el contexto de tu negocio",
+  },
   "/marketing": {
     title: "Marketing",
     subtitle: "Rendimiento de contenido Instagram y conexión con ventas",

@@ -23,6 +23,8 @@ export const paths = {
       expenses: `${PLATFORM}/finance/expenses`,
     },
 
+    agent: `${PLATFORM}/agent`,
+
     marketing: {
       overview: `${PLATFORM}/marketing`,
       content: `${PLATFORM}/marketing/content`,

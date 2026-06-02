@@ -26,6 +26,11 @@ export const platformNavigation: NavItem[] = [
     children: [{ label: "Gastos", href: paths.platform.finance.expenses }],
   },
   {
+    label: "Agente de negocio",
+    href: paths.platform.agent,
+    icon: "sparkles",
+  },
+  {
     label: "Marketing",
     href: paths.platform.marketing.overview,
     icon: "megaphone",

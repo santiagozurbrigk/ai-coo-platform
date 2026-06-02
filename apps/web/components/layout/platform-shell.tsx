@@ -5,14 +5,14 @@ import { TooltipProvider } from "@ai-coo/ui";
 import { ThreeColumnLayout } from "@/layouts/three-column-layout";
 import { AppSidebar } from "@/components/navigation/app-sidebar";
 import { AppTopbar } from "@/components/layout/app-topbar";
-import { ContextPanelDrawer } from "@/components/layout/context-panel-drawer";
+import { FloatingChat } from "@/components/agent";
 
 export function PlatformShell({ children }: { children: ReactNode }) {
   return (
     <TooltipProvider>
       <ThreeColumnLayout
         sidebar={<AppSidebar />}
-        overlay={<ContextPanelDrawer />}
+        overlay={<FloatingChat />}
       >
         <AppTopbar />
         <div className="main-container-scroll flex min-h-0 flex-1">

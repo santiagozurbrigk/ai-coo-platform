@@ -522,4 +522,56 @@
   html.dark .surface-glass:hover {
     box-shadow: none;
   }
+
+  /* Floating chat + agente de negocio */
+  .floating-chat {
+    @apply border border-border bg-card;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  }
+
+  html.dark .floating-chat {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  }
+
+  .floating-chat-header {
+    @apply border-border bg-card;
+  }
+
+  html.dark .floating-chat-header {
+    background: hsl(var(--card));
+    border-bottom-color: hsl(var(--border));
+  }
+
+  .chat-message-assistant {
+    @apply border-border bg-muted/50;
+  }
+
+  html.dark .chat-message-assistant {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.07);
+  }
+
+  :root:not(.dark) .chat-message-assistant {
+    background: rgb(248 250 252);
+    border-color: rgb(226 232 240);
+    color: rgb(15 23 42);
+  }
+
+  .agent-suggestion {
+    @apply border-border bg-muted/30;
+  }
+
+  .agent-suggestion:hover {
+    @apply border-border bg-muted/50;
+  }
+
+  html.dark .agent-suggestion {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.07);
+  }
+
+  html.dark .agent-suggestion:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
 }
