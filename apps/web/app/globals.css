@@ -323,6 +323,26 @@
     @apply flex-1 p-0;
   }
 
+  /* Módulo agente: ocupa el alto visible del panel principal */
+  .agent-page-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    height: calc(100vh - 8rem);
+    max-height: calc(100vh - 8rem);
+    overflow: hidden;
+  }
+
+  .agent-shell {
+    display: flex;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
   .sidebar {
     @apply flex h-full min-h-0 shrink-0 flex-col gap-0.5 overflow-x-hidden overflow-y-auto bg-transparent px-3 py-4;
     width: 220px;
@@ -602,11 +622,14 @@
     width: 240px;
     min-width: 240px;
     flex-shrink: 0;
+    align-self: stretch;
     height: 100%;
+    min-height: 100%;
     display: flex;
     flex-direction: column;
     border-right: 1px solid hsl(var(--border));
     overflow-y: auto;
+    overflow-x: hidden;
     scrollbar-width: none;
     padding: 16px 8px;
     gap: 4px;

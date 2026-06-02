@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { SopStatusBadge } from "@/components/sops";
 import { Panel } from "@/components/shared/panel";
-import { getSopById } from "@/mocks";
+import { getSopContentById } from "@/lib/sops/queries";
 
 export default async function SopDetailPage({
   params,
@@ -9,8 +9,10 @@ export default async function SopDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const sop = getSopById(id);
-  if (!sop) notFound();
+  const result = await getSopContentById(id);
+  if (!result) notFound();
+
+  const { sop, content } = result;
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -23,8 +25,7 @@ export default async function SopDetailPage({
       </Panel>
       <Panel title="Contenido del SOP">
         <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-          [Cuerpo mock — en producción se muestra el SOP generado por IA desde el
-          Contexto de Negocio.]
+          {content || "Sin contenido."}
         </p>
       </Panel>
     </div>

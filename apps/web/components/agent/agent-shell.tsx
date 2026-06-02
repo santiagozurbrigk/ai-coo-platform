@@ -19,7 +19,7 @@ export function AgentShell({
       filterProjectId={filterProjectId}
       filterStageId={filterStageId}
     >
-      <div className="flex h-full min-h-[calc(100vh-7rem)] w-full">
+      <div className="agent-shell">
         <AgentSidebar
           filterProjectId={filterProjectId}
           filterStageId={filterStageId}

@@ -1,6 +1,7 @@
 import { SopsOverview } from "@/components/sops/sops-overview";
-import { mockSops } from "@/mocks";
+import { listSops } from "@/lib/sops/queries";
 
-export default function SopsPage() {
-  return <SopsOverview sops={mockSops} />;
+export default async function SopsPage() {
+  const sops = await listSops();
+  return <SopsOverview sops={sops} />;
 }
