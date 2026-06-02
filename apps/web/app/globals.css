@@ -251,6 +251,7 @@
   }
 
   .main-container {
+    position: relative;
     display: flex;
     min-height: 0;
     min-width: 0;
@@ -259,6 +260,7 @@
     overflow: hidden;
     overflow: clip;
     border-radius: 16px;
+    --pattern-mask: rgb(var(--color-surface-2));
     background: rgb(var(--color-surface-2));
     box-shadow:
       0 1px 3px rgba(0, 0, 0, 0.06),

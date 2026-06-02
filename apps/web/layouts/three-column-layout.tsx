@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@ai-coo/ui";
+import { MainContainerPanel } from "@/components/layout/main-container-panel";
 
 /**
  * Shell flotante: sidebar sobre el fondo + panel principal redondeado.
@@ -21,9 +22,7 @@ export function ThreeColumnLayout({
         {sidebar}
       </div>
 
-      <div className="main-container" data-slot="main-panel">
-        {children}
-      </div>
+      <MainContainerPanel>{children}</MainContainerPanel>
 
       {overlay}
     </div>
