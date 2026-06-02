@@ -14,7 +14,7 @@ export function ConversationThread({
 }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="shrink-0 space-y-3 border-b border-white/[0.06] px-4 py-3">
+      <div className="shrink-0 space-y-3 border-b border-border px-4 py-3">
         <p className="truncate font-medium">{conversation.leadName}</p>
         {onTagChange && (
           <div className="min-w-0 max-w-full">

@@ -126,8 +126,8 @@ export function ClosingOverview() {
         isTabActive={(href) => (href.split("#")[1] ?? "calendario") === activeTab}
       />
 
-      <div className="flex flex-col gap-6 lg:flex-row">
-        <div className="min-w-0 flex-1 space-y-4">
+      <div className="flex flex-col gap-6">
+        <div className="min-w-0 w-full space-y-4">
           {closingCallsLoading ? (
             <p className="text-sm text-muted-foreground">Cargando llamadas…</p>
           ) : closingCalls.length === 0 ? (
@@ -351,7 +351,7 @@ function CallDetailPanel({
   onMarkNoShow: () => void;
 }) {
   return (
-    <GlassPanel className="w-full shrink-0 lg:w-[380px] p-5 space-y-5">
+    <GlassPanel className="w-full p-5 space-y-5">
       <div>
         <p className="text-lg font-semibold">{call.leadName}</p>
         <p className="text-sm text-muted-foreground mt-1">

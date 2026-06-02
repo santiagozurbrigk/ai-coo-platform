@@ -62,21 +62,22 @@ export function TopConvertingContentList({
       title="Contenido que más convierte"
       subtitle="Ranking + barras por conversaciones"
     >
-      <CategoryBarChart
-        className="mb-4"
-        items={ranked
-          .map((item) => {
-            const content = getContentById(item.contentId);
-            if (!content) return null;
-            return {
-              label: content.title.slice(0, 18),
-              value: item.conversations,
-            };
-          })
-          .filter((x): x is { label: string; value: number } => x != null)}
-        horizontal
-      />
-      <div className="space-y-3">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <CategoryBarChart
+          className="min-h-[200px] flex-1 lg:max-w-[45%]"
+          items={ranked
+            .map((item) => {
+              const content = getContentById(item.contentId);
+              if (!content) return null;
+              return {
+                label: content.title.slice(0, 18),
+                value: item.conversations,
+              };
+            })
+            .filter((x): x is { label: string; value: number } => x != null)}
+          horizontal
+        />
+        <div className="min-w-0 flex-1 space-y-3">
         {ranked.map((item, i) => {
           const content = getContentById(item.contentId);
           if (!content) return null;
@@ -92,7 +93,7 @@ export function TopConvertingContentList({
               key={content.id}
               href={paths.platform.marketing.contentDetail(content.id)}
               className={cn(
-                "flex gap-3 rounded-lg border border-border border-l-4 p-3 transition-all hover:scale-[1.01] hover:border-primary/40",
+                "flex gap-3 rounded-lg border border-border border-l-4 bg-card p-3 transition-all hover:scale-[1.01] hover:border-primary/40",
                 borderColors[i] ?? "border-l-muted"
               )}
             >
@@ -116,6 +117,7 @@ export function TopConvertingContentList({
             </Link>
           );
         })}
+        </div>
       </div>
     </ChartShell>
   );
@@ -206,8 +208,9 @@ export function PublishHeatmap({ cells }: { cells: HeatmapCell[] }) {
       subtitle="Barras por día + mapa de calor horario"
       className="min-h-[320px]"
     >
-      <CategoryBarChart items={byDay} className="min-h-[160px]" />
-      <div className="mt-4 min-h-[120px] overflow-x-auto">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+        <CategoryBarChart items={byDay} className="min-h-[160px] flex-1 lg:max-w-[42%]" />
+        <div className="min-h-[120px] flex-1 overflow-x-auto">
         <div
           className="inline-grid gap-0.5"
           style={{ gridTemplateColumns: "repeat(7, 1fr)" }}
@@ -232,6 +235,7 @@ export function PublishHeatmap({ cells }: { cells: HeatmapCell[] }) {
               onMouseLeave={() => setTip(null)}
             />
           ))}
+        </div>
         </div>
       </div>
       {tip && (

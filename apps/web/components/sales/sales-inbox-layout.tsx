@@ -47,8 +47,8 @@ export function SalesInboxLayout() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-[480px] flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02] md:flex-row">
-      <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 py-2 md:hidden">
+    <div className="flex h-[calc(100vh-8rem)] min-h-[480px] flex-col overflow-hidden rounded-xl border border-border bg-card md:flex-row">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2 md:hidden">
         <Dialog open={listOpen} onOpenChange={setListOpen}>
           <Button
             variant="outline"
@@ -99,7 +99,7 @@ export function SalesInboxLayout() {
         )}
       </div>
 
-      <div className="hidden h-full w-[280px] min-w-[280px] max-w-[280px] shrink-0 overflow-y-auto overflow-x-hidden bg-white/[0.02] lg:block">
+      <div className="hidden h-full w-[280px] min-w-[280px] max-w-[280px] shrink-0 overflow-y-auto overflow-x-hidden border-l border-border bg-card lg:block">
         {selected && <ConversationAnalysisPanel analysis={selected.analysis} />}
       </div>
     </div>

@@ -52,31 +52,57 @@ export function ClientsList({ clients }: { clients: Client[] }) {
           </button>
         ))}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((client) => (
-          <Link
-            key={client.id}
-            href={paths.platform.clients.detail(client.id)}
-            className="rounded-xl border border-border bg-card/30 p-5 transition-colors hover:bg-muted/30"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <p className="font-semibold">{client.name}</p>
-              {client.isSuccessCase && (
-                <Star className="h-4 w-4 fill-amber-400 text-amber-400 shrink-0" />
-              )}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Alta: {client.joinDate}
-            </p>
-            <p className="mt-2 text-sm">
-              {PAYMENT_LABEL[client.paymentType]} · $
-              {client.totalAmount.toLocaleString()}
-            </p>
-            <Badge className="mt-3" variant="secondary">
-              {STATUS_LABEL[client.status]}
-            </Badge>
-          </Link>
-        ))}
+      <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <th className="px-4 py-3 font-medium">Cliente</th>
+              <th className="px-4 py-3 font-medium">Alta</th>
+              <th className="px-4 py-3 font-medium">Pago</th>
+              <th className="px-4 py-3 font-medium">Monto</th>
+              <th className="px-4 py-3 font-medium">Estado</th>
+              <th className="px-4 py-3 font-medium" />
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((client) => (
+              <tr
+                key={client.id}
+                className="border-b border-border/50 transition-colors hover:bg-muted/40"
+              >
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{client.name}</span>
+                    {client.isSuccessCase && (
+                      <Star className="h-4 w-4 shrink-0 fill-amber-400 text-amber-400" />
+                    )}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-muted-foreground">{client.joinDate}</td>
+                <td className="px-4 py-3">{PAYMENT_LABEL[client.paymentType]}</td>
+                <td className="px-4 py-3 tabular-nums">
+                  ${client.totalAmount.toLocaleString()}
+                </td>
+                <td className="px-4 py-3">
+                  <Badge variant="secondary">{STATUS_LABEL[client.status]}</Badge>
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <Link
+                    href={paths.platform.clients.detail(client.id)}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    Ver detalle
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {filtered.length === 0 && (
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+            No hay clientes con este filtro.
+          </p>
+        )}
       </div>
     </div>
   );

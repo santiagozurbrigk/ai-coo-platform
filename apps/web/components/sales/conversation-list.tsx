@@ -25,8 +25,8 @@ export function ConversationList({
       : conversations.filter((c) => c.tag === tagFilter);
 
   return (
-    <div className="flex h-full min-w-0 w-full flex-col overflow-hidden border-r border-white/[0.06]">
-      <div className="shrink-0 border-b border-white/[0.06] px-3 py-3 space-y-3">
+    <div className="flex h-full min-w-0 w-full flex-col overflow-hidden border-r border-border bg-card">
+      <div className="shrink-0 border-b border-border px-3 py-3 space-y-3">
         <p className="px-1 text-xs font-medium text-muted-foreground">
           {filtered.length} conversaciones
         </p>
@@ -55,9 +55,9 @@ export function ConversationList({
               type="button"
               onClick={() => onSelect(c.id)}
               className={cn(
-                "w-full border-b border-white/[0.04] px-4 py-3 text-left transition-colors hover:bg-white/[0.03]",
+                "w-full border-b border-border px-4 py-3 text-left transition-colors hover:bg-muted/50",
                 selectedId === c.id &&
-                  "border-l-2 border-l-primary bg-white/[0.05]"
+                  "border-l-2 border-l-primary bg-muted/60"
               )}
             >
               <div className="flex items-start justify-between gap-2">

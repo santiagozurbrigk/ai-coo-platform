@@ -9,7 +9,7 @@ export function TeamInputsList({ inputs }: { inputs: TeamInput[] }) {
       {inputs.map((input) => (
         <li
           key={input.id}
-          className="rounded-xl border border-border bg-card/20 px-4 py-4"
+          className="rounded-xl border border-border bg-card px-4 py-4"
         >
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <ImportanceBadge importance={input.importance} />

@@ -139,13 +139,13 @@
     0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
     0 32px 80px rgba(0, 0, 0, 0.7);
 
-  --glass-bg: rgba(255, 255, 255, 0.06);
-  --glass-bg-strong: rgba(12, 10, 24, 0.85);
-  --glass-bg-nested: rgba(255, 255, 255, 0.04);
-  --glass-border-color: rgba(255, 255, 255, 0.1);
-  --glass-border-subtle: rgba(255, 255, 255, 0.07);
-  --glass-blur: 40px;
-  --glass-blur-md: 20px;
+  --glass-bg: hsl(var(--card));
+  --glass-bg-strong: hsl(var(--card));
+  --glass-bg-nested: hsl(var(--muted));
+  --glass-border-color: hsl(var(--border));
+  --glass-border-subtle: hsl(var(--border));
+  --glass-blur: 0px;
+  --glass-blur-md: 0px;
 
   --chart-secondary: 258 91% 76%;
   --chart-tertiary: 280 70% 60%;
