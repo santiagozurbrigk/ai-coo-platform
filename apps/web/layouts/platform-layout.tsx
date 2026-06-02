@@ -20,7 +20,11 @@ export function PlatformLayout({ children }: { children: ReactNode }) {
         fullWidth={agentFullBleed}
         className={agentFullBleed ? "agent-page-content" : undefined}
       >
-        <PageTransition>{children}</PageTransition>
+        {agentFullBleed ? (
+          <div className="agent-page-inner">{children}</div>
+        ) : (
+          <PageTransition>{children}</PageTransition>
+        )}
       </PageContent>
     </PlatformShell>
   );
