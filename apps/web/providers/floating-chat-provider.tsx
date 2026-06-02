@@ -18,6 +18,7 @@ export type AgentChatMessage = {
 
 type FloatingChatContextValue = {
   isOpen: boolean;
+  isMinimized: boolean;
   isExpanding: boolean;
   inputValue: string;
   messages: AgentChatMessage[];
@@ -49,6 +50,7 @@ const MOCK_REPLY =
 
 export function FloatingChatProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [isExpanding, setIsExpanding] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<AgentChatMessage[]>([]);
@@ -56,10 +58,25 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
   const [hasNewMessage, setHasNewMessage] = useState(false);
   const [needsAgentReply, setNeedsAgentReply] = useState(false);
 
-  const open = useCallback(() => setIsOpen(true), []);
-  const close = useCallback(() => setIsOpen(false), []);
-  const minimize = useCallback(() => setIsOpen(false), []);
-  const toggle = useCallback(() => setIsOpen((v) => !v), []);
+  const open = useCallback(() => {
+    setIsOpen(true);
+    setIsMinimized(false);
+  }, []);
+  const close = useCallback(() => {
+    setIsOpen(false);
+    setIsMinimized(false);
+  }, []);
+  const minimize = useCallback(() => setIsMinimized(true), []);
+  const toggle = useCallback(() => {
+    setIsOpen((open) => {
+      if (!open) {
+        setIsMinimized(false);
+        return true;
+      }
+      setIsMinimized((min) => !min);
+      return true;
+    });
+  }, []);
   const markMessagesRead = useCallback(() => setHasNewMessage(false), []);
 
   const appendUserMessage = useCallback((content: string) => {
@@ -103,6 +120,7 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
       appendUserMessage(trimmed);
       setInputValue("");
       setIsOpen(false);
+      setIsMinimized(false);
       setNeedsAgentReply(true);
       setIsExpanding(true);
     },
@@ -127,6 +145,7 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       isOpen,
+      isMinimized,
       isExpanding,
       inputValue,
       messages,
@@ -148,6 +167,7 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
     }),
     [
       isOpen,
+      isMinimized,
       isExpanding,
       inputValue,
       messages,

@@ -5,34 +5,37 @@ import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageSquare, Minus, Sparkles, X } from "lucide-react";
 import { cn } from "@ai-coo/ui";
+import { PromptInputBox } from "@/components/ui/ai-prompt-box";
 import { useFloatingChat } from "@/providers/floating-chat-provider";
 import { paths } from "@/routes/paths";
-import { PromptInputBox } from "./prompt-input-box";
 
 export function FloatingChat() {
   const pathname = usePathname();
   const router = useRouter();
   const {
     isOpen,
+    isMinimized,
     isExpanding,
     inputValue,
     setInputValue,
     hasNewMessage,
-    toggle,
-    minimize,
+    open,
     close,
+    minimize,
     sendFromFloating,
     setIsExpanding,
   } = useFloatingChat();
 
-  const isAgentRoute = pathname === paths.platform.agent || pathname.startsWith(`${paths.platform.agent}/`);
+  const isAgentRoute =
+    pathname === paths.platform.agent ||
+    pathname.startsWith(`${paths.platform.agent}/`);
 
   useEffect(() => {
     if (!isExpanding) return;
     const timer = window.setTimeout(() => {
       router.push(paths.platform.agent);
       setIsExpanding(false);
-    }, 400);
+    }, 380);
     return () => window.clearTimeout(timer);
   }, [isExpanding, router, setIsExpanding]);
 
@@ -42,28 +45,62 @@ export function FloatingChat() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={toggle}
-        aria-label="Abrir agente de negocio"
-        aria-expanded={isOpen}
-        className={cn(
-          "fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center",
-          "rounded-full bg-violet-600 shadow-lg shadow-violet-500/25",
-          "transition-all duration-200 hover:scale-105 hover:bg-violet-500 active:scale-95"
+      <AnimatePresence>
+        {!isOpen && (
+          <motion.button
+            type="button"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.94 }}
+            onClick={open}
+            aria-label="Abrir agente de negocio"
+            className={cn(
+              "fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center",
+              "rounded-full bg-violet-600 shadow-lg shadow-violet-500/30",
+              "transition-colors duration-150 hover:bg-violet-500"
+            )}
+          >
+            <MessageSquare className="h-5 w-5 text-white" />
+            {hasNewMessage ? (
+              <span
+                className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-background bg-violet-400"
+                aria-hidden
+              />
+            ) : null}
+          </motion.button>
         )}
-      >
-        <MessageSquare className="h-5 w-5 text-white" />
-        {hasNewMessage ? (
-          <span
-            className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-background bg-violet-400"
-            aria-hidden
-          />
-        ) : null}
-      </button>
+      </AnimatePresence>
 
       <AnimatePresence>
-        {isOpen ? (
+        {isOpen && isMinimized && (
+          <motion.button
+            type="button"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            onClick={open}
+            aria-label="Restaurar chat del agente"
+            className={cn(
+              "fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center",
+              "rounded-full bg-violet-600 shadow-lg shadow-violet-500/30",
+              "transition-colors duration-150 hover:bg-violet-500"
+            )}
+          >
+            <MessageSquare className="h-5 w-5 text-white" />
+            {inputValue.trim() ? (
+              <span
+                className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-background bg-violet-400"
+                aria-hidden
+              />
+            ) : null}
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isOpen && !isMinimized && (
           <>
             <motion.button
               type="button"
@@ -75,80 +112,81 @@ export function FloatingChat() {
               onClick={minimize}
             />
             <motion.div
-              initial={{ opacity: 0, y: 16, scale: 0.96 }}
+              initial={{ opacity: 0, y: 12, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.96 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="floating-chat fixed bottom-20 right-6 z-50 w-[420px] max-w-[calc(100vw-3rem)] rounded-2xl shadow-2xl"
+              exit={{ opacity: 0, y: 12, scale: 0.97 }}
+              transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
+              className="floating-chat fixed bottom-6 right-6 z-50 w-[440px] max-w-[calc(100vw-3rem)]"
             >
-              <div className="floating-chat-header flex items-center justify-between rounded-t-2xl border-b px-4 py-3">
+              <div className="floating-chat-header flex items-center justify-between rounded-t-2xl border border-b-0 px-4 py-2.5">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-600">
-                    <Sparkles className="h-3 w-3 text-white" />
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full border border-violet-500/30 bg-violet-600/20">
+                    <Sparkles className="h-2.5 w-2.5 text-violet-400" />
                   </div>
-                  <span className="text-sm font-medium text-foreground/90">
+                  <span className="text-xs font-medium text-muted-foreground">
                     Agente de negocio
                   </span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5">
                   <button
                     type="button"
                     onClick={minimize}
-                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     aria-label="Minimizar"
                   >
-                    <Minus className="h-3.5 w-3.5" />
+                    <Minus className="h-3 w-3" />
                   </button>
                   <button
                     type="button"
                     onClick={close}
-                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     aria-label="Cerrar"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    <X className="h-3 w-3" />
                   </button>
                 </div>
               </div>
               <PromptInputBox
                 value={inputValue}
-                onChange={setInputValue}
-                onSend={sendFromFloating}
+                onValueChange={setInputValue}
+                onSend={(message) => sendFromFloating(message)}
                 placeholder="Preguntale algo a tu agente..."
-                className="rounded-t-none rounded-b-2xl border-t-0"
+                className="rounded-t-none rounded-b-2xl border-t-0 !rounded-t-none"
               />
             </motion.div>
           </>
-        ) : null}
+        )}
       </AnimatePresence>
 
       <AnimatePresence>
-        {isExpanding ? (
+        {isExpanding && (
           <motion.div
-            className="fixed z-[100] bg-background"
+            className="pointer-events-none fixed z-[100] bg-background"
             initial={{
-              opacity: 0,
-              borderRadius: 16,
-              bottom: "5rem",
+              borderRadius: "16px",
+              bottom: "1.5rem",
               right: "1.5rem",
-              top: "auto",
-              left: "auto",
-              width: 420,
-              height: 200,
+              width: "440px",
+              height: "200px",
+              opacity: 0.6,
             }}
             animate={{
-              opacity: 1,
-              borderRadius: 0,
+              borderRadius: "0px",
               bottom: 0,
               right: 0,
               top: 0,
               left: 0,
-              width: "100%",
-              height: "100%",
+              width: "100vw",
+              height: "100vh",
+              opacity: 1,
             }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+            transition={{
+              duration: 0.38,
+              ease: [0.32, 0.72, 0, 1],
+            }}
           />
-        ) : null}
+        )}
       </AnimatePresence>
     </>
   );

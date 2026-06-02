@@ -574,4 +574,27 @@
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.12);
   }
+
+  :root:not(.dark) .prompt-input-box {
+    background: white !important;
+    border-color: rgba(0, 0, 0, 0.12) !important;
+  }
+
+  :root:not(.dark) .prompt-input-box textarea {
+    color: rgb(15 23 42) !important;
+  }
+
+  :root:not(.dark) .prompt-input-box textarea::placeholder {
+    color: rgba(0, 0, 0, 0.35) !important;
+  }
+
+  html.dark .floating-chat-header {
+    background: #111116;
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  :root:not(.dark) .floating-chat-header {
+    background: white;
+    border-color: rgba(0, 0, 0, 0.08);
+  }
 }
