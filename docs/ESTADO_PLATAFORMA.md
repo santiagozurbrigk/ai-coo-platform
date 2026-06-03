@@ -2,6 +2,7 @@
 
 **Última actualización:** mayo 2026  
 **Fase actual:** **1** — Backend, auth e integraciones (Fase 0 ✅ cerrada y aprobada)  
+**Fase siguiente:** **2** — planificada en `docs/PHASE_2.md` (Discord Bot, timeline cliente, testimonios)  
 **Monorepo:** `pnpm` · App principal: `apps/web` (`@ai-coo/web`)  
 **Design system compartido:** `packages/ui` (`@ai-coo/ui`)
 
@@ -319,7 +320,26 @@ Orden sugerido (alineado con `docs/PROJECT_CONSTITUTION.md` y `docs/SYSTEM_ARCHI
 - Export CSV / reportes ejecutivos PDF
 - Notificaciones push / email para cuotas vencidas y deals sin follow-up
 
+### E. Phase 2 — roadmap documentado (sin implementar aún)
+
+Especificación completa en **`docs/PHASE_2.md`**.
+
+| Feature Phase 2 | Estado | Notas |
+|-----------------|--------|-------|
+| **Integración Discord (bot)** | 📋 Planificado | Alta prioridad; patrón ManyChat; Railway + `discord.js`; tablas `discord_*` |
+| Testimonios auto desde Discord | 📋 Planificado | Canales + IA + keywords |
+| Timeline cliente (Fathom + Discord) | 📋 Planificado | Mismo perfil `/clients/[id]` |
+| Vista `/clients/testimonials` | 📋 Planificado | Export marketing |
+| Super Admin: alertas Discord | 📋 Planificado | `requires_attention` |
+
+**Discord — resumen:** Una app OTC; cada founder invita el bot; canales monitoreados; mensajes → API Vercel → clasificación Haiku; vinculación por `!vincular email` o fuzzy (como Fathom). Complementa llamadas con contexto de comunidad.
+
+**UI Phase 1:** card Discord en `/integrations` muestra **«Próximamente»** (sin OAuth ni tablas).
+
+**No hacer en Phase 1:** código del bot, migraciones Discord, Railway, endpoints `/api/discord/*`.
+
 ---
+
 
 ## Archivos de referencia
 
@@ -331,6 +351,7 @@ Orden sugerido (alineado con `docs/PROJECT_CONSTITUTION.md` y `docs/SYSTEM_ARCHI
 | `docs/UI_UX_SPEC.md` | UX objetivo |
 | `docs/PHASE_0.md` | Fase 0 cerrada (referencia histórica) |
 | `docs/PHASE_1.md` | Plan y orden Phase 1 |
+| `docs/PHASE_2.md` | Roadmap Phase 2 (Discord Bot, testimonios, timeline) |
 | `docs/DESIGN_SYSTEM.md` | Design system |
 | `routes/navigation.ts` | Menú actual |
 | `routes/paths.ts` | Constantes de rutas |

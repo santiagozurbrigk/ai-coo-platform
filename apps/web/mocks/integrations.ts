@@ -26,4 +26,13 @@ export const mockIntegrations: Integration[] = [
     status: "not_connected",
   },
   { id: "int9", provider: "miro", name: "Miro", status: "not_connected" },
+  {
+    id: "int-discord",
+    provider: "discord",
+    name: "Discord",
+    status: "not_connected",
+    comingSoon: true,
+    description:
+      "Conectá tu servidor para capturar conversaciones con clientes, detectar testimonios automáticamente y tener visibilidad completa de cada cliente.",
+  },
 ];

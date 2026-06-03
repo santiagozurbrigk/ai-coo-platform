@@ -1,7 +1,7 @@
 # Phase 1 — Backend, auth e integraciones (activa)
 
 **Fase 0:** ✅ Cerrada y aprobada (mayo 2026)  
-**Referencia:** `docs/PHASE_1.md` · `docs/ESTADO_PLATAFORMA.md` · `docs/PHASE_0.md`
+**Referencia:** `docs/PHASE_1.md` · `docs/ESTADO_PLATAFORMA.md` · `docs/PHASE_0.md` · `docs/PHASE_2.md` (planificación — no implementar aún)
 
 ## Reglas para el agente
 

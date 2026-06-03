@@ -42,6 +42,8 @@ const STATUS_LABEL: Record<string, string> = {
   syncing: es.status.integration.syncing,
 };
 
+const COMING_SOON_LABEL = "Próximamente";
+
 export function IntegrationCard({ integration }: { integration: Integration }) {
   const router = useRouter();
   const [status, setStatus] = useState(integration.status);
@@ -80,8 +82,11 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     });
   }, [integration.provider, status]);
 
-  const statusVariant =
-    status === "connected"
+  const comingSoon = integration.comingSoon === true;
+
+  const statusVariant = comingSoon
+    ? "outline"
+    : status === "connected"
       ? "success"
       : status === "syncing"
         ? "warning"
@@ -161,10 +166,15 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">{integration.name}</CardTitle>
-            <Badge variant={statusVariant}>{STATUS_LABEL[status]}</Badge>
+            <Badge variant={statusVariant}>
+              {comingSoon ? COMING_SOON_LABEL : STATUS_LABEL[status]}
+            </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
+          {integration.description ? (
+            <p className="text-xs text-muted-foreground">{integration.description}</p>
+          ) : null}
           {integration.provider === "instagram" && (
             <p className="text-xs text-muted-foreground">
               Conectá tu Instagram para visualizar el rendimiento de tu contenido y su
@@ -251,6 +261,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                 Desconectar
               </Button>
             </div>
+          ) : comingSoon ? (
+            <Button variant="outline" size="sm" className="w-full" type="button" disabled>
+              {COMING_SOON_LABEL} — Phase 2
+            </Button>
           ) : (
           <Button
             variant={status === "not_connected" ? "default" : "outline"}

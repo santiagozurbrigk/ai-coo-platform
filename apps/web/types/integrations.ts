@@ -8,4 +8,7 @@ export type Integration = {
   status: IntegrationStatus;
   lastSync?: string;
   recordsSynced?: number;
+  /** Phase 2 — sin flujo de conexión en Phase 1 */
+  comingSoon?: boolean;
+  description?: string;
 };
