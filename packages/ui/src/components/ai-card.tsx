@@ -29,7 +29,7 @@ export function AiCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
       className={cn(
-        "ai-card relative overflow-hidden rounded-[20px] p-5",
+        "ai-card glass-liquid-subtle relative overflow-hidden rounded-[20px] border border-white/8 p-5 dark:border-white/8",
         variant === "recommendation" && "ai-card-recommendation",
         className
       )}

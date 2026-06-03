@@ -1,10 +1,8 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@ai-coo/ui";
-import { AppLogo } from "@/components/brand";
 import { useSidebarCollapsed } from "@/hooks/use-sidebar-collapsed";
-import { WorkspaceSwitcher } from "./workspace-switcher";
+import { SidebarProfileArea } from "./sidebar-profile-area";
 import { SidebarNavigation } from "./sidebar-navigation";
 import { SidebarFooter } from "./sidebar-footer";
 
@@ -16,33 +14,11 @@ export function AppSidebar() {
       className={cn("sidebar h-full", collapsed && "collapsed")}
       data-collapsed={collapsed ? "true" : "false"}
     >
-      <div className="sidebar-logo">
-        {!collapsed ? (
-          <div className="min-w-0 flex-1">
-            <AppLogo display="sidebar" />
-          </div>
-        ) : (
-          <span className="sr-only">OTC</span>
-        )}
-        <button
-          type="button"
-          onClick={toggle}
-          aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
-          className="sidebar-collapse-btn"
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </button>
-      </div>
-
-      {!collapsed && hydrated ? (
-        <div className="mb-2 px-1">
-          <WorkspaceSwitcher />
-        </div>
-      ) : null}
+      {hydrated ? (
+        <SidebarProfileArea collapsed={collapsed} onToggleCollapsed={toggle} />
+      ) : (
+        <div className="mb-2 h-[52px] shrink-0" aria-hidden />
+      )}
 
       <nav className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
         <SidebarNavigation collapsed={collapsed} />

@@ -22,7 +22,7 @@ export function OptionCard({
         "relative w-full rounded-xl border px-5 py-4 text-left text-sm font-medium transition-all",
         "hover:border-primary/40 hover:bg-muted/30",
         selected
-          ? "border-primary bg-primary/10 text-foreground shadow-[0_0_24px_hsl(var(--ai)/0.12)]"
+          ? "glass-liquid-subtle glass-liquid-border border-primary bg-primary/10 text-foreground shadow-[0_0_24px_hsl(var(--ai)/0.12)]"
           : "border-border/60 bg-muted/10 text-muted-foreground"
       )}
     >

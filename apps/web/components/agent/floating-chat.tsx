@@ -70,12 +70,12 @@ export function FloatingChat() {
             onClick={open}
             aria-label="Abrir agente de negocio"
             className={cn(
-              "fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center",
-              "rounded-full bg-violet-600 shadow-lg shadow-violet-500/30",
-              "transition-colors duration-150 hover:bg-violet-500"
+              "glass-liquid-border fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center",
+              "rounded-full bg-[#0d0d14] shadow-lg shadow-violet-500/20",
+              "transition-colors duration-150 hover:bg-[#12121c]"
             )}
           >
-            <MessageSquare className="h-5 w-5 text-white" />
+            <MessageSquare className="relative z-10 h-5 w-5 text-white" />
             {hasNewMessage ? (
               <span
                 className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-background bg-violet-400"
@@ -96,12 +96,12 @@ export function FloatingChat() {
             onClick={open}
             aria-label="Restaurar chat del agente"
             className={cn(
-              "fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center",
-              "rounded-full bg-violet-600 shadow-lg shadow-violet-500/30",
-              "transition-colors duration-150 hover:bg-violet-500"
+              "glass-liquid-border fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center",
+              "rounded-full bg-[#0d0d14] shadow-lg shadow-violet-500/20",
+              "transition-colors duration-150 hover:bg-[#12121c]"
             )}
           >
-            <MessageSquare className="h-5 w-5 text-white" />
+            <MessageSquare className="relative z-10 h-5 w-5 text-white" />
             {inputValue.trim() ? (
               <span
                 className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-background bg-violet-400"

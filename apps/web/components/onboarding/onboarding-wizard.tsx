@@ -191,7 +191,7 @@ export function OnboardingWizard() {
             animate="animate"
             exit="exit"
             transition={{ duration: 0.25 }}
-            className="w-full max-w-xl"
+            className="wizard-card glass-liquid-subtle glass-liquid-border w-full max-w-xl rounded-2xl p-6"
           >
             {stepId === "welcome" && (
               <div className="space-y-8 text-center">
