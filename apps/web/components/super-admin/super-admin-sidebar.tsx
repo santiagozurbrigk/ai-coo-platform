@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight, Shield } from "lucide-react";
 import {
   Tooltip,
@@ -10,19 +9,13 @@ import {
   cn,
 } from "@ai-coo/ui";
 import { useSidebarCollapsed } from "@/hooks/use-sidebar-collapsed";
-import { useSidebarExpanded } from "@/hooks/use-sidebar-expanded";
-import { superAdminNavigation } from "@/routes/navigation";
+import { superAdminSidebarNav } from "@/lib/navigation/super-admin-sidebar-modules";
 import { paths } from "@/routes";
 import { es } from "@/lib/locale/es";
-import { NavGroup } from "@/components/navigation/nav-group";
+import { SidebarTwoLevelNavigation } from "@/components/navigation/sidebar-two-level-navigation";
 
 export function SuperAdminSidebar() {
-  const pathname = usePathname();
   const { collapsed, toggle } = useSidebarCollapsed();
-  const { isExpanded, toggle: toggleSection } = useSidebarExpanded(
-    pathname,
-    superAdminNavigation
-  );
 
   return (
     <aside
@@ -61,17 +54,11 @@ export function SuperAdminSidebar() {
         </button>
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-x-hidden overflow-y-auto">
-        {superAdminNavigation.map((item) => (
-          <NavGroup
-            key={item.href}
-            item={item}
-            pathname={pathname}
-            isExpanded={collapsed ? false : isExpanded(item.href)}
-            onToggle={() => toggleSection(item.href)}
-            collapsed={collapsed}
-          />
-        ))}
+      <nav className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
+        <SidebarTwoLevelNavigation
+          config={superAdminSidebarNav}
+          collapsed={collapsed}
+        />
       </nav>
 
       <div className="sidebar-divider" aria-hidden />

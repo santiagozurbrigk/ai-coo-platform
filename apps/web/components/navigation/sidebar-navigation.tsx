@@ -1,17 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { countPendingFathomCallsAction } from "@/app/fathom/actions";
-import { platformNavigation } from "@/routes/navigation";
 import { paths } from "@/routes";
-import { useSidebarExpanded } from "@/hooks/use-sidebar-expanded";
-import { NavGroup } from "./nav-group";
+import { platformSidebarNav } from "@/lib/navigation/sidebar-modules";
+import type { SidebarDirectModule } from "@/lib/navigation/sidebar-nav-config";
+import { SidebarTwoLevelNavigation } from "./sidebar-two-level-navigation";
 
 export function SidebarNavigation({ collapsed }: { collapsed?: boolean }) {
   const pathname = usePathname();
   const [pendingCalls, setPendingCalls] = useState(0);
-  const baseNav = useSidebarExpanded(pathname, platformNavigation);
 
   useEffect(() => {
     countPendingFathomCallsAction()
@@ -19,28 +18,21 @@ export function SidebarNavigation({ collapsed }: { collapsed?: boolean }) {
       .catch(() => setPendingCalls(0));
   }, [pathname]);
 
-  const navigation = useMemo(
-    () =>
-      platformNavigation.map((item) =>
-        item.href === paths.platform.clients.root
-          ? { ...item, badge: pendingCalls }
-          : item
+  const mapDirectModules = useCallback(
+    (modules: SidebarDirectModule[]) =>
+      modules.map((module) =>
+        module.href === paths.platform.clients.root
+          ? { ...module, badge: pendingCalls }
+          : module
       ),
     [pendingCalls]
   );
 
   return (
-    <div className="space-y-0.5">
-      {navigation.map((item) => (
-        <NavGroup
-          key={item.href}
-          item={item}
-          pathname={pathname}
-          isExpanded={collapsed ? false : baseNav.isExpanded(item.href)}
-          onToggle={() => baseNav.toggle(item.href)}
-          collapsed={collapsed}
-        />
-      ))}
-    </div>
+    <SidebarTwoLevelNavigation
+      config={platformSidebarNav}
+      collapsed={collapsed}
+      mapDirectModules={mapDirectModules}
+    />
   );
 }

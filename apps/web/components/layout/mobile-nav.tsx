@@ -1,24 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { Button, Dialog, DialogContent, DialogTitle } from "@ai-coo/ui";
-import { platformNavigation, secondaryNavigation } from "@/routes/navigation";
-import { useSidebarExpanded } from "@/hooks/use-sidebar-expanded";
-import { NavGroup } from "@/components/navigation/nav-group";
+import { Button, Dialog, DialogContent, DialogTitle, cn } from "@ai-coo/ui";
+import { countPendingFathomCallsAction } from "@/app/fathom/actions";
+import { secondaryNavigation } from "@/routes/navigation";
+import { paths } from "@/routes";
+import { platformSidebarNav } from "@/lib/navigation/sidebar-modules";
+import type { SidebarDirectModule } from "@/lib/navigation/sidebar-nav-config";
 import { isPathActive } from "@/lib/navigation/active-path";
+import { SidebarTwoLevelNavigation } from "@/components/navigation/sidebar-two-level-navigation";
 import { NavIcon } from "@/components/navigation/nav-icons";
 import { AppLogo } from "@/components/brand";
-import { cn } from "@ai-coo/ui";
 
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const { isExpanded, toggle } = useSidebarExpanded(pathname, platformNavigation);
+  const [pendingCalls, setPendingCalls] = useState(0);
 
   const close = () => setOpen(false);
+
+  useEffect(() => {
+    if (!open) return;
+    countPendingFathomCallsAction()
+      .then(setPendingCalls)
+      .catch(() => setPendingCalls(0));
+  }, [pathname, open]);
+
+  const mapDirectModules = useCallback(
+    (modules: SidebarDirectModule[]) =>
+      modules.map((module) =>
+        module.href === paths.platform.clients.root
+          ? { ...module, badge: pendingCalls }
+          : module
+      ),
+    [pendingCalls]
+  );
 
   return (
     <>
@@ -48,42 +67,35 @@ export function MobileNav() {
             </Button>
           </DialogTitle>
 
-          <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
-            {platformNavigation.map((item) => (
-              <div key={item.href} onClick={(e) => {
-                const target = e.target as HTMLElement;
-                if (target.closest("a")) close();
-              }}>
-                <NavGroup
-                  item={item}
-                  pathname={pathname}
-                  isExpanded={isExpanded(item.href)}
-                  onToggle={() => toggle(item.href)}
-                />
-              </div>
-            ))}
+          <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3">
+            <SidebarTwoLevelNavigation
+              config={platformSidebarNav}
+              mapDirectModules={mapDirectModules}
+              onLinkClick={close}
+              className="relative min-h-0 flex-1 overflow-hidden"
+            />
           </nav>
 
-          {secondaryNavigation.length > 0 && (
-          <div className="border-t border-border p-3 space-y-1">
-            {secondaryNavigation.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={close}
-                className={cn(
-                  "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
-                  isPathActive(item.href, pathname)
-                    ? "bg-muted font-medium"
-                    : "text-muted-foreground hover:bg-muted/60"
-                )}
-              >
-                {item.icon && <NavIcon name={item.icon} />}
-                {item.label}
-              </Link>
-            ))}
-          </div>
-          )}
+          {secondaryNavigation.length > 0 ? (
+            <div className="space-y-1 border-t border-border p-3">
+              {secondaryNavigation.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={close}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
+                    isPathActive(item.href, pathname)
+                      ? "bg-muted font-medium"
+                      : "text-muted-foreground hover:bg-muted/60"
+                  )}
+                >
+                  {item.icon ? <NavIcon name={item.icon} /> : null}
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </>

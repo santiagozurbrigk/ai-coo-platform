@@ -392,6 +392,14 @@
     @apply mx-1 my-2 h-px bg-black/[0.06];
   }
 
+  .sidebar-section-label {
+    @apply text-2xs font-medium tracking-wide text-black/35;
+  }
+
+  html.dark .sidebar-section-label {
+    @apply text-white/35;
+  }
+
   html.dark .sidebar-divider {
     @apply bg-white/[0.06];
   }
