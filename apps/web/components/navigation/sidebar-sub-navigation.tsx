@@ -26,9 +26,9 @@ export function SidebarSubNavigation({
   onLinkClick?: () => void;
 }) {
   const pathname = usePathname();
-  const module = config.modulesWithChildren[moduleKey];
+  const parentModule = config.modulesWithChildren[moduleKey];
 
-  if (!module) return null;
+  if (!parentModule) return null;
 
   const backButton = (
     <button
@@ -59,10 +59,10 @@ export function SidebarSubNavigation({
       )}
 
       {!collapsed ? (
-        <p className="sidebar-section-label mb-1 px-3">{module.label}</p>
+        <p className="sidebar-section-label mb-1 px-3">{parentModule.label}</p>
       ) : null}
 
-      {module.children.map((child) => (
+      {parentModule.children.map((child) => (
         <SidebarItem
           key={child.href}
           icon={child.icon}

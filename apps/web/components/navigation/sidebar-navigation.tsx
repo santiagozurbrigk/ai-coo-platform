@@ -20,10 +20,10 @@ export function SidebarNavigation({ collapsed }: { collapsed?: boolean }) {
 
   const mapDirectModules = useCallback(
     (modules: SidebarDirectModule[]) =>
-      modules.map((module) =>
-        module.href === paths.platform.clients.root
-          ? { ...module, badge: pendingCalls }
-          : module
+      modules.map((entry) =>
+        entry.href === paths.platform.clients.root
+          ? { ...entry, badge: pendingCalls }
+          : entry
       ),
     [pendingCalls]
   );

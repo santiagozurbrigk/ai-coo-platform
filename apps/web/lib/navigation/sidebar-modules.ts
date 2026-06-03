@@ -97,7 +97,7 @@ export const directModules: SidebarDirectModule[] = [
 ];
 
 const platformRootItems: SidebarNavRootItem[] = [
-  ...directModules.map((module) => ({ type: "link" as const, module })),
+  ...directModules.map((direct) => ({ type: "link" as const, module: direct })),
   { type: "divider" },
   ...SIDEBAR_PARENT_KEYS.map((key) => ({ type: "parent" as const, key })),
 ];

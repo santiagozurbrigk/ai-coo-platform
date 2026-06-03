@@ -32,7 +32,7 @@ export function SidebarRootNavigation({
   }, [config.rootItems, mapDirectModules]);
 
   const linkModuleByHref = useMemo(
-    () => new Map(linkModules.map((module) => [module.href, module])),
+    () => new Map(linkModules.map((link) => [link.href, link])),
     [linkModules]
   );
 
@@ -44,16 +44,16 @@ export function SidebarRootNavigation({
         }
 
         if (item.type === "link") {
-          const module = linkModuleByHref.get(item.module.href) ?? item.module;
+          const direct = linkModuleByHref.get(item.module.href) ?? item.module;
           return (
             <SidebarItem
-              key={module.href}
-              icon={module.icon}
-              label={module.label}
-              href={module.href}
-              isActive={isSidebarDirectActive(module.href, pathname)}
+              key={direct.href}
+              icon={direct.icon}
+              label={direct.label}
+              href={direct.href}
+              isActive={isSidebarDirectActive(direct.href, pathname)}
               collapsed={collapsed}
-              badge={module.badge}
+              badge={direct.badge}
               onLinkClick={onLinkClick}
             />
           );
