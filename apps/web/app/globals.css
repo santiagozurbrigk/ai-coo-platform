@@ -413,7 +413,7 @@
   }
 
   .sidebar-item {
-    @apply flex cursor-pointer items-center gap-2.5 overflow-hidden whitespace-nowrap rounded-lg border-l-2 border-transparent py-2 pl-2 pr-2.5 text-[13.5px] font-[450] text-black/40 transition-[background,color] duration-150;
+    @apply flex cursor-pointer items-center gap-2.5 overflow-hidden whitespace-nowrap rounded-md px-2.5 py-2 text-[13.5px] font-[450] text-black/40 transition-[background,color] duration-150;
   }
 
   html.dark .sidebar-item {
@@ -429,7 +429,7 @@
   }
 
   .sidebar-item.active {
-    @apply border-l-[#7C3AED] bg-black/[0.06] font-medium text-[#0A0A0A];
+    @apply bg-black/[0.06] font-medium text-[#0A0A0A];
   }
 
   html.dark .sidebar-item.active {
