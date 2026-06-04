@@ -38,7 +38,7 @@ export function ReachInteractionsChart({ data }: { data: MarketingTimePoint[] })
     <ChartShell
       title="Alcance e interacciones"
       subtitle="Área dual · últimos 30 días"
-      className="lg:col-span-2"
+      className="h-full min-h-[280px]"
     >
       <DualAreaChart
         data={rows}

@@ -4,38 +4,46 @@ import {
   DASHBOARD_SPARKLINE_BY_ID,
   sparklineProps,
 } from "@/lib/metrics/sparkline-series";
+import { BentoCell, BentoGrid, type BentoSize } from "./bento-grid";
+
+const METRIC_BENTO_PATTERN: BentoSize[] = [
+  "wide",
+  "unit",
+  "unit",
+  "wide",
+  "unit",
+  "wide",
+  "unit",
+  "unit",
+];
 
 export function MetricGrid({
   metrics,
-  columns = 4,
 }: {
   metrics: DashboardMetric[];
+  /** @deprecated El layout bento define el tamaño por posición. */
   columns?: 2 | 3 | 4;
 }) {
-  const colClass =
-    columns === 2
-      ? "sm:grid-cols-2"
-      : columns === 3
-        ? "sm:grid-cols-2 lg:grid-cols-3"
-        : "sm:grid-cols-2 lg:grid-cols-4";
-
   return (
-    <div className={`grid gap-4 ${colClass}`}>
+    <BentoGrid>
       {metrics.map((m, index) => {
         const preset = DASHBOARD_SPARKLINE_BY_ID[m.id];
         const sparkline = preset ? sparklineProps(preset, index * 100) : {};
+        const size = METRIC_BENTO_PATTERN[index % METRIC_BENTO_PATTERN.length];
 
         return (
-          <MetricCard
-            key={m.id}
-            title={m.label}
-            value={m.value}
-            trend={m.trend as MetricTrend | undefined}
-            trendValue={m.trendValue}
-            {...sparkline}
-          />
+          <BentoCell key={m.id} size={size}>
+            <MetricCard
+              className="h-full"
+              title={m.label}
+              value={m.value}
+              trend={m.trend as MetricTrend | undefined}
+              trendValue={m.trendValue}
+              {...sparkline}
+            />
+          </BentoCell>
         );
       })}
-    </div>
+    </BentoGrid>
   );
 }

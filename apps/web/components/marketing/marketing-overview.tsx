@@ -15,6 +15,7 @@ import {
   mockTypePerformance,
 } from "@/mocks/marketing";
 import { useMarketingData } from "@/providers";
+import { BentoCell, BentoGrid } from "@/components/shared/bento-grid";
 import { ContentLabelDistributionChart } from "@/components/marketing/content-label-distribution-chart";
 import { InstagramEmptyState } from "./instagram-empty-state";
 import {
@@ -63,50 +64,66 @@ export function MarketingOverview({
     <div className="space-y-8">
       {instagramConnected ? (
         <>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <MetricCard
-            title="Alcance total"
-            value={formatNum(m.totalReach)}
-            subtitle="Últimos 30 días"
-            trend="up"
-            trendValue={`+${m.reachTrendPct}%`}
-            {...sparklineProps("reach", 0)}
-          />
-          <MetricCard
-            title="Interacciones totales"
-            value={formatNum(m.totalInteractions)}
-            subtitle={`Engagement ${m.engagementRatePct}%`}
-            trend="up"
-            trendValue={`+${m.interactionsTrendPct}%`}
-            {...sparklineProps("interactions", 100)}
-          />
-          <MetricCard
-            title="Contenido publicado"
-            value={String(m.contentPublished)}
-            subtitle={`${m.reelsCount} reels · ${m.postsCount} posts · ${m.storiesCount} stories`}
-          />
-          <MetricCard
-            title="Conversaciones generadas"
-            value={String(m.conversationsGenerated)}
-            subtitle="Vinculadas a bandeja de ventas"
-            {...sparklineProps("conversations", 200)}
-          />
-          <MetricCard
-            title="Bookings influenciados"
-            value={String(m.bookingsInfluenced)}
-            subtitle={`${m.bookingsInfluencedPct}% del total de bookings`}
-          />
-          <MetricCard
-            title="Ventas influenciadas"
-            value={String(m.salesInfluenced)}
-            subtitle={`$${m.revenueInfluenced.toLocaleString("es-ES")} atribuidos`}
-            {...sparklineProps("salesInfluenced", 300)}
-          />
-        </div>
-
-        <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <BentoGrid>
+          <BentoCell size="large">
             <MetricCard
+              className="h-full"
+              title="Alcance total"
+              value={formatNum(m.totalReach)}
+              subtitle="Últimos 30 días"
+              trend="up"
+              trendValue={`+${m.reachTrendPct}%`}
+              {...sparklineProps("reach", 0)}
+            />
+          </BentoCell>
+          <BentoCell size="wide">
+            <MetricCard
+              className="h-full"
+              title="Interacciones totales"
+              value={formatNum(m.totalInteractions)}
+              subtitle={`Engagement ${m.engagementRatePct}%`}
+              trend="up"
+              trendValue={`+${m.interactionsTrendPct}%`}
+              {...sparklineProps("interactions", 100)}
+            />
+          </BentoCell>
+          <BentoCell size="unit">
+            <MetricCard
+              className="h-full"
+              title="Contenido publicado"
+              value={String(m.contentPublished)}
+              subtitle={`${m.reelsCount} reels · ${m.postsCount} posts · ${m.storiesCount} stories`}
+            />
+          </BentoCell>
+          <BentoCell size="wide">
+            <MetricCard
+              className="h-full"
+              title="Conversaciones generadas"
+              value={String(m.conversationsGenerated)}
+              subtitle="Vinculadas a bandeja de ventas"
+              {...sparklineProps("conversations", 200)}
+            />
+          </BentoCell>
+          <BentoCell size="unit">
+            <MetricCard
+              className="h-full"
+              title="Bookings influenciados"
+              value={String(m.bookingsInfluenced)}
+              subtitle={`${m.bookingsInfluencedPct}% del total de bookings`}
+            />
+          </BentoCell>
+          <BentoCell size="wide">
+            <MetricCard
+              className="h-full"
+              title="Ventas influenciadas"
+              value={String(m.salesInfluenced)}
+              subtitle={`$${m.revenueInfluenced.toLocaleString("es-ES")} atribuidos`}
+              {...sparklineProps("salesInfluenced", 300)}
+            />
+          </BentoCell>
+          <BentoCell size="unit">
+            <MetricCard
+              className="h-full"
               title="Respuestas a historias"
               value={formatNum(additionalMarketingMetrics.storyReplies.value)}
               subtitle="Últimos 30 días"
@@ -120,7 +137,10 @@ export function MarketingOverview({
               sparklineColor="#F472B6"
               sparklineAnimationDelay={50}
             />
+          </BentoCell>
+          <BentoCell size="unit">
             <MetricCard
+              className="h-full"
               title="Comentarios totales"
               value={formatNum(additionalMarketingMetrics.totalComments.value)}
               subtitle="Últimos 30 días"
@@ -130,9 +150,10 @@ export function MarketingOverview({
               )}
               {...sparklineProps("totalComments", 150)}
             />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          </BentoCell>
+          <BentoCell size="wide">
             <MetricCard
+              className="h-full"
               title="Crecimiento del perfil"
               value={`+${formatNum(additionalMarketingMetrics.profileGrowth.value)}`}
               subtitle={
@@ -145,7 +166,10 @@ export function MarketingOverview({
               )}
               {...sparklineProps("profileGrowth", 200)}
             />
+          </BentoCell>
+          <BentoCell size="wide">
             <MetricCard
+              className="h-full"
               title="Conversión views → seguidores"
               value={`${additionalMarketingMetrics.viewsToFollowersRate.value}${additionalMarketingMetrics.viewsToFollowersRate.suffix ?? "%"}`}
               subtitle="Últimos 30 días"
@@ -156,31 +180,45 @@ export function MarketingOverview({
               )}
               {...sparklineProps("viewsToFollowers", 250)}
             />
-          </div>
-        </div>
+          </BentoCell>
+        </BentoGrid>
         </>
       ) : null}
 
-      <ContentLabelDistributionChart
-        counts={distribution.counts}
-        total={distribution.total}
-        insight={distribution.insight}
-      />
+      <BentoGrid>
+        <BentoCell size="banner">
+          <ContentLabelDistributionChart
+            counts={distribution.counts}
+            total={distribution.total}
+            insight={distribution.insight}
+          />
+        </BentoCell>
+      </BentoGrid>
 
       {!instagramConnected ? (
         <InstagramEmptyState />
       ) : (
         <>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <ReachInteractionsChart data={mockReachTimeSeries} />
-            <div className="flex w-full flex-col gap-6 lg:col-span-2">
+          <BentoGrid>
+            <BentoCell size="large">
+              <ReachInteractionsChart data={mockReachTimeSeries} />
+            </BentoCell>
+            <BentoCell size="wide">
               <ContentFunnelChart stages={mockContentFunnel} />
+            </BentoCell>
+            <BentoCell size="wide">
               <TopConvertingContentList ranked={topConverting} />
-            </div>
-            <TypeRadarChart types={mockTypePerformance} />
-            <PublishHeatmap cells={mockPublishHeatmap} />
-            <FollowerGrowthChart data={mockFollowerGrowth} />
-          </div>
+            </BentoCell>
+            <BentoCell size="unit">
+              <TypeRadarChart types={mockTypePerformance} />
+            </BentoCell>
+            <BentoCell size="unit">
+              <PublishHeatmap cells={mockPublishHeatmap} />
+            </BentoCell>
+            <BentoCell size="wide">
+              <FollowerGrowthChart data={mockFollowerGrowth} />
+            </BentoCell>
+          </BentoGrid>
 
           <section className="space-y-3">
             <h3 className="text-sm font-medium text-muted-foreground">

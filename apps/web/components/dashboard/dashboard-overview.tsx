@@ -14,6 +14,7 @@ import {
 } from "@/components/charts/platform";
 import type { PieData } from "@/components/charts/pie-context";
 import { FlowCta } from "@/components/shared/flow-cta";
+import { BentoCell, BentoCellPlace, BentoGrid } from "@/components/shared/bento-grid";
 import { Panel } from "@/components/shared/panel";
 import { formatMoney } from "@/lib/finance/format";
 import { formatPercent } from "@/lib/format";
@@ -74,88 +75,105 @@ export function DashboardOverview({
         animate: { transition: { staggerChildren: 0.06 } },
       }}
     >
-      <motion.div variants={fade} className="grid gap-4 lg:grid-cols-3">
-        <MetricChartPanel
-          title="Facturación"
-          value={formatMoney(hero.facturacion)}
-          subtitle="Últimos 7 días"
-          valueClassName="text-[var(--chart-2)]"
-        >
-          <HeroAreaChart
-            data={hero.facturacionTrend}
-            color="var(--chart-2)"
-            emptyMessage="Sin historial — solo valor del período"
-          />
-        </MetricChartPanel>
+      <motion.div variants={fade}>
+        <BentoGrid>
+          <BentoCellPlace className="col-span-2 row-span-2 lg:col-span-2 lg:row-span-2">
+            <MetricChartPanel
+              title="Facturación"
+              value={formatMoney(hero.facturacion)}
+              subtitle="Últimos 7 días"
+              valueClassName="text-[var(--chart-2)]"
+              className="min-h-[300px]"
+            >
+              <HeroAreaChart
+                data={hero.facturacionTrend}
+                color="var(--chart-2)"
+                emptyMessage="Sin historial — solo valor del período"
+              />
+            </MetricChartPanel>
+          </BentoCellPlace>
 
-        <MetricChartPanel
-          title="Cash Collected"
-          value={formatMoney(hero.cashCollected)}
-          subtitle="Últimos 7 días"
-          valueClassName="text-[var(--chart-2)]"
-        >
-          <HeroAreaChart
-            data={hero.cashTrend}
-            color="var(--chart-2)"
-            emptyMessage="Sin cobros en el período"
-          />
-        </MetricChartPanel>
+          <BentoCellPlace className="col-span-2 row-span-1 lg:col-span-2 lg:col-start-3 lg:row-start-1">
+            <MetricChartPanel
+              title="Cash Collected"
+              value={formatMoney(hero.cashCollected)}
+              subtitle="Últimos 7 días"
+              valueClassName="text-[var(--chart-2)]"
+              className="min-h-[140px]"
+            >
+              <HeroAreaChart
+                data={hero.cashTrend}
+                color="var(--chart-2)"
+                emptyMessage="Sin cobros en el período"
+              />
+            </MetricChartPanel>
+          </BentoCellPlace>
 
-        <MetricChartPanel
-          title="Tasa de agendamiento"
-          value={formatPercent(hero.bookingRate)}
-          subtitle={`Objetivo ${BOOKING_TARGET}%`}
-        >
-          <GaugeTargetChart
-            value={hero.bookingRate}
-            max={100}
-            target={BOOKING_TARGET}
-            label="Agendamiento"
-            suffix="%"
-            variant="booking"
-            className="h-full"
-          />
-        </MetricChartPanel>
-      </motion.div>
+          <BentoCellPlace className="col-span-2 row-span-1 lg:col-span-2 lg:col-start-3 lg:row-start-2">
+            <MetricChartPanel
+              title="Tasa de agendamiento"
+              value={formatPercent(hero.bookingRate)}
+              subtitle={`Objetivo ${BOOKING_TARGET}%`}
+              className="min-h-[140px]"
+            >
+              <GaugeTargetChart
+                value={hero.bookingRate}
+                max={100}
+                target={BOOKING_TARGET}
+                label="Agendamiento"
+                suffix="%"
+                variant="booking"
+                className="h-full"
+              />
+            </MetricChartPanel>
+          </BentoCellPlace>
 
-      <motion.div variants={fade} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MiniMetricChart title="Conv. activas" value={String(hero.activeConversations)}>
-          <TrendLineChart
-            data={convTrend}
-            className="min-h-[120px]"
-            aspectRatio="3 / 1"
-          />
-        </MiniMetricChart>
+          <BentoCell size="unit">
+            <MiniMetricChart title="Conv. activas" value={String(hero.activeConversations)}>
+              <TrendLineChart
+                data={convTrend}
+                className="min-h-[120px]"
+                aspectRatio="3 / 1"
+              />
+            </MiniMetricChart>
+          </BentoCell>
 
-        <MiniMetricChart title="Tasa de fantasma" value={formatPercent(hero.ghostingRate)}>
-          <GaugeTargetChart
-            value={ghostGaugeValue}
-            max={100}
-            target={20}
-            label="Fantasma"
-            variant="inverted"
-            className="min-h-[120px]"
-          />
-        </MiniMetricChart>
+          <BentoCell size="unit">
+            <MiniMetricChart title="Tasa de fantasma" value={formatPercent(hero.ghostingRate)}>
+              <GaugeTargetChart
+                value={ghostGaugeValue}
+                max={100}
+                target={20}
+                label="Fantasma"
+                variant="inverted"
+                className="min-h-[120px]"
+              />
+            </MiniMetricChart>
+          </BentoCell>
 
-        <MiniMetricChart title="Tiempo de respuesta" value={`${hero.avgResponseMin} min`}>
-          <CategoryBarChart
-            items={SPARKLINE_SERIES.responseTime.map((v, i) => ({
-              label: `D${i + 1}`,
-              value: v,
-            }))}
-            className="min-h-[120px]"
-          />
-        </MiniMetricChart>
+          <BentoCell size="unit">
+            <MiniMetricChart title="Tiempo de respuesta" value={`${hero.avgResponseMin} min`}>
+              <CategoryBarChart
+                items={SPARKLINE_SERIES.responseTime.map((v, i) => ({
+                  label: `D${i + 1}`,
+                  value: v,
+                }))}
+                className="min-h-[120px]"
+              />
+            </MiniMetricChart>
+          </BentoCell>
 
-        <MiniMetricChart title="Clientes activos" value={String(hero.activeClients)}>
-          <RingDistributionChart
-            slices={clientsRing}
-            centerValue={String(hero.activeClients)}
-            centerLabel="Activos"
-            className="max-w-[160px]"
-          />
-        </MiniMetricChart>
+          <BentoCell size="unit">
+            <MiniMetricChart title="Clientes activos" value={String(hero.activeClients)}>
+              <RingDistributionChart
+                slices={clientsRing}
+                centerValue={String(hero.activeClients)}
+                centerLabel="Activos"
+                className="max-w-[160px]"
+              />
+            </MiniMetricChart>
+          </BentoCell>
+        </BentoGrid>
       </motion.div>
 
       <motion.div variants={fade}>

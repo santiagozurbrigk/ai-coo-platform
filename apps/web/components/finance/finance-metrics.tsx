@@ -24,6 +24,7 @@ import {
   resolveRevenueDateRange,
   type RevenueDateRange,
 } from "@/lib/metrics/revenue-period";
+import { BentoCellPlace, BentoGrid } from "@/components/shared/bento-grid";
 import { FacturacionPeriodFilter } from "./facturacion-period-filter";
 
 export function FinanceMetrics() {
@@ -147,51 +148,57 @@ export function FinanceMetrics() {
         </div>
       </GlassPanel>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <MetricChartPanel
-          title="Margen"
-          value={`${s.margenPercent.toFixed(1)}%`}
-          subtitle="Objetivo 60%"
-          className="min-h-[240px]"
-        >
-          <GaugeTargetChart
-            value={s.margenPercent}
-            max={100}
-            target={60}
-            label="Margen"
-            variant="margin"
-          />
-        </MetricChartPanel>
+      <BentoGrid>
+        <BentoCellPlace className="col-span-2 row-span-2 lg:col-span-2 lg:row-span-2">
+          <MetricChartPanel
+            title="Margen"
+            value={`${s.margenPercent.toFixed(1)}%`}
+            subtitle="Objetivo 60%"
+            className="min-h-[280px]"
+          >
+            <GaugeTargetChart
+              value={s.margenPercent}
+              max={100}
+              target={60}
+              label="Margen"
+              variant="margin"
+            />
+          </MetricChartPanel>
+        </BentoCellPlace>
 
-        <MetricChartPanel
-          title="Por cobrar"
-          value={formatMoney(s.porCobrar)}
-          subtitle="Cuotas pendientes por mes"
-          className="min-h-[240px]"
-        >
-          <CategoryBarChart
-            items={s.porCobrarByMonth.map((m) => ({
-              label: m.month,
-              value: m.amount,
-            }))}
-            className="min-h-[180px]"
-          />
-        </MetricChartPanel>
+        <BentoCellPlace className="col-span-2 row-span-1 lg:col-span-2 lg:col-start-3 lg:row-start-1">
+          <MetricChartPanel
+            title="Por cobrar"
+            value={formatMoney(s.porCobrar)}
+            subtitle="Cuotas pendientes por mes"
+            className="min-h-[140px]"
+          >
+            <CategoryBarChart
+              items={s.porCobrarByMonth.map((m) => ({
+                label: m.month,
+                value: m.amount,
+              }))}
+              className="min-h-[120px]"
+            />
+          </MetricChartPanel>
+        </BentoCellPlace>
 
-        <MetricChartPanel
-          title="Gastos (período)"
-          value={formatMoney(s.gastosTotales)}
-          subtitle="Distribución mensual estimada"
-          className="min-h-[240px]"
-        >
-          <RingDistributionChart
-            slices={expenseSlices}
-            centerValue={formatMoney(expensesSummary.totalMonthly)}
-            centerLabel="/ mes"
-            emptyMessage="Sin gastos configurados"
-          />
-        </MetricChartPanel>
-      </div>
+        <BentoCellPlace className="col-span-2 row-span-1 lg:col-span-2 lg:col-start-3 lg:row-start-2">
+          <MetricChartPanel
+            title="Gastos (período)"
+            value={formatMoney(s.gastosTotales)}
+            subtitle="Distribución mensual estimada"
+            className="min-h-[140px]"
+          >
+            <RingDistributionChart
+              slices={expenseSlices}
+              centerValue={formatMoney(expensesSummary.totalMonthly)}
+              centerLabel="/ mes"
+              emptyMessage="Sin gastos configurados"
+            />
+          </MetricChartPanel>
+        </BentoCellPlace>
+      </BentoGrid>
     </div>
   );
 }
