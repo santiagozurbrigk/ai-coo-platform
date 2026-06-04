@@ -68,7 +68,7 @@ export function SidebarItem({
           aria-hidden
         />
       )}
-      <span className="sidebar-item-label">{label}</span>
+      {!collapsed ? <span className="sidebar-item-label">{label}</span> : null}
       {!collapsed && badge != null && badge > 0 ? (
         <span className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-2xs font-medium text-primary-foreground tabular-nums">
           {badge}
@@ -102,7 +102,8 @@ export function SidebarItemWithChildren({
       type="button"
       onClick={onClick}
       className={cn(
-        "sidebar-item w-full",
+        "sidebar-item",
+        !collapsed && "w-full",
         collapsed && "sidebar-item-collapsed",
         isActive && "active"
       )}

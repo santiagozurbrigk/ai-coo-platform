@@ -402,11 +402,19 @@
   }
 
   .sidebar.collapsed .sidebar-item-slot {
-    @apply flex w-full justify-center;
+    @apply flex w-full items-center justify-center;
   }
 
   .sidebar.collapsed .sidebar-item {
-    @apply mx-0 h-9 w-9 shrink-0 justify-center gap-0 p-0;
+    @apply mx-auto flex h-9 w-9 max-w-9 shrink-0 items-center justify-center gap-0 p-0;
+  }
+
+  .sidebar.collapsed .sidebar-item-label {
+    @apply hidden;
+  }
+
+  .sidebar.collapsed .sidebar-item-icon {
+    @apply m-0;
   }
 
   .sidebar.collapsed .sidebar-item-collapsed {

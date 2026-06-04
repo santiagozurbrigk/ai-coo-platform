@@ -91,13 +91,14 @@ export function SidebarProfileArea({
       onClick={onToggleCollapsed}
       aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
       className={cn(
-        "shrink-0 rounded-md p-1 text-muted-foreground transition-colors",
-        "hover:bg-black/[0.05] hover:text-foreground",
-        "dark:text-white/25 dark:hover:bg-white/[0.05] dark:hover:text-white/60"
+        "sidebar-item text-muted-foreground",
+        collapsed && "sidebar-item-collapsed",
+        !collapsed &&
+          "shrink-0 rounded-md p-1 hover:bg-black/[0.05] hover:text-foreground dark:hover:bg-white/[0.05] dark:hover:text-white/60"
       )}
     >
       {collapsed ? (
-        <PanelLeftOpen className="h-3.5 w-3.5" />
+        <PanelLeftOpen className="sidebar-item-icon h-3.5 w-3.5" />
       ) : (
         <PanelLeftClose className="h-3.5 w-3.5" />
       )}

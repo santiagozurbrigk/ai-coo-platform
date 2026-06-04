@@ -66,7 +66,9 @@ export function NavGroup({
         {item.icon && (
           <NavIcon name={item.icon} className="sidebar-item-icon" />
         )}
-        <span className="sidebar-item-label">{item.label}</span>
+        {!collapsed && (
+          <span className="sidebar-item-label">{item.label}</span>
+        )}
         {!collapsed && item.badge != null && item.badge > 0 && (
           <span className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-2xs font-medium text-primary-foreground tabular-nums">
             {item.badge}
@@ -77,7 +79,7 @@ export function NavGroup({
 
     return (
       <NavTooltip label={item.label} collapsed={collapsed}>
-        {link}
+        {collapsed ? <div className="sidebar-item-slot">{link}</div> : link}
       </NavTooltip>
     );
   }
@@ -85,17 +87,19 @@ export function NavGroup({
   if (collapsed) {
     return (
       <NavTooltip label={item.label} collapsed>
-        <Link
-          href={item.href}
-          className={cn(
-            "sidebar-item sidebar-item-collapsed",
-            sectionActive && "active"
-          )}
-        >
-          {item.icon && (
-            <NavIcon name={item.icon} className="sidebar-item-icon" />
-          )}
-        </Link>
+        <div className="sidebar-item-slot">
+          <Link
+            href={item.href}
+            className={cn(
+              "sidebar-item sidebar-item-collapsed",
+              sectionActive && "active"
+            )}
+          >
+            {item.icon && (
+              <NavIcon name={item.icon} className="sidebar-item-icon" />
+            )}
+          </Link>
+        </div>
       </NavTooltip>
     );
   }
