@@ -224,7 +224,7 @@ export const mockSpatialNodes: SpatialProductNode[] = [
     badge: "Avatar principal",
     badgeColor: "bg-blue-500/15 text-blue-400",
     aiInsight: "Objeción nueva detectada en ventas",
-    position: { x: "50%", y: "18%" },
+    position: { x: "50%", y: "15%" },
     href: paths.platform.product.avatar("main"),
   },
   {
@@ -234,7 +234,7 @@ export const mockSpatialNodes: SpatialProductNode[] = [
     subtitle: "Creadora de contenido",
     badge: "Sub-avatar",
     badgeColor: "bg-blue-500/10 text-blue-300",
-    position: { x: "22%", y: "28%" },
+    position: { x: "20%", y: "30%" },
     href: paths.platform.product.avatar("secondary"),
   },
   {
@@ -245,7 +245,7 @@ export const mockSpatialNodes: SpatialProductNode[] = [
     badge: "Oferta entrada",
     badgeColor: "bg-violet-500/15 text-violet-400",
     aiInsight: "Tasa de cierre 68% este mes",
-    position: { x: "18%", y: "55%" },
+    position: { x: "16%", y: "62%" },
     href: paths.platform.product.offer("mid"),
   },
   {
@@ -256,7 +256,7 @@ export const mockSpatialNodes: SpatialProductNode[] = [
     badge: "Oferta core",
     badgeColor: "bg-violet-500/20 text-violet-300",
     aiInsight: "Genera 78% del revenue total",
-    position: { x: "82%", y: "55%" },
+    position: { x: "84%", y: "62%" },
     href: paths.platform.product.offer("core"),
   },
   {
@@ -276,7 +276,7 @@ export const mockSpatialNodes: SpatialProductNode[] = [
     subtitle: "Coaches → 100k/mes",
     badge: "Mensaje",
     badgeColor: "bg-amber-500/15 text-amber-400",
-    position: { x: "78%", y: "25%" },
+    position: { x: "80%", y: "30%" },
     href: paths.platform.product.proposition,
   },
 ];

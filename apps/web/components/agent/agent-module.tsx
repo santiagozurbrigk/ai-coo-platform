@@ -58,10 +58,10 @@ export function AgentModule({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="glass-liquid-subtle flex shrink-0 items-center justify-between border-b border-white/6 px-6 py-4 dark:border-white/6">
+      <div className="flex shrink-0 items-center justify-between border-b border-border bg-transparent px-6 py-4">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="glass-liquid-border flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
-            <Sparkles className="relative z-10 h-4 w-4 text-violet-500 dark:text-violet-400" />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-violet-500/30 bg-violet-600/15">
+            <Sparkles className="h-4 w-4 text-violet-500 dark:text-violet-400" />
           </div>
           {currentProject ? (
             <span className="text-xs text-muted-foreground">
@@ -87,7 +87,10 @@ export function AgentModule({
         </button>
       </div>
 
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+      <div
+        ref={scrollRef}
+        className="flex-1 space-y-4 overflow-y-auto bg-transparent px-6 py-4"
+      >
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Cargando…</p>
         ) : messages.length === 0 ? (
