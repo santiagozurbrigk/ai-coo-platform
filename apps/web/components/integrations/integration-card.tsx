@@ -34,6 +34,7 @@ import type { Integration } from "@/types/integrations";
 import { CalendlyManualSyncNotice } from "./calendly-manual-sync-notice";
 import { ManyChatConnectDialog } from "./manychat-connect-dialog";
 import { ManyChatImportDialog } from "./manychat-import-dialog";
+import { IntegrationLogo } from "./integration-logo";
 import { ManyChatWebhookNotice } from "./manychat-webhook-notice";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -164,11 +165,18 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     <>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">{integration.name}</CardTitle>
-            <Badge variant={statusVariant}>
-              {comingSoon ? COMING_SOON_LABEL : STATUS_LABEL[status]}
-            </Badge>
+          <div className="flex items-start gap-3">
+            <IntegrationLogo provider={integration.provider} />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="text-base leading-snug">
+                  {integration.name}
+                </CardTitle>
+                <Badge variant={statusVariant} className="shrink-0">
+                  {comingSoon ? COMING_SOON_LABEL : STATUS_LABEL[status]}
+                </Badge>
+              </div>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
