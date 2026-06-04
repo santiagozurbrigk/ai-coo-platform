@@ -31,7 +31,7 @@ export function MetricChartPanel({
         </p>
         <p
           className={cn(
-            "mt-1 text-2xl font-semibold tabular-nums tracking-tight sm:text-3xl",
+            "mt-1 text-2xl font-semibold tabular-nums tracking-tight text-foreground sm:text-3xl dark:text-white",
             valueClassName
           )}
         >

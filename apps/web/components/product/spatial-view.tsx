@@ -111,11 +111,10 @@ export function ProductSpatialView() {
 
       <BusinessNode registerRef={registerCenterRef} />
 
-      {mockSpatialNodes.map((node, i) => (
+      {mockSpatialNodes.map((node) => (
         <ProductNode
           key={node.id}
           node={node}
-          delay={i * 0.35}
           registerRef={registerNodeRef}
         />
       ))}

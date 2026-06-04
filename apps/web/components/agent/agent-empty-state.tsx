@@ -15,7 +15,7 @@ export function AgentEmptyState({
   ];
 
   return (
-    <div className="empty-state flex h-full flex-col items-center justify-center gap-8 rounded-2xl border border-border/60 bg-transparent py-12">
+    <div className="empty-state flex h-full flex-col items-center justify-center gap-8 py-12">
       <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full border border-violet-500/30 bg-violet-600/15">
         <Sparkles className="h-7 w-7 text-violet-500/70 dark:text-violet-400/80" />
       </div>
@@ -34,7 +34,7 @@ export function AgentEmptyState({
             key={suggestion}
             type="button"
             onClick={() => onSuggestion?.(suggestion)}
-            className="agent-suggestion rounded-xl border px-4 py-3 text-left text-sm text-muted-foreground transition-all duration-150 hover:text-foreground"
+            className="agent-suggestion rounded-xl px-4 py-3 text-left text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             {suggestion}
           </button>

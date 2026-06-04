@@ -640,21 +640,19 @@
   }
 
   .agent-suggestion {
-    @apply border-border bg-muted/30;
+    @apply border-0 bg-muted/30 shadow-none;
   }
 
   .agent-suggestion:hover {
-    @apply border-border bg-muted/50;
+    @apply bg-muted/50;
   }
 
   html.dark .agent-suggestion {
-    background: rgba(255, 255, 255, 0.03);
-    border-color: rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.04);
   }
 
   html.dark .agent-suggestion:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.07);
   }
 
   :root:not(.dark) .prompt-input-box {
@@ -951,13 +949,12 @@
     }
   }
 
-  /* Producto — vista espacial (siempre canvas oscuro) */
+  /* Producto — vista espacial (respeta tema claro/oscuro) */
   .product-spatial-canvas {
     position: relative;
     min-height: 640px;
     overflow: hidden;
-    border-radius: 16px;
-    background: #080810;
+    background: hsl(210 40% 98%);
   }
 
   .product-spatial-canvas::before {
@@ -966,8 +963,8 @@
     inset: 0;
     pointer-events: none;
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      linear-gradient(rgba(15, 23, 42, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15, 23, 42, 0.06) 1px, transparent 1px);
     background-size: 40px 40px;
   }
 
@@ -980,6 +977,24 @@
     height: 400px;
     transform: translate(-50%, -50%);
     pointer-events: none;
+    background: radial-gradient(
+      circle,
+      rgba(124, 58, 237, 0.08) 0%,
+      transparent 70%
+    );
+  }
+
+  html.dark .product-spatial-canvas {
+    background: #080810;
+  }
+
+  html.dark .product-spatial-canvas::before {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  }
+
+  html.dark .product-spatial-canvas::after {
     background: radial-gradient(
       circle,
       rgba(124, 58, 237, 0.06) 0%,

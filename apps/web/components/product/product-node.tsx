@@ -1,28 +1,32 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { cn } from "@ai-coo/ui";
 import type { SpatialProductNode } from "@/types/product";
 
 const NODE_SURFACE: Record<SpatialProductNode["type"], string> = {
-  avatar: "bg-blue-950/60 border-blue-500/30",
-  offer: "bg-violet-950/60 border-violet-500/30",
-  "value-ladder": "bg-green-950/60 border-green-500/30",
-  proposition: "bg-amber-950/60 border-amber-500/30",
+  avatar:
+    "border-blue-200 bg-blue-50/95 dark:border-blue-500/30 dark:bg-blue-950/60",
+  offer:
+    "border-violet-200 bg-violet-50/95 dark:border-violet-500/30 dark:bg-violet-950/60",
+  "value-ladder":
+    "border-green-200 bg-green-50/95 dark:border-green-500/30 dark:bg-green-950/60",
+  proposition:
+    "border-amber-200 bg-amber-50/95 dark:border-amber-500/30 dark:bg-amber-950/60",
 };
 
 const BADGE_SURFACE: Record<SpatialProductNode["type"], string> = {
-  avatar: "bg-blue-500/20 text-blue-400",
-  offer: "bg-violet-500/20 text-violet-400",
-  "value-ladder": "bg-green-500/20 text-green-400",
-  proposition: "bg-amber-500/20 text-amber-400",
+  avatar: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400",
+  offer: "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-400",
+  "value-ladder":
+    "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400",
+  proposition:
+    "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400",
 };
 
 export function ProductNode({
   node,
-  delay = 0,
   registerRef,
 }: {
   node: SpatialProductNode;
@@ -32,21 +36,13 @@ export function ProductNode({
   const router = useRouter();
 
   return (
-    <motion.div
+    <div
       ref={(el) => registerRef?.(node.id, el)}
-      className="absolute z-[2] -translate-x-1/2 -translate-y-1/2 cursor-pointer"
+      className="absolute z-[2] -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform hover:scale-[1.03]"
       style={{ left: node.position.x, top: node.position.y }}
-      animate={{ y: [0, -5, 0] }}
-      transition={{
-        duration: 4 + (delay % 3) * 0.5,
-        repeat: Infinity,
-        ease: "easeInOut",
-        delay,
-      }}
-      whileHover={{ scale: 1.06 }}
-      onClick={() => router.push(node.href)}
       role="button"
       tabIndex={0}
+      onClick={() => router.push(node.href)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -56,7 +52,7 @@ export function ProductNode({
     >
       <div
         className={cn(
-          "w-44 rounded-2xl border p-4 backdrop-blur-sm",
+          "w-44 rounded-2xl border p-4 shadow-sm dark:shadow-none",
           NODE_SURFACE[node.type]
         )}
       >
@@ -70,19 +66,21 @@ export function ProductNode({
             {node.badge}
           </span>
         ) : null}
-        <p className="text-sm font-semibold leading-tight text-white/90">
+        <p className="text-sm font-semibold leading-tight text-slate-900 dark:text-white/90">
           {node.title}
         </p>
-        <p className="mt-1 text-xs text-white/45">{node.subtitle}</p>
+        <p className="mt-1 text-xs text-slate-600 dark:text-white/45">
+          {node.subtitle}
+        </p>
         {node.aiInsight ? (
-          <div className="mt-3 flex items-start gap-1.5 border-t border-white/8 pt-3">
-            <Sparkles className="mt-0.5 h-2.5 w-2.5 shrink-0 text-violet-400" />
-            <p className="text-[10px] leading-tight text-violet-400/80">
+          <div className="mt-3 flex items-start gap-1.5 border-t border-slate-200/80 pt-3 dark:border-white/8">
+            <Sparkles className="mt-0.5 h-2.5 w-2.5 shrink-0 text-violet-600 dark:text-violet-400" />
+            <p className="text-[10px] leading-tight text-violet-700 dark:text-violet-400/80">
               {node.aiInsight}
             </p>
           </div>
         ) : null}
       </div>
-    </motion.div>
+    </div>
   );
 }

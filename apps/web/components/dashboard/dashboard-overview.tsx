@@ -82,7 +82,6 @@ export function DashboardOverview({
               title="Facturación"
               value={formatMoney(hero.facturacion)}
               subtitle="Últimos 7 días"
-              valueClassName="text-[var(--chart-2)]"
               className="min-h-[300px]"
             >
               <HeroAreaChart
@@ -98,7 +97,6 @@ export function DashboardOverview({
               title="Cash Collected"
               value={formatMoney(hero.cashCollected)}
               subtitle="Últimos 7 días"
-              valueClassName="text-[var(--chart-2)]"
               className="min-h-[140px]"
             >
               <HeroAreaChart
