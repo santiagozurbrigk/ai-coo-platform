@@ -23,6 +23,14 @@ export const paths = {
       expenses: `${PLATFORM}/finance/expenses`,
     },
 
+    product: {
+      root: `${PLATFORM}/product`,
+      avatar: (id: string) => `${PLATFORM}/product/avatar/${id}`,
+      offer: (id: string) => `${PLATFORM}/product/offer/${id}`,
+      valueLadder: `${PLATFORM}/product/value-ladder`,
+      proposition: `${PLATFORM}/product/proposition`,
+    },
+
     agent: {
       root: `${PLATFORM}/agent`,
       conversation: (id: string) => `${PLATFORM}/agent/${id}`,

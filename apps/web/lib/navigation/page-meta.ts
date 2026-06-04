@@ -23,6 +23,18 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Gastos",
     subtitle: "Gastos fijos, suscripciones y compensación del equipo",
   },
+  "/product": {
+    title: "Producto",
+    subtitle: "Avatares, ofertas, escalera de valor y propuesta",
+  },
+  "/product/value-ladder": {
+    title: "Escalera de valor",
+    subtitle: "Escalones de precio y ascenso del cliente",
+  },
+  "/product/proposition": {
+    title: "Propuesta de valor",
+    subtitle: "Mensaje central del negocio para la IA",
+  },
   "/agent": {
     title: "Agente de negocio",
     subtitle: "Con acceso a todo el contexto de tu negocio",
@@ -184,6 +196,12 @@ export function getPageMeta(pathname: string): {
     pathname !== "/business-context/documents"
   ) {
     return { title: "Visor de contexto", subtitle: "Documento y transcripción" };
+  }
+  if (pathname.startsWith("/product/avatar/")) {
+    return { title: "Avatar", subtitle: "Ficha de personaje — Producto" };
+  }
+  if (pathname.startsWith("/product/offer/")) {
+    return { title: "Oferta", subtitle: "Detalle de oferta — Producto" };
   }
   if (pathname.startsWith("/marketing/content/") && pathname !== "/marketing/content") {
     return { title: "Publicación", subtitle: "Detalle de contenido — Marketing" };

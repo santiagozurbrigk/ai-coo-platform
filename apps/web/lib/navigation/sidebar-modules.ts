@@ -58,12 +58,19 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
     },
   };
 
+export const productDirectModule: SidebarDirectModule = {
+  label: "Producto",
+  href: paths.platform.product.root,
+  icon: "layers",
+};
+
 export const directModules: SidebarDirectModule[] = [
   {
     label: "Panel General",
     href: paths.platform.dashboard,
     icon: "layout-dashboard",
   },
+  productDirectModule,
   {
     label: "Tablero de trabajo",
     href: paths.platform.workboard.root,
@@ -96,13 +103,27 @@ export const directModules: SidebarDirectModule[] = [
   },
 ];
 
+const byHref = (href: string) =>
+  directModules.find((m) => m.href === href) as SidebarDirectModule;
+
 const platformRootItems: SidebarNavRootItem[] = [
-  ...directModules.map((direct) => ({ type: "link" as const, module: direct })),
+  { type: "link", module: byHref(paths.platform.dashboard) },
+  { type: "parent", key: "finanzas" },
+  { type: "link", module: productDirectModule },
+  { type: "link", module: byHref(paths.platform.workboard.root) },
+  { type: "link", module: byHref(paths.platform.agent.root) },
+  { type: "link", module: byHref(paths.platform.clients.root) },
+  { type: "link", module: byHref(paths.platform.businessContext.documents) },
+  { type: "link", module: byHref(paths.platform.integrations) },
+  { type: "link", module: byHref(paths.platform.team.root) },
   { type: "divider" },
-  ...SIDEBAR_PARENT_KEYS.map((key) => ({ type: "parent" as const, key })),
+  { type: "parent", key: "marketing" },
+  { type: "parent", key: "ventas" },
+  { type: "parent", key: "operaciones" },
 ];
 
 export function getParentFromPath(pathname: string): SidebarParentKey | null {
+  if (pathname.startsWith(paths.platform.product.root)) return null;
   if (pathname.startsWith(paths.platform.finance.root)) return "finanzas";
   if (pathname.startsWith("/marketing")) return "marketing";
   if (pathname.startsWith("/sales")) return "ventas";
