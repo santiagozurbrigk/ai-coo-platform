@@ -20,17 +20,6 @@ export const platformNavigation: NavItem[] = [
     icon: "layout-dashboard",
   },
   {
-    label: "Finanzas",
-    href: paths.platform.finance.root,
-    icon: "wallet",
-    children: [{ label: "Gastos", href: paths.platform.finance.expenses }],
-  },
-  {
-    label: "Producto",
-    href: paths.platform.product.root,
-    icon: "layers",
-  },
-  {
     label: "Marketing",
     href: paths.platform.marketing.overview,
     icon: "megaphone",
@@ -55,6 +44,11 @@ export const platformNavigation: NavItem[] = [
     ],
   },
   {
+    label: "Producto",
+    href: paths.platform.product.root,
+    icon: "layers",
+  },
+  {
     label: "Operaciones",
     href: paths.platform.operations.overview,
     icon: "activity",
@@ -63,6 +57,12 @@ export const platformNavigation: NavItem[] = [
       { label: "SOPs", href: paths.platform.operations.sops },
       { label: "Team Inputs", href: paths.platform.operations.teamInputs },
     ],
+  },
+  {
+    label: "Finanzas",
+    href: paths.platform.finance.root,
+    icon: "wallet",
+    children: [{ label: "Gastos", href: paths.platform.finance.expenses }],
   },
   {
     label: "Tablero de trabajo",

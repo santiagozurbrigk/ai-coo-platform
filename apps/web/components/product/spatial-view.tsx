@@ -6,7 +6,7 @@ import { ProductNode } from "./product-node";
 
 export function ProductSpatialView() {
   return (
-    <div className="relative min-h-[600px] w-full overflow-hidden rounded-2xl bg-slate-100 dark:bg-[#080810]">
+    <div className="relative min-h-[600px] w-full overflow-hidden rounded-2xl">
       <svg
         className="pointer-events-none absolute inset-0 h-full w-full"
         viewBox="0 0 100 100"

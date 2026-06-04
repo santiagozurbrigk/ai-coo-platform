@@ -70,7 +70,6 @@ export const directModules: SidebarDirectModule[] = [
     href: paths.platform.dashboard,
     icon: "layout-dashboard",
   },
-  productDirectModule,
   {
     label: "Tablero de trabajo",
     href: paths.platform.workboard.root,
@@ -108,8 +107,6 @@ const byHref = (href: string) =>
 
 const platformRootItems: SidebarNavRootItem[] = [
   { type: "link", module: byHref(paths.platform.dashboard) },
-  { type: "parent", key: "finanzas" },
-  { type: "link", module: productDirectModule },
   { type: "link", module: byHref(paths.platform.workboard.root) },
   { type: "link", module: byHref(paths.platform.agent.root) },
   { type: "link", module: byHref(paths.platform.clients.root) },
@@ -119,7 +116,9 @@ const platformRootItems: SidebarNavRootItem[] = [
   { type: "divider" },
   { type: "parent", key: "marketing" },
   { type: "parent", key: "ventas" },
+  { type: "link", module: productDirectModule },
   { type: "parent", key: "operaciones" },
+  { type: "parent", key: "finanzas" },
 ];
 
 export function getParentFromPath(pathname: string): SidebarParentKey | null {

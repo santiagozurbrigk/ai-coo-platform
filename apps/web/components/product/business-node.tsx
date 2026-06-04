@@ -17,7 +17,7 @@ export function BusinessNode() {
 
   return (
     <div
-      className="glass-liquid-border absolute flex w-40 -translate-x-1/2 -translate-y-1/2 cursor-default flex-col items-center gap-2 rounded-2xl p-4"
+      className="glass-liquid-subtle glass-liquid-border absolute flex w-40 -translate-x-1/2 -translate-y-1/2 cursor-default flex-col items-center gap-2 rounded-2xl p-4"
       style={{ left: "50%", top: "50%" }}
     >
       <div className="relative z-10 flex h-10 w-10 items-center justify-center rounded-xl border border-violet-500/30 bg-violet-600/20">
