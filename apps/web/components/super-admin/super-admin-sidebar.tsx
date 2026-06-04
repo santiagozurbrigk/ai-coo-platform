@@ -34,7 +34,7 @@ export function SuperAdminSidebar() {
         ) : (
           <Link
             href={paths.superAdmin.organizations}
-            className="mx-auto flex h-8 w-8 items-center justify-center rounded-lg text-amber-500 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+            className="sidebar-item-slot flex h-9 w-9 items-center justify-center rounded-md text-amber-500 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
             aria-label={es.nav.superAdmin}
           >
             <Shield className="h-4 w-4" />
@@ -67,12 +67,14 @@ export function SuperAdminSidebar() {
         {collapsed ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Link
-                href={paths.superAdmin.login}
-                className="sidebar-item sidebar-item-collapsed"
-              >
-                <span className="text-xs font-medium">↩</span>
-              </Link>
+              <div className="sidebar-item-slot">
+                <Link
+                  href={paths.superAdmin.login}
+                  className="sidebar-item sidebar-item-collapsed"
+                >
+                  <span className="text-xs font-medium">↩</span>
+                </Link>
+              </div>
             </TooltipTrigger>
             <TooltipContent side="right">{es.nav.signOut}</TooltipContent>
           </Tooltip>

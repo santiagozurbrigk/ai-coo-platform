@@ -35,10 +35,10 @@ export function SidebarSubNavigation({
       type="button"
       onClick={onBack}
       className={cn(
-        "sidebar-item w-full",
+        "sidebar-item",
         collapsed && "sidebar-item-collapsed mb-2",
         !collapsed &&
-          "mb-2 flex items-center gap-2 rounded-md px-3 py-2 text-xs text-black/40 transition-colors hover:bg-black/[0.04] hover:text-black/70 dark:text-white/40 dark:hover:bg-white/[0.04] dark:hover:text-white/70"
+          "mb-2 w-full flex items-center gap-2 rounded-md px-3 py-2 text-xs text-black/40 transition-colors hover:bg-black/[0.04] hover:text-black/70 dark:text-white/40 dark:hover:bg-white/[0.04] dark:hover:text-white/70"
       )}
       aria-label="Volver al menú principal"
     >
@@ -51,7 +51,9 @@ export function SidebarSubNavigation({
     <>
       {collapsed ? (
         <Tooltip>
-          <TooltipTrigger asChild>{backButton}</TooltipTrigger>
+          <TooltipTrigger asChild>
+            <div className="sidebar-item-slot mb-2">{backButton}</div>
+          </TooltipTrigger>
           <TooltipContent side="right">Volver</TooltipContent>
         </Tooltip>
       ) : (

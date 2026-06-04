@@ -79,7 +79,7 @@ export function SidebarItem({
 
   return (
     <SidebarTooltip label={label} collapsed={collapsed}>
-      {link}
+      {collapsed ? <div className="sidebar-item-slot">{link}</div> : link}
     </SidebarTooltip>
   );
 }
@@ -124,7 +124,7 @@ export function SidebarItemWithChildren({
 
   return (
     <SidebarTooltip label={label} collapsed={collapsed}>
-      {button}
+      {collapsed ? <div className="sidebar-item-slot">{button}</div> : button}
     </SidebarTooltip>
   );
 }

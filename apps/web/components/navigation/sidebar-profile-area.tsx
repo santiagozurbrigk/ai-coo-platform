@@ -50,7 +50,10 @@ function ProfileAvatar({
         </div>
       )}
       <span
-        className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-green-500"
+        className={cn(
+          "absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-background bg-green-500",
+          size <= 28 ? "h-2 w-2" : "h-2.5 w-2.5"
+        )}
         aria-hidden
       />
     </div>
@@ -103,11 +106,11 @@ export function SidebarProfileArea({
 
   if (collapsed) {
     return (
-      <div className="profile-area glass-liquid-subtle mx-1 mb-2 flex flex-col items-center gap-2 rounded-xl px-2 py-3">
+      <div className="profile-area glass-liquid-subtle mb-2 flex flex-col items-center gap-1.5 py-2">
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="cursor-default">
-              <ProfileAvatar avatarUrl={avatarUrl} userName={userName} />
+            <div className="sidebar-item-slot cursor-default">
+              <ProfileAvatar avatarUrl={avatarUrl} userName={userName} size={28} />
             </div>
           </TooltipTrigger>
           <TooltipContent side="right" className="text-left">
@@ -117,7 +120,7 @@ export function SidebarProfileArea({
             </p>
           </TooltipContent>
         </Tooltip>
-        {collapseButton}
+        <div className="sidebar-item-slot">{collapseButton}</div>
       </div>
     );
   }

@@ -40,7 +40,9 @@ export function SidebarFooter({ collapsed }: { collapsed?: boolean }) {
           if (collapsed) {
             return (
               <Tooltip key={item.href}>
-                <TooltipTrigger asChild>{link}</TooltipTrigger>
+                <TooltipTrigger asChild>
+                  <div className="sidebar-item-slot">{link}</div>
+                </TooltipTrigger>
                 <TooltipContent side="right">{item.label}</TooltipContent>
               </Tooltip>
             );

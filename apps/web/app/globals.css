@@ -380,12 +380,37 @@
   }
 
   .sidebar.collapsed {
-    width: 56px;
-    min-width: 56px;
+    width: 72px;
+    min-width: 72px;
+    @apply px-2;
   }
 
   .sidebar-logo {
     @apply mb-2 flex items-center justify-between px-1 pb-4 pt-2;
+  }
+
+  .sidebar.collapsed .sidebar-logo {
+    @apply flex-col justify-center gap-2 px-0 pb-2 pt-0;
+  }
+
+  .sidebar.collapsed .sidebar-divider {
+    @apply mx-0;
+  }
+
+  .sidebar.collapsed .profile-area {
+    @apply mx-0 rounded-lg px-0 py-2;
+  }
+
+  .sidebar.collapsed .sidebar-item-slot {
+    @apply flex w-full justify-center;
+  }
+
+  .sidebar.collapsed .sidebar-item {
+    @apply mx-0 h-9 w-9 shrink-0 justify-center gap-0 p-0;
+  }
+
+  .sidebar.collapsed .sidebar-item-collapsed {
+    @apply h-9 w-9;
   }
 
   .sidebar-divider {
@@ -490,7 +515,7 @@
   }
 
   .sidebar-item-collapsed {
-    @apply mx-auto h-10 w-10 justify-center px-0;
+    @apply h-9 w-9 justify-center px-0;
   }
 
   .ai-card {
