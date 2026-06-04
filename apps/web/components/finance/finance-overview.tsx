@@ -19,10 +19,7 @@ export function FinanceOverview() {
       animate="animate"
       variants={{ animate: { transition: { staggerChildren: 0.05 } } }}
     >
-      <PageHeader
-        title="Finanzas"
-        description="Inteligencia financiera: facturación, cash collected, por cobrar y balances por plataforma"
-      />
+      <PageHeader description="Inteligencia financiera: facturación, cash collected, por cobrar y balances por plataforma" />
 
       <motion.div variants={fade}>
         <FinanceMetrics />

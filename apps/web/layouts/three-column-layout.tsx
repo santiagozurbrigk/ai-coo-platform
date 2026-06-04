@@ -18,7 +18,10 @@ export function ThreeColumnLayout({
 }) {
   return (
     <div className={cn("app-shell", className)} data-layout="app-shell">
-      <div className="flex h-full min-h-0 shrink-0 md:flex" data-slot="sidebar">
+      <div
+        className="hidden h-full min-h-0 shrink-0 md:flex"
+        data-slot="sidebar"
+      >
         {sidebar}
       </div>
 

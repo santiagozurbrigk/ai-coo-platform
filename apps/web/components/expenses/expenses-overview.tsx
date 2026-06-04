@@ -70,10 +70,7 @@ export function ExpensesOverview() {
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="Gastos"
-        description="Configura gastos fijos, suscripciones y compensación del equipo — alimentan Cash Collected en Finanzas"
-      />
+      <PageHeader description="Configura gastos fijos, suscripciones y compensación del equipo — alimentan Cash Collected en Finanzas" />
 
       <GlassPanel className="p-6">
         <p className="text-sm text-muted-foreground">Total gastos este mes</p>

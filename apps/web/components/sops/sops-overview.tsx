@@ -39,7 +39,6 @@ export function SopsOverview({ sops }: { sops: Sop[] }) {
       ) : (
         <>
           <PageHeader
-            title="Biblioteca de SOPs"
             description="Sistemas operativos vivos de tu negocio"
             actions={
               <Button asChild size="sm">

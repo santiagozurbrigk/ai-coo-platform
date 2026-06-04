@@ -44,12 +44,13 @@ export function AppTopbar({ className }: { className?: string }) {
           <Button
             variant="outline"
             size="icon"
-            className="topbar-icon relative h-8 w-8 rounded-lg"
+            className="topbar-icon h-8 w-8 rounded-lg"
             type="button"
-            aria-label="Notificaciones"
+            disabled
+            title="Notificaciones — próximamente"
+            aria-label="Notificaciones — próximamente"
           >
             <Bell className="h-4 w-4" />
-            <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary" />
           </Button>
           <ThemeToggle />
         </>

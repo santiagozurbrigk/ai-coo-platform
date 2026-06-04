@@ -8,10 +8,7 @@ export default async function IntegrationsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Integraciones"
-        description="Conecta herramientas externas para sincronizar ventas, closing y marketing"
-      />
+      <PageHeader description="Conecta herramientas externas para sincronizar ventas, closing y marketing" />
       <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando…</p>}>
         <IntegrationGrid integrations={integrations} />
       </Suspense>

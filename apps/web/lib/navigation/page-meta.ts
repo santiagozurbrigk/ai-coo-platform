@@ -153,11 +153,11 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     subtitle: "Redirige a /super-admin/users",
   },
   "/super-admin/profitability": {
-    title: "Profitability",
+    title: "Rentabilidad",
     subtitle: "MRR, tokens y márgenes",
   },
   "/super-admin/infrastructure": {
-    title: "Infrastructure",
+    title: "Infraestructura",
     subtitle: "Stack y conteos de la plataforma",
   },
   "/super-admin/ai-brain": {
@@ -202,6 +202,27 @@ export function getPageMeta(pathname: string): {
   }
   if (pathname.startsWith("/product/offer/")) {
     return { title: "Oferta", subtitle: "Detalle de oferta — Producto" };
+  }
+  if (pathname.startsWith("/clients/") && pathname !== "/clients/pending-calls") {
+    return { title: "Detalle de cliente", subtitle: "Clientes" };
+  }
+  if (pathname === "/clients/pending-calls") {
+    return {
+      title: "Llamadas pendientes",
+      subtitle: "Clientes — seguimiento Fathom",
+    };
+  }
+  if (pathname.startsWith("/marketing/forms/") && pathname !== "/marketing/forms") {
+    return { title: "Formulario", subtitle: "Marketing — respuestas y métricas" };
+  }
+  if (pathname.startsWith("/agent/stage/")) {
+    return { title: "Etapa del negocio", subtitle: "Agente de negocio" };
+  }
+  if (pathname.startsWith("/agent/project/")) {
+    return { title: "Proyecto", subtitle: "Agente de negocio" };
+  }
+  if (pathname.startsWith("/agent/") && pathname !== "/agent") {
+    return { title: "Conversación", subtitle: "Agente de negocio" };
   }
   if (pathname.startsWith("/marketing/content/") && pathname !== "/marketing/content") {
     return { title: "Publicación", subtitle: "Detalle de contenido — Marketing" };

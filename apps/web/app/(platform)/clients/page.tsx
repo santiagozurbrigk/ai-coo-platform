@@ -9,10 +9,7 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Clientes"
-        description="Seguimiento desde el cierre hasta caso de éxito"
-      />
+      <PageHeader description="Seguimiento desde el cierre hasta caso de éxito" />
       {clientsLoading ? (
         <p className="text-sm text-muted-foreground">Cargando clientes…</p>
       ) : (

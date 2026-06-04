@@ -49,13 +49,6 @@ function ProfileAvatar({
           {initials}
         </div>
       )}
-      <span
-        className={cn(
-          "absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-background bg-green-500",
-          size <= 28 ? "h-2 w-2" : "h-2.5 w-2.5"
-        )}
-        aria-hidden
-      />
     </div>
   );
 }

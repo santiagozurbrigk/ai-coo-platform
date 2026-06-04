@@ -114,10 +114,7 @@ export function ClosingOverview() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Closing"
-        description="Calendario de llamadas de cierre, contexto Calendly y resultados"
-      />
+      <PageHeader description="Calendario de llamadas de cierre, contexto Calendly y resultados" />
 
       <CalendlyManualSyncNotice showIntegrationsLink />
 

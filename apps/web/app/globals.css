@@ -25,7 +25,7 @@
   }
 
   html.dark body {
-    background: #0d0d12;
+    background: #080810;
   }
 
   :root {
@@ -49,7 +49,7 @@
     --color-text-primary: 255 255 255;
     --color-text-secondary: 255 255 255;
     --color-text-muted: 255 255 255;
-    --color-surface-1: 13 13 18;
+    --color-surface-1: 8 8 16;
     --color-surface-2: 18 18 24;
     --color-surface-3: 20 20 28;
     --color-surface-4: 24 24 34;

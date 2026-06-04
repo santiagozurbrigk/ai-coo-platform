@@ -4,7 +4,7 @@ export const es = {
   app: {
     name: "AI COO",
     tagline: "El sistema operativo con IA para negocios de infoproductos",
-    phasePrototype: "Fase 0 · Prototipo",
+    phasePrototype: "Fase 1 · Beta",
   },
   nav: {
     dashboard: "Panel General",
@@ -120,7 +120,7 @@ export const es = {
     sopReady: "SOP generado",
     sopReadyDesc: "Borrador listo para revisión.",
     integrationConnected: "Integración conectada",
-    integrationConnectedDesc: "Sincronización simulada — prototipo Fase 0.",
+    integrationConnectedDesc: "La integración quedó activa en tu organización.",
     settingsSaved: "Cambios guardados",
     settingsSavedDesc: "Preferencias actualizadas (mock).",
     recordingStarted: "Grabación iniciada",

@@ -332,7 +332,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
               } else {
                 push({
                   title: integration.name,
-                  description: "Configuración de integración — prototipo.",
+                  description: "Opciones de configuración disponibles próximamente.",
                 });
               }
             }}

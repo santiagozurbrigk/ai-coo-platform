@@ -1,7 +1,8 @@
+import type { NavItem } from "@/lib/navigation/nav-types";
 import {
   platformNavigation,
+  secondaryNavigation,
   superAdminNavigation,
-  type NavItem,
 } from "@/routes/navigation";
 import { paths } from "@/routes/paths";
 import { isPathActive } from "./active-path";

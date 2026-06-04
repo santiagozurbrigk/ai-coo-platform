@@ -7,11 +7,14 @@ export function PageHeader({
   actions,
   className,
 }: {
-  title: string;
+  /** Omitir si el título ya aparece en el topbar (evita duplicado). */
+  title?: string;
   description?: string;
   actions?: ReactNode;
   className?: string;
 }) {
+  if (!title && !description && !actions) return null;
+
   return (
     <div
       className={cn(
@@ -19,11 +22,15 @@ export function PageHeader({
         className
       )}
     >
-      <div className="space-y-1">
-        <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-        {description && <Text muted>{description}</Text>}
-      </div>
-      {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
+      {(title || description) && (
+        <div className="space-y-1">
+          {title ? (
+            <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+          ) : null}
+          {description ? <Text muted>{description}</Text> : null}
+        </div>
+      )}
+      {actions ? <div className="flex shrink-0 gap-2">{actions}</div> : null}
     </div>
   );
 }

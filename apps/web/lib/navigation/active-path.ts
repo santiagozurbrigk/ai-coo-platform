@@ -1,4 +1,4 @@
-import type { NavItem } from "@/routes/navigation";
+import type { NavItem } from "@/lib/navigation/nav-types";
 
 export function isNavItemActive(
   href: string,
