@@ -10,6 +10,8 @@ export const CHART_MIN_HEIGHT = {
   gauge: "min-h-[200px]",
 } as const;
 
+export type ChartWrapperAlign = "stretch" | "center";
+
 export function ChartWrapper({
   data,
   minPoints = 2,
@@ -17,6 +19,7 @@ export function ChartWrapper({
   emptyMessage = "Sin suficientes datos aún",
   className,
   minHeight = CHART_MIN_HEIGHT.md,
+  align = "stretch",
 }: {
   data: unknown[] | undefined | null;
   minPoints?: number;
@@ -24,8 +27,15 @@ export function ChartWrapper({
   emptyMessage?: string;
   className?: string;
   minHeight?: string;
+  /** `stretch` = gráficos de área/línea/barras a ancho completo; `center` = gauges */
+  align?: ChartWrapperAlign;
 }) {
   const count = data?.length ?? 0;
+
+  const layoutClass =
+    align === "center"
+      ? "flex items-center justify-center"
+      : "block";
 
   if (!data || count < minPoints) {
     return (
@@ -42,13 +52,7 @@ export function ChartWrapper({
   }
 
   return (
-    <div
-      className={cn(
-        "flex h-full w-full items-center justify-center",
-        minHeight,
-        className
-      )}
-    >
+    <div className={cn("h-full w-full", layoutClass, minHeight, className)}>
       {children}
     </div>
   );

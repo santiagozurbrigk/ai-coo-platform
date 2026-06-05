@@ -88,10 +88,8 @@ export function GaugeTargetChart({
       <ChartWrapper
         data={[value]}
         minPoints={1}
-        className={cn(
-          "flex w-full flex-1 items-center justify-center py-2",
-          CHART_MIN_HEIGHT.gauge
-        )}
+        align="center"
+        className={cn("w-full flex-1 py-2", CHART_MIN_HEIGHT.gauge)}
         minHeight={CHART_MIN_HEIGHT.gauge}
       >
         <Gauge

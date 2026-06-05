@@ -24,7 +24,7 @@ export function HeroAreaChart({
       data={data}
       minPoints={2}
       emptyMessage={emptyMessage}
-      className={cn("min-h-[200px]", className)}
+      className={cn("min-h-[200px] w-full", className)}
       minHeight="min-h-[200px]"
     >
       <AreaChart

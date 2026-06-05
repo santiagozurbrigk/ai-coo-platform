@@ -24,7 +24,7 @@ export function ChartShell({
         ) : null}
       </div>
       <motion.div
-        className="overflow-visible"
+        className="w-full overflow-visible"
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}

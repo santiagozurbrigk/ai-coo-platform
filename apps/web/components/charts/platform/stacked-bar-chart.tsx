@@ -34,12 +34,13 @@ export function StackedBarChart({
   const rows = data.map((d) => ({ name: d.month, ...d }));
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("h-full w-full space-y-2", className)}>
       <ChartWrapper
         data={rows}
         minPoints={1}
         emptyMessage="Sin datos de facturación por mes"
         minHeight={minHeight ?? CHART_MIN_HEIGHT.md}
+        className="w-full"
       >
       <BarChart
         data={rows}
@@ -47,7 +48,7 @@ export function StackedBarChart({
         stacked
         yDomainPadding={yDomainPadding}
         aspectRatio={data.length <= 2 ? "3 / 1" : "2.2 / 1"}
-        className="w-full"
+        className="h-full w-full"
         animationDuration={1000}
         margin={{ top: 20, right: 12, bottom: 36, left: 8 }}
       >

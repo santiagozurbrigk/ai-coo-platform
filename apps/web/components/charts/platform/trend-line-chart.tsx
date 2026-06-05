@@ -30,7 +30,7 @@ export function TrendLineChart({
       data={data}
       minPoints={2}
       emptyMessage={emptyMessage}
-      className={cn(CHART_MIN_HEIGHT.md, className)}
+      className={cn("w-full", CHART_MIN_HEIGHT.md, className)}
       minHeight={CHART_MIN_HEIGHT.md}
     >
     <LineChart

@@ -134,7 +134,7 @@ export function FinanceMetrics() {
             </p>
           </div>
         </div>
-        <div className="min-h-[280px] px-2 pb-4 pt-16">
+        <div className="min-h-[280px] w-full px-2 pb-4 pt-16">
           <InteractiveDualAreaChart
             data={dualRows}
             primaryKey="facturacion"

@@ -44,15 +44,15 @@ export function InteractiveDualAreaChart({
       data={data}
       minPoints={2}
       emptyMessage={emptyMessage}
-      className={cn(CHART_MIN_HEIGHT.lg, className)}
+      className={cn("w-full", CHART_MIN_HEIGHT.lg, className)}
       minHeight={CHART_MIN_HEIGHT.lg}
     >
-      <div className="space-y-2">
+      <div className="h-full w-full space-y-2">
         <AreaChart
           data={rows}
           xDataKey="date"
           aspectRatio="2.4 / 1"
-          className="w-full"
+          className="h-full w-full"
           animationDuration={1000}
           margin={{ top: 20, right: 12, bottom: 32, left: 8 }}
         >

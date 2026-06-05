@@ -29,9 +29,7 @@ export function MiniMetricChart({
         </p>
         <p className="text-xl font-semibold tabular-nums">{value}</p>
       </div>
-      <div className="mt-auto flex min-h-[120px] w-full flex-1 items-center justify-center pt-10">
-        {children}
-      </div>
+      <div className="mt-auto min-h-[120px] w-full flex-1 pt-10">{children}</div>
     </GlassPanel>
   );
 }

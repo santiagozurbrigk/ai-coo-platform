@@ -29,13 +29,14 @@ export function CategoryBarChart({
       minPoints={1}
       emptyMessage="No hay cuotas pendientes"
       minHeight={CHART_MIN_HEIGHT.sm}
+      className={cn("w-full", className)}
     >
     <BarChart
       data={rows}
       xDataKey="name"
       orientation={horizontal ? "horizontal" : "vertical"}
       aspectRatio={horizontal ? "1.6 / 1" : "2 / 1"}
-      className={cn("w-full", className)}
+      className="h-full w-full"
       animationDuration={900}
       margin={{ top: 16, right: 12, bottom: horizontal ? 12 : 36, left: horizontal ? 80 : 8 }}
     >
