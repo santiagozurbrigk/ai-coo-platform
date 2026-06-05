@@ -32,7 +32,10 @@ const themeInitScript = `
 `;
 
 export const metadata: Metadata = {
-  title: "AI COO",
+  title: {
+    template: "OTC | %s",
+    default: "OTC",
+  },
   description:
     "El sistema operativo con IA para negocios de infoproductos.",
 };

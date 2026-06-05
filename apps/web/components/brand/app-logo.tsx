@@ -58,7 +58,7 @@ export function AppLogo({
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
-      alt="AI COO"
+      alt="OTC"
       className={cn(preset.img, className)}
       style={
         useFixedHeight

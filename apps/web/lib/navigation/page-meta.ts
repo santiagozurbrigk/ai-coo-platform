@@ -249,5 +249,5 @@ export function getPageMeta(pathname: string): {
       subtitle: "Cerebro de IA general",
     };
   }
-  return { title: "AI COO", subtitle: undefined };
+  return { title: "Panel General", subtitle: undefined };
 }

@@ -13,7 +13,7 @@ import type { SidebarDirectModule } from "@/lib/navigation/sidebar-nav-config";
 import { isPathActive } from "@/lib/navigation/active-path";
 import { SidebarTwoLevelNavigation } from "@/components/navigation/sidebar-two-level-navigation";
 import { NavIcon } from "@/components/navigation/nav-icons";
-import { AppLogo } from "@/components/brand";
+import { AppBrandHeader } from "@/components/brand";
 
 export function MobileNav() {
   const [open, setOpen] = useState(false);
@@ -54,8 +54,8 @@ export function MobileNav() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="left-0 top-0 flex h-full max-h-full w-[min(100%,280px)] max-w-[280px] flex-col translate-x-0 translate-y-0 rounded-none border-r p-0">
-          <DialogTitle className="relative flex min-h-[72px] items-center justify-center border-b border-border px-3 py-3">
-            <AppLogo display="sidebar" className="max-w-[220px]" />
+          <DialogTitle className="relative flex min-h-[52px] items-center border-b border-border px-3 py-2.5">
+            <AppBrandHeader className="min-w-0 flex-1 pr-10" />
             <Button
               variant="ghost"
               size="icon"
