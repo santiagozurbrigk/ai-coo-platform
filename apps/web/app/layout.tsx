@@ -38,6 +38,10 @@ export const metadata: Metadata = {
   },
   description:
     "El sistema operativo con IA para negocios de infoproductos.",
+  icons: {
+    icon: "/brand/logo.png",
+    apple: "/brand/logo.png",
+  },
 };
 
 export default function RootLayout({
