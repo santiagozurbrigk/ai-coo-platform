@@ -18,8 +18,8 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-[8rem] overflow-hidden rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-[var(--shadow-float)]",
-        "dark:border-white/10 dark:border-t-white/[0.14] dark:bg-[rgba(12,10,24,0.85)] dark:backdrop-blur-[40px] dark:backdrop-saturate-[180%]",
+        "z-50 min-w-[8rem] overflow-hidden rounded-card border border-border bg-popover p-1 text-popover-foreground shadow-[var(--shadow-float)]",
+        "dark:border-white/[0.08] dark:bg-[var(--glass-surface)] dark:backdrop-blur-[20px] dark:backdrop-saturate-[180%]",
         className
       )}
       {...props}
@@ -37,7 +37,7 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-lg px-2 py-1.5 text-sm text-popover-foreground outline-none transition-all duration-150 focus:bg-primary/10 focus:text-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50 dark:text-white/75 dark:focus:bg-[rgba(124,58,237,0.12)] dark:focus:text-[#A78BFA]",
+      "relative flex cursor-default select-none items-center rounded-button px-2 py-1.5 text-sm text-popover-foreground outline-none transition-all duration-premium ease-premium focus:bg-primary/10 focus:text-primary data-[disabled]:pointer-events-none data-[disabled]:opacity-50 dark:text-white/75 dark:focus:bg-[rgba(139,92,246,0.12)] dark:focus:text-[#A78BFA]",
       inset && "pl-8",
       className
     )}

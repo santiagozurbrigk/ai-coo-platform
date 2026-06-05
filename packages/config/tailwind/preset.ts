@@ -64,6 +64,15 @@ const preset: Partial<Config> = {
         md: "calc(var(--radius) - 2px)",
         sm: "var(--radius-sm)",
         xl: "var(--radius-xl)",
+        card: "var(--radius-card)",
+        input: "var(--radius-input)",
+        button: "var(--radius-button)",
+      },
+      transitionTimingFunction: {
+        premium: "var(--ease-premium)",
+      },
+      transitionDuration: {
+        premium: "var(--duration-premium)",
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
@@ -97,7 +106,7 @@ const preset: Partial<Config> = {
         },
       },
       animation: {
-        "fade-in": "fade-in 0.2s ease-out",
+        "fade-in": "fade-in 0.18s var(--ease-premium)",
         "pulse-glow": "pulse-glow 2.5s ease-in-out infinite",
         shimmer: "shimmer 2s linear infinite",
       },
