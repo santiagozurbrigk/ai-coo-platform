@@ -8,6 +8,7 @@ import {
   getCalendlyIntegrationStatusAction,
   pullCalendlyScheduledEventsAction,
 } from "@/app/calendly/actions";
+import { syncFathomMeetingsAction } from "@/app/fathom/actions";
 import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
 import {
   GOOGLE_OAUTH_START_URL,
@@ -33,6 +34,7 @@ import { useToast } from "@/providers/toast-provider";
 import { useMarketingData, usePlatformData } from "@/providers";
 import type { Integration } from "@/types/integrations";
 import { CalendlyManualSyncNotice } from "./calendly-manual-sync-notice";
+import { FathomConnectDialog } from "./fathom-connect-dialog";
 import { ManyChatConnectDialog } from "./manychat-connect-dialog";
 import { ManyChatImportDialog } from "./manychat-import-dialog";
 import { IntegrationLogo } from "./integration-logo";
@@ -51,6 +53,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const [status, setStatus] = useState(integration.status);
   const [calendlyWebhookEnabled, setCalendlyWebhookEnabled] = useState(true);
   const [connectOpen, setConnectOpen] = useState(false);
+  const [fathomConnectOpen, setFathomConnectOpen] = useState(false);
   const [manychatConnectOpen, setManychatConnectOpen] = useState(false);
   const [manychatImportOpen, setManychatImportOpen] = useState(false);
   const [manychatWebhookUrl, setManychatWebhookUrl] = useState<string | null>(null);
@@ -151,7 +154,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       return;
     }
     if (integration.provider === "fathom") {
-      window.location.href = "/api/integrations/fathom/oauth/start";
+      setFathomConnectOpen(true);
       return;
     }
     if (googleProvider) {
@@ -238,9 +241,9 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
           {integration.provider === "calendly" &&
             status === "connected" &&
             !calendlyWebhookEnabled && <CalendlyManualSyncNotice />}
-          {integration.provider === "fathom" && (
+          {integration.provider === "fathom" && status === "not_connected" && (
             <p className="text-xs text-muted-foreground">
-              Conectá Fathom para importar transcripts y seguimiento automático de clientes.
+              Conectá con tu API key personal. Encontrala en fathom.video/settings/api.
             </p>
           )}
           {integration.provider === "youtube" && (
@@ -325,6 +328,40 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
             type="button"
             disabled={syncing}
             onClick={async () => {
+              if (integration.provider === "fathom" && status === "not_connected") {
+                setFathomConnectOpen(true);
+                return;
+              }
+
+              if (integration.provider === "fathom" && status === "connected") {
+                setSyncing(true);
+                try {
+                  const result = await syncFathomMeetingsAction();
+                  if (!result.success) {
+                    push({
+                      title: "Error al sincronizar Fathom",
+                      description: result.error,
+                    });
+                    return;
+                  }
+                  router.refresh();
+                  push({
+                    title: "Fathom sincronizado",
+                    description: `${result.data.synced} reunión${result.data.synced === 1 ? "" : "es"} importada${result.data.synced === 1 ? "" : "s"}`,
+                    variant: "success",
+                  });
+                } catch (e) {
+                  push({
+                    title: "Error al sincronizar Fathom",
+                    description:
+                      e instanceof Error ? e.message : "Error desconocido",
+                  });
+                } finally {
+                  setSyncing(false);
+                }
+                return;
+              }
+
               if (integration.provider === "manychat") {
                 if (status === "not_connected") {
                   setManychatConnectOpen(true);
@@ -395,7 +432,8 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
               ? es.status.integration.syncing
               : status === "not_connected"
                 ? es.common.connect
-                : integration.provider === "calendly"
+                : integration.provider === "calendly" ||
+                    integration.provider === "fathom"
                   ? "Sincronizar ahora"
                   : integration.provider === "manychat"
                     ? "Importar contacto"
@@ -407,6 +445,11 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         </CardContent>
       </Card>
 
+      <FathomConnectDialog
+        open={fathomConnectOpen}
+        onOpenChange={setFathomConnectOpen}
+        onConnected={() => setStatus("connected")}
+      />
       <ManyChatConnectDialog
         open={manychatConnectOpen}
         onOpenChange={setManychatConnectOpen}

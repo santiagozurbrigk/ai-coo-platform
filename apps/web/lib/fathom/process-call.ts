@@ -1,9 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { analyzeFathomTranscript } from "@/lib/fathom/analyze-transcript";
 import { associateCallWithClients } from "@/lib/fathom/associate";
-
-const FATHOM_API_BASE =
-  process.env.FATHOM_API_BASE?.trim() ?? "https://api.fathom.ai/external/v1";
+import { fetchFathomMeetingTitle } from "@/lib/fathom/api";
 
 export type FathomCallRow = {
   id: string;
@@ -17,22 +15,6 @@ export type FathomCallRow = {
   fathom_url: string | null;
   processed_after: string | null;
 };
-
-async function fetchFathomCallTitle(
-  accessToken: string,
-  fathomCallId: string
-): Promise<string | null> {
-  try {
-    const res = await fetch(`${FATHOM_API_BASE}/meetings/${fathomCallId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { title?: string; name?: string };
-    return data.title ?? data.name ?? null;
-  } catch {
-    return null;
-  }
-}
 
 export async function processPendingFathomCalls(limit = 20): Promise<number> {
   const admin = createAdminClient();
@@ -71,13 +53,13 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
   let title = call.title;
   const { data: integration } = await admin
     .from("fathom_integrations")
-    .select("access_token")
+    .select("api_key")
     .eq("organization_id", call.organization_id)
     .maybeSingle();
 
-  if (integration?.access_token) {
-    const updatedTitle = await fetchFathomCallTitle(
-      integration.access_token,
+  if (integration?.api_key) {
+    const updatedTitle = await fetchFathomMeetingTitle(
+      integration.api_key,
       call.fathom_call_id
     );
     if (updatedTitle) title = updatedTitle;

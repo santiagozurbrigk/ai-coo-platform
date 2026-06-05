@@ -76,17 +76,6 @@ const OAUTH_TOAST: Record<
       description: "Verificá el redirect URI en Typeform Developer.",
     },
   },
-  fathom: {
-    connected: {
-      title: "Fathom conectado",
-      description: "Las llamadas se procesarán con IA automáticamente.",
-      variant: "success",
-    },
-    error: {
-      title: "Error al conectar Fathom",
-      description: "Revisá credenciales y redirect URI.",
-    },
-  },
   discord: {
     connected: {
       title: "Discord conectado",

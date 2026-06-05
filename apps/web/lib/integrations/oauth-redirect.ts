@@ -5,7 +5,6 @@ export type IntegrationOAuthProvider =
   | "typeform"
   | "google_forms"
   | "youtube"
-  | "fathom"
   | "calendly";
 
 /** Redirect absoluto a Integraciones (evita 500 por URL relativa en producción). */

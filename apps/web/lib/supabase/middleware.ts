@@ -30,7 +30,6 @@ function isPublicPath(pathname: string): boolean {
       pathname.includes("/webhook") ||
       pathname.includes("/oauth/callback") ||
       pathname.includes("/oauth/start") ||
-      pathname.startsWith("/api/integrations/fathom") ||
       pathname.endsWith("/sync") ||
       pathname.endsWith("/process")
     ) {

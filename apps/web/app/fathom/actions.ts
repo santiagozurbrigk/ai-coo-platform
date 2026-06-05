@@ -3,12 +3,80 @@
 import { revalidatePath } from "next/cache";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import {
+  connectFathomWithApiKey,
+  mapFathomConnectError,
+} from "@/lib/fathom/connect";
+import {
   finalizeAssociatedCall,
   processPendingFathomCalls,
 } from "@/lib/fathom/process-call";
+import { syncFathomMeetingsForOrganization } from "@/lib/fathom/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { paths } from "@/routes";
+
+export type FathomConnectState = {
+  error?: string;
+  success?: string;
+};
+
+export async function connectFathomAction(
+  _prev: FathomConnectState,
+  formData: FormData
+): Promise<FathomConnectState> {
+  const apiKey = String(formData.get("apiKey") ?? "").trim();
+
+  if (!apiKey) {
+    return { error: "Pega tu API key de Fathom." };
+  }
+
+  if (!isSupabaseConfigured()) {
+    return { error: "Supabase no configurado." };
+  }
+
+  try {
+    const organizationId = await requireOrganizationId();
+    const result = await connectFathomWithApiKey(organizationId, apiKey);
+
+    if (!result.ok) {
+      return { error: result.error ?? "No se pudo conectar Fathom." };
+    }
+
+    revalidatePath(paths.platform.integrations);
+
+    if (result.error) {
+      return {
+        success: result.error,
+      };
+    }
+
+    const synced = result.synced ?? 0;
+    return {
+      success:
+        synced > 0
+          ? `Fathom conectado. ${synced} reunión${synced === 1 ? "" : "es"} importada${synced === 1 ? "" : "s"}.`
+          : "Fathom conectado. Las nuevas reuniones se sincronizarán automáticamente.",
+    };
+  } catch (e) {
+    return {
+      error: mapFathomConnectError(
+        e instanceof Error ? e.message : "Error al conectar Fathom"
+      ),
+    };
+  }
+}
+
+export async function syncFathomMeetingsAction(): Promise<
+  MutationResult<{ synced: number }>
+> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const synced = await syncFathomMeetingsForOrganization(organizationId);
+    revalidatePath(paths.platform.integrations);
+    return { synced };
+  });
+}
 
 export async function getFathomIntegrationStatusAction(): Promise<{
   connected: boolean;
