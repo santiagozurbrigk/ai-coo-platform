@@ -31,7 +31,13 @@
         "FATHOM_CLIENT_ID",
         "FATHOM_CLIENT_SECRET",
         "FATHOM_REDIRECT_URI",
-        "FATHOM_WEBHOOK_SECRET"
+        "FATHOM_WEBHOOK_SECRET",
+        "DISCORD_BOT_TOKEN",
+        "DISCORD_CLIENT_ID",
+        "DISCORD_CLIENT_SECRET",
+        "DISCORD_REDIRECT_URI",
+        "NEXT_PUBLIC_DISCORD_CLIENT_ID",
+        "OTC_WEBHOOK_SECRET"
       ]
     },
     "dev": {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { paths } from "@/routes";
 import { useEffect, useState } from "react";
 import { disconnectGoogleIntegrationAction } from "@/app/integrations/actions";
 import {
@@ -101,6 +102,29 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     window.location.href = GOOGLE_OAUTH_START_URL[provider];
   };
 
+  const startDiscordOAuth = () => {
+    const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
+    if (!clientId) {
+      push({
+        title: "Discord no configurado",
+        description: "Falta NEXT_PUBLIC_DISCORD_CLIENT_ID en el entorno.",
+        variant: "default",
+      });
+      return;
+    }
+    const params = new URLSearchParams({
+      client_id: clientId,
+      permissions: "68608",
+      scope: "bot",
+      redirect_uri: `${window.location.origin}/api/integrations/discord/callback`,
+      response_type: "code",
+    });
+    window.open(
+      `https://discord.com/oauth2/authorize?${params.toString()}`,
+      "_blank"
+    );
+  };
+
   const handleDisconnectGoogle = async (provider: GoogleIntegrationProvider) => {
     setSyncing(true);
     try {
@@ -140,6 +164,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     }
     if (integration.provider === "manychat") {
       setManychatConnectOpen(true);
+      return;
+    }
+    if (integration.provider === "discord") {
+      startDiscordOAuth();
       return;
     }
 
@@ -236,6 +264,22 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
               Importa tableros con vista previa para la base de conocimiento.
             </p>
           )}
+          {integration.provider === "discord" && status === "not_connected" && (
+            <p className="text-xs text-muted-foreground">
+              Invitá el bot a tu servidor para capturar conversaciones con
+              clientes y detectar testimonios automáticamente.
+            </p>
+          )}
+          {integration.provider === "discord" && status === "connected" && (
+            <p className="text-xs text-muted-foreground">
+              {integration.recordsSynced != null && integration.recordsSynced > 0
+                ? `${integration.recordsSynced.toLocaleString("es")} mensajes capturados`
+                : "Servidor conectado — configurá canales en Gestionar"}
+              {integration.lastSync
+                ? ` · Última actividad: ${integration.lastSync}`
+                : ""}
+            </p>
+          )}
           {integration.lastSync && status === "connected" && (
             <p className="text-xs text-muted-foreground">
               Última sync: {integration.lastSync}
@@ -287,6 +331,16 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                 } else {
                   setManychatImportOpen(true);
                 }
+                return;
+              }
+
+              if (integration.provider === "discord" && status === "not_connected") {
+                startDiscordOAuth();
+                return;
+              }
+
+              if (integration.provider === "discord" && status === "connected") {
+                router.push(paths.platform.integrationsDiscord);
                 return;
               }
 
@@ -345,7 +399,9 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                   ? "Sincronizar ahora"
                   : integration.provider === "manychat"
                     ? "Importar contacto"
-                    : es.common.manage}
+                    : integration.provider === "discord"
+                      ? "Gestionar"
+                      : es.common.manage}
           </Button>
           )}
         </CardContent>

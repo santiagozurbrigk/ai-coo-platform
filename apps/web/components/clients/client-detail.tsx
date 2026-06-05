@@ -10,6 +10,7 @@ import {
 import { ExternalLink, Star, Upload } from "lucide-react";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
+import { ClientDiscordActivity } from "@/components/clients/client-discord-activity";
 import { ClientTimeline } from "@/components/clients/client-timeline";
 import type { Client, ClientStatus } from "@/types/clients";
 
@@ -205,6 +206,8 @@ export function ClientDetail({ client: initial }: { client: Client }) {
           </ul>
         </section>
       )}
+
+      <ClientDiscordActivity clientId={client.id} />
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium">Timeline</h2>

@@ -87,6 +87,18 @@ const OAUTH_TOAST: Record<
       description: "Revisá credenciales y redirect URI.",
     },
   },
+  discord: {
+    connected: {
+      title: "Discord conectado",
+      description:
+        "El bot está en tu servidor. Configurá canales y vinculaciones en Gestionar.",
+      variant: "success",
+    },
+    error: {
+      title: "Error al conectar Discord",
+      description: "Revisá las credenciales y el redirect URI en Discord Developers.",
+    },
+  },
 };
 
 export function IntegrationGrid({ integrations }: { integrations: Integration[] }) {

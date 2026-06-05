@@ -8,6 +8,7 @@ import {
   getTypeformIntegrationStatusAction,
 } from "@/app/forms/actions";
 import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
+import { getDiscordIntegrationStatusAction } from "@/app/discord/actions";
 import { getYoutubeIntegrationStatusAction } from "@/app/marketing/actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { formatRelativeTime } from "@/lib/format";
@@ -118,6 +119,7 @@ const REAL_PROVIDERS = new Set([
   "youtube",
   "typeform",
   "google_forms",
+  "discord",
 ]);
 
 export async function listIntegrationsAction(): Promise<Integration[]> {
@@ -128,6 +130,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     youtubeStatus,
     typeformStatus,
     googleFormsStatus,
+    discordStatus,
   ] = await Promise.all([
     getCalendlyIntegrationStatusAction(),
     getManyChatIntegrationStatusAction(),
@@ -135,6 +138,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     getYoutubeIntegrationStatusAction(),
     getTypeformIntegrationStatusAction(),
     getGoogleFormsIntegrationStatusAction(),
+    getDiscordIntegrationStatusAction(),
   ]);
 
   const [
@@ -144,6 +148,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     youtubeRecords,
     typeformRecords,
     googleFormsRecords,
+    discordRecords,
   ] = await Promise.all([
     calendlyStatus.connected ? countCalendlyClosingCalls() : 0,
     manychatStatus.connected ? countManyChatConversations() : 0,
@@ -151,6 +156,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     youtubeStatus.connected ? countContentAssets("youtube") : 0,
     typeformStatus.connected ? countForms("typeform") : 0,
     googleFormsStatus.connected ? countForms("google_forms") : 0,
+    discordStatus.connected ? discordStatus.stats.messagesCount : 0,
   ]);
 
   return mockIntegrations.map((integration) => {
@@ -191,6 +197,11 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
         connected: googleFormsStatus.connected,
         lastSyncAt: googleFormsStatus.lastSyncAt,
         records: googleFormsRecords,
+      },
+      discord: {
+        connected: discordStatus.connected,
+        lastSyncAt: discordStatus.integration?.last_event_at ?? null,
+        records: discordRecords,
       },
     };
 
