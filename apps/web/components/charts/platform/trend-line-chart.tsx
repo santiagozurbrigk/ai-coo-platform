@@ -37,7 +37,7 @@ export function TrendLineChart({
       data={rows}
       xDataKey="date"
       aspectRatio={aspectRatio}
-      className="h-full w-full"
+      className="w-full"
       animationDuration={animationDuration}
       margin={{ top: 24, right: 16, bottom: 36, left: 8 }}
     >

@@ -33,12 +33,12 @@ export function DualAreaChart({
   });
 
   return (
-    <div className={cn("h-full w-full space-y-2", className)}>
+    <div className={cn("w-full space-y-2", className)}>
       <AreaChart
         data={rows}
         xDataKey="date"
         aspectRatio="2.2 / 1"
-        className="h-full w-full"
+        className="w-full"
         animationDuration={1000}
         margin={{ top: 20, right: 12, bottom: 32, left: 8 }}
       >

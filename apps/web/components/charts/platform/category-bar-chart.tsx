@@ -36,7 +36,7 @@ export function CategoryBarChart({
       xDataKey="name"
       orientation={horizontal ? "horizontal" : "vertical"}
       aspectRatio={horizontal ? "1.6 / 1" : "2 / 1"}
-      className="h-full w-full"
+      className="w-full"
       animationDuration={900}
       margin={{ top: 16, right: 12, bottom: horizontal ? 12 : 36, left: horizontal ? 80 : 8 }}
     >

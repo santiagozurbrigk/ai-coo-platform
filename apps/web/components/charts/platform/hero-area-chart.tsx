@@ -31,7 +31,7 @@ export function HeroAreaChart({
         data={toTimeSeriesRows(data)}
         xDataKey="date"
         aspectRatio="2.2 / 1"
-        className="h-full w-full"
+        className="w-full"
         animationDuration={900}
         margin={{ top: 56, right: 8, bottom: 28, left: 4 }}
       >
