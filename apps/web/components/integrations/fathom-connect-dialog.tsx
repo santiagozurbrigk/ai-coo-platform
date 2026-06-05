@@ -10,7 +10,6 @@ import {
   Button,
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -20,6 +19,41 @@ import {
 import { es } from "@/lib/locale/es";
 
 const initialState: FathomConnectState = {};
+
+const STEPS = [
+  <>
+    Ir a{" "}
+    <a
+      href="https://fathom.video/settings/api"
+      target="_blank"
+      rel="noreferrer"
+      className="text-violet-600 underline underline-offset-2 dark:text-violet-400"
+    >
+      fathom.video/settings/api
+    </a>
+  </>,
+  <>
+    Click en <strong className="text-foreground/80">Add API Connection</strong>
+  </>,
+  <>
+    Seleccionar{" "}
+    <strong className="text-foreground/80">Generate API Key</strong> (para uso
+    personal e interno)
+  </>,
+  <>
+    Poné el nombre <strong className="text-foreground/80">OTC Platform</strong> y
+    generá la key
+  </>,
+  <>Copiar la API key y pegarla abajo</>,
+] as const;
+
+function StepNumber({ n }: { n: number }) {
+  return (
+    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-[10px] font-bold text-violet-600 dark:text-violet-400">
+      {n}
+    </span>
+  );
+}
 
 type FathomConnectDialogProps = {
   open: boolean;
@@ -51,31 +85,39 @@ export function FathomConnectDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Conectar Fathom</DialogTitle>
-          <DialogDescription>
-            Encontrá tu API key en{" "}
-            <a
-              href="https://fathom.video/settings/api"
-              target="_blank"
-              rel="noreferrer"
-              className="underline underline-offset-2"
-            >
-              fathom.video/settings/api
-            </a>
-            . La usamos para importar transcripts y seguimiento de clientes.
-          </DialogDescription>
         </DialogHeader>
 
         <form action={formAction} className="space-y-4">
-          <div className="space-y-2">
+          <div className="mb-1 rounded-xl border border-border bg-muted/10 p-4 dark:border-white/8 dark:bg-white/3">
+            <p className="mb-3 text-xs font-medium text-muted-foreground">
+              Cómo obtener tu API key:
+            </p>
+            <ol className="space-y-2">
+              {STEPS.map((content, index) => (
+                <li
+                  key={index}
+                  className="flex items-start gap-2 text-xs text-muted-foreground"
+                >
+                  <StepNumber n={index + 1} />
+                  <span>{content}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="fathom-api-key">API Key de Fathom</Label>
             <Input
               id="fathom-api-key"
               name="apiKey"
               type="password"
               autoComplete="off"
-              placeholder="Pega tu API key"
+              placeholder="fathom_xxxxxxxxxxxxxxxx"
               required
             />
+            <p className="text-[10px] text-muted-foreground/70">
+              Tu API key se guarda de forma segura y nunca se comparte.
+            </p>
           </div>
 
           {state.error && (
@@ -93,12 +135,13 @@ export function FathomConnectDialog({
             <Button
               type="button"
               variant="ghost"
+              className="flex-1"
               onClick={() => onOpenChange(false)}
             >
               {es.common.cancel}
             </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Conectando…" : es.common.connect}
+            <Button type="submit" className="flex-1" disabled={pending}>
+              {pending ? "Conectando…" : "Conectar Fathom"}
             </Button>
           </DialogFooter>
         </form>
