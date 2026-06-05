@@ -29,6 +29,11 @@ async function parseBody(request: Request): Promise<SyncBody | null> {
  * Cron: sync Calendly → closing_calls (requiere CRON_SECRET si está configurado).
  * Ruta dedicada para evitar colisión con Server Actions en /api/integrations/calendly/sync.
  */
+/** Vercel Cron invoca GET — delegar a la misma lógica que POST. */
+export async function GET(request: Request) {
+  return POST(request);
+}
+
 export async function POST(request: Request) {
   const unauthorized = assertCronAuthorized(request);
   if (unauthorized) return unauthorized;

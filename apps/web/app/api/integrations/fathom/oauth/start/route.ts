@@ -24,7 +24,7 @@ export async function GET() {
   const clientId = process.env.FATHOM_CLIENT_ID;
   const redirectUri = process.env.FATHOM_REDIRECT_URI;
   const authBase =
-    process.env.FATHOM_AUTH_BASE?.trim() ?? "https://fathom.video/external/v1/oauth2/authorize";
+    process.env.FATHOM_AUTH_BASE?.trim() ?? "https://fathom.video/oauth/authorize";
 
   if (!clientId || !redirectUri) {
     return NextResponse.json(

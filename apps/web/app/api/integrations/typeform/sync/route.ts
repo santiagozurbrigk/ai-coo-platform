@@ -8,6 +8,11 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+/** Vercel Cron invoca GET — delegar a la misma lógica que POST. */
+export async function GET(request: Request) {
+  return POST(request);
+}
+
 export async function POST(request: Request) {
   const unauthorized = assertCronAuthorized(request);
   if (unauthorized) return unauthorized;
