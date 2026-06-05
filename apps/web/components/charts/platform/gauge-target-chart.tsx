@@ -79,11 +79,19 @@ export function GaugeTargetChart({
   const { active, inactive } = resolveGradients(variant, isDark);
 
   return (
-    <div className={cn("flex flex-col items-center", className)}>
+    <div
+      className={cn(
+        "flex h-full w-full flex-col items-center justify-between",
+        className
+      )}
+    >
       <ChartWrapper
         data={[value]}
         minPoints={1}
-        className={cn("w-full max-w-[240px]", CHART_MIN_HEIGHT.gauge)}
+        className={cn(
+          "flex w-full flex-1 items-center justify-center py-2",
+          CHART_MIN_HEIGHT.gauge
+        )}
         minHeight={CHART_MIN_HEIGHT.gauge}
       >
         <Gauge
@@ -94,11 +102,12 @@ export function GaugeTargetChart({
           useGradient
           activeGradient={active}
           inactiveGradient={inactive}
-          className="h-full w-full"
+          minWidth={0}
+          className="mx-auto h-full w-full max-w-[240px]"
         />
       </ChartWrapper>
       {target != null ? (
-        <p className="mt-2 text-center text-xs text-muted-foreground">
+        <p className="w-full shrink-0 pb-1 text-center text-xs text-muted-foreground">
           {subtitle ?? `Objetivo: ${target}${suffix}`}
         </p>
       ) : null}

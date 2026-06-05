@@ -156,7 +156,7 @@ export interface GaugeProps {
    */
   width?: number;
   height?: number;
-  /** Minimum width (px) when using the built-in responsive wrapper. Default 300 */
+  /** Minimum width (px) when using the built-in responsive wrapper. Default 0 */
   minWidth?: number;
   /**
    * Radial depth of notches as a **%** of the built-in default (outer 42% /
@@ -484,12 +484,17 @@ export function Gauge({
   width: widthProp,
   height: heightProp,
   className,
-  minWidth = 300,
+  minWidth = 0,
   ...props
 }: GaugeProps) {
   if (widthProp != null && heightProp != null) {
     return (
-      <div className={cn("relative inline-flex max-w-full", className)}>
+      <div
+        className={cn(
+          "relative flex items-center justify-center max-w-full",
+          className
+        )}
+      >
         <GaugeInner height={heightProp} width={widthProp} {...props} />
       </div>
     );
@@ -497,10 +502,13 @@ export function Gauge({
 
   return (
     <div
-      className={cn("relative w-full max-w-full", className)}
-      style={{ minWidth }}
+      className={cn(
+        "relative flex w-full items-center justify-center",
+        className
+      )}
+      style={minWidth > 0 ? { minWidth } : undefined}
     >
-      <div className="mx-auto aspect-[21/16] w-full max-w-[560px]">
+      <div className="mx-auto aspect-[21/16] w-full max-w-full">
         <ParentSize debounceTime={10}>
           {({ width, height }) =>
             width > 0 && height > 0 ? (

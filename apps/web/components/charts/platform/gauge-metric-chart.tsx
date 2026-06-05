@@ -27,7 +27,8 @@ export function GaugeMetricChart({
       useGradient
       activeGradient={["#7C3AED", "#A78BFA"]}
       inactiveGradient={["#2a2540", "#1a1828"]}
-      className={cn("w-full", className)}
+      minWidth={0}
+      className={cn("mx-auto w-full max-w-[240px]", className)}
     />
   );
 }

@@ -42,6 +42,14 @@ export function ChartWrapper({
   }
 
   return (
-    <div className={cn("h-full w-full", minHeight, className)}>{children}</div>
+    <div
+      className={cn(
+        "flex h-full w-full items-center justify-center",
+        minHeight,
+        className
+      )}
+    >
+      {children}
+    </div>
   );
 }

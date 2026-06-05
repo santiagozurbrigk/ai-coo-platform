@@ -41,7 +41,7 @@ export function MetricChartPanel({
           <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
         ) : null}
       </div>
-      <div className="relative mt-auto flex-1 min-h-[200px] w-full">
+      <div className="relative mt-auto flex min-h-[200px] w-full flex-1 items-center justify-center">
         {children}
       </div>
     </GlassPanel>
