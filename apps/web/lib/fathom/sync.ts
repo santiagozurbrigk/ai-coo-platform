@@ -1,4 +1,7 @@
 import { FathomApiError, listFathomMeetings } from "@/lib/fathom/api";
+import {
+  getFathomIntegrationDiagnostics,
+} from "@/lib/fathom/diagnostics";
 import { ingestFathomWebhookCall } from "@/lib/fathom/process-call";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -8,6 +11,8 @@ export async function syncFathomMeetingsForOrganization(
   organizationId: string,
   options?: { debug?: boolean }
 ): Promise<number> {
+  console.log("[Fathom] syncFathomMeetingsForOrganization start:", organizationId);
+
   const admin = createAdminClient();
   const { data: integration, error } = await admin
     .from("fathom_integrations")
@@ -15,8 +20,30 @@ export async function syncFathomMeetingsForOrganization(
     .eq("organization_id", organizationId)
     .maybeSingle();
 
-  if (error) throw new Error(error.message);
-  if (!integration?.api_key || integration.status !== "connected") {
+  if (error) {
+    console.error("[Fathom] Early return: DB error loading integration:", error.message);
+    throw new Error(error.message);
+  }
+
+  if (!integration) {
+    console.log("[Fathom] Early return: no fathom_integrations row for org", organizationId);
+    throw new Error("Fathom no está conectado para esta organización.");
+  }
+
+  if (!integration.api_key?.trim()) {
+    console.log("[Fathom] Early return: api_key null or empty for org", {
+      organizationId,
+      status: integration.status,
+      apiKeyLength: integration.api_key?.length ?? 0,
+    });
+    throw new Error("Fathom no tiene API key configurada.");
+  }
+
+  if (integration.status !== "connected") {
+    console.log("[Fathom] Early return: status is not connected", {
+      organizationId,
+      status: integration.status,
+    });
     throw new Error("Fathom no está conectado para esta organización.");
   }
 
@@ -26,18 +53,28 @@ export async function syncFathomMeetingsForOrganization(
       Date.now() - INITIAL_SYNC_LOOKBACK_DAYS * 24 * 60 * 60 * 1000
     ).toISOString();
 
+  console.log("[Fathom] Calling listFathomMeetings (external fetch)", {
+    organizationId,
+    createdAfter,
+    apiKeyLength: integration.api_key.trim().length,
+    apiKeyPrefix: integration.api_key.trim().slice(0, 8),
+  });
+
   let meetings;
   try {
-    meetings = await listFathomMeetings(integration.api_key, {
+    meetings = await listFathomMeetings(integration.api_key.trim(), {
       createdAfter,
       includeTranscript: true,
       debug: options?.debug,
       debugContext: `sync:${organizationId.slice(0, 8)}`,
     });
   } catch (e) {
+    console.error("[Fathom] listFathomMeetings failed:", e);
     if (e instanceof FathomApiError) throw new Error(e.message);
     throw e;
   }
+
+  console.log("[Fathom] listFathomMeetings returned", meetings.length, "meetings");
 
   let ingested = 0;
   for (const meeting of meetings) {
@@ -67,31 +104,37 @@ export async function syncAllFathomIntegrations(options?: {
 }): Promise<{
   organizations: number;
   ingested: number;
+  skippedOrgs: string[];
 }> {
-  const admin = createAdminClient();
-  const { data: integrations, error } = await admin
-    .from("fathom_integrations")
-    .select("organization_id")
-    .eq("status", "connected")
-    .not("api_key", "is", null);
+  const diagnostics = await getFathomIntegrationDiagnostics();
+  if (diagnostics.queryError) {
+    throw new Error(diagnostics.queryError);
+  }
 
-  if (error) throw new Error(error.message);
+  const organizationIds = diagnostics.rows
+    .filter((r) => r.status === "connected" && r.has_key)
+    .map((r) => r.organization_id);
+
+  console.log("[Fathom] syncAllFathomIntegrations orgs to sync:", organizationIds.length);
+
+  if (organizationIds.length === 0) {
+    console.log("[Fathom] Early return: syncAll — zero eligible orgs, skipping all fetches");
+    return { organizations: 0, ingested: 0, skippedOrgs: [] };
+  }
 
   let ingested = 0;
-  for (const row of integrations ?? []) {
+  const skippedOrgs: string[] = [];
+
+  for (const organizationId of organizationIds) {
     try {
-      ingested += await syncFathomMeetingsForOrganization(
-        row.organization_id,
-        { debug: options?.debug }
-      );
+      ingested += await syncFathomMeetingsForOrganization(organizationId, {
+        debug: options?.debug,
+      });
     } catch (e) {
-      console.error(
-        "[syncAllFathomIntegrations]",
-        row.organization_id,
-        e
-      );
+      console.error("[syncAllFathomIntegrations]", organizationId, e);
+      skippedOrgs.push(organizationId);
     }
   }
 
-  return { organizations: integrations?.length ?? 0, ingested };
+  return { organizations: organizationIds.length, ingested, skippedOrgs };
 }
