@@ -5,7 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const INITIAL_SYNC_LOOKBACK_DAYS = 90;
 
 export async function syncFathomMeetingsForOrganization(
-  organizationId: string
+  organizationId: string,
+  options?: { debug?: boolean }
 ): Promise<number> {
   const admin = createAdminClient();
   const { data: integration, error } = await admin
@@ -30,6 +31,8 @@ export async function syncFathomMeetingsForOrganization(
     meetings = await listFathomMeetings(integration.api_key, {
       createdAfter,
       includeTranscript: true,
+      debug: options?.debug,
+      debugContext: `sync:${organizationId.slice(0, 8)}`,
     });
   } catch (e) {
     if (e instanceof FathomApiError) throw new Error(e.message);
@@ -59,7 +62,9 @@ export async function syncFathomMeetingsForOrganization(
   return ingested;
 }
 
-export async function syncAllFathomIntegrations(): Promise<{
+export async function syncAllFathomIntegrations(options?: {
+  debug?: boolean;
+}): Promise<{
   organizations: number;
   ingested: number;
 }> {
@@ -75,7 +80,10 @@ export async function syncAllFathomIntegrations(): Promise<{
   let ingested = 0;
   for (const row of integrations ?? []) {
     try {
-      ingested += await syncFathomMeetingsForOrganization(row.organization_id);
+      ingested += await syncFathomMeetingsForOrganization(
+        row.organization_id,
+        { debug: options?.debug }
+      );
     } catch (e) {
       console.error(
         "[syncAllFathomIntegrations]",

@@ -1,6 +1,10 @@
 const FATHOM_API_BASE =
   process.env.FATHOM_API_BASE?.trim() ?? "https://api.fathom.ai/external/v1";
 
+/** Documentado: GET /external/v1/meetings — legacy no oficial: /v1/calls */
+export const FATHOM_LIST_MEETINGS_PATH = "/meetings";
+export const FATHOM_LEGACY_CALLS_URL = "https://api.fathom.ai/v1/calls";
+
 export class FathomApiError extends Error {
   constructor(
     message: string,
@@ -19,24 +23,120 @@ function fathomHeaders(apiKey: string): HeadersInit {
   };
 }
 
-async function parseFathomError(res: Response): Promise<string> {
+async function parseFathomErrorFromText(rawText: string, statusText: string): Promise<string> {
   try {
-    const body = (await res.json()) as { message?: string; error?: string };
-    return body.message ?? body.error ?? res.statusText;
+    const body = JSON.parse(rawText) as { message?: string; error?: string };
+    return body.message ?? body.error ?? statusText;
   } catch {
-    return res.statusText || "Error desconocido";
+    return statusText || "Error desconocido";
   }
 }
 
-/** Valida la API key listando una reunión (llamada de prueba). */
-export async function validateFathomApiKey(apiKey: string): Promise<void> {
-  const url = new URL(`${FATHOM_API_BASE}/meetings`);
-  url.searchParams.set("limit", "1");
+function logFathomApiKeyDebug(apiKey: string | undefined | null, context: string) {
+  console.log(`[Fathom:${context}] API key length:`, apiKey?.length ?? "MISSING");
+  console.log(`[Fathom:${context}] API key prefix:`, apiKey?.slice(0, 8) ?? "MISSING");
+}
 
-  const res = await fetch(url.toString(), {
+function logFathomHttpDebug(
+  context: string,
+  endpoint: string,
+  res: Response,
+  rawText: string
+) {
+  console.log(`[Fathom:${context}] Endpoint:`, endpoint);
+  console.log(`[Fathom:${context}] Status:`, res.status);
+  console.log(
+    `[Fathom:${context}] Headers:`,
+    Object.fromEntries(res.headers.entries())
+  );
+  console.log(`[Fathom:${context}] Raw response:`, rawText.slice(0, 500));
+}
+
+export type FathomListPayload = {
+  items: unknown[];
+  nextCursor: string | null;
+  topLevelKeys: string[];
+  isDirectArray: boolean;
+};
+
+/** Normaliza listados: array directo, { items }, { data }, { calls }, paginación next_cursor. */
+export function parseFathomListPayload(data: unknown): FathomListPayload {
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      nextCursor: null,
+      topLevelKeys: ["<array>"],
+      isDirectArray: true,
+    };
+  }
+
+  if (!data || typeof data !== "object") {
+    return {
+      items: [],
+      nextCursor: null,
+      topLevelKeys: [],
+      isDirectArray: false,
+    };
+  }
+
+  const obj = data as Record<string, unknown>;
+  const topLevelKeys = Object.keys(obj);
+  const rawItems =
+    obj.items ?? obj.meetings ?? obj.calls ?? obj.data ?? obj.results ?? [];
+  const items = Array.isArray(rawItems) ? rawItems : [];
+  const nextRaw = obj.next_cursor ?? obj.cursor ?? null;
+
+  console.log("[Fathom] Parsed list payload:", {
+    topLevelKeys,
+    itemCount: items.length,
+    next_cursor: nextRaw,
+    hasDataArray: Array.isArray(obj.data),
+    hasItemsArray: Array.isArray(obj.items),
+    hasCallsArray: Array.isArray(obj.calls),
+  });
+
+  return {
+    items,
+    nextCursor: typeof nextRaw === "string" && nextRaw.length > 0 ? nextRaw : null,
+    topLevelKeys,
+    isDirectArray: false,
+  };
+}
+
+async function fetchFathomListPage(
+  apiKey: string,
+  listUrl: URL,
+  context: string,
+  debug: boolean
+): Promise<{ res: Response; rawText: string; endpoint: string }> {
+  const endpoint = listUrl.toString();
+  logFathomApiKeyDebug(apiKey, context);
+
+  const res = await fetch(endpoint, {
     headers: fathomHeaders(apiKey),
     cache: "no-store",
   });
+
+  const rawText = await res.text();
+  if (debug) {
+    logFathomHttpDebug(context, endpoint, res, rawText);
+  }
+
+  return { res, rawText, endpoint };
+}
+
+
+/** Valida la API key listando una reunión (llamada de prueba). */
+export async function validateFathomApiKey(apiKey: string): Promise<void> {
+  const url = new URL(`${FATHOM_API_BASE}${FATHOM_LIST_MEETINGS_PATH}`);
+  url.searchParams.set("limit", "1");
+
+  const { res, rawText } = await fetchFathomListPage(
+    apiKey,
+    url,
+    "validate",
+    true
+  );
 
   if (res.status === 401 || res.status === 403) {
     throw new FathomApiError(
@@ -46,12 +146,75 @@ export async function validateFathomApiKey(apiKey: string): Promise<void> {
   }
 
   if (!res.ok) {
-    const detail = await parseFathomError(res);
+    const detail = await parseFathomErrorFromText(rawText, res.statusText);
     throw new FathomApiError(
       `No se pudo validar la API key de Fathom: ${detail}`,
       res.status
     );
   }
+}
+
+export type FathomListProbeResult = {
+  endpoint: string;
+  status: number;
+  rawPreview: string;
+  topLevelKeys: string[];
+  itemCount: number;
+  nextCursor: string | null;
+};
+
+/** Probe de diagnóstico — usa el endpoint documentado GET /external/v1/meetings. */
+export async function probeFathomListEndpoint(
+  apiKey: string,
+  context = "probe"
+): Promise<FathomListProbeResult> {
+  const url = new URL(`${FATHOM_API_BASE}${FATHOM_LIST_MEETINGS_PATH}`);
+  url.searchParams.set("limit", "5");
+  url.searchParams.set("include_transcript", "true");
+
+  const { res, rawText, endpoint } = await fetchFathomListPage(
+    apiKey,
+    url,
+    context,
+    true
+  );
+
+  let parsed: FathomListPayload = {
+    items: [],
+    nextCursor: null,
+    topLevelKeys: [],
+    isDirectArray: false,
+  };
+
+  if (rawText.trim()) {
+    try {
+      parsed = parseFathomListPayload(JSON.parse(rawText) as unknown);
+    } catch (e) {
+      console.error(`[Fathom:${context}] JSON parse error:`, e);
+    }
+  }
+
+  if (res.status === 404) {
+    console.warn(
+      `[Fathom:${context}] ${endpoint} returned 404 — documented path is GET ${FATHOM_API_BASE}${FATHOM_LIST_MEETINGS_PATH}`
+    );
+    const legacyRes = await fetch(FATHOM_LEGACY_CALLS_URL, {
+      headers: fathomHeaders(apiKey),
+      cache: "no-store",
+    });
+    const legacyText = await legacyRes.text();
+    console.log(`[Fathom:${context}] Legacy /v1/calls status:`, legacyRes.status);
+    console.log(`[Fathom:${context}] Legacy raw:`, legacyText.slice(0, 500));
+  }
+
+  return {
+    endpoint,
+    status: res.status,
+    rawPreview: rawText.slice(0, 500),
+    topLevelKeys: parsed.topLevelKeys,
+    itemCount: parsed.items.length,
+    nextCursor: parsed.nextCursor,
+  };
 }
 
 export type FathomMeetingRecord = {
@@ -138,6 +301,9 @@ export type ListFathomMeetingsOptions = {
   createdAfter?: string;
   includeTranscript?: boolean;
   maxPages?: number;
+  /** Loguea status, headers, respuesta cruda y shape de paginación (cron/debug). */
+  debug?: boolean;
+  debugContext?: string;
 };
 
 export async function listFathomMeetings(
@@ -147,9 +313,11 @@ export async function listFathomMeetings(
   const meetings: FathomMeetingRecord[] = [];
   let cursor: string | undefined;
   const maxPages = options.maxPages ?? 20;
+  const debug = options.debug ?? false;
+  const context = options.debugContext ?? "list";
 
   for (let page = 0; page < maxPages; page++) {
-    const url = new URL(`${FATHOM_API_BASE}/meetings`);
+    const url = new URL(`${FATHOM_API_BASE}${FATHOM_LIST_MEETINGS_PATH}`);
     if (cursor) url.searchParams.set("cursor", cursor);
     if (options.createdAfter) {
       url.searchParams.set("created_after", options.createdAfter);
@@ -158,10 +326,12 @@ export async function listFathomMeetings(
       url.searchParams.set("include_transcript", "true");
     }
 
-    const res = await fetch(url.toString(), {
-      headers: fathomHeaders(apiKey),
-      cache: "no-store",
-    });
+    const { res, rawText, endpoint } = await fetchFathomListPage(
+      apiKey,
+      url,
+      `${context}:page${page}`,
+      debug || page === 0
+    );
 
     if (res.status === 401 || res.status === 403) {
       throw new FathomApiError(
@@ -171,31 +341,33 @@ export async function listFathomMeetings(
     }
 
     if (!res.ok) {
-      const detail = await parseFathomError(res);
+      const detail = await parseFathomErrorFromText(rawText, res.statusText);
       throw new FathomApiError(
-        `Error al listar reuniones de Fathom: ${detail}`,
+        `Error al listar reuniones de Fathom (${endpoint}): ${detail}`,
         res.status
       );
     }
 
-    const data = (await res.json()) as {
-      items?: unknown[];
-      meetings?: unknown[];
-      calls?: unknown[];
-      data?: unknown[];
-      next_cursor?: string | null;
-      cursor?: string | null;
-    };
+    let data: unknown;
+    try {
+      data = rawText.trim() ? JSON.parse(rawText) : {};
+    } catch (e) {
+      console.error(`[Fathom:${context}] Invalid JSON on page ${page}:`, e);
+      throw new FathomApiError("Respuesta JSON inválida de Fathom.", res.status);
+    }
 
-    const items = data.items ?? data.meetings ?? data.calls ?? data.data ?? [];
+    const { items, nextCursor } = parseFathomListPayload(data);
     for (const item of items) {
       const mapped = mapFathomMeeting(item);
       if (mapped) meetings.push(mapped);
     }
 
-    const next = data.next_cursor ?? data.cursor;
-    if (!next || typeof next !== "string") break;
-    cursor = next;
+    if (!nextCursor) break;
+    cursor = nextCursor;
+  }
+
+  if (debug) {
+    console.log(`[Fathom:${context}] Total meetings mapped:`, meetings.length);
   }
 
   return meetings;
