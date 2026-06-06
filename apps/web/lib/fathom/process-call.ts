@@ -232,6 +232,9 @@ export async function ingestFathomWebhookCall(params: {
     fathom_url: params.fathomUrl ?? null,
     status: "pending" as const,
     processed_after: processedAfter,
+    association_candidates: [] as unknown[],
+    ai_next_steps: [] as string[],
+    ai_problems_detected: [] as string[],
   };
 
   console.log("[Fathom] Inserting call:", {
@@ -244,7 +247,7 @@ export async function ingestFathomWebhookCall(params: {
 
   const { data, error } = await admin
     .from("fathom_calls")
-    .upsert(callData, { onConflict: "fathom_call_id" })
+    .upsert(callData, { onConflict: "organization_id,fathom_call_id" })
     .select("id")
     .single();
 

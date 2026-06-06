@@ -1,11 +1,75 @@
-import { FathomApiError, listFathomMeetings } from "@/lib/fathom/api";
+import { FathomApiError, listFathomMeetings, type FathomMeetingRecord } from "@/lib/fathom/api";
 import {
   getFathomIntegrationDiagnostics,
 } from "@/lib/fathom/diagnostics";
-import { ingestFathomWebhookCall } from "@/lib/fathom/process-call";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const INITIAL_SYNC_LOOKBACK_DAYS = 90;
+
+function buildFathomCallRow(organizationId: string, meeting: FathomMeetingRecord) {
+  const recordingStart =
+    meeting.recording_start_time ?? meeting.scheduled_start_time ?? meeting.callDate;
+  const recordingEnd = meeting.recording_end_time;
+
+  let durationSeconds: number | null = meeting.durationSeconds ?? null;
+  if (recordingEnd && recordingStart) {
+    durationSeconds = Math.round(
+      (new Date(recordingEnd).getTime() - new Date(recordingStart).getTime()) / 1000
+    );
+  }
+
+  let transcript: string | null = null;
+  if (meeting.transcriptRaw != null) {
+    transcript =
+      typeof meeting.transcriptRaw === "string"
+        ? meeting.transcriptRaw
+        : JSON.stringify(meeting.transcriptRaw);
+  } else if (meeting.transcript) {
+    transcript = meeting.transcript;
+  }
+
+  const processedAfter = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
+  return {
+    organization_id: organizationId,
+    fathom_call_id: String(meeting.recording_id ?? meeting.id),
+    title: meeting.title || meeting.meeting_title || "Sin título",
+    raw_title: meeting.meeting_title || meeting.title,
+    fathom_url: meeting.url ?? null,
+    call_date: recordingStart ?? new Date().toISOString(),
+    duration_seconds: durationSeconds,
+    transcript,
+    status: "pending" as const,
+    processed_after: processedAfter,
+    association_candidates: [] as unknown[],
+    ai_next_steps: [] as string[],
+    ai_problems_detected: [] as string[],
+  };
+}
+
+async function upsertFathomCallFromMeeting(
+  admin: ReturnType<typeof createAdminClient>,
+  organizationId: string,
+  meeting: FathomMeetingRecord
+): Promise<boolean> {
+  const row = buildFathomCallRow(organizationId, meeting);
+
+  const { error } = await admin.from("fathom_calls").upsert(row, {
+    onConflict: "organization_id,fathom_call_id",
+  });
+
+  if (error) {
+    console.error("[Fathom:sync] INSERT ERROR:", JSON.stringify(error));
+    return false;
+  }
+
+  console.log(
+    "[Fathom:sync] Inserted:",
+    meeting.recording_id ?? meeting.id,
+    row.title
+  );
+  return true;
+}
 
 export async function syncFathomMeetingsForOrganization(
   organizationId: string,
@@ -81,24 +145,14 @@ export async function syncFathomMeetingsForOrganization(
     console.log("[Fathom] Inserting call:", {
       organization_id: organizationId,
       title: meeting.title,
-      recording_id: meeting.id,
-      call_date: meeting.callDate,
+      recording_id: meeting.recording_id ?? meeting.id,
+      call_date:
+        meeting.recording_start_time ??
+        meeting.scheduled_start_time ??
+        meeting.callDate,
     });
-    try {
-      await ingestFathomWebhookCall({
-        organizationId,
-        fathomCallId: meeting.id,
-        title: meeting.title,
-        transcript: meeting.transcript,
-        summary: meeting.summary,
-        durationSeconds: meeting.durationSeconds,
-        callDate: meeting.callDate,
-        fathomUrl: meeting.url,
-      });
-      ingested++;
-    } catch (e) {
-      console.error("[Fathom] ingest failed for meeting", meeting.id, e);
-    }
+    const ok = await upsertFathomCallFromMeeting(admin, organizationId, meeting);
+    if (ok) ingested++;
   }
 
   console.log("[Fathom] sync complete:", { organizationId, ingested, total: meetings.length });

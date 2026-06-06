@@ -219,11 +219,18 @@ export async function probeFathomListEndpoint(
 
 export type FathomMeetingRecord = {
   id: string;
+  recording_id: string;
   title: string;
+  meeting_title?: string;
   transcript?: string;
+  /** Transcript crudo de la API (array/objeto) — se serializa a text en sync. */
+  transcriptRaw?: unknown;
   summary?: string;
   durationSeconds?: number;
   callDate?: string;
+  recording_start_time?: string;
+  scheduled_start_time?: string;
+  recording_end_time?: string;
   url?: string;
 };
 
@@ -291,23 +298,34 @@ export function mapFathomMeeting(raw: unknown): FathomMeetingRecord | null {
 
   const title =
     pickString(obj, ["title", "meeting_title", "name"]) ?? "Llamada Fathom";
+  const meetingTitle = pickString(obj, ["meeting_title", "title"]);
+
+  const recordingStart = pickString(obj, [
+    "recording_start_time",
+    "recorded_at",
+    "created_at",
+    "start_time",
+  ]);
+  const scheduledStart = pickString(obj, ["scheduled_start_time"]);
+  const recordingEnd = pickString(obj, ["recording_end_time", "scheduled_end_time"]);
 
   return {
     id,
+    recording_id: id,
     title,
+    meeting_title: meetingTitle,
     transcript: extractTranscript(obj.transcript),
+    transcriptRaw: obj.transcript,
     summary: pickString(obj, ["summary", "ai_summary", "default_summary"]),
     durationSeconds: pickNumber(obj, [
       "duration_seconds",
       "duration",
       "duration_in_seconds",
     ]),
-    callDate: pickString(obj, [
-      "recorded_at",
-      "created_at",
-      "start_time",
-      "scheduled_start_time",
-    ]),
+    callDate: recordingStart ?? scheduledStart,
+    recording_start_time: recordingStart,
+    scheduled_start_time: scheduledStart,
+    recording_end_time: recordingEnd,
     url: pickString(obj, ["url", "share_url", "record_url", "recording_url"]),
   };
 }
