@@ -390,10 +390,13 @@ export async function listFathomMeetings(
     }
 
     const { items, nextCursor } = parseFathomListPayload(data);
+    let pageMapped = 0;
+    console.log(`[Fathom:sync] Parsed meetings: raw=${items.length} (page ${page})`);
     for (const item of items) {
       const mapped = mapFathomMeeting(item);
       if (mapped) {
         meetings.push(mapped);
+        pageMapped++;
       } else if (debug) {
         const keys =
           item && typeof item === "object"
@@ -408,6 +411,9 @@ export async function listFathomMeetings(
         });
       }
     }
+    console.log(
+      `[Fathom:sync] Page ${page} mapped: ${pageMapped}/${items.length}, total so far: ${meetings.length}`
+    );
 
     if (!nextCursor) break;
     cursor = nextCursor;

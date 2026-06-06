@@ -112,17 +112,34 @@ export async function syncFathomMeetingsForOrganization(
     throw new Error("Fathom no está conectado para esta organización.");
   }
 
-  const createdAfter =
-    integration.last_sync_at ??
-    new Date(
-      Date.now() - INITIAL_SYNC_LOOKBACK_DAYS * 24 * 60 * 60 * 1000
-    ).toISOString();
+  const lookbackIso = new Date(
+    Date.now() - INITIAL_SYNC_LOOKBACK_DAYS * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const { count: existingCallsCount } = await admin
+    .from("fathom_calls")
+    .select("*", { count: "exact", head: true })
+    .eq("organization_id", organizationId);
+
+  // Incremental solo si ya hay calls ingestadas; si no, lookback completo.
+  // Evita el caso connect→last_sync_at=now→created_after excluye todo.
+  const useIncremental =
+    Boolean(integration.last_sync_at) && (existingCallsCount ?? 0) > 0;
+  const createdAfter = useIncremental ? integration.last_sync_at! : lookbackIso;
+
+  console.log("[Fathom:sync] Date filter:", {
+    organizationId,
+    createdAfter,
+    last_sync_at: integration.last_sync_at,
+    existingCalls: existingCallsCount ?? 0,
+    mode: useIncremental ? "incremental" : "lookback",
+    lookbackDays: INITIAL_SYNC_LOOKBACK_DAYS,
+  });
 
   console.log("[Fathom:sync] Calling Fathom API...", {
     organizationId,
     createdAfter,
     apiKeyLength: integration.api_key.trim().length,
-    apiKeyPrefix: integration.api_key.trim().slice(0, 8),
   });
 
   let meetings;
@@ -140,6 +157,12 @@ export async function syncFathomMeetingsForOrganization(
   }
 
   console.log("[Fathom:sync] Meetings received:", meetings?.length);
+
+  if (!meetings?.length) {
+    console.log(
+      "[Fathom:sync] No meetings to upsert — insert loop skipped (check Date filter or mapFathomMeeting)"
+    );
+  }
 
   let ingested = 0;
   for (const meeting of meetings) {

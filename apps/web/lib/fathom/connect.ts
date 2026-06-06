@@ -44,7 +44,6 @@ export async function connectFathomWithApiKey(
     return { ok: false, error: mapFathomConnectError(message) };
   }
 
-  const now = new Date().toISOString();
   const admin = createAdminClient();
   const { error } = await admin.from("fathom_integrations").upsert(
     {
@@ -52,7 +51,8 @@ export async function connectFathomWithApiKey(
       api_key: parsed.data,
       webhook_secret: process.env.FATHOM_WEBHOOK_SECRET ?? null,
       status: "connected",
-      last_sync_at: now,
+      // No setear last_sync_at aquí — sync usa lookback de 90 días en el primer ingest
+      last_sync_at: null,
     },
     { onConflict: "organization_id" }
   );
