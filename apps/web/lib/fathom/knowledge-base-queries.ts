@@ -1,0 +1,77 @@
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { FathomKnowledgeCall } from "@/types/business-context";
+
+type FathomCallDbRow = {
+  id: string;
+  title: string;
+  call_date: string | null;
+  duration_seconds: number | null;
+  fathom_url: string | null;
+  transcript: string | null;
+  status: string;
+  client_id: string | null;
+  clients?: { name: string } | { name: string }[] | null;
+};
+
+function mapRow(row: FathomCallDbRow): FathomKnowledgeCall {
+  const clientRef = row.clients;
+  const clientName = Array.isArray(clientRef)
+    ? clientRef[0]?.name
+    : clientRef?.name;
+
+  return {
+    id: row.id,
+    title: row.title,
+    call_date: row.call_date,
+    duration_seconds: row.duration_seconds,
+    fathom_url: row.fathom_url,
+    transcript: row.transcript,
+    status: row.status,
+    client_id: row.client_id,
+    clientName: clientName ?? null,
+  };
+}
+
+export async function loadFathomCallsForKnowledgeBase(
+  organizationId: string
+): Promise<{
+  contextCalls: FathomKnowledgeCall[];
+  clientMeetingCalls: FathomKnowledgeCall[];
+}> {
+  const admin = createAdminClient();
+
+  const [contextRes, clientRes] = await Promise.all([
+    admin
+      .from("fathom_calls")
+      .select(
+        "id, title, call_date, duration_seconds, fathom_url, transcript, status, client_id"
+      )
+      .eq("organization_id", organizationId)
+      .is("client_id", null)
+      .order("call_date", { ascending: false }),
+    admin
+      .from("fathom_calls")
+      .select(
+        "id, title, call_date, duration_seconds, fathom_url, transcript, status, client_id, clients(name)"
+      )
+      .eq("organization_id", organizationId)
+      .not("client_id", "is", null)
+      .order("call_date", { ascending: false }),
+  ]);
+
+  if (contextRes.error) {
+    console.error("[Fathom:KB] context calls error:", contextRes.error.message);
+  }
+  if (clientRes.error) {
+    console.error("[Fathom:KB] client calls error:", clientRes.error.message);
+  }
+
+  return {
+    contextCalls: (contextRes.data ?? []).map((row) =>
+      mapRow(row as FathomCallDbRow)
+    ),
+    clientMeetingCalls: (clientRes.data ?? []).map((row) =>
+      mapRow(row as FathomCallDbRow)
+    ),
+  };
+}

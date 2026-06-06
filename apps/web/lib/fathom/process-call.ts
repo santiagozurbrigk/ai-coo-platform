@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { analyzeFathomTranscript } from "@/lib/fathom/analyze-transcript";
 import { associateCallWithClients } from "@/lib/fathom/associate";
+import { isManualFathomLink } from "@/lib/fathom/client-matcher";
 import { fetchFathomMeetingTitle } from "@/lib/fathom/api";
 
 export type FathomCallRow = {
@@ -12,6 +13,7 @@ export type FathomCallRow = {
   transcript: string | null;
   status: string;
   client_id: string | null;
+  association_confidence?: number | null;
   fathom_url: string | null;
   processed_after: string | null;
 };
@@ -63,6 +65,34 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
       call.fathom_call_id
     );
     if (updatedTitle) title = updatedTitle;
+  }
+
+  const { data: callState } = await admin
+    .from("fathom_calls")
+    .select("client_id, association_confidence")
+    .eq("id", call.id)
+    .single();
+
+  const linkedClientId = callState?.client_id ?? call.client_id;
+  const linkConfidence = Number(
+    callState?.association_confidence ?? call.association_confidence ?? 0
+  );
+
+  if (
+    linkedClientId &&
+    (linkConfidence >= 0.75 || isManualFathomLink(linkedClientId, linkConfidence))
+  ) {
+    await finalizeAssociatedCall({
+      callId: call.id,
+      organizationId: call.organization_id,
+      clientId: linkedClientId,
+      title,
+      rawTitle: call.raw_title ?? call.title,
+      transcript: call.transcript,
+      fathomUrl: call.fathom_url,
+      confidence: linkConfidence,
+    });
+    return;
   }
 
   const { data: clients } = await admin

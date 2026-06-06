@@ -5,6 +5,25 @@ export type DocumentCategory =
   | "sales"
   | "operations";
 
+/** Filtros de la base de conocimiento (documentos + Fathom). */
+export type KnowledgeBaseFilter =
+  | DocumentCategory
+  | "all"
+  | "client_meetings"
+  | "business_context";
+
+export type FathomKnowledgeCall = {
+  id: string;
+  title: string;
+  call_date: string | null;
+  duration_seconds: number | null;
+  fathom_url: string | null;
+  transcript: string | null;
+  status: string;
+  client_id: string | null;
+  clientName?: string | null;
+};
+
 export type KnowledgeSource =
   | "fathom"
   | "miro"

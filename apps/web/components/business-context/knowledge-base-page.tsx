@@ -18,7 +18,7 @@ import {
   Upload,
   Video,
 } from "lucide-react";
-import type { ContextDocument } from "@/types/business-context";
+import type { ContextDocument, FathomKnowledgeCall } from "@/types/business-context";
 import { DocumentGrid } from "./document-grid";
 
 const CONTENT_TYPES = [
@@ -32,8 +32,12 @@ const CONTENT_TYPES = [
 
 export function KnowledgeBasePage({
   documents: initial,
+  contextCalls = [],
+  clientMeetingCalls = [],
 }: {
   documents: ContextDocument[];
+  contextCalls?: FathomKnowledgeCall[];
+  clientMeetingCalls?: FathomKnowledgeCall[];
 }) {
   const [documents, setDocuments] = useState(initial);
   const [addOpen, setAddOpen] = useState(false);
@@ -61,7 +65,11 @@ export function KnowledgeBasePage({
         </Button>
       </div>
 
-      <DocumentGrid documents={documents} />
+      <DocumentGrid
+        documents={documents}
+        contextCalls={contextCalls}
+        clientMeetingCalls={clientMeetingCalls}
+      />
 
       <Dialog open={addOpen} onOpenChange={(o) => !o && closeAdd()}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">

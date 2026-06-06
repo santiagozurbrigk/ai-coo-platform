@@ -1,3 +1,5 @@
+import { applyClientMatchToCall } from "@/lib/fathom/apply-call-match";
+import { isManualFathomLink } from "@/lib/fathom/client-matcher";
 import { FathomApiError, listFathomMeetings, type FathomMeetingRecord } from "@/lib/fathom/api";
 import {
   getFathomIntegrationDiagnostics,
@@ -56,19 +58,86 @@ async function upsertFathomCallFromMeeting(
   console.log("[Fathom:sync] Upserting meeting:", recordingId);
 
   const row = buildFathomCallRow(organizationId, meeting);
+  const callTitle = row.title;
 
-  const { error } = await admin.from("fathom_calls").upsert(row, {
-    onConflict: "organization_id,fathom_call_id",
-  });
+  const { data: existing, error: existingError } = await admin
+    .from("fathom_calls")
+    .select("id, client_id, association_confidence, status")
+    .eq("organization_id", organizationId)
+    .eq("fathom_call_id", row.fathom_call_id)
+    .maybeSingle();
 
-  if (error) {
-    console.error("[Fathom:sync] INSERT ERROR:", JSON.stringify(error));
-    console.log("[Fathom:sync] Upsert result:", error.message);
+  if (existingError) {
+    console.error("[Fathom:sync] Existing call lookup error:", existingError.message);
     return false;
   }
 
-  console.log("[Fathom:sync] Upsert result:", "OK");
-  console.log("[Fathom:sync] Inserted:", recordingId, row.title);
+  const manualLink = isManualFathomLink(
+    existing?.client_id,
+    existing?.association_confidence
+  );
+
+  const syncFields = {
+    title: row.title,
+    raw_title: row.raw_title,
+    fathom_url: row.fathom_url,
+    call_date: row.call_date,
+    duration_seconds: row.duration_seconds,
+    transcript: row.transcript,
+  };
+
+  let callId: string;
+
+  if (existing) {
+    const { error } = await admin
+      .from("fathom_calls")
+      .update(syncFields)
+      .eq("id", existing.id);
+
+    if (error) {
+      console.error("[Fathom:sync] UPDATE ERROR:", JSON.stringify(error));
+      console.log("[Fathom:sync] Upsert result:", error.message);
+      return false;
+    }
+
+    callId = existing.id;
+    console.log("[Fathom:sync] Upsert result: OK (updated title/metadata)");
+  } else {
+    const { data, error } = await admin
+      .from("fathom_calls")
+      .insert({
+        ...syncFields,
+        organization_id: organizationId,
+        fathom_call_id: row.fathom_call_id,
+        status: "pending",
+        processed_after: row.processed_after,
+        association_candidates: row.association_candidates,
+        ai_next_steps: row.ai_next_steps,
+        ai_problems_detected: row.ai_problems_detected,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("[Fathom:sync] INSERT ERROR:", JSON.stringify(error));
+      console.log("[Fathom:sync] Upsert result:", error.message);
+      return false;
+    }
+
+    callId = data.id;
+    console.log("[Fathom:sync] Upsert result: OK (inserted)");
+  }
+
+  if (!manualLink) {
+    await applyClientMatchToCall(admin, callId, organizationId, callTitle);
+  } else {
+    console.log("[Fathom:sync] Skipping auto-match — manual link preserved", {
+      callId,
+      clientId: existing?.client_id,
+    });
+  }
+
+  console.log("[Fathom:sync] Inserted:", recordingId, callTitle);
   return true;
 }
 

@@ -102,6 +102,9 @@ importers:
       framer-motion:
         specifier: ^12.12.1
         version: 12.39.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      fuse.js:
+        specifier: ^7.0.0
+        version: 7.4.1
       lucide-react:
         specifier: ^0.511.0
         version: 0.511.0(react@19.2.6)
