@@ -231,6 +231,9 @@ function pickString(obj: Record<string, unknown>, keys: string[]): string | unde
   for (const key of keys) {
     const value = obj[key];
     if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
   }
   return undefined;
 }
@@ -245,6 +248,18 @@ function pickNumber(obj: Record<string, unknown>, keys: string[]): number | unde
 
 function extractTranscript(raw: unknown): string | undefined {
   if (typeof raw === "string") return raw;
+  if (Array.isArray(raw)) {
+    const lines = raw
+      .map((entry) => {
+        if (typeof entry === "string") return entry;
+        if (!entry || typeof entry !== "object") return "";
+        const seg = entry as Record<string, unknown>;
+        return typeof seg.text === "string" ? seg.text : "";
+      })
+      .filter(Boolean);
+    if (lines.length) return lines.join("\n");
+    return undefined;
+  }
   if (!raw || typeof raw !== "object") return undefined;
 
   const obj = raw as Record<string, unknown>;
@@ -359,7 +374,21 @@ export async function listFathomMeetings(
     const { items, nextCursor } = parseFathomListPayload(data);
     for (const item of items) {
       const mapped = mapFathomMeeting(item);
-      if (mapped) meetings.push(mapped);
+      if (mapped) {
+        meetings.push(mapped);
+      } else if (debug) {
+        const keys =
+          item && typeof item === "object"
+            ? Object.keys(item as Record<string, unknown>)
+            : [];
+        console.warn("[Fathom] Skipped unmapped meeting item:", {
+          keys,
+          recording_id:
+            item && typeof item === "object"
+              ? (item as Record<string, unknown>).recording_id
+              : undefined,
+        });
+      }
     }
 
     if (!nextCursor) break;

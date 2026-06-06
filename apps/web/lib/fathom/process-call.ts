@@ -220,27 +220,45 @@ export async function ingestFathomWebhookCall(params: {
   const admin = createAdminClient();
   const processedAfter = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
+  const callData = {
+    organization_id: params.organizationId,
+    fathom_call_id: params.fathomCallId,
+    title: params.title,
+    raw_title: params.title,
+    transcript: params.transcript ?? null,
+    summary: params.summary ?? null,
+    duration_seconds: params.durationSeconds ?? null,
+    call_date: params.callDate ?? new Date().toISOString(),
+    fathom_url: params.fathomUrl ?? null,
+    status: "pending" as const,
+    processed_after: processedAfter,
+  };
+
+  console.log("[Fathom] Inserting call:", {
+    organization_id: callData.organization_id,
+    title: callData.title,
+    recording_id: callData.fathom_call_id,
+    call_date: callData.call_date,
+    has_transcript: Boolean(callData.transcript),
+  });
+
   const { data, error } = await admin
     .from("fathom_calls")
-    .upsert(
-      {
-        organization_id: params.organizationId,
-        fathom_call_id: params.fathomCallId,
-        title: params.title,
-        raw_title: params.title,
-        transcript: params.transcript ?? null,
-        summary: params.summary ?? null,
-        duration_seconds: params.durationSeconds ?? null,
-        call_date: params.callDate ?? new Date().toISOString(),
-        fathom_url: params.fathomUrl ?? null,
-        status: "pending",
-        processed_after: processedAfter,
-      },
-      { onConflict: "fathom_call_id" }
-    )
+    .upsert(callData, { onConflict: "fathom_call_id" })
     .select("id")
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error(
+      "[Fathom] Insert error:",
+      error.message,
+      error.details,
+      error.hint,
+      error.code
+    );
+    throw new Error(error.message);
+  }
+
+  console.log("[Fathom] Insert OK:", { id: data.id, fathom_call_id: callData.fathom_call_id });
   return data.id;
 }

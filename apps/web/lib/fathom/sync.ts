@@ -78,23 +78,39 @@ export async function syncFathomMeetingsForOrganization(
 
   let ingested = 0;
   for (const meeting of meetings) {
-    await ingestFathomWebhookCall({
-      organizationId,
-      fathomCallId: meeting.id,
+    console.log("[Fathom] Inserting call:", {
+      organization_id: organizationId,
       title: meeting.title,
-      transcript: meeting.transcript,
-      summary: meeting.summary,
-      durationSeconds: meeting.durationSeconds,
-      callDate: meeting.callDate,
-      fathomUrl: meeting.url,
+      recording_id: meeting.id,
+      call_date: meeting.callDate,
     });
-    ingested++;
+    try {
+      await ingestFathomWebhookCall({
+        organizationId,
+        fathomCallId: meeting.id,
+        title: meeting.title,
+        transcript: meeting.transcript,
+        summary: meeting.summary,
+        durationSeconds: meeting.durationSeconds,
+        callDate: meeting.callDate,
+        fathomUrl: meeting.url,
+      });
+      ingested++;
+    } catch (e) {
+      console.error("[Fathom] ingest failed for meeting", meeting.id, e);
+    }
   }
 
-  await admin
-    .from("fathom_integrations")
-    .update({ last_sync_at: new Date().toISOString() })
-    .eq("organization_id", organizationId);
+  console.log("[Fathom] sync complete:", { organizationId, ingested, total: meetings.length });
+
+  if (ingested > 0) {
+    await admin
+      .from("fathom_integrations")
+      .update({ last_sync_at: new Date().toISOString() })
+      .eq("organization_id", organizationId);
+  } else {
+    console.log("[Fathom] last_sync_at unchanged — no calls ingested");
+  }
 
   return ingested;
 }
