@@ -6,6 +6,20 @@ import {
   requireOrganizationId,
   tryRequireOrganizationId,
 } from "@/lib/auth/bootstrap";
+import { requireAuthContext } from "@/lib/auth/require-auth";
+import {
+  aiRateLimit,
+  rateLimitErrorMessage,
+  sopGenerateRateLimit,
+} from "@/lib/rate-limit";
+import { sanitizeText } from "@/lib/sanitize";
+import {
+  aiPromptSchema,
+  firstZodError,
+  textSchema,
+  longTextSchema,
+} from "@/lib/validations";
+import { z } from "zod";
 import {
   callClaudeText,
   isAnthropicConfigured,
@@ -281,19 +295,38 @@ async function executeAgentActions(
 ): Promise<{ actionType: AgentMessage["actionType"]; actionRefId: string } | null> {
   for (const action of actions) {
     if (action.type === "CREATE_SOP") {
-      const title = String(action.data.title ?? "SOP sin título");
-      const department = String(action.data.department ?? "general");
-      const content = String(action.data.content ?? "");
-      const goal = String(action.data.goal ?? title);
+      const { allowed, resetAt } = sopGenerateRateLimit(organizationId);
+      if (!allowed) {
+        throw new Error(rateLimitErrorMessage(resetAt));
+      }
+
+      const parsed = z
+        .object({
+          title: textSchema,
+          content: longTextSchema,
+          goal: textSchema,
+          department: z.string().max(50).default("general"),
+        })
+        .safeParse({
+          title: action.data.title ?? "SOP sin título",
+          department: action.data.department ?? "general",
+          content: action.data.content ?? "",
+          goal: action.data.goal ?? action.data.title ?? "SOP sin título",
+        });
+      if (!parsed.success) {
+        throw new Error(firstZodError(parsed.error));
+      }
+
+      const { title, department, content, goal } = parsed.data;
 
       const { data, error } = await supabase
         .from("sops")
         .insert({
           organization_id: organizationId,
-          title,
+          title: sanitizeText(title),
           department,
-          content,
-          goal,
+          content: sanitizeText(content),
+          goal: sanitizeText(goal),
           status: "draft",
           created_by: "agent",
         })
@@ -317,10 +350,20 @@ export async function sendAgentMessageAction(input: {
   conversationId: string;
   messages: AgentMessage[];
 }> {
-  const organizationId = await requireOrganizationId();
+  const { user, orgId: organizationId } = await requireAuthContext();
+
+  const { allowed, resetAt } = aiRateLimit(user.id);
+  if (!allowed) {
+    throw new Error(rateLimitErrorMessage(resetAt));
+  }
+
+  const parsedContent = aiPromptSchema.safeParse(input.content);
+  if (!parsedContent.success) {
+    throw new Error(firstZodError(parsedContent.error));
+  }
+
   const supabase = await createClient();
-  const trimmed = input.content.trim();
-  if (!trimmed) throw new Error("Mensaje vacío");
+  const trimmed = sanitizeText(parsedContent.data);
 
   let conversationId = input.conversationId ?? null;
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { processManyChatWebhookForOrganization } from "@/app/manychat/actions";
 import { getManyChatIntegrationByWebhookToken } from "@/lib/manychat/integration";
 import { parseManyChatWebhookPayload } from "@/lib/manychat/parse-webhook";
+import { getRequestIp, webhookRateLimit, rateLimitExceeded } from "@/lib/rate-limit";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const runtime = "nodejs";
@@ -13,6 +14,10 @@ export async function POST(
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: "Supabase no configurado" }, { status: 500 });
   }
+
+  const ip = getRequestIp(req);
+  const { allowed, resetAt } = webhookRateLimit(`manychat:${ip}`);
+  if (!allowed) return rateLimitExceeded(resetAt);
 
   const { token } = await context.params;
   if (!token?.trim()) {

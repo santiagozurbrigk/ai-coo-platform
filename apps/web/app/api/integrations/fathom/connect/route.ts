@@ -1,13 +1,29 @@
 import { NextResponse } from "next/server";
-import { requireOrganizationId } from "@/lib/auth/bootstrap";
+import { requireAuth } from "@/lib/auth/require-auth";
 import { connectFathomWithApiKey } from "@/lib/fathom/connect";
+import {
+  integrationConnectRateLimit,
+  rateLimitErrorMessage,
+} from "@/lib/rate-limit";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { apiKeySchema, firstZodError } from "@/lib/validations";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: "Supabase no configurado." }, { status: 500 });
+  }
+
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.error;
+
+  const { allowed, resetAt } = integrationConnectRateLimit(auth.user.id);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: rateLimitErrorMessage(resetAt) },
+      { status: 429 }
+    );
   }
 
   let body: { apiKey?: string };
@@ -17,29 +33,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
   }
 
-  const apiKey = String(body.apiKey ?? "").trim();
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "Pega tu API key de Fathom." },
-      { status: 400 }
-    );
+  const parsed = apiKeySchema.safeParse(body.apiKey);
+  if (!parsed.success) {
+    return NextResponse.json({ error: firstZodError(parsed.error) }, { status: 400 });
   }
 
-  try {
-    const organizationId = await requireOrganizationId();
-    const result = await connectFathomWithApiKey(organizationId, apiKey);
+  const result = await connectFathomWithApiKey(auth.orgId, parsed.data);
 
-    if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
-    }
-
-    return NextResponse.json({
-      ok: true,
-      synced: result.synced ?? 0,
-      warning: result.error,
-    });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Error al conectar Fathom";
-    return NextResponse.json({ error: message }, { status: 401 });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 400 });
   }
+
+  return NextResponse.json({
+    ok: true,
+    synced: result.synced ?? 0,
+    warning: result.error,
+  });
 }

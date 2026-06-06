@@ -1,6 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { authRateLimit, rateLimitErrorMessage } from "@/lib/rate-limit";
+import { emailSchema, firstZodError } from "@/lib/validations";
 import { getOnboardingStatusAction } from "@/app/onboarding/actions";
 import { ensureCurrentUserBootstrap } from "@/lib/auth/bootstrap";
 import { createClient } from "@/lib/supabase/server";
@@ -46,15 +48,27 @@ export async function signInAction(
   _prev: AuthActionState,
   formData: FormData
 ): Promise<AuthActionState> {
-  const email = String(formData.get("email") ?? "").trim();
+  const emailRaw = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
-  if (!email || !password) {
+  const emailParsed = emailSchema.safeParse(emailRaw);
+  if (!emailParsed.success) {
+    return { error: firstZodError(emailParsed.error) };
+  }
+  if (!password) {
     return { error: "Completa email y contraseña." };
   }
 
+  const { allowed, resetAt } = authRateLimit(`signin:${emailParsed.data}`);
+  if (!allowed) {
+    return { error: rateLimitErrorMessage(resetAt) };
+  }
+
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth.signInWithPassword({
+    email: emailParsed.data,
+    password,
+  });
 
   if (error) {
     return { error: mapAuthError(error.message) };
@@ -77,17 +91,26 @@ export async function signUpAction(
   _prev: AuthActionState,
   formData: FormData
 ): Promise<AuthActionState> {
-  const email = String(formData.get("email") ?? "").trim();
+  const emailRaw = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const fullName = String(formData.get("fullName") ?? "").trim();
 
-  if (!email || !password) {
+  const emailParsed = emailSchema.safeParse(emailRaw);
+  if (!emailParsed.success) {
+    return { error: firstZodError(emailParsed.error) };
+  }
+  if (!password) {
     return { error: "Completa email y contraseña." };
+  }
+
+  const { allowed, resetAt } = authRateLimit(`signup:${emailParsed.data}`);
+  if (!allowed) {
+    return { error: rateLimitErrorMessage(resetAt) };
   }
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
-    email,
+    email: emailParsed.data,
     password,
     options: {
       data: fullName ? { full_name: fullName } : undefined,

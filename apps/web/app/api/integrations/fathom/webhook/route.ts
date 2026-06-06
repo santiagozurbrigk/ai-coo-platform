@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import crypto from "crypto";
 import { ingestFathomWebhookCall } from "@/lib/fathom/process-call";
+import { getRequestIp, rateLimitExceeded, webhookRateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -26,6 +27,10 @@ function verifySignature(
 }
 
 export async function POST(request: NextRequest) {
+  const ip = getRequestIp(request);
+  const { allowed, resetAt } = webhookRateLimit(`fathom:${ip}`);
+  if (!allowed) return rateLimitExceeded(resetAt);
+
   const rawBody = await request.text();
   let body: Record<string, unknown>;
   try {

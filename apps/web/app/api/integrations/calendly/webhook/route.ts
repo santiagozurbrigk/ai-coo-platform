@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getRequestIp, rateLimitExceeded, webhookRateLimit } from "@/lib/rate-limit";
 import { syncCalendlyEventsForOrganization } from "@/lib/calendly/sync-events";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { CalendlyWebhookBody, CalendlyWebhookInviteePayload } from "@/types/calendly";
@@ -105,6 +106,10 @@ export async function POST(req: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: "Supabase no configurado" }, { status: 500 });
   }
+
+  const ip = getRequestIp(req);
+  const { allowed, resetAt } = webhookRateLimit(`calendly:${ip}`);
+  if (!allowed) return rateLimitExceeded(resetAt);
 
   try {
     const bodyText = await req.text();

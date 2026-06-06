@@ -2,6 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
+import { requireAuthContext } from "@/lib/auth/require-auth";
+import {
+  integrationConnectRateLimit,
+  integrationRateLimit,
+  rateLimitErrorMessage,
+} from "@/lib/rate-limit";
+import { apiKeySchema, firstZodError } from "@/lib/validations";
 import {
   connectFathomWithApiKey,
   mapFathomConnectError,
@@ -25,10 +32,10 @@ export async function connectFathomAction(
   _prev: FathomConnectState,
   formData: FormData
 ): Promise<FathomConnectState> {
-  const apiKey = String(formData.get("apiKey") ?? "").trim();
-
-  if (!apiKey) {
-    return { error: "Pega tu API key de Fathom." };
+  const rawKey = String(formData.get("apiKey") ?? "").trim();
+  const parsed = apiKeySchema.safeParse(rawKey);
+  if (!parsed.success) {
+    return { error: firstZodError(parsed.error) };
   }
 
   if (!isSupabaseConfigured()) {
@@ -36,8 +43,14 @@ export async function connectFathomAction(
   }
 
   try {
-    const organizationId = await requireOrganizationId();
-    const result = await connectFathomWithApiKey(organizationId, apiKey);
+    const { user, orgId } = await requireAuthContext();
+
+    const { allowed, resetAt } = integrationConnectRateLimit(user.id);
+    if (!allowed) {
+      return { error: rateLimitErrorMessage(resetAt) };
+    }
+
+    const result = await connectFathomWithApiKey(orgId, parsed.data);
 
     if (!result.ok) {
       return { error: result.error ?? "No se pudo conectar Fathom." };
@@ -71,8 +84,14 @@ export async function syncFathomMeetingsAction(): Promise<
   MutationResult<{ synced: number }>
 > {
   return runMutation(async () => {
-    const organizationId = await requireOrganizationId();
-    const synced = await syncFathomMeetingsForOrganization(organizationId);
+    const { user, orgId } = await requireAuthContext();
+
+    const { allowed, resetAt } = integrationRateLimit(`fathom-sync:${user.id}`);
+    if (!allowed) {
+      throw new Error(rateLimitErrorMessage(resetAt));
+    }
+
+    const synced = await syncFathomMeetingsForOrganization(orgId);
     revalidatePath(paths.platform.integrations);
     return { synced };
   });

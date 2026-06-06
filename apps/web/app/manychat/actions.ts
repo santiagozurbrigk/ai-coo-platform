@@ -5,6 +5,12 @@ import {
   isMissingTableError,
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
+import { requireAuthContext } from "@/lib/auth/require-auth";
+import {
+  integrationConnectRateLimit,
+  rateLimitErrorMessage,
+} from "@/lib/rate-limit";
+import { apiKeySchema, firstZodError } from "@/lib/validations";
 import {
   fetchManyChatPageInfo,
   resolveManyChatSubscriber,
@@ -81,19 +87,28 @@ export async function connectManyChatAction(
   _prev: ManyChatConnectState,
   formData: FormData
 ): Promise<ManyChatConnectState> {
-  const apiToken = String(formData.get("apiToken") ?? "").trim();
-  const subscriberId = String(formData.get("subscriberId") ?? "").trim();
-
-  if (!apiToken) {
-    return { error: "Pega tu API key de ManyChat." };
+  const parsedToken = apiKeySchema.safeParse(
+    String(formData.get("apiToken") ?? "").trim()
+  );
+  if (!parsedToken.success) {
+    return { error: firstZodError(parsedToken.error) };
   }
+
+  const apiToken = parsedToken.data;
+  const subscriberId = String(formData.get("subscriberId") ?? "").trim();
 
   if (!isSupabaseConfigured()) {
     return { error: "Supabase no configurado." };
   }
 
   try {
-    const organizationId = await requireOrganizationId();
+    const { user, orgId: organizationId } = await requireAuthContext();
+
+    const { allowed, resetAt } = integrationConnectRateLimit(user.id);
+    if (!allowed) {
+      return { error: rateLimitErrorMessage(resetAt) };
+    }
+
     const page = await fetchManyChatPageInfo(apiToken);
     const webhookToken = crypto.randomBytes(24).toString("hex");
     const now = new Date().toISOString();

@@ -3,6 +3,8 @@ import { FathomApiError, validateFathomApiKey } from "@/lib/fathom/api";
 import { syncFathomMeetingsForOrganization } from "@/lib/fathom/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+import { apiKeySchema, firstZodError } from "@/lib/validations";
+
 export type ConnectFathomResult = {
   ok: boolean;
   error?: string;
@@ -25,12 +27,13 @@ export async function connectFathomWithApiKey(
   options?: { syncOnConnect?: boolean }
 ): Promise<ConnectFathomResult> {
   const trimmed = apiKey.trim();
-  if (!trimmed) {
-    return { ok: false, error: "Pega tu API key de Fathom." };
+  const parsed = apiKeySchema.safeParse(trimmed);
+  if (!parsed.success) {
+    return { ok: false, error: firstZodError(parsed.error) };
   }
 
   try {
-    await validateFathomApiKey(trimmed);
+    await validateFathomApiKey(parsed.data);
   } catch (e) {
     const message =
       e instanceof FathomApiError
@@ -46,7 +49,7 @@ export async function connectFathomWithApiKey(
   const { error } = await admin.from("fathom_integrations").upsert(
     {
       organization_id: organizationId,
-      api_key: trimmed,
+      api_key: parsed.data,
       webhook_secret: process.env.FATHOM_WEBHOOK_SECRET ?? null,
       status: "connected",
       last_sync_at: now,
