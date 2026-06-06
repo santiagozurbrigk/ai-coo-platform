@@ -16,17 +16,19 @@ export const maxDuration = 60;
  * 2. Procesar llamadas pending cuyo delay de 30 min ya venció
  */
 async function runFathomProcess(request: Request) {
-  console.log("[Fathom:process] Cron invoked", {
-    method: request.method,
-    hasCronSecret: Boolean(process.env.CRON_SECRET?.trim()),
-    supabaseConfigured: isSupabaseConfigured(),
-  });
+  console.log("[Fathom:process] START - version 3");
 
   const unauthorized = assertCronAuthorized(request);
   if (unauthorized) {
     console.log("[Fathom:process] Early return: unauthorized (CRON_SECRET mismatch)");
     return unauthorized;
   }
+
+  console.log("[Fathom:process] Auth passed, starting sync...", {
+    method: request.method,
+    hasCronSecret: Boolean(process.env.CRON_SECRET?.trim()),
+    supabaseConfigured: isSupabaseConfigured(),
+  });
 
   if (!isSupabaseConfigured()) {
     console.log("[Fathom:process] Early return: Supabase not configured");
@@ -95,13 +97,16 @@ async function runFathomProcess(request: Request) {
     organizations: 0,
     ingested: 0,
     skippedOrgs: [],
+    orgResults: [],
   };
+  let syncError: string | undefined;
 
   try {
     sync = await syncAllFathomIntegrations({ debug: true });
-    console.log("[Fathom:process] Sync complete:", sync);
+    console.log("[Fathom:process] Sync result:", JSON.stringify(sync));
   } catch (e) {
-    console.error("[Fathom:process] Sync error:", e);
+    syncError = e instanceof Error ? e.message : String(e);
+    console.error("[Fathom:process] Sync error:", syncError, e);
   }
 
   const processed = await processPendingFathomCalls(50);
@@ -109,8 +114,10 @@ async function runFathomProcess(request: Request) {
 
   return NextResponse.json({
     ok: true,
+    version: 3,
     processed,
     sync,
+    syncError: syncError ?? null,
     diagnostics,
     probe: probe
       ? {

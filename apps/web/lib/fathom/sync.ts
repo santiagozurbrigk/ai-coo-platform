@@ -52,6 +52,9 @@ async function upsertFathomCallFromMeeting(
   organizationId: string,
   meeting: FathomMeetingRecord
 ): Promise<boolean> {
+  const recordingId = meeting.recording_id ?? meeting.id;
+  console.log("[Fathom:sync] Upserting meeting:", recordingId);
+
   const row = buildFathomCallRow(organizationId, meeting);
 
   const { error } = await admin.from("fathom_calls").upsert(row, {
@@ -60,14 +63,12 @@ async function upsertFathomCallFromMeeting(
 
   if (error) {
     console.error("[Fathom:sync] INSERT ERROR:", JSON.stringify(error));
+    console.log("[Fathom:sync] Upsert result:", error.message);
     return false;
   }
 
-  console.log(
-    "[Fathom:sync] Inserted:",
-    meeting.recording_id ?? meeting.id,
-    row.title
-  );
+  console.log("[Fathom:sync] Upsert result:", "OK");
+  console.log("[Fathom:sync] Inserted:", recordingId, row.title);
   return true;
 }
 
@@ -117,7 +118,7 @@ export async function syncFathomMeetingsForOrganization(
       Date.now() - INITIAL_SYNC_LOOKBACK_DAYS * 24 * 60 * 60 * 1000
     ).toISOString();
 
-  console.log("[Fathom] Calling listFathomMeetings (external fetch)", {
+  console.log("[Fathom:sync] Calling Fathom API...", {
     organizationId,
     createdAfter,
     apiKeyLength: integration.api_key.trim().length,
@@ -133,12 +134,12 @@ export async function syncFathomMeetingsForOrganization(
       debugContext: `sync:${organizationId.slice(0, 8)}`,
     });
   } catch (e) {
-    console.error("[Fathom] listFathomMeetings failed:", e);
+    console.error("[Fathom:sync] listFathomMeetings failed:", e);
     if (e instanceof FathomApiError) throw new Error(e.message);
     throw e;
   }
 
-  console.log("[Fathom] listFathomMeetings returned", meetings.length, "meetings");
+  console.log("[Fathom:sync] Meetings received:", meetings?.length);
 
   let ingested = 0;
   for (const meeting of meetings) {
@@ -175,36 +176,65 @@ export async function syncAllFathomIntegrations(options?: {
   organizations: number;
   ingested: number;
   skippedOrgs: string[];
+  orgResults: Array<{
+    organizationId: string;
+    ingested: number;
+    error?: string;
+  }>;
 }> {
+  console.log("[Fathom:sync] syncAllFathomIntegrations called");
+
   const diagnostics = await getFathomIntegrationDiagnostics();
   if (diagnostics.queryError) {
     throw new Error(diagnostics.queryError);
   }
 
-  const organizationIds = diagnostics.rows
-    .filter((r) => r.status === "connected" && r.has_key)
-    .map((r) => r.organization_id);
+  const orgs = diagnostics.rows.filter(
+    (r) => r.status === "connected" && r.has_key
+  );
+  const organizationIds = orgs.map((r) => r.organization_id);
 
-  console.log("[Fathom] syncAllFathomIntegrations orgs to sync:", organizationIds.length);
+  console.log(
+    "[Fathom:sync] Orgs from DB:",
+    orgs.length,
+    orgs.map((o) => o.organization_id)
+  );
 
   if (organizationIds.length === 0) {
-    console.log("[Fathom] Early return: syncAll — zero eligible orgs, skipping all fetches");
-    return { organizations: 0, ingested: 0, skippedOrgs: [] };
+    console.log("[Fathom:sync] Early return: zero eligible orgs, skipping all fetches");
+    return { organizations: 0, ingested: 0, skippedOrgs: [], orgResults: [] };
   }
 
   let ingested = 0;
   const skippedOrgs: string[] = [];
+  const orgResults: Array<{
+    organizationId: string;
+    ingested: number;
+    error?: string;
+  }> = [];
 
   for (const organizationId of organizationIds) {
+    console.log("[Fathom:sync] Processing org:", organizationId);
     try {
-      ingested += await syncFathomMeetingsForOrganization(organizationId, {
+      const orgIngested = await syncFathomMeetingsForOrganization(organizationId, {
         debug: options?.debug,
       });
+      ingested += orgIngested;
+      orgResults.push({ organizationId, ingested: orgIngested });
     } catch (e) {
-      console.error("[syncAllFathomIntegrations]", organizationId, e);
+      const error = e instanceof Error ? e.message : String(e);
+      console.error("[Fathom:sync] Org sync failed:", organizationId, error, e);
       skippedOrgs.push(organizationId);
+      orgResults.push({ organizationId, ingested: 0, error });
     }
   }
 
-  return { organizations: organizationIds.length, ingested, skippedOrgs };
+  const result = {
+    organizations: organizationIds.length,
+    ingested,
+    skippedOrgs,
+    orgResults,
+  };
+  console.log("[Fathom:sync] syncAllFathomIntegrations done:", JSON.stringify(result));
+  return result;
 }
