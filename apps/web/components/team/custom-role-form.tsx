@@ -1,17 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Button, FormField, Input, Textarea } from "@ai-coo/ui";
-import { Panel } from "@/components/shared/panel";
+import { Check } from "lucide-react";
+import { Button, Input } from "@ai-coo/ui";
 import {
   emptyPermissions,
+  getPermissionModuleLabel,
+  MODULE_GROUPS,
   PERMISSION_LEVELS,
-  PERMISSION_MODULES,
 } from "@/constants/permission-modules";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import type { PermissionLevel } from "@/types/team";
 import type { PermissionModuleId } from "@/constants/permission-modules";
+import { PermissionRow } from "./permission-row";
 
 export function CustomRoleForm() {
   const { addCustomRole } = usePlatformData();
@@ -39,52 +41,95 @@ export function CustomRoleForm() {
   };
 
   return (
-    <Panel title="Crear rol personalizado" contentClassName="space-y-4">
-      <FormField label="Nombre del rol">
-        <Input value={name} onChange={(e) => setName(e.target.value)} />
-      </FormField>
-      <FormField label="Descripción (opcional)">
-        <Textarea
-          rows={2}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      </FormField>
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-border text-muted-foreground">
-              <th className="px-3 py-2 text-left font-medium">Módulo</th>
-              {PERMISSION_LEVELS.map((l) => (
-                <th key={l.value} className="px-2 py-2 text-center font-medium">
-                  {l.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {PERMISSION_MODULES.map((mod) => (
-              <tr key={mod.id} className="border-b border-border/50">
-                <td className="px-3 py-2">{mod.label}</td>
-                {PERMISSION_LEVELS.map((level) => (
-                  <td key={level.value} className="px-2 py-2 text-center">
-                    <input
-                      type="radio"
-                      name={`perm-${mod.id}`}
-                      checked={permissions[mod.id] === level.value}
-                      onChange={() => setLevel(mod.id, level.value)}
-                      className="accent-primary"
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleCreate();
+      }}
+      className="rounded-xl border border-border/60 bg-card/40"
+    >
+      <div className="sticky top-0 z-10 mb-6 flex items-center justify-between border-b border-border/40 bg-background px-4 py-4 md:px-6">
+        <div>
+          <h2 className="text-[15px] font-medium text-foreground">
+            Crear rol personalizado
+          </h2>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">
+            Definí el nombre y los permisos de acceso por módulo
+          </p>
+        </div>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={!name.trim()}
+          className="gap-1.5 bg-violet-600 text-white hover:bg-violet-700"
+        >
+          <Check className="h-3.5 w-3.5" />
+          Guardar rol
+        </Button>
       </div>
-      <Button onClick={handleCreate} disabled={!name.trim()}>
-        Crear rol
-      </Button>
-    </Panel>
+
+      <div className="space-y-6 px-4 pb-6 md:px-6">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="role-name"
+              className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+            >
+              Nombre del rol
+            </label>
+            <Input
+              id="role-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="ej: Setter Senior"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="role-description"
+              className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+            >
+              Descripción (opcional)
+            </label>
+            <Input
+              id="role-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="ej: Acceso a ventas y clientes"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <div className="mb-2 grid min-w-[520px] grid-cols-[1fr_110px_110px_110px] px-3">
+            <div />
+            {PERMISSION_LEVELS.map((col) => (
+              <div
+                key={col.value}
+                className="text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+              >
+                {col.label}
+              </div>
+            ))}
+          </div>
+
+          {MODULE_GROUPS.map((group) => (
+            <div key={group.label} className="mb-3 min-w-[520px]">
+              <div className="mb-1 rounded-lg border border-border/40 bg-muted/30 px-3 py-1.5 text-[11px] font-medium text-muted-foreground">
+                {group.label}
+              </div>
+              {group.moduleIds.map((moduleId) => (
+                <PermissionRow
+                  key={moduleId}
+                  label={getPermissionModuleLabel(moduleId)}
+                  value={permissions[moduleId] ?? "none"}
+                  onChange={(val) => setLevel(moduleId, val)}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </form>
   );
 }
