@@ -109,7 +109,8 @@
   --info: 199 89% 48%;
   --info-foreground: 0 0% 100%;
 
-  --border: 0 0% 100%;
+  /* Bordes sutiles (~rgba(255,255,255,0.08) sobre superficies oscuras) */
+  --border: 0 0% 100% / 0.08;
   --input: 0 0% 17%;
   --ring: 258 84% 58%;
 
@@ -117,7 +118,7 @@
   --sidebar-foreground: 0 0% 38%;
   --sidebar-foreground-active: 258 91% 76%;
   --sidebar-accent: 258 50% 20%;
-  --sidebar-border: 0 0% 100%;
+  --sidebar-border: 0 0% 100% / 0.08;
 
   --glass: 0 0% 10%;
   --glass-border: 0 0% 100% / 0.1;
@@ -144,8 +145,8 @@
   --glass-bg: hsl(var(--card));
   --glass-bg-strong: hsl(var(--card));
   --glass-bg-nested: hsl(var(--muted));
-  --glass-border-color: hsl(var(--border));
-  --glass-border-subtle: hsl(var(--border));
+  --glass-border-color: hsl(0 0% 100% / 0.08);
+  --glass-border-subtle: hsl(0 0% 100% / 0.06);
   --glass-blur: 0px;
   --glass-blur-md: 0px;
 
