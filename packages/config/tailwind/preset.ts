@@ -58,6 +58,12 @@ const preset: Partial<Config> = {
           muted: "hsl(var(--ai-muted))",
           glow: "hsl(var(--ai-glow))",
         },
+        surface: {
+          1: "#111111",
+          2: "#1A1A1A",
+          3: "#222222",
+          4: "#2A2A2A",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

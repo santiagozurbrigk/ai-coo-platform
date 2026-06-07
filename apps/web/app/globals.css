@@ -25,7 +25,7 @@
   }
 
   html.dark body {
-    background: #080810;
+    background: #0a0a0a;
   }
 
   :root {
@@ -49,10 +49,10 @@
     --color-text-primary: 255 255 255;
     --color-text-secondary: 255 255 255;
     --color-text-muted: 255 255 255;
-    --color-surface-1: 8 8 16;
-    --color-surface-2: 18 18 24;
-    --color-surface-3: 20 20 28;
-    --color-surface-4: 24 24 34;
+    --color-surface-1: 10 10 10;
+    --color-surface-2: 26 26 26;
+    --color-surface-3: 34 34 34;
+    --color-surface-4: 42 42 42;
     --color-border: 255 255 255;
     --color-border-strong: 255 255 255;
     --color-accent: 124 58 237;
@@ -109,10 +109,10 @@
     --chart-line-secondary: var(--chart-2);
     --chart-crosshair: var(--chart-accent);
     --chart-grid: rgba(255, 255, 255, 0.06);
-    --chart-tooltip-background: #1a1a22;
+    --chart-tooltip-background: #1a1a1a;
     --chart-tooltip-foreground: #ffffff;
     --chart-tooltip-muted: rgba(255, 255, 255, 0.55);
-    --chart-marker-background: #1a1a22;
+    --chart-marker-background: #1a1a1a;
     --chart-marker-border: rgba(255, 255, 255, 0.12);
     --chart-marker-foreground: #ffffff;
     --chart-ring-background: rgba(255, 255, 255, 0.08);
@@ -215,11 +215,11 @@
   }
 
   .dark .surface-glass {
-    @apply border-white/[0.07] bg-[rgb(20,20,28)] shadow-none;
+    @apply border-white/[0.07] bg-[rgb(26,26,26)] shadow-none;
   }
 
   .dark .surface-glass:hover {
-    @apply border-white/[0.12] bg-[rgb(24,24,34)];
+    @apply border-white/[0.12] bg-[rgb(34,34,34)];
   }
 
   .text-primary-token {
@@ -531,7 +531,7 @@
   }
 
   html.dark .ai-card {
-    @apply border-white/[0.07] bg-[rgb(20,20,28)] text-foreground shadow-none;
+    @apply border-white/[0.07] bg-[rgb(26,26,26)] text-foreground shadow-none;
   }
 
   :root:not(.dark) .ai-card {
@@ -569,7 +569,7 @@
   }
 
   html.dark .context-panel-overlay {
-    @apply border-white/[0.08] bg-[#0d0d14];
+    @apply border-white/[0.08] bg-[#0a0a0a];
     box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4);
   }
 
@@ -669,7 +669,7 @@
   }
 
   html.dark .floating-chat-header {
-    background: #111116;
+    background: #111111;
     border-color: rgba(255, 255, 255, 0.08);
   }
 
@@ -719,7 +719,7 @@
   }
 
   html.dark .workboard-surface {
-    background: rgba(18, 18, 24, 0.8);
+    background: rgba(26, 26, 26, 0.8);
   }
 
   .workboard-calendar-panel {
@@ -728,7 +728,7 @@
   }
 
   html.dark .workboard-calendar-panel {
-    background: rgba(22, 22, 30, 0.48);
+    background: rgba(34, 34, 34, 0.48);
   }
 
   .workboard-calendar-header {
@@ -821,7 +821,7 @@
     position: absolute;
     inset: 1px;
     border-radius: inherit;
-    background: var(--glass-liquid-inner-bg, rgba(13, 13, 20, 0.85));
+    background: var(--glass-liquid-inner-bg, rgba(10, 10, 10, 0.85));
     z-index: 1;
   }
 

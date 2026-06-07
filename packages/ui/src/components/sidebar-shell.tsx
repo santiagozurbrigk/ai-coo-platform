@@ -64,7 +64,7 @@ export function SidebarShell({
   return (
     <aside
       className={cn(
-        "flex h-full w-[240px] shrink-0 flex-col border-r border-white/[0.06] bg-[rgba(10,8,20,0.70)] backdrop-blur-[40px]",
+        "flex h-full w-[240px] shrink-0 flex-col border-r border-white/[0.06] bg-transparent backdrop-blur-[40px]",
         className
       )}
     >

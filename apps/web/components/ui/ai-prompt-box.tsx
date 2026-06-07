@@ -84,7 +84,7 @@ const TooltipContent = React.forwardRef<
     ref={ref}
     sideOffset={sideOffset}
     className={cn(
-      "fade-in-0 zoom-in-95 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 animate-in overflow-hidden rounded-md border border-[#333333] bg-[#1F2023] px-3 py-1.5 text-sm text-white shadow-md data-[state=closed]:animate-out",
+      "fade-in-0 zoom-in-95 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 animate-in overflow-hidden rounded-md border border-[#333333] bg-[#1A1A1A] px-3 py-1.5 text-sm text-white shadow-md data-[state=closed]:animate-out",
       className,
     )}
     {...props}
@@ -119,13 +119,13 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[90vw] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border border-[#333333] bg-[#1F2023] p-0 shadow-xl duration-300 data-[state=closed]:animate-out data-[state=open]:animate-in md:max-w-[800px]",
+        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[90vw] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border border-[#333333] bg-[#1A1A1A] p-0 shadow-xl duration-300 data-[state=closed]:animate-out data-[state=open]:animate-in md:max-w-[800px]",
         className,
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute top-4 right-4 z-10 rounded-full bg-[#2E3033]/80 p-2 transition-all hover:bg-[#2E3033]">
+      <DialogPrimitive.Close className="absolute top-4 right-4 z-10 rounded-full bg-[#222222]/80 p-2 transition-all hover:bg-[#222222]">
         <X className="h-5 w-5 text-gray-200 hover:text-white" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -158,8 +158,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "default", size = "default", ...props }, ref) => {
     const variantClasses = {
       default: "bg-white hover:bg-white/80 text-black",
-      outline: "border border-[#444444] bg-transparent hover:bg-[#3A3A40]",
-      ghost: "bg-transparent hover:bg-[#3A3A40]",
+      outline: "border border-[#444444] bg-transparent hover:bg-[#2A2A2A]",
+      ghost: "bg-transparent hover:bg-[#2A2A2A]",
     };
     const sizeClasses = {
       default: "h-10 px-4 py-2",
@@ -271,7 +271,7 @@ const ImageViewDialog: React.FC<ImageViewDialogProps> = ({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
-          className="relative overflow-hidden rounded-2xl bg-[#1F2023] shadow-2xl"
+          className="relative overflow-hidden rounded-2xl bg-[#1A1A1A] shadow-2xl"
         >
           <div className="relative max-h-[80vh] w-full">
             <img
@@ -958,7 +958,7 @@ export const PromptInputBox = React.forwardRef(
                   isRecording
                     ? "bg-transparent text-red-500 hover:bg-gray-600/30 hover:text-red-400"
                     : hasContent
-                      ? "bg-white text-[#1F2023] hover:bg-white/80"
+                      ? "bg-white text-[#1A1A1A] hover:bg-white/80"
                       : "bg-transparent text-[#9CA3AF] hover:bg-gray-600/30 hover:text-[#D1D5DB]",
                 )}
                 onClick={() => {
@@ -969,13 +969,13 @@ export const PromptInputBox = React.forwardRef(
                 disabled={isLoading && !hasContent}
               >
                 {isLoading ? (
-                  <Square className="h-4 w-4 animate-pulse fill-[#1F2023]" />
+                  <Square className="h-4 w-4 animate-pulse fill-[#1A1A1A]" />
                 ) : isRecording ? (
                   <StopCircle className="h-5 w-5 text-red-500" />
                 ) : hasContent ? (
-                  <ArrowUp className="h-4 w-4 text-[#1F2023]" />
+                  <ArrowUp className="h-4 w-4 text-[#1A1A1A]" />
                 ) : (
-                  <Mic className="h-5 w-5 text-[#1F2023] transition-colors" />
+                  <Mic className="h-5 w-5 text-[#1A1A1A] transition-colors" />
                 )}
               </Button>
             </PromptInputAction>
