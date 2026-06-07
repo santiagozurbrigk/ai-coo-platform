@@ -109,8 +109,8 @@
   --info: 199 89% 48%;
   --info-foreground: 0 0% 100%;
 
-  /* Bordes sutiles (~rgba(255,255,255,0.08) sobre superficies oscuras) */
-  --border: 0 0% 100% / 0.08;
+  /* Bordes sutiles en dark (~#2c2c2c; equivalente a white/8% sobre #1a1a1a) */
+  --border: 0 0% 17%;
   --input: 0 0% 17%;
   --ring: 258 84% 58%;
 
@@ -118,7 +118,7 @@
   --sidebar-foreground: 0 0% 38%;
   --sidebar-foreground-active: 258 91% 76%;
   --sidebar-accent: 258 50% 20%;
-  --sidebar-border: 0 0% 100% / 0.08;
+  --sidebar-border: 0 0% 17%;
 
   --glass: 0 0% 10%;
   --glass-border: 0 0% 100% / 0.1;
