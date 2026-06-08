@@ -10,6 +10,6 @@ export function MainContainerBackground() {
     theme === "dark" ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.05)";
 
   return (
-    <BGPattern variant="dots" mask="fade-center" size={24} fill={fill} />
+    <BGPattern variant="dots" mask="fade-edges" size={24} fill={fill} />
   );
 }
