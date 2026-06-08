@@ -50,6 +50,7 @@ import {
 } from "@ai-coo/ui";
 import { AppLogo } from "@/components/brand";
 import { TrendLineChart } from "@/components/charts/platform";
+import { BGPattern } from "@/components/ui/bg-pattern";
 import { es } from "@/lib/locale/es";
 
 const chartData = [
@@ -386,6 +387,40 @@ export function DesignSystemShowcase() {
                   <Text muted>Área de contenido principal</Text>
                 </div>
               </div>
+            </div>
+          </Section>
+
+          <Section
+            title="Patrón de fondo (BGPattern)"
+            description="Grid, dots y variantes con máscaras fade — usado en el panel principal"
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              {(
+                [
+                  { variant: "grid" as const, mask: "fade-edges" as const, label: "Grid" },
+                  { variant: "dots" as const, mask: "fade-center" as const, label: "Dots" },
+                  {
+                    variant: "diagonal-stripes" as const,
+                    mask: "fade-y" as const,
+                    label: "Diagonal",
+                  },
+                  {
+                    variant: "horizontal-lines" as const,
+                    mask: "fade-right" as const,
+                    label: "Líneas H",
+                  },
+                ] as const
+              ).map(({ variant, mask, label }) => (
+                <div
+                  key={variant}
+                  className="relative flex aspect-video flex-col items-center justify-center overflow-hidden rounded-2xl border border-border/60"
+                  style={{ "--pattern-mask": "hsl(var(--card))" } as React.CSSProperties}
+                >
+                  <BGPattern variant={variant} mask={mask} size={24} />
+                  <p className="relative z-[1] text-sm font-medium">{label}</p>
+                  <Caption className="relative z-[1]">{mask}</Caption>
+                </div>
+              ))}
             </div>
           </Section>
 

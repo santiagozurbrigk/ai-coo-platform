@@ -27,23 +27,18 @@ export type BGPatternProps = ComponentProps<"div"> & {
   fill?: string;
 };
 
+/** Fade hacia el color de superficie del contenedor (p. ej. `.main-container`). */
+const MASK_COLOR = "var(--pattern-mask, hsl(var(--background)))";
+
 const maskClasses: Record<BGMaskType, string> = {
-  "fade-edges":
-    "[mask-image:radial-gradient(ellipse_at_center,var(--pattern-mask),transparent)]",
-  "fade-center":
-    "[mask-image:radial-gradient(ellipse_at_center,transparent,var(--pattern-mask))]",
-  "fade-top":
-    "[mask-image:linear-gradient(to_bottom,transparent,var(--pattern-mask))]",
-  "fade-bottom":
-    "[mask-image:linear-gradient(to_bottom,var(--pattern-mask),transparent)]",
-  "fade-left":
-    "[mask-image:linear-gradient(to_right,transparent,var(--pattern-mask))]",
-  "fade-right":
-    "[mask-image:linear-gradient(to_right,var(--pattern-mask),transparent)]",
-  "fade-x":
-    "[mask-image:linear-gradient(to_right,transparent,var(--pattern-mask),transparent)]",
-  "fade-y":
-    "[mask-image:linear-gradient(to_bottom,transparent,var(--pattern-mask),transparent)]",
+  "fade-edges": `[mask-image:radial-gradient(ellipse_at_center,${MASK_COLOR},transparent)]`,
+  "fade-center": `[mask-image:radial-gradient(ellipse_at_center,transparent,${MASK_COLOR})]`,
+  "fade-top": `[mask-image:linear-gradient(to_bottom,transparent,${MASK_COLOR})]`,
+  "fade-bottom": `[mask-image:linear-gradient(to_bottom,${MASK_COLOR},transparent)]`,
+  "fade-left": `[mask-image:linear-gradient(to_right,transparent,${MASK_COLOR})]`,
+  "fade-right": `[mask-image:linear-gradient(to_right,${MASK_COLOR},transparent)]`,
+  "fade-x": `[mask-image:linear-gradient(to_right,transparent,${MASK_COLOR},transparent)]`,
+  "fade-y": `[mask-image:linear-gradient(to_bottom,transparent,${MASK_COLOR},transparent)]`,
   none: "",
 };
 
