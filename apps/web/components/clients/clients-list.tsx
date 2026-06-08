@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Badge, cn } from "@ai-coo/ui";
+import { Badge } from "@ai-coo/ui";
 import { Star } from "lucide-react";
+import { FilterPills } from "@/components/marketing/filter-pills";
 import { paths } from "@/routes";
 import type { Client, ClientStatus } from "@/types/clients";
 
@@ -35,23 +36,11 @@ export function ClientsList({ clients }: { clients: Client[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => setFilter(f.id)}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-xs font-medium",
-              filter === f.id
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground"
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      <FilterPills
+        options={FILTERS.map((f) => ({ value: f.id, label: f.label }))}
+        value={filter}
+        onChange={(value) => setFilter(value as ClientStatus | "all")}
+      />
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
         <table className="w-full text-sm">
           <thead>

@@ -22,6 +22,10 @@ import {
 } from "@/components/marketing/content-label-badge";
 import { ContentLibraryEmptyState } from "@/components/marketing/content-library-empty-state";
 import { FilterPills } from "@/components/marketing/filter-pills";
+import {
+  segmentedNavContainerClass,
+  segmentedNavItemClass,
+} from "@/components/shared/segmented-nav-styles";
 
 type PlatformFilter = "all" | "instagram" | "youtube";
 type LabelFilter = ContentLabel | "all";
@@ -226,21 +230,14 @@ export function MarketingContentLibrary({
 
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-xs text-muted-foreground">Plataforma:</span>
-        {PLATFORM_OPTIONS.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setPlatform(key)}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-xs font-medium",
-              platform === key
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground"
-            )}
-          >
-            {label}
-          </button>
-        ))}
+        <FilterPills
+          options={PLATFORM_OPTIONS.map(({ key, label }) => ({
+            value: key,
+            label,
+          }))}
+          value={platform}
+          onChange={(value) => setPlatform(value as PlatformFilter)}
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -263,13 +260,13 @@ export function MarketingContentLibrary({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex rounded-lg border border-border p-0.5">
+        <div className={segmentedNavContainerClass}>
           <button
             type="button"
             onClick={() => setView("grid")}
             className={cn(
-              "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs",
-              view === "grid" && "bg-primary text-primary-foreground"
+              segmentedNavItemClass(view === "grid"),
+              "inline-flex items-center gap-1"
             )}
           >
             <LayoutGrid className="h-3.5 w-3.5" /> Grid
@@ -278,8 +275,8 @@ export function MarketingContentLibrary({
             type="button"
             onClick={() => setView("list")}
             className={cn(
-              "flex items-center gap-1 rounded-md px-2.5 py-1 text-xs",
-              view === "list" && "bg-primary text-primary-foreground"
+              segmentedNavItemClass(view === "list"),
+              "inline-flex items-center gap-1"
             )}
           >
             <List className="h-3.5 w-3.5" /> Lista

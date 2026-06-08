@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@ai-coo/ui";
 import { pushHashTab } from "@/lib/hooks/use-hash-tab";
+import {
+  segmentedNavContainerClass,
+  segmentedNavItemClass,
+} from "./segmented-nav-styles";
 
 export type ModuleSubnavTab = {
   label: string;
@@ -27,7 +30,7 @@ export function ModuleSubnav({
   const pathname = usePathname();
 
   return (
-    <nav className="flex gap-1 overflow-x-auto rounded-lg border border-border/60 bg-muted/20 p-1">
+    <nav className={segmentedNavContainerClass}>
       {tabs.map((tab) => (
         <Link
           key={tab.href}
@@ -38,12 +41,7 @@ export function ModuleSubnav({
               e.preventDefault();
             }
           }}
-          className={cn(
-            "shrink-0 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-            isTabActive(tab.href)
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          )}
+          className={segmentedNavItemClass(isTabActive(tab.href))}
         >
           {tab.label}
         </Link>

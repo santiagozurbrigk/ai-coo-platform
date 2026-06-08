@@ -2,6 +2,10 @@
 
 import { cn } from "@ai-coo/ui";
 import { Moon, Sun } from "lucide-react";
+import {
+  segmentedNavContainerClass,
+  segmentedNavItemClass,
+} from "@/components/shared/segmented-nav-styles";
 import { useTheme, type Theme } from "@/providers/theme-provider";
 import { SettingsSection } from "./settings-section";
 
@@ -20,7 +24,7 @@ export function AppearanceSettings() {
     >
       <div className="space-y-2">
         <p className="text-sm font-medium">Tema</p>
-        <div className="inline-flex rounded-lg border border-border bg-muted/40 p-1">
+        <div className={segmentedNavContainerClass}>
           {options.map((opt) => {
             const Icon = opt.icon;
             const active = theme === opt.value;
@@ -30,10 +34,8 @@ export function AppearanceSettings() {
                 type="button"
                 onClick={() => setTheme(opt.value)}
                 className={cn(
-                  "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors",
-                  active
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-background hover:text-foreground"
+                  segmentedNavItemClass(active),
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm"
                 )}
               >
                 <Icon className="h-4 w-4" />

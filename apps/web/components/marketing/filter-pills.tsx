@@ -1,6 +1,9 @@
 "use client";
 
-import { cn } from "@ai-coo/ui";
+import {
+  segmentedNavContainerClass,
+  segmentedNavItemClass,
+} from "@/components/shared/segmented-nav-styles";
 
 export interface FilterPillsProps {
   options: { value: string; label: string }[];
@@ -10,18 +13,13 @@ export interface FilterPillsProps {
 
 export function FilterPills({ options, value, onChange }: FilterPillsProps) {
   return (
-    <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
+    <div className={segmentedNavContainerClass}>
       {options.map((opt) => (
         <button
           key={opt.value}
           type="button"
           onClick={() => onChange(opt.value)}
-          className={cn(
-            "rounded-md px-3 py-1 text-xs transition-all",
-            value === opt.value
-              ? "bg-background font-medium text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          )}
+          className={segmentedNavItemClass(value === opt.value)}
         >
           {opt.label}
         </button>

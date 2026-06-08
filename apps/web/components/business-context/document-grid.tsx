@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@ai-coo/ui";
+import { FilterPills } from "@/components/marketing/filter-pills";
 import type {
   ContextDocument,
   FathomKnowledgeCall,
@@ -58,23 +58,11 @@ export function DocumentGrid({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setFilter(key)}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-              filter === key
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <FilterPills
+        options={FILTERS.map(({ key, label }) => ({ value: key, label }))}
+        value={filter}
+        onChange={(value) => setFilter(value as KnowledgeBaseFilter)}
+      />
 
       {totalItems === 0 ? (
         <EmptyState

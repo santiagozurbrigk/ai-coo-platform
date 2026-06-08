@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@ai-coo/ui";
+import { FilterPills } from "@/components/marketing/filter-pills";
 import { CONVERSATION_TAG_FILTERS } from "@/constants/conversation-tags";
 import { formatRelativeTime } from "@/lib/format";
 import type { Conversation, ConversationTagId } from "@/types/sales";
@@ -30,23 +31,14 @@ export function ConversationList({
         <p className="px-1 text-xs font-medium text-muted-foreground">
           {filtered.length} conversaciones
         </p>
-        <div className="flex max-w-full gap-1.5 overflow-x-auto overflow-y-hidden pb-1 [scrollbar-width:thin]">
-          {CONVERSATION_TAG_FILTERS.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => setTagFilter(f.id)}
-              className={cn(
-                "shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-2xs font-medium transition-colors",
-                tagFilter === f.id
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted/50 text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        <FilterPills
+          options={CONVERSATION_TAG_FILTERS.map((f) => ({
+            value: f.id,
+            label: f.label,
+          }))}
+          value={tagFilter}
+          onChange={(value) => setTagFilter(value as typeof tagFilter)}
+        />
       </div>
       <ul className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         {filtered.map((c) => (

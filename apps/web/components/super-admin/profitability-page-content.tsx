@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { MetricCard } from "@ai-coo/ui";
+import { FilterPills } from "@/components/marketing/filter-pills";
 import { TrendLineChart } from "@/components/charts/platform";
 import { formatUsdPrecise } from "@/lib/super-admin/org-metrics";
 import type {
@@ -117,22 +118,11 @@ export function ProfitabilityPageContent({
 
       <section className="space-y-4">
         <h3 className="text-sm font-semibold">Detalle de token usage</h3>
-        <div className="flex flex-wrap gap-2">
-          {PERIODS.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setPeriod(key)}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium ${
-                period === key
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <FilterPills
+          options={PERIODS.map(({ key, label }) => ({ value: key, label }))}
+          value={period}
+          onChange={(value) => setPeriod(value as typeof period)}
+        />
         <div className="grid gap-4 sm:grid-cols-3">
           <MetricCard
             title="Input tokens"

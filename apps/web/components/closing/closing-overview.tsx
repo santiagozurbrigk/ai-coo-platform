@@ -9,6 +9,7 @@ import {
   GlassPanel,
 } from "@ai-coo/ui";
 import { Calendar, ExternalLink, Video } from "lucide-react";
+import { FilterPills } from "@/components/marketing/filter-pills";
 import { ModuleSubnav } from "@/components/shared/client";
 import { PageHeader } from "@/components/shared/page-header";
 import { isSameMonth, pickCalendarFocusDate } from "@/lib/closing/calendar";
@@ -134,27 +135,19 @@ export function ClosingOverview() {
             </p>
           ) : activeTab === "lista" ? (
             <>
-              <div className="flex flex-wrap gap-2">
-                {(["all", "scheduled", "closed", "not_closed", "no_show"] as const).map(
-                  (f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => setListFilter(f)}
-                      className={cn(
-                        "rounded-md px-3 py-1.5 text-xs font-medium",
-                        listFilter === f
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
-                      )}
-                    >
-                      {f === "all"
-                        ? "Todos"
-                        : STATUS_LABEL[f as ClosingCallStatus]}
-                    </button>
-                  )
-                )}
-              </div>
+              <FilterPills
+                options={(
+                  ["all", "scheduled", "closed", "not_closed", "no_show"] as const
+                ).map((f) => ({
+                  value: f,
+                  label:
+                    f === "all" ? "Todos" : STATUS_LABEL[f as ClosingCallStatus],
+                }))}
+                value={listFilter}
+                onChange={(value) =>
+                  setListFilter(value as typeof listFilter)
+                }
+              />
               <div className="overflow-x-auto rounded-xl border border-border">
                 <table className="w-full text-sm">
                   <thead>

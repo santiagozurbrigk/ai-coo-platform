@@ -4,7 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Archive, Eye, Search, Trash2 } from "lucide-react";
-import { Badge, Button, DataTable, cn } from "@ai-coo/ui";
+import { Badge, Button, DataTable } from "@ai-coo/ui";
+import { FilterPills } from "@/components/marketing/filter-pills";
 import { paths } from "@/routes";
 import {
   archiveAiBrainDocumentAction,
@@ -88,40 +89,16 @@ export function BrainLibrary({ documents }: { documents: BrainDocument[] }) {
         </Button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {TYPE_FILTERS.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setFilter(key)}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-              filter === key
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {STATUS_FILTERS.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setStatusFilter(key)}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-              statusFilter === key
-                ? "bg-secondary text-secondary-foreground"
-                : "bg-muted/50 text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <FilterPills
+        options={TYPE_FILTERS.map(({ key, label }) => ({ value: key, label }))}
+        value={filter}
+        onChange={(value) => setFilter(value as BrainContentType | "all")}
+      />
+      <FilterPills
+        options={STATUS_FILTERS.map(({ key, label }) => ({ value: key, label }))}
+        value={statusFilter}
+        onChange={(value) => setStatusFilter(value as BrainContentStatus | "all")}
+      />
 
       <DataTable
         title="Biblioteca del cerebro"
