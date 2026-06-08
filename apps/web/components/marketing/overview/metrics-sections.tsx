@@ -42,21 +42,20 @@ export function MarketingMetricsSections() {
             value={formatNum(m.totalReach)}
             sub="Últimos 30 días"
             badge={formatTrend(m.reachTrendPct)}
-            accentColor={ACCENT.reach}
             sparkline="reach"
+            sparklineColor={ACCENT.reach}
           />
           <MarketingOverviewMetricCard
             label="Interacciones totales"
             value={formatNum(m.totalInteractions)}
             sub={`Engagement ${m.engagementRatePct}%`}
             badge={formatTrend(m.interactionsTrendPct)}
-            accentColor={ACCENT.reach}
             sparkline="engage"
+            sparklineColor={ACCENT.reach}
           />
           <MarketingOverviewMetricCard
             label="Contenido publicado"
             value={String(m.contentPublished)}
-            accentColor={ACCENT.reach}
           >
             <div className="mt-2 flex flex-wrap gap-2">
               {[
@@ -84,23 +83,22 @@ export function MarketingMetricsSections() {
             value={formatNum(extra.storyReplies.value)}
             sub="Últimos 30 días"
             badge={formatTrend(extra.storyReplies.trend)}
-            accentColor={ACCENT.engagement}
             sparkline="growth"
+            sparklineColor={ACCENT.engagement}
           />
           <MarketingOverviewMetricCard
             label="Comentarios totales"
             value={formatNum(extra.totalComments.value)}
             sub="Últimos 30 días"
             badge={formatTrend(extra.totalComments.trend)}
-            accentColor={ACCENT.engagement}
             sparkline="comments"
+            sparklineColor={ACCENT.engagement}
           />
           <MarketingOverviewMetricCard
             label="Crecimiento del perfil"
             value={`+${formatNum(extra.profileGrowth.value)}`}
             sub={extra.profileGrowth.label ?? "Nuevos seguidores"}
             badge={formatTrend(extra.profileGrowth.trend)}
-            accentColor={ACCENT.engagement}
           >
             <RateBar
               label="Views → Seguidores"
@@ -118,8 +116,8 @@ export function MarketingMetricsSections() {
             label="Conversaciones generadas"
             value={String(m.conversationsGenerated)}
             sub="Vinculadas a bandeja"
-            accentColor={ACCENT.conversion}
             sparkline="convert"
+            sparklineColor={ACCENT.conversion}
           />
 
           <div className="hidden items-center justify-center text-muted-foreground lg:flex">
@@ -130,7 +128,6 @@ export function MarketingMetricsSections() {
             label="Bookings influenciados"
             value={String(m.bookingsInfluenced)}
             sub={`${m.bookingsInfluencedPct}% del total de bookings`}
-            accentColor={ACCENT.conversion}
           >
             <RateBar label="" value={m.bookingsInfluencedPct} color={ACCENT.conversion} />
           </MarketingOverviewMetricCard>
@@ -143,7 +140,6 @@ export function MarketingMetricsSections() {
             label="Ventas influenciadas"
             value={String(m.salesInfluenced)}
             sub={`$${m.revenueInfluenced.toLocaleString("es-ES")} atribuidos`}
-            accentColor={ACCENT.conversion}
           >
             <RateBar
               label="Conv. booking → venta"

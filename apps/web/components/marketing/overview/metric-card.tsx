@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { TrendingUp } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { SparklineSVG } from "./sparkline-svg";
 
 export type MarketingSparklineVariant =
@@ -14,8 +15,8 @@ export interface MarketingOverviewMetricCardProps {
   value: string;
   sub?: string;
   badge?: string;
-  accentColor: string;
   sparkline?: MarketingSparklineVariant;
+  sparklineColor?: string;
   children?: ReactNode;
 }
 
@@ -24,30 +25,32 @@ export function MarketingOverviewMetricCard({
   value,
   sub,
   badge,
-  accentColor,
   sparkline,
+  sparklineColor = "rgba(255, 255, 255, 0.35)",
   children,
 }: MarketingOverviewMetricCardProps) {
   return (
     <div
-      className="relative overflow-hidden rounded-xl border border-border/40 bg-muted/30 p-4"
-      style={{ borderLeft: `2px solid ${accentColor}` }}
+      className={cn(
+        "relative overflow-hidden rounded-xl border border-border bg-card p-5",
+        "dark:border-white/[0.08] dark:bg-[#1A1A1A]"
+      )}
     >
-      {sparkline && <SparklineSVG variant={sparkline} color={accentColor} />}
-      <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
-        {label}
-      </p>
+      {sparkline && (
+        <SparklineSVG variant={sparkline} color={sparklineColor} />
+      )}
+      <p className="metric-label mb-1.5">{label}</p>
       {badge && (
-        <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-emerald-900/30 px-2 py-0.5 text-[11px] font-medium text-emerald-400">
+        <span className="mb-1 inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-[3px] text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
           <TrendingUp className="h-3 w-3" />
           {badge}
         </span>
       )}
-      <p className="mb-1 text-[26px] font-medium leading-none text-foreground">
+      <p className="metric-value text-[32px] leading-none tracking-tight">
         {value}
       </p>
       {sub && (
-        <p className="mt-1.5 text-[12px] text-muted-foreground">{sub}</p>
+        <p className="mt-1.5 text-xs text-muted-foreground">{sub}</p>
       )}
       {children}
     </div>
