@@ -64,16 +64,15 @@ export function MarketingOverview({
         <InstagramEmptyState />
       ) : (
         <>
-          <BentoGrid>
-            <BentoCell size="large">
-              <ReachInteractionsChart data={mockReachTimeSeries} />
-            </BentoCell>
-            <BentoCell size="wide">
+          <div className="flex flex-col gap-3 sm:gap-4">
+            <ReachInteractionsChart data={mockReachTimeSeries} />
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <ContentFunnelChart stages={mockContentFunnel} />
-            </BentoCell>
-            <BentoCell size="wide">
               <TopConvertingContentList ranked={topConverting} />
-            </BentoCell>
+            </div>
+          </div>
+
+          <BentoGrid>
             <BentoCell size="unit">
               <TypeRadarChart types={mockTypePerformance} />
             </BentoCell>
