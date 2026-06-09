@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import {
   getInstagramOAuthConfig,
-  INSTAGRAM_GRAPH_VERSION,
+  INSTAGRAM_OAUTH_AUTHORIZE_URL,
   INSTAGRAM_SCOPES,
 } from "@/lib/instagram/config";
 
@@ -47,7 +47,7 @@ export async function GET() {
     });
 
     const res = NextResponse.redirect(
-      `https://www.facebook.com/${INSTAGRAM_GRAPH_VERSION}/dialog/oauth?${params}`
+      `${INSTAGRAM_OAUTH_AUTHORIZE_URL}?${params}`
     );
 
     res.cookies.set(
