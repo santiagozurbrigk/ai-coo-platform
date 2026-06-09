@@ -4,7 +4,7 @@ import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import {
   getInstagramOAuthConfig,
   INSTAGRAM_GRAPH_VERSION,
-  INSTAGRAM_OAUTH_SCOPES,
+  INSTAGRAM_SCOPES,
 } from "@/lib/instagram/config";
 
 export const runtime = "nodejs";
@@ -41,7 +41,7 @@ export async function GET() {
     const params = new URLSearchParams({
       client_id: appId,
       redirect_uri: redirectUri,
-      scope: INSTAGRAM_OAUTH_SCOPES.join(","),
+      scope: INSTAGRAM_SCOPES,
       response_type: "code",
       state,
     });

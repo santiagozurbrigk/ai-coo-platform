@@ -1,14 +1,16 @@
 export const INSTAGRAM_GRAPH_VERSION = "v19.0";
 
+/** Scopes compatibles con app en modo desarrollo (sin App Review). */
 export const INSTAGRAM_OAUTH_SCOPES = [
-  "instagram_business_basic",
-  "instagram_business_manage_messages",
-  "instagram_business_manage_insights",
-  "instagram_manage_comments",
+  "instagram_basic",
   "instagram_manage_insights",
+  "instagram_manage_comments",
   "pages_show_list",
   "pages_read_engagement",
 ] as const;
+
+/** Cadena lista para el parámetro `scope` del OAuth dialog. */
+export const INSTAGRAM_SCOPES = INSTAGRAM_OAUTH_SCOPES.join(",");
 
 export function getInstagramOAuthConfig() {
   const appId = process.env.INSTAGRAM_APP_ID?.trim();
