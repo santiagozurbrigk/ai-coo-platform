@@ -20,10 +20,14 @@ export function getInstagramOAuthConfig() {
 
 export function assertInstagramOAuthConfig() {
   const config = getInstagramOAuthConfig();
-  if (!config.appId || !config.appSecret || !config.redirectUri) {
-    throw new Error(
-      "Faltan INSTAGRAM_APP_ID, INSTAGRAM_APP_SECRET o INSTAGRAM_REDIRECT_URI"
-    );
+  const missing = [
+    !config.appId && "INSTAGRAM_APP_ID",
+    !config.appSecret && "INSTAGRAM_APP_SECRET",
+    !config.redirectUri && "INSTAGRAM_REDIRECT_URI",
+  ].filter((name): name is string => Boolean(name));
+
+  if (missing.length > 0) {
+    throw new Error(`Faltan variables de entorno: ${missing.join(", ")}`);
   }
   return config as {
     appId: string;
