@@ -169,3 +169,32 @@ export async function getYoutubeIntegrationStatusAction(): Promise<{
     lastSyncAt: data?.last_sync_at ?? null,
   };
 }
+
+export async function getInstagramIntegrationStatusAction(): Promise<{
+  connected: boolean;
+  username: string | null;
+  connectedAt: string | null;
+  lastSyncAt: string | null;
+  status: "active" | "error" | "disconnected" | null;
+}> {
+  const organizationId = await requireOrganizationId();
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("instagram_integrations")
+    .select(
+      "status, instagram_username, connected_at, last_sync_at"
+    )
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  const status =
+    (data?.status as "active" | "error" | "disconnected" | undefined) ?? null;
+
+  return {
+    connected: status === "active",
+    username: data?.instagram_username ?? null,
+    connectedAt: data?.connected_at ?? null,
+    lastSyncAt: data?.last_sync_at ?? null,
+    status,
+  };
+}

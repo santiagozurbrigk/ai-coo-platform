@@ -9,6 +9,7 @@ import {
   pullCalendlyScheduledEventsAction,
 } from "@/app/calendly/actions";
 import { syncFathomMeetingsAction } from "@/app/fathom/actions";
+import { syncInstagramContentAction } from "@/app/instagram/actions";
 import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
 import {
   GOOGLE_OAUTH_START_URL,
@@ -173,6 +174,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       startDiscordOAuth();
       return;
     }
+    if (integration.provider === "instagram") {
+      window.location.href = "/api/integrations/instagram/connect";
+      return;
+    }
 
     setConnectOpen(false);
     setSyncing(true);
@@ -181,9 +186,6 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     window.setTimeout(() => {
       setSyncing(false);
       setStatus("connected");
-      if (integration.provider === "instagram") {
-        setInstagramConnected(true);
-      }
       push({
         title: es.flow.integrationConnected,
         description: es.flow.integrationConnectedDesc,
@@ -386,6 +388,41 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                 return;
               }
 
+              if (integration.provider === "instagram" && status === "not_connected") {
+                window.location.href = "/api/integrations/instagram/connect";
+                return;
+              }
+
+              if (integration.provider === "instagram" && status === "connected") {
+                setSyncing(true);
+                try {
+                  const result = await syncInstagramContentAction();
+                  if (!result.success) {
+                    push({
+                      title: "Error al sincronizar Instagram",
+                      description: result.error,
+                    });
+                    return;
+                  }
+                  setInstagramConnected(true);
+                  router.refresh();
+                  push({
+                    title: "Instagram sincronizado",
+                    description: `${result.data.synced} pieza${result.data.synced === 1 ? "" : "s"} actualizada${result.data.synced === 1 ? "" : "s"}`,
+                    variant: "success",
+                  });
+                } catch (e) {
+                  push({
+                    title: "Error al sincronizar Instagram",
+                    description:
+                      e instanceof Error ? e.message : "Error desconocido",
+                  });
+                } finally {
+                  setSyncing(false);
+                }
+                return;
+              }
+
               if (integration.provider === "calendly" && status === "connected") {
                 setSyncing(true);
                 try {
@@ -433,7 +470,8 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
               : status === "not_connected"
                 ? es.common.connect
                 : integration.provider === "calendly" ||
-                    integration.provider === "fathom"
+                    integration.provider === "fathom" ||
+                    integration.provider === "instagram"
                   ? "Sincronizar ahora"
                   : integration.provider === "manychat"
                     ? "Importar contacto"

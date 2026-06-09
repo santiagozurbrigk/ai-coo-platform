@@ -4,10 +4,8 @@ export const mockIntegrations: Integration[] = [
   {
     id: "int-ig",
     provider: "instagram",
-    name: "Instagram (via Make)",
-    status: "connected",
-    lastSync: "hace 45 min",
-    recordsSynced: 47,
+    name: "Instagram",
+    status: "not_connected",
   },
   { id: "int1", provider: "manychat", name: "ManyChat", status: "not_connected" },
   { id: "int2", provider: "fathom", name: "Fathom", status: "not_connected" },

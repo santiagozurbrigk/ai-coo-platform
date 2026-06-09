@@ -9,7 +9,10 @@ import {
 } from "@/app/forms/actions";
 import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
 import { getDiscordIntegrationStatusAction } from "@/app/discord/actions";
-import { getYoutubeIntegrationStatusAction } from "@/app/marketing/actions";
+import {
+  getInstagramIntegrationStatusAction,
+  getYoutubeIntegrationStatusAction,
+} from "@/app/marketing/actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { formatRelativeTime } from "@/lib/format";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
@@ -117,6 +120,7 @@ const REAL_PROVIDERS = new Set([
   "manychat",
   "fathom",
   "youtube",
+  "instagram",
   "typeform",
   "google_forms",
   "discord",
@@ -128,6 +132,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     manychatStatus,
     fathomStatus,
     youtubeStatus,
+    instagramStatus,
     typeformStatus,
     googleFormsStatus,
     discordStatus,
@@ -136,6 +141,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     getManyChatIntegrationStatusAction(),
     getFathomIntegrationStatusAction(),
     getYoutubeIntegrationStatusAction(),
+    getInstagramIntegrationStatusAction(),
     getTypeformIntegrationStatusAction(),
     getGoogleFormsIntegrationStatusAction(),
     getDiscordIntegrationStatusAction(),
@@ -146,6 +152,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     manychatRecords,
     fathomRecords,
     youtubeRecords,
+    instagramRecords,
     typeformRecords,
     googleFormsRecords,
     discordRecords,
@@ -154,16 +161,13 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     manychatStatus.connected ? countManyChatConversations() : 0,
     fathomStatus.connected ? countFathomCalls() : 0,
     youtubeStatus.connected ? countContentAssets("youtube") : 0,
+    instagramStatus.connected ? countContentAssets("instagram") : 0,
     typeformStatus.connected ? countForms("typeform") : 0,
     googleFormsStatus.connected ? countForms("google_forms") : 0,
     discordStatus.connected ? discordStatus.stats.messagesCount : 0,
   ]);
 
   return mockIntegrations.map((integration) => {
-    if (integration.provider === "instagram") {
-      return { ...integration, status: "not_connected" as const };
-    }
-
     const statusMap: Record<
       string,
       { connected: boolean; lastSyncAt: string | null | undefined; records: number }
@@ -187,6 +191,11 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
         connected: youtubeStatus.connected,
         lastSyncAt: youtubeStatus.lastSyncAt,
         records: youtubeRecords,
+      },
+      instagram: {
+        connected: instagramStatus.connected,
+        lastSyncAt: instagramStatus.lastSyncAt,
+        records: instagramRecords,
       },
       typeform: {
         connected: typeformStatus.connected,

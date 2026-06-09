@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Integration } from "@/types/integrations";
 import { GOOGLE_PERMISSION_RECONNECT_MESSAGE } from "@/lib/google/errors";
+import { useMarketingData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import { IntegrationCard } from "./integration-card";
 
@@ -93,10 +94,42 @@ const OAUTH_TOAST: Record<
 export function IntegrationGrid({ integrations }: { integrations: Integration[] }) {
   const searchParams = useSearchParams();
   const { push } = useToast();
+  const { setInstagramConnected } = useMarketingData();
   const handled = useRef(false);
 
   useEffect(() => {
     if (handled.current) return;
+
+    const instagramSuccess = searchParams.get("success");
+    if (instagramSuccess === "instagram") {
+      handled.current = true;
+      setInstagramConnected(true);
+      push({
+        title: "Instagram conectado",
+        description: "Tu cuenta quedó vinculada. El contenido se sincronizará automáticamente.",
+        variant: "success",
+      });
+      return;
+    }
+
+    const oauthError = searchParams.get("error");
+    if (oauthError === "instagram_denied") {
+      handled.current = true;
+      push({
+        title: "Conexión cancelada",
+        description: "No se autorizó el acceso a Instagram.",
+      });
+      return;
+    }
+    if (oauthError === "instagram_failed") {
+      handled.current = true;
+      push({
+        title: "Error al conectar Instagram",
+        description:
+          "Revisá que la cuenta sea Instagram Business y esté vinculada a una página de Facebook.",
+      });
+      return;
+    }
 
     const calendlyStatus = searchParams.get("calendly");
     if (calendlyStatus === "connected") {
@@ -128,7 +161,7 @@ export function IntegrationGrid({ integrations }: { integrations: Integration[] 
       }
       return;
     }
-  }, [searchParams, push]);
+  }, [searchParams, push, setInstagramConnected]);
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

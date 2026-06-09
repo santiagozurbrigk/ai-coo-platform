@@ -4,10 +4,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import { getInstagramIntegrationStatusAction } from "@/app/marketing/actions";
 
 type MarketingDataContextValue = {
   instagramConnected: boolean;
@@ -17,7 +19,17 @@ type MarketingDataContextValue = {
 const MarketingDataContext = createContext<MarketingDataContextValue | null>(null);
 
 export function MarketingDataProvider({ children }: { children: ReactNode }) {
-  const [instagramConnected, setInstagramConnected] = useState(true);
+  const [instagramConnected, setInstagramConnected] = useState(false);
+
+  useEffect(() => {
+    getInstagramIntegrationStatusAction()
+      .then((data) => {
+        setInstagramConnected(data?.status === "active");
+      })
+      .catch(() => {
+        setInstagramConnected(false);
+      });
+  }, []);
 
   const setConnected = useCallback((connected: boolean) => {
     setInstagramConnected(connected);
