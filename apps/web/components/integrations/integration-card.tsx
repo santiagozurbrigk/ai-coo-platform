@@ -49,6 +49,8 @@ const STATUS_LABEL: Record<string, string> = {
 
 const COMING_SOON_LABEL = "Próximamente";
 
+const INSTAGRAM_CONNECT_URL = "/api/integrations/instagram/connect";
+
 export function IntegrationCard({ integration }: { integration: Integration }) {
   const router = useRouter();
   const [status, setStatus] = useState(integration.status);
@@ -150,6 +152,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   };
 
   const handleConnect = () => {
+    if (integration.provider === "instagram") {
+      window.location.href = INSTAGRAM_CONNECT_URL;
+      return;
+    }
     if (integration.provider === "calendly") {
       window.location.href = "/api/integrations/calendly/oauth/start";
       return;
@@ -174,11 +180,6 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       startDiscordOAuth();
       return;
     }
-    if (integration.provider === "instagram") {
-      window.location.href = "/api/integrations/instagram/connect";
-      return;
-    }
-
     setConnectOpen(false);
     setSyncing(true);
     setStatus("syncing");
@@ -322,6 +323,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
             <Button variant="outline" size="sm" className="w-full" type="button" disabled>
               {COMING_SOON_LABEL} — Phase 2
             </Button>
+          ) : integration.provider === "instagram" && status === "not_connected" ? (
+            <Button asChild variant="default" size="sm" className="w-full">
+              <a href={INSTAGRAM_CONNECT_URL}>{es.common.connect}</a>
+            </Button>
           ) : (
           <Button
             variant={status === "not_connected" ? "default" : "outline"}
@@ -388,11 +393,6 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                 return;
               }
 
-              if (integration.provider === "instagram" && status === "not_connected") {
-                window.location.href = "/api/integrations/instagram/connect";
-                return;
-              }
-
               if (integration.provider === "instagram" && status === "connected") {
                 setSyncing(true);
                 try {
@@ -456,6 +456,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
               }
 
               if (status === "not_connected") {
+                if (integration.provider === "instagram") {
+                  window.location.href = INSTAGRAM_CONNECT_URL;
+                  return;
+                }
                 setConnectOpen(true);
               } else {
                 push({
@@ -498,28 +502,30 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         onOpenChange={setManychatImportOpen}
       />
 
-      <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Conectar {integration.name}</DialogTitle>
-            <DialogDescription>
-              Flujo simulado — en producción se abrirá OAuth o API key.
-            </DialogDescription>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            La IA indexará conversaciones, transcripciones y documentos para el
-            Contexto de negocio y los reportes ejecutivos.
-          </p>
-          <DialogFooter>
-            <Button variant="ghost" type="button" onClick={() => setConnectOpen(false)}>
-              {es.common.cancel}
-            </Button>
-            <Button type="button" onClick={handleConnect}>
-              {es.common.connect}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {integration.provider !== "instagram" ? (
+        <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Conectar {integration.name}</DialogTitle>
+              <DialogDescription>
+                Flujo simulado — en producción se abrirá OAuth o API key.
+              </DialogDescription>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              La IA indexará conversaciones, transcripciones y documentos para el
+              Contexto de negocio y los reportes ejecutivos.
+            </p>
+            <DialogFooter>
+              <Button variant="ghost" type="button" onClick={() => setConnectOpen(false)}>
+                {es.common.cancel}
+              </Button>
+              <Button type="button" onClick={handleConnect}>
+                {es.common.connect}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </>
   );
 }
