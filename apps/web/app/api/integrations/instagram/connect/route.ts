@@ -43,6 +43,7 @@ export async function GET() {
       redirect_uri: redirectUri,
       scope: INSTAGRAM_SCOPES,
       response_type: "code",
+      auth_type: "rerequest",
       state,
     });
 

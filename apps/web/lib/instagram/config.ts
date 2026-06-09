@@ -1,17 +1,9 @@
 export const INSTAGRAM_GRAPH_VERSION = "v19.0";
 
-/** Scopes del nuevo sistema Meta (casos de uso) — modo desarrollo. */
-export const INSTAGRAM_OAUTH_SCOPES = [
-  "instagram_business_basic",
-  "instagram_business_manage_insights",
-] as const;
+/** Scopes mínimos compatibles con el nuevo sistema Meta en modo desarrollo. */
+export const INSTAGRAM_SCOPES = "instagram_basic,pages_show_list";
 
-/** Cadena lista para el parámetro `scope` del OAuth dialog. */
-export const INSTAGRAM_SCOPES = INSTAGRAM_OAUTH_SCOPES.join(",");
-
-/** Endpoint OAuth de Instagram (no usar facebook.com/dialog/oauth). */
-export const INSTAGRAM_OAUTH_AUTHORIZE_URL =
-  "https://www.instagram.com/oauth/authorize";
+export const INSTAGRAM_OAUTH_AUTHORIZE_URL = `https://www.facebook.com/${INSTAGRAM_GRAPH_VERSION}/dialog/oauth`;
 
 export function getInstagramOAuthConfig() {
   const appId = process.env.INSTAGRAM_APP_ID?.trim();
