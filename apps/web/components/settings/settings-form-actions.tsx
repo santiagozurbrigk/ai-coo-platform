@@ -1,0 +1,23 @@
+"use client";
+
+import { Button } from "@ai-coo/ui";
+import { es } from "@/lib/locale/es";
+
+export function SettingsFormActions({
+  onSave,
+  onCancel,
+}: {
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 pt-6">
+      <Button type="button" onClick={onSave}>
+        {es.common.save}
+      </Button>
+      <Button type="button" variant="ghost" onClick={onCancel}>
+        {es.common.cancel}
+      </Button>
+    </div>
+  );
+}
