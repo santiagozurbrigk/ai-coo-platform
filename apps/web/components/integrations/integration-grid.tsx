@@ -3,10 +3,12 @@
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Integration } from "@/types/integrations";
+import { groupIntegrationsByCategory } from "@/lib/integrations/integration-groups";
 import { GOOGLE_PERMISSION_RECONNECT_MESSAGE } from "@/lib/google/errors";
 import { useMarketingData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import { IntegrationCard } from "./integration-card";
+import { IntegrationSectionHeader } from "./integration-section-header";
 
 const WEBHOOK_TOAST: Record<string, { title: string; description: string }> = {
   standard_required: {
@@ -96,6 +98,7 @@ export function IntegrationGrid({ integrations }: { integrations: Integration[] 
   const { push } = useToast();
   const { setInstagramConnected } = useMarketingData();
   const handled = useRef(false);
+  const sections = groupIntegrationsByCategory(integrations);
 
   useEffect(() => {
     if (handled.current) return;
@@ -190,9 +193,16 @@ export function IntegrationGrid({ integrations }: { integrations: Integration[] 
   }, [searchParams, push, setInstagramConnected]);
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {integrations.map((int) => (
-        <IntegrationCard key={int.id} integration={int} />
+    <div className="flex flex-col gap-6">
+      {sections.map((section) => (
+        <section key={section.label}>
+          <IntegrationSectionHeader label={section.label} />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {section.items.map((integration) => (
+              <IntegrationCard key={integration.id} integration={integration} />
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   );

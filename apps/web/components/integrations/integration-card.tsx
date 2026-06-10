@@ -17,13 +17,9 @@ import {
   isGoogleIntegrationProvider,
   type GoogleIntegrationProvider,
 } from "@/lib/google/oauth-paths";
+import { INTEGRATION_DESCRIPTIONS } from "@/lib/integrations/integration-groups";
 import {
-  Badge,
   Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -35,23 +31,33 @@ import { es } from "@/lib/locale/es";
 import { useToast } from "@/providers/toast-provider";
 import { useMarketingData, usePlatformData } from "@/providers";
 import type { Integration } from "@/types/integrations";
-import { CalendlyManualSyncNotice } from "./calendly-manual-sync-notice";
+import type { IntegrationCardStatus } from "./integration-status-badge";
 import { FathomConnectDialog } from "./fathom-connect-dialog";
 import { ManyChatConnectDialog } from "./manychat-connect-dialog";
 import { ManyChatImportDialog } from "./manychat-import-dialog";
+import { IntegrationCardShell } from "./integration-card-shell";
 import { IntegrationLogo } from "./integration-logo";
-import { ManyChatWebhookNotice } from "./manychat-webhook-notice";
-
-const STATUS_LABEL: Record<string, string> = {
-  connected: es.status.integration.connected,
-  not_connected: es.status.integration.not_connected,
-  syncing: es.status.integration.syncing,
-};
+import { ManyChatManageSheet } from "./manychat-manage-sheet";
 
 const COMING_SOON_LABEL = "Próximamente";
 
 const INSTAGRAM_CONNECT_URL = "/api/integrations/instagram/connect";
 const STRIPE_CONNECT_URL = "/api/integrations/stripe/connect";
+
+function formatLastSync(integration: Integration, status: string): string | undefined {
+  if (status !== "connected") return undefined;
+
+  const parts: string[] = [];
+  if (integration.lastSync) {
+    parts.push(integration.lastSync);
+  }
+  if (integration.recordsSynced != null && integration.recordsSynced > 0) {
+    parts.push(
+      `${integration.recordsSynced.toLocaleString("es")} registros`
+    );
+  }
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
 
 export function IntegrationCard({ integration }: { integration: Integration }) {
   const router = useRouter();
@@ -61,6 +67,9 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const [fathomConnectOpen, setFathomConnectOpen] = useState(false);
   const [manychatConnectOpen, setManychatConnectOpen] = useState(false);
   const [manychatImportOpen, setManychatImportOpen] = useState(false);
+  const [manychatManageOpen, setManychatManageOpen] = useState(false);
+  const [googleManageOpen, setGoogleManageOpen] = useState(false);
+  const [stripeManageOpen, setStripeManageOpen] = useState(false);
   const [manychatWebhookUrl, setManychatWebhookUrl] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const { push } = useToast();
@@ -93,14 +102,6 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   }, [integration.provider, status]);
 
   const comingSoon = integration.comingSoon === true;
-
-  const statusVariant = comingSoon
-    ? "outline"
-    : status === "connected"
-      ? "success"
-      : status === "syncing"
-        ? "warning"
-        : "secondary";
 
   const googleProvider = isGoogleIntegrationProvider(integration.provider)
     ? integration.provider
@@ -142,6 +143,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         return;
       }
       setStatus("not_connected");
+      setGoogleManageOpen(false);
       router.refresh();
       push({
         title: "Integración desconectada",
@@ -201,334 +203,212 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     }, 1200);
   };
 
+  const handleManage = async () => {
+    if (integration.provider === "fathom" && status === "connected") {
+      setSyncing(true);
+      try {
+        const result = await syncFathomMeetingsAction();
+        if (!result.success) {
+          push({
+            title: "Error al sincronizar Fathom",
+            description: result.error,
+          });
+          return;
+        }
+        router.refresh();
+        push({
+          title: "Fathom sincronizado",
+          description: `${result.data.synced} reunión${result.data.synced === 1 ? "" : "es"} importada${result.data.synced === 1 ? "" : "s"}`,
+          variant: "success",
+        });
+      } catch (e) {
+        push({
+          title: "Error al sincronizar Fathom",
+          description: e instanceof Error ? e.message : "Error desconocido",
+        });
+      } finally {
+        setSyncing(false);
+      }
+      return;
+    }
+
+    if (integration.provider === "manychat" && status === "connected") {
+      setManychatManageOpen(true);
+      return;
+    }
+
+    if (integration.provider === "discord" && status === "connected") {
+      router.push(paths.platform.integrationsDiscord);
+      return;
+    }
+
+    if (integration.provider === "instagram" && status === "connected") {
+      setSyncing(true);
+      try {
+        const result = await syncInstagramContentAction();
+        if (!result.success) {
+          push({
+            title: "Error al sincronizar Instagram",
+            description: result.error,
+          });
+          return;
+        }
+        setInstagramConnected(true);
+        router.refresh();
+        push({
+          title: "Instagram sincronizado",
+          description: `${result.data.synced} pieza${result.data.synced === 1 ? "" : "s"} actualizada${result.data.synced === 1 ? "" : "s"}`,
+          variant: "success",
+        });
+      } catch (e) {
+        push({
+          title: "Error al sincronizar Instagram",
+          description: e instanceof Error ? e.message : "Error desconocido",
+        });
+      } finally {
+        setSyncing(false);
+      }
+      return;
+    }
+
+    if (integration.provider === "calendly" && status === "connected") {
+      setSyncing(true);
+      try {
+        const result = await pullCalendlyScheduledEventsAction();
+        if (!result.success) {
+          push({
+            title: "Error al sincronizar Calendly",
+            description: result.error,
+          });
+          return;
+        }
+        const { fetched, inserted, updated } = result.data;
+        await refreshClosingCalls();
+        setStatus("connected");
+        router.refresh();
+        push({
+          title: "Calendly sincronizado",
+          description: `${fetched} eventos · ${inserted} nuevos · ${updated} actualizados`,
+          variant: "success",
+        });
+      } catch (e) {
+        push({
+          title: "Error al sincronizar Calendly",
+          description: e instanceof Error ? e.message : "Error desconocido",
+        });
+      } finally {
+        setSyncing(false);
+      }
+      return;
+    }
+
+    if (integration.provider === "stripe" && status === "connected") {
+      setStripeManageOpen(true);
+      return;
+    }
+
+    if (status === "connected" && googleProvider) {
+      setGoogleManageOpen(true);
+      return;
+    }
+
+    push({
+      title: integration.name,
+      description: "Opciones de configuración disponibles próximamente.",
+    });
+  };
+
+  const handlePrimaryAction = () => {
+    if (comingSoon) return;
+
+    if (status === "not_connected") {
+      if (integration.provider === "fathom") {
+        setFathomConnectOpen(true);
+        return;
+      }
+      if (integration.provider === "manychat") {
+        setManychatConnectOpen(true);
+        return;
+      }
+      if (integration.provider === "discord") {
+        startDiscordOAuth();
+        return;
+      }
+      if (integration.provider === "calendly") {
+        window.location.href = "/api/integrations/calendly/oauth/start";
+        return;
+      }
+      if (integration.provider === "instagram") {
+        window.location.href = INSTAGRAM_CONNECT_URL;
+        return;
+      }
+      if (integration.provider === "stripe") {
+        window.location.href = STRIPE_CONNECT_URL;
+        return;
+      }
+      if (googleProvider) {
+        startGoogleOAuth(googleProvider);
+        return;
+      }
+      if (integration.provider === "typeform") {
+        window.location.href = "/api/integrations/typeform/oauth/start";
+        return;
+      }
+      setConnectOpen(true);
+      return;
+    }
+
+    handleManage();
+  };
+
+  const isConnected = status === "connected";
+  const cardStatus: IntegrationCardStatus = syncing || status === "syncing"
+    ? "syncing"
+    : (status as IntegrationCardStatus);
+
+  const description =
+    integration.description ??
+    INTEGRATION_DESCRIPTIONS[integration.provider] ??
+    "";
+
+  const actionLabel = comingSoon
+    ? COMING_SOON_LABEL
+    : syncing
+      ? es.status.integration.syncing
+      : !isConnected
+        ? es.common.connect
+        : integration.provider === "calendly" ||
+            integration.provider === "fathom" ||
+            integration.provider === "instagram"
+          ? "Sincronizar"
+          : es.common.manage;
+
+  const calendlyManualHint =
+    integration.provider === "calendly" &&
+    isConnected &&
+    !calendlyWebhookEnabled
+      ? " Sin plan Standard, sincronizá manualmente."
+      : "";
+
   return (
     <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-start gap-3">
-            <IntegrationLogo provider={integration.provider} />
-            <div className="min-w-0 flex-1 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <CardTitle className="text-base leading-snug">
-                  {integration.name}
-                </CardTitle>
-                <Badge variant={statusVariant} className="shrink-0">
-                  {comingSoon ? COMING_SOON_LABEL : STATUS_LABEL[status]}
-                </Badge>
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {integration.description ? (
-            <p className="text-xs text-muted-foreground">{integration.description}</p>
-          ) : null}
-          {integration.provider === "instagram" && (
-            <p className="text-xs text-muted-foreground">
-              Conectá tu Instagram para visualizar el rendimiento de tu contenido y su
-              impacto en conversaciones, agendamientos y ventas.
-            </p>
-          )}
-          {integration.provider === "manychat" && status === "not_connected" && (
-            <p className="text-xs text-muted-foreground">
-              Conecta con tu API key. Los mensajes nuevos llegan vía External Request;
-              también puedes importar contactos por subscriber ID.
-            </p>
-          )}
-          {integration.provider === "manychat" &&
-            status === "connected" &&
-            manychatWebhookUrl && (
-              <ManyChatWebhookNotice webhookUrl={manychatWebhookUrl} />
-            )}
-          {integration.provider === "calendly" && status === "not_connected" && (
-            <p className="text-xs text-muted-foreground">
-              Conecta tu cuenta de Calendly para importar llamadas de cierre. Si no
-              tienes plan Standard, después de conectar deberás sincronizar manualmente
-              desde esta pantalla.
-            </p>
-          )}
-          {integration.provider === "calendly" &&
-            status === "connected" &&
-            !calendlyWebhookEnabled && <CalendlyManualSyncNotice />}
-          {integration.provider === "fathom" && status === "not_connected" && (
-            <p className="text-xs text-muted-foreground">
-              Conectá con tu API key personal. Encontrala en fathom.video/settings/api.
-            </p>
-          )}
-          {integration.provider === "youtube" && (
-            <p className="text-xs text-muted-foreground">
-              Conectá tu canal para métricas de contenido y etiquetado IA.
-            </p>
-          )}
-          {integration.provider === "typeform" && (
-            <p className="text-xs text-muted-foreground">
-              Conectá Typeform para métricas, respuestas y lead scoring.
-            </p>
-          )}
-          {integration.provider === "google_forms" && (
-            <p className="text-xs text-muted-foreground">
-              Conectá Google (Forms + Drive + YouTube en un solo OAuth) para
-              formularios, respuestas y contenido de canal.
-            </p>
-          )}
-          {integration.provider === "miro" && (
-            <p className="text-xs text-muted-foreground">
-              Importa tableros con vista previa para la base de conocimiento.
-            </p>
-          )}
-          {integration.provider === "discord" && status === "not_connected" && (
-            <p className="text-xs text-muted-foreground">
-              Invitá el bot a tu servidor para capturar conversaciones con
-              clientes y detectar testimonios automáticamente.
-            </p>
-          )}
-          {integration.provider === "discord" && status === "connected" && (
-            <p className="text-xs text-muted-foreground">
-              {integration.recordsSynced != null && integration.recordsSynced > 0
-                ? `${integration.recordsSynced.toLocaleString("es")} mensajes capturados`
-                : "Servidor conectado — configurá canales en Gestionar"}
-              {integration.lastSync
-                ? ` · Última actividad: ${integration.lastSync}`
-                : ""}
-            </p>
-          )}
-          {integration.lastSync && status === "connected" && (
-            <p className="text-xs text-muted-foreground">
-              Última sync: {integration.lastSync}
-              {integration.recordsSynced != null &&
-                ` · ${integration.recordsSynced.toLocaleString("es")} registros`}
-            </p>
-          )}
-          {syncing && (
-            <p className="text-xs text-warning">Sincronizando datos…</p>
-          )}
-          {status === "connected" && googleProvider ? (
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                type="button"
-                disabled={syncing}
-                onClick={() => startGoogleOAuth(googleProvider)}
-              >
-                Reconectar
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                type="button"
-                disabled={syncing}
-                onClick={() => handleDisconnectGoogle(googleProvider)}
-              >
-                Desconectar
-              </Button>
-            </div>
-          ) : comingSoon ? (
-            <Button variant="outline" size="sm" className="w-full" type="button" disabled>
-              {COMING_SOON_LABEL} — Phase 2
-            </Button>
-          ) : integration.provider === "instagram" && status === "not_connected" ? (
-            <Button asChild variant="default" size="sm" className="w-full">
-              <a href={INSTAGRAM_CONNECT_URL}>{es.common.connect}</a>
-            </Button>
-          ) : integration.provider === "stripe" && status === "not_connected" ? (
-            <Button asChild variant="default" size="sm" className="w-full">
-              <a href={STRIPE_CONNECT_URL}>{es.common.connect}</a>
-            </Button>
-          ) : integration.provider === "stripe" && status === "connected" ? (
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button variant="outline" size="sm" className="flex-1" asChild>
-                <a href={paths.platform.finance.root}>Ver en Finanzas</a>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                type="button"
-                disabled={syncing}
-                onClick={async () => {
-                  setSyncing(true);
-                  try {
-                    const result = await disconnectStripeIntegrationAction();
-                    if (!result.ok) {
-                      push({ title: result.error ?? "Error", variant: "default" });
-                      return;
-                    }
-                    setStatus("not_connected");
-                    router.refresh();
-                    push({
-                      title: "Stripe desconectado",
-                      variant: "success",
-                    });
-                  } finally {
-                    setSyncing(false);
-                  }
-                }}
-              >
-                Desconectar
-              </Button>
-            </div>
-          ) : (
-          <Button
-            variant={status === "not_connected" ? "default" : "outline"}
+      <IntegrationCardShell
+        name={integration.name}
+        description={`${description}${calendlyManualHint}`}
+        icon={
+          <IntegrationLogo
+            provider={integration.provider}
             size="sm"
-            className="w-full"
-            type="button"
-            disabled={syncing}
-            onClick={async () => {
-              if (integration.provider === "fathom" && status === "not_connected") {
-                setFathomConnectOpen(true);
-                return;
-              }
-
-              if (integration.provider === "fathom" && status === "connected") {
-                setSyncing(true);
-                try {
-                  const result = await syncFathomMeetingsAction();
-                  if (!result.success) {
-                    push({
-                      title: "Error al sincronizar Fathom",
-                      description: result.error,
-                    });
-                    return;
-                  }
-                  router.refresh();
-                  push({
-                    title: "Fathom sincronizado",
-                    description: `${result.data.synced} reunión${result.data.synced === 1 ? "" : "es"} importada${result.data.synced === 1 ? "" : "s"}`,
-                    variant: "success",
-                  });
-                } catch (e) {
-                  push({
-                    title: "Error al sincronizar Fathom",
-                    description:
-                      e instanceof Error ? e.message : "Error desconocido",
-                  });
-                } finally {
-                  setSyncing(false);
-                }
-                return;
-              }
-
-              if (integration.provider === "manychat") {
-                if (status === "not_connected") {
-                  setManychatConnectOpen(true);
-                } else {
-                  setManychatImportOpen(true);
-                }
-                return;
-              }
-
-              if (integration.provider === "discord" && status === "not_connected") {
-                startDiscordOAuth();
-                return;
-              }
-
-              if (integration.provider === "discord" && status === "connected") {
-                router.push(paths.platform.integrationsDiscord);
-                return;
-              }
-
-              if (integration.provider === "calendly" && status === "not_connected") {
-                window.location.href = "/api/integrations/calendly/oauth/start";
-                return;
-              }
-
-              if (integration.provider === "instagram" && status === "connected") {
-                setSyncing(true);
-                try {
-                  const result = await syncInstagramContentAction();
-                  if (!result.success) {
-                    push({
-                      title: "Error al sincronizar Instagram",
-                      description: result.error,
-                    });
-                    return;
-                  }
-                  setInstagramConnected(true);
-                  router.refresh();
-                  push({
-                    title: "Instagram sincronizado",
-                    description: `${result.data.synced} pieza${result.data.synced === 1 ? "" : "s"} actualizada${result.data.synced === 1 ? "" : "s"}`,
-                    variant: "success",
-                  });
-                } catch (e) {
-                  push({
-                    title: "Error al sincronizar Instagram",
-                    description:
-                      e instanceof Error ? e.message : "Error desconocido",
-                  });
-                } finally {
-                  setSyncing(false);
-                }
-                return;
-              }
-
-              if (integration.provider === "calendly" && status === "connected") {
-                setSyncing(true);
-                try {
-                  const result = await pullCalendlyScheduledEventsAction();
-                  if (!result.success) {
-                    push({
-                      title: "Error al sincronizar Calendly",
-                      description: result.error,
-                    });
-                    return;
-                  }
-                  const { fetched, inserted, updated } = result.data;
-                  await refreshClosingCalls();
-                  setStatus("connected");
-                  router.refresh();
-                  push({
-                    title: "Calendly sincronizado",
-                    description: `${fetched} eventos · ${inserted} nuevos · ${updated} actualizados`,
-                    variant: "success",
-                  });
-                } catch (e) {
-                  push({
-                    title: "Error al sincronizar Calendly",
-                    description:
-                      e instanceof Error ? e.message : "Error desconocido",
-                  });
-                } finally {
-                  setSyncing(false);
-                }
-                return;
-              }
-
-              if (status === "not_connected") {
-                if (integration.provider === "instagram") {
-                  window.location.href = INSTAGRAM_CONNECT_URL;
-                  return;
-                }
-                setConnectOpen(true);
-              } else {
-                push({
-                  title: integration.name,
-                  description: "Opciones de configuración disponibles próximamente.",
-                });
-              }
-            }}
-          >
-            {syncing
-              ? es.status.integration.syncing
-              : status === "not_connected"
-                ? es.common.connect
-                : integration.provider === "calendly" ||
-                    integration.provider === "fathom" ||
-                    integration.provider === "instagram"
-                  ? "Sincronizar ahora"
-                  : integration.provider === "manychat"
-                    ? "Importar contacto"
-                    : integration.provider === "discord"
-                      ? "Gestionar"
-                      : es.common.manage}
-          </Button>
-          )}
-        </CardContent>
-      </Card>
+            className="!h-5 !w-5 !rounded-none !border-0 !bg-transparent"
+          />
+        }
+        status={comingSoon ? "not_connected" : cardStatus}
+        lastSync={formatLastSync(integration, status)}
+        actionLabel={actionLabel}
+        actionDisabled={comingSoon || syncing}
+        onConnect={handlePrimaryAction}
+        onManage={handlePrimaryAction}
+      />
 
       <FathomConnectDialog
         open={fathomConnectOpen}
@@ -544,6 +424,90 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         open={manychatImportOpen}
         onOpenChange={setManychatImportOpen}
       />
+      <ManyChatManageSheet
+        open={manychatManageOpen}
+        onOpenChange={setManychatManageOpen}
+        webhookUrl={manychatWebhookUrl}
+        onImportContact={() => {
+          setManychatManageOpen(false);
+          setManychatImportOpen(true);
+        }}
+      />
+
+      {googleProvider ? (
+        <Dialog open={googleManageOpen} onOpenChange={setGoogleManageOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Gestionar {integration.name}</DialogTitle>
+              <DialogDescription>
+                Reconectá para actualizar permisos o desconectá la integración.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
+              <Button
+                variant="outline"
+                type="button"
+                disabled={syncing}
+                onClick={() => startGoogleOAuth(googleProvider)}
+              >
+                Reconectar
+              </Button>
+              <Button
+                variant="outline"
+                type="button"
+                disabled={syncing}
+                onClick={() => handleDisconnectGoogle(googleProvider)}
+              >
+                Desconectar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+
+      {integration.provider === "stripe" ? (
+        <Dialog open={stripeManageOpen} onOpenChange={setStripeManageOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Gestionar Stripe</DialogTitle>
+              <DialogDescription>
+                Revisá balance y transacciones en Finanzas o desconectá la cuenta.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
+              <Button variant="outline" asChild>
+                <a href={paths.platform.finance.root}>Ver en Finanzas</a>
+              </Button>
+              <Button
+                variant="outline"
+                type="button"
+                disabled={syncing}
+                onClick={async () => {
+                  setSyncing(true);
+                  try {
+                    const result = await disconnectStripeIntegrationAction();
+                    if (!result.ok) {
+                      push({ title: result.error ?? "Error", variant: "default" });
+                      return;
+                    }
+                    setStatus("not_connected");
+                    setStripeManageOpen(false);
+                    router.refresh();
+                    push({
+                      title: "Stripe desconectado",
+                      variant: "success",
+                    });
+                  } finally {
+                    setSyncing(false);
+                  }
+                }}
+              >
+                Desconectar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       {integration.provider !== "instagram" ? (
         <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
