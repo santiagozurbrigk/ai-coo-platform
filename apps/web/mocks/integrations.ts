@@ -7,6 +7,13 @@ export const mockIntegrations: Integration[] = [
     name: "Instagram",
     status: "not_connected",
   },
+  {
+    id: "int-stripe",
+    provider: "stripe",
+    name: "Stripe",
+    status: "not_connected",
+    description: "Balance, transacciones e ingresos en tiempo real",
+  },
   { id: "int1", provider: "manychat", name: "ManyChat", status: "not_connected" },
   { id: "int2", provider: "fathom", name: "Fathom", status: "not_connected" },
   { id: "int-yt", provider: "youtube", name: "YouTube", status: "not_connected" },

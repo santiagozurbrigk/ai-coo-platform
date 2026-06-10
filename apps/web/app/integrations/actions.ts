@@ -13,6 +13,7 @@ import {
   getInstagramIntegrationStatusAction,
   getYoutubeIntegrationStatusAction,
 } from "@/app/marketing/actions";
+import { getStripeIntegrationStatusAction } from "@/app/stripe/actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { formatRelativeTime } from "@/lib/format";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
@@ -121,6 +122,7 @@ const REAL_PROVIDERS = new Set([
   "fathom",
   "youtube",
   "instagram",
+  "stripe",
   "typeform",
   "google_forms",
   "discord",
@@ -133,6 +135,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     fathomStatus,
     youtubeStatus,
     instagramStatus,
+    stripeStatus,
     typeformStatus,
     googleFormsStatus,
     discordStatus,
@@ -142,6 +145,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     getFathomIntegrationStatusAction(),
     getYoutubeIntegrationStatusAction(),
     getInstagramIntegrationStatusAction(),
+    getStripeIntegrationStatusAction(),
     getTypeformIntegrationStatusAction(),
     getGoogleFormsIntegrationStatusAction(),
     getDiscordIntegrationStatusAction(),
@@ -196,6 +200,11 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
         connected: instagramStatus.connected,
         lastSyncAt: instagramStatus.lastSyncAt,
         records: instagramRecords,
+      },
+      stripe: {
+        connected: stripeStatus.connected,
+        lastSyncAt: stripeStatus.lastSyncAt,
+        records: 0,
       },
       typeform: {
         connected: typeformStatus.connected,

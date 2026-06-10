@@ -10,6 +10,7 @@ import {
 } from "@/app/calendly/actions";
 import { syncFathomMeetingsAction } from "@/app/fathom/actions";
 import { syncInstagramContentAction } from "@/app/instagram/actions";
+import { disconnectStripeIntegrationAction } from "@/app/stripe/actions";
 import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
 import {
   GOOGLE_OAUTH_START_URL,
@@ -50,6 +51,7 @@ const STATUS_LABEL: Record<string, string> = {
 const COMING_SOON_LABEL = "Próximamente";
 
 const INSTAGRAM_CONNECT_URL = "/api/integrations/instagram/connect";
+const STRIPE_CONNECT_URL = "/api/integrations/stripe/connect";
 
 export function IntegrationCard({ integration }: { integration: Integration }) {
   const router = useRouter();
@@ -154,6 +156,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const handleConnect = () => {
     if (integration.provider === "instagram") {
       window.location.href = INSTAGRAM_CONNECT_URL;
+      return;
+    }
+    if (integration.provider === "stripe") {
+      window.location.href = STRIPE_CONNECT_URL;
       return;
     }
     if (integration.provider === "calendly") {
@@ -327,6 +333,43 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
             <Button asChild variant="default" size="sm" className="w-full">
               <a href={INSTAGRAM_CONNECT_URL}>{es.common.connect}</a>
             </Button>
+          ) : integration.provider === "stripe" && status === "not_connected" ? (
+            <Button asChild variant="default" size="sm" className="w-full">
+              <a href={STRIPE_CONNECT_URL}>{es.common.connect}</a>
+            </Button>
+          ) : integration.provider === "stripe" && status === "connected" ? (
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button variant="outline" size="sm" className="flex-1" asChild>
+                <a href={paths.platform.finance.root}>Ver en Finanzas</a>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                type="button"
+                disabled={syncing}
+                onClick={async () => {
+                  setSyncing(true);
+                  try {
+                    const result = await disconnectStripeIntegrationAction();
+                    if (!result.ok) {
+                      push({ title: result.error ?? "Error", variant: "default" });
+                      return;
+                    }
+                    setStatus("not_connected");
+                    router.refresh();
+                    push({
+                      title: "Stripe desconectado",
+                      variant: "success",
+                    });
+                  } finally {
+                    setSyncing(false);
+                  }
+                }}
+              >
+                Desconectar
+              </Button>
+            </div>
           ) : (
           <Button
             variant={status === "not_connected" ? "default" : "outline"}

@@ -131,6 +131,32 @@ export function IntegrationGrid({ integrations }: { integrations: Integration[] 
       return;
     }
 
+    if (instagramSuccess === "stripe" && !handled.current) {
+      handled.current = true;
+      push({
+        title: "Stripe conectado",
+        description: "Tu cuenta quedó vinculada. Revisá balance y transacciones en Finanzas.",
+        variant: "success",
+      });
+      return;
+    }
+    if (oauthError === "stripe_denied") {
+      handled.current = true;
+      push({
+        title: "Conexión cancelada",
+        description: "No se autorizó el acceso a Stripe.",
+      });
+      return;
+    }
+    if (oauthError === "stripe_failed") {
+      handled.current = true;
+      push({
+        title: "Error al conectar Stripe",
+        description: "Revisá las credenciales en Stripe Connect y las variables de entorno.",
+      });
+      return;
+    }
+
     const calendlyStatus = searchParams.get("calendly");
     if (calendlyStatus === "connected") {
       handled.current = true;
