@@ -16,6 +16,7 @@ import {
   Users,
   Wallet,
   Megaphone,
+  Rocket,
   type LucideIcon,
 } from "lucide-react";
 
@@ -38,6 +39,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   settings: Settings,
   crown: Crown,
   shield: Shield,
+  rocket: Rocket,
 };
 
 export function NavIcon({

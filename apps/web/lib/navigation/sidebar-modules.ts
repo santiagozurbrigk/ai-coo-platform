@@ -64,6 +64,12 @@ export const productDirectModule: SidebarDirectModule = {
   icon: "layers",
 };
 
+export const lanzamientosDirectModule: SidebarDirectModule = {
+  label: "Lanzamientos",
+  href: paths.platform.lanzamientos,
+  icon: "rocket",
+};
+
 export const directModules: SidebarDirectModule[] = [
   {
     label: "Panel General",
@@ -117,12 +123,14 @@ const platformRootItems: SidebarNavRootItem[] = [
   { type: "parent", key: "marketing" },
   { type: "parent", key: "ventas" },
   { type: "link", module: productDirectModule },
+  { type: "link", module: lanzamientosDirectModule },
   { type: "parent", key: "operaciones" },
   { type: "parent", key: "finanzas" },
 ];
 
 export function getParentFromPath(pathname: string): SidebarParentKey | null {
   if (pathname.startsWith(paths.platform.product.root)) return null;
+  if (pathname.startsWith(paths.platform.lanzamientos)) return null;
   if (pathname.startsWith(paths.platform.finance.root)) return "finanzas";
   if (pathname.startsWith("/marketing")) return "marketing";
   if (pathname.startsWith("/sales")) return "ventas";

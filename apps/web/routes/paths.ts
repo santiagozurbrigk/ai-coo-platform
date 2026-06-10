@@ -31,6 +31,8 @@ export const paths = {
       proposition: `${PLATFORM}/product/proposition`,
     },
 
+    lanzamientos: `${PLATFORM}/lanzamientos`,
+
     agent: {
       root: `${PLATFORM}/agent`,
       conversation: (id: string) => `${PLATFORM}/agent/${id}`,

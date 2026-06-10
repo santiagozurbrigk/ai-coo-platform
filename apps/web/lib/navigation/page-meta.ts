@@ -27,6 +27,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Producto",
     subtitle: "Avatares, ofertas, escalera de valor y propuesta",
   },
+  "/lanzamientos": {
+    title: "Lanzamientos",
+    subtitle: "Planificá, ejecutá y medí el impacto de cada lanzamiento",
+  },
   "/product/value-ladder": {
     title: "Escalera de valor",
     subtitle: "Escalones de precio y ascenso del cliente",
