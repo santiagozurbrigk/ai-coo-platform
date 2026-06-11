@@ -1,105 +1,243 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Mic } from "lucide-react";
-import { Button, FormField, Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from "@ai-coo/ui";
+import { Mic, Star } from "lucide-react";
+import {
+  Button,
+  FormField,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Textarea,
+  cn,
+} from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
 import { useToast } from "@/providers/toast-provider";
-import { es } from "@/lib/locale/es";
-import { flowLinks } from "@/lib/navigation/flow-links";
+import type { Department } from "@/types/operations";
+
+type DepartmentField = {
+  weekSummary: string;
+  problems: string;
+  rating: number;
+};
+
+type DepartmentConfig = {
+  value: Department;
+  label: string;
+  weekLabel: string;
+  weekPlaceholder: string;
+  problemsLabel: string;
+  problemsPlaceholder: string;
+};
+
+const DEPARTMENTS: DepartmentConfig[] = [
+  {
+    value: "sales",
+    label: "Ventas",
+    weekLabel: "¿Cómo fue la semana?",
+    weekPlaceholder: "Volumen de leads, booking rate, victorias del equipo…",
+    problemsLabel: "¿Problemas detectados?",
+    problemsPlaceholder: "Leads sin responder, objeciones recurrentes, cuellos de botella…",
+  },
+  {
+    value: "delivery",
+    label: "Delivery",
+    weekLabel: "¿Entregas al día?",
+    weekPlaceholder: "Módulos completados, entregas a tiempo, feedback de clientes…",
+    problemsLabel: "¿Clientes con problemas?",
+    problemsPlaceholder: "Tickets abiertos, accesos fallidos, quejas recurrentes…",
+  },
+  {
+    value: "operations",
+    label: "Operaciones",
+    weekLabel: "¿Procesos rotos?",
+    weekPlaceholder: "SOPs desactualizados, tareas manuales repetitivas…",
+    problemsLabel: "¿Qué se repitió?",
+    problemsPlaceholder: "Patrones detectados, bloqueos del equipo, dependencias del fundador…",
+  },
+  {
+    value: "founder",
+    label: "Founder",
+    weekLabel: "¿Qué decisiones tomaste?",
+    weekPlaceholder: "Prioridades de la semana, cambios de estrategia, hires o cortes…",
+    problemsLabel: "¿Qué priorizás?",
+    problemsPlaceholder: "Foco de la próxima semana, recursos necesarios, riesgos a mitigar…",
+  },
+];
+
+const EMPTY_FIELDS: DepartmentField = {
+  weekSummary: "",
+  problems: "",
+  rating: 0,
+};
+
+function RatingPicker({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (rating: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((score) => (
+        <button
+          key={score}
+          type="button"
+          aria-label={`Calificar semana con ${score} de 5`}
+          onClick={() => onChange(score)}
+          className="rounded-md p-1 transition-colors hover:bg-muted"
+        >
+          <Star
+            className={cn(
+              "h-5 w-5",
+              score <= value
+                ? "fill-amber-400 text-amber-400"
+                : "text-muted-foreground/40"
+            )}
+          />
+        </button>
+      ))}
+      <span className="ml-2 text-xs text-muted-foreground">
+        {value > 0 ? `${value}/5` : "Sin calificar"}
+      </span>
+    </div>
+  );
+}
 
 export function WeeklyInputForm() {
-  const [text, setText] = useState("");
+  const [activeTab, setActiveTab] = useState<Department>("sales");
+  const [fields, setFields] = useState<Record<Department, DepartmentField>>({
+    sales: { ...EMPTY_FIELDS },
+    delivery: { ...EMPTY_FIELDS },
+    operations: { ...EMPTY_FIELDS },
+    founder: { ...EMPTY_FIELDS },
+  });
   const [submitting, setSubmitting] = useState(false);
+  const [recording, setRecording] = useState(false);
   const { push } = useToast();
-  const router = useRouter();
+
+  const updateField = (
+    department: Department,
+    key: keyof DepartmentField,
+    value: string | number
+  ) => {
+    setFields((prev) => ({
+      ...prev,
+      [department]: { ...prev[department], [key]: value },
+    }));
+  };
+
+  const hasContent = Object.values(fields).some(
+    (f) => f.weekSummary.trim() || f.problems.trim() || f.rating > 0
+  );
 
   const handleSubmit = () => {
-    if (!text.trim()) return;
+    if (!hasContent) return;
     setSubmitting(true);
     window.setTimeout(() => {
       setSubmitting(false);
-      setText("");
+      setFields({
+        sales: { ...EMPTY_FIELDS },
+        delivery: { ...EMPTY_FIELDS },
+        operations: { ...EMPTY_FIELDS },
+        founder: { ...EMPTY_FIELDS },
+      });
       push({
-        title: es.flow.inputSubmitted,
-        description: es.flow.inputSubmittedDesc,
+        title: "Inputs enviados",
+        description:
+          "Tu contexto semanal quedó registrado. La IA lo usará en el próximo reporte ejecutivo.",
         variant: "success",
       });
-      router.push(flowLinks.executiveReportLatest);
-    }, 800);
+    }, 900);
+  };
+
+  const handleMockRecording = () => {
+    setRecording(true);
+    push({
+      title: "Grabación iniciada",
+      description: "Mock — en producción se transcribirá automáticamente.",
+    });
+    window.setTimeout(() => setRecording(false), 2000);
   };
 
   return (
-    <Panel title="Enviar contexto de esta semana" contentClassName="space-y-4">
-      <p className="text-xs text-muted-foreground">
-        Objetivo: menos de 2 minutos. La IA usa esto para los reportes ejecutivos.
-      </p>
-      <Tabs defaultValue="text">
-        <TabsList className="w-full">
-          <TabsTrigger value="text" className="flex-1">
-            Texto
-          </TabsTrigger>
-          <TabsTrigger value="audio" className="flex-1">
-            Audio
-          </TabsTrigger>
-          <TabsTrigger value="form" className="flex-1">
-            Formulario
-          </TabsTrigger>
+    <Panel
+      title="Inputs semanales"
+      subtitle="Menos de 2 minutos · un tab por departamento"
+      contentClassName="space-y-4"
+    >
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Department)}>
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 lg:grid-cols-4">
+          {DEPARTMENTS.map((dept) => (
+            <TabsTrigger key={dept.value} value={dept.value} className="text-xs sm:text-sm">
+              {dept.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
-        <TabsContent value="text">
-          <FormField
-            label="¿Qué cambió esta semana?"
-            description="Operaciones, bloqueos, victorias"
-          >
-            <Textarea
-              placeholder="Delivery se ralentizó en el Módulo 2 porque..."
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={5}
-            />
-          </FormField>
-          <Button
-            className="mt-3 w-full sm:w-auto"
-            type="button"
-            disabled={!text.trim() || submitting}
-            onClick={handleSubmit}
-          >
-            {submitting ? es.common.loading : es.common.submit}
-          </Button>
-        </TabsContent>
-        <TabsContent value="audio">
-          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border py-10">
-            <Mic className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Toca para grabar nota de voz</p>
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() =>
-                push({
-                  title: es.flow.recordingStarted,
-                  description: es.flow.recordingStartedDesc,
-                })
-              }
-            >
-              Iniciar grabación
-            </Button>
-          </div>
-        </TabsContent>
-        <TabsContent value="form">
-          <p className="text-sm text-muted-foreground">
-            Formulario estructurado por departamento — disponible en la siguiente fase.
-          </p>
-          <Button
-            className="mt-3"
-            variant="secondary"
-            type="button"
-            onClick={() => router.push(flowLinks.weeklyInputs)}
-          >
-            Abrir formulario
-          </Button>
-        </TabsContent>
+
+        {DEPARTMENTS.map((dept) => {
+          const data = fields[dept.value];
+          return (
+            <TabsContent key={dept.value} value={dept.value} className="space-y-4 pt-2">
+              <FormField label={dept.weekLabel}>
+                <Textarea
+                  placeholder={dept.weekPlaceholder}
+                  value={data.weekSummary}
+                  onChange={(e) =>
+                    updateField(dept.value, "weekSummary", e.target.value)
+                  }
+                  rows={3}
+                />
+              </FormField>
+
+              <FormField label={dept.problemsLabel}>
+                <Textarea
+                  placeholder={dept.problemsPlaceholder}
+                  value={data.problems}
+                  onChange={(e) =>
+                    updateField(dept.value, "problems", e.target.value)
+                  }
+                  rows={3}
+                />
+              </FormField>
+
+              <FormField label="Calificación de la semana (1–5)">
+                <RatingPicker
+                  value={data.rating}
+                  onChange={(rating) => updateField(dept.value, "rating", rating)}
+                />
+              </FormField>
+
+              <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border/60 bg-muted/10 px-4 py-6 dark:border-white/[0.08]">
+                <Mic className="h-7 w-7 text-muted-foreground" />
+                <p className="text-center text-xs text-muted-foreground">
+                  Preferís hablar en lugar de escribir? Grabá una nota de voz.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={recording}
+                  onClick={handleMockRecording}
+                >
+                  {recording ? "Grabando…" : "Grabar audio"}
+                </Button>
+              </div>
+            </TabsContent>
+          );
+        })}
       </Tabs>
+
+      <Button
+        type="button"
+        className="w-full bg-violet-600 hover:bg-violet-700 sm:w-auto"
+        disabled={!hasContent || submitting}
+        onClick={handleSubmit}
+      >
+        {submitting ? "Enviando…" : "Enviar inputs"}
+      </Button>
     </Panel>
   );
 }

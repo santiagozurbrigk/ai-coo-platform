@@ -1,63 +1,49 @@
 "use client";
 
-import {
-  CategoryBarChart,
-  GaugeTargetChart,
-  MetricChartPanel,
-} from "@/components/charts/platform";
-import { Panel } from "@/components/shared/panel";
-import { mockDashboard } from "@/mocks/dashboard";
+import { motion } from "framer-motion";
+import { mockOperationsOverview } from "@/mocks/operations-overview";
+import { OperationsExecutiveReport } from "./operations-executive-report";
+import { OperationsRisksSection } from "./operations-risks-section";
+import { OperationsBottlenecksSection } from "./operations-bottlenecks-section";
+import { OperationsDepartmentsGrid } from "./operations-departments-grid";
+import { OperationsRecommendationsSection } from "./operations-recommendations-section";
 
-const TEAM_LOAD = 72;
-const BOTTLENECKS = [
-  { label: "Ventas", value: 2 },
-  { label: "Delivery", value: 1 },
-  { label: "Operaciones", value: 1 },
-];
+const fade = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+};
 
 export function OperationsOverview() {
-  const loadMetric = mockDashboard.operationalMetrics.find((m) => m.id === "o1");
+  const data = mockOperationsOverview;
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 lg:grid-cols-2">
-        <MetricChartPanel
-          title="Carga del equipo"
-          value={loadMetric?.value ?? `${TEAM_LOAD}%`}
-          subtitle="Zona de alerta desde 85%"
-          className="min-h-[240px]"
-        >
-          <GaugeTargetChart
-            value={TEAM_LOAD}
-            max={100}
-            target={70}
-            label="Carga"
-            variant="margin"
-            subtitle="Verde &lt; 70% · Ámbar 70–85% · Rojo &gt; 85%"
-          />
-        </MetricChartPanel>
+    <motion.div
+      className="space-y-8"
+      initial="initial"
+      animate="animate"
+      variants={{
+        animate: { transition: { staggerChildren: 0.06 } },
+      }}
+    >
+      <motion.div variants={fade}>
+        <OperationsExecutiveReport paragraphs={data.executiveReport} />
+      </motion.div>
 
-        <MetricChartPanel
-          title="Cuellos de botella"
-          value="4 activos"
-          subtitle="Por departamento"
-          className="min-h-[240px]"
-        >
-          <CategoryBarChart
-            items={BOTTLENECKS}
-            horizontal
-            className="min-h-[200px]"
-          />
-        </MetricChartPanel>
-      </div>
+      <motion.div variants={fade}>
+        <OperationsRisksSection risks={data.risks} />
+      </motion.div>
 
-      <Panel title="Resumen operativo">
-        <ul className="space-y-2 text-sm text-muted-foreground">
-          <li>· Carga del equipo al 72% — margen antes de cuello de botella</li>
-          <li>· 4 cuellos de botella activos detectados por la IA</li>
-          <li>· SOPs y Team Inputs disponibles en las pestañas del módulo</li>
-        </ul>
-      </Panel>
-    </div>
+      <motion.div variants={fade}>
+        <OperationsBottlenecksSection bottlenecks={data.bottlenecks} />
+      </motion.div>
+
+      <motion.div variants={fade}>
+        <OperationsDepartmentsGrid departments={data.departments} />
+      </motion.div>
+
+      <motion.div variants={fade}>
+        <OperationsRecommendationsSection recommendations={data.recommendations} />
+      </motion.div>
+    </motion.div>
   );
 }

@@ -18,7 +18,6 @@ export const sectionRedirects: { source: string; destination: string }[] = [
   },
   { source: "/sales", destination: "/sales/inbox" },
   { source: "/operations", destination: "/operations/overview" },
-  { source: "/operations/weekly-inputs", destination: "/operations/team-inputs" },
   { source: "/sops", destination: "/operations/sops" },
   { source: "/executive-reports", destination: "/executive-reports/weekly" },
   { source: "/business-context", destination: "/business-context/documents" },

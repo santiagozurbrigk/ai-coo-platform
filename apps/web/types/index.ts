@@ -19,6 +19,13 @@ export type {
   BuyerJourneyPattern,
 } from "./marketing-insights";
 export type { WeeklyInput, WeeklyInputType, Department } from "./operations";
+export type {
+  OperationsOverviewData,
+  OperationsRisk,
+  OperationsBottleneck,
+  OperationsDepartment,
+  OperationsRecommendation,
+} from "./operations-overview";
 export type { ExecutiveReport, ReportPeriod } from "./executive-reports";
 export type { Sop, SopCreatorForm } from "./sops";
 export type { ContextDocument, DocumentCategory } from "./business-context";

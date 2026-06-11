@@ -3,6 +3,7 @@ import { Panel } from "@/components/shared/panel";
 import { formatRelativeTime } from "@/lib/format";
 import type { WeeklyInput } from "@/types/operations";
 import { DepartmentBadge } from "./department-badge";
+import { WeeklyInputsEmptyState } from "./weekly-inputs-empty-state";
 
 const TYPE_LABEL = {
   text: "Texto",
@@ -16,7 +17,21 @@ const TYPE_ICON = {
   form: FormInput,
 };
 
-export function WeeklyInputsList({ inputs }: { inputs: WeeklyInput[] }) {
+export function WeeklyInputsList({
+  inputs,
+  showEmptyState = false,
+}: {
+  inputs: WeeklyInput[];
+  showEmptyState?: boolean;
+}) {
+  if (showEmptyState && inputs.length === 0) {
+    return (
+      <Panel title="Envíos recientes">
+        <WeeklyInputsEmptyState />
+      </Panel>
+    );
+  }
+
   return (
     <Panel title="Envíos recientes">
       <ul className="space-y-2">

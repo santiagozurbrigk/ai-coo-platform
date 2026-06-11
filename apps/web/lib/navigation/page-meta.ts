@@ -96,8 +96,8 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     subtitle: "Tareas del equipo por área y estado",
   },
   "/operations/weekly-inputs": {
-    title: "Team Inputs",
-    subtitle: "Contexto intencional para la IA y el liderazgo",
+    title: "Inputs semanales",
+    subtitle: "Contexto semanal por departamento — menos de 2 minutos",
   },
   "/executive-reports/weekly": {
     title: "Reporte semanal",

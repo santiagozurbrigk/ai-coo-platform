@@ -12,7 +12,8 @@ export {
   getLeadJourneyById,
   getLeadJourneyByLeadName,
 } from "./marketing-insights";
-export { mockWeeklyInputs } from "./operations";
+export { mockWeeklyInputs, mockTeamInputs } from "./operations";
+export { mockOperationsOverview } from "./operations-overview";
 export { mockExecutiveReports, getReportById } from "./executive-reports";
 export { mockSops, getSopById } from "./sops";
 export { mockDocuments, getDocumentById } from "./business-context";

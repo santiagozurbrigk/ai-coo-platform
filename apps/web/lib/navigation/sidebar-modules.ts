@@ -52,6 +52,7 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
       icon: "activity",
       children: [
         { label: "Overview", href: paths.platform.operations.overview },
+        { label: "Inputs semanales", href: paths.platform.operations.weeklyInputs },
         { label: "SOPs", href: paths.platform.operations.sops },
         { label: "Team Inputs", href: paths.platform.operations.teamInputs },
       ],

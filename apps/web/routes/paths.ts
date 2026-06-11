@@ -77,8 +77,7 @@ export const paths = {
       overview: `${PLATFORM}/operations/overview`,
       sops: `${PLATFORM}/operations/sops`,
       teamInputs: `${PLATFORM}/operations/team-inputs`,
-      /** Legacy */
-      weeklyInputs: `${PLATFORM}/operations/team-inputs`,
+      weeklyInputs: `${PLATFORM}/operations/weekly-inputs`,
     },
 
     executiveReports: {
