@@ -1,6 +1,5 @@
 import type { SopStatus } from "@ai-coo/types";
-import type { Department } from "@/types/operations";
-import type { Sop } from "@/types/sops";
+import type { Sop, SopDepartment } from "@/types/sops";
 
 export type SopRow = {
   id: string;
@@ -34,7 +33,7 @@ function formatLastUpdated(iso: string): string {
 
 export function rowToSop(row: SopRow): Sop {
   const department = VALID_DEPARTMENTS.has(row.department)
-    ? (row.department as Department | "general")
+    ? (row.department as SopDepartment)
     : "general";
 
   const status = (["draft", "active", "outdated"].includes(row.status)

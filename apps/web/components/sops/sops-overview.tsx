@@ -7,7 +7,7 @@ import { useHashTab } from "@/lib/hooks/use-hash-tab";
 import { paths } from "@/routes";
 import type { Sop } from "@/types/sops";
 import { SopCreatorForm } from "./sop-creator-form";
-import { SopGrid } from "./sop-grid";
+import { SopLibrary } from "./sop-library";
 
 const TABS = [
   { id: "biblioteca", label: "Biblioteca", hash: "biblioteca" },
@@ -35,18 +35,21 @@ export function SopsOverview({ sops }: { sops: Sop[] }) {
         }}
       />
       {activeTab === "crear" ? (
-        <SopCreatorForm />
+        <>
+          <PageHeader description="Generá un SOP estructurado con IA en minutos" />
+          <SopCreatorForm />
+        </>
       ) : (
         <>
           <PageHeader
             description="Sistemas operativos vivos de tu negocio"
             actions={
-              <Button asChild size="sm">
+              <Button asChild size="sm" className="bg-violet-600 hover:bg-violet-700">
                 <HashTabLink href={`${root}#crear`}>Crear SOP</HashTabLink>
               </Button>
             }
           />
-          <SopGrid sops={sops} />
+          <SopLibrary sops={sops} />
         </>
       )}
     </div>

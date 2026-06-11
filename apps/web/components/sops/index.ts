@@ -1,5 +1,8 @@
 export { SopCard } from "./sop-card";
 export { SopGrid } from "./sop-grid";
+export { SopLibrary } from "./sop-library";
 export { SopCreatorForm } from "./sop-creator-form";
 export { SopStatusBadge } from "./sop-status-badge";
+export { SopDepartmentBadge } from "./sop-department-badge";
 export { SopsOverview } from "./sops-overview";
+export { SopsEmptyState } from "./sops-empty-state";

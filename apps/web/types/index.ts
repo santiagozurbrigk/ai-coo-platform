@@ -27,7 +27,12 @@ export type {
   OperationsRecommendation,
 } from "./operations-overview";
 export type { ExecutiveReport, ReportPeriod } from "./executive-reports";
-export type { Sop, SopCreatorForm } from "./sops";
+export type {
+  Sop,
+  SopCreatorForm,
+  SopDepartment,
+  GeneratedSop,
+} from "./sops";
 export type { ContextDocument, DocumentCategory } from "./business-context";
 export type {
   IntelligenceInsight,
