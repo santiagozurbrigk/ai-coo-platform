@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
 import { Panel } from "@/components/shared/panel";
 import { SeverityBadge } from "@/components/shared/severity-badge";
 import { flowLinks } from "@/lib/navigation/flow-links";
@@ -12,15 +13,24 @@ export function RisksList({ risks }: { risks: DashboardRisk[] }) {
           <li key={risk.id}>
             <Link
               href={flowLinks.risk(risk.id)}
-              className="flex items-start justify-between gap-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2.5 transition-colors hover:border-primary/25 hover:bg-muted/35"
+              className="flex gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-3 transition-colors hover:border-red-500/25 hover:bg-muted/35 dark:border-white/[0.08] dark:bg-[#1A1A1A]"
             >
-            <div className="min-w-0">
-              <p className="text-sm font-medium">{risk.title}</p>
-              <p className="text-2xs text-muted-foreground mt-0.5">
-                {risk.department}
-              </p>
-            </div>
-            <SeverityBadge severity={risk.severity} />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-red-500/25 bg-red-500/10 text-red-400">
+                <AlertTriangle className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium leading-snug">{risk.title}</p>
+                  <SeverityBadge severity={risk.severity} />
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {risk.description}
+                </p>
+                <p className="text-xs font-medium text-violet-400">
+                  → {risk.suggestedAction}
+                </p>
+                <p className="text-2xs text-muted-foreground">{risk.department}</p>
+              </div>
             </Link>
           </li>
         ))}

@@ -1,4 +1,11 @@
-export type { DashboardData, DashboardRisk, DashboardOpportunity, DashboardMetric } from "./dashboard";
+export type {
+  DashboardData,
+  DashboardRisk,
+  DashboardOpportunity,
+  DashboardMetric,
+  DashboardWeeklyChange,
+  DashboardAiRecommendation,
+} from "./dashboard";
 export type { Conversation, ConversationAnalysis, SalesMessage, SalesMetricsData } from "./sales";
 export type {
   ContentAsset,

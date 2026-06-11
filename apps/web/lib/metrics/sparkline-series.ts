@@ -59,6 +59,7 @@ export const DASHBOARD_SPARKLINE_BY_ID: Partial<
 > = {
   m1: "revenue",
   m2: "revenue",
+  m3: "margin",
   s2: "bookingRate",
   s5: "conversations",
   o1: "teamLoad",

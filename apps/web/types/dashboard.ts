@@ -1,6 +1,8 @@
 export type DashboardRisk = {
   id: string;
   title: string;
+  description: string;
+  suggestedAction: string;
   severity: "high" | "medium" | "low";
   department: string;
 };
@@ -8,6 +10,7 @@ export type DashboardRisk = {
 export type DashboardOpportunity = {
   id: string;
   title: string;
+  description: string;
   impact: string;
 };
 
@@ -17,15 +20,32 @@ export type DashboardMetric = {
   value: string;
   trend?: "up" | "down" | "neutral";
   trendValue?: string;
+  /** 0–100 para barras de progreso en métricas operacionales */
+  progress?: number;
+};
+
+export type DashboardWeeklyChange = {
+  id: string;
+  label: string;
+  direction: "up" | "down" | "neutral";
+};
+
+export type DashboardAiRecommendation = {
+  id: string;
+  text: string;
+  category: string;
 };
 
 export type DashboardData = {
   executiveSummary: string;
   risks: DashboardRisk[];
   opportunities: DashboardOpportunity[];
-  weeklyChanges: string[];
+  weeklyChanges: DashboardWeeklyChange[];
   revenueMetrics: DashboardMetric[];
   salesMetrics: DashboardMetric[];
   operationalMetrics: DashboardMetric[];
-  aiRecommendation: string;
+  dashboardOperationalMetrics: DashboardMetric[];
+  aiRecommendations: DashboardAiRecommendation[];
+  /** Sin datos reales ni mock cargado — mostrar empty state */
+  isEmpty?: boolean;
 };
