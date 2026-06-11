@@ -15,7 +15,7 @@ export const platformNavigation: NavItem[] = buildPlatformNavigation();
 export const superAdminNavigation: NavItem[] = [
   { label: "Organizaciones", href: paths.superAdmin.organizations },
   { label: "Usuarios", href: paths.superAdmin.users },
-  { label: "Rentabilidad", href: paths.superAdmin.profitability },
+  { label: "Costos de IA", href: paths.superAdmin.costs },
   {
     label: "Cerebro de IA general",
     href: paths.superAdmin.aiBrain.root,

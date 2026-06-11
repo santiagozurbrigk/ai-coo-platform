@@ -157,7 +157,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     subtitle: "Redirige a /super-admin/users",
   },
   "/super-admin/costs": {
-    title: "AI Cost Dashboard",
+    title: "Costos de IA",
     subtitle: "Costos de IA, infra y rentabilidad por cliente",
   },
   "/super-admin/profitability": {

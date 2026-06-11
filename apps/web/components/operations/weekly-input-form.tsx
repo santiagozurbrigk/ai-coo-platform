@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Mic, Star } from "lucide-react";
+import { Loader2, Mic, Star } from "lucide-react";
 import {
   Button,
   FormField,
@@ -106,7 +106,11 @@ function RatingPicker({
   );
 }
 
-export function WeeklyInputForm() {
+export function WeeklyInputForm({
+  onSubmitted,
+}: {
+  onSubmitted?: (department: Department, preview: string) => void;
+} = {}) {
   const [activeTab, setActiveTab] = useState<Department>("sales");
   const [fields, setFields] = useState<Record<Department, DepartmentField>>({
     sales: { ...EMPTY_FIELDS },
@@ -136,8 +140,13 @@ export function WeeklyInputForm() {
   const handleSubmit = () => {
     if (!hasContent) return;
     setSubmitting(true);
+    const activeFields = fields[activeTab];
+    const preview = [activeFields.weekSummary, activeFields.problems]
+      .filter(Boolean)
+      .join(" · ");
     window.setTimeout(() => {
       setSubmitting(false);
+      onSubmitted?.(activeTab, preview);
       setFields({
         sales: { ...EMPTY_FIELDS },
         delivery: { ...EMPTY_FIELDS },
@@ -236,7 +245,14 @@ export function WeeklyInputForm() {
         disabled={!hasContent || submitting}
         onClick={handleSubmit}
       >
-        {submitting ? "Enviando…" : "Enviar inputs"}
+        {submitting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Enviando…
+          </>
+        ) : (
+          "Enviar inputs"
+        )}
       </Button>
     </Panel>
   );

@@ -56,22 +56,31 @@ export function getBreadcrumbs(pathname: string): Breadcrumb[] {
   }
 
   if (
-    pathname.startsWith("/sops/") &&
-    pathname !== paths.platform.sops.create &&
-    pathname !== paths.platform.sops.root
+    (pathname.startsWith("/operations/sops/") &&
+      pathname !== paths.platform.operations.sops) ||
+    (pathname.startsWith("/sops/") &&
+      pathname !== paths.platform.sops.create &&
+      pathname !== paths.platform.sops.root)
   ) {
     return [
       root,
-      { label: "SOPs", href: paths.platform.sops.root },
+      { label: "Operaciones", href: paths.platform.operations.overview },
+      { label: "SOPs", href: paths.platform.operations.sops },
       { label: "Detalle del SOP" },
     ];
   }
 
-  if (pathname.startsWith("/business-context/") && pathname !== paths.platform.businessContext.documents) {
+  if (
+    pathname.startsWith("/business-context/") &&
+    pathname !== paths.platform.businessContext.documents
+  ) {
     return [
       root,
-      { label: "Contexto de negocio", href: paths.platform.businessContext.documents },
-      { label: "Visor de contexto" },
+      {
+        label: "Base de conocimiento",
+        href: paths.platform.businessContext.documents,
+      },
+      { label: "Visor de documento" },
     ];
   }
 

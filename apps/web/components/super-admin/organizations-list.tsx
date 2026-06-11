@@ -175,9 +175,11 @@ export function OrganizationsList({
                   disabled={pendingId === r.id}
                   onClick={() => toggleStatus(r)}
                 >
-                  {r.status === "active" || r.status === "trial"
-                    ? "Suspender"
-                    : "Activar"}
+                  {pendingId === r.id
+                    ? "Procesando…"
+                    : r.status === "active" || r.status === "trial"
+                      ? "Suspender"
+                      : "Activar"}
                 </Button>
               </div>
             ),

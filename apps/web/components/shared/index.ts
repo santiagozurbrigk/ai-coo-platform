@@ -5,6 +5,7 @@
 export { PageHeader } from "./page-header";
 export { SectionHeader } from "./section-header";
 export { EmptyState } from "./empty-state";
+export { PageLoading } from "./page-loading";
 export { SeverityBadge } from "./severity-badge";
 export { MetricGrid } from "./metric-grid";
 export { BentoGrid, BentoCell, BentoCellPlace } from "./bento-grid";

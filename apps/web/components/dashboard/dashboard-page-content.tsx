@@ -6,6 +6,7 @@ import { deriveDashboardData } from "@/lib/metrics/derive-dashboard-data";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { useFinanceData } from "@/providers/finance-data-provider";
 import { usePlatformData } from "@/providers/platform-data-provider";
+import { PageLoading } from "@/components/shared/page-loading";
 import { DashboardOverview } from "./dashboard-overview";
 
 const useSupabase = isSupabaseConfigured();
@@ -64,11 +65,7 @@ export function DashboardPageContent() {
   ]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-[240px] items-center justify-center text-sm text-muted-foreground">
-        Cargando panel general…
-      </div>
-    );
+    return <PageLoading label="Cargando panel general…" />;
   }
 
   return <DashboardOverview data={data} />;

@@ -7,7 +7,7 @@ export type SuperAdminParentKey = (typeof SUPER_ADMIN_PARENT_KEYS)[number];
 
 const modulesWithChildren = {
   aiBrain: {
-    label: "AI General Brain",
+    label: "Cerebro de IA general",
     icon: "brain",
     children: [
       { label: "Documentos", href: paths.superAdmin.aiBrain.library },
@@ -46,7 +46,7 @@ export const superAdminSidebarNav: SidebarNavConfig = {
     {
       type: "link",
       module: {
-        label: "AI Costs",
+        label: "Costos de IA",
         href: paths.superAdmin.costs,
         icon: "file-bar-chart",
       },
@@ -55,7 +55,7 @@ export const superAdminSidebarNav: SidebarNavConfig = {
     {
       type: "link",
       module: {
-        label: "Infrastructure",
+        label: "Infraestructura",
         href: paths.superAdmin.infrastructure,
         icon: "activity",
       },
