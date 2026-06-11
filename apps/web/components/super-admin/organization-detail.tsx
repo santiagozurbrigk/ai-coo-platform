@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Badge, Button, Input, Textarea } from "@ai-coo/ui";
+import { useToast } from "@/providers/toast-provider";
 import { SparklineChart } from "@/components/charts/platform";
 import { paths } from "@/routes";
 import {
@@ -42,6 +43,14 @@ export function OrganizationDetailView({
   const [mrrInput, setMrrInput] = useState(String(detail.mrrUsd));
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const { push } = useToast();
+
+  const PLAN_LABEL: Record<string, string> = {
+    starter: "Starter",
+    growth: "Growth",
+    enterprise: "Enterprise",
+    trial: "Trial",
+  };
 
   const tokenSpark = detail.tokenUsage.daily.map((d) => d.costUsd);
 
@@ -59,9 +68,22 @@ export function OrganizationDetailView({
           <h2 className="text-xl font-semibold">{detail.name}</h2>
           <p className="text-sm text-muted-foreground">{detail.founder.email}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge variant={detail.status === "active" ? "success" : "secondary"}>
-              {detail.status === "active" ? "Activa" : "Inactiva"}
+            <Badge
+              variant={
+                detail.status === "active"
+                  ? "success"
+                  : detail.status === "trial"
+                    ? "warning"
+                    : "secondary"
+              }
+            >
+              {detail.status === "active"
+                ? "Activa"
+                : detail.status === "trial"
+                  ? "Trial"
+                  : "Inactiva"}
             </Badge>
+            <Badge variant="outline">{PLAN_LABEL[detail.plan] ?? detail.plan}</Badge>
             <span className="text-xs text-muted-foreground">
               Inicio: {formatDate(detail.createdAt)}
             </span>
@@ -80,9 +102,22 @@ export function OrganizationDetailView({
               )
             }
           >
-            {detail.status === "active"
-              ? "Desactivar organización"
-              : "Activar organización"}
+            {detail.status === "active" || detail.status === "trial"
+              ? "Desactivar"
+              : "Activar"}
+          </Button>
+          <Button
+            variant="outline"
+            disabled={pending}
+            onClick={() =>
+              push({
+                title: "Organización reseteada",
+                description: "Mock — datos de prueba restaurados.",
+                variant: "success",
+              })
+            }
+          >
+            Resetear
           </Button>
         </div>
       </div>
@@ -166,7 +201,35 @@ export function OrganizationDetailView({
         </div>
       </section>
 
-      <section className="rounded-xl border border-border/60 p-6">
+      <section className="rounded-xl border border-border/60 p-6 dark:border-white/[0.08]">
+        <h3 className="text-sm font-semibold">Usuarios</h3>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[480px] text-left text-sm">
+            <thead className="text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="pb-2 pr-4">Nombre</th>
+                <th className="pb-2 pr-4">Email</th>
+                <th className="pb-2 pr-4">Rol</th>
+                <th className="pb-2">Último login</th>
+              </tr>
+            </thead>
+            <tbody>
+              {detail.users.map((user) => (
+                <tr key={user.id} className="border-t border-border/40">
+                  <td className="py-2 pr-4 font-medium">{user.name}</td>
+                  <td className="py-2 pr-4 text-muted-foreground">{user.email}</td>
+                  <td className="py-2 pr-4 capitalize">{user.role}</td>
+                  <td className="py-2 text-muted-foreground">
+                    {formatDate(user.lastLogin)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border/60 p-6 dark:border-white/[0.08]">
         <h3 className="text-sm font-semibold">Integraciones activas</h3>
         <ul className="mt-4 space-y-2">
           {detail.integrations.map((i) => (
@@ -226,11 +289,19 @@ export function OrganizationDetailView({
         </div>
       </section>
 
-      <section className="rounded-xl border border-border/60 p-6">
-        <h3 className="text-sm font-semibold">Token usage (30 días)</h3>
+      <section className="rounded-xl border border-border/60 p-6 dark:border-white/[0.08]">
+        <h3 className="text-sm font-semibold">Uso de IA (mes)</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Costo del mes: {formatUsdPrecise(detail.tokenUsage.costMonthUsd)}
+          Costo total: {formatUsdPrecise(detail.aiCost.totalUsd)}
         </p>
+        <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <CostItem label="Claude Haiku" value={detail.aiCost.haikuUsd} />
+          <CostItem label="Claude Sonnet" value={detail.aiCost.sonnetUsd} />
+          <CostItem label="Claude Opus" value={detail.aiCost.opusUsd} />
+          <CostItem label="Embeddings" value={detail.aiCost.embeddingsUsd} />
+          <CostItem label="Storage" value={detail.aiCost.storageUsd} />
+          <CostItem label="Infraestructura" value={detail.aiCost.infrastructureUsd} />
+        </dl>
         {tokenSpark.length > 0 && (
           <div className="mt-4 h-16 w-full max-w-md">
             <SparklineChart data={tokenSpark} color="hsl(var(--primary))" />
@@ -250,6 +321,17 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg bg-muted/20 px-3 py-2">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-lg font-semibold tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function CostItem({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg bg-muted/20 px-3 py-2">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="text-sm font-semibold tabular-nums">
+        {formatUsdPrecise(value)}
+      </dd>
     </div>
   );
 }

@@ -156,6 +156,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Usuarios",
     subtitle: "Redirige a /super-admin/users",
   },
+  "/super-admin/costs": {
+    title: "AI Cost Dashboard",
+    subtitle: "Costos de IA, infra y rentabilidad por cliente",
+  },
   "/super-admin/profitability": {
     title: "Rentabilidad",
     subtitle: "MRR, tokens y márgenes",

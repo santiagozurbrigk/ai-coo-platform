@@ -33,6 +33,7 @@ export const sectionRedirects: { source: string; destination: string }[] = [
   { source: "/superadmin", destination: "/superadmin/login" },
   { source: "/super-admin/founders", destination: "/super-admin/users" },
   { source: "/super-admin/team-accounts", destination: "/super-admin/users" },
-  { source: "/super-admin/ai-usage", destination: "/super-admin/profitability" },
-  { source: "/super-admin/cost-tracking", destination: "/super-admin/profitability" },
+  { source: "/super-admin/ai-usage", destination: "/super-admin/costs" },
+  { source: "/super-admin/cost-tracking", destination: "/super-admin/costs" },
+  { source: "/super-admin/profitability", destination: "/super-admin/costs" },
 ];

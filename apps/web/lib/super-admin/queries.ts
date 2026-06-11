@@ -8,7 +8,16 @@ import {
   rowToBrainDocument,
   type AiBrainDocumentRow,
 } from "@/lib/ai-brain/mapper";
+import {
+  getMockOrganizationDetail,
+  getMockProfitabilityData,
+  getMockTokenCostDaily,
+  getMockTokenUsageBreakdown,
+  mockAiCostDashboard,
+  mockOrganizationsList,
+} from "@/mocks/super-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import {
   countByOrg,
   formatUsd,
@@ -24,14 +33,18 @@ import {
   type SuperAdminPeriod,
 } from "@/lib/super-admin/period";
 import type {
+  AdminAiCostDashboard,
+  AdminOrgPlan,
   AdminOrganizationDetail,
   AdminOrganizationListRow,
   AdminProfitabilityOrgRow,
   AdminProfitabilitySummary,
   AdminUserRow,
   InfrastructureStats,
+  OrganizationAiCostBreakdown,
   OrganizationIntegration,
   OrganizationNote,
+  OrganizationUser,
   TokenUsageBreakdown,
   TokenUsageDailyPoint,
 } from "@/types/super-admin";
@@ -47,7 +60,103 @@ function mapOrgStatus(
   status: string
 ): AdminOrganizationListRow["status"] {
   if (status === "active") return "active";
+  if (status === "trial") return "trial";
   return "inactive";
+}
+
+function inferPlan(mrrUsd: number, status: string): AdminOrgPlan {
+  if (status === "trial") return "trial";
+  if (mrrUsd >= 50000) return "enterprise";
+  if (mrrUsd >= 30000) return "growth";
+  return "starter";
+}
+
+function aggregateAiCostFromTokenRows(
+  rows: { model: string; feature: string | null; total_cost_usd: number }[]
+): OrganizationAiCostBreakdown {
+  let haikuUsd = 0;
+  let sonnetUsd = 0;
+  let opusUsd = 0;
+  let embeddingsUsd = 0;
+
+  for (const row of rows) {
+    const cost = Number(row.total_cost_usd);
+    const model = row.model.toLowerCase();
+    const feature = (row.feature ?? "").toLowerCase();
+
+    if (model.includes("haiku")) haikuUsd += cost;
+    else if (model.includes("opus")) opusUsd += cost;
+    else if (model.includes("sonnet")) sonnetUsd += cost;
+    else if (model.includes("embed") || feature.includes("embed")) embeddingsUsd += cost;
+    else sonnetUsd += cost;
+  }
+
+  const storageUsd = Math.max(1.2, haikuUsd * 0.08);
+  const infrastructureUsd = Math.max(2, (haikuUsd + sonnetUsd + opusUsd) * 0.12);
+  const totalUsd =
+    haikuUsd + sonnetUsd + opusUsd + embeddingsUsd + storageUsd + infrastructureUsd;
+
+  return {
+    haikuUsd,
+    sonnetUsd,
+    opusUsd,
+    embeddingsUsd,
+    storageUsd,
+    infrastructureUsd,
+    totalUsd,
+  };
+}
+
+export async function loadAiCostDashboard(): Promise<AdminAiCostDashboard> {
+  if (!isSupabaseConfigured()) return mockAiCostDashboard;
+
+  const { summary, orgRows } = await loadProfitabilityData();
+  const orgs = await loadOrganizationsList();
+
+  const organizations = orgRows.map((row) => {
+    const org = orgs.find((o) => o.id === row.orgId);
+    const totalMonthUsd = row.tokenCostMonthUsd;
+    const ratio = totalMonthUsd > 0 ? 1 : 0;
+    return {
+      orgId: row.orgId,
+      orgName: row.orgName,
+      plan: org?.plan ?? "starter",
+      mrrUsd: row.mrrUsd,
+      claudeHaikuUsd: totalMonthUsd * 0.22 * ratio,
+      claudeSonnetUsd: totalMonthUsd * 0.52 * ratio,
+      claudeOpusUsd: totalMonthUsd * 0.14 * ratio,
+      embeddingsUsd: totalMonthUsd * 0.06 * ratio,
+      storageUsd: totalMonthUsd * 0.03 * ratio,
+      infrastructureUsd: totalMonthUsd * 0.03 * ratio,
+      totalMonthUsd,
+      marginUsd: row.estimatedMarginUsd,
+      marginPercent:
+        row.mrrUsd > 0 ? (row.estimatedMarginUsd / row.mrrUsd) * 100 : 0,
+    };
+  });
+
+  return {
+    summary: {
+      ...summary,
+      totalInfraCostUsd: organizations.reduce(
+        (s, o) => s + o.storageUsd + o.infrastructureUsd,
+        0
+      ),
+      globalMarginPercent:
+        summary.totalMrrUsd > 0
+          ? (summary.estimatedGrossMarginUsd / summary.totalMrrUsd) * 100
+          : 0,
+    },
+    organizations,
+    profitabilityChart: organizations
+      .filter((o) => o.mrrUsd > 0)
+      .map((o) => ({
+        orgName: o.orgName,
+        mrrUsd: o.mrrUsd,
+        costUsd: o.totalMonthUsd,
+        marginUsd: o.marginUsd,
+      })),
+  };
 }
 
 async function fetchFounderLastLogins(
@@ -67,10 +176,12 @@ async function fetchFounderLastLogins(
 export async function loadOrganizationsList(): Promise<
   AdminOrganizationListRow[]
 > {
+  if (!isSupabaseConfigured()) return mockOrganizationsList;
+
   const admin = createAdminClient();
   const month = getCurrentMonthRange();
 
-  const [orgsRes, foundersRes, convRes, closingRes, clientsRes] =
+  const [orgsRes, foundersRes, profilesRes, convRes, closingRes, clientsRes] =
     await Promise.all([
       admin
         .from("organizations")
@@ -80,6 +191,7 @@ export async function loadOrganizationsList(): Promise<
         .from("profiles")
         .select("id, organization_id, email, full_name, role")
         .eq("role", "founder"),
+      admin.from("profiles").select("organization_id"),
       admin
         .from("conversations")
         .select("organization_id")
@@ -104,6 +216,10 @@ export async function loadOrganizationsList(): Promise<
     }
   }
 
+  const userCounts = countByOrg(
+    (profilesRes.data ?? []) as { organization_id: string }[]
+  );
+
   const convCounts = countByOrg(
     (convRes.data ?? []) as { organization_id: string }[]
   );
@@ -126,20 +242,27 @@ export async function loadOrganizationsList(): Promise<
     const founder = founderByOrg.get(org.id);
     const clients = clientsByOrg.get(org.id) ?? [];
     const billing = sumBillingInRange(clients, month);
+    const mrrUsd = Number(org.mrr_usd ?? 0);
+    const status = mapOrgStatus(org.status);
+    const founderLastLogin = founder ? loginMap.get(founder.id) ?? null : null;
+
     return {
       id: org.id,
       name: org.name,
       founderName: founder?.full_name ?? "—",
       founderEmail: founder?.email ?? "—",
       founderId: founder?.id ?? null,
-      status: mapOrgStatus(org.status),
+      status,
+      plan: inferPlan(mrrUsd, org.status),
+      usersCount: userCounts.get(org.id) ?? 0,
       createdAt: org.created_at,
-      founderLastLogin: founder ? loginMap.get(founder.id) ?? null : null,
+      lastActivityAt: founderLastLogin,
+      founderLastLogin,
       conversationsThisMonth: convCounts.get(org.id) ?? 0,
       dealsClosedThisMonth: dealCounts.get(org.id) ?? 0,
       billingThisMonth: billing,
       billingThisMonthLabel: formatUsd(billing),
-      mrrUsd: Number(org.mrr_usd ?? 0),
+      mrrUsd,
     };
   });
 }
@@ -193,6 +316,8 @@ async function loadOrgIntegrations(
 export async function loadOrganizationDetail(
   orgId: string
 ): Promise<AdminOrganizationDetail | null> {
+  if (!isSupabaseConfigured()) return getMockOrganizationDetail(orgId);
+
   const admin = createAdminClient();
   const month = getCurrentMonthRange();
 
@@ -207,6 +332,7 @@ export async function loadOrganizationDetail(
 
   const [
     founderRes,
+    usersRes,
     onboardingRes,
     convCountRes,
     closingCountRes,
@@ -221,6 +347,10 @@ export async function loadOrganizationDetail(
       .eq("organization_id", orgId)
       .eq("role", "founder")
       .maybeSingle(),
+    admin
+      .from("profiles")
+      .select("id, email, full_name, role")
+      .eq("organization_id", orgId),
     admin
       .from("onboarding_responses")
       .select("data")
@@ -247,7 +377,7 @@ export async function loadOrganizationDetail(
       .order("created_at", { ascending: false }),
     admin
       .from("token_usage")
-      .select("total_cost_usd, created_at")
+      .select("model, feature, total_cost_usd, created_at")
       .eq("organization_id", orgId)
       .gte("created_at", getLastNDaysRange(30).start)
       .order("created_at", { ascending: true }),
@@ -282,19 +412,41 @@ export async function loadOrganizationDetail(
     .reduce((s, r) => s + Number(r.total_cost_usd), 0);
 
   const onboarding = onboardingRes.data?.data as Record<string, unknown> | null;
+  const mrrUsd = Number(org.mrr_usd ?? 0);
+  const status = mapOrgStatus(org.status);
+
+  const users: OrganizationUser[] = await Promise.all(
+    ((usersRes.data ?? []) as { id: string; email: string; full_name: string | null; role: string }[]).map(
+      async (profile) => {
+        const { data: authUser } = await admin.auth.admin.getUserById(profile.id);
+        return {
+          id: profile.id,
+          name: profile.full_name ?? profile.email,
+          email: profile.email,
+          role: profile.role,
+          lastLogin: authUser.user?.last_sign_in_at ?? null,
+        };
+      }
+    )
+  );
+
+  const monthTokenRows = tokenRows.filter((r) => r.created_at >= month.start);
+  const aiCost = aggregateAiCostFromTokenRows(monthTokenRows);
 
   return {
     id: org.id,
     name: org.name,
-    status: mapOrgStatus(org.status),
+    status,
+    plan: inferPlan(mrrUsd, org.status),
     createdAt: org.created_at,
-    mrrUsd: Number(org.mrr_usd ?? 0),
+    mrrUsd,
     founder: {
       id: founder?.id ?? null,
       name: founder?.full_name ?? "—",
       email: founder?.email ?? "—",
       lastLogin: founderLastLogin,
     },
+    users,
     onboarding: onboarding ?? null,
     metrics: {
       conversationsThisMonth: convCountRes.count ?? 0,
@@ -304,6 +456,7 @@ export async function loadOrganizationDetail(
     },
     integrations,
     notes: (notesRes.data ?? []) as OrganizationNote[],
+    aiCost,
     tokenUsage: {
       costMonthUsd: tokenCostMonth,
       daily: tokenDaily,
@@ -351,6 +504,8 @@ export async function loadProfitabilityData(): Promise<{
   summary: AdminProfitabilitySummary;
   orgRows: AdminProfitabilityOrgRow[];
 }> {
+  if (!isSupabaseConfigured()) return getMockProfitabilityData();
+
   const admin = createAdminClient();
   const month = getCurrentMonthRange();
   const prevMonth = getPreviousMonthRange();
@@ -404,6 +559,7 @@ export async function loadProfitabilityData(): Promise<{
       tokenCostMonthUsd: tokenCost,
       tokenCostPrevMonthUsd: tokenCostPrev,
       estimatedMarginUsd: margin,
+      marginPercent: mrr > 0 ? (margin / mrr) * 100 : 0,
       trend,
     };
   });
@@ -411,12 +567,15 @@ export async function loadProfitabilityData(): Promise<{
   const totalMrr = orgRows.reduce((s, r) => s + r.mrrUsd, 0);
   const totalTokenCost = [...monthCosts.values()].reduce((s, v) => s + v, 0);
   const grossMargin = totalMrr - totalTokenCost;
+  const totalInfraCostUsd = totalTokenCost * 0.15;
 
   return {
     summary: {
       totalMrrUsd: totalMrr,
       totalTokenCostMonthUsd: totalTokenCost,
+      totalInfraCostUsd,
       estimatedGrossMarginUsd: grossMargin,
+      globalMarginPercent: totalMrr > 0 ? (grossMargin / totalMrr) * 100 : 0,
       activeOrganizations: orgRows.length,
     },
     orgRows,
@@ -427,6 +586,8 @@ export async function loadTokenUsageBreakdown(
   period: SuperAdminPeriod,
   organizationId?: string
 ): Promise<TokenUsageBreakdown> {
+  if (!isSupabaseConfigured()) return getMockTokenUsageBreakdown(period);
+
   const admin = createAdminClient();
   const range = resolveSuperAdminPeriod(period);
 
@@ -493,6 +654,8 @@ export async function loadTokenUsageBreakdown(
 export async function loadTokenCostDailyByOrg(
   days = 30
 ): Promise<{ date: string; orgId: string; orgName: string; costUsd: number }[]> {
+  if (!isSupabaseConfigured()) return getMockTokenCostDaily();
+
   const admin = createAdminClient();
   const range = getLastNDaysRange(days);
 

@@ -1,4 +1,6 @@
-export type AdminOrgStatus = "active" | "inactive";
+export type AdminOrgStatus = "active" | "inactive" | "trial";
+
+export type AdminOrgPlan = "starter" | "growth" | "enterprise" | "trial";
 
 export type AdminOrganizationListRow = {
   id: string;
@@ -7,7 +9,10 @@ export type AdminOrganizationListRow = {
   founderEmail: string;
   founderId: string | null;
   status: AdminOrgStatus;
+  plan: AdminOrgPlan;
+  usersCount: number;
   createdAt: string;
+  lastActivityAt: string | null;
   founderLastLogin: string | null;
   conversationsThisMonth: number;
   dealsClosedThisMonth: number;
@@ -40,6 +45,24 @@ export type OrganizationIntegration = {
   detail?: string;
 };
 
+export type OrganizationUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  lastLogin: string | null;
+};
+
+export type OrganizationAiCostBreakdown = {
+  haikuUsd: number;
+  sonnetUsd: number;
+  opusUsd: number;
+  embeddingsUsd: number;
+  storageUsd: number;
+  infrastructureUsd: number;
+  totalUsd: number;
+};
+
 export type TokenUsageDailyPoint = {
   date: string;
   costUsd: number;
@@ -49,6 +72,7 @@ export type AdminOrganizationDetail = {
   id: string;
   name: string;
   status: AdminOrgStatus;
+  plan: AdminOrgPlan;
   createdAt: string;
   mrrUsd: number;
   founder: {
@@ -57,6 +81,7 @@ export type AdminOrganizationDetail = {
     email: string;
     lastLogin: string | null;
   };
+  users: OrganizationUser[];
   onboarding: Record<string, unknown> | null;
   metrics: {
     conversationsThisMonth: number;
@@ -66,6 +91,7 @@ export type AdminOrganizationDetail = {
   };
   integrations: OrganizationIntegration[];
   notes: OrganizationNote[];
+  aiCost: OrganizationAiCostBreakdown;
   tokenUsage: {
     costMonthUsd: number;
     daily: TokenUsageDailyPoint[];
@@ -86,7 +112,9 @@ export type AdminUserRow = {
 export type AdminProfitabilitySummary = {
   totalMrrUsd: number;
   totalTokenCostMonthUsd: number;
+  totalInfraCostUsd: number;
   estimatedGrossMarginUsd: number;
+  globalMarginPercent: number;
   activeOrganizations: number;
 };
 
@@ -97,7 +125,35 @@ export type AdminProfitabilityOrgRow = {
   tokenCostMonthUsd: number;
   tokenCostPrevMonthUsd: number;
   estimatedMarginUsd: number;
+  marginPercent: number;
   trend: "up" | "down" | "flat";
+};
+
+export type OrgAiCostRow = {
+  orgId: string;
+  orgName: string;
+  plan: AdminOrgPlan;
+  mrrUsd: number;
+  claudeHaikuUsd: number;
+  claudeSonnetUsd: number;
+  claudeOpusUsd: number;
+  embeddingsUsd: number;
+  storageUsd: number;
+  infrastructureUsd: number;
+  totalMonthUsd: number;
+  marginUsd: number;
+  marginPercent: number;
+};
+
+export type AdminAiCostDashboard = {
+  summary: AdminProfitabilitySummary;
+  organizations: OrgAiCostRow[];
+  profitabilityChart: {
+    orgName: string;
+    mrrUsd: number;
+    costUsd: number;
+    marginUsd: number;
+  }[];
 };
 
 export type TokenUsageBreakdown = {

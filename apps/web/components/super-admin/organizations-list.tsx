@@ -8,11 +8,19 @@ import { es } from "@/lib/locale/es";
 import type { AdminOrganizationListRow } from "@/types/super-admin";
 import { setOrganizationStatusAction } from "@/app/super-admin/actions";
 
-type Filter = "all" | "active" | "inactive";
+type Filter = "all" | "active" | "inactive" | "trial";
 
 const STATUS_LABEL: Record<string, string> = {
   active: es.status.org.active,
-  inactive: "Inactiva",
+  inactive: "Inactivo",
+  trial: es.status.org.trial,
+};
+
+const PLAN_LABEL: Record<string, string> = {
+  starter: "Starter",
+  growth: "Growth",
+  enterprise: "Enterprise",
+  trial: "Trial",
 };
 
 function formatDate(iso: string | null): string {
@@ -38,6 +46,7 @@ export function OrganizationsList({
     return organizations.filter((org) => {
       if (filter === "active" && org.status !== "active") return false;
       if (filter === "inactive" && org.status !== "inactive") return false;
+      if (filter === "trial" && org.status !== "trial") return false;
       if (!q) return true;
       return (
         org.name.toLowerCase().includes(q) ||
@@ -61,6 +70,7 @@ export function OrganizationsList({
             [
               ["all", "Todas"],
               ["active", "Activas"],
+              ["trial", "Trial"],
               ["inactive", "Inactivas"],
             ] as const
           ).map(([key, label]) => (
@@ -92,6 +102,33 @@ export function OrganizationsList({
         columns={[
           { key: "name", header: "Nombre", cell: (r) => r.name },
           {
+            key: "plan",
+            header: "Plan",
+            cell: (r) => PLAN_LABEL[r.plan] ?? r.plan,
+          },
+          {
+            key: "status",
+            header: "Estado",
+            cell: (r) => (
+              <Badge
+                variant={
+                  r.status === "active"
+                    ? "success"
+                    : r.status === "trial"
+                      ? "warning"
+                      : "secondary"
+                }
+              >
+                {STATUS_LABEL[r.status]}
+              </Badge>
+            ),
+          },
+          {
+            key: "users",
+            header: "Usuarios",
+            cell: (r) => r.usersCount,
+          },
+          {
             key: "founder",
             header: "Founder",
             cell: (r) => (
@@ -103,37 +140,18 @@ export function OrganizationsList({
             ),
           },
           {
-            key: "status",
-            header: "Estado",
-            cell: (r) => (
-              <Badge variant={r.status === "active" ? "success" : "secondary"}>
-                {STATUS_LABEL[r.status]}
-              </Badge>
-            ),
-          },
-          {
             key: "created",
             header: "Creación",
             cell: (r) => formatDate(r.createdAt),
           },
           {
-            key: "login",
-            header: "Último login",
-            cell: (r) => formatDate(r.founderLastLogin),
+            key: "activity",
+            header: "Última actividad",
+            cell: (r) => formatDate(r.lastActivityAt),
           },
           {
-            key: "conv",
-            header: "Conv. mes",
-            cell: (r) => r.conversationsThisMonth,
-          },
-          {
-            key: "deals",
-            header: "Deals mes",
-            cell: (r) => r.dealsClosedThisMonth,
-          },
-          {
-            key: "bill",
-            header: "Facturación mes",
+            key: "mrr",
+            header: "MRR",
             cell: (r) => r.billingThisMonthLabel,
           },
           {
@@ -146,13 +164,20 @@ export function OrganizationsList({
                     Ver detalle
                   </Link>
                 </Button>
+                <Button asChild size="sm" variant="ghost">
+                  <Link href={paths.superAdmin.organizationDetail(r.id)}>
+                    Editar
+                  </Link>
+                </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   disabled={pendingId === r.id}
                   onClick={() => toggleStatus(r)}
                 >
-                  {r.status === "active" ? "Desactivar" : "Activar"}
+                  {r.status === "active" || r.status === "trial"
+                    ? "Suspender"
+                    : "Activar"}
                 </Button>
               </div>
             ),

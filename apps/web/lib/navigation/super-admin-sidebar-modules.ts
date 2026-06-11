@@ -46,8 +46,8 @@ export const superAdminSidebarNav: SidebarNavConfig = {
     {
       type: "link",
       module: {
-        label: "Profitability",
-        href: paths.superAdmin.profitability,
+        label: "AI Costs",
+        href: paths.superAdmin.costs,
         icon: "file-bar-chart",
       },
     },
