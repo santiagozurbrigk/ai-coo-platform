@@ -32,7 +32,8 @@ export type KnowledgeSource =
   | "loom"
   | "local"
   | "sheets"
-  | "notion";
+  | "notion"
+  | "manual";
 
 export type DocumentStatus = "indexed" | "processing" | "error";
 
@@ -43,9 +44,16 @@ export type ContextDocument = {
   source: string;
   sourceType?: KnowledgeSource;
   summary: string;
+  /** Vista previa corta para cards (2 líneas) */
+  preview: string;
   updatedAt: string;
   linkedSops: string[];
   thumbnailUrl?: string;
   status?: DocumentStatus;
   externalUrl?: string;
+  duration?: string;
+  participants?: string[];
+  topics?: string[];
+  transcript?: string;
+  insights?: string[];
 };

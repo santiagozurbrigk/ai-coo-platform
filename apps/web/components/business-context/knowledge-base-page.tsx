@@ -199,7 +199,12 @@ function AddDocumentFlow({
             source: "Google Drive",
             sourceType: "google_drive",
             summary: "Contenido indexado para la IA.",
-            updatedAt: new Date().toISOString(),
+            preview: "Vista previa del documento importado — se indexará para la memoria organizacional.",
+            updatedAt: new Date().toLocaleDateString("es", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            }),
             linkedSops: [],
             status: "indexed",
           })

@@ -120,8 +120,8 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     subtitle: "Miembros y roles de la organización",
   },
   "/business-context/documents": {
-    title: "Contexto de negocio",
-    subtitle: "Memoria organizacional",
+    title: "Base de conocimiento",
+    subtitle: "Documentos, calls y frameworks para la IA",
   },
   "/integrations": {
     title: "Integraciones",
@@ -199,7 +199,7 @@ export function getPageMeta(pathname: string): {
     pathname.startsWith("/business-context/") &&
     pathname !== "/business-context/documents"
   ) {
-    return { title: "Visor de contexto", subtitle: "Documento y transcripción" };
+    return { title: "Visor de documento", subtitle: "Transcripción, resumen e insights" };
   }
   if (pathname.startsWith("/product/avatar/")) {
     return { title: "Avatar", subtitle: "Ficha de personaje — Producto" };

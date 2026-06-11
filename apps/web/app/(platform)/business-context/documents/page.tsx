@@ -1,4 +1,5 @@
 import { KnowledgeBasePage } from "@/components/business-context/knowledge-base-page";
+import { PageHeader } from "@/components/shared/page-header";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { loadFathomCallsForKnowledgeBase } from "@/lib/fathom/knowledge-base-queries";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -24,10 +25,13 @@ export default async function BusinessContextDocumentsPage() {
   }
 
   return (
-    <KnowledgeBasePage
-      documents={mockDocuments}
-      contextCalls={contextCalls}
-      clientMeetingCalls={clientMeetingCalls}
-    />
+    <div className="space-y-6">
+      <PageHeader description="Documentos, calls y frameworks indexados para la IA" />
+      <KnowledgeBasePage
+        documents={mockDocuments}
+        contextCalls={contextCalls}
+        clientMeetingCalls={clientMeetingCalls}
+      />
+    </div>
   );
 }

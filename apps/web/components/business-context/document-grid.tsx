@@ -1,28 +1,31 @@
 "use client";
 
-import { useState } from "react";
-import { FilterPills } from "@/components/marketing/filter-pills";
+import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
+import { Input } from "@ai-coo/ui";
 import type {
   ContextDocument,
+  DocumentCategory,
   FathomKnowledgeCall,
-  KnowledgeBaseFilter,
 } from "@/types/business-context";
-import { EmptyState } from "@/components/shared/empty-state";
-import { es } from "@/lib/locale/es";
 import { DocumentCard } from "./document-card";
 import { FathomClientCallCard } from "./fathom-client-call-card";
 import { FathomContextCallCard } from "./fathom-context-call-card";
+import { KnowledgeBaseEmptyState } from "./knowledge-base-empty-state";
 
-const FILTERS: { key: KnowledgeBaseFilter; label: string }[] = [
-  { key: "all", label: "Todos" },
-  { key: "client_meetings", label: "Reuniones con clientes" },
-  { key: "business_context", label: "Contexto de negocio" },
+type CategoryFilter = DocumentCategory | "all";
+
+const FILTERS: { key: CategoryFilter; label: string }[] = [
+  { key: "all", label: "Todas" },
   { key: "meetings", label: "Reuniones" },
   { key: "frameworks", label: "Frameworks" },
-  { key: "training", label: "Capacitación" },
+  { key: "training", label: "Training" },
   { key: "sales", label: "Ventas" },
   { key: "operations", label: "Operaciones" },
 ];
+
+const tabClass =
+  "rounded-full border px-3 py-1 text-xs font-medium transition-colors";
 
 export function DocumentGrid({
   documents,
@@ -33,60 +36,80 @@ export function DocumentGrid({
   contextCalls?: FathomKnowledgeCall[];
   clientMeetingCalls?: FathomKnowledgeCall[];
 }) {
-  const [filter, setFilter] = useState<KnowledgeBaseFilter>("all");
+  const [filter, setFilter] = useState<CategoryFilter>("all");
+  const [search, setSearch] = useState("");
 
-  const filteredDocs =
-    filter === "all" ||
-    filter === "client_meetings" ||
-    filter === "business_context"
-      ? filter === "all"
-        ? documents
-        : []
-      : documents.filter((d) => d.category === filter);
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return documents.filter((doc) => {
+      if (filter !== "all" && doc.category !== filter) return false;
+      if (!query) return true;
+      return (
+        doc.title.toLowerCase().includes(query) ||
+        doc.summary.toLowerCase().includes(query) ||
+        doc.preview.toLowerCase().includes(query) ||
+        doc.source.toLowerCase().includes(query)
+      );
+    });
+  }, [documents, filter, search]);
 
-  const showClientMeetings =
-    filter === "all" || filter === "client_meetings";
-  const showContextCalls =
-    filter === "all" || filter === "business_context";
-
-  const visibleClientCalls = showClientMeetings ? clientMeetingCalls : [];
-  const visibleContextCalls = showContextCalls ? contextCalls : [];
+  const showFathomCalls = filter === "all" || filter === "meetings";
+  const visibleClientCalls = showFathomCalls ? clientMeetingCalls : [];
+  const visibleContextCalls = showFathomCalls ? contextCalls : [];
   const totalItems =
-    filteredDocs.length +
-    visibleClientCalls.length +
-    visibleContextCalls.length;
+    filtered.length + visibleClientCalls.length + visibleContextCalls.length;
+
+  const hasNoContent =
+    documents.length === 0 &&
+    contextCalls.length === 0 &&
+    clientMeetingCalls.length === 0;
+
+  if (hasNoContent) {
+    return <KnowledgeBaseEmptyState />;
+  }
 
   return (
     <div className="space-y-4">
-      <FilterPills
-        options={FILTERS.map(({ key, label }) => ({ value: key, label }))}
-        value={filter}
-        onChange={(value) => setFilter(value as KnowledgeBaseFilter)}
-      />
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Búsqueda semántica (mock — filtra por título)…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {FILTERS.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setFilter(key)}
+            className={
+              filter === key
+                ? `${tabClass} border-violet-500/40 bg-violet-500/15 text-violet-300`
+                : `${tabClass} border-border/40 bg-muted/20 text-muted-foreground hover:border-border/70`
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {totalItems === 0 ? (
-        <EmptyState
-          title={es.demo.noDocuments}
-          description={es.demo.noDocumentsDesc}
-          action={
-            <button
-              type="button"
-              onClick={() => setFilter("all")}
-              className="text-sm text-primary hover:underline"
-            >
-              Ver todo el contenido
-            </button>
-          }
-        />
+        <p className="rounded-xl border border-dashed border-border/60 py-12 text-center text-sm text-muted-foreground dark:border-white/[0.08]">
+          No hay documentos que coincidan con la búsqueda o categoría seleccionada.
+        </p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {visibleClientCalls.map((call) => (
             <FathomClientCallCard key={call.id} call={call} />
           ))}
           {visibleContextCalls.map((call) => (
             <FathomContextCallCard key={call.id} call={call} />
           ))}
-          {filteredDocs.map((doc) => (
+          {filtered.map((doc) => (
             <DocumentCard key={doc.id} document={doc} />
           ))}
         </div>
