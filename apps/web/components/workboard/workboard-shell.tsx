@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type React from "react";
-import { CalendarDays, Kanban, Plus } from "lucide-react";
+import { CalendarDays, Clock, Kanban, Plus } from "lucide-react";
+import { mockMemberTimeReports } from "@/mocks/workboard-time";
 import {
   Button,
   Dialog,
@@ -24,6 +25,7 @@ import type { TaskArea, TaskPriority, TaskStatus } from "@/types/workboard";
 import { WorkboardCalendar } from "./workboard-calendar";
 import { WorkboardKanban } from "./workboard-kanban";
 import { WorkboardTaskDetailDialog } from "./workboard-task-detail-dialog";
+import { WorkboardTimeReport } from "./workboard-time-report";
 
 const AREA_FILTER_OPTIONS = [
   { value: "all", label: "Todas las áreas" },
@@ -33,6 +35,7 @@ const AREA_FILTER_OPTIONS = [
 const VIEW_OPTIONS = [
   { value: "board", label: "Tablero" },
   { value: "calendar", label: "Calendario" },
+  { value: "time", label: "Tiempo por persona" },
 ];
 
 export function WorkboardShell() {
@@ -102,7 +105,7 @@ export function WorkboardShell() {
           <FilterPills
             options={VIEW_OPTIONS}
             value={view}
-            onChange={(v) => setView(v as "board" | "calendar")}
+            onChange={(v) => setView(v as "board" | "calendar" | "time")}
           />
           <FilterPills
             options={AREA_FILTER_OPTIONS}
@@ -117,9 +120,13 @@ export function WorkboardShell() {
               <span className="inline-flex items-center gap-1">
                 <Kanban className="h-3.5 w-3.5" /> Vista tablero
               </span>
-            ) : (
+            ) : view === "calendar" ? (
               <span className="inline-flex items-center gap-1">
                 <CalendarDays className="h-3.5 w-3.5" /> Vista calendario
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5" /> Tiempo por persona
               </span>
             )}
           </span>
@@ -144,7 +151,13 @@ export function WorkboardShell() {
         </div>
       </div>
 
-      {view === "board" ? <WorkboardKanban /> : <WorkboardCalendar />}
+      {view === "board" ? (
+        <WorkboardKanban />
+      ) : view === "calendar" ? (
+        <WorkboardCalendar />
+      ) : (
+        <WorkboardTimeReport reports={mockMemberTimeReports} />
+      )}
       <WorkboardTaskDetailDialog />
     </div>
   );

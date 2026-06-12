@@ -45,3 +45,23 @@ export type WorkboardColumn = {
   title: string;
   tasks: WorkboardTask[];
 };
+
+export type TaskTimeKind = "strategic" | "operational";
+
+export type MemberTaskTimeEntry = {
+  taskId: string;
+  title: string;
+  hours: number;
+  kind: TaskTimeKind;
+};
+
+export type MemberTimeReport = {
+  memberId: string;
+  name: string;
+  initials: string;
+  avatarColor: string;
+  totalHours: number;
+  strategicPercent: number;
+  operationalPercent: number;
+  topTasks: MemberTaskTimeEntry[];
+};

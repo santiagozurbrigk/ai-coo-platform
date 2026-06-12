@@ -27,8 +27,8 @@ type WorkboardContextValue = {
   members: WorkboardMember[];
   areaFilter: string;
   setAreaFilter: (v: string) => void;
-  view: "board" | "calendar";
-  setView: (v: "board" | "calendar") => void;
+  view: "board" | "calendar" | "time";
+  setView: (v: "board" | "calendar" | "time") => void;
   selectedTask: WorkboardTask | null;
   setSelectedTask: (task: WorkboardTask | null) => void;
   isSaving: boolean;
@@ -73,7 +73,7 @@ export function WorkboardProvider({
 }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [areaFilter, setAreaFilter] = useState("all");
-  const [view, setView] = useState<"board" | "calendar">("board");
+  const [view, setView] = useState<"board" | "calendar" | "time">("board");
   const [selectedTask, setSelectedTask] = useState<WorkboardTask | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
