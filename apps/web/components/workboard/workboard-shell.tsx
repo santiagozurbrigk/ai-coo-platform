@@ -26,6 +26,7 @@ import { WorkboardCalendar } from "./workboard-calendar";
 import { WorkboardKanban } from "./workboard-kanban";
 import { WorkboardTaskDetailDialog } from "./workboard-task-detail-dialog";
 import { WorkboardTimeReport } from "./workboard-time-report";
+import { WorkboardSprintHeader } from "./workboard-sprint-header";
 
 const AREA_FILTER_OPTIONS = [
   { value: "all", label: "Todas las áreas" },
@@ -100,6 +101,13 @@ export function WorkboardShell() {
         </p>
       ) : null}
 
+      {view !== "time" ? (
+        <WorkboardSprintHeader
+          areaFilter={areaFilter}
+          onAreaFilterChange={setAreaFilter}
+        />
+      ) : null}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <FilterPills
@@ -107,11 +115,13 @@ export function WorkboardShell() {
             value={view}
             onChange={(v) => setView(v as "board" | "calendar" | "time")}
           />
-          <FilterPills
-            options={AREA_FILTER_OPTIONS}
-            value={areaFilter}
-            onChange={setAreaFilter}
-          />
+          {view === "time" ? (
+            <FilterPills
+              options={AREA_FILTER_OPTIONS}
+              value={areaFilter}
+              onChange={setAreaFilter}
+            />
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2">

@@ -55,6 +55,17 @@ export type MemberTaskTimeEntry = {
   kind: TaskTimeKind;
 };
 
+export type WorkboardSprint = {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  completedTasks: number;
+  totalTasks: number;
+  goal: string;
+  areaFocus?: TaskArea | "all";
+};
+
 export type MemberTimeReport = {
   memberId: string;
   name: string;
