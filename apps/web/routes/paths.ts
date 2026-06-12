@@ -144,6 +144,7 @@ export const paths = {
     costs: "/super-admin/costs",
     infrastructure: "/super-admin/infrastructure",
     clientHealth: "/super-admin/client-health",
+    holding: "/super-admin/holding",
     aiBrain: {
       root: "/super-admin/ai-brain",
       library: "/super-admin/ai-brain/library",

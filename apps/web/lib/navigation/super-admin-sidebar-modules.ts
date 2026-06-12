@@ -30,6 +30,14 @@ export const superAdminSidebarNav: SidebarNavConfig = {
     {
       type: "link",
       module: {
+        label: "Holding",
+        href: paths.superAdmin.holding,
+        icon: "layers",
+      },
+    },
+    {
+      type: "link",
+      module: {
         label: "Organizaciones",
         href: paths.superAdmin.organizations,
         icon: "shield",

@@ -136,6 +136,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Área del fundador",
     subtitle: "Vista estratégica de la operación",
   },
+  "/super-admin/holding": {
+    title: "Holding",
+    subtitle: "Portfolio de sub-organizaciones y métricas agregadas",
+  },
   "/super-admin/organizations": {
     title: "Organizaciones",
     subtitle: "Clientes de la plataforma",
