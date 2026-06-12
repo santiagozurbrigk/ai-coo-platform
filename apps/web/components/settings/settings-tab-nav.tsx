@@ -2,12 +2,18 @@
 
 import { cn } from "@ai-coo/ui";
 
-export type SettingsTabId = "general" | "perfil" | "notificaciones" | "seguridad";
+export type SettingsTabId =
+  | "general"
+  | "perfil"
+  | "notificaciones"
+  | "ia"
+  | "seguridad";
 
 const TABS: { id: SettingsTabId; label: string }[] = [
   { id: "general", label: "General" },
   { id: "perfil", label: "Perfil" },
   { id: "notificaciones", label: "Notificaciones" },
+  { id: "ia", label: "IA" },
   { id: "seguridad", label: "Seguridad" },
 ];
 

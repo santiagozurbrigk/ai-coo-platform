@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button, Input } from "@ai-coo/ui";
-import { Bell, Building2, Lock, Palette, User } from "lucide-react";
+import { Bell, Building2, KeyRound, Lock, Palette, Sparkles, User } from "lucide-react";
 import { useToast } from "@/providers/toast-provider";
 import { es } from "@/lib/locale/es";
 import { formatRelativeTime } from "@/lib/format";
@@ -56,6 +56,8 @@ export function SettingsForm({
   const [notifications, setNotifications] = useState({
     ...NOTIFICATION_DEFAULTS,
   });
+  const [useOwnApiKey, setUseOwnApiKey] = useState(false);
+  const [claudeApiKey, setClaudeApiKey] = useState("");
 
   const resetForm = () => {
     setOrgName(initialData.orgName);
@@ -200,6 +202,47 @@ export function SettingsForm({
               setNotifications((prev) => ({ ...prev, newBookings: checked }))
             }
           />
+          <SettingsFormActions onSave={handleSave} onCancel={resetForm} />
+        </div>
+      )}
+
+      {activeTab === "ia" && (
+        <div className="space-y-8 pt-2">
+          <section>
+            <SectionHeader icon={Sparkles} label="API de Claude" />
+            <p className="mb-4 text-sm text-muted-foreground">
+              Podés usar tu propia API key de Anthropic para reducir costos. Si
+              está activa, las llamadas de IA usan tu key en lugar de la de OTC.
+            </p>
+            <NotificationToggle
+              label="Usar mi propia API key"
+              description="Phase 2 — por ahora solo configuración visual"
+              checked={useOwnApiKey}
+              onChange={setUseOwnApiKey}
+            />
+            <div className="mt-4 space-y-2">
+              <FieldLabel htmlFor="claude-api-key">
+                Tu API key de Claude
+              </FieldLabel>
+              <div className="relative max-w-md">
+                <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="claude-api-key"
+                  type="password"
+                  placeholder="sk-ant-…"
+                  value={claudeApiKey}
+                  onChange={(e) => setClaudeApiKey(e.target.value)}
+                  className="pl-9"
+                  disabled={!useOwnApiKey}
+                />
+              </div>
+              <p className="text-2xs text-muted-foreground">
+                {/* TODO: Phase 2 — persistir encriptado; routing si key propia vs OTC */}
+                La key se almacenará de forma segura. No se muestra después de
+                guardar.
+              </p>
+            </div>
+          </section>
           <SettingsFormActions onSave={handleSave} onCancel={resetForm} />
         </div>
       )}

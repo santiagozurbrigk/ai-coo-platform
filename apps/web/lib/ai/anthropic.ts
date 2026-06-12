@@ -14,6 +14,9 @@ function getClient(): Anthropic | null {
   return new Anthropic({ apiKey: key });
 }
 
+// TODO: Phase 2 — routing por tarea: Haiku (clasificación/tagging), Sonnet (reportes), Opus (SOPs)
+// TODO: Phase 2 — implementar prompt caching en todo contexto org (SOPs, frameworks, equipo)
+
 export function isAnthropicConfigured(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
 }
