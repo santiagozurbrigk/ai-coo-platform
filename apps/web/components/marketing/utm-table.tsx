@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Copy, Users } from "lucide-react";
+import { Globe, MessageCircle, Users } from "lucide-react";
 import { Button } from "@ai-coo/ui";
 import { getUTMLeadsAction } from "@/app/marketing/actions";
 import { mockUTMLeads } from "@/mocks/utm-links";
@@ -17,16 +17,16 @@ function formatMoney(value: number): string {
 }
 
 export function UTMTable({ links }: { links: UTMLinkRow[] }) {
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeLink, setActiveLink] = useState<UTMLinkRow | null>(null);
   const [leads, setLeads] = useState<UTMLeadCaptureRow[]>([]);
   const [loadingLeads, startLoadLeads] = useTransition();
 
-  function handleCopy(link: UTMLinkRow) {
-    void navigator.clipboard.writeText(link.full_url);
-    setCopiedId(link.id);
-    setTimeout(() => setCopiedId(null), 2000);
+  function copyToClipboard(url: string, key: string) {
+    void navigator.clipboard.writeText(url);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
   }
 
   function openLeads(link: UTMLinkRow) {
@@ -56,7 +56,7 @@ export function UTMTable({ links }: { links: UTMLinkRow[] }) {
     <>
       <div className="overflow-hidden rounded-xl border border-border/60 dark:border-glass">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[800px] text-sm">
             <thead>
               <tr className="border-b border-border/60 bg-muted/20 text-left text-xs text-muted-foreground dark:border-glass dark:bg-glass">
                 <th className="px-4 py-3 font-medium">Video</th>
@@ -66,6 +66,7 @@ export function UTMTable({ links }: { links: UTMLinkRow[] }) {
                 <th className="px-4 py-3 font-medium text-right">Bookings</th>
                 <th className="px-4 py-3 font-medium text-right">Ventas</th>
                 <th className="px-4 py-3 font-medium text-right">Revenue</th>
+                <th className="px-4 py-3 font-medium">Links</th>
                 <th className="px-4 py-3 font-medium text-right">Acciones</th>
               </tr>
             </thead>
@@ -102,20 +103,46 @@ export function UTMTable({ links }: { links: UTMLinkRow[] }) {
                     {formatMoney(Number(link.revenue_attributed))}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex flex-wrap gap-1.5">
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => handleCopy(link)}
+                        className="h-7 gap-1 px-2 text-[10px]"
+                        onClick={() =>
+                          copyToClipboard(link.full_url, `${link.id}-landing`)
+                        }
                       >
-                        {copiedId === link.id ? (
-                          <Check className="h-3.5 w-3.5 text-emerald-400" />
-                        ) : (
-                          <Copy className="h-3.5 w-3.5" />
-                        )}
-                        <span className="sr-only">Copiar URL</span>
+                        <Globe className="h-3 w-3" />
+                        Landing
                       </Button>
+                      {link.manychat_url ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1 px-2 text-[10px]"
+                          onClick={() =>
+                            copyToClipboard(
+                              link.manychat_url!,
+                              `${link.id}-dm`
+                            )
+                          }
+                        >
+                          <MessageCircle className="h-3 w-3" />
+                          DM
+                        </Button>
+                      ) : null}
+                    </div>
+                    {copiedKey === `${link.id}-landing` ||
+                    copiedKey === `${link.id}-dm` ? (
+                      <p className="mt-1 text-[10px] text-emerald-400">
+                        Copiado
+                      </p>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end">
                       <Button
                         type="button"
                         variant="ghost"

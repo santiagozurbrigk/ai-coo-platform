@@ -1,3 +1,5 @@
+export type UTMLinkType = "landing" | "manychat" | "both";
+
 export type UTMLinkRow = {
   id: string;
   organization_id: string;
@@ -8,6 +10,11 @@ export type UTMLinkRow = {
   utm_campaign: string;
   utm_content: string | null;
   full_url: string;
+  manychat_page_id: string | null;
+  manychat_ref: string | null;
+  manychat_url: string | null;
+  instagram_username: string | null;
+  link_type: UTMLinkType;
   clicks: number;
   leads_captured: number;
   bookings_attributed: number;

@@ -234,6 +234,7 @@ export async function processManyChatWebhookForOrganization(
     messageText: string;
     sender: "lead" | "team";
     timestamp: string;
+    ref?: string;
   }
 ) {
   const admin = createAdminClient();
@@ -243,6 +244,7 @@ export async function processManyChatWebhookForOrganization(
     messageText: inbound.messageText,
     sender: inbound.sender,
     timestamp: inbound.timestamp,
+    ref: inbound.ref,
   });
 
   await admin

@@ -1,17 +1,18 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Check, Copy, Link2 } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import { Button, Input, Label, cn } from "@ai-coo/ui";
 import { createUTMLinkAction } from "@/app/marketing/actions";
 import { slugifyCampaign } from "@/lib/utm/slugify-campaign";
+import {
+  buildLandingUtmUrl,
+  buildManychatUrl,
+  normalizeInstagramUsername,
+} from "@/lib/utm/build-links";
 import type { ContentAssetView } from "@/app/marketing/actions";
 import { UTM_CONTENT_OPTIONS } from "@/types/utm";
 import type { UTMLinkRow } from "@/types/utm";
-
-const BASE_URL =
-  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
-  "https://www.optimizatucontrol.com";
 
 const SELECT_CLASS =
   "flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm dark:border-white/[0.08] dark:bg-[#1A1A1A]";
@@ -19,16 +20,6 @@ const SELECT_CLASS =
 type VideoOption =
   | { kind: "youtube"; id: string; title: string }
   | { kind: "manual"; title: string };
-
-function buildFullUrl(campaign: string, content?: string): string {
-  const params = new URLSearchParams({
-    utm_source: "youtube",
-    utm_medium: "video",
-    utm_campaign: campaign,
-  });
-  if (content) params.set("utm_content", content);
-  return `${BASE_URL}?${params.toString()}`;
-}
 
 export function UTMGenerator({
   youtubeVideos,
@@ -47,7 +38,10 @@ export function UTMGenerator({
   const [campaign, setCampaign] = useState("");
   const [campaignTouched, setCampaignTouched] = useState(false);
   const [content, setContent] = useState<string>("");
-  const [copied, setCopied] = useState(false);
+  const [instagramUsername, setInstagramUsername] = useState("");
+  const [copiedKey, setCopiedKey] = useState<"landing" | "manychat" | null>(
+    null
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -64,12 +58,22 @@ export function UTMGenerator({
   const videoTitle = selectedVideo?.title ?? "";
 
   const effectiveCampaign =
-    campaign.trim() ||
-    (videoTitle ? slugifyCampaign(videoTitle) : "");
+    campaign.trim() || (videoTitle ? slugifyCampaign(videoTitle) : "");
 
-  const generatedUrl = effectiveCampaign
-    ? buildFullUrl(effectiveCampaign, content || undefined)
+  const generatedLandingUrl = effectiveCampaign
+    ? buildLandingUtmUrl(effectiveCampaign, content || undefined)
     : "";
+
+  const normalizedIg = instagramUsername
+    ? normalizeInstagramUsername(instagramUsername)
+    : "";
+
+  const generatedManychatUrl = effectiveCampaign
+    ? buildManychatUrl({
+        utmCampaign: effectiveCampaign,
+        instagramUsername: normalizedIg || null,
+      }).url
+    : null;
 
   function handleVideoTitleChange(title: string) {
     if (videoMode === "manual") setManualTitle(title);
@@ -86,11 +90,13 @@ export function UTMGenerator({
     }
   }
 
-  async function copyUrl() {
-    if (!generatedUrl) return;
-    await navigator.clipboard.writeText(generatedUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function copyToClipboard(
+    url: string,
+    key: "landing" | "manychat"
+  ) {
+    await navigator.clipboard.writeText(url);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
   }
 
   function handleSave() {
@@ -108,6 +114,7 @@ export function UTMGenerator({
           youtube_video_title: videoTitle || undefined,
           utm_campaign: effectiveCampaign,
           utm_content: content || undefined,
+          instagram_username: normalizedIg || undefined,
         });
         if (result.success && result.data) {
           onCreated(result.data);
@@ -115,6 +122,7 @@ export function UTMGenerator({
           setCampaignTouched(false);
           setManualTitle("");
           setContent("");
+          setInstagramUsername("");
         } else if (!result.success) {
           setError(result.error);
         }
@@ -129,7 +137,7 @@ export function UTMGenerator({
       <div>
         <h2 className="text-base font-medium text-foreground">Nuevo UTM</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Generá un link trackeable para tus videos de YouTube.
+          Generá links para landing y DM de Instagram (ManyChat).
         </p>
       </div>
 
@@ -210,30 +218,108 @@ export function UTMGenerator({
         </select>
       </div>
 
-      <div className="space-y-2">
-        <Label>URL generada</Label>
-        <div className="flex gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground dark:border-glass dark:bg-glass-elevated">
-            <Link2 className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate font-mono">
-              {generatedUrl || "Completá la campaña para ver la URL"}
+      <div className="flex flex-col gap-1.5">
+        <Label
+          htmlFor="instagram-username"
+          className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+        >
+          Usuario de Instagram
+        </Label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+            @
+          </span>
+          <Input
+            id="instagram-username"
+            placeholder="tuusuario"
+            className="pl-7"
+            value={instagramUsername}
+            onChange={(e) => setInstagramUsername(e.target.value)}
+          />
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Para generar el link directo a tu DM de Instagram
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-border/40 bg-muted/30 p-4">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Links generados
+        </p>
+
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-foreground">
+              Link de landing
+            </span>
+            <span className="rounded-full border border-violet-500/20 bg-violet-900/20 px-2 py-0.5 text-[10px] text-violet-400">
+              Para leads que van a tu sitio
             </span>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            disabled={!generatedUrl}
-            onClick={() => void copyUrl()}
-            aria-label="Copiar URL"
-          >
-            {copied ? (
-              <Check className="h-4 w-4 text-emerald-400" />
-            ) : (
-              <Copy className="h-4 w-4" />
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Input
+              readOnly
+              value={generatedLandingUrl}
+              className="bg-background text-[11px] text-muted-foreground"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!generatedLandingUrl}
+              onClick={() =>
+                void copyToClipboard(generatedLandingUrl, "landing")
+              }
+            >
+              {copiedKey === "landing" ? (
+                <Check className="h-3.5 w-3.5 text-emerald-400" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          </div>
         </div>
+
+        {normalizedIg ? (
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-medium text-foreground">
+                Link de DM directo
+              </span>
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-900/20 px-2 py-0.5 text-[10px] text-emerald-400">
+                Recomendado para YouTube
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                readOnly
+                value={generatedManychatUrl ?? ""}
+                className="bg-background text-[11px] text-muted-foreground"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!generatedManychatUrl}
+                onClick={() => {
+                  if (generatedManychatUrl) {
+                    void copyToClipboard(generatedManychatUrl, "manychat");
+                  }
+                }}
+              >
+                {copiedKey === "manychat" ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Cuando el lead clickea este link, se abre tu DM de Instagram
+              directamente. OTC detecta automáticamente que vino de este video.
+            </p>
+          </div>
+        ) : null}
       </div>
 
       {error ? (

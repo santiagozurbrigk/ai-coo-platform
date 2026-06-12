@@ -4,6 +4,7 @@ export type ParsedManyChatWebhook = {
   messageText: string;
   sender: "lead" | "team";
   timestamp: string;
+  ref?: string;
 };
 
 function pickString(obj: Record<string, unknown>, keys: string[]): string | null {
@@ -69,6 +70,25 @@ function resolveMessageText(body: Record<string, unknown>): string | null {
   return null;
 }
 
+function resolveRef(body: Record<string, unknown>): string | null {
+  const direct = pickString(body, ["ref", "referral_ref", "referralRef"]);
+  if (direct) return direct;
+
+  const referral = pickRecord(body.referral);
+  if (referral) {
+    const fromReferral = pickString(referral, ["ref", "source", "referrer"]);
+    if (fromReferral) return fromReferral;
+  }
+
+  const nested =
+    pickRecord(body.subscriber) ??
+    pickRecord(body.contact) ??
+    pickRecord(body.data);
+  if (nested) return resolveRef(nested);
+
+  return null;
+}
+
 function resolveSender(body: Record<string, unknown>): "lead" | "team" {
   const raw = pickString(body, ["sender", "from", "message_from", "direction"]);
   if (!raw) return "lead";
@@ -94,11 +114,14 @@ export function parseManyChatWebhookPayload(body: unknown): ParsedManyChatWebhoo
   const messageText = resolveMessageText(record);
   if (!subscriberId || !messageText) return null;
 
+  const ref = resolveRef(record);
+
   return {
     subscriberId,
     leadName: resolveLeadName(record),
     messageText,
     sender: resolveSender(record),
     timestamp: new Date().toISOString(),
+    ...(ref ? { ref } : {}),
   };
 }

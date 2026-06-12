@@ -11,6 +11,12 @@ import {
   generateDistributionInsight,
 } from "@/lib/content/distribution-insight";
 import { paths } from "@/routes";
+import {
+  buildLandingUtmUrl,
+  buildManychatUrl,
+  normalizeInstagramUsername,
+  resolveUtmLinkType,
+} from "@/lib/utm/build-links";
 import { slugifyCampaign } from "@/lib/utm/slugify-campaign";
 import type { UTMLeadCaptureRow, UTMLinkRow } from "@/types/utm";
 
@@ -183,6 +189,13 @@ function rowToUTMLink(row: Record<string, unknown>): UTMLinkRow {
     utm_campaign: row.utm_campaign as string,
     utm_content: (row.utm_content as string) ?? null,
     full_url: row.full_url as string,
+    manychat_page_id: (row.manychat_page_id as string) ?? null,
+    manychat_ref: (row.manychat_ref as string) ?? null,
+    manychat_url: (row.manychat_url as string) ?? null,
+    instagram_username: (row.instagram_username as string) ?? null,
+    link_type:
+      (row.link_type as UTMLinkRow["link_type"]) ??
+      (row.manychat_url ? "both" : "landing"),
     clicks: Number(row.clicks ?? 0),
     leads_captured: Number(row.leads_captured ?? 0),
     bookings_attributed: Number(row.bookings_attributed ?? 0),
@@ -216,6 +229,8 @@ export async function createUTMLinkAction(data: {
   youtube_video_title?: string;
   utm_campaign: string;
   utm_content?: string;
+  instagram_username?: string;
+  manychat_page_id?: string;
 }): Promise<MutationResult<UTMLinkRow>> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
@@ -231,19 +246,16 @@ export async function createUTMLinkAction(data: {
       throw new Error("La campaña UTM es obligatoria.");
     }
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
-      "https://www.optimizatucontrol.com";
-
-    const params = new URLSearchParams({
-      utm_source: "youtube",
-      utm_medium: "video",
-      utm_campaign: campaign,
+    const full_url = buildLandingUtmUrl(campaign, data.utm_content);
+    const instagramUsername = data.instagram_username
+      ? normalizeInstagramUsername(data.instagram_username)
+      : null;
+    const { ref: manychat_ref, url: manychat_url } = buildManychatUrl({
+      utmCampaign: campaign,
+      instagramUsername,
+      manychatPageId: data.manychat_page_id,
     });
-    if (data.utm_content) {
-      params.set("utm_content", data.utm_content);
-    }
-    const full_url = `${baseUrl}?${params.toString()}`;
+    const link_type = resolveUtmLinkType(manychat_url);
 
     const { data: utmLink, error } = await supabase
       .from("utm_links")
@@ -256,6 +268,11 @@ export async function createUTMLinkAction(data: {
         utm_campaign: campaign,
         utm_content: data.utm_content ?? null,
         full_url,
+        manychat_ref,
+        manychat_url,
+        instagram_username: instagramUsername,
+        manychat_page_id: data.manychat_page_id?.trim() || null,
+        link_type,
       })
       .select()
       .single();

@@ -12,6 +12,12 @@ export const mockUTMLinks: UTMLinkRow[] = [
     utm_content: "descripcion",
     full_url:
       "https://www.optimizatucontrol.com?utm_source=youtube&utm_medium=video&utm_campaign=como-escale-a-100k&utm_content=descripcion",
+    manychat_page_id: null,
+    manychat_ref: "yt-como-escale-a-100k",
+    manychat_url:
+      "https://ig.me/m/optimizatucontrol?ref=yt-como-escale-a-100k",
+    instagram_username: "optimizatucontrol",
+    link_type: "both",
     clicks: 234,
     leads_captured: 18,
     bookings_attributed: 4,
@@ -31,6 +37,12 @@ export const mockUTMLinks: UTMLinkRow[] = [
     utm_content: "primer-comentario",
     full_url:
       "https://www.optimizatucontrol.com?utm_source=youtube&utm_medium=video&utm_campaign=3-errores-operativos&utm_content=primer-comentario",
+    manychat_page_id: null,
+    manychat_ref: "yt-3-errores-operativos",
+    manychat_url:
+      "https://ig.me/m/optimizatucontrol?ref=yt-3-errores-operativos",
+    instagram_username: "optimizatucontrol",
+    link_type: "both",
     clicks: 89,
     leads_captured: 6,
     bookings_attributed: 1,
@@ -50,6 +62,11 @@ export const mockUTMLinks: UTMLinkRow[] = [
     utm_content: "bio",
     full_url:
       "https://www.optimizatucontrol.com?utm_source=youtube&utm_medium=video&utm_campaign=dia-en-mi-negocio&utm_content=bio",
+    manychat_page_id: null,
+    manychat_ref: null,
+    manychat_url: null,
+    instagram_username: null,
+    link_type: "landing",
     clicks: 45,
     leads_captured: 2,
     bookings_attributed: 0,

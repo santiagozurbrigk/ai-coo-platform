@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { attributeConversationFromManyChatRef } from "@/lib/utm/attribute-manychat-ref";
 import type { ConversationAnalysis, SalesMessage } from "@/types/sales";
 
 export type ManyChatConversationInbound = {
@@ -7,6 +8,7 @@ export type ManyChatConversationInbound = {
   messageText: string;
   sender?: "lead" | "team";
   timestamp?: string;
+  ref?: string;
 };
 
 type ConversationRow = {
@@ -72,19 +74,34 @@ export async function upsertConversationFromManyChat(
     return { inserted: false, updated: true };
   }
 
-  const { error: insertError } = await supabase.from("conversations").insert({
-    organization_id: organizationId,
-    lead_name: inbound.leadName,
-    status: "active",
-    tag: null,
-    last_message: inbound.messageText,
-    last_message_at: timestamp,
-    unread: sender === "lead",
-    messages: [newMessage],
-    analysis: defaultAnalysis(),
-    external_ref: externalRef,
-  });
+  const { data: inserted, error: insertError } = await supabase
+    .from("conversations")
+    .insert({
+      organization_id: organizationId,
+      lead_name: inbound.leadName,
+      status: "active",
+      tag: null,
+      last_message: inbound.messageText,
+      last_message_at: timestamp,
+      unread: sender === "lead",
+      messages: [newMessage],
+      analysis: defaultAnalysis(),
+      external_ref: externalRef,
+    })
+    .select("id")
+    .single();
 
   if (insertError) throw new Error(insertError.message);
+
+  if (inbound.ref && inserted?.id) {
+    await attributeConversationFromManyChatRef(
+      supabase,
+      organizationId,
+      inserted.id,
+      inbound.ref,
+      externalRef
+    );
+  }
+
   return { inserted: true, updated: false };
 }

@@ -6,25 +6,25 @@ export const UTM_SETUP_SOP = {
       step: 1,
       title: "Crear el UTM en OTC",
       description:
-        "Ir a Marketing → UTMs → Nuevo UTM. Seleccionar el video de YouTube y elegir dónde va a estar el link (descripción, comentario, bio).",
+        "Ir a Marketing → UTMs → Nuevo UTM. Seleccionar el video de YouTube, tu usuario de Instagram y dónde va a estar el link (descripción, comentario, bio).",
     },
     {
       step: 2,
-      title: "Copiar el link generado",
+      title: "Copiar los links generados",
       description:
-        'OTC genera automáticamente el UTM. Copiar el link completo con el botón "Copiar URL".',
+        "OTC genera dos links: landing con UTM y DM directo de Instagram. Copiá cada uno con los botones de copiar.",
     },
     {
       step: 3,
-      title: "Pegar en YouTube",
+      title: "Pegar los links en YouTube",
       description:
-        'Editar el video en YouTube Studio. En la descripción, agregar el link UTM como primer link visible. Recomendado: "👉 [nombre de tu oferta]: [link con UTM]".',
+        "OTC genera dos links: uno para tu landing page y uno para tu DM de Instagram. Pegalos en la descripción del video. El link de DM directo es el más efectivo porque lleva al lead directo a una conversación con tu bot.",
     },
     {
       step: 4,
-      title: "Verificar que funciona",
+      title: "Verificar la atribución",
       description:
-        "Abrir el link desde el video. En OTC → Marketing → UTMs debería aparecer +1 en la columna Clicks dentro de los próximos minutos.",
+        "Cuando un lead clickea el link de DM, OTC detecta automáticamente que vino de ese video. Lo vas a ver en Marketing → UTMs y también en el perfil del lead en el inbox de ventas.",
     },
     {
       step: 5,
