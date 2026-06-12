@@ -9,11 +9,24 @@ export type SalesMessage = {
   timestamp: string;
 };
 
+export type QualificationTier = "low" | "medium" | "high";
+
+export type LeadQualificationScore = {
+  /** Score final 1–100 */
+  overall: number;
+  tier: QualificationTier;
+  engagement: number;
+  intent: number;
+  qualification: number;
+};
+
 export type ConversationAnalysis = {
   responseTimeMinutes: number;
   ghostingRisk: "low" | "medium" | "high";
   bookingSignal: boolean;
   insights: string[];
+  /** Scoring automático de calificación del lead (mock / Phase 2 IA) */
+  qualificationScore?: LeadQualificationScore;
 };
 
 export type ConversationTagId =

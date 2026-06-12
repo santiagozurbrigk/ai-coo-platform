@@ -1,6 +1,22 @@
 import { mockFinanceSummary } from "@/mocks/finance";
-import type { Conversation, SalesMetricsData } from "@/types/sales";
+import type { Conversation, LeadQualificationScore, SalesMetricsData } from "@/types/sales";
 import { DAY_LABELS_ES } from "@/lib/format";
+import { getQualificationTier } from "@/lib/sales/qualification-score";
+
+function leadScore(
+  overall: number,
+  engagement: number,
+  intent: number,
+  qualification: number
+): LeadQualificationScore {
+  return {
+    overall,
+    tier: getQualificationTier(overall),
+    engagement,
+    intent,
+    qualification,
+  };
+}
 
 export const mockConversations: Conversation[] = [
   {
@@ -21,6 +37,7 @@ export const mockConversations: Conversation[] = [
       ghostingRisk: "low",
       bookingSignal: true,
       insights: ["Flujo de calificación sólido", "Link de calendario enviado — agendamiento probable"],
+      qualificationScore: leadScore(88, 92, 85, 86),
     },
   },
   {
@@ -41,6 +58,7 @@ export const mockConversations: Conversation[] = [
       ghostingRisk: "high",
       bookingSignal: false,
       insights: ["Estancado después del precio", "Sin follow-up en 48h"],
+      qualificationScore: leadScore(32, 28, 35, 30),
     },
   },
   {
@@ -59,6 +77,7 @@ export const mockConversations: Conversation[] = [
       ghostingRisk: "low",
       bookingSignal: true,
       insights: ["Lenguaje de confirmación detectado", "Camino rápido al agendamiento"],
+      qualificationScore: leadScore(79, 84, 78, 74),
     },
   },
   {
@@ -77,6 +96,7 @@ export const mockConversations: Conversation[] = [
       ghostingRisk: "low",
       bookingSignal: true,
       insights: ["Llamada de cierre agendada vía Calendly"],
+      qualificationScore: leadScore(82, 80, 88, 79),
     },
   },
   {
@@ -95,6 +115,7 @@ export const mockConversations: Conversation[] = [
       ghostingRisk: "low",
       bookingSignal: true,
       insights: ["Cerrado — upfront $3.000"],
+      qualificationScore: leadScore(95, 96, 94, 95),
     },
   },
   {
@@ -113,6 +134,7 @@ export const mockConversations: Conversation[] = [
       ghostingRisk: "medium",
       bookingSignal: false,
       insights: ["Objeción de precio — seguimiento recomendado"],
+      qualificationScore: leadScore(55, 62, 48, 52),
     },
   },
   {
@@ -131,6 +153,7 @@ export const mockConversations: Conversation[] = [
       ghostingRisk: "high",
       bookingSignal: false,
       insights: ["No show registrado en Closing"],
+      qualificationScore: leadScore(28, 22, 30, 26),
     },
   },
   {
@@ -149,6 +172,7 @@ export const mockConversations: Conversation[] = [
       ghostingRisk: "low",
       bookingSignal: true,
       insights: ["Pre-calificado — formulario Calendly completo"],
+      qualificationScore: leadScore(74, 78, 72, 71),
     },
   },
 ];

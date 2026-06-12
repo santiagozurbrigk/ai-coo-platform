@@ -15,6 +15,8 @@ type ConversationRow = {
 };
 
 function defaultAnalysis(): ConversationAnalysis {
+  // TODO: Phase 2 — usar claude-haiku-4-5 para scoring y análisis de conversación
+  // TODO: Phase 2 — implementar prompt caching aquí (SOPs, contexto org)
   return {
     responseTimeMinutes: 0,
     ghostingRisk: "medium",

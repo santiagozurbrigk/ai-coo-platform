@@ -1,6 +1,8 @@
 import { Panel } from "@/components/shared/panel";
 import { AiCard, Badge } from "@ai-coo/ui";
 import type { ConversationAnalysis } from "@/types/sales";
+import { getQualificationTierLabel } from "@/lib/sales/qualification-score";
+import { LeadQualificationBadge } from "./lead-qualification-badge";
 
 export function ConversationAnalysisPanel({
   analysis,
@@ -14,8 +16,41 @@ export function ConversationAnalysisPanel({
         ? "warning"
         : "success";
 
+  const score = analysis.qualificationScore;
+
   return (
     <div className="space-y-4 p-4">
+      {score ? (
+        <Panel title="Calificación del lead">
+          <div className="flex flex-wrap items-center gap-3">
+            <LeadQualificationBadge score={score} />
+            <span className="text-xs text-muted-foreground">
+              {getQualificationTierLabel(score.tier)} — score automático
+            </span>
+          </div>
+          <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <dt className="text-xs text-muted-foreground">Engagement</dt>
+              <dd className="font-medium tabular-nums">{score.engagement}/100</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Intent</dt>
+              <dd className="font-medium tabular-nums">{score.intent}/100</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Qualification</dt>
+              <dd className="font-medium tabular-nums">{score.qualification}/100</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Score final</dt>
+              <dd className="font-semibold tabular-nums text-violet-300">
+                {score.overall}/100
+              </dd>
+            </div>
+          </dl>
+        </Panel>
+      ) : null}
+
       <Panel title="Análisis">
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <div>

@@ -8,6 +8,7 @@ import { formatRelativeTime } from "@/lib/format";
 import type { Conversation, ConversationTagId } from "@/types/sales";
 import { ConversationStatusBadge } from "./conversation-status-badge";
 import { ConversationTagBadge } from "./conversation-tag-badge";
+import { LeadQualificationBadge } from "./lead-qualification-badge";
 
 export function ConversationList({
   conversations,
@@ -54,9 +55,17 @@ export function ConversationList({
             >
               <div className="flex items-start justify-between gap-2">
                 <span className="truncate text-sm font-medium">{c.leadName}</span>
-                {c.unread && (
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
-                )}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {c.analysis.qualificationScore ? (
+                    <LeadQualificationBadge
+                      score={c.analysis.qualificationScore}
+                      compact
+                    />
+                  ) : null}
+                  {c.unread ? (
+                    <span className="h-2 w-2 rounded-full bg-primary" />
+                  ) : null}
+                </div>
               </div>
               <p className="mt-0.5 truncate text-xs text-muted-foreground">
                 {c.lastMessage}
