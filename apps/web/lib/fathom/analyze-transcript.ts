@@ -9,6 +9,10 @@ export type FathomAnalysisResult = {
   call_type: "delivery" | "consulting" | "vision" | "team" | "other";
 };
 
+// TODO: Phase 2 — BullMQ queue `fathom-analysis` para procesar async
+// TODO: Phase 2 — usar claude-haiku-4-5 para tagging; Sonnet para resumen ejecutivo
+// TODO: Phase 2 — implementar prompt caching aquí (SOPs, contexto org)
+
 export async function analyzeFathomTranscript(params: {
   organizationId: string;
   clientName: string;

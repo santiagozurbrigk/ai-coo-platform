@@ -23,6 +23,22 @@ export const mockClients: Client[] = [
         date: "2026-05-24",
         duration: "42 min",
         url: "https://fathom.video/mock/laura-gomez",
+        analysis: {
+          scriptFollowed: "yes",
+          objections: [
+            { text: "¿Hay garantía de resultados?", category: "closing" },
+            { text: "Prefiero empezar el mes que viene", category: "setting" },
+          ],
+          overallScore: 9,
+          wentWell: [
+            "Apertura con rapport y validación del dolor",
+            "Cierre directo con link de pago enviado en vivo",
+            "Manejo de objeción de garantía con caso de éxito",
+          ],
+          toImprove: [
+            "Confirmar próximos pasos de onboarding antes de cortar",
+          ],
+        },
       },
     ],
   },
@@ -64,7 +80,32 @@ export const mockClients: Client[] = [
       "Cuota 2 pendiente de seguimiento — recordatorio automático sugerido.",
       "Perfil similar a 2 casos de éxito en delivery.",
     ],
-    linkedCalls: [],
+    linkedCalls: [
+      {
+        id: "fc3",
+        title: "Discovery — Carlos Vega",
+        date: "2026-05-08",
+        duration: "35 min",
+        url: "https://fathom.video/mock/carlos-discovery",
+        analysis: {
+          scriptFollowed: "partial",
+          objections: [
+            { text: "El precio es muy alto", category: "closing" },
+            { text: "Necesito pensarlo", category: "closing" },
+          ],
+          overallScore: 6,
+          wentWell: [
+            "Buen diagnóstico de situación actual del lead",
+            "Preguntas de calificación completas",
+          ],
+          toImprove: [
+            "No ancló valor antes de presentar precio",
+            "Cierre débil — sin fecha concreta de follow-up",
+            "Saltó la sección de urgencia del guión",
+          ],
+        },
+      },
+    ],
   },
   {
     id: "client3",
@@ -86,6 +127,20 @@ export const mockClients: Client[] = [
         date: "2026-05-12",
         duration: "28 min",
         url: "https://fathom.video/mock/sofia-checkin",
+        analysis: {
+          scriptFollowed: "yes",
+          objections: [],
+          overallScore: 8,
+          wentWell: [
+            "Cliente reporta avances concretos en revenue",
+            "Identificó oportunidad de upsell a programa avanzado",
+            "Tono consultivo y celebración de wins",
+          ],
+          toImprove: [
+            "Documentar compromisos del cliente en CRM",
+            "Agendar próximo check-in antes de finalizar",
+          ],
+        },
       },
     ],
   },

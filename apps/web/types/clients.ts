@@ -1,4 +1,29 @@
 import type { PaymentPlatform } from "@/types/closing";
+import type { ObjectionCategory } from "@/types/sales";
+
+export type ScriptAdherence = "yes" | "partial" | "no";
+
+export type CallObjectionTag = {
+  text: string;
+  category: ObjectionCategory;
+};
+
+export type ClientCallAnalysis = {
+  scriptFollowed: ScriptAdherence;
+  objections: CallObjectionTag[];
+  overallScore: number;
+  wentWell: string[];
+  toImprove: string[];
+};
+
+export type ClientLinkedCall = {
+  id: string;
+  title: string;
+  date: string;
+  duration: string;
+  url: string;
+  analysis?: ClientCallAnalysis;
+};
 
 export type ClientStatus =
   | "pending_onboarding"
@@ -36,7 +61,7 @@ export type Client = {
   salesFathomUrl?: string;
   closingCallId?: string;
   aiInsights: string[];
-  linkedCalls: { id: string; title: string; date: string; duration: string; url: string }[];
+  linkedCalls: ClientLinkedCall[];
   offeredProduct?: string;
   feedbackNotes?: string;
   avatar?: string;

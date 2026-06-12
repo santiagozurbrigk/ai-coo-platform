@@ -10,6 +10,7 @@ import {
 import { ExternalLink, Star, Upload } from "lucide-react";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
+import { ClientCallAnalysisSection } from "@/components/clients/client-call-analysis";
 import { ClientDiscordActivity } from "@/components/clients/client-discord-activity";
 import { ClientTimeline } from "@/components/clients/client-timeline";
 import type { Client, ClientStatus } from "@/types/clients";
@@ -188,19 +189,24 @@ export function ClientDetail({ client: initial }: { client: Client }) {
             {client.linkedCalls.map((call) => (
               <li
                 key={call.id}
-                className="flex items-center justify-between rounded-lg border border-border px-4 py-3"
+                className="rounded-lg border border-border px-4 py-3"
               >
-                <div>
-                  <p className="text-sm font-medium">{call.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {call.date} · {call.duration}
-                  </p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">{call.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {call.date} · {call.duration}
+                    </p>
+                  </div>
+                  <Button size="sm" variant="ghost" asChild>
+                    <a href={call.url} target="_blank" rel="noopener noreferrer">
+                      Abrir en Fathom
+                    </a>
+                  </Button>
                 </div>
-                <Button size="sm" variant="ghost" asChild>
-                  <a href={call.url} target="_blank" rel="noopener noreferrer">
-                    Abrir en Fathom
-                  </a>
-                </Button>
+                {call.analysis ? (
+                  <ClientCallAnalysisSection analysis={call.analysis} />
+                ) : null}
               </li>
             ))}
           </ul>
