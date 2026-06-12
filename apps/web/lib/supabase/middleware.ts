@@ -24,6 +24,7 @@ const PUBLIC_PATHS = [
 
 function isPublicPath(pathname: string): boolean {
   if (pathname === paths.home) return true;
+  if (pathname === "/api/waitlist") return true;
   if (pathname.startsWith("/api/cron/")) return true;
   if (pathname.startsWith("/api/integrations/")) {
     if (
@@ -80,7 +81,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && (pathname === paths.auth.login || pathname === paths.home)) {
+  if (user && pathname === paths.auth.login) {
     const url = request.nextUrl.clone();
     url.pathname = paths.platform.dashboard;
     return NextResponse.redirect(url);
