@@ -1,20 +1,5 @@
 import type { PaymentPlatform } from "@/types/closing";
-import type { ObjectionCategory } from "@/types/sales";
-
-export type ScriptAdherence = "yes" | "partial" | "no";
-
-export type CallObjectionTag = {
-  text: string;
-  category: ObjectionCategory;
-};
-
-export type ClientCallAnalysis = {
-  scriptFollowed: ScriptAdherence;
-  objections: CallObjectionTag[];
-  overallScore: number;
-  wentWell: string[];
-  toImprove: string[];
-};
+import type { DeepCallAnalysis } from "@/types/call-analysis";
 
 export type ClientLinkedCall = {
   id: string;
@@ -22,7 +7,8 @@ export type ClientLinkedCall = {
   date: string;
   duration: string;
   url: string;
-  analysis?: ClientCallAnalysis;
+  closerName?: string;
+  analysis?: DeepCallAnalysis;
 };
 
 export type ClientStatus =

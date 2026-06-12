@@ -12,6 +12,7 @@ import { padTimeSeriesZeros } from "@/lib/chart/pad-time-series";
 import type { SalesMetricsData } from "@/types/sales";
 import { CloserPerformancePanel } from "./closer-performance-panel";
 import { FrequentObjectionsPanel } from "./frequent-objections-panel";
+import { SalesTeamPerformanceSection } from "./sales-team-performance-section";
 import { cn } from "@/lib/utils";
 
 function InlineStats({ data }: { data: SalesMetricsData }) {
@@ -122,6 +123,8 @@ export function SalesMetricsOverview({ data }: { data: SalesMetricsData }) {
       </Panel>
 
       <InlineStats data={data} />
+
+      <SalesTeamPerformanceSection />
     </div>
   );
 }

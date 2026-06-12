@@ -12,6 +12,17 @@ export type FathomAnalysisResult = {
 // TODO: Phase 2 — BullMQ queue `fathom-analysis` para procesar async
 // TODO: Phase 2 — usar claude-haiku-4-5 para tagging; Sonnet para resumen ejecutivo
 // TODO: Phase 2 — implementar prompt caching aquí (SOPs, contexto org)
+//
+// TODO: Phase 2 — Análisis profundo de llamada
+// 1. Cargar guión activo de la org (sales_scripts)
+// 2. Prompt Claude Sonnet con transcripción + guión
+// 3. Claude evalúa cada sección (0-100)
+// 4. Detecta y categoriza objeciones (closing/setting/marketing)
+// 5. Identifica power phrases y weak phrases
+// 6. Lista pasos faltantes
+// 7. Guarda en call_analyses
+// Modelo: claude-sonnet-4-6
+// Caching: cachear el guión de la org
 
 export async function analyzeFathomTranscript(params: {
   organizationId: string;
