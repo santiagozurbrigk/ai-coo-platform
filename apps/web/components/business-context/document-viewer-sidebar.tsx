@@ -5,6 +5,7 @@ import { Panel } from "@/components/shared/panel";
 import { getSopById } from "@/mocks/sops";
 import { paths } from "@/routes";
 import type { ContextDocument } from "@/types/business-context";
+import { SuggestedCallTasksPanel } from "./suggested-call-tasks-panel";
 
 export function DocumentViewerSidebar({
   document,
@@ -17,6 +18,8 @@ export function DocumentViewerSidebar({
 
   return (
     <div className="space-y-4">
+      <SuggestedCallTasksPanel document={document} />
+
       {linkedSops.length > 0 ? (
         <Panel title="SOPs vinculados">
           <ul className="space-y-2">

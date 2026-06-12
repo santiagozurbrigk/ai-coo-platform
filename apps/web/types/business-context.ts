@@ -37,6 +37,16 @@ export type KnowledgeSource =
 
 export type DocumentStatus = "indexed" | "processing" | "error";
 
+export type SuggestedCallTaskPriority = "low" | "medium" | "high";
+
+export type SuggestedCallTask = {
+  id: string;
+  description: string;
+  suggestedAssigneeId: string;
+  suggestedAssigneeName: string;
+  suggestedPriority: SuggestedCallTaskPriority;
+};
+
 export type ContextDocument = {
   id: string;
   title: string;
