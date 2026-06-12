@@ -1,5 +1,10 @@
 import { mockFinanceSummary } from "@/mocks/finance";
-import type { Conversation, LeadQualificationScore, SalesMetricsData } from "@/types/sales";
+import type {
+  Conversation,
+  FrequentObjection,
+  LeadQualificationScore,
+  SalesMetricsData,
+} from "@/types/sales";
 import { DAY_LABELS_ES } from "@/lib/format";
 import { getQualificationTier } from "@/lib/sales/qualification-score";
 
@@ -177,6 +182,49 @@ export const mockConversations: Conversation[] = [
   },
 ];
 
+export const mockFrequentObjections: FrequentObjection[] = [
+  {
+    id: "obj-1",
+    text: "El precio es muy alto",
+    category: "closing",
+    frequency: 8,
+    conversationId: "c6",
+    leadName: "Diego Fernández",
+  },
+  {
+    id: "obj-2",
+    text: "No tengo tiempo ahora",
+    category: "setting",
+    frequency: 5,
+    conversationId: "c2",
+    leadName: "James Chen",
+  },
+  {
+    id: "obj-3",
+    text: "No conozco el producto",
+    category: "marketing",
+    frequency: 3,
+    conversationId: "c1",
+    leadName: "María González",
+  },
+  {
+    id: "obj-4",
+    text: "Necesito consultarlo con mi pareja",
+    category: "closing",
+    frequency: 4,
+    conversationId: "c2",
+    leadName: "James Chen",
+  },
+  {
+    id: "obj-5",
+    text: "¿Pueden llamarme más tarde?",
+    category: "setting",
+    frequency: 3,
+    conversationId: "c8",
+    leadName: "Andrés Méndez",
+  },
+];
+
 export const mockSalesMetrics: SalesMetricsData = {
   totalConversations: 342,
   bookingRate: 34.2,
@@ -191,4 +239,5 @@ export const mockSalesMetrics: SalesMetricsData = {
     value: [8, 12, 10, 15, 11, 6, 9][i] ?? 8,
   })),
   closerBreakdown: mockFinanceSummary.closerBreakdown,
+  frequentObjections: mockFrequentObjections,
 };

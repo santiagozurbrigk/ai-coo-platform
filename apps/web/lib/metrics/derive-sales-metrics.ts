@@ -1,3 +1,4 @@
+import { mockFrequentObjections } from "@/mocks/sales";
 import { DAY_LABELS_ES } from "@/lib/format";
 import type { ClosingCall } from "@/types/closing";
 import type { Conversation, SalesMetricsData } from "@/types/sales";
@@ -79,5 +80,7 @@ export function deriveSalesMetrics(
     unansweredConversations: unanswered,
     bookingTrend: deriveBookingTrend(conversations),
     closerBreakdown: closers,
+    /** Mock hasta Phase 2 — detección IA en transcripts y conversaciones */
+    frequentObjections: mockFrequentObjections,
   };
 }

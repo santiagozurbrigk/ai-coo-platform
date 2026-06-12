@@ -50,6 +50,17 @@ export type Conversation = {
   analysis: ConversationAnalysis;
 };
 
+export type ObjectionCategory = "closing" | "setting" | "marketing";
+
+export type FrequentObjection = {
+  id: string;
+  text: string;
+  category: ObjectionCategory;
+  frequency: number;
+  conversationId: string;
+  leadName: string;
+};
+
 export type SalesMetricsData = {
   totalConversations: number;
   bookingRate: number;
@@ -61,4 +72,5 @@ export type SalesMetricsData = {
   unansweredConversations: number;
   bookingTrend: { label: string; value: number }[];
   closerBreakdown: CloserPerformance[];
+  frequentObjections: FrequentObjection[];
 };

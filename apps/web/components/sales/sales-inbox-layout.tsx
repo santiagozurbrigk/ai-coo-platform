@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { List } from "lucide-react";
 import { Button, Dialog, DialogContent, DialogTitle, cn } from "@ai-coo/ui";
 import { getLeadJourneyByLeadName } from "@/mocks/marketing-insights";
@@ -13,6 +14,8 @@ import { LeadJourneyInline } from "./lead-journey-inline";
 import { EmptyState } from "@/components/shared/empty-state";
 
 export function SalesInboxLayout() {
+  const searchParams = useSearchParams();
+  const deepLinkId = searchParams.get("c") ?? undefined;
   const { conversations, conversationsLoading, setConversationTag } =
     usePlatformData();
   const [selectedId, setSelectedId] = useState<string | undefined>();
@@ -23,10 +26,14 @@ export function SalesInboxLayout() {
       setSelectedId(undefined);
       return;
     }
+    if (deepLinkId && conversations.some((c) => c.id === deepLinkId)) {
+      setSelectedId(deepLinkId);
+      return;
+    }
     if (!selectedId || !conversations.some((c) => c.id === selectedId)) {
       setSelectedId(conversations[0]?.id);
     }
-  }, [conversations, selectedId]);
+  }, [conversations, selectedId, deepLinkId]);
 
   const selected = conversations.find((c) => c.id === selectedId);
 
