@@ -54,7 +54,7 @@ export function WorkboardSprintHeader({
   );
 
   return (
-    <div className="space-y-4 rounded-xl border border-border/60 bg-card/40 p-4 dark:border-white/[0.08] dark:bg-[#1A1A1A]">
+    <div className="space-y-4 rounded-xl border border-border/60 bg-card/40 p-4 dark:border-glass dark:bg-glass dark:backdrop-blur-md">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">

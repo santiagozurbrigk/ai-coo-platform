@@ -41,7 +41,7 @@ export function OperationsRisksSection({
               <Link
                 href={flowLinks.risk(risk.id)}
                 className={cn(
-                  "flex gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 transition-colors dark:border-white/[0.08] dark:bg-[#1A1A1A]",
+                  "flex gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 transition-colors dark:border-glass dark:bg-glass dark:backdrop-blur-md",
                   config.border
                 )}
               >

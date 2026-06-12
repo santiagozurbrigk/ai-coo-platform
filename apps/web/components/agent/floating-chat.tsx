@@ -72,7 +72,7 @@ export function FloatingChat() {
             className={cn(
               "glass-liquid-border fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center",
               "rounded-full bg-[#0A0A0A] shadow-lg shadow-violet-500/20",
-              "transition-colors duration-150 hover:bg-[#111111]"
+              "transition-colors duration-150 hover:bg-glass-hover"
             )}
           >
             <MessageSquare className="relative z-10 h-5 w-5 text-white" />
@@ -98,7 +98,7 @@ export function FloatingChat() {
             className={cn(
               "glass-liquid-border fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center",
               "rounded-full bg-[#0A0A0A] shadow-lg shadow-violet-500/20",
-              "transition-colors duration-150 hover:bg-[#111111]"
+              "transition-colors duration-150 hover:bg-glass-hover"
             )}
           >
             <MessageSquare className="relative z-10 h-5 w-5 text-white" />

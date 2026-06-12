@@ -17,7 +17,7 @@ export function OpportunitiesList({
           <li key={opp.id}>
             <Link
               href={flowLinks.opportunity(opp.id)}
-              className="flex gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-3 transition-colors hover:border-emerald-500/25 hover:bg-muted/35 dark:border-white/[0.08] dark:bg-[#1A1A1A]"
+              className="flex gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-3 transition-colors hover:border-emerald-500/25 hover:bg-muted/35 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover"
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-500/25 bg-emerald-500/10 text-emerald-400">
                 <TrendingUp className="h-4 w-4" />

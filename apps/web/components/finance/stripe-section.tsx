@@ -69,7 +69,7 @@ function BalanceCard({
   amounts: { amount: number; currency: string }[];
 }) {
   return (
-    <GlassPanel className="p-4 dark:border-white/[0.08] dark:bg-[#1A1A1A]">
+    <GlassPanel className="p-4 dark:border-glass dark:bg-glass dark:backdrop-blur-md">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {title}
       </p>
@@ -187,7 +187,7 @@ export function StripeSection() {
             Balance, transacciones e ingresos en tiempo real
           </p>
         </div>
-        <GlassPanel className="flex flex-col items-center justify-center gap-4 px-8 py-12 text-center dark:border-white/[0.08] dark:bg-[#1A1A1A]">
+        <GlassPanel className="flex flex-col items-center justify-center gap-4 px-8 py-12 text-center dark:border-glass dark:bg-glass dark:backdrop-blur-md">
           <p className="max-w-md text-sm text-muted-foreground">
             Conectá tu cuenta Stripe para ver balance disponible, movimientos
             pendientes e historial de transacciones.
@@ -229,7 +229,7 @@ export function StripeSection() {
         <BalanceCard title="Total" amounts={totalAmounts} />
       </div>
 
-      <GlassPanel className="overflow-hidden p-0 dark:border-white/[0.08] dark:bg-[#1A1A1A]">
+      <GlassPanel className="overflow-hidden p-0 dark:border-glass dark:bg-glass dark:backdrop-blur-md">
         <div className="border-b border-border/40 px-4 py-3">
           <h4 className="text-sm font-medium">Historial de transacciones</h4>
         </div>

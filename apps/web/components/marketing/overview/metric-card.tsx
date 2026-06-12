@@ -33,7 +33,7 @@ export function MarketingOverviewMetricCard({
     <div
       className={cn(
         "relative overflow-hidden rounded-xl border border-border bg-card p-5",
-        "dark:border-white/[0.08] dark:bg-[#1A1A1A]"
+        "dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover transition-all duration-200"
       )}
     >
       {sparkline && (

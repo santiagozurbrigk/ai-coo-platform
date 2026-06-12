@@ -27,7 +27,7 @@ export function DocumentViewerSidebar({
               <li key={sop.id}>
                 <Link
                   href={paths.platform.sops.detail(sop.id)}
-                  className="block rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-sm transition-colors hover:border-violet-500/25 hover:bg-muted/35 dark:border-white/[0.08] dark:bg-[#222222]"
+                  className="block rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-sm transition-colors hover:border-violet-500/25 hover:bg-muted/35 dark:border-glass dark:bg-glass-elevated dark:backdrop-blur-md"
                 >
                   <p className="font-medium leading-snug">{sop.title}</p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">

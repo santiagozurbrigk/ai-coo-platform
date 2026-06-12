@@ -28,7 +28,7 @@ export function ManyChatManageSheet({
 
       <aside
         className={cn(
-          "fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-border/40 bg-background p-6 shadow-xl transition-transform duration-200 dark:border-white/[0.08] dark:bg-[#1A1A1A]",
+          "fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-border/40 bg-background p-6 shadow-xl backdrop-blur-xl transition-transform duration-200 dark:border-glass dark:bg-[#111111]/80",
           open ? "translate-x-0" : "translate-x-full"
         )}
         aria-hidden={!open}

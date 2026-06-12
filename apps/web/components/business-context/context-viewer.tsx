@@ -61,7 +61,7 @@ export function ContextViewer({ document }: { document: ContextDocument }) {
           </TabsList>
 
           <TabsContent value="transcripcion" className="mt-4">
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-4 dark:border-white/[0.08] dark:bg-[#1A1A1A]">
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4 dark:border-glass dark:bg-glass dark:backdrop-blur-md">
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
                 {transcript}
               </p>
@@ -79,7 +79,7 @@ export function ContextViewer({ document }: { document: ContextDocument }) {
               {insights.map((insight, index) => (
                 <li
                   key={index}
-                  className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm leading-relaxed text-foreground/90 dark:border-white/[0.08] dark:bg-[#1A1A1A]"
+                  className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm leading-relaxed text-foreground/90 dark:border-glass dark:bg-glass dark:backdrop-blur-md"
                 >
                   {insight}
                 </li>

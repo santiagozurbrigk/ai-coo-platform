@@ -51,7 +51,7 @@ export function OperationsDepartmentsGrid({
           return (
             <div
               key={dept.id}
-              className="rounded-xl border border-border/60 bg-muted/20 p-4 dark:border-white/[0.08] dark:bg-[#1A1A1A]"
+              className="rounded-xl border border-border/60 bg-muted/20 p-4 dark:border-glass dark:bg-glass dark:backdrop-blur-md"
             >
               <div className="flex items-start justify-between gap-2">
                 <div>

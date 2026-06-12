@@ -9,7 +9,7 @@ import { SopDepartmentBadge } from "./sop-department-badge";
 
 export function SopCard({ sop }: { sop: Sop }) {
   return (
-    <div className="relative flex h-[150px] flex-col gap-2.5 overflow-hidden rounded-xl border border-border/40 bg-muted/30 p-4 transition-colors hover:border-border/70 dark:border-white/[0.08] dark:bg-[#1A1A1A]">
+    <div className="relative flex h-[150px] flex-col gap-2.5 overflow-hidden rounded-xl border border-border/40 bg-muted/30 p-4 transition-colors hover:border-border/70 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover transition-all duration-200">
       <div className="flex items-start justify-between gap-2">
         <h3 className="line-clamp-2 text-[13px] font-medium leading-snug text-foreground">
           {sop.title}

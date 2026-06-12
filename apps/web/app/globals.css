@@ -29,6 +29,14 @@
   }
 
   :root {
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-bg-hover: rgba(255, 255, 255, 0.05);
+    --glass-bg-elevated: rgba(255, 255, 255, 0.06);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-border-hover: rgba(255, 255, 255, 0.14);
+    --glass-blur: blur(12px);
+    --glass-blur-heavy: blur(20px);
+
     --color-text-primary: 10 10 10;
     --color-text-secondary: 10 10 10;
     --color-text-muted: 10 10 10;
@@ -121,6 +129,63 @@
     --chart-indicator-secondary-color: rgba(255, 255, 255, 0.4);
     --chart-segment-background: rgba(255, 255, 255, 0.08);
     --chart-segment-line: #ffffff;
+  }
+
+  button,
+  [role="button"] {
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease,
+      background-color 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  button:active,
+  [role="button"]:active {
+    transform: scale(0.96);
+  }
+
+  @keyframes btn-press {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(124, 58, 237, 0);
+    }
+    40% {
+      transform: scale(0.96);
+      box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.2);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(124, 58, 237, 0);
+    }
+  }
+
+  @keyframes btn-press-ghost {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+    }
+    40% {
+      transform: scale(0.96);
+      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+    }
+  }
+
+  .btn-primary:active,
+  button[class*="bg-violet"]:active {
+    animation: btn-press 0.3s ease-out;
+    background-color: #6d28d9;
+  }
+
+  .btn-ghost:active,
+  button[class*="variant-outline"]:active,
+  button[class*="variant-ghost"]:active {
+    animation: btn-press-ghost 0.3s ease-out;
+    background-color: rgba(255, 255, 255, 0.06);
   }
 }
 
@@ -215,11 +280,11 @@
   }
 
   .dark .surface-glass {
-    @apply border-white/[0.07] bg-[rgb(26,26,26)] shadow-none;
+    @apply border-glass bg-glass shadow-none backdrop-blur-md;
   }
 
   .dark .surface-glass:hover {
-    @apply border-white/[0.12] bg-[rgb(34,34,34)];
+    @apply border-glass-strong bg-glass-hover;
   }
 
   .text-primary-token {
@@ -307,7 +372,10 @@
 
   html.dark .shell-topbar,
   html.dark .topbar {
-    border-bottom-color: rgba(255, 255, 255, 0.06);
+    border-bottom-color: var(--glass-border);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur-heavy);
+    -webkit-backdrop-filter: var(--glass-blur-heavy);
   }
 
   :root:not(.dark) .shell-topbar,
@@ -531,7 +599,7 @@
   }
 
   html.dark .ai-card {
-    @apply border-white/[0.07] bg-[rgb(26,26,26)] text-foreground shadow-none;
+    @apply border-glass bg-glass text-foreground shadow-none backdrop-blur-md;
   }
 
   :root:not(.dark) .ai-card {
@@ -947,6 +1015,124 @@
     .glass-liquid-border::before {
       animation: none;
     }
+  }
+
+  /* —— Landing (glassmorphism, siempre dark) —— */
+  .landing-page {
+    --glass-liquid-inner-bg: rgba(10, 10, 10, 0.55);
+  }
+
+  .landing-ambient {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .landing-ambient::before,
+  .landing-ambient::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+  }
+
+  .landing-ambient::before {
+    top: -12%;
+    left: -8%;
+    width: 55%;
+    height: 45%;
+    background: radial-gradient(
+      circle,
+      rgba(124, 58, 237, 0.35) 0%,
+      transparent 70%
+    );
+  }
+
+  .landing-ambient::after {
+    bottom: 5%;
+    right: -10%;
+    width: 50%;
+    height: 40%;
+    background: radial-gradient(
+      circle,
+      rgba(99, 102, 241, 0.22) 0%,
+      transparent 70%
+    );
+  }
+
+  .landing-glass {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur-heavy) saturate(180%);
+    -webkit-backdrop-filter: var(--glass-blur-heavy) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .landing-glass:hover {
+    background: var(--glass-bg-hover);
+    border-color: var(--glass-border-hover);
+  }
+
+  .app-ambient {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .app-ambient::before,
+  .app-ambient::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(96px);
+  }
+
+  .app-ambient::before {
+    top: 0;
+    left: 25%;
+    width: 24rem;
+    height: 24rem;
+    background: rgba(124, 58, 237, 0.06);
+  }
+
+  .app-ambient::after {
+    bottom: 25%;
+    right: 25%;
+    width: 20rem;
+    height: 20rem;
+    background: rgba(91, 33, 182, 0.04);
+  }
+
+  .landing-glass-input {
+    background: rgba(255, 255, 255, 0.05) !important;
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .landing-glass-input:focus-visible {
+    border-color: rgba(124, 58, 237, 0.5) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 0 0 2px rgba(124, 58, 237, 0.25);
+  }
+
+  .landing-icon-well {
+    background: rgba(124, 58, 237, 0.12);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(124, 58, 237, 0.2);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   /* Producto — vista espacial: sin caja propia, hereda el fondo del panel */

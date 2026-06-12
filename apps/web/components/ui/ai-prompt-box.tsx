@@ -84,7 +84,7 @@ const TooltipContent = React.forwardRef<
     ref={ref}
     sideOffset={sideOffset}
     className={cn(
-      "fade-in-0 zoom-in-95 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 animate-in overflow-hidden rounded-md border border-[#333333] bg-[#1A1A1A] px-3 py-1.5 text-sm text-white shadow-md data-[state=closed]:animate-out",
+      "fade-in-0 zoom-in-95 data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 animate-in overflow-hidden rounded-md border border-glass bg-[#111111]/90 px-3 py-1.5 text-sm text-white shadow-md backdrop-blur-lg data-[state=closed]:animate-out",
       className,
     )}
     {...props}
@@ -119,13 +119,13 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[90vw] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border border-[#333333] bg-[#1A1A1A] p-0 shadow-xl duration-300 data-[state=closed]:animate-out data-[state=open]:animate-in md:max-w-[800px]",
+        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[90vw] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border border-glass bg-[#111111]/80 p-0 shadow-xl backdrop-blur-xl duration-300 data-[state=closed]:animate-out data-[state=open]:animate-in md:max-w-[800px]",
         className,
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute top-4 right-4 z-10 rounded-full bg-[#222222]/80 p-2 transition-all hover:bg-[#222222]">
+      <DialogPrimitive.Close className="absolute top-4 right-4 z-10 rounded-full bg-glass-elevated p-2 backdrop-blur-md transition-all hover:bg-glass-hover">
         <X className="h-5 w-5 text-gray-200 hover:text-white" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -271,7 +271,7 @@ const ImageViewDialog: React.FC<ImageViewDialogProps> = ({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
-          className="relative overflow-hidden rounded-2xl bg-[#1A1A1A] shadow-2xl"
+          className="relative overflow-hidden rounded-2xl bg-glass backdrop-blur-md shadow-2xl"
         >
           <div className="relative max-h-[80vh] w-full">
             <img

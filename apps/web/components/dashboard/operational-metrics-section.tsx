@@ -16,7 +16,7 @@ export function OperationalMetricsSection({
         {metrics.map((metric) => (
           <div
             key={metric.id}
-            className="rounded-xl border border-border/60 bg-muted/20 px-4 py-4 dark:border-white/[0.08] dark:bg-[#1A1A1A]"
+            className="rounded-xl border border-border/60 bg-muted/20 px-4 py-4 dark:border-glass dark:bg-glass dark:backdrop-blur-md"
           >
             <div className="flex items-start justify-between gap-3">
               <div>

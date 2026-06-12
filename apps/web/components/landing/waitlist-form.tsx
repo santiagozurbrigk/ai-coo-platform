@@ -57,7 +57,7 @@ export function WaitlistForm({
     return (
       <p
         className={cn(
-          "rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-center text-sm text-emerald-400",
+          "landing-glass glass-liquid-subtle rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-center text-sm text-emerald-400",
           className
         )}
         role="status"
@@ -83,13 +83,13 @@ export function WaitlistForm({
         }}
         disabled={state === "loading"}
         required
-        className="h-11 flex-1 border-white/[0.08] bg-[#111111] text-white placeholder:text-white/40 focus-visible:ring-[#7C3AED]"
+        className="landing-glass-input h-11 flex-1 text-white placeholder:text-white/40 focus-visible:ring-[#7C3AED]"
         autoComplete="email"
       />
       <Button
         type="submit"
         disabled={state === "loading"}
-        className="h-11 shrink-0 bg-[#7C3AED] px-6 hover:bg-[#6D28D9]"
+        className="h-11 shrink-0 border border-violet-400/30 bg-[#7C3AED]/90 px-6 shadow-[0_4px_24px_rgba(124,58,237,0.35)] backdrop-blur-sm transition-all duration-150 hover:bg-[#6D28D9] active:scale-95 active:bg-violet-700 active:shadow-[0_0_0_6px_rgba(124,58,237,0.2)]"
       >
         {state === "loading" ? "Enviando…" : submitLabel}
       </Button>

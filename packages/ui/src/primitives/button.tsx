@@ -4,23 +4,23 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-[13px] font-medium transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] active:duration-[80ms] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-[13px] font-medium select-none transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "rounded-[10px] border border-white/10 bg-gradient-to-br from-[#7C3AED] to-[#6D28D9] text-white shadow-[0_4px_16px_rgba(124,58,237,0.35)] hover:brightness-110 hover:shadow-[0_6px_20px_rgba(124,58,237,0.45)]",
+          "rounded-[10px] border border-white/10 bg-gradient-to-br from-[#7C3AED] to-[#6D28D9] text-white shadow-[0_4px_16px_rgba(124,58,237,0.35)] hover:brightness-110 hover:shadow-[0_6px_20px_rgba(124,58,237,0.45)] active:scale-95 active:bg-violet-700 active:shadow-[0_0_0_4px_rgba(124,58,237,0.25)] active:animate-btn-press",
         destructive:
-          "rounded-[10px] border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/15",
+          "rounded-[10px] border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/15 active:scale-95 active:bg-red-700 active:shadow-[0_0_0_4px_rgba(239,68,68,0.25)]",
         outline:
-          "rounded-[10px] border border-input bg-background text-muted-foreground hover:border-primary/30 hover:bg-muted dark:border-white/10 dark:bg-white/[0.06] dark:text-white/75 dark:hover:bg-white/[0.09]",
+          "rounded-[10px] border border-input bg-background text-muted-foreground hover:border-primary/30 hover:bg-muted active:scale-95 active:bg-white/[0.06] active:shadow-[0_0_0_4px_rgba(255,255,255,0.08)] active:animate-btn-press-ghost dark:border-white/10 dark:bg-white/[0.06] dark:text-white/75 dark:hover:bg-white/[0.09]",
         secondary:
-          "rounded-[10px] border border-input bg-background text-muted-foreground hover:bg-muted dark:border-white/10 dark:bg-white/[0.06] dark:text-white/75 dark:hover:bg-white/[0.09]",
+          "rounded-[10px] border border-input bg-background text-muted-foreground hover:bg-muted active:scale-95 active:bg-white/[0.08] dark:border-white/10 dark:bg-white/[0.06] dark:text-white/75 dark:hover:bg-white/[0.09]",
         ghost:
-          "rounded-[10px] border border-primary/30 bg-transparent text-primary hover:bg-primary/10 dark:border-[rgba(124,58,237,0.30)] dark:text-[#A78BFA] dark:hover:bg-[rgba(124,58,237,0.08)]",
-        link: "text-primary underline-offset-4 hover:underline dark:text-[#A78BFA]",
+          "rounded-[10px] border border-primary/30 bg-transparent text-primary hover:bg-primary/10 active:scale-95 active:bg-white/[0.06] active:animate-btn-press-ghost dark:border-[rgba(124,58,237,0.30)] dark:text-[#A78BFA] dark:hover:bg-[rgba(124,58,237,0.08)]",
+        link: "text-primary underline-offset-4 hover:underline active:scale-95 active:opacity-70 dark:text-[#A78BFA]",
         glass:
-          "glass rounded-[10px] text-foreground dark:hover:border-white/[0.18]",
+          "glass rounded-[10px] text-foreground active:scale-95 dark:hover:border-white/[0.18]",
       },
       size: {
         default: "h-9 px-[18px] py-[9px]",

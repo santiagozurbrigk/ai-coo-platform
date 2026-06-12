@@ -251,7 +251,7 @@ export function SettingsForm({
         <div className="space-y-8 pt-2">
           <section>
             <SectionHeader icon={Lock} label="Sesión activa" />
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-card/40 px-4 py-4 dark:border-white/[0.08] dark:bg-[#1A1A1A]">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-card/40 px-4 py-4 dark:border-glass dark:bg-glass dark:backdrop-blur-md">
               <div className="min-w-0 space-y-0.5">
                 <p className="text-sm font-medium text-foreground">
                   Sesión activa

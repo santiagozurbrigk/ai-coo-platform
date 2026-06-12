@@ -36,7 +36,7 @@ export function WeeklyChanges({
           return (
             <li
               key={change.id}
-              className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 dark:border-white/[0.08] dark:bg-[#1A1A1A]"
+              className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 dark:border-glass dark:bg-glass dark:backdrop-blur-md"
             >
               <Icon className={cn("h-4 w-4 shrink-0", config.className)} />
               <span className="text-sm text-foreground">{change.label}</span>

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 export default function LanzamientosPage() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border/40 bg-muted/40 dark:border-white/[0.08] dark:bg-[#1A1A1A]">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border/40 bg-muted/40 dark:border-glass dark:bg-glass dark:backdrop-blur-md">
         <Rocket className="h-7 w-7 text-muted-foreground" />
       </div>
       <div className="flex flex-col gap-2">

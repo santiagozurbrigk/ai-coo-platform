@@ -20,7 +20,7 @@ export function AiRecommendations({
           <Link
             key={rec.id}
             href={flowLinks.recommendation(rec.id)}
-            className="group flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 transition-colors hover:border-violet-500/30 hover:bg-muted/35 dark:border-white/[0.08] dark:bg-[#1A1A1A]"
+            className="group flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 transition-colors hover:border-violet-500/30 hover:bg-muted/35 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover"
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-violet-500/25 bg-violet-500/10 text-violet-400">

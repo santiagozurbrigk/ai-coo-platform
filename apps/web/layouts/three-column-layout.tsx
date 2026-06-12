@@ -17,15 +17,16 @@ export function ThreeColumnLayout({
   className?: string;
 }) {
   return (
-    <div className={cn("app-shell", className)} data-layout="app-shell">
+    <div className={cn("app-shell relative", className)} data-layout="app-shell">
+      <div className="app-ambient" aria-hidden="true" />
       <div
-        className="hidden h-full min-h-0 shrink-0 md:flex"
+        className="relative z-[1] hidden h-full min-h-0 shrink-0 bg-glass backdrop-blur-lg md:flex dark:border-r dark:border-glass"
         data-slot="sidebar"
       >
         {sidebar}
       </div>
 
-      <MainContainerPanel>{children}</MainContainerPanel>
+      <MainContainerPanel className="relative z-[1]">{children}</MainContainerPanel>
 
       {overlay}
     </div>
