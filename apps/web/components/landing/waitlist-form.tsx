@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button, Input, cn } from "@ai-coo/ui";
+import { getStoredUtmData } from "@/components/landing/utm-capture";
 
 type FormState = "idle" | "loading" | "success" | "error";
 
@@ -32,10 +33,14 @@ export function WaitlistForm({
     setErrorMessage(null);
 
     try {
+      const utmData = getStoredUtmData();
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          ...utmData,
+        }),
       });
       const data = (await res.json()) as { ok?: boolean; error?: string };
 

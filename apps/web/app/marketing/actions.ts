@@ -11,6 +11,8 @@ import {
   generateDistributionInsight,
 } from "@/lib/content/distribution-insight";
 import { paths } from "@/routes";
+import { slugifyCampaign } from "@/lib/utm/slugify-campaign";
+import type { UTMLeadCaptureRow, UTMLinkRow } from "@/types/utm";
 
 export type ContentAssetView = {
   id: string;
@@ -168,6 +170,141 @@ export async function getYoutubeIntegrationStatusAction(): Promise<{
     channelName: data?.channel_name ?? null,
     lastSyncAt: data?.last_sync_at ?? null,
   };
+}
+
+function rowToUTMLink(row: Record<string, unknown>): UTMLinkRow {
+  return {
+    id: row.id as string,
+    organization_id: row.organization_id as string,
+    youtube_video_id: (row.youtube_video_id as string) ?? null,
+    youtube_video_title: (row.youtube_video_title as string) ?? null,
+    utm_source: (row.utm_source as string) ?? "youtube",
+    utm_medium: (row.utm_medium as string) ?? "video",
+    utm_campaign: row.utm_campaign as string,
+    utm_content: (row.utm_content as string) ?? null,
+    full_url: row.full_url as string,
+    clicks: Number(row.clicks ?? 0),
+    leads_captured: Number(row.leads_captured ?? 0),
+    bookings_attributed: Number(row.bookings_attributed ?? 0),
+    sales_attributed: Number(row.sales_attributed ?? 0),
+    revenue_attributed: Number(row.revenue_attributed ?? 0),
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
+  };
+}
+
+function rowToUTMLead(row: Record<string, unknown>): UTMLeadCaptureRow {
+  return {
+    id: row.id as string,
+    organization_id: row.organization_id as string,
+    utm_link_id: (row.utm_link_id as string) ?? null,
+    utm_source: (row.utm_source as string) ?? null,
+    utm_medium: (row.utm_medium as string) ?? null,
+    utm_campaign: (row.utm_campaign as string) ?? null,
+    utm_content: (row.utm_content as string) ?? null,
+    lead_email: (row.lead_email as string) ?? null,
+    lead_identifier: (row.lead_identifier as string) ?? null,
+    captured_at: row.captured_at as string,
+    converted_to_conversation: Boolean(row.converted_to_conversation),
+    converted_to_booking: Boolean(row.converted_to_booking),
+    converted_to_sale: Boolean(row.converted_to_sale),
+  };
+}
+
+export async function createUTMLinkAction(data: {
+  youtube_video_id?: string;
+  youtube_video_title?: string;
+  utm_campaign: string;
+  utm_content?: string;
+}): Promise<MutationResult<UTMLinkRow>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const campaign =
+      data.utm_campaign.trim() ||
+      (data.youtube_video_title
+        ? slugifyCampaign(data.youtube_video_title)
+        : "");
+
+    if (!campaign) {
+      throw new Error("La campaña UTM es obligatoria.");
+    }
+
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
+      "https://www.optimizatucontrol.com";
+
+    const params = new URLSearchParams({
+      utm_source: "youtube",
+      utm_medium: "video",
+      utm_campaign: campaign,
+    });
+    if (data.utm_content) {
+      params.set("utm_content", data.utm_content);
+    }
+    const full_url = `${baseUrl}?${params.toString()}`;
+
+    const { data: utmLink, error } = await supabase
+      .from("utm_links")
+      .insert({
+        organization_id: organizationId,
+        youtube_video_id: data.youtube_video_id ?? null,
+        youtube_video_title: data.youtube_video_title ?? null,
+        utm_source: "youtube",
+        utm_medium: "video",
+        utm_campaign: campaign,
+        utm_content: data.utm_content ?? null,
+        full_url,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === "23505") {
+        throw new Error("Ya existe un UTM con esa campaña.");
+      }
+      throw new Error(error.message);
+    }
+
+    revalidatePath(paths.platform.marketing.utms);
+    return rowToUTMLink(utmLink as Record<string, unknown>);
+  });
+}
+
+export async function getUTMLinksAction(): Promise<UTMLinkRow[]> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("utm_links")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .order("created_at", { ascending: false });
+
+  if (error) return [];
+  return (data ?? []).map((row) =>
+    rowToUTMLink(row as Record<string, unknown>)
+  );
+}
+
+export async function getUTMLeadsAction(
+  utmLinkId: string
+): Promise<MutationResult<UTMLeadCaptureRow[]>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("utm_lead_captures")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .eq("utm_link_id", utmLinkId)
+      .order("captured_at", { ascending: false });
+
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((row) =>
+      rowToUTMLead(row as Record<string, unknown>)
+    );
+  });
 }
 
 export async function getInstagramIntegrationStatusAction(): Promise<{

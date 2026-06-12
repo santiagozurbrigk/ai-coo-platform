@@ -55,6 +55,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Conexión con Ventas",
     subtitle: "Qué contenido genera conversaciones, bookings y ventas",
   },
+  "/marketing/utms": {
+    title: "UTMs de YouTube",
+    subtitle: "Atribución de leads, bookings y ventas por video",
+  },
   "/sales/inbox": {
     title: "Bandeja de ventas",
     subtitle: "Conversación + recorrido de contenido del lead",

@@ -11,6 +11,7 @@ const TABS = [
     label: "Conexión con Ventas",
     href: paths.platform.marketing.salesConnection,
   },
+  { label: "UTMs", href: paths.platform.marketing.utms },
 ] as const;
 
 export function MarketingSubnav() {
