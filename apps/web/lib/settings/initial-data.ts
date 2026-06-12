@@ -1,3 +1,4 @@
+import { getOrganizationSettingsAction } from "@/app/settings/actions";
 import { getProfileAreaDataAction } from "@/app/profile/actions";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -5,6 +6,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 export type SettingsInitialData = {
   orgName: string;
   industry: string;
+  websiteUrl: string;
   displayName: string;
   email: string;
   lastSignInAt: string | null;
@@ -13,6 +15,7 @@ export type SettingsInitialData = {
 const DEFAULTS: SettingsInitialData = {
   orgName: "Acme Coaching Co.",
   industry: "Infoproducto / Coaching",
+  websiteUrl: "",
   displayName: "Nombre Fundador",
   email: "founder@acme.co",
   lastSignInAt: null,
@@ -25,6 +28,16 @@ export async function getSettingsInitialData(): Promise<SettingsInitialData> {
   if (profile) {
     data.orgName = profile.orgName;
     data.displayName = profile.userName;
+  }
+
+  try {
+    const orgSettings = await getOrganizationSettingsAction();
+    if (orgSettings) {
+      data.orgName = orgSettings.name || data.orgName;
+      data.websiteUrl = orgSettings.website_url ?? "";
+    }
+  } catch {
+    // Sin sesión o tablas pendientes — mantener defaults
   }
 
   if (isSupabaseConfigured()) {

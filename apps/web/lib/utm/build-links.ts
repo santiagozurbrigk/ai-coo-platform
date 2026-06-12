@@ -1,6 +1,15 @@
-const BASE_URL =
-  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
-  "https://www.optimizatucontrol.com";
+export function getDefaultUtmBaseUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
+    "https://www.optimizatucontrol.com"
+  );
+}
+
+export function resolveUtmBaseUrl(websiteUrl?: string | null): string {
+  const custom = websiteUrl?.trim().replace(/\/$/, "");
+  if (custom) return custom;
+  return getDefaultUtmBaseUrl();
+}
 
 export function buildManychatRef(utmCampaign: string): string {
   return `yt-${utmCampaign}`;
@@ -12,15 +21,17 @@ export function normalizeInstagramUsername(value: string): string {
 
 export function buildLandingUtmUrl(
   utmCampaign: string,
-  utmContent?: string | null
+  utmContent?: string | null,
+  baseUrl?: string | null
 ): string {
+  const base = resolveUtmBaseUrl(baseUrl);
   const params = new URLSearchParams({
     utm_source: "youtube",
     utm_medium: "video",
     utm_campaign: utmCampaign,
   });
   if (utmContent) params.set("utm_content", utmContent);
-  return `${BASE_URL}?${params.toString()}`;
+  return `${base}?${params.toString()}`;
 }
 
 export function buildManychatUrl(input: {

@@ -1,13 +1,16 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Check, Copy } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, Check, Copy } from "lucide-react";
 import { Button, Input, Label, cn } from "@ai-coo/ui";
+import { paths } from "@/routes";
 import { createUTMLinkAction } from "@/app/marketing/actions";
 import { slugifyCampaign } from "@/lib/utm/slugify-campaign";
 import {
   buildLandingUtmUrl,
   buildManychatUrl,
+  getDefaultUtmBaseUrl,
   normalizeInstagramUsername,
 } from "@/lib/utm/build-links";
 import type { ContentAssetView } from "@/app/marketing/actions";
@@ -23,9 +26,11 @@ type VideoOption =
 
 export function UTMGenerator({
   youtubeVideos,
+  orgWebsiteUrl,
   onCreated,
 }: {
   youtubeVideos: ContentAssetView[];
+  orgWebsiteUrl: string | null;
   onCreated: (link: UTMLinkRow) => void;
 }) {
   const [videoMode, setVideoMode] = useState<"select" | "manual">(
@@ -60,8 +65,10 @@ export function UTMGenerator({
   const effectiveCampaign =
     campaign.trim() || (videoTitle ? slugifyCampaign(videoTitle) : "");
 
+  const utmBaseUrl = orgWebsiteUrl?.trim() || getDefaultUtmBaseUrl();
+
   const generatedLandingUrl = effectiveCampaign
-    ? buildLandingUtmUrl(effectiveCampaign, content || undefined)
+    ? buildLandingUtmUrl(effectiveCampaign, content || undefined, utmBaseUrl)
     : "";
 
   const normalizedIg = instagramUsername
@@ -140,6 +147,27 @@ export function UTMGenerator({
           Generá links para landing y DM de Instagram (ManyChat).
         </p>
       </div>
+
+      {!orgWebsiteUrl?.trim() ? (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-900/10 p-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+          <div className="flex flex-col gap-1">
+            <p className="text-[12px] font-medium text-amber-400">
+              Configurá la URL de tu sitio web
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Los links de UTM van a apuntar a optimizatucontrol.com hasta que
+              configures tu propia URL.
+            </p>
+            <Link
+              href={paths.platform.settings}
+              className="mt-0.5 text-[11px] text-amber-400 underline underline-offset-2"
+            >
+              Ir a Configuración → General →
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         <Label>Video de YouTube</Label>

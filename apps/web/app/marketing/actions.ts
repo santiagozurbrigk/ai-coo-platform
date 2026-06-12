@@ -15,6 +15,7 @@ import {
   buildLandingUtmUrl,
   buildManychatUrl,
   normalizeInstagramUsername,
+  resolveUtmBaseUrl,
   resolveUtmLinkType,
 } from "@/lib/utm/build-links";
 import { slugifyCampaign } from "@/lib/utm/slugify-campaign";
@@ -246,7 +247,18 @@ export async function createUTMLinkAction(data: {
       throw new Error("La campaña UTM es obligatoria.");
     }
 
-    const full_url = buildLandingUtmUrl(campaign, data.utm_content);
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("website_url")
+      .eq("id", organizationId)
+      .maybeSingle();
+
+    const baseUrl = resolveUtmBaseUrl(org?.website_url ?? null);
+    const full_url = buildLandingUtmUrl(
+      campaign,
+      data.utm_content,
+      baseUrl
+    );
     const instagramUsername = data.instagram_username
       ? normalizeInstagramUsername(data.instagram_username)
       : null;
@@ -287,6 +299,25 @@ export async function createUTMLinkAction(data: {
     revalidatePath(paths.platform.marketing.utms);
     return rowToUTMLink(utmLink as Record<string, unknown>);
   });
+}
+
+export async function getOrganizationWebsiteAction(): Promise<string | null> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("organizations")
+    .select("website_url")
+    .eq("id", organizationId)
+    .maybeSingle();
+
+  return (data?.website_url as string | null) ?? null;
+}
+
+/** URL base para previews de UTM (org o fallback OTC). */
+export async function getUtmBaseUrlAction(): Promise<string> {
+  const websiteUrl = await getOrganizationWebsiteAction();
+  return resolveUtmBaseUrl(websiteUrl);
 }
 
 export async function getUTMLinksAction(): Promise<UTMLinkRow[]> {

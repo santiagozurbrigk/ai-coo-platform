@@ -1,8 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Button, Input } from "@ai-coo/ui";
-import { Bell, Building2, KeyRound, Lock, Palette, Sparkles, User } from "lucide-react";
+import {
+  Bell,
+  Building2,
+  Globe,
+  KeyRound,
+  Lock,
+  Palette,
+  Sparkles,
+  User,
+} from "lucide-react";
+import { saveGeneralOrganizationSettingsAction } from "@/app/settings/actions";
 import { useToast } from "@/providers/toast-provider";
 import { es } from "@/lib/locale/es";
 import { formatRelativeTime } from "@/lib/format";
@@ -51,6 +61,9 @@ export function SettingsForm({
 
   const [orgName, setOrgName] = useState(initialData.orgName);
   const [industry, setIndustry] = useState(initialData.industry);
+  const [websiteUrl, setWebsiteUrl] = useState(initialData.websiteUrl);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, startSave] = useTransition();
   const [displayName, setDisplayName] = useState(initialData.displayName);
   const [email, setEmail] = useState(initialData.email);
   const [notifications, setNotifications] = useState({
@@ -62,16 +75,33 @@ export function SettingsForm({
   const resetForm = () => {
     setOrgName(initialData.orgName);
     setIndustry(initialData.industry);
+    setWebsiteUrl(initialData.websiteUrl);
+    setSaveError(null);
     setDisplayName(initialData.displayName);
     setEmail(initialData.email);
     setNotifications({ ...NOTIFICATION_DEFAULTS });
   };
 
   const handleSave = () => {
-    push({
-      title: es.flow.settingsSaved,
-      description: es.flow.settingsSavedDesc,
-      variant: "success",
+    setSaveError(null);
+    startSave(async () => {
+      const result = await saveGeneralOrganizationSettingsAction({
+        orgName,
+        websiteUrl,
+      });
+      if (result.success) {
+        push({
+          title: es.flow.settingsSaved,
+          description: es.flow.settingsSavedDesc,
+          variant: "success",
+        });
+      } else {
+        setSaveError(result.error);
+        push({
+          title: "No se guardaron los cambios",
+          description: result.error,
+        });
+      }
     });
   };
 
@@ -105,6 +135,34 @@ export function SettingsForm({
                 />
               </div>
             </div>
+            <div className="mt-4 flex flex-col gap-1.5">
+              <label
+                htmlFor="website-url"
+                className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+              >
+                URL de tu sitio web / landing
+              </label>
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="website-url"
+                  placeholder="https://tudominio.com"
+                  className="pl-9"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Se usa como base para generar tus links de UTM en Marketing. Si
+                no la configurás, los links van a apuntar a
+                optimizatucontrol.com.
+              </p>
+            </div>
+            {saveError ? (
+              <p className="mt-2 text-sm text-red-400" role="alert">
+                {saveError}
+              </p>
+            ) : null}
           </section>
 
           <section>
@@ -112,7 +170,11 @@ export function SettingsForm({
             <ThemeSelector />
           </section>
 
-          <SettingsFormActions onSave={handleSave} onCancel={resetForm} />
+          <SettingsFormActions
+            onSave={handleSave}
+            onCancel={resetForm}
+            isPending={saving}
+          />
         </div>
       )}
 

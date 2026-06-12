@@ -1,15 +1,17 @@
 import { UTMPageContent } from "@/components/marketing/utm-page-content";
 import { PageHeader } from "@/components/shared/page-header";
 import {
+  getOrganizationWebsiteAction,
   getUTMLinksAction,
   listContentAssetsAction,
 } from "@/app/marketing/actions";
 import { mockUTMLinks } from "@/mocks/utm-links";
 
 export default async function MarketingUTMsPage() {
-  const [links, assets] = await Promise.all([
+  const [links, assets, orgWebsiteUrl] = await Promise.all([
     getUTMLinksAction(),
     listContentAssetsAction(),
+    getOrganizationWebsiteAction(),
   ]);
 
   const youtubeVideos = assets.filter((a) => a.platform === "youtube");
@@ -24,6 +26,7 @@ export default async function MarketingUTMsPage() {
       <UTMPageContent
         initialLinks={displayLinks}
         youtubeVideos={youtubeVideos}
+        orgWebsiteUrl={orgWebsiteUrl}
       />
     </div>
   );

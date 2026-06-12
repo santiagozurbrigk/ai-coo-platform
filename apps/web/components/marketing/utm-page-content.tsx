@@ -10,9 +10,11 @@ import { UTMTable } from "./utm-table";
 export function UTMPageContent({
   initialLinks,
   youtubeVideos,
+  orgWebsiteUrl,
 }: {
   initialLinks: UTMLinkRow[];
   youtubeVideos: ContentAssetView[];
+  orgWebsiteUrl: string | null;
 }) {
   const [links, setLinks] = useState(initialLinks);
 
@@ -23,6 +25,7 @@ export function UTMPageContent({
       <div className="grid gap-6 lg:grid-cols-2">
         <UTMGenerator
           youtubeVideos={youtubeVideos}
+          orgWebsiteUrl={orgWebsiteUrl}
           onCreated={(link) => setLinks((prev) => [link, ...prev])}
         />
         <div className="space-y-3">
