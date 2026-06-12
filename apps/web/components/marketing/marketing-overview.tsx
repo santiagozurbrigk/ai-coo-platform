@@ -23,6 +23,7 @@ import {
   TopConvertingContentList,
   TypeRadarChart,
 } from "./marketing-charts";
+import { ContentTypeSegmentPanel } from "./content-type-segment-panel";
 
 type DistributionData = {
   counts: Record<ContentLabel, number>;
@@ -49,6 +50,8 @@ export function MarketingOverview({
   return (
     <div className="space-y-8">
       {instagramConnected ? <MarketingMetricsSections /> : null}
+
+      <ContentTypeSegmentPanel />
 
       <BentoGrid>
         <BentoCell size="banner">
