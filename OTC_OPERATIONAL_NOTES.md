@@ -233,6 +233,44 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - **UTMs:** `utm_links` real; leads en sheet parcialmente mock para links `utm-mock-*`.
 - **Landing UTMs:** requiere `NEXT_PUBLIC_UTM_ORGANIZATION_ID` en env de producción.
 
+#### UTMs — Atribución completa
+
+**Loop completo implementado:**
+```
+Video YouTube → link UTM → lead capturado → booking Calendly → cliente creado → $ atribuido
+```
+
+**Cómo funciona la atribución de booking:**
+- Cuando Calendly registra un nuevo booking, el sistema busca automáticamente
+  si el email o nombre del lead coincide con una captura de UTM previa.
+- Si hay match → se registra en `utm_booking_attributions` y se incrementa
+  el contador `bookings_attributed` en `utm_links`.
+
+**Cómo funciona la atribución de venta:**
+- Cuando se crea un cliente desde un closing call, el sistema busca
+  la atribución de booking correspondiente y la conecta con la venta.
+- Si no hay atribución de booking → intenta por email/nombre del cliente.
+- Se registra en `utm_sale_attributions` y se incrementa `sales_attributed`
+  y `revenue_attributed` en `utm_links`.
+
+**Idempotencia:**
+- Índices únicos en `utm_booking_attributions.closing_call_id` y
+  `utm_sale_attributions.client_id` evitan duplicados si el pipeline
+  se ejecuta más de una vez.
+
+**Vista funnel en Marketing → UTMs:**
+- Click en "Ver leads" de cualquier UTM → sheet con funnel completo:
+  Leads capturados → Bookings → Ventas → Revenue total → badge ROI.
+
+**Origen del lead en inbox:**
+- Si un lead de ManyChat llegó via UTM de YouTube, el panel de análisis
+  de la conversación muestra "Origen: [nombre del video]".
+
+**Limitación actual:**
+- La atribución funciona por coincidencia de email o nombre del lead.
+  Si el lead usa un email distinto en Calendly al que usó en la landing,
+  la atribución puede no conectarse automáticamente.
+
 ### Finanzas
 
 - **Gastos / suscripciones / compensación:** tablas Supabase; **seed desde mocks** si tablas vacías al primer load.
