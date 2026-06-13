@@ -3,15 +3,28 @@
 import { useMemo } from "react";
 import { mockDashboard } from "@/mocks/dashboard";
 import { deriveDashboardData } from "@/lib/metrics/derive-dashboard-data";
+import {
+  weeklyReportToDashboardRecommendations,
+  weeklyReportToDashboardRisks,
+} from "@/lib/operations/map-weekly-report";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { paths } from "@/routes";
 import { useFinanceData } from "@/providers/finance-data-provider";
 import { usePlatformData } from "@/providers/platform-data-provider";
+import type { WeeklyReportRow } from "@/types/operations";
 import { PageLoading } from "@/components/shared/page-loading";
 import { DashboardOverview } from "./dashboard-overview";
 
 const useSupabase = isSupabaseConfigured();
 
-export function DashboardPageContent() {
+const NO_REPORT_SUMMARY =
+  "Sin reporte esta semana. Completá los inputs en Operaciones para generar el resumen ejecutivo con IA.";
+
+export function DashboardPageContent({
+  weeklyReport = null,
+}: {
+  weeklyReport?: WeeklyReportRow | null;
+}) {
   const {
     clients,
     conversations,
@@ -50,9 +63,26 @@ export function DashboardPageContent() {
       conversations.length === 0 &&
       closingCalls.length === 0;
 
+    const hasWeeklyReport =
+      weeklyReport?.status === "ready" && Boolean(weeklyReport.executive_summary);
+
     return {
       ...derived,
       isEmpty: hasNoActivity,
+      executiveSummary: hasWeeklyReport
+        ? weeklyReport!.executive_summary!
+        : useSupabase
+          ? NO_REPORT_SUMMARY
+          : derived.executiveSummary,
+      risks: hasWeeklyReport
+        ? weeklyReportToDashboardRisks(weeklyReport!)
+        : derived.risks,
+      aiRecommendations: hasWeeklyReport
+        ? weeklyReportToDashboardRecommendations(weeklyReport!)
+        : derived.aiRecommendations,
+      weeklyReportCtaHref: hasWeeklyReport
+        ? undefined
+        : paths.platform.operations.weeklyInputs,
     };
   }, [
     clients,
@@ -62,6 +92,7 @@ export function DashboardPageContent() {
     paymentPlatforms,
     salesMetrics,
     loading,
+    weeklyReport,
   ]);
 
   if (loading) {

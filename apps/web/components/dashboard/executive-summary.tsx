@@ -3,7 +3,15 @@ import { FlowCta } from "@/components/shared/flow-cta";
 import { es } from "@/lib/locale/es";
 import { flowLinks } from "@/lib/navigation/flow-links";
 
-export function ExecutiveSummary({ summary }: { summary: string }) {
+export function ExecutiveSummary({
+  summary,
+  detailHref,
+  detailLabel,
+}: {
+  summary: string;
+  detailHref?: string;
+  detailLabel?: string;
+}) {
   return (
     <div>
       <AiCard
@@ -14,8 +22,8 @@ export function ExecutiveSummary({ summary }: { summary: string }) {
         {summary}
       </AiCard>
       <FlowCta
-        href={flowLinks.executiveReportLatest}
-        label={es.common.viewDetail}
+        href={detailHref ?? flowLinks.executiveReportLatest}
+        label={detailLabel ?? es.common.viewDetail}
       />
     </div>
   );

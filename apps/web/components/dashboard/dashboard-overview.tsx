@@ -33,7 +33,15 @@ export function DashboardOverview({ data }: { data: DashboardData }) {
       }}
     >
       <motion.div variants={fade}>
-        <ExecutiveSummary summary={data.executiveSummary} />
+        <ExecutiveSummary
+          summary={data.executiveSummary}
+          detailHref={data.weeklyReportCtaHref}
+          detailLabel={
+            data.weeklyReportCtaHref
+              ? "Completar inputs semanales"
+              : undefined
+          }
+        />
       </motion.div>
 
       <motion.div variants={fade} className="grid gap-4 lg:grid-cols-2">

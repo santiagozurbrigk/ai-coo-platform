@@ -48,4 +48,6 @@ export type DashboardData = {
   aiRecommendations: DashboardAiRecommendation[];
   /** Sin datos reales ni mock cargado — mostrar empty state */
   isEmpty?: boolean;
+  /** Sin reporte semanal — link a inputs */
+  weeklyReportCtaHref?: string;
 };

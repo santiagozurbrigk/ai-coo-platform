@@ -1,0 +1,314 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import {
+  isMissingTableError,
+  tryRequireOrganizationId,
+} from "@/lib/auth/bootstrap";
+import { requireAuthContext } from "@/lib/auth/require-auth";
+import { callClaudeJson } from "@/lib/ai/anthropic";
+import {
+  DB_TO_UI_DEPARTMENT,
+  getCurrentWeekStart,
+  UI_TO_DB_DEPARTMENT,
+  WEEKLY_DEPARTMENTS,
+} from "@/lib/operations/weekly-utils";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { paths } from "@/routes";
+import type {
+  Department,
+  WeeklyInputRow,
+  WeeklyReportJson,
+  WeeklyReportRow,
+} from "@/types/operations";
+
+function mapWeeklyError(msg: string): string {
+  if (isMissingTableError(msg)) {
+    return "Faltan tablas weekly_inputs / weekly_reports. Ejecuta supabase/migrations/20260615300000_weekly_inputs.sql.";
+  }
+  return msg;
+}
+
+export async function saveWeeklyInputAction(data: {
+  department: Department;
+  content?: string;
+  rating?: number;
+}): Promise<{ ok: true }> {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase no configurado.");
+  }
+
+  const { user, orgId, supabase } = await requireAuthContext();
+  const weekStart = getCurrentWeekStart();
+  const dbDepartment = UI_TO_DB_DEPARTMENT[data.department];
+
+  const content = data.content?.trim() || null;
+  const rating =
+    data.rating != null && data.rating >= 1 && data.rating <= 5
+      ? data.rating
+      : null;
+
+  if (!content && rating == null) {
+    throw new Error("Completá al menos un campo antes de guardar.");
+  }
+
+  const { error } = await supabase.from("weekly_inputs").upsert(
+    {
+      organization_id: orgId,
+      week_start: weekStart,
+      department: dbDepartment,
+      type: "text",
+      content,
+      rating,
+      submitted_by: user.id,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "organization_id,week_start,department,submitted_by" }
+  );
+
+  if (error) throw new Error(mapWeeklyError(error.message));
+
+  revalidatePath(paths.platform.operations.weeklyInputs);
+  revalidatePath(paths.platform.operations.overview);
+  revalidatePath(paths.platform.dashboard);
+
+  return { ok: true };
+}
+
+export async function getWeeklyInputsAction(
+  weekStart?: string
+): Promise<WeeklyInputRow[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  const organizationId = await tryRequireOrganizationId();
+  if (!organizationId) return [];
+
+  const supabase = await createClient();
+  const week = weekStart ?? getCurrentWeekStart();
+
+  const { data, error } = await supabase
+    .from("weekly_inputs")
+    .select(
+      "id, organization_id, week_start, department, type, content, rating, submitted_by, created_at, updated_at, profiles(full_name, avatar_url)"
+    )
+    .eq("organization_id", organizationId)
+    .eq("week_start", week)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[getWeeklyInputs]", error.message);
+    return [];
+  }
+
+  return (data ?? []).map((row) => {
+    const raw = row as Record<string, unknown>;
+    const profilesRaw = raw.profiles;
+    const profile = Array.isArray(profilesRaw) ? profilesRaw[0] : profilesRaw;
+    return {
+      ...(raw as WeeklyInputRow),
+      profiles: (profile as WeeklyInputRow["profiles"]) ?? null,
+    };
+  });
+}
+
+export async function getWeeklyInputsHistoryAction(): Promise<string[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  const organizationId = await tryRequireOrganizationId();
+  if (!organizationId) return [];
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("weekly_inputs")
+    .select("week_start")
+    .eq("organization_id", organizationId)
+    .order("week_start", { ascending: false });
+
+  if (error) {
+    console.error("[getWeeklyInputsHistory]", error.message);
+    return [];
+  }
+
+  return [...new Set((data ?? []).map((row) => row.week_start as string))];
+}
+
+export async function countWeeklyInputsForWeek(
+  weekStart?: string
+): Promise<number> {
+  const rows = await getWeeklyInputsAction(weekStart);
+  return new Set(rows.map((row) => row.department)).size;
+}
+
+export async function generateWeeklyReportAction(): Promise<{ ok: true }> {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase no configurado.");
+  }
+
+  const { orgId, supabase } = await requireAuthContext();
+  const weekStart = getCurrentWeekStart();
+
+  const { data: inputs, error: inputsError } = await supabase
+    .from("weekly_inputs")
+    .select("*")
+    .eq("organization_id", orgId)
+    .eq("week_start", weekStart);
+
+  if (inputsError) throw new Error(mapWeeklyError(inputsError.message));
+  if (!inputs?.length) {
+    throw new Error("No hay inputs para esta semana todavía.");
+  }
+
+  const { error: upsertError } = await supabase.from("weekly_reports").upsert(
+    {
+      organization_id: orgId,
+      week_start: weekStart,
+      status: "generating",
+    },
+    { onConflict: "organization_id,week_start" }
+  );
+
+  if (upsertError) throw new Error(mapWeeklyError(upsertError.message));
+
+  try {
+    const inputsText = inputs
+      .map((input) => {
+        const dept = String(input.department).toUpperCase();
+        const parts: string[] = [];
+        if (input.rating != null) parts.push(`Rating: ${input.rating}/5`);
+        if (input.content?.trim()) parts.push(input.content.trim());
+        return `[${dept}] ${parts.join(" — ")}`;
+      })
+      .join("\n");
+
+    const weekEnd = new Date(`${weekStart}T12:00:00`);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+
+    const { data: conversations } = await supabase
+      .from("conversations")
+      .select("status, ai_score, ai_label, created_at")
+      .eq("organization_id", orgId)
+      .gte("created_at", weekStart)
+      .lt("created_at", weekEnd.toISOString());
+
+    const salesContext = conversations?.length
+      ? `\nMétricas de ventas de la semana:
+- Conversaciones activas: ${conversations.filter((c) => c.status === "active").length}
+- Leads hot: ${conversations.filter((c) => c.ai_label === "hot").length}
+- Leads warm: ${conversations.filter((c) => c.ai_label === "warm").length}`
+      : "";
+
+    const system =
+      "Sos un COO de IA analizando reportes semanales de infoproductos latinoamericanos. Respondé ÚNICAMENTE con JSON válido en español.";
+
+    const user = `Basándote en los inputs del equipo de esta semana${
+      salesContext ? " y las métricas de ventas" : ""
+    }, generá un reporte ejecutivo.
+
+INPUTS DEL EQUIPO:
+${inputsText}
+${salesContext}
+
+JSON:
+{
+  "executive_summary": "<resumen ejecutivo de 3-4 oraciones>",
+  "risks": [
+    { "title": "<riesgo>", "description": "<detalle>", "level": "high|medium|low" }
+  ],
+  "bottlenecks": [
+    { "area": "<área>", "description": "<cuello de botella>" }
+  ],
+  "recommendations": [
+    { "title": "<acción>", "description": "<detalle accionable>", "priority": "high|medium|low" }
+  ]
+}`;
+
+    const reportJson = await callClaudeJson<WeeklyReportJson>({
+      organizationId: orgId,
+      model: "claude-sonnet-4-6",
+      feature: "weekly_report",
+      system,
+      user,
+      maxTokens: 1500,
+    });
+
+    if (!reportJson?.executive_summary) {
+      throw new Error("La IA no devolvió un reporte válido.");
+    }
+
+    const { error: saveError } = await supabase.from("weekly_reports").upsert(
+      {
+        organization_id: orgId,
+        week_start: weekStart,
+        executive_summary: reportJson.executive_summary,
+        risks: reportJson.risks ?? [],
+        bottlenecks: reportJson.bottlenecks ?? [],
+        recommendations: reportJson.recommendations ?? [],
+        generated_at: new Date().toISOString(),
+        status: "ready",
+      },
+      { onConflict: "organization_id,week_start" }
+    );
+
+    if (saveError) throw new Error(mapWeeklyError(saveError.message));
+
+    revalidatePath(paths.platform.operations.overview);
+    revalidatePath(paths.platform.dashboard);
+
+    return { ok: true };
+  } catch (err) {
+    await supabase
+      .from("weekly_reports")
+      .update({ status: "error" })
+      .eq("organization_id", orgId)
+      .eq("week_start", weekStart);
+
+    throw err instanceof Error ? err : new Error("Error al generar reporte");
+  }
+}
+
+export async function getWeeklyReportAction(
+  weekStart?: string
+): Promise<WeeklyReportRow | null> {
+  if (!isSupabaseConfigured()) return null;
+
+  const organizationId = await tryRequireOrganizationId();
+  if (!organizationId) return null;
+
+  const supabase = await createClient();
+  const week = weekStart ?? getCurrentWeekStart();
+
+  const { data, error } = await supabase
+    .from("weekly_reports")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("week_start", week)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[getWeeklyReport]", error.message);
+    return null;
+  }
+
+  return (data as WeeklyReportRow | null) ?? null;
+}
+
+export async function getWeeklyCompletionStatus(
+  weekStart?: string
+): Promise<{ completed: Department[]; total: number }> {
+  const rows = await getWeeklyInputsAction(weekStart);
+
+  const completed = [
+    ...new Set(
+      rows.map(
+        (row) =>
+          DB_TO_UI_DEPARTMENT[
+            row.department as keyof typeof DB_TO_UI_DEPARTMENT
+          ]
+      )
+    ),
+  ].filter(Boolean) as Department[];
+
+  return { completed, total: WEEKLY_DEPARTMENTS.length };
+}

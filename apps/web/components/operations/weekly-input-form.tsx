@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, Mic, Star } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { CheckCircle2, Circle, Loader2, Mic, Star } from "lucide-react";
 import {
   Button,
   FormField,
@@ -12,7 +13,9 @@ import {
   Textarea,
   cn,
 } from "@ai-coo/ui";
+import { saveWeeklyInputAction } from "@/app/operations/actions";
 import { Panel } from "@/components/shared/panel";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { useToast } from "@/providers/toast-provider";
 import type { Department } from "@/types/operations";
 
@@ -55,6 +58,14 @@ const DEPARTMENTS: DepartmentConfig[] = [
     weekPlaceholder: "SOPs desactualizados, tareas manuales repetitivas…",
     problemsLabel: "¿Qué se repitió?",
     problemsPlaceholder: "Patrones detectados, bloqueos del equipo, dependencias del fundador…",
+  },
+  {
+    value: "marketing",
+    label: "Marketing",
+    weekLabel: "¿Cómo fue el contenido y el tráfico?",
+    weekPlaceholder: "Publicaciones, UTMs, leads desde YouTube/Instagram…",
+    problemsLabel: "¿Qué no funcionó?",
+    problemsPlaceholder: "Caída de engagement, links sin conversión, cuellos en el funnel…",
   },
   {
     value: "founder",
@@ -106,21 +117,45 @@ function RatingPicker({
   );
 }
 
+function buildContent(weekSummary: string, problems: string): string {
+  const parts: string[] = [];
+  if (weekSummary.trim()) parts.push(weekSummary.trim());
+  if (problems.trim()) {
+    parts.push(`Problemas: ${problems.trim()}`);
+  }
+  return parts.join("\n\n");
+}
+
 export function WeeklyInputForm({
-  onSubmitted,
+  completedDepartments = [],
+  onSaved,
 }: {
-  onSubmitted?: (department: Department, preview: string) => void;
+  completedDepartments?: Department[];
+  onSaved?: () => void;
 } = {}) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<Department>("sales");
   const [fields, setFields] = useState<Record<Department, DepartmentField>>({
     sales: { ...EMPTY_FIELDS },
     delivery: { ...EMPTY_FIELDS },
     operations: { ...EMPTY_FIELDS },
+    marketing: { ...EMPTY_FIELDS },
     founder: { ...EMPTY_FIELDS },
   });
   const [submitting, setSubmitting] = useState(false);
   const [recording, setRecording] = useState(false);
   const { push } = useToast();
+  const useSupabase = isSupabaseConfigured();
+
+  useEffect(() => {
+    setFields({
+      sales: { ...EMPTY_FIELDS },
+      delivery: { ...EMPTY_FIELDS },
+      operations: { ...EMPTY_FIELDS },
+      marketing: { ...EMPTY_FIELDS },
+      founder: { ...EMPTY_FIELDS },
+    });
+  }, [completedDepartments.join(",")]);
 
   const updateField = (
     department: Department,
@@ -133,33 +168,55 @@ export function WeeklyInputForm({
     }));
   };
 
-  const hasContent = Object.values(fields).some(
-    (f) => f.weekSummary.trim() || f.problems.trim() || f.rating > 0
-  );
+  const handleSubmitTab = async (department: Department) => {
+    const data = fields[department];
+    const content = buildContent(data.weekSummary, data.problems);
+    const hasContent = Boolean(content) || data.rating > 0;
 
-  const handleSubmit = () => {
-    if (!hasContent) return;
-    setSubmitting(true);
-    const activeFields = fields[activeTab];
-    const preview = [activeFields.weekSummary, activeFields.problems]
-      .filter(Boolean)
-      .join(" · ");
-    window.setTimeout(() => {
-      setSubmitting(false);
-      onSubmitted?.(activeTab, preview);
-      setFields({
-        sales: { ...EMPTY_FIELDS },
-        delivery: { ...EMPTY_FIELDS },
-        operations: { ...EMPTY_FIELDS },
-        founder: { ...EMPTY_FIELDS },
-      });
+    if (!hasContent) {
       push({
-        title: "Inputs enviados",
-        description:
-          "Tu contexto semanal quedó registrado. La IA lo usará en el próximo reporte ejecutivo.",
+        title: "Completá al menos un campo",
+        description: "Agregá un resumen, problemas o calificación antes de guardar.",
+        variant: "default",
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      if (useSupabase) {
+        await saveWeeklyInputAction({
+          department,
+          content: content || undefined,
+          rating: data.rating > 0 ? data.rating : undefined,
+        });
+      }
+
+      onSaved?.();
+      setFields((prev) => ({
+        ...prev,
+        [department]: { ...EMPTY_FIELDS },
+      }));
+
+      push({
+        title: "Input guardado ✓",
+        description: `Contexto de ${DEPARTMENTS.find((d) => d.value === department)?.label} registrado para esta semana.`,
         variant: "success",
       });
-    }, 900);
+
+      if (useSupabase) {
+        router.refresh();
+      }
+    } catch (error) {
+      push({
+        title: "No se pudo guardar",
+        description:
+          error instanceof Error ? error.message : "Error al guardar el input.",
+        variant: "default",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleMockRecording = () => {
@@ -178,16 +235,31 @@ export function WeeklyInputForm({
       contentClassName="space-y-4"
     >
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Department)}>
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 lg:grid-cols-4">
-          {DEPARTMENTS.map((dept) => (
-            <TabsTrigger key={dept.value} value={dept.value} className="text-xs sm:text-sm">
-              {dept.label}
-            </TabsTrigger>
-          ))}
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 lg:grid-cols-5">
+          {DEPARTMENTS.map((dept) => {
+            const done = completedDepartments.includes(dept.value);
+            return (
+              <TabsTrigger
+                key={dept.value}
+                value={dept.value}
+                className="gap-1.5 text-xs sm:text-sm"
+              >
+                {done ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                ) : (
+                  <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+                )}
+                {dept.label}
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
 
         {DEPARTMENTS.map((dept) => {
           const data = fields[dept.value];
+          const tabHasContent =
+            data.weekSummary.trim() || data.problems.trim() || data.rating > 0;
+
           return (
             <TabsContent key={dept.value} value={dept.value} className="space-y-4 pt-2">
               <FormField label={dept.weekLabel}>
@@ -234,26 +306,26 @@ export function WeeklyInputForm({
                   {recording ? "Grabando…" : "Grabar audio"}
                 </Button>
               </div>
+
+              <Button
+                type="button"
+                className="w-full bg-violet-600 hover:bg-violet-700 sm:w-auto"
+                disabled={!tabHasContent || submitting}
+                onClick={() => void handleSubmitTab(dept.value)}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Guardando…
+                  </>
+                ) : (
+                  `Guardar input de ${dept.label}`
+                )}
+              </Button>
             </TabsContent>
           );
         })}
       </Tabs>
-
-      <Button
-        type="button"
-        className="w-full bg-violet-600 hover:bg-violet-700 sm:w-auto"
-        disabled={!hasContent || submitting}
-        onClick={handleSubmit}
-      >
-        {submitting ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Enviando…
-          </>
-        ) : (
-          "Enviar inputs"
-        )}
-      </Button>
     </Panel>
   );
 }

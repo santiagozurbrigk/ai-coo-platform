@@ -5,6 +5,7 @@ const LABELS: Record<Department, string> = {
   sales: "Ventas",
   delivery: "Delivery",
   operations: "Operaciones",
+  marketing: "Marketing",
   founder: "Fundador",
 };
 

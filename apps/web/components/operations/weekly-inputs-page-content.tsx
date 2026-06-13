@@ -1,41 +1,148 @@
 "use client";
 
-import { useState } from "react";
-import type { Department, WeeklyInput } from "@/types/operations";
+import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Loader2, Sparkles } from "lucide-react";
+import { Button } from "@ai-coo/ui";
+import {
+  generateWeeklyReportAction,
+  getWeeklyCompletionStatus,
+  getWeeklyInputsAction,
+} from "@/app/operations/actions";
+import { mapWeeklyInputRowsToTeamInputs } from "@/lib/operations/weekly-input-mapper";
+import { formatWeekRange, getCurrentWeekStart } from "@/lib/operations/weekly-utils";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { paths } from "@/routes";
+import { useToast } from "@/providers/toast-provider";
+import type { Department, WeeklyInputRow } from "@/types/operations";
 import { PageHeader } from "@/components/shared/page-header";
 import { WeeklyInputForm } from "./weekly-input-form";
 import { WeeklyInputsList } from "./weekly-inputs-list";
 
-export function WeeklyInputsPageContent() {
-  const [inputs, setInputs] = useState<WeeklyInput[]>([]);
+export function WeeklyInputsPageContent({
+  initialInputs = [],
+  initialCompleted = [],
+  initialInputCount = 0,
+  weekStart = getCurrentWeekStart(),
+}: {
+  initialInputs?: WeeklyInputRow[];
+  initialCompleted?: Department[];
+  initialInputCount?: number;
+  weekStart?: string;
+}) {
+  const router = useRouter();
+  const { push } = useToast();
+  const [inputs, setInputs] = useState(initialInputs);
+  const [completed, setCompleted] = useState<Department[]>(initialCompleted);
+  const [inputCount, setInputCount] = useState(initialInputCount);
+  const [generating, startGenerate] = useTransition();
+  const useSupabase = isSupabaseConfigured();
+  const totalDepartments = 5;
 
-  const handleSubmitted = (department: Department, preview: string) => {
-    const deptLabel: Record<Department, string> = {
-      sales: "Ventas",
-      delivery: "Delivery",
-      operations: "Operaciones",
-      founder: "Founder",
-    };
+  const teamInputs = useMemo(
+    () => mapWeeklyInputRowsToTeamInputs(inputs),
+    [inputs]
+  );
 
-    setInputs((prev) => [
-      {
-        id: `wi-${Date.now()}`,
-        author: "Vos",
-        department,
-        type: "form",
-        importance: "medium",
-        preview: preview.slice(0, 120) || `Input de ${deptLabel[department]}`,
-        submittedAt: new Date().toISOString(),
-      },
-      ...prev,
-    ]);
+  const handleSaved = () => {
+    void (async () => {
+      if (!useSupabase) return;
+      const [rows, status] = await Promise.all([
+        getWeeklyInputsAction(weekStart),
+        getWeeklyCompletionStatus(weekStart),
+      ]);
+      setInputs(rows);
+      setCompleted(status.completed);
+      setInputCount(status.completed.length);
+    })();
+  };
+
+  const canGenerateReport = inputCount >= 2;
+
+  const handleGenerateReport = () => {
+    if (!canGenerateReport) return;
+
+    startGenerate(async () => {
+      try {
+        await generateWeeklyReportAction();
+        push({
+          title: "Reporte generado",
+          description: "El reporte ejecutivo está listo en Operaciones.",
+          variant: "success",
+        });
+        router.push(paths.platform.operations.overview);
+        router.refresh();
+      } catch (error) {
+        push({
+          title: "No se pudo generar el reporte",
+          description:
+            error instanceof Error ? error.message : "Error al generar reporte.",
+          variant: "default",
+        });
+      }
+    });
   };
 
   return (
     <div className="space-y-8">
-      <PageHeader description="Contexto semanal por departamento para reportes ejecutivos" />
-      <WeeklyInputForm onSubmitted={handleSubmitted} />
-      <WeeklyInputsList inputs={inputs} showEmptyState />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <PageHeader description="Contexto semanal por departamento para reportes ejecutivos" />
+          <p className="text-sm text-muted-foreground">{formatWeekRange(weekStart)}</p>
+          <p className="text-xs text-muted-foreground">
+            {completed.length}/{totalDepartments} departamentos completados
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:items-end">
+          <Button
+            type="button"
+            className="bg-violet-600 hover:bg-violet-700"
+            disabled={!canGenerateReport || generating || !useSupabase}
+            onClick={handleGenerateReport}
+          >
+            {generating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generando reporte…
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Generar reporte con IA
+              </>
+            )}
+          </Button>
+          {!canGenerateReport ? (
+            <p className="text-xs text-muted-foreground">
+              Necesitás al menos 2 departamentos con input guardado.
+            </p>
+          ) : null}
+          {!useSupabase ? (
+            <p className="text-xs text-amber-400">
+              Modo demo — conectá Supabase para persistir inputs.
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      <WeeklyInputForm
+        completedDepartments={completed}
+        onSaved={handleSaved}
+      />
+
+      <WeeklyInputsList inputs={teamInputs} showEmptyState />
+
+      <p className="text-center text-xs text-muted-foreground">
+        Ver reporte en{" "}
+        <Link
+          href={paths.platform.operations.overview}
+          className="text-violet-400 hover:underline"
+        >
+          Operaciones → Overview
+        </Link>
+      </p>
     </div>
   );
 }

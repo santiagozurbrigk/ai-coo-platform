@@ -5,14 +5,16 @@ import type { WeeklyInput } from "@/types/operations";
 import { DepartmentBadge } from "./department-badge";
 import { WeeklyInputsEmptyState } from "./weekly-inputs-empty-state";
 
-const TYPE_LABEL = {
+const TYPE_LABEL: Record<WeeklyInput["type"], string> = {
   text: "Texto",
+  rating: "Calificación",
   audio: "Audio",
   form: "Formulario",
 };
 
-const TYPE_ICON = {
+const TYPE_ICON: Record<WeeklyInput["type"], typeof FileText> = {
   text: FileText,
+  rating: FileText,
   audio: Mic,
   form: FormInput,
 };

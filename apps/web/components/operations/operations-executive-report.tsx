@@ -5,9 +5,19 @@ import { flowLinks } from "@/lib/navigation/flow-links";
 
 export function OperationsExecutiveReport({
   paragraphs,
+  generatedAt,
 }: {
   paragraphs: string[];
+  generatedAt?: string | null;
 }) {
+  const generatedLabel = generatedAt
+    ? `Generado ${new Date(generatedAt).toLocaleString("es", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`
+    : "Generado con IA";
   return (
     <div>
       <AiCard
@@ -29,7 +39,7 @@ export function OperationsExecutiveReport({
         />
         <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-violet-400" />
-          Generado el lunes 6:00
+          {generatedLabel}
         </span>
       </div>
     </div>
