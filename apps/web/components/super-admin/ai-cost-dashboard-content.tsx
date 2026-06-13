@@ -58,11 +58,12 @@ export function AiCostDashboardContent({
           </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px] text-left text-sm">
+          <table className="w-full min-w-[1040px] text-left text-sm">
             <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-4 py-3">Organización</th>
                 <th className="px-4 py-3">Plan</th>
+                <th className="px-4 py-3">Fuente IA</th>
                 <th className="px-4 py-3">Haiku</th>
                 <th className="px-4 py-3">Sonnet</th>
                 <th className="px-4 py-3">Opus</th>
@@ -83,6 +84,17 @@ export function AiCostDashboardContent({
                   <td className="px-4 py-3 font-medium">{row.orgName}</td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {PLAN_LABEL[row.plan] ?? row.plan}
+                  </td>
+                  <td className="px-4 py-3">
+                    {row.aiKeySource === "byok" ? (
+                      <span className="text-xs font-medium text-emerald-400">
+                        BYOK ✓
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        OTC Key
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 tabular-nums">
                     {formatUsdPrecise(row.claudeHaikuUsd)}

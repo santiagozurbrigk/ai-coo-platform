@@ -1,0 +1,206 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import { ExternalLink, KeyRound, Loader2 } from "lucide-react";
+import { Badge, Button, Input } from "@ai-coo/ui";
+import {
+  removeClaudeApiKeyAction,
+  saveClaudeApiKeyAction,
+  type ClaudeApiKeyStatus,
+} from "@/app/settings/actions";
+import { FieldLabel } from "./field-label";
+import { SectionHeader } from "./section-header";
+import { useToast } from "@/providers/toast-provider";
+
+export function ClaudeApiKeySettings({
+  initialStatus,
+}: {
+  initialStatus: ClaudeApiKeyStatus;
+}) {
+  const { push } = useToast();
+  const [status, setStatus] = useState(initialStatus);
+  const [apiKey, setApiKey] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [connecting, startConnect] = useTransition();
+  const [removing, startRemove] = useTransition();
+
+  const handleConnect = () => {
+    setError(null);
+    startConnect(async () => {
+      const result = await saveClaudeApiKeyAction(apiKey);
+      if (!result.success) {
+        setError(result.error);
+        push({ title: "No se pudo conectar", description: result.error });
+        return;
+      }
+
+      setApiKey("");
+      setStatus({
+        hasKey: true,
+        status: "valid",
+        lastValidated: new Date().toISOString(),
+        keyPreview: apiKey.trim()
+          ? `sk-ant-...${apiKey.trim().slice(-8)}`
+          : null,
+      });
+      push({
+        title: "API key conectada",
+        description: "Las llamadas de IA usarán tu cuenta de Claude.",
+        variant: "success",
+      });
+    });
+  };
+
+  const handleRemove = () => {
+    if (
+      !window.confirm(
+        "¿Eliminar tu API key? OTC volverá a usar la key global para IA."
+      )
+    ) {
+      return;
+    }
+
+    setError(null);
+    startRemove(async () => {
+      const result = await removeClaudeApiKeyAction();
+      if (!result.success) {
+        setError(result.error);
+        push({ title: "No se pudo eliminar", description: result.error });
+        return;
+      }
+
+      setStatus({
+        hasKey: false,
+        status: "none",
+        lastValidated: null,
+        keyPreview: null,
+      });
+      push({
+        title: "API key eliminada",
+        description: "Volviste a usar la key de OTC para IA.",
+        variant: "success",
+      });
+    });
+  };
+
+  const validatedLabel = status.lastValidated
+    ? new Date(status.lastValidated).toLocaleString("es", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+
+  return (
+    <section>
+      <SectionHeader icon={KeyRound} label="API de Claude" />
+
+      {status.hasKey ? (
+        <div className="space-y-4 rounded-xl border border-border/60 bg-card/40 p-4 dark:border-glass dark:bg-glass">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="success">Conectada</Badge>
+            {status.status === "invalid" ? (
+              <Badge variant="destructive">Inválida</Badge>
+            ) : null}
+          </div>
+          {status.keyPreview ? (
+            <p className="text-sm text-foreground">
+              Tu API key:{" "}
+              <span className="font-mono text-muted-foreground">
+                {status.keyPreview}
+              </span>
+            </p>
+          ) : null}
+          {validatedLabel ? (
+            <p className="text-xs text-muted-foreground">
+              Validada el: {validatedLabel}
+            </p>
+          ) : null}
+          <p className="text-sm text-muted-foreground">
+            Con tu plan de Claude, el costo mensual de IA en OTC está cubierto
+            por tu suscripción existente.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="border-red-500/40 text-red-400 hover:bg-red-500/10"
+            disabled={removing}
+            onClick={handleRemove}
+          >
+            {removing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Eliminando…
+              </>
+            ) : (
+              "Eliminar key"
+            )}
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4 rounded-xl border border-border/60 bg-card/40 p-4 dark:border-glass dark:bg-glass">
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              Conectá tu API key de Claude
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Usá tu propia cuenta de Claude para procesar IA. Si tenés el plan
+              de $100/mes de Claude, tu API key tiene suficiente capacidad para
+              todo el uso de OTC.
+            </p>
+            <Link
+              href="https://console.anthropic.com/settings/keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1 text-xs text-violet-400 hover:underline"
+            >
+              Obtener API key en console.anthropic.com
+              <ExternalLink className="h-3 w-3" />
+            </Link>
+          </div>
+
+          <div className="space-y-2">
+            <FieldLabel htmlFor="claude-api-key">API key</FieldLabel>
+            <div className="relative max-w-md">
+              <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="claude-api-key"
+                type="password"
+                placeholder="sk-ant-..."
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="pl-9"
+                disabled={connecting}
+              />
+            </div>
+          </div>
+
+          {error ? (
+            <p className="text-sm text-red-400" role="alert">
+              {error}
+            </p>
+          ) : null}
+
+          <Button
+            type="button"
+            className="bg-violet-600 hover:bg-violet-700"
+            disabled={!apiKey.trim() || connecting}
+            onClick={handleConnect}
+          >
+            {connecting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Validando…
+              </>
+            ) : (
+              "Conectar"
+            )}
+          </Button>
+        </div>
+      )}
+    </section>
+  );
+}

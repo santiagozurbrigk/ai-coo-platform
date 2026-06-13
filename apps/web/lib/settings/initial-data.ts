@@ -1,4 +1,8 @@
-import { getOrganizationSettingsAction } from "@/app/settings/actions";
+import {
+  getClaudeApiKeyStatusAction,
+  getOrganizationSettingsAction,
+  type ClaudeApiKeyStatus,
+} from "@/app/settings/actions";
 import { getProfileAreaDataAction } from "@/app/profile/actions";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -10,6 +14,7 @@ export type SettingsInitialData = {
   displayName: string;
   email: string;
   lastSignInAt: string | null;
+  claudeApiKeyStatus: ClaudeApiKeyStatus;
 };
 
 const DEFAULTS: SettingsInitialData = {
@@ -19,6 +24,12 @@ const DEFAULTS: SettingsInitialData = {
   displayName: "Nombre Fundador",
   email: "founder@acme.co",
   lastSignInAt: null,
+  claudeApiKeyStatus: {
+    hasKey: false,
+    status: "none",
+    lastValidated: null,
+    keyPreview: null,
+  },
 };
 
 export async function getSettingsInitialData(): Promise<SettingsInitialData> {
@@ -38,6 +49,12 @@ export async function getSettingsInitialData(): Promise<SettingsInitialData> {
     }
   } catch {
     // Sin sesión o tablas pendientes — mantener defaults
+  }
+
+  try {
+    data.claudeApiKeyStatus = await getClaudeApiKeyStatusAction();
+  } catch {
+    // Mantener default
   }
 
   if (isSupabaseConfigured()) {

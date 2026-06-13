@@ -143,6 +143,7 @@ export type OrgAiCostRow = {
   totalMonthUsd: number;
   marginUsd: number;
   marginPercent: number;
+  aiKeySource: "byok" | "otc";
 };
 
 export type AdminAiCostDashboard = {

@@ -118,6 +118,7 @@ const MOCK_ORG_COSTS: OrgAiCostRow[] = [
     totalMonthUsd: 134.0,
     marginUsd: 84066,
     marginPercent: 99.8,
+    aiKeySource: "byok",
   },
   {
     orgId: "org2",
@@ -133,6 +134,7 @@ const MOCK_ORG_COSTS: OrgAiCostRow[] = [
     totalMonthUsd: 101.0,
     marginUsd: 41899,
     marginPercent: 99.8,
+    aiKeySource: "otc",
   },
   {
     orgId: "org3",
@@ -148,6 +150,7 @@ const MOCK_ORG_COSTS: OrgAiCostRow[] = [
     totalMonthUsd: 34.0,
     marginUsd: 17966,
     marginPercent: 99.8,
+    aiKeySource: "otc",
   },
   {
     orgId: "org4",
@@ -163,6 +166,7 @@ const MOCK_ORG_COSTS: OrgAiCostRow[] = [
     totalMonthUsd: 59.0,
     marginUsd: 24841,
     marginPercent: 99.8,
+    aiKeySource: "otc",
   },
   {
     orgId: "org5",
@@ -178,6 +182,7 @@ const MOCK_ORG_COSTS: OrgAiCostRow[] = [
     totalMonthUsd: 3.7,
     marginUsd: -3.7,
     marginPercent: 0,
+    aiKeySource: "otc",
   },
 ];
 

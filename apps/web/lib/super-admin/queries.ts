@@ -112,6 +112,20 @@ export async function loadAiCostDashboard(): Promise<AdminAiCostDashboard> {
 
   const { summary, orgRows } = await loadProfitabilityData();
   const orgs = await loadOrganizationsList();
+  const admin = createAdminClient();
+  const { data: byokRows } = await admin
+    .from("organizations")
+    .select("id, claude_api_key_encrypted, claude_api_key_status");
+
+  const byokOrgIds = new Set(
+    (byokRows ?? [])
+      .filter(
+        (row) =>
+          row.claude_api_key_encrypted &&
+          row.claude_api_key_status === "valid"
+      )
+      .map((row) => row.id as string)
+  );
 
   const organizations = orgRows.map((row) => {
     const org = orgs.find((o) => o.id === row.orgId);
@@ -132,6 +146,7 @@ export async function loadAiCostDashboard(): Promise<AdminAiCostDashboard> {
       marginUsd: row.estimatedMarginUsd,
       marginPercent:
         row.mrrUsd > 0 ? (row.estimatedMarginUsd / row.mrrUsd) * 100 : 0,
+      aiKeySource: byokOrgIds.has(row.orgId) ? ("byok" as const) : ("otc" as const),
     };
   });
 

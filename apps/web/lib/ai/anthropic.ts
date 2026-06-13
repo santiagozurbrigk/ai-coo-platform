@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { trackTokenUsage, type TokenUsageModel } from "@/lib/track-token-usage";
 
 export type ClaudeModel =
@@ -13,7 +14,10 @@ const MODEL_MAP: Record<ClaudeModel, string> = {
   "claude-sonnet-4-6": "claude-sonnet-4-5-20250929",
 };
 
-function getClient(): Anthropic | null {
+const orgKeyCache = new Map<string, { key: string; cachedAt: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+function getGlobalClient(): Anthropic | null {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
   if (!key) return null;
   return new Anthropic({ apiKey: key });
@@ -24,6 +28,47 @@ function getClient(): Anthropic | null {
 
 export function isAnthropicConfigured(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+}
+
+export function invalidateOrgKeyCache(organizationId: string): void {
+  orgKeyCache.delete(organizationId);
+}
+
+export async function getClientForOrg(
+  organizationId?: string
+): Promise<Anthropic | null> {
+  if (!organizationId) {
+    return getGlobalClient();
+  }
+
+  const cached = orgKeyCache.get(organizationId);
+  if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
+    return new Anthropic({ apiKey: cached.key });
+  }
+
+  try {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("organizations")
+      .select("claude_api_key_encrypted, claude_api_key_status")
+      .eq("id", organizationId)
+      .maybeSingle();
+
+    if (
+      data?.claude_api_key_encrypted &&
+      data.claude_api_key_status === "valid"
+    ) {
+      orgKeyCache.set(organizationId, {
+        key: data.claude_api_key_encrypted,
+        cachedAt: Date.now(),
+      });
+      return new Anthropic({ apiKey: data.claude_api_key_encrypted });
+    }
+  } catch {
+    // Fallback a key global
+  }
+
+  return getGlobalClient();
 }
 
 export type ClaudeJsonRequest = {
@@ -47,9 +92,9 @@ export type ClaudeTextRequest = {
 export async function callClaudeText(
   req: ClaudeTextRequest
 ): Promise<string | null> {
-  const client = getClient();
+  const client = await getClientForOrg(req.organizationId);
   if (!client) {
-    console.warn("[callClaudeText] ANTHROPIC_API_KEY no configurada");
+    console.warn("[callClaudeText] Sin API key (org BYOK ni ANTHROPIC_API_KEY)");
     return null;
   }
 
@@ -69,7 +114,7 @@ export async function callClaudeText(
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
     feature: req.feature,
-  });
+  }).catch(() => {});
 
   const textBlock = response.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") return null;
@@ -79,9 +124,9 @@ export async function callClaudeText(
 export async function callClaudeJson<T>(
   req: ClaudeJsonRequest
 ): Promise<T | null> {
-  const client = getClient();
+  const client = await getClientForOrg(req.organizationId);
   if (!client) {
-    console.warn("[callClaudeJson] ANTHROPIC_API_KEY no configurada");
+    console.warn("[callClaudeJson] Sin API key (org BYOK ni ANTHROPIC_API_KEY)");
     return null;
   }
 
@@ -101,7 +146,7 @@ export async function callClaudeJson<T>(
     inputTokens,
     outputTokens,
     feature: req.feature,
-  });
+  }).catch(() => {});
 
   const textBlock = response.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") return null;
