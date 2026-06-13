@@ -192,6 +192,8 @@ export function WorkboardTimeReport() {
   }, []);
 
   const data = reports;
+  const totalHours = data.reduce((sum, r) => sum + r.totalHours, 0);
+  const insights = useMemo(() => buildAutomationInsights(data), [data]);
 
   if (loading) {
     return (
