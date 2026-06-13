@@ -68,6 +68,22 @@ type WorkboardContextValue = {
 
 const WorkboardContext = createContext<WorkboardContextValue | null>(null);
 
+function applyTaskPatch(
+  prev: WorkboardTask,
+  patch: TaskUpdatePatch
+): WorkboardTask {
+  return {
+    ...prev,
+    ...patch,
+    dueDate:
+      patch.dueDate !== undefined
+        ? (patch.dueDate ?? undefined)
+        : prev.dueDate,
+    assigneeId:
+      patch.assigneeId !== undefined ? patch.assigneeId : prev.assigneeId,
+  };
+}
+
 export function WorkboardProvider({
   initialTasks,
   members,
@@ -187,7 +203,7 @@ export function WorkboardProvider({
       if (!prev) return;
 
       if (patch.status === "done" && prev.status !== "done") {
-        setPendingCompleteTask({ ...prev, ...patch });
+        setPendingCompleteTask(applyTaskPatch(prev, patch));
         setPendingCompletePatch(patch);
         return;
       }
