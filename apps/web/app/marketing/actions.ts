@@ -20,6 +20,7 @@ import {
 } from "@/lib/utm/build-links";
 import { slugifyCampaign } from "@/lib/utm/slugify-campaign";
 import type {
+  UTMBookingAttributionRow,
   UTMLeadCaptureRow,
   UTMLinkRow,
   UTMFunnelData,
@@ -360,6 +361,31 @@ export async function getUTMLeadsAction(
   });
 }
 
+function mapClosingCallEmbed(
+  raw: unknown
+): UTMBookingAttributionRow["closing_calls"] {
+  if (!raw) return null;
+  const embedded = Array.isArray(raw) ? raw[0] : raw;
+  if (!embedded || typeof embedded !== "object") return null;
+  const row = embedded as Record<string, unknown>;
+  return {
+    lead_name: (row.lead_name as string) ?? "",
+    scheduled_at: (row.scheduled_at as string) ?? "",
+    status: (row.status as string) ?? "",
+  };
+}
+
+function mapClientEmbed(raw: unknown): UTMSaleAttributionRow["clients"] {
+  if (!raw) return null;
+  const embedded = Array.isArray(raw) ? raw[0] : raw;
+  if (!embedded || typeof embedded !== "object") return null;
+  const row = embedded as Record<string, unknown>;
+  return {
+    name: (row.name as string) ?? "",
+    status: (row.status as string) ?? "",
+  };
+}
+
 export async function getUTMFunnelAction(
   utmLinkId: string
 ): Promise<MutationResult<UTMFunnelData>> {
@@ -400,12 +426,18 @@ export async function getUTMFunnelAction(
       leads: (captures.data ?? []).map((row) =>
         rowToUTMLead(row as Record<string, unknown>)
       ),
-      bookings: (bookings.data ?? []) as UTMFunnelData["bookings"],
+      bookings: (bookings.data ?? []).map((row) => ({
+        id: row.id as string,
+        lead_name: (row.lead_name as string | null) ?? null,
+        lead_email: (row.lead_email as string | null) ?? null,
+        booked_at: row.booked_at as string,
+        closing_calls: mapClosingCallEmbed(row.closing_calls),
+      })),
       sales: salesRows.map((row) => ({
         id: row.id as string,
         revenue: Number(row.revenue ?? 0),
         sold_at: row.sold_at as string,
-        clients: row.clients as UTMSaleAttributionRow["clients"],
+        clients: mapClientEmbed(row.clients),
       })),
       totalRevenue: salesRows.reduce(
         (sum, s) => sum + Number(s.revenue ?? 0),
