@@ -215,6 +215,38 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - Los riesgos tienen niveles: high (rojo), medium (amarillo), low (verde).
 - **Grid de departamentos:** sigue usando métricas mock hasta conectar datos operacionales por área (Phase 2).
 
+### Workboard — Time Tracking
+
+**Flujo de carga de tiempo:**
+- Al mover una tarea a "Hecho" (drag o desde el detalle) → aparece modal
+  "¿Cuánto tiempo le dedicaste?" con campos de horas y minutos.
+- El usuario puede registrar el tiempo o hacer "Omitir" para completar
+  sin registrar.
+- Si la tarea tenía tiempo estimado → el modal muestra la diferencia
+  (verde si tardó menos, rojo si tardó más).
+
+**Reporte "Tiempo por persona":**
+- Carga datos reales desde la vista `workboard_time_by_member`.
+- Fallback a mock si no hay tareas completadas con tiempo registrado.
+- Muestra: horas totales, top 3 tareas, % estratégico vs operativo,
+  costo estimado si el miembro tiene tarifa por hora configurada.
+
+**Costo por tarea:**
+- El founder/admin puede configurar la tarifa por hora de cada miembro
+  en Equipo → columna "Tarifa / hora" (USD o ARS).
+- El reporte calcula automáticamente el costo de cada tarea:
+  costo = actual_minutes / 60 * hourly_rate
+
+**Insights de automatización (reglas automáticas):**
+- Tarea repetida 3+ veces → sugerencia de crear SOP
+- Tarea que consume >30% del tiempo de una persona → sugerencia de delegar
+- Estimaciones optimistas (real > 2x estimado) → alerta de planificación
+- Estas reglas corren en el cliente sin IA (Phase 2: recomendaciones con Claude)
+
+**Limitación actual:**
+- El timer en tiempo real (iniciar/pausar/detener) no está implementado.
+  Solo carga manual al completar la tarea. Phase 2.
+
 ### Ventas
 
 - **Inbox:** `conversations` reales (ManyChat) o seed mock si tabla vacía sin ManyChat.
