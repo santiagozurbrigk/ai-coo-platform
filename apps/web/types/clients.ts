@@ -7,6 +7,7 @@ export type ClientLinkedCall = {
   date: string;
   duration: string;
   url: string;
+  fathomCallId?: string;
   closerName?: string;
   analysis?: DeepCallAnalysis;
 };

@@ -1,8 +1,22 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { analyzeFathomTranscript } from "@/lib/fathom/analyze-transcript";
+import { generateDeepCallAnalysis } from "@/lib/fathom/deep-call-analysis";
 import { associateCallWithClients } from "@/lib/fathom/associate";
 import { isManualFathomLink } from "@/lib/fathom/client-matcher";
 import { fetchFathomMeetingTitle } from "@/lib/fathom/api";
+import type { CalendlyFormAnswer } from "@/types/closing";
+
+function formAnswersToRecord(
+  answers: CalendlyFormAnswer[] | null | undefined
+): Record<string, string> | undefined {
+  if (!answers?.length) return undefined;
+  const record: Record<string, string> = {};
+  for (const item of answers) {
+    const key = item.question?.trim() || "Pregunta";
+    record[key] = item.answer?.trim() ?? "";
+  }
+  return record;
+}
 
 export type FathomCallRow = {
   id: string;
@@ -16,6 +30,8 @@ export type FathomCallRow = {
   association_confidence?: number | null;
   fathom_url: string | null;
   processed_after: string | null;
+  duration_seconds?: number | null;
+  call_date?: string | null;
 };
 
 export async function processPendingFathomCalls(limit = 20): Promise<number> {
@@ -86,11 +102,14 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
       callId: call.id,
       organizationId: call.organization_id,
       clientId: linkedClientId,
+      fathomCallId: call.fathom_call_id,
       title,
       rawTitle: call.raw_title ?? call.title,
       transcript: call.transcript,
       fathomUrl: call.fathom_url,
       confidence: linkConfidence,
+      durationSeconds: call.duration_seconds,
+      callDate: call.call_date,
     });
     return;
   }
@@ -140,11 +159,14 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
     callId: call.id,
     organizationId: call.organization_id,
     clientId: association.clientId,
+    fathomCallId: call.fathom_call_id,
     title,
     rawTitle: call.raw_title ?? call.title,
     transcript: call.transcript,
     fathomUrl: call.fathom_url,
     confidence: association.confidence,
+    durationSeconds: call.duration_seconds,
+    callDate: call.call_date,
   });
 }
 
@@ -152,11 +174,14 @@ export async function finalizeAssociatedCall(params: {
   callId: string;
   organizationId: string;
   clientId: string;
+  fathomCallId: string;
   title: string;
   rawTitle: string;
   transcript: string | null;
   fathomUrl: string | null;
   confidence: number;
+  durationSeconds?: number | null;
+  callDate?: string | null;
 }): Promise<void> {
   const admin = createAdminClient();
 
@@ -165,6 +190,8 @@ export async function finalizeAssociatedCall(params: {
     .select("name")
     .eq("id", params.clientId)
     .single();
+
+  const leadName = client?.name ?? "Cliente";
 
   const { data: previousCalls } = await admin
     .from("fathom_calls")
@@ -233,6 +260,40 @@ export async function finalizeAssociatedCall(params: {
       detected_from: "fathom_call",
       source_id: params.callId,
       status: "active",
+    });
+  }
+
+  const durationMinutes =
+    params.durationSeconds != null
+      ? Math.max(1, Math.round(params.durationSeconds / 60))
+      : undefined;
+
+  if (params.transcript?.trim() && durationMinutes && durationMinutes >= 10) {
+    const { data: closingCall } = await admin
+      .from("closing_calls")
+      .select("form_answers")
+      .eq("organization_id", params.organizationId)
+      .ilike("lead_name", `%${leadName}%`)
+      .order("scheduled_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    // TODO Phase 2: mover a BullMQ queue
+    void generateDeepCallAnalysis({
+      organizationId: params.organizationId,
+      fathomCallId: params.fathomCallId,
+      transcript: params.transcript,
+      leadName,
+      durationMinutes,
+      formAnswers: formAnswersToRecord(
+        closingCall?.form_answers as CalendlyFormAnswer[] | null
+      ),
+      callTitle: params.title,
+      callDate: params.callDate,
+      fathomUrl: params.fathomUrl,
+      clientId: params.clientId,
+    }).catch((err) => {
+      console.error("[ProcessCall] Error en deep analysis:", err);
     });
   }
 }

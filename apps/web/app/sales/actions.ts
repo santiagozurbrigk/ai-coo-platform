@@ -13,6 +13,9 @@ import {
   mockTeamRanking,
 } from "@/mocks/call-analyses";
 import type { TeamRankingEntry } from "@/types/call-analysis";
+import type { FrequentObjection } from "@/types/sales";
+import { getFrequentObjections } from "@/lib/metrics/frequent-objections";
+import { mockFrequentObjections } from "@/mocks/sales";
 
 type CallAnalysisRow = {
   closer_id: string | null;
@@ -165,4 +168,21 @@ export async function getTeamAverageEvolutionAction(): Promise<number[]> {
 /** Expuesto para validar mocks en desarrollo */
 export async function getMockCallAnalysisKeysAction() {
   return Object.keys(mockCallAnalyses);
+}
+
+export async function getFrequentObjectionsAction(): Promise<{
+  objections: FrequentObjection[];
+  fromCallAnalyses: boolean;
+}> {
+  if (!isSupabaseConfigured()) {
+    return { objections: mockFrequentObjections, fromCallAnalyses: false };
+  }
+
+  try {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    return await getFrequentObjections(organizationId, supabase);
+  } catch {
+    return { objections: mockFrequentObjections, fromCallAnalyses: false };
+  }
 }

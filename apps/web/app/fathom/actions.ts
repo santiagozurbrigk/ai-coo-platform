@@ -178,11 +178,14 @@ export async function associateFathomCallAction(
       callId: call.id,
       organizationId,
       clientId,
+      fathomCallId: call.fathom_call_id,
       title: call.title,
       rawTitle: call.raw_title ?? call.title,
       transcript: call.transcript,
       fathomUrl: call.fathom_url,
       confidence: 1,
+      durationSeconds: call.duration_seconds,
+      callDate: call.call_date,
     });
 
     revalidatePending();

@@ -1,11 +1,16 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { trackTokenUsage, type TokenUsageModel } from "@/lib/track-token-usage";
 
-export type ClaudeModel = "claude-haiku-4-5" | "claude-sonnet-4-5";
+export type ClaudeModel =
+  | "claude-haiku-4-5"
+  | "claude-sonnet-4-5"
+  | "claude-sonnet-4-6";
 
 const MODEL_MAP: Record<ClaudeModel, string> = {
   "claude-haiku-4-5": "claude-haiku-4-5-20251001",
   "claude-sonnet-4-5": "claude-sonnet-4-5-20250929",
+  /** Alias de producto; API actual usa Sonnet 4.5 hasta disponibilidad de 4.6 */
+  "claude-sonnet-4-6": "claude-sonnet-4-5-20250929",
 };
 
 function getClient(): Anthropic | null {

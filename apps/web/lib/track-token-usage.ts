@@ -9,6 +9,10 @@ export const MODEL_PRICING = {
     input: 0.000003,
     output: 0.000015,
   },
+  "claude-sonnet-4-6": {
+    input: 0.000003,
+    output: 0.000015,
+  },
   "claude-opus-4-5": {
     input: 0.000015,
     output: 0.000075,

@@ -22,17 +22,23 @@ const CATEGORY_VARIANT: Record<
 
 export function FrequentObjectionsPanel({
   objections,
+  dataSource = "fallback",
 }: {
   objections: FrequentObjection[];
+  dataSource?: "calls" | "fallback";
 }) {
   if (objections.length === 0) return null;
 
   const sorted = [...objections].sort((a, b) => b.frequency - a.frequency);
+  const subtitle =
+    dataSource === "calls"
+      ? "Detectadas en análisis de calls — últimos 30 días"
+      : "Detectadas en conversaciones y calls — demo";
 
   return (
     <Panel
       title="Objeciones frecuentes esta semana"
-      subtitle="Detectadas en conversaciones y calls — mock"
+      subtitle={subtitle}
     >
       <ul className="space-y-3">
         {sorted.map((objection, index) => (
@@ -55,13 +61,19 @@ export function FrequentObjectionsPanel({
               <Badge variant={CATEGORY_VARIANT[objection.category]}>
                 {CATEGORY_LABEL[objection.category]}
               </Badge>
-              <Link
-                href={`${paths.platform.sales.inbox}?c=${objection.conversationId}`}
-                className="inline-flex items-center gap-1 text-xs text-violet-400 transition-colors hover:text-violet-300"
-              >
-                {objection.leadName}
-                <ArrowUpRight className="h-3 w-3" />
-              </Link>
+              {objection.conversationId !== "call-analysis" ? (
+                <Link
+                  href={`${paths.platform.sales.inbox}?c=${objection.conversationId}`}
+                  className="inline-flex items-center gap-1 text-xs text-violet-400 transition-colors hover:text-violet-300"
+                >
+                  {objection.leadName}
+                  <ArrowUpRight className="h-3 w-3" />
+                </Link>
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  {objection.leadName}
+                </span>
+              )}
             </div>
           </li>
         ))}

@@ -11,7 +11,7 @@ import { formatPercent } from "@/lib/format";
 import { padTimeSeriesZeros } from "@/lib/chart/pad-time-series";
 import type { SalesMetricsData } from "@/types/sales";
 import { CloserPerformancePanel } from "./closer-performance-panel";
-import { FrequentObjectionsPanel } from "./frequent-objections-panel";
+import { FrequentObjectionsSection } from "./frequent-objections-section";
 import { SalesTeamPerformanceSection } from "./sales-team-performance-section";
 import { cn } from "@/lib/utils";
 
@@ -108,7 +108,7 @@ export function SalesMetricsOverview({ data }: { data: SalesMetricsData }) {
         </BentoGrid>
       </section>
 
-      <FrequentObjectionsPanel objections={data.frequentObjections} />
+      <FrequentObjectionsSection />
 
       <Panel
         title="Tendencia de agendamientos — últimos 7 días"
