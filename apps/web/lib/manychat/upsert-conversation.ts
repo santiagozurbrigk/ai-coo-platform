@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { attributeConversationFromManyChatRef } from "@/lib/utm/attribute-manychat-ref";
 import type { ConversationAnalysis, SalesMessage } from "@/types/sales";
+import { scoreConversation } from "./score-conversation";
 
 export type ManyChatConversationInbound = {
   subscriberId: string;
@@ -16,9 +17,14 @@ type ConversationRow = {
   messages: SalesMessage[];
 };
 
+export type ManyChatUpsertResult = {
+  inserted: boolean;
+  updated: boolean;
+  conversationId: string;
+  messages: SalesMessage[];
+};
+
 function defaultAnalysis(): ConversationAnalysis {
-  // TODO: Phase 2 — usar claude-haiku-4-5 para scoring y análisis de conversación
-  // TODO: Phase 2 — implementar prompt caching aquí (SOPs, contexto org)
   return {
     responseTimeMinutes: 0,
     ghostingRisk: "medium",
@@ -31,11 +37,40 @@ export function manyChatExternalRef(subscriberId: string): string {
   return `manychat:${subscriberId}`;
 }
 
+function toScoringMessages(messages: SalesMessage[]) {
+  return messages.map((m) => ({
+    sender: m.sender,
+    message: m.content,
+    timestamp: m.timestamp,
+  }));
+}
+
+function triggerConversationScoring(params: {
+  organizationId: string;
+  conversationId: string;
+  messages: SalesMessage[];
+  leadName: string;
+}) {
+  const shouldScore =
+    params.messages.length >= 3 && params.messages.length % 5 === 0;
+
+  if (!shouldScore) return;
+
+  void scoreConversation({
+    organizationId: params.organizationId,
+    conversationId: params.conversationId,
+    messages: toScoringMessages(params.messages),
+    leadName: params.leadName,
+  }).catch((err) => {
+    console.error("[UpsertConversation] Error en scoring:", err);
+  });
+}
+
 export async function upsertConversationFromManyChat(
   supabase: SupabaseClient,
   organizationId: string,
   inbound: ManyChatConversationInbound
-): Promise<{ inserted: boolean; updated: boolean }> {
+): Promise<ManyChatUpsertResult> {
   const externalRef = manyChatExternalRef(inbound.subscriberId);
   const timestamp = inbound.timestamp ?? new Date().toISOString();
   const sender = inbound.sender ?? "lead";
@@ -71,7 +106,30 @@ export async function upsertConversationFromManyChat(
       .eq("id", row.id);
 
     if (updateError) throw new Error(updateError.message);
-    return { inserted: false, updated: true };
+
+    if (inbound.ref) {
+      await attributeConversationFromManyChatRef(
+        supabase,
+        organizationId,
+        row.id,
+        inbound.ref,
+        externalRef
+      );
+    }
+
+    triggerConversationScoring({
+      organizationId,
+      conversationId: row.id,
+      messages,
+      leadName: inbound.leadName,
+    });
+
+    return {
+      inserted: false,
+      updated: true,
+      conversationId: row.id,
+      messages,
+    };
   }
 
   const { data: inserted, error: insertError } = await supabase
@@ -92,8 +150,11 @@ export async function upsertConversationFromManyChat(
     .single();
 
   if (insertError) throw new Error(insertError.message);
+  if (!inserted?.id) throw new Error("No se pudo crear la conversación");
 
-  if (inbound.ref && inserted?.id) {
+  const messages = [newMessage];
+
+  if (inbound.ref) {
     await attributeConversationFromManyChatRef(
       supabase,
       organizationId,
@@ -103,5 +164,17 @@ export async function upsertConversationFromManyChat(
     );
   }
 
-  return { inserted: true, updated: false };
+  triggerConversationScoring({
+    organizationId,
+    conversationId: inserted.id,
+    messages,
+    leadName: inbound.leadName,
+  });
+
+  return {
+    inserted: true,
+    updated: false,
+    conversationId: inserted.id,
+    messages,
+  };
 }

@@ -107,7 +107,7 @@ export function SalesInboxLayout() {
       </div>
 
       <div className="hidden h-full w-[240px] min-w-[240px] max-w-[280px] shrink-0 overflow-y-auto overflow-x-hidden border-l border-border bg-card md:block lg:w-[280px] lg:min-w-[280px]">
-        {selected && <ConversationAnalysisPanel analysis={selected.analysis} />}
+        {selected && <ConversationAnalysisPanel conversation={selected} />}
       </div>
     </div>
   );

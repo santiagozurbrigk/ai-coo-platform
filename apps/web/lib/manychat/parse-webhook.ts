@@ -80,6 +80,12 @@ function resolveRef(body: Record<string, unknown>): string | null {
     if (fromReferral) return fromReferral;
   }
 
+  const customFields = pickRecord(body.custom_fields);
+  if (customFields) {
+    const fromCustom = pickString(customFields, ["ref", "utm_ref", "manychat_ref"]);
+    if (fromCustom) return fromCustom;
+  }
+
   const nested =
     pickRecord(body.subscriber) ??
     pickRecord(body.contact) ??

@@ -11,6 +11,8 @@ export type SalesMessage = {
 
 export type QualificationTier = "low" | "medium" | "high";
 
+export type ConversationAiLabel = "hot" | "warm" | "cold" | "unqualified";
+
 export type LeadQualificationScore = {
   /** Score final 1–100 */
   overall: number;
@@ -48,6 +50,16 @@ export type Conversation = {
   unread: boolean;
   messages: SalesMessage[];
   analysis: ConversationAnalysis;
+  aiScore?: number;
+  aiLabel?: ConversationAiLabel;
+  aiSummary?: string;
+  aiBookingSignals?: string[];
+  aiGhostingSignals?: string[];
+  aiDetectedObjections?: Array<{ text: string; category: ObjectionCategory }>;
+  aiRecommendedAction?: string;
+  sourceVideoTitle?: string;
+  utmCampaign?: string;
+  lastAnalyzedAt?: string;
 };
 
 export type ObjectionCategory = "closing" | "setting" | "marketing";
