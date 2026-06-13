@@ -1,8 +1,8 @@
 "use client";
 
-import { X } from "lucide-react";
-import { cn } from "@ai-coo/ui";
-import type { UTMLeadCaptureRow, UTMLinkRow } from "@/types/utm";
+import { ArrowDown, X } from "lucide-react";
+import { Badge, cn } from "@ai-coo/ui";
+import type { UTMFunnelData, UTMLinkRow } from "@/types/utm";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("es-AR", {
@@ -13,26 +13,98 @@ function formatDate(iso: string): string {
   });
 }
 
+function formatMoney(value: number): string {
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function conversionPct(from: number, to: number): string {
+  if (from === 0) return "0%";
+  return `${Math.round((to / from) * 100)}%`;
+}
+
+function bookingStatusLabel(status?: string): string {
+  switch (status) {
+    case "closed":
+      return "Completado";
+    case "no_show":
+      return "No show";
+    case "not_closed":
+      return "No cerrado";
+    default:
+      return "Agendado";
+  }
+}
+
+function roiBadge(totalRevenue: number) {
+  if (totalRevenue >= 1000) {
+    return (
+      <Badge variant="success" className="text-[10px]">
+        Alto impacto
+      </Badge>
+    );
+  }
+  if (totalRevenue >= 100) {
+    return (
+      <Badge variant="warning" className="text-[10px]">
+        Impacto medio
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-[10px] text-muted-foreground">
+      Bajo impacto
+    </Badge>
+  );
+}
+
+function FunnelStep({
+  label,
+  count,
+  children,
+}: {
+  label: string;
+  count: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}: {count}
+      </h3>
+      <div className="mt-2">{children}</div>
+    </section>
+  );
+}
+
 export function UTMLeadsSheet({
   open,
   onOpenChange,
   link,
-  leads,
+  funnel,
   loading,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   link: UTMLinkRow | null;
-  leads: UTMLeadCaptureRow[];
+  funnel: UTMFunnelData | null;
   loading?: boolean;
 }) {
+  const leads = funnel?.leads ?? [];
+  const bookings = funnel?.bookings ?? [];
+  const sales = funnel?.sales ?? [];
+  const totalRevenue = funnel?.totalRevenue ?? 0;
+
   return (
     <>
       {open ? (
         <button
           type="button"
           className="fixed inset-0 z-40 cursor-default bg-black/50"
-          aria-label="Cerrar panel de leads"
+          aria-label="Cerrar panel de funnel"
           onClick={() => onOpenChange(false)}
         />
       ) : null}
@@ -47,10 +119,10 @@ export function UTMLeadsSheet({
         <div className="mb-6 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-base font-medium text-foreground">
-              Leads del UTM
+              Funnel — {link?.youtube_video_title ?? link?.utm_campaign ?? "UTM"}
             </h2>
             <p className="mt-1 truncate text-xs text-muted-foreground">
-              {link?.youtube_video_title ?? link?.utm_campaign ?? "—"}
+              {link?.utm_campaign}
             </p>
           </div>
           <button
@@ -64,45 +136,135 @@ export function UTMLeadsSheet({
         </div>
 
         {loading ? (
-          <p className="text-sm text-muted-foreground">Cargando leads…</p>
-        ) : leads.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Todavía no hay leads capturados para este UTM.
-          </p>
+          <p className="text-sm text-muted-foreground">Cargando funnel…</p>
         ) : (
-          <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-            {leads.map((lead) => (
-              <li
-                key={lead.id}
-                className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 dark:border-glass dark:bg-glass dark:backdrop-blur-md"
-              >
-                <p className="text-sm font-medium text-foreground">
-                  {lead.lead_email ?? lead.lead_identifier ?? "Lead anónimo"}
+          <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
+            <FunnelStep label="Leads capturados" count={leads.length}>
+              {leads.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Todavía no hay leads para este UTM.
                 </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {formatDate(lead.captured_at)}
-                  {lead.utm_content ? ` · ${lead.utm_content}` : ""}
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {leads.map((lead) => (
+                    <li
+                      key={lead.id}
+                      className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 dark:border-glass dark:bg-glass"
+                    >
+                      <p className="text-sm font-medium text-foreground">
+                        {lead.lead_email ??
+                          lead.lead_identifier ??
+                          "Lead anónimo"}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {formatDate(lead.captured_at)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </FunnelStep>
+
+            {leads.length > 0 ? (
+              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <ArrowDown className="h-3.5 w-3.5" />
+                conversión {conversionPct(leads.length, bookings.length)}
+              </div>
+            ) : null}
+
+            <FunnelStep label="Bookings atribuidos" count={bookings.length}>
+              {bookings.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Sin bookings atribuidos aún.
                 </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {lead.converted_to_conversation ? (
-                    <span className="rounded-full bg-violet-900/20 px-2 py-0.5 text-[10px] text-violet-400">
-                      Conversación
-                    </span>
-                  ) : null}
-                  {lead.converted_to_booking ? (
-                    <span className="rounded-full bg-emerald-900/20 px-2 py-0.5 text-[10px] text-emerald-400">
-                      Booking
-                    </span>
-                  ) : null}
-                  {lead.converted_to_sale ? (
-                    <span className="rounded-full bg-emerald-900/20 px-2 py-0.5 text-[10px] text-emerald-400">
-                      Venta
-                    </span>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {bookings.map((booking) => {
+                    const call = booking.closing_calls;
+                    const name =
+                      booking.lead_name ??
+                      call?.lead_name ??
+                      "Lead sin nombre";
+                    const status = call?.status ?? "scheduled";
+                    return (
+                      <li
+                        key={booking.id}
+                        className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 dark:border-glass dark:bg-glass"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-medium text-foreground">
+                            {name}
+                          </p>
+                          <span className="shrink-0 rounded-full bg-emerald-900/20 px-2 py-0.5 text-[10px] text-emerald-400">
+                            {bookingStatusLabel(status)}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {formatDate(booking.booked_at)}
+                          {call?.scheduled_at
+                            ? ` · call ${formatDate(call.scheduled_at)}`
+                            : ""}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </FunnelStep>
+
+            {bookings.length > 0 ? (
+              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <ArrowDown className="h-3.5 w-3.5" />
+                conversión {conversionPct(bookings.length, sales.length)}
+              </div>
+            ) : null}
+
+            <FunnelStep
+              label={`Ventas cerradas — ${formatMoney(totalRevenue)} total`}
+              count={sales.length}
+            >
+              {sales.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Sin ventas atribuidas aún.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {sales.map((sale) => (
+                    <li
+                      key={sale.id}
+                      className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 dark:border-glass dark:bg-glass"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium text-foreground">
+                          {sale.clients?.name ?? "Cliente"}
+                        </p>
+                        <p className="text-sm font-semibold tabular-nums text-emerald-400">
+                          {formatMoney(sale.revenue)}
+                        </p>
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {formatDate(sale.sold_at)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </FunnelStep>
+
+            <div className="mt-2 rounded-lg border border-border/60 bg-muted/30 p-4 dark:border-glass">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                ROI del video
+              </p>
+              <p className="mt-2 text-sm text-foreground">
+                Este video generó{" "}
+                <span className="font-semibold text-emerald-400">
+                  {formatMoney(totalRevenue)}
+                </span>{" "}
+                en ventas directas
+              </p>
+              <div className="mt-2">{roiBadge(totalRevenue)}</div>
+            </div>
+          </div>
         )}
       </aside>
     </>

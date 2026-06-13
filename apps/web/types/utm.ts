@@ -40,6 +40,35 @@ export type UTMLeadCaptureRow = {
   converted_to_sale: boolean;
 };
 
+export type UTMBookingAttributionRow = {
+  id: string;
+  lead_name: string | null;
+  lead_email: string | null;
+  booked_at: string;
+  closing_calls?: {
+    lead_name: string;
+    scheduled_at: string;
+    status: string;
+  } | null;
+};
+
+export type UTMSaleAttributionRow = {
+  id: string;
+  revenue: number;
+  sold_at: string;
+  clients?: {
+    name: string;
+    status: string;
+  } | null;
+};
+
+export type UTMFunnelData = {
+  leads: UTMLeadCaptureRow[];
+  bookings: UTMBookingAttributionRow[];
+  sales: UTMSaleAttributionRow[];
+  totalRevenue: number;
+};
+
 export const UTM_CONTENT_OPTIONS = [
   { value: "descripcion", label: "Descripción del video" },
   { value: "primer-comentario", label: "Primer comentario" },

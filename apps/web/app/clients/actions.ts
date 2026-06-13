@@ -12,6 +12,7 @@ import {
 } from "@/lib/clients/mapper";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { attributeSaleToUTM } from "@/lib/utm/attribute-booking";
 import type { Client } from "@/types/clients";
 
 export async function listClientsAction(): Promise<Client[]> {
@@ -70,7 +71,18 @@ export async function createClientAction(
     throw new Error(msg);
   }
 
-  return rowToClient(data as ClientRow);
+  const saved = rowToClient(data as ClientRow);
+
+  await attributeSaleToUTM({
+    organizationId,
+    clientId: saved.id,
+    closingCallId: saved.closingCallId,
+    revenue: saved.totalAmount,
+  }).catch((err) => {
+    console.error("[CreateClient] Error en atribución UTM de venta:", err);
+  });
+
+  return saved;
 }
 
 export async function updateClientAction(

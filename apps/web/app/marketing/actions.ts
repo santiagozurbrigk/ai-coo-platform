@@ -19,7 +19,12 @@ import {
   resolveUtmLinkType,
 } from "@/lib/utm/build-links";
 import { slugifyCampaign } from "@/lib/utm/slugify-campaign";
-import type { UTMLeadCaptureRow, UTMLinkRow } from "@/types/utm";
+import type {
+  UTMLeadCaptureRow,
+  UTMLinkRow,
+  UTMFunnelData,
+  UTMSaleAttributionRow,
+} from "@/types/utm";
 
 export type ContentAssetView = {
   id: string;
@@ -352,6 +357,61 @@ export async function getUTMLeadsAction(
     return (data ?? []).map((row) =>
       rowToUTMLead(row as Record<string, unknown>)
     );
+  });
+}
+
+export async function getUTMFunnelAction(
+  utmLinkId: string
+): Promise<MutationResult<UTMFunnelData>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const [captures, bookings, sales] = await Promise.all([
+      supabase
+        .from("utm_lead_captures")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .eq("utm_link_id", utmLinkId)
+        .order("captured_at", { ascending: false }),
+
+      supabase
+        .from("utm_booking_attributions")
+        .select("id, lead_name, lead_email, booked_at, closing_calls(lead_name, scheduled_at, status)")
+        .eq("organization_id", organizationId)
+        .eq("utm_link_id", utmLinkId)
+        .order("booked_at", { ascending: false }),
+
+      supabase
+        .from("utm_sale_attributions")
+        .select("id, revenue, sold_at, clients(name, status)")
+        .eq("organization_id", organizationId)
+        .eq("utm_link_id", utmLinkId)
+        .order("sold_at", { ascending: false }),
+    ]);
+
+    if (captures.error) throw new Error(captures.error.message);
+    if (bookings.error) throw new Error(bookings.error.message);
+    if (sales.error) throw new Error(sales.error.message);
+
+    const salesRows = sales.data ?? [];
+
+    return {
+      leads: (captures.data ?? []).map((row) =>
+        rowToUTMLead(row as Record<string, unknown>)
+      ),
+      bookings: (bookings.data ?? []) as UTMFunnelData["bookings"],
+      sales: salesRows.map((row) => ({
+        id: row.id as string,
+        revenue: Number(row.revenue ?? 0),
+        sold_at: row.sold_at as string,
+        clients: row.clients as UTMSaleAttributionRow["clients"],
+      })),
+      totalRevenue: salesRows.reduce(
+        (sum, s) => sum + Number(s.revenue ?? 0),
+        0
+      ),
+    };
   });
 }
 

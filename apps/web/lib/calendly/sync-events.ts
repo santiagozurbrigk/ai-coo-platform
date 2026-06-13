@@ -2,6 +2,7 @@ import {
   isMissingTableError,
 } from "@/lib/auth/bootstrap";
 import { repairClosingConversationLinks } from "@/lib/conversations/repair-links";
+import { attributeBookingToUTM } from "@/lib/utm/attribute-booking";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CalendlyEventSyncPayload } from "@/types/calendly";
 
@@ -85,11 +86,24 @@ export async function syncCalendlyEventsForOrganization(
   }));
 
   if (toInsertRows.length) {
-    const { error: insertError } = await supabase
+    const { data: insertedRows, error: insertError } = await supabase
       .from("closing_calls")
-      .insert(toInsertRows);
+      .insert(toInsertRows)
+      .select("id, calendly_event_id, lead_name");
     if (insertError) {
       throw new Error(mapSyncError(insertError.message));
+    }
+
+    for (const row of insertedRows ?? []) {
+      const event = toInsert.find((e) => e.eventId === row.calendly_event_id);
+      await attributeBookingToUTM({
+        organizationId,
+        closingCallId: row.id,
+        leadName: row.lead_name ?? event?.inviteeName,
+        leadEmail: event?.inviteeEmail,
+      }).catch((err) => {
+        console.error("[Calendly] Error en atribución UTM:", err);
+      });
     }
   }
 
