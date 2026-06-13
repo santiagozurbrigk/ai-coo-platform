@@ -158,6 +158,14 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - **Persistencia:** columnas `ai_*` en `conversations` (migración `20260615200000_conversation_analysis.sql`).
 - **Re-análisis:** `POST /api/integrations/manychat/reanalyze` — ver sección ManyChat en Integraciones.
 
+### Reporte semanal ejecutivo
+
+- **Modelo:** `claude-sonnet-4-6`, feature `weekly_report`.
+- **Input:** filas de `weekly_inputs` de la semana + métricas de `conversations` (activas, hot/warm).
+- **Output:** `weekly_reports` — `executive_summary`, `risks`, `bottlenecks`, `recommendations`.
+- **Trigger:** manual desde `/operations/weekly-inputs` (`generateWeeklyReportAction`).
+- **Ver también:** sección Operaciones en Métricas y Datos.
+
 ---
 
 ## 📊 MÉTRICAS Y DATOS
@@ -168,6 +176,30 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - **Sin Supabase:** 100% `mocks/dashboard.ts`.
 - **Churn:** valor `"—"` si no hay cálculo real.
 - **Narrativa / riesgos ops:** parcialmente heurístico; no conectado a workboard ni inputs semanales reales.
+- **Reporte semanal (con Supabase):** resumen ejecutivo, riesgos y recomendaciones desde `weekly_reports` si `status === 'ready'`; si no hay reporte → CTA a `/operations/weekly-inputs`.
+
+### Operaciones
+
+#### Weekly Inputs y Reportes
+
+- **Frecuencia:** un input por departamento por semana por usuario. Varios miembros del equipo pueden aportar inputs distintos en el mismo departamento.
+- **Departamentos:** ventas, delivery, operaciones, marketing, founder.
+- **Mínimo para generar reporte:** 2 departamentos completados.
+- **Modelo usado:** claude-sonnet-4-6 para generación del reporte ejecutivo.
+- **Contexto adicional:** el reporte incluye automáticamente métricas de ventas de la semana (conversaciones activas, leads hot/warm) si existen en DB.
+- **Conexión con Dashboard:** el Panel General lee el último reporte generado. Si no hay reporte de la semana → muestra CTA a `/operations/weekly-inputs`.
+- **Semana:** se calcula como lunes a domingo. El sistema usa siempre el lunes de la semana actual como clave única del reporte.
+- **Estados del reporte:** pending → generating → ready | error.
+- **Rutas:** inputs en `/operations/weekly-inputs`; overview en `/operations/overview`.
+- **Migración:** `20260615300000_weekly_inputs.sql` — tablas `weekly_inputs` y `weekly_reports`.
+- **Actions:** `apps/web/app/operations/actions.ts`.
+
+#### Operaciones Overview
+
+- Muestra el reporte real si `status === 'ready'`.
+- Si no hay reporte generado → muestra CTA para completar inputs semanales.
+- Los riesgos tienen niveles: high (rojo), medium (amarillo), low (verde).
+- **Grid de departamentos:** sigue usando métricas mock hasta conectar datos operacionales por área (Phase 2).
 
 ### Ventas
 
@@ -228,7 +260,8 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 
 - Ventas: objeciones, ranking calls, evolución closer, lead journey.
 - Clientes: `aiInsights` en detalle siempre etiquetados mock; `linked_calls.analysis` solo si pipeline Fathom profundo corrió o JSON manual.
-- Producto, Equipo, Operaciones overview, Inteligencia, Reportes ejecutivos: 100% mock.
+- Producto, Equipo, Inteligencia, Reportes ejecutivos: 100% mock.
+- **Operaciones overview:** reporte ejecutivo real si hay `weekly_reports`; team inputs aún mock.
 - Super-admin: fallback `mocks/super-admin.ts`; Holding 100% mock.
 - Integraciones catálogo: metadatos de `mocks/integrations.ts`; solo 9 proveedores con estado real.
 
@@ -320,7 +353,7 @@ Variables por integración: ver `.env.example` (Calendly, Google, Typeform, Fath
 | **Lanzamientos** | Placeholder "Próximamente" |
 | **Equipo** | Miembros mock; roles custom no persisten |
 | **Base de conocimiento** | Documentos mock; upload real no implementado |
-| **Operaciones** | Overview y team inputs mock; weekly inputs solo estado local |
+| **Operaciones** | Team inputs mock; weekly inputs y reporte ejecutivo reales con migración `20260615300000` |
 | **Inteligencia / Reportes ejecutivos** | 100% mock |
 | **Clientes `aiInsights`** | Siempre mock en UI |
 | **Super-admin Holding** | Mock multi-tenant |
@@ -367,6 +400,7 @@ Variables por integración: ver `.env.example` (Calendly, Google, Typeform, Fath
 - Error RLS "infinite recursion": ejecutar `20260521200000_fix_rls_recursion.sql`.
 - Tabla ausente: ejecutar migraciones o `RUN_ALL_PHASE1.sql` según mensaje en actions.
 - `get_active_sales_script`: requiere migración `20260615100000_sales_script_default.sql`.
+- `weekly_inputs` / `weekly_reports`: requiere migración `20260615300000_weekly_inputs.sql`.
 
 ---
 
