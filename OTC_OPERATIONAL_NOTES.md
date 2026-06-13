@@ -396,7 +396,7 @@ Variables por integración: ver `.env.example` (Calendly, Google, Typeform, Fath
 
 - **Nunca** exponer `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, secrets OAuth en el cliente.
 - Claves de integración solo en servidor (`createAdminClient`, route handlers).
-- Settings UI para API key Claude: **no persiste** aún (Phase 2).
+- Settings → tab IA → API key Claude: ✅ implementado con BYOK completo (ver sección BYOK).
 - Resend: remitente debe ser dominio verificado (no `@*.vercel.app` en prod).
 - Las API keys de integraciones (Fathom, ManyChat, etc.) se guardan en tablas `*_integrations` con RLS por org, acceso solo via service role.
 - La `ANTHROPIC_API_KEY` global nunca se expone al cliente — solo se usa como fallback cuando el cliente no tiene BYOK configurado.
