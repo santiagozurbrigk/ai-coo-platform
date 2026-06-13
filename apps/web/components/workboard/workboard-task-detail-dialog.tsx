@@ -62,6 +62,8 @@ export function WorkboardTaskDetailDialog() {
   const statusStyle = STATUS_COLORS[selectedTask.status];
 
   async function handleSave() {
+    const completing =
+      status === "done" && selectedTask!.status !== "done";
     await updateTask(selectedTask!.id, {
       title,
       description,
@@ -75,7 +77,9 @@ export function WorkboardTaskDetailDialog() {
         .map((t) => t.trim())
         .filter(Boolean),
     });
-    setSelectedTask(null);
+    if (!completing) {
+      setSelectedTask(null);
+    }
   }
 
   async function handleDelete() {

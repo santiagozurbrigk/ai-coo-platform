@@ -1,7 +1,10 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { ModuleSubnav } from "@/components/shared/client";
+import { getTeamPageContextAction } from "@/app/team/actions";
 import { useHashTab } from "@/lib/hooks/use-hash-tab";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes";
 import { usePlatformData } from "@/providers";
 import type { TeamMember } from "@/types/team";
@@ -16,10 +19,32 @@ const TABS = [
 
 const DEFAULT_TAB = TABS[0].hash;
 
-export function TeamOverview({ members }: { members: TeamMember[] }) {
+export function TeamOverview({
+  members: initialMembers,
+}: {
+  members: TeamMember[];
+}) {
   const activeTab = useHashTab(DEFAULT_TAB);
   const { customRoles } = usePlatformData();
   const root = paths.platform.team.root;
+
+  const [members, setMembers] = useState(initialMembers);
+  const [canEditRates, setCanEditRates] = useState(false);
+
+  const refreshMembers = useCallback(async () => {
+    if (!isSupabaseConfigured()) return;
+    try {
+      const ctx = await getTeamPageContextAction();
+      if (ctx.members.length) setMembers(ctx.members);
+      setCanEditRates(ctx.canEditRates);
+    } catch {
+      /* keep current */
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshMembers();
+  }, [refreshMembers]);
 
   const navTabs = TABS.map((t) => ({
     label: t.label,
@@ -39,7 +64,7 @@ export function TeamOverview({ members }: { members: TeamMember[] }) {
         <div className="space-y-8">
           <CustomRoleForm />
           <CustomRolesList roles={customRoles} />
-          <p className="text-sm text-muted-foreground rounded-lg border border-border/60 bg-muted/20 p-4">
+          <p className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
             Los miembros del equipo los crea el administrador del sistema. Cuando
             estén dados de alta, podrás asignar aquí los roles personalizados que
             definas.
@@ -47,7 +72,12 @@ export function TeamOverview({ members }: { members: TeamMember[] }) {
         </div>
       ) : (
         <>
-          <TeamMembersTable members={members} customRoles={customRoles} />
+          <TeamMembersTable
+            members={members}
+            customRoles={customRoles}
+            canEditRates={canEditRates}
+            onRatesUpdated={() => void refreshMembers()}
+          />
           {members.length === 0 && (
             <p className="text-sm text-muted-foreground">
               Aún no hay miembros en tu espacio de trabajo.

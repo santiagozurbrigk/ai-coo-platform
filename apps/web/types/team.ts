@@ -7,6 +7,8 @@ export type TeamMember = {
   role: UserRole;
   status: "active" | "away" | "inactive";
   lastLogin: string;
+  hourlyRate?: number;
+  hourlyRateCurrency?: string;
 };
 
 export type RoleDefinition = {

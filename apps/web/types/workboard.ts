@@ -36,6 +36,8 @@ export type WorkboardTask = {
   dueDate?: string;
   tags: string[];
   position: number;
+  estimatedMinutes?: number;
+  actualMinutes?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -53,6 +55,8 @@ export type MemberTaskTimeEntry = {
   title: string;
   hours: number;
   kind: TaskTimeKind;
+  estimatedMinutes?: number;
+  variancePercent?: number;
 };
 
 export type WorkboardSprint = {
@@ -71,8 +75,12 @@ export type MemberTimeReport = {
   name: string;
   initials: string;
   avatarColor: string;
+  avatarUrl?: string;
   totalHours: number;
   strategicPercent: number;
   operationalPercent: number;
   topTasks: MemberTaskTimeEntry[];
+  totalCostUsd?: number;
+  hourlyRate?: number;
+  currency?: string;
 };

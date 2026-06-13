@@ -3,7 +3,17 @@
 import { useState } from "react";
 import type React from "react";
 import { CalendarDays, Clock, Kanban, Plus } from "lucide-react";
-import { mockMemberTimeReports } from "@/mocks/workboard-time";
+import { FilterPills } from "@/components/marketing/filter-pills";
+import { TASK_AREA_OPTIONS } from "@/lib/workboard/constants";
+import { WORKBOARD_STATUSES, STATUS_LABELS } from "@/lib/workboard/constants";
+import { useWorkboard } from "@/providers/workboard-provider";
+import type { TaskArea, TaskPriority, TaskStatus } from "@/types/workboard";
+import { WorkboardCalendar } from "./workboard-calendar";
+import { WorkboardKanban } from "./workboard-kanban";
+import { LogTimeModal } from "./log-time-modal";
+import { WorkboardTaskDetailDialog } from "./workboard-task-detail-dialog";
+import { WorkboardTimeReport } from "./workboard-time-report";
+import { WorkboardSprintHeader } from "./workboard-sprint-header";
 import {
   Button,
   Dialog,
@@ -17,16 +27,6 @@ import {
   Label,
   Textarea,
 } from "@ai-coo/ui";
-import { FilterPills } from "@/components/marketing/filter-pills";
-import { TASK_AREA_OPTIONS } from "@/lib/workboard/constants";
-import { WORKBOARD_STATUSES, STATUS_LABELS } from "@/lib/workboard/constants";
-import { useWorkboard } from "@/providers/workboard-provider";
-import type { TaskArea, TaskPriority, TaskStatus } from "@/types/workboard";
-import { WorkboardCalendar } from "./workboard-calendar";
-import { WorkboardKanban } from "./workboard-kanban";
-import { WorkboardTaskDetailDialog } from "./workboard-task-detail-dialog";
-import { WorkboardTimeReport } from "./workboard-time-report";
-import { WorkboardSprintHeader } from "./workboard-sprint-header";
 
 const AREA_FILTER_OPTIONS = [
   { value: "all", label: "Todas las áreas" },
@@ -48,6 +48,9 @@ export function WorkboardShell() {
     members,
     createTask,
     isSaving,
+    pendingCompleteTask,
+    confirmCompleteWithTime,
+    skipTimeAndComplete,
   } = useWorkboard();
 
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -166,8 +169,20 @@ export function WorkboardShell() {
       ) : view === "calendar" ? (
         <WorkboardCalendar />
       ) : (
-        <WorkboardTimeReport reports={mockMemberTimeReports} />
+        <WorkboardTimeReport />
       )}
+      <LogTimeModal
+        open={Boolean(pendingCompleteTask)}
+        taskId={pendingCompleteTask?.id ?? ""}
+        taskTitle={pendingCompleteTask?.title ?? ""}
+        estimatedMinutes={pendingCompleteTask?.estimatedMinutes}
+        onConfirm={async (minutes, note) => {
+          await confirmCompleteWithTime(minutes, note);
+        }}
+        onSkip={async () => {
+          await skipTimeAndComplete();
+        }}
+      />
       <WorkboardTaskDetailDialog />
     </div>
   );

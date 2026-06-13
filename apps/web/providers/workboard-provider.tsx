@@ -11,6 +11,7 @@ import {
 import {
   createWorkboardTaskAction,
   deleteWorkboardTaskAction,
+  logTaskTimeAction,
   moveWorkboardTaskAction,
   updateWorkboardTaskAction,
 } from "@/app/workboard/actions";
@@ -22,6 +23,18 @@ import type {
   WorkboardTask,
 } from "@/types/workboard";
 
+type TaskUpdatePatch = Partial<{
+  title: string;
+  description: string;
+  status: TaskStatus;
+  area: TaskArea;
+  priority: TaskPriority;
+  assigneeId: string | null;
+  dueDate: string | null;
+  tags: string[];
+  estimatedMinutes: number;
+}>;
+
 type WorkboardContextValue = {
   tasks: WorkboardTask[];
   members: WorkboardMember[];
@@ -31,6 +44,8 @@ type WorkboardContextValue = {
   setView: (v: "board" | "calendar" | "time") => void;
   selectedTask: WorkboardTask | null;
   setSelectedTask: (task: WorkboardTask | null) => void;
+  pendingCompleteTask: WorkboardTask | null;
+  pendingCompletePatch: TaskUpdatePatch | null;
   isSaving: boolean;
   createTask: (input: {
     title: string;
@@ -43,20 +58,11 @@ type WorkboardContextValue = {
     tags?: string[];
   }) => Promise<void>;
   moveTask: (taskId: string, status: TaskStatus) => Promise<void>;
-  updateTask: (
-    taskId: string,
-    patch: Partial<{
-      title: string;
-      description: string;
-      status: TaskStatus;
-      area: TaskArea;
-      priority: TaskPriority;
-      assigneeId: string | null;
-      dueDate: string | null;
-      tags: string[];
-    }>
-  ) => Promise<void>;
+  updateTask: (taskId: string, patch: TaskUpdatePatch) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
+  confirmCompleteWithTime: (minutes: number, note?: string) => Promise<void>;
+  skipTimeAndComplete: () => Promise<void>;
+  cancelComplete: () => void;
   upsertTaskInState: (task: WorkboardTask) => void;
 };
 
@@ -75,6 +81,10 @@ export function WorkboardProvider({
   const [areaFilter, setAreaFilter] = useState("all");
   const [view, setView] = useState<"board" | "calendar" | "time">("board");
   const [selectedTask, setSelectedTask] = useState<WorkboardTask | null>(null);
+  const [pendingCompleteTask, setPendingCompleteTask] =
+    useState<WorkboardTask | null>(null);
+  const [pendingCompletePatch, setPendingCompletePatch] =
+    useState<TaskUpdatePatch | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const upsertTaskInState = useCallback((task: WorkboardTask) => {
@@ -87,6 +97,60 @@ export function WorkboardProvider({
     });
     setSelectedTask((prev) => (prev?.id === task.id ? task : prev));
   }, []);
+
+  const performMove = useCallback(
+    async (taskId: string, status: TaskStatus) => {
+      const prev = tasks.find((t) => t.id === taskId);
+      if (!prev || prev.status === status) return;
+
+      setTasks((current) =>
+        current.map((t) => (t.id === taskId ? { ...t, status } : t))
+      );
+
+      try {
+        await moveWorkboardTaskAction({ taskId, status });
+      } catch {
+        if (prev) upsertTaskInState(prev);
+      }
+    },
+    [tasks, upsertTaskInState]
+  );
+
+  const finalizeComplete = useCallback(
+    async (minutes?: number, note?: string) => {
+      if (!pendingCompleteTask) return;
+
+      setIsSaving(true);
+      try {
+        if (minutes != null && minutes > 0) {
+          await logTaskTimeAction({
+            taskId: pendingCompleteTask.id,
+            actualMinutes: minutes,
+            estimatedMinutes: pendingCompleteTask.estimatedMinutes,
+            note,
+          });
+        }
+
+        if (pendingCompletePatch) {
+          const updated = await updateWorkboardTaskAction({
+            taskId: pendingCompleteTask.id,
+            ...pendingCompletePatch,
+            status: "done",
+          });
+          upsertTaskInState(updated);
+        } else {
+          await performMove(pendingCompleteTask.id, "done");
+        }
+
+        setPendingCompleteTask(null);
+        setPendingCompletePatch(null);
+        setSelectedTask(null);
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [pendingCompleteTask, pendingCompletePatch, performMove, upsertTaskInState]
+  );
 
   const createTask = useCallback(
     async (input: Parameters<WorkboardContextValue["createTask"]>[0]) => {
@@ -106,24 +170,28 @@ export function WorkboardProvider({
       const prev = tasks.find((t) => t.id === taskId);
       if (!prev || prev.status === status) return;
 
-      setTasks((current) =>
-        current.map((t) => (t.id === taskId ? { ...t, status } : t))
-      );
-
-      try {
-        await moveWorkboardTaskAction({ taskId, status });
-      } catch {
-        if (prev) upsertTaskInState(prev);
+      if (status === "done") {
+        setPendingCompleteTask(prev);
+        setPendingCompletePatch(null);
+        return;
       }
+
+      await performMove(taskId, status);
     },
-    [tasks, upsertTaskInState]
+    [tasks, performMove]
   );
 
   const updateTask = useCallback(
-    async (
-      taskId: string,
-      patch: Parameters<WorkboardContextValue["updateTask"]>[1]
-    ) => {
+    async (taskId: string, patch: TaskUpdatePatch) => {
+      const prev = tasks.find((t) => t.id === taskId);
+      if (!prev) return;
+
+      if (patch.status === "done" && prev.status !== "done") {
+        setPendingCompleteTask({ ...prev, ...patch });
+        setPendingCompletePatch(patch);
+        return;
+      }
+
       setIsSaving(true);
       try {
         const updated = await updateWorkboardTaskAction({ taskId, ...patch });
@@ -132,7 +200,7 @@ export function WorkboardProvider({
         setIsSaving(false);
       }
     },
-    [upsertTaskInState]
+    [tasks, upsertTaskInState]
   );
 
   const deleteTask = useCallback(async (taskId: string) => {
@@ -146,6 +214,22 @@ export function WorkboardProvider({
     }
   }, []);
 
+  const confirmCompleteWithTime = useCallback(
+    async (minutes: number, note?: string) => {
+      await finalizeComplete(minutes, note);
+    },
+    [finalizeComplete]
+  );
+
+  const skipTimeAndComplete = useCallback(async () => {
+    await finalizeComplete();
+  }, [finalizeComplete]);
+
+  const cancelComplete = useCallback(() => {
+    setPendingCompleteTask(null);
+    setPendingCompletePatch(null);
+  }, []);
+
   const value = useMemo(
     () => ({
       tasks,
@@ -156,11 +240,16 @@ export function WorkboardProvider({
       setView,
       selectedTask,
       setSelectedTask,
+      pendingCompleteTask,
+      pendingCompletePatch,
       isSaving,
       createTask,
       moveTask,
       updateTask,
       deleteTask,
+      confirmCompleteWithTime,
+      skipTimeAndComplete,
+      cancelComplete,
       upsertTaskInState,
     }),
     [
@@ -169,11 +258,16 @@ export function WorkboardProvider({
       areaFilter,
       view,
       selectedTask,
+      pendingCompleteTask,
+      pendingCompletePatch,
       isSaving,
       createTask,
       moveTask,
       updateTask,
       deleteTask,
+      confirmCompleteWithTime,
+      skipTimeAndComplete,
+      cancelComplete,
       upsertTaskInState,
     ]
   );
