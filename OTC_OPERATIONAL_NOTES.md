@@ -166,6 +166,20 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - **Trigger:** manual desde `/operations/weekly-inputs` (`generateWeeklyReportAction`).
 - **Ver también:** sección Operaciones en Métricas y Datos.
 
+### BYOK — API key propia de Claude
+
+- **Dónde configurar:** Settings → tab "IA" → campo API key de Claude.
+- **Formato válido:** la key debe empezar con `sk-ant-`.
+- **Validación automática:** al guardar, OTC hace una llamada de prueba a Anthropic para verificar que la key es válida y tiene créditos.
+- **Routing automático:** todos los pipelines de IA (análisis de llamadas, scoring de conversaciones, reportes semanales, SOPs, agente) usan automáticamente la key del cliente si está configurada.
+- **Fallback:** si la key del cliente falla o no está configurada, OTC usa la `ANTHROPIC_API_KEY` global como fallback.
+- **Cache:** la key se cachea en memoria por 5 minutos para no consultar DB en cada llamada de IA. Si el cliente cambia su key, el cache se invalida automáticamente.
+- **Seguridad:** la key se guarda en texto plano en DB por ahora. TODO Phase 2: encriptar con Supabase Vault o KMS.
+- **Preview seguro:** en la UI solo se muestran los últimos 8 caracteres de la key (`sk-ant-...XXXXXXXX`).
+- **Recomendación para clientes:** el plan de $100/mes de Claude incluye suficiente capacidad de API para todo el uso de OTC. Es la opción recomendada para reducir costos del software.
+- **Vista Super Admin:** en `/super-admin/costs` aparece columna "Fuente IA": BYOK ✓ (verde) vs OTC Key (gris) por organización.
+- **Migración:** `20260615400000_byok_claude.sql` — columnas en `organizations` + vista `organization_claude_status`.
+
 ---
 
 ## 📊 MÉTRICAS Y DATOS
@@ -384,6 +398,10 @@ Variables por integración: ver `.env.example` (Calendly, Google, Typeform, Fath
 - Claves de integración solo en servidor (`createAdminClient`, route handlers).
 - Settings UI para API key Claude: **no persiste** aún (Phase 2).
 - Resend: remitente debe ser dominio verificado (no `@*.vercel.app` en prod).
+- Las API keys de integraciones (Fathom, ManyChat, etc.) se guardan en tablas `*_integrations` con RLS por org, acceso solo via service role.
+- La `ANTHROPIC_API_KEY` global nunca se expone al cliente — solo se usa como fallback cuando el cliente no tiene BYOK configurado.
+- `CRON_SECRET` protege todos los endpoints de re-análisis y crons. Nunca exponerlo en el frontend.
+- **BYOK Claude:** persistencia en `organizations.claude_api_key_encrypted` (guardado/lectura vía service role); ver sección BYOK en Pipelines de IA.
 
 ### Webhooks y validación
 
@@ -401,6 +419,7 @@ Variables por integración: ver `.env.example` (Calendly, Google, Typeform, Fath
 - Tabla ausente: ejecutar migraciones o `RUN_ALL_PHASE1.sql` según mensaje en actions.
 - `get_active_sales_script`: requiere migración `20260615100000_sales_script_default.sql`.
 - `weekly_inputs` / `weekly_reports`: requiere migración `20260615300000_weekly_inputs.sql`.
+- BYOK Claude: requiere migración `20260615400000_byok_claude.sql`.
 
 ---
 
