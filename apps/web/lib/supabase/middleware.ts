@@ -33,7 +33,8 @@ function isPublicPath(pathname: string): boolean {
       pathname.includes("/oauth/callback") ||
       pathname.includes("/oauth/start") ||
       pathname.endsWith("/sync") ||
-      pathname.endsWith("/process")
+      pathname.endsWith("/process") ||
+      pathname.endsWith("/reanalyze")
     ) {
       return true;
     }
