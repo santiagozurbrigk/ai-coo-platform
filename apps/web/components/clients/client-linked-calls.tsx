@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@ai-coo/ui";
-import { ChevronDown, ExternalLink, TrendingUp, X } from "lucide-react";
+import { ChevronDown, ExternalLink, Phone, TrendingUp, X } from "lucide-react";
 import {
   getCloserEvolutionAction,
   getTeamAverageEvolutionAction,
@@ -17,6 +17,31 @@ import {
 import type { ClientLinkedCall } from "@/types/clients";
 import type { TeamRankingEntry } from "@/types/call-analysis";
 import { cn } from "@/lib/utils";
+
+function LinkedCallsEmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+      <Phone className="h-8 w-8 text-muted-foreground" />
+      <p className="text-sm font-medium text-foreground">Sin llamadas vinculadas</p>
+      <p className="max-w-xs text-xs text-muted-foreground">
+        Conectá Fathom y vinculá este cliente para ver el análisis de sus llamadas
+        aquí.
+      </p>
+    </div>
+  );
+}
+
+function CallAnalysisEmptyState() {
+  return (
+    <div className="mt-4 flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 bg-muted/5 px-4 py-8 text-center dark:border-white/[0.08]">
+      <p className="text-sm font-medium text-foreground">Análisis no disponible</p>
+      <p className="max-w-sm text-xs text-muted-foreground">
+        Esta llamada aún no tiene análisis. Se generará automáticamente cuando Fathom
+        esté conectado y la transcripción esté procesada.
+      </p>
+    </div>
+  );
+}
 
 function CloserEvolutionSheet({
   open,
@@ -134,18 +159,25 @@ export function ClientLinkedCallsSection({
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-medium">Llamadas del cliente</h2>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            onClick={() => openEvolution(calls[0]?.closerName ?? "Laura Martínez")}
-          >
-            <TrendingUp className="h-3.5 w-3.5" />
-            Ver evolución del closer
-          </Button>
+          {calls.length > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() =>
+                openEvolution(calls[0]?.closerName ?? "Laura Martínez")
+              }
+            >
+              <TrendingUp className="h-3.5 w-3.5" />
+              Ver evolución del closer
+            </Button>
+          ) : null}
         </div>
 
+        {calls.length === 0 ? (
+          <LinkedCallsEmptyState />
+        ) : (
         <ul className="space-y-2">
           {calls.map((call) => {
             const expanded = expandedId === call.id;
@@ -161,18 +193,13 @@ export function ClientLinkedCallsSection({
                     onClick={() =>
                       setExpandedId(expanded ? null : call.id)
                     }
-                    disabled={!call.analysis}
                   >
-                    {call.analysis ? (
-                      <ChevronDown
-                        className={cn(
-                          "mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-                          expanded && "rotate-180"
-                        )}
-                      />
-                    ) : (
-                      <span className="w-4 shrink-0" />
-                    )}
+                    <ChevronDown
+                      className={cn(
+                        "mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                        expanded && "rotate-180"
+                      )}
+                    />
                     <div className="min-w-0">
                       <p className="text-sm font-medium">{call.title}</p>
                       <p className="text-xs text-muted-foreground">
@@ -200,10 +227,12 @@ export function ClientLinkedCallsSection({
                     durationLabel={call.duration}
                   />
                 ) : null}
+                {expanded && !call.analysis ? <CallAnalysisEmptyState /> : null}
               </li>
             );
           })}
         </ul>
+        )}
       </section>
 
       <CloserEvolutionSheet

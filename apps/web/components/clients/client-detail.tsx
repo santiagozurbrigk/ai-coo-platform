@@ -182,9 +182,7 @@ export function ClientDetail({ client: initial }: { client: Client }) {
         </section>
       )}
 
-      {client.linkedCalls.length > 0 ? (
-        <ClientLinkedCallsSection calls={client.linkedCalls} />
-      ) : null}
+      <ClientLinkedCallsSection calls={client.linkedCalls} />
 
       <ClientDiscordActivity clientId={client.id} />
 
