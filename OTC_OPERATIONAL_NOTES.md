@@ -1,7 +1,7 @@
 # OTC — Notas Operacionales
 
 Documento de referencia para el equipo y para onboarding de clientes.  
-**Última actualización:** 2026-05-27
+**Última actualización:** 2026-05-28
 
 Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.md` y comportamiento verificado en el repositorio `ai-coo-platform`.
 
@@ -23,6 +23,18 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - **Re-análisis profundo manual:** `POST /api/integrations/fathom/reanalyze` con `Authorization: Bearer CRON_SECRET`.
 - **Cron auth:** si `CRON_SECRET` no está definido, los endpoints cron **no exigen** auth (útil en dev; en producción configurar siempre).
 
+#### Fathom — Análisis profundo de llamadas
+
+- **Requisito mínimo de duración:** el análisis profundo con IA solo se activa para llamadas con transcript Y duración ≥ 10 minutos. Llamadas más cortas reciben únicamente el análisis básico (timeline, resumen, next steps).
+- **Modelo usado:** claude-sonnet-4-6 (análisis complejo de ventas)
+- **Latencia:** el análisis profundo corre en background después del básico, sin bloquear el proceso principal. Puede tardar 30-60 segundos adicionales.
+- **Re-análisis manual:**
+  `POST /api/integrations/fathom/reanalyze` con Bearer CRON_SECRET  
+  Body: `{ "organizationId": "uuid", "fathomCallId": "opcional" }`  
+  Delay de 2s entre calls para respetar rate limits de Anthropic.
+- **Guión de ventas:** si la org no tiene un guión configurado en sales_scripts, se usa un guión default de 5 secciones (apertura, diagnóstico, presentación, objeciones, CTA). Configurar el guión propio en Settings mejora la precisión.
+- **Cruce con formulario:** si existe un closing_call con el mismo nombre del lead, se incluyen las form_answers en el análisis para detectar gaps calificación.
+
 ### ManyChat
 
 - **Auth:** API key + `webhook_token` único por org (no OAuth).
@@ -30,6 +42,18 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - **Datos:** mensajes → tabla `conversations` con `external_ref = manychat:{subscriberId}`.
 - **UTM ManyChat:** migración `20260613200000_utm_manychat.sql` — atribución `manychat_ref` en conversaciones.
 - **Seed demo:** si `conversations` está vacía **y** no hay integración ManyChat conectada, se insertan `mockConversations` automáticamente al listar inbox.
+
+#### ManyChat — Scoring de conversaciones
+
+- **Frecuencia de análisis:** el scoring se dispara automáticamente cada 5 mensajes nuevos, con un mínimo de 3 mensajes para tener contexto suficiente.
+- **Modelo usado:** claude-haiku-4-5-20251001 (rápido y económico para scoring)
+- **Sin ANTHROPIC_API_KEY:** el scoring se omite silenciosamente sin romper el flujo.
+- **Re-análisis manual:**
+  `POST /api/integrations/manychat/reanalyze` con Bearer CRON_SECRET  
+  Body: `{ "organizationId": "uuid" }`  
+  Máximo 20 conversaciones por llamada, delay 1s entre cada una.
+- **Atribución UTM:** si el lead llegó via link de ManyChat con ref parameter (ej: `ig.me/m/usuario?ref=yt-video-x`), se cruza automáticamente con utm_links y se registra el video de YouTube de origen en la conversación.
+- **Cruce con formulario:** si el lead tiene un closing_call con form_answers, se incluye en el prompt para enriquecer el scoring.
 
 ### Calendly
 
@@ -66,6 +90,7 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - **Auth:** OAuth independiente (Typeform) / Google OAuth unificado (Forms + YouTube).
 - **Cron:** sync horario (`/api/integrations/typeform/sync`, `/api/integrations/google-forms/sync`).
 - **Datos:** `forms` + `form_responses`; scoring IA con Haiku al sincronizar.
+- **Scoring automático:** cada respuesta recibida es analizada con Claude Haiku y genera un `lead_score` (0-100) y un campo `qualification` guardado en `form_responses`.
 - **UI:** listado y detalle en `/marketing/forms` — vacío = empty state real (sin seed mock).
 
 ### Discord
@@ -101,12 +126,14 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 ### Scoring de formularios
 
 - **Lead scoring por respuesta:** `claude-haiku-4-5`, feature `form_lead_scoring`.
+- **Scoring automático:** cada respuesta recibida es analizada con Claude Haiku y genera un `lead_score` (0-100) y un campo `qualification` guardado en `form_responses`.
 - **Análisis agregado de formulario:** `claude-sonnet-4-5` — patrones, drop-off, calificación.
 - **Se ejecuta** en sync de Typeform/Google Forms (cron horario o manual).
 
 ### Agente de negocio
 
 - **Requiere:** migraciones agente + `ANTHROPIC_API_KEY` + Supabase configurado.
+- **Sin ANTHROPIC_API_KEY:** el agente responde con un mensaje mock fijo. Requiere la key configurada en Vercel para funcionar.
 - **Sin API key:** respuesta fija mock (`MOCK_REPLY` en `agent/actions.ts`).
 - **Títulos de conversación:** Haiku, máx. 5 palabras.
 - **Respuestas:** Sonnet 4.5, feature `agent_chat`.
@@ -124,9 +151,12 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 
 - **Insight IA** en overview: Haiku vía `distribution-insight.ts` cuando hay assets reales conectados.
 
-### ManyChat (pendiente)
+### Scoring de conversaciones ManyChat
 
-- **TODO Phase 2:** scoring y `conversations.analysis` con Haiku en `upsert-conversation.ts`.
+- **Modelo:** `claude-haiku-4-5`, feature `conversation_scoring`.
+- **Trigger:** cada 5 mensajes (mín. 3) en `upsert-conversation.ts` — fire-and-forget.
+- **Persistencia:** columnas `ai_*` en `conversations` (migración `20260615200000_conversation_analysis.sql`).
+- **Re-análisis:** `POST /api/integrations/manychat/reanalyze` — ver sección ManyChat en Integraciones.
 
 ---
 
@@ -177,6 +207,12 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 | Usuario nuevo | `ensureUserBootstrap` crea `organizations` + `profiles` en primer login |
 | Onboarding incompleto | `OnboardingGuard` redirige a `/onboarding` |
 
+### Sistema de modos
+
+- **Sin Supabase configurado:** la app opera en modo demo con todos los datos en mock. Útil para development local sin credenciales.
+- **Con Supabase pero tablas vacías:** algunas secciones hacen seed automático de datos demo (conversations, closing_calls, finanzas). Esto puede confundir datos reales con demo en producción.
+- **Recomendación:** en producción con cliente real, asegurarse de que las tablas tengan al menos un registro real antes de conectar integraciones, para evitar que el seed automático mezcle datos.
+
 ### Seeds automáticos (org vacía, producción)
 
 | Tabla / módulo | Condición del seed | Fuente mock |
@@ -208,6 +244,11 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 | `/api/integrations/instagram/sync` | Cada hora |
 
 **Auth cron:** `assertCronAuthorized` — si `CRON_SECRET` está set, requiere `Bearer {CRON_SECRET}`; si no está set, permite acceso (riesgo en prod si URL es pública).
+
+### Endpoints de re-análisis (todos requieren Bearer CRON_SECRET)
+
+- `POST /api/integrations/fathom/reanalyze` — re-analizar calls de Fathom
+- `POST /api/integrations/manychat/reanalyze` — re-analizar conversaciones ManyChat
 
 ---
 
@@ -269,7 +310,7 @@ Variables por integración: ver `.env.example` (Calendly, Google, Typeform, Fath
 | **YouTube** | Sin cron; sync solo al conectar OAuth |
 | **Stripe** | Solo lectura; sin histórico en DB |
 | **Discord** | Requiere proceso bot aparte; API message route es stub |
-| **ManyChat** | Sin scoring IA de conversación (Phase 2) |
+| **ManyChat** | Scoring solo cada 5 mensajes; sin re-scoring en tiempo real por mensaje individual |
 
 ### Por módulo
 
