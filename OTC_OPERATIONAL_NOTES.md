@@ -139,6 +139,38 @@ para casos especiales que necesiten un modelo específico.
 Tabla de uso por modelo con requests, tokens y costo real
 calculado desde `token_usage` en DB.
 
+### Prompt Caching — Contexto de organización
+
+**Qué se cachea:** el contexto estático de la org (SOPs activos, avatar
+principal, productos, frameworks de ventas, guión de ventas).
+
+**Ahorro estimado:** 90% menos costo en tokens de input para el contexto
+cacheado. El cache dura 5 minutos en Claude y se renueva con cada uso.
+
+**Cache en memoria (OTC):** 10 minutos. Evita consultar DB en cada llamada.
+Se invalida automáticamente cuando cambia:
+- Un SOP (crear/actualizar)
+- El avatar principal
+- Un producto
+- Un framework de ventas
+- La API key de Claude (BYOK)
+
+**Pipelines con caching activo:**
+- Fathom deep analysis → org context cacheado
+- ManyChat scoring → org context cacheado
+- SOP generation → org context cacheado
+- Weekly report → org context cacheado
+- Agente → org context cacheado + RAG dinámico sin cachear
+
+**Tracking de costos con cache:**
+- cache_read_input_tokens → 10% del precio normal (90% descuento)
+- cache_creation_input_tokens → 125% del precio normal (prima por crear cache)
+- Ambos campos se guardan en token_usage para auditoría real de costos
+
+**Migración requerida:**
+20260627200000_token_usage_cache_tokens.sql
+→ columnas cache_read_input_tokens y cache_creation_input_tokens en token_usage
+
 ### Análisis profundo de llamadas
 
 - **Requisito mínimo de duración:** el análisis profundo con IA solo se activa para llamadas con **transcript** Y duración **≥ 10 minutos**. Llamadas más cortas reciben únicamente el análisis básico (timeline, resumen, next steps).
