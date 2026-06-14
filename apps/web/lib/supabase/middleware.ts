@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { paths } from "@/routes";
+import { createAdminClient } from "./admin";
 import { getSupabaseAnonKey, getSupabaseUrl, isSupabaseConfigured } from "./env";
 
 /** POST de Server Actions: no redirigir a login (devolvería HTML y rompe el cliente). */
@@ -27,6 +28,8 @@ function isPublicPath(pathname: string): boolean {
   if (pathname === "/api/waitlist") return true;
   if (pathname.startsWith("/api/utm/")) return true;
   if (pathname.startsWith("/api/cron/")) return true;
+  if (pathname.startsWith("/invite")) return true;
+  if (pathname.startsWith("/api/invite/")) return true;
   if (pathname.startsWith("/api/integrations/")) {
     if (
       pathname.includes("/webhook") ||
@@ -87,6 +90,19 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = paths.platform.dashboard;
     return NextResponse.redirect(url);
+  }
+
+  if (user?.id) {
+    void (async () => {
+      try {
+        await createAdminClient()
+          .from("profiles")
+          .update({ last_login_at: new Date().toISOString() })
+          .eq("id", user.id);
+      } catch {
+        // no bloquear la request
+      }
+    })();
   }
 
   return supabaseResponse;

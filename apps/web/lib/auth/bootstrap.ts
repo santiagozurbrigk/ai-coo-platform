@@ -54,6 +54,8 @@ export async function ensureUserBootstrap(user: User) {
     throw new Error(profileError?.message ?? "No se pudo crear el perfil");
   }
 
+  void admin.rpc("create_default_roles", { org_id: org.id });
+
   return profile;
 }
 

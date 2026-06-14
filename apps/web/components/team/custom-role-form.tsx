@@ -1,26 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Check } from "lucide-react";
-import { Button, Input } from "@ai-coo/ui";
+import { Badge, Button, Input } from "@ai-coo/ui";
 import {
   emptyPermissions,
   getPermissionModuleLabel,
   MODULE_GROUPS,
   PERMISSION_LEVELS,
 } from "@/constants/permission-modules";
-import { usePlatformData } from "@/providers";
+import { createCustomRoleAction } from "@/app/team/actions";
 import { useToast } from "@/providers/toast-provider";
 import type { PermissionLevel } from "@/types/team";
 import type { PermissionModuleId } from "@/constants/permission-modules";
 import { PermissionRow } from "./permission-row";
 
-export function CustomRoleForm() {
-  const { addCustomRole } = usePlatformData();
+export function CustomRoleForm({ onCreated }: { onCreated?: () => void }) {
   const { push } = useToast();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [permissions, setPermissions] = useState(emptyPermissions);
+  const [pending, startTransition] = useTransition();
 
   const setLevel = (moduleId: PermissionModuleId, level: PermissionLevel) => {
     setPermissions((prev) => ({ ...prev, [moduleId]: level }));
@@ -28,16 +28,24 @@ export function CustomRoleForm() {
 
   const handleCreate = () => {
     if (!name.trim()) return;
-    addCustomRole({
-      id: `role-${Date.now()}`,
-      name: name.trim(),
-      description: description.trim() || undefined,
-      permissions,
+    startTransition(async () => {
+      const result = await createCustomRoleAction({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        permissions,
+      });
+
+      if (!result.success) {
+        push({ title: "Error", description: result.error });
+        return;
+      }
+
+      push({ title: "Rol creado", variant: "success" });
+      setName("");
+      setDescription("");
+      setPermissions(emptyPermissions());
+      onCreated?.();
     });
-    push({ title: "Rol creado", variant: "success" });
-    setName("");
-    setDescription("");
-    setPermissions(emptyPermissions());
   };
 
   return (
@@ -60,11 +68,11 @@ export function CustomRoleForm() {
         <Button
           type="submit"
           size="sm"
-          disabled={!name.trim()}
+          disabled={!name.trim() || pending}
           className="gap-1.5 bg-violet-600 text-white hover:bg-violet-700"
         >
           <Check className="h-3.5 w-3.5" />
-          Guardar rol
+          {pending ? "Guardando…" : "Guardar rol"}
         </Button>
       </div>
 
@@ -82,6 +90,7 @@ export function CustomRoleForm() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="ej: Setter Senior"
+              disabled={pending}
             />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -96,6 +105,7 @@ export function CustomRoleForm() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="ej: Acceso a ventas y clientes"
+              disabled={pending}
             />
           </div>
         </div>

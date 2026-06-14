@@ -6,9 +6,13 @@ export type TeamMember = {
   email: string;
   role: UserRole;
   status: "active" | "away" | "inactive";
-  lastLogin: string;
+  lastLogin: string | null;
   hourlyRate?: number;
   hourlyRateCurrency?: string;
+  avatarUrl?: string;
+  customRoleId?: string | null;
+  customRoleName?: string | null;
+  isActive?: boolean;
 };
 
 export type RoleDefinition = {
@@ -25,8 +29,28 @@ export type CustomRole = {
   name: string;
   description?: string;
   permissions: Record<string, PermissionLevel>;
+  isDefault?: boolean;
 };
 
 export type TeamMemberWithRole = TeamMember & {
   customRoleId?: string | null;
+};
+
+export type TeamInvitation = {
+  id: string;
+  email: string;
+  role: UserRole;
+  status: "pending" | "accepted" | "expired";
+  expiresAt: string;
+  createdAt: string;
+  customRoleId: string | null;
+  customRoleName: string | null;
+  invitedByName: string | null;
+};
+
+export type InviteValidation = {
+  email: string;
+  role: string;
+  orgName: string;
+  invitedBy: string | null;
 };

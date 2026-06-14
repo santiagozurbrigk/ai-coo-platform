@@ -14,23 +14,48 @@ import {
   Input,
   Label,
 } from "@ai-coo/ui";
+import {
+  deactivateMemberAction,
+  updateMemberRoleAction,
+} from "@/app/team/actions";
 import { setMemberHourlyRateAction } from "@/app/workboard/actions";
+import { USER_ROLES } from "@/constants/roles";
 import { es } from "@/lib/locale/es";
 import { formatRelativeTime } from "@/lib/format";
 import type { CustomRole, TeamMember } from "@/types/team";
-import { USER_ROLES } from "@/constants/roles";
+import type { UserRole } from "@ai-coo/types";
 
 const selectClass =
-  "h-8 rounded-md border border-border bg-background px-2 text-xs";
+  "h-8 rounded-md border border-border bg-background px-2 text-xs dark:border-white/[0.08] dark:bg-[#1A1A1A]";
 
 const roleLabel = (role: TeamMember["role"]) =>
   USER_ROLES.find((r) => r.value === role)?.label ?? role;
 
-const STATUS_LABEL = {
-  active: es.status.member.active,
-  away: es.status.member.away,
-  inactive: es.status.member.inactive,
-};
+function MemberAvatar({ member }: { member: TeamMember }) {
+  const initials = member.name
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  if (member.avatarUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={member.avatarUrl}
+        alt=""
+        className="h-8 w-8 rounded-full object-cover"
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500/15 text-[11px] font-medium text-violet-300">
+      {initials}
+    </div>
+  );
+}
 
 function HourlyRateCell({
   member,
@@ -156,47 +181,143 @@ function HourlyRateCell({
   );
 }
 
+function MemberActions({
+  member,
+  canManage,
+  onUpdated,
+}: {
+  member: TeamMember;
+  canManage: boolean;
+  onUpdated: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  if (!canManage) return null;
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="h-7 text-xs"
+      disabled={pending || member.status === "inactive"}
+      onClick={() =>
+        startTransition(async () => {
+          await deactivateMemberAction(member.id);
+          onUpdated();
+        })
+      }
+    >
+      Desactivar
+    </Button>
+  );
+}
+
+function RoleSelect({
+  member,
+  customRoles,
+  canManage,
+  onUpdated,
+}: {
+  member: TeamMember;
+  customRoles: CustomRole[];
+  canManage: boolean;
+  onUpdated: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  if (!canManage) {
+    return (
+      <span className="text-sm">
+        {member.customRoleName ?? roleLabel(member.role)}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <select
+        className={selectClass}
+        value={member.role}
+        disabled={pending}
+        onChange={(e) =>
+          startTransition(async () => {
+            await updateMemberRoleAction(member.id, {
+              role: e.target.value as UserRole,
+            });
+            onUpdated();
+          })
+        }
+      >
+        {USER_ROLES.map((r) => (
+          <option key={r.value} value={r.value}>
+            {r.label}
+          </option>
+        ))}
+      </select>
+      {customRoles.length > 0 ? (
+        <select
+          className={selectClass}
+          value={member.customRoleId ?? ""}
+          disabled={pending}
+          onChange={(e) =>
+            startTransition(async () => {
+              await updateMemberRoleAction(member.id, {
+                customRoleId: e.target.value || null,
+              });
+              onUpdated();
+            })
+          }
+        >
+          <option value="">Sin rol custom</option>
+          {customRoles.map((role) => (
+            <option key={role.id} value={role.id}>
+              {role.name}
+            </option>
+          ))}
+        </select>
+      ) : null}
+    </div>
+  );
+}
+
 export function TeamMembersTable({
   members,
   customRoles,
   canEditRates = false,
-  onRatesUpdated,
+  canManage = false,
+  onUpdated,
 }: {
   members: TeamMember[];
   customRoles: CustomRole[];
   canEditRates?: boolean;
-  onRatesUpdated?: () => void;
+  canManage?: boolean;
+  onUpdated?: () => void;
 }) {
-  const [, setRefreshKey] = useState(0);
+  const refresh = () => onUpdated?.();
 
   return (
     <DataTable
       title="Miembros"
       columns={[
+        {
+          key: "avatar",
+          header: "",
+          cell: (r) => <MemberAvatar member={r} />,
+        },
         { key: "name", header: "Nombre", cell: (r) => r.name },
         { key: "email", header: "Email", cell: (r) => r.email },
         {
           key: "role",
-          header: "Rol asignado",
-          cell: () => (
-            <select className={selectClass} defaultValue="">
-              <option value="">
-                {customRoles.length === 0
-                  ? "Sin roles creados aún"
-                  : "Seleccionar rol…"}
-              </option>
-              {customRoles.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.name}
-                </option>
-              ))}
-            </select>
+          header: "Rol",
+          cell: (r) => (
+            <RoleSelect
+              member={r}
+              customRoles={customRoles}
+              canManage={canManage}
+              onUpdated={refresh}
+            />
           ),
-        },
-        {
-          key: "systemRole",
-          header: "Rol sistema",
-          cell: (r) => roleLabel(r.role),
         },
         {
           key: "hourlyRate",
@@ -205,10 +326,7 @@ export function TeamMembersTable({
             <HourlyRateCell
               member={r}
               canEditRates={canEditRates}
-              onUpdated={() => {
-                setRefreshKey((k) => k + 1);
-                onRatesUpdated?.();
-              }}
+              onUpdated={refresh}
             />
           ),
         },
@@ -217,7 +335,9 @@ export function TeamMembersTable({
           header: "Estado",
           cell: (r) => (
             <Badge variant={r.status === "active" ? "success" : "secondary"}>
-              {STATUS_LABEL[r.status]}
+              {r.status === "active"
+                ? es.status.member.active
+                : es.status.member.inactive}
             </Badge>
           ),
         },
@@ -225,6 +345,17 @@ export function TeamMembersTable({
           key: "login",
           header: "Último acceso",
           cell: (r) => formatRelativeTime(r.lastLogin),
+        },
+        {
+          key: "actions",
+          header: "Acciones",
+          cell: (r) => (
+            <MemberActions
+              member={r}
+              canManage={canManage}
+              onUpdated={refresh}
+            />
+          ),
         },
       ]}
       data={members}

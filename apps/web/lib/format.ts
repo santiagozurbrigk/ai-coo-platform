@@ -1,4 +1,6 @@
-export function formatRelativeTime(iso: string): string {
+export function formatRelativeTime(iso: string | null | undefined): string {
+  if (!iso) return "Nunca";
+
   const date = new Date(iso);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();

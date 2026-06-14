@@ -6,11 +6,12 @@ import { getTeamPageContextAction } from "@/app/team/actions";
 import { useHashTab } from "@/lib/hooks/use-hash-tab";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes";
-import { usePlatformData } from "@/providers";
-import type { TeamMember } from "@/types/team";
+import type { CustomRole, TeamInvitation, TeamMember } from "@/types/team";
 import { CustomRoleForm } from "./custom-role-form";
 import { CustomRolesList } from "./custom-roles-list";
+import { TeamInviteModal } from "./team-invite-modal";
 import { TeamMembersTable } from "./team-members-table";
+import { TeamPendingInvitations } from "./team-pending-invitations";
 
 const TABS = [
   { id: "miembros", label: "Miembros", hash: "miembros" },
@@ -21,21 +22,34 @@ const DEFAULT_TAB = TABS[0].hash;
 
 export function TeamOverview({
   members: initialMembers,
+  roles: initialRoles,
+  invitations: initialInvitations,
+  canManage: initialCanManage,
+  canEditRates: initialCanEditRates,
 }: {
   members: TeamMember[];
+  roles: CustomRole[];
+  invitations: TeamInvitation[];
+  canManage: boolean;
+  canEditRates: boolean;
 }) {
   const activeTab = useHashTab(DEFAULT_TAB);
-  const { customRoles } = usePlatformData();
   const root = paths.platform.team.root;
 
   const [members, setMembers] = useState(initialMembers);
-  const [canEditRates, setCanEditRates] = useState(false);
+  const [roles, setRoles] = useState(initialRoles);
+  const [invitations, setInvitations] = useState(initialInvitations);
+  const [canManage, setCanManage] = useState(initialCanManage);
+  const [canEditRates, setCanEditRates] = useState(initialCanEditRates);
 
-  const refreshMembers = useCallback(async () => {
+  const refresh = useCallback(async () => {
     if (!isSupabaseConfigured()) return;
     try {
       const ctx = await getTeamPageContextAction();
       if (ctx.members.length) setMembers(ctx.members);
+      setRoles(ctx.roles);
+      setInvitations(ctx.invitations);
+      setCanManage(ctx.canManage);
       setCanEditRates(ctx.canEditRates);
     } catch {
       /* keep current */
@@ -43,8 +57,8 @@ export function TeamOverview({
   }, []);
 
   useEffect(() => {
-    void refreshMembers();
-  }, [refreshMembers]);
+    void refresh();
+  }, [refresh]);
 
   const navTabs = TABS.map((t) => ({
     label: t.label,
@@ -62,21 +76,36 @@ export function TeamOverview({
       />
       {activeTab === "roles" ? (
         <div className="space-y-8">
-          <CustomRoleForm />
-          <CustomRolesList roles={customRoles} />
-          <p className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
-            Los miembros del equipo los crea el administrador del sistema. Cuando
-            estén dados de alta, podrás asignar aquí los roles personalizados que
-            definas.
-          </p>
+          {canManage ? (
+            <CustomRoleForm onCreated={() => void refresh()} />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Solo founders y admins pueden crear roles personalizados.
+            </p>
+          )}
+          <CustomRolesList
+            roles={roles}
+            canManage={canManage}
+            onUpdated={() => void refresh()}
+          />
         </div>
       ) : (
         <>
+          {canManage ? (
+            <div className="flex justify-end">
+              <TeamInviteModal roles={roles} onInvited={() => void refresh()} />
+            </div>
+          ) : null}
           <TeamMembersTable
             members={members}
-            customRoles={customRoles}
+            customRoles={roles}
             canEditRates={canEditRates}
-            onRatesUpdated={() => void refreshMembers()}
+            canManage={canManage}
+            onUpdated={() => void refresh()}
+          />
+          <TeamPendingInvitations
+            invitations={invitations}
+            onUpdated={() => void refresh()}
           />
           {members.length === 0 && (
             <p className="text-sm text-muted-foreground">

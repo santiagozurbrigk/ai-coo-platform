@@ -7,8 +7,25 @@ export default async function TeamPage() {
   if (isSupabaseConfigured()) {
     const ctx = await getTeamPageContextAction();
     const members = ctx.members.length ? ctx.members : mockTeamMembers;
-    return <TeamOverview members={members} />;
+
+    return (
+      <TeamOverview
+        members={members}
+        roles={ctx.roles}
+        invitations={ctx.invitations}
+        canManage={ctx.canManage}
+        canEditRates={ctx.canEditRates}
+      />
+    );
   }
 
-  return <TeamOverview members={mockTeamMembers} />;
+  return (
+    <TeamOverview
+      members={mockTeamMembers}
+      roles={[]}
+      invitations={[]}
+      canManage={false}
+      canEditRates={false}
+    />
+  );
 }
