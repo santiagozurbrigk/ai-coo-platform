@@ -79,6 +79,27 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - **RLS:** `instagram_integrations` sin policies para cliente — solo **service role** lee tokens.
 - **Limitación Meta:** app en modo desarrollo / permisos limitados según configuración en Meta for Developers (ver sección Limitaciones).
 
+#### Instagram DMs directos (sin ManyChat)
+
+- **Permiso Meta requerido:** `instagram_business_manage_messages` (+ `instagram_business_basic`).
+- **Webhook:** `GET/POST /api/webhooks/instagram/messages` — verificación con `INSTAGRAM_WEBHOOK_VERIFY_TOKEN`.
+- **Flujo:** Meta envía evento → `processInstagramMessage` → `instagram_messages` + `instagram_threads` + `conversations` (source=`instagram`).
+- **Inbox:** mismas conversaciones en `/sales/inbox` con badge **IG DM** (vs **ManyChat**).
+- **Scoring IA:** cada 5 mensajes inbound (mín. 3), igual que ManyChat.
+
+#### Configurar webhook de Instagram DMs en Meta
+
+1. developers.facebook.com → tu app → Webhooks
+2. Agregar webhook de Instagram
+3. Callback URL: `https://www.optimizatucontrol.com/api/webhooks/instagram/messages`
+4. Verify Token: `otc_instagram_webhook_2024` (o el valor de `INSTAGRAM_WEBHOOK_VERIFY_TOKEN`)
+5. Suscribir al campo: `messages`
+6. Guardar y verificar
+
+**Casos de uso Meta (Development):** agregar "Mensajería de Instagram" en la app Optimiza Tu Control antes de testear con cuenta evaluador.
+
+**Migración:** `20260617200000_instagram_messages.sql` — tablas `instagram_messages`, `instagram_threads` y columna `conversations.source`.
+
 ### Stripe
 
 - **Auth:** Stripe Connect OAuth, scope `read_only`.

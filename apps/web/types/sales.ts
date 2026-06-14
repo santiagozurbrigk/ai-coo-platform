@@ -40,6 +40,8 @@ export type ConversationTagId =
   | "closeado"
   | "no-closeado";
 
+export type ConversationSource = "manychat" | "instagram" | "manual";
+
 export type Conversation = {
   id: string;
   leadName: string;
@@ -50,6 +52,7 @@ export type Conversation = {
   unread: boolean;
   messages: SalesMessage[];
   analysis: ConversationAnalysis;
+  source?: ConversationSource;
   aiScore?: number;
   aiLabel?: ConversationAiLabel;
   aiSummary?: string;

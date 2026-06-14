@@ -71,6 +71,16 @@ export function ConversationList({
                 {c.lastMessage}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
+                {c.source === "instagram" && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-pink-900/20 text-pink-400 border border-pink-500/20">
+                    IG DM
+                  </span>
+                )}
+                {c.source === "manychat" && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-900/20 text-green-400 border border-green-500/20">
+                    ManyChat
+                  </span>
+                )}
                 {c.tag && <ConversationTagBadge tag={c.tag} />}
                 <ConversationStatusBadge status={c.status} />
                 <span className="ml-auto text-2xs text-muted-foreground/80">

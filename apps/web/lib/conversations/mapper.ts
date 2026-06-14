@@ -22,6 +22,7 @@ export type ConversationRow = {
   messages: SalesMessage[];
   analysis: ConversationAnalysis;
   external_ref: string | null;
+  source?: "manychat" | "instagram" | "manual" | null;
   ai_score?: number | null;
   ai_engagement_score?: number | null;
   ai_intent_score?: number | null;
@@ -151,6 +152,7 @@ export function rowToConversation(row: ConversationRow): Conversation {
     sourceVideoTitle: row.source_video_title ?? undefined,
     utmCampaign: row.utm_campaign ?? undefined,
     lastAnalyzedAt: row.last_analyzed_at ?? undefined,
+    source: row.source ?? "manychat",
   };
 }
 

@@ -4,6 +4,7 @@ export const INSTAGRAM_GRAPH_VERSION = "v19.0";
 export const INSTAGRAM_SCOPES = [
   "instagram_business_basic",
   "instagram_business_manage_insights",
+  "instagram_business_manage_messages",
 ].join(",");
 
 export const INSTAGRAM_AUTH_URL = "https://api.instagram.com/oauth/authorize";
