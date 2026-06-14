@@ -22,13 +22,26 @@ type Props = {
   counts: Record<ContentLabel, number>;
   total: number;
   insight: string | null;
+  hasContentAssets?: boolean;
 };
 
 export function ContentLabelDistributionChart({
   counts,
   total,
   insight,
+  hasContentAssets,
 }: Props) {
+  if (total === 0 && hasContentAssets) {
+    return (
+      <ChartShell title="Distribución de contenido publicado">
+        <p className="text-sm text-muted-foreground">
+          Tenés contenido importado pero aún sin etiquetas. Asigná etiquetas en
+          Marketing → Contenido para ver la distribución por tipo de pieza.
+        </p>
+      </ChartShell>
+    );
+  }
+
   if (total === 0) {
     return (
       <ChartShell title="Distribución de contenido publicado">

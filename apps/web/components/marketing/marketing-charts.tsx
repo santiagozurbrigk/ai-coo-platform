@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { cn } from "@ai-coo/ui";
-import { getContentById } from "@/mocks/marketing-insights";
+import type { TopConvertingItem } from "@/lib/marketing/overview-metrics";
+import { CONTENT_TYPE_LABEL } from "@/components/marketing-insights/content-labels";
 import type {
   ContentFunnelStage,
   ContentTypePerformance,
@@ -11,8 +12,6 @@ import type {
   HeatmapCell,
   MarketingTimePoint,
 } from "@/types/marketing-insights";
-import { CONTENT_TYPE_LABEL } from "@/components/marketing-insights/content-labels";
-import { ContentThumbnail } from "@/components/marketing-insights/content-thumbnail";
 import {
   CategoryBarChart,
   ChartShell,
@@ -54,24 +53,23 @@ export function ReachInteractionsChart({ data }: { data: MarketingTimePoint[] })
 export function TopConvertingContentList({
   ranked,
 }: {
-  ranked: { contentId: string; conversations: number; bookings: number }[];
+  ranked: TopConvertingItem[];
 }) {
   const max = Math.max(...ranked.map((r) => r.conversations), 1);
-  const barItems = ranked
-    .map((item) => {
-      const content = getContentById(item.contentId);
-      if (!content) return null;
-      return {
-        label: content.title.slice(0, 18),
-        value: item.conversations,
-      };
-    })
-    .filter((x): x is { label: string; value: number } => x != null);
+  const barItems = ranked.map((item) => ({
+    label: item.title.slice(0, 18),
+    value: item.conversations,
+  }));
+
+  const typeLabel = (type: string | null) => {
+    const key = (type ?? "post") as keyof typeof CONTENT_TYPE_LABEL;
+    return CONTENT_TYPE_LABEL[key] ?? type ?? "Contenido";
+  };
 
   return (
     <ChartShell
       title="Contenido que más convierte"
-      subtitle="Ranking + barras por conversaciones"
+      subtitle="Ranking por engagement y conversaciones"
       className="w-full min-h-[320px]"
     >
       <CategoryBarChart
@@ -82,8 +80,6 @@ export function TopConvertingContentList({
       />
       <div className="mt-4 space-y-3">
         {ranked.map((item, i) => {
-          const content = getContentById(item.contentId);
-          if (!content) return null;
           const borderColors = [
             "border-l-primary shadow-[0_0_20px_hsl(var(--primary)/0.25)]",
             "border-l-[var(--chart-2)]",
@@ -93,8 +89,8 @@ export function TopConvertingContentList({
           const widthPct = (item.conversations / max) * 100;
           return (
             <Link
-              key={content.id}
-              href={paths.platform.marketing.contentDetail(content.id)}
+              key={item.contentId}
+              href={paths.platform.marketing.contentDetail(item.contentId)}
               className={cn(
                 "flex items-center gap-3 rounded-lg border border-border border-l-4 bg-card p-3 transition-all hover:border-primary/40",
                 borderColors[i] ?? "border-l-muted"
@@ -103,17 +99,24 @@ export function TopConvertingContentList({
               <span className="w-6 shrink-0 text-lg font-bold text-muted-foreground">
                 {i + 1}
               </span>
-              <ContentThumbnail
-                content={content}
-                size="sm"
-                className="h-14 w-14 shrink-0"
-              />
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted/40">
+                {item.thumbnailUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.thumbnailUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-lg">📄</span>
+                )}
+              </div>
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-2 text-sm font-medium leading-snug">
-                  {content.title}
+                  {item.title}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {CONTENT_TYPE_LABEL[content.type]} · {item.conversations} convs ·{" "}
+                  {typeLabel(item.contentType)} · {item.conversations} convs ·{" "}
                   {item.bookings} bookings
                 </p>
               </div>

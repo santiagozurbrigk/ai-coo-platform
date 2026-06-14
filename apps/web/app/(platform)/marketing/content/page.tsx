@@ -5,7 +5,11 @@ import { mockMarketingContentAssets } from "@/mocks/marketing-content";
 
 export default async function MarketingContentPage() {
   const fromDb = await listContentAssetsAction();
-  const base = fromDb.length > 0 ? fromDb : mockMarketingContentAssets;
+  const hasRealData = fromDb.length > 0;
+  const base = hasRealData ? fromDb : mockMarketingContentAssets;
   const assets = enrichContentAssets(base);
-  return <MarketingContentLibrary initialAssets={assets} />;
+
+  return (
+    <MarketingContentLibrary initialAssets={assets} hasRealData={hasRealData} />
+  );
 }

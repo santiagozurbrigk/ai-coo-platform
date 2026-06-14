@@ -2,30 +2,89 @@
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { AiCard, Badge, Button, GlassPanel } from "@ai-coo/ui";
+import { Badge, Button, GlassPanel } from "@ai-coo/ui";
+import type { ContentAssetView } from "@/app/marketing/actions";
 import { paths } from "@/routes";
 import type { ContentAsset } from "@/types/marketing-insights";
 import { CONTENT_TYPE_LABEL } from "@/components/marketing-insights/content-labels";
 import { ContentThumbnail } from "@/components/marketing-insights/content-thumbnail";
-import { useMarketingData } from "@/providers";
-import { InstagramEmptyState } from "./instagram-empty-state";
 
-const MOCK_CONVERSATIONS = [
-  { name: "María González", date: "14 may", tag: "closeado" },
-  { name: "James Chen", date: "12 may", tag: "agendado" },
-  { name: "Diego Fernández", date: "10 may", tag: "calificado" },
-];
+export function MarketingContentDetail({
+  asset,
+  mockContent,
+  hasRealData,
+}: {
+  asset?: ContentAssetView;
+  mockContent?: ContentAsset;
+  hasRealData: boolean;
+}) {
+  if (asset) {
+    const type = asset.contentType ?? "post";
+    return (
+      <div className="space-y-8">
+        <Button variant="ghost" size="sm" className="gap-2 -ml-2" asChild>
+          <Link href={paths.platform.marketing.content}>
+            <ArrowLeft className="h-4 w-4" />
+            Contenido
+          </Link>
+        </Button>
 
-const MOCK_BOOKINGS = [
-  { name: "Laura Gómez", date: "20 may", outcome: "Cerrado" },
-  { name: "Carlos Vega", date: "12 may", outcome: "Cerrado" },
-  { name: "Ana Torres", date: "7 may", outcome: "No cerrado" },
-];
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,420px)_1fr]">
+          <div className="relative aspect-[9/16] max-h-72 overflow-hidden rounded-xl bg-muted/40 lg:max-w-sm">
+            {asset.thumbnailUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={asset.thumbnailUrl}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-4xl">
+                📄
+              </div>
+            )}
+          </div>
+          <div className="space-y-3">
+            <Badge variant="secondary">{type}</Badge>
+            <h2 className="text-2xl font-semibold">{asset.title}</h2>
+            <p className="text-sm text-muted-foreground">
+              {asset.platform} ·{" "}
+              {asset.publishedAt
+                ? new Date(asset.publishedAt).toLocaleDateString("es")
+                : "Sin fecha"}
+            </p>
+            {asset.caption ? (
+              <p className="text-sm text-muted-foreground line-clamp-4">
+                {asset.caption}
+              </p>
+            ) : null}
+          </div>
+        </div>
 
-export function MarketingContentDetail({ content }: { content: ContentAsset }) {
-  const { instagramConnected } = useMarketingData();
-  if (!instagramConnected) return <InstagramEmptyState />;
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {[
+            { label: "Alcance", value: asset.reach },
+            { label: "Views", value: asset.views },
+            { label: "Likes", value: asset.likes },
+            { label: "Comentarios", value: asset.comments },
+            { label: "Saves", value: asset.saves },
+            { label: "Shares", value: asset.shares },
+          ].map((m) => (
+            <GlassPanel key={m.label} className="p-3 text-center">
+              <p className="text-2xs text-muted-foreground">{m.label}</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums">
+                {m.value.toLocaleString("es-ES")}
+              </p>
+            </GlassPanel>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
+  if (!mockContent) return null;
+
+  const content = mockContent;
   const touch = content.journeyTouch ?? {
     firstTouchPct: 34,
     middleTouchPct: 48,
@@ -34,6 +93,12 @@ export function MarketingContentDetail({ content }: { content: ContentAsset }) {
 
   return (
     <div className="space-y-8">
+      {!hasRealData ? (
+        <span className="inline-flex rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+          Sin datos reales aún — datos de demostración
+        </span>
+      ) : null}
+
       <Button variant="ghost" size="sm" className="gap-2 -ml-2" asChild>
         <Link href={paths.platform.marketing.content}>
           <ArrowLeft className="h-4 w-4" />
@@ -66,49 +131,15 @@ export function MarketingContentDetail({ content }: { content: ContentAsset }) {
         ))}
       </div>
 
-      <section className="space-y-3">
-        <h3 className="text-sm font-medium">Conversaciones generadas</h3>
-        <div className="rounded-xl border border-border divide-y divide-border">
-          {MOCK_CONVERSATIONS.map((c) => (
-            <div key={c.name} className="flex items-center justify-between px-4 py-3 text-sm">
-              <div>
-                <p className="font-medium">{c.name}</p>
-                <p className="text-xs text-muted-foreground">{c.date}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">{c.tag}</Badge>
-                <Button size="sm" variant="ghost" asChild>
-                  <Link href={paths.platform.sales.inbox}>Abrir en bandeja</Link>
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h3 className="text-sm font-medium">Bookings influenciados</h3>
-        <div className="rounded-xl border border-border divide-y divide-border">
-          {MOCK_BOOKINGS.map((b) => (
-            <div key={b.name} className="flex justify-between px-4 py-3 text-sm">
-              <span className="font-medium">{b.name}</span>
-              <span className="text-muted-foreground">
-                {b.date} · {b.outcome}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
-
       <GlassPanel className="p-6 text-center" glow>
-        <p className="text-sm text-muted-foreground">Revenue influenciado</p>
+        <p className="text-sm text-muted-foreground">Revenue influenciado (demo)</p>
         <p className="text-4xl font-semibold mt-2 text-primary tabular-nums">
           ${content.revenueInfluencedAmount.toLocaleString("es-ES")}
         </p>
       </GlassPanel>
 
       <section className="space-y-4">
-        <h3 className="text-sm font-medium">Participación en el journey</h3>
+        <h3 className="text-sm font-medium">Participación en el journey (demo)</h3>
         <div className="grid gap-2 sm:grid-cols-3">
           {[
             { label: "First touch", pct: touch.firstTouchPct },
@@ -128,28 +159,6 @@ export function MarketingContentDetail({ content }: { content: ContentAsset }) {
           ))}
         </div>
       </section>
-
-      <section className="space-y-3">
-        <h3 className="text-sm font-medium">Insights de IA — esta pieza</h3>
-        <div className="space-y-2">
-          {[
-            `Este ${CONTENT_TYPE_LABEL[content.type]} tiene el mayor alcance de los últimos 30 días entre piezas similares.`,
-            `Aparece como primer punto de contacto en el ${touch.firstTouchPct}% de los journeys de compra.`,
-            `El ${((content.conversationsGenerated / content.interactions) * 100).toFixed(1)}% de quienes interactuaron escribieron por DM — muy por encima del promedio de 2.1%.`,
-          ].map((text) => (
-            <div
-              key={text}
-              className="text-sm border-l-4 border-l-primary/50 pl-3 py-1 text-muted-foreground"
-            >
-              {text}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <AiCard title="Siguiente paso" variant="recommendation" confidence={0.87}>
-        Replicá el hook de esta pieza en 2 Reels esta semana — el patrón de conversión es el más alto del mes.
-      </AiCard>
     </div>
   );
 }

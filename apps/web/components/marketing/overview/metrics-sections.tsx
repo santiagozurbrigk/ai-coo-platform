@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
+import type { MarketingOverviewMetrics } from "@/types/marketing-insights";
 import {
   additionalMarketingMetrics,
   mockMarketingOverview,
@@ -25,12 +26,17 @@ function formatTrend(trend: number) {
   return `${sign}${trend}%`;
 }
 
-export function MarketingMetricsSections() {
-  const m = mockMarketingOverview;
+export function MarketingMetricsSections({
+  metrics: metricsProp,
+}: {
+  metrics?: MarketingOverviewMetrics;
+}) {
+  const m = metricsProp ?? mockMarketingOverview;
   const extra = additionalMarketingMetrics;
-  const bookingToSalePct = Math.round(
-    (m.salesInfluenced / m.bookingsInfluenced) * 100
-  );
+  const bookingToSalePct =
+    m.bookingsInfluenced > 0
+      ? Math.round((m.salesInfluenced / m.bookingsInfluenced) * 100)
+      : 0;
 
   return (
     <div className="space-y-6">
@@ -75,6 +81,7 @@ export function MarketingMetricsSections() {
         </div>
       </section>
 
+      {!metricsProp ? (
       <section>
         <SectionHeader label="Engagement" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -108,6 +115,7 @@ export function MarketingMetricsSections() {
           </MarketingOverviewMetricCard>
         </div>
       </section>
+      ) : null}
 
       <section>
         <SectionHeader label="Conversión a ventas" />

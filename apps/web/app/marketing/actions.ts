@@ -59,10 +59,16 @@ export type ContentAssetView = {
 };
 
 function rowToView(row: Record<string, unknown>): ContentAssetView {
+  const caption = (row.caption as string) ?? "";
+  const title =
+    (row.title as string)?.trim() ||
+    caption.trim().slice(0, 80) ||
+    "Sin título";
+
   return {
     id: row.id as string,
     platform: row.platform as "instagram" | "youtube",
-    title: (row.title as string) ?? "Sin título",
+    title,
     caption: (row.caption as string) ?? "",
     thumbnailUrl: (row.thumbnail_url as string) ?? null,
     contentType: (row.content_type as string) ?? null,
@@ -106,8 +112,68 @@ export async function listContentAssetsAction(): Promise<ContentAssetView[]> {
     .eq("organization_id", organizationId)
     .order("published_at", { ascending: false });
 
-  if (error) return [];
+  if (error) {
+    console.error("[listContentAssetsAction]", error.message);
+    return [];
+  }
   return (data ?? []).map(rowToView);
+}
+
+export async function getContentAssetByIdAction(
+  assetId: string
+): Promise<ContentAssetView | null> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("content_assets")
+    .select("*")
+    .eq("id", assetId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return rowToView(data as Record<string, unknown>);
+}
+
+export type MarketingOverviewContext = {
+  hasContentAssets: boolean;
+  hasUtmAttributions: boolean;
+  assets: ContentAssetView[];
+  utmSummary: {
+    totalBookings: number;
+    totalSales: number;
+    totalRevenue: number;
+    totalClicks: number;
+  };
+};
+
+export async function getMarketingOverviewContextAction(): Promise<MarketingOverviewContext> {
+  const [assets, utmLinks] = await Promise.all([
+    listContentAssetsAction(),
+    getUTMLinksAction(),
+  ]);
+
+  const utmSummary = utmLinks.reduce(
+    (acc, link) => ({
+      totalBookings: acc.totalBookings + link.bookings_attributed,
+      totalSales: acc.totalSales + link.sales_attributed,
+      totalRevenue: acc.totalRevenue + link.revenue_attributed,
+      totalClicks: acc.totalClicks + link.clicks,
+    }),
+    { totalBookings: 0, totalSales: 0, totalRevenue: 0, totalClicks: 0 }
+  );
+
+  const hasUtmAttributions =
+    utmSummary.totalBookings > 0 ||
+    utmSummary.totalSales > 0 ||
+    utmSummary.totalRevenue > 0;
+
+  return {
+    hasContentAssets: assets.length > 0,
+    hasUtmAttributions,
+    assets,
+    utmSummary,
+  };
 }
 
 export async function updateContentLabelAction(
@@ -149,6 +215,7 @@ export async function getContentDistributionDataAction(): Promise<{
   counts: Record<ContentLabel, number>;
   total: number;
   insight: string | null;
+  hasContentAssets: boolean;
 }> {
   const organizationId = await requireOrganizationId();
   const assets = await listContentAssetsAction();
@@ -162,6 +229,7 @@ export async function getContentDistributionDataAction(): Promise<{
     counts: stats.counts,
     total: stats.total,
     insight,
+    hasContentAssets: assets.length > 0,
   };
 }
 
