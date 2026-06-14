@@ -202,6 +202,26 @@ export const mockAiCostDashboard: AdminAiCostDashboard = {
     costUsd: o.totalMonthUsd,
     marginUsd: o.marginUsd,
   })),
+  modelUsage: [
+    {
+      model: "claude-haiku-4-5-20251001",
+      requests: 145,
+      inputTokens: 2_100_000,
+      outputTokens: 180_000,
+      inputCostUsd: 1.68,
+      outputCostUsd: 0.72,
+      totalCostUsd: 2.4,
+    },
+    {
+      model: "claude-sonnet-4-6",
+      requests: 23,
+      inputTokens: 890_000,
+      outputTokens: 120_000,
+      inputCostUsd: 2.67,
+      outputCostUsd: 1.8,
+      totalCostUsd: 4.47,
+    },
+  ],
 };
 
 export function getMockOrganizationDetail(

@@ -242,7 +242,7 @@ JSON:
 
     const reportJson = await callClaudeJson<WeeklyReportJson>({
       organizationId: orgId,
-      model: "claude-sonnet-4-6",
+      task: "weekly_report",
       feature: "weekly_report",
       system,
       user,

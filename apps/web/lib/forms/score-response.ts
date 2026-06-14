@@ -28,7 +28,7 @@ JSON:
 
   return callClaudeJson<FormScoringResult>({
     organizationId: params.organizationId,
-    model: "claude-haiku-4-5",
+    task: "data_extraction",
     feature: "form_lead_scoring",
     system,
     user,
@@ -51,7 +51,7 @@ export async function analyzeFormPatterns(params: {
     qualification_insights: string;
   }>({
     organizationId: params.organizationId,
-    model: "claude-sonnet-4-5",
+    task: "sales_analysis",
     feature: "form_pattern_analysis",
     system: "Analista de formularios de leads. Responde SOLO JSON en español.",
     user: `Formulario: ${params.formTitle}

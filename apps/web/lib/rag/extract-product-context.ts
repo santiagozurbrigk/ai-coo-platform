@@ -104,7 +104,7 @@ Devolvé ÚNICAMENTE un JSON válido:
     frameworks: SuggestedFramework[];
     confidence: string;
   }>({
-    model: "claude-sonnet-4-6",
+    task: "product_extraction",
     system: "Respondé únicamente con JSON válido. No incluyas markdown fences.",
     user: prompt,
     maxTokens: 2000,

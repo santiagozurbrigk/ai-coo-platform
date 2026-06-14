@@ -47,6 +47,7 @@ import type {
   OrganizationUser,
   TokenUsageBreakdown,
   TokenUsageDailyPoint,
+  ModelUsageRow,
 } from "@/types/super-admin";
 
 type FounderProfile = {
@@ -107,15 +108,75 @@ function aggregateAiCostFromTokenRows(
   };
 }
 
+function aggregateModelUsage(
+  rows: {
+    model: string;
+    input_tokens: number;
+    output_tokens: number;
+    input_cost_usd: number;
+    output_cost_usd: number;
+  }[]
+): ModelUsageRow[] {
+  const byModel = new Map<
+    string,
+    {
+      requests: number;
+      inputTokens: number;
+      outputTokens: number;
+      inputCostUsd: number;
+      outputCostUsd: number;
+    }
+  >();
+
+  for (const row of rows) {
+    const current = byModel.get(row.model) ?? {
+      requests: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      inputCostUsd: 0,
+      outputCostUsd: 0,
+    };
+    current.requests += 1;
+    current.inputTokens += Number(row.input_tokens);
+    current.outputTokens += Number(row.output_tokens);
+    current.inputCostUsd += Number(row.input_cost_usd);
+    current.outputCostUsd += Number(row.output_cost_usd);
+    byModel.set(row.model, current);
+  }
+
+  return [...byModel.entries()]
+    .map(([model, v]) => ({
+      model,
+      requests: v.requests,
+      inputTokens: v.inputTokens,
+      outputTokens: v.outputTokens,
+      inputCostUsd: v.inputCostUsd,
+      outputCostUsd: v.outputCostUsd,
+      totalCostUsd: v.inputCostUsd + v.outputCostUsd,
+    }))
+    .sort((a, b) => b.totalCostUsd - a.totalCostUsd);
+}
+
 export async function loadAiCostDashboard(): Promise<AdminAiCostDashboard> {
   if (!isSupabaseConfigured()) return mockAiCostDashboard;
 
   const { summary, orgRows } = await loadProfitabilityData();
   const orgs = await loadOrganizationsList();
   const admin = createAdminClient();
-  const { data: byokRows } = await admin
-    .from("organizations")
-    .select("id, claude_api_key_encrypted, claude_api_key_status");
+  const month = getCurrentMonthRange();
+
+  const [{ data: byokRows }, { data: tokenRows }] = await Promise.all([
+    admin
+      .from("organizations")
+      .select("id, claude_api_key_encrypted, claude_api_key_status"),
+    admin
+      .from("token_usage")
+      .select(
+        "model, input_tokens, output_tokens, input_cost_usd, output_cost_usd"
+      )
+      .gte("created_at", month.start)
+      .lte("created_at", month.end),
+  ]);
 
   const byokOrgIds = new Set(
     (byokRows ?? [])
@@ -171,6 +232,7 @@ export async function loadAiCostDashboard(): Promise<AdminAiCostDashboard> {
         costUsd: o.totalMonthUsd,
         marginUsd: o.marginUsd,
       })),
+    modelUsage: aggregateModelUsage(tokenRows ?? []),
   };
 }
 

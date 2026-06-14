@@ -1,34 +1,43 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
+/** Precios USD por token (input / output) */
 export const MODEL_PRICING = {
-  "claude-haiku-4-5": {
-    input: 0.00000025,
-    output: 0.00000125,
+  "claude-haiku-4-5-20251001": {
+    input: 0.8 / 1_000_000,
+    output: 4.0 / 1_000_000,
   },
-  "claude-sonnet-4-5": {
-    input: 0.000003,
-    output: 0.000015,
+  "claude-haiku-4-5": {
+    input: 0.8 / 1_000_000,
+    output: 4.0 / 1_000_000,
   },
   "claude-sonnet-4-6": {
-    input: 0.000003,
-    output: 0.000015,
+    input: 3.0 / 1_000_000,
+    output: 15.0 / 1_000_000,
+  },
+  "claude-sonnet-4-5-20250929": {
+    input: 3.0 / 1_000_000,
+    output: 15.0 / 1_000_000,
+  },
+  "claude-sonnet-4-5": {
+    input: 3.0 / 1_000_000,
+    output: 15.0 / 1_000_000,
   },
   "claude-opus-4-5": {
-    input: 0.000015,
-    output: 0.000075,
+    input: 15.0 / 1_000_000,
+    output: 75.0 / 1_000_000,
   },
-  /** Alias cortos usados en UI */
+  /** Alias cortos usados en UI legacy */
   "claude-haiku": {
-    input: 0.00000025,
-    output: 0.00000125,
+    input: 0.8 / 1_000_000,
+    output: 4.0 / 1_000_000,
   },
   "claude-sonnet": {
-    input: 0.000003,
-    output: 0.000015,
+    input: 3.0 / 1_000_000,
+    output: 15.0 / 1_000_000,
   },
   "claude-opus": {
-    input: 0.000015,
-    output: 0.000075,
+    input: 15.0 / 1_000_000,
+    output: 75.0 / 1_000_000,
   },
 } as const;
 
@@ -36,21 +45,29 @@ export type TokenUsageModel = keyof typeof MODEL_PRICING;
 
 export type TokenUsageParams = {
   organizationId: string;
-  model: TokenUsageModel;
+  model: string;
   inputTokens: number;
   outputTokens: number;
   feature?: string;
 };
 
+export function resolvePricingModel(model: string): TokenUsageModel {
+  if (model in MODEL_PRICING) {
+    return model as TokenUsageModel;
+  }
+  if (model.includes("haiku")) return "claude-haiku-4-5-20251001";
+  if (model.includes("opus")) return "claude-opus-4-5";
+  if (model.includes("sonnet")) return "claude-sonnet-4-6";
+  return "claude-haiku-4-5-20251001";
+}
+
 export function computeTokenCostUsd(
-  model: TokenUsageModel,
+  model: string,
   inputTokens: number,
   outputTokens: number
 ): { inputCost: number; outputCost: number; totalCost: number } {
-  const pricing = MODEL_PRICING[model];
-  if (!pricing) {
-    throw new Error(`Modelo de precios desconocido: ${model}`);
-  }
+  const pricingKey = resolvePricingModel(model);
+  const pricing = MODEL_PRICING[pricingKey];
   const inputCost = inputTokens * pricing.input;
   const outputCost = outputTokens * pricing.output;
   return {
@@ -60,7 +77,7 @@ export function computeTokenCostUsd(
   };
 }
 
-/** Registrar uso de tokens (Phase 2: llamar desde Server Actions de IA). */
+/** Registrar uso de tokens con el modelo lógico usado (ej. claude-sonnet-4-6). */
 export async function trackTokenUsage({
   organizationId,
   model,

@@ -127,7 +127,7 @@ export async function scoreConversation({
 
     const raw = await callClaudeJson<ConversationScoringResult>({
       organizationId,
-      model: "claude-haiku-4-5",
+      task: "conversation_scoring",
       feature: "conversation_scoring",
       system,
       user,

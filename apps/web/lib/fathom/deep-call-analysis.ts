@@ -235,7 +235,7 @@ export async function generateDeepCallAnalysis({
     // TODO Phase 2: agregar prompt caching para el guión de la org
     const analysis = await callClaudeJson<DeepAnalysisApiResult>({
       organizationId,
-      model: "claude-sonnet-4-6",
+      task: "call_analysis",
       feature: "deep_call_analysis",
       system:
         "Eres un experto en análisis de llamadas de ventas de alto ticket. Responde ÚNICAMENTE con JSON válido en español.",

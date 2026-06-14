@@ -22,6 +22,7 @@ import {
 import { z } from "zod";
 import {
   callClaudeText,
+  detectAgentComplexity,
   isAnthropicConfigured,
 } from "@/lib/ai/anthropic";
 import {
@@ -251,7 +252,7 @@ async function generateConversationTitle(
   const title =
     (await callClaudeText({
       organizationId,
-      model: "claude-haiku-4-5",
+      task: "agent_simple",
       feature: "agent_conversation_title",
       system:
         "Genera títulos breves en español. Responde SOLO con el título, máximo 5 palabras, sin puntuación final.",
@@ -435,6 +436,7 @@ export async function sendAgentMessageAction(input: {
   const productContext = await getProductContextTextForOrg(organizationId);
 
   let ragContext = "";
+  let hasRagContext = false;
   try {
     const ragResults = await searchRAG({
       organizationId,
@@ -442,6 +444,7 @@ export async function sendAgentMessageAction(input: {
       matchCount: 5,
       minSimilarity: 0.65,
     });
+    hasRagContext = ragResults.length > 0;
     ragContext = buildRAGContext(ragResults);
   } catch {
     console.warn("[Agent] RAG no disponible, respondiendo sin contexto semántico");
@@ -461,10 +464,12 @@ export async function sendAgentMessageAction(input: {
     content: m.content,
   }));
 
+  const agentTask = detectAgentComplexity(trimmed, hasRagContext);
+
   let rawAssistant = isAnthropicConfigured()
     ? await callClaudeText({
         organizationId,
-        model: "claude-sonnet-4-5",
+        task: agentTask,
         feature: "agent_chat",
         system,
         messages: claudeMessages,

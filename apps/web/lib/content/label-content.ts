@@ -39,7 +39,7 @@ JSON:
     reasoning: string;
   }>({
     organizationId: params.organizationId,
-    model: "claude-haiku-4-5",
+    task: "content_labeling",
     feature: "content_labeling",
     system,
     user,

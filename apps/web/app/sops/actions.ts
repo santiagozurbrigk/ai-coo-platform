@@ -6,7 +6,7 @@ import {
   isMissingTableError,
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
-import { callClaudeJson } from "@/lib/ai/anthropic";
+import { callClaudeJson, AI_MODELS } from "@/lib/ai/anthropic";
 import { ingestDocument } from "@/lib/rag/ingest";
 import { buildSOPGenerationPrompt } from "@/lib/sops/generate-sop-prompt";
 import {
@@ -16,8 +16,6 @@ import {
 } from "@/lib/server/action-result";
 import { createClient } from "@/lib/supabase/server";
 import { paths } from "@/routes/paths";
-
-const SOP_MODEL = "claude-sonnet-4-6" as const;
 
 function revalidateSops() {
   revalidatePath(paths.platform.operations.sops);
@@ -81,7 +79,7 @@ export async function generateSOPAction(data: {
       content: string;
       steps_count: number;
     }>({
-      model: SOP_MODEL,
+      task: "sop_generation",
       system:
         "Respondé únicamente con JSON válido. No incluyas markdown fences ni texto fuera del objeto JSON.",
       user: prompt,
@@ -137,7 +135,7 @@ export async function saveSOPAction(data: {
         tags: data.tags ?? [],
         estimated_duration_minutes: data.estimatedDurationMinutes ?? null,
         generated_by_ai: data.generatedByAI ?? false,
-        ai_model: data.generatedByAI ? SOP_MODEL : null,
+        ai_model: data.generatedByAI ? AI_MODELS.SONNET : null,
         status: data.status ?? "draft",
         created_by: "user",
         author_user_id: profile?.id ?? null,

@@ -1,6 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { callClaudeText } from "@/lib/ai/anthropic";
 import type { ContentLabel } from "@/lib/content/label-content";
-import { trackTokenUsage } from "@/lib/track-token-usage";
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -79,9 +78,6 @@ export async function generateDistributionInsight(params: {
     return cached.insight;
   }
 
-  const key = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!key) return null;
-
   const { percentages, topConversationsLabel, conversionsPerLabel } =
     params.stats;
 
@@ -99,24 +95,16 @@ Correlación con ventas:
 Da UN insight accionable en máximo 2 oraciones en español.
 Sé específico con los números reales, no genérico.`;
 
-  const client = new Anthropic({ apiKey: key });
-  const response = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 256,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const textBlock = response.content.find((b) => b.type === "text");
-  const insight = textBlock?.type === "text" ? textBlock.text.trim() : null;
-  if (!insight) return null;
-
-  await trackTokenUsage({
+  const insight = await callClaudeText({
     organizationId: params.organizationId,
-    model: "claude-haiku-4-5",
+    task: "data_extraction",
     feature: "content_distribution_insight",
-    inputTokens: response.usage.input_tokens,
-    outputTokens: response.usage.output_tokens,
+    system: "Respondé en español, máximo 2 oraciones.",
+    messages: [{ role: "user", content: prompt }],
+    maxTokens: 256,
   });
+
+  if (!insight) return null;
 
   cache.set(params.organizationId, {
     insight,

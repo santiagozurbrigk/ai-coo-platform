@@ -12,7 +12,6 @@ export type FathomAnalysisResult = {
 };
 
 // TODO: Phase 2 — BullMQ queue `fathom-analysis` para procesar async
-// TODO: Phase 2 — usar claude-haiku-4-5 para tagging; Sonnet para resumen ejecutivo
 // TODO: Phase 2 — implementar prompt caching aquí (SOPs, contexto org)
 // Análisis profundo: ver generateDeepCallAnalysis en deep-call-analysis.ts
 
@@ -43,7 +42,7 @@ Responde SOLO en JSON:
 
   return callClaudeJson<FathomAnalysisResult>({
     organizationId: params.organizationId,
-    model: "claude-sonnet-4-5",
+    task: "call_analysis",
     feature: "fathom_call_analysis",
     system,
     user,

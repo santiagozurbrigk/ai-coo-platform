@@ -146,6 +146,16 @@ export type OrgAiCostRow = {
   aiKeySource: "byok" | "otc";
 };
 
+export type ModelUsageRow = {
+  model: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  inputCostUsd: number;
+  outputCostUsd: number;
+  totalCostUsd: number;
+};
+
 export type AdminAiCostDashboard = {
   summary: AdminProfitabilitySummary;
   organizations: OrgAiCostRow[];
@@ -155,6 +165,7 @@ export type AdminAiCostDashboard = {
     costUsd: number;
     marginUsd: number;
   }[];
+  modelUsage: ModelUsageRow[];
 };
 
 export type TokenUsageBreakdown = {

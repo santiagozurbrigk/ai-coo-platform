@@ -1,18 +1,114 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { trackTokenUsage, type TokenUsageModel } from "@/lib/track-token-usage";
+import { trackTokenUsage } from "@/lib/track-token-usage";
 
+/** IDs de modelo para la API de Anthropic */
+export const AI_MODELS = {
+  HAIKU: "claude-haiku-4-5-20251001",
+  SONNET: "claude-sonnet-4-6",
+} as const;
+
+export type AITask =
+  | "conversation_scoring"
+  | "content_labeling"
+  | "booking_detection"
+  | "data_extraction"
+  | "agent_simple"
+  | "call_analysis"
+  | "weekly_report"
+  | "sop_generation"
+  | "agent_complex"
+  | "product_extraction"
+  | "sales_analysis";
+
+const TASK_MODEL_MAP: Record<AITask, string> = {
+  conversation_scoring: AI_MODELS.HAIKU,
+  content_labeling: AI_MODELS.HAIKU,
+  booking_detection: AI_MODELS.HAIKU,
+  data_extraction: AI_MODELS.HAIKU,
+  agent_simple: AI_MODELS.HAIKU,
+
+  call_analysis: AI_MODELS.SONNET,
+  weekly_report: AI_MODELS.SONNET,
+  sop_generation: AI_MODELS.SONNET,
+  agent_complex: AI_MODELS.SONNET,
+  product_extraction: AI_MODELS.SONNET,
+  sales_analysis: AI_MODELS.SONNET,
+};
+
+/** Alias hasta disponibilidad GA de Sonnet 4.6 en la API */
+const API_MODEL_ALIASES: Record<string, string> = {
+  "claude-sonnet-4-6": "claude-sonnet-4-5-20250929",
+};
+
+/** Alias cortos legacy (override manual) */
 export type ClaudeModel =
   | "claude-haiku-4-5"
   | "claude-sonnet-4-5"
   | "claude-sonnet-4-6";
 
-const MODEL_MAP: Record<ClaudeModel, string> = {
-  "claude-haiku-4-5": "claude-haiku-4-5-20251001",
+const LEGACY_MODEL_MAP: Record<ClaudeModel, string> = {
+  "claude-haiku-4-5": AI_MODELS.HAIKU,
   "claude-sonnet-4-5": "claude-sonnet-4-5-20250929",
-  /** Alias de producto; API actual usa Sonnet 4.5 hasta disponibilidad de 4.6 */
-  "claude-sonnet-4-6": "claude-sonnet-4-5-20250929",
+  "claude-sonnet-4-6": AI_MODELS.SONNET,
 };
+
+export function getModelForTask(task: AITask): string {
+  return TASK_MODEL_MAP[task];
+}
+
+export function detectAgentComplexity(
+  message: string,
+  hasRAGContext: boolean
+): AITask {
+  const simplePatterns = [
+    /^(qué|cuál|cuánto|cuántos|cuántas|dónde|quién|cómo se llama)/i,
+    /^(dame|mostrame|listame|decime)/i,
+    /\?((\s*)$)/,
+  ];
+
+  const complexPatterns = [
+    /analiz/i,
+    /recomiend/i,
+    /estrategia/i,
+    /por qué/i,
+    /cómo puedo mejorar/i,
+    /qué debería/i,
+    /compara/i,
+    /explica/i,
+  ];
+
+  const isComplex =
+    complexPatterns.some((p) => p.test(message)) ||
+    hasRAGContext ||
+    message.length > 200;
+
+  const isSimple =
+    !isComplex &&
+    simplePatterns.some((p) => p.test(message)) &&
+    message.length < 100;
+
+  if (isSimple) return "agent_simple";
+  return "agent_complex";
+}
+
+function resolveLogicalModel(opts: {
+  task?: AITask;
+  model?: ClaudeModel | string;
+}): string {
+  if (opts.model) {
+    if (opts.model in LEGACY_MODEL_MAP) {
+      return LEGACY_MODEL_MAP[opts.model as ClaudeModel];
+    }
+    return opts.model;
+  }
+  if (opts.task) return getModelForTask(opts.task);
+  return AI_MODELS.HAIKU;
+}
+
+function resolveApiModelId(logicalModel: string): string {
+  return API_MODEL_ALIASES[logicalModel] ?? logicalModel;
+}
 
 const orgKeyCache = new Map<string, { key: string; cachedAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -22,9 +118,6 @@ function getGlobalClient(): Anthropic | null {
   if (!key) return null;
   return new Anthropic({ apiKey: key });
 }
-
-// TODO: Phase 2 — routing por tarea: Haiku (clasificación/tagging), Sonnet (reportes), Opus (SOPs)
-// TODO: Phase 2 — implementar prompt caching en todo contexto org (SOPs, frameworks, equipo)
 
 export function isAnthropicConfigured(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
@@ -73,7 +166,8 @@ export async function getClientForOrg(
 
 export type ClaudeJsonRequest = {
   organizationId: string;
-  model: ClaudeModel;
+  task?: AITask;
+  model?: ClaudeModel | string;
   feature: string;
   system: string;
   user: string;
@@ -82,12 +176,29 @@ export type ClaudeJsonRequest = {
 
 export type ClaudeTextRequest = {
   organizationId: string;
-  model: ClaudeModel;
+  task?: AITask;
+  model?: ClaudeModel | string;
   feature: string;
   system: string;
   messages: { role: "user" | "assistant"; content: string }[];
   maxTokens?: number;
 };
+
+async function trackUsage(
+  organizationId: string,
+  logicalModel: string,
+  feature: string,
+  inputTokens: number,
+  outputTokens: number
+) {
+  await trackTokenUsage({
+    organizationId,
+    model: logicalModel,
+    inputTokens,
+    outputTokens,
+    feature,
+  }).catch(() => {});
+}
 
 export async function callClaudeText(
   req: ClaudeTextRequest
@@ -98,8 +209,11 @@ export async function callClaudeText(
     return null;
   }
 
+  const logicalModel = resolveLogicalModel(req);
+  const apiModel = resolveApiModelId(logicalModel);
+
   const response = await client.messages.create({
-    model: MODEL_MAP[req.model],
+    model: apiModel,
     max_tokens: req.maxTokens ?? 4096,
     system: req.system,
     messages: req.messages.map((m) => ({
@@ -108,13 +222,13 @@ export async function callClaudeText(
     })),
   });
 
-  await trackTokenUsage({
-    organizationId: req.organizationId,
-    model: req.model as TokenUsageModel,
-    inputTokens: response.usage.input_tokens,
-    outputTokens: response.usage.output_tokens,
-    feature: req.feature,
-  }).catch(() => {});
+  await trackUsage(
+    req.organizationId,
+    logicalModel,
+    req.feature,
+    response.usage.input_tokens,
+    response.usage.output_tokens
+  );
 
   const textBlock = response.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") return null;
@@ -130,23 +244,23 @@ export async function callClaudeJson<T>(
     return null;
   }
 
+  const logicalModel = resolveLogicalModel(req);
+  const apiModel = resolveApiModelId(logicalModel);
+
   const response = await client.messages.create({
-    model: MODEL_MAP[req.model],
+    model: apiModel,
     max_tokens: req.maxTokens ?? 2048,
     system: req.system,
     messages: [{ role: "user", content: req.user }],
   });
 
-  const inputTokens = response.usage.input_tokens;
-  const outputTokens = response.usage.output_tokens;
-
-  await trackTokenUsage({
-    organizationId: req.organizationId,
-    model: req.model as TokenUsageModel,
-    inputTokens,
-    outputTokens,
-    feature: req.feature,
-  }).catch(() => {});
+  await trackUsage(
+    req.organizationId,
+    logicalModel,
+    req.feature,
+    response.usage.input_tokens,
+    response.usage.output_tokens
+  );
 
   const textBlock = response.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") return null;

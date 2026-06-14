@@ -17,7 +17,39 @@ export function AiCostDashboardContent({
 }: {
   data: AdminAiCostDashboard;
 }) {
-  const { summary, organizations, profitabilityChart } = data;
+  const { summary, organizations, profitabilityChart, modelUsage } = data;
+
+  const modelTotals = modelUsage.reduce(
+    (acc, row) => ({
+      requests: acc.requests + row.requests,
+      inputTokens: acc.inputTokens + row.inputTokens,
+      outputTokens: acc.outputTokens + row.outputTokens,
+      inputCostUsd: acc.inputCostUsd + row.inputCostUsd,
+      outputCostUsd: acc.outputCostUsd + row.outputCostUsd,
+      totalCostUsd: acc.totalCostUsd + row.totalCostUsd,
+    }),
+    {
+      requests: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      inputCostUsd: 0,
+      outputCostUsd: 0,
+      totalCostUsd: 0,
+    }
+  );
+
+  function formatTokens(n: number): string {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+    return String(n);
+  }
+
+  function shortModelName(model: string): string {
+    if (model.includes("haiku")) return "claude-haiku-4-5";
+    if (model.includes("sonnet")) return "claude-sonnet-4-6";
+    if (model.includes("opus")) return "claude-opus";
+    return model;
+  }
 
   const chartItems = profitabilityChart.map((row) => ({
     label: row.orgName.split(" ")[0] ?? row.orgName,
@@ -125,6 +157,82 @@ export function AiCostDashboardContent({
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border/60 dark:border-white/[0.08]">
+        <div className="border-b border-border/60 px-4 py-3 dark:border-white/[0.08]">
+          <h3 className="text-sm font-semibold">Uso por modelo</h3>
+          <p className="text-xs text-muted-foreground">
+            Desglose real del mes según token_usage (requests, tokens y costo estimado)
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-left text-sm">
+            <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3">Modelo</th>
+                <th className="px-4 py-3">Requests</th>
+                <th className="px-4 py-3">Input tokens</th>
+                <th className="px-4 py-3">Output tokens</th>
+                <th className="px-4 py-3">Costo estimado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {modelUsage.map((row) => (
+                <tr
+                  key={row.model}
+                  className="border-t border-border/40 dark:border-white/[0.06]"
+                >
+                  <td className="px-4 py-3 font-medium">
+                    {shortModelName(row.model)}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">{row.requests}</td>
+                  <td className="px-4 py-3 tabular-nums">
+                    {formatTokens(row.inputTokens)}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">
+                    {formatTokens(row.outputTokens)}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">
+                    {formatUsdPrecise(row.inputCostUsd)} +{" "}
+                    {formatUsdPrecise(row.outputCostUsd)} ={" "}
+                    <span className="font-medium">
+                      {formatUsdPrecise(row.totalCostUsd)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {modelUsage.length > 0 ? (
+                <tr className="border-t border-border/60 bg-muted/20 font-medium dark:border-white/[0.08]">
+                  <td className="px-4 py-3">Total</td>
+                  <td className="px-4 py-3 tabular-nums">
+                    {modelTotals.requests}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">
+                    {formatTokens(modelTotals.inputTokens)}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">
+                    {formatTokens(modelTotals.outputTokens)}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">
+                    {formatUsdPrecise(modelTotals.inputCostUsd)} +{" "}
+                    {formatUsdPrecise(modelTotals.outputCostUsd)} ={" "}
+                    {formatUsdPrecise(modelTotals.totalCostUsd)}
+                  </td>
+                </tr>
+              ) : (
+                <tr className="border-t border-border/40 dark:border-white/[0.06]">
+                  <td
+                    colSpan={5}
+                    className="px-4 py-6 text-center text-muted-foreground"
+                  >
+                    Sin uso de tokens registrado este mes
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
