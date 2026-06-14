@@ -1,7 +1,15 @@
 export const INSTAGRAM_GRAPH_VERSION = "v19.0";
 
-/** Scopes mínimos compatibles con el nuevo sistema Meta en modo desarrollo. */
-export const INSTAGRAM_SCOPES = "instagram_basic,pages_show_list";
+/**
+ * Scopes Instagram Graph API v18+ (Meta deprecó instagram_basic).
+ * Lectura de media + insights hacia content_assets; pages_* para /me/accounts.
+ */
+export const INSTAGRAM_SCOPES = [
+  "instagram_business_basic",
+  "instagram_business_manage_insights",
+  "pages_show_list",
+  "pages_read_engagement",
+].join(",");
 
 export const INSTAGRAM_OAUTH_AUTHORIZE_URL = `https://www.facebook.com/${INSTAGRAM_GRAPH_VERSION}/dialog/oauth`;
 
