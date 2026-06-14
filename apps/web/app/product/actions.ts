@@ -13,6 +13,14 @@ import {
   type SalesFrameworkRow,
 } from "@/lib/product/mapper";
 import {
+  extractProductContextFromRAG,
+  type ProductContextExtraction,
+  type SuggestedAvatar,
+  type SuggestedFramework,
+  type SuggestedProduct,
+} from "@/lib/rag/extract-product-context";
+import { ingestProductContext } from "@/lib/rag/ingest";
+import {
   actionErrorMessage,
   runMutation,
   type MutationResult,
@@ -105,6 +113,74 @@ export async function saveAvatarAction(data: {
     }
 
     revalidateProduct();
+    void ingestProductContext(organizationId).catch((err) =>
+      console.error("[RAG] Error ingestando producto:", err)
+    );
+    return { ok: true };
+  });
+}
+
+export async function extractAndSuggestProductContextAction(): Promise<ProductContextExtraction> {
+  const organizationId = await requireOrganizationId();
+  const result = await extractProductContextFromRAG(organizationId);
+  if (!result) {
+    throw new Error(
+      "No hay suficiente contexto en el sistema todavía. " +
+        "Conectá Fathom para importar calls o creá algunos SOPs primero."
+    );
+  }
+  return result;
+}
+
+export async function applySuggestedProductContextAction(input: {
+  avatar?: SuggestedAvatar | null;
+  products?: SuggestedProduct[];
+  frameworks?: SuggestedFramework[];
+}): Promise<MutationResult<{ ok: true }>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+
+    if (input.avatar?.name && input.avatar.main_pain) {
+      const avatarResult = await saveAvatarAction({
+        name: input.avatar.name,
+        mainPain: input.avatar.main_pain,
+        secondaryPains: input.avatar.secondary_pains ?? [],
+        desires: input.avatar.desires ?? [],
+        fears: input.avatar.fears ?? [],
+        objections: input.avatar.objections ?? [],
+        whereTheyHang: input.avatar.where_they_hang,
+        languageTheyUse: input.avatar.language_they_use,
+        isPrimary: true,
+      });
+      if (!avatarResult.success) throw new Error(avatarResult.error);
+    }
+
+    for (const product of input.products ?? []) {
+      if (!product.name?.trim()) continue;
+      const productResult = await saveProductAction({
+        name: product.name,
+        description: product.description,
+        type: product.type ?? "otro",
+        price: product.price ?? undefined,
+        billingType: product.billing_type ?? "unico",
+      });
+      if (!productResult.success) throw new Error(productResult.error);
+    }
+
+    for (const framework of input.frameworks ?? []) {
+      if (!framework.name?.trim() || !framework.content?.trim()) continue;
+      const frameworkResult = await saveSalesFrameworkAction({
+        name: framework.name,
+        type: framework.type ?? "otro",
+        content: framework.content,
+      });
+      if (!frameworkResult.success) throw new Error(frameworkResult.error);
+    }
+
+    void ingestProductContext(organizationId).catch((err) =>
+      console.error("[RAG] Error ingestando producto:", err)
+    );
+
     return { ok: true };
   });
 }
@@ -196,6 +272,9 @@ export async function saveProductAction(data: {
     }
 
     revalidateProduct();
+    void ingestProductContext(organizationId).catch((err) =>
+      console.error("[RAG] Error ingestando producto:", err)
+    );
     return { ok: true };
   });
 }
@@ -294,6 +373,9 @@ export async function saveSalesFrameworkAction(data: {
     }
 
     revalidateProduct();
+    void ingestProductContext(organizationId).catch((err) =>
+      console.error("[RAG] Error ingestando producto:", err)
+    );
     return { ok: true };
   });
 }

@@ -28,6 +28,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname === "/api/waitlist") return true;
   if (pathname.startsWith("/api/utm/")) return true;
   if (pathname.startsWith("/api/cron/")) return true;
+  if (pathname.startsWith("/api/rag/")) return true;
   if (pathname.startsWith("/invite")) return true;
   if (pathname.startsWith("/api/invite/")) return true;
   if (pathname.startsWith("/api/integrations/")) {

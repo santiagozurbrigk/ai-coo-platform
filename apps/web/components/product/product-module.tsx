@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MockPhaseBadge } from "./mock-phase-badge";
+import { ProductRagSuggestButton } from "./product-rag-suggest";
 import { ProductViewToggle, type ProductViewMode } from "./product-view-toggle";
 import { ProductSpatialView } from "./spatial-view";
 import { ProductDetailView } from "./detail-view";
@@ -59,6 +60,11 @@ export function ProductModule({
             negocio.
           </p>
           <MockPhaseBadge hasRealData={hasRealData} />
+          <ProductRagSuggestButton
+            hasRealData={hasRealData}
+            canEdit={canEdit}
+            onSaved={refresh}
+          />
         </div>
         <ProductViewToggle mode={mode} onChange={handleModeChange} />
       </div>

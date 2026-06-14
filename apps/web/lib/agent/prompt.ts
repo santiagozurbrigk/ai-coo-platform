@@ -33,6 +33,7 @@ export function buildAgentSystemPrompt(opts: {
   recentContext: string;
   projectName?: string | null;
   productContext?: string;
+  ragContext?: string;
 }): string {
   const projectLine = opts.projectName
     ? `PROYECTO ACTIVO: ${opts.projectName}`
@@ -42,12 +43,21 @@ export function buildAgentSystemPrompt(opts: {
     ? `\n${opts.productContext.trim()}\n`
     : "";
 
+  const ragBlock = opts.ragContext?.trim()
+    ? `\n${opts.ragContext.trim()}\n`
+    : "";
+
   return `
 Eres el agente de negocio de ${opts.orgName}.
 ${projectLine}
 ${opts.stageContext}
 ${productBlock}
+${ragBlock}
 ${opts.recentContext}
+
+Si el contexto proporcionado no es suficiente para responder,
+decí qué información adicional necesitarías y sugerí al founder
+que configure más datos en el sistema (SOPs, productos, etc.).
 
 Cuando el usuario te pida crear un SOP, procedimiento, proceso documentado
 o cualquier documento operacional:

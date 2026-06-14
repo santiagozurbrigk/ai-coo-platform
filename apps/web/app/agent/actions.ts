@@ -42,6 +42,7 @@ import {
   buildStageContext,
 } from "@/lib/agent/prompt";
 import { getProductContextTextForOrg } from "@/app/product/actions";
+import { buildRAGContext, searchRAG } from "@/lib/rag/search";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes/paths";
@@ -432,12 +433,27 @@ export async function sendAgentMessageAction(input: {
 
   const orgName = await getOrgName(supabase, organizationId);
   const productContext = await getProductContextTextForOrg(organizationId);
+
+  let ragContext = "";
+  try {
+    const ragResults = await searchRAG({
+      organizationId,
+      query: trimmed,
+      matchCount: 5,
+      minSimilarity: 0.65,
+    });
+    ragContext = buildRAGContext(ragResults);
+  } catch {
+    console.warn("[Agent] RAG no disponible, respondiendo sin contexto semántico");
+  }
+
   const system = buildAgentSystemPrompt({
     orgName,
     stageContext: buildStageContext(stageForPrompt),
     recentContext: buildRecentContextSummary(recentOrg),
     projectName: conversation.project?.name,
     productContext,
+    ragContext,
   });
 
   const claudeMessages = history.map((m) => ({

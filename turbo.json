@@ -20,6 +20,7 @@
         "RESEND_API_KEY",
         "RESEND_FROM_EMAIL",
         "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
         "CRON_SECRET",
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",

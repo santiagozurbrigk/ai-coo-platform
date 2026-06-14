@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/bootstrap";
 import { requireAuthContext } from "@/lib/auth/require-auth";
 import { callClaudeJson } from "@/lib/ai/anthropic";
+import { ingestDocument } from "@/lib/rag/ingest";
 import {
   DB_TO_UI_DEPARTMENT,
   getCurrentWeekStart,
@@ -68,6 +69,21 @@ export async function saveWeeklyInputAction(data: {
   );
 
   if (error) throw new Error(mapWeeklyError(error.message));
+
+  void ingestDocument({
+    organizationId: orgId,
+    sourceType: "weekly_input",
+    sourceId: `${weekStart}-${dbDepartment}-${user.id}`,
+    title: `Input ${data.department} - ${weekStart}`,
+    data: {
+      department: dbDepartment,
+      content,
+      rating,
+      week_start: weekStart,
+    },
+    department: dbDepartment,
+    tags: ["weekly_input", dbDepartment],
+  }).catch((err) => console.error("[RAG] Error ingestando weekly input:", err));
 
   revalidatePath(paths.platform.operations.weeklyInputs);
   revalidatePath(paths.platform.operations.overview);

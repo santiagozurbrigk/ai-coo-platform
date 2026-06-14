@@ -7,6 +7,7 @@ import {
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
 import { callClaudeJson } from "@/lib/ai/anthropic";
+import { ingestDocument } from "@/lib/rag/ingest";
 import { buildSOPGenerationPrompt } from "@/lib/sops/generate-sop-prompt";
 import {
   actionErrorMessage,
@@ -163,6 +164,24 @@ export async function saveSOPAction(data: {
       change_note: "Versión inicial",
     });
 
+    const { data: fullSop } = await supabase
+      .from("sops")
+      .select("*")
+      .eq("id", sop.id)
+      .single();
+
+    if (fullSop && (data.status ?? "draft") === "active") {
+      void ingestDocument({
+        organizationId,
+        sourceType: "sop",
+        sourceId: sop.id,
+        title: fullSop.title,
+        data: fullSop,
+        department: fullSop.department,
+        tags: ["sop", fullSop.department],
+      }).catch((err) => console.error("[RAG] Error ingestando SOP:", err));
+    }
+
     revalidateSops();
     return { id: sop.id };
   });
@@ -219,6 +238,25 @@ export async function updateSOPAction(
         changed_by: profile?.id ?? null,
         change_note: data.changeNote ?? "Actualización",
       });
+    }
+
+    const { data: updatedSop } = await supabase
+      .from("sops")
+      .select("*")
+      .eq("id", sopId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (updatedSop && updatedSop.status === "active") {
+      void ingestDocument({
+        organizationId,
+        sourceType: "sop",
+        sourceId: sopId,
+        title: updatedSop.title,
+        data: updatedSop,
+        department: updatedSop.department,
+        tags: ["sop", updatedSop.department],
+      }).catch((err) => console.error("[RAG] Error ingestando SOP:", err));
     }
 
     revalidateSops();

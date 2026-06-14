@@ -4,6 +4,7 @@ import { generateDeepCallAnalysis } from "@/lib/fathom/deep-call-analysis";
 import { associateCallWithClients } from "@/lib/fathom/associate";
 import { isManualFathomLink } from "@/lib/fathom/client-matcher";
 import { fetchFathomMeetingTitle } from "@/lib/fathom/api";
+import { ingestDocument } from "@/lib/rag/ingest";
 import type { CalendlyFormAnswer } from "@/types/closing";
 
 function formAnswersToRecord(
@@ -295,6 +296,24 @@ export async function finalizeAssociatedCall(params: {
     }).catch((err) => {
       console.error("[ProcessCall] Error en deep analysis:", err);
     });
+  }
+
+  if (params.transcript?.trim()) {
+    void ingestDocument({
+      organizationId: params.organizationId,
+      sourceType: "fathom_call",
+      sourceId: params.fathomCallId,
+      title: params.title,
+      data: {
+        title: params.title,
+        call_date: params.callDate,
+        transcript: params.transcript,
+        ai_situation_summary: analysis?.situation_summary,
+        ai_next_steps: nextSteps,
+        summary: analysis?.situation_summary,
+      },
+      tags: ["fathom", "call"],
+    }).catch((err) => console.error("[RAG] Error ingestando call:", err));
   }
 }
 
