@@ -23,7 +23,10 @@ export async function listSops(): Promise<Sop[]> {
 
   if (error) throw new Error(error.message);
 
-  return ((data ?? []) as SopRow[]).map(rowToSop);
+  const rows = (data ?? []) as SopRow[];
+  if (rows.length === 0) return mockSops;
+
+  return rows.map(rowToSop);
 }
 
 export async function getSopById(id: string): Promise<Sop | null> {

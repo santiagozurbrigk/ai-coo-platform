@@ -150,6 +150,8 @@ export function generateMockSop(form: {
 
   return {
     title: `SOP — ${form.goal.slice(0, 60)}${form.goal.length > 60 ? "…" : ""}`,
+    content: `## Objetivo\n${form.goal}\n\n## Resultado esperado\n${form.expectedOutcome || "Resultado medible al completar el proceso."}`,
+    tags: [deptLabel, "mock"],
     sections: [
       {
         title: "Objetivo",

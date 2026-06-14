@@ -8,6 +8,7 @@ const LABELS: Record<SopDepartment, string> = {
   founder: "Founder",
   marketing: "Marketing",
   general: "General",
+  finance: "Finanzas",
 };
 
 export function SopDepartmentBadge({

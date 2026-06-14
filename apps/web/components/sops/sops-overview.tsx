@@ -1,13 +1,16 @@
 "use client";
 
+import { Suspense } from "react";
 import { Button } from "@ai-coo/ui";
 import { HashTabLink, ModuleSubnav } from "@/components/shared/client";
 import { PageHeader } from "@/components/shared/page-header";
 import { useHashTab } from "@/lib/hooks/use-hash-tab";
+import type { SOPOpportunity } from "@/lib/sops/suggest-sops";
 import { paths } from "@/routes";
 import type { Sop } from "@/types/sops";
 import { SopCreatorForm } from "./sop-creator-form";
 import { SopLibrary } from "./sop-library";
+import { SopsSuggestionsBanner } from "./sops-suggestions-banner";
 
 const TABS = [
   { id: "biblioteca", label: "Biblioteca", hash: "biblioteca" },
@@ -16,7 +19,13 @@ const TABS = [
 
 const DEFAULT_TAB = TABS[0].hash;
 
-export function SopsOverview({ sops }: { sops: Sop[] }) {
+export function SopsOverview({
+  sops,
+  suggestions = [],
+}: {
+  sops: Sop[];
+  suggestions?: SOPOpportunity[];
+}) {
   const activeTab = useHashTab(DEFAULT_TAB);
   const root = paths.platform.operations.sops;
 
@@ -37,7 +46,13 @@ export function SopsOverview({ sops }: { sops: Sop[] }) {
       {activeTab === "crear" ? (
         <>
           <PageHeader description="Generá un SOP estructurado con IA en minutos" />
-          <SopCreatorForm />
+          <Suspense
+            fallback={
+              <p className="text-sm text-muted-foreground">Cargando formulario…</p>
+            }
+          >
+            <SopCreatorForm />
+          </Suspense>
         </>
       ) : (
         <>
@@ -49,6 +64,7 @@ export function SopsOverview({ sops }: { sops: Sop[] }) {
               </Button>
             }
           />
+          <SopsSuggestionsBanner suggestions={suggestions} />
           <SopLibrary sops={sops} />
         </>
       )}

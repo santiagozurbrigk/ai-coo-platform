@@ -12,6 +12,14 @@ export type SopRow = {
   created_by: string;
   created_at: string;
   updated_at: string;
+  expected_outcome?: string | null;
+  additional_context?: string | null;
+  generated_by_ai?: boolean;
+  ai_model?: string | null;
+  version?: number;
+  author_user_id?: string | null;
+  tags?: string[] | null;
+  estimated_duration_minutes?: number | null;
 };
 
 const VALID_DEPARTMENTS = new Set([
@@ -21,6 +29,7 @@ const VALID_DEPARTMENTS = new Set([
   "operations",
   "finance",
   "general",
+  "founder",
 ]);
 
 function formatLastUpdated(iso: string): string {
@@ -29,6 +38,12 @@ function formatLastUpdated(iso: string): string {
     month: "short",
     year: "numeric",
   }).format(new Date(iso));
+}
+
+function parseTags(raw: SopRow["tags"]): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.filter((t) => typeof t === "string");
+  return [];
 }
 
 export function rowToSop(row: SopRow): Sop {
@@ -47,5 +62,9 @@ export function rowToSop(row: SopRow): Sop {
     status,
     lastUpdated: formatLastUpdated(row.updated_at),
     goal: row.goal ?? row.title,
+    generatedByAI: row.generated_by_ai ?? false,
+    estimatedDurationMinutes: row.estimated_duration_minutes ?? undefined,
+    version: row.version ?? 1,
+    tags: parseTags(row.tags),
   };
 }

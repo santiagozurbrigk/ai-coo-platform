@@ -1,7 +1,7 @@
 import type { SopStatus } from "@ai-coo/types";
 import type { Department } from "./operations";
 
-export type SopDepartment = Department | "marketing" | "general";
+export type SopDepartment = Department | "marketing" | "general" | "finance";
 
 export type Sop = {
   id: string;
@@ -10,6 +10,10 @@ export type Sop = {
   status: SopStatus;
   lastUpdated: string;
   goal: string;
+  generatedByAI?: boolean;
+  estimatedDurationMinutes?: number;
+  version?: number;
+  tags?: string[];
 };
 
 export type SopCreatorForm = {
@@ -26,5 +30,11 @@ export type GeneratedSopSection = {
 
 export type GeneratedSop = {
   title: string;
-  sections: GeneratedSopSection[];
+  summary?: string;
+  content: string;
+  tags: string[];
+  estimatedDurationMinutes?: number;
+  stepsCount?: number;
+  /** @deprecated Solo mocks legacy */
+  sections?: GeneratedSopSection[];
 };
