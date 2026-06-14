@@ -1,17 +1,14 @@
 export const INSTAGRAM_GRAPH_VERSION = "v19.0";
 
-/**
- * Scopes Instagram Graph API v18+ (Meta deprecó instagram_basic).
- * Lectura de media + insights hacia content_assets; pages_* para /me/accounts.
- */
+/** Scopes para Instagram Login (Business Login for Instagram). */
 export const INSTAGRAM_SCOPES = [
   "instagram_business_basic",
   "instagram_business_manage_insights",
-  "pages_show_list",
-  "pages_read_engagement",
 ].join(",");
 
-export const INSTAGRAM_OAUTH_AUTHORIZE_URL = `https://www.facebook.com/${INSTAGRAM_GRAPH_VERSION}/dialog/oauth`;
+export const INSTAGRAM_AUTH_URL = "https://api.instagram.com/oauth/authorize";
+export const INSTAGRAM_TOKEN_URL = "https://api.instagram.com/oauth/access_token";
+export const INSTAGRAM_GRAPH_URL = `https://graph.instagram.com/${INSTAGRAM_GRAPH_VERSION}`;
 
 export function getInstagramOAuthConfig() {
   const appId = process.env.INSTAGRAM_APP_ID?.trim();

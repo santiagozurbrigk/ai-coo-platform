@@ -1,12 +1,12 @@
 import {
   assertInstagramOAuthConfig,
-  INSTAGRAM_GRAPH_VERSION,
+  INSTAGRAM_GRAPH_URL,
+  INSTAGRAM_TOKEN_URL,
 } from "./config";
-
-const GRAPH_BASE = `https://graph.facebook.com/${INSTAGRAM_GRAPH_VERSION}`;
 
 type GraphErrorBody = {
   error?: { message?: string; type?: string; code?: number };
+  error_message?: string;
 };
 
 async function parseGraphJson<T>(res: Response): Promise<T> {
@@ -14,7 +14,8 @@ async function parseGraphJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const msg =
       json.error?.message ??
-      `Graph API error (${res.status})`;
+      json.error_message ??
+      `Instagram API error (${res.status})`;
     throw new Error(msg);
   }
   return json;
@@ -23,37 +24,46 @@ async function parseGraphJson<T>(res: Response): Promise<T> {
 export async function exchangeCodeForShortLivedToken(code: string) {
   const { appId, appSecret, redirectUri } = assertInstagramOAuthConfig();
 
-  const res = await fetch(`${GRAPH_BASE}/oauth/access_token`, {
+  const res = await fetch(INSTAGRAM_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       client_id: appId,
       client_secret: appSecret,
+      grant_type: "authorization_code",
       redirect_uri: redirectUri,
       code,
     }),
   });
 
-  const json = await parseGraphJson<{ access_token: string }>(res);
-  if (!json.access_token) {
-    throw new Error("No se recibió access_token de Meta");
+  const json = await parseGraphJson<{
+    access_token?: string;
+    user_id?: string | number;
+    data?: { access_token: string; user_id: string | number }[];
+  }>(res);
+
+  const accessToken =
+    json.access_token ?? json.data?.[0]?.access_token ?? null;
+  if (!accessToken) {
+    throw new Error("No se recibió access_token de Instagram");
   }
-  return json.access_token;
+
+  return accessToken;
 }
 
 export async function exchangeForLongLivedToken(shortToken: string) {
-  const { appId, appSecret } = assertInstagramOAuthConfig();
+  const { appSecret } = assertInstagramOAuthConfig();
 
-  const url = new URL(`${GRAPH_BASE}/oauth/access_token`);
-  url.searchParams.set("grant_type", "fb_exchange_token");
-  url.searchParams.set("client_id", appId);
+  const url = new URL("https://graph.instagram.com/access_token");
+  url.searchParams.set("grant_type", "ig_exchange_token");
   url.searchParams.set("client_secret", appSecret);
-  url.searchParams.set("fb_exchange_token", shortToken);
+  url.searchParams.set("access_token", shortToken);
 
   const res = await fetch(url);
   const json = await parseGraphJson<{
     access_token: string;
     expires_in?: number;
+    token_type?: string;
   }>(res);
 
   if (!json.access_token) {
@@ -66,48 +76,33 @@ export async function exchangeForLongLivedToken(shortToken: string) {
   };
 }
 
-export async function fetchInstagramBusinessAccount(accessToken: string) {
-  const pagesRes = await fetch(
-    `${GRAPH_BASE}/me/accounts?access_token=${encodeURIComponent(accessToken)}`
-  );
-  const pagesData = await parseGraphJson<{
-    data?: { id: string; name?: string }[];
-  }>(pagesRes);
+export async function fetchInstagramProfile(accessToken: string) {
+  const url = new URL(`${INSTAGRAM_GRAPH_URL}/me`);
+  url.searchParams.set("fields", "user_id,username,account_type,name");
+  url.searchParams.set("access_token", accessToken);
 
-  const page = pagesData.data?.[0];
-  if (!page?.id) {
-    throw new Error(
-      "No se encontró una página de Facebook vinculada. Conectá una página con cuenta Instagram Business."
-    );
+  const res = await fetch(url);
+  const profile = await parseGraphJson<{
+    user_id?: string;
+    id?: string;
+    username?: string;
+    account_type?: string;
+  }>(res);
+
+  const instagramUserId = profile.user_id ?? profile.id;
+  if (!instagramUserId) {
+    throw new Error("No se pudo obtener el ID de la cuenta Instagram");
   }
-
-  const igRes = await fetch(
-    `${GRAPH_BASE}/${page.id}?fields=instagram_business_account&access_token=${encodeURIComponent(accessToken)}`
-  );
-  const igData = await parseGraphJson<{
-    instagram_business_account?: { id: string };
-  }>(igRes);
-
-  const igAccountId = igData.instagram_business_account?.id;
-  if (!igAccountId) {
-    throw new Error(
-      "La página de Facebook no tiene una cuenta Instagram Business vinculada."
-    );
-  }
-
-  const igProfileRes = await fetch(
-    `${GRAPH_BASE}/${igAccountId}?fields=username,name&access_token=${encodeURIComponent(accessToken)}`
-  );
-  const igProfile = await parseGraphJson<{ username?: string; name?: string }>(
-    igProfileRes
-  );
 
   return {
-    pageId: page.id,
-    instagramUserId: igAccountId,
-    username: igProfile.username ?? null,
+    pageId: null as string | null,
+    instagramUserId,
+    username: profile.username ?? null,
   };
 }
+
+/** @deprecated Usar fetchInstagramProfile — alias temporal */
+export const fetchInstagramBusinessAccount = fetchInstagramProfile;
 
 export type InstagramMediaItem = {
   id: string;
@@ -126,7 +121,7 @@ export async function fetchInstagramMedia(
   accessToken: string,
   limit = 50
 ) {
-  const url = new URL(`${GRAPH_BASE}/${instagramUserId}/media`);
+  const url = new URL(`${INSTAGRAM_GRAPH_URL}/${instagramUserId}/media`);
   url.searchParams.set(
     "fields",
     "id,media_type,media_url,thumbnail_url,permalink,caption,timestamp,like_count,comments_count"
@@ -143,8 +138,8 @@ export async function fetchMediaInsights(
   mediaId: string,
   accessToken: string
 ): Promise<Record<string, number>> {
-  const metrics = ["reach", "impressions", "saved", "shares", "plays"];
-  const url = new URL(`${GRAPH_BASE}/${mediaId}/insights`);
+  const metrics = ["reach", "views", "saved", "shares", "likes", "comments"];
+  const url = new URL(`${INSTAGRAM_GRAPH_URL}/${mediaId}/insights`);
   url.searchParams.set("metric", metrics.join(","));
   url.searchParams.set("access_token", accessToken);
 

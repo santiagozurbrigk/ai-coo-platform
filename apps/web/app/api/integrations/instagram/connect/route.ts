@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import {
   getInstagramOAuthConfig,
-  INSTAGRAM_OAUTH_AUTHORIZE_URL,
+  INSTAGRAM_AUTH_URL,
   INSTAGRAM_SCOPES,
 } from "@/lib/instagram/config";
 
@@ -43,13 +43,10 @@ export async function GET() {
       redirect_uri: redirectUri,
       scope: INSTAGRAM_SCOPES,
       response_type: "code",
-      auth_type: "rerequest",
       state,
     });
 
-    const res = NextResponse.redirect(
-      `${INSTAGRAM_OAUTH_AUTHORIZE_URL}?${params}`
-    );
+    const res = NextResponse.redirect(`${INSTAGRAM_AUTH_URL}?${params}`);
 
     res.cookies.set(
       "instagram_oauth",

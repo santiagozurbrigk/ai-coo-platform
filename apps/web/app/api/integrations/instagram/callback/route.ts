@@ -5,7 +5,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 import {
   exchangeCodeForShortLivedToken,
   exchangeForLongLivedToken,
-  fetchInstagramBusinessAccount,
+  fetchInstagramProfile,
 } from "@/lib/instagram/graph";
 import { syncInstagramForOrganization } from "@/lib/instagram/sync";
 import { paths } from "@/routes";
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
     const shortToken = await exchangeCodeForShortLivedToken(code);
     const { accessToken, expiresIn } =
       await exchangeForLongLivedToken(shortToken);
-    const account = await fetchInstagramBusinessAccount(accessToken);
+    const account = await fetchInstagramProfile(accessToken);
 
     const now = new Date().toISOString();
     const tokenExpiresAt = new Date(

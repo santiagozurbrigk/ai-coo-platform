@@ -30,7 +30,7 @@ function buildAssetRow(
   item: InstagramMediaItem,
   metrics: Record<string, number>
 ) {
-  const views = metrics.plays ?? metrics.impressions ?? 0;
+  const views = metrics.views ?? metrics.plays ?? metrics.impressions ?? 0;
   return {
     organization_id: organizationId,
     platform: "instagram" as const,
