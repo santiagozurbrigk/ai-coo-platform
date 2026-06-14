@@ -247,6 +247,33 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - El timer en tiempo real (iniciar/pausar/detener) no está implementado.
   Solo carga manual al completar la tarea. Phase 2.
 
+### Workboard — Sprints
+
+**Flujo de sprints:**
+- Solo puede haber UN sprint activo por organización a la vez.
+- Al crear un nuevo sprint → el sprint activo anterior se marca
+  automáticamente como "completado".
+- Las tareas nuevas se asignan al sprint activo por defecto.
+
+**Filtros del Kanban:**
+- Se puede filtrar por sprint (dropdown en el header).
+- Se puede filtrar por área (Ventas/Marketing/Ops/Delivery/Producto).
+- Ambos filtros son combinables.
+- Sin sprint seleccionado → se muestran todas las tareas.
+
+**Completion rate:**
+- Se recalcula automáticamente cada vez que una tarea se mueve
+  o se completa dentro del sprint.
+- Fórmula: tareas en "done" / total tareas del sprint * 100.
+
+**Retrospectiva:**
+- Al completarse un sprint → disponible en "Ver retrospectiva"
+  con completion rate, objetivo, tiempo total registrado y detalle.
+
+**Asignación de tareas a sprint:**
+- Desde el detalle de cada tarea → campo "Sprint" con selector.
+- Se puede reasignar una tarea a cualquier sprint existente.
+
 ### Ventas
 
 - **Inbox:** `conversations` reales (ManyChat) o seed mock si tabla vacía sin ManyChat.
