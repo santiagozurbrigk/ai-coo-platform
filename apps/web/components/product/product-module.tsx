@@ -2,11 +2,23 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { MockPhaseBadge } from "./mock-phase-badge";
 import { ProductViewToggle, type ProductViewMode } from "./product-view-toggle";
 import { ProductSpatialView } from "./spatial-view";
 import { ProductDetailView } from "./detail-view";
+import type { ProductData, SpatialProductNode } from "@/types/product";
 
-export function ProductModule() {
+export function ProductModule({
+  productData,
+  spatialNodes,
+  hasRealData,
+  canEdit,
+}: {
+  productData: ProductData;
+  spatialNodes: SpatialProductNode[];
+  hasRealData: boolean;
+  canEdit: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -34,17 +46,33 @@ export function ProductModule() {
     [pathname, router, searchParams]
   );
 
+  const refresh = useCallback(() => {
+    router.refresh();
+  }, [router]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <p className="max-w-xl text-sm text-muted-foreground">
-          Mapa de avatares, ofertas y propuesta de valor — contexto que alimenta al Agente de
-          negocio.
-        </p>
+        <div className="space-y-2">
+          <p className="max-w-xl text-sm text-muted-foreground">
+            Mapa de avatares, ofertas y propuesta de valor — contexto que alimenta al Agente de
+            negocio.
+          </p>
+          <MockPhaseBadge hasRealData={hasRealData} />
+        </div>
         <ProductViewToggle mode={mode} onChange={handleModeChange} />
       </div>
 
-      {mode === "spatial" ? <ProductSpatialView /> : <ProductDetailView />}
+      {mode === "spatial" ? (
+        <ProductSpatialView nodes={spatialNodes} hasRealData={hasRealData} />
+      ) : (
+        <ProductDetailView
+          productData={productData}
+          hasRealData={hasRealData}
+          canEdit={canEdit}
+          onUpdated={refresh}
+        />
+      )}
     </div>
   );
 }

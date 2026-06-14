@@ -6,10 +6,18 @@ import {
   getElementCenter,
   type SpatialLine,
 } from "@/lib/product/spatial-layout";
+import type { SpatialProductNode } from "@/types/product";
 import { BusinessNode } from "./business-node";
 import { ProductNode } from "./product-node";
 
-export function ProductSpatialView() {
+export function ProductSpatialView({
+  nodes,
+  hasRealData,
+}: {
+  nodes: SpatialProductNode[];
+  hasRealData: boolean;
+}) {
+  const displayNodes = hasRealData && nodes.length > 0 ? nodes : mockSpatialNodes;
   const canvasRef = useRef<HTMLDivElement>(null);
   const centerRef = useRef<HTMLDivElement | null>(null);
   const nodeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -27,7 +35,7 @@ export function ProductSpatialView() {
     const origin = getElementCenter(center, canvas);
     const next: SpatialLine[] = [];
 
-    for (const node of mockSpatialNodes) {
+    for (const node of displayNodes) {
       const el = nodeRefs.current.get(node.id);
       if (!el) continue;
       const target = getElementCenter(el, canvas);
@@ -41,7 +49,7 @@ export function ProductSpatialView() {
     }
 
     setLines(next);
-  }, []);
+  }, [displayNodes]);
 
   const registerNodeRef = useCallback(
     (id: string, el: HTMLDivElement | null) => {
@@ -111,12 +119,8 @@ export function ProductSpatialView() {
 
       <BusinessNode registerRef={registerCenterRef} />
 
-      {mockSpatialNodes.map((node) => (
-        <ProductNode
-          key={node.id}
-          node={node}
-          registerRef={registerNodeRef}
-        />
+      {displayNodes.map((node) => (
+        <ProductNode key={node.id} node={node} registerRef={registerNodeRef} />
       ))}
     </div>
   );

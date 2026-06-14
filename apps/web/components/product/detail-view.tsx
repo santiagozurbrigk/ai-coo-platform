@@ -1,43 +1,141 @@
 "use client";
 
 import Link from "next/link";
-import { mockProductData } from "@/mocks/product";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { Badge, Button } from "@ai-coo/ui";
+import { deleteProductAction } from "@/app/product/actions";
 import { paths } from "@/routes/paths";
+import type { ProductData } from "@/types/product";
 import { AvatarsSection } from "./avatar-detail";
-import { ValueLadderSection } from "./value-ladder-section";
+import { ProductOfferDialog } from "./product-offer-dialog";
 import { PropositionSection } from "./proposition-section";
+import { ValueLadderSection } from "./value-ladder-section";
 
-export function ProductDetailView() {
-  const { avatars, valueLadder, offers, proposition } = mockProductData;
+export function ProductDetailView({
+  productData,
+  hasRealData,
+  canEdit,
+  onUpdated,
+}: {
+  productData: ProductData;
+  hasRealData: boolean;
+  canEdit: boolean;
+  onUpdated: () => void;
+}) {
+  const router = useRouter();
+  const [offerOpen, setOfferOpen] = useState(false);
+  const [editingOfferId, setEditingOfferId] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const { avatars, valueLadder, offers, proposition } = productData;
+  const editingOffer = offers.find((o) => o.id === editingOfferId) ?? null;
+
+  const handleArchive = (productId: string) => {
+    if (!canEdit || !hasRealData) return;
+    startTransition(async () => {
+      await deleteProductAction(productId);
+      onUpdated();
+    });
+  };
 
   return (
     <div className="space-y-10">
-      <AvatarsSection avatars={avatars} />
+      <AvatarsSection
+        avatars={avatars}
+        hasRealData={hasRealData}
+        canEdit={canEdit}
+        onUpdated={onUpdated}
+      />
 
       <ValueLadderSection steps={valueLadder} />
 
       <section id="offers" className="scroll-mt-6 space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Ofertas</h2>
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-lg font-semibold text-foreground">Ofertas</h2>
+          {canEdit ? (
+            <Button
+              type="button"
+              size="sm"
+              className="bg-violet-600 hover:bg-violet-700"
+              onClick={() => {
+                setEditingOfferId(null);
+                setOfferOpen(true);
+              }}
+            >
+              Nuevo producto
+            </Button>
+          ) : null}
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {offers.map((offer) => (
-            <Link
+            <div
               key={offer.id}
-              href={paths.platform.product.offer(offer.id)}
-              className="rounded-xl border border-border bg-card/50 p-4 transition-colors hover:border-violet-500/30 hover:bg-muted/30 dark:border-white/8"
+              className="rounded-xl border border-border bg-card/50 p-4 dark:border-white/8"
             >
-              <p className="font-semibold text-foreground">{offer.name}</p>
-              <p className="mt-1 text-sm text-violet-600 dark:text-violet-400">
-                ${offer.price.toLocaleString()}
-              </p>
-              <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
-                {offer.promise}
-              </p>
-            </Link>
+              <Link
+                href={paths.platform.product.offer(offer.id)}
+                className="block transition-colors hover:opacity-90"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold text-foreground">{offer.name}</p>
+                  <Badge variant="outline" className="text-[10px]">
+                    Producto
+                  </Badge>
+                </div>
+                <p className="mt-1 text-sm text-violet-600 dark:text-violet-400">
+                  ${offer.price.toLocaleString()} · {offer.timeframe}
+                </p>
+                <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+                  {offer.promise}
+                </p>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Avatar: {offer.targetAvatar}
+                </p>
+              </Link>
+              {canEdit && hasRealData ? (
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      setEditingOfferId(offer.id);
+                      setOfferOpen(true);
+                    }}
+                  >
+                    Editar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    disabled={pending}
+                    onClick={() => handleArchive(offer.id)}
+                  >
+                    Archivar
+                  </Button>
+                </div>
+              ) : null}
+            </div>
           ))}
         </div>
       </section>
 
       <PropositionSection initial={proposition} />
+
+      <ProductOfferDialog
+        open={offerOpen}
+        onOpenChange={setOfferOpen}
+        offer={editingOffer}
+        avatars={avatars}
+        onSaved={() => {
+          onUpdated();
+          router.refresh();
+        }}
+      />
     </div>
   );
 }

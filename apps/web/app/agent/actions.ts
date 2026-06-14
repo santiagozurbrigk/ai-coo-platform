@@ -41,6 +41,7 @@ import {
   buildRecentContextSummary,
   buildStageContext,
 } from "@/lib/agent/prompt";
+import { getProductContextTextForOrg } from "@/app/product/actions";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes/paths";
@@ -430,11 +431,13 @@ export async function sendAgentMessageAction(input: {
   }
 
   const orgName = await getOrgName(supabase, organizationId);
+  const productContext = await getProductContextTextForOrg(organizationId);
   const system = buildAgentSystemPrompt({
     orgName,
     stageContext: buildStageContext(stageForPrompt),
     recentContext: buildRecentContextSummary(recentOrg),
     projectName: conversation.project?.name,
+    productContext,
   });
 
   const claudeMessages = history.map((m) => ({

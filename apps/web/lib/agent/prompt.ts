@@ -32,16 +32,21 @@ export function buildAgentSystemPrompt(opts: {
   stageContext: string;
   recentContext: string;
   projectName?: string | null;
+  productContext?: string;
 }): string {
   const projectLine = opts.projectName
     ? `PROYECTO ACTIVO: ${opts.projectName}`
+    : "";
+
+  const productBlock = opts.productContext?.trim()
+    ? `\n${opts.productContext.trim()}\n`
     : "";
 
   return `
 Eres el agente de negocio de ${opts.orgName}.
 ${projectLine}
 ${opts.stageContext}
-
+${productBlock}
 ${opts.recentContext}
 
 Cuando el usuario te pida crear un SOP, procedimiento, proceso documentado

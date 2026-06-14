@@ -4,7 +4,13 @@ import { Check, Sparkles, User } from "lucide-react";
 import type { ProductOffer } from "@/types/product";
 import { MockPhaseBadge } from "./mock-phase-badge";
 
-export function OfferDetail({ offer }: { offer: ProductOffer }) {
+export function OfferDetail({
+  offer,
+  hasRealData,
+}: {
+  offer: ProductOffer;
+  hasRealData?: boolean;
+}) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="space-y-4">
@@ -91,7 +97,7 @@ export function OfferDetail({ offer }: { offer: ProductOffer }) {
                 Datos reales
               </p>
             </div>
-            <MockPhaseBadge />
+            <MockPhaseBadge hasRealData={hasRealData} />
           </div>
           <div className="space-y-2 text-xs">
             <div className="flex justify-between">
@@ -117,7 +123,7 @@ export function OfferDetail({ offer }: { offer: ProductOffer }) {
           <div className="mb-2 flex items-center gap-2">
             <Sparkles className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
             <p className="text-xs text-violet-600 dark:text-violet-400">Insight detectado</p>
-            <MockPhaseBadge className="ml-auto" />
+            <MockPhaseBadge hasRealData={hasRealData} className="ml-auto" />
           </div>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             {offer.aiInsight}

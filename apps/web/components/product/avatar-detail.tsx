@@ -1,14 +1,54 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import { Sparkles, Star, User } from "lucide-react";
-import { cn } from "@ai-coo/ui";
+import { Button, cn } from "@ai-coo/ui";
+import { deleteAvatarAction } from "@/app/product/actions";
 import type { ProductAvatar } from "@/types/product";
 import { paths } from "@/routes/paths";
 import { MockPhaseBadge } from "./mock-phase-badge";
+import { ProductAvatarDialog } from "./product-avatar-dialog";
 
-export function AvatarDetail({ avatar }: { avatar: ProductAvatar }) {
+export function AvatarDetail({
+  avatar,
+  hasRealData,
+  onUpdated,
+}: {
+  avatar: ProductAvatar;
+  hasRealData?: boolean;
+  onUpdated?: () => void;
+}) {
+  const router = useRouter();
+  const [editOpen, setEditOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+
   return (
+    <>
+      {hasRealData ? (
+        <div className="mb-4 flex gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+            Editar
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() =>
+              startTransition(async () => {
+                await deleteAvatarAction(avatar.id);
+                onUpdated?.();
+                router.push(`${paths.platform.product.root}?view=detail`);
+                router.refresh();
+              })
+            }
+          >
+            Eliminar
+          </Button>
+        </div>
+      ) : null}
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="flex flex-col items-center gap-4">
         <div className="glass-liquid-subtle flex h-32 w-32 items-center justify-center overflow-hidden rounded-2xl border border-border dark:border-white/10">
@@ -119,7 +159,7 @@ export function AvatarDetail({ avatar }: { avatar: ProductAvatar }) {
             <p className="text-xs font-medium text-violet-600 dark:text-violet-400">
               Detectado en ventas
             </p>
-            <MockPhaseBadge className="ml-auto" />
+            <MockPhaseBadge hasRealData={hasRealData} className="ml-auto" />
           </div>
           <div className="space-y-2">
             {avatar.aiInsights.map((insight) => (
@@ -131,27 +171,55 @@ export function AvatarDetail({ avatar }: { avatar: ProductAvatar }) {
         </div>
       </div>
     </div>
+      <ProductAvatarDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        avatar={avatar}
+        onSaved={() => {
+          onUpdated?.();
+          router.refresh();
+        }}
+      />
+    </>
   );
 }
 
 export function AvatarsSection({
   avatars,
   showListOnly,
+  hasRealData = false,
+  canEdit = false,
+  onUpdated,
 }: {
   avatars: ProductAvatar[];
   showListOnly?: boolean;
+  hasRealData?: boolean;
+  canEdit?: boolean;
+  onUpdated?: () => void;
 }) {
+  const [createOpen, setCreateOpen] = useState(false);
+
   return (
     <section id="avatars" className="scroll-mt-6 space-y-4">
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-lg font-semibold text-foreground">Avatares del negocio</h2>
-        <button
-          type="button"
-          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50"
-          disabled
-        >
-          + Nuevo
-        </button>
+        {canEdit ? (
+          <button
+            type="button"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/50"
+            onClick={() => setCreateOpen(true)}
+          >
+            + Crear avatar
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground"
+            disabled
+          >
+            + Nuevo
+          </button>
+        )}
       </div>
       <div className="rounded-xl border border-border bg-card/50 dark:border-white/8">
         {avatars.map((avatar) => (
@@ -177,6 +245,11 @@ export function AvatarsSection({
           </Link>
         ))}
       </div>
+      <ProductAvatarDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onSaved={() => onUpdated?.()}
+      />
     </section>
   );
 }
