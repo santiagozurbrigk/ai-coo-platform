@@ -215,6 +215,32 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - Los riesgos tienen niveles: high (rojo), medium (amarillo), low (verde).
 - **Grid de departamentos:** sigue usando métricas mock hasta conectar datos operacionales por área (Phase 2).
 
+#### SOPs — Generación con IA
+
+- **Modelo usado:** claude-sonnet-4-6 para generación de SOPs.
+- **Prerequisito:** ANTHROPIC_API_KEY global o BYOK configurado en Settings → IA. Si falta la key → error claro en el formulario de creación.
+- **Contexto usado en el prompt:**
+  - Nombre e industria de la organización
+  - SOPs existentes (hasta 10, para evitar duplicados)
+  - Guión de ventas activo si existe en `sales_scripts`
+- **Flujo de creación:** idle → generating (10-20 segundos) → preview editable → guardar borrador o publicar
+- **Versionado:**
+  - Cada vez que se edita el contenido de un SOP → se guarda una versión nueva automáticamente en `sop_versions`.
+  - El historial de versiones es accesible desde la biblioteca de SOPs.
+- **Detección automática de oportunidades:**
+  - El sistema analiza tareas completadas en `workboard_tasks` de los últimos 30 días.
+  - Si una tarea se repite 3+ veces → aparece sugerencia de crear SOP en la biblioteca.
+  - El botón "Crear SOP" pre-llena el formulario con el título y departamento.
+- **Fallback:**
+  - Si la biblioteca de SOPs está vacía → muestra `mocks/sops.ts` como placeholder.
+  - Los mocks desaparecen automáticamente cuando hay SOPs reales en DB.
+- **Badge IA:**
+  - Los SOPs generados por Claude muestran badge "IA" en la biblioteca y en el detalle.
+  - Se registra el modelo usado (`ai_model`) para auditoría.
+- **Detalle:** el contenido se renderiza como markdown (`react-markdown` + clases `prose`).
+- **Migración:** `20260616300000_sops_enhanced.sql` — campos IA + tabla `sop_versions`.
+- **Actions:** `apps/web/app/sops/actions.ts`.
+
 ### Workboard — Time Tracking
 
 **Flujo de carga de tiempo:**

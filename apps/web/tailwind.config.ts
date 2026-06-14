@@ -1,9 +1,11 @@
 import type { Config } from "tailwindcss";
+import typography from "@tailwindcss/typography";
 import preset from "@ai-coo/config/tailwind";
 
 const config: Config = {
   darkMode: "class",
   presets: [preset as Config],
+  plugins: [typography],
   content: [
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",

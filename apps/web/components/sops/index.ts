@@ -1,3 +1,4 @@
+export { SopContentViewer } from "./sop-content-viewer";
 export { SopCard } from "./sop-card";
 export { SopGrid } from "./sop-grid";
 export { SopLibrary } from "./sop-library";
