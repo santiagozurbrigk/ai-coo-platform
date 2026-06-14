@@ -281,6 +281,35 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - RESEND_API_KEY y RESEND_FROM_EMAIL deben estar en Vercel.
 - Sin estas variables → invitaciones funcionan pero sin email automático.
 
+### Módulo Producto
+
+**Tablas implementadas:**
+- `customer_avatars` — avatares de cliente ideal con dolores, deseos, miedos y objeciones
+- `products` — ofertas con precio, tipo, posición en value ladder y avatar objetivo
+- `value_ladder` — escalones de la escalera de valor vinculados a productos
+- `sales_frameworks` — frameworks y scripts de ventas de la org
+
+**Fallback:**
+- Si no hay datos en DB → muestra `mocks/product.ts` + badge "Sin datos configurados"
+- El badge desaparece automáticamente cuando hay al menos un avatar o producto real
+
+**Avatar principal:**
+- Solo puede haber un avatar marcado como `is_primary = true` por org
+- Al crear uno nuevo como primario → los anteriores se desmarcan automáticamente
+- El avatar primario es el que se usa en el contexto del Agente de negocio
+
+**Conexión con el Agente:**
+- El Agente de negocio incluye automáticamente en su system prompt:
+  → Avatar principal (dolor, deseos, objeciones)
+  → Productos activos (nombre, tipo, precio)
+  → Frameworks de ventas activos
+- Cuanto más completo esté el módulo Producto → mejores respuestas del Agente
+- TODO Phase 2: mover a RAG con embeddings para contexto más rico
+
+**Recomendación de onboarding:**
+- Configurar el módulo Producto es el primer paso después del setup inicial
+- El orden recomendado: Avatar principal → Productos → Value ladder → Frameworks
+
 ### Workboard — Time Tracking
 
 **Flujo de carga de tiempo:**
