@@ -5,6 +5,7 @@ import {
   isMissingTableError,
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
+import { invalidateOrgContext } from "@/lib/ai/org-context";
 import {
   buildProductContextText,
   type CustomerAvatarRow,
@@ -113,6 +114,7 @@ export async function saveAvatarAction(data: {
     }
 
     revalidateProduct();
+    invalidateOrgContext(organizationId);
     void ingestProductContext(organizationId).catch((err) =>
       console.error("[RAG] Error ingestando producto:", err)
     );
@@ -272,6 +274,7 @@ export async function saveProductAction(data: {
     }
 
     revalidateProduct();
+    invalidateOrgContext(organizationId);
     void ingestProductContext(organizationId).catch((err) =>
       console.error("[RAG] Error ingestando producto:", err)
     );
@@ -373,6 +376,7 @@ export async function saveSalesFrameworkAction(data: {
     }
 
     revalidateProduct();
+    invalidateOrgContext(organizationId);
     void ingestProductContext(organizationId).catch((err) =>
       console.error("[RAG] Error ingestando producto:", err)
     );

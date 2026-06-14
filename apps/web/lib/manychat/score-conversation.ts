@@ -1,4 +1,5 @@
 import { callClaudeJson } from "@/lib/ai/anthropic";
+import { buildOrgContextText, getOrgContext } from "@/lib/ai/org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ObjectionCategory } from "@/types/sales";
 import {
@@ -125,10 +126,14 @@ export async function scoreConversation({
       { businessType: "infoproducto", productName: org?.name ?? undefined }
     );
 
+    const orgContext = await getOrgContext(organizationId);
+    const orgContextText = buildOrgContextText(orgContext);
+
     const raw = await callClaudeJson<ConversationScoringResult>({
       organizationId,
       task: "conversation_scoring",
       feature: "conversation_scoring",
+      cachedSystemPrompt: orgContextText,
       system,
       user,
       maxTokens: 1000,

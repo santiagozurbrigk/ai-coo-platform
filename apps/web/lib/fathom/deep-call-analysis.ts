@@ -1,4 +1,5 @@
 import { callClaudeJson } from "@/lib/ai/anthropic";
+import { buildOrgContextText, getOrgContext } from "@/lib/ai/org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { DeepCallAnalysis } from "@/types/call-analysis";
 import type { ObjectionCategory } from "@/types/sales";
@@ -232,11 +233,14 @@ export async function generateDeepCallAnalysis({
       formAnswers,
     });
 
-    // TODO Phase 2: agregar prompt caching para el guión de la org
+    const orgContext = await getOrgContext(organizationId);
+    const orgContextText = buildOrgContextText(orgContext);
+
     const analysis = await callClaudeJson<DeepAnalysisApiResult>({
       organizationId,
       task: "call_analysis",
       feature: "deep_call_analysis",
+      cachedSystemPrompt: orgContextText,
       system:
         "Eres un experto en análisis de llamadas de ventas de alto ticket. Responde ÚNICAMENTE con JSON válido en español.",
       user: prompt,

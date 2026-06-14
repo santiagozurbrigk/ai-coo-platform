@@ -25,6 +25,7 @@ import {
   detectAgentComplexity,
   isAnthropicConfigured,
 } from "@/lib/ai/anthropic";
+import { buildOrgContextText, getOrgContext } from "@/lib/ai/org-context";
 import {
   rowToConversation,
   rowToMessage,
@@ -42,7 +43,6 @@ import {
   buildRecentContextSummary,
   buildStageContext,
 } from "@/lib/agent/prompt";
-import { getProductContextTextForOrg } from "@/app/product/actions";
 import { buildRAGContext, searchRAG } from "@/lib/rag/search";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -433,7 +433,8 @@ export async function sendAgentMessageAction(input: {
   }
 
   const orgName = await getOrgName(supabase, organizationId);
-  const productContext = await getProductContextTextForOrg(organizationId);
+  const orgContext = await getOrgContext(organizationId);
+  const orgContextText = buildOrgContextText(orgContext);
 
   let ragContext = "";
   let hasRagContext = false;
@@ -455,7 +456,6 @@ export async function sendAgentMessageAction(input: {
     stageContext: buildStageContext(stageForPrompt),
     recentContext: buildRecentContextSummary(recentOrg),
     projectName: conversation.project?.name,
-    productContext,
     ragContext,
   });
 
@@ -471,6 +471,7 @@ export async function sendAgentMessageAction(input: {
         organizationId,
         task: agentTask,
         feature: "agent_chat",
+        cachedSystemPrompt: orgContextText,
         system,
         messages: claudeMessages,
       })

@@ -7,6 +7,7 @@ import {
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
 import { callClaudeJson, AI_MODELS } from "@/lib/ai/anthropic";
+import { buildOrgContextText, getOrgContext, invalidateOrgContext } from "@/lib/ai/org-context";
 import { ingestDocument } from "@/lib/rag/ingest";
 import { buildSOPGenerationPrompt } from "@/lib/sops/generate-sop-prompt";
 import {
@@ -71,6 +72,9 @@ export async function generateSOPAction(data: {
       },
     });
 
+    const orgContext = await getOrgContext(organizationId);
+    const orgContextText = buildOrgContextText(orgContext);
+
     const generated = await callClaudeJson<{
       title: string;
       summary: string;
@@ -80,6 +84,7 @@ export async function generateSOPAction(data: {
       steps_count: number;
     }>({
       task: "sop_generation",
+      cachedSystemPrompt: orgContextText,
       system:
         "Respondé únicamente con JSON válido. No incluyas markdown fences ni texto fuera del objeto JSON.",
       user: prompt,
@@ -181,6 +186,7 @@ export async function saveSOPAction(data: {
     }
 
     revalidateSops();
+    invalidateOrgContext(organizationId);
     return { id: sop.id };
   });
 }
@@ -258,6 +264,7 @@ export async function updateSOPAction(
     }
 
     revalidateSops();
+    invalidateOrgContext(organizationId);
     return { ok: true };
   });
 }

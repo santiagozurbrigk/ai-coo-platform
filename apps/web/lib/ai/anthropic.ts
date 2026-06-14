@@ -53,6 +53,16 @@ const LEGACY_MODEL_MAP: Record<ClaudeModel, string> = {
   "claude-sonnet-4-6": AI_MODELS.SONNET,
 };
 
+const PROMPT_CACHING_BETA = "prompt-caching-2024-07-31";
+
+type CachedSystemBlock = {
+  type: "text";
+  text: string;
+  cache_control: { type: "ephemeral" };
+};
+
+type SystemBlock = CachedSystemBlock | { type: "text"; text: string };
+
 export function getModelForTask(task: AITask): string {
   return TASK_MODEL_MAP[task];
 }
@@ -109,6 +119,33 @@ function resolveLogicalModel(opts: {
 function resolveApiModelId(logicalModel: string): string {
   return API_MODEL_ALIASES[logicalModel] ?? logicalModel;
 }
+
+function buildSystemParam(
+  cachedSystemPrompt?: string,
+  system?: string
+): string | SystemBlock[] | undefined {
+  if (cachedSystemPrompt?.trim()) {
+    const blocks: SystemBlock[] = [
+      {
+        type: "text",
+        text: cachedSystemPrompt,
+        cache_control: { type: "ephemeral" },
+      },
+    ];
+    if (system?.trim()) {
+      blocks.push({ type: "text", text: system });
+    }
+    return blocks;
+  }
+  return system;
+}
+
+type ClaudeUsage = {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
+};
 
 const orgKeyCache = new Map<string, { key: string; cachedAt: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -169,7 +206,8 @@ export type ClaudeJsonRequest = {
   task?: AITask;
   model?: ClaudeModel | string;
   feature: string;
-  system: string;
+  system?: string;
+  cachedSystemPrompt?: string;
   user: string;
   maxTokens?: number;
 };
@@ -179,7 +217,8 @@ export type ClaudeTextRequest = {
   task?: AITask;
   model?: ClaudeModel | string;
   feature: string;
-  system: string;
+  system?: string;
+  cachedSystemPrompt?: string;
   messages: { role: "user" | "assistant"; content: string }[];
   maxTokens?: number;
 };
@@ -188,16 +227,45 @@ async function trackUsage(
   organizationId: string,
   logicalModel: string,
   feature: string,
-  inputTokens: number,
-  outputTokens: number
+  usage: ClaudeUsage
 ) {
   await trackTokenUsage({
     organizationId,
     model: logicalModel,
-    inputTokens,
-    outputTokens,
+    inputTokens: usage.input_tokens,
+    outputTokens: usage.output_tokens,
+    cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+    cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
     feature,
   }).catch(() => {});
+}
+
+async function createClaudeMessage(
+  client: Anthropic,
+  params: {
+    apiModel: string;
+    maxTokens: number;
+    system?: string;
+    cachedSystemPrompt?: string;
+    messages: Anthropic.MessageParam[];
+  }
+): Promise<Anthropic.Message> {
+  const system = buildSystemParam(params.cachedSystemPrompt, params.system);
+  const request = {
+    model: params.apiModel,
+    max_tokens: params.maxTokens,
+    messages: params.messages,
+    ...(system !== undefined && { system }),
+  };
+
+  if (params.cachedSystemPrompt?.trim()) {
+    return client.beta.messages.create({
+      ...request,
+      betas: [PROMPT_CACHING_BETA],
+    });
+  }
+
+  return client.messages.create(request);
 }
 
 export async function callClaudeText(
@@ -212,10 +280,11 @@ export async function callClaudeText(
   const logicalModel = resolveLogicalModel(req);
   const apiModel = resolveApiModelId(logicalModel);
 
-  const response = await client.messages.create({
-    model: apiModel,
-    max_tokens: req.maxTokens ?? 4096,
+  const response = await createClaudeMessage(client, {
+    apiModel,
+    maxTokens: req.maxTokens ?? 4096,
     system: req.system,
+    cachedSystemPrompt: req.cachedSystemPrompt,
     messages: req.messages.map((m) => ({
       role: m.role,
       content: m.content,
@@ -226,8 +295,7 @@ export async function callClaudeText(
     req.organizationId,
     logicalModel,
     req.feature,
-    response.usage.input_tokens,
-    response.usage.output_tokens
+    response.usage as ClaudeUsage
   );
 
   const textBlock = response.content.find((b) => b.type === "text");
@@ -247,10 +315,11 @@ export async function callClaudeJson<T>(
   const logicalModel = resolveLogicalModel(req);
   const apiModel = resolveApiModelId(logicalModel);
 
-  const response = await client.messages.create({
-    model: apiModel,
-    max_tokens: req.maxTokens ?? 2048,
+  const response = await createClaudeMessage(client, {
+    apiModel,
+    maxTokens: req.maxTokens ?? 2048,
     system: req.system,
+    cachedSystemPrompt: req.cachedSystemPrompt,
     messages: [{ role: "user", content: req.user }],
   });
 
@@ -258,8 +327,7 @@ export async function callClaudeJson<T>(
     req.organizationId,
     logicalModel,
     req.feature,
-    response.usage.input_tokens,
-    response.usage.output_tokens
+    response.usage as ClaudeUsage
   );
 
   const textBlock = response.content.find((b) => b.type === "text");

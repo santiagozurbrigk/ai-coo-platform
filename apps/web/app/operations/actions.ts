@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/bootstrap";
 import { requireAuthContext } from "@/lib/auth/require-auth";
 import { callClaudeJson } from "@/lib/ai/anthropic";
+import { buildOrgContextText, getOrgContext } from "@/lib/ai/org-context";
 import { ingestDocument } from "@/lib/rag/ingest";
 import {
   DB_TO_UI_DEPARTMENT,
@@ -240,10 +241,14 @@ JSON:
   ]
 }`;
 
+    const orgContext = await getOrgContext(orgId);
+    const orgContextText = buildOrgContextText(orgContext);
+
     const reportJson = await callClaudeJson<WeeklyReportJson>({
       organizationId: orgId,
       task: "weekly_report",
       feature: "weekly_report",
+      cachedSystemPrompt: orgContextText,
       system,
       user,
       maxTokens: 1500,

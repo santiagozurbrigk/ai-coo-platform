@@ -9,6 +9,7 @@ import {
   validationErrorMessage,
 } from "@/lib/ai/validate-claude-key";
 import { invalidateOrgKeyCache } from "@/lib/ai/anthropic";
+import { invalidateOrgContext } from "@/lib/ai/org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -193,6 +194,7 @@ export async function saveClaudeApiKeyAction(
     if (error) throw new Error(error.message);
 
     invalidateOrgKeyCache(orgId);
+    invalidateOrgContext(orgId);
     revalidatePath(paths.platform.settings);
     return undefined;
   });
@@ -219,6 +221,7 @@ export async function removeClaudeApiKeyAction(): Promise<MutationResult> {
     if (error) throw new Error(error.message);
 
     invalidateOrgKeyCache(orgId);
+    invalidateOrgContext(orgId);
     revalidatePath(paths.platform.settings);
     return undefined;
   });

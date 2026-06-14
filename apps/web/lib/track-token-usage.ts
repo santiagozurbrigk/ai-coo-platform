@@ -48,6 +48,8 @@ export type TokenUsageParams = {
   model: string;
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
   feature?: string;
 };
 
@@ -64,12 +66,23 @@ export function resolvePricingModel(model: string): TokenUsageModel {
 export function computeTokenCostUsd(
   model: string,
   inputTokens: number,
-  outputTokens: number
+  outputTokens: number,
+  cacheReadTokens = 0,
+  cacheCreationTokens = 0
 ): { inputCost: number; outputCost: number; totalCost: number } {
   const pricingKey = resolvePricingModel(model);
   const pricing = MODEL_PRICING[pricingKey];
-  const inputCost = inputTokens * pricing.input;
+
+  const regularInput = Math.max(
+    0,
+    inputTokens - cacheReadTokens - cacheCreationTokens
+  );
+  const inputCost =
+    regularInput * pricing.input +
+    cacheReadTokens * pricing.input * 0.1 +
+    cacheCreationTokens * pricing.input * 1.25;
   const outputCost = outputTokens * pricing.output;
+
   return {
     inputCost,
     outputCost,
@@ -83,12 +96,16 @@ export async function trackTokenUsage({
   model,
   inputTokens,
   outputTokens,
+  cacheReadTokens = 0,
+  cacheCreationTokens = 0,
   feature,
 }: TokenUsageParams): Promise<void> {
   const { inputCost, outputCost, totalCost } = computeTokenCostUsd(
     model,
     inputTokens,
-    outputTokens
+    outputTokens,
+    cacheReadTokens,
+    cacheCreationTokens
   );
 
   const admin = createAdminClient();
@@ -97,6 +114,8 @@ export async function trackTokenUsage({
     model,
     input_tokens: inputTokens,
     output_tokens: outputTokens,
+    cache_read_input_tokens: cacheReadTokens,
+    cache_creation_input_tokens: cacheCreationTokens,
     input_cost_usd: inputCost,
     output_cost_usd: outputCost,
     total_cost_usd: totalCost,
