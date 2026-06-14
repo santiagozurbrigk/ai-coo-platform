@@ -9,8 +9,10 @@ import {
   type ReactNode,
 } from "react";
 import {
+  assignTaskToSprintAction,
   createWorkboardTaskAction,
   deleteWorkboardTaskAction,
+  getSprintsAction,
   logTaskTimeAction,
   moveWorkboardTaskAction,
   updateWorkboardTaskAction,
@@ -20,6 +22,7 @@ import type {
   TaskPriority,
   TaskStatus,
   WorkboardMember,
+  WorkboardSprint,
   WorkboardTask,
 } from "@/types/workboard";
 
@@ -38,6 +41,10 @@ type TaskUpdatePatch = Partial<{
 type WorkboardContextValue = {
   tasks: WorkboardTask[];
   members: WorkboardMember[];
+  sprints: WorkboardSprint[];
+  sprintFilterId: string;
+  setSprintFilterId: (id: string) => void;
+  refreshSprints: () => Promise<void>;
   areaFilter: string;
   setAreaFilter: (v: string) => void;
   view: "board" | "calendar" | "time";
@@ -64,6 +71,7 @@ type WorkboardContextValue = {
   skipTimeAndComplete: () => Promise<void>;
   cancelComplete: () => void;
   upsertTaskInState: (task: WorkboardTask) => void;
+  assignTaskToSprint: (taskId: string, sprintId: string | null) => Promise<void>;
 };
 
 const WorkboardContext = createContext<WorkboardContextValue | null>(null);
@@ -87,13 +95,19 @@ function applyTaskPatch(
 export function WorkboardProvider({
   initialTasks,
   members,
+  initialSprints,
+  initialSprintFilterId,
   children,
 }: {
   initialTasks: WorkboardTask[];
   members: WorkboardMember[];
+  initialSprints: WorkboardSprint[];
+  initialSprintFilterId: string;
   children: ReactNode;
 }) {
   const [tasks, setTasks] = useState(initialTasks);
+  const [sprints, setSprints] = useState(initialSprints);
+  const [sprintFilterId, setSprintFilterId] = useState(initialSprintFilterId);
   const [areaFilter, setAreaFilter] = useState("all");
   const [view, setView] = useState<"board" | "calendar" | "time">("board");
   const [selectedTask, setSelectedTask] = useState<WorkboardTask | null>(null);
@@ -102,6 +116,11 @@ export function WorkboardProvider({
   const [pendingCompletePatch, setPendingCompletePatch] =
     useState<TaskUpdatePatch | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  const refreshSprints = useCallback(async () => {
+    const list = await getSprintsAction();
+    setSprints(list);
+  }, []);
 
   const upsertTaskInState = useCallback((task: WorkboardTask) => {
     setTasks((prev) => {
@@ -161,11 +180,12 @@ export function WorkboardProvider({
         setPendingCompleteTask(null);
         setPendingCompletePatch(null);
         setSelectedTask(null);
+        await refreshSprints();
       } finally {
         setIsSaving(false);
       }
     },
-    [pendingCompleteTask, pendingCompletePatch, performMove, upsertTaskInState]
+    [pendingCompleteTask, pendingCompletePatch, performMove, upsertTaskInState, refreshSprints]
   );
 
   const createTask = useCallback(
@@ -246,10 +266,28 @@ export function WorkboardProvider({
     setPendingCompletePatch(null);
   }, []);
 
+  const assignTaskToSprint = useCallback(
+    async (taskId: string, sprintId: string | null) => {
+      setIsSaving(true);
+      try {
+        const updated = await assignTaskToSprintAction(taskId, sprintId);
+        upsertTaskInState(updated);
+        await refreshSprints();
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [refreshSprints, upsertTaskInState]
+  );
+
   const value = useMemo(
     () => ({
       tasks,
       members,
+      sprints,
+      sprintFilterId,
+      setSprintFilterId,
+      refreshSprints,
       areaFilter,
       setAreaFilter,
       view,
@@ -267,10 +305,14 @@ export function WorkboardProvider({
       skipTimeAndComplete,
       cancelComplete,
       upsertTaskInState,
+      assignTaskToSprint,
     }),
     [
       tasks,
       members,
+      sprints,
+      sprintFilterId,
+      refreshSprints,
       areaFilter,
       view,
       selectedTask,
@@ -285,6 +327,7 @@ export function WorkboardProvider({
       skipTimeAndComplete,
       cancelComplete,
       upsertTaskInState,
+      assignTaskToSprint,
     ]
   );
 

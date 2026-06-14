@@ -16,21 +16,22 @@ import {
   DropdownMenuTrigger,
 } from "@ai-coo/ui";
 import { TASK_AREA_LABELS } from "@/lib/workboard/constants";
-import { filterTasksByArea, groupTasksIntoColumns } from "@/lib/workboard/group-tasks";
+import { filterWorkboardTasks, groupTasksIntoColumns } from "@/lib/workboard/group-tasks";
 import { getAreaClasses, getPriorityClasses, PRIORITY_LABELS } from "@/lib/workboard/styles";
 import { useWorkboard } from "@/providers/workboard-provider";
 import type { TaskStatus, WorkboardTask } from "@/types/workboard";
 
 export function WorkboardKanban() {
-  const { tasks, areaFilter, moveTask, deleteTask, setSelectedTask } = useWorkboard();
+  const { tasks, areaFilter, sprintFilterId, moveTask, deleteTask, setSelectedTask } =
+    useWorkboard();
   const [draggedTask, setDraggedTask] = useState<{
     task: WorkboardTask;
     status: TaskStatus;
   } | null>(null);
 
   const filtered = useMemo(
-    () => filterTasksByArea(tasks, areaFilter),
-    [tasks, areaFilter]
+    () => filterWorkboardTasks(tasks, areaFilter, sprintFilterId),
+    [tasks, areaFilter, sprintFilterId]
   );
   const columns = useMemo(() => groupTasksIntoColumns(filtered), [filtered]);
 

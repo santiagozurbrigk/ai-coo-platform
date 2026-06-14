@@ -42,6 +42,7 @@ export type WorkboardTaskRow = {
   timer_started_at?: string | null;
   timer_running?: boolean | null;
   time_entries?: unknown;
+  sprint_id?: string | null;
   assignee?: {
     id: string;
     full_name: string | null;
@@ -118,6 +119,7 @@ export function rowToTask(
     position: row.position,
     estimatedMinutes: row.estimated_minutes ?? undefined,
     actualMinutes: row.actual_minutes ?? undefined,
+    sprintId: row.sprint_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

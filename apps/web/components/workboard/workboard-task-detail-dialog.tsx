@@ -31,8 +31,10 @@ export function WorkboardTaskDetailDialog() {
     selectedTask,
     setSelectedTask,
     members,
+    sprints,
     updateTask,
     deleteTask,
+    assignTaskToSprint,
     isSaving,
   } = useWorkboard();
 
@@ -44,6 +46,7 @@ export function WorkboardTaskDetailDialog() {
   const [assigneeId, setAssigneeId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [tags, setTags] = useState("");
+  const [sprintId, setSprintId] = useState("");
 
   useEffect(() => {
     if (!selectedTask) return;
@@ -55,6 +58,7 @@ export function WorkboardTaskDetailDialog() {
     setAssigneeId(selectedTask.assigneeId ?? "");
     setDueDate(selectedTask.dueDate ?? "");
     setTags(selectedTask.tags.join(", "));
+    setSprintId(selectedTask.sprintId ?? "");
   }, [selectedTask]);
 
   if (!selectedTask) return null;
@@ -190,6 +194,31 @@ export function WorkboardTaskDetailDialog() {
                 ))}
               </select>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="detail-sprint">Sprint</Label>
+            <select
+              id="detail-sprint"
+              className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+              value={sprintId}
+              disabled={isSaving}
+              onChange={(e) => {
+                const next = e.target.value;
+                setSprintId(next);
+                void assignTaskToSprint(
+                  selectedTask.id,
+                  next ? next : null
+                );
+              }}
+            >
+              <option value="">Sin sprint</option>
+              {sprints.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                  {s.status === "active" ? " (activo)" : ""}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="detail-due">Fecha límite</Label>

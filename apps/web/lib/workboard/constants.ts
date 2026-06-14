@@ -1,4 +1,4 @@
-import type { TaskArea, TaskStatus } from "@/types/workboard";
+import type { SprintAreaFocus, TaskArea, TaskStatus } from "@/types/workboard";
 
 export const WORKBOARD_STATUSES: TaskStatus[] = [
   "todo",
@@ -47,4 +47,17 @@ export const TASK_AREA_LABELS: Record<TaskArea, string> = {
 
 export const TASK_AREA_OPTIONS = (
   Object.entries(TASK_AREA_LABELS) as [TaskArea, string][]
+).map(([value, label]) => ({ value, label }));
+
+export const SPRINT_AREA_FOCUS_LABELS: Record<SprintAreaFocus, string> = {
+  ventas: "Ventas",
+  marketing: "Marketing",
+  operaciones: "Operaciones",
+  delivery: "Delivery",
+  producto: "Producto",
+  general: "General",
+};
+
+export const SPRINT_AREA_FOCUS_OPTIONS = (
+  Object.entries(SPRINT_AREA_FOCUS_LABELS) as [SprintAreaFocus, string][]
 ).map(([value, label]) => ({ value, label }));

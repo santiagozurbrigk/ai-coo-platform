@@ -16,19 +16,19 @@ import {
   isSameMonth,
   toDateKey,
 } from "@/lib/workboard/calendar-grid";
-import { filterTasksByArea } from "@/lib/workboard/group-tasks";
+import { filterWorkboardTasks } from "@/lib/workboard/group-tasks";
 import { useWorkboard } from "@/providers/workboard-provider";
 import type { WorkboardTask } from "@/types/workboard";
 
 const WEEKDAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 export function WorkboardCalendar() {
-  const { tasks, areaFilter, setSelectedTask } = useWorkboard();
+  const { tasks, areaFilter, sprintFilterId, setSelectedTask } = useWorkboard();
   const [anchor, setAnchor] = useState(() => new Date());
 
   const filtered = useMemo(
-    () => filterTasksByArea(tasks, areaFilter),
-    [tasks, areaFilter]
+    () => filterWorkboardTasks(tasks, areaFilter, sprintFilterId),
+    [tasks, areaFilter, sprintFilterId]
   );
 
   const byDate = useMemo(() => groupTasksByDateKey(filtered), [filtered]);

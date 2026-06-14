@@ -25,6 +25,22 @@ export function filterTasksByArea(
   return tasks.filter((t) => t.area === areaFilter);
 }
 
+export function filterTasksBySprint(
+  tasks: WorkboardTask[],
+  sprintFilterId: string
+): WorkboardTask[] {
+  if (sprintFilterId === "all") return tasks;
+  return tasks.filter((t) => t.sprintId === sprintFilterId);
+}
+
+export function filterWorkboardTasks(
+  tasks: WorkboardTask[],
+  areaFilter: string,
+  sprintFilterId: string
+): WorkboardTask[] {
+  return filterTasksBySprint(filterTasksByArea(tasks, areaFilter), sprintFilterId);
+}
+
 export function getNextPosition(
   tasks: WorkboardTask[],
   status: TaskStatus

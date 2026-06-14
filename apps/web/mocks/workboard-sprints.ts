@@ -10,6 +10,8 @@ export const mockWorkboardSprints: WorkboardSprint[] = [
     totalTasks: 22,
     goal: "Optimizar funnel de ventas y onboarding",
     areaFocus: "ventas",
+    status: "active",
+    completionRate: 64,
   },
   {
     id: "sprint-2",
@@ -20,6 +22,8 @@ export const mockWorkboardSprints: WorkboardSprint[] = [
     totalTasks: 20,
     goal: "Lanzamiento contenido Q2",
     areaFocus: "marketing",
+    status: "completed",
+    completionRate: 90,
   },
   {
     id: "sprint-1",
@@ -30,6 +34,8 @@ export const mockWorkboardSprints: WorkboardSprint[] = [
     totalTasks: 18,
     goal: "Estabilizar delivery post-lanzamiento",
     areaFocus: "operaciones",
+    status: "completed",
+    completionRate: 89,
   },
 ];
 

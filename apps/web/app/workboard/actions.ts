@@ -12,6 +12,7 @@ import {
   buildMemberTimeReports,
   type TimeByMemberRow,
 } from "@/lib/workboard/time-report";
+import { rowToSprint, type SprintRow } from "@/lib/workboard/sprint";
 import { createClient } from "@/lib/supabase/server";
 import { paths } from "@/routes/paths";
 import type {
@@ -20,6 +21,7 @@ import type {
   TaskStatus,
   MemberTimeReport,
   WorkboardMember,
+  WorkboardSprint,
   WorkboardTask,
 } from "@/types/workboard";
 
@@ -73,12 +75,14 @@ export async function listWorkboardTasksAction(): Promise<WorkboardTask[]> {
 export async function loadWorkboardPageDataAction(): Promise<{
   tasks: WorkboardTask[];
   members: WorkboardMember[];
+  sprints: WorkboardSprint[];
 }> {
-  const [tasks, members] = await Promise.all([
+  const [tasks, members, sprints] = await Promise.all([
     listWorkboardTasksAction(),
     listWorkboardMembersAction(),
+    getSprintsAction(),
   ]);
-  return { tasks, members };
+  return { tasks, members, sprints };
 }
 
 export async function createWorkboardTaskAction(input: {
@@ -90,6 +94,7 @@ export async function createWorkboardTaskAction(input: {
   assigneeId?: string | null;
   dueDate?: string | null;
   tags?: string[];
+  sprintId?: string | null;
 }): Promise<WorkboardTask> {
   const organizationId = await requireOrganizationId();
   const profile = await getCurrentProfile();
@@ -97,6 +102,12 @@ export async function createWorkboardTaskAction(input: {
 
   const existing = await listWorkboardTasksAction();
   const position = getNextPosition(existing, input.status);
+
+  let sprintId = input.sprintId;
+  if (sprintId === undefined) {
+    const active = await getActiveSprintAction();
+    sprintId = active?.id ?? null;
+  }
 
   const { data, error } = await supabase
     .from("workboard_tasks")
@@ -110,6 +121,7 @@ export async function createWorkboardTaskAction(input: {
       assignee_id: input.assigneeId || null,
       due_date: input.dueDate || null,
       tags: input.tags ?? [],
+      sprint_id: sprintId || null,
       position,
       created_by: profile?.id ?? null,
       updated_at: new Date().toISOString(),
@@ -118,6 +130,9 @@ export async function createWorkboardTaskAction(input: {
     .single();
 
   if (error) throw new Error(error.message);
+  if (sprintId) {
+    await refreshSprintCompletionForTask(supabase, organizationId, data.id);
+  }
   revalidateWorkboard();
   const members = await listWorkboardMembersAction();
   const memberMap = new Map(members.map((m) => [m.id, m]));
@@ -147,6 +162,7 @@ export async function moveWorkboardTaskAction(input: {
     .eq("organization_id", organizationId);
 
   if (error) throw new Error(error.message);
+  await refreshSprintCompletionForTask(supabase, organizationId, input.taskId);
   revalidateWorkboard();
 }
 
@@ -197,6 +213,7 @@ export async function updateWorkboardTaskAction(input: {
     .single();
 
   if (error) throw new Error(error.message);
+  await refreshSprintCompletionForTask(supabase, organizationId, input.taskId);
   revalidateWorkboard();
   const members = await listWorkboardMembersAction();
   const memberMap = new Map(members.map((m) => [m.id, m]));
@@ -319,4 +336,197 @@ export async function setMemberHourlyRateAction(input: {
   if (error) throw new Error(error.message);
   revalidatePath(paths.platform.team.root);
   return { ok: true };
+}
+
+async function refreshSprintCompletionForTask(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  taskId: string
+): Promise<void> {
+  const { data: task } = await supabase
+    .from("workboard_tasks")
+    .select("sprint_id")
+    .eq("id", taskId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (task?.sprint_id) {
+    await updateSprintCompletionInternal(supabase, organizationId, task.sprint_id);
+  }
+}
+
+async function updateSprintCompletionInternal(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  sprintId: string
+): Promise<void> {
+  const { data: tasks } = await supabase
+    .from("workboard_tasks")
+    .select("status")
+    .eq("sprint_id", sprintId)
+    .eq("organization_id", organizationId);
+
+  if (!tasks?.length) return;
+
+  const completed = tasks.filter((t) => t.status === "done").length;
+  const rate = Math.round((completed / tasks.length) * 100);
+
+  await supabase
+    .from("sprints")
+    .update({ completion_rate: rate, updated_at: new Date().toISOString() })
+    .eq("id", sprintId)
+    .eq("organization_id", organizationId);
+}
+
+export async function getActiveSprintAction(): Promise<WorkboardSprint | null> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("sprints")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("status", "active")
+    .order("start_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingTableError(error.message)) return null;
+    throw new Error(error.message);
+  }
+
+  if (!data) return null;
+
+  const tasks = await listWorkboardTasksAction();
+  return rowToSprint(data as SprintRow, tasks);
+}
+
+export async function getSprintsAction(): Promise<WorkboardSprint[]> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("sprints")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .order("start_date", { ascending: false });
+
+  if (error) {
+    if (isMissingTableError(error.message)) return [];
+    throw new Error(error.message);
+  }
+
+  const tasks = await listWorkboardTasksAction();
+  return (data ?? []).map((row) => rowToSprint(row as SprintRow, tasks));
+}
+
+export async function createSprintAction(input: {
+  name: string;
+  goal?: string;
+  areaFocus?: string;
+  startDate: string;
+  endDate: string;
+}): Promise<WorkboardSprint> {
+  const organizationId = await requireOrganizationId();
+  const profile = await getCurrentProfile();
+  const supabase = await createClient();
+
+  await supabase
+    .from("sprints")
+    .update({ status: "completed", updated_at: new Date().toISOString() })
+    .eq("organization_id", organizationId)
+    .eq("status", "active");
+
+  const { data: sprint, error } = await supabase
+    .from("sprints")
+    .insert({
+      organization_id: organizationId,
+      name: input.name.trim(),
+      goal: input.goal?.trim() || null,
+      area_focus: input.areaFocus || null,
+      start_date: input.startDate,
+      end_date: input.endDate,
+      status: "active",
+      created_by: profile?.id ?? null,
+    })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  revalidateWorkboard();
+  return rowToSprint(sprint as SprintRow, []);
+}
+
+export async function updateSprintAction(
+  sprintId: string,
+  input: Partial<{
+    name: string;
+    goal: string;
+    areaFocus: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+  }>
+): Promise<{ ok: true }> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const patch: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (input.name !== undefined) patch.name = input.name.trim();
+  if (input.goal !== undefined) patch.goal = input.goal.trim() || null;
+  if (input.areaFocus !== undefined) patch.area_focus = input.areaFocus || null;
+  if (input.startDate !== undefined) patch.start_date = input.startDate;
+  if (input.endDate !== undefined) patch.end_date = input.endDate;
+  if (input.status !== undefined) patch.status = input.status;
+
+  const { error } = await supabase
+    .from("sprints")
+    .update(patch)
+    .eq("id", sprintId)
+    .eq("organization_id", organizationId);
+
+  if (error) throw new Error(error.message);
+
+  revalidateWorkboard();
+  return { ok: true };
+}
+
+export async function assignTaskToSprintAction(
+  taskId: string,
+  sprintId: string | null
+): Promise<WorkboardTask> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("workboard_tasks")
+    .update({
+      sprint_id: sprintId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", taskId)
+    .eq("organization_id", organizationId)
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  await refreshSprintCompletionForTask(supabase, organizationId, taskId);
+  revalidateWorkboard();
+
+  const members = await listWorkboardMembersAction();
+  const memberMap = new Map(members.map((m) => [m.id, m]));
+  return rowToTask(data as WorkboardTaskRow, memberMap);
+}
+
+export async function updateSprintCompletionAction(
+  sprintId: string
+): Promise<void> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+  await updateSprintCompletionInternal(supabase, organizationId, sprintId);
 }

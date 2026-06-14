@@ -1,3 +1,13 @@
+export type SprintAreaFocus =
+  | "ventas"
+  | "marketing"
+  | "operaciones"
+  | "delivery"
+  | "producto"
+  | "general";
+
+export type SprintStatus = "planning" | "active" | "completed";
+
 export type TaskArea =
   | "marketing"
   | "ventas"
@@ -38,6 +48,7 @@ export type WorkboardTask = {
   position: number;
   estimatedMinutes?: number;
   actualMinutes?: number;
+  sprintId?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -67,7 +78,10 @@ export type WorkboardSprint = {
   completedTasks: number;
   totalTasks: number;
   goal: string;
-  areaFocus?: TaskArea | "all";
+  areaFocus?: SprintAreaFocus;
+  status: SprintStatus;
+  completionRate: number;
+  totalMinutesLogged?: number;
 };
 
 export type MemberTimeReport = {
