@@ -105,6 +105,40 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 
 ## 🤖 PIPELINES DE IA
 
+### Model Routing — Haiku vs Sonnet
+
+**Router central:** `lib/ai/anthropic.ts` → `getModelForTask(task)`
+
+**Tareas → Modelo:**
+- conversation_scoring → Haiku (scoring ManyChat)
+- content_labeling → Haiku (etiquetado de contenido)
+- data_extraction → Haiku (forms, insights simples)
+- agent_simple → Haiku (preguntas cortas al Agente)
+- call_analysis → Sonnet (análisis profundo Fathom)
+- weekly_report → Sonnet (reporte semanal)
+- sop_generation → Sonnet (generación de SOPs)
+- agent_complex → Sonnet (preguntas complejas al Agente)
+- product_extraction → Sonnet (extracción contexto RAG)
+- sales_analysis → Sonnet (análisis de ventas)
+
+**Agente de negocio:**
+- Detecta complejidad automáticamente con `detectAgentComplexity()`
+- Preguntas cortas (<100 chars, sin RAG) → Haiku
+- Preguntas complejas, con RAG, o >200 chars → Sonnet
+
+**Fallback:** si no se especifica task ni model → Haiku por defecto
+
+**Override manual:** pasar `model` explícito en lugar de `task`
+para casos especiales que necesiten un modelo específico.
+
+**Costos estimados por tarea:**
+- Haiku: ~$0.001-0.003 por request
+- Sonnet: ~$0.01-0.05 por request
+
+**Super Admin → AI Costs:**
+Tabla de uso por modelo con requests, tokens y costo real
+calculado desde `token_usage` en DB.
+
 ### Análisis profundo de llamadas
 
 - **Requisito mínimo de duración:** el análisis profundo con IA solo se activa para llamadas con **transcript** Y duración **≥ 10 minutos**. Llamadas más cortas reciben únicamente el análisis básico (timeline, resumen, next steps).
