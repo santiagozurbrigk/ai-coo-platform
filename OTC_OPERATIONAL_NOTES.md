@@ -241,6 +241,46 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - **Migración:** `20260616300000_sops_enhanced.sql` — campos IA + tabla `sop_versions`.
 - **Actions:** `apps/web/app/sops/actions.ts`.
 
+#### Equipo — Gestión de miembros
+
+**Invitación de miembros:**
+- El founder/admin invita por email desde Equipo → "Invitar miembro".
+- Se crea un registro en `team_invitations` con token único y vencimiento de 7 días.
+- Si `RESEND_API_KEY` está configurada → se envía email automático con link de invitación.
+- Sin Resend → la invitación se crea igual en DB; el founder puede copiar el link manualmente.
+- Link de invitación: `/invite?token=XXXX`
+
+**Flujo de aceptación de invitación:**
+- Usuario nuevo → formulario de registro en `/invite?token=XXXX`
+- Usuario existente → se une a la org directamente
+- Al aceptar → perfil se crea con el `organization_id` de la invitación
+- La invitación se marca como 'accepted' automáticamente
+
+**Roles default (se crean automáticamente por org):**
+- Founder → acceso total
+- Setter → bandeja de ventas y métricas
+- Closer → closing y clientes
+- Operador → operaciones y workboard
+- Viewer → solo lectura de métricas
+
+**Roles custom:**
+- El founder/admin puede crear roles con permisos granulares por módulo.
+- Permisos por módulo: "full" | "read" | "none"
+- Los roles default no se pueden eliminar.
+
+**Desactivar miembros:**
+- Los miembros se desactivan (is_active: false), nunca se borran.
+- Un miembro desactivado no puede iniciar sesión.
+- El founder no puede desactivarse a sí mismo.
+
+**last_login_at:**
+- Se actualiza automáticamente en cada request autenticada via middleware.
+- Se muestra en la tabla de miembros como "hace X horas/días".
+
+**Prerequisito para emails:**
+- RESEND_API_KEY y RESEND_FROM_EMAIL deben estar en Vercel.
+- Sin estas variables → invitaciones funcionan pero sin email automático.
+
 ### Workboard — Time Tracking
 
 **Flujo de carga de tiempo:**
