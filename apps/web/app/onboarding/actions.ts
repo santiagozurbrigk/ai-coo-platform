@@ -4,6 +4,7 @@ import {
   isMissingTableError,
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
+import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { OnboardingData } from "@/types/onboarding";
@@ -25,8 +26,16 @@ export async function getOnboardingStatusAction(): Promise<OnboardingStatus> {
   }
 
   try {
-    const organizationId = await requireOrganizationId();
     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user?.email && (await isSuperAdminEmail(user.email))) {
+      return { completed: true, data: null };
+    }
+
+    const organizationId = await requireOrganizationId();
 
     const { data, error } = await supabase
       .from("onboarding_responses")

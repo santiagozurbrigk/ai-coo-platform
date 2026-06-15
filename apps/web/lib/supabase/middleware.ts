@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { paths } from "@/routes";
 import { createAdminClient } from "./admin";
+import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
 import { getSupabaseAnonKey, getSupabaseUrl, isSupabaseConfigured } from "./env";
 
 /** POST de Server Actions: no redirigir a login (devolvería HTML y rompe el cliente). */
@@ -91,7 +92,20 @@ export async function updateSession(request: NextRequest) {
 
   if (user && pathname === paths.auth.login) {
     const url = request.nextUrl.clone();
-    url.pathname = paths.platform.dashboard;
+    url.pathname =
+      user.email && (await isSuperAdminEmail(user.email))
+        ? paths.superAdmin.organizations
+        : paths.platform.dashboard;
+    return NextResponse.redirect(url);
+  }
+
+  if (
+    user?.email &&
+    (await isSuperAdminEmail(user.email)) &&
+    pathname === paths.auth.onboarding
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = paths.superAdmin.organizations;
     return NextResponse.redirect(url);
   }
 

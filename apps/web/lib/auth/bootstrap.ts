@@ -1,5 +1,6 @@
 import type { User } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
 import { createClient } from "@/lib/supabase/server";
 
 function defaultOrgName(email: string): string {
@@ -27,6 +28,26 @@ export async function ensureUserBootstrap(user: User) {
     (user.user_metadata?.full_name as string | undefined) ??
     (user.user_metadata?.name as string | undefined) ??
     null;
+
+  if (email && (await isSuperAdminEmail(email))) {
+    const { data: profile, error: profileError } = await admin
+      .from("profiles")
+      .insert({
+        id: user.id,
+        organization_id: null,
+        email,
+        full_name: fullName ?? "Super Admin",
+        role: "founder",
+      })
+      .select("id, organization_id, role")
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error(profileError?.message ?? "No se pudo crear el perfil");
+    }
+
+    return profile;
+  }
 
   const { data: org, error: orgError } = await admin
     .from("organizations")

@@ -5,6 +5,7 @@ import { authRateLimit, rateLimitErrorMessage } from "@/lib/rate-limit";
 import { emailSchema, firstZodError } from "@/lib/validations";
 import { getOnboardingStatusAction } from "@/app/onboarding/actions";
 import { ensureCurrentUserBootstrap } from "@/lib/auth/bootstrap";
+import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes";
@@ -36,6 +37,15 @@ function mapAuthError(message: string): string {
 
 async function postAuthRedirect() {
   if (isSupabaseConfigured()) {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user?.email && (await isSuperAdminEmail(user.email))) {
+      redirect(paths.superAdmin.organizations);
+    }
+
     const status = await getOnboardingStatusAction();
     if (!status.completed) {
       redirect(paths.auth.onboarding);

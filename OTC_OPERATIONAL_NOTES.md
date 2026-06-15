@@ -769,6 +769,8 @@ Insertar email en tabla `super_admin_users` via Supabase SQL Editor:
 INSERT INTO super_admin_users (email, role) VALUES ('email@ejemplo.com', 'admin');
 ```
 
+**Perfil sin organización:** migración `20260617500000_super_admin_profile.sql` — `profiles.organization_id` nullable. Al primer login, si el email está en `super_admin_users`, `ensureUserBootstrap` crea perfil con `organization_id = null` (sin org de cliente) y redirige a `/super-admin`. No aplica onboarding.
+
 ### Módulo Lanzamientos
 
 **Tablas:**
