@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { List } from "lucide-react";
 import { Button, Dialog, DialogContent, DialogTitle, cn } from "@ai-coo/ui";
-import { getLeadJourneyByLeadName } from "@/mocks/marketing-insights";
 import { usePlatformData } from "@/providers";
 import type { ConversationTagId } from "@/types/sales";
 import { ConversationList } from "./conversation-list";
@@ -44,10 +43,6 @@ export function SalesInboxLayout() {
       </div>
     );
   }
-  const journey = selected
-    ? getLeadJourneyByLeadName(selected.leadName)
-    : undefined;
-
   const handleSelect = (id: string) => {
     setSelectedId(id);
     setListOpen(false);
@@ -95,7 +90,10 @@ export function SalesInboxLayout() {
                 void setConversationTag(selected.id, tag);
               }}
             />
-            {journey && <LeadJourneyInline journey={journey} />}
+            <LeadJourneyInline
+              conversationId={selected.id}
+              leadName={selected.leadName}
+            />
           </>
         ) : (
           <EmptyState

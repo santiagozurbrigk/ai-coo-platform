@@ -18,6 +18,8 @@ import {
   getFrequentObjections,
   mockFrequentObjectionSummaries,
 } from "@/lib/metrics/frequent-objections";
+import { getLeadJourney } from "@/lib/sales/lead-journey";
+import type { LeadJourneyStep } from "@/lib/sales/lead-journey";
 
 type CallAnalysisRow = {
   closer_id: string | null;
@@ -170,6 +172,19 @@ export async function getTeamAverageEvolutionAction(): Promise<number[]> {
 /** Expuesto para validar mocks en desarrollo */
 export async function getMockCallAnalysisKeysAction() {
   return Object.keys(mockCallAnalyses);
+}
+
+export async function getLeadJourneyAction(
+  conversationId: string
+): Promise<LeadJourneyStep[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  try {
+    const organizationId = await requireOrganizationId();
+    return await getLeadJourney(organizationId, conversationId);
+  } catch {
+    return [];
+  }
 }
 
 export async function getFrequentObjectionsAction(): Promise<FrequentObjectionsResult> {

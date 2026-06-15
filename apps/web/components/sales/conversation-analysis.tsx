@@ -1,6 +1,6 @@
 import { Panel } from "@/components/shared/panel";
 import { AiCard, Badge } from "@ai-coo/ui";
-import { Youtube } from "lucide-react";
+import { Instagram, Youtube } from "lucide-react";
 import type { Conversation } from "@/types/sales";
 import { getQualificationTierLabel } from "@/lib/sales/qualification-score";
 import { LeadQualificationBadge } from "./lead-qualification-badge";
@@ -37,21 +37,26 @@ export function ConversationAnalysisPanel({
   return (
     <div className="space-y-4 p-4">
       {conversation.sourceVideoTitle ? (
-        <div className="flex flex-col gap-1.5 rounded-lg border border-border/40 bg-muted/30 p-3">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Origen del lead
-          </p>
-          <div className="flex items-center gap-2">
-            <Youtube className="h-4 w-4 text-red-400" />
-            <span className="text-[13px] text-foreground">
+        <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-900/10 p-3">
+          <Youtube className="h-4 w-4 shrink-0 text-red-400" />
+          <div className="min-w-0">
+            <p className="text-[11px] text-muted-foreground">Origen del lead</p>
+            <p className="text-[12px] font-medium text-foreground">
               {conversation.sourceVideoTitle}
-            </span>
+            </p>
+            {conversation.utmCampaign ? (
+              <p className="text-[10px] text-muted-foreground">
+                Campaña: {conversation.utmCampaign}
+              </p>
+            ) : null}
           </div>
-          {conversation.utmCampaign ? (
-            <span className="text-[11px] text-muted-foreground">
-              Campaña: {conversation.utmCampaign}
-            </span>
-          ) : null}
+        </div>
+      ) : conversation.source === "instagram" ? (
+        <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-muted/30 p-3">
+          <Instagram className="h-4 w-4 shrink-0 text-pink-400" />
+          <span className="text-[12px] text-muted-foreground">
+            DM directo de Instagram
+          </span>
         </div>
       ) : null}
 

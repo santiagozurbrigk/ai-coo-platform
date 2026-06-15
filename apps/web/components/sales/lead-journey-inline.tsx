@@ -1,84 +1,230 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, MessageSquare, Sparkles } from "lucide-react";
-import { Badge, Caption, cn } from "@ai-coo/ui";
+import {
+  Calendar,
+  DollarSign,
+  MessageCircle,
+  Sparkles,
+  Youtube,
+} from "lucide-react";
+import { Caption, Skeleton, cn } from "@ai-coo/ui";
+import { getLeadJourneyAction } from "@/app/sales/actions";
 import { paths } from "@/routes";
-import { getContentById } from "@/mocks/marketing-insights";
-import type { JourneyStep, LeadJourney } from "@/types/marketing-insights";
-import { ContentThumbnail } from "@/components/marketing-insights/content-thumbnail";
+import type { LeadJourneyStep } from "@/lib/sales/lead-journey";
 
-function InlineStep({ step }: { step: JourneyStep }) {
-  const content = step.contentId ? getContentById(step.contentId) : undefined;
-  const isDm = step.type === "dm";
-  const isBooking = step.type === "booking";
-  const isSale = step.type === "sale";
+const STEP_ICON: Record<
+  LeadJourneyStep["type"],
+  { icon: typeof Youtube; className: string }
+> = {
+  content: { icon: Youtube, className: "text-red-400 bg-red-500/10 border-red-500/25" },
+  dm: {
+    icon: MessageCircle,
+    className: "text-violet-400 bg-violet-500/10 border-violet-500/25",
+  },
+  booking: {
+    icon: Calendar,
+    className: "text-blue-400 bg-blue-500/10 border-blue-500/25",
+  },
+  sale: {
+    icon: DollarSign,
+    className: "text-emerald-400 bg-emerald-500/10 border-emerald-500/25",
+  },
+};
 
-  if (content) {
+function formatStepDate(date: string): string {
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleDateString("es-AR", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function JourneySkeleton() {
+  return (
+    <div className="space-y-4 px-4 pb-4">
+      {[0, 1, 2].map((index) => (
+        <div key={index} className="flex gap-3">
+          <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-3 w-32" />
+            <Skeleton className="h-3 w-full max-w-xs" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StepContent({ step }: { step: LeadJourneyStep }) {
+  const config = STEP_ICON[step.type];
+  const Icon = config.icon;
+  const url =
+    typeof step.metadata?.url === "string" ? step.metadata.url : undefined;
+  const clientId =
+    typeof step.metadata?.clientId === "string"
+      ? step.metadata.clientId
+      : undefined;
+  const closingCallId =
+    typeof step.metadata?.closingCallId === "string"
+      ? step.metadata.closingCallId
+      : undefined;
+
+  const body = (
+    <div className="min-w-0 flex-1 space-y-1">
+      <p className="text-xs font-medium text-foreground">{step.title}</p>
+      <p className="text-xs italic text-muted-foreground line-clamp-2">
+        {step.description}
+      </p>
+      {step.date ? (
+        <p className="text-[10px] text-muted-foreground/80">
+          {formatStepDate(step.date)}
+        </p>
+      ) : null}
+    </div>
+  );
+
+  const wrapperClass =
+    "flex gap-3 rounded-lg border border-transparent px-1 py-1 transition-colors";
+
+  if (url) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn(wrapperClass, "hover:border-border/60 hover:bg-muted/20")}
+      >
+        <div
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
+            config.className
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </div>
+        {body}
+      </a>
+    );
+  }
+
+  if (clientId) {
     return (
       <Link
-        href={paths.platform.sales.marketingInsights.content(content.id)}
-        className="group flex w-[100px] shrink-0 flex-col gap-1.5"
+        href={paths.platform.clients.detail(clientId)}
+        className={cn(wrapperClass, "hover:border-border/60 hover:bg-muted/20")}
       >
-        <ContentThumbnail content={content} size="sm" className="h-16 w-full" />
-        <p className="text-2xs font-medium line-clamp-2 group-hover:text-primary transition-colors">
-          {step.label}
-        </p>
-        {step.date && (
-          <span className="text-2xs text-muted-foreground">{step.date}</span>
-        )}
+        <div
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
+            config.className
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </div>
+        {body}
+      </Link>
+    );
+  }
+
+  if (closingCallId) {
+    return (
+      <Link
+        href={paths.platform.sales.closing}
+        className={cn(wrapperClass, "hover:border-border/60 hover:bg-muted/20")}
+      >
+        <div
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
+            config.className
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </div>
+        {body}
       </Link>
     );
   }
 
   return (
-    <div
-      className={cn(
-        "flex h-16 w-[100px] shrink-0 flex-col items-center justify-center gap-1 rounded-lg border px-2 text-center",
-        isDm && "border-ai/30 bg-ai/5",
-        isBooking && "border-primary/30 bg-primary/5",
-        isSale && "border-success/30 bg-success/5",
-        !isDm && !isBooking && !isSale && "border-border bg-muted/20"
-      )}
-    >
-      {isDm && <MessageSquare className="h-4 w-4 text-ai" />}
-      <p className="text-2xs font-medium leading-tight line-clamp-2">{step.label}</p>
-      {step.date && (
-        <span className="text-[10px] text-muted-foreground">{step.date}</span>
-      )}
+    <div className={wrapperClass}>
+      <div
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
+          config.className
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
+      {body}
     </div>
   );
 }
 
-export function LeadJourneyInline({ journey }: { journey: LeadJourney }) {
+export function LeadJourneyInline({
+  conversationId,
+  leadName,
+}: {
+  conversationId: string;
+  leadName?: string;
+}) {
+  const [steps, setSteps] = useState<LeadJourneyStep[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+
+    getLeadJourneyAction(conversationId)
+      .then((result) => {
+        if (!cancelled) setSteps(result);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId]);
+
   return (
-    <div className="shrink-0 overflow-hidden border-t border-white/[0.06] bg-white/[0.02]">
-      <div className="flex items-center justify-between gap-2 px-4 py-2.5">
-        <div className="flex items-center gap-2 min-w-0">
-          <Sparkles className="h-3.5 w-3.5 shrink-0 text-ai" />
-          <Caption className="normal-case font-medium text-foreground truncate">
-            Recorrido de contenido antes de esta conversación
-          </Caption>
-        </div>
-        {journey.revenue && (
-          <Badge variant="success" className="shrink-0 text-2xs">
-            {journey.revenue}
-          </Badge>
-        )}
+    <div
+      id="lead-journey"
+      className="shrink-0 overflow-hidden border-t border-white/[0.06] bg-white/[0.02]"
+    >
+      <div className="flex items-center gap-2 px-4 py-2.5">
+        <Sparkles className="h-3.5 w-3.5 shrink-0 text-ai" />
+        <Caption className="min-w-0 truncate normal-case font-medium text-foreground">
+          Recorrido del lead{leadName ? `: ${leadName}` : ""}
+        </Caption>
       </div>
-      <div className="flex max-w-full items-center gap-2 overflow-x-auto overflow-y-hidden px-4 pb-4 pt-1 [scrollbar-width:thin]">
-        {journey.steps.map((step, i) => (
-          <div key={`${step.type}-${i}`} className="flex shrink-0 items-center gap-2">
-            <InlineStep step={step} />
-            {i < journey.steps.length - 1 && (
-              <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
-            )}
-          </div>
-        ))}
-      </div>
-      <p className="px-4 pb-3 text-[10px] text-muted-foreground">
-        Contenido → interacción → agendamiento → venta. Miniaturas desde Google Drive (mock).
-      </p>
+
+      {loading ? (
+        <JourneySkeleton />
+      ) : steps.length === 0 ? (
+        <p className="px-4 pb-4 text-xs leading-relaxed text-muted-foreground">
+          Sin recorrido registrado todavía. Conectá UTMs en tus videos de YouTube
+          para trackear de dónde vienen tus leads.
+        </p>
+      ) : (
+        <ol className="relative space-y-0 px-4 pb-4">
+          {steps.map((step, index) => (
+            <li key={`${step.type}-${step.date}-${index}`} className="relative pl-0">
+              {index < steps.length - 1 ? (
+                <span
+                  aria-hidden
+                  className="absolute left-[15px] top-9 bottom-0 w-px bg-border/60"
+                />
+              ) : null}
+              <StepContent step={step} />
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }

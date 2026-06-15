@@ -460,10 +460,54 @@ Se invalida automáticamente cuando cambia:
 
 - **Inbox:** `conversations` reales (ManyChat) o seed mock si tabla vacía sin ManyChat.
 - **Métricas KPIs:** derivadas de conversaciones + closing (`deriveSalesMetrics`).
-- **Objeciones frecuentes:** desde `call_analyses` últimos 30 días; fallback a `mockFrequentObjections` si vacío.
+- **Objeciones frecuentes:** desde `call_analyses` y `conversations.ai_detected_objections`; fallback mock. Ver sección **Objeciones frecuentes — Datos reales** más abajo.
 - **Ranking equipo / evolución closer:** `call_analyses` o mocks (`mockTeamRanking`, `mockCloserEvolution`).
-- **Lead journey en inbox:** inline desde `mocks/marketing-insights` (no real).
+- **Lead journey en inbox:** datos reales cruzando UTMs, conversaciones, `closing_calls` y `clients`. Ver sección **Lead Journey** más abajo.
 - **`followUpDelayHours`:** hardcoded `4.2` en derive-sales-metrics.
+
+### Lead Journey — Recorrido real del lead
+
+**Fuentes de datos cruzadas:**
+- `conversations.utm_link_id` → video de YouTube de origen
+- `conversations.source_video_title` → título del video
+- `conversations.source` → `instagram` | `manychat` | `manual`
+- `closing_calls` → booking asociado (por `conversation_id` o nombre del lead)
+- `clients` → venta cerrada (por `closing_call_id` o nombre del lead)
+- `utm_booking_attributions` → atribución directa de booking a UTM
+
+**Pasos del journey:**
+1. Contenido → vio un video de YouTube (si hay UTM)
+2. DM → primer mensaje del lead en la conversación
+3. Booking → llamada agendada (cruzado por `conversation_id` o nombre)
+4. Venta → cliente creado (cruzado por `closing_call_id` o nombre)
+
+**Limitación actual:**
+- El cruce por nombre del lead puede fallar si hay variaciones en el nombre (ej: "Juan" vs "Juan Pérez")
+- Phase 2: cruzar por email cuando esté disponible en el formulario
+
+**Empty state:**
+- Si no hay UTM vinculado → no se muestra el paso de contenido
+- Para que el journey esté completo el founder debe:
+  1. Crear UTMs en Marketing → UTMs
+  2. Pegar los links en sus videos de YouTube
+  3. Los leads que entren por esos links tendrán journey completo
+
+### Objeciones frecuentes — Datos reales
+
+**Fuentes en orden de prioridad:**
+1. `call_analyses.objections` — desde análisis profundo de Fathom
+2. `conversations.ai_detected_objections` — desde scoring de ManyChat/Instagram
+3. Mock data — fallback si no hay datos reales
+
+**Tendencias:**
+- Se comparan los últimos 30 días vs los 30 días anteriores
+- Alerta automática si una categoría sube ≥40%
+- Las alertas aparecen en Ventas → Métricas y en Dashboard → Riesgos
+
+**Categorías:**
+- Closing (rojo): dinero, tiempo, decisión
+- Setting (amarillo): proceso de agendamiento
+- Marketing (azul): posicionamiento, propuesta de valor
 
 ### Marketing
 
