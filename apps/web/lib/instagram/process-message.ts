@@ -58,10 +58,16 @@ export async function processInstagramMessage({
   organizationId,
   igAccountId,
   messaging,
+  instagramThreadId,
+  leadName: leadNameHint,
+  leadUsername: leadUsernameHint,
 }: {
   organizationId: string;
   igAccountId: string;
   messaging: InstagramMessaging;
+  instagramThreadId?: string;
+  leadName?: string;
+  leadUsername?: string;
 }): Promise<void> {
   const supabase = createAdminClient();
   const { sender, recipient, timestamp, message } = messaging;
@@ -78,7 +84,8 @@ export async function processInstagramMessage({
 
   const isInbound = sender.id !== igAccountId;
   const leadIgId = isInbound ? sender.id : recipient.id;
-  const threadId = [igAccountId, leadIgId].sort().join("_");
+  const threadId =
+    instagramThreadId ?? [igAccountId, leadIgId].sort().join("_");
   const messageAt = toMessageTimestamp(timestamp);
   const messageType = resolveMessageType(message);
   const messageText = message.text ?? `[${messageType}]`;
@@ -118,7 +125,10 @@ export async function processInstagramMessage({
   }
 
   let conversationId = thread?.conversation_id ?? null;
-  let leadName = thread?.instagram_name ?? `Lead Instagram ${leadIgId.slice(-6)}`;
+  let leadName =
+    leadNameHint ??
+    thread?.instagram_name ??
+    `Lead Instagram ${leadIgId.slice(-6)}`;
 
   if (!conversationId) {
     const { data: integration } = await supabase
@@ -127,9 +137,9 @@ export async function processInstagramMessage({
       .eq("organization_id", organizationId)
       .maybeSingle();
 
-    let leadUsername = thread?.instagram_username ?? "";
+    let leadUsername = leadUsernameHint ?? thread?.instagram_username ?? "";
 
-    if (integration?.access_token) {
+    if (!leadNameHint && integration?.access_token) {
       try {
         const profileRes = await fetch(
           `${INSTAGRAM_GRAPH_URL}/${leadIgId}?fields=name,username&access_token=${integration.access_token}`

@@ -3,6 +3,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { processInstagramMessage } from "@/lib/instagram/process-message";
 import type { InstagramMessaging } from "@/lib/instagram/process-message";
 
+// NOTA: Este webhook funciona solo en modo Live de Meta (post App Review).
+// En modo Development, usar el polling via /api/integrations/instagram/poll.
+// El polling corre cada 5 minutos y trae todos los mensajes completos.
+
 type InstagramWebhookEntry = {
   id: string;
   time?: number;

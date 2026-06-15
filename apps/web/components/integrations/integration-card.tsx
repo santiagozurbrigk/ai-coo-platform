@@ -17,7 +17,7 @@ import {
   pullCalendlyScheduledEventsAction,
 } from "@/app/calendly/actions";
 import { syncFathomMeetingsAction } from "@/app/fathom/actions";
-import { syncInstagramContentAction } from "@/app/instagram/actions";
+import { syncInstagramContentAction, syncInstagramMessagesAction } from "@/app/instagram/actions";
 import { disconnectStripeIntegrationAction } from "@/app/stripe/actions";
 import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
 import {
@@ -78,6 +78,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const [manychatManageOpen, setManychatManageOpen] = useState(false);
   const [googleManageOpen, setGoogleManageOpen] = useState(false);
   const [stripeManageOpen, setStripeManageOpen] = useState(false);
+  const [instagramManageOpen, setInstagramManageOpen] = useState(false);
   const [manychatWebhookUrl, setManychatWebhookUrl] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const { push } = useToast();
@@ -292,31 +293,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     }
 
     if (integration.provider === "instagram" && status === "connected") {
-      setSyncing(true);
-      try {
-        const result = await syncInstagramContentAction();
-        if (!result.success) {
-          push({
-            title: "Error al sincronizar Instagram",
-            description: result.error,
-          });
-          return;
-        }
-        setInstagramConnected(true);
-        router.refresh();
-        push({
-          title: "Instagram sincronizado",
-          description: `${result.data.synced} pieza${result.data.synced === 1 ? "" : "s"} actualizada${result.data.synced === 1 ? "" : "s"}`,
-          variant: "success",
-        });
-      } catch (e) {
-        push({
-          title: "Error al sincronizar Instagram",
-          description: e instanceof Error ? e.message : "Error desconocido",
-        });
-      } finally {
-        setSyncing(false);
-      }
+      setInstagramManageOpen(true);
       return;
     }
 
@@ -439,7 +416,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         : integration.provider === "calendly" ||
             integration.provider === "fathom" ||
             integration.provider === "instagram"
-          ? "Sincronizar"
+          ? "Gestionar"
           : es.common.manage;
 
   const calendlyManualHint =
@@ -520,6 +497,81 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                 onClick={() => handleDisconnectGoogle(googleProvider)}
               >
                 Desconectar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+
+      {integration.provider === "instagram" ? (
+        <Dialog open={instagramManageOpen} onOpenChange={setInstagramManageOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Gestionar Instagram</DialogTitle>
+              <DialogDescription>
+                Sincronizá contenido para Marketing o importá DMs al inbox de
+                ventas. Los mensajes también se actualizan cada 5 minutos
+                automáticamente.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button
+                variant="outline"
+                type="button"
+                disabled={syncing}
+                onClick={async () => {
+                  setSyncing(true);
+                  try {
+                    const result = await syncInstagramContentAction();
+                    if (!result.success) {
+                      push({
+                        title: "Error al sincronizar contenido",
+                        description: result.error,
+                      });
+                      return;
+                    }
+                    setInstagramConnected(true);
+                    router.refresh();
+                    push({
+                      title: "Contenido sincronizado",
+                      description: `${result.data.synced} pieza${result.data.synced === 1 ? "" : "s"} actualizada${result.data.synced === 1 ? "" : "s"}`,
+                      variant: "success",
+                    });
+                  } finally {
+                    setSyncing(false);
+                  }
+                }}
+              >
+                Sincronizar contenido
+              </Button>
+              <Button
+                type="button"
+                disabled={syncing}
+                onClick={async () => {
+                  setSyncing(true);
+                  try {
+                    const result = await syncInstagramMessagesAction();
+                    if (!result.success) {
+                      push({
+                        title: "Error al sincronizar mensajes",
+                        description: result.error,
+                      });
+                      return;
+                    }
+                    router.refresh();
+                    push({
+                      title: "Mensajes sincronizados",
+                      description:
+                        "Los DMs de Instagram se importaron al inbox de ventas.",
+                      variant: "success",
+                    });
+                    setInstagramManageOpen(false);
+                  } finally {
+                    setSyncing(false);
+                  }
+                }}
+              >
+                Sincronizar mensajes
               </Button>
             </DialogFooter>
           </DialogContent>
