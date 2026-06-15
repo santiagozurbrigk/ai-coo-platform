@@ -22,7 +22,7 @@ import { useWorkboard } from "@/providers/workboard-provider";
 import type { TaskStatus, WorkboardTask } from "@/types/workboard";
 
 export function WorkboardKanban() {
-  const { tasks, areaFilter, sprintFilterId, moveTask, deleteTask, setSelectedTask } =
+  const { tasks, areaFilter, sprintFilterId, launchFilterId, moveTask, deleteTask, setSelectedTask } =
     useWorkboard();
   const [draggedTask, setDraggedTask] = useState<{
     task: WorkboardTask;
@@ -30,8 +30,8 @@ export function WorkboardKanban() {
   } | null>(null);
 
   const filtered = useMemo(
-    () => filterWorkboardTasks(tasks, areaFilter, sprintFilterId),
-    [tasks, areaFilter, sprintFilterId]
+    () => filterWorkboardTasks(tasks, areaFilter, sprintFilterId, launchFilterId),
+    [tasks, areaFilter, sprintFilterId, launchFilterId]
   );
   const columns = useMemo(() => groupTasksIntoColumns(filtered), [filtered]);
 

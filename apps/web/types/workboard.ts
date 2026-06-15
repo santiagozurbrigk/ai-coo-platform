@@ -49,6 +49,7 @@ export type WorkboardTask = {
   estimatedMinutes?: number;
   actualMinutes?: number;
   sprintId?: string | null;
+  launchId?: string | null;
   createdAt: string;
   updatedAt: string;
 };

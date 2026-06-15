@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type React from "react";
+import { useSearchParams } from "next/navigation";
 import { CalendarDays, Clock, Kanban, Plus } from "lucide-react";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import { TASK_AREA_OPTIONS } from "@/lib/workboard/constants";
@@ -40,12 +41,16 @@ const VIEW_OPTIONS = [
 ];
 
 export function WorkboardShell() {
+  const searchParams = useSearchParams();
   const {
     areaFilter,
     setAreaFilter,
     view,
     setView,
     members,
+    launches,
+    launchFilterId,
+    setLaunchFilterId,
     createTask,
     isSaving,
     pendingCompleteTask,
@@ -63,7 +68,16 @@ export function WorkboardShell() {
     assigneeId: "",
     dueDate: "",
     tags: "",
+    launchId: "",
   });
+
+  useEffect(() => {
+    const launchFromUrl = searchParams.get("launch");
+    if (!launchFromUrl) return;
+    setLaunchFilterId(launchFromUrl);
+    setNewTask((prev) => ({ ...prev, launchId: launchFromUrl }));
+    setIsAddOpen(true);
+  }, [searchParams, setLaunchFilterId]);
 
   const emptyMembers = members.length === 0;
 
@@ -81,6 +95,7 @@ export function WorkboardShell() {
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean),
+      launchId: newTask.launchId || null,
     });
     setNewTask({
       title: "",
@@ -90,6 +105,7 @@ export function WorkboardShell() {
       assigneeId: "",
       dueDate: "",
       tags: "",
+      launchId: launchFilterId !== "all" ? launchFilterId : "",
     });
     setIsAddOpen(false);
   }
@@ -156,6 +172,7 @@ export function WorkboardShell() {
               selectedStatus={selectedStatus}
               setSelectedStatus={setSelectedStatus}
               members={members}
+              launches={launches}
               isSaving={isSaving}
               onSubmit={() => void handleAddTask()}
               onCancel={() => setIsAddOpen(false)}
@@ -194,6 +211,7 @@ function AddTaskDialogContent({
   selectedStatus,
   setSelectedStatus,
   members,
+  launches,
   isSaving,
   onSubmit,
   onCancel,
@@ -206,6 +224,7 @@ function AddTaskDialogContent({
     assigneeId: string;
     dueDate: string;
     tags: string;
+    launchId: string;
   };
   setNewTask: React.Dispatch<
     React.SetStateAction<typeof newTask>
@@ -213,6 +232,7 @@ function AddTaskDialogContent({
   selectedStatus: TaskStatus;
   setSelectedStatus: (s: TaskStatus) => void;
   members: { id: string; name: string }[];
+  launches: { id: string; name: string }[];
   isSaving: boolean;
   onSubmit: () => void;
   onCancel: () => void;
@@ -330,6 +350,24 @@ function AddTaskDialogContent({
               setNewTask({ ...newTask, dueDate: e.target.value })
             }
           />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="wb-launch">Lanzamiento (opcional)</Label>
+          <select
+            id="wb-launch"
+            className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+            value={newTask.launchId}
+            onChange={(e) =>
+              setNewTask({ ...newTask, launchId: e.target.value })
+            }
+          >
+            <option value="">Sin lanzamiento</option>
+            {launches.map((launch) => (
+              <option key={launch.id} value={launch.id}>
+                {launch.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="wb-tags">Etiquetas (separadas por coma)</Label>

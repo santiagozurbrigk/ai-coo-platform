@@ -32,6 +32,7 @@ export const paths = {
     },
 
     lanzamientos: `${PLATFORM}/lanzamientos`,
+    lanzamientosDetail: (id: string) => `${PLATFORM}/lanzamientos/${id}`,
 
     agent: {
       root: `${PLATFORM}/agent`,

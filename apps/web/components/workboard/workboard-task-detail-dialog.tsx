@@ -16,6 +16,10 @@ import {
   Textarea,
 } from "@ai-coo/ui";
 import {
+  assignTaskToLaunchAction,
+  assignTaskToSprintAction,
+} from "@/app/workboard/actions";
+import {
   STATUS_COLORS,
   STATUS_LABELS,
   TASK_AREA_LABELS,
@@ -32,9 +36,11 @@ export function WorkboardTaskDetailDialog() {
     setSelectedTask,
     members,
     sprints,
+    launches,
     updateTask,
     deleteTask,
     assignTaskToSprint,
+    upsertTaskInState,
     isSaving,
   } = useWorkboard();
 
@@ -47,6 +53,7 @@ export function WorkboardTaskDetailDialog() {
   const [dueDate, setDueDate] = useState("");
   const [tags, setTags] = useState("");
   const [sprintId, setSprintId] = useState("");
+  const [launchId, setLaunchId] = useState("");
 
   useEffect(() => {
     if (!selectedTask) return;
@@ -59,6 +66,7 @@ export function WorkboardTaskDetailDialog() {
     setDueDate(selectedTask.dueDate ?? "");
     setTags(selectedTask.tags.join(", "));
     setSprintId(selectedTask.sprintId ?? "");
+    setLaunchId(selectedTask.launchId ?? "");
   }, [selectedTask]);
 
   if (!selectedTask) return null;
@@ -220,6 +228,34 @@ export function WorkboardTaskDetailDialog() {
               ))}
             </select>
           </div>
+          {launches.length > 0 ? (
+            <div className="space-y-2">
+              <Label htmlFor="detail-launch">Lanzamiento</Label>
+              <select
+                id="detail-launch"
+                className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+                value={launchId}
+                disabled={isSaving}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setLaunchId(next);
+                  void assignTaskToLaunchAction(
+                    selectedTask.id,
+                    next ? next : null
+                  ).then((updated) => {
+                    upsertTaskInState(updated);
+                  });
+                }}
+              >
+                <option value="">Sin lanzamiento</option>
+                {launches.map((launch) => (
+                  <option key={launch.id} value={launch.id}>
+                    {launch.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label htmlFor="detail-due">Fecha límite</Label>
             <Input

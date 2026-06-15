@@ -710,13 +710,39 @@ Variables por integración: ver `.env.example` (Calendly, Google, Typeform, Fath
 | Módulo | Limitación |
 |--------|------------|
 | **Producto** | 100% mock — badge "Mock · Phase 2" |
-| **Lanzamientos** | Placeholder "Próximamente" |
+| **Lanzamientos** | CRUD real con métricas diarias, tareas vinculadas y post-mortem IA |
 | **Equipo** | Miembros mock; roles custom no persisten |
 | **Base de conocimiento** | Documentos mock; upload real no implementado |
 | **Operaciones** | Team inputs mock; weekly inputs y reporte ejecutivo reales con migración `20260615300000` |
 | **Inteligencia / Reportes ejecutivos** | 100% mock |
 | **Clientes `aiInsights`** | Siempre mock en UI |
 | **Super-admin Holding** | Mock multi-tenant |
+
+### Módulo Lanzamientos
+
+**Tablas:**
+- `launches` — lanzamientos con objetivos, fechas, revenue real y post-mortem
+- `launch_metrics` — métricas diarias registradas manualmente
+- `workboard_tasks.launch_id` — tareas vinculadas a un lanzamiento
+
+**Flujo recomendado:**
+1. Crear lanzamiento con fecha, objetivo de revenue y clientes
+2. Vincular producto desde el módulo Producto
+3. Crear tareas en el workboard con el lanzamiento seleccionado
+4. Durante el lanzamiento → registrar métricas diarias (revenue, clientes)
+5. Al completar → cambiar status a "completado" → generar post-mortem
+
+**Post-mortem con IA:**
+- Solo disponible cuando status === `completed`
+- Modelo: claude-sonnet-4-6 (task: `sales_analysis`)
+- Usa prompt caching con contexto de la org
+- Analiza: revenue vs objetivo, clientes vs objetivo, tareas completadas
+- Genera: resumen, qué funcionó, qué no, aprendizajes, recomendaciones, rating 1-10
+
+**Vinculación con workboard:**
+- Las tareas pueden pertenecer a un lanzamiento
+- El detalle del lanzamiento muestra todas sus tareas
+- Filtro por lanzamiento disponible en el Kanban
 
 ### Por plan de Meta/Instagram
 

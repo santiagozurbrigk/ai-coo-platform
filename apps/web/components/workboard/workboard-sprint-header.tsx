@@ -42,6 +42,9 @@ export function WorkboardSprintHeader({
     sprints,
     sprintFilterId,
     setSprintFilterId,
+    launches,
+    launchFilterId,
+    setLaunchFilterId,
     tasks,
     refreshSprints,
   } = useWorkboard();
@@ -241,6 +244,23 @@ export function WorkboardSprintHeader({
         value={areaFilter}
         onChange={onAreaFilterChange}
       />
+
+      {launches.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">Lanzamiento:</span>
+          <FilterPills
+            options={[
+              { value: "all", label: "Todos" },
+              ...launches.map((launch) => ({
+                value: launch.id,
+                label: launch.name,
+              })),
+            ]}
+            value={launchFilterId}
+            onChange={setLaunchFilterId}
+          />
+        </div>
+      ) : null}
 
       {showHistory ? (
         <div className="space-y-2 border-t border-border/60 pt-4 dark:border-white/[0.08]">

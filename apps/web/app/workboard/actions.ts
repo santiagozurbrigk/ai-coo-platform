@@ -95,6 +95,7 @@ export async function createWorkboardTaskAction(input: {
   dueDate?: string | null;
   tags?: string[];
   sprintId?: string | null;
+  launchId?: string | null;
 }): Promise<WorkboardTask> {
   const organizationId = await requireOrganizationId();
   const profile = await getCurrentProfile();
@@ -122,6 +123,7 @@ export async function createWorkboardTaskAction(input: {
       due_date: input.dueDate || null,
       tags: input.tags ?? [],
       sprint_id: sprintId || null,
+      launch_id: input.launchId || null,
       position,
       created_by: profile?.id ?? null,
       updated_at: new Date().toISOString(),
@@ -177,6 +179,7 @@ export async function updateWorkboardTaskAction(input: {
   dueDate?: string | null;
   tags?: string[];
   estimatedMinutes?: number;
+  launchId?: string | null;
 }): Promise<WorkboardTask> {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
@@ -192,6 +195,7 @@ export async function updateWorkboardTaskAction(input: {
   if (input.assigneeId !== undefined) patch.assignee_id = input.assigneeId || null;
   if (input.dueDate !== undefined) patch.due_date = input.dueDate || null;
   if (input.tags !== undefined) patch.tags = input.tags;
+  if (input.launchId !== undefined) patch.launch_id = input.launchId || null;
   if (input.estimatedMinutes !== undefined) {
     patch.estimated_minutes = input.estimatedMinutes;
   }
@@ -240,6 +244,34 @@ type TaskTimeEntry = {
   note?: string;
   logged_by: string;
 };
+
+export async function assignTaskToLaunchAction(
+  taskId: string,
+  launchId: string | null
+): Promise<WorkboardTask> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("workboard_tasks")
+    .update({
+      launch_id: launchId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", taskId)
+    .eq("organization_id", organizationId)
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  revalidateWorkboard();
+  revalidatePath(paths.platform.lanzamientos);
+
+  const members = await listWorkboardMembersAction();
+  const memberMap = new Map(members.map((m) => [m.id, m]));
+  return rowToTask(data as WorkboardTaskRow, memberMap);
+}
 
 export async function logTaskTimeAction(input: {
   taskId: string;

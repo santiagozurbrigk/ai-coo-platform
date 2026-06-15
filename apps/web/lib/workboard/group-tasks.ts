@@ -33,12 +33,24 @@ export function filterTasksBySprint(
   return tasks.filter((t) => t.sprintId === sprintFilterId);
 }
 
+export function filterTasksByLaunch(
+  tasks: WorkboardTask[],
+  launchFilterId: string
+): WorkboardTask[] {
+  if (launchFilterId === "all") return tasks;
+  return tasks.filter((t) => t.launchId === launchFilterId);
+}
+
 export function filterWorkboardTasks(
   tasks: WorkboardTask[],
   areaFilter: string,
-  sprintFilterId: string
+  sprintFilterId: string,
+  launchFilterId = "all"
 ): WorkboardTask[] {
-  return filterTasksBySprint(filterTasksByArea(tasks, areaFilter), sprintFilterId);
+  return filterTasksByLaunch(
+    filterTasksBySprint(filterTasksByArea(tasks, areaFilter), sprintFilterId),
+    launchFilterId
+  );
 }
 
 export function getNextPosition(

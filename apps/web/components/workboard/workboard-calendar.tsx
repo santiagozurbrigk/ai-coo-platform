@@ -23,12 +23,14 @@ import type { WorkboardTask } from "@/types/workboard";
 const WEEKDAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 export function WorkboardCalendar() {
-  const { tasks, areaFilter, sprintFilterId, setSelectedTask } = useWorkboard();
+  const { tasks, areaFilter, sprintFilterId, launchFilterId, setSelectedTask } =
+    useWorkboard();
   const [anchor, setAnchor] = useState(() => new Date());
 
   const filtered = useMemo(
-    () => filterWorkboardTasks(tasks, areaFilter, sprintFilterId),
-    [tasks, areaFilter, sprintFilterId]
+    () =>
+      filterWorkboardTasks(tasks, areaFilter, sprintFilterId, launchFilterId),
+    [tasks, areaFilter, sprintFilterId, launchFilterId]
   );
 
   const byDate = useMemo(() => groupTasksByDateKey(filtered), [filtered]);

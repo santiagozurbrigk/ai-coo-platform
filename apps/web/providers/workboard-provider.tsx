@@ -17,6 +17,7 @@ import {
   moveWorkboardTaskAction,
   updateWorkboardTaskAction,
 } from "@/app/workboard/actions";
+import type { LaunchPickerOption } from "@/types/launches";
 import type {
   TaskArea,
   TaskPriority,
@@ -36,14 +37,18 @@ type TaskUpdatePatch = Partial<{
   dueDate: string | null;
   tags: string[];
   estimatedMinutes: number;
+  launchId: string | null;
 }>;
 
 type WorkboardContextValue = {
   tasks: WorkboardTask[];
   members: WorkboardMember[];
   sprints: WorkboardSprint[];
+  launches: LaunchPickerOption[];
   sprintFilterId: string;
   setSprintFilterId: (id: string) => void;
+  launchFilterId: string;
+  setLaunchFilterId: (id: string) => void;
   refreshSprints: () => Promise<void>;
   areaFilter: string;
   setAreaFilter: (v: string) => void;
@@ -63,6 +68,7 @@ type WorkboardContextValue = {
     assigneeId?: string | null;
     dueDate?: string | null;
     tags?: string[];
+    launchId?: string | null;
   }) => Promise<void>;
   moveTask: (taskId: string, status: TaskStatus) => Promise<void>;
   updateTask: (taskId: string, patch: TaskUpdatePatch) => Promise<void>;
@@ -97,17 +103,22 @@ export function WorkboardProvider({
   members,
   initialSprints,
   initialSprintFilterId,
+  launches,
+  initialLaunchFilterId = "all",
   children,
 }: {
   initialTasks: WorkboardTask[];
   members: WorkboardMember[];
   initialSprints: WorkboardSprint[];
   initialSprintFilterId: string;
+  launches: LaunchPickerOption[];
+  initialLaunchFilterId?: string;
   children: ReactNode;
 }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [sprints, setSprints] = useState(initialSprints);
   const [sprintFilterId, setSprintFilterId] = useState(initialSprintFilterId);
+  const [launchFilterId, setLaunchFilterId] = useState(initialLaunchFilterId);
   const [areaFilter, setAreaFilter] = useState("all");
   const [view, setView] = useState<"board" | "calendar" | "time">("board");
   const [selectedTask, setSelectedTask] = useState<WorkboardTask | null>(null);
@@ -285,8 +296,11 @@ export function WorkboardProvider({
       tasks,
       members,
       sprints,
+      launches,
       sprintFilterId,
       setSprintFilterId,
+      launchFilterId,
+      setLaunchFilterId,
       refreshSprints,
       areaFilter,
       setAreaFilter,
@@ -311,7 +325,9 @@ export function WorkboardProvider({
       tasks,
       members,
       sprints,
+      launches,
       sprintFilterId,
+      launchFilterId,
       refreshSprints,
       areaFilter,
       view,
