@@ -76,6 +76,25 @@ export type FrequentObjection = {
   leadName: string;
 };
 
+export type ObjectionTrend = "up" | "down" | "stable";
+
+export type FrequentObjectionSummary = {
+  category: ObjectionCategory;
+  count: number;
+  resolutionRate: number;
+  topExamples: string[];
+  trend: ObjectionTrend;
+  trendPct: number;
+  alert?: string;
+};
+
+export type FrequentObjectionsDataSource = "calls" | "conversations" | "mock";
+
+export type FrequentObjectionsResult = {
+  objections: FrequentObjectionSummary[];
+  dataSource: FrequentObjectionsDataSource;
+};
+
 export type SalesMetricsData = {
   totalConversations: number;
   bookingRate: number;

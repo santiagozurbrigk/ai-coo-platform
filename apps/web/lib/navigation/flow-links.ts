@@ -11,6 +11,9 @@ export const flowLinks = {
       r1: `${paths.platform.intelligence.root}#bottlenecks`,
       r2: paths.platform.sales.inbox,
       r3: paths.platform.sops.detail("sop2"),
+      "r-objection-closing": `${paths.platform.sales.metrics}#objections`,
+      "r-objection-setting": `${paths.platform.sales.metrics}#objections`,
+      "r-objection-marketing": `${paths.platform.sales.metrics}#objections`,
     };
     return map[id] ?? paths.platform.intelligence.root;
   },

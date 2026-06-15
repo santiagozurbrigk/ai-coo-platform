@@ -9,7 +9,7 @@ import { Panel } from "@/components/shared/panel";
 import { MetricChartPanel } from "@/components/charts/platform/metric-chart-panel";
 import { formatPercent } from "@/lib/format";
 import { padTimeSeriesZeros } from "@/lib/chart/pad-time-series";
-import type { SalesMetricsData } from "@/types/sales";
+import type { SalesMetricsData, FrequentObjectionsResult } from "@/types/sales";
 import { CloserPerformancePanel } from "./closer-performance-panel";
 import { FrequentObjectionsSection } from "./frequent-objections-section";
 import { SalesTeamPerformanceSection } from "./sales-team-performance-section";
@@ -41,7 +41,13 @@ function InlineStats({ data }: { data: SalesMetricsData }) {
   );
 }
 
-export function SalesMetricsOverview({ data }: { data: SalesMetricsData }) {
+export function SalesMetricsOverview({
+  data,
+  frequentObjections,
+}: {
+  data: SalesMetricsData;
+  frequentObjections?: FrequentObjectionsResult;
+}) {
   const bookingTrend = padTimeSeriesZeros(data.bookingTrend, 7);
 
   return (
@@ -108,7 +114,7 @@ export function SalesMetricsOverview({ data }: { data: SalesMetricsData }) {
         </BentoGrid>
       </section>
 
-      <FrequentObjectionsSection />
+      <FrequentObjectionsSection initialData={frequentObjections} />
 
       <Panel
         title="Tendencia de agendamientos — últimos 7 días"

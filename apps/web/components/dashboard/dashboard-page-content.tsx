@@ -12,6 +12,7 @@ import { paths } from "@/routes";
 import { useFinanceData } from "@/providers/finance-data-provider";
 import { usePlatformData } from "@/providers/platform-data-provider";
 import type { WeeklyReportRow } from "@/types/operations";
+import type { FrequentObjectionsResult } from "@/types/sales";
 import { PageLoading } from "@/components/shared/page-loading";
 import { DashboardOverview } from "./dashboard-overview";
 
@@ -22,8 +23,10 @@ const NO_REPORT_SUMMARY =
 
 export function DashboardPageContent({
   weeklyReport = null,
+  frequentObjections = null,
 }: {
   weeklyReport?: WeeklyReportRow | null;
+  frequentObjections?: FrequentObjectionsResult | null;
 }) {
   const {
     clients,
@@ -55,7 +58,8 @@ export function DashboardPageContent({
       closingCalls,
       expensesSummary,
       paymentPlatforms,
-      salesMetrics
+      salesMetrics,
+      frequentObjections?.objections ?? []
     );
 
     const hasNoActivity =
@@ -93,6 +97,7 @@ export function DashboardPageContent({
     salesMetrics,
     loading,
     weeklyReport,
+    frequentObjections,
   ]);
 
   if (loading) {

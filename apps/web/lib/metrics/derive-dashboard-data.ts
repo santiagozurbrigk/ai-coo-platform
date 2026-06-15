@@ -11,7 +11,7 @@ import type {
 } from "@/types/dashboard";
 import type { ExpensesSummary } from "@/types/expenses";
 import type { PaymentPlatformConfig } from "@/types/finance";
-import type { Conversation, SalesMetricsData } from "@/types/sales";
+import type { Conversation, FrequentObjectionSummary, SalesMetricsData } from "@/types/sales";
 
 function formatPercent(value: number): string {
   return `${value.toFixed(1).replace(".", ",")}%`;
@@ -52,7 +52,8 @@ export function deriveDashboardData(
   closingCalls: ClosingCall[],
   expenses: ExpensesSummary,
   paymentPlatforms: PaymentPlatformConfig[],
-  salesMetrics: SalesMetricsData
+  salesMetrics: SalesMetricsData,
+  frequentObjections: FrequentObjectionSummary[] = []
 ): DashboardData {
   const finance = deriveFinanceSummary(
     clients,
@@ -214,6 +215,29 @@ export function deriveDashboardData(
       department: "Finanzas",
     });
   }
+
+  const objectionCategoryLabel: Record<
+    FrequentObjectionSummary["category"],
+    string
+  > = {
+    closing: "precio/tiempo",
+    setting: "setting",
+    marketing: "marketing",
+  };
+
+  for (const objection of frequentObjections) {
+    if (!objection.alert) continue;
+
+    risks.push({
+      id: `r-objection-${objection.category}`,
+      title: `Objeciones de ${objectionCategoryLabel[objection.category]} en aumento (+${objection.trendPct}%)`,
+      description: objection.alert,
+      suggestedAction: "Ver objeciones en métricas de ventas",
+      severity: "high" as const,
+      department: "Ventas",
+    });
+  }
+
   if (risks.length === 0) {
     risks.push({
       id: "r-none",

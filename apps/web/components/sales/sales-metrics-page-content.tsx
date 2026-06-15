@@ -2,8 +2,13 @@
 
 import { SalesMetricsOverview } from "@/components/sales";
 import { usePlatformData } from "@/providers";
+import type { FrequentObjectionsResult } from "@/types/sales";
 
-export function SalesMetricsPageContent() {
+export function SalesMetricsPageContent({
+  frequentObjections,
+}: {
+  frequentObjections?: FrequentObjectionsResult;
+}) {
   const { salesMetrics, salesMetricsLoading } = usePlatformData();
 
   if (salesMetricsLoading) {
@@ -14,5 +19,10 @@ export function SalesMetricsPageContent() {
     );
   }
 
-  return <SalesMetricsOverview data={salesMetrics} />;
+  return (
+    <SalesMetricsOverview
+      data={salesMetrics}
+      frequentObjections={frequentObjections}
+    />
+  );
 }

@@ -1,9 +1,12 @@
-import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp } from "lucide-react";
 import { Badge } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
-import { paths } from "@/routes";
-import type { FrequentObjection, ObjectionCategory } from "@/types/sales";
+import { cn } from "@/lib/utils";
+import type {
+  FrequentObjectionSummary,
+  FrequentObjectionsDataSource,
+  ObjectionCategory,
+} from "@/types/sales";
 
 const CATEGORY_LABEL: Record<ObjectionCategory, string> = {
   closing: "Closing",
@@ -11,73 +14,119 @@ const CATEGORY_LABEL: Record<ObjectionCategory, string> = {
   marketing: "Marketing",
 };
 
-const CATEGORY_VARIANT: Record<
-  ObjectionCategory,
-  "default" | "secondary" | "warning"
-> = {
-  closing: "default",
-  setting: "warning",
-  marketing: "secondary",
+const CATEGORY_BADGE_CLASS: Record<ObjectionCategory, string> = {
+  closing: "border-red-500/30 bg-red-500/10 text-red-400",
+  setting: "border-amber-500/30 bg-amber-500/10 text-amber-400",
+  marketing: "border-blue-500/30 bg-blue-500/10 text-blue-400",
 };
+
+function TrendIndicator({ objection }: { objection: FrequentObjectionSummary }) {
+  if (objection.trend === "up") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
+        <ArrowUp className="h-3.5 w-3.5" />+{objection.trendPct}% vs mes anterior
+      </span>
+    );
+  }
+
+  if (objection.trend === "down") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+        <ArrowDown className="h-3.5 w-3.5" />-{objection.trendPct}% vs mes anterior
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+      <ArrowRight className="h-3.5 w-3.5" />
+      Estable
+    </span>
+  );
+}
 
 export function FrequentObjectionsPanel({
   objections,
-  dataSource = "fallback",
+  dataSource = "mock",
 }: {
-  objections: FrequentObjection[];
-  dataSource?: "calls" | "fallback";
+  objections: FrequentObjectionSummary[];
+  dataSource?: FrequentObjectionsDataSource;
 }) {
   if (objections.length === 0) return null;
 
-  const sorted = [...objections].sort((a, b) => b.frequency - a.frequency);
   const subtitle =
     dataSource === "calls"
       ? "Detectadas en análisis de calls — últimos 30 días"
-      : "Detectadas en conversaciones y calls — demo";
+      : dataSource === "conversations"
+        ? "Detectadas en conversaciones DM — últimos 30 días"
+        : "Datos de demostración";
 
   return (
-    <Panel
-      title="Objeciones frecuentes esta semana"
-      subtitle={subtitle}
-    >
-      <ul className="space-y-3">
-        {sorted.map((objection, index) => (
-          <li
-            key={objection.id}
-            className="flex flex-col gap-2 rounded-xl border border-border/60 px-4 py-3 dark:border-white/[0.08]"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold tabular-nums">
-                  {index + 1}
-                </span>
-                <p className="text-sm font-medium">{objection.text}</p>
-              </div>
-              <Badge variant="outline" className="shrink-0 tabular-nums">
-                {objection.frequency}×
-              </Badge>
+    <div id="objections">
+      <Panel title="Objeciones frecuentes" subtitle={subtitle}>
+        {dataSource === "mock" ? (
+          <div className="mb-4 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            Sin datos reales aún — conectá Fathom para ver objeciones reales
+          </div>
+        ) : null}
+
+        <div className="space-y-4">
+          {objections.map((objection) => (
+            <div key={objection.category} className="space-y-2">
+              <article className="rounded-xl border border-border/60 px-4 py-4 dark:border-white/[0.08]">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <Badge
+                    variant="outline"
+                    className={cn("shrink-0", CATEGORY_BADGE_CLASS[objection.category])}
+                  >
+                    {CATEGORY_LABEL[objection.category]}
+                  </Badge>
+                  <TrendIndicator objection={objection} />
+                </div>
+
+                <p className="mt-3 text-sm font-medium tabular-nums">
+                  {objection.count} objeciones este mes
+                </p>
+
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Tasa de resolución</span>
+                    <span className="font-medium tabular-nums text-foreground">
+                      {objection.resolutionRate}% resueltas
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted/40">
+                    <div
+                      className="h-full rounded-full bg-violet-500 transition-all"
+                      style={{ width: `${objection.resolutionRate}%` }}
+                    />
+                  </div>
+                </div>
+
+                {objection.topExamples.length > 0 ? (
+                  <ul className="mt-4 space-y-2 border-t border-border/40 pt-3">
+                    {objection.topExamples.map((example) => (
+                      <li
+                        key={example}
+                        className="text-sm italic text-muted-foreground before:mr-1 before:content-['“'] after:content-['”']"
+                      >
+                        {example}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </article>
+
+              {objection.alert ? (
+                <div className="flex gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-100">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                  <p>{objection.alert}</p>
+                </div>
+              ) : null}
             </div>
-            <div className="flex flex-wrap items-center gap-2 pl-8">
-              <Badge variant={CATEGORY_VARIANT[objection.category]}>
-                {CATEGORY_LABEL[objection.category]}
-              </Badge>
-              {objection.conversationId !== "call-analysis" ? (
-                <Link
-                  href={`${paths.platform.sales.inbox}?c=${objection.conversationId}`}
-                  className="inline-flex items-center gap-1 text-xs text-violet-400 transition-colors hover:text-violet-300"
-                >
-                  {objection.leadName}
-                  <ArrowUpRight className="h-3 w-3" />
-                </Link>
-              ) : (
-                <span className="text-xs text-muted-foreground">
-                  {objection.leadName}
-                </span>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
-    </Panel>
+          ))}
+        </div>
+      </Panel>
+    </div>
   );
 }

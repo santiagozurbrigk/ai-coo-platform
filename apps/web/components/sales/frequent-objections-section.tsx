@@ -3,28 +3,34 @@
 import { useEffect, useState } from "react";
 import { getFrequentObjectionsAction } from "@/app/sales/actions";
 import { FrequentObjectionsPanel } from "@/components/sales/frequent-objections-panel";
-import type { FrequentObjection } from "@/types/sales";
+import type { FrequentObjectionsResult } from "@/types/sales";
 
-export function FrequentObjectionsSection() {
-  const [objections, setObjections] = useState<FrequentObjection[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fromCalls, setFromCalls] = useState(false);
+export function FrequentObjectionsSection({
+  initialData,
+}: {
+  initialData?: FrequentObjectionsResult;
+}) {
+  const [data, setData] = useState<FrequentObjectionsResult | null>(
+    initialData ?? null
+  );
+  const [loading, setLoading] = useState(!initialData);
 
   useEffect(() => {
+    if (initialData) return;
+
     let cancelled = false;
     getFrequentObjectionsAction()
       .then((result) => {
-        if (cancelled) return;
-        setObjections(result.objections);
-        setFromCalls(result.fromCallAnalyses);
+        if (!cancelled) setData(result);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialData]);
 
   if (loading) {
     return (
@@ -34,10 +40,12 @@ export function FrequentObjectionsSection() {
     );
   }
 
+  if (!data) return null;
+
   return (
     <FrequentObjectionsPanel
-      objections={objections}
-      dataSource={fromCalls ? "calls" : "fallback"}
+      objections={data.objections}
+      dataSource={data.dataSource}
     />
   );
 }
