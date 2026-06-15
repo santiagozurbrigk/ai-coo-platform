@@ -71,6 +71,29 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - **Google OAuth en modo Prueba:** cada email debe estar en Test users del consent screen (documentado en `.env.example`).
 - **Tokens unificados:** al conectar YouTube también se persiste fila en `google_forms_integrations`.
 
+#### YouTube — Métricas nativas
+
+**Métricas sincronizadas automáticamente:**
+- Vistas, likes, comentarios (desde YouTube Data API v3)
+- Duración del video en segundos
+- Thumbnail, tags, fecha de publicación
+- Todo se guarda en `content_assets.platform_metadata.youtube`
+
+**Retención hasta el CTA:**
+- El founder marca el minuto del CTA en cada video desde Marketing → Contenido → detalle del video
+- OTC muestra el % estimado de audiencia que llega hasta ese momento
+- Estimación basada en curva típica de retención de YouTube
+- TODO Phase 2: retención real desde YouTube Analytics API (requiere scope `yt-analytics.readonly` + reportes de audiencia)
+
+**Métricas de Instagram (separadas de YouTube):**
+- Alcance, engagement rate, saves, shares
+- No se mezclan con métricas de YouTube en la UI
+
+**Comparación entre videos:**
+- Disponible cuando hay 3+ videos con `cta_minute` configurado
+- Tabla ordenada por retención hasta el CTA
+- Correlación retención → leads atribuidos via UTMs
+
 ### Instagram
 
 - **Auth:** Meta OAuth. Env: `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_REDIRECT_URI`.

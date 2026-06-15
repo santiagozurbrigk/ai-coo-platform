@@ -8,6 +8,7 @@ import { paths } from "@/routes";
 import type { ContentAsset } from "@/types/marketing-insights";
 import { CONTENT_TYPE_LABEL } from "@/components/marketing-insights/content-labels";
 import { ContentThumbnail } from "@/components/marketing-insights/content-thumbnail";
+import { ContentPlatformMetrics } from "@/components/marketing/content-platform-metrics";
 
 export function MarketingContentDetail({
   asset,
@@ -61,19 +62,25 @@ export function MarketingContentDetail({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <section className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Métricas {asset.platform === "youtube" ? "de YouTube" : "de Instagram"}
+          </h3>
+          <ContentPlatformMetrics asset={asset} />
+        </section>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {[
-            { label: "Alcance", value: asset.reach },
-            { label: "Views", value: asset.views },
-            { label: "Likes", value: asset.likes },
-            { label: "Comentarios", value: asset.comments },
-            { label: "Saves", value: asset.saves },
-            { label: "Shares", value: asset.shares },
+            { label: "Conversaciones", value: asset.conversationsGenerated },
+            { label: "Bookings", value: asset.bookingsInfluenced },
+            { label: "Revenue infl.", value: asset.revenueInfluenced },
           ].map((m) => (
             <GlassPanel key={m.label} className="p-3 text-center">
               <p className="text-2xs text-muted-foreground">{m.label}</p>
               <p className="mt-1 text-lg font-semibold tabular-nums">
-                {m.value.toLocaleString("es-ES")}
+                {typeof m.value === "number" && m.label === "Revenue infl."
+                  ? `$${m.value.toLocaleString("es-ES")}`
+                  : m.value.toLocaleString("es-ES")}
               </p>
             </GlassPanel>
           ))}

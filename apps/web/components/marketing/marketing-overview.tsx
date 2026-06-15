@@ -31,6 +31,7 @@ import {
   TopConvertingContentList,
   TypeRadarChart,
 } from "./marketing-charts";
+import { YoutubeVideoPerformance } from "./youtube-video-performance";
 
 type DistributionData = {
   counts: Record<ContentLabel, number>;
@@ -46,7 +47,8 @@ export function MarketingOverview({
   distribution: DistributionData;
   overview: MarketingOverviewContext;
 }) {
-  const { hasContentAssets, hasUtmAttributions, assets, utmSummary } = overview;
+  const { hasContentAssets, hasUtmAttributions, assets, utmLinks, utmSummary } =
+    overview;
 
   const metrics = hasContentAssets
     ? buildOverviewMetricsFromAssets(assets)
@@ -111,6 +113,10 @@ export function MarketingOverview({
 
       {hasContentAssets && reachSeries.length > 0 ? (
         <ReachInteractionsChart data={reachSeries} />
+      ) : null}
+
+      {hasContentAssets ? (
+        <YoutubeVideoPerformance assets={assets} utmLinks={utmLinks} />
       ) : null}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">

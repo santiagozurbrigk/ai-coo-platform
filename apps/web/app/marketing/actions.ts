@@ -19,6 +19,7 @@ import {
   resolveUtmLinkType,
 } from "@/lib/utm/build-links";
 import { slugifyCampaign } from "@/lib/utm/slugify-campaign";
+import { estimateRetentionAtCTA } from "@/lib/youtube/retention";
 import type {
   UTMBookingAttributionRow,
   UTMLeadCaptureRow,
@@ -27,8 +28,25 @@ import type {
   UTMSaleAttributionRow,
 } from "@/types/utm";
 
+export type YouTubePlatformMetadataView = {
+  view_count: number;
+  like_count: number;
+  comment_count: number;
+  favorite_count: number;
+  duration_seconds: number;
+  definition: string | null;
+  published_at: string | null;
+  thumbnail_url: string | null;
+  tags: string[];
+};
+
+export type ContentAssetPlatformMetadata = {
+  youtube?: YouTubePlatformMetadataView;
+};
+
 export type ContentAssetView = {
   id: string;
+  externalId: string;
   platform: "instagram" | "youtube";
   title: string;
   caption: string;
@@ -56,6 +74,11 @@ export type ContentAssetView = {
   bookingsInfluenced: number;
   salesInfluenced: number;
   revenueInfluenced: number;
+  ctaMinute: number | null;
+  retentionAtCtaPct: number | null;
+  durationSeconds: number | null;
+  platformMetadata: ContentAssetPlatformMetadata | null;
+  engagementRate: number | null;
 };
 
 function rowToView(row: Record<string, unknown>): ContentAssetView {
@@ -64,10 +87,28 @@ function rowToView(row: Record<string, unknown>): ContentAssetView {
     (row.title as string)?.trim() ||
     caption.trim().slice(0, 80) ||
     "Sin título";
+  const platform = row.platform as "instagram" | "youtube";
+  const likes = Number(row.likes ?? 0);
+  const comments = Number(row.comments ?? 0);
+  const shares = Number(row.shares ?? 0);
+  const saves = Number(row.saves ?? 0);
+  const reach = Number(row.reach ?? 0);
+  const platformMetadata =
+    (row.platform_metadata as ContentAssetPlatformMetadata | null) ?? null;
+  const durationSeconds =
+    row.duration_seconds != null
+      ? Number(row.duration_seconds)
+      : (platformMetadata?.youtube?.duration_seconds ?? null);
+
+  const engagementRate =
+    platform === "instagram" && reach > 0
+      ? Math.round(((likes + comments + saves + shares) / reach) * 1000) / 10
+      : null;
 
   return {
     id: row.id as string,
-    platform: row.platform as "instagram" | "youtube",
+    externalId: (row.external_id as string) ?? "",
+    platform,
     title,
     caption: (row.caption as string) ?? "",
     thumbnailUrl: (row.thumbnail_url as string) ?? null,
@@ -76,11 +117,11 @@ function rowToView(row: Record<string, unknown>): ContentAssetView {
     views: Number(row.views ?? 0),
     viewsOrganic: Number(row.views_organic ?? row.views ?? 0),
     viewsPaid: Number(row.views_paid ?? 0),
-    likes: Number(row.likes ?? 0),
-    comments: Number(row.comments ?? 0),
-    shares: Number(row.shares ?? 0),
-    saves: Number(row.saves ?? 0),
-    reach: Number(row.reach ?? 0),
+    likes,
+    comments,
+    shares,
+    saves,
+    reach,
     reelType: (row.reel_type as "reel" | "trial_reel") ?? null,
     distribution:
       row.distribution === "paid"
@@ -100,6 +141,14 @@ function rowToView(row: Record<string, unknown>): ContentAssetView {
     bookingsInfluenced: Number(row.bookings_influenced ?? 0),
     salesInfluenced: Number(row.sales_influenced ?? 0),
     revenueInfluenced: Number(row.revenue_influenced ?? 0),
+    ctaMinute: row.cta_minute != null ? Number(row.cta_minute) : null,
+    retentionAtCtaPct:
+      row.retention_at_cta_pct != null
+        ? Number(row.retention_at_cta_pct)
+        : null,
+    durationSeconds,
+    platformMetadata,
+    engagementRate,
   };
 }
 
@@ -139,6 +188,7 @@ export type MarketingOverviewContext = {
   hasContentAssets: boolean;
   hasUtmAttributions: boolean;
   assets: ContentAssetView[];
+  utmLinks: UTMLinkRow[];
   utmSummary: {
     totalBookings: number;
     totalSales: number;
@@ -172,6 +222,7 @@ export async function getMarketingOverviewContextAction(): Promise<MarketingOver
     hasContentAssets: assets.length > 0,
     hasUtmAttributions,
     assets,
+    utmLinks,
     utmSummary,
   };
 }
@@ -192,6 +243,55 @@ export async function updateContentLabelAction(
     if (error) throw new Error(error.message);
     revalidatePath(paths.platform.marketing.content);
     revalidatePath(paths.platform.marketing.overview);
+  });
+}
+
+export async function updateCTAMinuteAction(
+  assetId: string,
+  ctaSecond: number
+): Promise<MutationResult<{ retentionAtCtaPct: number }>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const { data: asset, error: fetchError } = await supabase
+      .from("content_assets")
+      .select("duration_seconds, platform_metadata")
+      .eq("id", assetId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (fetchError || !asset) {
+      throw new Error(fetchError?.message ?? "Video no encontrado");
+    }
+
+    const metadata = (asset.platform_metadata ?? {}) as ContentAssetPlatformMetadata;
+    const durationSeconds =
+      asset.duration_seconds != null
+        ? Number(asset.duration_seconds)
+        : (metadata.youtube?.duration_seconds ?? 0);
+
+    const retentionAtCtaPct = estimateRetentionAtCTA(
+      ctaSecond,
+      durationSeconds
+    );
+
+    const { error } = await supabase
+      .from("content_assets")
+      .update({
+        cta_minute: ctaSecond,
+        retention_at_cta_pct: retentionAtCtaPct,
+      })
+      .eq("id", assetId)
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath(paths.platform.marketing.content);
+    revalidatePath(`${paths.platform.marketing.content}/${assetId}`);
+    revalidatePath(paths.platform.marketing.overview);
+
+    return { retentionAtCtaPct };
   });
 }
 

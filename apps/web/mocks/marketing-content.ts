@@ -1,5 +1,22 @@
 import type { ContentAssetView } from "@/app/marketing/actions";
 
+const METRICS_DEFAULTS = {
+  externalId: "",
+  ctaMinute: null,
+  retentionAtCtaPct: null,
+  durationSeconds: null,
+  platformMetadata: null,
+  engagementRate: null,
+} satisfies Pick<
+  ContentAssetView,
+  | "externalId"
+  | "ctaMinute"
+  | "retentionAtCtaPct"
+  | "durationSeconds"
+  | "platformMetadata"
+  | "engagementRate"
+>;
+
 /** Assets de demo para biblioteca de contenido cuando no hay datos en DB. */
 export const mockMarketingContentAssets: ContentAssetView[] = [
   {
@@ -31,6 +48,9 @@ export const mockMarketingContentAssets: ContentAssetView[] = [
     bookingsInfluenced: 23,
     salesInfluenced: 9,
     revenueInfluenced: 27_000,
+    ...METRICS_DEFAULTS,
+    externalId: "mock-c1",
+    engagementRate: 3.4,
   },
   {
     id: "c2",
@@ -61,6 +81,9 @@ export const mockMarketingContentAssets: ContentAssetView[] = [
     bookingsInfluenced: 12,
     salesInfluenced: 4,
     revenueInfluenced: 12_000,
+    ...METRICS_DEFAULTS,
+    externalId: "mock-c2",
+    engagementRate: 2.9,
   },
   {
     id: "c3",
@@ -91,6 +114,9 @@ export const mockMarketingContentAssets: ContentAssetView[] = [
     bookingsInfluenced: 6,
     salesInfluenced: 2,
     revenueInfluenced: 6_000,
+    ...METRICS_DEFAULTS,
+    externalId: "mock-c3",
+    engagementRate: 0.7,
   },
   {
     id: "c4",
@@ -121,6 +147,9 @@ export const mockMarketingContentAssets: ContentAssetView[] = [
     bookingsInfluenced: 5,
     salesInfluenced: 2,
     revenueInfluenced: 6_000,
+    ...METRICS_DEFAULTS,
+    externalId: "mock-c4",
+    engagementRate: 3.1,
   },
   {
     id: "c5",
@@ -151,6 +180,9 @@ export const mockMarketingContentAssets: ContentAssetView[] = [
     bookingsInfluenced: 8,
     salesInfluenced: 3,
     revenueInfluenced: 9_000,
+    ...METRICS_DEFAULTS,
+    externalId: "mock-c5",
+    engagementRate: 2.4,
   },
   {
     id: "c6",
@@ -181,6 +213,24 @@ export const mockMarketingContentAssets: ContentAssetView[] = [
     bookingsInfluenced: 9,
     salesInfluenced: 5,
     revenueInfluenced: 15_000,
+    ...METRICS_DEFAULTS,
+    externalId: "mock-yt-vsl",
+    ctaMinute: 480,
+    retentionAtCtaPct: 42,
+    durationSeconds: 1200,
+    platformMetadata: {
+      youtube: {
+        view_count: 18_400,
+        like_count: 890,
+        comment_count: 94,
+        favorite_count: 0,
+        duration_seconds: 1200,
+        definition: "hd",
+        published_at: "2026-03-15T12:00:00.000Z",
+        thumbnail_url: null,
+        tags: [],
+      },
+    },
   },
   {
     id: "c7",
@@ -211,5 +261,8 @@ export const mockMarketingContentAssets: ContentAssetView[] = [
     bookingsInfluenced: 3,
     salesInfluenced: 1,
     revenueInfluenced: 3_000,
+    ...METRICS_DEFAULTS,
+    externalId: "mock-c7",
+    engagementRate: 5.2,
   },
 ];
