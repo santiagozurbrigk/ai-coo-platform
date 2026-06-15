@@ -56,6 +56,76 @@ export async function disconnectGoogleIntegrationAction(
   });
 }
 
+export async function disconnectInstagramAction(): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("instagram_integrations")
+      .delete()
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+    revalidatePath(paths.platform.integrations);
+  });
+}
+
+export async function disconnectFathomAction(): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("fathom_integrations")
+      .delete()
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+    revalidatePath(paths.platform.integrations);
+  });
+}
+
+export async function disconnectManyChatAction(): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("manychat_integrations")
+      .delete()
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+    revalidatePath(paths.platform.integrations);
+  });
+}
+
+export async function disconnectCalendlyAction(): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("calendly_integrations")
+      .delete()
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+    revalidatePath(paths.platform.integrations);
+  });
+}
+
+export async function disconnectTypeformAction(): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("typeform_integrations")
+      .delete()
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+    revalidatePath(paths.platform.integrations);
+  });
+}
+
 async function countManyChatConversations(): Promise<number> {
   if (!isSupabaseConfigured()) return 0;
   const organizationId = await requireOrganizationId();

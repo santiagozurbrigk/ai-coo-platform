@@ -3,7 +3,15 @@
 import { useRouter } from "next/navigation";
 import { paths } from "@/routes";
 import { useEffect, useState } from "react";
-import { disconnectGoogleIntegrationAction } from "@/app/integrations/actions";
+import {
+  disconnectCalendlyAction,
+  disconnectFathomAction,
+  disconnectGoogleIntegrationAction,
+  disconnectInstagramAction,
+  disconnectManyChatAction,
+  disconnectTypeformAction,
+} from "@/app/integrations/actions";
+import { disconnectDiscordIntegrationAction } from "@/app/discord/actions";
 import {
   getCalendlyIntegrationStatusAction,
   pullCalendlyScheduledEventsAction,
@@ -148,6 +156,47 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       push({
         title: "Integración desconectada",
         description: "Podés volver a conectar cuando quieras.",
+        variant: "success",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    const disconnectActions: Partial<
+      Record<Integration["provider"], () => Promise<{ success: boolean; error?: string }>>
+    > = {
+      instagram: disconnectInstagramAction,
+      fathom: disconnectFathomAction,
+      manychat: disconnectManyChatAction,
+      calendly: disconnectCalendlyAction,
+      typeform: disconnectTypeformAction,
+      discord: disconnectDiscordIntegrationAction,
+    };
+
+    const action = disconnectActions[integration.provider];
+    if (!action) return;
+
+    setSyncing(true);
+    try {
+      const res = await action();
+      if (!res.success) {
+        push({ title: res.error ?? "Error al desconectar", variant: "default" });
+        return;
+      }
+
+      setStatus("not_connected");
+      if (integration.provider === "instagram") {
+        setInstagramConnected(false);
+      }
+      if (integration.provider === "manychat") {
+        setManychatManageOpen(false);
+        setManychatWebhookUrl(null);
+      }
+      router.refresh();
+      push({
+        title: `${integration.name} desconectado`,
         variant: "success",
       });
     } finally {
@@ -366,6 +415,16 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     ? "syncing"
     : (status as IntegrationCardStatus);
 
+  const supportsCardDisconnect =
+    isConnected &&
+    !comingSoon &&
+    (integration.provider === "instagram" ||
+      integration.provider === "fathom" ||
+      integration.provider === "manychat" ||
+      integration.provider === "calendly" ||
+      integration.provider === "typeform" ||
+      integration.provider === "discord");
+
   const description =
     integration.description ??
     INTEGRATION_DESCRIPTIONS[integration.provider] ??
@@ -408,6 +467,8 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         actionDisabled={comingSoon || syncing}
         onConnect={handlePrimaryAction}
         onManage={handlePrimaryAction}
+        onDisconnect={supportsCardDisconnect ? handleDisconnect : undefined}
+        disconnectDisabled={syncing}
       />
 
       <FathomConnectDialog

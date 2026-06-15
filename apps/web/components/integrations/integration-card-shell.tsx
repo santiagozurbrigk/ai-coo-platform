@@ -17,6 +17,8 @@ export type IntegrationCardShellProps = {
   actionDisabled?: boolean;
   onConnect?: () => void;
   onManage?: () => void;
+  onDisconnect?: () => void;
+  disconnectDisabled?: boolean;
 };
 
 export function IntegrationCardShell({
@@ -29,6 +31,8 @@ export function IntegrationCardShell({
   actionDisabled,
   onConnect,
   onManage,
+  onDisconnect,
+  disconnectDisabled,
 }: IntegrationCardShellProps) {
   const isConnected = status === "connected";
   const isSyncing = status === "syncing";
@@ -58,15 +62,29 @@ export function IntegrationCardShell({
           {lastSync ? `Sync: ${lastSync}` : ""}
         </span>
         {isConnected ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 shrink-0 px-3 text-[11px]"
-            disabled={actionDisabled}
-            onClick={onManage}
-          >
-            {actionLabel ?? "Gestionar"}
-          </Button>
+          <div className="flex shrink-0 items-center gap-1">
+            {onDisconnect ? (
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                className="h-7 shrink-0 px-2 text-[10px] text-red-400 border-red-500/20 hover:bg-red-900/10"
+                disabled={disconnectDisabled}
+                onClick={onDisconnect}
+              >
+                Desconectar
+              </Button>
+            ) : null}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 shrink-0 px-3 text-[11px]"
+              disabled={actionDisabled}
+              onClick={onManage}
+            >
+              {actionLabel ?? "Gestionar"}
+            </Button>
+          </div>
         ) : (
           <Button
             size="sm"
