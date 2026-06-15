@@ -26,22 +26,3 @@ export {
 } from "./intelligence";
 export { mockIntegrations } from "./integrations";
 export { mockTeamMembers, mockRoles } from "./team";
-export {
-  mockOrganizations,
-  mockOrganizationsList,
-  mockAiUsage,
-  mockAiCostDashboard,
-  mockFounders,
-  mockTeamAccounts,
-  mockAdminUsers,
-  getMockOrganizationDetail,
-} from "./super-admin";
-export {
-  mockBrainHealth,
-  mockBrainContentBreakdown,
-  mockBrainCoverageAreas,
-  mockBrainGlobalInsights,
-  mockBrainDocuments,
-  mockBrainRecent,
-  getBrainDocumentById,
-} from "./ai-brain";

@@ -14,7 +14,6 @@ export const es = {
     inbox: "Bandeja",
     metrics: "Métricas",
     marketing: "Marketing",
-    marketingInsights: "Marketing",
     operations: "Operaciones",
     weeklyInputs: "Inputs semanales",
     executiveReports: "Reportes ejecutivos",

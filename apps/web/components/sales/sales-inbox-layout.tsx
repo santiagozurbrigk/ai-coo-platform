@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { List, MessageCircle } from "lucide-react";
-import { Button, Dialog, DialogContent, DialogTitle, cn } from "@ai-coo/ui";
+import { Button, Dialog, DialogContent, DialogTitle } from "@ai-coo/ui";
 import { usePlatformData } from "@/providers";
 import { paths } from "@/routes";
 import type { ConversationTagId } from "@/types/sales";

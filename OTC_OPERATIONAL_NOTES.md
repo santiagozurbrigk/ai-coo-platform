@@ -857,4 +857,52 @@ INSERT INTO super_admin_users (email, role) VALUES ('email@ejemplo.com', 'admin'
 
 ---
 
+## Deuda técnica — Estado post limpieza
+
+**Rutas eliminadas (alias en `paths.ts` y páginas Next redundantes):**
+
+- `paths.platform.sales.marketingInsights.*` → usar `paths.platform.marketing.*`
+- `paths.superAdmin.founders`, `teamAccounts`, `aiUsage`, `costTracking`, `profitability`
+- Páginas Next eliminadas (redirecciones HTTP en `lib/navigation/redirects.ts` siguen activas):
+  - `/sales/marketing-insights/**`
+  - `/super-admin/founders`, `/team-accounts`, `/ai-usage`, `/cost-tracking`, `/profitability`
+
+**Mocks eliminados (sin imports en el codebase):**
+
+- `mocks/super-admin.ts`, `mocks/ai-brain.ts`, `mocks/settings.ts`, `mocks/founder.ts`
+- `mocks/super-admin-holding.ts`, `mocks/workboard-sprints.ts`
+
+**Componentes huérfanos eliminados:**
+
+- Super Admin legacy: `founders-table`, `org-table`, `team-accounts-table`, `usage-table`, `profitability-cards`, `profitability-page-content`
+- Marketing Insights legacy (módulo `/sales/marketing-insights`): `marketing-dashboard`, `content-library-grid`, `content-detail-view`, `lead-journeys-list`, `marketing-subnav`, `journey-flow-visual`, `influence-rank-list`, `drive-source-banner`
+- Otros: `content-type-segment-panel`, `workspace-switcher`, `appearance-settings`, `bar-y-axis`, `screen-placeholder`
+
+**Server actions consolidadas / eliminadas:**
+
+- Eliminado wrapper `getOrganizationsAction` (usar `loadOrganizationsList` directo)
+- Eliminado `listTeamMembersAction` deprecated (usar `getTeamMembersAction`)
+- Eliminado `uploadAiBrainDocumentAction` deprecated (usar `prepareAiBrainFileUploadAction` + `createAiBrainDocumentAction`)
+
+**Queries optimizadas:**
+
+- `loadOrganizationsList` / `loadOrganizationDetail`: `clients.select("*")` → `CLIENT_BILLING_SELECT` (solo columnas de facturación)
+
+**Variables de entorno:**
+
+- Eliminado `NEXT_PUBLIC_APP_NAME` de `.env.example` (no referenciado en código)
+- Documentado alias `SUPABASE_SECRET_KEY` en `.env.example`
+
+**TODOs Phase 2 pendientes reales:**
+
+| Ubicación | Descripción |
+|-----------|-------------|
+| `lib/fathom/analyze-transcript.ts:14` | BullMQ queue `fathom-analysis` para procesar async |
+| `lib/fathom/analyze-transcript.ts:15` | Prompt caching (SOPs, contexto org) |
+| `lib/fathom/process-call.ts:282` | Mover procesamiento a BullMQ queue |
+| `lib/youtube/retention.ts:5` | Retención real desde YouTube Analytics API |
+| `components/landing/vsl-player.tsx:37` | Reemplazar placeholder cuando exista `NEXT_PUBLIC_VSL_URL` |
+
+---
+
 *Actualizar este documento cuando cambien umbrales, crons, integraciones o pipelines de IA.*

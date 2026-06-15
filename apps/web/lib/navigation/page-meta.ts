@@ -67,14 +67,6 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Métricas de ventas",
     subtitle: "Rendimiento por closer, agendamientos y operación comercial",
   },
-  "/sales/marketing-insights": {
-    title: "Marketing Insights",
-    subtitle: "Inteligencia de contenido — qué influye en conversaciones y ventas",
-  },
-  "/sales/marketing-insights/library": {
-    title: "Biblioteca de contenido",
-    subtitle: "Assets desde Google Drive",
-  },
   "/sales/closing": {
     title: "Closing",
     subtitle: "Calendario de cierre, Calendly y resultados",
@@ -156,21 +148,9 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Usuarios",
     subtitle: "Todos los perfiles de la plataforma",
   },
-  "/super-admin/founders": {
-    title: "Usuarios",
-    subtitle: "Redirige a /super-admin/users",
-  },
-  "/super-admin/team-accounts": {
-    title: "Usuarios",
-    subtitle: "Redirige a /super-admin/users",
-  },
   "/super-admin/costs": {
     title: "Costos de IA",
     subtitle: "Costos de IA, infra y rentabilidad por cliente",
-  },
-  "/super-admin/profitability": {
-    title: "Rentabilidad",
-    subtitle: "MRR, tokens y márgenes",
   },
   "/super-admin/infrastructure": {
     title: "Infraestructura",
@@ -241,9 +221,6 @@ export function getPageMeta(pathname: string): {
     return { title: "Conversación", subtitle: "Agente de negocio" };
   }
   if (pathname.startsWith("/marketing/content/") && pathname !== "/marketing/content") {
-    return { title: "Publicación", subtitle: "Detalle de contenido — Marketing" };
-  }
-  if (pathname.startsWith("/sales/marketing-insights/content/")) {
     return { title: "Publicación", subtitle: "Detalle de contenido — Marketing" };
   }
   if (

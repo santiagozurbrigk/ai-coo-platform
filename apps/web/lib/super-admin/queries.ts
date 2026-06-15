@@ -12,6 +12,7 @@ import { requireSuperAdmin } from "@/lib/auth/require-super-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   countByOrg,
+  CLIENT_BILLING_SELECT,
   formatUsd,
   formatUsdPrecise,
   sumBillingInRange,
@@ -439,7 +440,7 @@ export async function loadOrganizationsList(): Promise<
         .eq("status", "closed")
         .gte("scheduled_at", month.start)
         .lte("scheduled_at", month.end),
-      admin.from("clients").select("*"),
+      admin.from("clients").select(CLIENT_BILLING_SELECT),
     ]);
 
   if (orgsRes.error) throw new Error(orgsRes.error.message);
@@ -635,7 +636,7 @@ export async function loadOrganizationDetail(
       .eq("status", "closed")
       .gte("scheduled_at", month.start)
       .lte("scheduled_at", month.end),
-    admin.from("clients").select("*").eq("organization_id", orgId),
+    admin.from("clients").select(CLIENT_BILLING_SELECT).eq("organization_id", orgId),
     admin
       .from("organization_notes")
       .select("id, note, created_by, created_at")

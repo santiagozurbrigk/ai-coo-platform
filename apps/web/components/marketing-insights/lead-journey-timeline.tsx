@@ -18,7 +18,7 @@ function TimelineStep({ step, index }: { step: JourneyStep; index: number }) {
     <div className="flex flex-col items-center gap-3">
       {content ? (
         <Link
-          href={paths.platform.sales.marketingInsights.content(content.id)}
+          href={paths.platform.marketing.contentDetail(content.id)}
           className="w-full max-w-[280px] transition-opacity hover:opacity-90"
         >
           <ContentThumbnail content={content} size="md" className="h-44" />
@@ -61,7 +61,7 @@ export function LeadJourneyTimeline({ journey }: { journey: LeadJourney }) {
   return (
     <div className="space-y-8">
       <Button variant="ghost" size="sm" className="gap-2 -ml-2" asChild>
-        <Link href={paths.platform.sales.marketingInsights.journeys}>
+        <Link href={paths.platform.marketing.salesConnection}>
           <ArrowLeft className="h-4 w-4" />
           Todos los recorridos
         </Link>

@@ -18,12 +18,6 @@ import {
   loadOrganizationsList,
 } from "@/lib/super-admin/queries";
 
-export async function getOrganizationsAction(
-  ...args: Parameters<typeof loadOrganizationsList>
-) {
-  return loadOrganizationsList(...args);
-}
-
 export async function getOrganizationDetailAction(
   ...args: Parameters<typeof loadOrganizationDetail>
 ) {
@@ -50,7 +44,7 @@ export async function getClientHealthAction(
 
 const REVALIDATE_ORGS = [
   paths.superAdmin.organizations,
-  paths.superAdmin.profitability,
+  paths.superAdmin.costs,
   paths.superAdmin.users,
 ];
 
@@ -356,30 +350,6 @@ export async function createAiBrainDocumentAction(
     revalidatePath(paths.superAdmin.aiBrain.root);
     revalidatePath(paths.superAdmin.aiBrain.library);
     return { id: data.id };
-  });
-}
-
-/** @deprecated Usar prepareAiBrainFileUploadAction + createAiBrainDocumentAction */
-export async function uploadAiBrainDocumentAction(
-  formData: FormData
-): Promise<MutationResult<{ id: string }>> {
-  const file = formData.get("file");
-  if (file instanceof File && file.size > 0) {
-    return {
-      success: false,
-      error:
-        "La subida de archivos grandes debe hacerse con el flujo actualizado. Recargá la página e intentá de nuevo.",
-    };
-  }
-  return createAiBrainDocumentAction({
-    title: String(formData.get("title") ?? ""),
-    contentType: String(formData.get("contentType") ?? "document") as BrainContentType,
-    category: String(formData.get("category") ?? "general"),
-    description: String(formData.get("description") ?? ""),
-    tags: String(formData.get("tags") ?? ""),
-    coverageAreas: String(formData.get("coverageAreas") ?? ""),
-    uploadedBy: String(formData.get("uploadedBy") ?? "Super Admin"),
-    miroUrl: String(formData.get("miroUrl") ?? ""),
   });
 }
 

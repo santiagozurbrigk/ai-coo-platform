@@ -16,6 +16,10 @@ export const sectionRedirects: { source: string; destination: string }[] = [
     source: "/sales/marketing-insights/journeys/:id",
     destination: "/marketing/sales-connection",
   },
+  {
+    source: "/sales/marketing-insights/content/:id",
+    destination: "/marketing/content/:id",
+  },
   { source: "/sales", destination: "/sales/inbox" },
   { source: "/operations", destination: "/operations/overview" },
   { source: "/sops", destination: "/operations/sops" },

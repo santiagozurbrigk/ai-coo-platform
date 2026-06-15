@@ -73,3 +73,7 @@ export function monthRangeAsRevenuePreset(range: DateRangeIso) {
   const start = range.start.slice(0, 10);
   return resolveRevenueDateRange({ preset: "month", anchor: start });
 }
+
+/** Columnas mínimas de `clients` para cálculo de facturación en Super Admin. */
+export const CLIENT_BILLING_SELECT =
+  "id, organization_id, name, nickname, join_date, payment_type, platform, total_amount, upfront_amount, fee_amount, fee_frequency, status, is_success_case, installments";

@@ -59,14 +59,6 @@ export const paths = {
       inbox: `${PLATFORM}/sales/inbox`,
       metrics: `${PLATFORM}/sales/metrics`,
       closing: `${PLATFORM}/sales/closing`,
-      /** @deprecated Usar paths.platform.marketing */
-      marketingInsights: {
-        dashboard: `${PLATFORM}/marketing`,
-        library: `${PLATFORM}/marketing/content`,
-        content: (id: string) => `${PLATFORM}/marketing/content/${id}`,
-        journeys: `${PLATFORM}/marketing/sales-connection`,
-        journeyDetail: (id: string) => `${PLATFORM}/marketing/sales-connection`,
-      },
     },
 
     clients: {
@@ -134,15 +126,6 @@ export const paths = {
     organizationDetail: (id: string) => `/super-admin/organizations/${id}`,
     organizationsNew: "/super-admin/organizations/new",
     users: "/super-admin/users",
-    /** @deprecated Usar users */
-    founders: "/super-admin/users",
-    /** @deprecated Usar users */
-    teamAccounts: "/super-admin/users",
-    /** @deprecated Usar costs */
-    aiUsage: "/super-admin/costs",
-    /** @deprecated Usar costs */
-    costTracking: "/super-admin/costs",
-    profitability: "/super-admin/profitability",
     costs: "/super-admin/costs",
     infrastructure: "/super-admin/infrastructure",
     clientHealth: "/super-admin/client-health",

@@ -80,11 +80,6 @@ export async function getTeamMembersAction(): Promise<TeamMember[]> {
   return ((data ?? []) as unknown as ProfileRow[]).map(rowToTeamMember);
 }
 
-/** @deprecated Use getTeamMembersAction */
-export async function listTeamMembersAction(): Promise<TeamMember[]> {
-  return getTeamMembersAction();
-}
-
 export async function getTeamRolesAction(): Promise<CustomRole[]> {
   if (!isSupabaseConfigured()) return [];
 
