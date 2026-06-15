@@ -10,15 +10,43 @@ import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import type { BrainContentType } from "@/types/ai-brain";
 import type { CreateFounderResult } from "@/types/super-admin";
 import { paths } from "@/routes";
-
-export {
-  loadOrganizationsList as getOrganizationsAction,
-  loadOrganizationDetail as getOrganizationDetailAction,
-  loadAdminUsers as getAllUsersAction,
-  loadAICostsSummary as getAICostsAction,
+import { loadOrgHealthScores } from "@/lib/super-admin/org-health";
+import {
+  loadAICostsSummary,
+  loadAdminUsers,
+  loadOrganizationDetail,
+  loadOrganizationsList,
 } from "@/lib/super-admin/queries";
 
-export { loadOrgHealthScores as getClientHealthAction } from "@/lib/super-admin/org-health";
+export async function getOrganizationsAction(
+  ...args: Parameters<typeof loadOrganizationsList>
+) {
+  return loadOrganizationsList(...args);
+}
+
+export async function getOrganizationDetailAction(
+  ...args: Parameters<typeof loadOrganizationDetail>
+) {
+  return loadOrganizationDetail(...args);
+}
+
+export async function getAllUsersAction(
+  ...args: Parameters<typeof loadAdminUsers>
+) {
+  return loadAdminUsers(...args);
+}
+
+export async function getAICostsAction(
+  ...args: Parameters<typeof loadAICostsSummary>
+) {
+  return loadAICostsSummary(...args);
+}
+
+export async function getClientHealthAction(
+  ...args: Parameters<typeof loadOrgHealthScores>
+) {
+  return loadOrgHealthScores(...args);
+}
 
 const REVALIDATE_ORGS = [
   paths.superAdmin.organizations,
