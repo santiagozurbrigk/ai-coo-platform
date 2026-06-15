@@ -97,6 +97,64 @@ export async function signInAction(
   return {};
 }
 
+export async function signInSuperAdminAction(
+  _prev: AuthActionState,
+  formData: FormData
+): Promise<AuthActionState> {
+  if (!isSupabaseConfigured()) {
+    return { error: "Supabase no configurado." };
+  }
+
+  const emailRaw = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+
+  const emailParsed = emailSchema.safeParse(emailRaw);
+  if (!emailParsed.success) {
+    return { error: firstZodError(emailParsed.error) };
+  }
+  if (!password) {
+    return { error: "Completa email y contraseña." };
+  }
+
+  const { allowed, resetAt } = authRateLimit(
+    `signin-superadmin:${emailParsed.data}`
+  );
+  if (!allowed) {
+    return { error: rateLimitErrorMessage(resetAt) };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email: emailParsed.data,
+    password,
+  });
+
+  if (error) {
+    return { error: mapAuthError(error.message) };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.email || !(await isSuperAdminEmail(user.email))) {
+    await supabase.auth.signOut();
+    return { error: "No tenés permisos de super admin." };
+  }
+
+  try {
+    await ensureCurrentUserBootstrap();
+  } catch (e) {
+    await supabase.auth.signOut();
+    return {
+      error:
+        e instanceof Error ? e.message : "No se pudo inicializar tu perfil.",
+    };
+  }
+
+  redirect(paths.superAdmin.organizations);
+}
+
 export async function signUpAction(
   _prev: AuthActionState,
   formData: FormData

@@ -26,6 +26,8 @@ const PUBLIC_PATHS = [
 
 function isPublicPath(pathname: string): boolean {
   if (pathname === paths.home) return true;
+  if (pathname === paths.superAdmin.login) return true;
+  if (pathname.startsWith(`${paths.superAdmin.login}/`)) return true;
   if (pathname === "/api/waitlist") return true;
   if (pathname.startsWith("/api/utm/")) return true;
   if (pathname.startsWith("/api/cron/")) return true;
