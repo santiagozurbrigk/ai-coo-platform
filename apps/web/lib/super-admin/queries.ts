@@ -65,6 +65,32 @@ function inferPlan(mrrUsd: number, status: string): AdminOrgPlan {
   return "starter";
 }
 
+type ClaudeStatusRow = {
+  id: string;
+  has_claude_key: boolean | null;
+  claude_api_key_status: string | null;
+};
+
+async function loadByokEnabledByOrgId(
+  admin: ReturnType<typeof createAdminClient>
+): Promise<Map<string, boolean>> {
+  const { data, error } = await admin
+    .from("organization_claude_status")
+    .select("id, has_claude_key, claude_api_key_status");
+
+  if (error) {
+    console.error("[loadByokEnabledByOrgId]", error.message);
+    return new Map();
+  }
+
+  return new Map(
+    ((data ?? []) as ClaudeStatusRow[]).map((row) => [
+      row.id,
+      Boolean(row.has_claude_key && row.claude_api_key_status === "valid"),
+    ])
+  );
+}
+
 function aggregateAiCostFromTokenRows(
   rows: { model: string; feature: string | null; total_cost_usd: number }[]
 ): OrganizationAiCostBreakdown {
@@ -164,7 +190,7 @@ export async function loadAICostsSummary(): Promise<AICostsSummary> {
   const admin = createAdminClient();
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  const [{ data: rows }, { data: orgs }, { data: byokRows }] = await Promise.all([
+  const [{ data: rows }, { data: orgs }, byokByOrg] = await Promise.all([
     admin
       .from("token_usage")
       .select(
@@ -172,20 +198,12 @@ export async function loadAICostsSummary(): Promise<AICostsSummary> {
       )
       .gte("created_at", since),
     admin.from("organizations").select("id, name"),
-    admin
-      .from("organizations")
-      .select("id, claude_api_key_encrypted, claude_api_key_status"),
+    loadByokEnabledByOrgId(admin),
   ]);
 
   const orgNames = new Map((orgs ?? []).map((o) => [o.id, o.name as string]));
   const byokOrgIds = new Set(
-    (byokRows ?? [])
-      .filter(
-        (row) =>
-          row.claude_api_key_encrypted &&
-          row.claude_api_key_status === "valid"
-      )
-      .map((row) => row.id as string)
+    [...byokByOrg.entries()].filter(([, enabled]) => enabled).map(([id]) => id)
   );
 
   if (!rows?.length) {
@@ -392,19 +410,24 @@ export async function loadOrganizationsList(): Promise<
   const admin = createAdminClient();
   const month = getCurrentMonthRange();
 
-  const [orgsRes, foundersRes, profilesRes, convRes, closingRes, clientsRes] =
+  const [orgsRes, claudeStatusRes, foundersRes, profilesRes, convRes, closingRes, clientsRes] =
     await Promise.all([
       admin
         .from("organizations")
-        .select(
-          "id, name, status, created_at, mrr_usd, industry, claude_api_key_encrypted, claude_api_key_status"
-        )
+        .select("id, name, status, industry, website_url, created_at, mrr_usd")
         .order("created_at", { ascending: false }),
+      admin
+        .from("organization_claude_status")
+        .select("id, has_claude_key, claude_api_key_status"),
       admin
         .from("profiles")
         .select("id, organization_id, email, full_name, role")
-        .eq("role", "founder"),
-      admin.from("profiles").select("organization_id"),
+        .eq("role", "founder")
+        .not("organization_id", "is", null),
+      admin
+        .from("profiles")
+        .select("organization_id")
+        .not("organization_id", "is", null),
       admin
         .from("conversations")
         .select("organization_id")
@@ -420,6 +443,13 @@ export async function loadOrganizationsList(): Promise<
     ]);
 
   if (orgsRes.error) throw new Error(orgsRes.error.message);
+
+  const byokByOrg = new Map(
+    ((claudeStatusRes.data ?? []) as ClaudeStatusRow[]).map((row) => [
+      row.id,
+      Boolean(row.has_claude_key && row.claude_api_key_status === "valid"),
+    ])
+  );
 
   const founders = (foundersRes.data ?? []) as FounderProfile[];
   const founderByOrg = new Map<string, FounderProfile>();
@@ -469,9 +499,7 @@ export async function loadOrganizationsList(): Promise<
       status,
       plan: inferPlan(mrrUsd, org.status),
       usersCount: userCounts.get(org.id) ?? 0,
-      byokEnabled: Boolean(
-        org.claude_api_key_encrypted && org.claude_api_key_status === "valid"
-      ),
+      byokEnabled: byokByOrg.get(org.id) ?? false,
       createdAt: org.created_at,
       lastActivityAt: founderLastLogin,
       founderLastLogin,
