@@ -40,6 +40,7 @@ export async function pollInstagramConversations(
 
   try {
     const conversationsUrl = new URL(`${INSTAGRAM_GRAPH_URL}/me/conversations`);
+    conversationsUrl.searchParams.set("platform", "instagram");
     conversationsUrl.searchParams.set(
       "fields",
       "id,participants,messages{id,message,from,to,created_time},updated_time"
@@ -70,6 +71,7 @@ export async function pollInstagramConversations(
       await processConversation({
         organizationId,
         igAccountId: String(instagram_user_id),
+        accessToken: access_token,
         conversation,
       });
       await new Promise((r) => setTimeout(r, 200));
@@ -85,13 +87,87 @@ export async function pollInstagramConversations(
   }
 }
 
+async function fetchConversationMessages(
+  conversationId: string,
+  accessToken: string
+): Promise<IGMessage[]> {
+  const url = new URL(`${INSTAGRAM_GRAPH_URL}/${conversationId}`);
+  url.searchParams.set(
+    "fields",
+    "messages{id,message,from,to,created_time}"
+  );
+  url.searchParams.set("access_token", accessToken);
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    console.error(
+      "[IG Poll] Error obteniendo mensajes de conversación:",
+      conversationId,
+      error
+    );
+    return [];
+  }
+
+  const json = (await res.json()) as { messages?: { data?: IGMessage[] } };
+  return json.messages?.data ?? [];
+}
+
+async function fetchMessageDetail(
+  messageId: string,
+  accessToken: string
+): Promise<IGMessage | null> {
+  const url = new URL(`${INSTAGRAM_GRAPH_URL}/${messageId}`);
+  url.searchParams.set("fields", "id,created_time,from,to,message");
+  url.searchParams.set("access_token", accessToken);
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    return null;
+  }
+
+  return (await res.json()) as IGMessage;
+}
+
+async function resolveConversationMessages(
+  conversation: IGConversation,
+  accessToken: string
+): Promise<IGMessage[]> {
+  let messages = conversation.messages?.data ?? [];
+
+  if (!messages.length) {
+    messages = await fetchConversationMessages(conversation.id, accessToken);
+  }
+
+  const needsDetail = messages.some(
+    (m) => !m.message && !m.from && !m.created_time
+  );
+
+  if (!needsDetail) return messages;
+
+  const detailed: IGMessage[] = [];
+  for (const msg of messages) {
+    if (msg.message || msg.from) {
+      detailed.push(msg);
+      continue;
+    }
+    const full = await fetchMessageDetail(msg.id, accessToken);
+    if (full) detailed.push(full);
+    await new Promise((r) => setTimeout(r, 100));
+  }
+
+  return detailed;
+}
+
 async function processConversation({
   organizationId,
   igAccountId,
+  accessToken,
   conversation,
 }: {
   organizationId: string;
   igAccountId: string;
+  accessToken: string;
   conversation: IGConversation;
 }): Promise<void> {
   const supabase = createAdminClient();
@@ -104,7 +180,7 @@ async function processConversation({
 
   const leadIgId = leadParticipant.id;
   const threadId = conversation.id;
-  const messages = conversation.messages?.data ?? [];
+  const messages = await resolveConversationMessages(conversation, accessToken);
 
   if (!messages.length) return;
 
