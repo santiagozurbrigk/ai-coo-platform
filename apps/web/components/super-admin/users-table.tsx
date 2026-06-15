@@ -28,12 +28,24 @@ function formatDate(iso: string | null): string {
 
 export function UsersTable({ users }: { users: AdminUserRow[] }) {
   const [filter, setFilter] = useState<RoleFilter>("all");
+  const [orgFilter, setOrgFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
+
+  const organizations = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const user of users) {
+      names.set(user.organizationId, user.organizationName);
+    }
+    return [...names.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [users]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return users.filter((u) => {
+      if (orgFilter !== "all" && u.organizationId !== orgFilter) return false;
       if (filter === "founder" && u.role !== "founder") return false;
       if (filter === "admin" && u.role !== "admin") return false;
       if (
@@ -49,7 +61,7 @@ export function UsersTable({ users }: { users: AdminUserRow[] }) {
         u.organizationName.toLowerCase().includes(q)
       );
     });
-  }, [users, filter, search]);
+  }, [users, filter, orgFilter, search]);
 
   return (
     <div className="space-y-6">
@@ -71,6 +83,24 @@ export function UsersTable({ users }: { users: AdminUserRow[] }) {
             {label}
           </Button>
         ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="text-xs text-muted-foreground" htmlFor="org-filter">
+          Organización
+        </label>
+        <select
+          id="org-filter"
+          value={orgFilter}
+          onChange={(e) => setOrgFilter(e.target.value)}
+          className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+        >
+          <option value="all">Todas</option>
+          {organizations.map((org) => (
+            <option key={org.id} value={org.id}>
+              {org.name}
+            </option>
+          ))}
+        </select>
       </div>
       <Input
         placeholder="Buscar por nombre, email u organización…"

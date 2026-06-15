@@ -1,3 +1,4 @@
+import { requireSuperAdmin } from "@/lib/auth/require-super-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type OrgClientHealthSummary = {
@@ -12,6 +13,8 @@ export type OrgClientHealthSummary = {
 export async function loadClientHealthOverview(): Promise<
   OrgClientHealthSummary[]
 > {
+  await requireSuperAdmin();
+
   const admin = createAdminClient();
   const { data: orgs } = await admin
     .from("organizations")
@@ -70,6 +73,8 @@ export async function loadClientHealthOverview(): Promise<
 }
 
 export async function loadOrgClientProblems(orgId: string) {
+  await requireSuperAdmin();
+
   const admin = createAdminClient();
   const { data: clients } = await admin
     .from("clients")
@@ -107,6 +112,8 @@ export type ClientHealthTimelineItem = {
 export async function loadOrgClientHealthTimeline(
   orgId: string
 ): Promise<ClientHealthTimelineItem[]> {
+  await requireSuperAdmin();
+
   const admin = createAdminClient();
 
   const { data: clients } = await admin

@@ -19,6 +19,9 @@ export function AiCostDashboardContent({
 }) {
   const { summary, organizations, profitabilityChart, modelUsage } = data;
 
+  const hasUsage =
+    summary.totalTokenCostMonthUsd > 0 || modelUsage.length > 0;
+
   const modelTotals = modelUsage.reduce(
     (acc, row) => ({
       requests: acc.requests + row.requests,
@@ -58,6 +61,12 @@ export function AiCostDashboardContent({
 
   return (
     <div className="space-y-10">
+      {!hasUsage ? (
+        <div className="rounded-xl border border-border/60 p-8 text-center text-sm text-muted-foreground dark:border-white/[0.08]">
+          Sin uso de IA este mes
+        </div>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="MRR total"
@@ -229,7 +238,7 @@ export function AiCostDashboardContent({
                     colSpan={5}
                     className="px-4 py-6 text-center text-muted-foreground"
                   >
-                    Sin uso de tokens registrado este mes
+                    Sin uso de IA este mes
                   </td>
                 </tr>
               )}

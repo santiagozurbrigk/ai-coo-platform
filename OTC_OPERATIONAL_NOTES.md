@@ -643,7 +643,7 @@ Video YouTube → link UTM → lead capturado → booking Calendly → cliente c
 - Clientes: `aiInsights` en detalle siempre etiquetados mock; `linked_calls.analysis` solo si pipeline Fathom profundo corrió o JSON manual.
 - Producto, Equipo, Inteligencia, Reportes ejecutivos: 100% mock.
 - **Operaciones overview:** reporte ejecutivo real si hay `weekly_reports`; team inputs aún mock.
-- Super-admin: fallback `mocks/super-admin.ts`; Holding 100% mock.
+- Super-admin: datos reales vía service role + `requireSuperAdmin()` (ver sección **Super Admin — Datos reales**).
 - Integraciones catálogo: metadatos de `mocks/integrations.ts`; solo 9 proveedores con estado real.
 
 ### Crons y sincronización (Vercel)
@@ -737,7 +737,37 @@ Variables por integración: ver `.env.example` (Calendly, Google, Typeform, Fath
 | **Operaciones** | Team inputs mock; weekly inputs y reporte ejecutivo reales con migración `20260615300000` |
 | **Inteligencia / Reportes ejecutivos** | 100% mock |
 | **Clientes `aiInsights`** | Siempre mock en UI |
-| **Super-admin Holding** | Mock multi-tenant |
+| **Super-admin Holding** | Portfolio real agregado desde organizaciones activas |
+
+### Super Admin — Datos reales
+
+**Acceso:** solo usuarios en la tabla `super_admin_users` (por email).
+Verificación via `requireSuperAdmin()` en cada action y layout guard en `/super-admin/*`.
+
+**Secciones con datos reales:**
+- Organizaciones: lista completa con estado, BYOK, miembros, industria
+- Usuarios: todos los profiles con última sesión (`last_login_at` / auth)
+- AI Costs: desde `token_usage` (últimos 30 días)
+  → Por modelo (Haiku vs Sonnet)
+  → Por organización
+  → Total gastado en el período
+- Client Health: score 0-100 por org basado en:
+  → Conversaciones activas (25 pts)
+  → Calls de Fathom procesadas (25 pts)
+  → SOPs activos (25 pts)
+  → Weekly inputs enviados (25 pts)
+- Holding: portfolio agregado de orgs activas (MRR, usuarios, integraciones, health)
+
+**Health scores:**
+- 🟢 Healthy (75-100): org usando el software activamente
+- 🟡 Warning (50-74): uso parcial
+- 🔴 Critical (0-49): sin actividad o recién configurada
+
+**Agregar super admin:**
+Insertar email en tabla `super_admin_users` via Supabase SQL Editor:
+```sql
+INSERT INTO super_admin_users (email, role) VALUES ('email@ejemplo.com', 'admin');
+```
 
 ### Módulo Lanzamientos
 

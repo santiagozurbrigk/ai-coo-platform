@@ -16,13 +16,6 @@ const STATUS_LABEL: Record<string, string> = {
   trial: es.status.org.trial,
 };
 
-const PLAN_LABEL: Record<string, string> = {
-  starter: "Starter",
-  growth: "Growth",
-  enterprise: "Enterprise",
-  trial: "Trial",
-};
-
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("es", {
@@ -102,9 +95,14 @@ export function OrganizationsList({
         columns={[
           { key: "name", header: "Nombre", cell: (r) => r.name },
           {
-            key: "plan",
-            header: "Plan",
-            cell: (r) => PLAN_LABEL[r.plan] ?? r.plan,
+            key: "industry",
+            header: "Industria",
+            cell: (r) => r.industry ?? "—",
+          },
+          {
+            key: "users",
+            header: "Miembros",
+            cell: (r) => r.usersCount,
           },
           {
             key: "status",
@@ -124,35 +122,19 @@ export function OrganizationsList({
             ),
           },
           {
-            key: "users",
-            header: "Usuarios",
-            cell: (r) => r.usersCount,
-          },
-          {
-            key: "founder",
-            header: "Founder",
-            cell: (r) => (
-              <span className="text-sm">
-                {r.founderName}
-                <br />
-                <span className="text-muted-foreground">{r.founderEmail}</span>
-              </span>
-            ),
+            key: "byok",
+            header: "BYOK",
+            cell: (r) =>
+              r.byokEnabled ? (
+                <span className="text-xs font-medium text-emerald-500">✓</span>
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              ),
           },
           {
             key: "created",
-            header: "Creación",
+            header: "Creada",
             cell: (r) => formatDate(r.createdAt),
-          },
-          {
-            key: "activity",
-            header: "Última actividad",
-            cell: (r) => formatDate(r.lastActivityAt),
-          },
-          {
-            key: "mrr",
-            header: "MRR",
-            cell: (r) => r.billingThisMonthLabel,
           },
           {
             key: "actions",
@@ -162,11 +144,6 @@ export function OrganizationsList({
                 <Button asChild size="sm" variant="outline">
                   <Link href={paths.superAdmin.organizationDetail(r.id)}>
                     Ver detalle
-                  </Link>
-                </Button>
-                <Button asChild size="sm" variant="ghost">
-                  <Link href={paths.superAdmin.organizationDetail(r.id)}>
-                    Editar
                   </Link>
                 </Button>
                 <Button

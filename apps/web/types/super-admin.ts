@@ -5,12 +5,14 @@ export type AdminOrgPlan = "starter" | "growth" | "enterprise" | "trial";
 export type AdminOrganizationListRow = {
   id: string;
   name: string;
+  industry: string | null;
   founderName: string;
   founderEmail: string;
   founderId: string | null;
   status: AdminOrgStatus;
   plan: AdminOrgPlan;
   usersCount: number;
+  byokEnabled: boolean;
   createdAt: string;
   lastActivityAt: string | null;
   founderLastLogin: string | null;
@@ -184,6 +186,40 @@ export type InfrastructureStats = {
   closingCalls: number;
   clients: number;
   aiBrainDocuments: number;
+};
+
+export type OrgHealthStatus = "healthy" | "warning" | "critical";
+
+export type OrgHealthRow = {
+  orgId: string;
+  orgName: string;
+  healthScore: number;
+  conversations: number;
+  fathomCalls: number;
+  sops: number;
+  weeklyInputs: number;
+  status: OrgHealthStatus;
+};
+
+export type AICostsSummary = {
+  byOrg: {
+    organizationId: string;
+    orgName: string;
+    totalCost: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    requests: number;
+    aiKeySource: "byok" | "otc";
+  }[];
+  byModel: {
+    model: string;
+    totalCost: number;
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+  }[];
+  total: number;
 };
 
 export type CreateFounderResult = {

@@ -3,12 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { isAllowedBrainFile } from "@/lib/ai-brain/file-types";
 import { AI_BRAIN_BUCKET, uiContentTypeToDb } from "@/lib/ai-brain/mapper";
+import { requireSuperAdmin } from "@/lib/auth/require-super-admin";
 import { sendWelcomeEmail } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import type { BrainContentType } from "@/types/ai-brain";
 import type { CreateFounderResult } from "@/types/super-admin";
 import { paths } from "@/routes";
+
+export {
+  loadOrganizationsList as getOrganizationsAction,
+  loadOrganizationDetail as getOrganizationDetailAction,
+  loadAdminUsers as getAllUsersAction,
+  loadAICostsSummary as getAICostsAction,
+} from "@/lib/super-admin/queries";
+
+export { loadOrgHealthScores as getClientHealthAction } from "@/lib/super-admin/org-health";
 
 const REVALIDATE_ORGS = [
   paths.superAdmin.organizations,
@@ -45,6 +55,8 @@ export async function createFounderAccountAction(input: {
   email: string;
 }): Promise<MutationResult<CreateFounderResult>> {
   return runMutation(async () => {
+    await requireSuperAdmin();
+
     const orgName = input.organizationName.trim();
     const founderName = input.founderName.trim();
     const email = input.email.trim().toLowerCase();
@@ -120,6 +132,8 @@ export async function setOrganizationStatusAction(
   active: boolean
 ): Promise<MutationResult> {
   return runMutation(async () => {
+    await requireSuperAdmin();
+
     const admin = createAdminClient();
     const { error } = await admin
       .from("organizations")
@@ -137,6 +151,8 @@ export async function updateOrganizationMrrAction(
   mrrUsd: number
 ): Promise<MutationResult> {
   return runMutation(async () => {
+    await requireSuperAdmin();
+
     const admin = createAdminClient();
     const { error } = await admin
       .from("organizations")
@@ -155,6 +171,8 @@ export async function addOrganizationNoteAction(
   createdBy = "Super Admin"
 ): Promise<MutationResult> {
   return runMutation(async () => {
+    await requireSuperAdmin();
+
     const text = note.trim();
     if (!text) throw new Error("La nota no puede estar vacía.");
 
@@ -174,6 +192,8 @@ export async function deactivateUserAction(
   userId: string
 ): Promise<MutationResult> {
   return runMutation(async () => {
+    await requireSuperAdmin();
+
     const admin = createAdminClient();
     const { error } = await admin.auth.admin.updateUserById(userId, {
       ban_duration: "876000h",
@@ -196,6 +216,8 @@ export async function prepareAiBrainFileUploadAction(input: {
   }>
 > {
   return runMutation(async () => {
+    await requireSuperAdmin();
+
     const allowed = isAllowedBrainFile(
       input.fileName,
       input.mimeType,
@@ -246,6 +268,8 @@ export async function createAiBrainDocumentAction(
   input: CreateAiBrainDocumentInput
 ): Promise<MutationResult<{ id: string }>> {
   return runMutation(async () => {
+    await requireSuperAdmin();
+
     const title = input.title.trim();
     if (!title) throw new Error("El título es obligatorio.");
 
@@ -335,6 +359,8 @@ export async function archiveAiBrainDocumentAction(
   id: string
 ): Promise<MutationResult> {
   return runMutation(async () => {
+    await requireSuperAdmin();
+
     const admin = createAdminClient();
     const { error } = await admin
       .from("ai_brain_documents")
@@ -352,6 +378,8 @@ export async function deleteAiBrainDocumentAction(
   id: string
 ): Promise<MutationResult> {
   return runMutation(async () => {
+    await requireSuperAdmin();
+
     const admin = createAdminClient();
     const { data: row } = await admin
       .from("ai_brain_documents")
@@ -378,6 +406,8 @@ export async function getAiBrainSignedUrlAction(
   storagePath: string
 ): Promise<MutationResult<{ url: string }>> {
   return runMutation(async () => {
+    await requireSuperAdmin();
+
     const admin = createAdminClient();
     const path = storagePath.replace(/^ai-brain-documents\//, "");
     const { data, error } = await admin.storage
