@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { List } from "lucide-react";
+import { List, MessageCircle } from "lucide-react";
 import { Button, Dialog, DialogContent, DialogTitle, cn } from "@ai-coo/ui";
 import { usePlatformData } from "@/providers";
+import { paths } from "@/routes";
 import type { ConversationTagId } from "@/types/sales";
 import { ConversationList } from "./conversation-list";
 import { ConversationThread } from "./conversation-thread";
@@ -43,6 +45,24 @@ export function SalesInboxLayout() {
       </div>
     );
   }
+
+  if (conversations.length === 0) {
+    return (
+      <div className="flex h-[calc(100vh-8rem)] min-h-[480px] items-center justify-center rounded-xl border border-border bg-card">
+        <EmptyState
+          title="Sin conversaciones todavía"
+          description="Conectá ManyChat o Instagram para empezar a recibir conversaciones de tus leads aquí."
+          icon={<MessageCircle className="h-8 w-8" />}
+          action={
+            <Button variant="outline" size="sm" asChild>
+              <Link href={paths.platform.integrations}>Conectar integración</Link>
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
   const handleSelect = (id: string) => {
     setSelectedId(id);
     setListOpen(false);

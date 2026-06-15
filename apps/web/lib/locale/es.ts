@@ -122,7 +122,7 @@ export const es = {
     integrationConnected: "Integración conectada",
     integrationConnectedDesc: "La integración quedó activa en tu organización.",
     settingsSaved: "Cambios guardados",
-    settingsSavedDesc: "Preferencias actualizadas (mock).",
+    settingsSavedDesc: "Tus preferencias se guardaron correctamente.",
     recordingStarted: "Grabación iniciada",
     recordingStartedDesc: "Simulación de nota de voz en prototipo.",
   },

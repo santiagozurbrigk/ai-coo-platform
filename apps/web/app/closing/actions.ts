@@ -5,17 +5,11 @@ import {
   tryRequireOrganizationId,
 } from "@/lib/auth/bootstrap";
 import {
-  getConversationIdByExternalRef,
-  seedConversationsIfEmpty,
-} from "@/app/conversations/actions";
-import {
-  closingCallToInsertRow,
   patchToClosingUpdateRow,
   rowToClosingCall,
   type ClosingCallRow,
 } from "@/lib/closing/mapper";
 import { repairClosingConversationLinks } from "@/lib/conversations/repair-links";
-import { mockClosingCalls } from "@/mocks/closing";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { ClosingCall } from "@/types/closing";
@@ -30,45 +24,6 @@ function mapDbError(msg: string): string {
   return msg;
 }
 
-/** Datos demo iniciales para orgs sin llamadas (misma UX que mocks Fase 0). */
-async function seedClosingCallsIfEmpty(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  organizationId: string
-) {
-  const { count, error: countError } = await supabase
-    .from("closing_calls")
-    .select("id", { count: "exact", head: true });
-
-  if (countError || (count ?? 0) > 0) return;
-
-  await seedConversationsIfEmpty(supabase, organizationId);
-
-  const rows = await Promise.all(
-    mockClosingCalls.map(async (call) => {
-      const { id: _id, conversationId: legacyConvId, ...rest } = call;
-      void _id;
-      let conversationId: string | undefined;
-      if (legacyConvId) {
-        const resolved = await getConversationIdByExternalRef(
-          supabase,
-          organizationId,
-          legacyConvId
-        );
-        conversationId = resolved ?? undefined;
-      }
-      return closingCallToInsertRow(
-        { ...rest, conversationId },
-        organizationId
-      );
-    })
-  );
-
-  const { error } = await supabase.from("closing_calls").insert(rows);
-  if (error) {
-    console.error("[seedClosingCalls]", error.message);
-  }
-}
-
 export async function listClosingCallsAction(): Promise<ClosingCall[]> {
   if (!isSupabaseConfigured()) return [];
 
@@ -77,8 +32,6 @@ export async function listClosingCallsAction(): Promise<ClosingCall[]> {
 
   const supabase = await createClient();
 
-  await seedConversationsIfEmpty(supabase, organizationId);
-  await seedClosingCallsIfEmpty(supabase, organizationId);
   await repairClosingConversationLinks(supabase, organizationId);
 
   const { data, error } = await supabase

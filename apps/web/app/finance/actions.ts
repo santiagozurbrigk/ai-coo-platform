@@ -22,12 +22,6 @@ import {
 import { collectRevenueEvents } from "@/lib/metrics/revenue-events";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import {
-  mockFixedExpenses,
-  mockSubscriptions,
-  mockTeamCompensation,
-} from "@/mocks/expenses";
-import { mockPaymentPlatforms } from "@/mocks/finance";
 import { listClientsAction } from "@/app/clients/actions";
 import type {
   FixedExpense,
@@ -78,74 +72,6 @@ function paymentPlatformTotals(
   });
 }
 
-async function seedFinanceConfigIfEmpty(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  organizationId: string
-) {
-  const { count } = await supabase
-    .from("fixed_expenses")
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId);
-
-  if ((count ?? 0) > 0) return;
-
-  const platforms = [
-    { slug: "stripe", name: "Stripe", currency: "USD", account_label: "Stripe USD" },
-    { slug: "wise", name: "Wise", currency: "USD", account_label: "Wise USD" },
-    {
-      slug: "mercadopago",
-      name: "MercadoPago",
-      currency: "ARS",
-      account_label: "Cuenta ARS",
-    },
-  ];
-
-  await supabase.from("payment_platforms").insert(
-    platforms.map((p) => ({ organization_id: organizationId, ...p }))
-  );
-
-  await supabase.from("fixed_expenses").insert(
-    mockFixedExpenses.map((e) => ({
-      organization_id: organizationId,
-      name: e.name,
-      category: e.category,
-      amount: e.amount,
-      currency: e.currency,
-      frequency: e.frequency,
-      status: e.status,
-    }))
-  );
-
-  await supabase.from("subscriptions").insert(
-    mockSubscriptions.map((s) => ({
-      organization_id: organizationId,
-      name: s.name,
-      amount: s.amount,
-      currency: s.currency,
-      billing_cycle: s.billingCycle,
-      status: "active",
-      icon: s.icon ?? null,
-    }))
-  );
-
-  await supabase.from("team_compensation").insert(
-    mockTeamCompensation.map((t) => ({
-      organization_id: organizationId,
-      member_id: t.memberId,
-      member_name: t.memberName,
-      role_label: t.roleLabel,
-      has_fixed_salary: t.hasFixed,
-      fixed_amount: t.fixedMonthly ?? null,
-      has_commission: t.hasCommission,
-      commission_basis: t.commissionBasis ?? null,
-      commission_percentage: t.commissionPercent ?? null,
-      commission_applied_to: t.commissionSummary ?? null,
-      notes: t.notes ?? null,
-      estimated_this_month: t.estimatedThisMonth,
-    }))
-  );
-}
-
 const EMPTY_FINANCE_CONFIG: FinanceConfigPayload = {
   fixedExpenses: [],
   subscriptions: [],
@@ -155,6 +81,9 @@ const EMPTY_FINANCE_CONFIG: FinanceConfigPayload = {
 
 export async function loadFinanceConfigAction(): Promise<FinanceConfigPayload> {
   if (!isSupabaseConfigured()) {
+    const { mockFixedExpenses, mockSubscriptions, mockTeamCompensation } =
+      await import("@/mocks/expenses");
+    const { mockPaymentPlatforms } = await import("@/mocks/finance");
     return {
       fixedExpenses: mockFixedExpenses.map((e) => ({ ...e })),
       subscriptions: mockSubscriptions.map((s) => ({ ...s })),
@@ -168,12 +97,6 @@ export async function loadFinanceConfigAction(): Promise<FinanceConfigPayload> {
     if (!organizationId) return EMPTY_FINANCE_CONFIG;
 
     const supabase = await createClient();
-
-    try {
-      await seedFinanceConfigIfEmpty(supabase, organizationId);
-    } catch (e) {
-      console.error("[seedFinanceConfig]", e);
-    }
 
     const clients = await listClientsAction();
 

@@ -7,11 +7,13 @@ export function NotificationToggle({
   description,
   checked,
   onChange,
+  disabled,
 }: {
   label: string;
   description: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border/20 py-4 last:border-b-0">
@@ -23,9 +25,10 @@ export function NotificationToggle({
         type="button"
         role="switch"
         aria-checked={checked}
+        disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cn(
-          "relative h-5 w-9 shrink-0 rounded-full transition-colors",
+          "relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50",
           checked ? "bg-violet-500" : "bg-muted"
         )}
       >

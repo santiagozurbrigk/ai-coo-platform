@@ -1,7 +1,9 @@
 import {
   getClaudeApiKeyStatusAction,
+  getNotificationPreferencesAction,
   getOrganizationSettingsAction,
   type ClaudeApiKeyStatus,
+  type NotificationPreferences,
 } from "@/app/settings/actions";
 import { getProfileAreaDataAction } from "@/app/profile/actions";
 import { createClient } from "@/lib/supabase/server";
@@ -11,16 +13,23 @@ export type SettingsInitialData = {
   orgName: string;
   industry: string;
   websiteUrl: string;
+  timezone: string;
+  currency: string;
+  language: string;
   displayName: string;
   email: string;
   lastSignInAt: string | null;
   claudeApiKeyStatus: ClaudeApiKeyStatus;
+  notificationPreferences: NotificationPreferences;
 };
 
 const DEFAULTS: SettingsInitialData = {
   orgName: "Acme Coaching Co.",
   industry: "Infoproducto / Coaching",
   websiteUrl: "",
+  timezone: "America/Argentina/Buenos_Aires",
+  currency: "USD",
+  language: "es",
   displayName: "Nombre Fundador",
   email: "founder@acme.co",
   lastSignInAt: null,
@@ -29,6 +38,17 @@ const DEFAULTS: SettingsInitialData = {
     status: "none",
     lastValidated: null,
     keyPreview: null,
+  },
+  notificationPreferences: {
+    emailWeeklyReport: true,
+    emailNewConversation: false,
+    emailBookingConfirmed: true,
+    emailSaleClosed: true,
+    emailSopSuggestion: true,
+    inappNewConversation: true,
+    inappBookingConfirmed: true,
+    inappSaleClosed: true,
+    inappGhostingAlert: true,
   },
 };
 
@@ -45,7 +65,12 @@ export async function getSettingsInitialData(): Promise<SettingsInitialData> {
     const orgSettings = await getOrganizationSettingsAction();
     if (orgSettings) {
       data.orgName = orgSettings.name || data.orgName;
+      data.industry = orgSettings.industry ?? "";
       data.websiteUrl = orgSettings.website_url ?? "";
+      data.timezone =
+        orgSettings.timezone ?? DEFAULTS.timezone;
+      data.currency = orgSettings.currency ?? DEFAULTS.currency;
+      data.language = orgSettings.language ?? DEFAULTS.language;
     }
   } catch {
     // Sin sesión o tablas pendientes — mantener defaults
@@ -53,6 +78,12 @@ export async function getSettingsInitialData(): Promise<SettingsInitialData> {
 
   try {
     data.claudeApiKeyStatus = await getClaudeApiKeyStatusAction();
+  } catch {
+    // Mantener default
+  }
+
+  try {
+    data.notificationPreferences = await getNotificationPreferencesAction();
   } catch {
     // Mantener default
   }

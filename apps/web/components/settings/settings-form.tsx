@@ -10,7 +10,11 @@ import {
   Palette,
   User,
 } from "lucide-react";
-import { saveGeneralOrganizationSettingsAction } from "@/app/settings/actions";
+import {
+  saveGeneralOrganizationSettingsAction,
+  updateNotificationPreferencesAction,
+  type NotificationPreferences,
+} from "@/app/settings/actions";
 import { ClaudeApiKeySettings } from "./claude-api-key-settings";
 import { useToast } from "@/providers/toast-provider";
 import { es } from "@/lib/locale/es";
@@ -36,19 +40,26 @@ function getInitials(name: string): string {
     .join("");
 }
 
-type NotificationPrefs = {
-  weeklyReport: boolean;
-  riskAlerts: boolean;
-  syncFailures: boolean;
-  newBookings: boolean;
-};
+const TIMEZONE_OPTIONS = [
+  { value: "America/Argentina/Buenos_Aires", label: "Buenos Aires (ART)" },
+  { value: "America/Mexico_City", label: "Ciudad de México (CST)" },
+  { value: "America/Bogota", label: "Bogotá (COT)" },
+  { value: "America/Santiago", label: "Santiago (CLT)" },
+  { value: "America/New_York", label: "Nueva York (EST)" },
+  { value: "Europe/Madrid", label: "Madrid (CET)" },
+  { value: "UTC", label: "UTC" },
+] as const;
 
-const NOTIFICATION_DEFAULTS: NotificationPrefs = {
-  weeklyReport: true,
-  riskAlerts: true,
-  syncFailures: false,
-  newBookings: false,
-};
+const CURRENCY_OPTIONS = [
+  { value: "USD", label: "USD — Dólar" },
+  { value: "ARS", label: "ARS — Peso argentino" },
+  { value: "EUR", label: "EUR — Euro" },
+] as const;
+
+const LANGUAGE_OPTIONS = [
+  { value: "es", label: "Español" },
+  { value: "en", label: "English" },
+] as const;
 
 export function SettingsForm({
   initialData,
@@ -61,22 +72,29 @@ export function SettingsForm({
   const [orgName, setOrgName] = useState(initialData.orgName);
   const [industry, setIndustry] = useState(initialData.industry);
   const [websiteUrl, setWebsiteUrl] = useState(initialData.websiteUrl);
+  const [timezone, setTimezone] = useState(initialData.timezone);
+  const [currency, setCurrency] = useState(initialData.currency);
+  const [language, setLanguage] = useState(initialData.language);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
   const [displayName, setDisplayName] = useState(initialData.displayName);
   const [email, setEmail] = useState(initialData.email);
-  const [notifications, setNotifications] = useState({
-    ...NOTIFICATION_DEFAULTS,
-  });
+  const [notifications, setNotifications] = useState<NotificationPreferences>(
+    initialData.notificationPreferences
+  );
+  const [savingNotification, startNotificationSave] = useTransition();
 
   const resetForm = () => {
     setOrgName(initialData.orgName);
     setIndustry(initialData.industry);
     setWebsiteUrl(initialData.websiteUrl);
+    setTimezone(initialData.timezone);
+    setCurrency(initialData.currency);
+    setLanguage(initialData.language);
     setSaveError(null);
     setDisplayName(initialData.displayName);
     setEmail(initialData.email);
-    setNotifications({ ...NOTIFICATION_DEFAULTS });
+    setNotifications(initialData.notificationPreferences);
   };
 
   const handleSave = () => {
@@ -84,7 +102,11 @@ export function SettingsForm({
     startSave(async () => {
       const result = await saveGeneralOrganizationSettingsAction({
         orgName,
+        industry,
         websiteUrl,
+        timezone,
+        currency,
+        language,
       });
       if (result.success) {
         push({
@@ -96,6 +118,29 @@ export function SettingsForm({
         setSaveError(result.error);
         push({
           title: "No se guardaron los cambios",
+          description: result.error,
+        });
+      }
+    });
+  };
+
+  const handleNotificationChange = (
+    key: keyof NotificationPreferences,
+    checked: boolean
+  ) => {
+    const next = { ...notifications, [key]: checked };
+    setNotifications(next);
+    startNotificationSave(async () => {
+      const result = await updateNotificationPreferencesAction({ [key]: checked });
+      if (result.success) {
+        push({
+          title: "Preferencias guardadas",
+          variant: "success",
+        });
+      } else {
+        setNotifications(notifications);
+        push({
+          title: "No se guardaron las preferencias",
           description: result.error,
         });
       }
@@ -130,6 +175,53 @@ export function SettingsForm({
                   value={industry}
                   onChange={(e) => setIndustry(e.target.value)}
                 />
+              </div>
+            </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              <div>
+                <FieldLabel htmlFor="timezone">Zona horaria</FieldLabel>
+                <select
+                  id="timezone"
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                >
+                  {TIMEZONE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <FieldLabel htmlFor="currency">Moneda</FieldLabel>
+                <select
+                  id="currency"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                >
+                  {CURRENCY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <FieldLabel htmlFor="language">Idioma</FieldLabel>
+                <select
+                  id="language"
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                >
+                  {LANGUAGE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="mt-4 flex flex-col gap-1.5">
@@ -229,39 +321,93 @@ export function SettingsForm({
       {activeTab === "notificaciones" && (
         <div className="pt-2">
           <SectionHeader icon={Bell} label="Notificaciones" />
+          <p className="mb-4 text-xs text-muted-foreground">
+            Email
+          </p>
           <NotificationToggle
             label="Reporte semanal listo"
-            description="Notificación cuando el reporte operacional esté generado"
-            checked={notifications.weeklyReport}
+            description="Recibís un email cuando el reporte operacional esté generado"
+            checked={notifications.emailWeeklyReport}
+            disabled={savingNotification}
             onChange={(checked) =>
-              setNotifications((prev) => ({ ...prev, weeklyReport: checked }))
+              handleNotificationChange("emailWeeklyReport", checked)
             }
           />
           <NotificationToggle
-            label="Alertas de riesgo"
-            description="Cuando la IA detecta un riesgo operacional crítico"
-            checked={notifications.riskAlerts}
+            label="Nueva conversación"
+            description="Cuando llega un lead nuevo al inbox de ventas"
+            checked={notifications.emailNewConversation}
+            disabled={savingNotification}
             onChange={(checked) =>
-              setNotifications((prev) => ({ ...prev, riskAlerts: checked }))
+              handleNotificationChange("emailNewConversation", checked)
             }
           />
           <NotificationToggle
-            label="Fallos de sincronización"
-            description="Integraciones con errores o desconectadas"
-            checked={notifications.syncFailures}
+            label="Booking confirmado"
+            description="Cuando se confirma una llamada de cierre"
+            checked={notifications.emailBookingConfirmed}
+            disabled={savingNotification}
             onChange={(checked) =>
-              setNotifications((prev) => ({ ...prev, syncFailures: checked }))
+              handleNotificationChange("emailBookingConfirmed", checked)
             }
           />
           <NotificationToggle
-            label="Nuevos bookings detectados"
-            description="Cuando la IA detecta una reserva en el inbox de ventas"
-            checked={notifications.newBookings}
+            label="Venta cerrada"
+            description="Cuando se registra un cierre en Closing"
+            checked={notifications.emailSaleClosed}
+            disabled={savingNotification}
             onChange={(checked) =>
-              setNotifications((prev) => ({ ...prev, newBookings: checked }))
+              handleNotificationChange("emailSaleClosed", checked)
             }
           />
-          <SettingsFormActions onSave={handleSave} onCancel={resetForm} />
+          <NotificationToggle
+            label="Sugerencia de SOP"
+            description="Cuando la IA sugiere un nuevo procedimiento"
+            checked={notifications.emailSopSuggestion}
+            disabled={savingNotification}
+            onChange={(checked) =>
+              handleNotificationChange("emailSopSuggestion", checked)
+            }
+          />
+          <p className="mb-4 mt-6 text-xs text-muted-foreground">
+            En la app
+          </p>
+          <NotificationToggle
+            label="Nueva conversación"
+            description="Alerta en tiempo real en el inbox"
+            checked={notifications.inappNewConversation}
+            disabled={savingNotification}
+            onChange={(checked) =>
+              handleNotificationChange("inappNewConversation", checked)
+            }
+          />
+          <NotificationToggle
+            label="Booking confirmado"
+            description="Notificación al agendar una llamada"
+            checked={notifications.inappBookingConfirmed}
+            disabled={savingNotification}
+            onChange={(checked) =>
+              handleNotificationChange("inappBookingConfirmed", checked)
+            }
+          />
+          <NotificationToggle
+            label="Venta cerrada"
+            description="Cuando un closer marca un cierre"
+            checked={notifications.inappSaleClosed}
+            disabled={savingNotification}
+            onChange={(checked) =>
+              handleNotificationChange("inappSaleClosed", checked)
+            }
+          />
+          <NotificationToggle
+            label="Alerta de ghosting"
+            description="Cuando un lead deja de responder"
+            checked={notifications.inappGhostingAlert}
+            disabled={savingNotification}
+            onChange={(checked) =>
+              handleNotificationChange("inappGhostingAlert", checked)
+            }
+          />
         </div>
       )}
 

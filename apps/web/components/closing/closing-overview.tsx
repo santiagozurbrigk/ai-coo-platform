@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Badge,
@@ -12,6 +13,7 @@ import { Calendar, ExternalLink, Video } from "lucide-react";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import { ModuleSubnav } from "@/components/shared/client";
 import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
 import { isSameMonth, pickCalendarFocusDate } from "@/lib/closing/calendar";
 import { useHashTab } from "@/lib/hooks/use-hash-tab";
 import { usePlatformData } from "@/providers";
@@ -129,10 +131,16 @@ export function ClosingOverview() {
           {closingCallsLoading ? (
             <p className="text-sm text-muted-foreground">Cargando llamadas…</p>
           ) : closingCalls.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No hay llamadas de cierre. Ejecuta la migración SQL de closing_calls en
-              Supabase si acabas de conectar la base de datos.
-            </p>
+            <EmptyState
+              title="Sin llamadas agendadas"
+              description="Conectá Calendly para ver tus llamadas de cierre aquí."
+              icon={<Calendar className="h-8 w-8" />}
+              action={
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={paths.platform.integrations}>Conectar Calendly</Link>
+                </Button>
+              }
+            />
           ) : activeTab === "lista" ? (
             <>
               <FilterPills

@@ -41,7 +41,6 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - **Webhook URL:** `{NEXT_PUBLIC_APP_URL}/api/integrations/manychat/webhook/{webhook_token}` — debe configurarse en ManyChat como External Request.
 - **Datos:** mensajes → tabla `conversations` con `external_ref = manychat:{subscriberId}`.
 - **UTM ManyChat:** migración `20260613200000_utm_manychat.sql` — atribución `manychat_ref` en conversaciones.
-- **Seed demo:** si `conversations` está vacía **y** no hay integración ManyChat conectada, se insertan `mockConversations` automáticamente al listar inbox.
 
 #### ManyChat — Scoring de conversaciones
 
@@ -481,7 +480,7 @@ Se invalida automáticamente cuando cambia:
 
 ### Ventas
 
-- **Inbox:** `conversations` reales (ManyChat) o seed mock si tabla vacía sin ManyChat.
+- **Inbox:** `conversations` reales (ManyChat / Instagram); sin datos → empty state con CTA a integraciones.
 - **Métricas KPIs:** derivadas de conversaciones + closing (`deriveSalesMetrics`).
 - **Objeciones frecuentes:** desde `call_analyses` y `conversations.ai_detected_objections`; fallback mock. Ver sección **Objeciones frecuentes — Datos reales** más abajo.
 - **Ranking equipo / evolución closer:** `call_analyses` o mocks (`mockTeamRanking`, `mockCloserEvolution`).
@@ -581,7 +580,7 @@ Video YouTube → link UTM → lead capturado → booking Calendly → cliente c
 
 ### Finanzas
 
-- **Gastos / suscripciones / compensación:** tablas Supabase; **seed desde mocks** si tablas vacías al primer load.
+- **Gastos / suscripciones / compensación:** tablas Supabase; sin datos → empty state con CTA a `/finance/expenses`.
 - **Revenue / MRR:** derivado de clientes reales en org.
 - **Stripe:** API live en sección Stripe (no mock); no persiste histórico en DB.
 - **Sin Supabase:** `mocks/finance.ts` + `mocks/expenses.ts`.
@@ -602,21 +601,43 @@ Video YouTube → link UTM → lead capturado → booking Calendly → cliente c
 ### Sistema de modos
 
 - **Sin Supabase configurado:** la app opera en modo demo con todos los datos en mock. Útil para development local sin credenciales.
-- **Con Supabase pero tablas vacías:** algunas secciones hacen seed automático de datos demo (conversations, closing_calls, finanzas). Esto puede confundir datos reales con demo en producción.
-- **Recomendación:** en producción con cliente real, asegurarse de que las tablas tengan al menos un registro real antes de conectar integraciones, para evitar que el seed automático mezcle datos.
+- **Con Supabase pero tablas vacías:** empty states con CTAs para conectar integraciones o configurar datos. No hay inserción automática de mocks en producción.
 
-### Seeds automáticos (org vacía, producción)
+### Seeds automáticos — ELIMINADOS en producción
 
-| Tabla / módulo | Condición del seed | Fuente mock |
-|----------------|-------------------|-------------|
-| `conversations` | Vacía y **sin** ManyChat | `mockConversations` |
-| `closing_calls` | Vacía (tras seed conversations) | `mockClosingCalls` |
-| Finanzas (gastos, etc.) | Tablas vacías al load | `mocks/expenses.ts`, `mocks/finance.ts` |
-| Marketing contenido | Lista vacía en UI | `mockMarketingContentAssets` |
+**Comportamiento anterior (eliminado):**
+- Si `conversations` estaba vacía → se insertaban mocks automáticamente
+- Si `closing_calls` estaba vacía → se insertaban mocks automáticamente
+- Si finanzas estaban vacías → se insertaban datos demo
 
-**Importante para onboarding:** una org nueva puede ver **datos demo** hasta que conecte integraciones reales o borre seeds manualmente en Supabase.
+**Comportamiento actual:**
+- Tablas vacías → empty state con CTA para conectar integración
+- No hay inserción automática de datos demo en producción
+- Los mocks solo se usan cuando Supabase NO está configurado (modo demo sin credenciales)
 
-### Fallbacks a mock data
+**Empty states implementados:**
+- Inbox ventas → "Conectá ManyChat o Instagram"
+- Closing → "Conectá Calendly"
+- Finanzas → "Configurá tus gastos y plataformas"
+
+### Settings — Persistencia completa
+
+**Campos que ahora persisten en DB:**
+- `organizations.industry`
+- `organizations.timezone`
+- `organizations.currency`
+- `organizations.language`
+- `notification_preferences` (tabla por usuario/org)
+
+**Preferencias de notificaciones:**
+- Se crean automáticamente con defaults al primer acceso
+- Se guardan automáticamente al cambiar cualquier toggle
+- Separadas por usuario (cada miembro tiene sus propias preferencias)
+
+**Migración requerida:**
+`20260617400000_settings_complete.sql`
+
+### Fallbacks a mock data (solo UI / sin Supabase)
 
 - Ventas: objeciones, ranking calls, evolución closer, lead journey.
 - Clientes: `aiInsights` en detalle siempre etiquetados mock; `linked_calls.analysis` solo si pipeline Fathom profundo corrió o JSON manual.
