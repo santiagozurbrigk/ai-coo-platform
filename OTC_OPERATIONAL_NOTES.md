@@ -903,6 +903,40 @@ INSERT INTO super_admin_users (email, role) VALUES ('email@ejemplo.com', 'admin'
 | `lib/youtube/retention.ts:5` | Retención real desde YouTube Analytics API |
 | `components/landing/vsl-player.tsx:37` | Reemplazar placeholder cuando exista `NEXT_PUBLIC_VSL_URL` |
 
+### Holding — Multi-tenant portfolio
+
+**Propósito:** vista unificada de todas las organizaciones clientes
+desde el Super Admin sin necesidad de cambiar de cuenta.
+
+**Acceso:** `/super-admin/holding` (solo super admins)
+
+**KPIs del portfolio:**
+- Total de organizaciones activas
+- MRR total combinado (suma de `clients.total_amount` de todas las orgs)
+- Conversaciones activas en los últimos 30 días
+- Costo total de IA este mes (desde `token_usage.total_cost_usd`)
+- Margen estimado: (MRR − costo IA) / MRR
+
+**Health score por org (0–100):**
+- 25 pts: tiene conversaciones activas (30 días)
+- 25 pts: tiene clientes creados
+- 25 pts: tiene más de 1 miembro en el equipo
+- 25 pts: tiene al menos 1 integración Instagram conectada
+
+**Crear nueva organización desde Holding:**
+- Crea la org en DB (`organizations`)
+- Crea el usuario founder en Supabase Auth + perfil
+- Vincula la org al holding default (`holding_organizations`)
+- Envía email de bienvenida con credenciales temporales (Resend)
+
+**Tablas:**
+- `holdings` — agrupador de orgs (uno por instancia de OTC)
+- `holding_organizations` — relación holding ↔ org
+- `profiles.is_holding_admin` — flag para admins de holding (futuro)
+- Solo accesibles vía service role (RLS deniega acceso directo)
+
+**Migración:** `20260618100000_holding.sql`
+
 ---
 
 *Actualizar este documento cuando cambien umbrales, crons, integraciones o pipelines de IA.*

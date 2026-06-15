@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { isAllowedBrainFile } from "@/lib/ai-brain/file-types";
 import { AI_BRAIN_BUCKET, uiContentTypeToDb } from "@/lib/ai-brain/mapper";
 import { requireSuperAdmin } from "@/lib/auth/require-super-admin";
+import { isMissingTableError } from "@/lib/auth/bootstrap";
 import { sendWelcomeEmail } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
@@ -46,6 +47,7 @@ const REVALIDATE_ORGS = [
   paths.superAdmin.organizations,
   paths.superAdmin.costs,
   paths.superAdmin.users,
+  paths.superAdmin.holding,
 ];
 
 function generateTempPassword(length = 12): string {
@@ -146,6 +148,104 @@ export async function createFounderAccountAction(input: {
       emailSent: emailResult.ok,
       emailError: emailResult.error,
     };
+  });
+}
+
+export async function createOrganizationFromHoldingAction(input: {
+  name: string;
+  founderEmail: string;
+  plan?: "basic" | "pro";
+}): Promise<MutationResult<{ orgId: string }>> {
+  return runMutation(async () => {
+    await requireSuperAdmin();
+
+    const orgName = input.name.trim();
+    const email = input.founderEmail.trim().toLowerCase();
+
+    if (!orgName || !email) {
+      throw new Error("Completá nombre y email del founder.");
+    }
+
+    const admin = createAdminClient();
+    const password = generateTempPassword();
+    const mrrUsd = input.plan === "pro" ? 30000 : 0;
+
+    const { data: org, error: orgError } = await admin
+      .from("organizations")
+      .insert({ name: orgName, status: "active", mrr_usd: mrrUsd })
+      .select("id")
+      .single();
+
+    if (orgError || !org) {
+      throw new Error(orgError?.message ?? "Error creando organización");
+    }
+
+    const { data: authData, error: authError } =
+      await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: "Founder" },
+      });
+
+    if (authError || !authData.user) {
+      await admin.from("organizations").delete().eq("id", org.id);
+      throw new Error(authError?.message ?? "Error creando usuario");
+    }
+
+    const userId = authData.user.id;
+
+    const { error: profileError } = await admin.from("profiles").insert({
+      id: userId,
+      organization_id: org.id,
+      email,
+      full_name: "Founder",
+      role: "founder",
+    });
+
+    if (profileError) {
+      await admin.from("organizations").delete().eq("id", org.id);
+      await admin.auth.admin.deleteUser(userId);
+      throw new Error(profileError.message);
+    }
+
+    const holdingRes = await admin
+      .from("holdings")
+      .select("id")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (holdingRes.data?.id) {
+      const linkRes = await admin.from("holding_organizations").upsert(
+        {
+          holding_id: holdingRes.data.id,
+          organization_id: org.id,
+        },
+        { onConflict: "holding_id,organization_id" }
+      );
+
+      if (
+        linkRes.error &&
+        !isMissingTableError(linkRes.error.message)
+      ) {
+        console.error(
+          "[createOrganizationFromHoldingAction] link",
+          linkRes.error.message
+        );
+      }
+    }
+
+    await sendWelcomeEmail({
+      to: email,
+      name: "Founder",
+      email,
+      password,
+    });
+
+    revalidateSuperAdmin();
+
+    return { orgId: org.id };
   });
 }
 
