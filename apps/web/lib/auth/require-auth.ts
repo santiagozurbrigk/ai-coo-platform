@@ -1,6 +1,10 @@
 import type { User } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { ensureUserBootstrap } from "@/lib/auth/bootstrap";
+import {
+  readAccountType,
+  resolveEffectiveOrganizationId,
+} from "@/lib/holding/resolve-org";
 import { createClient } from "@/lib/supabase/server";
 
 export type AuthContext = {
@@ -29,13 +33,20 @@ async function resolveAuthContext(): Promise<AuthSuccess | AuthFailure> {
 
   let { data: profile } = await supabase
     .from("profiles")
-    .select("organization_id, role")
+    .select("organization_id, role, organizations(account_type)")
     .eq("id", user.id)
     .maybeSingle();
 
-  if (!profile?.organization_id) {
+  let organizationId: string | null = profile?.organization_id ?? null;
+  let role = profile?.role ?? "founder";
+  let organizationsField = profile?.organizations ?? null;
+
+  if (!organizationId) {
     try {
-      profile = await ensureUserBootstrap(user);
+      const boot = await ensureUserBootstrap(user);
+      organizationId = boot.organization_id;
+      role = boot.role;
+      organizationsField = null;
     } catch {
       return {
         ok: false,
@@ -47,7 +58,7 @@ async function resolveAuthContext(): Promise<AuthSuccess | AuthFailure> {
     }
   }
 
-  if (!profile?.organization_id) {
+  if (!organizationId) {
     return {
       ok: false,
       error: NextResponse.json(
@@ -57,11 +68,19 @@ async function resolveAuthContext(): Promise<AuthSuccess | AuthFailure> {
     };
   }
 
+  const accountType = readAccountType(
+    organizationsField as { account_type?: string } | null
+  );
+  const orgId = await resolveEffectiveOrganizationId(
+    organizationId,
+    accountType
+  );
+
   return {
     ok: true,
     user,
-    orgId: profile.organization_id,
-    role: profile.role ?? "founder",
+    orgId,
+    role: role ?? "founder",
     supabase,
   };
 }

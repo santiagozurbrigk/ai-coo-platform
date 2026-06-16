@@ -1,6 +1,10 @@
 import type { User } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
+import {
+  readAccountType,
+  resolveEffectiveOrganizationId,
+} from "@/lib/holding/resolve-org";
 import { createClient } from "@/lib/supabase/server";
 
 function defaultOrgName(email: string): string {
@@ -113,16 +117,36 @@ export async function getCurrentProfile() {
 
 /** Garantiza org + perfil (repara usuarios creados antes del bootstrap). */
 export async function requireOrganizationId(): Promise<string> {
-  const profile = await getCurrentProfile();
-  if (profile?.organization_id) return profile.organization_id;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const boot = await ensureCurrentUserBootstrap();
-  if (!boot.organization_id) {
-    throw new Error(
-      "No se pudo vincular tu cuenta a una organización. Revisa Supabase (tablas organizations y profiles)."
-    );
+  if (!user) {
+    throw new Error("Sesión no válida");
   }
-  return boot.organization_id;
+
+  let { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id, organizations(account_type)")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile?.organization_id) {
+    const boot = await ensureUserBootstrap(user);
+    if (!boot.organization_id) {
+      throw new Error(
+        "No se pudo vincular tu cuenta a una organización. Revisa Supabase (tablas organizations y profiles)."
+      );
+    }
+    return boot.organization_id;
+  }
+
+  const accountType = readAccountType(
+    profile.organizations as { account_type?: string } | null
+  );
+
+  return resolveEffectiveOrganizationId(profile.organization_id, accountType);
 }
 
 /** Igual que requireOrganizationId pero sin lanzar (lecturas desde el cliente). */

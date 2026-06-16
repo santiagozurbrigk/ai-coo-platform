@@ -128,6 +128,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     subtitle: "Insights, recomendaciones, cuellos de botella, oportunidades y memoria IA",
   },
   "/settings": { title: "Configuración", subtitle: "Organización y perfil" },
+  "/holding": {
+    title: "Portfolio de negocios",
+    subtitle: "Vista consolidada de todos tus negocios",
+  },
   "/founder": {
     title: "Área del fundador",
     subtitle: "Vista estratégica de la operación",

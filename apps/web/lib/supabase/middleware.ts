@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { paths } from "@/routes";
+import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
 import { createAdminClient } from "./admin";
 import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
 import { getSupabaseAnonKey, getSupabaseUrl, isSupabaseConfigured } from "./env";
@@ -58,7 +59,14 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
-  let supabaseResponse = NextResponse.next({ request });
+  const requestHeaders = new Headers(request.headers);
+  const activeOrg = request.cookies.get(ACTIVE_ORG_COOKIE)?.value;
+  if (activeOrg) {
+    requestHeaders.set("x-active-org-id", activeOrg);
+  }
+  const forwardedRequest = { headers: requestHeaders };
+
+  let supabaseResponse = NextResponse.next({ request: forwardedRequest });
 
   const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     cookies: {
@@ -69,7 +77,7 @@ export async function updateSession(request: NextRequest) {
         cookiesToSet.forEach(({ name, value }) => {
           request.cookies.set(name, value);
         });
-        supabaseResponse = NextResponse.next({ request });
+        supabaseResponse = NextResponse.next({ request: forwardedRequest });
         cookiesToSet.forEach(({ name, value, options }) => {
           supabaseResponse.cookies.set(name, value, options);
         });

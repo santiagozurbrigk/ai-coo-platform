@@ -112,6 +112,7 @@ export const paths = {
     },
 
     settings: `${PLATFORM}/settings`,
+    holding: `${PLATFORM}/holding`,
   },
 
   founder: {

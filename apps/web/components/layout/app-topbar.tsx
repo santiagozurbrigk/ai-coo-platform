@@ -9,6 +9,7 @@ import { getPageMeta } from "@/lib/navigation/page-meta";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { ThemeToggle } from "@/components/navigation/theme-toggle";
 import { Breadcrumbs } from "@/components/navigation/breadcrumbs";
+import { HoldingBusinessSwitcher } from "@/components/holding/holding-business-switcher";
 
 export function AppTopbar({ className }: { className?: string }) {
   const pathname = usePathname();
@@ -41,6 +42,7 @@ export function AppTopbar({ className }: { className?: string }) {
       }
       actions={
         <>
+          <HoldingBusinessSwitcher />
           <Button
             variant="outline"
             size="icon"

@@ -518,3 +518,104 @@ export async function getAiBrainSignedUrlAction(
     return { url: data.signedUrl };
   });
 }
+
+export async function createHoldingOrgAction(input: {
+  name: string;
+  founderEmail: string;
+}): Promise<MutationResult<{ orgId: string }>> {
+  return runMutation(async () => {
+    await requireSuperAdmin();
+
+    const orgName = input.name.trim();
+    const email = input.founderEmail.trim().toLowerCase();
+
+    if (!orgName || !email) {
+      throw new Error("Completá nombre y email del dueño.");
+    }
+
+    const admin = createAdminClient();
+    const password = generateTempPassword();
+
+    const { data: authData, error: authError } =
+      await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: "Holding Admin" },
+      });
+
+    if (authError || !authData.user) {
+      throw new Error(authError?.message ?? "Error creando usuario");
+    }
+
+    const userId = authData.user.id;
+
+    const { data: org, error: orgError } = await admin
+      .from("organizations")
+      .insert({
+        name: orgName,
+        status: "active",
+        account_type: "holding",
+      })
+      .select("id")
+      .single();
+
+    if (orgError || !org) {
+      await admin.auth.admin.deleteUser(userId);
+      throw new Error(orgError?.message ?? "Error creando holding");
+    }
+
+    const { error: profileError } = await admin.from("profiles").insert({
+      id: userId,
+      organization_id: org.id,
+      email,
+      full_name: "Holding Admin",
+      role: "founder",
+      is_holding_admin: true,
+    });
+
+    if (profileError) {
+      await admin.from("organizations").delete().eq("id", org.id);
+      await admin.auth.admin.deleteUser(userId);
+      throw new Error(profileError.message);
+    }
+
+    await sendWelcomeEmail({
+      to: email,
+      name: "Holding Admin",
+      email,
+      password,
+    });
+
+    revalidateSuperAdmin();
+    revalidatePath(paths.superAdmin.organizations);
+
+    return { orgId: org.id };
+  });
+}
+
+export async function addBusinessToHoldingAction(input: {
+  holdingOrgId: string;
+  businessOrgId: string;
+  businessName?: string;
+  revenueSharePct?: number;
+}): Promise<MutationResult> {
+  return runMutation(async () => {
+    await requireSuperAdmin();
+
+    const admin = createAdminClient();
+
+    const { error } = await admin.from("holding_businesses").insert({
+      holding_org_id: input.holdingOrgId,
+      business_org_id: input.businessOrgId,
+      business_name: input.businessName?.trim() || null,
+      revenue_share_pct: input.revenueSharePct ?? null,
+      status: "active",
+    });
+
+    if (error) throw new Error(error.message);
+
+    revalidateSuperAdmin();
+    revalidatePath(paths.superAdmin.organizations);
+  });
+}

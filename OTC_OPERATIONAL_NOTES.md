@@ -937,6 +937,44 @@ desde el Super Admin sin necesidad de cambiar de cuenta.
 
 **Migración:** `20260618100000_holding.sql`
 
+### Holding — Modelo de negocio multi-empresa
+
+**¿Qué es un holding en OTC?**
+Un holding es un cliente de OTC que gestiona múltiples negocios
+de infoproductos. Se asocia con founders (% de revenue u otro acuerdo)
+y escala sus negocios. En OTC, el dueño del holding puede ver y
+gestionar todos sus negocios desde una sola cuenta.
+
+**Tipos de cuenta:**
+- `founder` (default): un negocio, vista normal
+- `holding`: múltiples negocios, selector en topbar
+
+**Flujo del dueño de holding:**
+1. Se loguea en OTC con su cuenta
+2. Ve el dashboard agregado de todos sus negocios (`/holding`)
+3. Selector en el topbar para cambiar entre negocios
+4. Al seleccionar un negocio → ve TODO el software
+   como si fuera el founder de ese negocio
+5. Badge "Viendo como founder" indica qué negocio está activo
+6. "Vista general del holding" → vuelve al dashboard agregado
+
+**Cambio de org activa:**
+- Se guarda en cookie `otc_active_org` (24hs)
+- Middleware reenvía `x-active-org-id` a server actions
+- `requireOrganizationId()` y `requireAuthContext()` usan la org del negocio activo
+
+**Super Admin — gestión de holdings:**
+- Crear holding: `/super-admin/organizations` → tab "Holdings" → "Nuevo holding"
+- Vincular negocio: "Agregar negocio" → seleccionar org + % revenue share
+- Ver portfolio: modal con negocios vinculados y MRR
+
+**Tablas:**
+- `organizations.account_type`: `founder` | `holding`
+- `holding_businesses`: relación holding ↔ negocio con revenue share %
+- `profiles.is_holding_admin`: flag para admins de holding
+
+**Migración:** `20260618200000_holding_clients.sql`
+
 ---
 
 *Actualizar este documento cuando cambien umbrales, crons, integraciones o pipelines de IA.*
