@@ -17,6 +17,7 @@ function isServerActionRequest(request: NextRequest): boolean {
 const PUBLIC_PATHS = [
   paths.auth.login,
   paths.auth.callback,
+  paths.auth.recover,
   paths.auth.updatePassword,
   paths.demo,
   paths.designSystem,
