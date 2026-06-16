@@ -12,8 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@ai-coo/ui";
 import {
-  resetToHoldingViewAction,
-  switchActiveBusinessAction,
+  enterBusinessAction,
+  exitBusinessAction,
 } from "@/app/(platform)/holding/actions";
 import { useHoldingSession } from "@/components/holding/holding-platform-provider";
 
@@ -35,13 +35,13 @@ export function HoldingBusinessSwitcher() {
 
   function selectHoldingView() {
     startTransition(() => {
-      void resetToHoldingViewAction();
+      void exitBusinessAction();
     });
   }
 
   function selectBusiness(businessOrgId: string) {
     startTransition(() => {
-      void switchActiveBusinessAction(businessOrgId);
+      void enterBusinessAction(businessOrgId);
     });
   }
 

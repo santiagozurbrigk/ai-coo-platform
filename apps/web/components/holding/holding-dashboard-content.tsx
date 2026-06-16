@@ -1,37 +1,44 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button, MetricCard } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
 import { formatUsd } from "@/lib/super-admin/org-metrics";
-import { switchActiveBusinessAction } from "@/app/(platform)/holding/actions";
+import { enterBusinessAction } from "@/app/(platform)/holding/actions";
 import type { getHoldingDashboardAction } from "@/app/(platform)/holding/actions";
+import { AddBusinessModal } from "@/components/holding/add-business-modal";
 
 type HoldingDashboardData = Awaited<
   ReturnType<typeof getHoldingDashboardAction>
 >;
 
 export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }) {
+  const router = useRouter();
+  const [modalOpen, setModalOpen] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const { businesses, kpis } = data;
 
-  function manageBusiness(businessOrgId: string) {
+  function enterBusiness(businessOrgId: string) {
     setPendingId(businessOrgId);
     startTransition(() => {
-      void switchActiveBusinessAction(businessOrgId);
+      void enterBusinessAction(businessOrgId);
     });
   }
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Portfolio de negocios
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Vista consolidada de todos tus negocios
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Mi Portfolio de Negocios
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Gestioná todos tus negocios desde un lugar
+          </p>
+        </div>
+        <Button onClick={() => setModalOpen(true)}>Agregar negocio</Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -39,9 +46,9 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
           title="Negocios activos"
           value={String(kpis.totalBusinesses)}
         />
-        <MetricCard title="MRR total" value={formatUsd(kpis.totalMRR)} />
+        <MetricCard title="MRR total portfolio" value={formatUsd(kpis.totalMRR)} />
         <MetricCard
-          title="Tu revenue (% del MRR)"
+          title="Mi revenue total"
           value={formatUsd(kpis.totalHoldingRevenue)}
         />
         <MetricCard
@@ -51,10 +58,17 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
       </div>
 
       {businesses.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Todavía no hay negocios vinculados a este holding. Contactá a OTC
-          para agregar organizaciones.
-        </p>
+        <div className="rounded-xl border border-dashed border-border/60 p-10 text-center space-y-4">
+          <p className="text-sm font-medium">
+            Todavía no tenés negocios en tu holding
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Agregá tu primer negocio para empezar a gestionarlo desde acá
+          </p>
+          <Button onClick={() => setModalOpen(true)}>
+            Agregar primer negocio
+          </Button>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {businesses.map((b) => {
@@ -84,26 +98,18 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">
-                      Tu revenue
+                      Mi revenue
                     </dt>
                     <dd className="font-medium tabular-nums">
                       {formatUsd(b.metrics.holdingRevenue)}
                     </dd>
                   </div>
-                  <div>
+                  <div className="col-span-2">
                     <dt className="text-xs text-muted-foreground">
-                      Conversaciones (30d)
+                      Conversaciones activas (30d)
                     </dt>
                     <dd className="font-medium tabular-nums">
                       {b.metrics.activeConversations}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-muted-foreground">
-                      Llamadas cerradas
-                    </dt>
-                    <dd className="font-medium tabular-nums">
-                      {b.metrics.closedCalls}
                     </dd>
                   </div>
                 </dl>
@@ -111,15 +117,23 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
                   size="sm"
                   className="w-full"
                   disabled={!orgId || pending}
-                  onClick={() => orgId && manageBusiness(orgId)}
+                  onClick={() => orgId && enterBusiness(orgId)}
                 >
-                  {pending && pendingId === orgId ? "Abriendo…" : "Gestionar"}
+                  {pending && pendingId === orgId
+                    ? "Entrando…"
+                    : "Entrar al negocio"}
                 </Button>
               </Panel>
             );
           })}
         </div>
       )}
+
+      <AddBusinessModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        onSuccess={() => router.refresh()}
+      />
     </div>
   );
 }

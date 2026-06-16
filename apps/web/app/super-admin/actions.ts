@@ -593,29 +593,3 @@ export async function createHoldingOrgAction(input: {
     return { orgId: org.id };
   });
 }
-
-export async function addBusinessToHoldingAction(input: {
-  holdingOrgId: string;
-  businessOrgId: string;
-  businessName?: string;
-  revenueSharePct?: number;
-}): Promise<MutationResult> {
-  return runMutation(async () => {
-    await requireSuperAdmin();
-
-    const admin = createAdminClient();
-
-    const { error } = await admin.from("holding_businesses").insert({
-      holding_org_id: input.holdingOrgId,
-      business_org_id: input.businessOrgId,
-      business_name: input.businessName?.trim() || null,
-      revenue_share_pct: input.revenueSharePct ?? null,
-      status: "active",
-    });
-
-    if (error) throw new Error(error.message);
-
-    revalidateSuperAdmin();
-    revalidatePath(paths.superAdmin.organizations);
-  });
-}

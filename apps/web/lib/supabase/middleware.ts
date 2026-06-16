@@ -102,11 +102,60 @@ export async function updateSession(request: NextRequest) {
 
   if (user && pathname === paths.auth.login) {
     const url = request.nextUrl.clone();
-    url.pathname =
-      user.email && (await isSuperAdminEmail(user.email))
-        ? paths.superAdmin.organizations
-        : paths.platform.dashboard;
+    if (user.email && (await isSuperAdminEmail(user.email))) {
+      url.pathname = paths.superAdmin.organizations;
+    } else {
+      const admin = createAdminClient();
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("organization_id, organizations(account_type)")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const orgField = profile?.organizations as
+        | { account_type?: string }
+        | { account_type?: string }[]
+        | null;
+      const accountType = Array.isArray(orgField)
+        ? orgField[0]?.account_type
+        : orgField?.account_type;
+      const hasActiveBusiness = Boolean(
+        request.cookies.get(ACTIVE_ORG_COOKIE)?.value
+      );
+
+      url.pathname =
+        accountType === "holding" && !hasActiveBusiness
+          ? paths.platform.holding
+          : paths.platform.dashboard;
+    }
     return NextResponse.redirect(url);
+  }
+
+  if (
+    user &&
+    pathname === paths.platform.dashboard &&
+    !request.cookies.get(ACTIVE_ORG_COOKIE)?.value
+  ) {
+    const admin = createAdminClient();
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("organization_id, organizations(account_type)")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const orgField = profile?.organizations as
+      | { account_type?: string }
+      | { account_type?: string }[]
+      | null;
+    const accountType = Array.isArray(orgField)
+      ? orgField[0]?.account_type
+      : orgField?.account_type;
+
+    if (accountType === "holding") {
+      const url = request.nextUrl.clone();
+      url.pathname = paths.platform.holding;
+      return NextResponse.redirect(url);
+    }
   }
 
   if (

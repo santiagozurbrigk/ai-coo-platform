@@ -1,6 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { ensureUserBootstrap } from "@/lib/auth/bootstrap";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   readAccountType,
   resolveEffectiveOrganizationId,
@@ -12,6 +13,9 @@ export type AuthContext = {
   orgId: string;
   role: string;
   supabase: Awaited<ReturnType<typeof createClient>>;
+  isHoldingView?: boolean;
+  holdingOrgId?: string;
+  activeBusinessName?: string;
 };
 
 type AuthSuccess = AuthContext & { ok: true };
@@ -76,12 +80,31 @@ async function resolveAuthContext(): Promise<AuthSuccess | AuthFailure> {
     accountType
   );
 
+  const isHoldingView =
+    accountType === "holding" && orgId !== organizationId;
+
+  let activeBusinessName: string | undefined;
+  if (isHoldingView) {
+    const admin = createAdminClient();
+    const { data: link } = await admin
+      .from("holding_businesses")
+      .select("business_name")
+      .eq("holding_org_id", organizationId)
+      .eq("business_org_id", orgId)
+      .eq("status", "active")
+      .maybeSingle();
+    activeBusinessName = link?.business_name ?? undefined;
+  }
+
   return {
     ok: true,
     user,
     orgId,
     role: role ?? "founder",
     supabase,
+    isHoldingView,
+    holdingOrgId: isHoldingView ? organizationId : undefined,
+    activeBusinessName,
   };
 }
 
@@ -101,5 +124,8 @@ export async function requireAuthContext(): Promise<AuthContext> {
     orgId: result.orgId,
     role: result.role,
     supabase: result.supabase,
+    isHoldingView: result.isHoldingView,
+    holdingOrgId: result.holdingOrgId,
+    activeBusinessName: result.activeBusinessName,
   };
 }

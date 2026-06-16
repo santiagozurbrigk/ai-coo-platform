@@ -14,14 +14,8 @@ import {
 } from "@ai-coo/ui";
 import { paths } from "@/routes";
 import { formatUsd } from "@/lib/super-admin/org-metrics";
-import type {
-  AdminHoldingRow,
-  AvailableBusinessOrg,
-} from "@/lib/super-admin/holdings-admin";
-import {
-  addBusinessToHoldingAction,
-  createHoldingOrgAction,
-} from "@/app/super-admin/actions";
+import type { AdminHoldingRow } from "@/lib/super-admin/holdings-admin";
+import { createHoldingOrgAction } from "@/app/super-admin/actions";
 
 function CreateHoldingDialog() {
   const [open, setOpen] = useState(false);
@@ -86,122 +80,28 @@ function CreateHoldingDialog() {
   );
 }
 
-function AddBusinessDialog({
-  holding,
-  availableOrgs,
-}: {
-  holding: AdminHoldingRow;
-  availableOrgs: AvailableBusinessOrg[];
-}) {
-  const [open, setOpen] = useState(false);
-  const [businessOrgId, setBusinessOrgId] = useState("");
-  const [businessName, setBusinessName] = useState("");
-  const [revenueSharePct, setRevenueSharePct] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    startTransition(async () => {
-      const res = await addBusinessToHoldingAction({
-        holdingOrgId: holding.id,
-        businessOrgId,
-        businessName: businessName.trim() || undefined,
-        revenueSharePct: revenueSharePct
-          ? Number(revenueSharePct)
-          : undefined,
-      });
-      if (!res.success) {
-        setError(res.error);
-        return;
-      }
-      setOpen(false);
-      setBusinessOrgId("");
-      setBusinessName("");
-      setRevenueSharePct("");
-    });
-  }
-
-  return (
-    <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-        Agregar negocio
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Agregar negocio a {holding.name}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="business-org">Organización</Label>
-              <select
-                id="business-org"
-                value={businessOrgId}
-                onChange={(e) => setBusinessOrgId(e.target.value)}
-                required
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Seleccionar…</option>
-                {availableOrgs.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {org.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="business-label">Nombre visible (opcional)</Label>
-              <Input
-                id="business-label"
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="revenue-share">% revenue share</Label>
-              <Input
-                id="revenue-share"
-                type="number"
-                min={0}
-                max={100}
-                step={0.01}
-                value={revenueSharePct}
-                onChange={(e) => setRevenueSharePct(e.target.value)}
-                placeholder="ej. 20"
-              />
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" disabled={pending} className="w-full">
-              {pending ? "Vinculando…" : "Vincular"}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
 export function HoldingsAdminPanel({
   holdings,
-  availableOrgs,
 }: {
   holdings: AdminHoldingRow[];
-  availableOrgs: AvailableBusinessOrg[];
 }) {
   const [detailId, setDetailId] = useState<string | null>(null);
   const detail = holdings.find((h) => h.id === detailId);
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          Creá el usuario del dueño del holding. Él agrega y gestiona sus
+          negocios desde su cuenta en OTC.
+        </p>
         <CreateHoldingDialog />
       </div>
 
       {holdings.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No hay holdings creados. Creá uno para vincular múltiples negocios.
+          No hay holdings creados. Creá uno para dar acceso al dueño del
+          portfolio.
         </p>
       ) : (
         <div className="space-y-4">
@@ -249,10 +149,6 @@ export function HoldingsAdminPanel({
                 >
                   Ver portfolio
                 </Button>
-                <AddBusinessDialog
-                  holding={holding}
-                  availableOrgs={availableOrgs}
-                />
                 <Button asChild size="sm" variant="ghost">
                   <Link href={paths.superAdmin.organizationDetail(holding.id)}>
                     Ver detalle
@@ -275,21 +171,27 @@ export function HoldingsAdminPanel({
                 MRR combinado:{" "}
                 <strong>{formatUsd(detail.portfolioMrr)}</strong>
               </p>
-              <ul className="space-y-2">
-                {detail.businesses.map((b) => (
-                  <li
-                    key={b.id}
-                    className="rounded-lg border border-border/50 p-3"
-                  >
-                    <p className="font-medium">
-                      {b.business_name ?? b.business_org?.name}
-                    </p>
-                    <p className="text-muted-foreground">
-                      Revenue share: {b.revenue_share_pct ?? 0}%
-                    </p>
-                  </li>
-                ))}
-              </ul>
+              {detail.businesses.length === 0 ? (
+                <p className="text-muted-foreground">
+                  El dueño aún no agregó negocios desde su cuenta.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {detail.businesses.map((b) => (
+                    <li
+                      key={b.id}
+                      className="rounded-lg border border-border/50 p-3"
+                    >
+                      <p className="font-medium">
+                        {b.business_name ?? b.business_org?.name}
+                      </p>
+                      <p className="text-muted-foreground">
+                        Revenue share: {b.revenue_share_pct ?? 0}%
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </DialogContent>

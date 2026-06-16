@@ -975,6 +975,43 @@ gestionar todos sus negocios desde una sola cuenta.
 
 **Migración:** `20260618200000_holding_clients.sql`
 
+### Holding — Flujo completo
+
+**Responsabilidades:**
+
+Super Admin (vos):
+→ Crea el usuario del dueño del holding desde `/super-admin/organizations` → tab "Holdings" → "Nuevo holding"
+→ Ve todos los holdings y sus negocios en el Super Admin
+→ No gestiona los negocios dentro del holding (lo hace el dueño)
+
+Dueño del Holding (cliente de OTC):
+→ Se loguea → va directo a `/holding` (su dashboard de portfolio)
+→ Agrega negocios desde `/holding` → "Agregar negocio"
+→ Puede crear usuario founder al agregar (opcional)
+→ Entra a cada negocio → ve TODO el software como si fuera el founder
+→ Banner "Estás viendo: [Negocio]" con botón "Volver al holding"
+
+Founder de un negocio dentro del holding:
+→ Se loguea normalmente → ve solo su negocio
+→ No sabe que pertenece a un holding (transparente)
+
+**Cookie de negocio activo:**
+- Nombre: `otc_active_org`
+- Duración: 24 horas
+- httpOnly + secure
+- `requireOrganizationId()` / `requireAuthContext()` la leen y cambian el `organization_id` automáticamente
+- Todas las server actions funcionan con el negocio seleccionado
+
+**Agregar negocio sin founder:**
+- Se crea la org vacía sin usuario
+- El dueño del holding puede entrar igual (`enterBusinessAction`)
+- Se puede agregar el founder después
+
+**Agregar negocio con founder:**
+- Se crea la org + usuario en Supabase Auth
+- El founder recibe email de bienvenida con contraseña temporal (Resend)
+- El founder entra normalmente y ve solo su negocio
+
 ---
 
 *Actualizar este documento cuando cambien umbrales, crons, integraciones o pipelines de IA.*

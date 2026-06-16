@@ -8,6 +8,7 @@ import { AppTopbar } from "@/components/layout/app-topbar";
 import { PlatformDocumentTitle } from "@/components/brand";
 import { FloatingChat } from "@/components/agent";
 import { ContextPanelDrawer } from "@/components/layout/context-panel-drawer";
+import { HoldingViewingBanner } from "@/components/holding/holding-viewing-banner";
 
 export function PlatformShell({ children }: { children: ReactNode }) {
   return (
@@ -22,6 +23,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
           </>
         }
       >
+        <HoldingViewingBanner />
         <AppTopbar />
         <div className="main-container-scroll flex min-h-0 flex-1">
           <div className="flex min-h-full min-w-0 flex-1">{children}</div>

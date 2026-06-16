@@ -5,9 +5,21 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { sendWelcomeEmail } from "@/lib/email";
 import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
 import { getHoldingBusinesses } from "@/lib/holding/switch-org";
+import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { paths } from "@/routes";
+
+function generateTempPassword(length = 12): string {
+  const chars =
+    "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$";
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return out;
+}
 
 async function requireHoldingProfile() {
   const supabase = await createClient();
@@ -26,47 +38,101 @@ async function requireHoldingProfile() {
 
   const org = profile.organizations as { account_type?: string } | null;
   if (org?.account_type !== "holding") {
-    throw new Error("No es una cuenta holding");
+    throw new Error("No sos dueño de un holding");
   }
 
-  return { holdingOrgId: profile.organization_id };
+  return { holdingOrgId: profile.organization_id, userId: user.id };
 }
 
-export async function switchActiveBusinessAction(businessOrgId: string) {
-  const { holdingOrgId } = await requireHoldingProfile();
+export async function addBusinessToMyHoldingAction(input: {
+  businessName: string;
+  revenueSharePct: number;
+  founderEmail?: string;
+}): Promise<MutationResult<{ orgId: string }>> {
+  return runMutation(async () => {
+    const { holdingOrgId } = await requireHoldingProfile();
+    const admin = createAdminClient();
 
-  const adminClient = createAdminClient();
-  const { data: business } = await adminClient
-    .from("holding_businesses")
-    .select("id")
-    .eq("holding_org_id", holdingOrgId)
-    .eq("business_org_id", businessOrgId)
-    .eq("status", "active")
-    .maybeSingle();
+    const businessName = input.businessName.trim();
+    if (!businessName) throw new Error("El nombre del negocio es obligatorio.");
 
-  if (!business) throw new Error("Sin acceso a ese negocio");
+    const revenueSharePct = Number(input.revenueSharePct);
+    if (Number.isNaN(revenueSharePct) || revenueSharePct < 0 || revenueSharePct > 100) {
+      throw new Error("El % de revenue share debe estar entre 0 y 100.");
+    }
 
-  const cookieStore = await cookies();
-  cookieStore.set(ACTIVE_ORG_COOKIE, businessOrgId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24,
-    path: "/",
+    const { data: newOrg, error: orgError } = await admin
+      .from("organizations")
+      .insert({
+        name: businessName,
+        status: "active",
+        account_type: "founder",
+      })
+      .select("id")
+      .single();
+
+    if (orgError || !newOrg) {
+      throw new Error(orgError?.message ?? "Error creando el negocio");
+    }
+
+    const { error: linkError } = await admin.from("holding_businesses").insert({
+      holding_org_id: holdingOrgId,
+      business_org_id: newOrg.id,
+      business_name: businessName,
+      revenue_share_pct: revenueSharePct,
+      status: "active",
+    });
+
+    if (linkError) {
+      await admin.from("organizations").delete().eq("id", newOrg.id);
+      throw new Error(linkError.message);
+    }
+
+    const founderEmail = input.founderEmail?.trim().toLowerCase();
+    if (founderEmail) {
+      const password = generateTempPassword();
+      const { data: authUser, error: authError } =
+        await admin.auth.admin.createUser({
+          email: founderEmail,
+          password,
+          email_confirm: true,
+          user_metadata: { full_name: "Founder" },
+        });
+
+      if (authError || !authUser.user) {
+        throw new Error(
+          authError?.message ?? "Error creando usuario del founder"
+        );
+      }
+
+      const { error: profileError } = await admin.from("profiles").insert({
+        id: authUser.user.id,
+        email: founderEmail,
+        full_name: "Founder",
+        role: "founder",
+        organization_id: newOrg.id,
+      });
+
+      if (profileError) {
+        await admin.auth.admin.deleteUser(authUser.user.id);
+        throw new Error(profileError.message);
+      }
+
+      void admin.rpc("create_default_roles", { org_id: newOrg.id });
+
+      await sendWelcomeEmail({
+        to: founderEmail,
+        name: "Founder",
+        email: founderEmail,
+        password,
+      });
+    }
+
+    revalidatePath(paths.platform.holding);
+    revalidatePath("/", "layout");
+
+    return { orgId: newOrg.id };
   });
-
-  revalidatePath("/", "layout");
-  redirect(paths.platform.dashboard);
-}
-
-export async function resetToHoldingViewAction() {
-  await requireHoldingProfile();
-
-  const cookieStore = await cookies();
-  cookieStore.delete(ACTIVE_ORG_COOKIE);
-
-  revalidatePath("/", "layout");
-  redirect(paths.platform.holding);
 }
 
 export async function getHoldingDashboardAction() {
@@ -153,4 +219,51 @@ export async function getHoldingDashboardAction() {
       totalConversations,
     },
   };
+}
+
+export async function enterBusinessAction(businessOrgId: string) {
+  const { holdingOrgId } = await requireHoldingProfile();
+
+  const adminClient = createAdminClient();
+  const { data: business } = await adminClient
+    .from("holding_businesses")
+    .select("id")
+    .eq("holding_org_id", holdingOrgId)
+    .eq("business_org_id", businessOrgId)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (!business) throw new Error("Sin acceso a ese negocio");
+
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_ORG_COOKIE, businessOrgId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24,
+    path: "/",
+  });
+
+  revalidatePath("/", "layout");
+  redirect(paths.platform.dashboard);
+}
+
+export async function exitBusinessAction() {
+  await requireHoldingProfile();
+
+  const cookieStore = await cookies();
+  cookieStore.delete(ACTIVE_ORG_COOKIE);
+
+  revalidatePath("/", "layout");
+  redirect(paths.platform.holding);
+}
+
+/** @deprecated Usar enterBusinessAction */
+export async function switchActiveBusinessAction(businessOrgId: string) {
+  return enterBusinessAction(businessOrgId);
+}
+
+/** @deprecated Usar exitBusinessAction */
+export async function resetToHoldingViewAction() {
+  return exitBusinessAction();
 }

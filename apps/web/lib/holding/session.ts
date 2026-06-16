@@ -12,6 +12,7 @@ export type HoldingSessionState = {
   holdingOrgId?: string;
   activeOrgId?: string;
   viewingBusiness: boolean;
+  activeBusinessName?: string;
   businesses: HoldingBusinessRow[];
 };
 
@@ -50,12 +51,19 @@ export async function getHoldingSessionState(): Promise<HoldingSessionState> {
 
   let activeOrgId = holdingOrgId;
   let viewingBusiness = false;
+  let activeBusinessName: string | undefined;
 
   if (cookieOrg && cookieOrg !== holdingOrgId) {
-    const allowed = businesses.some((b) => b.business_org?.id === cookieOrg);
-    if (allowed) {
+    const activeBusiness = businesses.find(
+      (b) => b.business_org?.id === cookieOrg
+    );
+    if (activeBusiness) {
       activeOrgId = cookieOrg;
       viewingBusiness = true;
+      activeBusinessName =
+        activeBusiness.business_name ??
+        activeBusiness.business_org?.name ??
+        undefined;
     }
   }
 
@@ -64,6 +72,7 @@ export async function getHoldingSessionState(): Promise<HoldingSessionState> {
     holdingOrgId,
     activeOrgId,
     viewingBusiness,
+    activeBusinessName,
     businesses,
   };
 }
