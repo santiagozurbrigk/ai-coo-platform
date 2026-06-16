@@ -11,6 +11,7 @@ export const paths = {
     login: "/login",
     onboarding: "/onboarding",
     callback: "/auth/callback",
+    updatePassword: "/auth/update-password",
   },
   demo: "/demo",
   designSystem: "/design-system",
