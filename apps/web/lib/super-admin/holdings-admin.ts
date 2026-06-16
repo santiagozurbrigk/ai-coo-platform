@@ -90,7 +90,7 @@ export async function loadHoldingsForAdmin(): Promise<AdminHoldingRow[]> {
       .filter((id): id is string => Boolean(id))
   );
 
-  let mrrByOrg = new Map<string, number>();
+  const mrrByOrg = new Map<string, number>();
   if (allBusinessOrgIds.length > 0) {
     const { data: clients } = await admin
       .from("clients")

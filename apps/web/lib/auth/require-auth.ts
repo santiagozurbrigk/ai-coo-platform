@@ -31,7 +31,7 @@ async function resolveAuthContext(): Promise<AuthSuccess | AuthFailure> {
     };
   }
 
-  let { data: profile } = await supabase
+  const { data: profile } = await supabase
     .from("profiles")
     .select("organization_id, role, organizations(account_type)")
     .eq("id", user.id)

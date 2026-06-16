@@ -126,7 +126,7 @@ export async function requireOrganizationId(): Promise<string> {
     throw new Error("Sesión no válida");
   }
 
-  let { data: profile } = await supabase
+  const { data: profile } = await supabase
     .from("profiles")
     .select("organization_id, organizations(account_type)")
     .eq("id", user.id)
