@@ -93,6 +93,7 @@ export async function addBusinessToMyHoldingAction(input: {
         name: businessName,
         status: "active",
         account_type: "founder",
+        skip_onboarding: true,
       })
       .select("id")
       .single();

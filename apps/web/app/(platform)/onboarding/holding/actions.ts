@@ -147,6 +147,7 @@ export async function completeHoldingOnboardingAction(data: {
         name: business.name,
         status: "active",
         account_type: "founder",
+        skip_onboarding: true,
       })
       .select("id")
       .single();

@@ -23,17 +23,23 @@ type OnboardingRow = {
   completed_at: string;
 };
 
-async function readAccountType(
+async function readOrganizationOnboardingContext(
   supabase: Awaited<ReturnType<typeof createClient>>,
   organizationId: string
-): Promise<"founder" | "holding"> {
+): Promise<{
+  accountType: "founder" | "holding";
+  skipOnboarding: boolean;
+}> {
   const { data } = await supabase
     .from("organizations")
-    .select("account_type")
+    .select("account_type, skip_onboarding")
     .eq("id", organizationId)
     .maybeSingle();
 
-  return data?.account_type === "holding" ? "holding" : "founder";
+  return {
+    accountType: data?.account_type === "holding" ? "holding" : "founder",
+    skipOnboarding: Boolean(data?.skip_onboarding),
+  };
 }
 
 export async function getOnboardingStatusAction(): Promise<OnboardingStatus> {
@@ -64,8 +70,18 @@ export async function getOnboardingStatusAction(): Promise<OnboardingStatus> {
     }
 
     const organizationId = await requireOrganizationId();
-    const accountType = await readAccountType(supabase, organizationId);
+    const { accountType, skipOnboarding } =
+      await readOrganizationOnboardingContext(supabase, organizationId);
     const onboardingPath = resolveOnboardingPath(accountType);
+
+    if (skipOnboarding) {
+      return {
+        completed: true,
+        data: null,
+        accountType,
+        onboardingPath,
+      };
+    }
 
     const { data, error } = await supabase
       .from("onboarding_responses")
