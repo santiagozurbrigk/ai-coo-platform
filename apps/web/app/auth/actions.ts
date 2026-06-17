@@ -60,7 +60,27 @@ async function postAuthRedirect() {
 
     const status = await getOnboardingStatusAction();
     if (!status.completed) {
-      redirect(paths.auth.onboarding);
+      redirect(status.onboardingPath);
+    }
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organizations(account_type)")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const orgField = profile?.organizations as
+        | { account_type?: string }
+        | { account_type?: string }[]
+        | null;
+      const accountType = Array.isArray(orgField)
+        ? orgField[0]?.account_type
+        : orgField?.account_type;
+
+      if (accountType === "holding") {
+        redirect(paths.platform.holding);
+      }
     }
   }
   redirect(paths.platform.dashboard);

@@ -63,6 +63,23 @@ function isForcePasswordChangePath(pathname: string): boolean {
   );
 }
 
+async function resolveHoldingHomePath(
+  admin: ReturnType<typeof createAdminClient>,
+  holdingOrgId: string
+): Promise<string> {
+  const { data } = await admin
+    .from("onboarding_responses")
+    .select("completed_at")
+    .eq("organization_id", holdingOrgId)
+    .maybeSingle();
+
+  if (!data?.completed_at) {
+    return paths.platform.holdingOnboarding;
+  }
+
+  return paths.platform.holding;
+}
+
 export async function updateSession(request: NextRequest) {
   if (!isSupabaseConfigured()) {
     return NextResponse.next({ request });
@@ -153,10 +170,14 @@ export async function updateSession(request: NextRequest) {
         request.cookies.get(ACTIVE_ORG_COOKIE)?.value
       );
 
-      url.pathname =
-        accountType === "holding" && !hasActiveBusiness
-          ? paths.platform.holding
-          : paths.platform.dashboard;
+      if (accountType === "holding" && !hasActiveBusiness && profile?.organization_id) {
+        url.pathname = await resolveHoldingHomePath(
+          admin,
+          profile.organization_id
+        );
+      } else {
+        url.pathname = paths.platform.dashboard;
+      }
     }
     return NextResponse.redirect(url);
   }
@@ -181,9 +202,12 @@ export async function updateSession(request: NextRequest) {
       ? orgField[0]?.account_type
       : orgField?.account_type;
 
-    if (accountType === "holding") {
+    if (accountType === "holding" && profile?.organization_id) {
       const url = request.nextUrl.clone();
-      url.pathname = paths.platform.holding;
+      url.pathname = await resolveHoldingHomePath(
+        admin,
+        profile.organization_id
+      );
       return NextResponse.redirect(url);
     }
   }

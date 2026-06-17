@@ -5,6 +5,7 @@ import {
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
 import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
+import { resolveOnboardingPath } from "@/lib/onboarding/resolve-onboarding-path";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { OnboardingData } from "@/types/onboarding";
@@ -12,6 +13,8 @@ import type { OnboardingData } from "@/types/onboarding";
 export type OnboardingStatus = {
   completed: boolean;
   data: OnboardingData | null;
+  accountType: "founder" | "holding" | null;
+  onboardingPath: string;
 };
 
 type OnboardingRow = {
@@ -20,9 +23,29 @@ type OnboardingRow = {
   completed_at: string;
 };
 
+async function readAccountType(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string
+): Promise<"founder" | "holding"> {
+  const { data } = await supabase
+    .from("organizations")
+    .select("account_type")
+    .eq("id", organizationId)
+    .maybeSingle();
+
+  return data?.account_type === "holding" ? "holding" : "founder";
+}
+
 export async function getOnboardingStatusAction(): Promise<OnboardingStatus> {
+  const defaultFounderPath = resolveOnboardingPath("founder");
+
   if (!isSupabaseConfigured()) {
-    return { completed: false, data: null };
+    return {
+      completed: false,
+      data: null,
+      accountType: null,
+      onboardingPath: defaultFounderPath,
+    };
   }
 
   try {
@@ -32,10 +55,17 @@ export async function getOnboardingStatusAction(): Promise<OnboardingStatus> {
     } = await supabase.auth.getUser();
 
     if (user?.email && (await isSuperAdminEmail(user.email))) {
-      return { completed: true, data: null };
+      return {
+        completed: true,
+        data: null,
+        accountType: null,
+        onboardingPath: defaultFounderPath,
+      };
     }
 
     const organizationId = await requireOrganizationId();
+    const accountType = await readAccountType(supabase, organizationId);
+    const onboardingPath = resolveOnboardingPath(accountType);
 
     const { data, error } = await supabase
       .from("onboarding_responses")
@@ -49,19 +79,36 @@ export async function getOnboardingStatusAction(): Promise<OnboardingStatus> {
           "[onboarding] Ejecuta supabase/migrations/20260521400000_onboarding_responses.sql"
         );
       }
-      return { completed: false, data: null };
+      return {
+        completed: false,
+        data: null,
+        accountType,
+        onboardingPath,
+      };
     }
 
     if (!data?.completed_at) {
-      return { completed: false, data: null };
+      return {
+        completed: false,
+        data: null,
+        accountType,
+        onboardingPath,
+      };
     }
 
     return {
       completed: true,
       data: (data as OnboardingRow).data,
+      accountType,
+      onboardingPath,
     };
   } catch {
-    return { completed: false, data: null };
+    return {
+      completed: false,
+      data: null,
+      accountType: null,
+      onboardingPath: defaultFounderPath,
+    };
   }
 }
 

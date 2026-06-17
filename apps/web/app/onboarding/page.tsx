@@ -21,6 +21,10 @@ export default function OnboardingPage() {
     }
 
     void fetchOnboardingStatus().then((status) => {
+      if (status.accountType === "holding") {
+        router.replace(paths.platform.holdingOnboarding);
+        return;
+      }
       if (status.completed) {
         router.replace(paths.platform.dashboard);
       } else {

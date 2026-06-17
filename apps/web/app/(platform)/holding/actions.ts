@@ -5,6 +5,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { generateTempPassword } from "@/lib/auth/generate-temp-password";
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
+import {
+  computeHoldingRevenue,
+  type HoldingBillingModel,
+} from "@/lib/holding/billing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
@@ -21,37 +25,66 @@ async function requireHoldingProfile() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("organization_id, organizations(account_type)")
+    .select("organization_id, organizations(account_type, holding_billing_model)")
     .eq("id", user.id)
     .single();
 
   if (!profile?.organization_id) throw new Error("Sin perfil");
 
-  const org = profile.organizations as { account_type?: string } | null;
+  const org = profile.organizations as {
+    account_type?: string;
+    holding_billing_model?: HoldingBillingModel | null;
+  } | null;
   if (org?.account_type !== "holding") {
     throw new Error("No sos dueño de un holding");
   }
 
-  return { holdingOrgId: profile.organization_id, userId: user.id };
+  return {
+    holdingOrgId: profile.organization_id,
+    userId: user.id,
+    billingModel: org.holding_billing_model ?? null,
+  };
 }
 
 export async function addBusinessToMyHoldingAction(input: {
   businessName: string;
-  revenueSharePct: number;
+  revenueSharePct?: number;
+  fixedFeeAmount?: number;
+  fixedFeeCurrency?: string;
   founderEmail?: string;
 }): Promise<
   MutationResult<{ orgId: string; tempCredentials?: TempCredentials }>
 > {
   return runMutation(async () => {
-    const { holdingOrgId } = await requireHoldingProfile();
+    const { holdingOrgId, billingModel } = await requireHoldingProfile();
     const admin = createAdminClient();
 
     const businessName = input.businessName.trim();
     if (!businessName) throw new Error("El nombre del negocio es obligatorio.");
 
-    const revenueSharePct = Number(input.revenueSharePct);
-    if (Number.isNaN(revenueSharePct) || revenueSharePct < 0 || revenueSharePct > 100) {
-      throw new Error("El % de revenue share debe estar entre 0 y 100.");
+    if (!billingModel) {
+      throw new Error(
+        "Completá el onboarding del holding antes de agregar negocios"
+      );
+    }
+
+    let revenueSharePct: number | null = null;
+    let fixedFeeAmount: number | null = null;
+    let fixedFeeCurrency: string | null = null;
+
+    if (billingModel === "revenue_share") {
+      const pct = Number(input.revenueSharePct);
+      if (Number.isNaN(pct) || pct < 0 || pct > 100) {
+        throw new Error("El % de revenue share debe estar entre 0 y 100.");
+      }
+      revenueSharePct = pct;
+    } else {
+      const amount = Number(input.fixedFeeAmount);
+      if (Number.isNaN(amount) || amount <= 0) {
+        throw new Error("El monto fijo debe ser mayor a 0.");
+      }
+      fixedFeeAmount = amount;
+      fixedFeeCurrency = input.fixedFeeCurrency?.trim() || "USD";
     }
 
     const { data: newOrg, error: orgError } = await admin
@@ -73,6 +106,8 @@ export async function addBusinessToMyHoldingAction(input: {
       business_org_id: newOrg.id,
       business_name: businessName,
       revenue_share_pct: revenueSharePct,
+      fixed_fee_amount: fixedFeeAmount,
+      fixed_fee_currency: fixedFeeCurrency,
       status: "active",
     });
 
@@ -126,7 +161,7 @@ export async function addBusinessToMyHoldingAction(input: {
 }
 
 export async function getHoldingDashboardAction() {
-  const { holdingOrgId } = await requireHoldingProfile();
+  const { holdingOrgId, billingModel } = await requireHoldingProfile();
   const adminClient = createAdminClient();
   const businesses = await getHoldingBusinesses(holdingOrgId);
   const thirtyDaysAgo = new Date(
@@ -172,8 +207,12 @@ export async function getHoldingDashboardAction() {
           0
         ) ?? 0;
 
-      const sharePct = Number(b.revenue_share_pct ?? 0);
-      const holdingRevenue = sharePct > 0 ? mrr * (sharePct / 100) : 0;
+      const holdingRevenue = computeHoldingRevenue({
+        billingModel,
+        mrr,
+        revenueSharePct: b.revenue_share_pct,
+        fixedFeeAmount: b.fixed_fee_amount,
+      });
 
       return {
         ...b,
@@ -201,6 +240,7 @@ export async function getHoldingDashboardAction() {
   );
 
   return {
+    billingModel,
     businesses: businessesWithMetrics,
     kpis: {
       totalBusinesses: businesses.length,

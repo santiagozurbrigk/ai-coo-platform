@@ -8,6 +8,8 @@ export type HoldingBusinessRow = {
   id: string;
   business_name: string | null;
   revenue_share_pct: number | null;
+  fixed_fee_amount: number | null;
+  fixed_fee_currency: string | null;
   status: string;
   business_org: {
     id: string;
@@ -86,6 +88,8 @@ export async function getHoldingBusinesses(
       id,
       business_name,
       revenue_share_pct,
+      fixed_fee_amount,
+      fixed_fee_currency,
       status,
       business_org:organizations!holding_businesses_business_org_id_fkey(
         id, name, industry, status
@@ -105,6 +109,8 @@ export async function getHoldingBusinesses(
     id: row.id as string,
     business_name: row.business_name as string | null,
     revenue_share_pct: row.revenue_share_pct as number | null,
+    fixed_fee_amount: row.fixed_fee_amount as number | null,
+    fixed_fee_currency: row.fixed_fee_currency as string | null,
     status: row.status as string,
     business_org: normalizeOrgEmbed(
       row.business_org as OrgEmbed | OrgEmbed[] | null

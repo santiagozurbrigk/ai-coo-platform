@@ -116,6 +116,7 @@ export const paths = {
 
     settings: `${PLATFORM}/settings`,
     holding: `${PLATFORM}/holding`,
+    holdingOnboarding: `${PLATFORM}/onboarding/holding`,
   },
 
   founder: {

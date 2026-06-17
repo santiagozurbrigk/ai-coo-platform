@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, MetricCard } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
 import { formatUsd } from "@/lib/super-admin/org-metrics";
+import { formatFixedFee } from "@/lib/holding/billing";
 import { enterBusinessAction } from "@/app/(platform)/holding/actions";
 import type { getHoldingDashboardAction } from "@/app/(platform)/holding/actions";
 import { AddBusinessModal } from "@/components/holding/add-business-modal";
@@ -12,6 +13,44 @@ import { AddBusinessModal } from "@/components/holding/add-business-modal";
 type HoldingDashboardData = Awaited<
   ReturnType<typeof getHoldingDashboardAction>
 >;
+
+function businessSubtitle(
+  data: HoldingDashboardData,
+  business: HoldingDashboardData["businesses"][number]
+): string {
+  const name = business.business_name ?? business.business_org?.name ?? "Negocio";
+  void name;
+
+  if (data.billingModel === "fixed_fee") {
+    const fee = formatFixedFee(
+      Number(business.fixed_fee_amount ?? 0),
+      business.fixed_fee_currency
+    );
+    return `Tarifa fija: ${fee}`;
+  }
+
+  const share = business.revenue_share_pct
+    ? `${business.revenue_share_pct}%`
+    : "—";
+  return business.business_org?.industry
+    ? `${business.business_org.industry} · ${share} revenue share`
+    : `Revenue share: ${share}`;
+}
+
+function holdingRevenueLabel(
+  data: HoldingDashboardData,
+  business: HoldingDashboardData["businesses"][number]
+): string {
+  if (data.billingModel === "fixed_fee") {
+    return formatFixedFee(
+      business.metrics.holdingRevenue,
+      business.fixed_fee_currency
+    );
+  }
+
+  const share = business.revenue_share_pct ?? 0;
+  return `${formatUsd(business.metrics.holdingRevenue)} (${share}% de ${formatUsd(business.metrics.mrr)} MRR)`;
+}
 
 export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }) {
   const router = useRouter();
@@ -74,19 +113,12 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
           {businesses.map((b) => {
             const orgId = b.business_org?.id;
             const name = b.business_name ?? b.business_org?.name ?? "Negocio";
-            const share = b.revenue_share_pct
-              ? `${b.revenue_share_pct}%`
-              : "—";
 
             return (
               <Panel
                 key={b.id}
                 title={name}
-                subtitle={
-                  b.business_org?.industry
-                    ? `${b.business_org.industry} · ${share} revenue share`
-                    : `Revenue share: ${share}`
-                }
+                subtitle={businessSubtitle(data, b)}
                 contentClassName="space-y-4"
               >
                 <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -100,8 +132,8 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
                     <dt className="text-xs text-muted-foreground">
                       Mi revenue
                     </dt>
-                    <dd className="font-medium tabular-nums">
-                      {formatUsd(b.metrics.holdingRevenue)}
+                    <dd className="font-medium tabular-nums text-xs sm:text-sm">
+                      {holdingRevenueLabel(data, b)}
                     </dd>
                   </div>
                   <div className="col-span-2">
@@ -132,6 +164,7 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
       <AddBusinessModal
         open={modalOpen}
         onOpenChange={setModalOpen}
+        billingModel={data.billingModel}
         onSuccess={() => router.refresh()}
       />
     </div>

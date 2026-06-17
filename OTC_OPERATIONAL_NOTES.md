@@ -1009,8 +1009,37 @@ Founder de un negocio dentro del holding:
 
 **Agregar negocio con founder:**
 - Se crea la org + usuario en Supabase Auth
-- El founder recibe email de bienvenida con contraseña temporal (Resend)
+- El dueño del holding copia las credenciales temporales y las comparte manualmente
 - El founder entra normalmente y ve solo su negocio
+
+---
+
+### Onboarding — Holding
+
+**Diferencia con onboarding de founder:**
+El onboarding de un usuario holding NO pasa por configuración de
+producto, avatar o integraciones. Eso se hace en la call de
+onboarding manual con el founder de OTC.
+
+**Flujo:**
+1. Paso 1 — Elegir modelo de cobro global: % de revenue o tarifa fija
+2. Paso 2 — Agregar negocios (lista abierta, sin límite):
+   - Nombre del negocio
+   - Monto según el modelo elegido (% o tarifa fija + moneda)
+3. Al finalizar → crea las organizaciones + holding_businesses
+   (sin founder todavía — se agrega después desde /holding)
+4. Redirige a /holding
+
+**Campo:** organizations.holding_billing_model
+('revenue_share' | 'fixed_fee') — aplica a todos los negocios
+del holding, definido una sola vez en el onboarding.
+
+**Instagram y demás integraciones por negocio:**
+Cada negocio (organization) dentro de un holding tiene sus propias
+filas en instagram_integrations, manychat_integrations, etc.
+No hay límite — cada negocio conecta su propio Instagram de forma
+independiente, igual que un founder normal. Son completamente
+aislados entre sí por organization_id.
 
 ---
 

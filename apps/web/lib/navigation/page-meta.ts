@@ -7,6 +7,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Configuración inicial",
     subtitle: "Contexto de negocio para personalizar la IA",
   },
+  "/onboarding/holding": {
+    title: "Onboarding del holding",
+    subtitle: "Modelo de cobro y negocios del portfolio",
+  },
   "/superadmin/login": {
     title: "Super Admin",
     subtitle: "Acceso interno restringido",
