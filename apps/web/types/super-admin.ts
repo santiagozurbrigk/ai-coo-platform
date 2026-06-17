@@ -229,6 +229,10 @@ export type CreateFounderResult = {
   password: string;
   emailSent: boolean;
   emailError?: string;
+  tempCredentials: {
+    email: string;
+    tempPassword: string;
+  };
 };
 
 /** @deprecated */

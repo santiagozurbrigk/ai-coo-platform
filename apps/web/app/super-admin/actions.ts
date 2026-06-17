@@ -5,7 +5,8 @@ import { isAllowedBrainFile } from "@/lib/ai-brain/file-types";
 import { AI_BRAIN_BUCKET, uiContentTypeToDb } from "@/lib/ai-brain/mapper";
 import { requireSuperAdmin } from "@/lib/auth/require-super-admin";
 import { isMissingTableError } from "@/lib/auth/bootstrap";
-import { sendWelcomeEmail } from "@/lib/email";
+import { generateTempPassword } from "@/lib/auth/generate-temp-password";
+import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import type { BrainContentType } from "@/types/ai-brain";
@@ -49,16 +50,6 @@ const REVALIDATE_ORGS = [
   paths.superAdmin.users,
   paths.superAdmin.holding,
 ];
-
-function generateTempPassword(length = 12): string {
-  const chars =
-    "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$";
-  let out = "";
-  for (let i = 0; i < length; i++) {
-    out += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return out;
-}
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
@@ -123,6 +114,7 @@ export async function createFounderAccountAction(input: {
       email,
       full_name: founderName,
       role: "founder",
+      must_change_password: true,
     });
 
     if (profileError) {
@@ -131,13 +123,6 @@ export async function createFounderAccountAction(input: {
       throw new Error(profileError.message);
     }
 
-    const emailResult = await sendWelcomeEmail({
-      to: email,
-      name: founderName,
-      email,
-      password,
-    });
-
     revalidateSuperAdmin();
 
     return {
@@ -145,8 +130,8 @@ export async function createFounderAccountAction(input: {
       organizationName: orgName,
       email,
       password,
-      emailSent: emailResult.ok,
-      emailError: emailResult.error,
+      emailSent: false,
+      tempCredentials: { email, tempPassword: password },
     };
   });
 }
@@ -155,7 +140,7 @@ export async function createOrganizationFromHoldingAction(input: {
   name: string;
   founderEmail: string;
   plan?: "basic" | "pro";
-}): Promise<MutationResult<{ orgId: string }>> {
+}): Promise<MutationResult<{ orgId: string; tempCredentials: TempCredentials }>> {
   return runMutation(async () => {
     await requireSuperAdmin();
 
@@ -201,6 +186,7 @@ export async function createOrganizationFromHoldingAction(input: {
       email,
       full_name: "Founder",
       role: "founder",
+      must_change_password: true,
     });
 
     if (profileError) {
@@ -236,16 +222,12 @@ export async function createOrganizationFromHoldingAction(input: {
       }
     }
 
-    await sendWelcomeEmail({
-      to: email,
-      name: "Founder",
-      email,
-      password,
-    });
-
     revalidateSuperAdmin();
 
-    return { orgId: org.id };
+    return {
+      orgId: org.id,
+      tempCredentials: { email, tempPassword: password },
+    };
   });
 }
 
@@ -522,7 +504,7 @@ export async function getAiBrainSignedUrlAction(
 export async function createHoldingOrgAction(input: {
   name: string;
   founderEmail: string;
-}): Promise<MutationResult<{ orgId: string }>> {
+}): Promise<MutationResult<{ orgId: string; tempCredentials: TempCredentials }>> {
   return runMutation(async () => {
     await requireSuperAdmin();
 
@@ -572,6 +554,7 @@ export async function createHoldingOrgAction(input: {
       full_name: "Holding Admin",
       role: "founder",
       is_holding_admin: true,
+      must_change_password: true,
     });
 
     if (profileError) {
@@ -580,16 +563,12 @@ export async function createHoldingOrgAction(input: {
       throw new Error(profileError.message);
     }
 
-    await sendWelcomeEmail({
-      to: email,
-      name: "Holding Admin",
-      email,
-      password,
-    });
-
     revalidateSuperAdmin();
     revalidatePath(paths.superAdmin.organizations);
 
-    return { orgId: org.id };
+    return {
+      orgId: org.id,
+      tempCredentials: { email, tempPassword: password },
+    };
   });
 }

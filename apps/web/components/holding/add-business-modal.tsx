@@ -11,6 +11,8 @@ import {
   Label,
 } from "@ai-coo/ui";
 import { addBusinessToMyHoldingAction } from "@/app/(platform)/holding/actions";
+import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
+import type { TempCredentials } from "@/lib/auth/temp-credentials";
 
 type AddBusinessModalProps = {
   open: boolean;
@@ -28,6 +30,9 @@ export function AddBusinessModal({
   const [createFounder, setCreateFounder] = useState(false);
   const [founderEmail, setFounderEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [tempCredentials, setTempCredentials] = useState<TempCredentials | null>(
+    null
+  );
   const [pending, startTransition] = useTransition();
 
   function resetForm() {
@@ -58,11 +63,15 @@ export function AddBusinessModal({
         return;
       }
       handleOpenChange(false);
+      if (res.data.tempCredentials) {
+        setTempCredentials(res.data.tempCredentials);
+      }
       onSuccess?.();
     });
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -139,11 +148,20 @@ export function AddBusinessModal({
           </Button>
 
           <p className="text-xs text-muted-foreground">
-            Si creás el usuario del founder, recibirá un email con credenciales
-            temporales para acceder al software.
+            Si creás el usuario del founder, copiá las credenciales temporales
+            y compartilas manualmente. Deberá cambiar la contraseña al ingresar.
           </p>
         </form>
       </DialogContent>
     </Dialog>
+    {tempCredentials && (
+      <TempCredentialsDialog
+        open
+        onClose={() => setTempCredentials(null)}
+        email={tempCredentials.email}
+        tempPassword={tempCredentials.tempPassword}
+      />
+    )}
+  </>
   );
 }

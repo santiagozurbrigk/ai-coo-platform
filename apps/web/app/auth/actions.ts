@@ -42,6 +42,18 @@ async function postAuthRedirect() {
       data: { user },
     } = await supabase.auth.getUser();
 
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("must_change_password")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profile?.must_change_password) {
+        redirect(paths.auth.forcePasswordChange);
+      }
+    }
+
     if (user?.email && (await isSuperAdminEmail(user.email))) {
       redirect(paths.superAdmin.organizations);
     }
@@ -150,6 +162,16 @@ export async function signInSuperAdminAction(
       error:
         e instanceof Error ? e.message : "No se pudo inicializar tu perfil.",
     };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("must_change_password")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profile?.must_change_password) {
+    redirect(paths.auth.forcePasswordChange);
   }
 
   redirect(paths.superAdmin.organizations);

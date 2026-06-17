@@ -13,8 +13,9 @@ import {
   Input,
 } from "@ai-coo/ui";
 import { inviteTeamMemberAction } from "@/app/team/actions";
+import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
 import { USER_ROLES } from "@/constants/roles";
-import { useToast } from "@/providers/toast-provider";
+import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import type { CustomRole } from "@/types/team";
 import type { UserRole } from "@ai-coo/types";
 
@@ -30,17 +31,21 @@ export function TeamInviteModal({
 }) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<UserRole>("viewer");
   const [customRoleId, setCustomRoleId] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const { push } = useToast();
+  const [tempCredentials, setTempCredentials] = useState<TempCredentials | null>(
+    null
+  );
 
   const handleInvite = () => {
     setError(null);
     startTransition(async () => {
       const result = await inviteTeamMemberAction({
         email,
+        fullName,
         role,
         customRoleId: customRoleId || undefined,
       });
@@ -50,14 +55,11 @@ export function TeamInviteModal({
         return;
       }
 
-      push({
-        title: "Invitación enviada",
-        description: `Se envió la invitación a ${email.trim()}`,
-        variant: "success",
-      });
       setOpen(false);
       setEmail("");
+      setFullName("");
       setCustomRoleId("");
+      setTempCredentials(result.data.tempCredentials);
       onInvited();
     });
   };
@@ -78,11 +80,21 @@ export function TeamInviteModal({
           <DialogHeader>
             <DialogTitle>Invitar miembro</DialogTitle>
             <DialogDescription>
-              Enviá una invitación por email. El link expira en 7 días.
+              Se crea el usuario con contraseña temporal. Compartí las
+              credenciales manualmente.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            <FormField label="Nombre" required>
+              <Input
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Nombre del miembro"
+                disabled={pending}
+              />
+            </FormField>
+
             <FormField label="Email" required>
               <Input
                 type="email"
@@ -132,14 +144,27 @@ export function TeamInviteModal({
           <DialogFooter>
             <Button
               type="button"
-              disabled={pending || !email.trim().includes("@")}
+              disabled={
+                pending ||
+                !email.trim().includes("@") ||
+                !fullName.trim()
+              }
               onClick={handleInvite}
             >
-              {pending ? "Enviando…" : "Enviar invitación"}
+              {pending ? "Creando…" : "Crear usuario"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {tempCredentials && (
+        <TempCredentialsDialog
+          open
+          onClose={() => setTempCredentials(null)}
+          email={tempCredentials.email}
+          tempPassword={tempCredentials.tempPassword}
+        />
+      )}
     </>
   );
 }

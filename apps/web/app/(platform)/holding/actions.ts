@@ -3,23 +3,14 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { generateTempPassword } from "@/lib/auth/generate-temp-password";
+import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { sendWelcomeEmail } from "@/lib/email";
 import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
 import { getHoldingBusinesses } from "@/lib/holding/switch-org";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { paths } from "@/routes";
-
-function generateTempPassword(length = 12): string {
-  const chars =
-    "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$";
-  let out = "";
-  for (let i = 0; i < length; i++) {
-    out += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return out;
-}
 
 async function requireHoldingProfile() {
   const supabase = await createClient();
@@ -48,7 +39,9 @@ export async function addBusinessToMyHoldingAction(input: {
   businessName: string;
   revenueSharePct: number;
   founderEmail?: string;
-}): Promise<MutationResult<{ orgId: string }>> {
+}): Promise<
+  MutationResult<{ orgId: string; tempCredentials?: TempCredentials }>
+> {
   return runMutation(async () => {
     const { holdingOrgId } = await requireHoldingProfile();
     const admin = createAdminClient();
@@ -89,12 +82,14 @@ export async function addBusinessToMyHoldingAction(input: {
     }
 
     const founderEmail = input.founderEmail?.trim().toLowerCase();
+    let tempCredentials: TempCredentials | undefined;
+
     if (founderEmail) {
-      const password = generateTempPassword();
+      const tempPassword = generateTempPassword();
       const { data: authUser, error: authError } =
         await admin.auth.admin.createUser({
           email: founderEmail,
-          password,
+          password: tempPassword,
           email_confirm: true,
           user_metadata: { full_name: "Founder" },
         });
@@ -111,6 +106,7 @@ export async function addBusinessToMyHoldingAction(input: {
         full_name: "Founder",
         role: "founder",
         organization_id: newOrg.id,
+        must_change_password: true,
       });
 
       if (profileError) {
@@ -119,19 +115,13 @@ export async function addBusinessToMyHoldingAction(input: {
       }
 
       void admin.rpc("create_default_roles", { org_id: newOrg.id });
-
-      await sendWelcomeEmail({
-        to: founderEmail,
-        name: "Founder",
-        email: founderEmail,
-        password,
-      });
+      tempCredentials = { email: founderEmail, tempPassword };
     }
 
     revalidatePath(paths.platform.holding);
     revalidatePath("/", "layout");
 
-    return { orgId: newOrg.id };
+    return { orgId: newOrg.id, tempCredentials };
   });
 }
 

@@ -1014,4 +1014,31 @@ Founder de un negocio dentro del holding:
 
 ---
 
+### Contraseñas temporales — Flujo de creación de usuarios
+
+**Reemplaza el flujo de recovery de Supabase** (que daba problemas
+con hash fragments) para TODA creación de usuario nuevo:
+- Founders creados desde Super Admin
+- Holdings creados desde Super Admin
+- Founders creados por el dueño de un Holding
+- Miembros de equipo invitados (Team)
+
+**Flujo:**
+1. Al crear el usuario → se genera contraseña temporal random (12 caracteres)
+2. Se muestra en un modal: email + contraseña temporal + botón copiar
+3. Quien creó el usuario comparte las credenciales manualmente
+   (WhatsApp, email, en persona, etc.)
+4. El usuario entra a OTC con esas credenciales
+5. Es redirigido automáticamente a /auth/force-password-change
+6. No puede acceder a ninguna otra parte del software hasta cambiarla
+7. Una vez cambiada → profiles.must_change_password = false
+8. Accede normalmente al software
+
+**Campo:** profiles.must_change_password (boolean, default false)
+
+**Generador:** lib/auth/generate-temp-password.ts
+12 caracteres alfanuméricos sin caracteres ambiguos (0/O, 1/l/I)
+
+---
+
 *Actualizar este documento cuando cambien umbrales, crons, integraciones o pipelines de IA.*

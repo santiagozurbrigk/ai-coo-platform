@@ -56,6 +56,13 @@ function isPublicPath(pathname: string): boolean {
   );
 }
 
+function isForcePasswordChangePath(pathname: string): boolean {
+  return (
+    pathname === paths.auth.forcePasswordChange ||
+    pathname.startsWith(`${paths.auth.forcePasswordChange}/`)
+  );
+}
+
 export async function updateSession(request: NextRequest) {
   if (!isSupabaseConfigured()) {
     return NextResponse.next({ request });
@@ -66,6 +73,8 @@ export async function updateSession(request: NextRequest) {
   if (activeOrg) {
     requestHeaders.set("x-active-org-id", activeOrg);
   }
+  const { pathname } = request.nextUrl;
+  requestHeaders.set("x-pathname", pathname);
   const forwardedRequest = { headers: requestHeaders };
 
   let supabaseResponse = NextResponse.next({ request: forwardedRequest });
@@ -91,7 +100,26 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = request.nextUrl;
+  if (user) {
+    const admin = createAdminClient();
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("must_change_password")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (
+      profile?.must_change_password &&
+      !isForcePasswordChangePath(pathname)
+    ) {
+      if (isServerActionRequest(request)) {
+        return supabaseResponse;
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = paths.auth.forcePasswordChange;
+      return NextResponse.redirect(url);
+    }
+  }
 
   if (!user && !isPublicPath(pathname)) {
     if (isServerActionRequest(request)) {

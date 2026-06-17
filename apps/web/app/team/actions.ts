@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Resend } from "resend";
 import {
   getCurrentProfile,
   isMissingTableError,
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
+import { generateTempPassword } from "@/lib/auth/generate-temp-password";
+import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import {
   permissionsToRow,
   rowToCustomRole,
@@ -192,18 +193,20 @@ export async function getTeamPageContextAction(): Promise<{
 
 export async function inviteTeamMemberAction(data: {
   email: string;
+  fullName: string;
   role: UserRole;
   customRoleId?: string;
-}): Promise<MutationResult<{ inviteUrl: string }>> {
+}): Promise<MutationResult<{ tempCredentials: TempCredentials }>> {
   return runMutation(async () => {
     const profile = await requireManagerProfile();
     const organizationId = profile.organization_id;
-    const supabase = await createClient();
+    const admin = createAdminClient();
 
     const email = data.email.trim().toLowerCase();
+    const fullName = data.fullName.trim() || email.split("@")[0] || "Miembro";
     if (!email.includes("@")) throw new Error("Email inválido");
 
-    const { data: existing } = await supabase
+    const { data: existing } = await admin
       .from("profiles")
       .select("id")
       .eq("organization_id", organizationId)
@@ -214,67 +217,45 @@ export async function inviteTeamMemberAction(data: {
       throw new Error("Este email ya es miembro de la organización");
     }
 
-    const { data: invitation, error } = await supabase
-      .from("team_invitations")
-      .upsert(
-        {
-          organization_id: organizationId,
-          email,
-          role: data.role,
-          custom_role_id: data.customRoleId ?? null,
-          invited_by: profile.id,
-          status: "pending",
-          expires_at: new Date(
-            Date.now() + 7 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-        },
-        { onConflict: "organization_id,email" }
-      )
-      .select("token")
-      .single();
+    const tempPassword = generateTempPassword();
 
-    if (error) throw new Error(error.message);
-
-    const { data: org } = await supabase
-      .from("organizations")
-      .select("name")
-      .eq("id", organizationId)
-      .maybeSingle();
-
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
-      "http://localhost:3000";
-    const inviteUrl = `${baseUrl}/invite?token=${invitation.token}`;
-
-    if (process.env.RESEND_API_KEY) {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      await resend.emails.send({
-        from:
-          process.env.RESEND_FROM_EMAIL ?? "noreply@optimizatucontrol.com",
-        to: email,
-        subject: `Te invitaron a unirte a ${org?.name ?? "OTC"} en Optimiza Tu Control`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto;">
-            <h2>Fuiste invitado a ${org?.name ?? "un equipo"}</h2>
-            <p>${profile.full_name ?? "Un miembro del equipo"} te invitó a unirte
-               como <strong>${data.role}</strong> en Optimiza Tu Control.</p>
-            <p>
-              <a href="${inviteUrl}"
-                 style="background:#7C3AED;color:white;padding:12px 24px;
-                        border-radius:8px;text-decoration:none;display:inline-block;">
-                Aceptar invitación
-              </a>
-            </p>
-            <p style="color:#666;font-size:12px;">
-              Este link expira en 7 días.
-            </p>
-          </div>
-        `,
+    const { data: authUser, error: createError } =
+      await admin.auth.admin.createUser({
+        email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: { full_name: fullName },
       });
+
+    if (createError || !authUser.user) {
+      if (
+        createError?.message.toLowerCase().includes("already") ||
+        createError?.message.toLowerCase().includes("registered")
+      ) {
+        throw new Error("Ya existe una cuenta con este email");
+      }
+      throw new Error(createError?.message ?? "Error creando usuario");
+    }
+
+    const { error: profileError } = await admin.from("profiles").insert({
+      id: authUser.user.id,
+      organization_id: organizationId,
+      email,
+      full_name: fullName,
+      role: data.role,
+      custom_role_id: data.customRoleId ?? null,
+      invited_by: profile.id,
+      is_active: true,
+      must_change_password: true,
+    });
+
+    if (profileError) {
+      await admin.auth.admin.deleteUser(authUser.user.id);
+      throw new Error(profileError.message);
     }
 
     revalidateTeam();
-    return { inviteUrl };
+    return { tempCredentials: { email, tempPassword } };
   });
 }
 

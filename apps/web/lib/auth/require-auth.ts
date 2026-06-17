@@ -1,4 +1,6 @@
 import type { User } from "@supabase/supabase-js";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { ensureUserBootstrap } from "@/lib/auth/bootstrap";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -7,6 +9,7 @@ import {
   resolveEffectiveOrganizationId,
 } from "@/lib/holding/resolve-org";
 import { createClient } from "@/lib/supabase/server";
+import { paths } from "@/routes";
 
 export type AuthContext = {
   user: User;
@@ -37,7 +40,7 @@ async function resolveAuthContext(): Promise<AuthSuccess | AuthFailure> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("organization_id, role, organizations(account_type)")
+    .select("organization_id, role, must_change_password, organizations(account_type)")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -119,6 +122,22 @@ export async function requireAuthContext(): Promise<AuthContext> {
   if (!result.ok) {
     throw new Error("Unauthorized");
   }
+
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("must_change_password")
+    .eq("id", result.user.id)
+    .maybeSingle();
+
+  if (profile?.must_change_password) {
+    const headersList = await headers();
+    const pathname = headersList.get("x-pathname") ?? "";
+    if (!pathname.startsWith(paths.auth.forcePasswordChange)) {
+      redirect(paths.auth.forcePasswordChange);
+    }
+  }
+
   return {
     user: result.user,
     orgId: result.orgId,

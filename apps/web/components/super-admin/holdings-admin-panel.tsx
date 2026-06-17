@@ -16,12 +16,17 @@ import { paths } from "@/routes";
 import { formatUsd } from "@/lib/super-admin/org-metrics";
 import type { AdminHoldingRow } from "@/lib/super-admin/holdings-admin";
 import { createHoldingOrgAction } from "@/app/super-admin/actions";
+import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
+import type { TempCredentials } from "@/lib/auth/temp-credentials";
 
 function CreateHoldingDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [tempCredentials, setTempCredentials] = useState<TempCredentials | null>(
+    null
+  );
   const [pending, startTransition] = useTransition();
 
   function onSubmit(e: React.FormEvent) {
@@ -36,6 +41,7 @@ function CreateHoldingDialog() {
       setOpen(false);
       setName("");
       setEmail("");
+      setTempCredentials(res.data.tempCredentials);
     });
   }
 
@@ -76,6 +82,14 @@ function CreateHoldingDialog() {
           </form>
         </DialogContent>
       </Dialog>
+      {tempCredentials && (
+        <TempCredentialsDialog
+          open
+          onClose={() => setTempCredentials(null)}
+          email={tempCredentials.email}
+          tempPassword={tempCredentials.tempPassword}
+        />
+      )}
     </>
   );
 }
