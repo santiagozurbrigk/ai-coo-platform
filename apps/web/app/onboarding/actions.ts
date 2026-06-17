@@ -1,11 +1,13 @@
 "use server";
 
 import {
+  getCurrentProfile,
   isMissingTableError,
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
 import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
 import { resolveOnboardingPath } from "@/lib/onboarding/resolve-onboarding-path";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { OnboardingData } from "@/types/onboarding";
@@ -23,8 +25,12 @@ type OnboardingRow = {
   completed_at: string;
 };
 
+type OnboardingDbClient =
+  | Awaited<ReturnType<typeof createClient>>
+  | ReturnType<typeof createAdminClient>;
+
 async function readOrganizationOnboardingContext(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: OnboardingDbClient,
   organizationId: string
 ): Promise<{
   accountType: "founder" | "holding";
@@ -70,8 +76,17 @@ export async function getOnboardingStatusAction(): Promise<OnboardingStatus> {
     }
 
     const organizationId = await requireOrganizationId();
+    const profile = await getCurrentProfile();
+    const isViewingBusinessAsHolding = Boolean(
+      profile?.organization_id &&
+        organizationId !== profile.organization_id
+    );
+    const dbClient: OnboardingDbClient = isViewingBusinessAsHolding
+      ? createAdminClient()
+      : supabase;
+
     const { accountType, skipOnboarding } =
-      await readOrganizationOnboardingContext(supabase, organizationId);
+      await readOrganizationOnboardingContext(dbClient, organizationId);
     const onboardingPath = resolveOnboardingPath(accountType);
 
     if (skipOnboarding) {
@@ -83,7 +98,7 @@ export async function getOnboardingStatusAction(): Promise<OnboardingStatus> {
       };
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await dbClient
       .from("onboarding_responses")
       .select("data, completed_at")
       .eq("organization_id", organizationId)
