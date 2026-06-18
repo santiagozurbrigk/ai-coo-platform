@@ -10,6 +10,7 @@ import {
 } from "@/lib/ai/validate-claude-key";
 import { invalidateOrgKeyCache } from "@/lib/ai/anthropic";
 import { invalidateOrgContext } from "@/lib/ai/org-context";
+import { decrypt, encrypt, maskSecret } from "@/lib/security/encryption";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -317,6 +318,7 @@ export async function getClaudeApiKeyStatusAction(): Promise<ClaudeApiKeyStatus>
       };
     }
 
+    let keyPreview: string | null = null;
     const admin = createAdminClient();
     const { data: orgRow } = await admin
       .from("organizations")
@@ -324,7 +326,14 @@ export async function getClaudeApiKeyStatusAction(): Promise<ClaudeApiKeyStatus>
       .eq("id", organizationId)
       .maybeSingle();
 
-    const encrypted = orgRow?.claude_api_key_encrypted as string | null | undefined;
+    const stored = orgRow?.claude_api_key_encrypted as string | null | undefined;
+    if (stored) {
+      try {
+        keyPreview = maskSecret(decrypt(stored));
+      } catch {
+        keyPreview = "****";
+      }
+    }
 
     return {
       hasKey: true,
@@ -333,7 +342,7 @@ export async function getClaudeApiKeyStatusAction(): Promise<ClaudeApiKeyStatus>
         "none",
       lastValidated:
         (statusRow.claude_api_key_last_validated_at as string | null) ?? null,
-      keyPreview: encrypted ? `sk-ant-...${encrypted.slice(-8)}` : null,
+      keyPreview,
     };
   } catch {
     return {
@@ -347,25 +356,27 @@ export async function getClaudeApiKeyStatusAction(): Promise<ClaudeApiKeyStatus>
 
 export async function saveClaudeApiKeyAction(
   apiKey: string
-): Promise<MutationResult> {
+): Promise<MutationResult<{ maskedKey: string }>> {
   return runMutation(async () => {
     if (!isSupabaseConfigured()) {
       throw new Error("Supabase no configurado.");
     }
 
     const { orgId } = await requireAuthContext();
-    assertClaudeKeyFormat(apiKey);
+    const trimmed = apiKey.trim();
+    assertClaudeKeyFormat(trimmed);
 
-    const validation = await validateClaudeApiKey(apiKey);
+    const validation = await validateClaudeApiKey(trimmed);
     if (!validation.ok) {
       throw new Error(validationErrorMessage(validation.reason));
     }
 
+    const encryptedKey = encrypt(trimmed);
     const admin = createAdminClient();
     const { error } = await admin
       .from("organizations")
       .update({
-        claude_api_key_encrypted: apiKey.trim(),
+        claude_api_key_encrypted: encryptedKey,
         claude_api_key_status: "valid",
         claude_api_key_last_validated_at: new Date().toISOString(),
       })
@@ -376,7 +387,7 @@ export async function saveClaudeApiKeyAction(
     invalidateOrgKeyCache(orgId);
     invalidateOrgContext(orgId);
     revalidatePath(paths.platform.settings);
-    return undefined;
+    return { maskedKey: maskSecret(trimmed) };
   });
 }
 

@@ -40,9 +40,7 @@ export function ClaudeApiKeySettings({
         hasKey: true,
         status: "valid",
         lastValidated: new Date().toISOString(),
-        keyPreview: apiKey.trim()
-          ? `sk-ant-...${apiKey.trim().slice(-8)}`
-          : null,
+        keyPreview: result.data?.maskedKey ?? null,
       });
       push({
         title: "API key conectada",

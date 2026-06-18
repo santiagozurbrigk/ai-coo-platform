@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { decrypt } from "@/lib/security/encryption";
 import { trackTokenUsage } from "@/lib/track-token-usage";
 
 /** IDs de modelo para la API de Anthropic */
@@ -188,11 +189,22 @@ export async function getClientForOrg(
       data?.claude_api_key_encrypted &&
       data.claude_api_key_status === "valid"
     ) {
+      let apiKey: string;
+      try {
+        apiKey = decrypt(data.claude_api_key_encrypted);
+      } catch {
+        console.warn(
+          "[getClientForOrg] No se pudo descifrar BYOK key para org",
+          organizationId
+        );
+        return getGlobalClient();
+      }
+
       orgKeyCache.set(organizationId, {
-        key: data.claude_api_key_encrypted,
+        key: apiKey,
         cachedAt: Date.now(),
       });
-      return new Anthropic({ apiKey: data.claude_api_key_encrypted });
+      return new Anthropic({ apiKey });
     }
   } catch {
     // Fallback a key global

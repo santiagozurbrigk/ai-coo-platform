@@ -283,11 +283,39 @@ Se invalida automáticamente cuando cambia:
 - **Routing automático:** todos los pipelines de IA (análisis de llamadas, scoring de conversaciones, reportes semanales, SOPs, agente) usan automáticamente la key del cliente si está configurada.
 - **Fallback:** si la key del cliente falla o no está configurada, OTC usa la `ANTHROPIC_API_KEY` global como fallback.
 - **Cache:** la key se cachea en memoria por 5 minutos para no consultar DB en cada llamada de IA. Si el cliente cambia su key, el cache se invalida automáticamente.
-- **Seguridad:** la key se guarda en texto plano en DB por ahora. TODO Phase 2: encriptar con Supabase Vault o KMS.
-- **Preview seguro:** en la UI solo se muestran los últimos 8 caracteres de la key (`sk-ant-...XXXXXXXX`).
+- **Seguridad:** la key se cifra con AES-256-GCM (`ENCRYPTION_MASTER_KEY`) antes de guardar en DB; el rol `authenticated` no puede leer la columna `claude_api_key_encrypted` (ver migración `20260619100000_byok_real_encryption.sql`).
+- **Preview seguro:** en la UI solo se muestra un masked (`****` + últimos 4 caracteres); nunca la key completa ni el ciphertext.
 - **Recomendación para clientes:** el plan de $100/mes de Claude incluye suficiente capacidad de API para todo el uso de OTC. Es la opción recomendada para reducir costos del software.
 - **Vista Super Admin:** en `/super-admin/costs` aparece columna "Fuente IA": BYOK ✓ (verde) vs OTC Key (gris) por organización.
 - **Migración:** `20260615400000_byok_claude.sql` — columnas en `organizations` + vista `organization_claude_status`.
+
+### Seguridad — Cifrado de BYOK Claude API keys
+
+**Algoritmo:** AES-256-GCM
+**Clave maestra:** variable de entorno ENCRYPTION_MASTER_KEY
+(32 bytes en base64, nunca en DB, nunca en el cliente)
+
+**Formato guardado en DB:** iv.authTag.ciphertext (todo en base64,
+separado por puntos) en la columna organizations.claude_api_key_encrypted
+
+**Flujo:**
+1. Founder pega su API key en Settings
+2. Se cifra con encrypt() antes de guardar
+3. Al usarla para llamar a Claude, se descifra con decrypt()
+   exclusivamente desde código de servidor (admin client)
+4. La UI nunca recibe ni la key completa ni el ciphertext —
+   solo un masked (últimos 4 caracteres) y el status
+
+**Si se pierde ENCRYPTION_MASTER_KEY:** todas las keys guardadas
+quedan irrecuperables. Los founders deberían volver a pegarlas.
+Por eso esta variable debe respaldarse de forma segura fuera de
+Vercel (ej: en un gestor de secretos personal), nunca solo en
+las env vars del proyecto.
+
+**Generar la clave:**
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+**Migración:** `20260619100000_byok_real_encryption.sql` — revoca SELECT de `claude_api_key_encrypted` para `authenticated`; lectura del ciphertext solo vía service role.
 
 ---
 
@@ -826,7 +854,7 @@ INSERT INTO super_admin_users (email, role) VALUES ('email@ejemplo.com', 'admin'
 - Las API keys de integraciones (Fathom, ManyChat, etc.) se guardan en tablas `*_integrations` con RLS por org, acceso solo via service role.
 - La `ANTHROPIC_API_KEY` global nunca se expone al cliente — solo se usa como fallback cuando el cliente no tiene BYOK configurado.
 - `CRON_SECRET` protege todos los endpoints de re-análisis y crons. Nunca exponerlo en el frontend.
-- **BYOK Claude:** persistencia en `organizations.claude_api_key_encrypted` (guardado/lectura vía service role); ver sección BYOK en Pipelines de IA.
+- **BYOK Claude:** persistencia cifrada (AES-256-GCM) en `organizations.claude_api_key_encrypted`; guardado/lectura/descifrado vía service role; ver sección BYOK en Pipelines de IA.
 
 ### Webhooks y validación
 
