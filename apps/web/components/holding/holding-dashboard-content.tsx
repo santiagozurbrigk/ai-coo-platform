@@ -6,9 +6,11 @@ import { Button, MetricCard } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
 import { formatUsd } from "@/lib/super-admin/org-metrics";
 import { formatFixedFee } from "@/lib/holding/billing";
-import { enterBusinessAction } from "@/app/(platform)/holding/actions";
+import { enterBusinessAction, regenerateBusinessFounderTempPasswordAction } from "@/app/(platform)/holding/actions";
 import type { getHoldingDashboardAction } from "@/app/(platform)/holding/actions";
 import { AddBusinessModal } from "@/components/holding/add-business-modal";
+import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
+import type { TempCredentials } from "@/lib/auth/temp-credentials";
 
 type HoldingDashboardData = Awaited<
   ReturnType<typeof getHoldingDashboardAction>
@@ -56,6 +58,10 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [regeneratingOrgId, setRegeneratingOrgId] = useState<string | null>(null);
+  const [tempCredentials, setTempCredentials] = useState<TempCredentials | null>(
+    null
+  );
   const [pending, startTransition] = useTransition();
   const { businesses, kpis } = data;
 
@@ -155,6 +161,27 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
                     ? "Entrando…"
                     : "Entrar al negocio"}
                 </Button>
+                {orgId ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    disabled={regeneratingOrgId === orgId}
+                    onClick={async () => {
+                      setRegeneratingOrgId(orgId);
+                      const res =
+                        await regenerateBusinessFounderTempPasswordAction(orgId);
+                      setRegeneratingOrgId(null);
+                      if (res.success) {
+                        setTempCredentials(res.data);
+                      }
+                    }}
+                  >
+                    {regeneratingOrgId === orgId
+                      ? "Regenerando…"
+                      : "Regenerar contraseña del founder"}
+                  </Button>
+                ) : null}
               </Panel>
             );
           })}
@@ -167,6 +194,15 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
         billingModel={data.billingModel}
         onSuccess={() => router.refresh()}
       />
+
+      {tempCredentials ? (
+        <TempCredentialsDialog
+          open
+          email={tempCredentials.email}
+          tempPassword={tempCredentials.tempPassword}
+          onClose={() => setTempCredentials(null)}
+        />
+      ) : null}
     </div>
   );
 }

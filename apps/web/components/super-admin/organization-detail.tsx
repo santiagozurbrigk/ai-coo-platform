@@ -8,9 +8,12 @@ import { SparklineChart } from "@/components/charts/platform";
 import { paths } from "@/routes";
 import {
   addOrganizationNoteAction,
+  regenerateTempPasswordAction,
   setOrganizationStatusAction,
   updateOrganizationMrrAction,
 } from "@/app/super-admin/actions";
+import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
+import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import { formatUsd, formatUsdPrecise } from "@/lib/super-admin/org-metrics";
 import type { ClientHealthTimelineItem } from "@/lib/super-admin/client-health";
 import type { AdminOrganizationDetail } from "@/types/super-admin";
@@ -43,6 +46,12 @@ export function OrganizationDetailView({
   const [mrrInput, setMrrInput] = useState(String(detail.mrrUsd));
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [tempCredentials, setTempCredentials] = useState<TempCredentials | null>(
+    null
+  );
+  const [regeneratingUserId, setRegeneratingUserId] = useState<string | null>(
+    null
+  );
   const { push } = useToast();
 
   const PLAN_LABEL: Record<string, string> = {
@@ -210,7 +219,8 @@ export function OrganizationDetailView({
                 <th className="pb-2 pr-4">Nombre</th>
                 <th className="pb-2 pr-4">Email</th>
                 <th className="pb-2 pr-4">Rol</th>
-                <th className="pb-2">Último login</th>
+                <th className="pb-2 pr-4">Último login</th>
+                <th className="pb-2">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -221,6 +231,28 @@ export function OrganizationDetailView({
                   <td className="py-2 pr-4 capitalize">{user.role}</td>
                   <td className="py-2 text-muted-foreground">
                     {formatDate(user.lastLogin)}
+                  </td>
+                  <td className="py-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={regeneratingUserId === user.id}
+                      onClick={async () => {
+                        setRegeneratingUserId(user.id);
+                        const res = await regenerateTempPasswordAction(user.id);
+                        setRegeneratingUserId(null);
+                        if (res.success) {
+                          setTempCredentials(res.data);
+                        } else {
+                          push({
+                            title: "No se pudo regenerar",
+                            description: res.error,
+                          });
+                        }
+                      }}
+                    >
+                      Regenerar contraseña
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -312,6 +344,15 @@ export function OrganizationDetailView({
       <Button asChild variant="outline" size="sm">
         <Link href={paths.superAdmin.organizations}>← Volver al listado</Link>
       </Button>
+
+      {tempCredentials ? (
+        <TempCredentialsDialog
+          open
+          email={tempCredentials.email}
+          tempPassword={tempCredentials.tempPassword}
+          onClose={() => setTempCredentials(null)}
+        />
+      ) : null}
     </div>
   );
 }

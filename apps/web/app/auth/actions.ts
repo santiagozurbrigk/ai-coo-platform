@@ -6,6 +6,10 @@ import { emailSchema, firstZodError } from "@/lib/validations";
 import { getOnboardingStatusAction } from "@/app/onboarding/actions";
 import { ensureCurrentUserBootstrap } from "@/lib/auth/bootstrap";
 import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
+import {
+  isTempPasswordExpired,
+  TEMP_PASSWORD_EXPIRED_MESSAGE,
+} from "@/lib/auth/temp-password-expiry";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes";
@@ -33,6 +37,29 @@ function mapAuthError(message: string): string {
     return "Clave de Supabase inválida. En Vercel revisa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY (o PUBLISHABLE_KEY) del mismo proyecto.";
   }
   return message;
+}
+
+async function rejectExpiredTempPasswordSession(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<AuthActionState | null> {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("must_change_password, temp_password_expires_at")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (
+    isTempPasswordExpired(
+      profile?.must_change_password,
+      profile?.temp_password_expires_at
+    )
+  ) {
+    await supabase.auth.signOut();
+    return { error: TEMP_PASSWORD_EXPIRED_MESSAGE };
+  }
+
+  return null;
 }
 
 async function postAuthRedirect() {
@@ -116,6 +143,15 @@ export async function signInAction(
     return { error: mapAuthError(error.message) };
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    const expired = await rejectExpiredTempPasswordSession(supabase, user.id);
+    if (expired) return expired;
+  }
+
   try {
     await ensureCurrentUserBootstrap();
   } catch (e) {
@@ -173,6 +209,9 @@ export async function signInSuperAdminAction(
     await supabase.auth.signOut();
     return { error: "No tenés permisos de super admin." };
   }
+
+  const expired = await rejectExpiredTempPasswordSession(supabase, user.id);
+  if (expired) return expired;
 
   try {
     await ensureCurrentUserBootstrap();

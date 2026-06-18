@@ -64,8 +64,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!tokenRes.ok) {
-      const body = await tokenRes.text();
-      console.error("[typeform/oauth/callback] Token exchange failed:", tokenRes.status, body);
+      console.error(
+        "[typeform/oauth/callback] Token exchange failed:",
+        tokenRes.status
+      );
       return integrationsOAuthRedirect(origin, "typeform", "error", "typeform_oauth");
     }
 

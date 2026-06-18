@@ -10,6 +10,10 @@ import {
   signUpAction,
   type AuthActionState,
 } from "@/app/auth/actions";
+import {
+  TEMP_PASSWORD_EXPIRED_MESSAGE,
+  TEMP_PASSWORD_EXPIRED_QUERY,
+} from "@/lib/auth/temp-password-expiry";
 
 const initialState: AuthActionState = {};
 
@@ -25,6 +29,10 @@ export function SupabaseLoginForm() {
       setCallbackError(
         "No se pudo completar el inicio de sesión. Intenta de nuevo."
       );
+      return;
+    }
+    if (searchParams.get("error") === TEMP_PASSWORD_EXPIRED_QUERY) {
+      setCallbackError(TEMP_PASSWORD_EXPIRED_MESSAGE);
     }
   }, [searchParams]);
 

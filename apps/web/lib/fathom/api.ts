@@ -33,8 +33,7 @@ async function parseFathomErrorFromText(rawText: string, statusText: string): Pr
 }
 
 function logFathomApiKeyDebug(apiKey: string | undefined | null, context: string) {
-  console.log(`[Fathom:${context}] API key length:`, apiKey?.length ?? "MISSING");
-  console.log(`[Fathom:${context}] API key prefix:`, apiKey?.slice(0, 8) ?? "MISSING");
+  console.log(`[Fathom:${context}] API key configured:`, Boolean(apiKey?.trim()));
 }
 
 function logFathomHttpDebug(

@@ -8,6 +8,10 @@ import {
   readAccountType,
   resolveEffectiveOrganizationId,
 } from "@/lib/holding/resolve-org";
+import {
+  isTempPasswordExpired,
+  TEMP_PASSWORD_EXPIRED_QUERY,
+} from "@/lib/auth/temp-password-expiry";
 import { createClient } from "@/lib/supabase/server";
 import { paths } from "@/routes";
 
@@ -126,9 +130,19 @@ export async function requireAuthContext(): Promise<AuthContext> {
   const supabase = await createClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("must_change_password")
+    .select("must_change_password, temp_password_expires_at")
     .eq("id", result.user.id)
     .maybeSingle();
+
+  if (
+    isTempPasswordExpired(
+      profile?.must_change_password,
+      profile?.temp_password_expires_at
+    )
+  ) {
+    await supabase.auth.signOut();
+    redirect(`${paths.auth.login}?error=${TEMP_PASSWORD_EXPIRED_QUERY}`);
+  }
 
   if (profile?.must_change_password) {
     const headersList = await headers();

@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { generateTempPassword } from "@/lib/auth/generate-temp-password";
+import { tempPasswordProfileFields } from "@/lib/auth/temp-password-expiry";
+import { regenerateUserTempPassword } from "@/lib/auth/regenerate-temp-password";
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import {
   computeHoldingRevenue,
@@ -142,7 +144,7 @@ export async function addBusinessToMyHoldingAction(input: {
         full_name: "Founder",
         role: "founder",
         organization_id: newOrg.id,
-        must_change_password: true,
+        ...tempPasswordProfileFields(),
       });
 
       if (profileError) {
@@ -297,4 +299,40 @@ export async function switchActiveBusinessAction(businessOrgId: string) {
 /** @deprecated Usar exitBusinessAction */
 export async function resetToHoldingViewAction() {
   return exitBusinessAction();
+}
+
+export async function regenerateBusinessFounderTempPasswordAction(
+  businessOrgId: string
+): Promise<MutationResult<TempCredentials>> {
+  return runMutation(async () => {
+    const { holdingOrgId } = await requireHoldingProfile();
+    const admin = createAdminClient();
+
+    const { data: link } = await admin
+      .from("holding_businesses")
+      .select("business_org_id")
+      .eq("holding_org_id", holdingOrgId)
+      .eq("business_org_id", businessOrgId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (!link) {
+      throw new Error("Negocio no encontrado en tu holding");
+    }
+
+    const { data: founder } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("organization_id", businessOrgId)
+      .eq("role", "founder")
+      .maybeSingle();
+
+    if (!founder?.id) {
+      throw new Error("Este negocio no tiene un founder asignado");
+    }
+
+    const credentials = await regenerateUserTempPassword(founder.id);
+    revalidatePath(paths.platform.holding);
+    return credentials;
+  });
 }

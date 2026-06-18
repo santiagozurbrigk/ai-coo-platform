@@ -6,6 +6,8 @@ import { AI_BRAIN_BUCKET, uiContentTypeToDb } from "@/lib/ai-brain/mapper";
 import { requireSuperAdmin } from "@/lib/auth/require-super-admin";
 import { isMissingTableError } from "@/lib/auth/bootstrap";
 import { generateTempPassword } from "@/lib/auth/generate-temp-password";
+import { tempPasswordProfileFields } from "@/lib/auth/temp-password-expiry";
+import { regenerateUserTempPassword } from "@/lib/auth/regenerate-temp-password";
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
@@ -114,7 +116,7 @@ export async function createFounderAccountAction(input: {
       email,
       full_name: founderName,
       role: "founder",
-      must_change_password: true,
+      ...tempPasswordProfileFields(),
     });
 
     if (profileError) {
@@ -186,7 +188,7 @@ export async function createOrganizationFromHoldingAction(input: {
       email,
       full_name: "Founder",
       role: "founder",
-      must_change_password: true,
+      ...tempPasswordProfileFields(),
     });
 
     if (profileError) {
@@ -554,7 +556,7 @@ export async function createHoldingOrgAction(input: {
       full_name: "Holding Admin",
       role: "founder",
       is_holding_admin: true,
-      must_change_password: true,
+      ...tempPasswordProfileFields(),
     });
 
     if (profileError) {
@@ -570,5 +572,16 @@ export async function createHoldingOrgAction(input: {
       orgId: org.id,
       tempCredentials: { email, tempPassword: password },
     };
+  });
+}
+
+export async function regenerateTempPasswordAction(
+  userId: string
+): Promise<MutationResult<TempCredentials>> {
+  return runMutation(async () => {
+    await requireSuperAdmin();
+    const credentials = await regenerateUserTempPassword(userId);
+    revalidateSuperAdmin();
+    return credentials;
   });
 }

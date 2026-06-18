@@ -14,7 +14,10 @@ export async function completePasswordChangeAction() {
   const admin = createAdminClient();
   const { error } = await admin
     .from("profiles")
-    .update({ must_change_password: false })
+    .update({
+      must_change_password: false,
+      temp_password_expires_at: null,
+    })
     .eq("id", user.id);
 
   if (error) throw new Error(error.message);

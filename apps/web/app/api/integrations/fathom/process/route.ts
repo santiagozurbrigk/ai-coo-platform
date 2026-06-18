@@ -70,8 +70,7 @@ async function runFathomProcess(request: Request) {
   if (sampleIntegration?.api_key?.trim()) {
     console.log("[Fathom:process] Probing documented list endpoint for org", {
       organizationId: sampleIntegration.organization_id,
-      apiKeyLength: sampleIntegration.api_key.trim().length,
-      apiKeyPrefix: sampleIntegration.api_key.trim().slice(0, 8),
+      hasApiKey: true,
     });
     probe = await probeFathomListEndpoint(
       sampleIntegration.api_key.trim(),
@@ -88,7 +87,7 @@ async function runFathomProcess(request: Request) {
     console.log("[Fathom:process] Early return: probe skipped — no connected org with api_key", {
       sampleFound: Boolean(sampleIntegration),
       sampleStatus: sampleIntegration?.status,
-      sampleKeyLength: sampleIntegration?.api_key?.length ?? 0,
+      hasApiKey: Boolean(sampleIntegration?.api_key?.trim()),
       diagnostics,
     });
   }

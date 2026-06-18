@@ -49,9 +49,6 @@ export async function getFathomIntegrationDiagnostics(): Promise<FathomIntegrati
 
   console.log("[Fathom] Orgs found (total rows):", rows.length);
   console.log("[Fathom] Orgs eligible for sync (connected + api_key):", eligibleForSync);
-  for (const row of rows) {
-    console.log("[Fathom] Integration row:", row);
-  }
 
   return {
     totalRows: rows.length,

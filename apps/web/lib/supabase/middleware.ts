@@ -2,6 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { paths } from "@/routes";
 import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
+import {
+  isTempPasswordExpired,
+  TEMP_PASSWORD_EXPIRED_QUERY,
+} from "@/lib/auth/temp-password-expiry";
 import { createAdminClient } from "./admin";
 import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
 import { getSupabaseAnonKey, getSupabaseUrl, isSupabaseConfigured } from "./env";
@@ -121,9 +125,25 @@ export async function updateSession(request: NextRequest) {
     const admin = createAdminClient();
     const { data: profile } = await admin
       .from("profiles")
-      .select("must_change_password")
+      .select("must_change_password, temp_password_expires_at")
       .eq("id", user.id)
       .maybeSingle();
+
+    if (
+      isTempPasswordExpired(
+        profile?.must_change_password,
+        profile?.temp_password_expires_at
+      )
+    ) {
+      await supabase.auth.signOut();
+      if (isServerActionRequest(request)) {
+        return supabaseResponse;
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = paths.auth.login;
+      url.searchParams.set("error", TEMP_PASSWORD_EXPIRED_QUERY);
+      return NextResponse.redirect(url);
+    }
 
     if (
       profile?.must_change_password &&

@@ -12,8 +12,6 @@ export const runtime = "nodejs";
 export async function GET() {
   const appId = process.env.INSTAGRAM_APP_ID?.trim();
 
-  console.log("[Instagram OAuth] APP_ID:", appId);
-
   if (!appId) {
     return NextResponse.json(
       { error: "INSTAGRAM_APP_ID not configured" },

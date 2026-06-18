@@ -1,10 +1,13 @@
+import crypto from "crypto";
+
 const CHARS =
   "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
 
 export function generateTempPassword(): string {
+  const bytes = crypto.randomBytes(12);
   let password = "";
   for (let i = 0; i < 12; i++) {
-    password += CHARS[Math.floor(Math.random() * CHARS.length)];
+    password += CHARS[bytes[i] % CHARS.length];
   }
   return password;
 }

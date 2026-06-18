@@ -168,7 +168,7 @@ export async function syncFathomMeetingsForOrganization(
     console.log("[Fathom] Early return: api_key null or empty for org", {
       organizationId,
       status: integration.status,
-      apiKeyLength: integration.api_key?.length ?? 0,
+      hasApiKey: false,
     });
     throw new Error("Fathom no tiene API key configurada.");
   }

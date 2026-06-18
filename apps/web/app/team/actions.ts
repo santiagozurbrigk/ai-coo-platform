@@ -7,6 +7,7 @@ import {
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
 import { generateTempPassword } from "@/lib/auth/generate-temp-password";
+import { tempPasswordProfileFields } from "@/lib/auth/temp-password-expiry";
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import {
   permissionsToRow,
@@ -246,7 +247,7 @@ export async function inviteTeamMemberAction(data: {
       custom_role_id: data.customRoleId ?? null,
       invited_by: profile.id,
       is_active: true,
-      must_change_password: true,
+      ...tempPasswordProfileFields(),
     });
 
     if (profileError) {

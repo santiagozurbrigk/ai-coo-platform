@@ -4,7 +4,12 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge, Button, DataTable, Input } from "@ai-coo/ui";
 import { paths } from "@/routes";
-import { deactivateUserAction } from "@/app/super-admin/actions";
+import {
+  deactivateUserAction,
+  regenerateTempPasswordAction,
+} from "@/app/super-admin/actions";
+import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
+import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import type { AdminUserRow } from "@/types/super-admin";
 
 type RoleFilter = "all" | "founder" | "admin" | "other";
@@ -31,6 +36,9 @@ export function UsersTable({ users }: { users: AdminUserRow[] }) {
   const [orgFilter, setOrgFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [tempCredentials, setTempCredentials] = useState<TempCredentials | null>(
+    null
+  );
 
   const organizations = useMemo(() => {
     const names = new Map<string, string>();
@@ -152,18 +160,35 @@ export function UsersTable({ users }: { users: AdminUserRow[] }) {
                   </Link>
                 </Button>
                 {r.status === "active" && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={pendingId === r.id}
-                    onClick={async () => {
-                      setPendingId(r.id);
-                      await deactivateUserAction(r.id);
-                      setPendingId(null);
-                    }}
-                  >
-                    Desactivar
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={pendingId === r.id}
+                      onClick={async () => {
+                        setPendingId(r.id);
+                        const res = await regenerateTempPasswordAction(r.id);
+                        setPendingId(null);
+                        if (res.success) {
+                          setTempCredentials(res.data);
+                        }
+                      }}
+                    >
+                      Regenerar contraseña
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={pendingId === r.id}
+                      onClick={async () => {
+                        setPendingId(r.id);
+                        await deactivateUserAction(r.id);
+                        setPendingId(null);
+                      }}
+                    >
+                      Desactivar
+                    </Button>
+                  </>
                 )}
               </div>
             ),
@@ -172,6 +197,14 @@ export function UsersTable({ users }: { users: AdminUserRow[] }) {
         data={filtered}
         keyExtractor={(r) => r.id}
       />
+      {tempCredentials ? (
+        <TempCredentialsDialog
+          open
+          email={tempCredentials.email}
+          tempPassword={tempCredentials.tempPassword}
+          onClose={() => setTempCredentials(null)}
+        />
+      ) : null}
     </div>
   );
 }
