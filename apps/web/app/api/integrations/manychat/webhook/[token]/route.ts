@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { processManyChatWebhookForOrganization } from "@/app/manychat/actions";
+import { processManyChatWebhookForOrganization } from "@/lib/manychat/process-webhook";
 import { getManyChatIntegrationByWebhookToken } from "@/lib/manychat/integration";
 import { parseManyChatWebhookPayload } from "@/lib/manychat/parse-webhook";
 import { getRequestIp, webhookRateLimit, rateLimitExceeded } from "@/lib/rate-limit";

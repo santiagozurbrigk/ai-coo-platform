@@ -226,29 +226,3 @@ export async function importManyChatSubscriberAction(
   }
 }
 
-export async function processManyChatWebhookForOrganization(
-  organizationId: string,
-  inbound: {
-    subscriberId: string;
-    leadName: string;
-    messageText: string;
-    sender: "lead" | "team";
-    timestamp: string;
-    ref?: string;
-  }
-) {
-  const admin = createAdminClient();
-  await upsertConversationFromManyChat(admin, organizationId, {
-    subscriberId: inbound.subscriberId,
-    leadName: inbound.leadName,
-    messageText: inbound.messageText,
-    sender: inbound.sender,
-    timestamp: inbound.timestamp,
-    ref: inbound.ref,
-  });
-
-  await admin
-    .from("manychat_integrations")
-    .update({ updated_at: new Date().toISOString() })
-    .eq("organization_id", organizationId);
-}

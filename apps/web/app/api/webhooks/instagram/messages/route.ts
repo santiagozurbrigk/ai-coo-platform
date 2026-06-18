@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processInstagramMessage } from "@/lib/instagram/process-message";
 import type { InstagramMessaging } from "@/lib/instagram/process-message";
+import { verifyInstagramWebhookSignature } from "@/lib/instagram/verify-webhook-signature";
 
 // NOTA: Este webhook funciona solo en modo Live de Meta (post App Review).
 // En modo Development, usar el polling via /api/integrations/instagram/poll.
@@ -39,26 +40,27 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as InstagramWebhookBody;
+    const rawBody = await req.text();
+    const signature = req.headers.get("x-hub-signature-256");
 
-    console.log(
-      "[Instagram Webhook] Body recibido:",
-      JSON.stringify(body, null, 2)
-    );
+    if (!verifyInstagramWebhookSignature(rawBody, signature)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = JSON.parse(rawBody) as InstagramWebhookBody;
 
     if (body.object !== "instagram") {
-      console.log("[Instagram Webhook] Objeto no es instagram:", body.object);
+      console.log("[Instagram Webhook] Objeto ignorado:", body.object ?? "unknown");
       return NextResponse.json({ ok: true });
     }
 
-    for (const entry of body.entry ?? []) {
-      console.log(
-        "[Instagram Webhook] Entry:",
-        JSON.stringify(entry, null, 2)
-      );
+    const entryCount = body.entry?.length ?? 0;
+    let processedMessages = 0;
+    let skippedIntegrations = 0;
+    let errors = 0;
 
+    for (const entry of body.entry ?? []) {
       const igAccountId = entry.id;
-      console.log("[Instagram Webhook] igAccountId:", igAccountId);
 
       const supabase = createAdminClient();
       const { data: integration, error } = await supabase
@@ -67,53 +69,53 @@ export async function POST(req: NextRequest) {
         .eq("instagram_user_id", igAccountId)
         .maybeSingle();
 
-      console.log("[Instagram Webhook] Integration encontrada:", integration);
-      console.log("[Instagram Webhook] Error integración:", error);
-
-      if (!integration) {
-        console.log(
-          "[Instagram Webhook] No se encontró integración para igAccountId:",
-          igAccountId
+      if (error) {
+        errors += 1;
+        console.error(
+          "[Instagram Webhook] Error buscando integración:",
+          { igAccountId, code: error.code }
         );
         continue;
       }
 
-      console.log("[Instagram Webhook] entry.messaging:", entry.messaging);
-      console.log("[Instagram Webhook] entry.messages:", entry.messages);
-      console.log(
-        "[Instagram Webhook] Todas las keys del entry:",
-        Object.keys(entry)
-      );
+      if (!integration) {
+        skippedIntegrations += 1;
+        continue;
+      }
 
       for (const messaging of entry.messaging ?? []) {
-        console.log(
-          "[Instagram Webhook] Procesando messaging:",
-          JSON.stringify(messaging, null, 2)
-        );
+        if (!messaging.message) continue;
 
-        if (messaging.message) {
+        try {
           await processInstagramMessage({
             organizationId: integration.organization_id,
             igAccountId,
             messaging,
-          }).catch((err) => {
-            console.error(
-              "[Instagram Webhook] Error en processInstagramMessage:",
-              err
-            );
           });
-        } else {
-          console.log(
-            "[Instagram Webhook] messaging sin campo message:",
-            Object.keys(messaging)
-          );
+          processedMessages += 1;
+        } catch (err) {
+          errors += 1;
+          console.error("[Instagram Webhook] Error procesando mensaje:", {
+            igAccountId,
+            organizationId: integration.organization_id,
+            error: err instanceof Error ? err.message : "unknown",
+          });
         }
       }
     }
 
+    console.log("[Instagram Webhook] Procesado:", {
+      entries: entryCount,
+      processedMessages,
+      skippedIntegrations,
+      errors,
+    });
+
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[Instagram Webhook] Error general:", err);
+    console.error("[Instagram Webhook] Error general:", {
+      error: err instanceof Error ? err.message : "unknown",
+    });
     return NextResponse.json({ error: "Error" }, { status: 500 });
   }
 }

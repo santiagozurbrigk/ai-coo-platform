@@ -39,7 +39,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const orgIdHeader = request.headers.get("x-organization-id");
   const fathomCallId = String(
     body.recording_id ?? body.call_id ?? body.id ?? ""
   );
@@ -49,26 +48,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing call id" }, { status: 400 });
   }
 
+  const webhookSecret =
+    request.headers.get("x-fathom-signature") ??
+    request.headers.get("fathom-signature");
+  const globalSecret = process.env.FATHOM_WEBHOOK_SECRET;
+
   const admin = createAdminClient();
-  let organizationId = orgIdHeader ?? "";
+  const { data: integrations } = await admin
+    .from("fathom_integrations")
+    .select("organization_id, webhook_secret");
 
-  if (!organizationId) {
-    const webhookSecret =
-      request.headers.get("x-fathom-signature") ??
-      request.headers.get("fathom-signature");
-    const globalSecret = process.env.FATHOM_WEBHOOK_SECRET;
+  const match = (integrations ?? []).find((i) => {
+    const secret = i.webhook_secret ?? globalSecret;
+    return secret && verifySignature(rawBody, webhookSecret, secret);
+  });
 
-    const { data: integrations } = await admin
-      .from("fathom_integrations")
-      .select("organization_id, webhook_secret");
-
-    const match = (integrations ?? []).find((i) => {
-      const secret = i.webhook_secret ?? globalSecret;
-      return secret && verifySignature(rawBody, webhookSecret, secret);
-    });
-    organizationId = match?.organization_id ?? "";
-  }
-
+  const organizationId = match?.organization_id ?? "";
   if (!organizationId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
