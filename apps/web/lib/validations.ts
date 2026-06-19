@@ -345,3 +345,50 @@ export const acceptInvitationSchema = z.object({
 export const completeInvitationForCurrentUserSchema = z.object({
   token: z.string().trim().min(1, "Token inválido").max(500),
 });
+
+export const organizationTimezoneSchema = z.enum([
+  "America/Argentina/Buenos_Aires",
+  "America/Mexico_City",
+  "America/Bogota",
+  "America/Santiago",
+  "America/New_York",
+  "Europe/Madrid",
+  "UTC",
+]);
+
+export const organizationCurrencySchema = z.enum(["USD", "ARS", "EUR"]);
+
+export const organizationLanguageSchema = z.enum(["es", "en"]);
+
+export const updateOrganizationWebsiteSchema = z.object({
+  websiteUrl: z.string().trim().max(500),
+});
+
+export const saveGeneralOrganizationSettingsSchema = z.object({
+  orgName: z
+    .string()
+    .trim()
+    .min(1, "El nombre de la empresa es obligatorio.")
+    .max(200, "Máximo 200 caracteres"),
+  industry: z.string().trim().max(200, "Máximo 200 caracteres").optional(),
+  websiteUrl: z.string().trim().max(500),
+  timezone: organizationTimezoneSchema.optional(),
+  currency: organizationCurrencySchema.optional(),
+  language: organizationLanguageSchema.optional(),
+});
+
+export const updateNotificationPreferencesSchema = z.object({
+  emailWeeklyReport: z.boolean().optional(),
+  emailNewConversation: z.boolean().optional(),
+  emailBookingConfirmed: z.boolean().optional(),
+  emailSaleClosed: z.boolean().optional(),
+  emailSopSuggestion: z.boolean().optional(),
+  inappNewConversation: z.boolean().optional(),
+  inappBookingConfirmed: z.boolean().optional(),
+  inappSaleClosed: z.boolean().optional(),
+  inappGhostingAlert: z.boolean().optional(),
+});
+
+export const saveClaudeApiKeySchema = z.object({
+  apiKey: z.string().trim().min(1, "Ingresá una API key").max(500),
+});

@@ -14,8 +14,16 @@ import { decrypt, encrypt, maskSecret } from "@/lib/security/encryption";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { runMutation, type MutationResult } from "@/lib/server/action-result";
+import { runMutation, actionErrorMessage, type MutationResult } from "@/lib/server/action-result";
+import {
+  firstZodError,
+  saveClaudeApiKeySchema,
+  saveGeneralOrganizationSettingsSchema,
+  updateNotificationPreferencesSchema,
+  updateOrganizationWebsiteSchema,
+} from "@/lib/validations";
 import { paths } from "@/routes";
+import type { z } from "zod";
 
 export type ClaudeApiKeyStatus = {
   hasKey: boolean;
@@ -136,6 +144,52 @@ function normalizeWebsiteUrl(websiteUrl: string): string {
   return trimmed.replace(/\/$/, "");
 }
 
+type AuthContext = Awaited<ReturnType<typeof requireAuthContext>>;
+
+async function requireOrganizationIdAndParse<T extends z.ZodTypeAny>(
+  schema: T,
+  input: unknown
+): Promise<
+  | { success: true; data: z.infer<T>; organizationId: string }
+  | { success: false; error: string }
+> {
+  let organizationId: string;
+  try {
+    organizationId = await requireOrganizationId();
+  } catch (error) {
+    return { success: false, error: actionErrorMessage(error) };
+  }
+
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  return { success: true, data: parsed.data, organizationId };
+}
+
+async function requireAuthContextAndParse<T extends z.ZodTypeAny>(
+  schema: T,
+  input: unknown
+): Promise<
+  | { success: true; data: z.infer<T>; auth: AuthContext }
+  | { success: false; error: string }
+> {
+  let auth: AuthContext;
+  try {
+    auth = await requireAuthContext();
+  } catch (error) {
+    return { success: false, error: actionErrorMessage(error) };
+  }
+
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  return { success: true, data: parsed.data, auth };
+}
+
 export async function getOrganizationSettingsAction(): Promise<OrganizationSettings | null> {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
@@ -161,11 +215,20 @@ export async function getOrganizationSettingsAction(): Promise<OrganizationSetti
 export async function updateOrganizationWebsiteAction(
   websiteUrl: string
 ): Promise<MutationResult> {
+  const auth = await requireOrganizationIdAndParse(updateOrganizationWebsiteSchema, {
+    websiteUrl,
+  });
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const { websiteUrl: parsedWebsiteUrl } = auth.data;
+
   return runMutation(async () => {
-    const organizationId = await requireOrganizationId();
+    const organizationId = auth.organizationId;
     const supabase = await createClient();
-    const normalized = websiteUrl.trim()
-      ? normalizeWebsiteUrl(websiteUrl)
+    const normalized = parsedWebsiteUrl
+      ? normalizeWebsiteUrl(parsedWebsiteUrl)
       : null;
 
     const { error } = await supabase
@@ -188,28 +251,32 @@ export async function saveGeneralOrganizationSettingsAction(input: {
   currency?: string;
   language?: string;
 }): Promise<MutationResult> {
+  const auth = await requireOrganizationIdAndParse(
+    saveGeneralOrganizationSettingsSchema,
+    input
+  );
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const { orgName, industry, websiteUrl, timezone, currency, language } =
+    auth.data;
+
   return runMutation(async () => {
-    const organizationId = await requireOrganizationId();
+    const organizationId = auth.organizationId;
     const supabase = await createClient();
 
-    const name = input.orgName.trim();
-    if (!name) {
-      throw new Error("El nombre de la empresa es obligatorio.");
-    }
-
-    const website_url = input.websiteUrl.trim()
-      ? normalizeWebsiteUrl(input.websiteUrl)
-      : null;
+    const website_url = websiteUrl ? normalizeWebsiteUrl(websiteUrl) : null;
 
     const { error } = await supabase
       .from("organizations")
       .update({
-        name,
-        industry: input.industry?.trim() || null,
+        name: orgName,
+        industry: industry || null,
         website_url,
-        timezone: input.timezone?.trim() || null,
-        currency: input.currency?.trim() || null,
-        language: input.language?.trim() || null,
+        timezone: timezone ?? null,
+        currency: currency ?? null,
+        language: language ?? null,
       })
       .eq("id", organizationId);
 
@@ -264,19 +331,27 @@ export async function getNotificationPreferencesAction(): Promise<NotificationPr
 export async function updateNotificationPreferencesAction(
   prefs: Partial<NotificationPreferences>
 ): Promise<MutationResult> {
+  const auth = await requireAuthContextAndParse(
+    updateNotificationPreferencesSchema,
+    prefs
+  );
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
   return runMutation(async () => {
     if (!isSupabaseConfigured()) {
       throw new Error("Supabase no configurado.");
     }
 
-    const { user, orgId } = await requireAuthContext();
+    const { user, orgId } = auth.auth;
     const supabase = await createClient();
 
     const { error } = await supabase.from("notification_preferences").upsert(
       {
         profile_id: user.id,
         organization_id: orgId,
-        ...prefsToRow(prefs),
+        ...prefsToRow(auth.data),
       },
       { onConflict: "profile_id,organization_id" }
     );
@@ -357,13 +432,21 @@ export async function getClaudeApiKeyStatusAction(): Promise<ClaudeApiKeyStatus>
 export async function saveClaudeApiKeyAction(
   apiKey: string
 ): Promise<MutationResult<{ maskedKey: string }>> {
+  const auth = await requireAuthContextAndParse(saveClaudeApiKeySchema, {
+    apiKey,
+  });
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const { apiKey: trimmed } = auth.data;
+
   return runMutation(async () => {
     if (!isSupabaseConfigured()) {
       throw new Error("Supabase no configurado.");
     }
 
-    const { orgId } = await requireAuthContext();
-    const trimmed = apiKey.trim();
+    const { orgId } = auth.auth;
     assertClaudeKeyFormat(trimmed);
 
     const validation = await validateClaudeApiKey(trimmed);
