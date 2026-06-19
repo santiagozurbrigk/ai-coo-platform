@@ -4,12 +4,17 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isMissingTableError } from "@/lib/auth/bootstrap";
 import {
-  computeHoldingRevenue,
   type HoldingBillingModel,
   type HoldingOnboardingData,
 } from "@/lib/holding/billing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { actionErrorMessage } from "@/lib/server/action-result";
+import {
+  completeHoldingOnboardingSchema,
+  firstZodError,
+  saveHoldingBillingModelSchema,
+} from "@/lib/validations";
 import { paths } from "@/routes";
 
 async function requireHoldingOrgId(): Promise<string> {
@@ -78,15 +83,24 @@ async function markHoldingOnboardingComplete(
   }
 }
 
-export async function saveHoldingBillingModelAction(
-  model: HoldingBillingModel
-) {
-  const holdingOrgId = await requireHoldingOrgId();
+export async function saveHoldingBillingModelAction(model: unknown) {
+  let holdingOrgId: string;
+  try {
+    holdingOrgId = await requireHoldingOrgId();
+  } catch (error) {
+    throw new Error(actionErrorMessage(error));
+  }
+
+  const parsed = saveHoldingBillingModelSchema.safeParse({ model });
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
   const admin = createAdminClient();
 
   const { error } = await admin
     .from("organizations")
-    .update({ holding_billing_model: model })
+    .update({ holding_billing_model: parsed.data.model })
     .eq("id", holdingOrgId);
 
   if (error) throw new Error(error.message);
@@ -94,15 +108,47 @@ export async function saveHoldingBillingModelAction(
   return { ok: true as const };
 }
 
-export async function completeHoldingOnboardingAction(data: {
+function validateBusinessesForBillingModel(
   businesses: Array<{
     name: string;
     revenueSharePct?: number;
     fixedFeeAmount?: number;
     fixedFeeCurrency?: string;
-  }>;
-}) {
-  const holdingOrgId = await requireHoldingOrgId();
+  }>,
+  billingModel: HoldingBillingModel
+): void {
+  for (const business of businesses) {
+    if (billingModel === "revenue_share") {
+      const pct = business.revenueSharePct;
+      if (pct == null || Number.isNaN(pct)) {
+        throw new Error(
+          `El % de revenue share de "${business.name}" debe estar entre 0 y 100`
+        );
+      }
+    } else {
+      const amount = business.fixedFeeAmount;
+      if (amount == null || Number.isNaN(amount) || amount <= 0) {
+        throw new Error(
+          `El monto fijo de "${business.name}" debe ser mayor a 0`
+        );
+      }
+    }
+  }
+}
+
+export async function completeHoldingOnboardingAction(data: unknown) {
+  let holdingOrgId: string;
+  try {
+    holdingOrgId = await requireHoldingOrgId();
+  } catch (error) {
+    throw new Error(actionErrorMessage(error));
+  }
+
+  const parsed = completeHoldingOnboardingSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
   const admin = createAdminClient();
 
   const { data: holdingOrg, error: holdingError } = await admin
@@ -116,31 +162,12 @@ export async function completeHoldingOnboardingAction(data: {
   }
 
   const billingModel = holdingOrg.holding_billing_model as HoldingBillingModel;
-  const businesses = data.businesses
-    .map((b) => ({ ...b, name: b.name.trim() }))
-    .filter((b) => b.name.length > 0);
+  const businesses = parsed.data.businesses;
 
-  if (businesses.length === 0) {
-    throw new Error("Agregá al menos un negocio");
-  }
+  // Validación cruzada según modelo ya guardado (no cabe en el schema estático).
+  validateBusinessesForBillingModel(businesses, billingModel);
 
   for (const business of businesses) {
-    if (billingModel === "revenue_share") {
-      const pct = Number(business.revenueSharePct);
-      if (Number.isNaN(pct) || pct < 0 || pct > 100) {
-        throw new Error(
-          `El % de revenue share de "${business.name}" debe estar entre 0 y 100`
-        );
-      }
-    } else {
-      const amount = Number(business.fixedFeeAmount);
-      if (Number.isNaN(amount) || amount <= 0) {
-        throw new Error(
-          `El monto fijo de "${business.name}" debe ser mayor a 0`
-        );
-      }
-    }
-
     const { data: newOrg, error: orgError } = await admin
       .from("organizations")
       .insert({
@@ -162,11 +189,11 @@ export async function completeHoldingOnboardingAction(data: {
       business_name: business.name,
       revenue_share_pct:
         billingModel === "revenue_share"
-          ? Number(business.revenueSharePct)
+          ? business.revenueSharePct ?? null
           : null,
       fixed_fee_amount:
         billingModel === "fixed_fee"
-          ? Number(business.fixedFeeAmount)
+          ? business.fixedFeeAmount ?? null
           : null,
       fixed_fee_currency:
         billingModel === "fixed_fee"

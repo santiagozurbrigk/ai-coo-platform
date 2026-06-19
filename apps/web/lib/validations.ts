@@ -223,3 +223,44 @@ export const getAiBrainSignedUrlSchema = z.object({
 export const regenerateTempPasswordSchema = z.object({
   userId: uuidSchema,
 });
+
+const holdingBusinessNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Campo requerido")
+  .max(200, "Máximo 200 caracteres");
+
+export const holdingFixedFeeCurrencySchema = z.enum(["USD", "ARS"]);
+
+export const holdingBillingModelSchema = z.enum(["revenue_share", "fixed_fee"]);
+
+export const addBusinessToMyHoldingSchema = z.object({
+  businessName: holdingBusinessNameSchema,
+  revenueSharePct: z.number().min(0).max(100).optional(),
+  fixedFeeAmount: z.number().positive().max(1_000_000).optional(),
+  fixedFeeCurrency: holdingFixedFeeCurrencySchema.optional(),
+  founderEmail: emailSchema.optional(),
+});
+
+export const enterBusinessSchema = z.object({
+  businessOrgId: uuidSchema,
+});
+
+export const regenerateBusinessFounderTempPasswordSchema = z.object({
+  businessOrgId: uuidSchema,
+});
+
+export const saveHoldingBillingModelSchema = z.object({
+  model: holdingBillingModelSchema,
+});
+
+export const businessInOnboardingSchema = z.object({
+  name: holdingBusinessNameSchema,
+  revenueSharePct: z.number().min(0).max(100).optional(),
+  fixedFeeAmount: z.number().positive().max(1_000_000).optional(),
+  fixedFeeCurrency: holdingFixedFeeCurrencySchema.optional(),
+});
+
+export const completeHoldingOnboardingSchema = z.object({
+  businesses: z.array(businessInOnboardingSchema).min(1).max(50),
+});

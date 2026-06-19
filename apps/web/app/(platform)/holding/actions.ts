@@ -16,7 +16,18 @@ import { createClient } from "@/lib/supabase/server";
 import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
 import { refreshAuthSessionAfterHoldingSwitch } from "@/lib/holding/refresh-auth-session";
 import { getHoldingBusinesses } from "@/lib/holding/switch-org";
-import { runMutation, type MutationResult } from "@/lib/server/action-result";
+import {
+  actionErrorMessage,
+  runMutation,
+  type MutationResult,
+} from "@/lib/server/action-result";
+import {
+  addBusinessToMyHoldingSchema,
+  enterBusinessSchema,
+  firstZodError,
+  regenerateBusinessFounderTempPasswordSchema,
+} from "@/lib/validations";
+import type { z } from "zod";
 import { paths } from "@/routes";
 
 async function requireHoldingProfile() {
@@ -49,21 +60,48 @@ async function requireHoldingProfile() {
   };
 }
 
-export async function addBusinessToMyHoldingAction(input: {
-  businessName: string;
-  revenueSharePct?: number;
-  fixedFeeAmount?: number;
-  fixedFeeCurrency?: string;
-  founderEmail?: string;
-}): Promise<
+type HoldingProfileContext = Awaited<ReturnType<typeof requireHoldingProfile>>;
+
+async function requireHoldingProfileAndParse<T extends z.ZodTypeAny>(
+  schema: T,
+  input: unknown
+): Promise<
+  | { success: true; data: z.infer<T>; profile: HoldingProfileContext }
+  | { success: false; error: string }
+> {
+  let profile: HoldingProfileContext;
+  try {
+    profile = await requireHoldingProfile();
+  } catch (error) {
+    return { success: false, error: actionErrorMessage(error) };
+  }
+
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  return { success: true, data: parsed.data, profile };
+}
+
+export async function addBusinessToMyHoldingAction(
+  input: unknown
+): Promise<
   MutationResult<{ orgId: string; tempCredentials?: TempCredentials }>
 > {
-  return runMutation(async () => {
-    const { holdingOrgId, billingModel } = await requireHoldingProfile();
-    const admin = createAdminClient();
+  const auth = await requireHoldingProfileAndParse(
+    addBusinessToMyHoldingSchema,
+    input
+  );
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
 
-    const businessName = input.businessName.trim();
-    if (!businessName) throw new Error("El nombre del negocio es obligatorio.");
+  const { data, profile } = auth;
+  const { holdingOrgId, billingModel } = profile;
+
+  return runMutation(async () => {
+    const admin = createAdminClient();
 
     if (!billingModel) {
       throw new Error(
@@ -76,24 +114,24 @@ export async function addBusinessToMyHoldingAction(input: {
     let fixedFeeCurrency: string | null = null;
 
     if (billingModel === "revenue_share") {
-      const pct = Number(input.revenueSharePct);
-      if (Number.isNaN(pct) || pct < 0 || pct > 100) {
+      const pct = data.revenueSharePct;
+      if (pct == null || Number.isNaN(pct)) {
         throw new Error("El % de revenue share debe estar entre 0 y 100.");
       }
       revenueSharePct = pct;
     } else {
-      const amount = Number(input.fixedFeeAmount);
-      if (Number.isNaN(amount) || amount <= 0) {
+      const amount = data.fixedFeeAmount;
+      if (amount == null || Number.isNaN(amount) || amount <= 0) {
         throw new Error("El monto fijo debe ser mayor a 0.");
       }
       fixedFeeAmount = amount;
-      fixedFeeCurrency = input.fixedFeeCurrency?.trim() || "USD";
+      fixedFeeCurrency = data.fixedFeeCurrency ?? "USD";
     }
 
     const { data: newOrg, error: orgError } = await admin
       .from("organizations")
       .insert({
-        name: businessName,
+        name: data.businessName,
         status: "active",
         account_type: "founder",
         skip_onboarding: true,
@@ -108,7 +146,7 @@ export async function addBusinessToMyHoldingAction(input: {
     const { error: linkError } = await admin.from("holding_businesses").insert({
       holding_org_id: holdingOrgId,
       business_org_id: newOrg.id,
-      business_name: businessName,
+      business_name: data.businessName,
       revenue_share_pct: revenueSharePct,
       fixed_fee_amount: fixedFeeAmount,
       fixed_fee_currency: fixedFeeCurrency,
@@ -120,7 +158,7 @@ export async function addBusinessToMyHoldingAction(input: {
       throw new Error(linkError.message);
     }
 
-    const founderEmail = input.founderEmail?.trim().toLowerCase();
+    const founderEmail = data.founderEmail;
     let tempCredentials: TempCredentials | undefined;
 
     if (founderEmail) {
@@ -256,14 +294,27 @@ export async function getHoldingDashboardAction() {
 }
 
 export async function enterBusinessAction(businessOrgId: string) {
-  const { holdingOrgId, userId } = await requireHoldingProfile();
+  let profile: HoldingProfileContext;
+  try {
+    profile = await requireHoldingProfile();
+  } catch (error) {
+    throw new Error(actionErrorMessage(error));
+  }
+
+  const parsed = enterBusinessSchema.safeParse({ businessOrgId });
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
+  const { holdingOrgId, userId } = profile;
+  const orgId = parsed.data.businessOrgId;
 
   const adminClient = createAdminClient();
   const { data: business } = await adminClient
     .from("holding_businesses")
     .select("id")
     .eq("holding_org_id", holdingOrgId)
-    .eq("business_org_id", businessOrgId)
+    .eq("business_org_id", orgId)
     .eq("status", "active")
     .maybeSingle();
 
@@ -273,7 +324,7 @@ export async function enterBusinessAction(businessOrgId: string) {
     .from("holding_active_sessions")
     .upsert({
       profile_id: userId,
-      business_org_id: businessOrgId,
+      business_org_id: orgId,
       set_at: new Date().toISOString(),
     });
 
@@ -284,7 +335,7 @@ export async function enterBusinessAction(businessOrgId: string) {
   await refreshAuthSessionAfterHoldingSwitch();
 
   const cookieStore = await cookies();
-  cookieStore.set(ACTIVE_ORG_COOKIE, businessOrgId, {
+  cookieStore.set(ACTIVE_ORG_COOKIE, orgId, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -331,15 +382,25 @@ export async function resetToHoldingViewAction() {
 export async function regenerateBusinessFounderTempPasswordAction(
   businessOrgId: string
 ): Promise<MutationResult<TempCredentials>> {
+  const auth = await requireHoldingProfileAndParse(
+    regenerateBusinessFounderTempPasswordSchema,
+    { businessOrgId }
+  );
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const { holdingOrgId } = auth.profile;
+  const orgId = auth.data.businessOrgId;
+
   return runMutation(async () => {
-    const { holdingOrgId } = await requireHoldingProfile();
     const admin = createAdminClient();
 
     const { data: link } = await admin
       .from("holding_businesses")
       .select("business_org_id")
       .eq("holding_org_id", holdingOrgId)
-      .eq("business_org_id", businessOrgId)
+      .eq("business_org_id", orgId)
       .eq("status", "active")
       .maybeSingle();
 
@@ -350,7 +411,7 @@ export async function regenerateBusinessFounderTempPasswordAction(
     const { data: founder } = await admin
       .from("profiles")
       .select("id")
-      .eq("organization_id", businessOrgId)
+      .eq("organization_id", orgId)
       .eq("role", "founder")
       .maybeSingle();
 
