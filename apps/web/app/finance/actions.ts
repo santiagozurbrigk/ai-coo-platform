@@ -182,6 +182,7 @@ export async function updateFixedExpenseAction(
   patch: Partial<FixedExpense>
 ): Promise<MutationResult<FixedExpense>> {
   return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
     const supabase = await createClient();
     const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (patch.name != null) row.name = patch.name;
@@ -195,6 +196,7 @@ export async function updateFixedExpenseAction(
       .from("fixed_expenses")
       .update(row)
       .eq("id", id)
+      .eq("organization_id", organizationId)
       .select()
       .single();
 
@@ -243,6 +245,7 @@ export async function updateSubscriptionAction(
   patch: Partial<Subscription>
 ): Promise<MutationResult<Subscription>> {
   return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
     const supabase = await createClient();
     const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (patch.name != null) row.name = patch.name;
@@ -255,6 +258,7 @@ export async function updateSubscriptionAction(
       .from("subscriptions")
       .update(row)
       .eq("id", id)
+      .eq("organization_id", organizationId)
       .select()
       .single();
 
@@ -278,6 +282,7 @@ export async function updateTeamCompensationAction(
   patch: Partial<TeamCompensation>
 ): Promise<MutationResult<TeamCompensation>> {
   return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
     const supabase = await createClient();
     const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (patch.memberName != null) row.member_name = patch.memberName;
@@ -303,6 +308,7 @@ export async function updateTeamCompensationAction(
       .from("team_compensation")
       .update(row)
       .eq("id", id)
+      .eq("organization_id", organizationId)
       .select()
       .single();
 

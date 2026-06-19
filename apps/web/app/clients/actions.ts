@@ -93,6 +93,7 @@ export async function updateClientAction(
     throw new Error("Supabase no configurado");
   }
 
+  const organizationId = await requireOrganizationId();
   const supabase = await createClient();
   const updateRow = patchToUpdateRow(patch);
 
@@ -100,6 +101,7 @@ export async function updateClientAction(
     .from("clients")
     .update(updateRow)
     .eq("id", id)
+    .eq("organization_id", organizationId)
     .select()
     .single();
 
