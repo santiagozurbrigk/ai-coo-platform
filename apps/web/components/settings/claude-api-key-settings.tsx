@@ -36,17 +36,26 @@ export function ClaudeApiKeySettings({
       }
 
       setApiKey("");
+      const savedStatus = result.data?.status ?? "valid";
       setStatus({
         hasKey: true,
-        status: "valid",
+        status: savedStatus,
         lastValidated: new Date().toISOString(),
         keyPreview: result.data?.maskedKey ?? null,
       });
-      push({
-        title: "API key conectada",
-        description: "Las llamadas de IA usarán tu cuenta de Claude.",
-        variant: "success",
-      });
+      if (savedStatus === "valid_no_credits") {
+        push({
+          title: "API key guardada",
+          description:
+            "Tu key es válida pero tu cuenta de Anthropic no tiene créditos cargados.",
+        });
+      } else {
+        push({
+          title: "API key conectada",
+          description: "Las llamadas de IA usarán tu cuenta de Claude.",
+          variant: "success",
+        });
+      }
     });
   };
 
@@ -100,6 +109,9 @@ export function ClaudeApiKeySettings({
         <div className="space-y-4 rounded-xl border border-border/60 bg-card/40 p-4 dark:border-glass dark:bg-glass">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="success">Conectada</Badge>
+            {status.status === "valid_no_credits" ? (
+              <Badge variant="warning">Sin créditos</Badge>
+            ) : null}
             {status.status === "invalid" ? (
               <Badge variant="destructive">Inválida</Badge>
             ) : null}
@@ -112,15 +124,33 @@ export function ClaudeApiKeySettings({
               </span>
             </p>
           ) : null}
+          {status.status === "valid_no_credits" ? (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+              Tu API key es válida pero tu cuenta de Anthropic no tiene créditos
+              cargados. Las funciones de IA no van a funcionar hasta que cargues
+              saldo en{" "}
+              <Link
+                href="https://console.anthropic.com/settings/billing"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-amber-100"
+              >
+                console.anthropic.com
+              </Link>
+              .
+            </p>
+          ) : null}
           {validatedLabel ? (
             <p className="text-xs text-muted-foreground">
               Validada el: {validatedLabel}
             </p>
           ) : null}
-          <p className="text-sm text-muted-foreground">
-            Con tu plan de Claude, el costo mensual de IA en OTC está cubierto
-            por tu suscripción existente.
-          </p>
+          {status.status === "valid" ? (
+            <p className="text-sm text-muted-foreground">
+              Con tu plan de Claude, el costo mensual de IA en OTC está cubierto
+              por tu suscripción existente.
+            </p>
+          ) : null}
           <Button
             type="button"
             variant="outline"

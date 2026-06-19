@@ -27,7 +27,7 @@ import type { z } from "zod";
 
 export type ClaudeApiKeyStatus = {
   hasKey: boolean;
-  status: "none" | "valid" | "invalid" | "error";
+  status: "none" | "valid" | "valid_no_credits" | "invalid" | "error";
   lastValidated: string | null;
   keyPreview: string | null;
 };
@@ -431,7 +431,12 @@ export async function getClaudeApiKeyStatusAction(): Promise<ClaudeApiKeyStatus>
 
 export async function saveClaudeApiKeyAction(
   apiKey: string
-): Promise<MutationResult<{ maskedKey: string }>> {
+): Promise<
+  MutationResult<{
+    maskedKey: string;
+    status: Extract<ClaudeApiKeyStatus["status"], "valid" | "valid_no_credits">;
+  }>
+> {
   const auth = await requireAuthContextAndParse(saveClaudeApiKeySchema, {
     apiKey,
   });
@@ -454,13 +459,14 @@ export async function saveClaudeApiKeyAction(
       throw new Error(validationErrorMessage(validation.reason));
     }
 
+    const keyStatus = validation.status;
     const encryptedKey = encrypt(trimmed);
     const admin = createAdminClient();
     const { error } = await admin
       .from("organizations")
       .update({
         claude_api_key_encrypted: encryptedKey,
-        claude_api_key_status: "valid",
+        claude_api_key_status: keyStatus,
         claude_api_key_last_validated_at: new Date().toISOString(),
       })
       .eq("id", orgId);
@@ -470,7 +476,7 @@ export async function saveClaudeApiKeyAction(
     invalidateOrgKeyCache(orgId);
     invalidateOrgContext(orgId);
     revalidatePath(paths.platform.settings);
-    return { maskedKey: maskSecret(trimmed) };
+    return { maskedKey: maskSecret(trimmed), status: keyStatus };
   });
 }
 

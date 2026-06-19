@@ -187,7 +187,8 @@ export async function getClientForOrg(
 
     if (
       data?.claude_api_key_encrypted &&
-      data.claude_api_key_status === "valid"
+      (data.claude_api_key_status === "valid" ||
+        data.claude_api_key_status === "valid_no_credits")
     ) {
       let apiKey: string;
       try {
