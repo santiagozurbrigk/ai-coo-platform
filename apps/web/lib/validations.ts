@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { AI_BRAIN_MAX_FILE_BYTES } from "@/lib/ai-brain/file-types";
+import { PERMISSION_MODULES } from "@/constants/permission-modules";
+import type { PermissionModuleId } from "@/constants/permission-modules";
 
 const noScriptPattern = /<script|javascript:|on\w+=/i;
 
@@ -263,4 +265,83 @@ export const businessInOnboardingSchema = z.object({
 
 export const completeHoldingOnboardingSchema = z.object({
   businesses: z.array(businessInOnboardingSchema).min(1).max(50),
+});
+
+export const teamUserRoleSchema = z.enum([
+  "founder",
+  "admin",
+  "project_manager",
+  "setter",
+  "operator",
+  "viewer",
+]);
+
+export const permissionLevelSchema = z.enum(["none", "view", "full"]);
+
+const permissionModuleIdSet = new Set<string>(
+  PERMISSION_MODULES.map((m) => m.id)
+);
+
+export const teamPermissionsSchema = z
+  .record(z.string(), permissionLevelSchema)
+  .refine((perms) => Object.keys(perms).length > 0, "Definí al menos un permiso")
+  .refine(
+    (perms) =>
+      Object.keys(perms).every((key) =>
+        permissionModuleIdSet.has(key as PermissionModuleId)
+      ),
+    "Módulo de permiso no válido"
+  );
+
+export const passwordMinLengthSchema = z
+  .string()
+  .min(8, "La contraseña debe tener al menos 8 caracteres")
+  .max(200, "Máximo 200 caracteres");
+
+const teamPersonNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Campo requerido")
+  .max(200, "Máximo 200 caracteres");
+
+export const inviteTeamMemberSchema = z.object({
+  email: emailSchema,
+  fullName: teamPersonNameSchema,
+  role: teamUserRoleSchema,
+  customRoleId: uuidSchema.optional(),
+});
+
+export const updateMemberRoleSchema = z.object({
+  memberId: uuidSchema,
+  role: teamUserRoleSchema.optional(),
+  customRoleId: z.union([uuidSchema, z.null()]).optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const deactivateMemberSchema = z.object({
+  memberId: uuidSchema,
+});
+
+export const createCustomRoleSchema = z.object({
+  name: teamPersonNameSchema,
+  description: z.string().trim().max(1000, "Máximo 1.000 caracteres").optional(),
+  permissions: teamPermissionsSchema,
+});
+
+export const deleteCustomRoleSchema = z.object({
+  roleId: uuidSchema,
+});
+
+export const revokeInvitationSchema = z.object({
+  invitationId: uuidSchema,
+});
+
+export const acceptInvitationSchema = z.object({
+  token: z.string().trim().min(1, "Token inválido").max(500),
+  fullName: teamPersonNameSchema,
+  password: passwordMinLengthSchema,
+});
+
+export const completeInvitationForCurrentUserSchema = z.object({
+  token: z.string().trim().min(1, "Token inválido").max(500),
 });

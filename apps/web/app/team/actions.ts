@@ -26,9 +26,21 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import {
+  acceptInvitationSchema,
+  completeInvitationForCurrentUserSchema,
+  createCustomRoleSchema,
+  deactivateMemberSchema,
+  deleteCustomRoleSchema,
+  firstZodError,
+  inviteTeamMemberSchema,
+  revokeInvitationSchema,
+  updateMemberRoleSchema,
+} from "@/lib/validations";
 import { paths } from "@/routes/paths";
 import type { CustomRole, PermissionLevel, TeamInvitation, TeamMember } from "@/types/team";
 import type { UserRole } from "@ai-coo/types";
+import type { z } from "zod";
 
 function revalidateTeam() {
   revalidatePath(paths.platform.team.root);
@@ -45,6 +57,30 @@ async function requireManagerProfile() {
     throw new Error("Sin permisos para esta acción");
   }
   return profile;
+}
+
+type ManagerProfileContext = Awaited<ReturnType<typeof requireManagerProfile>>;
+
+async function requireManagerProfileAndParse<T extends z.ZodTypeAny>(
+  schema: T,
+  input: unknown
+): Promise<
+  | { success: true; data: z.infer<T>; profile: ManagerProfileContext }
+  | { success: false; error: string }
+> {
+  let profile: ManagerProfileContext;
+  try {
+    profile = await requireManagerProfile();
+  } catch (error) {
+    return { success: false, error: actionErrorMessage(error) };
+  }
+
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  return { success: true, data: parsed.data, profile };
 }
 
 export async function getTeamMembersAction(): Promise<TeamMember[]> {
@@ -198,14 +234,17 @@ export async function inviteTeamMemberAction(data: {
   role: UserRole;
   customRoleId?: string;
 }): Promise<MutationResult<{ tempCredentials: TempCredentials }>> {
+  const auth = await requireManagerProfileAndParse(inviteTeamMemberSchema, data);
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const { email, fullName, role, customRoleId } = auth.data;
+
   return runMutation(async () => {
-    const profile = await requireManagerProfile();
+    const profile = auth.profile;
     const organizationId = profile.organization_id;
     const admin = createAdminClient();
-
-    const email = data.email.trim().toLowerCase();
-    const fullName = data.fullName.trim() || email.split("@")[0] || "Miembro";
-    if (!email.includes("@")) throw new Error("Email inválido");
 
     const { data: existing } = await admin
       .from("profiles")
@@ -243,8 +282,8 @@ export async function inviteTeamMemberAction(data: {
       organization_id: organizationId,
       email,
       full_name: fullName,
-      role: data.role,
-      custom_role_id: data.customRoleId ?? null,
+      role,
+      custom_role_id: customRoleId ?? null,
       invited_by: profile.id,
       is_active: true,
       ...tempPasswordProfileFields(),
@@ -268,18 +307,28 @@ export async function updateMemberRoleAction(
     isActive?: boolean;
   }
 ): Promise<MutationResult<{ ok: true }>> {
+  const auth = await requireManagerProfileAndParse(updateMemberRoleSchema, {
+    memberId,
+    ...data,
+  });
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const { memberId: parsedMemberId, role, customRoleId, isActive } = auth.data;
+
   return runMutation(async () => {
-    const profile = await requireManagerProfile();
+    const profile = auth.profile;
     const supabase = await createClient();
 
     const { error } = await supabase
       .from("profiles")
       .update({
-        role: data.role,
-        custom_role_id: data.customRoleId,
-        is_active: data.isActive,
+        role,
+        custom_role_id: customRoleId,
+        is_active: isActive,
       })
-      .eq("id", memberId)
+      .eq("id", parsedMemberId)
       .eq("organization_id", profile.organization_id);
 
     if (error) throw new Error(error.message);
@@ -292,9 +341,18 @@ export async function updateMemberRoleAction(
 export async function deactivateMemberAction(
   memberId: string
 ): Promise<MutationResult<{ ok: true }>> {
+  const auth = await requireManagerProfileAndParse(deactivateMemberSchema, {
+    memberId,
+  });
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const { memberId: parsedMemberId } = auth.data;
+
   return runMutation(async () => {
-    const profile = await requireManagerProfile();
-    if (memberId === profile.id) {
+    const profile = auth.profile;
+    if (parsedMemberId === profile.id) {
       throw new Error("No podés desactivarte a vos mismo");
     }
 
@@ -302,7 +360,7 @@ export async function deactivateMemberAction(
     const { error } = await supabase
       .from("profiles")
       .update({ is_active: false })
-      .eq("id", memberId)
+      .eq("id", parsedMemberId)
       .eq("organization_id", profile.organization_id);
 
     if (error) throw new Error(error.message);
@@ -317,17 +375,24 @@ export async function createCustomRoleAction(data: {
   description?: string;
   permissions: Record<string, PermissionLevel>;
 }): Promise<MutationResult<CustomRole>> {
+  const auth = await requireManagerProfileAndParse(createCustomRoleSchema, data);
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const { name, description, permissions } = auth.data;
+
   return runMutation(async () => {
-    const profile = await requireManagerProfile();
+    const profile = auth.profile;
     const supabase = await createClient();
 
     const { data: role, error } = await supabase
       .from("team_roles")
       .insert({
         organization_id: profile.organization_id,
-        name: data.name.trim(),
-        description: data.description?.trim() || null,
-        permissions: permissionsToRow(data.permissions),
+        name,
+        description: description ?? null,
+        permissions: permissionsToRow(permissions),
         is_default: false,
       })
       .select("*")
@@ -343,14 +408,23 @@ export async function createCustomRoleAction(data: {
 export async function deleteCustomRoleAction(
   roleId: string
 ): Promise<MutationResult<{ ok: true }>> {
+  const auth = await requireManagerProfileAndParse(deleteCustomRoleSchema, {
+    roleId,
+  });
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const { roleId: parsedRoleId } = auth.data;
+
   return runMutation(async () => {
-    const profile = await requireManagerProfile();
+    const profile = auth.profile;
     const supabase = await createClient();
 
     const { data: role, error: fetchError } = await supabase
       .from("team_roles")
       .select("is_default")
-      .eq("id", roleId)
+      .eq("id", parsedRoleId)
       .eq("organization_id", profile.organization_id)
       .maybeSingle();
 
@@ -361,7 +435,7 @@ export async function deleteCustomRoleAction(
     const { error } = await supabase
       .from("team_roles")
       .delete()
-      .eq("id", roleId)
+      .eq("id", parsedRoleId)
       .eq("organization_id", profile.organization_id);
 
     if (error) throw new Error(error.message);
@@ -374,15 +448,23 @@ export async function deleteCustomRoleAction(
 export async function revokeInvitationAction(
   invitationId: string
 ): Promise<MutationResult<{ ok: true }>> {
+  const auth = await requireManagerProfileAndParse(revokeInvitationSchema, {
+    invitationId,
+  });
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const { invitationId: parsedInvitationId } = auth.data;
+
   return runMutation(async () => {
-    await requireManagerProfile();
-    const organizationId = await requireOrganizationId();
+    const organizationId = auth.profile.organization_id;
     const supabase = await createClient();
 
     const { error } = await supabase
       .from("team_invitations")
       .update({ status: "expired" })
-      .eq("id", invitationId)
+      .eq("id", parsedInvitationId)
       .eq("organization_id", organizationId);
 
     if (error) throw new Error(error.message);
@@ -397,15 +479,15 @@ export async function acceptInvitationAction(input: {
   fullName: string;
   password: string;
 }): Promise<MutationResult<{ ok: true }>> {
+  const parsed = acceptInvitationSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  const { token, fullName, password } = parsed.data;
+
   return runMutation(async () => {
     const admin = createAdminClient();
-    const token = input.token.trim();
-    const fullName = input.fullName.trim();
-    const password = input.password;
-
-    if (!token) throw new Error("Token inválido");
-    if (!fullName) throw new Error("Ingresá tu nombre completo");
-    if (password.length < 8) throw new Error("La contraseña debe tener al menos 8 caracteres");
 
     const { data: invitation, error: inviteError } = await admin
       .from("team_invitations")
@@ -476,6 +558,13 @@ export async function acceptInvitationAction(input: {
 export async function completeInvitationForCurrentUserAction(
   token: string
 ): Promise<MutationResult<{ ok: true }>> {
+  const parsed = completeInvitationForCurrentUserSchema.safeParse({ token });
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  const { token: parsedToken } = parsed.data;
+
   return runMutation(async () => {
     const supabase = await createClient();
     const admin = createAdminClient();
@@ -489,7 +578,7 @@ export async function completeInvitationForCurrentUserAction(
     const { data: invitation, error: inviteError } = await admin
       .from("team_invitations")
       .select("*")
-      .eq("token", token.trim())
+      .eq("token", parsedToken)
       .maybeSingle();
 
     if (inviteError) throw new Error(inviteError.message);
