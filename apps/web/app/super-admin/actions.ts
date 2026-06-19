@@ -10,7 +10,28 @@ import { tempPasswordProfileFields } from "@/lib/auth/temp-password-expiry";
 import { regenerateUserTempPassword } from "@/lib/auth/regenerate-temp-password";
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { runMutation, type MutationResult } from "@/lib/server/action-result";
+import {
+  actionErrorMessage,
+  runMutation,
+  type MutationResult,
+} from "@/lib/server/action-result";
+import {
+  addOrganizationNoteSchema,
+  archiveAiBrainDocumentSchema,
+  createAiBrainDocumentSchema,
+  createFounderAccountSchema,
+  createHoldingOrgSchema,
+  createOrganizationFromHoldingSchema,
+  deactivateUserSchema,
+  deleteAiBrainDocumentSchema,
+  firstZodError,
+  getAiBrainSignedUrlSchema,
+  prepareAiBrainFileUploadSchema,
+  regenerateTempPasswordSchema,
+  setOrganizationStatusSchema,
+  updateOrganizationMrrSchema,
+} from "@/lib/validations";
+import type { z } from "zod";
 import type { BrainContentType } from "@/types/ai-brain";
 import type { CreateFounderResult } from "@/types/super-admin";
 import { paths } from "@/routes";
@@ -66,22 +87,38 @@ function revalidateSuperAdmin() {
   revalidatePath(paths.superAdmin.aiBrain.library);
 }
 
-export async function createFounderAccountAction(input: {
-  organizationName: string;
-  founderName: string;
-  email: string;
-}): Promise<MutationResult<CreateFounderResult>> {
-  return runMutation(async () => {
+async function requireSuperAdminAndParse<T extends z.ZodTypeAny>(
+  schema: T,
+  input: unknown
+): Promise<
+  | { success: true; data: z.infer<T> }
+  | { success: false; error: string }
+> {
+  try {
     await requireSuperAdmin();
+  } catch (error) {
+    return { success: false, error: actionErrorMessage(error) };
+  }
 
-    const orgName = input.organizationName.trim();
-    const founderName = input.founderName.trim();
-    const email = input.email.trim().toLowerCase();
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
 
-    if (!orgName || !founderName || !email) {
-      throw new Error("Completá todos los campos obligatorios.");
-    }
+  return { success: true, data: parsed.data };
+}
 
+export async function createFounderAccountAction(
+  input: unknown
+): Promise<MutationResult<CreateFounderResult>> {
+  const auth = await requireSuperAdminAndParse(createFounderAccountSchema, input);
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const { organizationName, founderName, email } = auth.data;
+
+  return runMutation(async () => {
     const admin = createAdminClient();
     const password = generateTempPassword();
 
@@ -101,7 +138,7 @@ export async function createFounderAccountAction(input: {
 
     const { data: org, error: orgError } = await admin
       .from("organizations")
-      .insert({ name: orgName, status: "active" })
+      .insert({ name: organizationName, status: "active" })
       .select("id")
       .single();
 
@@ -129,7 +166,7 @@ export async function createFounderAccountAction(input: {
 
     return {
       organizationId: org.id,
-      organizationName: orgName,
+      organizationName,
       email,
       password,
       emailSent: false,
@@ -138,28 +175,27 @@ export async function createFounderAccountAction(input: {
   });
 }
 
-export async function createOrganizationFromHoldingAction(input: {
-  name: string;
-  founderEmail: string;
-  plan?: "basic" | "pro";
-}): Promise<MutationResult<{ orgId: string; tempCredentials: TempCredentials }>> {
+export async function createOrganizationFromHoldingAction(
+  input: unknown
+): Promise<MutationResult<{ orgId: string; tempCredentials: TempCredentials }>> {
+  const auth = await requireSuperAdminAndParse(
+    createOrganizationFromHoldingSchema,
+    input
+  );
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const { name: organizationName, founderEmail: email, plan } = auth.data;
+
   return runMutation(async () => {
-    await requireSuperAdmin();
-
-    const orgName = input.name.trim();
-    const email = input.founderEmail.trim().toLowerCase();
-
-    if (!orgName || !email) {
-      throw new Error("Completá nombre y email del founder.");
-    }
-
     const admin = createAdminClient();
     const password = generateTempPassword();
-    const mrrUsd = input.plan === "pro" ? 30000 : 0;
+    const mrrUsd = plan === "pro" ? 30000 : 0;
 
     const { data: org, error: orgError } = await admin
       .from("organizations")
-      .insert({ name: orgName, status: "active", mrr_usd: mrrUsd })
+      .insert({ name: organizationName, status: "active", mrr_usd: mrrUsd })
       .select("id")
       .single();
 
@@ -237,18 +273,26 @@ export async function setOrganizationStatusAction(
   organizationId: string,
   active: boolean
 ): Promise<MutationResult> {
-  return runMutation(async () => {
-    await requireSuperAdmin();
+  const auth = await requireSuperAdminAndParse(setOrganizationStatusSchema, {
+    organizationId,
+    active,
+  });
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
 
+  const { organizationId: orgId, active: isActive } = auth.data;
+
+  return runMutation(async () => {
     const admin = createAdminClient();
     const { error } = await admin
       .from("organizations")
-      .update({ status: active ? "active" : "paused" })
-      .eq("id", organizationId);
+      .update({ status: isActive ? "active" : "paused" })
+      .eq("id", orgId);
 
     if (error) throw new Error(error.message);
     revalidateSuperAdmin();
-    revalidatePath(`${paths.superAdmin.organizations}/${organizationId}`);
+    revalidatePath(`${paths.superAdmin.organizations}/${orgId}`);
   });
 }
 
@@ -256,18 +300,26 @@ export async function updateOrganizationMrrAction(
   organizationId: string,
   mrrUsd: number
 ): Promise<MutationResult> {
-  return runMutation(async () => {
-    await requireSuperAdmin();
+  const auth = await requireSuperAdminAndParse(updateOrganizationMrrSchema, {
+    organizationId,
+    mrrUsd,
+  });
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
 
+  const { organizationId: orgId, mrrUsd: validatedMrr } = auth.data;
+
+  return runMutation(async () => {
     const admin = createAdminClient();
     const { error } = await admin
       .from("organizations")
-      .update({ mrr_usd: Math.max(0, mrrUsd) })
-      .eq("id", organizationId);
+      .update({ mrr_usd: validatedMrr })
+      .eq("id", orgId);
 
     if (error) throw new Error(error.message);
     revalidateSuperAdmin();
-    revalidatePath(`${paths.superAdmin.organizations}/${organizationId}`);
+    revalidatePath(`${paths.superAdmin.organizations}/${orgId}`);
   });
 }
 
@@ -276,32 +328,45 @@ export async function addOrganizationNoteAction(
   note: string,
   createdBy = "Super Admin"
 ): Promise<MutationResult> {
+  const auth = await requireSuperAdminAndParse(addOrganizationNoteSchema, {
+    organizationId,
+    note,
+    createdBy,
+  });
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const {
+    organizationId: orgId,
+    note: text,
+    createdBy: author,
+  } = auth.data;
+
   return runMutation(async () => {
-    await requireSuperAdmin();
-
-    const text = note.trim();
-    if (!text) throw new Error("La nota no puede estar vacía.");
-
     const admin = createAdminClient();
     const { error } = await admin.from("organization_notes").insert({
-      organization_id: organizationId,
+      organization_id: orgId,
       note: text,
-      created_by: createdBy,
+      created_by: author ?? "Super Admin",
     });
 
     if (error) throw new Error(error.message);
-    revalidatePath(`${paths.superAdmin.organizations}/${organizationId}`);
+    revalidatePath(`${paths.superAdmin.organizations}/${orgId}`);
   });
 }
 
 export async function deactivateUserAction(
   userId: string
 ): Promise<MutationResult> {
-  return runMutation(async () => {
-    await requireSuperAdmin();
+  const auth = await requireSuperAdminAndParse(deactivateUserSchema, { userId });
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
 
+  return runMutation(async () => {
     const admin = createAdminClient();
-    const { error } = await admin.auth.admin.updateUserById(userId, {
+    const { error } = await admin.auth.admin.updateUserById(auth.data.userId, {
       ban_duration: "876000h",
     });
     if (error) throw new Error(error.message);
@@ -309,30 +374,31 @@ export async function deactivateUserAction(
   });
 }
 
-/** URL firmada para subir el archivo directo a Storage (evita límite 413 en Vercel). */
-export async function prepareAiBrainFileUploadAction(input: {
-  fileName: string;
-  fileSize: number;
-  mimeType?: string;
-}): Promise<
+export async function prepareAiBrainFileUploadAction(
+  input: unknown
+): Promise<
   MutationResult<{
     storagePath: string;
     signedUrl: string;
     contentType: string;
   }>
 > {
-  return runMutation(async () => {
-    await requireSuperAdmin();
+  const auth = await requireSuperAdminAndParse(
+    prepareAiBrainFileUploadSchema,
+    input
+  );
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
 
-    const allowed = isAllowedBrainFile(
-      input.fileName,
-      input.mimeType,
-      input.fileSize
-    );
+  const { fileName, fileSize, mimeType } = auth.data;
+
+  return runMutation(async () => {
+    const allowed = isAllowedBrainFile(fileName, mimeType, fileSize);
     if (!allowed.ok) throw new Error(allowed.error);
 
     const docId = crypto.randomUUID();
-    const safeName = sanitizeFilename(input.fileName);
+    const safeName = sanitizeFilename(fileName);
     const storagePath = `${docId}-${safeName}`;
 
     const admin = createAdminClient();
@@ -371,56 +437,56 @@ export type CreateAiBrainDocumentInput = {
 };
 
 export async function createAiBrainDocumentAction(
-  input: CreateAiBrainDocumentInput
+  input: unknown
 ): Promise<MutationResult<{ id: string }>> {
+  const auth = await requireSuperAdminAndParse(createAiBrainDocumentSchema, input);
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const data = auth.data;
+
   return runMutation(async () => {
-    await requireSuperAdmin();
-
-    const title = input.title.trim();
-    if (!title) throw new Error("El título es obligatorio.");
-
     const admin = createAdminClient();
-    const tags = input.tags
-      ? input.tags.split(",").map((t) => t.trim()).filter(Boolean)
+    const tags = data.tags
+      ? data.tags.split(",").map((t) => t.trim()).filter(Boolean)
       : [];
-    const coverage_areas = input.coverageAreas
-      ? input.coverageAreas.split(",").map((t) => t.trim()).filter(Boolean)
+    const coverage_areas = data.coverageAreas
+      ? data.coverageAreas.split(",").map((t) => t.trim()).filter(Boolean)
       : [];
-    const uploadedBy = input.uploadedBy?.trim() || "Super Admin";
-    const miroUrl = input.miroUrl?.trim() ?? "";
+    const uploadedBy = data.uploadedBy?.trim() || "Super Admin";
+    const miroUrl = data.miroUrl?.trim() ?? "";
 
     let file_url: string | null = null;
     let file_name: string | null = null;
     let file_size_bytes: number | null = null;
     let source_url: string | null = null;
-    let dbContentType = uiContentTypeToDb(input.contentType);
+    let dbContentType = uiContentTypeToDb(data.contentType);
 
     if (miroUrl) {
       source_url = miroUrl;
       dbContentType = "miro_board";
-    } else if (input.storagePath && input.fileName) {
-      file_url = input.storagePath;
-      file_name = input.fileName;
-      file_size_bytes = input.fileSizeBytes ?? null;
-      const mime = input.fileMimeType ?? "";
+    } else if (data.storagePath && data.fileName) {
+      file_url = data.storagePath;
+      file_name = data.fileName;
+      file_size_bytes = data.fileSizeBytes ?? null;
+      const mime = data.fileMimeType ?? "";
       if (mime.startsWith("image/")) {
         dbContentType = "image";
       }
-    } else if (!miroUrl) {
-      throw new Error("Subí un archivo o ingresá la URL de un tablero Miro.");
     }
 
-    const { data, error } = await admin
+    const { data: row, error } = await admin
       .from("ai_brain_documents")
       .insert({
-        title,
-        category: input.category.trim() || "general",
+        title: data.title,
+        category: data.category.trim() || "general",
         content_type: dbContentType,
         file_url,
         file_name,
         file_size_bytes,
         source_url,
-        description: input.description?.trim() || null,
+        description: data.description?.trim() || null,
         tags,
         coverage_areas,
         status: "pending_indexing",
@@ -433,40 +499,54 @@ export async function createAiBrainDocumentAction(
 
     revalidatePath(paths.superAdmin.aiBrain.root);
     revalidatePath(paths.superAdmin.aiBrain.library);
-    return { id: data.id };
+    return { id: row.id };
   });
 }
 
 export async function archiveAiBrainDocumentAction(
   id: string
 ): Promise<MutationResult> {
-  return runMutation(async () => {
-    await requireSuperAdmin();
+  const auth = await requireSuperAdminAndParse(archiveAiBrainDocumentSchema, {
+    id,
+  });
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
 
+  const documentId = auth.data.id;
+
+  return runMutation(async () => {
     const admin = createAdminClient();
     const { error } = await admin
       .from("ai_brain_documents")
       .update({ status: "archived", updated_at: new Date().toISOString() })
-      .eq("id", id);
+      .eq("id", documentId);
 
     if (error) throw new Error(error.message);
     revalidatePath(paths.superAdmin.aiBrain.root);
     revalidatePath(paths.superAdmin.aiBrain.library);
-    revalidatePath(paths.superAdmin.aiBrain.document(id));
+    revalidatePath(paths.superAdmin.aiBrain.document(documentId));
   });
 }
 
 export async function deleteAiBrainDocumentAction(
   id: string
 ): Promise<MutationResult> {
-  return runMutation(async () => {
-    await requireSuperAdmin();
+  const auth = await requireSuperAdminAndParse(deleteAiBrainDocumentSchema, {
+    id,
+  });
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
 
+  const documentId = auth.data.id;
+
+  return runMutation(async () => {
     const admin = createAdminClient();
     const { data: row } = await admin
       .from("ai_brain_documents")
       .select("file_url")
-      .eq("id", id)
+      .eq("id", documentId)
       .maybeSingle();
 
     if (row?.file_url) {
@@ -476,7 +556,7 @@ export async function deleteAiBrainDocumentAction(
     const { error } = await admin
       .from("ai_brain_documents")
       .delete()
-      .eq("id", id);
+      .eq("id", documentId);
 
     if (error) throw new Error(error.message);
     revalidatePath(paths.superAdmin.aiBrain.root);
@@ -487,11 +567,16 @@ export async function deleteAiBrainDocumentAction(
 export async function getAiBrainSignedUrlAction(
   storagePath: string
 ): Promise<MutationResult<{ url: string }>> {
-  return runMutation(async () => {
-    await requireSuperAdmin();
+  const auth = await requireSuperAdminAndParse(getAiBrainSignedUrlSchema, {
+    storagePath,
+  });
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
 
+  return runMutation(async () => {
     const admin = createAdminClient();
-    const path = storagePath.replace(/^ai-brain-documents\//, "");
+    const path = auth.data.storagePath.replace(/^ai-brain-documents\//, "");
     const { data, error } = await admin.storage
       .from(AI_BRAIN_BUCKET)
       .createSignedUrl(path, 3600);
@@ -503,20 +588,17 @@ export async function getAiBrainSignedUrlAction(
   });
 }
 
-export async function createHoldingOrgAction(input: {
-  name: string;
-  founderEmail: string;
-}): Promise<MutationResult<{ orgId: string; tempCredentials: TempCredentials }>> {
+export async function createHoldingOrgAction(
+  input: unknown
+): Promise<MutationResult<{ orgId: string; tempCredentials: TempCredentials }>> {
+  const auth = await requireSuperAdminAndParse(createHoldingOrgSchema, input);
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
+  const { name: organizationName, founderEmail: email } = auth.data;
+
   return runMutation(async () => {
-    await requireSuperAdmin();
-
-    const orgName = input.name.trim();
-    const email = input.founderEmail.trim().toLowerCase();
-
-    if (!orgName || !email) {
-      throw new Error("Completá nombre y email del dueño.");
-    }
-
     const admin = createAdminClient();
     const password = generateTempPassword();
 
@@ -537,7 +619,7 @@ export async function createHoldingOrgAction(input: {
     const { data: org, error: orgError } = await admin
       .from("organizations")
       .insert({
-        name: orgName,
+        name: organizationName,
         status: "active",
         account_type: "holding",
       })
@@ -578,9 +660,15 @@ export async function createHoldingOrgAction(input: {
 export async function regenerateTempPasswordAction(
   userId: string
 ): Promise<MutationResult<TempCredentials>> {
+  const auth = await requireSuperAdminAndParse(regenerateTempPasswordSchema, {
+    userId,
+  });
+  if (!auth.success) {
+    return { success: false, error: auth.error };
+  }
+
   return runMutation(async () => {
-    await requireSuperAdmin();
-    const credentials = await regenerateUserTempPassword(userId);
+    const credentials = await regenerateUserTempPassword(auth.data.userId);
     revalidateSuperAdmin();
     return credentials;
   });
