@@ -1,3 +1,5 @@
+import { wrapUntrustedContent } from "@/lib/ai/wrap-untrusted-content";
+
 export type ConversationScoringMessage = {
   sender: string;
   message: string;
@@ -22,11 +24,12 @@ export function buildConversationScoringPrompt(
     .join("\n");
 
   const formContext = leadInfo.formAnswers
-    ? `\nRespuestas del formulario pre-agenda:\n${Object.entries(
-        leadInfo.formAnswers
-      )
-        .map(([q, a]) => `- ${q}: ${a}`)
-        .join("\n")}`
+    ? `\nRespuestas del formulario pre-agenda:\n${wrapUntrustedContent(
+        "respuestas_formulario",
+        Object.entries(leadInfo.formAnswers)
+          .map(([q, a]) => `- ${q}: ${a}`)
+          .join("\n")
+      )}`
     : "";
 
   const orgContextText = orgContext
@@ -45,7 +48,7 @@ ${formContext}
 ${orgContextText}
 
 CONVERSACIÓN:
-${messagesText}
+${wrapUntrustedContent("conversacion", messagesText)}
 
 Devolvé ÚNICAMENTE un objeto JSON válido con esta estructura:
 

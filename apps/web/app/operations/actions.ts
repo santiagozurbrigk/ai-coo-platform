@@ -8,6 +8,7 @@ import {
 import { requireAuthContext } from "@/lib/auth/require-auth";
 import { callClaudeJson } from "@/lib/ai/anthropic";
 import { buildOrgContextText, getOrgContext } from "@/lib/ai/org-context";
+import { wrapUntrustedContent } from "@/lib/ai/wrap-untrusted-content";
 import { ingestDocument } from "@/lib/rag/ingest";
 import {
   DB_TO_UI_DEPARTMENT,
@@ -224,7 +225,7 @@ export async function generateWeeklyReportAction(): Promise<{ ok: true }> {
     }, generá un reporte ejecutivo.
 
 INPUTS DEL EQUIPO:
-${inputsText}
+${wrapUntrustedContent("inputs_equipo", inputsText)}
 ${salesContext}
 
 JSON:

@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { wrapUntrustedContent } from "@/lib/ai/wrap-untrusted-content";
 import { formatVector, generateEmbedding, isOpenAIConfigured } from "./embeddings";
 
 export interface RAGSearchResult {
@@ -64,15 +65,17 @@ export async function searchRAG({
 export function buildRAGContext(results: RAGSearchResult[]): string {
   if (!results.length) return "";
 
-  return `
-CONTEXTO RELEVANTE DE LA ORGANIZACIÓN:
-${results
-  .map(
-    (r, i) => `
+  const rawContext = results
+    .map(
+      (r, i) => `
 [${i + 1}] ${r.title} (${r.sourceType})
 ${r.content}
 `
-  )
-  .join("\n---\n")}
-`.trim();
+    )
+    .join("\n---\n");
+
+  return wrapUntrustedContent(
+    "contexto_rag",
+    `CONTEXTO RELEVANTE DE LA ORGANIZACIÓN:\n${rawContext}`
+  );
 }

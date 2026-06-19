@@ -1,4 +1,5 @@
 import { callClaudeJson } from "@/lib/ai/anthropic";
+import { wrapUntrustedContent } from "@/lib/ai/wrap-untrusted-content";
 
 export { generateDeepCallAnalysis } from "@/lib/fathom/deep-call-analysis";
 
@@ -25,10 +26,14 @@ export async function analyzeFathomTranscript(params: {
 Analiza transcripts de llamadas de entrega/consultoría con clientes.
 Responde SOLO JSON válido en español.`;
 
+  const previousCallsBlock = params.previousCallsSummary
+    ? wrapUntrustedContent("llamadas_anteriores", params.previousCallsSummary)
+    : "Ninguna";
+
   const user = `CLIENTE: ${params.clientName}
-LLAMADAS ANTERIORES: ${params.previousCallsSummary || "Ninguna"}
+LLAMADAS ANTERIORES: ${previousCallsBlock}
 TRANSCRIPT:
-${params.transcript.slice(0, 120_000)}
+${wrapUntrustedContent("transcript", params.transcript.slice(0, 120_000))}
 
 Responde SOLO en JSON:
 {

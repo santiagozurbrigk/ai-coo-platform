@@ -317,6 +317,28 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 **Migración:** `20260619100000_byok_real_encryption.sql` — revoca SELECT de `claude_api_key_encrypted` para `authenticated`; lectura del ciphertext solo vía service role.
 
+### Seguridad — Defensa contra prompt injection
+
+**Helper:** `lib/ai/wrap-untrusted-content.ts` → `wrapUntrustedContent()`
+
+**Aplicado en:** todos los pipelines que insertan contenido dinámico
+en prompts a Claude (transcripts de Fathom, conversaciones de
+Instagram/ManyChat, SOPs, contexto de producto, guión de ventas,
+weekly inputs, contexto RAG del agente).
+
+**Criterio:** todo contenido interpolado dentro de un prompt —
+sea de terceros (leads) o del propio founder (SOPs) — se envuelve
+con delimitadores XML y una instrucción explícita de que ese
+contenido es dato a analizar, nunca una orden a seguir. Se aplica
+parejo a ambos tipos de fuente porque el contexto de organización
+se cachea y reutiliza en múltiples llamadas.
+
+**Excepción:** el mensaje directo del usuario logueado en el chat
+del Agente NO se envuelve de esta forma — es input legítimo e
+intencional de la persona usando su propia cuenta, no contenido
+externo. Sí se envuelve el contexto RAG que se inyecta junto a
+ese mensaje.
+
 ---
 
 ## 📊 MÉTRICAS Y DATOS

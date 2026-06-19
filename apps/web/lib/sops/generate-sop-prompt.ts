@@ -1,3 +1,5 @@
+import { wrapUntrustedContent } from "@/lib/ai/wrap-untrusted-content";
+
 export function buildSOPGenerationPrompt(data: {
   goal: string;
   department: string;
@@ -12,13 +14,19 @@ export function buildSOPGenerationPrompt(data: {
   };
 }): string {
   const existingSOPsText = data.orgContext.existingSOPs?.length
-    ? `\nSOPs existentes en la organización:\n${data.orgContext.existingSOPs
-        .map((s) => `- ${s.title} (${s.department})`)
-        .join("\n")}`
+    ? `\nSOPs existentes en la organización:\n${wrapUntrustedContent(
+        "sops_existentes",
+        data.orgContext.existingSOPs
+          .map((s) => `- ${s.title} (${s.department})`)
+          .join("\n")
+      )}`
     : "";
 
   const salesScriptContext = data.orgContext.salesScript
-    ? `\nGuión de ventas de la organización:\n${data.orgContext.salesScript.slice(0, 500)}...`
+    ? `\nGuión de ventas de la organización:\n${wrapUntrustedContent(
+        "guion_ventas",
+        `${data.orgContext.salesScript.slice(0, 500)}...`
+      )}`
     : "";
 
   return `Sos un experto en diseño de procesos operacionales para negocios de infoproductos latinoamericanos.
@@ -35,7 +43,7 @@ DATOS DEL SOP A CREAR:
 - Objetivo: ${data.goal}
 - Departamento: ${data.department}
 - Resultado esperado: ${data.expectedOutcome}
-${data.additionalContext ? `- Contexto adicional: ${data.additionalContext}` : ""}
+${data.additionalContext ? `- Contexto adicional: ${wrapUntrustedContent("contexto_adicional", data.additionalContext)}` : ""}
 
 Generá el SOP en formato markdown estructurado. Devolvé ÚNICAMENTE un objeto JSON con esta estructura:
 

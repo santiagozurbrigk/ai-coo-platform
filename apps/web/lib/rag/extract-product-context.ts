@@ -1,4 +1,5 @@
 import { callClaudeJson } from "@/lib/ai/anthropic";
+import { wrapUntrustedContent } from "@/lib/ai/wrap-untrusted-content";
 import { searchRAG } from "./search";
 
 export type SuggestedAvatar = {
@@ -65,7 +66,7 @@ export async function extractProductContextFromRAG(
 y extraé información sobre el cliente ideal, los productos y los frameworks de ventas.
 
 CONTEXTO:
-${context.slice(0, 6000)}
+${wrapUntrustedContent("contexto_producto", context.slice(0, 6000))}
 
 Devolvé ÚNICAMENTE un JSON válido:
 {

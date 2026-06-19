@@ -446,6 +446,8 @@ export async function sendAgentMessageAction(input: {
       minSimilarity: 0.65,
     });
     hasRagContext = ragResults.length > 0;
+    // El mensaje del usuario en claudeMessages es input legítimo (no se envuelve).
+    // El contexto RAG sí se envuelve en buildRAGContext() como contenido externo.
     ragContext = buildRAGContext(ragResults);
   } catch {
     console.warn("[Agent] RAG no disponible, respondiendo sin contexto semántico");

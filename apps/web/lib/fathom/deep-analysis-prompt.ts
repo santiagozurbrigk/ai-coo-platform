@@ -1,3 +1,5 @@
+import { wrapUntrustedContent } from "@/lib/ai/wrap-untrusted-content";
+
 export type ScriptSection = {
   id: string;
   name: string;
@@ -20,11 +22,12 @@ export function buildDeepAnalysisPrompt(
     .join("\n");
 
   const formContext = callMetadata.formAnswers
-    ? `\nRespuestas del formulario pre-agenda del lead:\n${Object.entries(
-        callMetadata.formAnswers
-      )
-        .map(([q, a]) => `- ${q}: ${a}`)
-        .join("\n")}`
+    ? `\nRespuestas del formulario pre-agenda del lead:\n${wrapUntrustedContent(
+        "respuestas_formulario",
+        Object.entries(callMetadata.formAnswers)
+          .map(([q, a]) => `- ${q}: ${a}`)
+          .join("\n")
+      )}`
     : "";
 
   return `Eres un experto en análisis de llamadas de ventas de alto ticket para negocios de infoproductos.
@@ -38,10 +41,10 @@ DATOS DE LA LLAMADA:
 ${formContext}
 
 GUIÓN DE VENTAS DE LA ORGANIZACIÓN:
-${sectionsText}
+${wrapUntrustedContent("guion_ventas", sectionsText)}
 
 TRANSCRIPCIÓN:
-${transcript.slice(0, 120_000)}
+${wrapUntrustedContent("transcript", transcript.slice(0, 120_000))}
 
 Analizá la llamada y devolvé ÚNICAMENTE un objeto JSON válido con esta estructura exacta:
 
