@@ -14,6 +14,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
+import { refreshAuthSessionAfterHoldingSwitch } from "@/lib/holding/refresh-auth-session";
 import { getHoldingBusinesses } from "@/lib/holding/switch-org";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { paths } from "@/routes";
@@ -255,7 +256,7 @@ export async function getHoldingDashboardAction() {
 }
 
 export async function enterBusinessAction(businessOrgId: string) {
-  const { holdingOrgId } = await requireHoldingProfile();
+  const { holdingOrgId, userId } = await requireHoldingProfile();
 
   const adminClient = createAdminClient();
   const { data: business } = await adminClient
@@ -267,6 +268,20 @@ export async function enterBusinessAction(businessOrgId: string) {
     .maybeSingle();
 
   if (!business) throw new Error("Sin acceso a ese negocio");
+
+  const { error: sessionError } = await adminClient
+    .from("holding_active_sessions")
+    .upsert({
+      profile_id: userId,
+      business_org_id: businessOrgId,
+      set_at: new Date().toISOString(),
+    });
+
+  if (sessionError) {
+    throw new Error(sessionError.message);
+  }
+
+  await refreshAuthSessionAfterHoldingSwitch();
 
   const cookieStore = await cookies();
   cookieStore.set(ACTIVE_ORG_COOKIE, businessOrgId, {
@@ -282,7 +297,19 @@ export async function enterBusinessAction(businessOrgId: string) {
 }
 
 export async function exitBusinessAction() {
-  await requireHoldingProfile();
+  const { userId } = await requireHoldingProfile();
+  const adminClient = createAdminClient();
+
+  const { error: deleteError } = await adminClient
+    .from("holding_active_sessions")
+    .delete()
+    .eq("profile_id", userId);
+
+  if (deleteError) {
+    throw new Error(deleteError.message);
+  }
+
+  await refreshAuthSessionAfterHoldingSwitch();
 
   const cookieStore = await cookies();
   cookieStore.delete(ACTIVE_ORG_COOKIE);

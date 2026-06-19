@@ -1,7 +1,9 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { authRateLimit, rateLimitErrorMessage } from "@/lib/rate-limit";
+import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
 import { emailSchema, firstZodError } from "@/lib/validations";
 import { getOnboardingStatusAction } from "@/app/onboarding/actions";
 import { ensureCurrentUserBootstrap } from "@/lib/auth/bootstrap";
@@ -11,6 +13,7 @@ import {
   TEMP_PASSWORD_EXPIRED_MESSAGE,
 } from "@/lib/auth/temp-password-expiry";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes";
 
@@ -292,6 +295,25 @@ export async function signUpAction(
 
 export async function signOutAction() {
   const supabase = await createClient();
+
+  if (isSupabaseConfigured()) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const admin = createAdminClient();
+      await admin
+        .from("holding_active_sessions")
+        .delete()
+        .eq("profile_id", user.id);
+    }
+  }
+
   await supabase.auth.signOut();
+
+  const cookieStore = await cookies();
+  cookieStore.delete(ACTIVE_ORG_COOKIE);
+
   redirect(paths.auth.login);
 }

@@ -845,6 +845,27 @@ INSERT INTO super_admin_users (email, role) VALUES ('email@ejemplo.com', 'admin'
 - **`ai_brain_documents` / `super_admin_users`:** RLS sin policies → solo service role.
 - **`token_usage`:** SELECT por org; escritura service role.
 
+### RLS — Resolución de organización para holdings (JWT claim)
+
+**Problema resuelto:** `get_my_organization_id()` antes solo leía `profiles.organization_id`, ignorando el negocio activo de un holding. Esto rompía (silenciosamente en lecturas, con error en escrituras) cualquier módulo con RLS estándar mientras un holding navegaba un negocio de su portfolio.
+
+**Mecanismo:** Auth Hook de Supabase (`custom_access_token_hook`) agrega un claim `active_business_org_id` al JWT cuando existe una fila válida en `holding_active_sessions` (verificada contra `holding_businesses`). `get_my_organization_id()` prioriza ese claim sobre `profiles.organization_id`, con fallback retrocompatible cuando no existe.
+
+**Tabla `holding_active_sessions`:** fuente de verdad para el hook. Se escribe/borra en `enterBusinessAction` / `exitBusinessAction` y en `signOutAction`, junto con la cookie `otc_active_org` (solo UI).
+
+**Refresh de sesión:** `auth.refreshSession()` al entrar/salir de un negocio (authentication_method `token_refresh` dispara el hook). Sin refresh, el JWT anterior no incluye el claim hasta el próximo refresh natural.
+
+**Habilitación manual obligatoria:** Dashboard → Authentication → Hooks → Custom Access Token Hook → Postgres function `public.custom_access_token_hook`. La migración SQL sola no activa el hook.
+
+**Sintaxis JWT en RLS:** `(auth.jwt() ->> 'active_business_org_id')::uuid` — claims del hook viven en el payload raíz del access token.
+
+**Parches de admin client pendientes de limpieza** (deuda técnica; no removidos — validar estabilidad en prod primero):
+- `app/onboarding/actions.ts` (`getOnboardingStatusAction`)
+- `app/(platform)/holding/actions.ts` (`getHoldingDashboardAction`)
+- `lib/holding/switch-org.ts` (`getHoldingBusinesses`)
+
+**Migración:** `20260620100000_holding_jwt_claim_hook.sql`
+
 ### API keys y secrets
 
 - **Nunca** exponer `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, secrets OAuth en el cliente.
