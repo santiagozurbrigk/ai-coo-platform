@@ -415,7 +415,9 @@ export async function loadOrganizationsList(): Promise<
     await Promise.all([
       admin
         .from("organizations")
-        .select("id, name, status, industry, website_url, created_at, mrr_usd")
+        .select(
+          "id, name, status, industry, website_url, created_at, mrr_usd, timezone"
+        )
         .order("created_at", { ascending: false }),
       admin
         .from("organization_claude_status")
@@ -501,6 +503,7 @@ export async function loadOrganizationsList(): Promise<
       plan: inferPlan(mrrUsd, org.status),
       usersCount: userCounts.get(org.id) ?? 0,
       byokEnabled: byokByOrg.get(org.id) ?? false,
+      timezone: (org.timezone as string | null) ?? null,
       createdAt: org.created_at,
       lastActivityAt: founderLastLogin,
       founderLastLogin,
@@ -590,7 +593,7 @@ export async function loadOrganizationDetail(
 
   const { data: org, error } = await admin
     .from("organizations")
-    .select("id, name, status, created_at, mrr_usd")
+    .select("id, name, status, created_at, mrr_usd, timezone")
     .eq("id", orgId)
     .maybeSingle();
 
@@ -705,6 +708,7 @@ export async function loadOrganizationDetail(
     name: org.name,
     status,
     plan: inferPlan(mrrUsd, org.status),
+    timezone: (org.timezone as string | null) ?? null,
     createdAt: org.created_at,
     mrrUsd,
     founder: {
@@ -742,12 +746,15 @@ export async function loadAdminUsers(): Promise<AdminUserRow[]> {
         "id, email, full_name, role, organization_id, created_at, last_login_at, is_active"
       )
       .order("created_at", { ascending: false }),
-    admin.from("organizations").select("id, name"),
+    admin.from("organizations").select("id, name, timezone"),
   ]);
 
   if (error) throw new Error(error.message);
 
   const orgNames = new Map((orgs ?? []).map((o) => [o.id, o.name as string]));
+  const orgTimezones = new Map(
+    (orgs ?? []).map((o) => [o.id, (o.timezone as string | null) ?? null])
+  );
 
   const rows: AdminUserRow[] = [];
   for (const p of profiles ?? []) {
@@ -764,6 +771,7 @@ export async function loadAdminUsers(): Promise<AdminUserRow[]> {
       email: p.email,
       organizationId: p.organization_id,
       organizationName: orgName,
+      organizationTimezone: orgTimezones.get(p.organization_id) ?? null,
       role: p.role,
       status: banned || profileInactive ? "inactive" : "active",
       lastLogin:

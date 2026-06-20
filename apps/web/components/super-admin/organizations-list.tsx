@@ -6,6 +6,7 @@ import { Badge, Button, DataTable, Input } from "@ai-coo/ui";
 import { paths } from "@/routes";
 import { es } from "@/lib/locale/es";
 import type { AdminOrganizationListRow } from "@/types/super-admin";
+import { formatOrgDate } from "@/lib/super-admin/format-org-datetime";
 import { setOrganizationStatusAction } from "@/app/super-admin/actions";
 
 type Filter = "all" | "active" | "inactive" | "trial";
@@ -15,15 +16,6 @@ const STATUS_LABEL: Record<string, string> = {
   inactive: "Inactivo",
   trial: es.status.org.trial,
 };
-
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("es", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 export function OrganizationsList({
   organizations,
@@ -134,7 +126,7 @@ export function OrganizationsList({
           {
             key: "created",
             header: "Creada",
-            cell: (r) => formatDate(r.createdAt),
+            cell: (r) => formatOrgDate(r.createdAt, r.timezone),
           },
           {
             key: "actions",

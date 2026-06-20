@@ -16,12 +16,12 @@ import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dial
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import { formatUsd, formatUsdPrecise } from "@/lib/super-admin/org-metrics";
 import type { ClientHealthTimelineItem } from "@/lib/super-admin/client-health";
+import { formatOrgDateTime } from "@/lib/super-admin/format-org-datetime";
 import type { AdminOrganizationDetail } from "@/types/super-admin";
 import { OrgClientHealthSection } from "@/components/super-admin/org-client-health-section";
 
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("es", {
+function formatDate(iso: string | null, timezone: string | null): string {
+  return formatOrgDateTime(iso, timezone, {
     dateStyle: "medium",
     timeStyle: "short",
   });
@@ -94,7 +94,7 @@ export function OrganizationDetailView({
             </Badge>
             <Badge variant="outline">{PLAN_LABEL[detail.plan] ?? detail.plan}</Badge>
             <span className="text-xs text-muted-foreground">
-              Inicio: {formatDate(detail.createdAt)}
+              Inicio: {formatDate(detail.createdAt, detail.timezone)}
             </span>
           </div>
         </div>
@@ -230,7 +230,7 @@ export function OrganizationDetailView({
                   <td className="py-2 pr-4 text-muted-foreground">{user.email}</td>
                   <td className="py-2 pr-4 capitalize">{user.role}</td>
                   <td className="py-2 text-muted-foreground">
-                    {formatDate(user.lastLogin)}
+                    {formatDate(user.lastLogin, detail.timezone)}
                   </td>
                   <td className="py-2">
                     <Button
@@ -278,7 +278,11 @@ export function OrganizationDetailView({
         </ul>
       </section>
 
-      <OrgClientHealthSection orgName={detail.name} clients={clientHealth} />
+      <OrgClientHealthSection
+        orgName={detail.name}
+        timezone={detail.timezone}
+        clients={clientHealth}
+      />
 
       <section className="rounded-xl border border-border/60 p-6">
         <h3 className="text-sm font-semibold">Notas internas</h3>
@@ -293,7 +297,7 @@ export function OrganizationDetailView({
             >
               <p>{n.note}</p>
               <p className="mt-2 text-xs text-muted-foreground">
-                {n.created_by ?? "—"} · {formatDate(n.created_at)}
+                {n.created_by ?? "—"} · {formatDate(n.created_at, detail.timezone)}
               </p>
             </div>
           ))}

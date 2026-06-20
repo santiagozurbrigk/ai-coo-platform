@@ -10,6 +10,7 @@ import {
 } from "@/app/super-admin/actions";
 import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
+import { formatOrgDateTime } from "@/lib/super-admin/format-org-datetime";
 import type { AdminUserRow } from "@/types/super-admin";
 
 type RoleFilter = "all" | "founder" | "admin" | "other";
@@ -23,9 +24,8 @@ const ROLE_LABEL: Record<string, string> = {
   viewer: "Viewer",
 };
 
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("es", {
+function formatDate(iso: string | null, timezone: string | null): string {
+  return formatOrgDateTime(iso, timezone, {
     dateStyle: "short",
     timeStyle: "short",
   });
@@ -143,7 +143,7 @@ export function UsersTable({ users }: { users: AdminUserRow[] }) {
           {
             key: "login",
             header: "Último login",
-            cell: (r) => formatDate(r.lastLogin),
+            cell: (r) => formatDate(r.lastLogin, r.organizationTimezone),
           },
           {
             key: "actions",

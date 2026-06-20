@@ -13,6 +13,7 @@ export type AdminOrganizationListRow = {
   plan: AdminOrgPlan;
   usersCount: number;
   byokEnabled: boolean;
+  timezone: string | null;
   createdAt: string;
   lastActivityAt: string | null;
   founderLastLogin: string | null;
@@ -75,6 +76,7 @@ export type AdminOrganizationDetail = {
   name: string;
   status: AdminOrgStatus;
   plan: AdminOrgPlan;
+  timezone: string | null;
   createdAt: string;
   mrrUsd: number;
   founder: {
@@ -106,6 +108,7 @@ export type AdminUserRow = {
   email: string;
   organizationId: string;
   organizationName: string;
+  organizationTimezone: string | null;
   role: string;
   status: "active" | "inactive";
   lastLogin: string | null;

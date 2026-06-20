@@ -1,4 +1,5 @@
 import { Badge } from "@ai-coo/ui";
+import { formatOrgDate } from "@/lib/super-admin/format-org-datetime";
 import type { ClientHealthTimelineItem } from "@/lib/super-admin/client-health";
 
 const PROGRESS_LABEL: Record<string, string> = {
@@ -16,11 +17,8 @@ const ENTRY_TYPE_LABEL: Record<string, string> = {
   onboarding: "Onboarding",
 };
 
-function formatTimelineDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("es", {
-    day: "numeric",
-    month: "short",
-  });
+function formatTimelineDate(iso: string, timezone: string | null): string {
+  return formatOrgDate(iso, timezone, { day: "numeric", month: "short" });
 }
 
 function problemStatusBadge(status: string) {
@@ -40,9 +38,11 @@ function problemStatusBadge(status: string) {
 
 export function OrgClientHealthSection({
   orgName,
+  timezone,
   clients,
 }: {
   orgName: string;
+  timezone: string | null;
   clients: ClientHealthTimelineItem[];
 }) {
   return (
@@ -82,7 +82,7 @@ export function OrgClientHealthSection({
                   {client.timeline.map((entry) => (
                     <li key={entry.id} className="text-sm">
                       <span className="text-muted-foreground">
-                        {formatTimelineDate(entry.createdAt)} ·{" "}
+                        {formatTimelineDate(entry.createdAt, timezone)} ·{" "}
                         {ENTRY_TYPE_LABEL[entry.entryType] ?? entry.entryType} ·{" "}
                       </span>
                       <span>{entry.title}</span>

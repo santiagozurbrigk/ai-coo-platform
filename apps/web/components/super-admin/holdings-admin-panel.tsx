@@ -7,6 +7,7 @@ import {
   Button,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   Input,
@@ -54,6 +55,10 @@ function CreateHoldingDialog() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Nuevo holding</DialogTitle>
+            <DialogDescription>
+              Creá la cuenta del dueño del holding. Al confirmar vas a recibir
+              las credenciales temporales para compartirle.
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -178,6 +183,10 @@ export function HoldingsAdminPanel({
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{detail?.name} — Portfolio</DialogTitle>
+            <DialogDescription>
+              Negocios vinculados a este holding, con MRR combinado y revenue
+              share de cada uno.
+            </DialogDescription>
           </DialogHeader>
           {detail && (
             <div className="space-y-3 text-sm">
