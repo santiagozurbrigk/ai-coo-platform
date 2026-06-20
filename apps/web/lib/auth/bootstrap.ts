@@ -180,7 +180,7 @@ export async function requireOrganizationId(): Promise<string> {
     throw new Error("Sesión no válida");
   }
 
-  let { organizationId, accountType } = await loadProfileOrganizationContext(
+  const { organizationId, accountType } = await loadProfileOrganizationContext(
     user.id
   );
 
