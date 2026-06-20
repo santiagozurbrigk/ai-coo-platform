@@ -2,10 +2,9 @@ import type { User } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import { ensureUserBootstrap } from "@/lib/auth/bootstrap";
+import { ensureUserBootstrap, loadProfileOrganizationContext } from "@/lib/auth/bootstrap";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  readAccountType,
   resolveEffectiveOrganizationId,
 } from "@/lib/holding/resolve-org";
 import {
@@ -42,22 +41,24 @@ async function resolveAuthContext(): Promise<AuthSuccess | AuthFailure> {
     };
   }
 
-  const { data: profile } = await supabase
+  const { data: profileRow } = await supabase
     .from("profiles")
-    .select("organization_id, role, must_change_password, organizations(account_type)")
+    .select("role")
     .eq("id", user.id)
     .maybeSingle();
 
-  let organizationId: string | null = profile?.organization_id ?? null;
-  let role = profile?.role ?? "founder";
-  let organizationsField = profile?.organizations ?? null;
+  let { organizationId, accountType } = await loadProfileOrganizationContext(
+    user.id
+  );
+  let role = profileRow?.role ?? "founder";
 
   if (!organizationId) {
     try {
       const boot = await ensureUserBootstrap(user);
       organizationId = boot.organization_id;
       role = boot.role;
-      organizationsField = null;
+      const ctx = await loadProfileOrganizationContext(user.id);
+      accountType = ctx.accountType;
     } catch {
       return {
         ok: false,
@@ -79,9 +80,6 @@ async function resolveAuthContext(): Promise<AuthSuccess | AuthFailure> {
     };
   }
 
-  const accountType = readAccountType(
-    organizationsField as { account_type?: string } | null
-  );
   const orgId = await resolveEffectiveOrganizationId(
     organizationId,
     accountType

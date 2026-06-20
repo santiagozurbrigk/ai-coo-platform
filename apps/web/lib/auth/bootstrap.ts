@@ -120,7 +120,7 @@ export type ProfileOrganizationContext = {
   accountType: "founder" | "holding" | null;
 };
 
-async function loadProfileOrganizationContext(
+export async function loadProfileOrganizationContext(
   userId: string
 ): Promise<ProfileOrganizationContext> {
   const admin = createAdminClient();

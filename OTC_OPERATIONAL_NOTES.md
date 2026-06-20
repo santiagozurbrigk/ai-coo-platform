@@ -897,7 +897,15 @@ Causa raíz real del bug de onboarding reapareciendo para holdings: el embed `pr
 
 Fix: `getProfileAccountType()` / `loadProfileOrganizationContext()` leen este dato siempre con admin client, porque es una propiedad fija del perfil que nunca debe depender de RLS ni del negocio activo en sesión. Usado de forma consistente en `requireOrganizationId()` y en onboarding.
 
-**Nota:** `requireAuthContext()` en `lib/auth/require-auth.ts` aún usa el embed con cliente normal — pendiente alinear en un fix posterior si algún módulo que lo use sigue fallando para holdings.
+**Gap cerrado:** `requireAuthContext()` corregido con el mismo helper compartido (`loadProfileOrganizationContext`).
+
+**Otros puntos con el mismo embed roto (cliente normal + `organizations(account_type)`), pendientes de alinear:**
+- `app/auth/actions.ts` (`postAuthRedirect`)
+- `lib/holding/session.ts` (`getHoldingSessionState`)
+- `lib/holding/switch-org.ts` (`isHoldingUser`)
+- `app/(platform)/onboarding/holding/actions.ts` (`requireHoldingOrgId`)
+
+`lib/supabase/middleware.ts` usa **admin client** para ese embed — no afectado.
 
 ### API keys y secrets
 
