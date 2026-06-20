@@ -115,8 +115,40 @@ export async function getCurrentProfile() {
   return profile;
 }
 
-/** Tipo de cuenta del usuario autenticado (holding vs founder). */
-export async function getCurrentProfileAccountType(): Promise<
+export type ProfileOrganizationContext = {
+  organizationId: string | null;
+  accountType: "founder" | "holding" | null;
+};
+
+async function loadProfileOrganizationContext(
+  userId: string
+): Promise<ProfileOrganizationContext> {
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("organization_id, organizations(account_type)")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!profile) {
+    return { organizationId: null, accountType: null };
+  }
+
+  const accountTypeRaw = readAccountType(
+    profile.organizations as { account_type?: string } | null
+  );
+
+  return {
+    organizationId: profile.organization_id ?? null,
+    accountType: accountTypeRaw === "holding" ? "holding" : "founder",
+  };
+}
+
+/**
+ * Devuelve el account_type real del perfil del usuario actual, siempre vía admin
+ * client. Es una propiedad fija del perfil (no del negocio activo en sesión).
+ */
+export async function getProfileAccountType(): Promise<
   "founder" | "holding" | null
 > {
   const supabase = await createClient();
@@ -126,17 +158,15 @@ export async function getCurrentProfileAccountType(): Promise<
 
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organizations(account_type)")
-    .eq("id", user.id)
-    .maybeSingle();
+  const { accountType } = await loadProfileOrganizationContext(user.id);
+  return accountType;
+}
 
-  const accountType = readAccountType(
-    profile?.organizations as { account_type?: string } | null
-  );
-
-  return accountType === "holding" ? "holding" : "founder";
+/** @deprecated Usar getProfileAccountType() */
+export async function getCurrentProfileAccountType(): Promise<
+  "founder" | "holding" | null
+> {
+  return getProfileAccountType();
 }
 
 /** Garantiza org + perfil (repara usuarios creados antes del bootstrap). */
@@ -150,13 +180,11 @@ export async function requireOrganizationId(): Promise<string> {
     throw new Error("Sesión no válida");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organization_id, organizations(account_type)")
-    .eq("id", user.id)
-    .maybeSingle();
+  let { organizationId, accountType } = await loadProfileOrganizationContext(
+    user.id
+  );
 
-  if (!profile?.organization_id) {
+  if (!organizationId) {
     const boot = await ensureUserBootstrap(user);
     if (!boot.organization_id) {
       throw new Error(
@@ -166,11 +194,7 @@ export async function requireOrganizationId(): Promise<string> {
     return boot.organization_id;
   }
 
-  const accountType = readAccountType(
-    profile.organizations as { account_type?: string } | null
-  );
-
-  return resolveEffectiveOrganizationId(profile.organization_id, accountType);
+  return resolveEffectiveOrganizationId(organizationId, accountType);
 }
 
 /** Igual que requireOrganizationId pero sin lanzar (lecturas desde el cliente). */

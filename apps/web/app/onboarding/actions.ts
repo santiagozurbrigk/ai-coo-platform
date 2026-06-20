@@ -1,7 +1,7 @@
 "use server";
 
 import {
-  getCurrentProfileAccountType,
+  getProfileAccountType,
   isMissingTableError,
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
@@ -76,7 +76,7 @@ export async function getOnboardingStatusAction(): Promise<OnboardingStatus> {
     }
 
     const organizationId = await requireOrganizationId();
-    const profileAccountType = await getCurrentProfileAccountType();
+    const profileAccountType = await getProfileAccountType();
     const isHoldingUser = profileAccountType === "holding";
     const dbClient: OnboardingDbClient = isHoldingUser
       ? createAdminClient()
@@ -148,7 +148,7 @@ export async function completeOnboardingAction(
   }
 
   const organizationId = await requireOrganizationId();
-  const profileAccountType = await getCurrentProfileAccountType();
+  const profileAccountType = await getProfileAccountType();
   const isHoldingUser = profileAccountType === "holding";
   const dbClient: OnboardingDbClient = isHoldingUser
     ? createAdminClient()

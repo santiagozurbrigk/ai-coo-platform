@@ -891,7 +891,13 @@ INSERT INTO super_admin_users (email, role) VALUES ('email@ejemplo.com', 'admin'
 
 Reemplazado el criterio frágil de comparar `organizationId !== profile.organization_id` (que podía desincronizarse del JWT claim del sprint de RLS) por un criterio estable: si `profile.account_type === 'holding'`, usar siempre admin client para onboarding (lectura y escritura), independientemente de cookies o claims. Aplica a `getOnboardingStatusAction` y `completeOnboardingAction`.
 
-Helper: `getCurrentProfileAccountType()` en `lib/auth/bootstrap.ts`.
+### Fix — account_type del perfil siempre vía admin client
+
+Causa raíz real del bug de onboarding reapareciendo para holdings: el embed `profiles → organizations(account_type)` usando cliente normal fallaba silenciosamente bajo RLS una vez que el JWT claim de negocio activo estaba presente (RLS solo deja ver el negocio, no el holding del perfil). Esto hacía que TODO el sistema — no solo onboarding — detectara incorrectamente `accountType: null → 'founder'` para un holding viendo un negocio, y que `requireOrganizationId()` ignorara la cookie del negocio activo.
+
+Fix: `getProfileAccountType()` / `loadProfileOrganizationContext()` leen este dato siempre con admin client, porque es una propiedad fija del perfil que nunca debe depender de RLS ni del negocio activo en sesión. Usado de forma consistente en `requireOrganizationId()` y en onboarding.
+
+**Nota:** `requireAuthContext()` en `lib/auth/require-auth.ts` aún usa el embed con cliente normal — pendiente alinear en un fix posterior si algún módulo que lo use sigue fallando para holdings.
 
 ### API keys y secrets
 
