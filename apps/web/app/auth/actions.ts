@@ -6,7 +6,7 @@ import { authRateLimit, rateLimitErrorMessage } from "@/lib/rate-limit";
 import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
 import { emailSchema, firstZodError } from "@/lib/validations";
 import { getOnboardingStatusAction } from "@/app/onboarding/actions";
-import { ensureCurrentUserBootstrap } from "@/lib/auth/bootstrap";
+import { ensureCurrentUserBootstrap, loadProfileOrganizationContext } from "@/lib/auth/bootstrap";
 import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
 import {
   isTempPasswordExpired,
@@ -94,19 +94,7 @@ async function postAuthRedirect() {
     }
 
     if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("organizations(account_type)")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      const orgField = profile?.organizations as
-        | { account_type?: string }
-        | { account_type?: string }[]
-        | null;
-      const accountType = Array.isArray(orgField)
-        ? orgField[0]?.account_type
-        : orgField?.account_type;
+      const { accountType } = await loadProfileOrganizationContext(user.id);
 
       if (accountType === "holding") {
         redirect(paths.platform.holding);

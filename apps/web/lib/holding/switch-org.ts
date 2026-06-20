@@ -1,5 +1,8 @@
 import { cookies } from "next/headers";
-import { isMissingTableError } from "@/lib/auth/bootstrap";
+import {
+  isMissingTableError,
+  loadProfileOrganizationContext,
+} from "@/lib/auth/bootstrap";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
@@ -118,8 +121,6 @@ export async function getHoldingBusinesses(
   }));
 }
 
-type OrgAccountType = { account_type?: string };
-
 export async function isHoldingUser(): Promise<{
   isHolding: boolean;
   holdingOrgId?: string;
@@ -132,24 +133,19 @@ export async function isHoldingUser(): Promise<{
   } = await supabase.auth.getUser();
   if (!user) return { isHolding: false };
 
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("organization_id, organizations(account_type)")
-    .eq("id", user.id)
-    .maybeSingle();
+  const { organizationId, accountType } = await loadProfileOrganizationContext(
+    user.id
+  );
 
-  if (error || !profile?.organization_id) return { isHolding: false };
+  if (!organizationId || accountType !== "holding") {
+    return { isHolding: false };
+  }
 
-  const org = profile.organizations as OrgAccountType | OrgAccountType[] | null;
-  const accountType = Array.isArray(org) ? org[0]?.account_type : org?.account_type;
-
-  if (accountType !== "holding") return { isHolding: false };
-
-  const businesses = await getHoldingBusinesses(profile.organization_id);
+  const businesses = await getHoldingBusinesses(organizationId);
 
   return {
     isHolding: true,
-    holdingOrgId: profile.organization_id,
+    holdingOrgId: organizationId,
     businesses,
   };
 }

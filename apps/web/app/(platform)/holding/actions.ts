@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { generateTempPassword } from "@/lib/auth/generate-temp-password";
+import { loadProfileOrganizationContext } from "@/lib/auth/bootstrap";
 import { tempPasswordProfileFields } from "@/lib/auth/temp-password-expiry";
 import { regenerateUserTempPassword } from "@/lib/auth/regenerate-temp-password";
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
@@ -37,26 +38,26 @@ async function requireHoldingProfile() {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organization_id, organizations(account_type, holding_billing_model)")
-    .eq("id", user.id)
-    .single();
+  const { organizationId, accountType } = await loadProfileOrganizationContext(
+    user.id
+  );
 
-  if (!profile?.organization_id) throw new Error("Sin perfil");
-
-  const org = profile.organizations as {
-    account_type?: string;
-    holding_billing_model?: HoldingBillingModel | null;
-  } | null;
-  if (org?.account_type !== "holding") {
+  if (!organizationId) throw new Error("Sin perfil");
+  if (accountType !== "holding") {
     throw new Error("No sos dueño de un holding");
   }
 
+  const admin = createAdminClient();
+  const { data: org } = await admin
+    .from("organizations")
+    .select("holding_billing_model")
+    .eq("id", organizationId)
+    .single();
+
   return {
-    holdingOrgId: profile.organization_id,
+    holdingOrgId: organizationId,
     userId: user.id,
-    billingModel: org.holding_billing_model ?? null,
+    billingModel: (org?.holding_billing_model as HoldingBillingModel | null) ?? null,
   };
 }
 

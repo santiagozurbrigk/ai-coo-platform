@@ -899,13 +899,7 @@ Fix: `getProfileAccountType()` / `loadProfileOrganizationContext()` leen este da
 
 **Gap cerrado:** `requireAuthContext()` corregido con el mismo helper compartido (`loadProfileOrganizationContext`).
 
-**Otros puntos con el mismo embed roto (cliente normal + `organizations(account_type)`), pendientes de alinear:**
-- `app/auth/actions.ts` (`postAuthRedirect`)
-- `lib/holding/session.ts` (`getHoldingSessionState`)
-- `lib/holding/switch-org.ts` (`isHoldingUser`)
-- `app/(platform)/onboarding/holding/actions.ts` (`requireHoldingOrgId`)
-
-`lib/supabase/middleware.ts` usa **admin client** para ese embed — no afectado.
+**Gap cerrado completamente:** los 4 puntos restantes (`postAuthRedirect`, `getHoldingSessionState`, `isHoldingUser`, `requireHoldingOrgId`) corregidos con el mismo helper compartido. En la búsqueda exhaustiva se corrigió además `requireHoldingProfile()` en `app/(platform)/holding/actions.ts` (mismo embed + `holding_billing_model`). Búsqueda exhaustiva confirma que no queda ningún otro punto con el patrón de embed roto en el codebase: solo persisten usos con **admin client** (`loadProfileOrganizationContext` en `lib/auth/bootstrap.ts`, `lib/supabase/middleware.ts`).
 
 ### API keys y secrets
 

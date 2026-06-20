@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { isMissingTableError } from "@/lib/auth/bootstrap";
+import {
+  isMissingTableError,
+  loadProfileOrganizationContext,
+} from "@/lib/auth/bootstrap";
 import {
   type HoldingBillingModel,
   type HoldingOnboardingData,
@@ -24,20 +27,16 @@ async function requireHoldingOrgId(): Promise<string> {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organization_id, organizations(account_type)")
-    .eq("id", user.id)
-    .single();
+  const { organizationId, accountType } = await loadProfileOrganizationContext(
+    user.id
+  );
 
-  if (!profile?.organization_id) throw new Error("Sin perfil");
-
-  const org = profile.organizations as { account_type?: string } | null;
-  if (org?.account_type !== "holding") {
+  if (!organizationId) throw new Error("Sin perfil");
+  if (accountType !== "holding") {
     throw new Error("Esta acción es solo para cuentas holding");
   }
 
-  return profile.organization_id;
+  return organizationId;
 }
 
 async function markHoldingOnboardingComplete(
