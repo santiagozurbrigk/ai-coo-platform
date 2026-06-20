@@ -1,7 +1,7 @@
 "use server";
 
 import {
-  getCurrentProfile,
+  getCurrentProfileAccountType,
   isMissingTableError,
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
@@ -76,12 +76,9 @@ export async function getOnboardingStatusAction(): Promise<OnboardingStatus> {
     }
 
     const organizationId = await requireOrganizationId();
-    const profile = await getCurrentProfile();
-    const isViewingBusinessAsHolding = Boolean(
-      profile?.organization_id &&
-        organizationId !== profile.organization_id
-    );
-    const dbClient: OnboardingDbClient = isViewingBusinessAsHolding
+    const profileAccountType = await getCurrentProfileAccountType();
+    const isHoldingUser = profileAccountType === "holding";
+    const dbClient: OnboardingDbClient = isHoldingUser
       ? createAdminClient()
       : supabase;
 
@@ -151,17 +148,21 @@ export async function completeOnboardingAction(
   }
 
   const organizationId = await requireOrganizationId();
-  const supabase = await createClient();
+  const profileAccountType = await getCurrentProfileAccountType();
+  const isHoldingUser = profileAccountType === "holding";
+  const dbClient: OnboardingDbClient = isHoldingUser
+    ? createAdminClient()
+    : await createClient();
   const now = new Date().toISOString();
 
-  const { data: existing } = await supabase
+  const { data: existing } = await dbClient
     .from("onboarding_responses")
     .select("id")
     .eq("organization_id", organizationId)
     .maybeSingle();
 
   if (existing) {
-    const { error } = await supabase
+    const { error } = await dbClient
       .from("onboarding_responses")
       .update({
         data: payload,
@@ -174,7 +175,7 @@ export async function completeOnboardingAction(
       throw new Error(mapOnboardingError(error.message));
     }
   } else {
-    const { error } = await supabase.from("onboarding_responses").insert({
+    const { error } = await dbClient.from("onboarding_responses").insert({
       organization_id: organizationId,
       data: payload,
       completed_at: now,
@@ -186,7 +187,7 @@ export async function completeOnboardingAction(
   }
 
   if (payload.businessName.trim()) {
-    await supabase
+    await dbClient
       .from("organizations")
       .update({ name: payload.businessName.trim() })
       .eq("id", organizationId);

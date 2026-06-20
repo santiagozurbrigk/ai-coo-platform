@@ -882,11 +882,16 @@ INSERT INTO super_admin_users (email, role) VALUES ('email@ejemplo.com', 'admin'
 **Sintaxis JWT en RLS:** `(auth.jwt() ->> 'active_business_org_id')::uuid` — claims del hook viven en el payload raíz del access token.
 
 **Parches de admin client pendientes de limpieza** (deuda técnica; no removidos — validar estabilidad en prod primero):
-- `app/onboarding/actions.ts` (`getOnboardingStatusAction`)
 - `app/(platform)/holding/actions.ts` (`getHoldingDashboardAction`)
 - `lib/holding/switch-org.ts` (`getHoldingBusinesses`)
 
 **Migración:** `20260620100000_holding_jwt_claim_hook.sql`
+
+### Fix — Onboarding para holdings: criterio simplificado
+
+Reemplazado el criterio frágil de comparar `organizationId !== profile.organization_id` (que podía desincronizarse del JWT claim del sprint de RLS) por un criterio estable: si `profile.account_type === 'holding'`, usar siempre admin client para onboarding (lectura y escritura), independientemente de cookies o claims. Aplica a `getOnboardingStatusAction` y `completeOnboardingAction`.
+
+Helper: `getCurrentProfileAccountType()` en `lib/auth/bootstrap.ts`.
 
 ### API keys y secrets
 

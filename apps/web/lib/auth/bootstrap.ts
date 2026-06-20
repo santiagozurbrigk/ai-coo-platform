@@ -115,6 +115,30 @@ export async function getCurrentProfile() {
   return profile;
 }
 
+/** Tipo de cuenta del usuario autenticado (holding vs founder). */
+export async function getCurrentProfileAccountType(): Promise<
+  "founder" | "holding" | null
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organizations(account_type)")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const accountType = readAccountType(
+    profile?.organizations as { account_type?: string } | null
+  );
+
+  return accountType === "holding" ? "holding" : "founder";
+}
+
 /** Garantiza org + perfil (repara usuarios creados antes del bootstrap). */
 export async function requireOrganizationId(): Promise<string> {
   const supabase = await createClient();
