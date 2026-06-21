@@ -62,6 +62,14 @@ export { Heading, Text, Caption, Mono } from "./primitives/typography";
 // Composite components
 export { GlassPanel, type GlassPanelProps } from "./components/glass-panel";
 export { MetricCard, type MetricCardProps, type MetricTrend } from "./components/metric-card";
+export { MetricStat, type MetricStatProps } from "./components/metric-stat";
+export { MetricBand, type MetricBandProps } from "./components/metric-band";
+export { NotchedCard, type NotchedCardProps } from "./components/notched-card";
+export {
+  SteppedAlert,
+  type SteppedAlertProps,
+  type SteppedAlertVariant,
+} from "./components/stepped-alert";
 export {
   DecorativeSparkline,
   type MetricSparklinePreset,

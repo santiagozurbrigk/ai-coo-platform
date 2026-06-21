@@ -50,20 +50,73 @@
   --ai-glow: 258 91% 76%;
 
   --radius: 1.25rem;
-  --radius-sm: 0.625rem;
-  --radius-md: 1rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
   --radius-lg: 1.25rem;
-  --radius-xl: 1.5rem;
-  --radius-page: 1.5rem;
+  --radius-xl: 1.75rem;
+  --radius-2xl: 2rem;
+  --radius-page: 2rem;
+  --radius-pill: 9999px;
+
+  --space-shell: 12px;
+  --space-shell-gap: 12px;
+  --space-page-x: 24px;
+  --space-page-y: 28px;
+  --space-page-x-lg: 32px;
+  --space-card: 24px;
+  --space-card-sm: 16px;
+  --space-section: 32px;
+  --space-metric-band-y: 20px;
+  --space-metric-band-x: 28px;
+  --space-sidebar-x: 12px;
+  --space-sidebar-item-y: 8px;
+
+  --text-body-size: 0.9375rem;
+  --text-body-lh: 1.5;
+  --text-title-size: 1.25rem;
+  --text-title-lh: 1.75rem;
+  --text-caption-size: 0.8125rem;
+  --text-caption-lh: 1.45;
+  --text-micro-size: 0.6875rem;
+  --text-micro-lh: 1.3;
+  --text-metric-value-size: 1.75rem;
+  --text-metric-value-lh: 2rem;
+  --text-metric-label-size: 0.8125rem;
+
+  --surface-canvas: var(--background);
+  --surface-panel: var(--card);
+  --surface-raised: var(--card);
+  --surface-inset: var(--muted);
+
+  --shell-sidebar-width: 220px;
+  --shell-sidebar-width-collapsed: 72px;
+  --shell-panel-radius: var(--radius-page);
+  --shell-panel-shadow: var(--shadow-panel);
+  --shell-sidebar-bg: transparent;
+  --shell-nav-active-bg: hsl(var(--accent));
+  --shell-nav-active-radius: var(--radius-pill);
+
+  --notch-width: 140px;
+  --notch-height: 36px;
+  --notch-radius: var(--radius-lg);
+  --step-alert-tab-width: 180px;
+  --step-alert-step-height: 12px;
 
   --shadow-glow: 0 0 32px -8px rgba(124, 58, 237, 0.2);
   --shadow-card:
-    0 1px 3px rgba(15, 23, 42, 0.06),
-    0 1px 2px rgba(15, 23, 42, 0.04);
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 16px rgba(15, 23, 42, 0.06);
   --shadow-float:
-    0 4px 12px rgba(124, 58, 237, 0.08),
+    0 1px 3px rgba(15, 23, 42, 0.04),
     0 8px 24px rgba(15, 23, 42, 0.08);
   --shadow-modal: 0 20px 60px rgba(15, 23, 42, 0.15);
+  --shadow-panel:
+    0 1px 3px rgba(15, 23, 42, 0.05),
+    0 8px 32px rgba(15, 23, 42, 0.08),
+    0 0 0 1px rgba(15, 23, 42, 0.06);
+  --shadow-band:
+    0 1px 2px rgba(15, 23, 42, 0.03),
+    0 0 0 1px rgba(15, 23, 42, 0.05);
 
   --glass-bg: hsl(var(--card));
   --glass-bg-strong: hsl(var(--card));
@@ -129,18 +182,20 @@
 
   --shadow-glow: 0 0 48px -8px rgba(124, 58, 237, 0.35);
   --shadow-card:
-    0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
-    0 1px 0 rgba(255, 255, 255, 0.1) inset,
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    0 2px 8px rgba(0, 0, 0, 0.3);
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.35);
   --shadow-float:
-    0 0 0 0.5px rgba(255, 255, 255, 0.1) inset,
-    0 1px 0 rgba(255, 255, 255, 0.15) inset,
-    0 24px 64px rgba(0, 0, 0, 0.6),
-    0 8px 24px rgba(0, 0, 0, 0.4);
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 16px 48px rgba(0, 0, 0, 0.45);
   --shadow-modal:
-    0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.08),
     0 32px 80px rgba(0, 0, 0, 0.7);
+  --shadow-panel:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 12px 40px rgba(0, 0, 0, 0.4);
+  --shadow-band:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 4px 16px rgba(0, 0, 0, 0.2);
 
   --glass-bg: rgba(255, 255, 255, 0.03);
   --glass-bg-strong: rgba(255, 255, 255, 0.06);

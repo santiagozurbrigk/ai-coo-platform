@@ -19,7 +19,7 @@
   }
 
   body {
-    @apply text-foreground font-sans;
+    @apply text-foreground font-sans text-body;
     font-feature-settings: "rlig" 1, "calt" 1;
     background: rgb(241 245 249);
   }
@@ -306,9 +306,10 @@
 
 @layer components {
   .app-shell {
-    @apply flex h-screen w-full min-h-0 gap-2.5 overflow-hidden;
-    padding: 10px 10px 10px 0;
-    background: rgb(241 245 249);
+    @apply flex h-screen w-full min-h-0 overflow-hidden;
+    gap: var(--space-shell-gap);
+    padding: var(--space-shell) var(--space-shell) var(--space-shell) 0;
+    background: hsl(var(--background));
   }
 
   html.dark .app-shell {
@@ -324,18 +325,15 @@
     flex-direction: column;
     overflow: hidden;
     overflow: clip;
-    border-radius: 16px;
+    border-radius: var(--shell-panel-radius);
     --pattern-mask: rgb(var(--color-surface-2));
     background: rgb(var(--color-surface-2));
-    box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.06),
-      0 4px 16px rgba(0, 0, 0, 0.04),
-      0 0 0 1px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shell-panel-shadow);
   }
 
   html.dark .main-container {
     background: rgb(var(--color-surface-2));
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+    box-shadow: var(--shell-panel-shadow);
   }
 
   .main-container-scroll {
@@ -361,10 +359,12 @@
 
   .shell-topbar,
   .topbar {
-    @apply shrink-0 border-b border-border/80 px-6;
+    @apply shrink-0 border-b border-border/80;
     flex-shrink: 0;
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
+    padding-left: var(--space-page-x);
+    padding-right: var(--space-page-x);
+    border-top-left-radius: var(--shell-panel-radius);
+    border-top-right-radius: var(--shell-panel-radius);
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
     background-color: rgb(var(--color-surface-2));
@@ -384,7 +384,14 @@
   }
 
   .page-content {
-    @apply flex-1 p-6 lg:p-8;
+    padding: var(--space-page-y) var(--space-page-x);
+  }
+
+  @media (min-width: 1024px) {
+    .page-content {
+      padding-left: var(--space-page-x-lg);
+      padding-right: var(--space-page-x-lg);
+    }
   }
 
   .page-content-full {
@@ -433,9 +440,11 @@
   }
 
   .sidebar {
-    @apply flex h-full min-h-0 shrink-0 flex-col gap-0.5 overflow-x-hidden overflow-y-auto bg-transparent px-3 py-4;
-    width: 220px;
-    min-width: 220px;
+    @apply flex h-full min-h-0 shrink-0 flex-col gap-0.5 overflow-x-hidden overflow-y-auto bg-transparent py-4;
+    width: var(--shell-sidebar-width);
+    min-width: var(--shell-sidebar-width);
+    padding-left: var(--space-sidebar-x);
+    padding-right: var(--space-sidebar-x);
     scrollbar-width: none;
     -ms-overflow-style: none;
     transition:
@@ -448,8 +457,8 @@
   }
 
   .sidebar.collapsed {
-    width: 72px;
-    min-width: 72px;
+    width: var(--shell-sidebar-width-collapsed);
+    min-width: var(--shell-sidebar-width-collapsed);
     @apply px-2;
   }
 
@@ -514,7 +523,9 @@
   }
 
   .sidebar-item {
-    @apply flex cursor-pointer items-center gap-2.5 overflow-hidden whitespace-nowrap rounded-md px-2.5 py-2 text-[13.5px] font-[450] text-black/40 transition-[background,color] duration-150;
+    @apply flex cursor-pointer items-center gap-2.5 overflow-hidden whitespace-nowrap rounded-[var(--shell-nav-active-radius)] px-2.5 text-[13.5px] font-[450] text-black/40 transition-[background,color] duration-150;
+    padding-top: var(--space-sidebar-item-y);
+    padding-bottom: var(--space-sidebar-item-y);
   }
 
   html.dark .sidebar-item {
@@ -530,7 +541,7 @@
   }
 
   .sidebar-item.active {
-    @apply bg-black/[0.06] font-medium text-[#0A0A0A];
+    @apply bg-accent font-medium text-foreground;
   }
 
   html.dark .sidebar-item.active {
@@ -567,7 +578,7 @@
   }
 
   .sidebar-subitem {
-    @apply flex cursor-pointer items-center gap-2.5 overflow-hidden text-ellipsis whitespace-nowrap rounded-md py-1.5 pl-[34px] pr-2.5 text-[13px] text-slate-500 transition-[background,color] duration-150;
+    @apply flex cursor-pointer items-center gap-2.5 overflow-hidden text-ellipsis whitespace-nowrap rounded-[var(--shell-nav-active-radius)] py-1.5 pl-[34px] pr-2.5 text-[13px] text-slate-500 transition-[background,color] duration-150;
   }
 
   html.dark .sidebar-subitem {
@@ -656,11 +667,25 @@
   }
 
   .metric-label {
-    @apply text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground;
+    font-size: var(--text-metric-label-size);
+    @apply font-medium tracking-wide text-muted-foreground;
   }
 
   .metric-value {
+    font-size: var(--text-metric-value-size);
+    line-height: var(--text-metric-value-lh);
     @apply font-semibold text-foreground;
+  }
+
+  .metric-stat-label {
+    font-size: var(--text-metric-label-size);
+    @apply font-medium tracking-wide text-muted-foreground;
+  }
+
+  .metric-stat-value {
+    font-size: var(--text-metric-value-size);
+    line-height: var(--text-metric-value-lh);
+    @apply font-semibold tracking-tight text-foreground;
   }
 
   html.dark .surface-card,
