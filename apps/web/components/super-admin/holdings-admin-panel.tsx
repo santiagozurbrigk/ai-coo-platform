@@ -15,6 +15,7 @@ import {
 } from "@ai-coo/ui";
 import { paths } from "@/routes";
 import { formatUsd } from "@/lib/super-admin/org-metrics";
+import { EmptyState } from "@/components/shared/empty-state";
 import type { AdminHoldingRow } from "@/lib/super-admin/holdings-admin";
 import { createHoldingOrgAction } from "@/app/super-admin/actions";
 import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
@@ -118,10 +119,11 @@ export function HoldingsAdminPanel({
       </div>
 
       {holdings.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No hay holdings creados. Creá uno para dar acceso al dueño del
-          portfolio.
-        </p>
+        <EmptyState
+          variant="inline"
+          title="No hay holdings creados"
+          description="Creá uno para dar acceso al dueño del portfolio."
+        />
       ) : (
         <div className="space-y-4">
           {holdings.map((holding) => (

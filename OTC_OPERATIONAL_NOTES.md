@@ -1163,6 +1163,14 @@ Ningún cambio de paleta de colores — solo estructura y consistencia.
 Eliminado h1 duplicado en /holding (ya cubierto por topbar,
 siguiendo la convención de Super Admin y Workboard).
 
+### Diseño — Unificación de empty/loading states + fix sidebar modo claro
+
+Consolidadas 4 implementaciones de empty state en 2 variantes
+(full / inline) del componente EmptyState compartido. Unificado
+loading a PageLoading en todos los módulos. Corregido bug
+preexistente: sidebar con fondo hardcodeado que no respetaba
+modo claro.
+
 ---
 
 *Actualizar este documento cuando cambien umbrales, crons, integraciones o pipelines de IA.*

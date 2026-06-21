@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { History, Plus } from "lucide-react";
 import { Badge, Button, cn } from "@ai-coo/ui";
 import { FilterPills } from "@/components/marketing/filter-pills";
+import { EmptyState } from "@/components/shared/empty-state";
 import { TASK_AREA_OPTIONS, SPRINT_AREA_FOCUS_LABELS } from "@/lib/workboard/constants";
 import { sprintAreaToTaskAreaFilter } from "@/lib/workboard/sprint";
 import { useWorkboard } from "@/providers/workboard-provider";
@@ -119,26 +120,30 @@ export function WorkboardSprintHeader({
 
   if (!activeSprint && sprintsWithCounts.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center dark:border-glass">
-        <p className="text-sm text-muted-foreground">
-          Todavía no hay sprints. Creá el primero para organizar el tablero por
-          ciclo de trabajo.
-        </p>
-        <Button
-          type="button"
-          size="sm"
-          className="mt-4 gap-1.5"
-          onClick={() => setCreateOpen(true)}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Crear primer sprint
-        </Button>
+      <>
+        <EmptyState
+          variant="inline"
+          icon={<History className="h-5 w-5" />}
+          title="Todavía no hay sprints"
+          description="Creá el primero para organizar el tablero por ciclo de trabajo."
+          action={
+            <Button
+              type="button"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Crear primer sprint
+            </Button>
+          }
+        />
         <CreateSprintModal
           open={createOpen}
           onOpenChange={setCreateOpen}
           onCreated={(s) => void handleSprintCreated(s)}
         />
-      </div>
+      </>
     );
   }
 

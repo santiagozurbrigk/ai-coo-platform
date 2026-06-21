@@ -8,6 +8,8 @@ import {
   PieChart,
   TrendingUp,
 } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@ai-coo/ui";
 import type { ContentLabel } from "@/lib/content/label-content";
 import type { MarketingOverviewContext } from "@/app/marketing/actions";
 import {
@@ -20,8 +22,8 @@ import {
   buildTypePerformanceFromAssets,
 } from "@/lib/marketing/overview-metrics";
 import { BentoCell, BentoGrid } from "@/components/shared/bento-grid";
+import { EmptyState } from "@/components/shared/empty-state";
 import { ContentLabelDistributionChart } from "@/components/marketing/content-label-distribution-chart";
-import { MarketingEmptySection } from "@/components/marketing/marketing-empty-section";
 import { MarketingMetricsSections } from "@/components/marketing/overview";
 import { paths } from "@/routes";
 import {
@@ -81,7 +83,7 @@ export function MarketingOverview({
       {hasContentAssets && metrics ? (
         <MarketingMetricsSections metrics={metrics} />
       ) : (
-        <MarketingEmptySection
+        <MarketingInlineEmpty
           icon={BarChart3}
           title="Sin métricas de contenido todavía"
           description="Conectá Instagram o YouTube en Integraciones para importar tus publicaciones y ver alcance, engagement y conversiones."
@@ -102,7 +104,7 @@ export function MarketingOverview({
           </BentoCell>
         </BentoGrid>
       ) : (
-        <MarketingEmptySection
+        <MarketingInlineEmpty
           icon={PieChart}
           title="Distribución de contenido"
           description="Conectá Instagram o YouTube para ver la distribución de tu contenido por etiqueta y formato."
@@ -123,7 +125,7 @@ export function MarketingOverview({
         {funnelHasData ? (
           <ContentFunnelChart stages={contentFunnel} />
         ) : (
-          <MarketingEmptySection
+          <MarketingInlineEmpty
             icon={TrendingUp}
             title="Funnel contenido → ventas"
             description="Generá links UTM desde Marketing → UTMs y empezá a trackear qué contenido genera ventas."
@@ -135,7 +137,7 @@ export function MarketingOverview({
         {hasContentAssets && topConverting.length > 0 ? (
           <TopConvertingContentList ranked={topConverting} />
         ) : (
-          <MarketingEmptySection
+          <MarketingInlineEmpty
             icon={BarChart3}
             title="Top contenido"
             description="Cuando importes publicaciones desde Instagram o YouTube, vas a ver acá las piezas con mejor engagement y conversión."
@@ -178,7 +180,7 @@ export function MarketingOverview({
           {hasUtmAttributions ? (
             <UtmSalesSummary summary={utmSummary} />
           ) : (
-            <MarketingEmptySection
+            <MarketingInlineEmpty
               icon={Link2}
               title="Conexión ventas"
               description="Aún no hay ventas atribuidas a contenido. Creá links UTM para trackear el origen de tus leads."
@@ -193,7 +195,7 @@ export function MarketingOverview({
 }
 
 function SectionEmpty({
-  icon,
+  icon: Icon,
   title,
   description,
 }: {
@@ -203,12 +205,44 @@ function SectionEmpty({
 }) {
   return (
     <div className="flex h-full min-h-[280px] items-center">
-      <MarketingEmptySection
-        icon={icon}
+      <EmptyState
+        variant="inline"
+        className="w-full"
+        icon={<Icon className="h-5 w-5" />}
         title={title}
         description={description}
       />
     </div>
+  );
+}
+
+function MarketingInlineEmpty({
+  icon: Icon,
+  title,
+  description,
+  ctaLabel,
+  ctaHref,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  ctaLabel?: string;
+  ctaHref?: string;
+}) {
+  return (
+    <EmptyState
+      variant="inline"
+      icon={<Icon className="h-5 w-5" />}
+      title={title}
+      description={description}
+      action={
+        ctaLabel && ctaHref ? (
+          <Button size="sm" variant="outline" asChild>
+            <Link href={ctaHref}>{ctaLabel}</Link>
+          </Button>
+        ) : null
+      }
+    />
   );
 }
 

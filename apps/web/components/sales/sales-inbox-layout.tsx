@@ -13,6 +13,7 @@ import { ConversationThread } from "./conversation-thread";
 import { ConversationAnalysisPanel } from "./conversation-analysis";
 import { LeadJourneyInline } from "./lead-journey-inline";
 import { EmptyState } from "@/components/shared/empty-state";
+import { PageLoading } from "@/components/shared/page-loading";
 
 export function SalesInboxLayout() {
   const searchParams = useSearchParams();
@@ -40,9 +41,10 @@ export function SalesInboxLayout() {
 
   if (conversationsLoading && conversations.length === 0) {
     return (
-      <div className="flex h-[calc(100vh-8rem)] min-h-[480px] items-center justify-center rounded-xl border border-border bg-muted/30 text-sm text-muted-foreground">
-        Cargando conversaciones…
-      </div>
+      <PageLoading
+        label="Cargando conversaciones…"
+        className="h-[calc(100vh-8rem)] min-h-[480px]"
+      />
     );
   }
 

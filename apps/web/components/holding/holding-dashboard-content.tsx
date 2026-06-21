@@ -2,8 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Building2 } from "lucide-react";
 import { Button, MetricCard } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
+import { EmptyState } from "@/components/shared/empty-state";
 import { formatUsd } from "@/lib/super-admin/org-metrics";
 import { formatFixedFee } from "@/lib/holding/billing";
 import { enterBusinessAction, regenerateBusinessFounderTempPasswordAction } from "@/app/(platform)/holding/actions";
@@ -95,17 +97,17 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
       </div>
 
       {businesses.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/60 p-10 text-center space-y-4">
-          <p className="text-sm font-medium">
-            Todavía no tenés negocios en tu holding
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Agregá tu primer negocio para empezar a gestionarlo desde acá
-          </p>
-          <Button onClick={() => setModalOpen(true)}>
-            Agregar primer negocio
-          </Button>
-        </div>
+        <EmptyState
+          variant="inline"
+          icon={<Building2 className="h-5 w-5" />}
+          title="Todavía no tenés negocios en tu holding"
+          description="Agregá tu primer negocio para empezar a gestionarlo desde acá"
+          action={
+            <Button onClick={() => setModalOpen(true)}>
+              Agregar primer negocio
+            </Button>
+          }
+        />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {businesses.map((b) => {

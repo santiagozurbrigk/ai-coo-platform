@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { LayoutGrid, List, Search } from "lucide-react";
+import { Film, LayoutGrid, List, Search } from "lucide-react";
 import { Badge, Button, Input, cn } from "@ai-coo/ui";
 import type { ContentAssetView } from "@/app/marketing/actions";
 import { paths } from "@/routes";
@@ -20,7 +20,7 @@ import {
   ContentLabelBadge,
   ContentLabelFilterBadge,
 } from "@/components/marketing/content-label-badge";
-import { ContentLibraryEmptyState } from "@/components/marketing/content-library-empty-state";
+import { EmptyState } from "@/components/shared/empty-state";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import {
   segmentedNavContainerClass,
@@ -137,7 +137,20 @@ export function MarketingContentLibrary({
     labelFilter,
   ]);
 
-  if (assets.length === 0) return <ContentLibraryEmptyState />;
+  if (assets.length === 0) {
+    return (
+      <EmptyState
+        icon={<Film className="h-8 w-8" />}
+        title="Sin contenido sincronizado"
+        description="Conectá Instagram o YouTube en Integraciones para ver tu contenido aquí."
+        action={
+          <Button asChild>
+            <Link href={paths.platform.integrations}>Ir a Integraciones</Link>
+          </Button>
+        }
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
