@@ -10,7 +10,7 @@ import {
   type ClaudeApiKeyStatus,
 } from "@/app/settings/actions";
 import { FieldLabel } from "./field-label";
-import { SectionHeader } from "./section-header";
+import { SectionHeader } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
 
 export function ClaudeApiKeySettings({
@@ -103,7 +103,7 @@ export function ClaudeApiKeySettings({
 
   return (
     <section>
-      <SectionHeader icon={KeyRound} label="API de Claude" />
+      <SectionHeader icon={KeyRound} title="API de Claude" variant="settings" />
 
       {status.hasKey ? (
         <div className="space-y-4 rounded-xl border border-border/60 bg-card/40 p-4 dark:border-glass dark:bg-glass">

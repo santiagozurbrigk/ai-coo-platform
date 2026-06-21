@@ -1154,4 +1154,15 @@ con hash fragments) para TODA creación de usuario nuevo:
 
 ---
 
+### Diseño — Unificación de MetricCard y SectionHeader
+
+Consolidadas 3 implementaciones de metric card y 4 patrones de
+título de sección en componentes únicos extendidos en @ai-coo/ui.
+Ningún cambio de paleta de colores — solo estructura y consistencia.
+
+Eliminado h1 duplicado en /holding (ya cubierto por topbar,
+siguiendo la convención de Super Admin y Workboard).
+
+---
+
 *Actualizar este documento cuando cambien umbrales, crons, integraciones o pipelines de IA.*

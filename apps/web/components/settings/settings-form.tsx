@@ -22,7 +22,7 @@ import { formatRelativeTime } from "@/lib/format";
 import type { SettingsInitialData } from "@/lib/settings/initial-data";
 import { FieldLabel } from "./field-label";
 import { NotificationToggle } from "./notification-toggle";
-import { SectionHeader } from "./section-header";
+import { SectionHeader } from "@ai-coo/ui";
 import { SettingsFormActions } from "./settings-form-actions";
 import {
   SettingsTabNav,
@@ -158,7 +158,7 @@ export function SettingsForm({
       {activeTab === "general" && (
         <div className="space-y-8 pt-2">
           <section>
-            <SectionHeader icon={Building2} label="Organización" />
+            <SectionHeader icon={Building2} title="Organización" variant="settings" />
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <FieldLabel htmlFor="org-name">Nombre de la empresa</FieldLabel>
@@ -255,7 +255,7 @@ export function SettingsForm({
           </section>
 
           <section>
-            <SectionHeader icon={Palette} label="Apariencia" />
+            <SectionHeader icon={Palette} title="Apariencia" variant="settings" />
             <ThemeSelector />
           </section>
 
@@ -270,7 +270,7 @@ export function SettingsForm({
       {activeTab === "perfil" && (
         <div className="space-y-8 pt-2">
           <section>
-            <SectionHeader icon={User} label="Perfil" />
+            <SectionHeader icon={User} title="Perfil" variant="settings" />
             <div className="mb-6 flex items-center gap-4">
               <div
                 className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-base font-semibold text-white"
@@ -320,7 +320,7 @@ export function SettingsForm({
 
       {activeTab === "notificaciones" && (
         <div className="pt-2">
-          <SectionHeader icon={Bell} label="Notificaciones" />
+          <SectionHeader icon={Bell} title="Notificaciones" variant="settings" />
           <p className="mb-4 text-xs text-muted-foreground">
             Email
           </p>
@@ -420,7 +420,7 @@ export function SettingsForm({
       {activeTab === "seguridad" && (
         <div className="space-y-8 pt-2">
           <section>
-            <SectionHeader icon={Lock} label="Sesión activa" />
+            <SectionHeader icon={Lock} title="Sesión activa" variant="settings" />
             <div className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-card/40 px-4 py-4 dark:border-glass dark:bg-glass dark:backdrop-blur-md">
               <div className="min-w-0 space-y-0.5">
                 <p className="text-sm font-medium text-foreground">

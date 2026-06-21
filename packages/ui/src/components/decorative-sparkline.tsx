@@ -6,11 +6,13 @@ const SPARKLINE_PATHS: Record<string, string> = {
   comments: "0,36 20,30 40,32 60,22 80,16",
 };
 
-export function SparklineSVG({
-  variant,
+export type MetricSparklinePreset = keyof typeof SPARKLINE_PATHS;
+
+export function DecorativeSparkline({
+  preset,
   color,
 }: {
-  variant: string;
+  preset: MetricSparklinePreset;
   color: string;
 }) {
   return (
@@ -22,7 +24,7 @@ export function SparklineSVG({
       aria-hidden="true"
     >
       <polyline
-        points={SPARKLINE_PATHS[variant]}
+        points={SPARKLINE_PATHS[preset]}
         fill="none"
         stroke={color}
         strokeWidth="1.5"

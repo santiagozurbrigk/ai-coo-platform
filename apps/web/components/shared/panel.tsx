@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Card, CardContent, CardHeader, CardTitle, cn } from "@ai-coo/ui";
+import { Card, CardContent, CardHeader, SectionHeader, cn } from "@ai-coo/ui";
 
 export function Panel({
   title,
@@ -18,17 +18,12 @@ export function Panel({
 }) {
   return (
     <Card className={cn(className)}>
-      {title && (
+      {title ? (
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <div>
-            <CardTitle className="text-sm font-medium">{title}</CardTitle>
-            {subtitle ? (
-              <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
-            ) : null}
-          </div>
+          <SectionHeader title={title} description={subtitle} variant="panel" />
           {action}
         </CardHeader>
-      )}
+      ) : null}
       <CardContent className={cn(!title && "pt-6", contentClassName)}>
         {children}
       </CardContent>

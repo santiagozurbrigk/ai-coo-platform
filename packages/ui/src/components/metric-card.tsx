@@ -4,6 +4,10 @@ import * as React from "react";
 import { TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Card, CardContent } from "../primitives/card";
+import {
+  DecorativeSparkline,
+  type MetricSparklinePreset,
+} from "./decorative-sparkline";
 import { Sparkline } from "./sparkline";
 
 export type MetricTrend = "up" | "down" | "neutral";
@@ -22,6 +26,18 @@ export interface MetricCardProps {
   sparklineColor?: string;
   /** Stagger sparkline draw animation on mount (ms). */
   sparklineAnimationDelay?: number;
+  /** Decorative background sparkline preset (marketing overview style). */
+  sparklinePreset?: MetricSparklinePreset;
+  /** Glass surface in dark mode (marketing / operational cards). */
+  glass?: boolean;
+  /** Show the bottom progress bar. Default true. */
+  showProgressBar?: boolean;
+  /** Explicit progress width 0–100 (operational metrics). */
+  progress?: number;
+  progressCaption?: string;
+  /** Bar color when `progress` is set. */
+  progressVariant?: "trend" | "violet";
+  children?: React.ReactNode;
 }
 
 const trendConfig = {
@@ -77,16 +93,38 @@ export function MetricCard({
   sparklineData,
   sparklineColor = "hsl(var(--foreground))",
   sparklineAnimationDelay = 0,
+  sparklinePreset,
+  glass = false,
+  showProgressBar = true,
+  progress,
+  progressCaption,
+  progressVariant = "trend",
+  children,
 }: MetricCardProps) {
   const cfg = trendConfig[trend];
   const TrendIcon = cfg.icon;
-  const progress = deriveProgress(value, trend, trendValue);
+  const derivedProgress = deriveProgress(value, trend, trendValue);
+  const barWidth = progress ?? derivedProgress;
   const comparison =
     subtitle ?? (trendValue ? `vs período anterior  ${trendValue}` : undefined);
-  const hasSparkline = Boolean(sparklineData?.length);
+  const hasDataSparkline = Boolean(sparklineData?.length);
+  const barClassName =
+    progressVariant === "violet"
+      ? "from-violet-600 to-violet-400"
+      : cfg.bar;
 
   return (
-    <Card className={cn("relative min-h-[120px] overflow-hidden", className)}>
+    <Card
+      className={cn(
+        "relative min-h-[120px] overflow-hidden",
+        glass &&
+          "dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover transition-all duration-200",
+        className
+      )}
+    >
+      {sparklinePreset ? (
+        <DecorativeSparkline preset={sparklinePreset} color={sparklineColor} />
+      ) : null}
       <div
         className="pointer-events-none absolute left-6 top-1/2 h-[60px] w-[60px] -translate-y-1/2 rounded-full blur-2xl"
         style={{ background: cfg.glow }}
@@ -95,14 +133,14 @@ export function MetricCard({
       <CardContent className="relative px-6 py-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
-            {icon && (
+            {icon ? (
               <div className="rounded-[10px] border border-border bg-muted p-1.5 text-muted-foreground [&_svg]:h-[18px] [&_svg]:w-[18px] dark:border-white/[0.08] dark:bg-white/[0.04]">
                 {icon}
               </div>
-            )}
+            ) : null}
             <span className="metric-label">{title}</span>
           </div>
-          {trendValue && (
+          {trendValue ? (
             <span
               className={cn(
                 "inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-[3px] text-[11px] font-medium",
@@ -112,53 +150,68 @@ export function MetricCard({
               <TrendIcon className="h-3 w-3" />
               {trendValue}
             </span>
-          )}
+          ) : null}
         </div>
 
         <div
           className={cn(
             "relative mt-2",
-            hasSparkline &&
+            hasDataSparkline &&
               "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
           )}
         >
           <div className="metric-value text-[32px] leading-none tracking-tight tabular-nums sm:text-[36px]">
             {value}
           </div>
-          {hasSparkline && (
+          {hasDataSparkline ? (
             <Sparkline
               data={sparklineData!}
               color={sparklineColor}
               animationDelay={sparklineAnimationDelay}
               className="h-8 w-full shrink-0 sm:h-10 sm:w-[80px] md:h-11 md:w-[96px] lg:h-12 lg:w-[120px]"
             />
-          )}
+          ) : null}
         </div>
 
-        <div className="mt-4 flex items-center gap-3">
-          <div className="h-0.5 flex-1 overflow-hidden rounded-full bg-muted dark:bg-white/[0.06]">
+        {showProgressBar ? (
+          <div className="mt-4 flex items-center gap-3">
             <div
               className={cn(
-                "h-full rounded-full bg-gradient-to-r transition-all duration-700",
-                cfg.bar
+                "h-0.5 flex-1 overflow-hidden rounded-full bg-muted dark:bg-white/[0.06]",
+                progress != null && progressCaption && "h-1.5"
               )}
-              style={{ width: `${progress}%` }}
-            />
+            >
+              <div
+                className={cn(
+                  "h-full rounded-full bg-gradient-to-r transition-all duration-700",
+                  barClassName
+                )}
+                style={{ width: `${barWidth}%` }}
+              />
+            </div>
           </div>
-        </div>
+        ) : null}
+
+        {progressCaption ? (
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            {progressCaption}
+          </p>
+        ) : null}
 
         {(comparison || badge) && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {comparison && (
+            {comparison ? (
               <span className="text-xs text-muted-foreground">{comparison}</span>
-            )}
-            {badge && (
+            ) : null}
+            {badge ? (
               <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-[3px] text-[11px] font-medium text-primary dark:text-[#A78BFA]">
                 {badge}
               </span>
-            )}
+            ) : null}
           </div>
         )}
+
+        {children}
       </CardContent>
     </Card>
   );

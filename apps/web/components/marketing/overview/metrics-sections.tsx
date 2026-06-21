@@ -1,14 +1,13 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
+import { MetricCard, SectionHeader, type MetricTrend } from "@ai-coo/ui";
 import type { MarketingOverviewMetrics } from "@/types/marketing-insights";
 import {
   additionalMarketingMetrics,
   mockMarketingOverview,
 } from "@/mocks/marketing";
-import { MarketingOverviewMetricCard } from "./metric-card";
 import { RateBar } from "./rate-bar";
-import { SectionHeader } from "./section-header";
 
 const ACCENT = {
   reach: "#7C3AED",
@@ -26,6 +25,12 @@ function formatTrend(trend: number) {
   return `${sign}${trend}%`;
 }
 
+function trendFromFormatted(value: string): MetricTrend {
+  if (value.startsWith("-")) return "down";
+  if (value.startsWith("+")) return "up";
+  return "neutral";
+}
+
 export function MarketingMetricsSections({
   metrics: metricsProp,
 }: {
@@ -41,27 +46,35 @@ export function MarketingMetricsSections({
   return (
     <div className="space-y-6">
       <section>
-        <SectionHeader label="Alcance y contenido" />
+        <SectionHeader title="Alcance y contenido" variant="uppercase" />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <MarketingOverviewMetricCard
-            label="Alcance total"
+          <MetricCard
+            title="Alcance total"
             value={formatNum(m.totalReach)}
-            sub="Últimos 30 días"
-            badge={formatTrend(m.reachTrendPct)}
-            sparkline="reach"
+            subtitle="Últimos 30 días"
+            trendValue={formatTrend(m.reachTrendPct)}
+            trend={trendFromFormatted(formatTrend(m.reachTrendPct))}
+            sparklinePreset="reach"
             sparklineColor={ACCENT.reach}
+            glass
+            showProgressBar={false}
           />
-          <MarketingOverviewMetricCard
-            label="Interacciones totales"
+          <MetricCard
+            title="Interacciones totales"
             value={formatNum(m.totalInteractions)}
-            sub={`Engagement ${m.engagementRatePct}%`}
-            badge={formatTrend(m.interactionsTrendPct)}
-            sparkline="engage"
+            subtitle={`Engagement ${m.engagementRatePct}%`}
+            trendValue={formatTrend(m.interactionsTrendPct)}
+            trend={trendFromFormatted(formatTrend(m.interactionsTrendPct))}
+            sparklinePreset="engage"
             sparklineColor={ACCENT.reach}
+            glass
+            showProgressBar={false}
           />
-          <MarketingOverviewMetricCard
-            label="Contenido publicado"
+          <MetricCard
+            title="Contenido publicado"
             value={String(m.contentPublished)}
+            glass
+            showProgressBar={false}
           >
             <div className="mt-2 flex flex-wrap gap-2">
               {[
@@ -77,84 +90,103 @@ export function MarketingMetricsSections({
                 </span>
               ))}
             </div>
-          </MarketingOverviewMetricCard>
+          </MetricCard>
         </div>
       </section>
 
       {!metricsProp ? (
-      <section>
-        <SectionHeader label="Engagement" />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <MarketingOverviewMetricCard
-            label="Respuestas a historias"
-            value={formatNum(extra.storyReplies.value)}
-            sub="Últimos 30 días"
-            badge={formatTrend(extra.storyReplies.trend)}
-            sparkline="growth"
-            sparklineColor={ACCENT.engagement}
-          />
-          <MarketingOverviewMetricCard
-            label="Comentarios totales"
-            value={formatNum(extra.totalComments.value)}
-            sub="Últimos 30 días"
-            badge={formatTrend(extra.totalComments.trend)}
-            sparkline="comments"
-            sparklineColor={ACCENT.engagement}
-          />
-          <MarketingOverviewMetricCard
-            label="Crecimiento del perfil"
-            value={`+${formatNum(extra.profileGrowth.value)}`}
-            sub={extra.profileGrowth.label ?? "Nuevos seguidores"}
-            badge={formatTrend(extra.profileGrowth.trend)}
-          >
-            <RateBar
-              label="Views → Seguidores"
-              value={extra.viewsToFollowersRate.value}
-              color={ACCENT.engagement}
+        <section>
+          <SectionHeader title="Engagement" variant="uppercase" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <MetricCard
+              title="Respuestas a historias"
+              value={formatNum(extra.storyReplies.value)}
+              subtitle="Últimos 30 días"
+              trendValue={formatTrend(extra.storyReplies.trend)}
+              trend={trendFromFormatted(formatTrend(extra.storyReplies.trend))}
+              sparklinePreset="growth"
+              sparklineColor={ACCENT.engagement}
+              glass
+              showProgressBar={false}
             />
-          </MarketingOverviewMetricCard>
-        </div>
-      </section>
+            <MetricCard
+              title="Comentarios totales"
+              value={formatNum(extra.totalComments.value)}
+              subtitle="Últimos 30 días"
+              trendValue={formatTrend(extra.totalComments.trend)}
+              trend={trendFromFormatted(formatTrend(extra.totalComments.trend))}
+              sparklinePreset="comments"
+              sparklineColor={ACCENT.engagement}
+              glass
+              showProgressBar={false}
+            />
+            <MetricCard
+              title="Crecimiento del perfil"
+              value={`+${formatNum(extra.profileGrowth.value)}`}
+              subtitle={extra.profileGrowth.label ?? "Nuevos seguidores"}
+              trendValue={formatTrend(extra.profileGrowth.trend)}
+              trend={trendFromFormatted(formatTrend(extra.profileGrowth.trend))}
+              glass
+              showProgressBar={false}
+            >
+              <RateBar
+                label="Views → Seguidores"
+                value={extra.viewsToFollowersRate.value}
+                color={ACCENT.engagement}
+              />
+            </MetricCard>
+          </div>
+        </section>
       ) : null}
 
       <section>
-        <SectionHeader label="Conversión a ventas" />
+        <SectionHeader title="Conversión a ventas" variant="uppercase" />
         <div className="grid grid-cols-1 items-center gap-3 lg:grid-cols-[1fr_28px_1fr_28px_1fr] lg:gap-0">
-          <MarketingOverviewMetricCard
-            label="Conversaciones generadas"
+          <MetricCard
+            title="Conversaciones generadas"
             value={String(m.conversationsGenerated)}
-            sub="Vinculadas a bandeja"
-            sparkline="convert"
+            subtitle="Vinculadas a bandeja"
+            sparklinePreset="convert"
             sparklineColor={ACCENT.conversion}
+            glass
+            showProgressBar={false}
           />
 
           <div className="hidden items-center justify-center text-muted-foreground lg:flex">
             <ArrowRight className="h-4 w-4" />
           </div>
 
-          <MarketingOverviewMetricCard
-            label="Bookings influenciados"
+          <MetricCard
+            title="Bookings influenciados"
             value={String(m.bookingsInfluenced)}
-            sub={`${m.bookingsInfluencedPct}% del total de bookings`}
+            subtitle={`${m.bookingsInfluencedPct}% del total de bookings`}
+            glass
+            showProgressBar={false}
           >
-            <RateBar label="" value={m.bookingsInfluencedPct} color={ACCENT.conversion} />
-          </MarketingOverviewMetricCard>
+            <RateBar
+              label=""
+              value={m.bookingsInfluencedPct}
+              color={ACCENT.conversion}
+            />
+          </MetricCard>
 
           <div className="hidden items-center justify-center text-muted-foreground lg:flex">
             <ArrowRight className="h-4 w-4" />
           </div>
 
-          <MarketingOverviewMetricCard
-            label="Ventas influenciadas"
+          <MetricCard
+            title="Ventas influenciadas"
             value={String(m.salesInfluenced)}
-            sub={`$${m.revenueInfluenced.toLocaleString("es-ES")} atribuidos`}
+            subtitle={`$${m.revenueInfluenced.toLocaleString("es-ES")} atribuidos`}
+            glass
+            showProgressBar={false}
           >
             <RateBar
               label="Conv. booking → venta"
               value={bookingToSalePct}
               color={ACCENT.conversion}
             />
-          </MarketingOverviewMetricCard>
+          </MetricCard>
         </div>
       </section>
     </div>
