@@ -6,10 +6,9 @@ import {
   Calendar,
   DollarSign,
   MessageCircle,
-  Sparkles,
   Youtube,
 } from "lucide-react";
-import { Caption, Skeleton, cn } from "@ai-coo/ui";
+import { NotchedCard, Skeleton, SteppedAlert, cn } from "@ai-coo/ui";
 import { getLeadJourneyAction } from "@/app/sales/actions";
 import { paths } from "@/routes";
 import type { LeadJourneyStep } from "@/lib/sales/lead-journey";
@@ -192,26 +191,21 @@ export function LeadJourneyInline({
   }, [conversationId]);
 
   return (
-    <div
-      id="lead-journey"
-      className="shrink-0 overflow-hidden border-t border-white/[0.06] bg-white/[0.02]"
+    <NotchedCard
+      tab={leadName ? `Recorrido: ${leadName}` : "Recorrido del lead"}
+      className="shrink-0 rounded-none border-x-0 border-b-0 shadow-none"
     >
-      <div className="flex items-center gap-2 px-4 py-2.5">
-        <Sparkles className="h-3.5 w-3.5 shrink-0 text-ai" />
-        <Caption className="min-w-0 truncate normal-case font-medium text-foreground">
-          Recorrido del lead{leadName ? `: ${leadName}` : ""}
-        </Caption>
-      </div>
-
       {loading ? (
         <JourneySkeleton />
       ) : steps.length === 0 ? (
-        <p className="px-4 pb-4 text-xs leading-relaxed text-muted-foreground">
-          Sin recorrido registrado todavía. Conectá UTMs en tus videos de YouTube
-          para trackear de dónde vienen tus leads.
-        </p>
+        <SteppedAlert variant="info" title="Sin recorrido registrado">
+          <p>
+            Conectá UTMs en tus videos de YouTube para trackear de dónde vienen tus
+            leads.
+          </p>
+        </SteppedAlert>
       ) : (
-        <ol className="relative space-y-0 px-4 pb-4">
+        <ol className="relative space-y-0">
           {steps.map((step, index) => (
             <li key={`${step.type}-${step.date}-${index}`} className="relative pl-0">
               {index < steps.length - 1 ? (
@@ -225,6 +219,6 @@ export function LeadJourneyInline({
           ))}
         </ol>
       )}
-    </div>
+    </NotchedCard>
   );
 }

@@ -28,8 +28,8 @@ export function ConversationList({
 
   return (
     <div className="flex h-full min-w-0 w-full flex-col overflow-hidden border-r border-border bg-card">
-      <div className="shrink-0 border-b border-border px-3 py-3 space-y-3">
-        <p className="px-1 text-xs font-medium text-muted-foreground">
+      <div className="shrink-0 border-b border-border px-[var(--space-card-sm)] py-[var(--space-card-sm)] space-y-[var(--space-card-sm)]">
+        <p className="px-1 text-caption font-medium text-muted-foreground">
           {filtered.length} conversaciones
         </p>
         <FilterPills
@@ -48,7 +48,7 @@ export function ConversationList({
               type="button"
               onClick={() => onSelect(c.id)}
               className={cn(
-                "w-full border-b border-border px-4 py-3 text-left transition-colors hover:bg-muted/50",
+                "w-full border-b border-border px-[var(--space-card-sm)] py-[var(--space-card-sm)] text-left transition-colors hover:bg-muted/50",
                 selectedId === c.id &&
                   "border-l-2 border-l-primary bg-muted/60"
               )}
@@ -72,12 +72,12 @@ export function ConversationList({
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {c.source === "instagram" && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-pink-900/20 text-pink-400 border border-pink-500/20">
+                  <span className="rounded-[var(--radius-pill)] border border-pink-500/20 bg-pink-900/20 px-1.5 py-0.5 text-micro text-pink-400">
                     IG DM
                   </span>
                 )}
                 {c.source === "manychat" && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-900/20 text-green-400 border border-green-500/20">
+                  <span className="rounded-[var(--radius-pill)] border border-green-500/20 bg-green-900/20 px-1.5 py-0.5 text-micro text-green-400">
                     ManyChat
                   </span>
                 )}
