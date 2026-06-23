@@ -13,9 +13,9 @@ export function MainContainerPanel({
   className?: string;
 }) {
   return (
-    <div className={cn("main-container", className)} data-slot="main-panel">
+    <div className={cn("main-container h-full min-h-0", className)} data-slot="main-panel">
       <MainContainerBackground />
-      <div className="relative z-[1] flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="relative z-[1] flex h-full min-h-0 min-w-0 flex-1 flex-col">
         {children}
       </div>
     </div>
