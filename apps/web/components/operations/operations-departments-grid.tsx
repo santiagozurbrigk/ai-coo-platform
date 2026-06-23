@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
-import { cn } from "@ai-coo/ui";
+import { MetricBand, MetricStat, cn, type MetricTrend } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
 import type {
   OperationsArea,
@@ -45,6 +45,21 @@ export function OperationsDepartmentsGrid({
 }) {
   return (
     <Panel title="Overview por departamento" subtitle="Estado y métricas clave">
+      <MetricBand glass className="mb-4">
+        {departments.map((dept) => {
+          const primary = dept.metrics[0];
+          return (
+            <MetricStat
+              key={dept.id}
+              title={dept.name}
+              value={primary?.value ?? "—"}
+              subtitle={primary?.label}
+              trend={primary?.trend as MetricTrend | undefined}
+            />
+          );
+        })}
+      </MetricBand>
+
       <div className="grid gap-4 sm:grid-cols-2">
         {departments.map((dept) => {
           const status = STATUS_CONFIG[dept.status];
