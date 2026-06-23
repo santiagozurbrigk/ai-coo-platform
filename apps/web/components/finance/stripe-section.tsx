@@ -10,6 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
   GlassPanel,
+  MetricBand,
+  MetricStat,
   cn,
 } from "@ai-coo/ui";
 import {
@@ -61,31 +63,30 @@ function sumByCurrency(
   }));
 }
 
-function BalanceCard({
+function formatBalanceAmounts(amounts: { amount: number; currency: string }[]): {
+  value: string;
+  subtitle?: string;
+} {
+  if (amounts.length === 0) return { value: "—" };
+  const [first, ...rest] = amounts;
+  return {
+    value: formatStripeMoney(first.amount, first.currency),
+    subtitle:
+      rest.length > 0
+        ? rest.map((a) => formatStripeMoney(a.amount, a.currency)).join(" · ")
+        : undefined,
+  };
+}
+
+function BalanceStat({
   title,
   amounts,
 }: {
   title: string;
   amounts: { amount: number; currency: string }[];
 }) {
-  return (
-    <GlassPanel className="p-4 dark:border-glass dark:bg-glass dark:backdrop-blur-md">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {title}
-      </p>
-      <div className="mt-2 space-y-1">
-        {amounts.length === 0 ? (
-          <p className="text-lg font-semibold tabular-nums">—</p>
-        ) : (
-          amounts.map((a) => (
-            <p key={a.currency} className="text-lg font-semibold tabular-nums">
-              {formatStripeMoney(a.amount, a.currency)}
-            </p>
-          ))
-        )}
-      </div>
-    </GlassPanel>
-  );
+  const { value, subtitle } = formatBalanceAmounts(amounts);
+  return <MetricStat title={title} value={value} subtitle={subtitle} />;
 }
 
 export function StripeSection() {
@@ -223,11 +224,11 @@ export function StripeSection() {
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <BalanceCard title="Disponible" amounts={balance?.available ?? []} />
-        <BalanceCard title="Pendiente" amounts={balance?.pending ?? []} />
-        <BalanceCard title="Total" amounts={totalAmounts} />
-      </div>
+      <MetricBand glass>
+        <BalanceStat title="Disponible" amounts={balance?.available ?? []} />
+        <BalanceStat title="Pendiente" amounts={balance?.pending ?? []} />
+        <BalanceStat title="Total" amounts={totalAmounts} />
+      </MetricBand>
 
       <GlassPanel className="overflow-hidden p-0 dark:border-glass dark:bg-glass dark:backdrop-blur-md">
         <div className="border-b border-border/40 px-4 py-3">
