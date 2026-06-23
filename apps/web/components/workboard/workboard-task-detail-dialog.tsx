@@ -104,8 +104,8 @@ export function WorkboardTaskDetailDialog() {
       open={Boolean(selectedTask)}
       onOpenChange={(open) => !open && setSelectedTask(null)}
     >
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(90vh,720px)] max-w-lg flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <DialogTitle>Detalle de tarea</DialogTitle>
             <Badge
@@ -120,18 +120,19 @@ export function WorkboardTaskDetailDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <NotchedCard
-          tab={
-            <span className="inline-flex items-center gap-1.5">
-              <span
-                className={cn("inline-block h-1.5 w-1.5 rounded-full", statusStyle.dot)}
-              />
-              {STATUS_LABELS[status]}
-            </span>
-          }
-          className="shadow-none"
-        >
-        <div className="space-y-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          <NotchedCard
+            tab={
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className={cn("inline-block h-1.5 w-1.5 rounded-full", statusStyle.dot)}
+                />
+                {STATUS_LABELS[status]}
+              </span>
+            }
+            className="shadow-none"
+          >
+            <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="detail-title">Título</Label>
             <Input
@@ -296,10 +297,11 @@ export function WorkboardTaskDetailDialog() {
               <span>Asignado: {selectedTask.assignee.name}</span>
             ) : null}
           </div>
+            </div>
+          </NotchedCard>
         </div>
-        </NotchedCard>
 
-        <DialogFooter className="gap-2 sm:justify-between">
+        <DialogFooter className="shrink-0 gap-2 sm:justify-between">
           <Button
             type="button"
             variant="outline"
