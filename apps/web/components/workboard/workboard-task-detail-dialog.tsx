@@ -106,11 +106,17 @@ export function WorkboardTaskDetailDialog() {
     >
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Detalle de tarea</DialogTitle>
-          <DialogDescription className="pt-1">
-            <Badge variant="outline" className={cn("text-xs", getAreaClasses(area))}>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <DialogTitle>Detalle de tarea</DialogTitle>
+            <Badge
+              variant="outline"
+              className={cn("shrink-0 text-xs", getAreaClasses(area))}
+            >
               {TASK_AREA_LABELS[area]}
             </Badge>
+          </div>
+          <DialogDescription className="sr-only">
+            Formulario de edición de la tarea seleccionada.
           </DialogDescription>
         </DialogHeader>
 
