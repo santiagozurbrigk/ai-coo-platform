@@ -26,8 +26,10 @@ import {
   DialogTrigger,
   Input,
   Label,
+  SteppedAlert,
   Textarea,
 } from "@ai-coo/ui";
+import { Users } from "lucide-react";
 
 const AREA_FILTER_OPTIONS = [
   { value: "all", label: "Todas las áreas" },
@@ -113,11 +115,17 @@ export function WorkboardShell() {
   return (
     <div className="workboard-surface space-y-4">
       {emptyMembers ? (
-        <p className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-          Invitá miembros a tu organización para asignar tareas. Mientras tanto,
-          cualquier usuario con acceso al tablero puede crear y mover tareas sin
-          importar su rol.
-        </p>
+        <SteppedAlert
+          variant="info"
+          title="Sin miembros en el equipo"
+          icon={<Users className="h-4 w-4" />}
+        >
+          <p>
+            Invitá miembros a tu organización para asignar tareas. Mientras tanto,
+            cualquier usuario con acceso al tablero puede crear y mover tareas sin
+            importar su rol.
+          </p>
+        </SteppedAlert>
       ) : null}
 
       {view !== "time" ? (

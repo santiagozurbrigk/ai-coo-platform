@@ -51,22 +51,27 @@ export function WorkboardKanban() {
   };
 
   return (
-    <div className="grid min-h-[calc(100vh-14rem)] grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid min-h-[calc(100vh-14rem)] grid-cols-1 gap-[var(--space-card-sm)] md:grid-cols-2 xl:grid-cols-4">
       {columns.map((column) => (
         <div
           key={column.id}
-          className="workboard-kanban-column flex min-h-[320px] flex-col rounded-xl border p-3"
+          className={cn(
+            "workboard-kanban-column flex min-h-[320px] flex-col rounded-[var(--radius-xl)] border p-[var(--space-card-sm)] shadow-card transition-colors",
+            draggedTask &&
+              draggedTask.status !== column.id &&
+              "border-primary/40 bg-primary/[0.04]"
+          )}
           onDragOver={handleDragOver}
           onDrop={() => handleDrop(column.id as TaskStatus)}
         >
-          <div className="mb-3 flex items-center gap-2 px-1">
-            <h2 className="text-sm font-semibold text-foreground">{column.title}</h2>
-            <Badge variant="secondary" className="rounded-full px-2">
+          <div className="mb-[var(--space-card-sm)] flex items-center gap-2 px-1">
+            <h2 className="text-caption font-semibold text-foreground">{column.title}</h2>
+            <Badge variant="secondary" className="rounded-[var(--radius-pill)] px-2">
               {column.tasks.length}
             </Badge>
           </div>
 
-          <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+          <div className="flex-1 space-y-[var(--space-card-sm)] overflow-y-auto pr-1">
             {column.tasks.length === 0 ? (
               <p className="px-2 py-6 text-center text-xs text-muted-foreground">
                 Sin tareas
@@ -79,13 +84,14 @@ export function WorkboardKanban() {
                   onDragStart={() =>
                     setDraggedTask({ task, status: column.id as TaskStatus })
                   }
+                  onDragEnd={() => setDraggedTask(null)}
                   onClick={() => setSelectedTask(task)}
                   className={cn(
-                    "cursor-pointer border-border transition-shadow hover:shadow-md",
+                    "cursor-grab rounded-[var(--radius-lg)] border-border shadow-card transition-shadow active:cursor-grabbing hover:shadow-md",
                     draggedTask?.task.id === task.id && "opacity-50"
                   )}
                 >
-                  <CardHeader className="pb-2 pt-4">
+                  <CardHeader className="pb-2 pt-[var(--space-card-sm)]">
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="text-sm font-medium leading-snug">
                         {task.title}
@@ -123,7 +129,7 @@ export function WorkboardKanban() {
                       </DropdownMenu>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-3 pb-4">
+                  <CardContent className="space-y-[var(--space-card-sm)] pb-[var(--space-card-sm)]">
                     {task.description ? (
                       <p className="line-clamp-2 text-xs text-muted-foreground">
                         {task.description}

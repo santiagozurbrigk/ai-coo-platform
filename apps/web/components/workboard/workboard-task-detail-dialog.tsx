@@ -13,6 +13,7 @@ import {
   DialogTitle,
   Input,
   Label,
+  NotchedCard,
   Textarea,
 } from "@ai-coo/ui";
 import {
@@ -71,7 +72,7 @@ export function WorkboardTaskDetailDialog() {
 
   if (!selectedTask) return null;
 
-  const statusStyle = STATUS_COLORS[selectedTask.status];
+  const statusStyle = STATUS_COLORS[status];
 
   async function handleSave() {
     const completing =
@@ -106,23 +107,25 @@ export function WorkboardTaskDetailDialog() {
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Detalle de tarea</DialogTitle>
-          <DialogDescription className="flex flex-wrap items-center gap-2 pt-1">
-            <Badge
-              variant="outline"
-              className={cn("border text-xs", statusStyle.chip)}
-            >
-              <span
-                className={cn("mr-1.5 inline-block h-1.5 w-1.5 rounded-full", statusStyle.dot)}
-              />
-              {STATUS_LABELS[selectedTask.status]}
-            </Badge>
+          <DialogDescription className="pt-1">
             <Badge variant="outline" className={cn("text-xs", getAreaClasses(area))}>
               {TASK_AREA_LABELS[area]}
             </Badge>
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <NotchedCard
+          tab={
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className={cn("inline-block h-1.5 w-1.5 rounded-full", statusStyle.dot)}
+              />
+              {STATUS_LABELS[status]}
+            </span>
+          }
+          className="shadow-none"
+        >
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="detail-title">Título</Label>
             <Input
@@ -288,6 +291,7 @@ export function WorkboardTaskDetailDialog() {
             ) : null}
           </div>
         </div>
+        </NotchedCard>
 
         <DialogFooter className="gap-2 sm:justify-between">
           <Button
