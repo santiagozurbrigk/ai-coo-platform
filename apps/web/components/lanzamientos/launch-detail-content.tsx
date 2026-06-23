@@ -13,6 +13,8 @@ import {
   DialogTitle,
   Input,
   Label,
+  MetricBand,
+  MetricStat,
   Tabs,
   TabsContent,
   TabsList,
@@ -168,11 +170,11 @@ export function LaunchDetailContent({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          label="Revenue actual"
+      <MetricBand>
+        <MetricStat
+          title="Revenue actual"
           value={formatLaunchMoney(launch.actualRevenue)}
-          sub={
+          subtitle={
             revenuePct != null
               ? `${revenuePct}% del objetivo`
               : launch.goalRevenue
@@ -180,10 +182,10 @@ export function LaunchDetailContent({
                 : undefined
           }
         />
-        <MetricCard
-          label="Clientes actuales"
+        <MetricStat
+          title="Clientes actuales"
           value={String(launch.actualClients)}
-          sub={
+          subtitle={
             clientsPct != null
               ? `${clientsPct}% del objetivo (${launch.goalClients})`
               : launch.goalClients
@@ -191,13 +193,13 @@ export function LaunchDetailContent({
                 : undefined
           }
         />
-        <MetricCard
-          label="Tareas completadas"
+        <MetricStat
+          title="Tareas completadas"
           value={`${completedTasks}/${launch.tasks.length}`}
-          sub={tasksPct != null ? `${tasksPct}% del tablero` : "Sin tareas"}
+          subtitle={tasksPct != null ? `${tasksPct}% del tablero` : "Sin tareas"}
         />
-        <MetricCard
-          label="Días restantes"
+        <MetricStat
+          title="Días restantes"
           value={
             remainingDays != null
               ? remainingDays > 0
@@ -205,7 +207,7 @@ export function LaunchDetailContent({
                 : "0"
               : "—"
           }
-          sub={
+          subtitle={
             remainingDays != null && remainingDays < 0
               ? "Finalizado"
               : remainingDays != null
@@ -213,7 +215,7 @@ export function LaunchDetailContent({
                 : "Sin fecha de cierre"
           }
         />
-      </div>
+      </MetricBand>
 
       <Tabs defaultValue="tasks">
         <TabsList>
@@ -441,24 +443,6 @@ export function LaunchDetailContent({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-border/60 bg-card/40 p-4 dark:border-white/[0.08]">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
-      {sub ? <p className="mt-1 text-xs text-muted-foreground">{sub}</p> : null}
     </div>
   );
 }
