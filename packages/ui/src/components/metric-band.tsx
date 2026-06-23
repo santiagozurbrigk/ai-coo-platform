@@ -4,15 +4,19 @@ import { cn } from "../lib/utils";
 export interface MetricBandProps {
   children: React.ReactNode;
   className?: string;
+  /** Glass surface in dark mode (marketing / operational bands). */
+  glass?: boolean;
 }
 
-export function MetricBand({ children, className }: MetricBandProps) {
+export function MetricBand({ children, className, glass = false }: MetricBandProps) {
   const items = React.Children.toArray(children);
 
   return (
     <div
       className={cn(
         "metric-band overflow-hidden rounded-2xl border border-border bg-card shadow-band",
+        glass &&
+          "dark:border-glass dark:bg-glass dark:backdrop-blur-md transition-all duration-200",
         className
       )}
     >

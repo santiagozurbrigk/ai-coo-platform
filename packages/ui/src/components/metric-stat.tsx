@@ -3,6 +3,10 @@
 import * as React from "react";
 import { cn } from "../lib/utils";
 import {
+  DecorativeSparkline,
+  type MetricSparklinePreset,
+} from "./decorative-sparkline";
+import {
   deriveMetricProgress,
   metricTrendConfig,
   type MetricTrend,
@@ -10,6 +14,7 @@ import {
 import { Sparkline } from "./sparkline";
 
 export type { MetricTrend } from "../lib/metric-trend";
+export type { MetricSparklinePreset } from "./decorative-sparkline";
 
 export interface MetricStatProps {
   title: string;
@@ -23,10 +28,12 @@ export interface MetricStatProps {
   sparklineData?: number[];
   sparklineColor?: string;
   sparklineAnimationDelay?: number;
+  sparklinePreset?: MetricSparklinePreset;
   showProgressBar?: boolean;
   progress?: number;
   progressCaption?: string;
   progressVariant?: "trend" | "violet";
+  children?: React.ReactNode;
 }
 
 export function MetricStat({
@@ -41,10 +48,12 @@ export function MetricStat({
   sparklineData,
   sparklineColor = "hsl(var(--foreground))",
   sparklineAnimationDelay = 0,
+  sparklinePreset,
   showProgressBar = false,
   progress,
   progressCaption,
   progressVariant = "trend",
+  children,
 }: MetricStatProps) {
   const cfg = metricTrendConfig[trend];
   const TrendIcon = cfg.icon;
@@ -59,7 +68,16 @@ export function MetricStat({
       : cfg.bar;
 
   return (
-    <div className={cn("metric-stat min-w-0", className)}>
+    <div className={cn("metric-stat relative min-w-0 overflow-hidden", className)}>
+      {sparklinePreset ? (
+        <DecorativeSparkline preset={sparklinePreset} color={sparklineColor} />
+      ) : null}
+      <div
+        className="pointer-events-none absolute left-4 top-1/2 h-[60px] w-[60px] -translate-y-1/2 rounded-full blur-2xl"
+        style={{ background: cfg.glow }}
+        aria-hidden
+      />
+      <div className="relative">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           {icon ? (
@@ -136,6 +154,9 @@ export function MetricStat({
           ) : null}
         </div>
       )}
+
+      {children ? <div className="relative mt-2">{children}</div> : null}
+      </div>
     </div>
   );
 }
