@@ -1,4 +1,4 @@
-import { MetricCard } from "@ai-coo/ui";
+import { MetricBand, MetricStat } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
 import { sparklineProps } from "@/lib/metrics/sparkline-series";
 import type { DashboardMetric } from "@/types/dashboard";
@@ -24,13 +24,13 @@ export function SalesMetricsSection({
       title="Métricas de ventas"
       subtitle="Booking rate, conversaciones activas y ghosting rate"
     >
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <MetricBand>
         {displayMetrics.map((metric, index) => {
           const preset = SALES_SPARKLINE[metric.id];
           const sparkline = preset ? sparklineProps(preset, index * 100) : {};
 
           return (
-            <MetricCard
+            <MetricStat
               key={metric.id}
               title={metric.label}
               value={metric.value}
@@ -40,7 +40,7 @@ export function SalesMetricsSection({
             />
           );
         })}
-      </div>
+      </MetricBand>
     </Panel>
   );
 }

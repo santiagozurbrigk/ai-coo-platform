@@ -23,6 +23,10 @@ export interface MetricStatProps {
   sparklineData?: number[];
   sparklineColor?: string;
   sparklineAnimationDelay?: number;
+  showProgressBar?: boolean;
+  progress?: number;
+  progressCaption?: string;
+  progressVariant?: "trend" | "violet";
 }
 
 export function MetricStat({
@@ -37,12 +41,22 @@ export function MetricStat({
   sparklineData,
   sparklineColor = "hsl(var(--foreground))",
   sparklineAnimationDelay = 0,
+  showProgressBar = false,
+  progress,
+  progressCaption,
+  progressVariant = "trend",
 }: MetricStatProps) {
   const cfg = metricTrendConfig[trend];
   const TrendIcon = cfg.icon;
   const hasDataSparkline = Boolean(sparklineData?.length);
+  const derivedProgress = deriveMetricProgress(value, trend, trendValue);
+  const barWidth = progress ?? derivedProgress;
   const comparison =
     subtitle ?? (trendValue ? `vs período anterior  ${trendValue}` : undefined);
+  const barClassName =
+    progressVariant === "violet"
+      ? "from-violet-600 to-violet-400"
+      : cfg.bar;
 
   return (
     <div className={cn("metric-stat min-w-0", className)}>
@@ -85,6 +99,30 @@ export function MetricStat({
           />
         ) : null}
       </div>
+
+      {showProgressBar ? (
+        <div className="mt-3">
+          <div
+            className={cn(
+              "h-0.5 overflow-hidden rounded-full bg-muted dark:bg-white/[0.06]",
+              progress != null && progressCaption && "h-1.5"
+            )}
+          >
+            <div
+              className={cn(
+                "h-full rounded-full bg-gradient-to-r transition-all duration-700",
+                barClassName
+              )}
+              style={{ width: `${barWidth}%` }}
+            />
+          </div>
+          {progressCaption ? (
+            <p className="mt-1.5 text-micro text-muted-foreground">
+              {progressCaption}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {(comparison || badge) && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
