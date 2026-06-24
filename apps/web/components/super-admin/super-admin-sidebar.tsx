@@ -3,16 +3,14 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Shield } from "lucide-react";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
   cn,
 } from "@ai-coo/ui";
 import { useSidebarCollapsed } from "@/hooks/use-sidebar-collapsed";
+import { SidebarTwoLevelNavigation } from "@/components/navigation/sidebar-two-level-navigation";
 import { superAdminSidebarNav } from "@/lib/navigation/super-admin-sidebar-modules";
 import { paths } from "@/routes";
 import { es } from "@/lib/locale/es";
-import { SidebarTwoLevelNavigation } from "@/components/navigation/sidebar-two-level-navigation";
+import { SuperAdminSignOutButton } from "./super-admin-sign-out-button";
 
 export function SuperAdminSidebar() {
   const { collapsed, toggle } = useSidebarCollapsed();
@@ -64,28 +62,7 @@ export function SuperAdminSidebar() {
       <div className="sidebar-divider" aria-hidden />
 
       <div className="space-y-0.5">
-        {collapsed ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="sidebar-item-slot">
-                <Link
-                  href={paths.superAdmin.login}
-                  className="sidebar-item sidebar-item-collapsed"
-                >
-                  <span className="text-xs font-medium">↩</span>
-                </Link>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right">{es.nav.signOut}</TooltipContent>
-          </Tooltip>
-        ) : (
-          <Link
-            href={paths.superAdmin.login}
-            className="sidebar-item text-muted-foreground"
-          >
-            <span className="sidebar-item-label text-xs">{es.nav.signOut}</span>
-          </Link>
-        )}
+        <SuperAdminSignOutButton collapsed={collapsed} />
       </div>
     </aside>
   );

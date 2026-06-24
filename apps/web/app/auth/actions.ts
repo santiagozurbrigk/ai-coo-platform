@@ -283,6 +283,7 @@ export async function signUpAction(
 
 export async function signOutAction() {
   const supabase = await createClient();
+  const cookieStore = await cookies();
 
   if (isSupabaseConfigured()) {
     const {
@@ -298,10 +299,15 @@ export async function signOutAction() {
     }
   }
 
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "global" });
 
-  const cookieStore = await cookies();
-  cookieStore.delete(ACTIVE_ORG_COOKIE);
+  cookieStore.set(ACTIVE_ORG_COOKIE, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 0,
+    path: "/",
+  });
 
   redirect(paths.auth.login);
 }
