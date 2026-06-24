@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { mapAnthropicCallError, type ClaudeKeySource } from "@/lib/ai/anthropic-errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decrypt } from "@/lib/security/encryption";
 import { trackTokenUsage } from "@/lib/track-token-usage";
@@ -165,16 +166,25 @@ export function invalidateOrgKeyCache(organizationId: string): void {
   orgKeyCache.delete(organizationId);
 }
 
-export async function getClientForOrg(
+type ClientResolution = {
+  client: Anthropic | null;
+  keySource: ClaudeKeySource | "none";
+};
+
+async function resolveClientForOrg(
   organizationId?: string
-): Promise<Anthropic | null> {
+): Promise<ClientResolution> {
   if (!organizationId) {
-    return getGlobalClient();
+    const client = getGlobalClient();
+    return { client, keySource: client ? "global" : "none" };
   }
 
   const cached = orgKeyCache.get(organizationId);
   if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
-    return new Anthropic({ apiKey: cached.key });
+    return {
+      client: new Anthropic({ apiKey: cached.key }),
+      keySource: "byok",
+    };
   }
 
   try {
@@ -198,20 +208,32 @@ export async function getClientForOrg(
           "[getClientForOrg] No se pudo descifrar BYOK key para org",
           organizationId
         );
-        return getGlobalClient();
+        const client = getGlobalClient();
+        return { client, keySource: client ? "global" : "none" };
       }
 
       orgKeyCache.set(organizationId, {
         key: apiKey,
         cachedAt: Date.now(),
       });
-      return new Anthropic({ apiKey });
+      return {
+        client: new Anthropic({ apiKey }),
+        keySource: "byok",
+      };
     }
   } catch {
     // Fallback a key global
   }
 
-  return getGlobalClient();
+  const client = getGlobalClient();
+  return { client, keySource: client ? "global" : "none" };
+}
+
+export async function getClientForOrg(
+  organizationId?: string
+): Promise<Anthropic | null> {
+  const { client } = await resolveClientForOrg(organizationId);
+  return client;
 }
 
 export type ClaudeJsonRequest = {
@@ -255,6 +277,7 @@ async function trackUsage(
 
 async function createClaudeMessage(
   client: Anthropic,
+  keySource: ClaudeKeySource,
   params: {
     apiModel: string;
     maxTokens: number;
@@ -271,21 +294,25 @@ async function createClaudeMessage(
     ...(system !== undefined && { system }),
   };
 
-  if (params.cachedSystemPrompt?.trim()) {
-    return client.beta.messages.create({
-      ...request,
-      betas: [PROMPT_CACHING_BETA],
-    });
-  }
+  try {
+    if (params.cachedSystemPrompt?.trim()) {
+      return await client.beta.messages.create({
+        ...request,
+        betas: [PROMPT_CACHING_BETA],
+      });
+    }
 
-  return client.messages.create(request);
+    return await client.messages.create(request);
+  } catch (error) {
+    throw mapAnthropicCallError(error, keySource);
+  }
 }
 
 export async function callClaudeText(
   req: ClaudeTextRequest
 ): Promise<string | null> {
-  const client = await getClientForOrg(req.organizationId);
-  if (!client) {
+  const { client, keySource } = await resolveClientForOrg(req.organizationId);
+  if (!client || keySource === "none") {
     console.warn("[callClaudeText] Sin API key (org BYOK ni ANTHROPIC_API_KEY)");
     return null;
   }
@@ -293,7 +320,7 @@ export async function callClaudeText(
   const logicalModel = resolveLogicalModel(req);
   const apiModel = resolveApiModelId(logicalModel);
 
-  const response = await createClaudeMessage(client, {
+  const response = await createClaudeMessage(client, keySource, {
     apiModel,
     maxTokens: req.maxTokens ?? 4096,
     system: req.system,
@@ -319,8 +346,8 @@ export async function callClaudeText(
 export async function callClaudeJson<T>(
   req: ClaudeJsonRequest
 ): Promise<T | null> {
-  const client = await getClientForOrg(req.organizationId);
-  if (!client) {
+  const { client, keySource } = await resolveClientForOrg(req.organizationId);
+  if (!client || keySource === "none") {
     console.warn("[callClaudeJson] Sin API key (org BYOK ni ANTHROPIC_API_KEY)");
     return null;
   }
@@ -328,7 +355,7 @@ export async function callClaudeJson<T>(
   const logicalModel = resolveLogicalModel(req);
   const apiModel = resolveApiModelId(logicalModel);
 
-  const response = await createClaudeMessage(client, {
+  const response = await createClaudeMessage(client, keySource, {
     apiModel,
     maxTokens: req.maxTokens ?? 2048,
     system: req.system,

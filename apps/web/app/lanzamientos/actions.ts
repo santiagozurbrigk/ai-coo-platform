@@ -13,6 +13,13 @@ import {
   rowToLaunchSummary,
 } from "@/lib/launches/mapper";
 import { createClient } from "@/lib/supabase/server";
+import {
+  createLaunchSchema,
+  firstZodError,
+  recordLaunchMetricDataSchema,
+  updateLaunchPatchSchema,
+  uuidSchema,
+} from "@/lib/validations";
 import { paths } from "@/routes/paths";
 import type {
   LaunchDetail,
@@ -142,16 +149,15 @@ export async function getProductsForLaunchAction(): Promise<
   }));
 }
 
-export async function createLaunchAction(data: {
-  name: string;
-  description?: string;
-  launchDate?: string;
-  endDate?: string;
-  goalRevenue?: number;
-  goalClients?: number;
-  productId?: string;
-  tags?: string[];
-}): Promise<LaunchSummary> {
+export async function createLaunchAction(
+  input: unknown
+): Promise<LaunchSummary> {
+  const parsed = createLaunchSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
+  const data = parsed.data;
   const organizationId = await requireOrganizationId();
   const profile = await getCurrentProfile();
   const supabase = await createClient();
@@ -188,19 +194,19 @@ export async function createLaunchAction(data: {
 
 export async function updateLaunchAction(
   launchId: string,
-  data: Partial<{
-    name: string;
-    description: string;
-    status: LaunchStatus;
-    launchDate: string;
-    endDate: string;
-    goalRevenue: number;
-    actualRevenue: number;
-    goalClients: number;
-    actualClients: number;
-    productId: string | null;
-  }>
+  input: unknown
 ): Promise<{ ok: true }> {
+  const idParsed = uuidSchema.safeParse(launchId);
+  if (!idParsed.success) {
+    throw new Error(firstZodError(idParsed.error));
+  }
+
+  const parsed = updateLaunchPatchSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
+  const data = parsed.data;
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
@@ -224,31 +230,37 @@ export async function updateLaunchAction(
   const { error } = await supabase
     .from("launches")
     .update(patch)
-    .eq("id", launchId)
+    .eq("id", idParsed.data)
     .eq("organization_id", organizationId);
 
   if (error) throw new Error(error.message);
 
-  revalidateLaunches(launchId);
+  revalidateLaunches(idParsed.data);
   return { ok: true };
 }
 
 export async function recordLaunchMetricAction(
   launchId: string,
-  data: {
-    date: string;
-    revenue: number;
-    newClients: number;
-    conversationsStarted?: number;
-    bookings?: number;
-  }
+  input: unknown
 ): Promise<{ ok: true }> {
+  const idParsed = uuidSchema.safeParse(launchId);
+  if (!idParsed.success) {
+    throw new Error(firstZodError(idParsed.error));
+  }
+
+  const parsed = recordLaunchMetricDataSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
+  const data = parsed.data;
+  const validatedLaunchId = idParsed.data;
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
   const { error: metricError } = await supabase.from("launch_metrics").upsert(
     {
-      launch_id: launchId,
+      launch_id: validatedLaunchId,
       organization_id: organizationId,
       date: data.date,
       revenue: data.revenue,
@@ -264,7 +276,7 @@ export async function recordLaunchMetricAction(
   const { data: totals } = await supabase
     .from("launch_metrics")
     .select("revenue, new_clients")
-    .eq("launch_id", launchId)
+    .eq("launch_id", validatedLaunchId)
     .eq("organization_id", organizationId);
 
   const actualRevenue = (totals ?? []).reduce(
@@ -283,20 +295,26 @@ export async function recordLaunchMetricAction(
       actual_clients: actualClients,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", launchId)
+    .eq("id", validatedLaunchId)
     .eq("organization_id", organizationId);
 
-  revalidateLaunches(launchId);
+  revalidateLaunches(validatedLaunchId);
   return { ok: true };
 }
 
 export async function generateLaunchPostMortemAction(
   launchId: string
 ): Promise<LaunchPostMortem> {
+  const idParsed = uuidSchema.safeParse(launchId);
+  if (!idParsed.success) {
+    throw new Error(firstZodError(idParsed.error));
+  }
+
+  const validatedLaunchId = idParsed.data;
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
-  const launch = await getLaunchAction(launchId);
+  const launch = await getLaunchAction(validatedLaunchId);
   if (!launch) throw new Error("Lanzamiento no encontrado");
   if (launch.status !== "completed") {
     throw new Error("Marcá el lanzamiento como completado antes del post-mortem");
@@ -358,11 +376,11 @@ Devolvé ÚNICAMENTE un JSON:
       post_mortem_generated_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq("id", launchId)
+    .eq("id", validatedLaunchId)
     .eq("organization_id", organizationId);
 
   if (error) throw new Error(error.message);
 
-  revalidateLaunches(launchId);
+  revalidateLaunches(validatedLaunchId);
   return postMortem;
 }

@@ -5,7 +5,7 @@ export type ClaudeKeyValidationResult =
   | { ok: true; status: "valid_no_credits" }
   | { ok: false; reason: "format" | "auth" | "invalid" | "network" };
 
-type AnthropicErrorBody = {
+export type AnthropicErrorBody = {
   type?: string;
   error?: {
     type?: string;
@@ -20,7 +20,7 @@ export function assertClaudeKeyFormat(apiKey: string): void {
   }
 }
 
-function parseAnthropicErrorBody(text: string): AnthropicErrorBody | null {
+export function parseAnthropicErrorBody(text: string): AnthropicErrorBody | null {
   try {
     return JSON.parse(text) as AnthropicErrorBody;
   } catch {
@@ -29,7 +29,10 @@ function parseAnthropicErrorBody(text: string): AnthropicErrorBody | null {
 }
 
 /** Anthropic devuelve 400 + invalid_request_error cuando la key es válida pero no hay créditos. */
-function isNoCreditsError(status: number, body: AnthropicErrorBody | null): boolean {
+export function isAnthropicNoCreditsError(
+  status: number,
+  body: AnthropicErrorBody | null
+): boolean {
   if (status !== 400 || !body?.error) return false;
 
   const errorType = body.error.type ?? "";
@@ -83,7 +86,7 @@ export async function validateClaudeApiKey(
     const bodyText = await testResponse.text();
     const body = parseAnthropicErrorBody(bodyText);
 
-    if (isNoCreditsError(testResponse.status, body)) {
+    if (isAnthropicNoCreditsError(testResponse.status, body)) {
       return { ok: true, status: "valid_no_credits" };
     }
 

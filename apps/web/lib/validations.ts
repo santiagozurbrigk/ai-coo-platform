@@ -787,3 +787,187 @@ export const saveWeeklyInputSchema = z
   .refine((data) => Boolean(data.content?.trim()) || data.rating != null, {
     message: "Completá al menos un campo antes de guardar.",
   });
+
+// ─── Launches ───────────────────────────────────────────────────────────────
+
+export const launchStatusSchema = z.enum([
+  "planning",
+  "active",
+  "completed",
+  "cancelled",
+]);
+
+export const launchDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida");
+
+const launchTagSchema = z
+  .string()
+  .trim()
+  .min(1, "Campo requerido")
+  .max(50, "Máximo 50 caracteres");
+
+const optionalLaunchDateSchema = launchDateSchema.optional();
+
+export const createLaunchSchema = z.object({
+  name: textSchema,
+  description: z.string().trim().max(5000, "Máximo 5.000 caracteres").optional(),
+  launchDate: optionalLaunchDateSchema,
+  endDate: optionalLaunchDateSchema,
+  goalRevenue: moneySchema.optional(),
+  goalClients: z.number().int().min(0, "No puede ser negativo").max(1_000_000).optional(),
+  productId: uuidSchema.optional(),
+  tags: z.array(launchTagSchema).max(20).optional(),
+});
+
+export const updateLaunchPatchSchema = z
+  .object({
+    name: textSchema.optional(),
+    description: z.string().trim().max(5000, "Máximo 5.000 caracteres").optional(),
+    status: launchStatusSchema.optional(),
+    launchDate: launchDateSchema.optional(),
+    endDate: launchDateSchema.optional(),
+    goalRevenue: moneySchema.optional(),
+    actualRevenue: moneySchema.optional(),
+    goalClients: z.number().int().min(0, "No puede ser negativo").max(1_000_000).optional(),
+    actualClients: z.number().int().min(0, "No puede ser negativo").max(1_000_000).optional(),
+    productId: z.union([uuidSchema, z.null()]).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "Sin cambios para guardar",
+  });
+
+export const recordLaunchMetricDataSchema = z.object({
+  date: launchDateSchema,
+  revenue: moneySchema,
+  newClients: z.number().int().min(0, "No puede ser negativo"),
+  conversationsStarted: z.number().int().min(0, "No puede ser negativo").optional(),
+  bookings: z.number().int().min(0, "No puede ser negativo").optional(),
+});
+
+// ─── Workboard ──────────────────────────────────────────────────────────────
+
+export const taskStatusSchema = z.enum([
+  "todo",
+  "in_progress",
+  "review",
+  "done",
+]);
+
+export const taskAreaSchema = z.enum([
+  "marketing",
+  "ventas",
+  "operaciones",
+  "finanzas",
+  "clientes",
+  "general",
+]);
+
+export const taskPrioritySchema = z.enum(["low", "medium", "high"]);
+
+export const sprintAreaFocusSchema = z.enum([
+  "ventas",
+  "marketing",
+  "operaciones",
+  "delivery",
+  "producto",
+  "general",
+]);
+
+export const sprintStatusSchema = z.enum(["planning", "active", "completed"]);
+
+const workboardTagSchema = z
+  .string()
+  .trim()
+  .min(1, "Campo requerido")
+  .max(50, "Máximo 50 caracteres");
+
+const nullableUuidSchema = z.union([uuidSchema, z.null()]);
+
+const optionalDueDateSchema = z
+  .union([launchDateSchema, z.literal(""), z.null()])
+  .optional();
+
+export const createWorkboardTaskSchema = z.object({
+  title: textSchema,
+  description: z.string().trim().max(5000, "Máximo 5.000 caracteres").optional(),
+  status: taskStatusSchema,
+  area: taskAreaSchema,
+  priority: taskPrioritySchema,
+  assigneeId: nullableUuidSchema.optional(),
+  dueDate: optionalDueDateSchema,
+  tags: z.array(workboardTagSchema).max(20).optional(),
+  sprintId: nullableUuidSchema.optional(),
+  launchId: nullableUuidSchema.optional(),
+});
+
+export const moveWorkboardTaskSchema = z.object({
+  taskId: uuidSchema,
+  status: taskStatusSchema,
+});
+
+export const updateWorkboardTaskSchema = z
+  .object({
+    taskId: uuidSchema,
+    title: textSchema.optional(),
+    description: z.string().trim().max(5000, "Máximo 5.000 caracteres").optional(),
+    status: taskStatusSchema.optional(),
+    area: taskAreaSchema.optional(),
+    priority: taskPrioritySchema.optional(),
+    assigneeId: nullableUuidSchema.optional(),
+    dueDate: optionalDueDateSchema,
+    tags: z.array(workboardTagSchema).max(20).optional(),
+    estimatedMinutes: z.number().int().min(0, "No puede ser negativo").max(100_000).optional(),
+    launchId: nullableUuidSchema.optional(),
+  })
+  .refine(
+    (data) =>
+      Object.keys(data).some((key) => key !== "taskId" && data[key as keyof typeof data] !== undefined),
+    { message: "Sin cambios para guardar" }
+  );
+
+export const assignTaskToLaunchSchema = z.object({
+  taskId: uuidSchema,
+  launchId: nullableUuidSchema,
+});
+
+export const logTaskTimeSchema = z.object({
+  taskId: uuidSchema,
+  actualMinutes: z.number().min(0, "No puede ser negativo").max(100_000),
+  estimatedMinutes: z.number().int().min(0, "No puede ser negativo").max(100_000).optional(),
+  note: z.string().trim().max(2000, "Máximo 2.000 caracteres").optional(),
+});
+
+export const memberHourlyRateCurrencySchema = z.enum(["USD", "ARS"]);
+
+export const setMemberHourlyRateSchema = z.object({
+  memberId: uuidSchema,
+  hourlyRate: moneySchema,
+  currency: memberHourlyRateCurrencySchema,
+});
+
+export const createSprintSchema = z.object({
+  name: textSchema,
+  goal: z.string().trim().max(2000, "Máximo 2.000 caracteres").optional(),
+  areaFocus: sprintAreaFocusSchema.optional(),
+  startDate: launchDateSchema,
+  endDate: launchDateSchema,
+});
+
+export const updateSprintPatchSchema = z
+  .object({
+    name: textSchema.optional(),
+    goal: z.string().trim().max(2000, "Máximo 2.000 caracteres").optional(),
+    areaFocus: sprintAreaFocusSchema.optional(),
+    startDate: launchDateSchema.optional(),
+    endDate: launchDateSchema.optional(),
+    status: sprintStatusSchema.optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "Sin cambios para guardar",
+  });
+
+export const assignTaskToSprintSchema = z.object({
+  taskId: uuidSchema,
+  sprintId: nullableUuidSchema,
+});

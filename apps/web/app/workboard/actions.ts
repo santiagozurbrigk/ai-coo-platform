@@ -14,11 +14,21 @@ import {
 } from "@/lib/workboard/time-report";
 import { rowToSprint, type SprintRow } from "@/lib/workboard/sprint";
 import { createClient } from "@/lib/supabase/server";
+import {
+  assignTaskToLaunchSchema,
+  assignTaskToSprintSchema,
+  createSprintSchema,
+  createWorkboardTaskSchema,
+  firstZodError,
+  logTaskTimeSchema,
+  moveWorkboardTaskSchema,
+  setMemberHourlyRateSchema,
+  updateSprintPatchSchema,
+  updateWorkboardTaskSchema,
+  uuidSchema,
+} from "@/lib/validations";
 import { paths } from "@/routes/paths";
 import type {
-  TaskArea,
-  TaskPriority,
-  TaskStatus,
   MemberTimeReport,
   WorkboardMember,
   WorkboardSprint,
@@ -85,45 +95,42 @@ export async function loadWorkboardPageDataAction(): Promise<{
   return { tasks, members, sprints };
 }
 
-export async function createWorkboardTaskAction(input: {
-  title: string;
-  description?: string;
-  status: TaskStatus;
-  area: TaskArea;
-  priority: TaskPriority;
-  assigneeId?: string | null;
-  dueDate?: string | null;
-  tags?: string[];
-  sprintId?: string | null;
-  launchId?: string | null;
-}): Promise<WorkboardTask> {
+export async function createWorkboardTaskAction(
+  input: unknown
+): Promise<WorkboardTask> {
+  const parsed = createWorkboardTaskSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
+  const payload = parsed.data;
   const organizationId = await requireOrganizationId();
   const profile = await getCurrentProfile();
   const supabase = await createClient();
 
   const existing = await listWorkboardTasksAction();
-  const position = getNextPosition(existing, input.status);
+  const position = getNextPosition(existing, payload.status);
 
-  let sprintId = input.sprintId;
+  let sprintId = payload.sprintId;
   if (sprintId === undefined) {
     const active = await getActiveSprintAction();
     sprintId = active?.id ?? null;
   }
 
-  const { data, error } = await supabase
+  const { data: row, error } = await supabase
     .from("workboard_tasks")
     .insert({
       organization_id: organizationId,
-      title: input.title.trim(),
-      description: input.description?.trim() ?? "",
-      status: input.status,
-      area: input.area,
-      priority: input.priority,
-      assignee_id: input.assigneeId || null,
-      due_date: input.dueDate || null,
-      tags: input.tags ?? [],
+      title: payload.title.trim(),
+      description: payload.description?.trim() ?? "",
+      status: payload.status,
+      area: payload.area,
+      priority: payload.priority,
+      assignee_id: payload.assigneeId || null,
+      due_date: payload.dueDate || null,
+      tags: payload.tags ?? [],
       sprint_id: sprintId || null,
-      launch_id: input.launchId || null,
+      launch_id: payload.launchId || null,
       position,
       created_by: profile?.id ?? null,
       updated_at: new Date().toISOString(),
@@ -133,105 +140,111 @@ export async function createWorkboardTaskAction(input: {
 
   if (error) throw new Error(error.message);
   if (sprintId) {
-    await refreshSprintCompletionForTask(supabase, organizationId, data.id);
+    await refreshSprintCompletionForTask(supabase, organizationId, row.id);
   }
   revalidateWorkboard();
   const members = await listWorkboardMembersAction();
   const memberMap = new Map(members.map((m) => [m.id, m]));
-  return rowToTask(data as WorkboardTaskRow, memberMap);
+  return rowToTask(row as WorkboardTaskRow, memberMap);
 }
 
-export async function moveWorkboardTaskAction(input: {
-  taskId: string;
-  status: TaskStatus;
-}): Promise<void> {
+export async function moveWorkboardTaskAction(
+  input: unknown
+): Promise<void> {
+  const parsed = moveWorkboardTaskSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
+  const data = parsed.data;
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
   const existing = await listWorkboardTasksAction();
   const position = getNextPosition(
-    existing.filter((t) => t.id !== input.taskId),
-    input.status
+    existing.filter((t) => t.id !== data.taskId),
+    data.status
   );
 
   const { error } = await supabase
     .from("workboard_tasks")
     .update({
-      status: input.status,
+      status: data.status,
       position,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", input.taskId)
+    .eq("id", data.taskId)
     .eq("organization_id", organizationId);
 
   if (error) throw new Error(error.message);
-  await refreshSprintCompletionForTask(supabase, organizationId, input.taskId);
+  await refreshSprintCompletionForTask(supabase, organizationId, data.taskId);
   revalidateWorkboard();
 }
 
-export async function updateWorkboardTaskAction(input: {
-  taskId: string;
-  title?: string;
-  description?: string;
-  status?: TaskStatus;
-  area?: TaskArea;
-  priority?: TaskPriority;
-  assigneeId?: string | null;
-  dueDate?: string | null;
-  tags?: string[];
-  estimatedMinutes?: number;
-  launchId?: string | null;
-}): Promise<WorkboardTask> {
+export async function updateWorkboardTaskAction(
+  input: unknown
+): Promise<WorkboardTask> {
+  const parsed = updateWorkboardTaskSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
+  const { taskId, ...fields } = parsed.data;
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
-  if (input.title !== undefined) patch.title = input.title.trim();
-  if (input.description !== undefined) patch.description = input.description.trim();
-  if (input.status !== undefined) patch.status = input.status;
-  if (input.area !== undefined) patch.area = input.area;
-  if (input.priority !== undefined) patch.priority = input.priority;
-  if (input.assigneeId !== undefined) patch.assignee_id = input.assigneeId || null;
-  if (input.dueDate !== undefined) patch.due_date = input.dueDate || null;
-  if (input.tags !== undefined) patch.tags = input.tags;
-  if (input.launchId !== undefined) patch.launch_id = input.launchId || null;
-  if (input.estimatedMinutes !== undefined) {
-    patch.estimated_minutes = input.estimatedMinutes;
+  if (fields.title !== undefined) patch.title = fields.title.trim();
+  if (fields.description !== undefined) patch.description = fields.description.trim();
+  if (fields.status !== undefined) patch.status = fields.status;
+  if (fields.area !== undefined) patch.area = fields.area;
+  if (fields.priority !== undefined) patch.priority = fields.priority;
+  if (fields.assigneeId !== undefined) patch.assignee_id = fields.assigneeId || null;
+  if (fields.dueDate !== undefined) patch.due_date = fields.dueDate || null;
+  if (fields.tags !== undefined) patch.tags = fields.tags;
+  if (fields.launchId !== undefined) patch.launch_id = fields.launchId || null;
+  if (fields.estimatedMinutes !== undefined) {
+    patch.estimated_minutes = fields.estimatedMinutes;
   }
 
-  if (input.status !== undefined) {
+  if (fields.status !== undefined) {
     const existing = await listWorkboardTasksAction();
     patch.position = getNextPosition(
-      existing.filter((t) => t.id !== input.taskId),
-      input.status
+      existing.filter((t) => t.id !== taskId),
+      fields.status
     );
   }
 
   const { data, error } = await supabase
     .from("workboard_tasks")
     .update(patch)
-    .eq("id", input.taskId)
+    .eq("id", taskId)
     .eq("organization_id", organizationId)
     .select("*")
     .single();
 
   if (error) throw new Error(error.message);
-  await refreshSprintCompletionForTask(supabase, organizationId, input.taskId);
+  await refreshSprintCompletionForTask(supabase, organizationId, taskId);
   revalidateWorkboard();
   const members = await listWorkboardMembersAction();
   const memberMap = new Map(members.map((m) => [m.id, m]));
   return rowToTask(data as WorkboardTaskRow, memberMap);
 }
 
-export async function deleteWorkboardTaskAction(taskId: string): Promise<void> {
+export async function deleteWorkboardTaskAction(taskId: unknown): Promise<void> {
+  const parsed = uuidSchema.safeParse(taskId);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
   const { error } = await supabase
     .from("workboard_tasks")
     .delete()
-    .eq("id", taskId)
+    .eq("id", parsed.data)
     .eq("organization_id", organizationId);
 
   if (error) throw new Error(error.message);
@@ -249,16 +262,22 @@ export async function assignTaskToLaunchAction(
   taskId: string,
   launchId: string | null
 ): Promise<WorkboardTask> {
+  const parsed = assignTaskToLaunchSchema.safeParse({ taskId, launchId });
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
+  const data = parsed.data;
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  const { data: row, error } = await supabase
     .from("workboard_tasks")
     .update({
-      launch_id: launchId,
+      launch_id: data.launchId,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", taskId)
+    .eq("id", data.taskId)
     .eq("organization_id", organizationId)
     .select("*")
     .single();
@@ -270,15 +289,16 @@ export async function assignTaskToLaunchAction(
 
   const members = await listWorkboardMembersAction();
   const memberMap = new Map(members.map((m) => [m.id, m]));
-  return rowToTask(data as WorkboardTaskRow, memberMap);
+  return rowToTask(row as WorkboardTaskRow, memberMap);
 }
 
-export async function logTaskTimeAction(input: {
-  taskId: string;
-  actualMinutes: number;
-  estimatedMinutes?: number;
-  note?: string;
-}): Promise<{ ok: true }> {
+export async function logTaskTimeAction(input: unknown): Promise<{ ok: true }> {
+  const parsed = logTaskTimeSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
+  const data = parsed.data;
   const organizationId = await requireOrganizationId();
   const profile = await getCurrentProfile();
   if (!profile) throw new Error("Sesión no válida");
@@ -288,7 +308,7 @@ export async function logTaskTimeAction(input: {
   const { data: task, error: fetchError } = await supabase
     .from("workboard_tasks")
     .select("id, time_entries, organization_id, estimated_minutes")
-    .eq("id", input.taskId)
+    .eq("id", data.taskId)
     .eq("organization_id", organizationId)
     .maybeSingle();
 
@@ -298,23 +318,23 @@ export async function logTaskTimeAction(input: {
   const currentEntries = (task.time_entries ?? []) as TaskTimeEntry[];
   const newEntry: TaskTimeEntry = {
     logged_at: new Date().toISOString(),
-    minutes: input.actualMinutes,
-    note: input.note ?? "",
+    minutes: data.actualMinutes,
+    note: data.note ?? "",
     logged_by: profile.id,
   };
 
   const { error } = await supabase
     .from("workboard_tasks")
     .update({
-      actual_minutes: input.actualMinutes,
+      actual_minutes: data.actualMinutes,
       estimated_minutes:
-        input.estimatedMinutes ?? task.estimated_minutes ?? null,
+        data.estimatedMinutes ?? task.estimated_minutes ?? null,
       time_entries: [...currentEntries, newEntry],
       timer_running: false,
       timer_started_at: null,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", input.taskId)
+    .eq("id", data.taskId)
     .eq("organization_id", organizationId);
 
   if (error) throw new Error(error.message);
@@ -343,11 +363,15 @@ export async function getTimeByMemberAction(): Promise<MemberTimeReport[] | null
   return buildMemberTimeReports(data as TimeByMemberRow[]);
 }
 
-export async function setMemberHourlyRateAction(input: {
-  memberId: string;
-  hourlyRate: number;
-  currency: string;
-}): Promise<{ ok: true }> {
+export async function setMemberHourlyRateAction(
+  input: unknown
+): Promise<{ ok: true }> {
+  const parsed = setMemberHourlyRateSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
+  const data = parsed.data;
   const profile = await getCurrentProfile();
   if (!profile) throw new Error("Sesión no válida");
 
@@ -359,10 +383,10 @@ export async function setMemberHourlyRateAction(input: {
   const { error } = await supabase
     .from("profiles")
     .update({
-      hourly_rate: input.hourlyRate,
-      hourly_rate_currency: input.currency,
+      hourly_rate: data.hourlyRate,
+      hourly_rate_currency: data.currency,
     })
-    .eq("id", input.memberId)
+    .eq("id", data.memberId)
     .eq("organization_id", profile.organization_id);
 
   if (error) throw new Error(error.message);
@@ -453,13 +477,13 @@ export async function getSprintsAction(): Promise<WorkboardSprint[]> {
   return (data ?? []).map((row) => rowToSprint(row as SprintRow, tasks));
 }
 
-export async function createSprintAction(input: {
-  name: string;
-  goal?: string;
-  areaFocus?: string;
-  startDate: string;
-  endDate: string;
-}): Promise<WorkboardSprint> {
+export async function createSprintAction(input: unknown): Promise<WorkboardSprint> {
+  const parsed = createSprintSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
+  const data = parsed.data;
   const organizationId = await requireOrganizationId();
   const profile = await getCurrentProfile();
   const supabase = await createClient();
@@ -474,11 +498,11 @@ export async function createSprintAction(input: {
     .from("sprints")
     .insert({
       organization_id: organizationId,
-      name: input.name.trim(),
-      goal: input.goal?.trim() || null,
-      area_focus: input.areaFocus || null,
-      start_date: input.startDate,
-      end_date: input.endDate,
+      name: data.name.trim(),
+      goal: data.goal?.trim() || null,
+      area_focus: data.areaFocus || null,
+      start_date: data.startDate,
+      end_date: data.endDate,
       status: "active",
       created_by: profile?.id ?? null,
     })
@@ -493,32 +517,36 @@ export async function createSprintAction(input: {
 
 export async function updateSprintAction(
   sprintId: string,
-  input: Partial<{
-    name: string;
-    goal: string;
-    areaFocus: string;
-    startDate: string;
-    endDate: string;
-    status: string;
-  }>
+  input: unknown
 ): Promise<{ ok: true }> {
+  const idParsed = uuidSchema.safeParse(sprintId);
+  if (!idParsed.success) {
+    throw new Error(firstZodError(idParsed.error));
+  }
+
+  const parsed = updateSprintPatchSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
+  const data = parsed.data;
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
-  if (input.name !== undefined) patch.name = input.name.trim();
-  if (input.goal !== undefined) patch.goal = input.goal.trim() || null;
-  if (input.areaFocus !== undefined) patch.area_focus = input.areaFocus || null;
-  if (input.startDate !== undefined) patch.start_date = input.startDate;
-  if (input.endDate !== undefined) patch.end_date = input.endDate;
-  if (input.status !== undefined) patch.status = input.status;
+  if (data.name !== undefined) patch.name = data.name.trim();
+  if (data.goal !== undefined) patch.goal = data.goal.trim() || null;
+  if (data.areaFocus !== undefined) patch.area_focus = data.areaFocus || null;
+  if (data.startDate !== undefined) patch.start_date = data.startDate;
+  if (data.endDate !== undefined) patch.end_date = data.endDate;
+  if (data.status !== undefined) patch.status = data.status;
 
   const { error } = await supabase
     .from("sprints")
     .update(patch)
-    .eq("id", sprintId)
+    .eq("id", idParsed.data)
     .eq("organization_id", organizationId);
 
   if (error) throw new Error(error.message);
@@ -531,34 +559,45 @@ export async function assignTaskToSprintAction(
   taskId: string,
   sprintId: string | null
 ): Promise<WorkboardTask> {
+  const parsed = assignTaskToSprintSchema.safeParse({ taskId, sprintId });
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
+  const data = parsed.data;
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  const { data: row, error } = await supabase
     .from("workboard_tasks")
     .update({
-      sprint_id: sprintId,
+      sprint_id: data.sprintId,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", taskId)
+    .eq("id", data.taskId)
     .eq("organization_id", organizationId)
     .select("*")
     .single();
 
   if (error) throw new Error(error.message);
 
-  await refreshSprintCompletionForTask(supabase, organizationId, taskId);
+  await refreshSprintCompletionForTask(supabase, organizationId, data.taskId);
   revalidateWorkboard();
 
   const members = await listWorkboardMembersAction();
   const memberMap = new Map(members.map((m) => [m.id, m]));
-  return rowToTask(data as WorkboardTaskRow, memberMap);
+  return rowToTask(row as WorkboardTaskRow, memberMap);
 }
 
 export async function updateSprintCompletionAction(
   sprintId: string
 ): Promise<void> {
+  const parsed = uuidSchema.safeParse(sprintId);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
-  await updateSprintCompletionInternal(supabase, organizationId, sprintId);
+  await updateSprintCompletionInternal(supabase, organizationId, parsed.data);
 }
