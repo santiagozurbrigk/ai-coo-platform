@@ -1,7 +1,14 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
-import { MetricCard, SectionHeader, type MetricTrend } from "@ai-coo/ui";
+import {
+  MetricBand,
+  MetricStat,
+  SectionHeader,
+  cn,
+  type MetricTrend,
+} from "@ai-coo/ui";
 import type { MarketingOverviewMetrics } from "@/types/marketing-insights";
 import {
   additionalMarketingMetrics,
@@ -31,6 +38,37 @@ function trendFromFormatted(value: string): MetricTrend {
   return "neutral";
 }
 
+function FunnelArrow() {
+  return (
+    <div className="hidden items-center justify-center px-1 text-muted-foreground lg:flex">
+      <ArrowRight className="h-4 w-4" />
+    </div>
+  );
+}
+
+function ConversionFunnelBand({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "metric-band overflow-hidden rounded-2xl border border-border bg-card shadow-band",
+        "dark:border-glass dark:bg-glass dark:backdrop-blur-md"
+      )}
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_28px_1fr_28px_1fr] lg:items-stretch">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function FunnelCell({ children }: { children: ReactNode }) {
+  return (
+    <div className="metric-band-cell min-w-0 border-border px-[var(--space-metric-band-x)] py-[var(--space-metric-band-y)] lg:border-l lg:first:border-l-0">
+      {children}
+    </div>
+  );
+}
+
 export function MarketingMetricsSections({
   metrics: metricsProp,
 }: {
@@ -47,8 +85,8 @@ export function MarketingMetricsSections({
     <div className="space-y-6">
       <section>
         <SectionHeader title="Alcance y contenido" variant="uppercase" />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <MetricCard
+        <MetricBand glass>
+          <MetricStat
             title="Alcance total"
             value={formatNum(m.totalReach)}
             subtitle="Últimos 30 días"
@@ -56,10 +94,8 @@ export function MarketingMetricsSections({
             trend={trendFromFormatted(formatTrend(m.reachTrendPct))}
             sparklinePreset="reach"
             sparklineColor={ACCENT.reach}
-            glass
-            showProgressBar={false}
           />
-          <MetricCard
+          <MetricStat
             title="Interacciones totales"
             value={formatNum(m.totalInteractions)}
             subtitle={`Engagement ${m.engagementRatePct}%`}
@@ -67,16 +103,9 @@ export function MarketingMetricsSections({
             trend={trendFromFormatted(formatTrend(m.interactionsTrendPct))}
             sparklinePreset="engage"
             sparklineColor={ACCENT.reach}
-            glass
-            showProgressBar={false}
           />
-          <MetricCard
-            title="Contenido publicado"
-            value={String(m.contentPublished)}
-            glass
-            showProgressBar={false}
-          >
-            <div className="mt-2 flex flex-wrap gap-2">
+          <MetricStat title="Contenido publicado" value={String(m.contentPublished)}>
+            <div className="flex flex-wrap gap-2">
               {[
                 `${m.reelsCount} reels`,
                 `${m.postsCount} posts`,
@@ -90,15 +119,15 @@ export function MarketingMetricsSections({
                 </span>
               ))}
             </div>
-          </MetricCard>
-        </div>
+          </MetricStat>
+        </MetricBand>
       </section>
 
       {!metricsProp ? (
         <section>
           <SectionHeader title="Engagement" variant="uppercase" />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <MetricCard
+          <MetricBand glass>
+            <MetricStat
               title="Respuestas a historias"
               value={formatNum(extra.storyReplies.value)}
               subtitle="Últimos 30 días"
@@ -106,10 +135,8 @@ export function MarketingMetricsSections({
               trend={trendFromFormatted(formatTrend(extra.storyReplies.trend))}
               sparklinePreset="growth"
               sparklineColor={ACCENT.engagement}
-              glass
-              showProgressBar={false}
             />
-            <MetricCard
+            <MetricStat
               title="Comentarios totales"
               value={formatNum(extra.totalComments.value)}
               subtitle="Últimos 30 días"
@@ -117,77 +144,69 @@ export function MarketingMetricsSections({
               trend={trendFromFormatted(formatTrend(extra.totalComments.trend))}
               sparklinePreset="comments"
               sparklineColor={ACCENT.engagement}
-              glass
-              showProgressBar={false}
             />
-            <MetricCard
+            <MetricStat
               title="Crecimiento del perfil"
               value={`+${formatNum(extra.profileGrowth.value)}`}
               subtitle={extra.profileGrowth.label ?? "Nuevos seguidores"}
               trendValue={formatTrend(extra.profileGrowth.trend)}
               trend={trendFromFormatted(formatTrend(extra.profileGrowth.trend))}
-              glass
-              showProgressBar={false}
             >
               <RateBar
                 label="Views → Seguidores"
                 value={extra.viewsToFollowersRate.value}
                 color={ACCENT.engagement}
               />
-            </MetricCard>
-          </div>
+            </MetricStat>
+          </MetricBand>
         </section>
       ) : null}
 
       <section>
         <SectionHeader title="Conversión a ventas" variant="uppercase" />
-        <div className="grid grid-cols-1 items-center gap-3 lg:grid-cols-[1fr_28px_1fr_28px_1fr] lg:gap-0">
-          <MetricCard
-            title="Conversaciones generadas"
-            value={String(m.conversationsGenerated)}
-            subtitle="Vinculadas a bandeja"
-            sparklinePreset="convert"
-            sparklineColor={ACCENT.conversion}
-            glass
-            showProgressBar={false}
-          />
-
-          <div className="hidden items-center justify-center text-muted-foreground lg:flex">
-            <ArrowRight className="h-4 w-4" />
-          </div>
-
-          <MetricCard
-            title="Bookings influenciados"
-            value={String(m.bookingsInfluenced)}
-            subtitle={`${m.bookingsInfluencedPct}% del total de bookings`}
-            glass
-            showProgressBar={false}
-          >
-            <RateBar
-              label=""
-              value={m.bookingsInfluencedPct}
-              color={ACCENT.conversion}
+        <ConversionFunnelBand>
+          <FunnelCell>
+            <MetricStat
+              title="Conversaciones generadas"
+              value={String(m.conversationsGenerated)}
+              subtitle="Vinculadas a bandeja"
+              sparklinePreset="convert"
+              sparklineColor={ACCENT.conversion}
             />
-          </MetricCard>
+          </FunnelCell>
 
-          <div className="hidden items-center justify-center text-muted-foreground lg:flex">
-            <ArrowRight className="h-4 w-4" />
-          </div>
+          <FunnelArrow />
 
-          <MetricCard
-            title="Ventas influenciadas"
-            value={String(m.salesInfluenced)}
-            subtitle={`$${m.revenueInfluenced.toLocaleString("es-ES")} atribuidos`}
-            glass
-            showProgressBar={false}
-          >
-            <RateBar
-              label="Conv. booking → venta"
-              value={bookingToSalePct}
-              color={ACCENT.conversion}
-            />
-          </MetricCard>
-        </div>
+          <FunnelCell>
+            <MetricStat
+              title="Bookings influenciados"
+              value={String(m.bookingsInfluenced)}
+              subtitle={`${m.bookingsInfluencedPct}% del total de bookings`}
+            >
+              <RateBar
+                label=""
+                value={m.bookingsInfluencedPct}
+                color={ACCENT.conversion}
+              />
+            </MetricStat>
+          </FunnelCell>
+
+          <FunnelArrow />
+
+          <FunnelCell>
+            <MetricStat
+              title="Ventas influenciadas"
+              value={String(m.salesInfluenced)}
+              subtitle={`$${m.revenueInfluenced.toLocaleString("es-ES")} atribuidos`}
+            >
+              <RateBar
+                label="Conv. booking → venta"
+                value={bookingToSalePct}
+                color={ACCENT.conversion}
+              />
+            </MetricStat>
+          </FunnelCell>
+        </ConversionFunnelBand>
       </section>
     </div>
   );

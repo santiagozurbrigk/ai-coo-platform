@@ -10,8 +10,10 @@ import {
   DialogTitle,
   FormField,
   Input,
+  SteppedAlert,
   Textarea,
 } from "@ai-coo/ui";
+import { AlertTriangle } from "lucide-react";
 import { useFinanceData } from "@/providers";
 import type { ClosePaymentPayload, PaymentPlatform } from "@/types/closing";
 
@@ -176,10 +178,14 @@ export function PaymentModal({
                   </FormField>
                 </div>
               ) : (
-                <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400/90">
+                <SteppedAlert
+                  variant="warning"
+                  title="Plataformas de pago sin configurar"
+                  icon={<AlertTriangle className="h-4 w-4" />}
+                >
                   Configura plataformas en Finanzas para rastrear origen y destino
                   del dinero.
-                </p>
+                </SteppedAlert>
               )}
 
               <FormField label="Tipo de pago">

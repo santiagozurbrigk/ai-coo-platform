@@ -25,7 +25,7 @@ export function SuperAdminLayout({ children }: { children: ReactNode }) {
             subtitle={subtitle}
             actions={<ThemeToggle className="topbar-icon h-8 w-8 rounded-lg" />}
           />
-          <div className="main-container-scroll flex min-h-0 flex-1">
+          <div className="main-container-scroll flex min-h-0 flex-1 flex-col">
             <main className="page-content min-w-0 flex-1">{children}</main>
           </div>
         </ThreeColumnLayout>

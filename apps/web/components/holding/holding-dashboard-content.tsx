@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Building2 } from "lucide-react";
-import { Button, MetricCard } from "@ai-coo/ui";
+import { Button, MetricBand, MetricStat } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatUsd } from "@/lib/super-admin/org-metrics";
@@ -80,21 +80,24 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
         <Button onClick={() => setModalOpen(true)}>Agregar negocio</Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
+      <MetricBand>
+        <MetricStat
           title="Negocios activos"
           value={String(kpis.totalBusinesses)}
         />
-        <MetricCard title="MRR total portfolio" value={formatUsd(kpis.totalMRR)} />
-        <MetricCard
+        <MetricStat
+          title="MRR total portfolio"
+          value={formatUsd(kpis.totalMRR)}
+        />
+        <MetricStat
           title="Mi revenue total"
           value={formatUsd(kpis.totalHoldingRevenue)}
         />
-        <MetricCard
+        <MetricStat
           title="Conversaciones activas"
           value={String(kpis.totalConversations)}
         />
-      </div>
+      </MetricBand>
 
       {businesses.length === 0 ? (
         <EmptyState

@@ -1,6 +1,6 @@
 "use client";
 
-import { MetricCard } from "@ai-coo/ui";
+import { MetricBand, MetricStat } from "@ai-coo/ui";
 import { CategoryBarChart } from "@/components/charts/platform";
 import { formatUsdPrecise } from "@/lib/super-admin/org-metrics";
 import type { AdminAiCostDashboard } from "@/types/super-admin";
@@ -67,29 +67,29 @@ export function AiCostDashboardContent({
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
+      <MetricBand>
+        <MetricStat
           title="MRR total"
           value={formatUsdPrecise(summary.totalMrrUsd)}
           subtitle={`${summary.activeOrganizations} orgs activas`}
         />
-        <MetricCard
+        <MetricStat
           title="Costo total infra"
           value={formatUsdPrecise(summary.totalInfraCostUsd)}
           subtitle="Storage + infra estimada"
         />
-        <MetricCard
+        <MetricStat
           title="Costo IA (mes)"
           value={formatUsdPrecise(summary.totalTokenCostMonthUsd)}
           subtitle="Claude + embeddings"
         />
-        <MetricCard
+        <MetricStat
           title="Margen global"
           value={formatUsdPrecise(summary.estimatedGrossMarginUsd)}
           subtitle={`${summary.globalMarginPercent.toFixed(1)}% sobre MRR`}
           trend="up"
         />
-      </div>
+      </MetricBand>
 
       <section className="rounded-xl border border-border/60 dark:border-white/[0.08]">
         <div className="border-b border-border/60 px-4 py-3 dark:border-white/[0.08]">

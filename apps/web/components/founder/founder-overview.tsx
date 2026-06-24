@@ -1,4 +1,4 @@
-import { AiCard, MetricCard } from "@ai-coo/ui";
+import { AiCard, MetricBand, MetricStat } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
 
 export function FounderOverview() {
@@ -10,16 +10,21 @@ export function FounderOverview() {
         el fin de semana antes del lanzamiento de la cohorte de junio.
       </AiCard>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard
+      <MetricBand>
+        <MetricStat
           title="Tiempo ahorrado"
           value="6,2 h"
           trend="up"
           trendValue="vs semana anterior"
         />
-        <MetricCard title="Decisiones pendientes" value="3" />
-        <MetricCard title="Salud organizacional" value="78" trend="down" trendValue="-4" />
-      </div>
+        <MetricStat title="Decisiones pendientes" value="3" />
+        <MetricStat
+          title="Salud organizacional"
+          value="78"
+          trend="down"
+          trendValue="-4"
+        />
+      </MetricBand>
 
       <Panel title="Prioridades estratégicas">
         <ol className="list-decimal pl-4 space-y-2 text-sm text-muted-foreground">

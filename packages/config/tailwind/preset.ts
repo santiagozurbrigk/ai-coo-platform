@@ -67,9 +67,12 @@ const preset: Partial<Config> = {
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
+        md: "calc(var(--radius-md))",
         sm: "var(--radius-sm)",
         xl: "var(--radius-xl)",
+        "2xl": "var(--radius-2xl)",
+        page: "var(--radius-page)",
+        pill: "var(--radius-pill)",
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
@@ -77,6 +80,17 @@ const preset: Partial<Config> = {
       },
       fontSize: {
         "2xs": ["0.625rem", { lineHeight: "0.875rem" }],
+        body: ["var(--text-body-size)", { lineHeight: "var(--text-body-lh)" }],
+        caption: [
+          "var(--text-caption-size)",
+          { lineHeight: "var(--text-caption-lh)" },
+        ],
+        micro: ["var(--text-micro-size)", { lineHeight: "var(--text-micro-lh)" }],
+        "metric-value": [
+          "var(--text-metric-value-size)",
+          { lineHeight: "var(--text-metric-value-lh)" },
+        ],
+        title: ["var(--text-title-size)", { lineHeight: "var(--text-title-lh)" }],
       },
       spacing: {
         "4.5": "1.125rem",
@@ -87,6 +101,8 @@ const preset: Partial<Config> = {
       boxShadow: {
         glow: "var(--shadow-glow)",
         card: "var(--shadow-card)",
+        panel: "var(--shadow-panel)",
+        band: "var(--shadow-band)",
       },
       keyframes: {
         "fade-in": {

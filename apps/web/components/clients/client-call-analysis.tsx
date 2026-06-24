@@ -1,4 +1,4 @@
-import { Badge, cn } from "@ai-coo/ui";
+import { Badge, MetricBand, MetricStat, cn } from "@ai-coo/ui";
 import {
   AlertTriangle,
   Check,
@@ -72,66 +72,22 @@ function parseDurationMinutes(duration: string): number | undefined {
   return match ? Number(match[1]) : undefined;
 }
 
-function ResultCard({ analysis }: { analysis: DeepCallAnalysis }) {
-  let label = "No cerró ✗";
-  let color = "text-red-400";
-  if (analysis.sold) {
-    label = "Vendió ✓";
-    color = "text-emerald-400";
-  } else if (analysis.booked) {
-    label = "Booking ✓";
-    color = "text-blue-400";
-  }
-
-  const sub =
-    analysis.leadName && analysis.durationMinutes
-      ? `${analysis.leadName} · ${analysis.durationMinutes} min`
-      : analysis.leadName ?? undefined;
-
-  return (
-    <div className="rounded-xl border border-border/60 bg-muted/10 p-4 dark:border-white/[0.08]">
-      <p className="text-xs text-muted-foreground">Resultado</p>
-      <p className={cn("mt-1 text-2xl font-semibold tabular-nums", color)}>
-        {label}
-      </p>
-      {sub ? (
-        <p className="mt-1 text-xs text-muted-foreground">{sub}</p>
-      ) : null}
-    </div>
-  );
+function resultValueClass(analysis: DeepCallAnalysis): string {
+  if (analysis.sold) return "[&_.metric-stat-value]:text-emerald-400";
+  if (analysis.booked) return "[&_.metric-stat-value]:text-blue-400";
+  return "[&_.metric-stat-value]:text-red-400";
 }
 
-function ScoreCard({
-  label,
-  score,
-  showBar,
-}: {
-  label: string;
-  score: number;
-  showBar?: boolean;
-}) {
-  return (
-    <div className="rounded-xl border border-border/60 bg-muted/10 p-4 dark:border-white/[0.08]">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p
-        className={cn(
-          "mt-1 text-3xl font-semibold tabular-nums",
-          scoreColor(score)
-        )}
-      >
-        {score}
-        <span className="text-lg text-muted-foreground">%</span>
-      </p>
-      {showBar ? (
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted/40">
-          <div
-            className={cn("h-full rounded-full transition-all", barColor(score))}
-            style={{ width: `${score}%` }}
-          />
-        </div>
-      ) : null}
-    </div>
-  );
+function scoreValueClass(score: number): string {
+  if (score >= 80) return "[&_.metric-stat-value]:text-emerald-400";
+  if (score >= 60) return "[&_.metric-stat-value]:text-amber-400";
+  return "[&_.metric-stat-value]:text-red-400";
+}
+
+function resultLabel(analysis: DeepCallAnalysis): string {
+  if (analysis.sold) return "Vendió ✓";
+  if (analysis.booked) return "Booking ✓";
+  return "No cerró ✗";
 }
 
 function SectionScoreRow({ name, score }: { name: string; score: number }) {
@@ -196,15 +152,31 @@ export function ClientCallAnalysisSection({
         Análisis profundo de la llamada
       </p>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <ScoreCard label="Score general" score={enriched.overallScore} />
-        <ScoreCard
-          label="Guión seguido"
-          score={enriched.scriptAdherencePct}
-          showBar
+      <MetricBand>
+        <MetricStat
+          title="Score general"
+          value={`${enriched.overallScore}%`}
+          className={scoreValueClass(enriched.overallScore)}
         />
-        <ResultCard analysis={enriched} />
-      </div>
+        <MetricStat
+          title="Guión seguido"
+          value={`${enriched.scriptAdherencePct}%`}
+          className={scoreValueClass(enriched.scriptAdherencePct)}
+          showProgressBar
+          progress={enriched.scriptAdherencePct}
+          progressVariant="violet"
+        />
+        <MetricStat
+          title="Resultado"
+          value={resultLabel(enriched)}
+          subtitle={
+            enriched.leadName && enriched.durationMinutes
+              ? `${enriched.leadName} · ${enriched.durationMinutes} min`
+              : enriched.leadName
+          }
+          className={resultValueClass(enriched)}
+        />
+      </MetricBand>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-3">

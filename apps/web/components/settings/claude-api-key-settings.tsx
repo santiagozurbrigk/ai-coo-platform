@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ExternalLink, KeyRound, Loader2 } from "lucide-react";
-import { Badge, Button, Input } from "@ai-coo/ui";
+import { AlertTriangle, ExternalLink, KeyRound, Loader2 } from "lucide-react";
+import { Badge, Button, Input, SteppedAlert } from "@ai-coo/ui";
 import {
   removeClaudeApiKeyAction,
   saveClaudeApiKeyAction,
@@ -125,20 +125,39 @@ export function ClaudeApiKeySettings({
             </p>
           ) : null}
           {status.status === "valid_no_credits" ? (
-            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-              Tu API key es válida pero tu cuenta de Anthropic no tiene créditos
-              cargados. Las funciones de IA no van a funcionar hasta que cargues
-              saldo en{" "}
-              <Link
-                href="https://console.anthropic.com/settings/billing"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-amber-100"
-              >
-                console.anthropic.com
-              </Link>
-              .
-            </p>
+            <SteppedAlert
+              variant="warning"
+              title="Sin créditos en Anthropic"
+              icon={<AlertTriangle className="h-4 w-4" />}
+              action={
+                <Button size="sm" variant="outline" asChild>
+                  <Link
+                    href="https://console.anthropic.com/settings/billing"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5"
+                  >
+                    Ir a billing de Anthropic
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              }
+            >
+              <p>
+                Tu API key es válida pero tu cuenta de Anthropic no tiene créditos
+                cargados. Las funciones de IA no van a funcionar hasta que cargues
+                saldo en{" "}
+                <Link
+                  href="https://console.anthropic.com/settings/billing"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
+                >
+                  console.anthropic.com
+                </Link>
+                .
+              </p>
+            </SteppedAlert>
           ) : null}
           {validatedLabel ? (
             <p className="text-xs text-muted-foreground">

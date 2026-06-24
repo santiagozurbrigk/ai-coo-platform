@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Badge, Button, MetricCard, cn } from "@ai-coo/ui";
+import { Badge, Button, MetricBand, MetricStat, cn } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
 import { formatUsd } from "@/lib/super-admin/org-metrics";
 import type {
@@ -71,18 +71,18 @@ export function HoldingPortfolioContent({
         <HoldingCreateOrgDialog />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard title="Total orgs" value={String(kpis.totalOrgs)} />
-        <MetricCard title="MRR total" value={formatUsd(kpis.totalMRR)} />
-        <MetricCard
+      <MetricBand>
+        <MetricStat title="Total orgs" value={String(kpis.totalOrgs)} />
+        <MetricStat title="MRR total" value={formatUsd(kpis.totalMRR)} />
+        <MetricStat
           title="Conversaciones activas (30d)"
           value={String(kpis.activeConversations)}
         />
-        <MetricCard
+        <MetricStat
           title="Costo IA este mes"
           value={formatUsd(kpis.totalAICostThisMonth)}
         />
-      </div>
+      </MetricBand>
 
       <p className="text-sm">
         Margen estimado:{" "}

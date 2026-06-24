@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { List, MessageCircle } from "lucide-react";
-import { Button, Dialog, DialogContent, DialogTitle } from "@ai-coo/ui";
+import { Button, Dialog, DialogContent, DialogTitle, SteppedAlert } from "@ai-coo/ui";
 import { usePlatformData } from "@/providers";
 import { paths } from "@/routes";
 import type { ConversationTagId } from "@/types/sales";
@@ -50,17 +50,23 @@ export function SalesInboxLayout() {
 
   if (conversations.length === 0) {
     return (
-      <div className="flex h-[calc(100vh-8rem)] min-h-[480px] items-center justify-center rounded-xl border border-border bg-card">
-        <EmptyState
+      <div className="flex h-[calc(100vh-8rem)] min-h-[480px] items-center justify-center p-[var(--space-card)]">
+        <SteppedAlert
+          variant="info"
           title="Sin conversaciones todavía"
-          description="Conectá ManyChat o Instagram para empezar a recibir conversaciones de tus leads aquí."
-          icon={<MessageCircle className="h-8 w-8" />}
+          icon={<MessageCircle className="h-4 w-4" />}
+          className="max-w-lg"
           action={
             <Button variant="outline" size="sm" asChild>
               <Link href={paths.platform.integrations}>Conectar integración</Link>
             </Button>
           }
-        />
+        >
+          <p>
+            Conectá ManyChat o Instagram para empezar a recibir conversaciones de tus
+            leads aquí.
+          </p>
+        </SteppedAlert>
       </div>
     );
   }
@@ -71,8 +77,8 @@ export function SalesInboxLayout() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-[480px] flex-col overflow-hidden rounded-xl border border-border bg-card md:flex-row">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2 md:hidden">
+    <div className="flex h-[calc(100vh-8rem)] min-h-[480px] flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border bg-card shadow-panel md:flex-row">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-[var(--space-card-sm)] py-2 md:hidden">
         <Dialog open={listOpen} onOpenChange={setListOpen}>
           <Button
             variant="outline"
@@ -103,7 +109,7 @@ export function SalesInboxLayout() {
         />
       </div>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:border-r md:border-white/[0.06]">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:border-r md:border-border">
         {selected ? (
           <>
             <ConversationThread

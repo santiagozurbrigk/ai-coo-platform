@@ -1,6 +1,6 @@
+import { AiCard, Badge, NotchedCard, SteppedAlert } from "@ai-coo/ui";
+import { Instagram, Sparkles, Youtube } from "lucide-react";
 import { Panel } from "@/components/shared/panel";
-import { AiCard, Badge } from "@ai-coo/ui";
-import { Instagram, Youtube } from "lucide-react";
 import type { Conversation } from "@/types/sales";
 import { getQualificationTierLabel } from "@/lib/sales/qualification-score";
 import { LeadQualificationBadge } from "./lead-qualification-badge";
@@ -35,87 +35,95 @@ export function ConversationAnalysisPanel({
     : null;
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-[var(--space-card-sm)] p-[var(--space-card-sm)]">
       {conversation.sourceVideoTitle ? (
-        <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-900/10 p-3">
-          <Youtube className="h-4 w-4 shrink-0 text-red-400" />
-          <div className="min-w-0">
-            <p className="text-[11px] text-muted-foreground">Origen del lead</p>
-            <p className="text-[12px] font-medium text-foreground">
-              {conversation.sourceVideoTitle}
-            </p>
-            {conversation.utmCampaign ? (
-              <p className="text-[10px] text-muted-foreground">
-                Campaña: {conversation.utmCampaign}
+        <NotchedCard tab="Origen" className="shadow-none">
+          <div className="flex items-center gap-2">
+            <Youtube className="h-4 w-4 shrink-0 text-red-400" />
+            <div className="min-w-0">
+              <p className="text-caption text-muted-foreground">Video de YouTube</p>
+              <p className="text-body font-medium text-foreground">
+                {conversation.sourceVideoTitle}
               </p>
-            ) : null}
+              {conversation.utmCampaign ? (
+                <p className="text-micro text-muted-foreground">
+                  Campaña: {conversation.utmCampaign}
+                </p>
+              ) : null}
+            </div>
           </div>
-        </div>
+        </NotchedCard>
       ) : conversation.source === "instagram" ? (
-        <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-muted/30 p-3">
-          <Instagram className="h-4 w-4 shrink-0 text-pink-400" />
-          <span className="text-[12px] text-muted-foreground">
-            DM directo de Instagram
-          </span>
-        </div>
+        <NotchedCard tab="Origen" className="shadow-none">
+          <div className="flex items-center gap-2">
+            <Instagram className="h-4 w-4 shrink-0 text-pink-400" />
+            <span className="text-body text-muted-foreground">
+              DM directo de Instagram
+            </span>
+          </div>
+        </NotchedCard>
       ) : null}
 
       {!hasAiScore ? (
-        <div className="text-[12px] italic text-muted-foreground">
-          Análisis disponible después de 3+ mensajes
-        </div>
+        <SteppedAlert
+          variant="info"
+          title="Análisis pendiente"
+          icon={<Sparkles className="h-4 w-4" />}
+        >
+          <p>Análisis disponible después de 3+ mensajes</p>
+        </SteppedAlert>
       ) : null}
 
       {score ? (
-        <Panel title="Calificación del lead">
+        <NotchedCard tab="Calificación" className="shadow-none">
           <div className="flex flex-wrap items-center gap-3">
             <LeadQualificationBadge score={score} />
             {labelMeta ? (
               <Badge variant={labelMeta.variant}>{labelMeta.label}</Badge>
             ) : null}
-            <span className="text-xs text-muted-foreground">
+            <span className="text-caption text-muted-foreground">
               {getQualificationTierLabel(score.tier)} — score automático
             </span>
           </div>
-          <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <dl className="mt-4 grid grid-cols-2 gap-3 text-body">
             <div>
-              <dt className="text-xs text-muted-foreground">Engagement</dt>
+              <dt className="text-caption text-muted-foreground">Engagement</dt>
               <dd className="font-medium tabular-nums">{score.engagement}/100</dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Intent</dt>
+              <dt className="text-caption text-muted-foreground">Intent</dt>
               <dd className="font-medium tabular-nums">{score.intent}/100</dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Qualification</dt>
+              <dt className="text-caption text-muted-foreground">Qualification</dt>
               <dd className="font-medium tabular-nums">
                 {score.qualification}/100
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Score final</dt>
+              <dt className="text-caption text-muted-foreground">Score final</dt>
               <dd className="font-semibold tabular-nums text-violet-300">
                 {score.overall}/100
               </dd>
             </div>
           </dl>
-        </Panel>
+        </NotchedCard>
       ) : null}
 
       {conversation.aiSummary ? (
         <Panel title="Resumen IA">
-          <p className="text-sm text-muted-foreground">{conversation.aiSummary}</p>
+          <p className="text-body text-muted-foreground">{conversation.aiSummary}</p>
         </Panel>
       ) : null}
 
       <Panel title="Análisis">
-        <dl className="grid grid-cols-2 gap-3 text-sm">
+        <dl className="grid grid-cols-2 gap-3 text-body">
           <div>
-            <dt className="text-muted-foreground text-xs">Tiempo de respuesta</dt>
+            <dt className="text-caption text-muted-foreground">Tiempo de respuesta</dt>
             <dd className="font-medium">{analysis.responseTimeMinutes} min</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground text-xs">Riesgo de fantasma</dt>
+            <dt className="text-caption text-muted-foreground">Riesgo de fantasma</dt>
             <dd>
               <Badge variant={ghostVariant} className="mt-1 capitalize">
                 {analysis.ghostingRisk === "high"
@@ -127,7 +135,7 @@ export function ConversationAnalysisPanel({
             </dd>
           </div>
           <div className="col-span-2">
-            <dt className="text-muted-foreground text-xs">Señal de agendamiento</dt>
+            <dt className="text-caption text-muted-foreground">Señal de agendamiento</dt>
             <dd className="mt-1 font-medium">
               {analysis.bookingSignal ? "Detectada" : "Ninguna"}
             </dd>
@@ -135,9 +143,19 @@ export function ConversationAnalysisPanel({
         </dl>
       </Panel>
 
+      {analysis.ghostingRisk === "high" && conversation.aiGhostingSignals?.length ? (
+        <SteppedAlert variant="destructive" title="Riesgo de fantasma alto">
+          <ul className="list-disc space-y-1 pl-4">
+            {conversation.aiGhostingSignals.map((signal) => (
+              <li key={signal}>{signal}</li>
+            ))}
+          </ul>
+        </SteppedAlert>
+      ) : null}
+
       {conversation.aiBookingSignals?.length ? (
         <Panel title="Señales de agendamiento">
-          <ul className="list-disc space-y-1 pl-4 text-sm text-muted-foreground">
+          <ul className="list-disc space-y-1 pl-4 text-body text-muted-foreground">
             {conversation.aiBookingSignals.map((signal) => (
               <li key={signal}>{signal}</li>
             ))}
@@ -145,9 +163,10 @@ export function ConversationAnalysisPanel({
         </Panel>
       ) : null}
 
-      {conversation.aiGhostingSignals?.length ? (
+      {conversation.aiGhostingSignals?.length &&
+      analysis.ghostingRisk !== "high" ? (
         <Panel title="Señales de riesgo">
-          <ul className="list-disc space-y-1 pl-4 text-sm text-muted-foreground">
+          <ul className="list-disc space-y-1 pl-4 text-body text-muted-foreground">
             {conversation.aiGhostingSignals.map((signal) => (
               <li key={signal}>{signal}</li>
             ))}
@@ -157,7 +176,7 @@ export function ConversationAnalysisPanel({
 
       {conversation.aiDetectedObjections?.length ? (
         <Panel title="Objeciones detectadas">
-          <ul className="space-y-2 text-sm">
+          <ul className="space-y-2 text-body">
             {conversation.aiDetectedObjections.map((objection) => (
               <li key={`${objection.category}-${objection.text}`}>
                 <span className="text-muted-foreground">{objection.text}</span>
@@ -172,7 +191,7 @@ export function ConversationAnalysisPanel({
 
       {conversation.aiRecommendedAction ? (
         <AiCard title="Acción recomendada" confidence={0.85}>
-          <p className="text-sm">{conversation.aiRecommendedAction}</p>
+          <p className="text-body">{conversation.aiRecommendedAction}</p>
         </AiCard>
       ) : null}
 

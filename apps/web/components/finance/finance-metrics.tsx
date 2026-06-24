@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { GlassPanel } from "@ai-coo/ui";
+import { GlassPanel, MetricBand, MetricStat } from "@ai-coo/ui";
 import {
   CategoryBarChart,
   GaugeTargetChart,
@@ -115,26 +115,31 @@ export function FinanceMetrics() {
         eventCount={periodEvents.length}
       />
 
+      <MetricBand className="mb-4">
+        <MetricStat
+          title="Facturación"
+          value={formatMoney(s.facturacion)}
+          subtitle={s.revenuePeriod.label}
+        />
+        <MetricStat
+          title="Cash collected"
+          value={formatMoney(s.cashCollected)}
+          subtitle="Cobros confirmados en el período"
+        />
+        <MetricStat
+          title="Margen"
+          value={`${s.margenPercent.toFixed(1)}%`}
+          subtitle="Objetivo 60%"
+        />
+        <MetricStat
+          title="Por cobrar"
+          value={formatMoney(s.porCobrar)}
+          subtitle="Cuotas pendientes"
+        />
+      </MetricBand>
+
       <GlassPanel className="relative overflow-hidden p-0">
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-between bg-gradient-to-b from-background/95 via-background/60 to-transparent px-4 pb-8 pt-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Facturación
-            </p>
-            <p className="metric-value text-2xl tabular-nums">
-              {formatMoney(s.facturacion)}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Cash Collected
-            </p>
-            <p className="metric-value text-2xl tabular-nums">
-              {formatMoney(s.cashCollected)}
-            </p>
-          </div>
-        </div>
-        <div className="min-h-[280px] w-full px-2 pb-4 pt-16">
+        <div className="min-h-[280px] w-full px-2 pb-4 pt-4">
           <InteractiveDualAreaChart
             data={dualRows}
             primaryKey="facturacion"
