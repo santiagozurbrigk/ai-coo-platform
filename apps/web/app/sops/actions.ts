@@ -42,14 +42,24 @@ export type GeneratedSOPData = {
 export async function generateSOPAction(
   input: unknown
 ): Promise<MutationResult<GeneratedSOPData>> {
-  const parsed = generateSOPSchema.safeParse(input);
-  if (!parsed.success) {
-    return { success: false, error: firstZodError(parsed.error) };
-  }
+  try {
+    console.error(
+      "[generateSOPAction] input received:",
+      JSON.stringify(input)
+    );
 
-  const data = parsed.data;
+    const parsed = generateSOPSchema.safeParse(input);
+    if (!parsed.success) {
+      console.error(
+        "[generateSOPAction] validation failed:",
+        JSON.stringify(parsed.error.flatten())
+      );
+      return { success: false, error: firstZodError(parsed.error) };
+    }
 
-  return runMutation(async () => {
+    const data = parsed.data;
+
+    return await runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
 
@@ -120,6 +130,13 @@ export async function generateSOPAction(
       stepsCount: generated.steps_count,
     };
   });
+  } catch (error) {
+    console.error("[generateSOPAction] uncaught exception:", error);
+    if (error instanceof Error && error.stack) {
+      console.error("[generateSOPAction] stack:", error.stack);
+    }
+    return { success: false, error: actionErrorMessage(error) };
+  }
 }
 
 export async function saveSOPAction(
