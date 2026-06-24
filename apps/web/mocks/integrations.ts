@@ -14,6 +14,13 @@ export const mockIntegrations: Integration[] = [
     status: "not_connected",
     description: "Balance, transacciones e ingresos en tiempo real",
   },
+  {
+    id: "int-mp",
+    provider: "mercadopago",
+    name: "Mercado Pago",
+    status: "not_connected",
+    description: "Pagos y saldo estimado de tu cuenta Mercado Pago",
+  },
   { id: "int1", provider: "manychat", name: "ManyChat", status: "not_connected" },
   { id: "int2", provider: "fathom", name: "Fathom", status: "not_connected" },
   { id: "int-yt", provider: "youtube", name: "YouTube", status: "not_connected" },

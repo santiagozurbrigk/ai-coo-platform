@@ -2,6 +2,7 @@ export const INTEGRATION_PROVIDERS = [
   "discord",
   "instagram",
   "stripe",
+  "mercadopago",
   "manychat",
   "youtube",
   "typeform",

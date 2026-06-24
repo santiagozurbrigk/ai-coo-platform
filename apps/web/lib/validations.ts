@@ -971,3 +971,15 @@ export const assignTaskToSprintSchema = z.object({
   taskId: uuidSchema,
   sprintId: nullableUuidSchema,
 });
+
+// ─── Mercado Pago ───────────────────────────────────────────────────────────
+
+export const mercadoPagoPaymentIdSchema = z.union([
+  z.string().trim().min(1, "ID inválido"),
+  z.number().int().positive("ID inválido"),
+]);
+
+export const mercadoPagoTransactionsQuerySchema = z.object({
+  limit: z.number().int().min(1).max(100).optional().default(50),
+  offset: z.number().int().min(0).optional().default(0),
+});

@@ -14,6 +14,7 @@ import {
   getYoutubeIntegrationStatusAction,
 } from "@/app/marketing/actions";
 import { getStripeIntegrationStatusAction } from "@/app/stripe/actions";
+import { getMercadoPagoIntegrationStatusAction } from "@/app/mercadopago/actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { formatRelativeTime } from "@/lib/format";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
@@ -193,6 +194,7 @@ const REAL_PROVIDERS = new Set([
   "youtube",
   "instagram",
   "stripe",
+  "mercadopago",
   "typeform",
   "google_forms",
   "discord",
@@ -206,6 +208,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     youtubeStatus,
     instagramStatus,
     stripeStatus,
+    mercadoPagoStatus,
     typeformStatus,
     googleFormsStatus,
     discordStatus,
@@ -216,6 +219,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     getYoutubeIntegrationStatusAction(),
     getInstagramIntegrationStatusAction(),
     getStripeIntegrationStatusAction(),
+    getMercadoPagoIntegrationStatusAction(),
     getTypeformIntegrationStatusAction(),
     getGoogleFormsIntegrationStatusAction(),
     getDiscordIntegrationStatusAction(),
@@ -274,6 +278,11 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
       stripe: {
         connected: stripeStatus.connected,
         lastSyncAt: stripeStatus.lastSyncAt,
+        records: 0,
+      },
+      mercadopago: {
+        connected: mercadoPagoStatus.connected,
+        lastSyncAt: mercadoPagoStatus.lastSyncAt,
         records: 0,
       },
       typeform: {
