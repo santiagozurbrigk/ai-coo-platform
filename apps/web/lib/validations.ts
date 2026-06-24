@@ -392,3 +392,191 @@ export const updateNotificationPreferencesSchema = z.object({
 export const saveClaudeApiKeySchema = z.object({
   apiKey: z.string().trim().min(1, "Ingresá una API key").max(500),
 });
+
+// ─── Clients ────────────────────────────────────────────────────────────────
+
+export const clientStatusSchema = z.enum([
+  "pending_onboarding",
+  "onboarding_done",
+  "active",
+  "success_case",
+]);
+
+export const installmentStatusSchema = z.enum(["paid", "pending"]);
+
+export const paymentPlatformSchema = z.enum([
+  "stripe",
+  "mercadopago",
+  "paypal",
+  "bank_transfer",
+  "other",
+]);
+
+export const clientPaymentTypeSchema = z.enum([
+  "upfront",
+  "installments",
+  "upfront_fee",
+]);
+
+export const feeFrequencySchema = z.enum(["monthly", "weekly"]);
+
+const isoDateSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida (YYYY-MM-DD)");
+
+const isoTimestampSchema = z
+  .string()
+  .trim()
+  .min(1, "Campo requerido")
+  .max(50)
+  .refine((val) => !Number.isNaN(Date.parse(val)), "Fecha/hora inválida");
+
+const clientNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Campo requerido")
+  .max(200, "Máximo 200 caracteres");
+
+const optionalClientTextSchema = z
+  .string()
+  .trim()
+  .max(5000, "Máximo 5.000 caracteres")
+  .optional();
+
+const optionalClientUrlSchema = z
+  .string()
+  .trim()
+  .max(2048, "Máximo 2.048 caracteres")
+  .optional();
+
+const callObjectionDetailSchema = z.object({
+  text: z.string().trim().min(1).max(2000),
+  category: z.enum(["closing", "setting", "marketing"]),
+  handled: z.boolean(),
+  resolution: z.string().trim().max(2000).optional(),
+  suggestion: z.string().trim().max(2000).optional(),
+});
+
+const deepCallAnalysisSchema = z.object({
+  overallScore: z.number().min(0).max(100).finite(),
+  scriptAdherencePct: z.number().min(0).max(100).finite(),
+  sectionScores: z.record(
+    z.string(),
+    z.number().min(0).max(100).finite()
+  ),
+  missingSteps: z.array(z.string().trim().max(500)).max(50),
+  objections: z.array(callObjectionDetailSchema).max(100),
+  powerPhrases: z.array(z.string().trim().max(500)).max(50),
+  weakPhrases: z.array(z.string().trim().max(500)).max(50),
+  fillerWordsCount: z.number().int().min(0).max(10_000),
+  strengths: z.array(z.string().trim().max(500)).max(50),
+  improvements: z.array(z.string().trim().max(500)).max(50),
+  leadQualified: z.boolean().optional(),
+  booked: z.boolean(),
+  sold: z.boolean(),
+  leadName: z.string().trim().max(200).optional(),
+  durationMinutes: z.number().min(0).max(10_000).finite().optional(),
+});
+
+const clientLinkedCallSchema = z.object({
+  id: z.string().trim().min(1).max(100),
+  title: z.string().trim().min(1).max(500),
+  date: z.string().trim().max(50),
+  duration: z.string().trim().max(50),
+  url: z.string().trim().max(2048),
+  fathomCallId: z.string().trim().max(200).optional(),
+  closerName: z.string().trim().max(200).optional(),
+  analysis: deepCallAnalysisSchema.optional(),
+});
+
+const clientInstallmentSchema = z.object({
+  id: z.string().trim().min(1).max(100),
+  label: z.string().trim().min(1).max(200),
+  amount: moneySchema,
+  status: installmentStatusSchema,
+  paidAt: isoDateSchema.optional(),
+  dueDate: isoDateSchema.optional(),
+  proofLabel: z.string().trim().max(200).optional(),
+});
+
+const clientFieldsSchema = z.object({
+  name: clientNameSchema,
+  nickname: z.string().trim().max(100).optional(),
+  joinDate: isoDateSchema,
+  paymentType: clientPaymentTypeSchema,
+  platform: paymentPlatformSchema,
+  totalAmount: moneySchema,
+  upfrontAmount: moneySchema.optional(),
+  feeAmount: moneySchema.optional(),
+  feeFrequency: feeFrequencySchema.optional(),
+  status: clientStatusSchema,
+  isSuccessCase: z.boolean(),
+  installments: z.array(clientInstallmentSchema).max(120).optional(),
+  salesFathomUrl: optionalClientUrlSchema,
+  closingCallId: uuidSchema.optional(),
+  aiInsights: z.array(z.string().trim().max(2000)).max(100),
+  linkedCalls: z.array(clientLinkedCallSchema).max(100),
+  offeredProduct: z.string().trim().max(500).optional(),
+  feedbackNotes: optionalClientTextSchema,
+  avatar: z.string().trim().max(500).optional(),
+  mainPain: optionalClientTextSchema,
+  objections: optionalClientTextSchema,
+});
+
+export const createClientSchema = clientFieldsSchema;
+
+export const updateClientSchema = clientFieldsSchema.partial();
+
+// ─── Closing ──────────────────────────────────────────────────────────────
+
+export const closingCallStatusSchema = z.enum([
+  "scheduled",
+  "closed",
+  "not_closed",
+  "no_show",
+]);
+
+const calendlyFormAnswerSchema = z.object({
+  question: z.string().trim().min(1).max(500),
+  answer: z.string().trim().max(5000),
+});
+
+const closingOutcomeSchema = z.object({
+  paymentType: clientPaymentTypeSchema.optional(),
+  revenue: moneySchema.optional(),
+  noCloseReason: z.string().trim().max(500).optional(),
+  notes: z.string().trim().max(5000).optional(),
+});
+
+const closingCallFieldsSchema = z.object({
+  leadName: clientNameSchema,
+  scheduledAt: isoTimestampSchema,
+  status: closingCallStatusSchema,
+  conversationId: uuidSchema.optional(),
+  formAnswers: z.array(calendlyFormAnswerSchema).max(50),
+  fathomUrl: optionalClientUrlSchema,
+  outcome: closingOutcomeSchema.optional(),
+  closedByName: z.string().trim().max(200).optional(),
+  paymentSourcePlatformId: z.string().trim().max(100).optional(),
+  paymentDestinationPlatformId: z.string().trim().max(100).optional(),
+});
+
+export const updateClosingCallSchema = closingCallFieldsSchema.partial();
+
+// ─── Conversations ────────────────────────────────────────────────────────
+
+export const conversationTagIdSchema = z.enum([
+  "muy-calificado",
+  "calificado",
+  "descalificado",
+  "muy-descalificado",
+  "agendado",
+  "closeado",
+  "no-closeado",
+]);
+
+export const updateConversationTagSchema = z.object({
+  id: uuidSchema,
+  tag: conversationTagIdSchema.nullable(),
+});

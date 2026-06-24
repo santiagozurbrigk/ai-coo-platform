@@ -12,7 +12,11 @@ import {
 } from "@/lib/conversations/mapper";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import type { Conversation, ConversationTagId } from "@/types/sales";
+import {
+  firstZodError,
+  updateConversationTagSchema,
+} from "@/lib/validations";
+import type { Conversation } from "@/types/sales";
 
 export async function getConversationIdByExternalRef(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -61,19 +65,24 @@ export async function listConversationsAction(): Promise<Conversation[]> {
 
 export async function updateConversationTagAction(
   id: string,
-  tag: ConversationTagId | null
+  tag: unknown
 ): Promise<Conversation> {
   if (!isSupabaseConfigured()) {
     throw new Error("Supabase no configurado");
   }
 
+  const parsed = updateConversationTagSchema.safeParse({ id, tag });
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
   const supabase = await createClient();
-  const updateRow = patchToConversationUpdateRow({ tag });
+  const updateRow = patchToConversationUpdateRow({ tag: parsed.data.tag });
 
   const { data, error } = await supabase
     .from("conversations")
     .update(updateRow)
-    .eq("id", id)
+    .eq("id", parsed.data.id)
     .select()
     .single();
 

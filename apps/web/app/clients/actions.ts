@@ -13,6 +13,12 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { attributeSaleToUTM } from "@/lib/utm/attribute-booking";
+import {
+  createClientSchema,
+  firstZodError,
+  updateClientSchema,
+  uuidSchema,
+} from "@/lib/validations";
 import type { Client } from "@/types/clients";
 
 export async function listClientsAction(): Promise<Client[]> {
@@ -38,17 +44,20 @@ export async function listClientsAction(): Promise<Client[]> {
   return (data as ClientRow[]).map(rowToClient);
 }
 
-export async function createClientAction(
-  client: Omit<Client, "id">
-): Promise<Client> {
+export async function createClientAction(input: unknown): Promise<Client> {
   if (!isSupabaseConfigured()) {
     throw new Error("Supabase no configurado");
   }
 
   const organizationId = await requireOrganizationId();
 
+  const parsed = createClientSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
   const supabase = await createClient();
-  const insertPayload = clientToInsertRow(client, organizationId);
+  const insertPayload = clientToInsertRow(parsed.data, organizationId);
 
   const { data, error } = await supabase
     .from("clients")
@@ -87,20 +96,31 @@ export async function createClientAction(
 
 export async function updateClientAction(
   id: string,
-  patch: Partial<Client>
+  patch: unknown
 ): Promise<Client> {
   if (!isSupabaseConfigured()) {
     throw new Error("Supabase no configurado");
   }
 
   const organizationId = await requireOrganizationId();
+
+  const idParsed = uuidSchema.safeParse(id);
+  if (!idParsed.success) {
+    throw new Error(firstZodError(idParsed.error));
+  }
+
+  const patchParsed = updateClientSchema.safeParse(patch);
+  if (!patchParsed.success) {
+    throw new Error(firstZodError(patchParsed.error));
+  }
+
   const supabase = await createClient();
-  const updateRow = patchToUpdateRow(patch);
+  const updateRow = patchToUpdateRow(patchParsed.data);
 
   const { data, error } = await supabase
     .from("clients")
     .update(updateRow)
-    .eq("id", id)
+    .eq("id", idParsed.data)
     .eq("organization_id", organizationId)
     .select()
     .single();

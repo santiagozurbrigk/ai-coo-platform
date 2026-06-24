@@ -12,6 +12,11 @@ import {
 import { repairClosingConversationLinks } from "@/lib/conversations/repair-links";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import {
+  firstZodError,
+  updateClosingCallSchema,
+  uuidSchema,
+} from "@/lib/validations";
 import type { ClosingCall } from "@/types/closing";
 
 function mapDbError(msg: string): string {
@@ -49,19 +54,29 @@ export async function listClosingCallsAction(): Promise<ClosingCall[]> {
 
 export async function updateClosingCallAction(
   id: string,
-  patch: Partial<ClosingCall>
+  patch: unknown
 ): Promise<ClosingCall> {
   if (!isSupabaseConfigured()) {
     throw new Error("Supabase no configurado");
   }
 
+  const idParsed = uuidSchema.safeParse(id);
+  if (!idParsed.success) {
+    throw new Error(firstZodError(idParsed.error));
+  }
+
+  const patchParsed = updateClosingCallSchema.safeParse(patch);
+  if (!patchParsed.success) {
+    throw new Error(firstZodError(patchParsed.error));
+  }
+
   const supabase = await createClient();
-  const updateRow = patchToClosingUpdateRow(patch);
+  const updateRow = patchToClosingUpdateRow(patchParsed.data);
 
   const { data, error } = await supabase
     .from("closing_calls")
     .update(updateRow)
-    .eq("id", id)
+    .eq("id", idParsed.data)
     .select()
     .single();
 
