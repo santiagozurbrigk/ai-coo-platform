@@ -881,9 +881,7 @@ INSERT INTO super_admin_users (email, role) VALUES ('email@ejemplo.com', 'admin'
 
 **Sintaxis JWT en RLS:** `(auth.jwt() ->> 'active_business_org_id')::uuid` — claims del hook viven en el payload raíz del access token.
 
-**Parches de admin client pendientes de limpieza** (deuda técnica; no removidos — validar estabilidad en prod primero):
-- `app/(platform)/holding/actions.ts` (`getHoldingDashboardAction`)
-- `lib/holding/switch-org.ts` (`getHoldingBusinesses`)
+**Deuda técnica resuelta:** `getHoldingDashboardAction` y `getHoldingBusinesses` migrados de `createAdminClient()` a `createClient()` normal, confiando en RLS + JWT claim (estable desde hace varios sprints en producción sin incidentes). Policies adicionales de lectura portfolio en `20260630100000_holding_portfolio_rls.sql` (`get_my_holding_business_org_ids()`).
 
 **Migración:** `20260620100000_holding_jwt_claim_hook.sql`
 

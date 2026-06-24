@@ -82,9 +82,9 @@ function normalizeOrgEmbed(
 export async function getHoldingBusinesses(
   holdingOrgId: string
 ): Promise<HoldingBusinessRow[]> {
-  const admin = createAdminClient();
+  const supabase = await createClient();
 
-  const { data, error } = await admin
+  const { data, error } = await supabase
     .from("holding_businesses")
     .select(
       `

@@ -205,7 +205,7 @@ export async function addBusinessToMyHoldingAction(
 
 export async function getHoldingDashboardAction() {
   const { holdingOrgId, billingModel } = await requireHoldingProfile();
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   const businesses = await getHoldingBusinesses(holdingOrgId);
   const thirtyDaysAgo = new Date(
     Date.now() - 30 * 24 * 60 * 60 * 1000
@@ -227,16 +227,16 @@ export async function getHoldingDashboardAction() {
       }
 
       const [clientsRes, conversationsRes, closingRes] = await Promise.all([
-        adminClient
+        supabase
           .from("clients")
           .select("total_amount")
           .eq("organization_id", orgId),
-        adminClient
+        supabase
           .from("conversations")
           .select("id", { count: "exact", head: true })
           .eq("organization_id", orgId)
           .gte("created_at", thirtyDaysAgo),
-        adminClient
+        supabase
           .from("closing_calls")
           .select("id", { count: "exact", head: true })
           .eq("organization_id", orgId)
