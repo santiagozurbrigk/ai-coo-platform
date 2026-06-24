@@ -64,12 +64,15 @@ export const urlSchema = z
     "Debe ser una URL válida"
   );
 
+/** Valores alineados con `SopDepartment` / `VALID_DEPARTMENTS` en `lib/sops/mapper.ts`. */
 export const sopDepartmentSchema = z.enum([
-  "ventas",
+  "sales",
+  "delivery",
+  "operations",
   "marketing",
-  "operaciones",
-  "finanzas",
+  "finance",
   "general",
+  "founder",
 ]);
 
 const sopTagSchema = z
