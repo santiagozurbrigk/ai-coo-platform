@@ -16,6 +16,14 @@ import {
   type MutationResult,
 } from "@/lib/server/action-result";
 import { createClient } from "@/lib/supabase/server";
+import {
+  firstZodError,
+  generateSOPSchema,
+  getSOPsFiltersSchema,
+  saveSOPSchema,
+  updateSOPSchema,
+  uuidSchema,
+} from "@/lib/validations";
 import { paths } from "@/routes/paths";
 
 function revalidateSops() {
@@ -31,12 +39,16 @@ export type GeneratedSOPData = {
   stepsCount: number;
 };
 
-export async function generateSOPAction(data: {
-  goal: string;
-  department: string;
-  expectedOutcome: string;
-  additionalContext?: string;
-}): Promise<MutationResult<GeneratedSOPData>> {
+export async function generateSOPAction(
+  input: unknown
+): Promise<MutationResult<GeneratedSOPData>> {
+  const parsed = generateSOPSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  const data = parsed.data;
+
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
@@ -110,18 +122,16 @@ export async function generateSOPAction(data: {
   });
 }
 
-export async function saveSOPAction(data: {
-  title: string;
-  goal: string;
-  department: string;
-  expectedOutcome?: string;
-  additionalContext?: string;
-  content: string;
-  tags?: string[];
-  estimatedDurationMinutes?: number;
-  generatedByAI?: boolean;
-  status?: "draft" | "active";
-}): Promise<MutationResult<{ id: string }>> {
+export async function saveSOPAction(
+  input: unknown
+): Promise<MutationResult<{ id: string }>> {
+  const parsed = saveSOPSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  const data = parsed.data;
+
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const profile = await getCurrentProfile();
@@ -193,14 +203,20 @@ export async function saveSOPAction(data: {
 
 export async function updateSOPAction(
   sopId: string,
-  data: {
-    title?: string;
-    content?: string;
-    status?: "draft" | "active" | "outdated";
-    tags?: string[];
-    changeNote?: string;
-  }
+  input: unknown
 ): Promise<MutationResult<{ ok: true }>> {
+  const idParsed = uuidSchema.safeParse(sopId);
+  if (!idParsed.success) {
+    return { success: false, error: firstZodError(idParsed.error) };
+  }
+
+  const patchParsed = updateSOPSchema.safeParse(input);
+  if (!patchParsed.success) {
+    return { success: false, error: firstZodError(patchParsed.error) };
+  }
+
+  const data = patchParsed.data;
+
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const profile = await getCurrentProfile();
@@ -209,7 +225,7 @@ export async function updateSOPAction(
     const { data: current, error: fetchError } = await supabase
       .from("sops")
       .select("version, content")
-      .eq("id", sopId)
+      .eq("id", idParsed.data)
       .eq("organization_id", organizationId)
       .maybeSingle();
 
@@ -228,14 +244,14 @@ export async function updateSOPAction(
         version: data.content && data.content !== current.content ? newVersion : current.version,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", sopId)
+      .eq("id", idParsed.data)
       .eq("organization_id", organizationId);
 
     if (error) throw new Error(error.message);
 
     if (data.content && data.content !== current.content) {
       await supabase.from("sop_versions").insert({
-        sop_id: sopId,
+        sop_id: idParsed.data,
         organization_id: organizationId,
         version: newVersion,
         content: data.content,
@@ -247,7 +263,7 @@ export async function updateSOPAction(
     const { data: updatedSop } = await supabase
       .from("sops")
       .select("*")
-      .eq("id", sopId)
+      .eq("id", idParsed.data)
       .eq("organization_id", organizationId)
       .maybeSingle();
 
@@ -255,7 +271,7 @@ export async function updateSOPAction(
       void ingestDocument({
         organizationId,
         sourceType: "sop",
-        sourceId: sopId,
+        sourceId: idParsed.data,
         title: updatedSop.title,
         data: updatedSop,
         department: updatedSop.department,
@@ -281,6 +297,11 @@ export type SopVersionView = {
 export async function getSOPVersionsAction(
   sopId: string
 ): Promise<MutationResult<SopVersionView[]>> {
+  const idParsed = uuidSchema.safeParse(sopId);
+  if (!idParsed.success) {
+    return { success: false, error: firstZodError(idParsed.error) };
+  }
+
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
@@ -290,7 +311,7 @@ export async function getSOPVersionsAction(
       .select(
         "id, version, content, change_note, created_at, changed_by, profiles(full_name)"
       )
-      .eq("sop_id", sopId)
+      .eq("sop_id", idParsed.data)
       .eq("organization_id", organizationId)
       .order("version", { ascending: false });
 
@@ -320,11 +341,15 @@ export async function getSOPVersionsAction(
   });
 }
 
-export async function getSOPsAction(filters?: {
-  department?: string;
-  status?: string;
-  search?: string;
-}) {
+export async function getSOPsAction(filters?: unknown) {
+  const filtersParsed = getSOPsFiltersSchema.safeParse(filters);
+  if (!filtersParsed.success) {
+    console.warn("[getSOPsAction]", firstZodError(filtersParsed.error));
+    return [];
+  }
+
+  const resolvedFilters = filtersParsed.data;
+
   try {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
@@ -335,14 +360,14 @@ export async function getSOPsAction(filters?: {
       .eq("organization_id", organizationId)
       .order("created_at", { ascending: false });
 
-    if (filters?.department) {
-      query = query.eq("department", filters.department);
+    if (resolvedFilters?.department) {
+      query = query.eq("department", resolvedFilters.department);
     }
-    if (filters?.status) {
-      query = query.eq("status", filters.status);
+    if (resolvedFilters?.status) {
+      query = query.eq("status", resolvedFilters.status);
     }
-    if (filters?.search) {
-      query = query.ilike("title", `%${filters.search}%`);
+    if (resolvedFilters?.search) {
+      query = query.ilike("title", `%${resolvedFilters.search}%`);
     }
 
     const { data, error } = await query;

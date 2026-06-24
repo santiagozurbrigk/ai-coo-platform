@@ -18,6 +18,7 @@ import {
 } from "@/lib/operations/weekly-utils";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { firstZodError, saveWeeklyInputSchema } from "@/lib/validations";
 import { paths } from "@/routes";
 import type {
   Department,
@@ -33,28 +34,24 @@ function mapWeeklyError(msg: string): string {
   return msg;
 }
 
-export async function saveWeeklyInputAction(data: {
-  department: Department;
-  content?: string;
-  rating?: number;
-}): Promise<{ ok: true }> {
+export async function saveWeeklyInputAction(input: unknown): Promise<{ ok: true }> {
   if (!isSupabaseConfigured()) {
     throw new Error("Supabase no configurado.");
   }
+
+  const parsed = saveWeeklyInputSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(firstZodError(parsed.error));
+  }
+
+  const data = parsed.data;
 
   const { user, orgId, supabase } = await requireAuthContext();
   const weekStart = getCurrentWeekStart();
   const dbDepartment = UI_TO_DB_DEPARTMENT[data.department];
 
   const content = data.content?.trim() || null;
-  const rating =
-    data.rating != null && data.rating >= 1 && data.rating <= 5
-      ? data.rating
-      : null;
-
-  if (!content && rating == null) {
-    throw new Error("Completá al menos un campo antes de guardar.");
-  }
+  const rating = data.rating ?? null;
 
   const { error } = await supabase.from("weekly_inputs").upsert(
     {

@@ -16,9 +16,6 @@ import {
 import {
   extractProductContextFromRAG,
   type ProductContextExtraction,
-  type SuggestedAvatar,
-  type SuggestedFramework,
-  type SuggestedProduct,
 } from "@/lib/rag/extract-product-context";
 import { ingestProductContext } from "@/lib/rag/ingest";
 import {
@@ -28,6 +25,14 @@ import {
 } from "@/lib/server/action-result";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import {
+  applySuggestedProductContextSchema,
+  firstZodError,
+  saveAvatarSchema,
+  saveProductSchema,
+  saveSalesFrameworkSchema,
+  uuidSchema,
+} from "@/lib/validations";
 import { paths } from "@/routes/paths";
 
 function revalidateProduct() {
@@ -56,22 +61,16 @@ export async function getAvatarsAction(): Promise<CustomerAvatarRow[]> {
   return (data ?? []) as CustomerAvatarRow[];
 }
 
-export async function saveAvatarAction(data: {
-  id?: string;
-  name: string;
-  ageRange?: string;
-  occupation?: string;
-  location?: string;
-  incomeRange?: string;
-  mainPain: string;
-  secondaryPains?: string[];
-  desires?: string[];
-  fears?: string[];
-  objections?: string[];
-  whereTheyHang?: string;
-  languageTheyUse?: string;
-  isPrimary?: boolean;
-}): Promise<MutationResult<{ ok: true }>> {
+export async function saveAvatarAction(
+  input: unknown
+): Promise<MutationResult<{ ok: true }>> {
+  const parsed = saveAvatarSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  const data = parsed.data;
+
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
@@ -134,30 +133,35 @@ export async function extractAndSuggestProductContextAction(): Promise<ProductCo
   return result;
 }
 
-export async function applySuggestedProductContextAction(input: {
-  avatar?: SuggestedAvatar | null;
-  products?: SuggestedProduct[];
-  frameworks?: SuggestedFramework[];
-}): Promise<MutationResult<{ ok: true }>> {
+export async function applySuggestedProductContextAction(
+  input: unknown
+): Promise<MutationResult<{ ok: true }>> {
+  const parsed = applySuggestedProductContextSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  const validated = parsed.data;
+
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
 
-    if (input.avatar?.name && input.avatar.main_pain) {
+    if (validated.avatar?.name && validated.avatar.main_pain) {
       const avatarResult = await saveAvatarAction({
-        name: input.avatar.name,
-        mainPain: input.avatar.main_pain,
-        secondaryPains: input.avatar.secondary_pains ?? [],
-        desires: input.avatar.desires ?? [],
-        fears: input.avatar.fears ?? [],
-        objections: input.avatar.objections ?? [],
-        whereTheyHang: input.avatar.where_they_hang,
-        languageTheyUse: input.avatar.language_they_use,
+        name: validated.avatar.name,
+        mainPain: validated.avatar.main_pain,
+        secondaryPains: validated.avatar.secondary_pains ?? [],
+        desires: validated.avatar.desires ?? [],
+        fears: validated.avatar.fears ?? [],
+        objections: validated.avatar.objections ?? [],
+        whereTheyHang: validated.avatar.where_they_hang,
+        languageTheyUse: validated.avatar.language_they_use,
         isPrimary: true,
       });
       if (!avatarResult.success) throw new Error(avatarResult.error);
     }
 
-    for (const product of input.products ?? []) {
+    for (const product of validated.products ?? []) {
       if (!product.name?.trim()) continue;
       const productResult = await saveProductAction({
         name: product.name,
@@ -169,7 +173,7 @@ export async function applySuggestedProductContextAction(input: {
       if (!productResult.success) throw new Error(productResult.error);
     }
 
-    for (const framework of input.frameworks ?? []) {
+    for (const framework of validated.frameworks ?? []) {
       if (!framework.name?.trim() || !framework.content?.trim()) continue;
       const frameworkResult = await saveSalesFrameworkAction({
         name: framework.name,
@@ -190,6 +194,11 @@ export async function applySuggestedProductContextAction(input: {
 export async function deleteAvatarAction(
   avatarId: string
 ): Promise<MutationResult<{ ok: true }>> {
+  const idParsed = uuidSchema.safeParse(avatarId);
+  if (!idParsed.success) {
+    return { success: false, error: firstZodError(idParsed.error) };
+  }
+
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
@@ -197,7 +206,7 @@ export async function deleteAvatarAction(
     const { error } = await supabase
       .from("customer_avatars")
       .delete()
-      .eq("id", avatarId)
+      .eq("id", idParsed.data)
       .eq("organization_id", organizationId);
 
     if (error) throw new Error(error.message);
@@ -227,20 +236,16 @@ export async function getProductsAction(): Promise<ProductRow[]> {
   return (data ?? []) as ProductRow[];
 }
 
-export async function saveProductAction(data: {
-  id?: string;
-  name: string;
-  description?: string;
-  type?: string;
-  price?: number;
-  currency?: string;
-  billingType?: string;
-  valueLadderPosition?: number;
-  bonuses?: string[];
-  guarantee?: string;
-  targetAvatarId?: string;
-  isActive?: boolean;
-}): Promise<MutationResult<{ ok: true }>> {
+export async function saveProductAction(
+  input: unknown
+): Promise<MutationResult<{ ok: true }>> {
+  const parsed = saveProductSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  const data = parsed.data;
+
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
@@ -285,6 +290,11 @@ export async function saveProductAction(data: {
 export async function deleteProductAction(
   productId: string
 ): Promise<MutationResult<{ ok: true }>> {
+  const idParsed = uuidSchema.safeParse(productId);
+  if (!idParsed.success) {
+    return { success: false, error: firstZodError(idParsed.error) };
+  }
+
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
@@ -292,7 +302,7 @@ export async function deleteProductAction(
     const { error } = await supabase
       .from("products")
       .update({ is_active: false, updated_at: new Date().toISOString() })
-      .eq("id", productId)
+      .eq("id", idParsed.data)
       .eq("organization_id", organizationId);
 
     if (error) throw new Error(error.message);
@@ -343,13 +353,16 @@ export async function getSalesFrameworksAction(): Promise<SalesFrameworkRow[]> {
   return (data ?? []) as SalesFrameworkRow[];
 }
 
-export async function saveSalesFrameworkAction(data: {
-  id?: string;
-  name: string;
-  description?: string;
-  content: string;
-  type?: string;
-}): Promise<MutationResult<{ ok: true }>> {
+export async function saveSalesFrameworkAction(
+  input: unknown
+): Promise<MutationResult<{ ok: true }>> {
+  const parsed = saveSalesFrameworkSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  const data = parsed.data;
+
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();

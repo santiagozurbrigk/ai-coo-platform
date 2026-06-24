@@ -64,17 +64,81 @@ export const urlSchema = z
     "Debe ser una URL válida"
   );
 
-export const createSOPSchema = z.object({
-  title: textSchema,
-  content: longTextSchema,
-  department: z.enum([
-    "ventas",
-    "marketing",
-    "operaciones",
-    "finanzas",
-    "general",
-  ]),
+export const sopDepartmentSchema = z.enum([
+  "ventas",
+  "marketing",
+  "operaciones",
+  "finanzas",
+  "general",
+]);
+
+const sopTagSchema = z
+  .string()
+  .trim()
+  .min(1, "Campo requerido")
+  .max(50, "Máximo 50 caracteres");
+
+const sopOptionalContextSchema = z
+  .string()
+  .trim()
+  .max(5000, "Máximo 5.000 caracteres")
+  .optional();
+
+export const generateSOPSchema = z.object({
   goal: textSchema,
+  department: sopDepartmentSchema,
+  expectedOutcome: textSchema,
+  additionalContext: z
+    .string()
+    .trim()
+    .max(4000, "Máximo 4.000 caracteres")
+    .optional(),
+});
+
+export const saveSOPSchema = z.object({
+  title: textSchema,
+  goal: textSchema,
+  department: sopDepartmentSchema,
+  expectedOutcome: sopOptionalContextSchema,
+  additionalContext: z
+    .string()
+    .trim()
+    .max(4000, "Máximo 4.000 caracteres")
+    .optional(),
+  content: longTextSchema,
+  tags: z.array(sopTagSchema).max(20).optional(),
+  estimatedDurationMinutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(10_000)
+    .optional(),
+  generatedByAI: z.boolean().optional(),
+  status: z.enum(["draft", "active"]).optional(),
+});
+
+export const updateSOPSchema = z.object({
+  title: textSchema.optional(),
+  content: longTextSchema.optional(),
+  status: z.enum(["draft", "active", "outdated"]).optional(),
+  tags: z.array(sopTagSchema).max(20).optional(),
+  changeNote: z.string().trim().max(500, "Máximo 500 caracteres").optional(),
+});
+
+export const getSOPsFiltersSchema = z
+  .object({
+    department: sopDepartmentSchema.optional(),
+    status: z.enum(["draft", "active", "outdated"]).optional(),
+    search: z.string().trim().max(200, "Máximo 200 caracteres").optional(),
+  })
+  .optional();
+
+/** Subconjunto histórico de `saveSOPSchema` (title, content, department, goal). */
+export const createSOPSchema = saveSOPSchema.pick({
+  title: true,
+  content: true,
+  department: true,
+  goal: true,
 });
 
 export function firstZodError(error: z.ZodError): string {
@@ -580,3 +644,143 @@ export const updateConversationTagSchema = z.object({
   id: uuidSchema,
   tag: conversationTagIdSchema.nullable(),
 });
+
+// ─── Product ────────────────────────────────────────────────────────────────
+
+const productStringListSchema = z
+  .array(z.string().trim().max(500, "Máximo 500 caracteres"))
+  .max(30);
+
+export const productTypeSchema = z.enum([
+  "curso",
+  "mentoria",
+  "consultoria",
+  "comunidad",
+  "evento",
+  "otro",
+]);
+
+export const productBillingTypeSchema = z.enum([
+  "unico",
+  "mensual",
+  "anual",
+  "personalizado",
+]);
+
+export const salesFrameworkTypeSchema = z.enum([
+  "script",
+  "objeciones",
+  "followup",
+  "onboarding",
+  "otro",
+]);
+
+export const saveAvatarSchema = z.object({
+  id: uuidSchema.optional(),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Campo requerido")
+    .max(200, "Máximo 200 caracteres"),
+  ageRange: z.string().trim().max(100).optional(),
+  occupation: z.string().trim().max(200).optional(),
+  location: z.string().trim().max(200).optional(),
+  incomeRange: z.string().trim().max(100).optional(),
+  mainPain: z
+    .string()
+    .trim()
+    .min(1, "Campo requerido")
+    .max(2000, "Máximo 2.000 caracteres"),
+  secondaryPains: productStringListSchema.optional(),
+  desires: productStringListSchema.optional(),
+  fears: productStringListSchema.optional(),
+  objections: productStringListSchema.optional(),
+  whereTheyHang: z.string().trim().max(500).optional(),
+  languageTheyUse: z.string().trim().max(2000).optional(),
+  isPrimary: z.boolean().optional(),
+});
+
+export const saveProductSchema = z.object({
+  id: uuidSchema.optional(),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Campo requerido")
+    .max(200, "Máximo 200 caracteres"),
+  description: z.string().trim().max(5000, "Máximo 5.000 caracteres").optional(),
+  type: productTypeSchema.optional(),
+  price: moneySchema.optional(),
+  currency: z.string().trim().max(10).optional(),
+  billingType: productBillingTypeSchema.optional(),
+  valueLadderPosition: z.number().int().min(1).max(20).optional(),
+  bonuses: productStringListSchema.optional(),
+  guarantee: z.string().trim().max(2000).optional(),
+  targetAvatarId: uuidSchema.optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const saveSalesFrameworkSchema = z.object({
+  id: uuidSchema.optional(),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Campo requerido")
+    .max(200, "Máximo 200 caracteres"),
+  description: z.string().trim().max(2000).optional(),
+  content: longTextSchema,
+  type: salesFrameworkTypeSchema.optional(),
+});
+
+const suggestedAvatarSchema = z
+  .object({
+    name: z.string().trim().max(200).optional(),
+    main_pain: z.string().trim().max(2000).optional(),
+    secondary_pains: productStringListSchema.optional(),
+    desires: productStringListSchema.optional(),
+    fears: productStringListSchema.optional(),
+    objections: productStringListSchema.optional(),
+    where_they_hang: z.string().trim().max(500).optional(),
+    language_they_use: z.string().trim().max(2000).optional(),
+  })
+  .optional()
+  .nullable();
+
+const suggestedProductSchema = z.object({
+  name: z.string().trim().max(200).optional(),
+  description: z.string().trim().max(5000).optional(),
+  type: productTypeSchema.optional(),
+  price: moneySchema.nullable().optional(),
+  billing_type: productBillingTypeSchema.optional(),
+});
+
+const suggestedFrameworkSchema = z.object({
+  name: z.string().trim().max(200).optional(),
+  type: salesFrameworkTypeSchema.optional(),
+  content: z.string().trim().max(50_000, "Máximo 50.000 caracteres").optional(),
+});
+
+export const applySuggestedProductContextSchema = z.object({
+  avatar: suggestedAvatarSchema,
+  products: z.array(suggestedProductSchema).max(20).optional(),
+  frameworks: z.array(suggestedFrameworkSchema).max(20).optional(),
+});
+
+// ─── Operations ─────────────────────────────────────────────────────────────
+
+export const weeklyDepartmentSchema = z.enum([
+  "sales",
+  "delivery",
+  "operations",
+  "marketing",
+  "founder",
+]);
+
+export const saveWeeklyInputSchema = z
+  .object({
+    department: weeklyDepartmentSchema,
+    content: z.string().trim().max(10_000, "Máximo 10.000 caracteres").optional(),
+    rating: z.number().int().min(1).max(5).optional(),
+  })
+  .refine((data) => Boolean(data.content?.trim()) || data.rating != null, {
+    message: "Completá al menos un campo antes de guardar.",
+  });
