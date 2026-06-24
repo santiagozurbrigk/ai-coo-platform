@@ -163,6 +163,7 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - agent_complex → Sonnet (preguntas complejas al Agente)
 - product_extraction → Sonnet (extracción contexto RAG)
 - sales_analysis → Sonnet (análisis de ventas)
+- intelligence_analysis → Sonnet (snapshot cruzado /intelligence)
 
 **Agente de negocio:**
 - Detecta complejidad automáticamente con `detectAgentComplexity()`
@@ -1149,6 +1150,19 @@ con hash fragments) para TODA creación de usuario nuevo:
 
 **Generador:** lib/auth/generate-temp-password.ts
 12 caracteres alfanuméricos sin caracteres ambiguos (0/O, 1/l/I)
+
+---
+
+### Pipeline de Intelligence — datos reales con IA
+
+`/intelligence` ahora genera insights reales vía cron 2x/día (9am y 9pm UTC en Vercel), cruzando objeciones de ventas, weekly inputs/reports, métricas de marketing, resumen financiero y análisis de Fathom.
+
+- **Modelo:** Sonnet (`intelligence_analysis` en model routing).
+- **Persistencia:** tabla `intelligence_snapshots` — un snapshot por corrida; la UI muestra siempre el más reciente.
+- **Cron:** `GET/POST /api/cron/intelligence-snapshot` con `Authorization: Bearer CRON_SECRET`. Query opcional `?organizationId=uuid` para una sola org.
+- **Memoria IA:** `memory_chunks` se arma sin IA (SOPs activos, reportes semanales y content assets recientes).
+- **Empty state:** si no hay snapshot o todos los arrays están vacíos, mensaje claro al founder.
+- **Costo estimado:** ~$2.80/mes por organización activa con 2 corridas diarias (antes de descuento por prompt caching).
 
 ---
 

@@ -1,20 +1,7 @@
-import { IntelligenceOverview } from "@/components/intelligence/intelligence-overview";
-import {
-  mockBottlenecks,
-  mockInsights,
-  mockMemoryChunks,
-  mockOpportunities,
-  mockRecommendations,
-} from "@/mocks";
+import { getIntelligenceSnapshotAction } from "@/app/intelligence/actions";
+import { IntelligencePageContent } from "@/components/intelligence/intelligence-page-content";
 
-export default function IntelligencePage() {
-  return (
-    <IntelligenceOverview
-      insights={mockInsights}
-      recommendations={mockRecommendations}
-      bottlenecks={mockBottlenecks}
-      opportunities={mockOpportunities}
-      memoryChunks={mockMemoryChunks}
-    />
-  );
+export default async function IntelligencePage() {
+  const snapshot = await getIntelligenceSnapshotAction();
+  return <IntelligencePageContent snapshot={snapshot} />;
 }
