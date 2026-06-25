@@ -1155,7 +1155,7 @@ con hash fragments) para TODA creación de usuario nuevo:
 
 ### Pipeline de Intelligence — datos reales con IA
 
-`/intelligence` ahora genera insights reales vía cron 2x/día (9am y 9pm UTC en Vercel), cruzando objeciones de ventas, weekly inputs/reports, métricas de marketing, resumen financiero y análisis de Fathom.
+`/intelligence` ahora genera insights reales vía cron 2x/día (9am y 9pm hora Argentina — `0 0,12 * * *` UTC en Vercel), cruzando objeciones de ventas, weekly inputs/reports, métricas de marketing, resumen financiero y análisis de Fathom.
 
 - **Modelo:** Sonnet (`intelligence_analysis` en model routing).
 - **Persistencia:** tabla `intelligence_snapshots` — un snapshot por corrida; la UI muestra siempre el más reciente.
