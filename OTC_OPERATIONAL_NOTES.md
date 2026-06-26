@@ -164,6 +164,7 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - product_extraction → Sonnet (extracción contexto RAG)
 - sales_analysis → Sonnet (análisis de ventas)
 - intelligence_analysis → Sonnet (snapshot cruzado /intelligence)
+- tone_analysis → Sonnet (detección de tono del founder)
 
 **Agente de negocio:**
 - Detecta complejidad automáticamente con `detectAgentComplexity()`
@@ -1163,6 +1164,21 @@ con hash fragments) para TODA creación de usuario nuevo:
 - **Memoria IA:** `memory_chunks` se arma sin IA (SOPs activos, reportes semanales y content assets recientes).
 - **Empty state:** si no hay snapshot o todos los arrays están vacíos, mensaje claro al founder.
 - **Costo estimado:** ~$2.80/mes por organización activa con 2 corridas diarias (antes de descuento por prompt caching).
+
+---
+
+### Tono de comunicación del founder — detección automática
+
+Sistema central que detecta automáticamente el estilo de comunicación de cada founder (analizando mensajes del Agente, transcripts de Fathom, copy de marketing propio, weekly inputs del founder, SOPs y frameworks redactados a mano) y lo aplica de forma invisible en TODOS los pipelines de IA del sistema, vía `getOrgContext()` / `buildOrgContextText()`.
+
+- **Nunca se muestra al founder** en ninguna pantalla — vive solo como instrucción interna para Claude.
+- **Representación:** texto libre (no estructurado) en `founder_communication_tone.tone_description`.
+- **Modelo:** Sonnet (`tone_analysis`) — maneja mejor el contexto largo de transcripts.
+- **Cron:** `GET/POST /api/cron/founder-tone-analysis` con `Authorization: Bearer CRON_SECRET`, lunes 12:00 UTC (9am Argentina). Query opcional `?organizationId=uuid`.
+- **Sin material suficiente:** guarda un texto neutro ("usar tono profesional estándar"), no inventa un estilo.
+- **Propagación:** automática a SOPs, Intelligence, weekly report, Agente, Fathom análisis profundo, post-mortems y scoring ManyChat — todos consumen el contexto cacheado de org sin cambios propios.
+- **Pipelines que aún NO usan org context** (oportunidad futura, no incluido acá): Fathom análisis básico (`analyze-transcript.ts`), labeling/insight de marketing, scoring de formularios.
+- **Tabla:** `founder_communication_tone` (PK `organization_id`, RLS **deny-all** para clientes; solo accesible vía admin client desde el servidor). `source_summary` JSONB es debug interno (cuántos ítems por fuente), nunca se expone.
 
 ---
 

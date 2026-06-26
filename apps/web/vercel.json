@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/intelligence-snapshot",
       "schedule": "0 0,12 * * *"
+    },
+    {
+      "path": "/api/cron/founder-tone-analysis",
+      "schedule": "0 12 * * 1"
     }
   ]
 }
