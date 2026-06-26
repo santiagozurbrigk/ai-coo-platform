@@ -1217,6 +1217,23 @@ dato, nunca "healthy" optimista sin información real.
 
 ---
 
+### Team Inputs conectado a datos reales
+
+TeamInputForm ya no simula el guardado. Usa saveWeeklyInputAction()
+ya existente, escribiendo en weekly_inputs real — la misma tabla
+que ya consumen Intelligence y Executive Reports.
+
+La lista de inputs recientes (`TeamInputsList`) ahora lee de
+`getWeeklyInputsAction()` (semana en curso) con `EmptyState` cuando
+no hay datos, ya no del mock `mockTeamInputs`.
+
+Campos sin columna real en `weekly_inputs` (`importance`, tipos
+audio/formulario) se quitaron del formulario y de la lista en vez
+de fingir que persisten — el form quedó con departamento + contenido,
+que es lo que realmente se guarda.
+
+---
+
 ### Diseño — Unificación de MetricCard y SectionHeader
 
 Consolidadas 3 implementaciones de metric card y 4 patrones de

@@ -1,7 +1,6 @@
 import { formatRelativeTime } from "@/lib/format";
 import type { TeamInput } from "@/types/operations";
 import { DepartmentBadge } from "./department-badge";
-import { ImportanceBadge } from "./importance-badge";
 
 export function TeamInputsList({ inputs }: { inputs: TeamInput[] }) {
   return (
@@ -12,7 +11,6 @@ export function TeamInputsList({ inputs }: { inputs: TeamInput[] }) {
           className="rounded-xl border border-border bg-card px-4 py-4"
         >
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <ImportanceBadge importance={input.importance} />
             <DepartmentBadge department={input.department} />
             <span className="text-2xs text-muted-foreground ml-auto">
               {formatRelativeTime(input.submittedAt)}

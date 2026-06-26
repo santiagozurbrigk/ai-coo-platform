@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mic } from "lucide-react";
-import { Button, FormField, Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from "@ai-coo/ui";
+import { Button, FormField, Textarea } from "@ai-coo/ui";
+import { saveWeeklyInputAction } from "@/app/operations/actions";
 import { Panel } from "@/components/shared/panel";
 import { useToast } from "@/providers/toast-provider";
-import { es } from "@/lib/locale/es";
-import type { Department, InputImportance, WeeklyInputType } from "@/types/operations";
+import type { Department } from "@/types/operations";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm";
@@ -16,37 +15,40 @@ const DEPARTMENTS: { value: Department; label: string }[] = [
   { value: "sales", label: "Ventas" },
   { value: "delivery", label: "Delivery" },
   { value: "operations", label: "Operaciones" },
+  { value: "marketing", label: "Marketing" },
   { value: "founder", label: "Fundador" },
-];
-
-const IMPORTANCE: { value: InputImportance; label: string }[] = [
-  { value: "high", label: "🔴 Muy importante" },
-  { value: "medium", label: "🟡 Poco importante" },
-  { value: "low", label: "⚪ Solo para tenerlo en cuenta" },
 ];
 
 export function TeamInputForm() {
   const [text, setText] = useState("");
   const [department, setDepartment] = useState<Department>("operations");
-  const [importance, setImportance] = useState<InputImportance>("medium");
-  const [inputType, setInputType] = useState<WeeklyInputType>("text");
   const [submitting, setSubmitting] = useState(false);
   const { push } = useToast();
   const router = useRouter();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!text.trim()) return;
     setSubmitting(true);
-    window.setTimeout(() => {
-      setSubmitting(false);
+    try {
+      await saveWeeklyInputAction({ department, content: text.trim() });
       setText("");
       push({
-        title: "Input enviado",
-        description: "La IA tendrá en cuenta el nivel de importancia indicado.",
+        title: "Input guardado ✓",
+        description:
+          "Quedó registrado en el contexto semanal — la IA lo tendrá en cuenta en sus análisis.",
         variant: "success",
       });
       router.refresh();
-    }, 800);
+    } catch (error) {
+      push({
+        title: "No se pudo guardar el input",
+        description:
+          error instanceof Error ? error.message : "Intentá de nuevo.",
+        variant: "default",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -68,60 +70,19 @@ export function TeamInputForm() {
           ))}
         </select>
       </FormField>
-      <FormField label="Nivel de importancia">
-        <select
-          className={selectClass}
-          value={importance}
-          onChange={(e) => setImportance(e.target.value as InputImportance)}
-        >
-          {IMPORTANCE.map((i) => (
-            <option key={i.value} value={i.value}>
-              {i.label}
-            </option>
-          ))}
-        </select>
+      <FormField label="Contenido">
+        <Textarea
+          placeholder="Algo que el equipo o la IA deba saber esta semana..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={5}
+        />
       </FormField>
-      <Tabs
-        value={inputType}
-        onValueChange={(v) => setInputType(v as WeeklyInputType)}
+      <Button
+        onClick={() => void handleSubmit()}
+        disabled={submitting || !text.trim()}
       >
-        <TabsList className="w-full">
-          <TabsTrigger value="text" className="flex-1">
-            Texto
-          </TabsTrigger>
-          <TabsTrigger value="audio" className="flex-1">
-            Audio
-          </TabsTrigger>
-          <TabsTrigger value="form" className="flex-1">
-            Formulario
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="text">
-          <FormField label="Contenido">
-            <Textarea
-              placeholder="Algo que el equipo o la IA deba saber esta semana..."
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={5}
-            />
-          </FormField>
-        </TabsContent>
-        <TabsContent value="audio">
-          <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-10">
-            <Mic className="h-8 w-8 text-muted-foreground" />
-            <p className="text-xs text-muted-foreground">
-              Subir nota de voz — próximamente
-            </p>
-          </div>
-        </TabsContent>
-        <TabsContent value="form">
-          <p className="text-sm text-muted-foreground">
-            Plantillas de formulario — próximamente.
-          </p>
-        </TabsContent>
-      </Tabs>
-      <Button onClick={handleSubmit} disabled={submitting || !text.trim()}>
-        {submitting ? "Enviando…" : "Enviar input"}
+        {submitting ? "Guardando…" : "Enviar input"}
       </Button>
     </Panel>
   );
