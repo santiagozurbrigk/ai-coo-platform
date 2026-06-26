@@ -1167,6 +1167,18 @@ con hash fragments) para TODA creación de usuario nuevo:
 
 ---
 
+### /founder conectado a datos reales
+
+Ya no usa contenido hardcodeado. Reutiliza el snapshot más reciente de `intelligence_snapshots` (mismo dato que `/intelligence`, presentado en formato de briefing) vía `getIntelligenceSnapshotAction()`. No genera ningún análisis de IA propio — evita duplicar costo y evita que ambas pantallas puedan desincronizarse entre sí con el tiempo.
+
+- **Briefing:** insight de mayor confianza del snapshot (confianza real, no hardcodeada).
+- **MetricBand:** conteos honestos derivados del snapshot (recomendaciones high, cuellos de botella, oportunidades). Se eliminaron "Tiempo ahorrado" y "Salud organizacional" por no tener dato real detrás.
+- **Prioridades estratégicas:** recomendaciones del snapshot ordenadas por prioridad.
+- **Empty state:** mismo componente y criterio que `/intelligence` cuando no hay snapshot.
+- Se eliminó toda mención ficticia (incluida la referencia a "Notion").
+
+---
+
 ### Tono de comunicación del founder — detección automática
 
 Sistema central que detecta automáticamente el estilo de comunicación de cada founder (analizando mensajes del Agente, transcripts de Fathom, copy de marketing propio, weekly inputs del founder, SOPs y frameworks redactados a mano) y lo aplica de forma invisible en TODOS los pipelines de IA del sistema, vía `getOrgContext()` / `buildOrgContextText()`.
