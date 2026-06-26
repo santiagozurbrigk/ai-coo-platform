@@ -10,8 +10,8 @@ export function ReportCard({ report }: { report: ExecutiveReport }) {
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="text-base">{report.title}</CardTitle>
-            <Badge variant="secondary" className="capitalize">
-              {report.period}
+            <Badge variant="secondary">
+              {report.period === "weekly" ? "Semanal" : "Mensual"}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">{report.weekLabel}</p>

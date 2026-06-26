@@ -1194,6 +1194,29 @@ Sistema central que detecta automáticamente el estilo de comunicación de cada 
 
 ---
 
+### Executive Reports — pipeline real con tendencia mensual
+
+Pipeline propio (no reutiliza Intelligence ni weekly report de
+Operaciones). Semanal: cron lunes 9:30am Argentina. Mensual:
+cron día 1 de cada mes, 10am Argentina — análisis de tendencia
+sobre los 4 reportes semanales reales del mes, no un resumen
+mecánico.
+
+Hereda automáticamente el tono de comunicación del founder
+(mismo mecanismo central que SOPs e Intelligence).
+
+Estado de departamentos calculado honestamente desde
+weekly_inputs reales — default "watch" si no hay suficiente
+dato, nunca "healthy" optimista sin información real.
+
+- **Tabla:** `executive_reports` (RLS read-only por org; escritura solo admin client). `period IN ('weekly','monthly')`, índice por `(organization_id, period, period_start DESC)`.
+- **Modelo:** Sonnet, reutiliza el routing de `weekly_report` (no se duplicó task en `AITask`). Features distinguidas: `executive_report_weekly` / `executive_report_monthly`.
+- **Crons:** `GET/POST /api/cron/executive-report-weekly` (`30 12 * * 1`) y `/api/cron/executive-report-monthly` (`0 13 1 * *`), con `assertCronAuthorized()` y `?organizationId=uuid` opcional. El semanal corre media hora después del cron de tono para tener el estilo más actualizado.
+- **Cálculo de departamentos:** `lib/executive-reports/compute-departments.ts` — reutilizable a futuro en `/operations/overview` (hoy mockeado). Ratings de `weekly_inputs`: promedio ≥4 healthy, ≥3 watch, <3 critical; ventas se degrada (nunca mejora) si hay muchas objeciones frecuentes.
+- **UI:** 4 páginas conectadas a datos reales con `EmptyState` unificado; muestran `generated_at`. Se eliminó la confianza fija ficticia (`0.93`) del resumen ejecutivo.
+
+---
+
 ### Diseño — Unificación de MetricCard y SectionHeader
 
 Consolidadas 3 implementaciones de metric card y 4 patrones de

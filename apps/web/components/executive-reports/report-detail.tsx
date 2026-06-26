@@ -1,6 +1,7 @@
 import { AiCard, Badge } from "@ai-coo/ui";
 import { es } from "@/lib/locale/es";
 import { Panel } from "@/components/shared/panel";
+import { formatRelativeTime } from "@/lib/format";
 import type { ExecutiveReport } from "@/types/executive-reports";
 
 const DEPT_STATUS: Record<string, "success" | "warning" | "destructive"> = {
@@ -19,15 +20,18 @@ export function ReportDetail({ report }: { report: ExecutiveReport }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary" className="capitalize">
+        <Badge variant="secondary">
           {report.period === "weekly" ? "Semanal" : "Mensual"}
         </Badge>
         <span className="text-sm text-muted-foreground">{report.weekLabel}</span>
+        {report.generatedAt ? (
+          <span className="text-xs text-muted-foreground">
+            · Generado {formatRelativeTime(report.generatedAt)}
+          </span>
+        ) : null}
       </div>
 
-      <AiCard title="Resumen ejecutivo" confidence={0.93}>
-        {report.executiveSummary}
-      </AiCard>
+      <AiCard title="Resumen ejecutivo">{report.executiveSummary}</AiCard>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Riesgos">

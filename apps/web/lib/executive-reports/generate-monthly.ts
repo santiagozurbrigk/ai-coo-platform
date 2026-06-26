@@ -1,0 +1,207 @@
+import {
+  callClaudeJson,
+  getClientForOrg,
+  getModelForTask,
+} from "@/lib/ai/anthropic";
+import { buildOrgContextText, getOrgContext } from "@/lib/ai/org-context";
+import { wrapUntrustedContent } from "@/lib/ai/wrap-untrusted-content";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { listActiveOrganizationIds } from "@/lib/intelligence/generate-snapshot";
+import { computeDepartmentStatuses } from "./compute-departments";
+import {
+  executiveReportAiResponseSchema,
+  saveExecutiveReport,
+  type ExecutiveReportRecord,
+} from "./shared";
+
+type WeeklyReportRow = {
+  week_label: string;
+  period_start: string;
+  executive_summary: string;
+  risks: unknown;
+  bottlenecks: unknown;
+  recommendations: unknown;
+};
+
+function toStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((v) => String(v)) : [];
+}
+
+function monthBounds(date = new Date()): {
+  start: string;
+  end: string;
+  label: string;
+} {
+  const start = new Date(date.getFullYear(), date.getMonth(), 1);
+  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  const label = start.toLocaleDateString("es", {
+    month: "long",
+    year: "numeric",
+  });
+  return {
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
+    label: label.charAt(0).toUpperCase() + label.slice(1),
+  };
+}
+
+function formatWeeklyReportsForPrompt(rows: WeeklyReportRow[]): string {
+  return rows
+    .map((row, index) => {
+      const risks = toStringArray(row.risks);
+      const bottlenecks = toStringArray(row.bottlenecks);
+      const recommendations = toStringArray(row.recommendations);
+      return `SEMANA ${index + 1} (${row.week_label}):
+- Resumen: ${row.executive_summary}
+- Riesgos: ${risks.join("; ") || "ninguno"}
+- Cuellos de botella: ${bottlenecks.join("; ") || "ninguno"}
+- Recomendaciones: ${recommendations.join("; ") || "ninguna"}`;
+    })
+    .join("\n\n");
+}
+
+export async function generateMonthlyExecutiveReport(
+  organizationId: string
+): Promise<ExecutiveReportRecord | null> {
+  const admin = createAdminClient();
+  const { start, end, label } = monthBounds();
+
+  const { data: weeklyRows } = await admin
+    .from("executive_reports")
+    .select(
+      "week_label, period_start, executive_summary, risks, bottlenecks, recommendations"
+    )
+    .eq("organization_id", organizationId)
+    .eq("period", "weekly")
+    .gte("period_start", start)
+    .lte("period_start", end)
+    .order("period_start", { ascending: true });
+
+  const weeklies = (weeklyRows ?? []) as WeeklyReportRow[];
+
+  if (weeklies.length === 0) {
+    console.info(
+      `[executive-reports] Org ${organizationId}: sin reportes semanales en ${label}, omitiendo mensual`
+    );
+    return null;
+  }
+
+  const client = await getClientForOrg(organizationId);
+  if (!client) {
+    console.warn(
+      `[executive-reports] Org ${organizationId}: sin API key de Anthropic`
+    );
+    return null;
+  }
+
+  const model = getModelForTask("weekly_report");
+  console.info(
+    `[executive-reports] Org ${organizationId}: generando reporte mensual (${label}) con ${model}`
+  );
+
+  const orgContext = await getOrgContext(organizationId);
+  const orgContextText = buildOrgContextText(orgContext);
+  const weeklyText = formatWeeklyReportsForPrompt(weeklies);
+
+  const departments = await computeDepartmentStatuses(admin, organizationId, {
+    sinceDays: 35,
+  });
+
+  const system = `Sos el COO de IA de "${orgContext.orgName}". Redactás el reporte ejecutivo MENSUAL para el founder, analizando la EVOLUCIÓN del negocio a lo largo del mes.
+
+REGLAS ESTRICTAS:
+- Te paso los ${weeklies.length} reportes semanales reales del mes. Tu trabajo NO es repetirlos, sino identificar la TENDENCIA: qué mejoró, qué empeoró y qué se mantuvo a lo largo de las semanas.
+- El resumen ejecutivo debe hablar explícitamente de la evolución mes a mes, no de una sola semana.
+- Basá todo ÚNICAMENTE en los reportes provistos. NO inventes datos.
+- Escribí en español rioplatense profesional, directo y accionable.
+- Respondé ÚNICAMENTE con JSON válido.
+- Máximo 4 riesgos, 4 cuellos de botella, 4 recomendaciones.`;
+
+  const user = `Analizá la tendencia del mes (${label}) a partir de los reportes semanales reales y generá el reporte ejecutivo mensual.
+
+${wrapUntrustedContent("reportes_semanales", weeklyText)}
+
+JSON exacto:
+{
+  "executiveSummary": "3-5 oraciones sobre la TENDENCIA del mes: qué mejoró, qué empeoró, qué se mantuvo",
+  "risks": ["riesgo persistente o creciente del mes", "..."],
+  "bottlenecks": ["cuello de botella recurrente del mes", "..."],
+  "recommendations": ["acción recomendada para el próximo mes", "..."]
+}`;
+
+  const raw = await callClaudeJson<unknown>({
+    organizationId,
+    task: "weekly_report",
+    feature: "executive_report_monthly",
+    cachedSystemPrompt: orgContextText,
+    system,
+    user,
+    maxTokens: 2000,
+  });
+
+  if (!raw) {
+    throw new Error("La IA no devolvió respuesta para el reporte mensual");
+  }
+
+  const parsed = executiveReportAiResponseSchema.safeParse(raw);
+  if (!parsed.success) {
+    console.error(
+      "[executive-reports] Respuesta IA mensual inválida:",
+      parsed.error.flatten()
+    );
+    throw new Error("Respuesta de IA con formato inválido");
+  }
+
+  return {
+    period: "monthly",
+    weekLabel: label,
+    periodStart: start,
+    periodEnd: end,
+    title: `Reporte ejecutivo mensual — ${label}`,
+    executiveSummary: parsed.data.executiveSummary,
+    risks: parsed.data.risks,
+    bottlenecks: parsed.data.bottlenecks,
+    recommendations: parsed.data.recommendations,
+    departments,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+export async function generateAndSaveMonthlyExecutiveReport(
+  organizationId: string
+): Promise<"generated" | "skipped" | "failed"> {
+  try {
+    const report = await generateMonthlyExecutiveReport(organizationId);
+    if (!report) return "skipped";
+
+    await saveExecutiveReport(createAdminClient(), organizationId, report);
+    return "generated";
+  } catch (err) {
+    console.error(
+      `[executive-reports] Error generando reporte mensual para org ${organizationId}:`,
+      err
+    );
+    return "failed";
+  }
+}
+
+export async function generateAllMonthlyExecutiveReports(): Promise<{
+  orgs: number;
+  generated: number;
+  skipped: number;
+  failed: number;
+}> {
+  const orgIds = await listActiveOrganizationIds();
+  let generated = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const orgId of orgIds) {
+    const result = await generateAndSaveMonthlyExecutiveReport(orgId);
+    if (result === "generated") generated += 1;
+    else if (result === "skipped") skipped += 1;
+    else failed += 1;
+  }
+
+  return { orgs: orgIds.length, generated, skipped, failed };
+}
