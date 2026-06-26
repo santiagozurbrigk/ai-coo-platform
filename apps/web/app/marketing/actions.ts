@@ -1,8 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireOrganizationId } from "@/lib/auth/bootstrap";
+import {
+  requireOrganizationId,
+  tryRequireOrganizationId,
+} from "@/lib/auth/bootstrap";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getSalesContentRank,
+  type SalesContentRankView,
+} from "@/lib/marketing/content-sales-rank";
+import { getClosedBuyerJourneys } from "@/lib/marketing/closed-buyer-journeys";
+import type { ClosedBuyerJourney } from "@/types/marketing-insights";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import type { ContentLabel } from "@/lib/content/label-content";
@@ -642,4 +652,32 @@ export async function getInstagramIntegrationStatusAction(): Promise<{
     lastSyncAt: data?.last_sync_at ?? null,
     status,
   };
+}
+
+export async function getSalesContentRankAction(): Promise<
+  SalesContentRankView[]
+> {
+  if (!isSupabaseConfigured()) return [];
+  const organizationId = await tryRequireOrganizationId();
+  if (!organizationId) return [];
+  try {
+    return await getSalesContentRank(organizationId);
+  } catch (error) {
+    console.error("[getSalesContentRank]", error);
+    return [];
+  }
+}
+
+export async function getClosedBuyerJourneysAction(): Promise<
+  ClosedBuyerJourney[]
+> {
+  if (!isSupabaseConfigured()) return [];
+  const organizationId = await tryRequireOrganizationId();
+  if (!organizationId) return [];
+  try {
+    return await getClosedBuyerJourneys(organizationId);
+  } catch (error) {
+    console.error("[getClosedBuyerJourneys]", error);
+    return [];
+  }
 }

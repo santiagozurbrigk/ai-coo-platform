@@ -1217,6 +1217,25 @@ dato, nunca "healthy" optimista sin información real.
 
 ---
 
+### Marketing Sales Connection — ranking y journeys reales
+
+Ranking de contenido por ventas y journeys de compradores ahora
+reutilizan lib/sales/lead-journey.ts (misma lógica que el inbox
+de ventas) en su versión agregada. Sección de "Patrones de
+contenido" todavía pendiente — requiere análisis de IA, queda
+para un sprint aparte.
+
+Detalle: la atribución sigue la cadena real
+`clients.closing_call_id → closing_calls.conversation_id →
+conversations.utm_link_id → utm_links.youtube_video_id =
+content_assets.external_id`. Si no hay ventas atribuibles o
+journeys reconstruibles, EmptyState honesto (distinto del gate de
+Instagram). Se eliminaron `mockSalesContentRank`,
+`mockClosedBuyerJourneys` y `mockSalesConnectionPatterns` del
+componente.
+
+---
+
 ### Team Inputs conectado a datos reales
 
 TeamInputForm ya no simula el guardado. Usa saveWeeklyInputAction()

@@ -1,26 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Sparkles, TrendingUp } from "lucide-react";
 import { Badge, cn, GlassPanel } from "@ai-coo/ui";
-import { getContentById } from "@/mocks/marketing-insights";
 import {
-  mockClosedBuyerJourneys,
-  mockSalesConnectionPatterns,
-  mockSalesContentRank,
-} from "@/mocks/marketing";
+  getClosedBuyerJourneysAction,
+  getSalesContentRankAction,
+} from "@/app/marketing/actions";
+import type { SalesContentRankView } from "@/lib/marketing/content-sales-rank";
 import { paths } from "@/routes";
 import { ContentThumbnail } from "@/components/marketing-insights/content-thumbnail";
 import { CONTENT_TYPE_LABEL } from "@/components/marketing-insights/content-labels";
+import { EmptyState } from "@/components/shared/empty-state";
 import { useMarketingData } from "@/providers";
+import type { ClosedBuyerJourney } from "@/types/marketing-insights";
 import { InstagramEmptyState } from "./instagram-empty-state";
 
 export function MarketingSalesConnection() {
   const { instagramConnected } = useMarketingData();
+  const [loading, setLoading] = useState(true);
+  const [rank, setRank] = useState<SalesContentRankView[]>([]);
+  const [journeys, setJourneys] = useState<ClosedBuyerJourney[]>([]);
+
+  useEffect(() => {
+    if (!instagramConnected) return;
+    let active = true;
+    setLoading(true);
+    Promise.all([getSalesContentRankAction(), getClosedBuyerJourneysAction()])
+      .then(([rankData, journeyData]) => {
+        if (!active) return;
+        setRank(rankData);
+        setJourneys(journeyData);
+      })
+      .catch(() => {
+        if (!active) return;
+        setRank([]);
+        setJourneys([]);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [instagramConnected]);
+
   if (!instagramConnected) return <InstagramEmptyState />;
 
-  const maxRevenue = Math.max(...mockSalesContentRank.map((r) => r.revenue));
+  const maxRevenue = rank.length > 0 ? Math.max(...rank.map((r) => r.revenue)) : 0;
 
   return (
     <div className="space-y-10">
@@ -36,70 +64,106 @@ export function MarketingSalesConnection() {
 
       <section className="space-y-4">
         <h3 className="text-sm font-medium">Top contenido por ventas generadas</h3>
-        <div className="space-y-4">
-          {mockSalesContentRank.map((rank, i) => {
-            const content = getContentById(rank.contentId);
-            if (!content) return null;
-            const pct = (rank.revenue / maxRevenue) * 100;
-            return (
-              <GlassPanel key={rank.contentId} className="p-4 flex flex-wrap gap-4 items-center">
-                <span className="text-xl font-bold text-muted-foreground w-8">#{i + 1}</span>
-                <Link href={paths.platform.marketing.contentDetail(content.id)}>
-                  <ContentThumbnail content={content} size="sm" className="h-16 w-16" />
-                </Link>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{content.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {CONTENT_TYPE_LABEL[content.type]} · {content.publishDate}
-                  </p>
-                  <p className="text-sm mt-1">
-                    {rank.salesCount} ventas influenciadas · $
-                    {rank.revenue.toLocaleString("es-ES")} revenue
-                  </p>
-                  <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden max-w-md">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-primary to-violet-500"
-                      style={{ width: `${pct}%` }}
+        {loading ? (
+          <SectionLoading />
+        ) : rank.length === 0 ? (
+          <EmptyState
+            icon={<TrendingUp className="h-8 w-8" />}
+            title="Todavía no hay ventas atribuibles a contenido"
+            description="Cuando un cliente que cerró tenga su camino vinculado (contenido → conversación → venta), el contenido de origen va a aparecer rankeado acá."
+          />
+        ) : (
+          <div className="space-y-4">
+            {rank.map((item, i) => {
+              const pct = maxRevenue > 0 ? (item.revenue / maxRevenue) * 100 : 0;
+              return (
+                <GlassPanel
+                  key={item.contentId}
+                  className="p-4 flex flex-wrap gap-4 items-center"
+                >
+                  <span className="text-xl font-bold text-muted-foreground w-8">
+                    #{i + 1}
+                  </span>
+                  <Link href={paths.platform.marketing.contentDetail(item.contentId)}>
+                    <ContentThumbnail
+                      content={{
+                        title: item.title,
+                        type: item.type,
+                        thumbnailHue: item.thumbnailHue,
+                      }}
+                      size="sm"
+                      className="h-16 w-16"
                     />
+                  </Link>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {CONTENT_TYPE_LABEL[item.type]}
+                      {item.publishLabel ? ` · ${item.publishLabel}` : ""}
+                    </p>
+                    <p className="text-sm mt-1">
+                      {item.salesCount} {item.salesCount === 1 ? "venta" : "ventas"} influenciadas · $
+                      {item.revenue.toLocaleString("es-ES")} revenue
+                    </p>
+                    <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden max-w-md">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-primary to-violet-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
                   </div>
-                </div>
-              </GlassPanel>
-            );
-          })}
-        </div>
+                </GlassPanel>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="space-y-4">
         <h3 className="text-sm font-medium">Journeys de compradores</h3>
-        <div className="space-y-3">
-          {mockClosedBuyerJourneys.map((journey) => (
-            <BuyerJourneyRow key={journey.id} journey={journey} />
-          ))}
-        </div>
+        {loading ? (
+          <SectionLoading />
+        ) : journeys.length === 0 ? (
+          <EmptyState
+            icon={<TrendingUp className="h-8 w-8" />}
+            title="Todavía no hay journeys reconstruibles"
+            description="Necesitás al menos un cliente cerrado con su conversación vinculada para reconstruir el camino completo del comprador."
+          />
+        ) : (
+          <div className="space-y-3">
+            {journeys.map((journey) => (
+              <BuyerJourneyRow key={journey.id} journey={journey} />
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="space-y-3">
         <h3 className="text-sm font-medium">Patrones de contenido</h3>
-        <div className="grid gap-3 md:grid-cols-2">
-          {mockSalesConnectionPatterns.map((text) => (
-            <div
-              key={text}
-              className="rounded-lg border border-border border-l-4 border-l-violet-500/60 bg-muted/20 px-4 py-3 text-sm"
-            >
-              {text}
-            </div>
-          ))}
-        </div>
+        <EmptyState
+          icon={<Sparkles className="h-8 w-8" />}
+          title="Análisis de patrones — próximamente"
+          description="El análisis con IA de patrones de contenido (qué formatos y temas convierten mejor) llega en una próxima actualización."
+        />
       </section>
     </div>
   );
 }
 
-function BuyerJourneyRow({
-  journey,
-}: {
-  journey: (typeof mockClosedBuyerJourneys)[number];
-}) {
+function SectionLoading() {
+  return (
+    <div className="space-y-3">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="h-20 animate-pulse rounded-xl border border-border/60 bg-muted/20"
+        />
+      ))}
+    </div>
+  );
+}
+
+function BuyerJourneyRow({ journey }: { journey: ClosedBuyerJourney }) {
   const [open, setOpen] = useState(true);
 
   return (
@@ -131,41 +195,24 @@ function BuyerJourneyRow({
       {open && (
         <div className="overflow-x-auto px-4 pb-4">
           <div className="flex items-center gap-2 min-w-max">
-            {journey.steps.map((step, i) => {
-              const content = step.contentId ? getContentById(step.contentId) : undefined;
-              const isMilestone = step.type === "dm" || step.type === "booking" || step.type === "sale";
-              return (
-                <div key={`${step.type}-${i}`} className="flex items-center gap-2">
-                  {i > 0 && (
-                    <div className="h-px w-6 bg-border shrink-0" aria-hidden />
+            {journey.steps.map((step, i) => (
+              <div key={`${step.type}-${i}`} className="flex items-center gap-2">
+                {i > 0 && <div className="h-px w-6 bg-border shrink-0" aria-hidden />}
+                <div
+                  className={cn(
+                    "shrink-0 rounded-lg px-3 py-3 text-center text-[10px] font-medium border",
+                    step.type === "content" && "w-40 border-border bg-muted/20",
+                    step.type === "dm" && "w-24 border-ai/40 bg-ai/10 text-ai",
+                    step.type === "booking" && "w-24 border-primary/40 bg-primary/10",
+                    step.type === "sale" &&
+                      "w-24 border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
                   )}
-                  {content ? (
-                    <Link
-                      href={paths.platform.marketing.contentDetail(content.id)}
-                      className="w-28 shrink-0 rounded-lg border border-border p-2 hover:border-primary/40"
-                    >
-                      <ContentThumbnail content={content} size="sm" className="h-14 w-full" />
-                      <p className="text-[10px] font-medium mt-1 line-clamp-2">{step.label}</p>
-                      <p className="text-[9px] text-muted-foreground">{step.date}</p>
-                    </Link>
-                  ) : (
-                    <div
-                      className={cn(
-                        "w-20 shrink-0 rounded-full px-2 py-3 text-center text-[10px] font-medium border",
-                        step.type === "dm" && "border-ai/40 bg-ai/10 text-ai",
-                        step.type === "booking" && "border-primary/40 bg-primary/10",
-                        step.type === "sale" && "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                      )}
-                    >
-                      {step.label}
-                      {step.date && (
-                        <p className="text-[9px] opacity-70 mt-0.5">{step.date}</p>
-                      )}
-                    </div>
-                  )}
+                >
+                  <p className="line-clamp-2">{step.label}</p>
+                  {step.date && <p className="text-[9px] opacity-70 mt-0.5">{step.date}</p>}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
       )}
