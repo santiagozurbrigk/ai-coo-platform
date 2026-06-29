@@ -25,7 +25,7 @@ import type { ContextDocument, FathomKnowledgeCall } from "@/types/business-cont
 import { paths } from "@/routes";
 
 const ROW_COLUMNS =
-  "id, organization_id, title, category, source, content_text, storage_path, mime_type, status, uploaded_by, created_at, updated_at";
+  "id, organization_id, title, category, source, content_text, storage_path, mime_type, status, index_error, uploaded_by, created_at, updated_at";
 
 const categorySchema = z.enum(
   DOCUMENT_CATEGORIES as [string, ...string[]]
@@ -117,7 +117,7 @@ export async function createTextNoteAction(
       throw new Error(error?.message ?? "No se pudo guardar la nota");
     }
 
-    await indexDocument({
+    const indexResult = await indexDocument({
       organizationId,
       id: row.id as string,
       sourceType: "business_context_note",
@@ -125,6 +125,12 @@ export async function createTextNoteAction(
       category,
       content,
     });
+
+    if (!indexResult.ok) {
+      throw new Error(
+        `La nota se guardó pero falló la indexación en RAG: ${indexResult.reason}`
+      );
+    }
 
     revalidatePath(paths.platform.businessContext.documents);
     return { id: row.id as string };
@@ -232,7 +238,11 @@ export async function createDocumentFromFileAction(
     if (!extracted.trim()) {
       await admin
         .from("business_context_documents")
-        .update({ status: "error", updated_at: new Date().toISOString() })
+        .update({
+          status: "error",
+          index_error: "No se pudo extraer texto del archivo (¿PDF escaneado o vacío?)",
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", id);
       throw new Error(
         "El archivo se subió pero no se pudo extraer texto para indexar (¿PDF escaneado o vacío?)."
@@ -244,7 +254,7 @@ export async function createDocumentFromFileAction(
       .update({ content_text: extracted, updated_at: new Date().toISOString() })
       .eq("id", id);
 
-    await indexDocument({
+    const indexResult = await indexDocument({
       organizationId,
       id,
       sourceType: "business_context_document",
@@ -253,12 +263,65 @@ export async function createDocumentFromFileAction(
       content: extracted,
     });
 
+    if (!indexResult.ok) {
+      throw new Error(
+        `El documento se guardó pero falló la indexación en RAG: ${indexResult.reason}`
+      );
+    }
+
     revalidatePath(paths.platform.businessContext.documents);
     return { id };
   });
 }
 
-/** Indexa en el RAG y actualiza el status del documento (indexed / error). */
+/** Confirma en DB que rag_documents + al menos un rag_chunk existen. */
+async function verifyRagIndexed(
+  admin: ReturnType<typeof createAdminClient>,
+  organizationId: string,
+  sourceType: string,
+  sourceId: string,
+  expectedDocumentId: string
+): Promise<{ ok: true; chunkCount: number } | { ok: false; reason: string }> {
+  const { data: ragDoc, error: docError } = await admin
+    .from("rag_documents")
+    .select("id, embedding_status")
+    .eq("organization_id", organizationId)
+    .eq("source_type", sourceType)
+    .eq("source_id", sourceId)
+    .maybeSingle();
+
+  if (docError) {
+    return { ok: false, reason: `Verificación RAG falló: ${docError.message}` };
+  }
+  if (!ragDoc) {
+    return { ok: false, reason: "No existe fila en rag_documents tras la ingestión" };
+  }
+  if (ragDoc.id !== expectedDocumentId) {
+    return { ok: false, reason: "ID de rag_documents no coincide con el esperado" };
+  }
+  if (ragDoc.embedding_status !== "done") {
+    return {
+      ok: false,
+      reason: `rag_documents.embedding_status=${ragDoc.embedding_status ?? "null"} (se esperaba done)`,
+    };
+  }
+
+  const { count, error: chunkError } = await admin
+    .from("rag_chunks")
+    .select("id", { count: "exact", head: true })
+    .eq("document_id", ragDoc.id);
+
+  if (chunkError) {
+    return { ok: false, reason: `Verificación de chunks falló: ${chunkError.message}` };
+  }
+  if (!count || count < 1) {
+    return { ok: false, reason: "No hay chunks en rag_chunks tras la ingestión" };
+  }
+
+  return { ok: true, chunkCount: count };
+}
+
+/** Indexa en el RAG y actualiza el status según el resultado real verificado en DB. */
 async function indexDocument(args: {
   organizationId: string;
   id: string;
@@ -266,28 +329,61 @@ async function indexDocument(args: {
   title: string;
   category: string;
   content: string;
-}): Promise<void> {
+}): Promise<{ ok: true; chunkCount: number } | { ok: false; reason: string }> {
   const admin = createAdminClient();
-  try {
-    await ingestDocument({
-      organizationId: args.organizationId,
-      sourceType: args.sourceType,
-      sourceId: args.id,
-      title: args.title,
-      data: { title: args.title, category: args.category, content: args.content },
-      tags: ["business_context", args.category],
-    });
+
+  const ingestResult = await ingestDocument({
+    organizationId: args.organizationId,
+    sourceType: args.sourceType,
+    sourceId: args.id,
+    title: args.title,
+    data: { title: args.title, category: args.category, content: args.content },
+    tags: ["business_context", args.category],
+  });
+
+  if (!ingestResult.ok) {
     await admin
       .from("business_context_documents")
-      .update({ status: "indexed", updated_at: new Date().toISOString() })
+      .update({
+        status: "error",
+        index_error: ingestResult.reason,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", args.id);
-  } catch (err) {
-    console.error("[BusinessContext] ingesta RAG falló:", err);
-    await admin
-      .from("business_context_documents")
-      .update({ status: "error", updated_at: new Date().toISOString() })
-      .eq("id", args.id);
+    return { ok: false, reason: ingestResult.reason };
   }
+
+  const verified = await verifyRagIndexed(
+    admin,
+    args.organizationId,
+    args.sourceType,
+    args.id,
+    ingestResult.documentId
+  );
+
+  if (!verified.ok) {
+    console.error("[BusinessContext] verificación RAG falló:", verified.reason);
+    await admin
+      .from("business_context_documents")
+      .update({
+        status: "error",
+        index_error: verified.reason,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", args.id);
+    return verified;
+  }
+
+  await admin
+    .from("business_context_documents")
+    .update({
+      status: "indexed",
+      index_error: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", args.id);
+
+  return { ok: true, chunkCount: verified.chunkCount };
 }
 
 // ---------------------------------------------------------------------------

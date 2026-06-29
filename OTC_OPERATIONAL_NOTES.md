@@ -1256,6 +1256,11 @@ Detalle técnico:
   casos en `lib/rag/chunker.ts`. Status en UI: `processing` → `indexed` / `error`.
 - Extracción PDF vía `unpdf` (serverless). Fathom sigue viniendo de
   `fathom_calls` (`loadFathomCallsForKnowledgeBase`).
+- **Fix ingestión silenciosa:** `ingestDocument()` devolvía sin error cuando
+  faltaba `OPENAI_API_KEY` u otra falla; `indexDocument()` marcaba `indexed`
+  igual. Ahora `ingestDocument` retorna `{ ok, reason }`, se verifica
+  `rag_documents` + `rag_chunks` antes de marcar éxito, y `index_error` guarda
+  el motivo si falla. Variable esperada: `OPENAI_API_KEY` (mismo nombre en Vercel).
 
 ---
 

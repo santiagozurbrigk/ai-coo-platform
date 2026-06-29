@@ -12,23 +12,34 @@ export interface IngestDocumentInput {
   tags?: string[];
 }
 
+export type IngestDocumentResult =
+  | { ok: true; documentId: string; chunkCount: number }
+  | { ok: false; reason: string };
+
 /**
  * Ingesta un documento en el sistema RAG:
  * 1. Crea/actualiza el documento en rag_documents
  * 2. Genera chunks del texto
  * 3. Genera embeddings para cada chunk
  * 4. Guarda los chunks con embeddings en rag_chunks
+ *
+ * Nunca asume éxito: devuelve `{ ok: false, reason }` si algo falla.
  */
-export async function ingestDocument(input: IngestDocumentInput): Promise<void> {
+export async function ingestDocument(
+  input: IngestDocumentInput
+): Promise<IngestDocumentResult> {
   if (!isOpenAIConfigured()) {
-    console.warn("[RAG] OPENAI_API_KEY no configurada — omitiendo ingestión");
-    return;
+    const reason = "OPENAI_API_KEY no configurada — no se puede generar embeddings";
+    console.warn(`[RAG] ${reason}`);
+    return { ok: false, reason };
   }
 
   const supabase = createAdminClient();
 
   const fullText = prepareDocumentText(input.sourceType, input.data);
-  if (!fullText?.trim()) return;
+  if (!fullText?.trim()) {
+    return { ok: false, reason: "Texto vacío después de preparar el documento" };
+  }
 
   try {
     const { data: doc, error: docError } = await supabase
@@ -51,12 +62,15 @@ export async function ingestDocument(input: IngestDocumentInput): Promise<void> 
       .single();
 
     if (docError || !doc) {
-      console.error("[RAG] Error creando documento:", docError);
-      return;
+      const reason = `Error creando rag_documents: ${docError?.message ?? "desconocido"}`;
+      console.error("[RAG]", reason);
+      return { ok: false, reason };
     }
 
     const chunks = chunkText(fullText);
-    if (!chunks.length) return;
+    if (!chunks.length) {
+      return { ok: false, reason: "No se generaron chunks del texto" };
+    }
 
     const embeddings = await generateEmbeddings(chunks.map((c) => c.content));
 
@@ -75,12 +89,13 @@ export async function ingestDocument(input: IngestDocumentInput): Promise<void> 
     const { error: chunkError } = await supabase.from("rag_chunks").insert(chunkRows);
 
     if (chunkError) {
-      console.error("[RAG] Error insertando chunks:", chunkError);
+      const reason = `Error insertando rag_chunks: ${chunkError.message}`;
+      console.error("[RAG]", reason);
       await supabase
         .from("rag_documents")
         .update({ embedding_status: "error" })
         .eq("id", doc.id);
-      return;
+      return { ok: false, reason };
     }
 
     await supabase
@@ -94,7 +109,11 @@ export async function ingestDocument(input: IngestDocumentInput): Promise<void> 
     console.log(
       `[RAG] Documento ingestado: ${input.title} (${chunks.length} chunks)`
     );
+
+    return { ok: true, documentId: doc.id as string, chunkCount: chunks.length };
   } catch (err) {
+    const reason =
+      err instanceof Error ? err.message : "Error inesperado en ingestión RAG";
     console.error("[RAG] Error en ingestión:", err);
     await supabase
       .from("rag_documents")
@@ -102,6 +121,7 @@ export async function ingestDocument(input: IngestDocumentInput): Promise<void> 
       .eq("organization_id", input.organizationId)
       .eq("source_type", input.sourceType)
       .eq("source_id", input.sourceId);
+    return { ok: false, reason };
   }
 }
 
@@ -117,7 +137,7 @@ export async function ingestAllSOPs(organizationId: string): Promise<void> {
   if (!sops?.length) return;
 
   for (const sop of sops) {
-    await ingestDocument({
+    const result = await ingestDocument({
       organizationId,
       sourceType: "sop",
       sourceId: sop.id,
@@ -126,6 +146,9 @@ export async function ingestAllSOPs(organizationId: string): Promise<void> {
       department: sop.department,
       tags: ["sop", sop.department],
     });
+    if (!result.ok) {
+      console.error(`[RAG] SOP ${sop.id} no indexado:`, result.reason);
+    }
     await new Promise((r) => setTimeout(r, 500));
   }
 }
@@ -142,7 +165,7 @@ export async function ingestAllFathomCalls(organizationId: string): Promise<void
   if (!calls?.length) return;
 
   for (const call of calls) {
-    await ingestDocument({
+    const result = await ingestDocument({
       organizationId,
       sourceType: "fathom_call",
       sourceId: call.fathom_call_id,
@@ -150,6 +173,9 @@ export async function ingestAllFathomCalls(organizationId: string): Promise<void
       data: call,
       tags: ["fathom", "call"],
     });
+    if (!result.ok) {
+      console.error(`[RAG] Fathom ${call.fathom_call_id} no indexado:`, result.reason);
+    }
     await new Promise((r) => setTimeout(r, 500));
   }
 }
@@ -177,7 +203,7 @@ export async function ingestProductContext(organizationId: string): Promise<void
       .eq("is_active", true),
   ]);
 
-  await ingestDocument({
+  const result = await ingestDocument({
     organizationId,
     sourceType: "product_context",
     sourceId: "main",
@@ -191,4 +217,8 @@ export async function ingestProductContext(organizationId: string): Promise<void
     },
     tags: ["producto", "avatar", "contexto"],
   });
+
+  if (!result.ok) {
+    console.error("[RAG] product_context no indexado:", result.reason);
+  }
 }

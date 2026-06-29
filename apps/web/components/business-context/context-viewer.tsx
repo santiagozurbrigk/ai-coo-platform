@@ -77,7 +77,8 @@ export function ContextViewer({ document }: { document: ContextDocument }) {
                   {document.status === "processing"
                     ? "El documento se está procesando e indexando en la base de conocimiento de la IA."
                     : document.status === "error"
-                      ? "No se pudo extraer o indexar el contenido de este documento."
+                      ? document.indexError ??
+                        "No se pudo extraer o indexar el contenido de este documento."
                       : "Sin contenido de texto disponible."}
                 </p>
               )}

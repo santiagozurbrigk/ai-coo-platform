@@ -60,6 +60,8 @@ export type ContextDocument = {
   linkedSops: string[];
   thumbnailUrl?: string;
   status?: DocumentStatus;
+  /** Motivo si status === 'error' (indexación RAG fallida). */
+  indexError?: string;
   externalUrl?: string;
   duration?: string;
   participants?: string[];

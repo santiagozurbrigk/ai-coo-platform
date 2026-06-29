@@ -14,6 +14,7 @@ export type BusinessContextDocumentRow = {
   storage_path: string | null;
   mime_type: string | null;
   status: DocumentStatus;
+  index_error: string | null;
   uploaded_by: string | null;
   created_at: string;
   updated_at: string;
@@ -52,6 +53,7 @@ export function mapDocumentRowToContextDocument(
     updatedAt,
     linkedSops: [],
     status: row.status,
+    indexError: row.index_error ?? undefined,
     transcript: row.content_text ?? undefined,
   };
 }
