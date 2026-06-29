@@ -62,7 +62,11 @@ async function markRagDocumentError(
  * 3. Genera embeddings para cada chunk
  * 4. Guarda los chunks con embeddings en rag_chunks
  *
- * Nunca asume éxito: devuelve `{ ok: false, reason }` si algo falla.
+ * En el camino exitoso devuelve `IngestDocumentSuccess` (`{ ok: true, documentId, chunkCount }`).
+ * Ante cualquier fallo —API key no configurada, error de la API de OpenAI,
+ * error al persistir en la base de datos, etc.— LANZA `IngestDocumentError`
+ * en lugar de devolver un resultado. Por eso siempre hay que envolver la
+ * llamada en un try/catch; no existe un campo `.ok === false` que chequear.
  */
 export async function ingestDocument(
   input: IngestDocumentInput
