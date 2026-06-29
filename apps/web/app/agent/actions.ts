@@ -23,6 +23,7 @@ import { z } from "zod";
 import {
   callClaudeText,
   detectAgentComplexity,
+  getClientForOrg,
   isAnthropicConfigured,
 } from "@/lib/ai/anthropic";
 import { buildOrgContextText, getOrgContext } from "@/lib/ai/org-context";
@@ -468,18 +469,83 @@ export async function sendAgentMessageAction(input: {
 
   const agentTask = detectAgentComplexity(trimmed, hasRagContext);
 
-  let rawAssistant = isAnthropicConfigured()
-    ? await callClaudeText({
+  const anthropicConfigured = isAnthropicConfigured();
+  const anthropicKeyPresent = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+  let orgClaudeClientAvailable = false;
+  try {
+    orgClaudeClientAvailable = Boolean(await getClientForOrg(organizationId));
+  } catch (clientErr) {
+    console.error("[Agent:Claude] getClientForOrg failed", {
+      organizationId,
+      err: clientErr,
+      message: clientErr instanceof Error ? clientErr.message : String(clientErr),
+    });
+  }
+
+  console.error("[Agent:Claude] pre-call diagnostics", {
+    commit: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
+    conversationId,
+    organizationId,
+    isAnthropicConfigured: anthropicConfigured,
+    anthropicKeyPresent,
+    orgClaudeClientAvailable,
+    agentTask,
+    hasRagContext,
+    historyMessageCount: claudeMessages.length,
+    note:
+      "isAnthropicConfigured() solo chequea ANTHROPIC_API_KEY global; getClientForOrg() también resuelve BYOK de la org",
+  });
+
+  let rawAssistant: string | null = null;
+  let claudeCallSkipped = false;
+  let claudeThrew = false;
+
+  if (!anthropicConfigured) {
+    claudeCallSkipped = true;
+    console.error("[Agent:Claude] callClaudeText SKIPPED — isAnthropicConfigured() false", {
+      anthropicKeyPresent,
+      orgClaudeClientAvailable,
+    });
+  } else {
+    try {
+      rawAssistant = await callClaudeText({
         organizationId,
         task: agentTask,
         feature: "agent_chat",
         cachedSystemPrompt: orgContextText,
         system,
         messages: claudeMessages,
-      })
-    : null;
+      });
+      console.error("[Agent:Claude] callClaudeText returned", {
+        organizationId,
+        hasText: Boolean(rawAssistant?.trim()),
+        textLength: rawAssistant?.length ?? 0,
+        textPreview: rawAssistant?.slice(0, 120) ?? null,
+        returnedNull: rawAssistant === null,
+        returnedEmpty: rawAssistant?.trim() === "",
+      });
+    } catch (claudeErr) {
+      claudeThrew = true;
+      console.error("[Agent:Claude] callClaudeText threw", {
+        organizationId,
+        err: claudeErr,
+        message: claudeErr instanceof Error ? claudeErr.message : String(claudeErr),
+        stack: claudeErr instanceof Error ? claudeErr.stack : undefined,
+      });
+      rawAssistant = null;
+    }
+  }
 
-  if (!rawAssistant) rawAssistant = MOCK_REPLY;
+  if (!rawAssistant) {
+    console.error("[Agent:Claude] falling back to MOCK_REPLY", {
+      organizationId,
+      claudeCallSkipped,
+      claudeThrew,
+      isAnthropicConfigured: anthropicConfigured,
+      orgClaudeClientAvailable,
+    });
+    rawAssistant = MOCK_REPLY;
+  }
 
   const actions = parseAgentActions(rawAssistant);
   const actionResult = await executeAgentActions(
