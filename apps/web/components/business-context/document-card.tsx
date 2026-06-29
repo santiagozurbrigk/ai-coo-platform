@@ -20,7 +20,7 @@ const CATEGORY_CLASS: Record<ContextDocument["category"], string> = {
 };
 
 function StatusBadge({ status }: { status?: DocumentStatus }) {
-  if (!status || status === "indexed") {
+  if (status === "indexed") {
     return (
       <Badge variant="success" className="text-[10px] shrink-0">
         Indexado
@@ -34,11 +34,14 @@ function StatusBadge({ status }: { status?: DocumentStatus }) {
       </Badge>
     );
   }
-  return (
-    <Badge variant="outline" className="text-[10px] shrink-0 border-destructive/40 text-destructive">
-      Error
-    </Badge>
-  );
+  if (status === "error") {
+    return (
+      <Badge variant="outline" className="text-[10px] shrink-0 border-destructive/40 text-destructive">
+        Error
+      </Badge>
+    );
+  }
+  return null;
 }
 
 export function DocumentCard({ document }: { document: ContextDocument }) {

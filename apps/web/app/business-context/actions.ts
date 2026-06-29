@@ -6,7 +6,7 @@ import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
-import { ingestDocument } from "@/lib/rag/ingest";
+import { ingestDocument, IngestDocumentError } from "@/lib/rag/ingest";
 import { isOpenAIConfigured } from "@/lib/rag/embeddings";
 import { loadFathomCallsForKnowledgeBase } from "@/lib/fathom/knowledge-base-queries";
 import {
@@ -140,10 +140,13 @@ export async function createTextNoteAction(
         docId,
         reason: indexResult.reason,
       });
+      await assertDocumentNotIndexed(admin, docId, indexResult.reason);
       throw new Error(
         `La nota se guardó pero falló la indexación en RAG: ${indexResult.reason}`
       );
     }
+
+    await assertDocumentIndexed(admin, docId);
 
     console.error("[BusinessContext:RAG] createTextNoteAction complete", {
       docId,
@@ -339,6 +342,56 @@ async function verifyRagIndexed(
   return { ok: true, chunkCount: count };
 }
 
+/** Si el status quedó mal (p. ej. indexed sin RAG), lo corrige a error. */
+async function assertDocumentNotIndexed(
+  admin: ReturnType<typeof createAdminClient>,
+  id: string,
+  reason: string
+): Promise<void> {
+  const { data } = await admin
+    .from("business_context_documents")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (data?.status === "indexed" || data?.status === "processing") {
+    console.error("[BusinessContext:RAG] correcting stale status after failure", {
+      id,
+      previousStatus: data.status,
+      reason,
+    });
+    await persistDocumentIndexStatus(admin, id, "error", reason);
+  }
+}
+
+/** Confirma en DB que el documento quedó indexed antes de retornar éxito al cliente. */
+async function assertDocumentIndexed(
+  admin: ReturnType<typeof createAdminClient>,
+  id: string
+): Promise<void> {
+  const { data, error } = await admin
+    .from("business_context_documents")
+    .select("status, index_error")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`No se pudo verificar el status final: ${error.message}`);
+  }
+  if (data?.status !== "indexed") {
+    throw new Error(
+      `Estado inconsistente tras indexación: "${data?.status ?? "null"}"` +
+        (data?.index_error ? ` — ${data.index_error}` : "")
+    );
+  }
+}
+
+function ingestFailureReason(err: unknown): string {
+  if (err instanceof IngestDocumentError) return err.message;
+  if (err instanceof Error && err.message) return err.message;
+  return "Error inesperado en ingestión RAG";
+}
+
 /** Persiste status/index_error y lanza si el update en DB falla. */
 async function persistDocumentIndexStatus(
   admin: ReturnType<typeof createAdminClient>,
@@ -385,76 +438,88 @@ async function indexBusinessContextInRag(args: {
     commit: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
   });
 
-  const ingestResult = await ingestDocument({
-    organizationId: args.organizationId,
-    sourceType: args.sourceType,
-    sourceId: args.id,
-    title: args.title,
-    data: { title: args.title, category: args.category, content: args.content },
-    tags: ["business_context", args.category],
-  });
-
-  console.error("[BusinessContext:RAG] ingestDocument result", {
-    docId: args.id,
-    sourceType: args.sourceType,
-    ingestOk: ingestResult.ok,
-    ...(ingestResult.ok
-      ? { documentId: ingestResult.documentId, chunkCount: ingestResult.chunkCount }
-      : { reason: ingestResult.reason }),
-  });
-
-  if (!ingestResult.ok) {
-    await persistDocumentIndexStatus(admin, args.id, "error", ingestResult.reason);
-    return { ok: false, reason: ingestResult.reason };
-  }
-
-  const verified = await verifyRagIndexed(
-    admin,
-    args.organizationId,
-    args.sourceType,
-    args.id,
-    ingestResult.documentId
-  );
-
-  console.error("[BusinessContext:RAG] verifyRagIndexed result", {
-    docId: args.id,
-    sourceType: args.sourceType,
-    verifyOk: verified.ok,
-    ...(verified.ok ? { chunkCount: verified.chunkCount } : { reason: verified.reason }),
-  });
-
-  if (!verified.ok) {
-    await persistDocumentIndexStatus(admin, args.id, "error", verified.reason);
-    return verified;
-  }
-
-  await persistDocumentIndexStatus(admin, args.id, "indexed", null);
-
-  // Verificación final post-update: confirmar que rag sigue existiendo
-  const finalCheck = await verifyRagIndexed(
-    admin,
-    args.organizationId,
-    args.sourceType,
-    args.id,
-    ingestResult.documentId
-  );
-
-  if (!finalCheck.ok) {
-    console.error("[BusinessContext:RAG] post-index verify failed", {
-      docId: args.id,
-      reason: finalCheck.reason,
+  try {
+    const ingestResult = await ingestDocument({
+      organizationId: args.organizationId,
+      sourceType: args.sourceType,
+      sourceId: args.id,
+      title: args.title,
+      data: { title: args.title, category: args.category, content: args.content },
+      tags: ["business_context", args.category],
     });
-    await persistDocumentIndexStatus(admin, args.id, "error", finalCheck.reason);
-    return finalCheck;
+
+    console.error("[BusinessContext:RAG] ingestDocument result", {
+      docId: args.id,
+      sourceType: args.sourceType,
+      ingestOk: true,
+      documentId: ingestResult.documentId,
+      chunkCount: ingestResult.chunkCount,
+    });
+
+    const verified = await verifyRagIndexed(
+      admin,
+      args.organizationId,
+      args.sourceType,
+      args.id,
+      ingestResult.documentId
+    );
+
+    console.error("[BusinessContext:RAG] verifyRagIndexed result", {
+      docId: args.id,
+      sourceType: args.sourceType,
+      verifyOk: verified.ok,
+      ...(verified.ok ? { chunkCount: verified.chunkCount } : { reason: verified.reason }),
+    });
+
+    if (!verified.ok) {
+      await persistDocumentIndexStatus(admin, args.id, "error", verified.reason);
+      return verified;
+    }
+
+    await persistDocumentIndexStatus(admin, args.id, "indexed", null);
+
+    const finalCheck = await verifyRagIndexed(
+      admin,
+      args.organizationId,
+      args.sourceType,
+      args.id,
+      ingestResult.documentId
+    );
+
+    if (!finalCheck.ok) {
+      console.error("[BusinessContext:RAG] post-index verify failed", {
+        docId: args.id,
+        reason: finalCheck.reason,
+      });
+      await persistDocumentIndexStatus(admin, args.id, "error", finalCheck.reason);
+      return finalCheck;
+    }
+
+    console.error("[BusinessContext:RAG] indexBusinessContextInRag success", {
+      docId: args.id,
+      ragDocumentId: ingestResult.documentId,
+      chunkCount: finalCheck.chunkCount,
+    });
+
+    return { ok: true, chunkCount: finalCheck.chunkCount };
+  } catch (err) {
+    const reason = ingestFailureReason(err);
+    console.error("[BusinessContext:RAG] indexBusinessContextInRag failed", {
+      docId: args.id,
+      sourceType: args.sourceType,
+      reason,
+      err,
+    });
+    try {
+      await persistDocumentIndexStatus(admin, args.id, "error", reason);
+    } catch (persistErr) {
+      console.error("[BusinessContext:RAG] could not persist error status", {
+        docId: args.id,
+        persistErr,
+      });
+    }
+    return { ok: false, reason };
   }
-
-  console.error("[BusinessContext:RAG] indexBusinessContextInRag success", {
-    docId: args.id,
-    ragDocumentId: ingestResult.documentId,
-    chunkCount: finalCheck.chunkCount,
-  });
-
-  return { ok: true, chunkCount: finalCheck.chunkCount };
 }
 
 // ---------------------------------------------------------------------------
