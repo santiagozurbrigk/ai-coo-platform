@@ -8,7 +8,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@ai-coo/ui";
-import type { ContextDocument } from "@/types/business-context";
+import type { ContextDocument, DocumentStatus } from "@/types/business-context";
 import { DocumentViewerSidebar } from "./document-viewer-sidebar";
 
 const CATEGORY_LABEL: Record<ContextDocument["category"], string> = {
@@ -19,15 +19,16 @@ const CATEGORY_LABEL: Record<ContextDocument["category"], string> = {
   operations: "Operaciones",
 };
 
-export function ContextViewer({ document }: { document: ContextDocument }) {
-  const transcript =
-    document.transcript ??
-    `[Transcripción mock]\n\n${document.preview}\n\nEn producción se renderiza el documento completo desde el Motor de Contexto de Negocio. Fragmentos indexados: 24 · Embeddings: sincronizados.`;
+function statusLabel(status?: DocumentStatus): string | null {
+  if (!status) return null;
+  if (status === "indexed") return "Indexado en RAG";
+  if (status === "processing") return "Indexando en RAG…";
+  return "Error al indexar";
+}
 
-  const insights = document.insights ?? [
-    "Insight generado por IA a partir del contenido del documento.",
-    "Revisar periódicamente para mantener la base de conocimiento actualizada.",
-  ];
+export function ContextViewer({ document }: { document: ContextDocument }) {
+  const body = document.transcript?.trim() ?? "";
+  const statusText = statusLabel(document.status);
 
   return (
     <div className="grid gap-6 lg:grid-cols-5">
@@ -39,52 +40,54 @@ export function ContextViewer({ document }: { document: ContextDocument }) {
             <span>{document.source}</span>
             <span>·</span>
             <span>{document.updatedAt}</span>
-            {document.duration ? (
+            {statusText ? (
               <>
                 <span>·</span>
-                <span>{document.duration}</span>
+                <Badge
+                  variant={
+                    document.status === "error"
+                      ? "outline"
+                      : document.status === "processing"
+                        ? "outline"
+                        : "success"
+                  }
+                  className="text-[10px]"
+                >
+                  {statusText}
+                </Badge>
               </>
-            ) : null}
-            {document.status === "indexed" ? (
-              <Badge variant="success" className="text-[10px]">
-                Indexado
-              </Badge>
             ) : null}
           </div>
         </div>
 
-        <Tabs defaultValue="resumen">
+        <Tabs defaultValue="contenido">
           <TabsList className="w-full justify-start">
-            <TabsTrigger value="transcripcion">Transcripción</TabsTrigger>
+            <TabsTrigger value="contenido">Contenido</TabsTrigger>
             <TabsTrigger value="resumen">Resumen</TabsTrigger>
-            <TabsTrigger value="insights">Insights</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="transcripcion" className="mt-4">
+          <TabsContent value="contenido" className="mt-4">
             <div className="rounded-xl border border-border/60 bg-muted/20 p-4 dark:border-glass dark:bg-glass dark:backdrop-blur-md">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-                {transcript}
-              </p>
+              {body ? (
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                  {body}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {document.status === "processing"
+                    ? "El documento se está procesando e indexando en la base de conocimiento de la IA."
+                    : document.status === "error"
+                      ? "No se pudo extraer o indexar el contenido de este documento."
+                      : "Sin contenido de texto disponible."}
+                </p>
+              )}
             </div>
           </TabsContent>
 
           <TabsContent value="resumen" className="mt-4">
-            <AiCard title="Resumen" confidence={0.91} source={document.source}>
-              {document.summary}
+            <AiCard title="Resumen" source={document.source}>
+              {document.summary || "Sin resumen disponible."}
             </AiCard>
-          </TabsContent>
-
-          <TabsContent value="insights" className="mt-4">
-            <ul className="space-y-3">
-              {insights.map((insight, index) => (
-                <li
-                  key={index}
-                  className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm leading-relaxed text-foreground/90 dark:border-glass dark:bg-glass dark:backdrop-blur-md"
-                >
-                  {insight}
-                </li>
-              ))}
-            </ul>
           </TabsContent>
         </Tabs>
       </div>

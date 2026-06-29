@@ -133,6 +133,16 @@ export function prepareDocumentText(
         .filter(Boolean)
         .join("\n\n");
 
+    case "business_context_note":
+    case "business_context_document":
+      return [
+        `DOCUMENTO DE CONTEXTO: ${data.title ?? ""}`,
+        data.category ? `Categoría: ${asString(data.category)}` : "",
+        data.content ? `Contenido: ${asString(data.content)}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
     default:
       return asString(data.content ?? "");
   }

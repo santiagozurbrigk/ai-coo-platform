@@ -1236,6 +1236,29 @@ componente.
 
 ---
 
+### Business Context — Fase 1: documentos reales + RAG
+
+Founder puede subir PDFs o escribir notas de texto, indexados
+automáticamente en el RAG existente (`ingestDocument()`) — el
+Agente y otros pipelines de IA ya pueden usarlos como contexto.
+Llamadas de Fathom reales mostradas por separado, sin mezcla
+con mock. Notion y Loom removidos del catálogo de fuentes
+(no son prioridad). Google Docs y Sheets quedan para Fase 2.
+
+Detalle técnico:
+- Tabla `business_context_documents` con RLS por org; bucket
+  `business-context-documents` en Supabase Storage (privado).
+- Actions en `app/business-context/actions.ts`: `createTextNoteAction`,
+  `prepareDocumentFileUploadAction`, `createDocumentFromFileAction`,
+  `getBusinessContextDocumentsAction`, `getFathomContextCallsAction`,
+  `getDocumentByIdAction`, `deleteDocumentAction`.
+- RAG: `sourceType` `business_context_note` / `business_context_document`;
+  casos en `lib/rag/chunker.ts`. Status en UI: `processing` → `indexed` / `error`.
+- Extracción PDF vía `unpdf` (serverless). Fathom sigue viniendo de
+  `fathom_calls` (`loadFathomCallsForKnowledgeBase`).
+
+---
+
 ### Team Inputs conectado a datos reales
 
 TeamInputForm ya no simula el guardado. Usa saveWeeklyInputAction()

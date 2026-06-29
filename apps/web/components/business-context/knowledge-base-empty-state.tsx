@@ -1,20 +1,12 @@
-import Link from "next/link";
-import { Video } from "lucide-react";
-import { Button } from "@ai-coo/ui";
+import { BookOpen } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
-import { paths } from "@/routes";
 
 export function KnowledgeBaseEmptyState() {
   return (
     <EmptyState
-      icon={<Video className="h-7 w-7" />}
-      title="Conectá Fathom para importar tus calls"
-      description="Las transcripciones de tus reuniones se indexan automáticamente para la IA y los reportes ejecutivos."
-      action={
-        <Button asChild>
-          <Link href={paths.platform.integrations}>Ir a Integraciones</Link>
-        </Button>
-      }
+      icon={<BookOpen className="h-7 w-7" />}
+      title="Tu base de conocimiento está vacía"
+      description="Subí un PDF, escribí una nota o conectá Fathom en Integraciones. Todo el contenido se indexa automáticamente para que la IA lo use como contexto."
     />
   );
 }

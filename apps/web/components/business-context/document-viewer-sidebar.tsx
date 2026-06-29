@@ -1,9 +1,14 @@
+"use client";
+
+import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Archive, FilePlus, Pencil } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { FilePlus, Trash2 } from "lucide-react";
 import { Button } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
-import { getSopById } from "@/mocks/sops";
+import { deleteDocumentAction } from "@/app/business-context/actions";
 import { paths } from "@/routes";
+import { useToast } from "@/providers/toast-provider";
 import type { ContextDocument } from "@/types/business-context";
 import { SuggestedCallTasksPanel } from "./suggested-call-tasks-panel";
 
@@ -12,75 +17,59 @@ export function DocumentViewerSidebar({
 }: {
   document: ContextDocument;
 }) {
-  const linkedSops = document.linkedSops
-    .map((id) => getSopById(id))
-    .filter((sop): sop is NonNullable<typeof sop> => sop != null);
+  const router = useRouter();
+  const { push } = useToast();
+  const [pending, startTransition] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const isManual = document.sourceType === "manual";
+
+  function handleDelete() {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await deleteDocumentAction(document.id);
+      if (!res.success) {
+        push({ title: "No se pudo eliminar", description: res.error });
+        setConfirmDelete(false);
+        return;
+      }
+      push({
+        title: "Documento eliminado",
+        description: "Se quitó de la base de conocimiento y del índice RAG.",
+        variant: "success",
+      });
+      router.push(paths.platform.businessContext.documents);
+      router.refresh();
+    });
+  }
 
   return (
     <div className="space-y-4">
       <SuggestedCallTasksPanel document={document} />
 
-      {linkedSops.length > 0 ? (
-        <Panel title="SOPs vinculados">
-          <ul className="space-y-2">
-            {linkedSops.map((sop) => (
-              <li key={sop.id}>
-                <Link
-                  href={paths.platform.sops.detail(sop.id)}
-                  className="block rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-sm transition-colors hover:border-violet-500/25 hover:bg-muted/35 dark:border-glass dark:bg-glass-elevated dark:backdrop-blur-md"
-                >
-                  <p className="font-medium leading-snug">{sop.title}</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {sop.lastUpdated}
-                  </p>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      ) : (
-        <Panel title="SOPs vinculados">
-          <p className="text-sm text-muted-foreground">
-            Sin SOPs vinculados a este documento.
-          </p>
-        </Panel>
-      )}
-
-      {document.topics && document.topics.length > 0 ? (
-        <Panel title="Temas detectados">
-          <div className="flex flex-wrap gap-2">
-            {document.topics.map((topic) => (
-              <span
-                key={topic}
-                className="rounded-full border border-border/40 bg-muted/30 px-2.5 py-0.5 text-[11px] text-muted-foreground"
-              >
-                {topic}
-              </span>
-            ))}
-          </div>
-        </Panel>
-      ) : null}
-
-      {document.participants && document.participants.length > 0 ? (
-        <Panel title="Participantes">
-          <ul className="space-y-1.5 text-sm text-muted-foreground">
-            {document.participants.map((name) => (
-              <li key={name}>{name}</li>
-            ))}
-          </ul>
-        </Panel>
-      ) : null}
-
       <Panel title="Acciones">
         <div className="flex flex-col gap-2">
-          <Button type="button" variant="outline" size="sm" className="justify-start gap-2">
-            <Pencil className="h-4 w-4" />
-            Editar
-          </Button>
-          <Button type="button" variant="outline" size="sm" className="justify-start gap-2">
-            <Archive className="h-4 w-4" />
-            Archivar
-          </Button>
+          {isManual ? (
+            <Button
+              type="button"
+              variant={confirmDelete ? "destructive" : "outline"}
+              size="sm"
+              className="justify-start gap-2"
+              disabled={pending}
+              onClick={handleDelete}
+            >
+              <Trash2 className="h-4 w-4" />
+              {pending
+                ? "Eliminando…"
+                : confirmDelete
+                  ? "Confirmar eliminación"
+                  : "Eliminar documento"}
+            </Button>
+          ) : null}
           <Button
             asChild
             size="sm"

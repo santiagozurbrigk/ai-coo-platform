@@ -1,26 +1,28 @@
 import { KnowledgeBasePage } from "@/components/business-context/knowledge-base-page";
 import { PageHeader } from "@/components/shared/page-header";
-import { requireOrganizationId } from "@/lib/auth/bootstrap";
-import { loadFathomCallsForKnowledgeBase } from "@/lib/fathom/knowledge-base-queries";
+import {
+  getBusinessContextDocumentsAction,
+  getFathomContextCallsAction,
+} from "@/app/business-context/actions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { mockDocuments } from "@/mocks";
+import type { ContextDocument, FathomKnowledgeCall } from "@/types/business-context";
 
 export default async function BusinessContextDocumentsPage() {
-  let contextCalls: Awaited<
-    ReturnType<typeof loadFathomCallsForKnowledgeBase>
-  >["contextCalls"] = [];
-  let clientMeetingCalls: Awaited<
-    ReturnType<typeof loadFathomCallsForKnowledgeBase>
-  >["clientMeetingCalls"] = [];
+  let documents: ContextDocument[] = [];
+  let contextCalls: FathomKnowledgeCall[] = [];
+  let clientMeetingCalls: FathomKnowledgeCall[] = [];
 
   if (isSupabaseConfigured()) {
     try {
-      const organizationId = await requireOrganizationId();
-      const loaded = await loadFathomCallsForKnowledgeBase(organizationId);
-      contextCalls = loaded.contextCalls;
-      clientMeetingCalls = loaded.clientMeetingCalls;
+      const [docs, fathom] = await Promise.all([
+        getBusinessContextDocumentsAction(),
+        getFathomContextCallsAction(),
+      ]);
+      documents = docs;
+      contextCalls = fathom.contextCalls;
+      clientMeetingCalls = fathom.clientMeetingCalls;
     } catch (e) {
-      console.error("[KnowledgeBase] load fathom calls:", e);
+      console.error("[KnowledgeBase] load:", e);
     }
   }
 
@@ -28,7 +30,7 @@ export default async function BusinessContextDocumentsPage() {
     <div className="space-y-6">
       <PageHeader description="Documentos, calls y frameworks indexados para la IA" />
       <KnowledgeBasePage
-        documents={mockDocuments}
+        documents={documents}
         contextCalls={contextCalls}
         clientMeetingCalls={clientMeetingCalls}
       />
