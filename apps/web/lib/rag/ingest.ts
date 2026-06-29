@@ -12,9 +12,14 @@ export interface IngestDocumentInput {
   tags?: string[];
 }
 
-export type IngestDocumentResult =
-  | { ok: true; documentId: string; chunkCount: number }
-  | { ok: false; reason: string };
+export type IngestDocumentSuccess = {
+  ok: true;
+  documentId: string;
+  chunkCount: number;
+};
+
+/** @deprecated Los fallos lanzan IngestDocumentError; solo queda el camino de éxito. */
+export type IngestDocumentResult = IngestDocumentSuccess;
 
 /** Lanzado cuando la ingestión RAG falla — evita que callers ignoren `{ ok: false }`. */
 export class IngestDocumentError extends Error {
@@ -61,7 +66,7 @@ async function markRagDocumentError(
  */
 export async function ingestDocument(
   input: IngestDocumentInput
-): Promise<IngestDocumentResult> {
+): Promise<IngestDocumentSuccess> {
   const openaiConfigured = isOpenAIConfigured();
   console.error("[RAG] ingestDocument start", {
     sourceType: input.sourceType,
