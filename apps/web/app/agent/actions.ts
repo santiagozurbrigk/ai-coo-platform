@@ -266,12 +266,24 @@ async function generateConversationTitle(
       maxTokens: 30,
     })) ?? firstMessage.slice(0, 48);
 
+  const cleanTitle = title.replace(/[.!?]+$/, "").trim();
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("agent_conversations")
-    .update({ title: title.replace(/[.!?]+$/, "").trim() })
+    .update({ title: cleanTitle })
     .eq("id", conversationId)
     .eq("organization_id", organizationId);
+
+  if (error) {
+    console.error("[Agent:Title] update failed", {
+      conversationId,
+      organizationId,
+      message: error.message,
+    });
+    return;
+  }
+
+  console.error("[Agent:Title] title set", { conversationId, title: cleanTitle });
 }
 
 async function getRecentOrgMessages(
@@ -558,8 +570,19 @@ export async function sendAgentMessageAction(input: {
 
   if (assistantErr) throw new Error(assistantErr.message);
 
+  // Se hace await (no fire-and-forget): en serverless el runtime congela el
+  // trabajo async pendiente al retornar, y la llamada a Claude del título se
+  // cortaba antes del update — por eso el título quedaba en null.
   if ((priorCount ?? 0) === 0) {
-    void generateConversationTitle(organizationId, conversationId, trimmed);
+    try {
+      await generateConversationTitle(organizationId, conversationId, trimmed);
+    } catch (titleErr) {
+      console.error("[Agent:Title] generateConversationTitle failed", {
+        conversationId,
+        organizationId,
+        message: titleErr instanceof Error ? titleErr.message : String(titleErr),
+      });
+    }
   }
 
   revalidateAgent();
