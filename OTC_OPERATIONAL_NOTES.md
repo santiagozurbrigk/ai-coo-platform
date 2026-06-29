@@ -1261,6 +1261,10 @@ Detalle técnico:
   igual. Ahora `ingestDocument` retorna `{ ok, reason }`, se verifica
   `rag_documents` + `rag_chunks` antes de marcar éxito, y `index_error` guarda
   el motivo si falla. Variable esperada: `OPENAI_API_KEY` (mismo nombre en Vercel).
+- **Causa raíz adicional (jun 2026):** `rag_documents.source_type` CHECK no
+  incluía `business_context_note` / `business_context_document` — el upsert
+  fallaba siempre. Migración `20260707100000_rag_business_context_source_types.sql`.
+  Logs `[BusinessContext:RAG]` y `[RAG]` en Vercel para diagnóstico post-deploy.
 
 ---
 

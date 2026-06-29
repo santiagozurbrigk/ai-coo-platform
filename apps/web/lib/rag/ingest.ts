@@ -28,9 +28,19 @@ export type IngestDocumentResult =
 export async function ingestDocument(
   input: IngestDocumentInput
 ): Promise<IngestDocumentResult> {
-  if (!isOpenAIConfigured()) {
+  const openaiConfigured = isOpenAIConfigured();
+  console.error("[RAG] ingestDocument start", {
+    sourceType: input.sourceType,
+    sourceId: input.sourceId,
+    organizationId: input.organizationId,
+    openaiConfigured,
+    openaiKeyPresent: Boolean(process.env.OPENAI_API_KEY?.trim()),
+    commit: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
+  });
+
+  if (!openaiConfigured) {
     const reason = "OPENAI_API_KEY no configurada — no se puede generar embeddings";
-    console.warn(`[RAG] ${reason}`);
+    console.error(`[RAG] ${reason}`);
     return { ok: false, reason };
   }
 
@@ -63,7 +73,13 @@ export async function ingestDocument(
 
     if (docError || !doc) {
       const reason = `Error creando rag_documents: ${docError?.message ?? "desconocido"}`;
-      console.error("[RAG]", reason);
+      console.error("[RAG] rag_documents upsert failed", {
+        sourceType: input.sourceType,
+        sourceId: input.sourceId,
+        reason,
+        code: docError?.code,
+        details: docError?.details,
+      });
       return { ok: false, reason };
     }
 
@@ -106,9 +122,12 @@ export async function ingestDocument(
       })
       .eq("id", doc.id);
 
-    console.log(
-      `[RAG] Documento ingestado: ${input.title} (${chunks.length} chunks)`
-    );
+    console.error("[RAG] ingestDocument success", {
+      sourceType: input.sourceType,
+      sourceId: input.sourceId,
+      documentId: doc.id,
+      chunkCount: chunks.length,
+    });
 
     return { ok: true, documentId: doc.id as string, chunkCount: chunks.length };
   } catch (err) {

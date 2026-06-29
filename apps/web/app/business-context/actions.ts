@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { ingestDocument } from "@/lib/rag/ingest";
+import { isOpenAIConfigured } from "@/lib/rag/embeddings";
 import { loadFathomCallsForKnowledgeBase } from "@/lib/fathom/knowledge-base-queries";
 import {
   BUSINESS_CONTEXT_BUCKET,
@@ -117,9 +118,17 @@ export async function createTextNoteAction(
       throw new Error(error?.message ?? "No se pudo guardar la nota");
     }
 
-    const indexResult = await indexDocument({
+    const docId = row.id as string;
+    console.error("[BusinessContext:RAG] createTextNoteAction saved", {
+      docId,
       organizationId,
-      id: row.id as string,
+      commit: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
+      openaiConfigured: isOpenAIConfigured(),
+    });
+
+    const indexResult = await indexBusinessContextInRag({
+      organizationId,
+      id: docId,
       sourceType: "business_context_note",
       title,
       category,
@@ -127,10 +136,19 @@ export async function createTextNoteAction(
     });
 
     if (!indexResult.ok) {
+      console.error("[BusinessContext:RAG] createTextNoteAction index failed", {
+        docId,
+        reason: indexResult.reason,
+      });
       throw new Error(
         `La nota se guardó pero falló la indexación en RAG: ${indexResult.reason}`
       );
     }
+
+    console.error("[BusinessContext:RAG] createTextNoteAction complete", {
+      docId,
+      chunkCount: indexResult.chunkCount,
+    });
 
     revalidatePath(paths.platform.businessContext.documents);
     return { id: row.id as string };
@@ -254,7 +272,7 @@ export async function createDocumentFromFileAction(
       .update({ content_text: extracted, updated_at: new Date().toISOString() })
       .eq("id", id);
 
-    const indexResult = await indexDocument({
+    const indexResult = await indexBusinessContextInRag({
       organizationId,
       id,
       sourceType: "business_context_document",
@@ -321,8 +339,35 @@ async function verifyRagIndexed(
   return { ok: true, chunkCount: count };
 }
 
+/** Persiste status/index_error y lanza si el update en DB falla. */
+async function persistDocumentIndexStatus(
+  admin: ReturnType<typeof createAdminClient>,
+  id: string,
+  status: "indexed" | "error",
+  indexError: string | null
+): Promise<void> {
+  const { error } = await admin
+    .from("business_context_documents")
+    .update({
+      status,
+      index_error: indexError,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[BusinessContext:RAG] persistDocumentIndexStatus failed", {
+      id,
+      status,
+      indexError,
+      dbError: error.message,
+    });
+    throw new Error(`No se pudo actualizar el status del documento: ${error.message}`);
+  }
+}
+
 /** Indexa en el RAG y actualiza el status según el resultado real verificado en DB. */
-async function indexDocument(args: {
+async function indexBusinessContextInRag(args: {
   organizationId: string;
   id: string;
   sourceType: "business_context_note" | "business_context_document";
@@ -331,6 +376,14 @@ async function indexDocument(args: {
   content: string;
 }): Promise<{ ok: true; chunkCount: number } | { ok: false; reason: string }> {
   const admin = createAdminClient();
+
+  console.error("[BusinessContext:RAG] indexBusinessContextInRag start", {
+    docId: args.id,
+    sourceType: args.sourceType,
+    organizationId: args.organizationId,
+    openaiConfigured: isOpenAIConfigured(),
+    commit: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
+  });
 
   const ingestResult = await ingestDocument({
     organizationId: args.organizationId,
@@ -341,15 +394,17 @@ async function indexDocument(args: {
     tags: ["business_context", args.category],
   });
 
+  console.error("[BusinessContext:RAG] ingestDocument result", {
+    docId: args.id,
+    sourceType: args.sourceType,
+    ingestOk: ingestResult.ok,
+    ...(ingestResult.ok
+      ? { documentId: ingestResult.documentId, chunkCount: ingestResult.chunkCount }
+      : { reason: ingestResult.reason }),
+  });
+
   if (!ingestResult.ok) {
-    await admin
-      .from("business_context_documents")
-      .update({
-        status: "error",
-        index_error: ingestResult.reason,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", args.id);
+    await persistDocumentIndexStatus(admin, args.id, "error", ingestResult.reason);
     return { ok: false, reason: ingestResult.reason };
   }
 
@@ -361,29 +416,45 @@ async function indexDocument(args: {
     ingestResult.documentId
   );
 
+  console.error("[BusinessContext:RAG] verifyRagIndexed result", {
+    docId: args.id,
+    sourceType: args.sourceType,
+    verifyOk: verified.ok,
+    ...(verified.ok ? { chunkCount: verified.chunkCount } : { reason: verified.reason }),
+  });
+
   if (!verified.ok) {
-    console.error("[BusinessContext] verificación RAG falló:", verified.reason);
-    await admin
-      .from("business_context_documents")
-      .update({
-        status: "error",
-        index_error: verified.reason,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", args.id);
+    await persistDocumentIndexStatus(admin, args.id, "error", verified.reason);
     return verified;
   }
 
-  await admin
-    .from("business_context_documents")
-    .update({
-      status: "indexed",
-      index_error: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", args.id);
+  await persistDocumentIndexStatus(admin, args.id, "indexed", null);
 
-  return { ok: true, chunkCount: verified.chunkCount };
+  // Verificación final post-update: confirmar que rag sigue existiendo
+  const finalCheck = await verifyRagIndexed(
+    admin,
+    args.organizationId,
+    args.sourceType,
+    args.id,
+    ingestResult.documentId
+  );
+
+  if (!finalCheck.ok) {
+    console.error("[BusinessContext:RAG] post-index verify failed", {
+      docId: args.id,
+      reason: finalCheck.reason,
+    });
+    await persistDocumentIndexStatus(admin, args.id, "error", finalCheck.reason);
+    return finalCheck;
+  }
+
+  console.error("[BusinessContext:RAG] indexBusinessContextInRag success", {
+    docId: args.id,
+    ragDocumentId: ingestResult.documentId,
+    chunkCount: finalCheck.chunkCount,
+  });
+
+  return { ok: true, chunkCount: finalCheck.chunkCount };
 }
 
 // ---------------------------------------------------------------------------
