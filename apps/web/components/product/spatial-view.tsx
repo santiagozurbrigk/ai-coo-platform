@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { mockSpatialNodes } from "@/mocks/product";
+import { Package } from "lucide-react";
 import {
   getElementCenter,
   type SpatialLine,
 } from "@/lib/product/spatial-layout";
+import { EmptyState } from "@/components/shared/empty-state";
 import type { SpatialProductNode } from "@/types/product";
 import { BusinessNode } from "./business-node";
 import { ProductNode } from "./product-node";
@@ -17,7 +18,7 @@ export function ProductSpatialView({
   nodes: SpatialProductNode[];
   hasRealData: boolean;
 }) {
-  const displayNodes = hasRealData && nodes.length > 0 ? nodes : mockSpatialNodes;
+  const displayNodes = nodes;
   const canvasRef = useRef<HTMLDivElement>(null);
   const centerRef = useRef<HTMLDivElement | null>(null);
   const nodeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -82,6 +83,16 @@ export function ProductSpatialView({
       window.removeEventListener("resize", measureLines);
     };
   }, [measureLines]);
+
+  if (!hasRealData || displayNodes.length === 0) {
+    return (
+      <EmptyState
+        icon={<Package className="h-8 w-8" />}
+        title="Sin datos de producto configurados"
+        description="Agregá tu primer avatar y oferta para mapear tu propuesta de valor."
+      />
+    );
+  }
 
   return (
     <div ref={canvasRef} className="product-spatial-canvas w-full">

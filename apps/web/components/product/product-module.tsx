@@ -7,6 +7,7 @@ import { ProductRagSuggestButton } from "./product-rag-suggest";
 import { ProductViewToggle, type ProductViewMode } from "./product-view-toggle";
 import { ProductSpatialView } from "./spatial-view";
 import { ProductDetailView } from "./detail-view";
+import { EmptyState } from "@/components/shared/empty-state";
 import type { ProductData, SpatialProductNode } from "@/types/product";
 
 export function ProductModule({
@@ -71,6 +72,11 @@ export function ProductModule({
 
       {mode === "spatial" ? (
         <ProductSpatialView nodes={spatialNodes} hasRealData={hasRealData} />
+      ) : !hasRealData ? (
+        <EmptyState
+          title="Sin datos de producto configurados"
+          description="Agregá tu primer avatar y oferta en la vista detalle para construir tu mapa de producto."
+        />
       ) : (
         <ProductDetailView
           productData={productData}

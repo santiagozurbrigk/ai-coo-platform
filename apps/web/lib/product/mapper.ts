@@ -192,6 +192,18 @@ export function buildProposition(
   };
 }
 
+export const emptyProductData: ProductData = {
+  avatars: [],
+  valueLadder: [],
+  offers: [],
+  proposition: {
+    avatar: "",
+    result: "",
+    painRemoved: "",
+    timeframe: "",
+  },
+};
+
 export function buildProductData(
   avatarRows: CustomerAvatarRow[],
   productRows: ProductRow[],

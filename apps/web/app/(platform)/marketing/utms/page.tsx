@@ -5,7 +5,6 @@ import {
   getUTMLinksAction,
   listContentAssetsAction,
 } from "@/app/marketing/actions";
-import { mockUTMLinks } from "@/mocks/utm-links";
 
 export default async function MarketingUTMsPage() {
   const [links, assets, orgWebsiteUrl] = await Promise.all([
@@ -15,7 +14,6 @@ export default async function MarketingUTMsPage() {
   ]);
 
   const youtubeVideos = assets.filter((a) => a.platform === "youtube");
-  const displayLinks = links.length > 0 ? links : mockUTMLinks;
 
   return (
     <div className="space-y-6">
@@ -24,7 +22,7 @@ export default async function MarketingUTMsPage() {
         description="Generá links trackeables y medí qué videos traen leads, bookings y ventas."
       />
       <UTMPageContent
-        initialLinks={displayLinks}
+        initialLinks={links}
         youtubeVideos={youtubeVideos}
         orgWebsiteUrl={orgWebsiteUrl}
       />

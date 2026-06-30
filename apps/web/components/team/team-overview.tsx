@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ModuleSubnav } from "@/components/shared/client";
+import { EmptyState } from "@/components/shared/empty-state";
 import { getTeamPageContextAction } from "@/app/team/actions";
 import { useHashTab } from "@/lib/hooks/use-hash-tab";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -103,15 +104,16 @@ export function TeamOverview({
             canManage={canManage}
             onUpdated={() => void refresh()}
           />
+          {members.length === 0 ? (
+            <EmptyState
+              title="Todavía no hay miembros en tu equipo"
+              description="Invitá al primero desde el botón de arriba para empezar a colaborar."
+            />
+          ) : null}
           <TeamPendingInvitations
             invitations={invitations}
             onUpdated={() => void refresh()}
           />
-          {members.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Aún no hay miembros en tu espacio de trabajo.
-            </p>
-          )}
         </>
       )}
     </div>

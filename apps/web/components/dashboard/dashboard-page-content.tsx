@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { mockDashboard } from "@/mocks/dashboard";
 import { deriveDashboardData } from "@/lib/metrics/derive-dashboard-data";
 import {
   weeklyReportToDashboardRecommendations,
@@ -49,9 +48,6 @@ export function DashboardPageContent({
       financeConfigLoading);
 
   const data = useMemo(() => {
-    if (!useSupabase) return mockDashboard;
-    if (loading) return mockDashboard;
-
     const derived = deriveDashboardData(
       clients,
       conversations,
@@ -72,7 +68,7 @@ export function DashboardPageContent({
 
     return {
       ...derived,
-      isEmpty: hasNoActivity,
+      isEmpty: !useSupabase || hasNoActivity,
       executiveSummary: hasWeeklyReport
         ? weeklyReport!.executive_summary!
         : useSupabase

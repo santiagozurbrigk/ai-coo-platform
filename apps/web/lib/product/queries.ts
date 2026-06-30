@@ -2,10 +2,10 @@ import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { isMissingTableError } from "@/lib/auth/bootstrap";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { mockProductData } from "@/mocks/product";
 import {
   buildProductData,
   buildSpatialNodes,
+  emptyProductData,
   type CustomerAvatarRow,
   type ProductRow,
   type ValueLadderRow,
@@ -22,7 +22,7 @@ export type ProductPageData = {
 export async function getProductPageData(): Promise<ProductPageData> {
   if (!isSupabaseConfigured()) {
     return {
-      productData: mockProductData,
+      productData: emptyProductData,
       spatialNodes: [],
       hasRealData: false,
       canEdit: false,
@@ -66,7 +66,7 @@ export async function getProductPageData(): Promise<ProductPageData> {
 
     if (!hasRealData) {
       return {
-        productData: mockProductData,
+        productData: emptyProductData,
         spatialNodes: [],
         hasRealData: false,
         canEdit: true,
@@ -82,7 +82,7 @@ export async function getProductPageData(): Promise<ProductPageData> {
     };
   } catch {
     return {
-      productData: mockProductData,
+      productData: emptyProductData,
       spatialNodes: [],
       hasRealData: false,
       canEdit: true,

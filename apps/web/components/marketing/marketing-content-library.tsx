@@ -154,11 +154,6 @@ export function MarketingContentLibrary({
 
   return (
     <div className="space-y-4">
-      {!hasRealData ? (
-        <span className="inline-flex rounded-full bg-amber-500/15 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-          Sin datos reales aún — conectá Instagram o YouTube en Integraciones
-        </span>
-      ) : null}
       <div className="space-y-3 rounded-xl border border-border bg-card/40 p-4">
         <div className="flex flex-wrap items-center gap-2">
           <FilterPills

@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import { Globe, MessageCircle, Users } from "lucide-react";
 import { Button } from "@ai-coo/ui";
 import { getUTMFunnelAction } from "@/app/marketing/actions";
-import { mockUTMLeads } from "@/mocks/utm-links";
 import type { UTMFunnelData, UTMLinkRow } from "@/types/utm";
 import { UTMLeadsSheet } from "./utm-leads-sheet";
 
@@ -38,14 +37,6 @@ export function UTMTable({ links }: { links: UTMLinkRow[] }) {
       const result = await getUTMFunnelAction(link.id);
       if (result.success) {
         setFunnel(result.data);
-      } else if (link.id.startsWith("utm-mock")) {
-        const mockLeads = mockUTMLeads[link.id] ?? [];
-        setFunnel({
-          leads: mockLeads,
-          bookings: [],
-          sales: [],
-          totalRevenue: 0,
-        });
       }
     });
   }
