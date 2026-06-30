@@ -47,6 +47,7 @@ function isPublicPath(pathname: string): boolean {
       pathname.includes("/webhook") ||
       pathname.includes("/oauth/callback") ||
       pathname.includes("/oauth/start") ||
+      pathname.endsWith("/callback") ||
       pathname.endsWith("/sync") ||
       pathname.endsWith("/poll") ||
       pathname.endsWith("/process") ||

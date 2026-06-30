@@ -8,8 +8,12 @@ import {
   NO_WEBHOOK_SIGNING_KEY,
 } from "@/lib/calendly/oauth-token";
 import { cookies } from "next/headers";
+import { withOAuthNoCache } from "@/lib/integrations/oauth-callback-headers";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 function safeJsonParse<T>(value: string | undefined): T | null {
   if (!value) return null;
@@ -36,7 +40,7 @@ function integrationsRedirect(
   }
   const res = NextResponse.redirect(target);
   res.cookies.delete("calendly_oauth");
-  return res;
+  return withOAuthNoCache(res);
 }
 
 export async function GET(req: Request) {

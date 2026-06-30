@@ -3,8 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes";
+import { withOAuthNoCache } from "@/lib/integrations/oauth-callback-headers";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 function integrationsRedirect(
   origin: string,
@@ -14,7 +18,7 @@ function integrationsRedirect(
   for (const [key, value] of Object.entries(params)) {
     target.searchParams.set(key, value);
   }
-  return NextResponse.redirect(target);
+  return withOAuthNoCache(NextResponse.redirect(target));
 }
 
 export async function GET(request: NextRequest) {

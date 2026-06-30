@@ -7,6 +7,9 @@ import { integrationsOAuthRedirect } from "@/lib/integrations/oauth-redirect";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 type OAuthCookie = {
   organizationId: string;

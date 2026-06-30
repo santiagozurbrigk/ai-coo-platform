@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { paths } from "@/routes";
+import { withOAuthNoCache } from "@/lib/integrations/oauth-callback-headers";
 
 export type IntegrationOAuthProvider =
   | "typeform"
@@ -22,5 +23,5 @@ export function integrationsOAuthRedirect(
   if (cookieName) {
     res.cookies.delete(cookieName);
   }
-  return res;
+  return withOAuthNoCache(res);
 }

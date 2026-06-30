@@ -15,11 +15,19 @@ const nextConfig: NextConfig = {
     root: monorepoRoot,
   },
   async redirects() {
-    return sectionRedirects.map(({ source, destination }) => ({
-      source,
-      destination,
-      permanent: false,
-    }));
+    return [
+      ...sectionRedirects.map(({ source, destination }) => ({
+        source,
+        destination,
+        permanent: false,
+      })),
+      // URI legacy en Google Cloud / envs viejos (sin /oauth/)
+      {
+        source: "/api/integrations/google-forms/callback",
+        destination: "/api/integrations/google-forms/oauth/callback",
+        permanent: false,
+      },
+    ];
   },
 };
 

@@ -4,8 +4,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { assertStripeOAuthConfig, STRIPE_TOKEN_URL } from "@/lib/stripe/config";
 import { paths } from "@/routes";
+import { withOAuthNoCache } from "@/lib/integrations/oauth-callback-headers";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 type OAuthCookie = {
   organizationId: string;
@@ -31,7 +35,7 @@ function redirectToIntegrations(
   }
   const res = NextResponse.redirect(target);
   res.cookies.delete("stripe_oauth");
-  return res;
+  return withOAuthNoCache(res);
 }
 
 export async function GET(req: NextRequest) {
