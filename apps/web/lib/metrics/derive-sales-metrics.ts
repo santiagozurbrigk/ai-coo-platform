@@ -1,4 +1,3 @@
-import { mockFrequentObjections } from "@/mocks/sales";
 import { DAY_LABELS_ES } from "@/lib/format";
 import type { ClosingCall } from "@/types/closing";
 import type { Conversation, SalesMetricsData } from "@/types/sales";
@@ -75,12 +74,9 @@ export function deriveSalesMetrics(
     ghostingRate: total > 0 ? (ghostedCount / total) * 100 : 0,
     avgResponseMin,
     messagesPerBooking,
-    followUpDelayHours: 4.2,
     activeConversations: activeCount,
     unansweredConversations: unanswered,
     bookingTrend: deriveBookingTrend(conversations),
     closerBreakdown: closers,
-    /** Mock hasta Phase 2 — detección IA en transcripts y conversaciones */
-    frequentObjections: mockFrequentObjections,
   };
 }

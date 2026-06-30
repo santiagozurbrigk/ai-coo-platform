@@ -21,7 +21,6 @@ function InlineStats({ data }: { data: SalesMetricsData }) {
     { label: "Activas", value: String(data.activeConversations) },
     { label: "Sin responder", value: String(data.unansweredConversations) },
     { label: "Mensajes / agend.", value: String(data.messagesPerBooking) },
-    { label: "Retraso follow-up", value: `${data.followUpDelayHours} h` },
   ];
 
   return (

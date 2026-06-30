@@ -3,14 +3,64 @@ import type {
   DashboardRisk,
 } from "@/types/dashboard";
 import type {
+  OperationsArea,
   OperationsBottleneck,
+  OperationsDepartment,
+  OperationsDepartmentStatus,
   OperationsOverviewData,
   OperationsRecommendation,
   OperationsRisk,
   OperationsRiskLevel,
 } from "@/types/operations-overview";
 import type { WeeklyReportRow } from "@/types/operations";
+import type { ExecutiveReport } from "@/types/executive-reports";
 import { DB_DEPARTMENT_LABELS } from "./weekly-utils";
+
+const DEPARTMENT_AREA_MAP: Record<string, OperationsArea> = {
+  Ventas: "sales",
+  Delivery: "delivery",
+  Operaciones: "operations",
+  Marketing: "marketing",
+};
+
+const DEPARTMENT_STATUS_LABELS: Record<OperationsDepartmentStatus, string> = {
+  healthy: "Saludable",
+  warning: "Atención",
+  critical: "Crítico",
+};
+
+/** El reporte ejecutivo usa "watch"; el grid de operaciones usa "warning". */
+function toOperationsStatus(
+  status: ExecutiveReport["departments"][number]["status"]
+): OperationsDepartmentStatus {
+  return status === "watch" ? "warning" : status;
+}
+
+/**
+ * Adapta los estados reales de `computeDepartmentStatuses()` al shape que
+ * consume `OperationsDepartmentsGrid`. Los departamentos sin mapeo de área
+ * (p. ej. "Fundador") se omiten porque el grid solo modela las 4 áreas.
+ */
+export function departmentStatusesToOperationsDepartments(
+  departments: ExecutiveReport["departments"]
+): OperationsDepartment[] {
+  return departments
+    .filter((dept) => dept.name in DEPARTMENT_AREA_MAP)
+    .map((dept) => {
+      const area = DEPARTMENT_AREA_MAP[dept.name]!;
+      const status = toOperationsStatus(dept.status);
+      return {
+        id: `dept-${area}`,
+        area,
+        name: dept.name,
+        status,
+        statusLabel: DEPARTMENT_STATUS_LABELS[status],
+        metrics: [
+          { label: "Estado operativo", value: DEPARTMENT_STATUS_LABELS[status] },
+        ],
+      };
+    });
+}
 
 function asRiskLevel(value: unknown): OperationsRiskLevel {
   const v = String(value ?? "").toLowerCase();

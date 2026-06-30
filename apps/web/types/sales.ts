@@ -101,10 +101,8 @@ export type SalesMetricsData = {
   ghostingRate: number;
   avgResponseMin: number;
   messagesPerBooking: number;
-  followUpDelayHours: number;
   activeConversations: number;
   unansweredConversations: number;
   bookingTrend: { label: string; value: number }[];
   closerBreakdown: CloserPerformance[];
-  frequentObjections: FrequentObjection[];
 };

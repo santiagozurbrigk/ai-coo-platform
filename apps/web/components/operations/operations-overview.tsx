@@ -3,7 +3,10 @@
 import { motion } from "framer-motion";
 import { mockOperationsOverview } from "@/mocks/operations-overview";
 import { weeklyReportToOperationsOverview } from "@/lib/operations/map-weekly-report";
-import type { OperationsOverviewData } from "@/types/operations-overview";
+import type {
+  OperationsDepartment,
+  OperationsOverviewData,
+} from "@/types/operations-overview";
 import type { WeeklyReportRow } from "@/types/operations";
 import { OperationsExecutiveReport } from "./operations-executive-report";
 import { OperationsRisksSection } from "./operations-risks-section";
@@ -19,18 +22,19 @@ const fade = {
 
 export function OperationsOverview({
   weeklyReport = null,
+  departments,
 }: {
   weeklyReport?: WeeklyReportRow | null;
+  departments?: OperationsDepartment[];
 }) {
   const hasReport =
     weeklyReport?.status === "ready" && Boolean(weeklyReport.executive_summary);
 
+  const resolvedDepartments = departments ?? mockOperationsOverview.departments;
+
   const data: OperationsOverviewData = hasReport
-    ? weeklyReportToOperationsOverview(
-        weeklyReport,
-        mockOperationsOverview.departments
-      )
-    : mockOperationsOverview;
+    ? weeklyReportToOperationsOverview(weeklyReport, resolvedDepartments)
+    : { ...mockOperationsOverview, departments: resolvedDepartments };
 
   if (!hasReport) {
     return (

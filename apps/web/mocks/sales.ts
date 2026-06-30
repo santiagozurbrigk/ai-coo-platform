@@ -231,7 +231,6 @@ export const mockSalesMetrics: SalesMetricsData = {
   ghostingRate: 18.5,
   avgResponseMin: 22,
   messagesPerBooking: 14,
-  followUpDelayHours: 4.2,
   activeConversations: 128,
   unansweredConversations: 17,
   bookingTrend: DAY_LABELS_ES.map((label, i) => ({
@@ -239,5 +238,4 @@ export const mockSalesMetrics: SalesMetricsData = {
     value: [8, 12, 10, 15, 11, 6, 9][i] ?? 8,
   })),
   closerBreakdown: mockFinanceSummary.closerBreakdown,
-  frequentObjections: mockFrequentObjections,
 };
