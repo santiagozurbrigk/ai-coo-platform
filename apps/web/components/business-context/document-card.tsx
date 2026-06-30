@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Badge, Button, cn } from "@ai-coo/ui";
+import { FileSpreadsheet, FileText } from "lucide-react";
 import { paths } from "@/routes";
 import type { ContextDocument, DocumentStatus } from "@/types/business-context";
 
@@ -67,7 +68,14 @@ export function DocumentCard({ document }: { document: ContextDocument }) {
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
         <span>{document.updatedAt}</span>
         <span>·</span>
-        <span>{document.source}</span>
+        <span className="inline-flex items-center gap-1">
+          {document.sourceType === "google_docs" ? (
+            <FileText className="h-3 w-3 text-[#4285F4]" aria-hidden />
+          ) : document.sourceType === "sheets" ? (
+            <FileSpreadsheet className="h-3 w-3 text-[#0F9D58]" aria-hidden />
+          ) : null}
+          {document.source}
+        </span>
       </div>
 
       <p className="line-clamp-2 flex-1 text-[11px] leading-relaxed text-muted-foreground">

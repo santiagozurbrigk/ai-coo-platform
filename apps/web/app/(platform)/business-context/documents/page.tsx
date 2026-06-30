@@ -4,6 +4,7 @@ import {
   getBusinessContextDocumentsAction,
   getFathomContextCallsAction,
 } from "@/app/business-context/actions";
+import { getGoogleFormsIntegrationStatusAction } from "@/app/forms/actions";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { ContextDocument, FathomKnowledgeCall } from "@/types/business-context";
 
@@ -12,15 +13,19 @@ export default async function BusinessContextDocumentsPage() {
   let contextCalls: FathomKnowledgeCall[] = [];
   let clientMeetingCalls: FathomKnowledgeCall[] = [];
 
+  let googleConnected = false;
+
   if (isSupabaseConfigured()) {
     try {
-      const [docs, fathom] = await Promise.all([
+      const [docs, fathom, googleStatus] = await Promise.all([
         getBusinessContextDocumentsAction(),
         getFathomContextCallsAction(),
+        getGoogleFormsIntegrationStatusAction(),
       ]);
       documents = docs;
       contextCalls = fathom.contextCalls;
       clientMeetingCalls = fathom.clientMeetingCalls;
+      googleConnected = googleStatus.connected;
     } catch (e) {
       console.error("[KnowledgeBase] load:", e);
     }
@@ -33,6 +38,7 @@ export default async function BusinessContextDocumentsPage() {
         documents={documents}
         contextCalls={contextCalls}
         clientMeetingCalls={clientMeetingCalls}
+        googleConnected={googleConnected}
       />
     </div>
   );

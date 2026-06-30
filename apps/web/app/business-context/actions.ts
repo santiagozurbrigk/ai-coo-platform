@@ -8,6 +8,16 @@ import { createClient } from "@/lib/supabase/server";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { ingestDocument, IngestDocumentError } from "@/lib/rag/ingest";
 import { isOpenAIConfigured } from "@/lib/rag/embeddings";
+import {
+  exportGoogleDriveFile,
+  getGoogleDriveFileMetadata,
+  GOOGLE_DOC_MIME,
+  GOOGLE_SHEET_MIME,
+  listGoogleDriveFilesByMime,
+  type GoogleDriveContentFile,
+} from "@/lib/google/drive-content";
+import { getGoogleAccessTokenForOrganization } from "@/lib/google/get-access-token";
+import { isGooglePermissionError } from "@/lib/google/errors";
 import { loadFathomCallsForKnowledgeBase } from "@/lib/fathom/knowledge-base-queries";
 import {
   BUSINESS_CONTEXT_BUCKET,
@@ -26,7 +36,7 @@ import type { ContextDocument, FathomKnowledgeCall } from "@/types/business-cont
 import { paths } from "@/routes";
 
 const ROW_COLUMNS =
-  "id, organization_id, title, category, source, content_text, storage_path, mime_type, status, index_error, uploaded_by, created_at, updated_at";
+  "id, organization_id, title, category, source, content_text, storage_path, mime_type, status, index_error, external_source_id, uploaded_by, created_at, updated_at";
 
 const categorySchema = z.enum(
   DOCUMENT_CATEGORIES as [string, ...string[]]
@@ -53,6 +63,21 @@ const createFromFileSchema = z.object({
 });
 
 const idSchema = z.string().uuid("Identificador inválido");
+
+/** IDs de archivos en Google Drive: alfanuméricos, guiones y guiones bajos. */
+const googleDriveFileIdSchema = z
+  .string()
+  .trim()
+  .min(10, "ID de Google inválido")
+  .max(100, "ID de Google inválido")
+  .regex(/^[a-zA-Z0-9_-]+$/, "ID de Google inválido");
+
+const importGoogleSourceSchema = z.object({
+  googleFileId: googleDriveFileIdSchema,
+  category: categorySchema,
+});
+
+export type GoogleDriveListItem = GoogleDriveContentFile;
 
 async function currentUserId(): Promise<string | null> {
   const supabase = await createClient();
@@ -293,6 +318,189 @@ export async function createDocumentFromFileAction(
     revalidatePath(paths.platform.businessContext.documents);
     return { id };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Google Docs y Sheets (Drive API — scope drive.readonly ya en OAuth unificado)
+// ---------------------------------------------------------------------------
+
+async function requireGoogleAccessToken(): Promise<string> {
+  const organizationId = await requireOrganizationId();
+  const token = await getGoogleAccessTokenForOrganization(organizationId);
+  if (!token) {
+    throw new Error(
+      "Google no está conectado. Conectá tu cuenta desde Integraciones para importar Docs y Sheets."
+    );
+  }
+  return token;
+}
+
+async function assertGoogleSourceNotImported(
+  admin: ReturnType<typeof createAdminClient>,
+  organizationId: string,
+  source: "google_doc" | "google_sheet",
+  googleFileId: string
+): Promise<void> {
+  const { data } = await admin
+    .from("business_context_documents")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("source", source)
+    .eq("external_source_id", googleFileId)
+    .maybeSingle();
+
+  if (data?.id) {
+    throw new Error("Este archivo de Google ya está en tu base de conocimiento.");
+  }
+}
+
+async function importGoogleDriveContent(args: {
+  source: "google_doc" | "google_sheet";
+  googleFileId: string;
+  category: string;
+  exportMimeType: string;
+  emptyContentMessage: string;
+}): Promise<{ id: string }> {
+  const organizationId = await requireOrganizationId();
+  const uploadedBy = await currentUserId();
+  const admin = createAdminClient();
+  const accessToken = await requireGoogleAccessToken();
+
+  await assertGoogleSourceNotImported(
+    admin,
+    organizationId,
+    args.source,
+    args.googleFileId
+  );
+
+  let content: string;
+  let title: string;
+
+  try {
+    const [exported, meta] = await Promise.all([
+      exportGoogleDriveFile(accessToken, args.googleFileId, args.exportMimeType),
+      getGoogleDriveFileMetadata(accessToken, args.googleFileId),
+    ]);
+    content = exported.trim();
+    title = meta?.name?.trim() || "Documento de Google";
+  } catch (err) {
+    if (isGooglePermissionError(err)) {
+      throw new Error(
+        "Permisos de Google insuficientes. Reconectá tu cuenta desde Integraciones."
+      );
+    }
+    throw err;
+  }
+
+  if (!content) {
+    throw new Error(args.emptyContentMessage);
+  }
+
+  const { data: row, error } = await admin
+    .from("business_context_documents")
+    .insert({
+      organization_id: organizationId,
+      title,
+      category: args.category,
+      source: args.source,
+      external_source_id: args.googleFileId,
+      content_text: content,
+      status: "processing",
+      uploaded_by: uploadedBy,
+    })
+    .select("id")
+    .single();
+
+  if (error || !row) {
+    throw new Error(error?.message ?? "No se pudo guardar el documento importado");
+  }
+
+  const docId = row.id as string;
+
+  const indexResult = await indexBusinessContextInRag({
+    organizationId,
+    id: docId,
+    sourceType: "business_context_document",
+    title,
+    category: args.category,
+    content,
+  });
+
+  if (!indexResult.ok) {
+    throw new Error(
+      `El documento se guardó pero falló la indexación en RAG: ${indexResult.reason}`
+    );
+  }
+
+  await assertDocumentIndexed(admin, docId);
+  revalidatePath(paths.platform.businessContext.documents);
+  return { id: docId };
+}
+
+export async function getGoogleDocsListAction(): Promise<GoogleDriveListItem[]> {
+  const accessToken = await requireGoogleAccessToken();
+  try {
+    return await listGoogleDriveFilesByMime(accessToken, GOOGLE_DOC_MIME);
+  } catch (err) {
+    if (isGooglePermissionError(err)) {
+      throw new Error(
+        "Permisos de Google insuficientes. Reconectá tu cuenta desde Integraciones."
+      );
+    }
+    throw err;
+  }
+}
+
+export async function getGoogleSheetsListAction(): Promise<GoogleDriveListItem[]> {
+  const accessToken = await requireGoogleAccessToken();
+  try {
+    return await listGoogleDriveFilesByMime(accessToken, GOOGLE_SHEET_MIME);
+  } catch (err) {
+    if (isGooglePermissionError(err)) {
+      throw new Error(
+        "Permisos de Google insuficientes. Reconectá tu cuenta desde Integraciones."
+      );
+    }
+    throw err;
+  }
+}
+
+export async function importGoogleDocAction(
+  input: unknown
+): Promise<MutationResult<{ id: string }>> {
+  const parsed = importGoogleSourceSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+
+  return runMutation(async () =>
+    importGoogleDriveContent({
+      source: "google_doc",
+      googleFileId: parsed.data.googleFileId,
+      category: parsed.data.category,
+      exportMimeType: "text/plain",
+      emptyContentMessage: "El Google Doc está vacío o no se pudo leer su contenido.",
+    })
+  );
+}
+
+export async function importGoogleSheetAction(
+  input: unknown
+): Promise<MutationResult<{ id: string }>> {
+  const parsed = importGoogleSourceSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+  }
+
+  return runMutation(async () =>
+    importGoogleDriveContent({
+      source: "google_sheet",
+      googleFileId: parsed.data.googleFileId,
+      category: parsed.data.category,
+      exportMimeType: "text/csv",
+      emptyContentMessage: "La Google Sheet está vacía o no se pudo exportar como CSV.",
+    })
+  );
 }
 
 /** Confirma en DB que rag_documents + al menos un rag_chunk existen. */

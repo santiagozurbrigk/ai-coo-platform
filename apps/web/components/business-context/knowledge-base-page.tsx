@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Button,
@@ -10,12 +10,17 @@ import {
   DialogTitle,
   cn,
 } from "@ai-coo/ui";
-import { CheckCircle2, FileText, Plus, Upload } from "lucide-react";
+import { CheckCircle2, FileSpreadsheet, FileText, Plus, Upload } from "lucide-react";
 import type { ContextDocument, DocumentCategory, FathomKnowledgeCall } from "@/types/business-context";
 import {
   createDocumentFromFileAction,
   createTextNoteAction,
+  getGoogleDocsListAction,
+  getGoogleSheetsListAction,
+  importGoogleDocAction,
+  importGoogleSheetAction,
   prepareDocumentFileUploadAction,
+  type GoogleDriveListItem,
 } from "@/app/business-context/actions";
 import {
   BUSINESS_CONTEXT_ACCEPT,
@@ -24,18 +29,23 @@ import {
 } from "@/lib/business-context/file-types";
 import { DOCUMENT_CATEGORIES, DOCUMENT_CATEGORY_LABELS } from "@/lib/business-context/constants";
 import { useToast } from "@/providers/toast-provider";
+import { EmptyState } from "@/components/shared/empty-state";
+import { paths } from "@/routes";
+import Link from "next/link";
 import { DocumentGrid } from "./document-grid";
 
-type AddStep = "pick" | "pdf" | "note";
+type AddStep = "pick" | "pdf" | "note" | "google-docs" | "google-sheets";
 
 export function KnowledgeBasePage({
   documents: initial,
   contextCalls = [],
   clientMeetingCalls = [],
+  googleConnected = false,
 }: {
   documents: ContextDocument[];
   contextCalls?: FathomKnowledgeCall[];
   clientMeetingCalls?: FathomKnowledgeCall[];
+  googleConnected?: boolean;
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [step, setStep] = useState<AddStep>("pick");
@@ -51,7 +61,7 @@ export function KnowledgeBasePage({
         <div>
           <h2 className="text-lg font-semibold">Agregar documento</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Subí PDFs o escribí notas — se indexan automáticamente para que la IA los use como contexto.
+            Subí PDFs, escribí notas o importá desde Google Docs y Sheets — se indexan automáticamente para que la IA los use como contexto.
           </p>
         </div>
         <Button size="lg" className="gap-2 shrink-0" onClick={() => setAddOpen(true)}>
@@ -70,7 +80,15 @@ export function KnowledgeBasePage({
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {step === "pick" ? "¿Qué querés agregar?" : step === "pdf" ? "Subir PDF" : "Escribir nota"}
+              {step === "pick"
+                ? "¿Qué querés agregar?"
+                : step === "pdf"
+                  ? "Subir PDF"
+                  : step === "note"
+                    ? "Escribir nota"
+                    : step === "google-docs"
+                      ? "Importar de Google Docs"
+                      : "Importar de Google Sheets"}
             </DialogTitle>
           </DialogHeader>
 
@@ -98,6 +116,28 @@ export function KnowledgeBasePage({
                   Texto directo, sin archivo
                 </span>
               </button>
+              <button
+                type="button"
+                onClick={() => setStep("google-docs")}
+                className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:bg-muted/40 transition-colors"
+              >
+                <FileText className="h-6 w-6 text-[#4285F4]" />
+                <span className="text-sm font-medium">Google Docs</span>
+                <span className="text-[11px] text-muted-foreground text-center">
+                  Importar un Doc de tu cuenta
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep("google-sheets")}
+                className="flex flex-col items-center gap-2 rounded-xl border border-border p-4 hover:bg-muted/40 transition-colors"
+              >
+                <FileSpreadsheet className="h-6 w-6 text-[#0F9D58]" />
+                <span className="text-sm font-medium">Google Sheets</span>
+                <span className="text-[11px] text-muted-foreground text-center">
+                  Importar una Sheet como CSV
+                </span>
+              </button>
             </div>
           )}
 
@@ -107,6 +147,24 @@ export function KnowledgeBasePage({
 
           {step === "note" && (
             <WriteNoteFlow onBack={() => setStep("pick")} onDone={closeAdd} />
+          )}
+
+          {step === "google-docs" && (
+            <GoogleImportFlow
+              kind="doc"
+              googleConnected={googleConnected}
+              onBack={() => setStep("pick")}
+              onDone={closeAdd}
+            />
+          )}
+
+          {step === "google-sheets" && (
+            <GoogleImportFlow
+              kind="sheet"
+              googleConnected={googleConnected}
+              onBack={() => setStep("pick")}
+              onDone={closeAdd}
+            />
           )}
         </DialogContent>
       </Dialog>
@@ -394,5 +452,170 @@ function UploadPdfFlow({
         {pending ? "Subiendo e indexando…" : "Subir e indexar"}
       </Button>
     </form>
+  );
+}
+
+function GoogleImportFlow({
+  kind,
+  googleConnected,
+  onBack,
+  onDone,
+}: {
+  kind: "doc" | "sheet";
+  googleConnected: boolean;
+  onBack: () => void;
+  onDone: () => void;
+}) {
+  const router = useRouter();
+  const { push } = useToast();
+  const [files, setFiles] = useState<GoogleDriveListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [category, setCategory] = useState<DocumentCategory>("operations");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const label = kind === "doc" ? "Google Docs" : "Google Sheets";
+
+  useEffect(() => {
+    if (!googleConnected) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    const load = kind === "doc" ? getGoogleDocsListAction : getGoogleSheetsListAction;
+
+    void load()
+      .then((items) => {
+        if (!cancelled) setFiles(items);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : `No se pudo listar ${label}`);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleConnected, kind, label]);
+
+  function onImport() {
+    if (!selectedId) {
+      setError(`Seleccioná un archivo de ${label}.`);
+      return;
+    }
+    setError(null);
+
+    startTransition(async () => {
+      const action =
+        kind === "doc" ? importGoogleDocAction : importGoogleSheetAction;
+      const res = await action({ googleFileId: selectedId, category });
+      if (!res.success) {
+        setError(res.error);
+        return;
+      }
+      push({
+        title: "Importado",
+        description: `Se está indexando el ${kind === "doc" ? "Doc" : "Sheet"} en la base de conocimiento.`,
+        variant: "success",
+      });
+      router.refresh();
+      onDone();
+    });
+  }
+
+  if (!googleConnected) {
+    return (
+      <div className="space-y-4 py-2">
+        <button type="button" className="text-sm text-primary" onClick={onBack}>
+          ← Volver
+        </button>
+        <EmptyState
+          variant="inline"
+          title={`Conectá Google para importar ${label}`}
+          description="Tu cuenta de Google (Forms/YouTube) ya incluye acceso de lectura a Drive. Conectala desde Integraciones."
+          action={
+            <Button asChild size="sm">
+              <Link href={paths.platform.integrations}>Ir a Integraciones</Link>
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 py-2">
+      <button type="button" className="text-sm text-primary" onClick={onBack}>
+        ← Volver
+      </button>
+
+      {error ? (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Cargando archivos de {label}…</p>
+      ) : files.length === 0 ? (
+        <EmptyState
+          variant="inline"
+          title={`No hay ${label} en tu cuenta`}
+          description={`No encontramos archivos de ${label} en el Drive conectado.`}
+        />
+      ) : (
+        <ul className="max-h-52 space-y-1 overflow-y-auto rounded-lg border border-border/60 p-1">
+          {files.map((file) => (
+            <li key={file.id}>
+              <button
+                type="button"
+                onClick={() => setSelectedId(file.id)}
+                className={cn(
+                  "w-full rounded-md px-3 py-2 text-left text-sm transition-colors",
+                  selectedId === file.id
+                    ? "bg-primary/10 text-foreground"
+                    : "hover:bg-muted/40 text-muted-foreground"
+                )}
+              >
+                <span className="font-medium text-foreground">{file.name}</span>
+                {file.modifiedTime ? (
+                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                    Modificado{" "}
+                    {new Date(file.modifiedTime).toLocaleDateString("es", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </span>
+                ) : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Categoría</label>
+        <CategorySelect value={category} onChange={setCategory} />
+      </div>
+
+      <Button
+        type="button"
+        className="w-full"
+        disabled={pending || !selectedId || loading}
+        onClick={onImport}
+      >
+        {pending ? "Importando e indexando…" : "Importar e indexar"}
+      </Button>
+    </div>
   );
 }
