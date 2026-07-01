@@ -16,6 +16,7 @@ export type SettingsInitialData = {
   timezone: string;
   currency: string;
   language: string;
+  country: string;
   displayName: string;
   email: string;
   lastSignInAt: string | null;
@@ -30,6 +31,7 @@ const DEFAULTS: SettingsInitialData = {
   timezone: "America/Argentina/Buenos_Aires",
   currency: "USD",
   language: "es",
+  country: "",
   displayName: "Nombre Fundador",
   email: "founder@acme.co",
   lastSignInAt: null,
@@ -71,6 +73,7 @@ export async function getSettingsInitialData(): Promise<SettingsInitialData> {
         orgSettings.timezone ?? DEFAULTS.timezone;
       data.currency = orgSettings.currency ?? DEFAULTS.currency;
       data.language = orgSettings.language ?? DEFAULTS.language;
+      data.country = orgSettings.country ?? "";
     }
   } catch {
     // Sin sesión o tablas pendientes — mantener defaults

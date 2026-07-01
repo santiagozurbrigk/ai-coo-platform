@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export interface OrgContext {
   orgName: string;
   industry?: string;
+  country?: string;
   salesScript?: string;
   activeSOPs?: Array<{ title: string; content: string; department: string }>;
   primaryAvatar?: Record<string, unknown>;
@@ -32,7 +33,7 @@ export async function getOrgContext(organizationId: string): Promise<OrgContext>
     await Promise.all([
       supabase
         .from("organizations")
-        .select("name")
+        .select("name, industry, country")
         .eq("id", organizationId)
         .maybeSingle(),
 
@@ -86,6 +87,8 @@ export async function getOrgContext(organizationId: string): Promise<OrgContext>
 
   const context: OrgContext = {
     orgName: org.data?.name ?? "la organización",
+    industry: org.data?.industry?.trim() || undefined,
+    country: org.data?.country?.trim() || undefined,
     salesScript: salesScript.data
       ? JSON.stringify(salesScript.data.sections)
       : undefined,
@@ -114,6 +117,9 @@ export function buildOrgContextText(context: OrgContext): string {
   sections.push(`ORGANIZACIÓN: ${context.orgName}`);
   if (context.industry) {
     sections.push(`Industria: ${context.industry}`);
+  }
+  if (context.country) {
+    sections.push(`País: ${context.country.toUpperCase()}`);
   }
 
   if (context.primaryAvatar) {

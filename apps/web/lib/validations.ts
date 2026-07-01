@@ -413,6 +413,11 @@ export const completeInvitationForCurrentUserSchema = z.object({
   token: z.string().trim().min(1, "Token inválido").max(500),
 });
 
+import {
+  UNIPILE_PROXY_COUNTRY_CODES,
+  type UnipileProxyCountryCode,
+} from "@/lib/unipile/proxy-countries";
+
 export const organizationTimezoneSchema = z.enum([
   "America/Argentina/Buenos_Aires",
   "America/Mexico_City",
@@ -426,6 +431,13 @@ export const organizationTimezoneSchema = z.enum([
 export const organizationCurrencySchema = z.enum(["USD", "ARS", "EUR"]);
 
 export const organizationLanguageSchema = z.enum(["es", "en"]);
+
+export const organizationCountrySchema = z.enum(
+  UNIPILE_PROXY_COUNTRY_CODES as unknown as [
+    UnipileProxyCountryCode,
+    ...UnipileProxyCountryCode[],
+  ]
+);
 
 export const updateOrganizationWebsiteSchema = z.object({
   websiteUrl: z.string().trim().max(500),
@@ -442,6 +454,10 @@ export const saveGeneralOrganizationSettingsSchema = z.object({
   timezone: organizationTimezoneSchema.optional(),
   currency: organizationCurrencySchema.optional(),
   language: organizationLanguageSchema.optional(),
+  country: z
+    .union([organizationCountrySchema, z.literal("")])
+    .optional()
+    .transform((value) => (value === "" || value == null ? null : value)),
 });
 
 export const updateNotificationPreferencesSchema = z.object({

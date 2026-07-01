@@ -20,6 +20,7 @@ import { useToast } from "@/providers/toast-provider";
 import { es } from "@/lib/locale/es";
 import { formatRelativeTime } from "@/lib/format";
 import type { SettingsInitialData } from "@/lib/settings/initial-data";
+import { UNIPILE_PROXY_COUNTRY_OPTIONS } from "@/lib/unipile/proxy-countries";
 import { FieldLabel } from "./field-label";
 import { NotificationToggle } from "./notification-toggle";
 import { SectionHeader } from "@ai-coo/ui";
@@ -75,6 +76,7 @@ export function SettingsForm({
   const [timezone, setTimezone] = useState(initialData.timezone);
   const [currency, setCurrency] = useState(initialData.currency);
   const [language, setLanguage] = useState(initialData.language);
+  const [country, setCountry] = useState(initialData.country);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
   const [displayName, setDisplayName] = useState(initialData.displayName);
@@ -91,6 +93,7 @@ export function SettingsForm({
     setTimezone(initialData.timezone);
     setCurrency(initialData.currency);
     setLanguage(initialData.language);
+    setCountry(initialData.country);
     setSaveError(null);
     setDisplayName(initialData.displayName);
     setEmail(initialData.email);
@@ -107,6 +110,7 @@ export function SettingsForm({
         timezone,
         currency,
         language,
+        country,
       });
       if (result.success) {
         push({
@@ -177,7 +181,7 @@ export function SettingsForm({
                 />
               </div>
             </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <FieldLabel htmlFor="timezone">Zona horaria</FieldLabel>
                 <select
@@ -222,6 +226,26 @@ export function SettingsForm({
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <FieldLabel htmlFor="country">País</FieldLabel>
+                <select
+                  id="country"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                >
+                  <option value="">Sin seleccionar</option>
+                  {UNIPILE_PROXY_COUNTRY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Usado para el proxy al conectar Instagram DMs o WhatsApp vía
+                  Unipile.
+                </p>
               </div>
             </div>
             <div className="mt-4 flex flex-col gap-1.5">

@@ -39,6 +39,7 @@ export type OrganizationSettings = {
   timezone: string | null;
   currency: string | null;
   language: string | null;
+  country: string | null;
 };
 
 export type NotificationPreferences = {
@@ -196,7 +197,7 @@ export async function getOrganizationSettingsAction(): Promise<OrganizationSetti
 
   const { data, error } = await supabase
     .from("organizations")
-    .select("name, industry, website_url, timezone, currency, language")
+    .select("name, industry, website_url, timezone, currency, language, country")
     .eq("id", organizationId)
     .maybeSingle();
 
@@ -209,6 +210,7 @@ export async function getOrganizationSettingsAction(): Promise<OrganizationSetti
     timezone: (data.timezone as string | null) ?? null,
     currency: (data.currency as string | null) ?? null,
     language: (data.language as string | null) ?? null,
+    country: (data.country as string | null) ?? null,
   };
 }
 
@@ -250,6 +252,7 @@ export async function saveGeneralOrganizationSettingsAction(input: {
   timezone?: string;
   currency?: string;
   language?: string;
+  country?: string;
 }): Promise<MutationResult> {
   const auth = await requireOrganizationIdAndParse(
     saveGeneralOrganizationSettingsSchema,
@@ -259,7 +262,7 @@ export async function saveGeneralOrganizationSettingsAction(input: {
     return { success: false, error: auth.error };
   }
 
-  const { orgName, industry, websiteUrl, timezone, currency, language } =
+  const { orgName, industry, websiteUrl, timezone, currency, language, country } =
     auth.data;
 
   return runMutation(async () => {
@@ -277,10 +280,13 @@ export async function saveGeneralOrganizationSettingsAction(input: {
         timezone: timezone ?? null,
         currency: currency ?? null,
         language: language ?? null,
+        country: country ?? null,
       })
       .eq("id", organizationId);
 
     if (error) throw new Error(error.message);
+
+    invalidateOrgContext(organizationId);
 
     revalidatePath(paths.platform.settings);
     revalidatePath(paths.platform.marketing.utms);

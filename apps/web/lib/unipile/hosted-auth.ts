@@ -5,6 +5,10 @@ import {
 } from "./config";
 import { unipileFetch } from "./client";
 import { encodeUnipileHostedName } from "./integration";
+import {
+  buildUnipileHostedAuthProxyConfig,
+  getOrganizationProxyCountry,
+} from "./organization-country";
 
 type HostedAuthResponse = {
   url?: string;
@@ -23,7 +27,9 @@ export async function createUnipileHostedAuthLink(params: {
     ? `${baseUrl}/api/integrations/unipile/callback?secret=${encodeURIComponent(notifySecret)}`
     : `${baseUrl}/api/integrations/unipile/callback`;
 
-  const body = {
+  const proxyCountry = await getOrganizationProxyCountry(params.organizationId);
+
+  const body: Record<string, unknown> = {
     type: "create",
     providers: [UNIPILE_HOSTED_PROVIDERS[params.provider]],
     api_url: process.env.UNIPILE_DSN?.trim(),
@@ -33,6 +39,13 @@ export async function createUnipileHostedAuthLink(params: {
     success_redirect_url: `${baseUrl}/integrations?unipile=success&provider=${params.provider}`,
     failure_redirect_url: `${baseUrl}/integrations?unipile=error&provider=${params.provider}`,
   };
+
+  if (proxyCountry) {
+    Object.assign(
+      body,
+      buildUnipileHostedAuthProxyConfig(params.provider, proxyCountry)
+    );
+  }
 
   const response = await unipileFetch<HostedAuthResponse>(
     "/api/v1/hosted/accounts/link",
