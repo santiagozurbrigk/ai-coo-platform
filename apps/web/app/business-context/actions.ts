@@ -18,6 +18,7 @@ import {
   type GoogleDriveContentFile,
 } from "@/lib/google/drive-content";
 import { getGoogleAccessTokenForOrganization } from "@/lib/google/get-access-token";
+import { googleDriveFileIdSchema } from "@/lib/google/drive-schemas";
 import { isGooglePermissionError } from "@/lib/google/errors";
 import { loadFathomCallsForKnowledgeBase } from "@/lib/fathom/knowledge-base-queries";
 import {
@@ -64,14 +65,6 @@ const createFromFileSchema = z.object({
 });
 
 const idSchema = z.string().uuid("Identificador inválido");
-
-/** IDs de archivos en Google Drive: alfanuméricos, guiones y guiones bajos. */
-const googleDriveFileIdSchema = z
-  .string()
-  .trim()
-  .min(10, "ID de Google inválido")
-  .max(100, "ID de Google inválido")
-  .regex(/^[a-zA-Z0-9_-]+$/, "ID de Google inválido");
 
 const importGoogleSourceSchema = z.object({
   googleFileId: googleDriveFileIdSchema,

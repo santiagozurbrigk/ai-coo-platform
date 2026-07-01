@@ -9,6 +9,8 @@ export type GoogleDriveContentFile = {
   modifiedTime?: string;
   /** Descripción editable en Google Drive (puede estar vacía). */
   description?: string;
+  /** URL de miniatura (requiere auth — usar proxy OTC para <img>). */
+  thumbnailLink?: string;
 };
 
 export async function listGoogleDriveFilesByMime(
@@ -17,7 +19,7 @@ export async function listGoogleDriveFilesByMime(
 ): Promise<GoogleDriveContentFile[]> {
   const url = new URL("https://www.googleapis.com/drive/v3/files");
   url.searchParams.set("q", `mimeType='${mimeType}' and trashed=false`);
-  url.searchParams.set("fields", "files(id,name,modifiedTime,description)");
+  url.searchParams.set("fields", "files(id,name,modifiedTime,description,thumbnailLink)");
   url.searchParams.set("pageSize", "100");
   url.searchParams.set("orderBy", "modifiedTime desc");
 
@@ -97,4 +99,40 @@ export async function getGoogleDriveFileMetadata(
   if (!res.ok) return null;
   const data = (await res.json()) as { name?: string };
   return data.name ? { name: data.name } : null;
+}
+
+/** Descarga la miniatura de un archivo (requiere Bearer en la URL de Google). */
+export async function fetchGoogleDriveThumbnail(
+  accessToken: string,
+  fileId: string
+): Promise<{ body: ArrayBuffer; contentType: string } | null> {
+  const metaUrl = new URL(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`
+  );
+  metaUrl.searchParams.set("fields", "thumbnailLink");
+
+  const metaRes = await fetch(metaUrl.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (metaRes.status === 403 || metaRes.status === 401) {
+    throw new GoogleIntegrationPermissionError(metaRes.status);
+  }
+
+  if (!metaRes.ok) return null;
+
+  const meta = (await metaRes.json()) as { thumbnailLink?: string };
+  if (!meta.thumbnailLink) return null;
+
+  const thumbRes = await fetch(meta.thumbnailLink, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!thumbRes.ok) return null;
+
+  const contentType = thumbRes.headers.get("content-type") ?? "image/jpeg";
+  const body = await thumbRes.arrayBuffer();
+  if (!body.byteLength) return null;
+
+  return { body, contentType };
 }

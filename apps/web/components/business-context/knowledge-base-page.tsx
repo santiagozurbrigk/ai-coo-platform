@@ -636,35 +636,38 @@ function GoogleImportFlow({
               Ningún archivo coincide con &quot;{searchQuery.trim()}&quot;.
             </p>
           ) : (
-            <ul className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border/60 p-1">
+            <ul className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-border/60 p-1">
               {filteredFiles.map((file) => (
                 <li key={file.id}>
                   <button
                     type="button"
                     onClick={() => setSelectedId(file.id)}
                     className={cn(
-                      "w-full rounded-md px-3 py-2 text-left text-sm transition-colors",
+                      "flex w-full gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors",
                       selectedId === file.id
                         ? "bg-primary/10 text-foreground"
                         : "hover:bg-muted/40 text-muted-foreground"
                     )}
                   >
-                    <span className="font-medium text-foreground">{file.name}</span>
-                    {file.description?.trim() ? (
-                      <span className="mt-1 line-clamp-2 block text-[11px] text-muted-foreground">
-                        {file.description.trim()}
-                      </span>
-                    ) : null}
-                    {file.modifiedTime ? (
-                      <span className="mt-0.5 block text-[11px] text-muted-foreground/80">
-                        Modificado{" "}
-                        {new Date(file.modifiedTime).toLocaleDateString("es", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </span>
-                    ) : null}
+                    <GoogleDriveFileThumb fileId={file.id} kind={kind} />
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium text-foreground">{file.name}</span>
+                      {file.description?.trim() ? (
+                        <span className="mt-1 line-clamp-2 block text-[11px] text-muted-foreground">
+                          {file.description.trim()}
+                        </span>
+                      ) : null}
+                      {file.modifiedTime ? (
+                        <span className="mt-0.5 block text-[11px] text-muted-foreground/80">
+                          Modificado{" "}
+                          {new Date(file.modifiedTime).toLocaleDateString("es", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      ) : null}
+                    </span>
                   </button>
                 </li>
               ))}
@@ -672,23 +675,31 @@ function GoogleImportFlow({
           )}
 
           {selectedFile ? (
-            <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-1">
-              <p className="text-xs font-medium text-foreground">Vista previa</p>
-              {previewLoading ? (
-                <p className="text-[11px] text-muted-foreground">Cargando contenido…</p>
-              ) : contentPreview ? (
-                <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-6">
-                  {contentPreview}
-                </p>
-              ) : selectedFile.description?.trim() ? (
-                <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-4">
-                  {selectedFile.description.trim()}
-                </p>
-              ) : (
-                <p className="text-[11px] text-muted-foreground">
-                  Este archivo no tiene descripción ni texto exportable visible.
-                </p>
-              )}
+            <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-2">
+              <div className="flex gap-3">
+                <GoogleDriveFileThumb fileId={selectedFile.id} kind={kind} large />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-xs font-medium text-foreground">Vista previa</p>
+                  <p className="text-[11px] font-medium text-foreground truncate">
+                    {selectedFile.name}
+                  </p>
+                  {previewLoading ? (
+                    <p className="text-[11px] text-muted-foreground">Cargando contenido…</p>
+                  ) : contentPreview ? (
+                    <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-4">
+                      {contentPreview}
+                    </p>
+                  ) : selectedFile.description?.trim() ? (
+                    <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-3">
+                      {selectedFile.description.trim()}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">
+                      Sin texto exportable visible.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           ) : null}
         </>
@@ -708,5 +719,49 @@ function GoogleImportFlow({
         {pending ? "Importando e indexando…" : "Importar e indexar"}
       </Button>
     </div>
+  );
+}
+
+function GoogleDriveFileThumb({
+  fileId,
+  kind,
+  large = false,
+}: {
+  fileId: string;
+  kind: "doc" | "sheet";
+  large?: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+  const Icon = kind === "doc" ? FileText : FileSpreadsheet;
+  const iconColor = kind === "doc" ? "text-[#4285F4]" : "text-[#0F9D58]";
+  const sizeClass = large ? "h-[90px] w-[120px]" : "h-[68px] w-[90px]";
+  const iconSize = large ? "h-8 w-8" : "h-6 w-6";
+
+  if (failed) {
+    return (
+      <div
+        className={cn(
+          "flex shrink-0 items-center justify-center rounded-md border border-border/40 bg-muted/30",
+          sizeClass
+        )}
+        aria-hidden
+      >
+        <Icon className={cn(iconSize, iconColor)} />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={`/api/integrations/google/thumbnail?fileId=${encodeURIComponent(fileId)}`}
+      alt=""
+      width={large ? 120 : 90}
+      height={large ? 90 : 68}
+      className={cn(
+        "shrink-0 rounded-md border border-border/40 object-cover bg-muted/20",
+        sizeClass
+      )}
+      onError={() => setFailed(true)}
+    />
   );
 }
