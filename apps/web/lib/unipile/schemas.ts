@@ -16,6 +16,42 @@ export const unipileHostedCallbackSchema = z.object({
   name: z.string().min(1),
 });
 
+const unipileAttendeeSchema = z
+  .object({
+    attendee_id: z.string().optional(),
+    attendee_name: z.string().optional().nullable(),
+    attendee_specifics: z
+      .object({
+        phone_number: z.string().optional(),
+      })
+      .passthrough()
+      .optional(),
+    display_name: z.string().optional().nullable(),
+    name: z.string().optional().nullable(),
+  })
+  .passthrough();
+
+/** Payload plano de messaging webhooks (WhatsApp / Instagram vía Unipile). */
+export const unipileMessagingWebhookSchema = z
+  .object({
+    event: z.string().optional(),
+    account_id: z.string().min(1),
+    account_type: z.string().optional(),
+    chat_id: z.string().min(1),
+    message: z.union([z.string(), z.record(z.string(), z.unknown())]).optional().nullable(),
+    message_id: z.string().optional(),
+    id: z.string().optional(),
+    timestamp: z.string().optional(),
+    is_sender: z.boolean().optional(),
+    is_group: z.boolean().optional(),
+    provider_chat_id: z.string().optional(),
+    sender: unipileAttendeeSchema.optional(),
+    deleted: z.boolean().optional(),
+    hidden: z.boolean().optional(),
+    is_event: z.boolean().optional(),
+  })
+  .passthrough();
+
 export const unipileMessagePayloadSchema = z
   .object({
     id: z.string().min(1),
@@ -28,14 +64,7 @@ export const unipileMessagePayloadSchema = z
     deleted: z.boolean().optional(),
     hidden: z.boolean().optional(),
     is_event: z.boolean().optional(),
-    sender: z
-      .object({
-        attendee_name: z.string().optional().nullable(),
-        display_name: z.string().optional().nullable(),
-        name: z.string().optional().nullable(),
-      })
-      .passthrough()
-      .optional(),
+    sender: unipileAttendeeSchema.optional(),
   })
   .passthrough();
 
@@ -48,8 +77,11 @@ export const unipileEventWebhookSchema = z.object({
 export const unipileLegacyMessageWebhookSchema = z
   .object({
     account_id: z.string().optional(),
-    message: unipileMessagePayloadSchema.optional(),
+    message: z
+      .union([z.string(), unipileMessagePayloadSchema, z.record(z.string(), z.unknown())])
+      .optional(),
   })
   .passthrough();
 
+export type UnipileMessagingWebhook = z.infer<typeof unipileMessagingWebhookSchema>;
 export type UnipileMessagePayload = z.infer<typeof unipileMessagePayloadSchema>;

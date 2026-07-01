@@ -3,13 +3,17 @@ import {
   unipileEventWebhookSchema,
   unipileLegacyMessageWebhookSchema,
   unipileMessagePayloadSchema,
+  unipileMessagingWebhookSchema,
   type UnipileMessagePayload,
+  type UnipileMessagingWebhook,
 } from "./schemas";
 
 export type ParsedUnipileMessage = {
   accountId: string;
   message: UnipileMessagePayload;
 };
+
+const MESSAGE_EVENTS = new Set(["message_received", "message.new"]);
 
 function isMessagePayload(value: unknown): value is UnipileMessagePayload {
   return unipileMessagePayloadSchema.safeParse(value).success;
@@ -19,6 +23,57 @@ function formatZodIssues(error: z.ZodError): string {
   return error.issues
     .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
     .join("; ");
+}
+
+function resolveMessageTextFromField(
+  message: UnipileMessagingWebhook["message"]
+): string {
+  if (typeof message === "string") return message.trim();
+  if (message && typeof message === "object") {
+    const record = message as Record<string, unknown>;
+    if (typeof record.text === "string") return record.text.trim();
+    if (typeof record.message === "string") return record.message.trim();
+  }
+  return "";
+}
+
+function messagingWebhookToMessagePayload(
+  data: UnipileMessagingWebhook
+): UnipileMessagePayload | null {
+  const messageId = data.message_id ?? data.id;
+  if (!messageId) return null;
+
+  return {
+    id: messageId,
+    chat_id: data.chat_id,
+    account_id: data.account_id,
+    sender_id: data.sender?.attendee_id,
+    text: resolveMessageTextFromField(data.message),
+    timestamp: data.timestamp,
+    is_sender: data.is_sender,
+    deleted: data.deleted,
+    hidden: data.hidden,
+    is_event: data.is_event,
+    sender: data.sender,
+  };
+}
+
+function parseMessagingWebhook(body: unknown): ParsedUnipileMessage | null {
+  const parsed = unipileMessagingWebhookSchema.safeParse(body);
+  if (!parsed.success) return null;
+
+  const data = parsed.data;
+  if (data.event && !MESSAGE_EVENTS.has(data.event)) {
+    return null;
+  }
+  if (data.is_group) {
+    return null;
+  }
+
+  const message = messagingWebhookToMessagePayload(data);
+  if (!message) return null;
+
+  return { accountId: data.account_id, message };
 }
 
 /** Diagnóstico temporal — ver qué forma tiene el payload real de Unipile. */
@@ -37,6 +92,15 @@ export function diagnoseUnipileWebhookEnvelope(body: unknown): {
 
   const record = body as Record<string, unknown>;
   reasons.push(`top-level keys: ${Object.keys(record).join(", ") || "(ninguna)"}`);
+
+  const messagingParsed = unipileMessagingWebhookSchema.safeParse(body);
+  if (messagingParsed.success) {
+    reasons.push("match: unipileMessagingWebhookSchema");
+    return { accepted: true, reasons };
+  }
+  reasons.push(
+    `unipileMessagingWebhookSchema: ${formatZodIssues(messagingParsed.error)}`
+  );
 
   const eventParsed = unipileEventWebhookSchema.safeParse(body);
   if (eventParsed.success) {
@@ -70,21 +134,6 @@ export function diagnoseUnipileWebhookEnvelope(body: unknown): {
     `account_id en raíz ausente o inválido (valor: ${JSON.stringify(accountId)}, tipo: ${typeof accountId})`
   );
 
-  if ("accountId" in record) {
-    reasons.push(
-      `encontrado accountId camelCase: ${JSON.stringify(record.accountId)}`
-    );
-  }
-  if ("account" in record && record.account != null) {
-    reasons.push(`encontrado campo account: ${JSON.stringify(record.account)}`);
-  }
-  if ("data" in record && record.data != null) {
-    reasons.push(`encontrado campo data: ${JSON.stringify(record.data)}`);
-  }
-  if ("event" in record && record.event != null) {
-    reasons.push(`encontrado campo event: ${JSON.stringify(record.event)}`);
-  }
-
   return { accepted: false, reasons };
 }
 
@@ -96,10 +145,13 @@ export function isUnipileWebhookEnvelope(body: unknown): boolean {
 export function parseUnipileMessageWebhook(
   body: unknown
 ): ParsedUnipileMessage | null {
+  const messaging = parseMessagingWebhook(body);
+  if (messaging) return messaging;
+
   const eventParsed = unipileEventWebhookSchema.safeParse(body);
   if (eventParsed.success) {
     const { type, account_id, payload } = eventParsed.data;
-    if (type && type !== "message.new" && type !== "message_received") {
+    if (type && !MESSAGE_EVENTS.has(type)) {
       return null;
     }
     if (payload && isMessagePayload(payload)) {
@@ -111,9 +163,11 @@ export function parseUnipileMessageWebhook(
 
   const legacyParsed = unipileLegacyMessageWebhookSchema.safeParse(body);
   if (legacyParsed.success) {
+    const flat = parseMessagingWebhook(legacyParsed.data);
+    if (flat) return flat;
+
     const message = legacyParsed.data.message;
-    const accountId =
-      legacyParsed.data.account_id ?? message?.account_id ?? null;
+    const accountId = legacyParsed.data.account_id;
     if (message && accountId && isMessagePayload(message)) {
       return { accountId, message };
     }

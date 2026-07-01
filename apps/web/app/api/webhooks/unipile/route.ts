@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  console.log("[Unipile] payload raw:", JSON.stringify(body, null, 2));
+  console.log("[Unipile] webhook recibido, event:", (body as { event?: string })?.event ?? "(sin event)");
 
   const envelope = diagnoseUnipileWebhookEnvelope(body);
   console.log("[Unipile] envelope diagnosis:", envelope.reasons.join(" | "));

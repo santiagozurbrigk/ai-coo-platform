@@ -18,14 +18,29 @@ const SYNC_INSIGHT: Record<"instagram" | "whatsapp", string> = {
 
 export async function processUnipileMessageWebhook(body: unknown): Promise<void> {
   const parsed = parseUnipileMessageWebhook(body);
-  if (!parsed) return;
+  if (!parsed) {
+    console.warn("[Unipile] parseUnipileMessageWebhook devolvió null — payload no mapeable");
+    return;
+  }
 
   const { accountId, message } = parsed;
-  if (shouldSkipUnipileMessage(message)) return;
+  console.log("[Unipile] campos extraídos:", {
+    accountId,
+    chatId: message.chat_id,
+    messageId: message.id,
+    leadName: resolveUnipileLeadName(message),
+    messageText: resolveUnipileMessageText(message),
+    isSender: message.is_sender,
+  });
+
+  if (shouldSkipUnipileMessage(message)) {
+    console.log("[Unipile] mensaje omitido (deleted/hidden/event)");
+    return;
+  }
 
   const integration = await getUnipileIntegrationByAccountId(accountId);
   if (!integration) {
-    console.warn("[Unipile] Cuenta no vinculada:", accountId);
+    console.warn("[Unipile] Cuenta no vinculada en unipile_integrations:", accountId);
     return;
   }
 
@@ -37,8 +52,17 @@ export async function processUnipileMessageWebhook(body: unknown): Promise<void>
     ? new Date(message.timestamp).toISOString()
     : new Date().toISOString();
 
+  console.log("[Unipile] upsert:", {
+    organizationId: integration.organization_id,
+    provider: integration.provider,
+    source: integration.provider,
+    externalRef,
+    sender,
+    timestamp,
+  });
+
   const admin = createAdminClient();
-  await upsertInboundConversation(admin, integration.organization_id, {
+  const result = await upsertInboundConversation(admin, integration.organization_id, {
     externalRef,
     source: integration.provider,
     inbound: {
@@ -50,6 +74,13 @@ export async function processUnipileMessageWebhook(body: unknown): Promise<void>
     },
     syncInsight: SYNC_INSIGHT[integration.provider],
     messageIdPrefix: "up",
+  });
+
+  console.log("[Unipile] conversación guardada:", {
+    conversationId: result.conversationId,
+    inserted: result.inserted,
+    updated: result.updated,
+    messageCount: result.messages.length,
   });
 
   await admin
