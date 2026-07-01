@@ -48,7 +48,7 @@ Costo: €49/mes mínimo (hasta 10 cuentas), €5/cuenta/mes adicional. Absorbid
 
 - **Auth:** Hosted Auth Wizard de Unipile (`GET /api/integrations/unipile/connect?provider=instagram|whatsapp`).
 - **Callback:** `POST /api/integrations/unipile/callback` (notify_url de Unipile al completar conexión).
-- **Webhook mensajes:** `POST /api/webhooks/unipile` con header `Unipile-Auth: {UNIPILE_WEBHOOK_SECRET}`.
+- **Webhook mensajes:** `POST /api/webhooks/unipile` — Unipile no firma los webhooks ni envía header de auth si el webhook se creó desde el dashboard. El endpoint valida la forma del payload (Zod) y aplica rate limiting (40 req/min por IP). `UNIPILE_WEBHOOK_SECRET` es opcional: solo se usa al auto-registrar el webhook vía API (header `Unipile-Auth`); no se exige en recepción.
 - **DB:** `unipile_integrations` por org y provider; conversaciones con `external_ref = unipile:{provider}:{chat_id}` y `source` = `instagram` o `whatsapp`.
 - **Distinto de Instagram Graph:** la card "Instagram" en integraciones sigue siendo métricas de contenido; "Instagram DMs" es solo mensajería vía Unipile.
 

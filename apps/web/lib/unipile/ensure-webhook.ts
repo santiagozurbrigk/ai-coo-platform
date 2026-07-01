@@ -12,8 +12,6 @@ export async function ensureUnipileMessagingWebhook(): Promise<void> {
 
   ensureWebhookPromise = (async () => {
     const { webhookSecret } = getUnipileConfig();
-    if (!webhookSecret) return;
-
     const baseUrl = getAppBaseUrl();
     const requestUrl = `${baseUrl}/api/webhooks/unipile`;
 
@@ -28,7 +26,12 @@ export async function ensureUnipileMessagingWebhook(): Promise<void> {
       body: JSON.stringify({
         request_url: requestUrl,
         source: "messaging",
-        headers: [{ key: "Unipile-Auth", value: webhookSecret }],
+        headers: [
+          { key: "Content-Type", value: "application/json" },
+          ...(webhookSecret
+            ? [{ key: "Unipile-Auth", value: webhookSecret }]
+            : []),
+        ],
       }),
     });
   })().catch((err) => {

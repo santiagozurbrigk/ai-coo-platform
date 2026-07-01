@@ -86,6 +86,12 @@ export const webhookRateLimit = rateLimit({
   maxRequests: 100,
 });
 
+/** Webhook Unipile — sin auth de header (dashboard no lo soporta) */
+export const unipileWebhookRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  maxRequests: 40,
+});
+
 /** Conectar integración (por usuario) */
 export const integrationConnectRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000,

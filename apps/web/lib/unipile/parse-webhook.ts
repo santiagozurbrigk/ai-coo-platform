@@ -14,6 +14,23 @@ function isMessagePayload(value: unknown): value is UnipileMessagePayload {
   return unipileMessagePayloadSchema.safeParse(value).success;
 }
 
+/** Forma mínima de un POST de Unipile (mensaje u otro evento de messaging). */
+export function isUnipileWebhookEnvelope(body: unknown): boolean {
+  if (!body || typeof body !== "object") return false;
+
+  const record = body as Record<string, unknown>;
+
+  if (unipileEventWebhookSchema.safeParse(body).success) return true;
+  if (unipileLegacyMessageWebhookSchema.safeParse(body).success) return true;
+  if (isMessagePayload(body)) return true;
+
+  if (typeof record.account_id === "string" && record.account_id.length > 0) {
+    return true;
+  }
+
+  return false;
+}
+
 export function parseUnipileMessageWebhook(
   body: unknown
 ): ParsedUnipileMessage | null {
