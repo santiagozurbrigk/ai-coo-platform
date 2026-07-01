@@ -1,5 +1,7 @@
 export const INTEGRATION_PROVIDERS = [
   "discord",
+  "unipile_instagram",
+  "unipile_whatsapp",
   "instagram",
   "stripe",
   "mercadopago",

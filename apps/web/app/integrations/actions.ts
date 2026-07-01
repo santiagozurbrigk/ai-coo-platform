@@ -15,6 +15,10 @@ import {
 } from "@/app/marketing/actions";
 import { getStripeIntegrationStatusAction } from "@/app/stripe/actions";
 import { getMercadoPagoIntegrationStatusAction } from "@/app/mercadopago/actions";
+import {
+  countUnipileConversationsAction,
+  getUnipileIntegrationStatusAction,
+} from "@/app/unipile/actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { formatRelativeTime } from "@/lib/format";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
@@ -193,6 +197,8 @@ const REAL_PROVIDERS = new Set([
   "fathom",
   "youtube",
   "instagram",
+  "unipile_instagram",
+  "unipile_whatsapp",
   "stripe",
   "mercadopago",
   "typeform",
@@ -207,6 +213,8 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     fathomStatus,
     youtubeStatus,
     instagramStatus,
+    unipileInstagramStatus,
+    unipileWhatsappStatus,
     stripeStatus,
     mercadoPagoStatus,
     typeformStatus,
@@ -218,6 +226,8 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     getFathomIntegrationStatusAction(),
     getYoutubeIntegrationStatusAction(),
     getInstagramIntegrationStatusAction(),
+    getUnipileIntegrationStatusAction("instagram"),
+    getUnipileIntegrationStatusAction("whatsapp"),
     getStripeIntegrationStatusAction(),
     getMercadoPagoIntegrationStatusAction(),
     getTypeformIntegrationStatusAction(),
@@ -231,6 +241,8 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     fathomRecords,
     youtubeRecords,
     instagramRecords,
+    unipileInstagramRecords,
+    unipileWhatsappRecords,
     typeformRecords,
     googleFormsRecords,
     discordRecords,
@@ -240,6 +252,8 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     fathomStatus.connected ? countFathomCalls() : 0,
     youtubeStatus.connected ? countContentAssets("youtube") : 0,
     instagramStatus.connected ? countContentAssets("instagram") : 0,
+    unipileInstagramStatus.connected ? countUnipileConversationsAction("instagram") : 0,
+    unipileWhatsappStatus.connected ? countUnipileConversationsAction("whatsapp") : 0,
     typeformStatus.connected ? countForms("typeform") : 0,
     googleFormsStatus.connected ? countForms("google_forms") : 0,
     discordStatus.connected ? discordStatus.stats.messagesCount : 0,
@@ -275,6 +289,16 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
         lastSyncAt: instagramStatus.lastSyncAt,
         records: instagramRecords,
       },
+      unipile_instagram: {
+        connected: unipileInstagramStatus.connected,
+        lastSyncAt: unipileInstagramStatus.connectedAt,
+        records: unipileInstagramRecords,
+      },
+      unipile_whatsapp: {
+        connected: unipileWhatsappStatus.connected,
+        lastSyncAt: unipileWhatsappStatus.connectedAt,
+        records: unipileWhatsappRecords,
+      },
       stripe: {
         connected: stripeStatus.connected,
         lastSyncAt: stripeStatus.lastSyncAt,
@@ -307,8 +331,18 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
       if (!live.connected) {
         return { ...integration, status: "not_connected" as const };
       }
+
+      let description = integration.description;
+      if (integration.provider === "unipile_instagram" && unipileInstagramStatus.displayName) {
+        description = `Cuenta: ${unipileInstagramStatus.displayName}`;
+      }
+      if (integration.provider === "unipile_whatsapp" && unipileWhatsappStatus.displayName) {
+        description = `Cuenta: ${unipileWhatsappStatus.displayName}`;
+      }
+
       return {
         ...integration,
+        description,
         status: "connected" as const,
         lastSync: live.lastSyncAt
           ? formatRelativeTime(live.lastSyncAt)

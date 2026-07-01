@@ -12,6 +12,7 @@ import {
   disconnectTypeformAction,
 } from "@/app/integrations/actions";
 import { disconnectDiscordIntegrationAction } from "@/app/discord/actions";
+import { disconnectUnipileIntegrationAction } from "@/app/unipile/actions";
 import {
   getCalendlyIntegrationStatusAction,
   pullCalendlyScheduledEventsAction,
@@ -53,6 +54,14 @@ const COMING_SOON_LABEL = "Próximamente";
 const INSTAGRAM_CONNECT_URL = "/api/integrations/instagram/connect";
 const STRIPE_CONNECT_URL = "/api/integrations/stripe/connect";
 const MERCADOPAGO_CONNECT_URL = "/api/integrations/mercadopago/connect";
+
+function unipileProviderFromIntegration(
+  provider: Integration["provider"]
+): "instagram" | "whatsapp" | null {
+  if (provider === "unipile_instagram") return "instagram";
+  if (provider === "unipile_whatsapp") return "whatsapp";
+  return null;
+}
 
 function formatLastSync(integration: Integration, status: string): string | undefined {
   if (status !== "connected") return undefined;
@@ -123,6 +132,27 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     window.location.href = GOOGLE_OAUTH_START_URL[provider];
   };
 
+  const startUnipileConnect = async (provider: "instagram" | "whatsapp") => {
+    setSyncing(true);
+    try {
+      const res = await fetch(
+        `/api/integrations/unipile/connect?provider=${provider}`
+      );
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        push({
+          title: "No se pudo conectar Unipile",
+          description: data.error ?? "Error desconocido",
+          variant: "default",
+        });
+        return;
+      }
+      window.location.href = data.url;
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const startDiscordOAuth = () => {
     const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
     if (!clientId) {
@@ -178,6 +208,27 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       typeform: disconnectTypeformAction,
       discord: disconnectDiscordIntegrationAction,
     };
+
+    const unipileProvider = unipileProviderFromIntegration(integration.provider);
+    if (unipileProvider) {
+      setSyncing(true);
+      try {
+        const res = await disconnectUnipileIntegrationAction(unipileProvider);
+        if (!res.success) {
+          push({ title: res.error ?? "Error al desconectar", variant: "default" });
+          return;
+        }
+        setStatus("not_connected");
+        router.refresh();
+        push({
+          title: `${integration.name} desconectado`,
+          variant: "success",
+        });
+      } finally {
+        setSyncing(false);
+      }
+      return;
+    }
 
     const action = disconnectActions[integration.provider];
     if (!action) return;
@@ -245,6 +296,11 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       startDiscordOAuth();
       return;
     }
+    const unipileProvider = unipileProviderFromIntegration(integration.provider);
+    if (unipileProvider) {
+      void startUnipileConnect(unipileProvider);
+      return;
+    }
     setConnectOpen(false);
     setSyncing(true);
     setStatus("syncing");
@@ -301,6 +357,12 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
 
     if (integration.provider === "instagram" && status === "connected") {
       setInstagramManageOpen(true);
+      return;
+    }
+
+    const unipileProvider = unipileProviderFromIntegration(integration.provider);
+    if (unipileProvider && status === "connected") {
+      void startUnipileConnect(unipileProvider);
       return;
     }
 
@@ -412,6 +474,8 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     isConnected &&
     !comingSoon &&
     (integration.provider === "instagram" ||
+      integration.provider === "unipile_instagram" ||
+      integration.provider === "unipile_whatsapp" ||
       integration.provider === "fathom" ||
       integration.provider === "manychat" ||
       integration.provider === "calendly" ||
@@ -431,7 +495,9 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         ? es.common.connect
         : integration.provider === "calendly" ||
             integration.provider === "fathom" ||
-            integration.provider === "instagram"
+            integration.provider === "instagram" ||
+            integration.provider === "unipile_instagram" ||
+            integration.provider === "unipile_whatsapp"
           ? "Gestionar"
           : es.common.manage;
 

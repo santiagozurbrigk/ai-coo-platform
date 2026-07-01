@@ -42,6 +42,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/invite")) return true;
   if (pathname.startsWith("/api/invite/")) return true;
   if (pathname.startsWith("/api/webhooks/instagram/")) return true;
+  if (pathname.startsWith("/api/webhooks/unipile")) return true;
   if (pathname.startsWith("/api/integrations/")) {
     if (
       pathname.includes("/webhook") ||

@@ -22,7 +22,7 @@ export type ConversationRow = {
   messages: SalesMessage[];
   analysis: ConversationAnalysis;
   external_ref: string | null;
-  source?: "manychat" | "instagram" | "manual" | null;
+  source?: "manychat" | "instagram" | "manual" | "whatsapp" | null;
   ai_score?: number | null;
   ai_engagement_score?: number | null;
   ai_intent_score?: number | null;

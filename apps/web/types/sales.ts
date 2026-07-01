@@ -40,7 +40,11 @@ export type ConversationTagId =
   | "closeado"
   | "no-closeado";
 
-export type ConversationSource = "manychat" | "instagram" | "manual";
+export type ConversationSource =
+  | "manychat"
+  | "instagram"
+  | "manual"
+  | "whatsapp";
 
 export type Conversation = {
   id: string;

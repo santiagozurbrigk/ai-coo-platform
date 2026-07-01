@@ -62,6 +62,14 @@ export function ConversationAnalysisPanel({
             </span>
           </div>
         </NotchedCard>
+      ) : conversation.source === "whatsapp" ? (
+        <NotchedCard tab="Origen" className="shadow-none">
+          <div className="flex items-center gap-2">
+            <span className="text-body text-muted-foreground">
+              Mensaje de WhatsApp
+            </span>
+          </div>
+        </NotchedCard>
       ) : null}
 
       {!hasAiScore ? (

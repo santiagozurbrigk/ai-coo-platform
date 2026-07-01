@@ -8,7 +8,13 @@ export type IntegrationGroup = {
 export const INTEGRATION_GROUPS: IntegrationGroup[] = [
   {
     label: "Ventas y conversaciones",
-    integrations: ["manychat", "calendly", "instagram"],
+    integrations: [
+      "manychat",
+      "unipile_instagram",
+      "unipile_whatsapp",
+      "calendly",
+      "instagram",
+    ],
   },
   {
     label: "Finanzas",
@@ -31,6 +37,10 @@ export const INTEGRATION_GROUPS: IntegrationGroup[] = [
 export const INTEGRATION_DESCRIPTIONS: Partial<
   Record<IntegrationProvider, string>
 > = {
+  unipile_instagram:
+    "DMs de Instagram personal en el inbox de ventas. Distinto de la integración de métricas de contenido.",
+  unipile_whatsapp:
+    "WhatsApp personal en el inbox de ventas, con scoring de IA igual que ManyChat.",
   manychat:
     "Conecta con tu API key. Los mensajes nuevos llegan vía External Request.",
   calendly:

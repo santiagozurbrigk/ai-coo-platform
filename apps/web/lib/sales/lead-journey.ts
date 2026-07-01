@@ -20,7 +20,7 @@ type UtmLinkRow = {
 type ConversationRow = {
   id: string;
   lead_name: string;
-  source: "manychat" | "instagram" | "manual" | null;
+  source: "manychat" | "instagram" | "manual" | "whatsapp" | null;
   source_video_title: string | null;
   utm_campaign: string | null;
   utm_link_id: string | null;
@@ -189,7 +189,9 @@ export async function getLeadJourney(
       title:
         row.source === "instagram"
           ? "Mandó un DM por Instagram"
-          : "Inició conversación por ManyChat",
+          : row.source === "whatsapp"
+            ? "Mandó un mensaje por WhatsApp"
+            : "Inició conversación por ManyChat",
       description: text ? text.slice(0, 100) : "Inició conversación",
       date: firstLeadMessage.timestamp ?? row.created_at,
       metadata: {

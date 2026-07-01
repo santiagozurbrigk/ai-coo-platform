@@ -2,6 +2,22 @@ import type { Integration } from "@/types/integrations";
 
 export const mockIntegrations: Integration[] = [
   {
+    id: "int-unipile-ig",
+    provider: "unipile_instagram",
+    name: "Instagram DMs",
+    status: "not_connected",
+    description:
+      "Recibí DMs de tu cuenta personal de Instagram en el inbox de ventas (vía Unipile).",
+  },
+  {
+    id: "int-unipile-wa",
+    provider: "unipile_whatsapp",
+    name: "WhatsApp",
+    status: "not_connected",
+    description:
+      "Conectá tu WhatsApp personal para recibir mensajes en el inbox de ventas.",
+  },
+  {
     id: "int-ig",
     provider: "instagram",
     name: "Instagram",

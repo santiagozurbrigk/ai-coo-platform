@@ -35,6 +35,23 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 - **Guión de ventas:** si la org no tiene un guión configurado en sales_scripts, se usa un guión default de 5 secciones (apertura, diagnóstico, presentación, objeciones, CTA). Configurar el guión propio en Settings mejora la precisión.
 - **Cruce con formulario:** si existe un closing_call con el mismo nombre del lead, se incluyen las form_answers en el análisis para detectar gaps calificación.
 
+### Unipile — mensajería transitoria (Instagram DMs + WhatsApp)
+
+Integración transitoria via Unipile API mientras se espera la aprobación de Meta Business Verification. Permite recibir DMs de Instagram personal y mensajes de WhatsApp en el inbox de ventas de OTC, con el mismo scoring y pipeline que ManyChat.
+
+Una vez aprobada la verificación de Meta:
+→ Activar el webhook directo de Meta (ya construido)
+→ Retirar Unipile para Instagram
+→ WhatsApp puede mantenerse via Unipile (no hay alternativa oficial para WhatsApp personal)
+
+Costo: €49/mes mínimo (hasta 10 cuentas), €5/cuenta/mes adicional. Absorbido por OTC como costo operativo.
+
+- **Auth:** Hosted Auth Wizard de Unipile (`GET /api/integrations/unipile/connect?provider=instagram|whatsapp`).
+- **Callback:** `POST /api/integrations/unipile/callback` (notify_url de Unipile al completar conexión).
+- **Webhook mensajes:** `POST /api/webhooks/unipile` con header `Unipile-Auth: {UNIPILE_WEBHOOK_SECRET}`.
+- **DB:** `unipile_integrations` por org y provider; conversaciones con `external_ref = unipile:{provider}:{chat_id}` y `source` = `instagram` o `whatsapp`.
+- **Distinto de Instagram Graph:** la card "Instagram" en integraciones sigue siendo métricas de contenido; "Instagram DMs" es solo mensajería vía Unipile.
+
 ### ManyChat
 
 - **Auth:** API key + `webhook_token` único por org (no OAuth).

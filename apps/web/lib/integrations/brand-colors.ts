@@ -6,6 +6,8 @@ export const INTEGRATION_BRAND_COLORS: Record<
   { hex: string; bgClass: string }
 > = {
   discord: { hex: "#5865F2", bgClass: "bg-[#5865F2]/12" },
+  unipile_instagram: { hex: "#C13584", bgClass: "bg-[#C13584]/15" },
+  unipile_whatsapp: { hex: "#25D366", bgClass: "bg-[#25D366]/12" },
   instagram: { hex: "#E4405F", bgClass: "bg-[#E4405F]/12" },
   stripe: { hex: "#635BFF", bgClass: "bg-[#635BFF]/12" },
   mercadopago: { hex: "#009EE3", bgClass: "bg-[#009EE3]/12" },
@@ -24,5 +26,7 @@ export const INTEGRATION_BRAND_COLORS: Record<
 };
 
 export function integrationLogoSrc(provider: IntegrationProvider): string {
+  if (provider === "unipile_instagram") return "/integrations/instagram.svg";
+  if (provider === "unipile_whatsapp") return "/integrations/whatsapp.svg";
   return `/integrations/${provider}.svg`;
 }

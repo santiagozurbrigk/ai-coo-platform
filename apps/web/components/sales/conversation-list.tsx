@@ -76,6 +76,11 @@ export function ConversationList({
                     IG DM
                   </span>
                 )}
+                {c.source === "whatsapp" && (
+                  <span className="rounded-[var(--radius-pill)] border border-green-500/20 bg-green-900/20 px-1.5 py-0.5 text-micro text-green-400">
+                    WhatsApp
+                  </span>
+                )}
                 {c.source === "manychat" && (
                   <span className="rounded-[var(--radius-pill)] border border-green-500/20 bg-green-900/20 px-1.5 py-0.5 text-micro text-green-400">
                     ManyChat
