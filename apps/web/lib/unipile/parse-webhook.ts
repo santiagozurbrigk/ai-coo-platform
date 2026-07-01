@@ -37,6 +37,13 @@ function resolveMessageTextFromField(
   return "";
 }
 
+function coerceUnipileBoolean(
+  value: boolean | number | undefined
+): boolean | undefined {
+  if (value === undefined) return undefined;
+  return Boolean(value);
+}
+
 function messagingWebhookToMessagePayload(
   data: UnipileMessagingWebhook
 ): UnipileMessagePayload | null {
@@ -53,7 +60,7 @@ function messagingWebhookToMessagePayload(
     is_sender: data.is_sender,
     deleted: data.deleted,
     hidden: data.hidden,
-    is_event: data.is_event,
+    is_event: coerceUnipileBoolean(data.is_event),
     sender: data.sender,
   };
 }
@@ -209,6 +216,6 @@ export function resolveUnipileMessageText(message: UnipileMessagePayload): strin
 export function shouldSkipUnipileMessage(message: UnipileMessagePayload): boolean {
   if (message.deleted) return true;
   if (message.hidden) return true;
-  if (message.is_event) return true;
+  if (Boolean(message.is_event)) return true;
   return false;
 }

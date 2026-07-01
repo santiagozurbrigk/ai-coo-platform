@@ -31,6 +31,8 @@ const unipileAttendeeSchema = z
   })
   .passthrough();
 
+const unipileBooleanishSchema = z.union([z.boolean(), z.number()]).optional();
+
 /** Payload plano de messaging webhooks (WhatsApp / Instagram vía Unipile). */
 export const unipileMessagingWebhookSchema = z
   .object({
@@ -48,7 +50,7 @@ export const unipileMessagingWebhookSchema = z
     sender: unipileAttendeeSchema.optional(),
     deleted: z.boolean().optional(),
     hidden: z.boolean().optional(),
-    is_event: z.boolean().optional(),
+    is_event: unipileBooleanishSchema,
   })
   .passthrough();
 
@@ -63,7 +65,7 @@ export const unipileMessagePayloadSchema = z
     is_sender: z.boolean().optional(),
     deleted: z.boolean().optional(),
     hidden: z.boolean().optional(),
-    is_event: z.boolean().optional(),
+    is_event: unipileBooleanishSchema,
     sender: unipileAttendeeSchema.optional(),
   })
   .passthrough();
