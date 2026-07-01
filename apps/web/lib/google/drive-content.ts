@@ -7,6 +7,8 @@ export type GoogleDriveContentFile = {
   id: string;
   name: string;
   modifiedTime?: string;
+  /** Descripción editable en Google Drive (puede estar vacía). */
+  description?: string;
 };
 
 export async function listGoogleDriveFilesByMime(
@@ -15,7 +17,7 @@ export async function listGoogleDriveFilesByMime(
 ): Promise<GoogleDriveContentFile[]> {
   const url = new URL("https://www.googleapis.com/drive/v3/files");
   url.searchParams.set("q", `mimeType='${mimeType}' and trashed=false`);
-  url.searchParams.set("fields", "files(id,name,modifiedTime)");
+  url.searchParams.set("fields", "files(id,name,modifiedTime,description)");
   url.searchParams.set("pageSize", "100");
   url.searchParams.set("orderBy", "modifiedTime desc");
 
@@ -63,6 +65,20 @@ export async function exportGoogleDriveFile(
   }
 
   return res.text();
+}
+
+/** Primeras líneas del archivo exportado (para vista previa en el picker). */
+export async function exportGoogleDriveFilePreview(
+  accessToken: string,
+  fileId: string,
+  exportMimeType: string,
+  maxChars = 320
+): Promise<string> {
+  const text = await exportGoogleDriveFile(accessToken, fileId, exportMimeType);
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return "";
+  if (clean.length <= maxChars) return clean;
+  return `${clean.slice(0, maxChars).trimEnd()}…`;
 }
 
 export async function getGoogleDriveFileMetadata(

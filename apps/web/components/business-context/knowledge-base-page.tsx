@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Button,
@@ -8,9 +8,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  Input,
   cn,
 } from "@ai-coo/ui";
-import { CheckCircle2, FileSpreadsheet, FileText, Plus, Upload } from "lucide-react";
+import { CheckCircle2, FileSpreadsheet, FileText, Plus, Search, Upload } from "lucide-react";
 import type { ContextDocument, DocumentCategory, FathomKnowledgeCall } from "@/types/business-context";
 import {
   createDocumentFromFileAction,
@@ -19,6 +20,7 @@ import {
   getGoogleSheetsListAction,
   importGoogleDocAction,
   importGoogleSheetAction,
+  previewGoogleDriveFileAction,
   prepareDocumentFileUploadAction,
   type GoogleDriveListItem,
 } from "@/app/business-context/actions";
@@ -470,12 +472,30 @@ function GoogleImportFlow({
   const { push } = useToast();
   const [files, setFiles] = useState<GoogleDriveListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [contentPreview, setContentPreview] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [category, setCategory] = useState<DocumentCategory>("operations");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const label = kind === "doc" ? "Google Docs" : "Google Sheets";
+
+  const filteredFiles = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return files;
+    return files.filter((file) => {
+      const name = file.name.toLowerCase();
+      const description = file.description?.toLowerCase() ?? "";
+      return name.includes(q) || description.includes(q);
+    });
+  }, [files, searchQuery]);
+
+  const selectedFile = useMemo(
+    () => files.find((file) => file.id === selectedId) ?? null,
+    [files, selectedId]
+  );
 
   useEffect(() => {
     if (!googleConnected) {
@@ -506,6 +526,33 @@ function GoogleImportFlow({
       cancelled = true;
     };
   }, [googleConnected, kind, label]);
+
+  useEffect(() => {
+    if (!selectedId) {
+      setContentPreview(null);
+      setPreviewLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setPreviewLoading(true);
+    setContentPreview(null);
+
+    void previewGoogleDriveFileAction({ googleFileId: selectedId, kind })
+      .then(({ preview }) => {
+        if (!cancelled) setContentPreview(preview);
+      })
+      .catch(() => {
+        if (!cancelled) setContentPreview(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId, kind]);
 
   function onImport() {
     if (!selectedId) {
@@ -573,34 +620,78 @@ function GoogleImportFlow({
           description={`No encontramos archivos de ${label} en el Drive conectado.`}
         />
       ) : (
-        <ul className="max-h-52 space-y-1 overflow-y-auto rounded-lg border border-border/60 p-1">
-          {files.map((file) => (
-            <li key={file.id}>
-              <button
-                type="button"
-                onClick={() => setSelectedId(file.id)}
-                className={cn(
-                  "w-full rounded-md px-3 py-2 text-left text-sm transition-colors",
-                  selectedId === file.id
-                    ? "bg-primary/10 text-foreground"
-                    : "hover:bg-muted/40 text-muted-foreground"
-                )}
-              >
-                <span className="font-medium text-foreground">{file.name}</span>
-                {file.modifiedTime ? (
-                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                    Modificado{" "}
-                    {new Date(file.modifiedTime).toLocaleDateString("es", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </span>
-                ) : null}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={`Buscar por nombre${kind === "doc" ? " o descripción" : ""}…`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          {filteredFiles.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border/60 py-8 text-center text-sm text-muted-foreground">
+              Ningún archivo coincide con &quot;{searchQuery.trim()}&quot;.
+            </p>
+          ) : (
+            <ul className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border/60 p-1">
+              {filteredFiles.map((file) => (
+                <li key={file.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(file.id)}
+                    className={cn(
+                      "w-full rounded-md px-3 py-2 text-left text-sm transition-colors",
+                      selectedId === file.id
+                        ? "bg-primary/10 text-foreground"
+                        : "hover:bg-muted/40 text-muted-foreground"
+                    )}
+                  >
+                    <span className="font-medium text-foreground">{file.name}</span>
+                    {file.description?.trim() ? (
+                      <span className="mt-1 line-clamp-2 block text-[11px] text-muted-foreground">
+                        {file.description.trim()}
+                      </span>
+                    ) : null}
+                    {file.modifiedTime ? (
+                      <span className="mt-0.5 block text-[11px] text-muted-foreground/80">
+                        Modificado{" "}
+                        {new Date(file.modifiedTime).toLocaleDateString("es", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {selectedFile ? (
+            <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-1">
+              <p className="text-xs font-medium text-foreground">Vista previa</p>
+              {previewLoading ? (
+                <p className="text-[11px] text-muted-foreground">Cargando contenido…</p>
+              ) : contentPreview ? (
+                <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-6">
+                  {contentPreview}
+                </p>
+              ) : selectedFile.description?.trim() ? (
+                <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-4">
+                  {selectedFile.description.trim()}
+                </p>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  Este archivo no tiene descripción ni texto exportable visible.
+                </p>
+              )}
+            </div>
+          ) : null}
+        </>
       )}
 
       <div className="space-y-2">

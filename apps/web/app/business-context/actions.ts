@@ -10,6 +10,7 @@ import { ingestDocument, IngestDocumentError } from "@/lib/rag/ingest";
 import { isOpenAIConfigured } from "@/lib/rag/embeddings";
 import {
   exportGoogleDriveFile,
+  exportGoogleDriveFilePreview,
   getGoogleDriveFileMetadata,
   GOOGLE_DOC_MIME,
   GOOGLE_SHEET_MIME,
@@ -75,6 +76,11 @@ const googleDriveFileIdSchema = z
 const importGoogleSourceSchema = z.object({
   googleFileId: googleDriveFileIdSchema,
   category: categorySchema,
+});
+
+const previewGoogleFileSchema = z.object({
+  googleFileId: googleDriveFileIdSchema,
+  kind: z.enum(["doc", "sheet"]),
 });
 
 export type GoogleDriveListItem = GoogleDriveContentFile;
@@ -455,6 +461,35 @@ export async function getGoogleSheetsListAction(): Promise<GoogleDriveListItem[]
   const accessToken = await requireGoogleAccessToken();
   try {
     return await listGoogleDriveFilesByMime(accessToken, GOOGLE_SHEET_MIME);
+  } catch (err) {
+    if (isGooglePermissionError(err)) {
+      throw new Error(
+        "Permisos de Google insuficientes. Reconectá tu cuenta desde Integraciones."
+      );
+    }
+    throw err;
+  }
+}
+
+/** Vista previa lazy del contenido exportado (solo al seleccionar en el picker). */
+export async function previewGoogleDriveFileAction(
+  input: unknown
+): Promise<{ preview: string }> {
+  const parsed = previewGoogleFileSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? "Datos inválidos");
+  }
+
+  const accessToken = await requireGoogleAccessToken();
+  const exportMime = parsed.data.kind === "doc" ? "text/plain" : "text/csv";
+
+  try {
+    const preview = await exportGoogleDriveFilePreview(
+      accessToken,
+      parsed.data.googleFileId,
+      exportMime
+    );
+    return { preview };
   } catch (err) {
     if (isGooglePermissionError(err)) {
       throw new Error(
