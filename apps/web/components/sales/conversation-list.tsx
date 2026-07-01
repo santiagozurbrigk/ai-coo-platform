@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@ai-coo/ui";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import { CONVERSATION_TAG_FILTERS } from "@/constants/conversation-tags";
@@ -8,6 +8,12 @@ import { formatRelativeTime } from "@/lib/format";
 import type { Conversation, ConversationTagId } from "@/types/sales";
 import { ConversationStatusBadge } from "./conversation-status-badge";
 import { ConversationTagBadge } from "./conversation-tag-badge";
+import {
+  ConversationSourceBadge,
+  CONVERSATION_SOURCE_FILTER_OPTIONS,
+  getAvailableConversationSourceFilters,
+  type ConversationSourceFilter,
+} from "./conversation-source-badge";
 import { LeadQualificationBadge } from "./lead-qualification-badge";
 
 export function ConversationList({
@@ -20,11 +26,36 @@ export function ConversationList({
   onSelect: (id: string) => void;
 }) {
   const [tagFilter, setTagFilter] = useState<ConversationTagId | "all">("all");
+  const [sourceFilter, setSourceFilter] =
+    useState<ConversationSourceFilter>("all");
 
-  const filtered =
-    tagFilter === "all"
-      ? conversations
-      : conversations.filter((c) => c.tag === tagFilter);
+  const sourceFilterOptions = useMemo(
+    () => getAvailableConversationSourceFilters(conversations),
+    [conversations]
+  );
+
+  const sourcePills = useMemo(
+    () =>
+      CONVERSATION_SOURCE_FILTER_OPTIONS.filter((option) =>
+        sourceFilterOptions.includes(option.value)
+      ),
+    [sourceFilterOptions]
+  );
+
+  const activeSourceFilter = sourceFilterOptions.includes(sourceFilter)
+    ? sourceFilter
+    : "all";
+
+  const filtered = useMemo(() => {
+    return conversations.filter((conversation) => {
+      const tagMatches =
+        tagFilter === "all" || conversation.tag === tagFilter;
+      const source = conversation.source ?? "manychat";
+      const sourceMatches =
+        activeSourceFilter === "all" || source === activeSourceFilter;
+      return tagMatches && sourceMatches;
+    });
+  }, [conversations, tagFilter, activeSourceFilter]);
 
   return (
     <div className="flex h-full min-w-0 w-full flex-col overflow-hidden border-r border-border bg-card">
@@ -32,6 +63,18 @@ export function ConversationList({
         <p className="px-1 text-caption font-medium text-muted-foreground">
           {filtered.length} conversaciones
         </p>
+        {sourcePills.length > 1 ? (
+          <FilterPills
+            options={sourcePills.map((option) => ({
+              value: option.value,
+              label: option.label,
+            }))}
+            value={activeSourceFilter}
+            onChange={(value) =>
+              setSourceFilter(value as ConversationSourceFilter)
+            }
+          />
+        ) : null}
         <FilterPills
           options={CONVERSATION_TAG_FILTERS.map((f) => ({
             value: f.id,
@@ -54,7 +97,14 @@ export function ConversationList({
               )}
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="truncate text-sm font-medium">{c.leadName}</span>
+                <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                  <span className="truncate text-sm font-medium">{c.leadName}</span>
+                  <ConversationSourceBadge
+                    source={c.source}
+                    showLabel={false}
+                    className="shrink-0"
+                  />
+                </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                   {c.analysis.qualificationScore ? (
                     <LeadQualificationBadge
@@ -71,21 +121,6 @@ export function ConversationList({
                 {c.lastMessage}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                {c.source === "instagram" && (
-                  <span className="rounded-[var(--radius-pill)] border border-pink-500/20 bg-pink-900/20 px-1.5 py-0.5 text-micro text-pink-400">
-                    IG DM
-                  </span>
-                )}
-                {c.source === "whatsapp" && (
-                  <span className="rounded-[var(--radius-pill)] border border-green-500/20 bg-green-900/20 px-1.5 py-0.5 text-micro text-green-400">
-                    WhatsApp
-                  </span>
-                )}
-                {c.source === "manychat" && (
-                  <span className="rounded-[var(--radius-pill)] border border-green-500/20 bg-green-900/20 px-1.5 py-0.5 text-micro text-green-400">
-                    ManyChat
-                  </span>
-                )}
                 {c.tag && <ConversationTagBadge tag={c.tag} />}
                 <ConversationStatusBadge status={c.status} />
                 <span className="ml-auto text-2xs text-muted-foreground/80">

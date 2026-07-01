@@ -3,6 +3,7 @@
 import { NotchedCard, cn } from "@ai-coo/ui";
 import { formatRelativeTime } from "@/lib/format";
 import type { Conversation, ConversationTagId } from "@/types/sales";
+import { ConversationSourceBadge } from "./conversation-source-badge";
 import { ConversationTagSelect } from "./conversation-tag-select";
 
 export function ConversationThread({
@@ -15,7 +16,12 @@ export function ConversationThread({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <NotchedCard
-        tab={<span className="truncate">{conversation.leadName}</span>}
+        tab={
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="truncate">{conversation.leadName}</span>
+            <ConversationSourceBadge source={conversation.source} />
+          </div>
+        }
         className="shrink-0 rounded-none border-0 border-b border-border shadow-none"
       >
         {onTagChange ? (
