@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   unipileEventWebhookSchema,
   unipileLegacyMessageWebhookSchema,
@@ -14,21 +15,82 @@ function isMessagePayload(value: unknown): value is UnipileMessagePayload {
   return unipileMessagePayloadSchema.safeParse(value).success;
 }
 
-/** Forma mínima de un POST de Unipile (mensaje u otro evento de messaging). */
-export function isUnipileWebhookEnvelope(body: unknown): boolean {
-  if (!body || typeof body !== "object") return false;
+function formatZodIssues(error: z.ZodError): string {
+  return error.issues
+    .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+    .join("; ");
+}
 
-  const record = body as Record<string, unknown>;
+/** Diagnóstico temporal — ver qué forma tiene el payload real de Unipile. */
+export function diagnoseUnipileWebhookEnvelope(body: unknown): {
+  accepted: boolean;
+  reasons: string[];
+} {
+  const reasons: string[] = [];
 
-  if (unipileEventWebhookSchema.safeParse(body).success) return true;
-  if (unipileLegacyMessageWebhookSchema.safeParse(body).success) return true;
-  if (isMessagePayload(body)) return true;
-
-  if (typeof record.account_id === "string" && record.account_id.length > 0) {
-    return true;
+  if (!body || typeof body !== "object") {
+    return {
+      accepted: false,
+      reasons: [`body no es objeto (tipo: ${body === null ? "null" : typeof body})`],
+    };
   }
 
-  return false;
+  const record = body as Record<string, unknown>;
+  reasons.push(`top-level keys: ${Object.keys(record).join(", ") || "(ninguna)"}`);
+
+  const eventParsed = unipileEventWebhookSchema.safeParse(body);
+  if (eventParsed.success) {
+    reasons.push("match: unipileEventWebhookSchema");
+    return { accepted: true, reasons };
+  }
+  reasons.push(`unipileEventWebhookSchema: ${formatZodIssues(eventParsed.error)}`);
+
+  const legacyParsed = unipileLegacyMessageWebhookSchema.safeParse(body);
+  if (legacyParsed.success) {
+    reasons.push("match: unipileLegacyMessageWebhookSchema");
+    return { accepted: true, reasons };
+  }
+  reasons.push(
+    `unipileLegacyMessageWebhookSchema: ${formatZodIssues(legacyParsed.error)}`
+  );
+
+  const messageParsed = unipileMessagePayloadSchema.safeParse(body);
+  if (messageParsed.success) {
+    reasons.push("match: unipileMessagePayloadSchema (mensaje en raíz)");
+    return { accepted: true, reasons };
+  }
+  reasons.push(`unipileMessagePayloadSchema: ${formatZodIssues(messageParsed.error)}`);
+
+  const accountId = record.account_id;
+  if (typeof accountId === "string" && accountId.length > 0) {
+    reasons.push("match: account_id en raíz");
+    return { accepted: true, reasons };
+  }
+  reasons.push(
+    `account_id en raíz ausente o inválido (valor: ${JSON.stringify(accountId)}, tipo: ${typeof accountId})`
+  );
+
+  if ("accountId" in record) {
+    reasons.push(
+      `encontrado accountId camelCase: ${JSON.stringify(record.accountId)}`
+    );
+  }
+  if ("account" in record && record.account != null) {
+    reasons.push(`encontrado campo account: ${JSON.stringify(record.account)}`);
+  }
+  if ("data" in record && record.data != null) {
+    reasons.push(`encontrado campo data: ${JSON.stringify(record.data)}`);
+  }
+  if ("event" in record && record.event != null) {
+    reasons.push(`encontrado campo event: ${JSON.stringify(record.event)}`);
+  }
+
+  return { accepted: false, reasons };
+}
+
+/** Forma mínima de un POST de Unipile (mensaje u otro evento de messaging). */
+export function isUnipileWebhookEnvelope(body: unknown): boolean {
+  return diagnoseUnipileWebhookEnvelope(body).accepted;
 }
 
 export function parseUnipileMessageWebhook(

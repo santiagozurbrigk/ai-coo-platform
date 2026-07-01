@@ -5,7 +5,10 @@ import {
   unipileWebhookRateLimit,
 } from "@/lib/rate-limit";
 import { ensureUnipileMessagingWebhook } from "@/lib/unipile/ensure-webhook";
-import { isUnipileWebhookEnvelope } from "@/lib/unipile/parse-webhook";
+import {
+  diagnoseUnipileWebhookEnvelope,
+  isUnipileWebhookEnvelope,
+} from "@/lib/unipile/parse-webhook";
 import { processUnipileMessageWebhook } from "@/lib/unipile/process-message";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -29,10 +32,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
+  console.log("[Unipile] payload raw:", JSON.stringify(body, null, 2));
+
+  const envelope = diagnoseUnipileWebhookEnvelope(body);
+  console.log("[Unipile] envelope diagnosis:", envelope.reasons.join(" | "));
+
   if (!isUnipileWebhookEnvelope(body)) {
-    console.warn("[Unipile Webhook] Payload no reconocido, ignorado");
+    console.log(
+      "[Unipile] payload ignorado, reason: no pasó isUnipileWebhookEnvelope()"
+    );
+    console.log(
+      "[Unipile] payload ignorado, detalle:",
+      envelope.reasons.join(" | ")
+    );
     return NextResponse.json({ ok: true, ignored: true });
   }
+
+  console.log("[Unipile] payload aceptado, procesando mensaje");
 
   try {
     await ensureUnipileMessagingWebhook();
