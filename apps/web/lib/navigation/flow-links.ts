@@ -58,10 +58,4 @@ export const flowLinks = {
     };
     return map[id] ?? `${paths.platform.intelligence.root}#memoria`;
   },
-
-  contextRelated: (label: string): string => {
-    if (label.includes("SOP")) return paths.platform.sops.detail("sop2");
-    if (label.includes("Framework")) return paths.platform.businessContext.viewer("doc1");
-    return paths.platform.operations.weeklyInputs;
-  },
 } as const;

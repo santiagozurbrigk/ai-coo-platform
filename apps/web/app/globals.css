@@ -657,38 +657,6 @@
     @apply text-foreground;
   }
 
-  .context-panel-overlay {
-    @apply fixed z-50 flex flex-col overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-2xl;
-    top: 12px;
-    right: 12px;
-    bottom: 12px;
-    width: 320px;
-    scrollbar-width: none;
-    transform: translateX(0);
-    transition:
-      transform 250ms ease,
-      opacity 250ms ease;
-  }
-
-  html.dark .context-panel-overlay {
-    @apply border-white/[0.08] bg-[#0a0a0a];
-    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4);
-  }
-
-  :root:not(.dark) .context-panel-overlay {
-    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.08);
-  }
-
-  .context-panel-overlay.closed {
-    transform: translateX(calc(100% + 20px));
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .context-panel-overlay::-webkit-scrollbar {
-    display: none;
-  }
-
   .metric-label {
     font-size: var(--text-metric-label-size);
     @apply font-medium tracking-wide text-muted-foreground;

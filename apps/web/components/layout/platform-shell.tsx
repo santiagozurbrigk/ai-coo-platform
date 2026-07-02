@@ -7,7 +7,6 @@ import { AppSidebar } from "@/components/navigation/app-sidebar";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { PlatformDocumentTitle } from "@/components/brand";
 import { FloatingChat } from "@/components/agent";
-import { ContextPanelDrawer } from "@/components/layout/context-panel-drawer";
 import { HoldingViewingBanner } from "@/components/holding/holding-viewing-banner";
 
 export function PlatformShell({ children }: { children: ReactNode }) {
@@ -17,10 +16,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
       <ThreeColumnLayout
         sidebar={<AppSidebar />}
         overlay={
-          <>
-            <ContextPanelDrawer />
-            <FloatingChat />
-          </>
+          <FloatingChat />
         }
       >
         <HoldingViewingBanner />
