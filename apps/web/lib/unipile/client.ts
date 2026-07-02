@@ -43,3 +43,37 @@ export async function unipileFetch<T = UnipileJson>(
   if (!text.trim()) return {} as T;
   return JSON.parse(text) as T;
 }
+
+export type UnipileChatAttendee = {
+  id: string;
+  account_id?: string;
+  provider_id?: string;
+  name?: string;
+  is_self?: number | boolean;
+};
+
+export async function getUnipileAttendeeById(
+  attendeeId: string,
+  accountId?: string
+): Promise<UnipileChatAttendee | null> {
+  try {
+    const query = accountId
+      ? `?account_id=${encodeURIComponent(accountId)}`
+      : "";
+    return await unipileFetch<UnipileChatAttendee>(
+      `/api/v1/chat_attendees/${encodeURIComponent(attendeeId)}${query}`
+    );
+  } catch (err) {
+    if (err instanceof UnipileApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+export async function listUnipileChatAttendees(
+  chatId: string
+): Promise<UnipileChatAttendee[]> {
+  const response = await unipileFetch<{ items?: UnipileChatAttendee[] }>(
+    `/api/v1/chats/${encodeURIComponent(chatId)}/attendees`
+  );
+  return response.items ?? [];
+}

@@ -1,5 +1,9 @@
 import { z } from "zod";
 import {
+  fallbackUnipileLeadNameFromId,
+  looksLikeUnipileIdLeadName,
+} from "./attendee-name";
+import {
   unipileEventWebhookSchema,
   unipileLegacyMessageWebhookSchema,
   unipileMessagePayloadSchema,
@@ -7,6 +11,8 @@ import {
   type UnipileMessagePayload,
   type UnipileMessagingWebhook,
 } from "./schemas";
+
+export { looksLikeUnipileIdLeadName } from "./attendee-name";
 
 export type ParsedUnipileMessage = {
   accountId: string;
@@ -199,9 +205,7 @@ export function resolveUnipileLeadName(message: UnipileMessagePayload): string {
   if (fromSender) return fromSender;
 
   if (message.sender_id?.trim()) {
-    const id = message.sender_id.trim();
-    if (id.length > 20) return `${id.slice(0, 8)}…`;
-    return id;
+    return fallbackUnipileLeadNameFromId(message.sender_id);
   }
 
   return "Contacto";

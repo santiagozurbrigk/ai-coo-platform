@@ -3,6 +3,11 @@ import {
   unipileExternalRef,
   upsertInboundConversation,
 } from "@/lib/sales/upsert-inbound-conversation";
+import {
+  fallbackUnipileLeadNameFromId,
+  looksLikeUnipileIdLeadName,
+  resolveUnipileAttendeeDisplayName,
+} from "./attendee-name";
 import { getUnipileIntegrationByAccountId } from "./integration";
 import {
   parseUnipileMessageWebhook,
@@ -15,6 +20,38 @@ const SYNC_INSIGHT: Record<"instagram" | "whatsapp", string> = {
   instagram: "Sincronizado desde Instagram DM (Unipile)",
   whatsapp: "Sincronizado desde WhatsApp (Unipile)",
 };
+
+async function resolveLeadNameForInbound(options: {
+  provider: "instagram" | "whatsapp";
+  accountId: string;
+  message: Parameters<typeof resolveUnipileLeadName>[0];
+}): Promise<string> {
+  const rawLeadName = resolveUnipileLeadName(options.message);
+
+  if (
+    options.provider !== "instagram" ||
+    !looksLikeUnipileIdLeadName(rawLeadName)
+  ) {
+    return rawLeadName;
+  }
+
+  try {
+    const resolved = await resolveUnipileAttendeeDisplayName({
+      accountId: options.accountId,
+      attendeeId: options.message.sender_id,
+      chatId: options.message.chat_id,
+    });
+    if (resolved) return resolved;
+  } catch (err) {
+    console.warn("[Unipile] No se pudo resolver nombre del attendee:", err);
+  }
+
+  if (options.message.sender_id?.trim()) {
+    return fallbackUnipileLeadNameFromId(options.message.sender_id);
+  }
+
+  return rawLeadName;
+}
 
 export async function processUnipileMessageWebhook(body: unknown): Promise<void> {
   const parsed = parseUnipileMessageWebhook(body);
@@ -45,7 +82,11 @@ export async function processUnipileMessageWebhook(body: unknown): Promise<void>
   }
 
   const externalRef = unipileExternalRef(integration.provider, message.chat_id);
-  const leadName = resolveUnipileLeadName(message);
+  const leadName = await resolveLeadNameForInbound({
+    provider: integration.provider,
+    accountId,
+    message,
+  });
   const messageText = resolveUnipileMessageText(message);
   const sender = message.is_sender ? "team" : "lead";
   const timestamp = message.timestamp
@@ -57,6 +98,7 @@ export async function processUnipileMessageWebhook(body: unknown): Promise<void>
     provider: integration.provider,
     source: integration.provider,
     externalRef,
+    leadName,
     sender,
     timestamp,
   });
