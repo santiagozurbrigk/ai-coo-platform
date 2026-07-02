@@ -117,11 +117,55 @@ const preset: Partial<Config> = {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
+        "dialog-overlay-show": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+        "dialog-overlay-hide": {
+          from: { opacity: "1" },
+          to: { opacity: "0" },
+        },
+        "dialog-content-show": {
+          from: {
+            opacity: "0",
+            transform: "translate(-50%, -48%) scale(0.95)",
+          },
+          to: {
+            opacity: "1",
+            transform: "translate(-50%, -50%) scale(1)",
+          },
+        },
+        "dialog-content-hide": {
+          from: {
+            opacity: "1",
+            transform: "translate(-50%, -50%) scale(1)",
+          },
+          to: {
+            opacity: "0",
+            transform: "translate(-50%, -48%) scale(0.95)",
+          },
+        },
+        "dialog-content-show-reduced": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+        "dialog-content-hide-reduced": {
+          from: { opacity: "1" },
+          to: { opacity: "0" },
+        },
       },
       animation: {
         "fade-in": "fade-in 0.2s ease-out",
         "pulse-glow": "pulse-glow 2.5s ease-in-out infinite",
         shimmer: "shimmer 2s linear infinite",
+        "dialog-overlay-show": "dialog-overlay-show 200ms ease-out",
+        "dialog-overlay-hide": "dialog-overlay-hide 150ms ease-out forwards",
+        "dialog-content-show":
+          "dialog-content-show 200ms cubic-bezier(0.25, 0.1, 0.25, 1)",
+        "dialog-content-hide":
+          "dialog-content-hide 150ms cubic-bezier(0.25, 0.1, 0.25, 1) forwards",
+        "dialog-content-show-reduced": "dialog-content-show-reduced 0ms linear",
+        "dialog-content-hide-reduced": "dialog-content-hide-reduced 0ms linear forwards",
       },
     },
   },

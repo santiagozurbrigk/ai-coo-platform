@@ -18,6 +18,8 @@ const DialogOverlay = React.forwardRef<
     ref={ref}
     className={cn(
       "fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-[4px] dark:bg-black/60 dark:backdrop-blur-[8px]",
+      "data-[state=open]:animate-dialog-overlay-show data-[state=closed]:animate-dialog-overlay-hide",
+      "motion-reduce:data-[state=open]:animate-none motion-reduce:data-[state=closed]:animate-none",
       className
     )}
     {...props}
@@ -34,7 +36,9 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "glass-liquid-border fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-modal)] animate-fade-in",
+        "glass-liquid-border fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-modal)]",
+        "origin-center data-[state=open]:animate-dialog-content-show data-[state=closed]:animate-dialog-content-hide",
+        "motion-reduce:data-[state=open]:animate-dialog-content-show-reduced motion-reduce:data-[state=closed]:animate-dialog-content-hide-reduced",
         "dark:border-glass dark:bg-[#111111]/80 dark:backdrop-blur-xl dark:backdrop-saturate-[180%]",
         className
       )}
