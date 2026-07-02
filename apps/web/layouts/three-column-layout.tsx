@@ -20,7 +20,7 @@ export function ThreeColumnLayout({
     <div className={cn("app-shell relative", className)} data-layout="app-shell">
       <div className="app-ambient" aria-hidden="true" />
       <div
-        className="relative z-[1] hidden min-h-0 shrink-0 self-stretch border-r border-border md:flex"
+        className="relative z-[1] hidden min-h-0 shrink-0 self-stretch md:flex"
         data-slot="sidebar"
       >
         {sidebar}
