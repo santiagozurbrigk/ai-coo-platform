@@ -15,6 +15,8 @@ export type SidebarDirectModule = {
   href: string;
   icon: string;
   badge?: number;
+  disabled?: boolean;
+  comingSoonLabel?: string;
 };
 
 export type SidebarNavRootItem =

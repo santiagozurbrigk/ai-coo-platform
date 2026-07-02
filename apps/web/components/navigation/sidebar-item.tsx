@@ -39,6 +39,8 @@ export function SidebarItem({
   isActive,
   collapsed,
   badge,
+  disabled,
+  comingSoonLabel,
   onLinkClick,
 }: {
   icon?: string;
@@ -47,18 +49,12 @@ export function SidebarItem({
   isActive: boolean;
   collapsed?: boolean;
   badge?: number;
+  disabled?: boolean;
+  comingSoonLabel?: string;
   onLinkClick?: () => void;
 }) {
-  const link = (
-    <Link
-      href={href}
-      onClick={onLinkClick}
-      className={cn(
-        "sidebar-item",
-        collapsed && "sidebar-item-collapsed",
-        isActive && "active"
-      )}
-    >
+  const content = (
+    <>
       {icon ? <NavIcon name={icon} className="sidebar-item-icon" /> : (
         <span
           className={cn(
@@ -69,16 +65,50 @@ export function SidebarItem({
         />
       )}
       {!collapsed ? <span className="sidebar-item-label">{label}</span> : null}
-      {!collapsed && badge != null && badge > 0 ? (
+      {!collapsed && comingSoonLabel ? (
+        <span className="ml-auto rounded-full bg-violet-500/15 px-1.5 py-0.5 text-2xs font-medium text-violet-700 dark:text-violet-300">
+          {comingSoonLabel}
+        </span>
+      ) : null}
+      {!collapsed && !comingSoonLabel && badge != null && badge > 0 ? (
         <span className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-2xs font-medium text-primary-foreground tabular-nums">
           {badge}
         </span>
       ) : null}
+    </>
+  );
+
+  const className = cn(
+    "sidebar-item",
+    collapsed && "sidebar-item-collapsed",
+    isActive && !disabled && "active",
+    disabled && "cursor-not-allowed text-violet-700/80 hover:bg-violet-500/10 dark:text-violet-300/80"
+  );
+
+  const link = disabled ? (
+    <button
+      type="button"
+      aria-disabled="true"
+      className={cn(className, "appearance-none border-0 bg-transparent text-left")}
+      onClick={(event) => event.preventDefault()}
+    >
+      {content}
+    </button>
+  ) : (
+    <Link
+      href={href}
+      onClick={onLinkClick}
+      className={className}
+    >
+      {content}
     </Link>
   );
 
   return (
-    <SidebarTooltip label={label} collapsed={collapsed}>
+    <SidebarTooltip
+      label={comingSoonLabel ? `${label} · ${comingSoonLabel}` : label}
+      collapsed={collapsed}
+    >
       {collapsed ? <div className="sidebar-item-slot">{link}</div> : link}
     </SidebarTooltip>
   );

@@ -54,6 +54,8 @@ export function SidebarRootNavigation({
               isActive={isSidebarDirectActive(direct.href, pathname)}
               collapsed={collapsed}
               badge={direct.badge}
+              disabled={direct.disabled}
+              comingSoonLabel={direct.comingSoonLabel}
               onLinkClick={onLinkClick}
             />
           );

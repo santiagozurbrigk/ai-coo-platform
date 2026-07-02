@@ -72,6 +72,8 @@ export const lanzamientosDirectModule: SidebarDirectModule = {
   label: "Lanzamientos",
   href: paths.platform.lanzamientos,
   icon: "rocket",
+  disabled: true,
+  comingSoonLabel: "Próximamente",
 };
 
 export const directModules: SidebarDirectModule[] = [

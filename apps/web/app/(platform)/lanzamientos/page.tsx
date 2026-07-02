@@ -1,8 +1,6 @@
-import { LaunchesPageContent } from "@/components/lanzamientos";
-import { getLaunchesAction } from "@/app/lanzamientos/actions";
+import { redirect } from "next/navigation";
+import { paths } from "@/routes";
 
 export default async function LanzamientosPage() {
-  const launches = await getLaunchesAction();
-
-  return <LaunchesPageContent initialLaunches={launches} />;
+  redirect(paths.platform.dashboard);
 }
