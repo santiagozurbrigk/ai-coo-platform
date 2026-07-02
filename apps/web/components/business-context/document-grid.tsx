@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { Input } from "@ai-coo/ui";
+import { Input, StaggerFade, StaggerFadeItem } from "@ai-coo/ui";
 import type {
   ContextDocument,
   DocumentCategory,
@@ -102,17 +102,23 @@ export function DocumentGrid({
           No hay documentos que coincidan con la búsqueda o categoría seleccionada.
         </p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <StaggerFade className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {visibleClientCalls.map((call) => (
-            <FathomClientCallCard key={call.id} call={call} />
+            <StaggerFadeItem key={call.id}>
+              <FathomClientCallCard call={call} />
+            </StaggerFadeItem>
           ))}
           {visibleContextCalls.map((call) => (
-            <FathomContextCallCard key={call.id} call={call} />
+            <StaggerFadeItem key={call.id}>
+              <FathomContextCallCard call={call} />
+            </StaggerFadeItem>
           ))}
           {filtered.map((doc) => (
-            <DocumentCard key={doc.id} document={doc} />
+            <StaggerFadeItem key={doc.id}>
+              <DocumentCard document={doc} />
+            </StaggerFadeItem>
           ))}
-        </div>
+        </StaggerFade>
       )}
     </div>
   );

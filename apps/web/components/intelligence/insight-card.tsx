@@ -11,6 +11,7 @@ export function InsightCard({ insight }: { insight: IntelligenceInsight }) {
         title={insight.title}
         confidence={insight.confidence}
         source={`${insight.department} · ${insight.createdAt}`}
+        variant="insight"
       >
         {insight.body}
       </AiCard>

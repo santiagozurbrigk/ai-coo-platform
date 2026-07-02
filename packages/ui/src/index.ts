@@ -81,6 +81,20 @@ export {
 } from "./components/section-header";
 export { Sparkline, type SparklineProps } from "./components/sparkline";
 export { AiCard, type AiCardProps } from "./components/ai-card";
+export {
+  AnimatedNumber,
+  MetricAnimatedValue,
+  type AnimatedNumberProps,
+  type MetricAnimatedValueProps,
+} from "./components/animated-number";
+export { Spotlight, type SpotlightProps } from "./components/spotlight";
+export {
+  StaggerFade,
+  StaggerFadeItem,
+  type StaggerFadeProps,
+  type StaggerFadeItemProps,
+} from "./components/stagger-fade";
+export { usePrefersReducedMotion } from "./hooks/use-prefers-reduced-motion";
 export { BarChart, type BarChartProps, type BarChartDatum } from "./components/bar-chart";
 export { FormField, type FormFieldProps } from "./components/form-field";
 export {

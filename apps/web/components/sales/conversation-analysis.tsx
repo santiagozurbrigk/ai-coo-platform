@@ -198,13 +198,13 @@ export function ConversationAnalysisPanel({
       ) : null}
 
       {conversation.aiRecommendedAction ? (
-        <AiCard title="Acción recomendada" confidence={0.85}>
+        <AiCard title="Acción recomendada" confidence={0.85} variant="recommendation">
           <p className="text-body">{conversation.aiRecommendedAction}</p>
         </AiCard>
       ) : null}
 
       {analysis.insights.length > 0 && !hasAiScore ? (
-        <AiCard title="Insights de la conversación" confidence={0.85}>
+        <AiCard title="Insights de la conversación" confidence={0.85} variant="insight">
           <ul className="list-disc space-y-1 pl-4">
             {analysis.insights.map((insight, i) => (
               <li key={i}>{insight}</li>

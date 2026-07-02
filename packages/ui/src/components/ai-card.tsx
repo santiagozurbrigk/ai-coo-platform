@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Badge } from "../primitives/badge";
+import { Spotlight } from "./spotlight";
+import { usePrefersReducedMotion } from "../hooks/use-prefers-reduced-motion";
 
 export interface AiCardProps {
   title?: string;
@@ -23,9 +25,12 @@ export function AiCard({
   className,
   variant = "default",
 }: AiCardProps) {
+  const reducedMotion = usePrefersReducedMotion();
+  const showSpotlight = variant === "insight" || variant === "recommendation";
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={reducedMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
       className={cn(
@@ -35,6 +40,7 @@ export function AiCard({
       )}
       data-variant={variant}
     >
+      {showSpotlight ? <Spotlight size={220} /> : null}
       <div className="relative flex items-start gap-3">
         <div className="ai-card-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-border bg-muted text-foreground dark:border-white/10 dark:bg-white/[0.06]">
           <Sparkles className="h-4 w-4 text-primary dark:text-[#A78BFA]" />

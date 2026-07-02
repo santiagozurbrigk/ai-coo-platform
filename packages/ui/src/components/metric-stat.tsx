@@ -12,6 +12,7 @@ import {
   type MetricTrend,
 } from "../lib/metric-trend";
 import { Sparkline } from "./sparkline";
+import { MetricAnimatedValue } from "./animated-number";
 
 export type { MetricTrend } from "../lib/metric-trend";
 export type { MetricSparklinePreset } from "./decorative-sparkline";
@@ -107,7 +108,9 @@ export function MetricStat({
             "flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3"
         )}
       >
-        <div className="metric-stat-value tabular-nums">{value}</div>
+        <div className="metric-stat-value tabular-nums">
+          <MetricAnimatedValue value={value} />
+        </div>
         {hasDataSparkline ? (
           <Sparkline
             data={sparklineData!}

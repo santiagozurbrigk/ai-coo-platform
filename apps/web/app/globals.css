@@ -226,12 +226,13 @@
   }
 
   .glass:hover {
-    border-color: hsl(var(--border));
-    box-shadow: var(--shadow-card);
+    border-color: hsl(var(--primary) / 0.22);
+    box-shadow: var(--shadow-glow), var(--shadow-card);
   }
 
   .dark .glass:hover {
-    border-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(124, 58, 237, 0.22);
+    box-shadow: var(--shadow-glow);
   }
 
   .glass-strong {
@@ -278,8 +279,8 @@
   }
 
   .surface-glass:hover {
-    @apply -translate-y-px border-border;
-    box-shadow: var(--shadow-card);
+    @apply -translate-y-px border-primary/20;
+    box-shadow: var(--shadow-glow), var(--shadow-card);
   }
 
   .dark .surface-glass {
@@ -287,7 +288,8 @@
   }
 
   .dark .surface-glass:hover {
-    @apply border-glass-strong bg-glass-hover;
+    @apply border-primary/25 bg-glass-hover;
+    box-shadow: var(--shadow-glow);
   }
 
   .text-primary-token {
@@ -614,6 +616,20 @@
 
   .ai-card {
     @apply border border-border bg-card text-foreground shadow-sm;
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease,
+      transform 150ms ease;
+  }
+
+  .ai-card:hover {
+    border-color: hsl(var(--primary) / 0.22);
+    box-shadow: var(--shadow-glow);
+  }
+
+  html.dark .ai-card:hover {
+    border-color: rgba(124, 58, 237, 0.25);
+    box-shadow: var(--shadow-glow);
   }
 
   html.dark .ai-card {
@@ -700,9 +716,23 @@
     box-shadow: none;
   }
 
-  html.dark .glass:hover,
-  html.dark .surface-glass:hover {
-    box-shadow: none;
+  @media (prefers-reduced-motion: reduce) {
+    .glass:hover,
+    .surface-glass:hover,
+    .ai-card:hover {
+      transform: none;
+      box-shadow: var(--shadow-card);
+    }
+
+    html.dark .glass:hover,
+    html.dark .surface-glass:hover,
+    html.dark .ai-card:hover {
+      box-shadow: none;
+    }
+
+    .motion-safe\:animate-fade-in {
+      animation: none !important;
+    }
   }
 
   /* Floating chat + agente de negocio */

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Badge } from "@ai-coo/ui";
+import { Badge, StaggerFade, StaggerFadeItem } from "@ai-coo/ui";
 import { Star } from "lucide-react";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import { paths } from "@/routes";
@@ -53,9 +53,10 @@ export function ClientsList({ clients }: { clients: Client[] }) {
               <th className="px-4 py-3 font-medium" />
             </tr>
           </thead>
-          <tbody>
+          <StaggerFade as="tbody">
             {filtered.map((client) => (
-              <tr
+              <StaggerFadeItem
+                as="tr"
                 key={client.id}
                 className="border-b border-border/50 transition-colors hover:bg-muted/40"
               >
@@ -83,9 +84,9 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                     Ver detalle
                   </Link>
                 </td>
-              </tr>
+              </StaggerFadeItem>
             ))}
-          </tbody>
+          </StaggerFade>
         </table>
         {filtered.length === 0 && (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">

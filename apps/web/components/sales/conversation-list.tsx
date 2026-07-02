@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cn } from "@ai-coo/ui";
+import { cn, StaggerFade, StaggerFadeItem } from "@ai-coo/ui";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import { CONVERSATION_TAG_FILTERS } from "@/constants/conversation-tags";
 import { formatRelativeTime } from "@/lib/format";
@@ -84,9 +84,9 @@ export function ConversationList({
           onChange={(value) => setTagFilter(value as typeof tagFilter)}
         />
       </div>
-      <ul className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+      <StaggerFade as="ul" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         {filtered.map((c) => (
-          <li key={c.id}>
+          <StaggerFadeItem as="li" key={c.id}>
             <button
               type="button"
               onClick={() => onSelect(c.id)}
@@ -128,9 +128,9 @@ export function ConversationList({
                 </span>
               </div>
             </button>
-          </li>
+          </StaggerFadeItem>
         ))}
-      </ul>
+      </StaggerFade>
     </div>
   );
 }

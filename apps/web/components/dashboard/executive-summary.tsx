@@ -18,6 +18,7 @@ export function ExecutiveSummary({
         title="Resumen ejecutivo"
         confidence={0.94}
         source="Inputs semanales + Ventas + Operaciones"
+        variant="insight"
       >
         {summary}
       </AiCard>

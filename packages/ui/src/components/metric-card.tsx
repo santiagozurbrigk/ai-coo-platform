@@ -9,6 +9,7 @@ import {
   type MetricSparklinePreset,
 } from "./decorative-sparkline";
 import { Sparkline } from "./sparkline";
+import { MetricAnimatedValue } from "./animated-number";
 
 export type MetricTrend = "up" | "down" | "neutral";
 
@@ -161,7 +162,7 @@ export function MetricCard({
           )}
         >
           <div className="metric-value text-[32px] leading-none tracking-tight tabular-nums sm:text-[36px]">
-            {value}
+            <MetricAnimatedValue value={value} />
           </div>
           {hasDataSparkline ? (
             <Sparkline
