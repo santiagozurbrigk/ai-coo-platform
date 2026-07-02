@@ -6,8 +6,8 @@ import type { TeamRankingEntry } from "@/types/call-analysis";
 const MEDALS = ["🥇", "🥈", "🥉"];
 
 function trendIcon(trend: TeamRankingEntry["trend"]) {
-  if (trend === "up") return <span className="text-emerald-400">↑</span>;
-  if (trend === "down") return <span className="text-red-400">↓</span>;
+  if (trend === "up") return <span className="text-emerald-600 dark:text-emerald-400">↑</span>;
+  if (trend === "down") return <span className="text-red-600 dark:text-red-400">↓</span>;
   return <span className="text-muted-foreground">→</span>;
 }
 

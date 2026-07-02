@@ -14,11 +14,11 @@ const PRIORITY_CONFIG: Record<
 > = {
   high: {
     label: "Alta prioridad",
-    className: "bg-red-500/15 text-red-400 border-red-500/30",
+    className: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
   },
   medium: {
     label: "Media prioridad",
-    className: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
   },
   low: {
     label: "Baja prioridad",

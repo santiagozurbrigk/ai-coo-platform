@@ -128,7 +128,7 @@ export function AiCostDashboardContent({
                   </td>
                   <td className="px-4 py-3">
                     {row.aiKeySource === "byok" ? (
-                      <span className="text-xs font-medium text-emerald-400">
+                      <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
                         BYOK ✓
                       </span>
                     ) : (
@@ -161,7 +161,7 @@ export function AiCostDashboardContent({
                   <td className="px-4 py-3 tabular-nums">
                     {formatUsdPrecise(row.marginUsd)}
                   </td>
-                  <td className="px-4 py-3 tabular-nums text-emerald-400">
+                  <td className="px-4 py-3 tabular-nums text-emerald-600 dark:text-emerald-400">
                     {row.marginPercent.toFixed(1)}%
                   </td>
                 </tr>

@@ -62,7 +62,7 @@ export function UTMSetupGuide({ className }: { className?: string }) {
         <ol className="mt-4 space-y-3">
           {UTM_SETUP_SOP.steps.map((item) => (
             <li key={item.step} className="flex gap-3 text-sm">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-xs font-medium text-violet-400">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-xs font-medium text-violet-700 dark:text-violet-400">
                 {item.step}
               </span>
               <div>
@@ -76,7 +76,7 @@ export function UTMSetupGuide({ className }: { className?: string }) {
         </ol>
       ) : null}
 
-      <div className="mt-4 flex gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+      <div className="mt-4 flex gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-200/90">
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <p>{UTM_SETUP_SOP.warning}</p>
       </div>

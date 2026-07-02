@@ -202,7 +202,7 @@ export function ClaudeApiKeySettings({
               href="https://console.anthropic.com/settings/keys"
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-2 inline-flex items-center gap-1 text-xs text-violet-400 hover:underline"
+              className="mt-2 inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400 hover:underline"
             >
               Obtener API key en console.anthropic.com
               <ExternalLink className="h-3 w-3" />
@@ -226,7 +226,7 @@ export function ClaudeApiKeySettings({
           </div>
 
           {error ? (
-            <p className="text-sm text-red-400" role="alert">
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
               {error}
             </p>
           ) : null}

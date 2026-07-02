@@ -7,7 +7,7 @@ const CONFIG: Record<
 > = {
   active: {
     label: "Activo",
-    className: "bg-emerald-900/30 text-emerald-400 border-emerald-500/30",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
   },
   draft: {
     label: "Borrador",
@@ -15,7 +15,7 @@ const CONFIG: Record<
   },
   outdated: {
     label: "Desactualizado",
-    className: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
   },
 };
 

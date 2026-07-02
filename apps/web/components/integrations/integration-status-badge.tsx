@@ -12,7 +12,7 @@ const STATUS_CONFIG: Record<
 > = {
   connected: {
     label: "Conectado",
-    className: "bg-emerald-900/30 text-emerald-400",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
   },
   not_connected: {
     label: "No conectado",
@@ -20,11 +20,11 @@ const STATUS_CONFIG: Record<
   },
   error: {
     label: "Error",
-    className: "bg-red-900/20 text-red-400",
+    className: "bg-red-500/15 text-red-700 dark:text-red-400",
   },
   syncing: {
     label: "Sincronizando",
-    className: "bg-blue-900/20 text-blue-400",
+    className: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
   },
 };
 

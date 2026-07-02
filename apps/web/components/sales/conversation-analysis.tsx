@@ -110,7 +110,7 @@ export function ConversationAnalysisPanel({
             </div>
             <div>
               <dt className="text-caption text-muted-foreground">Score final</dt>
-              <dd className="font-semibold tabular-nums text-violet-300">
+              <dd className="font-semibold tabular-nums text-violet-700 dark:text-violet-300">
                 {score.overall}/100
               </dd>
             </div>

@@ -33,7 +33,7 @@ export function SopCard({ sop }: { sop: Sop }) {
           {sop.generatedByAI ? (
             <Badge
               variant="outline"
-              className="gap-0.5 text-[9px] text-violet-300"
+              className="gap-0.5 text-[9px] text-violet-700 dark:text-violet-300"
             >
               <Sparkles className="h-2.5 w-2.5" />
               IA

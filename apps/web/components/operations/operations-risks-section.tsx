@@ -11,17 +11,17 @@ const LEVEL_CONFIG: Record<
 > = {
   high: {
     label: "Alto",
-    className: "bg-red-500/15 text-red-400 border-red-500/30",
+    className: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
     border: "hover:border-red-500/30",
   },
   medium: {
     label: "Medio",
-    className: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
     border: "hover:border-amber-500/30",
   },
   low: {
     label: "Bajo",
-    className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
     border: "hover:border-emerald-500/30",
   },
 };
@@ -63,7 +63,7 @@ export function OperationsRisksSection({
                   <p className="text-xs leading-relaxed text-muted-foreground">
                     {risk.description}
                   </p>
-                  <p className="text-xs font-medium text-violet-400">
+                  <p className="text-xs font-medium text-violet-600 dark:text-violet-400">
                     → {risk.suggestedAction}
                   </p>
                 </div>

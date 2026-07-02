@@ -14,11 +14,11 @@ export function HoldingViewingBanner() {
 
   return (
     <div className="flex shrink-0 items-center justify-between gap-3 border-b border-violet-500/20 bg-violet-900/20 px-4 py-2 text-sm">
-      <div className="flex min-w-0 items-center gap-2 text-violet-300">
+      <div className="flex min-w-0 items-center gap-2 text-violet-700 dark:text-violet-300">
         <Store className="h-4 w-4 shrink-0" />
         <span className="truncate">
           Estás viendo:{" "}
-          <span className="font-medium text-violet-200">
+          <span className="font-medium text-violet-800 dark:text-violet-200">
             {activeBusinessName ?? "Negocio"}
           </span>
         </span>

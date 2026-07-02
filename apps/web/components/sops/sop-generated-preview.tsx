@@ -37,7 +37,7 @@ export function SopGeneratedPreview({
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Generado con IA
             </p>
-            <Badge variant="outline" className="text-[10px] text-violet-300">
+            <Badge variant="outline" className="text-[10px] text-violet-700 dark:text-violet-300">
               Claude Sonnet
             </Badge>
           </div>

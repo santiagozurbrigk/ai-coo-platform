@@ -96,7 +96,7 @@ export function SupabaseLoginForm() {
           </p>
         )}
         {state.success && (
-          <p className="text-sm text-emerald-400" role="status">
+          <p className="text-sm text-emerald-600 dark:text-emerald-400" role="status">
             {state.success}
           </p>
         )}

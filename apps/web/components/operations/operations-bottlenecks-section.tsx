@@ -23,8 +23,8 @@ const IMPACT_LABELS: Record<OperationsRiskLevel, string> = {
 };
 
 const IMPACT_CLASS: Record<OperationsRiskLevel, string> = {
-  high: "text-red-400",
-  medium: "text-amber-300",
+  high: "text-red-600 dark:text-red-400",
+  medium: "text-amber-600 dark:text-amber-300",
   low: "text-muted-foreground",
 };
 

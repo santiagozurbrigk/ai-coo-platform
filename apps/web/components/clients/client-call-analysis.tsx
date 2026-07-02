@@ -44,9 +44,9 @@ const MISSING_STEP_HINTS: Record<string, string> = {
 };
 
 function scoreColor(score: number): string {
-  if (score >= 80) return "text-emerald-400";
-  if (score >= 60) return "text-amber-400";
-  return "text-red-400";
+  if (score >= 80) return "text-emerald-600 dark:text-emerald-400";
+  if (score >= 60) return "text-amber-600 dark:text-amber-400";
+  return "text-red-600 dark:text-red-400";
 }
 
 function barColor(score: number): string {
@@ -63,8 +63,8 @@ function sectionIcon(score: number) {
 
 function fillerPillClass(count: number): string {
   if (count < 5) return "bg-muted/40 text-muted-foreground";
-  if (count <= 15) return "bg-amber-900/20 text-amber-400";
-  return "bg-red-900/20 text-red-400";
+  if (count <= 15) return "bg-amber-500/15 text-amber-700 dark:text-amber-400";
+  return "bg-red-500/15 text-red-700 dark:text-red-400";
 }
 
 function parseDurationMinutes(duration: string): number | undefined {
@@ -73,15 +73,19 @@ function parseDurationMinutes(duration: string): number | undefined {
 }
 
 function resultValueClass(analysis: DeepCallAnalysis): string {
-  if (analysis.sold) return "[&_.metric-stat-value]:text-emerald-400";
-  if (analysis.booked) return "[&_.metric-stat-value]:text-blue-400";
-  return "[&_.metric-stat-value]:text-red-400";
+  if (analysis.sold)
+    return "[&_.metric-stat-value]:text-emerald-600 dark:[&_.metric-stat-value]:text-emerald-400";
+  if (analysis.booked)
+    return "[&_.metric-stat-value]:text-blue-600 dark:[&_.metric-stat-value]:text-blue-400";
+  return "[&_.metric-stat-value]:text-red-600 dark:[&_.metric-stat-value]:text-red-400";
 }
 
 function scoreValueClass(score: number): string {
-  if (score >= 80) return "[&_.metric-stat-value]:text-emerald-400";
-  if (score >= 60) return "[&_.metric-stat-value]:text-amber-400";
-  return "[&_.metric-stat-value]:text-red-400";
+  if (score >= 80)
+    return "[&_.metric-stat-value]:text-emerald-600 dark:[&_.metric-stat-value]:text-emerald-400";
+  if (score >= 60)
+    return "[&_.metric-stat-value]:text-amber-600 dark:[&_.metric-stat-value]:text-amber-400";
+  return "[&_.metric-stat-value]:text-red-600 dark:[&_.metric-stat-value]:text-red-400";
 }
 
 function resultLabel(analysis: DeepCallAnalysis): string {
@@ -195,7 +199,7 @@ export function ClientCallAnalysisSection({
             Pasos faltantes
           </p>
           {enriched.missingSteps.length === 0 ? (
-            <p className="flex items-center gap-2 text-sm text-emerald-400/90">
+            <p className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400/90">
               <CheckCircle2 className="h-4 w-4 shrink-0" />
               Siguió todos los pasos del guión
             </p>
@@ -210,7 +214,7 @@ export function ClientCallAnalysisSection({
                     "Este paso es clave para avanzar el lead en el guión de ventas."
                   }
                 >
-                  <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+                  <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
                   <span>{step}</span>
                 </li>
               ))}
@@ -267,7 +271,7 @@ export function ClientCallAnalysisSection({
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <p className="mb-2 text-xs font-medium text-emerald-400/90">
+            <p className="mb-2 text-xs font-medium text-emerald-600 dark:text-emerald-400/90">
               Frases que funcionan
             </p>
             {enriched.powerPhrases.length === 0 ? (
@@ -279,7 +283,7 @@ export function ClientCallAnalysisSection({
                     key={phrase}
                     className="flex items-start gap-2 text-sm text-muted-foreground"
                   >
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                     {phrase}
                   </li>
                 ))}
@@ -287,7 +291,7 @@ export function ClientCallAnalysisSection({
             )}
           </div>
           <div>
-            <p className="mb-2 text-xs font-medium text-red-400/90">
+            <p className="mb-2 text-xs font-medium text-red-600 dark:text-red-400/90">
               Frases a eliminar
             </p>
             {enriched.weakPhrases.length === 0 ? (
@@ -301,7 +305,7 @@ export function ClientCallAnalysisSection({
                     key={phrase}
                     className="flex items-start gap-2 text-sm text-muted-foreground"
                   >
-                    <X className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+                    <X className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
                     {phrase}
                   </li>
                 ))}
@@ -321,21 +325,21 @@ export function ClientCallAnalysisSection({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <p className="mb-2 text-xs font-medium text-emerald-400/90">Fortalezas</p>
+          <p className="mb-2 text-xs font-medium text-emerald-600 dark:text-emerald-400/90">Fortalezas</p>
           <ul className="space-y-2">
             {enriched.strengths.map((item) => (
               <li
                 key={item}
                 className="flex items-start gap-2 text-sm text-muted-foreground"
               >
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                 {item}
               </li>
             ))}
           </ul>
         </div>
         <div>
-          <p className="mb-2 text-xs font-medium text-amber-400/90">
+          <p className="mb-2 text-xs font-medium text-amber-600 dark:text-amber-400/90">
             Puntos a mejorar
           </p>
           <ul className="space-y-2">

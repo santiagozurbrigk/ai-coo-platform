@@ -13,7 +13,7 @@ export function FathomContextCallCard({ call }: { call: FathomKnowledgeCall }) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-violet-500/20 bg-violet-500/15">
-            <Video className="h-4 w-4 text-violet-400" />
+            <Video className="h-4 w-4 text-violet-600 dark:text-violet-400" />
           </div>
           <div>
             <p className="text-sm font-medium text-foreground">{call.title}</p>
@@ -31,7 +31,7 @@ export function FathomContextCallCard({ call }: { call: FathomKnowledgeCall }) {
             href={call.fathom_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-shrink-0 items-center gap-1 text-xs text-violet-400 transition-colors hover:text-violet-300"
+            className="flex flex-shrink-0 items-center gap-1 text-xs text-violet-600 transition-colors hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
           >
             Ver en Fathom
             <ExternalLink className="h-3 w-3" />
@@ -48,11 +48,11 @@ export function FathomContextCallCard({ call }: { call: FathomKnowledgeCall }) {
       ) : null}
 
       <div className="mt-3 flex items-center gap-2">
-        <span className="rounded-full border border-white/06 bg-white/05 px-2 py-0.5 text-[10px] text-white/40">
+        <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] text-muted-foreground dark:border-white/06 dark:bg-white/05 dark:text-white/40">
           Contexto de negocio
         </span>
         {call.status === "pending" ? (
-          <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400">
+          <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-700 dark:text-amber-400">
             Pendiente de procesar
           </span>
         ) : null}

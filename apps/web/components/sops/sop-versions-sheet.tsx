@@ -102,7 +102,7 @@ export function SopVersionsSheet({
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : error ? (
-            <p className="text-sm text-red-400">{error}</p>
+            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
           ) : versions?.length ? (
             versions.map((v) => (
               <div

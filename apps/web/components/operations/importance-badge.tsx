@@ -8,17 +8,17 @@ const CONFIG: Record<
   high: {
     label: "Muy importante",
     emoji: "🔴",
-    className: "bg-red-500/15 text-red-300 border-red-500/30",
+    className: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
   },
   medium: {
     label: "Poco importante",
     emoji: "🟡",
-    className: "bg-amber-500/15 text-amber-200 border-amber-500/30",
+    className: "bg-amber-500/15 text-amber-700 dark:text-amber-200 border-amber-500/30",
   },
   low: {
     label: "Solo para tenerlo en cuenta",
     emoji: "⚪",
-    className: "bg-zinc-500/15 text-zinc-300 border-zinc-500/40",
+    className: "bg-zinc-500/15 text-zinc-600 dark:text-zinc-300 border-zinc-500/40",
   },
 };
 

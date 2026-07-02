@@ -38,16 +38,16 @@ export function CalendlyManualSyncNotice({
     <div
       role="status"
       className={cn(
-        "flex gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100/95",
+        "flex gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-100/95",
         className
       )}
     >
-      <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" aria-hidden />
+      <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
       <div className="space-y-1">
-        <p className="font-medium text-amber-50">
+        <p className="font-medium text-amber-900 dark:text-amber-50">
           Sincronización manual de Calendly
         </p>
-        <p className="text-xs leading-relaxed text-amber-100/90">
+        <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-100/90">
           Sin el plan <strong className="font-semibold">Standard</strong> de Calendly
           no hay actualización automática de llamadas.{" "}
           {showIntegrationsLink ? (
@@ -55,7 +55,7 @@ export function CalendlyManualSyncNotice({
               Ve a{" "}
               <Link
                 href={paths.platform.integrations}
-                className="font-medium text-amber-200 underline underline-offset-2 hover:text-amber-50"
+                className="font-medium text-amber-900 underline underline-offset-2 hover:text-amber-950 dark:text-amber-200 dark:hover:text-amber-50"
               >
                 Integraciones
               </Link>{" "}

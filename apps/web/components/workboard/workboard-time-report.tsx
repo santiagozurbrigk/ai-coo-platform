@@ -68,7 +68,7 @@ function MemberTimeCard({ report }: { report: MemberTimeReport }) {
         )}
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="inline-flex items-center gap-1 text-emerald-400">
+            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
               <Target className="h-3.5 w-3.5" />
               Estratégico {report.strategicPercent}%
             </span>
@@ -139,9 +139,9 @@ function MemberTimeCard({ report }: { report: MemberTimeReport }) {
                         className={cn(
                           "mt-1 text-[11px]",
                           (task.variancePercent ?? 0) > 0
-                            ? "text-red-400"
+                            ? "text-red-600 dark:text-red-400"
                             : (task.variancePercent ?? 0) < 0
-                              ? "text-emerald-400"
+                              ? "text-emerald-600 dark:text-emerald-400"
                               : "text-muted-foreground"
                         )}
                       >
@@ -150,7 +150,7 @@ function MemberTimeCard({ report }: { report: MemberTimeReport }) {
                     ) : null}
                   </div>
                 </div>
-                <span className="shrink-0 text-sm font-semibold tabular-nums text-violet-300">
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-violet-700 dark:text-violet-300">
                   {task.hours}h
                 </span>
               </li>

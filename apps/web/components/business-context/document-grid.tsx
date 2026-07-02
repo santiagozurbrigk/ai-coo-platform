@@ -88,7 +88,7 @@ export function DocumentGrid({
             onClick={() => setFilter(key)}
             className={
               filter === key
-                ? `${tabClass} border-violet-500/40 bg-violet-500/15 text-violet-300`
+                ? `${tabClass} border-violet-500/40 bg-violet-500/15 text-violet-700 dark:text-violet-300`
                 : `${tabClass} border-border/40 bg-muted/20 text-muted-foreground hover:border-border/70`
             }
           >

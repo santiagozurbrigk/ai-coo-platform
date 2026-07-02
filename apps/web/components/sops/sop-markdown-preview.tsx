@@ -62,7 +62,7 @@ export function SopMarkdownPreview({ content }: { content: string }) {
       nodes.push(
         <h4
           key={`h3-${i}`}
-          className="mt-3 text-sm font-medium text-violet-300/90"
+          className="mt-3 text-sm font-medium text-violet-700 dark:text-violet-300/90"
         >
           {trimmed.slice(4)}
         </h4>

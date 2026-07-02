@@ -205,7 +205,7 @@ function BuyerJourneyRow({ journey }: { journey: ClosedBuyerJourney }) {
                     step.type === "dm" && "w-24 border-ai/40 bg-ai/10 text-ai",
                     step.type === "booking" && "w-24 border-primary/40 bg-primary/10",
                     step.type === "sale" &&
-                      "w-24 border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                      "w-24 border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                   )}
                 >
                   <p className="line-clamp-2">{step.label}</p>

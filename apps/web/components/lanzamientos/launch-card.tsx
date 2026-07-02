@@ -20,7 +20,7 @@ export function LaunchCard({ launch }: { launch: LaunchSummary }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="truncate text-base font-semibold group-hover:text-violet-300">
+          <h3 className="truncate text-base font-semibold group-hover:text-violet-600 dark:group-hover:text-violet-300">
             {launch.name}
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">

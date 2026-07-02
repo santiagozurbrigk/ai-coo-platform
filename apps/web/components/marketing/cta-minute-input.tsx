@@ -80,7 +80,7 @@ export function CTAMinuteInput({
           {pending ? "Guardando…" : "Guardar"}
         </Button>
       </div>
-      {error ? <p className="text-[11px] text-red-400">{error}</p> : null}
+      {error ? <p className="text-[11px] text-red-600 dark:text-red-400">{error}</p> : null}
     </div>
   );
 }

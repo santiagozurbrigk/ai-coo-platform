@@ -102,7 +102,7 @@ export function LogTimeModal({
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
         {success ? (
-          <div className="py-8 text-center text-sm font-medium text-emerald-400">
+          <div className="py-8 text-center text-sm font-medium text-emerald-600 dark:text-emerald-400">
             ✓ Tiempo registrado
           </div>
         ) : (
@@ -152,10 +152,10 @@ export function LogTimeModal({
                   className={cn(
                     "rounded-lg border px-3 py-2 text-sm",
                     estimateDelta.faster
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                       : estimateDelta.diff === 0
                         ? "border-border bg-muted/30 text-muted-foreground"
-                        : "border-red-500/30 bg-red-500/10 text-red-400"
+                        : "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400"
                   )}
                 >
                   Estimaste {formatDuration(estimatedMinutes)} — {estimateDelta.label}

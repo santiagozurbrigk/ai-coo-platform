@@ -120,7 +120,7 @@ export function WeeklyInputsPageContent({
             </p>
           ) : null}
           {!useSupabase ? (
-            <p className="text-xs text-amber-400">
+            <p className="text-xs text-amber-600 dark:text-amber-400">
               Modo demo — conectá Supabase para persistir inputs.
             </p>
           ) : null}
@@ -138,7 +138,7 @@ export function WeeklyInputsPageContent({
         Ver reporte en{" "}
         <Link
           href={paths.platform.operations.overview}
-          className="text-violet-400 hover:underline"
+          className="text-violet-600 dark:text-violet-400 hover:underline"
         >
           Operaciones → Overview
         </Link>

@@ -152,7 +152,7 @@ export function UTMGenerator({
         <div className="flex items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-900/10 p-3">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
           <div className="flex flex-col gap-1">
-            <p className="text-[12px] font-medium text-amber-400">
+            <p className="text-[12px] font-medium text-amber-600 dark:text-amber-400">
               Configurá la URL de tu sitio web
             </p>
             <p className="text-[11px] text-muted-foreground">
@@ -161,7 +161,7 @@ export function UTMGenerator({
             </p>
             <Link
               href={paths.platform.settings}
-              className="mt-0.5 text-[11px] text-amber-400 underline underline-offset-2"
+              className="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400 underline underline-offset-2"
             >
               Ir a Configuración → General →
             </Link>
@@ -351,7 +351,7 @@ export function UTMGenerator({
       </div>
 
       {error ? (
-        <p className="text-sm text-red-400" role="alert">
+        <p className="text-sm text-red-600 dark:text-red-400" role="alert">
           {error}
         </p>
       ) : null}

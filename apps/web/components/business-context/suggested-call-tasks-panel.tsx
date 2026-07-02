@@ -91,7 +91,7 @@ export function SuggestedCallTasksPanel({
                     </option>
                   ))}
                 </select>
-                <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-2xs text-violet-300">
+                <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-2xs text-violet-700 dark:text-violet-300">
                   <Sparkles className="mr-1 inline h-3 w-3" />
                   {PRIORITY_LABEL[task.suggestedPriority]}
                 </span>

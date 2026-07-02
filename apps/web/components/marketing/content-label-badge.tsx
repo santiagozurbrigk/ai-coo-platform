@@ -13,10 +13,10 @@ const LABELS: ContentLabel[] = [
 ];
 
 const LABEL_COLORS: Record<ContentLabel, string> = {
-  AUTORIDAD: "bg-violet-500/15 text-violet-300 border-violet-500/30",
-  ATRACCION: "bg-pink-500/15 text-pink-300 border-pink-500/30",
-  NUTRICION: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-  VENTA: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  AUTORIDAD: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
+  ATRACCION: "bg-pink-500/15 text-pink-700 dark:text-pink-300 border-pink-500/30",
+  NUTRICION: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+  VENTA: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
 };
 
 type Props = {

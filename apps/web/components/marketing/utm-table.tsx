@@ -133,7 +133,7 @@ export function UTMTable({ links }: { links: UTMLinkRow[] }) {
                     </div>
                     {copiedKey === `${link.id}-landing` ||
                     copiedKey === `${link.id}-dm` ? (
-                      <p className="mt-1 text-[10px] text-emerald-400">
+                      <p className="mt-1 text-[10px] text-emerald-600 dark:text-emerald-400">
                         Copiado
                       </p>
                     ) : null}

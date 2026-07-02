@@ -7,7 +7,7 @@ import type { AgentMessageActionType } from "@/types/agent";
 import { ActionCard } from "./action-card";
 
 const assistantProseClassName =
-  "prose prose-invert prose-sm max-w-none prose-headings:text-foreground prose-headings:font-medium prose-p:text-foreground/90 prose-p:my-2 prose-li:text-foreground/90 prose-strong:text-foreground prose-h1:text-base prose-h1:mt-3 prose-h1:mb-2 prose-h2:text-base prose-h2:mt-3 prose-h2:mb-1.5 prose-h3:text-sm prose-h3:mt-2 prose-h3:mb-1 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-code:text-foreground prose-a:text-violet-400 first:prose-headings:mt-0 first:prose-p:mt-0";
+  "prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-headings:font-medium prose-p:text-foreground/90 prose-p:my-2 prose-li:text-foreground/90 prose-strong:text-foreground prose-h1:text-base prose-h1:mt-3 prose-h1:mb-2 prose-h2:text-base prose-h2:mt-3 prose-h2:mb-1.5 prose-h3:text-sm prose-h3:mt-2 prose-h3:mb-1 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-code:text-foreground prose-a:text-violet-600 dark:prose-a:text-violet-400 first:prose-headings:mt-0 first:prose-p:mt-0";
 
 export function ChatMessage({
   role,

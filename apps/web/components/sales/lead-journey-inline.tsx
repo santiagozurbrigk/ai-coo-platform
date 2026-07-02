@@ -17,18 +17,18 @@ const STEP_ICON: Record<
   LeadJourneyStep["type"],
   { icon: typeof Youtube; className: string }
 > = {
-  content: { icon: Youtube, className: "text-red-400 bg-red-500/10 border-red-500/25" },
+  content: { icon: Youtube, className: "text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/25" },
   dm: {
     icon: MessageCircle,
-    className: "text-violet-400 bg-violet-500/10 border-violet-500/25",
+    className: "text-violet-600 dark:text-violet-400 bg-violet-500/10 border-violet-500/25",
   },
   booking: {
     icon: Calendar,
-    className: "text-blue-400 bg-blue-500/10 border-blue-500/25",
+    className: "text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/25",
   },
   sale: {
     icon: DollarSign,
-    className: "text-emerald-400 bg-emerald-500/10 border-emerald-500/25",
+    className: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/25",
   },
 };
 

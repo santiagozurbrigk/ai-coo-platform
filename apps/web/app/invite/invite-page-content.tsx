@@ -159,7 +159,7 @@ function InviteForm({
         ¿Ya tenés cuenta?{" "}
         <Link
           href={`${paths.auth.login}?next=${encodeURIComponent(`/invite?token=${token}`)}`}
-          className="text-violet-400 hover:underline"
+          className="text-violet-600 dark:text-violet-400 hover:underline"
         >
           Iniciá sesión
         </Link>

@@ -15,15 +15,15 @@ const CATEGORY_LABEL: Record<ObjectionCategory, string> = {
 };
 
 const CATEGORY_BADGE_CLASS: Record<ObjectionCategory, string> = {
-  closing: "border-red-500/30 bg-red-500/10 text-red-400",
-  setting: "border-amber-500/30 bg-amber-500/10 text-amber-400",
-  marketing: "border-blue-500/30 bg-blue-500/10 text-blue-400",
+  closing: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400",
+  setting: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  marketing: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400",
 };
 
 function TrendIndicator({ objection }: { objection: FrequentObjectionSummary }) {
   if (objection.trend === "up") {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-red-400">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
         <ArrowUp className="h-3.5 w-3.5" />+{objection.trendPct}% vs mes anterior
       </span>
     );
@@ -31,7 +31,7 @@ function TrendIndicator({ objection }: { objection: FrequentObjectionSummary }) 
 
   if (objection.trend === "down") {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
         <ArrowDown className="h-3.5 w-3.5" />-{objection.trendPct}% vs mes anterior
       </span>
     );
@@ -65,7 +65,7 @@ export function FrequentObjectionsPanel({
     <div id="objections">
       <Panel title="Objeciones frecuentes" subtitle={subtitle}>
         {dataSource === "mock" ? (
-          <div className="mb-4 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <div className="mb-4 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-200">
             Sin datos reales aún — conectá Fathom para ver objeciones reales
           </div>
         ) : null}

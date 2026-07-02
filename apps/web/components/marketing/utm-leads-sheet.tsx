@@ -195,7 +195,7 @@ export function UTMLeadsSheet({
                           <p className="text-sm font-medium text-foreground">
                             {name}
                           </p>
-                          <span className="shrink-0 rounded-full bg-emerald-900/20 px-2 py-0.5 text-[10px] text-emerald-400">
+                          <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-700 dark:text-emerald-400">
                             {bookingStatusLabel(status)}
                           </span>
                         </div>
@@ -238,7 +238,7 @@ export function UTMLeadsSheet({
                         <p className="text-sm font-medium text-foreground">
                           {sale.clients?.name ?? "Cliente"}
                         </p>
-                        <p className="text-sm font-semibold tabular-nums text-emerald-400">
+                        <p className="text-sm font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
                           {formatMoney(sale.revenue)}
                         </p>
                       </div>
@@ -257,7 +257,7 @@ export function UTMLeadsSheet({
               </p>
               <p className="mt-2 text-sm text-foreground">
                 Este video generó{" "}
-                <span className="font-semibold text-emerald-400">
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                   {formatMoney(totalRevenue)}
                 </span>{" "}
                 en ventas directas
