@@ -33,6 +33,12 @@ export async function getConversationIdByExternalRef(
   return data?.id ?? null;
 }
 
+/** Org efectiva del usuario (misma resolución que listConversations). */
+export async function getOrganizationIdAction(): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null;
+  return tryRequireOrganizationId();
+}
+
 export async function listConversationsAction(): Promise<Conversation[]> {
   if (!isSupabaseConfigured()) return [];
 

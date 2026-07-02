@@ -14,9 +14,15 @@ import {
   updateClosingCallAction,
 } from "@/app/closing/actions";
 import {
+  getOrganizationIdAction,
   listConversationsAction,
   updateConversationTagAction,
 } from "@/app/conversations/actions";
+import {
+  rowToConversation,
+  type ConversationRow,
+} from "@/lib/conversations/mapper";
+import { createClient } from "@/lib/supabase/client";
 import { getOnboardingStatusAction } from "@/app/onboarding/actions";
 import {
   createClientAction,
@@ -86,6 +92,13 @@ function findConversationByLead(
 ): Conversation | undefined {
   return conversations.find(
     (c) => c.leadName.toLowerCase() === leadName.toLowerCase()
+  );
+}
+
+function sortConversationsByRecency(list: Conversation[]): Conversation[] {
+  return [...list].sort(
+    (a, b) =>
+      new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
   );
 }
 
@@ -270,6 +283,78 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
     refreshConversations,
     refreshOnboarding,
   ]);
+
+  useEffect(() => {
+    if (!useSupabase) return;
+
+    let cancelled = false;
+    const supabase = createClient();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    void (async () => {
+      const organizationId = await getOrganizationIdAction();
+      if (!organizationId || cancelled) return;
+
+      const nextChannel = supabase
+        .channel(`conversations:org:${organizationId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "conversations",
+            filter: `organization_id=eq.${organizationId}`,
+          },
+          (payload) => {
+            const conversation = rowToConversation(payload.new as ConversationRow);
+            setConversations((prev) => {
+              if (prev.some((c) => c.id === conversation.id)) return prev;
+              return sortConversationsByRecency([conversation, ...prev]);
+            });
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "conversations",
+            filter: `organization_id=eq.${organizationId}`,
+          },
+          (payload) => {
+            const conversation = rowToConversation(payload.new as ConversationRow);
+            setConversations((prev) => {
+              const idx = prev.findIndex((c) => c.id === conversation.id);
+              if (idx === -1) return prev;
+              const next = [...prev];
+              next[idx] = conversation;
+              return sortConversationsByRecency(next);
+            });
+          }
+        );
+
+      channel = nextChannel;
+
+      if (cancelled) {
+        void supabase.removeChannel(nextChannel);
+        channel = null;
+        return;
+      }
+
+      nextChannel.subscribe((status, err) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.error("[PlatformDataProvider] conversations realtime", status, err);
+        }
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      if (channel) {
+        void supabase.removeChannel(channel);
+      }
+    };
+  }, []);
 
   const persistConversationTag = useCallback(
     async (conversationId: string, tag: ConversationTagId | null) => {
