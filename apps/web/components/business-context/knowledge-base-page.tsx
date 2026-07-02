@@ -30,6 +30,7 @@ import {
   isAllowedDocumentFile,
 } from "@/lib/business-context/file-types";
 import { DOCUMENT_CATEGORIES, DOCUMENT_CATEGORY_LABELS } from "@/lib/business-context/constants";
+import { useBusinessContextDocumentsRealtime } from "@/lib/business-context/use-documents-realtime";
 import { useToast } from "@/providers/toast-provider";
 import { EmptyState } from "@/components/shared/empty-state";
 import { paths } from "@/routes";
@@ -49,8 +50,15 @@ export function KnowledgeBasePage({
   clientMeetingCalls?: FathomKnowledgeCall[];
   googleConnected?: boolean;
 }) {
+  const [documents, setDocuments] = useState(initial);
   const [addOpen, setAddOpen] = useState(false);
   const [step, setStep] = useState<AddStep>("pick");
+
+  useEffect(() => {
+    setDocuments(initial);
+  }, [initial]);
+
+  useBusinessContextDocumentsRealtime(setDocuments);
 
   const closeAdd = () => {
     setAddOpen(false);
@@ -73,7 +81,7 @@ export function KnowledgeBasePage({
       </div>
 
       <DocumentGrid
-        documents={initial}
+        documents={documents}
         contextCalls={contextCalls}
         clientMeetingCalls={clientMeetingCalls}
       />

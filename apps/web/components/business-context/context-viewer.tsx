@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   AiCard,
   Badge,
@@ -9,6 +10,7 @@ import {
   TabsTrigger,
 } from "@ai-coo/ui";
 import type { ContextDocument, DocumentStatus } from "@/types/business-context";
+import { useBusinessContextDocumentRealtime } from "@/lib/business-context/use-documents-realtime";
 import { DocumentViewerSidebar } from "./document-viewer-sidebar";
 
 const CATEGORY_LABEL: Record<ContextDocument["category"], string> = {
@@ -26,7 +28,15 @@ function statusLabel(status?: DocumentStatus): string | null {
   return "Error al indexar";
 }
 
-export function ContextViewer({ document }: { document: ContextDocument }) {
+export function ContextViewer({ document: initial }: { document: ContextDocument }) {
+  const [document, setDocument] = useState(initial);
+
+  useEffect(() => {
+    setDocument(initial);
+  }, [initial]);
+
+  useBusinessContextDocumentRealtime(document.id, setDocument);
+
   const body = document.transcript?.trim() ?? "";
   const statusText = statusLabel(document.status);
 
