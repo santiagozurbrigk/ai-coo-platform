@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { z } from "zod";
 import { processRagIngestion } from "@/lib/queue/processors/rag-ingestion";
+import { verifyQStashRequest } from "@/lib/queue/qstash-verify";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -12,12 +12,22 @@ const ragIngestionBodySchema = z.object({
   sourceType: z.enum(["business_context_note", "business_context_document"]),
 });
 
-async function handler(request: Request) {
+export async function POST(request: Request) {
   const started = Date.now();
-  let body: unknown;
+  const rawBody = await request.text();
 
+  const auth = await verifyQStashRequest(request, rawBody);
+  if (!auth.ok) {
+    console.warn("[Queue] process-rag-ingestion auth failed", {
+      status: auth.status,
+      error: auth.error,
+    });
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(rawBody) as unknown;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -56,5 +66,3 @@ async function handler(request: Request) {
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }
-
-export const POST = verifySignatureAppRouter(handler);
