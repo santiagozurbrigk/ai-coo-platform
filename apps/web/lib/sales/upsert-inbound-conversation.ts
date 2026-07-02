@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { scoreConversation } from "@/lib/manychat/score-conversation";
+import { pickInboundLeadName } from "@/lib/sales/lead-name";
 import type { ConversationAnalysis, ConversationSource, SalesMessage } from "@/types/sales";
 
 export type InboundConversationPayload = {
@@ -20,6 +21,7 @@ export type InboundConversationUpsertResult = {
 
 type ConversationRow = {
   id: string;
+  lead_name?: string;
   messages: SalesMessage[];
 };
 
@@ -92,7 +94,7 @@ export async function upsertInboundConversation(
 
   const { data: existing, error: selectError } = await supabase
     .from("conversations")
-    .select("id, messages")
+    .select("id, lead_name, messages")
     .eq("organization_id", organizationId)
     .eq("external_ref", externalRef)
     .maybeSingle();
@@ -112,10 +114,11 @@ export async function upsertInboundConversation(
     }
 
     const messages = [...priorMessages, newMessage];
+    const leadName = pickInboundLeadName(row.lead_name, inbound.leadName, false);
     const { error: updateError } = await supabase
       .from("conversations")
       .update({
-        lead_name: inbound.leadName,
+        lead_name: leadName,
         last_message: inbound.messageText,
         last_message_at: timestamp,
         unread: sender === "lead",
@@ -133,7 +136,7 @@ export async function upsertInboundConversation(
       organizationId,
       conversationId: row.id,
       messages,
-      leadName: inbound.leadName,
+      leadName,
     });
 
     return {
@@ -145,11 +148,12 @@ export async function upsertInboundConversation(
   }
 
   const messages = [newMessage];
+  const leadName = pickInboundLeadName(null, inbound.leadName, true);
   const { data: inserted, error: insertError } = await supabase
     .from("conversations")
     .insert({
       organization_id: organizationId,
-      lead_name: inbound.leadName,
+      lead_name: leadName,
       status: "active",
       tag: null,
       last_message: inbound.messageText,
@@ -172,7 +176,7 @@ export async function upsertInboundConversation(
     organizationId,
     conversationId: inserted.id,
     messages,
-    leadName: inbound.leadName,
+    leadName,
   });
 
   return {

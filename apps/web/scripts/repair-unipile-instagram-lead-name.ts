@@ -1,16 +1,35 @@
 /**
  * Repara lead_name de una conversación de Instagram con ID de Unipile.
- * Uso: npx tsx scripts/repair-unipile-instagram-lead-name.ts [conversationId]
+ * Uso:
+ *   npx tsx scripts/repair-unipile-instagram-lead-name.ts [conversationId]
+ *   npx tsx scripts/repair-unipile-instagram-lead-name.ts df68a09b-... --name "Santiago Zurbrigk"
  */
 import { repairUnipileConversationLeadName } from "../lib/unipile/repair-lead-name";
 
 const DEFAULT_CONVERSATION_ID = "df68a09b-9448-4623-b654-778673883c30";
 
-async function main() {
-  const conversationId = process.argv[2]?.trim() || DEFAULT_CONVERSATION_ID;
+function parseArgs(argv: string[]) {
+  const positional = argv.filter((arg) => !arg.startsWith("--"));
+  const nameFlagIndex = argv.findIndex((arg) => arg === "--name");
+  const knownName =
+    nameFlagIndex >= 0 ? argv[nameFlagIndex + 1]?.trim() : undefined;
 
-  if (!process.env.UNIPILE_DSN?.trim() || !process.env.UNIPILE_ACCESS_TOKEN?.trim()) {
-    console.error("Faltan UNIPILE_DSN o UNIPILE_ACCESS_TOKEN");
+  return {
+    conversationId: positional[0]?.trim() || DEFAULT_CONVERSATION_ID,
+    knownName,
+  };
+}
+
+async function main() {
+  const { conversationId, knownName } = parseArgs(process.argv.slice(2));
+
+  if (
+    !knownName &&
+    (!process.env.UNIPILE_DSN?.trim() || !process.env.UNIPILE_ACCESS_TOKEN?.trim())
+  ) {
+    console.error(
+      "Faltan UNIPILE_DSN o UNIPILE_ACCESS_TOKEN (o pasá --name para reparación directa)"
+    );
     process.exit(1);
   }
 
@@ -22,7 +41,9 @@ async function main() {
     process.exit(1);
   }
 
-  const result = await repairUnipileConversationLeadName(conversationId);
+  const result = await repairUnipileConversationLeadName(conversationId, {
+    knownName,
+  });
   if (!result.updated) {
     console.log(`Sin cambios para conversación ${conversationId}`);
     return;

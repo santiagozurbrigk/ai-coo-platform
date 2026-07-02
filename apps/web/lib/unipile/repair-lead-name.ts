@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { looksLikePlaceholderLeadName } from "@/lib/sales/lead-name";
 import {
-  looksLikeUnipileIdLeadName,
+  rememberResolvedAttendeeName,
   resolveUnipileAttendeeDisplayName,
 } from "./attendee-name";
 import { getUnipileIntegrationForOrg } from "./integration";
@@ -13,9 +14,25 @@ function parseUnipileInstagramChatId(
 }
 
 export async function repairUnipileConversationLeadName(
-  conversationId: string
+  conversationId: string,
+  options?: { knownName?: string }
 ): Promise<{ updated: boolean; leadName?: string }> {
   const admin = createAdminClient();
+
+  if (options?.knownName?.trim()) {
+    const leadName = options.knownName.trim();
+    const { error: updateError } = await admin
+      .from("conversations")
+      .update({
+        lead_name: leadName,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", conversationId);
+
+    if (updateError) throw new Error(updateError.message);
+    return { updated: true, leadName };
+  }
+
   const { data: conv, error } = await admin
     .from("conversations")
     .select("id, organization_id, lead_name, external_ref, source")
@@ -24,7 +41,7 @@ export async function repairUnipileConversationLeadName(
 
   if (error) throw new Error(error.message);
   if (!conv || conv.source !== "instagram") return { updated: false };
-  if (!looksLikeUnipileIdLeadName(conv.lead_name)) return { updated: false };
+  if (!looksLikePlaceholderLeadName(conv.lead_name)) return { updated: false };
 
   const chatId = parseUnipileInstagramChatId(conv.external_ref);
   if (!chatId) return { updated: false };
@@ -35,7 +52,7 @@ export async function repairUnipileConversationLeadName(
   );
   if (!integration) return { updated: false };
 
-  const attendeeId = looksLikeUnipileIdLeadName(conv.lead_name)
+  const attendeeId = looksLikePlaceholderLeadName(conv.lead_name)
     ? conv.lead_name.replace(/…$/, "").replace(/\.\.\.$/, "")
     : null;
 

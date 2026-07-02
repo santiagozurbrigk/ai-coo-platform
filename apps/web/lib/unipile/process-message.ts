@@ -1,11 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { looksLikePlaceholderLeadName } from "@/lib/sales/lead-name";
 import {
   unipileExternalRef,
   upsertInboundConversation,
 } from "@/lib/sales/upsert-inbound-conversation";
 import {
   fallbackUnipileLeadNameFromId,
-  looksLikeUnipileIdLeadName,
+  rememberResolvedAttendeeName,
   resolveUnipileAttendeeDisplayName,
 } from "./attendee-name";
 import { getUnipileIntegrationByAccountId } from "./integration";
@@ -25,26 +26,52 @@ async function resolveLeadNameForInbound(options: {
   provider: "instagram" | "whatsapp";
   accountId: string;
   message: Parameters<typeof resolveUnipileLeadName>[0];
+  existingLeadName?: string | null;
 }): Promise<string> {
   const rawLeadName = resolveUnipileLeadName(options.message);
 
-  if (
-    options.provider !== "instagram" ||
-    !looksLikeUnipileIdLeadName(rawLeadName)
-  ) {
+  if (options.provider !== "instagram") {
     return rawLeadName;
   }
 
-  try {
-    const resolved = await resolveUnipileAttendeeDisplayName({
-      accountId: options.accountId,
-      attendeeId: options.message.sender_id,
-      chatId: options.message.chat_id,
+  const existingGoodName =
+    options.existingLeadName?.trim() &&
+    !looksLikePlaceholderLeadName(options.existingLeadName)
+      ? options.existingLeadName.trim()
+      : null;
+
+  if (existingGoodName) {
+    if (options.message.sender_id?.trim()) {
+      rememberResolvedAttendeeName(
+        options.accountId,
+        options.message.sender_id,
+        existingGoodName
+      );
+    }
+    console.log("[Unipile] leadName reutilizado de conversación existente:", {
+      leadName: existingGoodName,
     });
-    if (resolved) return resolved;
-  } catch (err) {
-    console.warn("[Unipile] No se pudo resolver nombre del attendee:", err);
+    return existingGoodName;
   }
+
+  if (!looksLikePlaceholderLeadName(rawLeadName)) {
+    if (options.message.sender_id?.trim()) {
+      rememberResolvedAttendeeName(
+        options.accountId,
+        options.message.sender_id,
+        rawLeadName
+      );
+    }
+    return rawLeadName;
+  }
+
+  const resolved = await resolveUnipileAttendeeDisplayName({
+    accountId: options.accountId,
+    attendeeId: options.message.sender_id,
+    chatId: options.message.chat_id,
+  });
+
+  if (resolved) return resolved;
 
   if (options.message.sender_id?.trim()) {
     return fallbackUnipileLeadNameFromId(options.message.sender_id);
@@ -65,7 +92,8 @@ export async function processUnipileMessageWebhook(body: unknown): Promise<void>
     accountId,
     chatId: message.chat_id,
     messageId: message.id,
-    leadName: resolveUnipileLeadName(message),
+    payloadLeadName: resolveUnipileLeadName(message),
+    senderId: message.sender_id,
     messageText: resolveUnipileMessageText(message),
     isSender: message.is_sender,
   });
@@ -82,11 +110,22 @@ export async function processUnipileMessageWebhook(body: unknown): Promise<void>
   }
 
   const externalRef = unipileExternalRef(integration.provider, message.chat_id);
+  const admin = createAdminClient();
+
+  const { data: existingConv } = await admin
+    .from("conversations")
+    .select("id, lead_name")
+    .eq("organization_id", integration.organization_id)
+    .eq("external_ref", externalRef)
+    .maybeSingle();
+
   const leadName = await resolveLeadNameForInbound({
     provider: integration.provider,
     accountId,
     message,
+    existingLeadName: existingConv?.lead_name,
   });
+
   const messageText = resolveUnipileMessageText(message);
   const sender = message.is_sender ? "team" : "lead";
   const timestamp = message.timestamp
@@ -99,11 +138,11 @@ export async function processUnipileMessageWebhook(body: unknown): Promise<void>
     source: integration.provider,
     externalRef,
     leadName,
+    existingLeadName: existingConv?.lead_name ?? null,
     sender,
     timestamp,
   });
 
-  const admin = createAdminClient();
   const result = await upsertInboundConversation(admin, integration.organization_id, {
     externalRef,
     source: integration.provider,

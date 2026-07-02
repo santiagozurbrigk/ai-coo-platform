@@ -44,6 +44,33 @@ export async function unipileFetch<T = UnipileJson>(
   return JSON.parse(text) as T;
 }
 
+const RATE_LIMIT_RETRY_MS = 400;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function unipileFetchWithRateLimitRetry<T = UnipileJson>(
+  path: string,
+  init?: RequestInit
+): Promise<T> {
+  try {
+    return await unipileFetch<T>(path, init);
+  } catch (err) {
+    if (err instanceof UnipileApiError && err.status === 429) {
+      console.warn("[Unipile] rate limited, reintentando", {
+        path,
+        status: err.status,
+        body: err.body?.slice(0, 300),
+        retryMs: RATE_LIMIT_RETRY_MS,
+      });
+      await sleep(RATE_LIMIT_RETRY_MS);
+      return unipileFetch<T>(path, init);
+    }
+    throw err;
+  }
+}
+
 export type UnipileChatAttendee = {
   id: string;
   account_id?: string;
@@ -60,7 +87,7 @@ export async function getUnipileAttendeeById(
     const query = accountId
       ? `?account_id=${encodeURIComponent(accountId)}`
       : "";
-    return await unipileFetch<UnipileChatAttendee>(
+    return await unipileFetchWithRateLimitRetry<UnipileChatAttendee>(
       `/api/v1/chat_attendees/${encodeURIComponent(attendeeId)}${query}`
     );
   } catch (err) {
@@ -72,7 +99,7 @@ export async function getUnipileAttendeeById(
 export async function listUnipileChatAttendees(
   chatId: string
 ): Promise<UnipileChatAttendee[]> {
-  const response = await unipileFetch<{ items?: UnipileChatAttendee[] }>(
+  const response = await unipileFetchWithRateLimitRetry<{ items?: UnipileChatAttendee[] }>(
     `/api/v1/chats/${encodeURIComponent(chatId)}/attendees`
   );
   return response.items ?? [];
