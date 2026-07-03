@@ -31,19 +31,23 @@ export const STATUS_COLORS: Record<
   { chip: string; dot: string }
 > = {
   todo: {
-    chip: "bg-slate-500/15 text-slate-600 border-slate-500/30 dark:text-slate-300",
+    chip:
+      "bg-slate-500/15 text-slate-700 border-slate-500/30 dark:bg-slate-400/20 dark:text-slate-200 dark:border-slate-400/35",
     dot: "bg-slate-400",
   },
   in_progress: {
-    chip: "bg-blue-500/15 text-blue-700 border-blue-500/30 dark:text-blue-300",
+    chip:
+      "bg-blue-500/15 text-blue-700 border-blue-500/30 dark:bg-blue-500/25 dark:text-blue-200 dark:border-blue-500/40",
     dot: "bg-blue-500",
   },
   review: {
-    chip: "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300",
+    chip:
+      "bg-amber-500/15 text-amber-800 border-amber-500/30 dark:bg-amber-500/25 dark:text-amber-200 dark:border-amber-500/40",
     dot: "bg-amber-500",
   },
   done: {
-    chip: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30 dark:text-emerald-300",
+    chip:
+      "bg-emerald-500/15 text-emerald-800 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-200 dark:border-emerald-500/40",
     dot: "bg-emerald-500",
   },
 };
