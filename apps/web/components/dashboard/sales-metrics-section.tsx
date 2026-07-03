@@ -1,16 +1,7 @@
 import { MetricBand, MetricStat } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
-import { sparklineProps } from "@/lib/metrics/sparkline-series";
+import { metricSparklineProps } from "@/lib/metrics/sparkline-series";
 import type { DashboardMetric } from "@/types/dashboard";
-
-const SALES_SPARKLINE: Record<string, "bookingRate" | "conversations" | "ghostingRate"> = {
-  "s-booking": "bookingRate",
-  "s-active": "conversations",
-  "s-ghost": "ghostingRate",
-  s2: "bookingRate",
-  s5: "conversations",
-  s4: "ghostingRate",
-};
 
 export function SalesMetricsSection({
   metrics,
@@ -26,8 +17,7 @@ export function SalesMetricsSection({
     >
       <MetricBand>
         {displayMetrics.map((metric, index) => {
-          const preset = SALES_SPARKLINE[metric.id];
-          const sparkline = preset ? sparklineProps(preset, index * 100) : {};
+          const sparkline = metricSparklineProps(metric, index * 100);
 
           return (
             <MetricStat

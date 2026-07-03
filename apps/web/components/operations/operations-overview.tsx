@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { mockOperationsOverview } from "@/mocks/operations-overview";
 import { weeklyReportToOperationsOverview } from "@/lib/operations/map-weekly-report";
 import type {
   OperationsDepartment,
@@ -22,7 +21,7 @@ const fade = {
 
 export function OperationsOverview({
   weeklyReport = null,
-  departments,
+  departments = [],
 }: {
   weeklyReport?: WeeklyReportRow | null;
   departments?: OperationsDepartment[];
@@ -30,29 +29,21 @@ export function OperationsOverview({
   const hasReport =
     weeklyReport?.status === "ready" && Boolean(weeklyReport.executive_summary);
 
-  const resolvedDepartments = departments ?? mockOperationsOverview.departments;
-
-  const data: OperationsOverviewData = hasReport
-    ? weeklyReportToOperationsOverview(weeklyReport, resolvedDepartments)
-    : { ...mockOperationsOverview, departments: resolvedDepartments };
-
   if (!hasReport) {
     return (
       <div className="space-y-8">
         <OperationsReportEmptyState />
-        <motion.div
-          className="space-y-8 opacity-60"
-          initial="initial"
-          animate="animate"
-          variants={{ animate: { transition: { staggerChildren: 0.06 } } }}
-        >
-          <motion.div variants={fade}>
-            <OperationsDepartmentsGrid departments={data.departments} />
-          </motion.div>
-        </motion.div>
+        {departments.length > 0 ? (
+          <OperationsDepartmentsGrid departments={departments} />
+        ) : null}
       </div>
     );
   }
+
+  const data: OperationsOverviewData = weeklyReportToOperationsOverview(
+    weeklyReport,
+    departments
+  );
 
   return (
     <motion.div
@@ -66,7 +57,7 @@ export function OperationsOverview({
       <motion.div variants={fade}>
         <OperationsExecutiveReport
           paragraphs={data.executiveReport}
-          generatedAt={weeklyReport?.generated_at}
+          generatedAt={weeklyReport.generated_at}
         />
       </motion.div>
 
@@ -83,7 +74,9 @@ export function OperationsOverview({
       </motion.div>
 
       <motion.div variants={fade}>
-        <OperationsRecommendationsSection recommendations={data.recommendations} />
+        <OperationsRecommendationsSection
+          recommendations={data.recommendations}
+        />
       </motion.div>
     </motion.div>
   );

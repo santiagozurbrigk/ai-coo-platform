@@ -92,7 +92,11 @@ export type FrequentObjectionSummary = {
   alert?: string;
 };
 
-export type FrequentObjectionsDataSource = "calls" | "conversations" | "mock";
+export type FrequentObjectionsDataSource =
+  | "calls"
+  | "conversations"
+  | "mock"
+  | "empty";
 
 export type FrequentObjectionsResult = {
   objections: FrequentObjectionSummary[];

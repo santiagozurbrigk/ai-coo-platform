@@ -1,10 +1,22 @@
+"use client";
+
 import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
 import { ArrowRight, Calendar, FilePlus, Inbox, Sparkles } from "lucide-react";
 import { GlassPanel, cn } from "@ai-coo/ui";
 import { paths } from "@/routes";
-import { flowLinks } from "@/lib/navigation/flow-links";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { usePlatformData } from "@/providers/platform-data-provider";
+import type { WeeklyReportRow } from "@/types/operations";
 
-const ACTIONS = [
+const useSupabase = isSupabaseConfigured();
+
+const DEMO_ACTIONS: Array<{
+  href: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+}> = [
   {
     href: paths.platform.operations.weeklyInputs,
     label: "Input semanal",
@@ -24,21 +36,85 @@ const ACTIONS = [
     icon: FilePlus,
   },
   {
-    href: flowLinks.executiveReportLatest,
+    href: paths.platform.executiveReports.weekly,
     label: "Reporte Semana 20",
     description: "Generado el lunes",
     icon: Sparkles,
   },
-] as const;
+];
 
-export function NextActionsStrip() {
+function formatReportWeekLabel(weekStart: string): string {
+  const d = new Date(`${weekStart}T12:00:00`);
+  return `Semana del ${d.toLocaleDateString("es", {
+    day: "numeric",
+    month: "short",
+  })}`;
+}
+
+function buildActions(
+  unanswered: number,
+  weeklyReport: WeeklyReportRow | null | undefined
+) {
+  const actions: Array<{
+    href: string;
+    label: string;
+    description: string;
+    icon: LucideIcon;
+  }> = [];
+
+  const hasReport =
+    weeklyReport?.status === "ready" && Boolean(weeklyReport.executive_summary);
+
+  if (!hasReport) {
+    actions.push({
+      href: paths.platform.operations.weeklyInputs,
+      label: "Input semanal",
+      description: "Generar reporte con IA",
+      icon: Calendar,
+    });
+  }
+
+  if (unanswered > 0) {
+    actions.push({
+      href: paths.platform.sales.inbox,
+      label: "Revisar bandeja",
+      description: `${unanswered} sin responder`,
+      icon: Inbox,
+    });
+  }
+
+  if (hasReport && weeklyReport?.week_start) {
+    actions.push({
+      href: paths.platform.executiveReports.weekly,
+      label: formatReportWeekLabel(weeklyReport.week_start),
+      description: "Resumen ejecutivo listo",
+      icon: Sparkles,
+    });
+  }
+
+  return actions;
+}
+
+export function NextActionsStrip({
+  weeklyReport,
+}: {
+  weeklyReport?: WeeklyReportRow | null;
+}) {
+  const { salesMetrics } = usePlatformData();
+
+  const actions = useSupabase
+    ? buildActions(salesMetrics.unansweredConversations, weeklyReport)
+    : DEMO_ACTIONS;
+
+  if (actions.length === 0) return null;
+
   return (
     <GlassPanel className="p-4">
       <p className="text-xs font-medium text-muted-foreground mb-3">
         Qué hacer ahora
       </p>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {ACTIONS.map(({ href, label, description, icon: Icon }) => (
+        {actions.map(({ href, label, description, icon: Icon }) => (
           <Link
             key={href}
             href={href}

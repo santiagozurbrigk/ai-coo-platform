@@ -1,5 +1,8 @@
+"use client";
+
 import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp } from "lucide-react";
 import { Badge } from "@ai-coo/ui";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Panel } from "@/components/shared/panel";
 import { cn } from "@/lib/utils";
 import type {
@@ -47,12 +50,41 @@ function TrendIndicator({ objection }: { objection: FrequentObjectionSummary }) 
 
 export function FrequentObjectionsPanel({
   objections,
-  dataSource = "mock",
+  dataSource = "empty",
+  loadError,
 }: {
   objections: FrequentObjectionSummary[];
   dataSource?: FrequentObjectionsDataSource;
+  loadError?: boolean;
 }) {
-  if (objections.length === 0) return null;
+  if (loadError) {
+    return (
+      <div id="objections">
+        <Panel title="Objeciones frecuentes">
+          <EmptyState
+            variant="inline"
+            title="No pudimos cargar las objeciones"
+            description="Intentá de nuevo en unos segundos."
+            icon={<AlertTriangle className="h-4 w-4" />}
+          />
+        </Panel>
+      </div>
+    );
+  }
+
+  if (dataSource === "empty" || objections.length === 0) {
+    return (
+      <div id="objections">
+        <Panel title="Objeciones frecuentes">
+          <EmptyState
+            variant="inline"
+            title="Todavía no hay objeciones detectadas"
+            description="Conectá Fathom o sincronizá conversaciones para ver objeciones reales de tus calls y DMs."
+          />
+        </Panel>
+      </div>
+    );
+  }
 
   const subtitle =
     dataSource === "calls"

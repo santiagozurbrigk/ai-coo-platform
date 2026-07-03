@@ -57,8 +57,8 @@ import type {
   BusinessStage,
 } from "@/types/agent";
 
-const MOCK_REPLY =
-  "Gracias por tu consulta. Conecta ANTHROPIC_API_KEY y ejecuta la migración del agente en Supabase para respuestas reales con contexto de tu negocio.";
+const AGENT_ERROR_REPLY =
+  "No pudimos generar la respuesta. Intentá de nuevo en unos segundos.";
 
 function revalidateAgent() {
   revalidatePath(paths.platform.agent.root);
@@ -542,13 +542,13 @@ export async function sendAgentMessageAction(input: {
   }
 
   if (!rawAssistant) {
-    console.error("[Agent:Claude] falling back to MOCK_REPLY", {
+    console.error("[Agent:Claude] sin respuesta del modelo", {
       organizationId,
       claudeThrew,
       isAnthropicConfigured: anthropicConfigured,
       orgClaudeClientAvailable,
     });
-    rawAssistant = MOCK_REPLY;
+    throw new Error(AGENT_ERROR_REPLY);
   }
 
   const actions = parseAgentActions(rawAssistant);

@@ -14,6 +14,7 @@ export function FrequentObjectionsSection({
     initialData ?? null
   );
   const [loading, setLoading] = useState(!initialData);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (initialData) return;
@@ -22,6 +23,10 @@ export function FrequentObjectionsSection({
     getFrequentObjectionsAction()
       .then((result) => {
         if (!cancelled) setData(result);
+      })
+      .catch((error) => {
+        console.error("[FrequentObjectionsSection]", error);
+        if (!cancelled) setLoadError(true);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -37,6 +42,16 @@ export function FrequentObjectionsSection({
       <p className="text-sm text-muted-foreground">
         Cargando objeciones frecuentes…
       </p>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <FrequentObjectionsPanel
+        objections={[]}
+        dataSource="empty"
+        loadError
+      />
     );
   }
 

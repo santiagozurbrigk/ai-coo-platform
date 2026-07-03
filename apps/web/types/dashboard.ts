@@ -22,6 +22,9 @@ export type DashboardMetric = {
   trendValue?: string;
   /** 0–100 para barras de progreso en métricas operacionales */
   progress?: number;
+  /** Serie real para sparkline; omitir si no hay histórico suficiente */
+  sparklineData?: number[];
+  sparklineColor?: string;
 };
 
 export type DashboardWeeklyChange = {

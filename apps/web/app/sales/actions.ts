@@ -27,7 +27,35 @@ type CallAnalysisRow = {
   overall_score: number | null;
   booked: boolean;
   sold: boolean;
+  call_date?: string | null;
 };
+
+function mockCloserEvolutionForName(closerName: string): number[] {
+  const key = closerName
+    .split(" ")[0]
+    ?.toLowerCase() as keyof typeof mockCloserEvolution;
+  return mockCloserEvolution[key] ?? mockCloserEvolution.carlos;
+}
+
+function aggregateTeamAverageByDate(
+  rows: Array<{ overall_score: number | null; call_date?: string | null }>
+): number[] {
+  const byDate = new Map<string, number[]>();
+
+  for (const row of rows) {
+    if (row.overall_score == null) continue;
+    const date = row.call_date?.slice(0, 10) ?? "unknown";
+    const bucket = byDate.get(date) ?? [];
+    bucket.push(row.overall_score);
+    byDate.set(date, bucket);
+  }
+
+  return Array.from(byDate.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, scores]) =>
+      Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
+    );
+}
 
 export async function getCallAnalysesAction(closerId?: string) {
   if (!isSupabaseConfigured()) return null;
@@ -49,124 +77,136 @@ export async function getCallAnalysesAction(closerId?: string) {
     const { data, error } = await query;
     if (error) {
       if (isMissingTableError(error.message)) return null;
+      console.error("[getCallAnalysesAction]", error);
       throw new Error(error.message);
     }
 
     return data?.length ? data : null;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof Error && !error.message.includes("call_analyses")) {
+      console.error("[getCallAnalysesAction]", error);
+    }
+    throw error;
   }
 }
 
 export async function getTeamRankingAction(): Promise<TeamRankingEntry[]> {
   if (!isSupabaseConfigured()) return mockTeamRanking;
 
-  try {
-    const organizationId = await requireOrganizationId();
-    const supabase = await createClient();
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data, error } = await supabase
-      .from("call_analyses")
-      .select("closer_id, closer_name, overall_score, booked, sold")
-      .eq("organization_id", organizationId)
-      .gte("call_date", since);
+  const { data, error } = await supabase
+    .from("call_analyses")
+    .select("closer_id, closer_name, overall_score, booked, sold")
+    .eq("organization_id", organizationId)
+    .gte("call_date", since);
 
-    if (error) {
-      if (isMissingTableError(error.message)) return mockTeamRanking;
-      throw new Error(error.message);
-    }
-
-    if (!data?.length) return mockTeamRanking;
-
-    const byCloser = data.reduce<
-      Record<
-        string,
-        {
-          name: string;
-          scores: number[];
-          calls: number;
-          bookings: number;
-        }
-      >
-    >((acc, call: CallAnalysisRow) => {
-      const key = call.closer_id ?? call.closer_name ?? "unknown";
-      if (!acc[key]) {
-        acc[key] = {
-          name: call.closer_name ?? "Sin nombre",
-          scores: [],
-          calls: 0,
-          bookings: 0,
-        };
-      }
-      if (call.overall_score != null) {
-        acc[key].scores.push(call.overall_score);
-      }
-      acc[key].calls += 1;
-      if (call.booked) acc[key].bookings += 1;
-      return acc;
-    }, {});
-
-    return Object.values(byCloser)
-      .map((c) => ({
-        name: c.name,
-        score: Math.round(
-          c.scores.reduce((a: number, b: number) => a + b, 0) /
-            Math.max(c.scores.length, 1)
-        ),
-        calls: c.calls,
-        bookings: c.bookings,
-        conversion: `${Math.round((c.bookings / Math.max(c.calls, 1)) * 100)}%`,
-        trend: "stable" as const,
-      }))
-      .sort((a, b) => b.score - a.score);
-  } catch {
-    return mockTeamRanking;
+  if (error) {
+    if (isMissingTableError(error.message)) return [];
+    console.error("[getTeamRankingAction]", error);
+    throw new Error(error.message);
   }
+
+  if (!data?.length) return [];
+
+  const byCloser = data.reduce<
+    Record<
+      string,
+      {
+        name: string;
+        scores: number[];
+        calls: number;
+        bookings: number;
+      }
+    >
+  >((acc, call: CallAnalysisRow) => {
+    const key = call.closer_id ?? call.closer_name ?? "unknown";
+    if (!acc[key]) {
+      acc[key] = {
+        name: call.closer_name ?? "Sin nombre",
+        scores: [],
+        calls: 0,
+        bookings: 0,
+      };
+    }
+    if (call.overall_score != null) {
+      acc[key].scores.push(call.overall_score);
+    }
+    acc[key].calls += 1;
+    if (call.booked) acc[key].bookings += 1;
+    return acc;
+  }, {});
+
+  return Object.values(byCloser)
+    .map((c) => ({
+      name: c.name,
+      score: Math.round(
+        c.scores.reduce((a: number, b: number) => a + b, 0) /
+          Math.max(c.scores.length, 1)
+      ),
+      calls: c.calls,
+      bookings: c.bookings,
+      conversion: `${Math.round((c.bookings / Math.max(c.calls, 1)) * 100)}%`,
+      trend: "stable" as const,
+    }))
+    .sort((a, b) => b.score - a.score);
 }
 
 export async function getCloserEvolutionAction(
   closerName: string
 ): Promise<number[]> {
   if (!isSupabaseConfigured()) {
-    const key = closerName.split(" ")[0]?.toLowerCase() as keyof typeof mockCloserEvolution;
-    return mockCloserEvolution[key] ?? mockCloserEvolution.carlos;
+    return mockCloserEvolutionForName(closerName);
   }
 
-  try {
-    const organizationId = await requireOrganizationId();
-    const supabase = await createClient();
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
 
-    const { data, error } = await supabase
-      .from("call_analyses")
-      .select("overall_score, call_date")
-      .eq("organization_id", organizationId)
-      .eq("closer_name", closerName)
-      .order("call_date", { ascending: true })
-      .limit(50);
+  const { data, error } = await supabase
+    .from("call_analyses")
+    .select("overall_score, call_date")
+    .eq("organization_id", organizationId)
+    .eq("closer_name", closerName)
+    .order("call_date", { ascending: true })
+    .limit(50);
 
-    if (error) {
-      if (isMissingTableError(error.message)) {
-        const key = closerName.split(" ")[0]?.toLowerCase() as keyof typeof mockCloserEvolution;
-        return mockCloserEvolution[key] ?? mockCloserEvolution.carlos;
-      }
-      throw new Error(error.message);
-    }
-
-    if (!data?.length) {
-      const key = closerName.split(" ")[0]?.toLowerCase() as keyof typeof mockCloserEvolution;
-      return mockCloserEvolution[key] ?? mockCloserEvolution.carlos;
-    }
-
-    return data.map((d) => d.overall_score ?? 0);
-  } catch {
-    const key = closerName.split(" ")[0]?.toLowerCase() as keyof typeof mockCloserEvolution;
-    return mockCloserEvolution[key] ?? mockCloserEvolution.carlos;
+  if (error) {
+    if (isMissingTableError(error.message)) return [];
+    console.error("[getCloserEvolutionAction]", error);
+    throw new Error(error.message);
   }
+
+  if (!data?.length) return [];
+
+  return data.map((d) => d.overall_score ?? 0);
 }
 
 export async function getTeamAverageEvolutionAction(): Promise<number[]> {
-  return getTeamAverageEvolution();
+  if (!isSupabaseConfigured()) {
+    return getTeamAverageEvolution();
+  }
+
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("call_analyses")
+    .select("overall_score, call_date")
+    .eq("organization_id", organizationId)
+    .order("call_date", { ascending: true })
+    .limit(200);
+
+  if (error) {
+    if (isMissingTableError(error.message)) return [];
+    console.error("[getTeamAverageEvolutionAction]", error);
+    throw new Error(error.message);
+  }
+
+  if (!data?.length) return [];
+
+  return aggregateTeamAverageByDate(data);
 }
 
 /** Expuesto para validar mocks en desarrollo */
@@ -195,13 +235,6 @@ export async function getFrequentObjectionsAction(): Promise<FrequentObjectionsR
     };
   }
 
-  try {
-    const organizationId = await requireOrganizationId();
-    return await getFrequentObjections(organizationId);
-  } catch {
-    return {
-      objections: mockFrequentObjectionSummaries(),
-      dataSource: "mock",
-    };
-  }
+  const organizationId = await requireOrganizationId();
+  return getFrequentObjections(organizationId);
 }

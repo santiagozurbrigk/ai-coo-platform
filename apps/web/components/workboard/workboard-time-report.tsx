@@ -13,10 +13,14 @@ import {
   TooltipTrigger,
 } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
+import { EmptyState } from "@/components/shared/empty-state";
 import { getTimeByMemberAction } from "@/app/workboard/actions";
 import { mockMemberTimeReports } from "@/mocks/workboard-time";
 import { buildAutomationInsights } from "@/lib/workboard/time-report";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type { MemberTimeReport, TaskTimeKind } from "@/types/workboard";
+
+const useSupabase = isSupabaseConfigured();
 
 const KIND_LABEL: Record<TaskTimeKind, string> = {
   strategic: "Estratégica",
@@ -163,24 +167,36 @@ function MemberTimeCard({ report }: { report: MemberTimeReport }) {
 }
 
 export function WorkboardTimeReport() {
-  const [reports, setReports] = useState<MemberTimeReport[]>(mockMemberTimeReports);
+  const [reports, setReports] = useState<MemberTimeReport[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingMock, setUsingMock] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [usingDemo, setUsingDemo] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       setLoading(true);
-      try {
-        const real = await getTimeByMemberAction();
-        if (!cancelled) {
-          setReports(real ?? mockMemberTimeReports);
-          setUsingMock(!real?.length);
-        }
-      } catch {
+      setLoadError(false);
+
+      if (!useSupabase) {
         if (!cancelled) {
           setReports(mockMemberTimeReports);
-          setUsingMock(true);
+          setUsingDemo(true);
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const real = await getTimeByMemberAction();
+        if (cancelled) return;
+        setReports(real ?? []);
+        setUsingDemo(false);
+      } catch (error) {
+        console.error("[WorkboardTimeReport]", error);
+        if (!cancelled) {
+          setReports([]);
+          setLoadError(true);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -201,6 +217,26 @@ export function WorkboardTimeReport() {
     );
   }
 
+  if (loadError) {
+    return (
+      <EmptyState
+        variant="inline"
+        title="No pudimos cargar el reporte de tiempo"
+        description="Intentá de nuevo en unos segundos."
+      />
+    );
+  }
+
+  if (!usingDemo && data.length === 0) {
+    return (
+      <EmptyState
+        title="Todavía no hay tiempo registrado"
+        description="Registrá tiempo en las tareas del tablero para ver el reporte por persona."
+        icon={<Clock className="h-5 w-5" />}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm dark:border-white/[0.08]">
@@ -211,7 +247,7 @@ export function WorkboardTimeReport() {
         <span className="text-muted-foreground">
           {data.length} miembros con actividad
         </span>
-        {usingMock ? (
+        {usingDemo ? (
           <Badge variant="secondary" className="text-2xs">
             Datos demo
           </Badge>

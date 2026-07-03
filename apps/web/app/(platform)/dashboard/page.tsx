@@ -19,15 +19,8 @@ async function loadFrequentObjections(): Promise<FrequentObjectionsResult> {
     };
   }
 
-  try {
-    const organizationId = await requireOrganizationId();
-    return await getFrequentObjections(organizationId);
-  } catch {
-    return {
-      objections: mockFrequentObjectionSummaries(),
-      dataSource: "mock",
-    };
-  }
+  const organizationId = await requireOrganizationId();
+  return getFrequentObjections(organizationId);
 }
 
 export default async function DashboardPage() {

@@ -1,6 +1,7 @@
 import { formatMoney } from "@/lib/finance/format";
 import { deriveFinanceSummary } from "@/lib/metrics/derive-finance-summary";
 import { collectRevenueEvents } from "@/lib/metrics/revenue-events";
+import { METRIC_SPARKLINE_COLORS } from "@/lib/metrics/sparkline-series";
 import type { Client } from "@/types/clients";
 import type { ClosingCall } from "@/types/closing";
 import type {
@@ -46,6 +47,39 @@ export function deriveDashboardRevenueTrend(
   return points;
 }
 
+function dailyCounts(
+  conversations: Conversation[],
+  predicate: (c: Conversation, dayKey: string) => boolean
+): number[] {
+  const now = new Date();
+  return Array.from({ length: 7 }, (_, dayIndex) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - (6 - dayIndex));
+    const key = d.toISOString().slice(0, 10);
+    return conversations.filter((c) => predicate(c, key)).length;
+  });
+}
+
+function attachSparkline(
+  metric: DashboardMetric,
+  values: number[]
+): DashboardMetric {
+  if (values.length < 2) return metric;
+  return {
+    ...metric,
+    sparklineData: values,
+    sparklineColor: METRIC_SPARKLINE_COLORS[metric.id],
+  };
+}
+
+function isBooked(conv: Conversation): boolean {
+  return (
+    conv.status === "booked" ||
+    conv.tag === "agendado" ||
+    conv.tag === "closeado"
+  );
+}
+
 export function deriveDashboardData(
   clients: Client[],
   conversations: Conversation[],
@@ -78,12 +112,15 @@ export function deriveDashboardData(
   }).length;
 
   const revenueMetrics: DashboardMetric[] = [
-    {
-      id: "m1",
-      label: "MRR",
-      value: formatMoney(finance.facturacion),
-      trend: finance.facturacion > 0 ? "up" : "neutral",
-    },
+    attachSparkline(
+      {
+        id: "m1",
+        label: "MRR",
+        value: formatMoney(finance.facturacion),
+        trend: finance.facturacion > 0 ? "up" : "neutral",
+      },
+      deriveDashboardRevenueTrend(clients).map((p) => p.value)
+    ),
     {
       id: "m2",
       label: "Nuevos clientes",
@@ -98,25 +135,48 @@ export function deriveDashboardData(
     },
   ];
 
+  const bookingDaily = dailyCounts(conversations, (c, key) =>
+    isBooked(c) && c.lastMessageAt.slice(0, 10) === key
+  );
+  const activeDaily = dailyCounts(
+    conversations,
+    (c, key) =>
+      c.status === "active" && c.lastMessageAt.slice(0, 10) === key
+  );
+  const ghostDaily = dailyCounts(
+    conversations,
+    (c, key) =>
+      c.status === "ghosted" && c.lastMessageAt.slice(0, 10) === key
+  );
+
   const salesMetricsCards: DashboardMetric[] = [
-    {
-      id: "s-booking",
-      label: "Tasa de agendamiento",
-      value: formatPercent(salesMetrics.bookingRate),
-      trend: salesMetrics.bookingRate >= 25 ? "up" : "neutral",
-    },
-    {
-      id: "s-active",
-      label: "Conversaciones activas",
-      value: String(salesMetrics.activeConversations),
-      trend: salesMetrics.activeConversations > 0 ? "up" : "neutral",
-    },
-    {
-      id: "s-ghost",
-      label: "Tasa de fantasma",
-      value: formatPercent(salesMetrics.ghostingRate),
-      trend: salesMetrics.ghostingRate <= 20 ? "down" : "up",
-    },
+    attachSparkline(
+      {
+        id: "s-booking",
+        label: "Tasa de agendamiento",
+        value: formatPercent(salesMetrics.bookingRate),
+        trend: salesMetrics.bookingRate >= 25 ? "up" : "neutral",
+      },
+      bookingDaily
+    ),
+    attachSparkline(
+      {
+        id: "s-active",
+        label: "Conversaciones activas",
+        value: String(salesMetrics.activeConversations),
+        trend: salesMetrics.activeConversations > 0 ? "up" : "neutral",
+      },
+      activeDaily
+    ),
+    attachSparkline(
+      {
+        id: "s-ghost",
+        label: "Tasa de fantasma",
+        value: formatPercent(salesMetrics.ghostingRate),
+        trend: salesMetrics.ghostingRate <= 20 ? "down" : "up",
+      },
+      ghostDaily
+    ),
   ];
 
   const operationalMetrics: DashboardMetric[] = [

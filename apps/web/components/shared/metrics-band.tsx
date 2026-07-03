@@ -1,9 +1,6 @@
 import { MetricBand, MetricCard, MetricStat, type MetricTrend } from "@ai-coo/ui";
 import type { DashboardMetric } from "@/types/dashboard";
-import {
-  DASHBOARD_SPARKLINE_BY_ID,
-  sparklineProps,
-} from "@/lib/metrics/sparkline-series";
+import { metricSparklineProps } from "@/lib/metrics/sparkline-series";
 import { BentoCell, BentoGrid, type BentoSize } from "./bento-grid";
 
 const METRIC_BENTO_PATTERN: BentoSize[] = [
@@ -28,8 +25,7 @@ export function MetricGrid({
   return (
     <BentoGrid>
       {metrics.map((m, index) => {
-        const preset = DASHBOARD_SPARKLINE_BY_ID[m.id];
-        const sparkline = preset ? sparklineProps(preset, index * 100) : {};
+        const sparkline = metricSparklineProps(m, index * 100);
         const size = METRIC_BENTO_PATTERN[index % METRIC_BENTO_PATTERN.length];
 
         return (
@@ -57,8 +53,7 @@ export function DashboardMetricsBand({
   return (
     <MetricBand>
       {metrics.map((metric, index) => {
-        const preset = DASHBOARD_SPARKLINE_BY_ID[metric.id];
-        const sparkline = preset ? sparklineProps(preset, index * 80) : {};
+        const sparkline = metricSparklineProps(metric, index * 80);
 
         return (
           <MetricStat

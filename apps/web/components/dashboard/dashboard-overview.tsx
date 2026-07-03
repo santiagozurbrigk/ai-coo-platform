@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import type { DashboardData } from "@/types/dashboard";
+import type { WeeklyReportRow } from "@/types/operations";
 import { ExecutiveSummary } from "./executive-summary";
 import { RisksList } from "./risks-list";
 import { OpportunitiesList } from "./opportunities-list";
@@ -18,7 +19,13 @@ const fade = {
   animate: { opacity: 1, y: 0 },
 };
 
-export function DashboardOverview({ data }: { data: DashboardData }) {
+export function DashboardOverview({
+  data,
+  weeklyReport,
+}: {
+  data: DashboardData;
+  weeklyReport?: WeeklyReportRow | null;
+}) {
   if (data.isEmpty) {
     return <DashboardEmptyState />;
   }
@@ -70,7 +77,7 @@ export function DashboardOverview({ data }: { data: DashboardData }) {
       </motion.div>
 
       <motion.div variants={fade}>
-        <NextActionsStrip />
+        <NextActionsStrip weeklyReport={weeklyReport} />
       </motion.div>
     </motion.div>
   );

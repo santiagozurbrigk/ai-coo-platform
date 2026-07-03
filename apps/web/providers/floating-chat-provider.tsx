@@ -48,8 +48,8 @@ function newId() {
   return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-const MOCK_REPLY =
-  "Gracias por tu consulta. Conecta ANTHROPIC_API_KEY y ejecuta la migración del agente en Supabase para respuestas reales con contexto de tu negocio.";
+const AGENT_ERROR_REPLY =
+  "No pudimos generar la respuesta. Intentá de nuevo en unos segundos.";
 
 export function FloatingChatProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -110,10 +110,18 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
 
   const simulateReply = useCallback(async () => {
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 900));
-    appendAssistantMessage(MOCK_REPLY);
-    setIsLoading(false);
-  }, [appendAssistantMessage]);
+    try {
+      const lastUser = [...messages].reverse().find((m) => m.role === "user");
+      if (!lastUser?.content.trim()) return;
+      await sendAgentMessageAction({ content: lastUser.content });
+    } catch (error) {
+      console.error("[simulateReply]", error);
+      appendAssistantMessage(AGENT_ERROR_REPLY);
+      setHasNewMessage(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [appendAssistantMessage, messages]);
 
   const clearNeedsAgentReply = useCallback(() => setNeedsAgentReply(false), []);
 
@@ -138,7 +146,7 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
         console.error("[sendFromFloating]", error);
         setIsExpanding(false);
         appendUserMessage(trimmed);
-        appendAssistantMessage(MOCK_REPLY);
+        appendAssistantMessage(AGENT_ERROR_REPLY);
         setHasNewMessage(true);
       }
     },

@@ -1,5 +1,20 @@
-/** Series de 7 puntos para sparklines (solo visual; no alteran valores mostrados). */
+import type { DashboardMetric } from "@/types/dashboard";
 
+/** Colores por id de métrica del dashboard (solo cuando hay serie real). */
+export const METRIC_SPARKLINE_COLORS: Record<string, string> = {
+  m1: "#34D399",
+  m2: "#34D399",
+  m3: "#34D399",
+  "s-booking": "#7C3AED",
+  s2: "#7C3AED",
+  "s-active": "#60A5FA",
+  s5: "#60A5FA",
+  "s-ghost": "#F87171",
+  s4: "#F87171",
+  o1: "#FBBF24",
+};
+
+/** @deprecated Solo para modo demo sin Supabase. No usar en producción. */
 export const SPARKLINE_SERIES = {
   revenue: [18200, 19400, 17800, 21000, 22400, 24100, 27600],
   bookingRate: [34, 36, 33, 38, 40, 39, 43],
@@ -20,40 +35,34 @@ export const SPARKLINE_SERIES = {
   viewsToFollowers: [1.8, 2.0, 1.9, 2.1, 2.2, 2.3, 2.4],
 } as const;
 
-export const SPARKLINE_COLORS = {
-  revenue: "#34D399",
-  cashCollected: "#34D399",
-  bookingRate: "#7C3AED",
-  ghostingRate: "#F87171",
-  responseTime: "#FBBF24",
-  conversations: "#60A5FA",
-  reach: "#A78BFA",
-  interactions: "#60A5FA",
-  margin: "#34D399",
-  porCobrar: "#FBBF24",
-  expenses: "#F87171",
-  teamLoad: "#FBBF24",
-  salesInfluenced: "#34D399",
-  storyReplies: "#F472B6",
-  totalComments: "#60A5FA",
-  profileGrowth: "#34D399",
-  viewsToFollowers: "#A78BFA",
-} as const;
-
 export type SparklinePreset = keyof typeof SPARKLINE_SERIES;
 
-export function sparklineProps(
-  preset: SparklinePreset,
+/** Props de sparkline a partir de métrica con serie real (mín. 2 puntos). */
+export function metricSparklineProps(
+  metric: Pick<DashboardMetric, "sparklineData" | "sparklineColor" | "id">,
   animationDelay = 0
 ) {
+  if (!metric.sparklineData || metric.sparklineData.length < 2) {
+    return {};
+  }
+
   return {
-    sparklineData: [...SPARKLINE_SERIES[preset]],
-    sparklineColor: SPARKLINE_COLORS[preset],
+    sparklineData: [...metric.sparklineData],
+    sparklineColor:
+      metric.sparklineColor ?? METRIC_SPARKLINE_COLORS[metric.id] ?? "#7C3AED",
     sparklineAnimationDelay: animationDelay,
   };
 }
 
-/** Panel General — por id de métrica en mock dashboard. */
+/** @deprecated Usar metricSparklineProps con datos reales en la métrica. */
+export function sparklineProps(preset: SparklinePreset, animationDelay = 0) {
+  return {
+    sparklineData: [...SPARKLINE_SERIES[preset]],
+    sparklineAnimationDelay: animationDelay,
+  };
+}
+
+/** @deprecated */
 export const DASHBOARD_SPARKLINE_BY_ID: Partial<
   Record<string, SparklinePreset>
 > = {

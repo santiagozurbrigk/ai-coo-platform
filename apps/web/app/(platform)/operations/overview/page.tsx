@@ -19,8 +19,9 @@ async function loadDepartments(): Promise<OperationsDepartment[]> {
     const admin = createAdminClient();
     const statuses = await computeDepartmentStatuses(admin, organizationId);
     return departmentStatusesToOperationsDepartments(statuses);
-  } catch {
-    return mockOperationsOverview.departments;
+  } catch (error) {
+    console.error("[OperationsOverviewPage] loadDepartments", error);
+    return [];
   }
 }
 

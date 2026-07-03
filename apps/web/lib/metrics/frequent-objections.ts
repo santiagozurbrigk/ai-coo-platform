@@ -218,12 +218,17 @@ export async function getFrequentObjections(
     Date.now() - 60 * 24 * 60 * 60 * 1000
   ).toISOString();
 
-  const { data: recentAnalyses } = await supabase
+  const { data: recentAnalyses, error } = await supabase
     .from("call_analyses")
     .select("objections, created_at")
     .eq("organization_id", organizationId)
     .gte("created_at", sixtyDaysAgo)
     .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[getFrequentObjections] call_analyses", error);
+    throw new Error(error.message);
+  }
 
   if (recentAnalyses?.length) {
     const recent = recentAnalyses.filter((row) => row.created_at >= thirtyDaysAgo);
@@ -244,7 +249,7 @@ export async function getFrequentObjections(
   }
 
   return {
-    objections: mockFrequentObjectionSummaries(),
-    dataSource: "mock",
+    objections: [],
+    dataSource: "empty",
   };
 }

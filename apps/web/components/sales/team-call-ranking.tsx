@@ -35,6 +35,14 @@ export function TeamCallRanking({
   entries: TeamRankingEntry[];
   className?: string;
 }) {
+  if (entries.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Todavía no hay análisis de calls para mostrar el ranking del equipo.
+      </p>
+    );
+  }
+
   const minScore = Math.min(...entries.map((e) => e.score));
   const insight = buildInsight(entries);
 
@@ -91,6 +99,8 @@ export function TeamPerformanceSummary({
 }: {
   entries: TeamRankingEntry[];
 }) {
+  if (entries.length === 0) return null;
+
   const avgScore = Math.round(
     entries.reduce((sum, e) => sum + e.score, 0) / Math.max(entries.length, 1)
   );

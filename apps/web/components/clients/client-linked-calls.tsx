@@ -57,11 +57,14 @@ function CloserEvolutionSheet({
   const [ranking, setRanking] = useState<TeamRankingEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const [loadError, setLoadError] = useState(false);
+
   useEffect(() => {
     if (!open) return;
 
     let cancelled = false;
     setLoading(true);
+    setLoadError(false);
 
     Promise.all([
       getCloserEvolutionAction(closerName),
@@ -73,6 +76,10 @@ function CloserEvolutionSheet({
         setScores(evolution);
         setTeamAverage(avg);
         setRanking(team);
+      })
+      .catch((error) => {
+        console.error("[CloserEvolutionSheet]", error);
+        if (!cancelled) setLoadError(true);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -119,6 +126,14 @@ function CloserEvolutionSheet({
         <div className="flex-1 space-y-8 overflow-y-auto">
           {loading ? (
             <p className="text-sm text-muted-foreground">Cargando evolución…</p>
+          ) : loadError ? (
+            <p className="text-sm text-destructive">
+              No pudimos cargar la evolución. Intentá de nuevo.
+            </p>
+          ) : scores.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Todavía no hay análisis de calls para este closer.
+            </p>
           ) : (
             <>
               <CloserEvolutionChart
@@ -147,7 +162,7 @@ export function ClientLinkedCallsSection({
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [evolutionOpen, setEvolutionOpen] = useState(false);
-  const [evolutionCloser, setEvolutionCloser] = useState("Laura Martínez");
+  const [evolutionCloser, setEvolutionCloser] = useState("");
 
   const openEvolution = (closerName: string) => {
     setEvolutionCloser(closerName);
@@ -166,7 +181,7 @@ export function ClientLinkedCallsSection({
               variant="outline"
               className="gap-1.5"
               onClick={() =>
-                openEvolution(calls[0]?.closerName ?? "Laura Martínez")
+                openEvolution(calls[0]?.closerName ?? "")
               }
             >
               <TrendingUp className="h-3.5 w-3.5" />

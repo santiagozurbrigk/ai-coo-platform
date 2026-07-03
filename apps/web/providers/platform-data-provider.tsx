@@ -199,7 +199,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
   const salesMetrics = useMemo(() => {
     if (!useSupabase) return mockSalesMetrics;
     if (salesMetricsLoading) {
-      return deriveSalesMetrics([], [], mockSalesMetrics.closerBreakdown);
+      return deriveSalesMetrics([], [], []);
     }
     return deriveSalesMetrics(conversations, closingCalls);
   }, [conversations, closingCalls, salesMetricsLoading]);

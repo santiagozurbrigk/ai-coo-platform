@@ -100,5 +100,5 @@ export function DashboardPageContent({
     return <PageLoading label="Cargando panel general…" />;
   }
 
-  return <DashboardOverview data={data} />;
+  return <DashboardOverview data={data} weeklyReport={weeklyReport} />;
 }
