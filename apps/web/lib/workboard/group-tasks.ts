@@ -41,15 +41,30 @@ export function filterTasksByLaunch(
   return tasks.filter((t) => t.launchId === launchFilterId);
 }
 
+export function filterTasksByAssignee(
+  tasks: WorkboardTask[],
+  assigneeFilterId: string
+): WorkboardTask[] {
+  if (assigneeFilterId === "all") return tasks;
+  if (assigneeFilterId === "unassigned") {
+    return tasks.filter((t) => (t.assigneeIds?.length ?? 0) === 0);
+  }
+  return tasks.filter((t) => t.assigneeIds?.includes(assigneeFilterId));
+}
+
 export function filterWorkboardTasks(
   tasks: WorkboardTask[],
   areaFilter: string,
   sprintFilterId: string,
-  launchFilterId = "all"
+  launchFilterId = "all",
+  assigneeFilterId = "all"
 ): WorkboardTask[] {
-  return filterTasksByLaunch(
-    filterTasksBySprint(filterTasksByArea(tasks, areaFilter), sprintFilterId),
-    launchFilterId
+  return filterTasksByAssignee(
+    filterTasksByLaunch(
+      filterTasksBySprint(filterTasksByArea(tasks, areaFilter), sprintFilterId),
+      launchFilterId
+    ),
+    assigneeFilterId
   );
 }
 

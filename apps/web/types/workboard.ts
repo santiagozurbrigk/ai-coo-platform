@@ -43,6 +43,8 @@ export type WorkboardTask = {
   priority: TaskPriority;
   assignee?: WorkboardAssignee;
   assigneeId?: string | null;
+  assignees?: WorkboardAssignee[];
+  assigneeIds?: string[];
   dueDate?: string;
   tags: string[];
   position: number;

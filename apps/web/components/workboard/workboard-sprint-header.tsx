@@ -46,6 +46,9 @@ export function WorkboardSprintHeader({
     launches,
     launchFilterId,
     setLaunchFilterId,
+    assigneeFilterId,
+    setAssigneeFilterId,
+    members,
     tasks,
     refreshSprints,
   } = useWorkboard();
@@ -249,6 +252,24 @@ export function WorkboardSprintHeader({
         value={areaFilter}
         onChange={onAreaFilterChange}
       />
+
+      {members.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">Persona:</span>
+          <FilterPills
+            options={[
+              { value: "all", label: "Todas" },
+              { value: "unassigned", label: "Sin asignar" },
+              ...members.map((member) => ({
+                value: member.id,
+                label: member.name,
+              })),
+            ]}
+            value={assigneeFilterId}
+            onChange={setAssigneeFilterId}
+          />
+        </div>
+      ) : null}
 
       {launches.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">

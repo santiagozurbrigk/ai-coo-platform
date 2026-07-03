@@ -8,13 +8,14 @@ import { FilterPills } from "@/components/marketing/filter-pills";
 import { TASK_AREA_OPTIONS } from "@/lib/workboard/constants";
 import { WORKBOARD_STATUSES, STATUS_LABELS } from "@/lib/workboard/constants";
 import { useWorkboard } from "@/providers/workboard-provider";
-import type { TaskArea, TaskPriority, TaskStatus } from "@/types/workboard";
+import type { TaskArea, TaskPriority, TaskStatus, WorkboardMember } from "@/types/workboard";
 import { WorkboardCalendar } from "./workboard-calendar";
 import { WorkboardKanban } from "./workboard-kanban";
 import { LogTimeModal } from "./log-time-modal";
 import { WorkboardTaskDetailDialog } from "./workboard-task-detail-dialog";
 import { WorkboardTimeReport } from "./workboard-time-report";
 import { WorkboardSprintHeader } from "./workboard-sprint-header";
+import { TaskAssigneeField } from "./task-assignee-field";
 import {
   Button,
   Dialog,
@@ -67,7 +68,7 @@ export function WorkboardShell() {
     description: "",
     area: "general" as TaskArea,
     priority: "medium" as TaskPriority,
-    assigneeId: "",
+    assigneeIds: [] as string[],
     dueDate: "",
     tags: "",
     launchId: "",
@@ -91,7 +92,7 @@ export function WorkboardShell() {
       status: selectedStatus,
       area: newTask.area,
       priority: newTask.priority,
-      assigneeId: newTask.assigneeId || null,
+      assigneeIds: newTask.assigneeIds,
       dueDate: newTask.dueDate || null,
       tags: newTask.tags
         .split(",")
@@ -104,7 +105,7 @@ export function WorkboardShell() {
       description: "",
       area: "general",
       priority: "medium",
-      assigneeId: "",
+      assigneeIds: [],
       dueDate: "",
       tags: "",
       launchId: launchFilterId !== "all" ? launchFilterId : "",
@@ -229,7 +230,7 @@ function AddTaskDialogContent({
     description: string;
     area: TaskArea;
     priority: TaskPriority;
-    assigneeId: string;
+    assigneeIds: string[];
     dueDate: string;
     tags: string;
     launchId: string;
@@ -239,7 +240,7 @@ function AddTaskDialogContent({
   >;
   selectedStatus: TaskStatus;
   setSelectedStatus: (s: TaskStatus) => void;
-  members: { id: string; name: string }[];
+  members: WorkboardMember[];
   launches: { id: string; name: string }[];
   isSaving: boolean;
   onSubmit: () => void;
@@ -329,24 +330,17 @@ function AddTaskDialogContent({
               <option value="high">Alta</option>
             </select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="wb-assignee">Responsable</Label>
-            <select
-              id="wb-assignee"
-              className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-              value={newTask.assigneeId}
-              onChange={(e) =>
-                setNewTask({ ...newTask, assigneeId: e.target.value })
-              }
-            >
-              <option value="">Sin asignar</option>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="wb-assignees">Responsables</Label>
+          <TaskAssigneeField
+            id="wb-assignees"
+            members={members}
+            value={newTask.assigneeIds}
+            onChange={(assigneeIds) =>
+              setNewTask({ ...newTask, assigneeIds })
+            }
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="wb-due">Fecha límite</Label>

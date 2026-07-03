@@ -17,6 +17,7 @@ import {
   moveWorkboardTaskAction,
   updateWorkboardTaskAction,
 } from "@/app/workboard/actions";
+import { assigneesFromMemberIds } from "@/lib/workboard/mapper";
 import type { LaunchPickerOption } from "@/types/launches";
 import type {
   TaskArea,
@@ -34,6 +35,7 @@ type TaskUpdatePatch = Partial<{
   area: TaskArea;
   priority: TaskPriority;
   assigneeId: string | null;
+  assigneeIds: string[];
   dueDate: string | null;
   tags: string[];
   estimatedMinutes: number;
@@ -49,6 +51,8 @@ type WorkboardContextValue = {
   setSprintFilterId: (id: string) => void;
   launchFilterId: string;
   setLaunchFilterId: (id: string) => void;
+  assigneeFilterId: string;
+  setAssigneeFilterId: (id: string) => void;
   refreshSprints: () => Promise<void>;
   areaFilter: string;
   setAreaFilter: (v: string) => void;
@@ -66,6 +70,7 @@ type WorkboardContextValue = {
     area: TaskArea;
     priority: TaskPriority;
     assigneeId?: string | null;
+    assigneeIds?: string[];
     dueDate?: string | null;
     tags?: string[];
     launchId?: string | null;
@@ -84,8 +89,21 @@ const WorkboardContext = createContext<WorkboardContextValue | null>(null);
 
 function applyTaskPatch(
   prev: WorkboardTask,
-  patch: TaskUpdatePatch
+  patch: TaskUpdatePatch,
+  members: WorkboardMember[]
 ): WorkboardTask {
+  const nextAssigneeIds =
+    patch.assigneeIds !== undefined
+      ? patch.assigneeIds
+      : patch.assigneeId !== undefined
+        ? patch.assigneeId
+          ? [patch.assigneeId]
+          : []
+        : prev.assigneeIds ?? (prev.assigneeId ? [prev.assigneeId] : []);
+
+  const memberMap = new Map(members.map((member) => [member.id, member]));
+  const assignees = assigneesFromMemberIds(nextAssigneeIds, memberMap);
+
   return {
     ...prev,
     ...patch,
@@ -93,8 +111,10 @@ function applyTaskPatch(
       patch.dueDate !== undefined
         ? (patch.dueDate ?? undefined)
         : prev.dueDate,
-    assigneeId:
-      patch.assigneeId !== undefined ? patch.assigneeId : prev.assigneeId,
+    assigneeIds: nextAssigneeIds,
+    assignees,
+    assigneeId: nextAssigneeIds[0] ?? null,
+    assignee: assignees[0],
   };
 }
 
@@ -119,6 +139,7 @@ export function WorkboardProvider({
   const [sprints, setSprints] = useState(initialSprints);
   const [sprintFilterId, setSprintFilterId] = useState(initialSprintFilterId);
   const [launchFilterId, setLaunchFilterId] = useState(initialLaunchFilterId);
+  const [assigneeFilterId, setAssigneeFilterId] = useState("all");
   const [areaFilter, setAreaFilter] = useState("all");
   const [view, setView] = useState<"board" | "calendar" | "time">("board");
   const [selectedTask, setSelectedTask] = useState<WorkboardTask | null>(null);
@@ -234,7 +255,7 @@ export function WorkboardProvider({
       if (!prev) return;
 
       if (patch.status === "done" && prev.status !== "done") {
-        setPendingCompleteTask(applyTaskPatch(prev, patch));
+        setPendingCompleteTask(applyTaskPatch(prev, patch, members));
         setPendingCompletePatch(patch);
         return;
       }
@@ -301,6 +322,8 @@ export function WorkboardProvider({
       setSprintFilterId,
       launchFilterId,
       setLaunchFilterId,
+      assigneeFilterId,
+      setAssigneeFilterId,
       refreshSprints,
       areaFilter,
       setAreaFilter,
@@ -328,6 +351,7 @@ export function WorkboardProvider({
       launches,
       sprintFilterId,
       launchFilterId,
+      assigneeFilterId,
       refreshSprints,
       areaFilter,
       view,

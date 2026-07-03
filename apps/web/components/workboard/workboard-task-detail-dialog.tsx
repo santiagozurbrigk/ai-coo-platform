@@ -30,6 +30,7 @@ import {
 import { getAreaClasses, getPriorityClasses, PRIORITY_LABELS } from "@/lib/workboard/styles";
 import { useWorkboard } from "@/providers/workboard-provider";
 import type { TaskArea, TaskPriority, TaskStatus } from "@/types/workboard";
+import { TaskAssigneeField } from "./task-assignee-field";
 
 export function WorkboardTaskDetailDialog() {
   const {
@@ -50,7 +51,7 @@ export function WorkboardTaskDetailDialog() {
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [area, setArea] = useState<TaskArea>("general");
   const [priority, setPriority] = useState<TaskPriority>("medium");
-  const [assigneeId, setAssigneeId] = useState("");
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState("");
   const [tags, setTags] = useState("");
   const [sprintId, setSprintId] = useState("");
@@ -63,7 +64,10 @@ export function WorkboardTaskDetailDialog() {
     setStatus(selectedTask.status);
     setArea(selectedTask.area);
     setPriority(selectedTask.priority);
-    setAssigneeId(selectedTask.assigneeId ?? "");
+    setAssigneeIds(
+      selectedTask.assigneeIds ??
+        (selectedTask.assigneeId ? [selectedTask.assigneeId] : [])
+    );
     setDueDate(selectedTask.dueDate ?? "");
     setTags(selectedTask.tags.join(", "));
     setSprintId(selectedTask.sprintId ?? "");
@@ -83,7 +87,7 @@ export function WorkboardTaskDetailDialog() {
       status,
       area,
       priority,
-      assigneeId: assigneeId || null,
+      assigneeIds,
       dueDate: dueDate || null,
       tags: tags
         .split(",")
@@ -196,22 +200,15 @@ export function WorkboardTaskDetailDialog() {
                 <option value="high">{PRIORITY_LABELS.high}</option>
               </select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="detail-assignee">Responsable</Label>
-              <select
-                id="detail-assignee"
-                className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-                value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
-              >
-                <option value="">Sin asignar</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="detail-assignees">Responsables</Label>
+            <TaskAssigneeField
+              id="detail-assignees"
+              members={members}
+              value={assigneeIds}
+              onChange={setAssigneeIds}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="detail-sprint">Sprint</Label>
@@ -293,8 +290,11 @@ export function WorkboardTaskDetailDialog() {
             >
               Prioridad: {PRIORITY_LABELS[priority]}
             </span>
-            {selectedTask.assignee ? (
-              <span>Asignado: {selectedTask.assignee.name}</span>
+            {(selectedTask.assignees?.length ?? 0) > 0 ? (
+              <span>
+                Asignados:{" "}
+                {selectedTask.assignees?.map((assignee) => assignee.name).join(", ")}
+              </span>
             ) : null}
           </div>
             </div>

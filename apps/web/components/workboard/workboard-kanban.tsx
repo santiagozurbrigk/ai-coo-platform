@@ -20,9 +20,10 @@ import { filterWorkboardTasks, groupTasksIntoColumns } from "@/lib/workboard/gro
 import { getAreaClasses, getPriorityClasses, PRIORITY_LABELS } from "@/lib/workboard/styles";
 import { useWorkboard } from "@/providers/workboard-provider";
 import type { TaskStatus, WorkboardTask } from "@/types/workboard";
+import { TaskAssigneeAvatars } from "./task-assignee-field";
 
 export function WorkboardKanban() {
-  const { tasks, areaFilter, sprintFilterId, launchFilterId, moveTask, deleteTask, setSelectedTask } =
+  const { tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId, moveTask, deleteTask, setSelectedTask } =
     useWorkboard();
   const [draggedTask, setDraggedTask] = useState<{
     task: WorkboardTask;
@@ -30,8 +31,8 @@ export function WorkboardKanban() {
   } | null>(null);
 
   const filtered = useMemo(
-    () => filterWorkboardTasks(tasks, areaFilter, sprintFilterId, launchFilterId),
-    [tasks, areaFilter, sprintFilterId, launchFilterId]
+    () => filterWorkboardTasks(tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId),
+    [tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId]
   );
   const columns = useMemo(() => groupTasksIntoColumns(filtered), [filtered]);
 
@@ -178,14 +179,9 @@ export function WorkboardKanban() {
                             })}
                           </span>
                         ) : null}
-                        {task.assignee ? (
-                          <span
-                            className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-muted text-[10px] font-medium"
-                            title={task.assignee.name}
-                          >
-                            {task.assignee.initials}
-                          </span>
-                        ) : null}
+                        <TaskAssigneeAvatars
+                          assignees={task.assignees ?? (task.assignee ? [task.assignee] : [])}
+                        />
                       </div>
                     </div>
                   </CardContent>
