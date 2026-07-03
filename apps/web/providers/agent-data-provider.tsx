@@ -15,6 +15,7 @@ import {
   createAgentProjectAction,
   createBusinessStageAction,
   deleteAgentConversationAction,
+  deleteAgentProjectAction,
   listAgentMessagesAction,
   listAgentWorkspaceAction,
   sendAgentMessageAction,
@@ -32,6 +33,7 @@ import type {
 type AgentDataContextValue = {
   workspace: AgentWorkspaceData;
   messages: AgentMessage[];
+  responseRevealMessageId: string | null;
   isLoading: boolean;
   isSending: boolean;
   inputValue: string;
@@ -39,9 +41,10 @@ type AgentDataContextValue = {
   refresh: () => Promise<void>;
   loadConversation: (conversationId: string | null) => Promise<void>;
   sendMessage: (content: string, opts?: { conversationId?: string | null; projectId?: string | null; stageId?: string | null }) => Promise<string | null>;
-  createProject: (input: { name: string; description?: string; color: AgentProjectColor }) => Promise<void>;
+  createProject: (input: { name: string; description?: string; color: AgentProjectColor; stageId: string }) => Promise<void>;
   createStage: (input: { name: string; description?: string }) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
   startNewConversation: (opts?: { projectId?: string | null; stageId?: string | null }) => Promise<void>;
   filteredConversations: (opts?: { projectId?: string | null; stageId?: string | null }) => AgentConversation[];
 };
@@ -66,6 +69,7 @@ export function AgentDataProvider({
     conversations: [],
   });
   const [messages, setMessages] = useState<AgentMessage[]>([]);
+  const [responseRevealMessageId, setResponseRevealMessageId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [inputValue, setInputValue] = useState("");
@@ -78,10 +82,12 @@ export function AgentDataProvider({
   const loadConversation = useCallback(async (id: string | null) => {
     if (!id) {
       setMessages([]);
+      setResponseRevealMessageId(null);
       return;
     }
     const rows = await listAgentMessagesAction(id);
     setMessages(rows);
+    setResponseRevealMessageId(null);
   }, []);
 
   useEffect(() => {
@@ -119,6 +125,10 @@ export function AgentDataProvider({
           stageId: opts?.stageId ?? filterStageId ?? null,
         });
         setMessages(result.messages);
+        setResponseRevealMessageId(
+          [...result.messages].reverse().find((message) => message.role === "assistant")?.id ??
+            null
+        );
         setInputValue("");
         await refresh();
         if (!conversationId || conversationId !== result.conversationId) {
@@ -137,6 +147,7 @@ export function AgentDataProvider({
       name: string;
       description?: string;
       color: AgentProjectColor;
+      stageId: string;
     }) => {
       await createAgentProjectAction(input);
       await refresh();
@@ -163,6 +174,22 @@ export function AgentDataProvider({
     [conversationId, refresh, router]
   );
 
+  const deleteProject = useCallback(
+    async (id: string) => {
+      const project = workspace.projects.find((item) => item.id === id) ?? null;
+      await deleteAgentProjectAction(id);
+      await refresh();
+      if (filterProjectId === id) {
+        router.push(
+          project?.stageId
+            ? paths.platform.agent.stage(project.stageId)
+            : paths.platform.agent.root
+        );
+      }
+    },
+    [filterProjectId, refresh, router, workspace.projects]
+  );
+
   const startNewConversation = useCallback(
     async (opts?: { projectId?: string | null; stageId?: string | null }) => {
       const projectId = opts?.projectId ?? filterProjectId ?? null;
@@ -170,15 +197,18 @@ export function AgentDataProvider({
       if (projectId) {
         router.push(paths.platform.agent.project(projectId));
         setMessages([]);
+        setResponseRevealMessageId(null);
         return;
       }
       if (stageId) {
         router.push(paths.platform.agent.stage(stageId));
         setMessages([]);
+        setResponseRevealMessageId(null);
         return;
       }
       router.push(paths.platform.agent.root);
       setMessages([]);
+      setResponseRevealMessageId(null);
     },
     [filterProjectId, filterStageId, router]
   );
@@ -200,6 +230,7 @@ export function AgentDataProvider({
     () => ({
       workspace,
       messages,
+      responseRevealMessageId,
       isLoading,
       isSending,
       inputValue,
@@ -210,12 +241,14 @@ export function AgentDataProvider({
       createProject,
       createStage,
       deleteConversation,
+      deleteProject,
       startNewConversation,
       filteredConversations,
     }),
     [
       workspace,
       messages,
+      responseRevealMessageId,
       isLoading,
       isSending,
       inputValue,
@@ -225,6 +258,7 @@ export function AgentDataProvider({
       createProject,
       createStage,
       deleteConversation,
+      deleteProject,
       startNewConversation,
       filteredConversations,
     ]

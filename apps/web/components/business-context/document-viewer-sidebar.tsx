@@ -3,10 +3,13 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FilePlus, Trash2 } from "lucide-react";
+import { ExternalLink, FilePlus, Trash2 } from "lucide-react";
 import { Button } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
-import { deleteDocumentAction } from "@/app/business-context/actions";
+import {
+  deleteDocumentAction,
+  getDocumentOriginalFileUrlAction,
+} from "@/app/business-context/actions";
 import { paths } from "@/routes";
 import { useToast } from "@/providers/toast-provider";
 import type { ContextDocument } from "@/types/business-context";
@@ -23,6 +26,18 @@ export function DocumentViewerSidebar({
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const isManual = document.sourceType === "manual";
+  const hasOriginalFile = Boolean(document.storagePath);
+
+  function handleOpenOriginal() {
+    startTransition(async () => {
+      const res = await getDocumentOriginalFileUrlAction(document.id);
+      if (!res.success) {
+        push({ title: "No se pudo abrir el archivo", description: res.error });
+        return;
+      }
+      window.open(res.data.url, "_blank", "noopener,noreferrer");
+    });
+  }
 
   function handleDelete() {
     if (!confirmDelete) {
@@ -53,6 +68,19 @@ export function DocumentViewerSidebar({
 
       <Panel title="Acciones">
         <div className="flex flex-col gap-2">
+          {hasOriginalFile ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="justify-start gap-2"
+              disabled={pending}
+              onClick={handleOpenOriginal}
+            >
+              <ExternalLink className="h-4 w-4" />
+              Abrir archivo original
+            </Button>
+          ) : null}
           {isManual ? (
             <Button
               type="button"

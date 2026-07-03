@@ -90,6 +90,8 @@ export function mapDocumentRowToContextDocument(
     status: row.status,
     indexError: row.index_error ?? undefined,
     externalUrl,
+    storagePath: row.storage_path ?? undefined,
+    mimeType: row.mime_type ?? undefined,
     transcript: row.content_text ?? undefined,
   };
 }

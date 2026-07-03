@@ -10,7 +10,7 @@ export function SidebarSection<T>({
   renderItem,
 }: {
   title: string;
-  onAdd: () => void;
+  onAdd?: () => void;
   items: T[];
   renderItem: (item: T) => ReactNode;
 }) {
@@ -20,14 +20,16 @@ export function SidebarSection<T>({
         <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
           {title}
         </p>
-        <button
-          type="button"
-          onClick={onAdd}
-          className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label={`Añadir ${title.toLowerCase()}`}
-        >
-          <Plus className="h-3 w-3" />
-        </button>
+        {onAdd ? (
+          <button
+            type="button"
+            onClick={onAdd}
+            className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={`Añadir ${title.toLowerCase()}`}
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        ) : null}
       </div>
       <div className="flex flex-col gap-0.5">
         {items.map((item, i) => (

@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { Sparkles, User } from "lucide-react";
-import { cn } from "@ai-coo/ui";
+import { cn, usePrefersReducedMotion } from "@ai-coo/ui";
 import type { AgentMessageActionType } from "@/types/agent";
 import { ActionCard } from "./action-card";
 
@@ -14,14 +16,51 @@ export function ChatMessage({
   content,
   actionType,
   actionRefId,
+  animateReveal = false,
 }: {
   role: "user" | "assistant";
   content: string;
   actionType?: AgentMessageActionType | null;
   actionRefId?: string | null;
+  animateReveal?: boolean;
 }) {
+  const reducedMotion = usePrefersReducedMotion();
+  const shouldReveal = role === "assistant" && animateReveal && !reducedMotion;
+  const [visibleLength, setVisibleLength] = useState(() =>
+    shouldReveal ? 0 : content.length
+  );
+
+  useEffect(() => {
+    if (!shouldReveal) {
+      setVisibleLength(content.length);
+      return;
+    }
+
+    setVisibleLength(0);
+    const step = Math.max(2, Math.ceil(content.length / 160));
+    const interval = window.setInterval(() => {
+      setVisibleLength((current) => {
+        const next = Math.min(content.length, current + step);
+        if (next >= content.length) window.clearInterval(interval);
+        return next;
+      });
+    }, 16);
+
+    return () => window.clearInterval(interval);
+  }, [content, shouldReveal]);
+
+  const visibleContent = useMemo(
+    () => (shouldReveal ? content.slice(0, visibleLength) : content),
+    [content, shouldReveal, visibleLength]
+  );
+
   return (
-    <div className={cn("flex gap-3", role === "user" && "flex-row-reverse")}>
+    <motion.div
+      className={cn("flex gap-3", role === "user" && "flex-row-reverse")}
+      initial={shouldReveal ? { opacity: 0, y: 8 } : false}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+    >
       <div
         className={cn(
           "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
@@ -47,7 +86,7 @@ export function ChatMessage({
         >
           {role === "assistant" ? (
             <div className={assistantProseClassName}>
-              <ReactMarkdown>{content}</ReactMarkdown>
+              <ReactMarkdown>{visibleContent}</ReactMarkdown>
             </div>
           ) : (
             content
@@ -57,6 +96,6 @@ export function ChatMessage({
           <ActionCard action={actionType} refId={actionRefId} />
         ) : null}
       </div>
-    </div>
+    </motion.div>
   );
 }

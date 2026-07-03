@@ -25,10 +25,12 @@ const COLORS: { id: AgentProjectColor; className: string }[] = [
 export function CreateProjectModal({
   open,
   onOpenChange,
+  stageName,
   onSubmit,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  stageName: string | null;
   onSubmit: (input: {
     name: string;
     description?: string;
@@ -61,6 +63,11 @@ export function CreateProjectModal({
           <DialogTitle>Nuevo proyecto</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
+          {stageName ? (
+            <p className="text-xs text-muted-foreground">
+              Se va a crear dentro de la etapa “{stageName}”.
+            </p>
+          ) : null}
           <Input
             placeholder="Nombre del proyecto"
             value={name}

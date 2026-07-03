@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   AiCard,
   Badge,
+  Button,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@ai-coo/ui";
+import { ArrowLeft } from "lucide-react";
 import type { ContextDocument, DocumentStatus } from "@/types/business-context";
 import { useBusinessContextDocumentRealtime } from "@/lib/business-context/use-documents-realtime";
+import { paths } from "@/routes";
 import { DocumentViewerSidebar } from "./document-viewer-sidebar";
 
 const CATEGORY_LABEL: Record<ContextDocument["category"], string> = {
@@ -43,7 +47,13 @@ export function ContextViewer({ document: initial }: { document: ContextDocument
   return (
     <div className="grid gap-6 lg:grid-cols-5">
       <div className="space-y-5 lg:col-span-3">
-        <div>
+        <div className="space-y-3">
+          <Button variant="ghost" size="sm" className="gap-2" asChild>
+            <Link href={paths.platform.businessContext.documents}>
+              <ArrowLeft className="h-4 w-4" />
+              Volver a documentos
+            </Link>
+          </Button>
           <h1 className="text-xl font-semibold leading-snug">{document.title}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Badge variant="outline">{CATEGORY_LABEL[document.category]}</Badge>

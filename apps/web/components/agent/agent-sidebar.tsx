@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronRight, Layers, Plus } from "lucide-react";
+import { ChevronRight, Layers, Plus, Trash2 } from "lucide-react";
 import { cn } from "@ai-coo/ui";
 import { useAgentData } from "@/providers/agent-data-provider";
 import { paths } from "@/routes/paths";
@@ -36,6 +36,7 @@ export function AgentSidebar({
     createProject,
     createStage,
     deleteConversation,
+    deleteProject,
   } = useAgentData();
 
   const [projectOpen, setProjectOpen] = useState(false);
@@ -45,6 +46,12 @@ export function AgentSidebar({
     projectId: filterProjectId,
     stageId: filterStageId,
   });
+
+  const selectedStage =
+    workspace.stages.find((stage) => stage.id === filterStageId) ?? null;
+  const projects = filterStageId
+    ? workspace.projects.filter((project) => project.stageId === filterStageId)
+    : workspace.projects;
 
   return (
     <>
@@ -65,13 +72,14 @@ export function AgentSidebar({
 
         <SidebarSection
           title="PROYECTOS"
-          onAdd={() => setProjectOpen(true)}
-          items={workspace.projects}
+          onAdd={selectedStage ? () => setProjectOpen(true) : undefined}
+          items={projects}
           renderItem={(project) => (
             <ProjectItem
               project={project}
               isActive={pathname === paths.platform.agent.project(project.id)}
               onClick={() => router.push(paths.platform.agent.project(project.id))}
+              onDelete={(id) => void deleteProject(id)}
             />
           )}
         />
@@ -93,7 +101,12 @@ export function AgentSidebar({
       <CreateProjectModal
         open={projectOpen}
         onOpenChange={setProjectOpen}
-        onSubmit={createProject}
+        stageName={selectedStage?.name ?? null}
+        onSubmit={(input) =>
+          selectedStage
+            ? createProject({ ...input, stageId: selectedStage.id })
+            : Promise.resolve()
+        }
       />
       <CreateStageModal
         open={stageOpen}
@@ -108,15 +121,15 @@ function ProjectItem({
   project,
   isActive,
   onClick,
+  onDelete,
 }: {
   project: AgentProject;
   isActive: boolean;
   onClick: () => void;
+  onDelete: (id: string) => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className={cn(
         "group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs transition-colors",
         isActive
@@ -124,15 +137,33 @@ function ProjectItem({
           : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
       )}
     >
-      <div
-        className={cn(
-          "h-2 w-2 shrink-0 rounded-sm",
-          PROJECT_COLORS[project.color] ?? "bg-violet-500"
-        )}
-      />
-      <span className="flex-1 truncate text-left">{project.name}</span>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+      >
+        <div
+          className={cn(
+            "h-2 w-2 shrink-0 rounded-sm",
+            PROJECT_COLORS[project.color] ?? "bg-violet-500"
+          )}
+        />
+        <span className="flex-1 truncate">{project.name}</span>
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onDelete(project.id);
+        }}
+        className="rounded p-0.5 text-muted-foreground opacity-0 transition-all hover:text-foreground group-hover:opacity-100"
+        aria-label="Eliminar proyecto"
+      >
+        <Trash2 className="h-3 w-3" />
+      </button>
       <ChevronRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-40" />
-    </button>
+    </div>
   );
 }
 

@@ -103,7 +103,7 @@ export async function listAgentWorkspaceAction(): Promise<AgentWorkspaceData> {
     supabase
       .from("agent_conversations")
       .select(
-        "*, agent_projects(id, name, color), business_stages(id, name)"
+        "*, agent_projects(id, name, color, stage_id), business_stages(id, name)"
       )
       .eq("organization_id", organizationId)
       .order("updated_at", { ascending: false }),
@@ -154,14 +154,26 @@ export async function createAgentProjectAction(input: {
   name: string;
   description?: string;
   color: AgentProjectColor;
+  stageId: string;
 }): Promise<AgentProject | null> {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
+
+  const { data: stage, error: stageError } = await supabase
+    .from("business_stages")
+    .select("id")
+    .eq("id", input.stageId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (stageError) throw new Error(stageError.message);
+  if (!stage) throw new Error("La etapa de negocio no existe");
 
   const { data, error } = await supabase
     .from("agent_projects")
     .insert({
       organization_id: organizationId,
+      stage_id: input.stageId,
       name: input.name.trim(),
       description: input.description?.trim() || null,
       color: input.color,
@@ -220,7 +232,7 @@ export async function createAgentConversationAction(opts?: {
       title: opts?.title ?? null,
     })
     .select(
-      "*, agent_projects(id, name, color), business_stages(id, name)"
+      "*, agent_projects(id, name, color, stage_id), business_stages(id, name)"
     )
     .single();
 
@@ -239,6 +251,20 @@ export async function deleteAgentConversationAction(
     .from("agent_conversations")
     .delete()
     .eq("id", conversationId)
+    .eq("organization_id", organizationId);
+
+  if (error) throw new Error(error.message);
+  revalidateAgent();
+}
+
+export async function deleteAgentProjectAction(projectId: string): Promise<void> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("agent_projects")
+    .delete()
+    .eq("id", projectId)
     .eq("organization_id", organizationId);
 
   if (error) throw new Error(error.message);
@@ -382,11 +408,24 @@ export async function sendAgentMessageAction(input: {
   const trimmed = sanitizeText(parsedContent.data);
 
   let conversationId = input.conversationId ?? null;
+  let stageId = input.stageId ?? null;
+
+  if (!stageId && input.projectId) {
+    const { data: projectRow, error: projectError } = await supabase
+      .from("agent_projects")
+      .select("stage_id")
+      .eq("id", input.projectId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (projectError) throw new Error(projectError.message);
+    stageId = projectRow?.stage_id ?? null;
+  }
 
   if (!conversationId) {
     const created = await createAgentConversationAction({
       projectId: input.projectId,
-      stageId: input.stageId,
+      stageId,
     });
     if (!created) throw new Error("No se pudo crear la conversación");
     conversationId = created.id;
@@ -395,7 +434,7 @@ export async function sendAgentMessageAction(input: {
   const { data: convRow } = await supabase
     .from("agent_conversations")
     .select(
-      "*, agent_projects(id, name, color), business_stages(id, name, description)"
+      "*, agent_projects(id, name, color, stage_id), business_stages(id, name, description)"
     )
     .eq("id", conversationId)
     .eq("organization_id", organizationId)

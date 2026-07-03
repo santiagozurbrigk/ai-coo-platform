@@ -8,6 +8,7 @@ export type AgentProjectColor =
 export type AgentProject = {
   id: string;
   organizationId: string;
+  stageId: string | null;
   name: string;
   description: string | null;
   color: AgentProjectColor;
@@ -32,7 +33,7 @@ export type AgentConversation = {
   title: string | null;
   createdAt: string;
   updatedAt: string;
-  project?: Pick<AgentProject, "id" | "name" | "color"> | null;
+  project?: Pick<AgentProject, "id" | "name" | "color" | "stageId"> | null;
   stage?: Pick<BusinessStage, "id" | "name"> | null;
 };
 

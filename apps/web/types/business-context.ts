@@ -63,6 +63,8 @@ export type ContextDocument = {
   /** Motivo si status === 'error' (indexación RAG fallida). */
   indexError?: string;
   externalUrl?: string;
+  storagePath?: string;
+  mimeType?: string;
   duration?: string;
   participants?: string[];
   topics?: string[];

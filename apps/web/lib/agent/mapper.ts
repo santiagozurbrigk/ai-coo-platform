@@ -9,6 +9,7 @@ import type {
 export type AgentProjectRow = {
   id: string;
   organization_id: string;
+  stage_id: string | null;
   name: string;
   description: string | null;
   color: string;
@@ -33,7 +34,12 @@ export type AgentConversationRow = {
   title: string | null;
   created_at: string;
   updated_at: string;
-  agent_projects?: { id: string; name: string; color: string } | null;
+  agent_projects?: {
+    id: string;
+    name: string;
+    color: string;
+    stage_id?: string | null;
+  } | null;
   business_stages?: { id: string; name: string } | null;
 };
 
@@ -64,6 +70,7 @@ export function rowToProject(row: AgentProjectRow): AgentProject {
   return {
     id: row.id,
     organizationId: row.organization_id,
+    stageId: row.stage_id,
     name: row.name,
     description: row.description,
     color,
@@ -97,6 +104,7 @@ export function rowToConversation(row: AgentConversationRow): AgentConversation 
           id: row.agent_projects.id,
           name: row.agent_projects.name,
           color: row.agent_projects.color as AgentProjectColor,
+          stageId: row.agent_projects.stage_id ?? null,
         }
       : null,
     stage: row.business_stages

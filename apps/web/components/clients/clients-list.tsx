@@ -7,6 +7,7 @@ import { Star } from "lucide-react";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import { paths } from "@/routes";
 import type { Client, ClientStatus } from "@/types/clients";
+import { ImportClientsDialog } from "./import-clients-dialog";
 
 const STATUS_LABEL: Record<ClientStatus, string> = {
   pending_onboarding: "Realizar onboarding",
@@ -36,11 +37,14 @@ export function ClientsList({ clients }: { clients: Client[] }) {
 
   return (
     <div className="space-y-4">
-      <FilterPills
-        options={FILTERS.map((f) => ({ value: f.id, label: f.label }))}
-        value={filter}
-        onChange={(value) => setFilter(value as ClientStatus | "all")}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <FilterPills
+          options={FILTERS.map((f) => ({ value: f.id, label: f.label }))}
+          value={filter}
+          onChange={(value) => setFilter(value as ClientStatus | "all")}
+        />
+        <ImportClientsDialog />
+      </div>
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
         <table className="w-full text-sm">
           <thead>

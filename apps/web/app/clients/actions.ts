@@ -21,6 +21,16 @@ import {
 } from "@/lib/validations";
 import type { Client } from "@/types/clients";
 
+export type ImportClientsRowError = {
+  row: number;
+  message: string;
+};
+
+export type ImportClientsResult = {
+  insertedCount: number;
+  errors: ImportClientsRowError[];
+};
+
 export async function listClientsAction(): Promise<Client[]> {
   if (!isSupabaseConfigured()) return [];
 
@@ -92,6 +102,51 @@ export async function createClientAction(input: unknown): Promise<Client> {
   });
 
   return saved;
+}
+
+export async function importClientsAction(
+  rows: unknown[]
+): Promise<ImportClientsResult> {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase no configurado");
+  }
+
+  const organizationId = await requireOrganizationId();
+  const errors: ImportClientsRowError[] = [];
+  const parsedRows: Omit<Client, "id">[] = [];
+
+  rows.forEach((row, index) => {
+    const parsed = createClientSchema.safeParse(row);
+    if (!parsed.success) {
+      errors.push({ row: index + 2, message: firstZodError(parsed.error) });
+      return;
+    }
+    parsedRows.push(parsed.data);
+  });
+
+  if (errors.length > 0) {
+    return { insertedCount: 0, errors };
+  }
+
+  if (parsedRows.length === 0) {
+    return {
+      insertedCount: 0,
+      errors: [{ row: 1, message: "El archivo no contiene clientes para importar" }],
+    };
+  }
+
+  const supabase = await createClient();
+  const insertPayload = parsedRows.map((client) =>
+    clientToInsertRow(client, organizationId)
+  );
+
+  const { error } = await supabase.from("clients").insert(insertPayload);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return { insertedCount: parsedRows.length, errors: [] };
 }
 
 export async function updateClientAction(

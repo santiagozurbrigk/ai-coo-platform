@@ -565,6 +565,45 @@ export async function getDocumentByIdAction(
   return mapDocumentRowToContextDocument(data as BusinessContextDocumentRow);
 }
 
+export async function getDocumentOriginalFileUrlAction(
+  input: unknown
+): Promise<MutationResult<{ url: string; mimeType: string | null }>> {
+  const parsed = idSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: "Identificador inválido" };
+  }
+
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+
+    const { data: row, error } = await admin
+      .from("business_context_documents")
+      .select("storage_path, mime_type")
+      .eq("organization_id", organizationId)
+      .eq("id", parsed.data)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    if (!row?.storage_path) throw new Error("Este documento no tiene archivo original");
+
+    const { data, error: signedUrlError } = await admin.storage
+      .from(BUSINESS_CONTEXT_BUCKET)
+      .createSignedUrl(row.storage_path as string, 3600);
+
+    if (signedUrlError || !data?.signedUrl) {
+      throw new Error(
+        signedUrlError?.message ?? "No se pudo abrir el archivo original"
+      );
+    }
+
+    return {
+      url: data.signedUrl,
+      mimeType: (row.mime_type as string | null) ?? null,
+    };
+  });
+}
+
 export async function deleteDocumentAction(
   input: unknown
 ): Promise<MutationResult<{ id: string }>> {

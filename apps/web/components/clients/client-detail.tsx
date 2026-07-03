@@ -7,12 +7,13 @@ import {
   Button,
   GlassPanel,
 } from "@ai-coo/ui";
-import { ExternalLink, Star, Upload } from "lucide-react";
+import { ArrowLeft, ExternalLink, Star, Upload } from "lucide-react";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import { ClientLinkedCallsSection } from "@/components/clients/client-linked-calls";
 import { ClientDiscordActivity } from "@/components/clients/client-discord-activity";
 import { ClientTimeline } from "@/components/clients/client-timeline";
+import { paths } from "@/routes";
 import type { Client, ClientStatus } from "@/types/clients";
 
 const STATUS_FLOW: ClientStatus[] = [
@@ -53,6 +54,12 @@ export function ClientDetail({ client: initial }: { client: Client }) {
   return (
     <div className="space-y-8 max-w-4xl">
       <header className="space-y-2">
+        <Button variant="ghost" size="sm" className="gap-2" asChild>
+          <Link href={paths.platform.clients.root}>
+            <ArrowLeft className="h-4 w-4" />
+            Volver a clientes
+          </Link>
+        </Button>
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold">{client.name}</h1>
           {client.isSuccessCase && (
