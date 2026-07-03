@@ -32,9 +32,16 @@ export function SidebarSection<T>({
         ) : null}
       </div>
       <div className="flex flex-col gap-0.5">
-        {items.map((item, i) => (
-          <div key={i}>{renderItem(item)}</div>
-        ))}
+        {items.map((item) => {
+          const key =
+            typeof item === "object" &&
+            item !== null &&
+            "id" in item &&
+            typeof (item as { id: unknown }).id === "string"
+              ? (item as { id: string }).id
+              : JSON.stringify(item);
+          return <div key={key}>{renderItem(item)}</div>;
+        })}
       </div>
     </div>
   );

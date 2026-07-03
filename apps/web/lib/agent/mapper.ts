@@ -70,7 +70,7 @@ export function rowToProject(row: AgentProjectRow): AgentProject {
   return {
     id: row.id,
     organizationId: row.organization_id,
-    stageId: row.stage_id,
+    stageId: row.stage_id ?? null,
     name: row.name,
     description: row.description,
     color,
@@ -95,7 +95,7 @@ export function rowToConversation(row: AgentConversationRow): AgentConversation 
     id: row.id,
     organizationId: row.organization_id,
     projectId: row.project_id,
-    stageId: row.stage_id,
+    stageId: row.stage_id ?? null,
     title: row.title,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

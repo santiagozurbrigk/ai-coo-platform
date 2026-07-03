@@ -151,16 +151,18 @@ export function AgentDataProvider({
     }) => {
       await createAgentProjectAction(input);
       await refresh();
+      router.refresh();
     },
-    [refresh]
+    [refresh, router]
   );
 
   const createStage = useCallback(
     async (input: { name: string; description?: string }) => {
       await createBusinessStageAction(input);
       await refresh();
+      router.refresh();
     },
-    [refresh]
+    [refresh, router]
   );
 
   const deleteConversation = useCallback(

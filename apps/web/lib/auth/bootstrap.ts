@@ -206,7 +206,17 @@ export async function tryRequireOrganizationId(): Promise<string | null> {
   }
 }
 
+export function isMissingColumnError(message: string, column?: string): boolean {
+  const missingColumn =
+    /column\s+.+\s+does not exist/i.test(message) ||
+    message.includes("Could not find the") && message.includes("column");
+  if (!missingColumn) return false;
+  if (!column) return true;
+  return message.includes(column);
+}
+
 export function isMissingTableError(message: string): boolean {
+  if (isMissingColumnError(message)) return false;
   return (
     message.includes("Could not find the table") ||
     message.includes("does not exist") ||
