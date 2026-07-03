@@ -9,14 +9,10 @@ import { useAgentData } from "@/providers/agent-data-provider";
 import { AgentEmptyState } from "./agent-empty-state";
 import { ChatMessage } from "./chat-message";
 
-export function AgentModule({
-  conversationId,
-  filterStageId,
-}: {
-  conversationId?: string | null;
-  filterStageId?: string | null;
-}) {
+export function AgentModule() {
   const {
+    conversationId,
+    filterStageId,
     workspace,
     messages,
     responseRevealMessageId,
@@ -50,6 +46,8 @@ export function AgentModule({
     ? `Preguntale sobre "${currentStage.name}"...`
     : "Preguntale algo a tu agente...";
 
+  const showEmptyState = !isLoading && messages.length === 0 && !isSending;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center justify-between border-b border-border bg-transparent px-6 py-4">
@@ -80,9 +78,9 @@ export function AgentModule({
         ref={scrollRef}
         className="flex-1 space-y-4 overflow-y-auto bg-transparent px-6 py-4"
       >
-        {isLoading ? (
+        {isLoading && messages.length === 0 ? (
           <p className="text-sm text-muted-foreground">Cargando…</p>
-        ) : messages.length === 0 ? (
+        ) : showEmptyState ? (
           <AgentEmptyState onSuggestion={setInputValue} />
         ) : (
           messages.map((msg) => (

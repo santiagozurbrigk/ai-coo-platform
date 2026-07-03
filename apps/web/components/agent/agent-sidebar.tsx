@@ -11,14 +11,11 @@ import { ConversationHistory } from "./conversation-history";
 import { CreateStageModal } from "./create-stage-modal";
 import { SidebarSection } from "./sidebar-section";
 
-export function AgentSidebar({
-  filterStageId,
-}: {
-  filterStageId?: string | null;
-}) {
+export function AgentSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const {
+    filterStageId,
     workspace,
     startNewConversation,
     createStage,

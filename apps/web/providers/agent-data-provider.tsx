@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -27,6 +28,8 @@ import type {
 } from "@/types/agent";
 
 type AgentDataContextValue = {
+  conversationId: string | null;
+  filterStageId: string | null;
   workspace: AgentWorkspaceData;
   messages: AgentMessage[];
   responseRevealMessageId: string | null;
@@ -48,6 +51,23 @@ type AgentDataContextValue = {
 
 const AgentDataCtx = createContext<AgentDataContextValue | null>(null);
 
+function buildOptimisticUserMessage(
+  content: string,
+  conversationId: string | null
+): AgentMessage {
+  return {
+    id: `optimistic-${crypto.randomUUID()}`,
+    conversationId: conversationId ?? "pending",
+    organizationId: "",
+    role: "user",
+    content,
+    attachments: null,
+    actionType: null,
+    actionRefId: null,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 export function AgentDataProvider({
   children,
   conversationId,
@@ -58,6 +78,13 @@ export function AgentDataProvider({
   filterStageId?: string | null;
 }) {
   const router = useRouter();
+  const resolvedConversationId = conversationId ?? null;
+  const resolvedFilterStageId = filterStageId ?? null;
+
+  const skipLoadForConversationRef = useRef<string | null>(null);
+  const initialLoadDoneRef = useRef(false);
+  const isSendingRef = useRef(false);
+
   const [workspace, setWorkspace] = useState<AgentWorkspaceData>({
     stages: [],
     conversations: [],
@@ -85,50 +112,88 @@ export function AgentDataProvider({
   }, []);
 
   useEffect(() => {
+    if (skipLoadForConversationRef.current === resolvedConversationId) {
+      skipLoadForConversationRef.current = null;
+      return;
+    }
+
     let cancelled = false;
     (async () => {
-      setIsLoading(true);
+      if (!initialLoadDoneRef.current) {
+        setIsLoading(true);
+      }
       await refresh();
-      if (conversationId) {
-        await loadConversation(conversationId);
-      } else {
+      if (resolvedConversationId) {
+        await loadConversation(resolvedConversationId);
+      } else if (!isSendingRef.current) {
         setMessages([]);
       }
-      if (!cancelled) setIsLoading(false);
+      if (!cancelled) {
+        setIsLoading(false);
+        initialLoadDoneRef.current = true;
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [conversationId, refresh, loadConversation]);
+  }, [resolvedConversationId, refresh, loadConversation]);
 
   const sendMessage = useCallback(
     async (
       content: string,
       opts?: { conversationId?: string | null; contextStageId?: string | null }
     ) => {
+      const trimmed = content.trim();
+      if (!trimmed) return null;
+
+      const targetConversationId =
+        opts?.conversationId ?? resolvedConversationId ?? null;
+
+      setInputValue("");
+      setMessages((prev) => [
+        ...prev,
+        buildOptimisticUserMessage(trimmed, targetConversationId),
+      ]);
       setIsSending(true);
+      isSendingRef.current = true;
+      setResponseRevealMessageId(null);
+
       try {
         const result = await sendAgentMessageAction({
-          conversationId: opts?.conversationId ?? conversationId ?? null,
-          content,
-          contextStageId: opts?.contextStageId ?? filterStageId ?? null,
+          conversationId: targetConversationId,
+          content: trimmed,
+          contextStageId: opts?.contextStageId ?? resolvedFilterStageId ?? null,
         });
+
         setMessages(result.messages);
         setResponseRevealMessageId(
           [...result.messages].reverse().find((message) => message.role === "assistant")?.id ??
             null
         );
-        setInputValue("");
-        await refresh();
-        if (!conversationId || conversationId !== result.conversationId) {
-          router.push(paths.platform.agent.conversation(result.conversationId));
+
+        const navigatedAway =
+          !resolvedConversationId ||
+          resolvedConversationId !== result.conversationId;
+
+        if (navigatedAway) {
+          skipLoadForConversationRef.current = result.conversationId;
+          const nextPath = paths.platform.agent.conversation(result.conversationId);
+          router.replace(nextPath, { scroll: false });
         }
+
+        void refresh();
         return result.conversationId;
+      } catch (error) {
+        setMessages((prev) =>
+          prev.filter((message) => !message.id.startsWith("optimistic-"))
+        );
+        throw error;
       } finally {
+        isSendingRef.current = false;
         setIsSending(false);
       }
     },
-    [conversationId, filterStageId, refresh, router]
+    [resolvedConversationId, resolvedFilterStageId, refresh, router]
   );
 
   const createStage = useCallback(
@@ -144,15 +209,15 @@ export function AgentDataProvider({
     async (id: string) => {
       await deleteAgentConversationAction(id);
       await refresh();
-      if (conversationId === id) {
+      if (resolvedConversationId === id) {
         router.push(
-          filterStageId
-            ? paths.platform.agent.stage(filterStageId)
+          resolvedFilterStageId
+            ? paths.platform.agent.stage(resolvedFilterStageId)
             : paths.platform.agent.root
         );
       }
     },
-    [conversationId, filterStageId, refresh, router]
+    [resolvedConversationId, resolvedFilterStageId, refresh, router]
   );
 
   const deleteStage = useCallback(
@@ -160,25 +225,27 @@ export function AgentDataProvider({
       await deleteBusinessStageAction(id);
       await refresh();
       router.refresh();
-      if (filterStageId === id) {
+      if (resolvedFilterStageId === id) {
         router.push(paths.platform.agent.root);
       }
     },
-    [filterStageId, refresh, router]
+    [resolvedFilterStageId, refresh, router]
   );
 
   const startNewConversation = useCallback(() => {
     router.push(
-      filterStageId
-        ? paths.platform.agent.stage(filterStageId)
+      resolvedFilterStageId
+        ? paths.platform.agent.stage(resolvedFilterStageId)
         : paths.platform.agent.root
     );
     setMessages([]);
     setResponseRevealMessageId(null);
-  }, [filterStageId, router]);
+  }, [resolvedFilterStageId, router]);
 
   const value = useMemo(
     () => ({
+      conversationId: resolvedConversationId,
+      filterStageId: resolvedFilterStageId,
       workspace,
       messages,
       responseRevealMessageId,
@@ -195,6 +262,8 @@ export function AgentDataProvider({
       startNewConversation,
     }),
     [
+      resolvedConversationId,
+      resolvedFilterStageId,
       workspace,
       messages,
       responseRevealMessageId,
