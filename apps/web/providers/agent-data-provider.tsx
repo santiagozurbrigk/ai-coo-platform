@@ -112,7 +112,8 @@ export function AgentDataProvider({
   }, []);
 
   useEffect(() => {
-    if (skipLoadForConversationRef.current === resolvedConversationId) {
+    const skipId = skipLoadForConversationRef.current;
+    if (skipId && skipId === resolvedConversationId) {
       skipLoadForConversationRef.current = null;
       return;
     }
@@ -233,6 +234,7 @@ export function AgentDataProvider({
   );
 
   const startNewConversation = useCallback(() => {
+    skipLoadForConversationRef.current = null;
     router.push(
       resolvedFilterStageId
         ? paths.platform.agent.stage(resolvedFilterStageId)
