@@ -9,6 +9,12 @@ import { TASK_AREA_OPTIONS } from "@/lib/workboard/constants";
 import { WORKBOARD_STATUSES, STATUS_LABELS } from "@/lib/workboard/constants";
 import { useWorkboard } from "@/providers/workboard-provider";
 import type { TaskArea, TaskPriority, TaskStatus, WorkboardMember } from "@/types/workboard";
+import {
+  WorkboardTaskResources,
+  applyDraftTaskResources,
+  type WorkboardTaskResourcesDraft,
+} from "./workboard-task-resources";
+import { getWorkboardTaskByIdAction } from "@/app/workboard/task-link-actions";
 import { WorkboardCalendar } from "./workboard-calendar";
 import { WorkboardKanban } from "./workboard-kanban";
 import { LogTimeModal } from "./log-time-modal";
@@ -30,6 +36,7 @@ import {
   Textarea,
 } from "@ai-coo/ui";
 import { Users } from "lucide-react";
+import { useToast } from "@/providers/toast-provider";
 
 const AREA_FILTER_OPTIONS = [
   { value: "all", label: "Todas las áreas" },
@@ -55,11 +62,13 @@ export function WorkboardShell() {
     setLaunchFilterId,
     createTask,
     isSaving,
+    upsertTaskInState,
     pendingCompleteTask,
     confirmCompleteWithTime,
     skipTimeAndComplete,
   } = useWorkboard();
 
+  const { push } = useToast();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<TaskStatus>("todo");
   const [newTask, setNewTask] = useState({
@@ -72,6 +81,12 @@ export function WorkboardShell() {
     tags: "",
     launchId: "",
   });
+  const [resourcesDraft, setResourcesDraft] =
+    useState<WorkboardTaskResourcesDraft>({
+      pendingFiles: [],
+      sopId: null,
+      documentIds: [],
+    });
 
   useEffect(() => {
     const launchFromUrl = searchParams.get("launch");
@@ -85,7 +100,7 @@ export function WorkboardShell() {
 
   async function handleAddTask() {
     if (!newTask.title.trim()) return;
-    await createTask({
+    const created = await createTask({
       title: newTask.title,
       description: newTask.description,
       status: selectedStatus,
@@ -99,6 +114,17 @@ export function WorkboardShell() {
         .filter(Boolean),
       launchId: newTask.launchId || null,
     });
+
+    const resourceError = await applyDraftTaskResources(created.id, resourcesDraft);
+    const refreshed = await getWorkboardTaskByIdAction(created.id);
+    if (refreshed) upsertTaskInState(refreshed);
+    if (resourceError) {
+      push({
+        title: "Tarea creada con advertencias",
+        description: resourceError,
+      });
+    }
+
     setNewTask({
       title: "",
       description: "",
@@ -108,6 +134,11 @@ export function WorkboardShell() {
       dueDate: "",
       tags: "",
       launchId: launchFilterId !== "all" ? launchFilterId : "",
+    });
+    setResourcesDraft({
+      pendingFiles: [],
+      sopId: null,
+      documentIds: [],
     });
     setIsAddOpen(false);
   }
@@ -184,6 +215,8 @@ export function WorkboardShell() {
               isSaving={isSaving}
               onSubmit={() => void handleAddTask()}
               onCancel={() => setIsAddOpen(false)}
+              resourcesDraft={resourcesDraft}
+              onResourcesDraftChange={setResourcesDraft}
             />
           </Dialog>
         </div>
@@ -223,6 +256,8 @@ function AddTaskDialogContent({
   isSaving,
   onSubmit,
   onCancel,
+  resourcesDraft,
+  onResourcesDraftChange,
 }: {
   newTask: {
     title: string;
@@ -244,6 +279,8 @@ function AddTaskDialogContent({
   isSaving: boolean;
   onSubmit: () => void;
   onCancel: () => void;
+  resourcesDraft: WorkboardTaskResourcesDraft;
+  onResourcesDraftChange: (draft: WorkboardTaskResourcesDraft) => void;
 }) {
   return (
     <DialogContent className="max-w-md">
@@ -385,6 +422,12 @@ function AddTaskDialogContent({
             onChange={(e) => setNewTask({ ...newTask, tags: e.target.value })}
           />
         </div>
+        <WorkboardTaskResources
+          taskId={null}
+          draft={resourcesDraft}
+          onDraftChange={onResourcesDraftChange}
+          disabled={isSaving}
+        />
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>

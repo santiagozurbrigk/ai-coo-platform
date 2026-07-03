@@ -915,6 +915,8 @@ export const createWorkboardTaskSchema = z.object({
   tags: z.array(workboardTagSchema).max(20).optional(),
   sprintId: nullableUuidSchema.optional(),
   launchId: nullableUuidSchema.optional(),
+  sopId: nullableUuidSchema.optional(),
+  documentIds: z.array(uuidSchema).max(20).optional(),
 });
 
 export const moveWorkboardTaskSchema = z.object({

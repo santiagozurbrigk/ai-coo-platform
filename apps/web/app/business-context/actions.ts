@@ -643,6 +643,7 @@ export async function deleteDocumentAction(
     if (error) throw new Error(error.message);
 
     revalidatePath(paths.platform.businessContext.documents);
+    revalidatePath(paths.platform.businessContext.viewer(id));
     return { id };
   });
 }

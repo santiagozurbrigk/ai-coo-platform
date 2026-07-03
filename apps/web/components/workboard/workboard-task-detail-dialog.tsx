@@ -30,6 +30,7 @@ import {
 import { getAreaClasses, getPriorityClasses, PRIORITY_LABELS } from "@/lib/workboard/styles";
 import { useWorkboard } from "@/providers/workboard-provider";
 import type { TaskArea, TaskPriority, TaskStatus } from "@/types/workboard";
+import { WorkboardTaskResources } from "./workboard-task-resources";
 
 export function WorkboardTaskDetailDialog() {
   const {
@@ -44,7 +45,6 @@ export function WorkboardTaskDetailDialog() {
     upsertTaskInState,
     isSaving,
   } = useWorkboard();
-
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>("todo");
@@ -297,6 +297,12 @@ export function WorkboardTaskDetailDialog() {
               <span>Asignado: {selectedTask.assignee.name}</span>
             ) : null}
           </div>
+          <WorkboardTaskResources
+            taskId={selectedTask.id}
+            task={selectedTask}
+            onTaskUpdated={upsertTaskInState}
+            disabled={isSaving}
+          />
             </div>
           </NotchedCard>
         </div>

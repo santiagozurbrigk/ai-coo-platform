@@ -34,6 +34,26 @@ export type WorkboardAssignee = {
   initials: string;
 };
 
+export type WorkboardTaskAttachment = {
+  id: string;
+  fileName: string;
+  storagePath: string;
+  mimeType: string | null;
+  fileSize: number | null;
+  createdAt: string;
+};
+
+export type WorkboardTaskLinkedSop = {
+  id: string;
+  title: string;
+};
+
+export type WorkboardTaskLinkedDocument = {
+  id: string;
+  title: string;
+  category: string;
+};
+
 export type WorkboardTask = {
   id: string;
   status: TaskStatus;
@@ -50,6 +70,9 @@ export type WorkboardTask = {
   actualMinutes?: number;
   sprintId?: string | null;
   launchId?: string | null;
+  linkedSop?: WorkboardTaskLinkedSop | null;
+  linkedDocuments: WorkboardTaskLinkedDocument[];
+  attachments: WorkboardTaskAttachment[];
   createdAt: string;
   updatedAt: string;
 };

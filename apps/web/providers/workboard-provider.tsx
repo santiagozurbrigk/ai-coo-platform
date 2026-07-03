@@ -71,7 +71,9 @@ type WorkboardContextValue = {
     dueDate?: string | null;
     tags?: string[];
     launchId?: string | null;
-  }) => Promise<void>;
+    sopId?: string | null;
+    documentIds?: string[];
+  }) => Promise<WorkboardTask>;
   moveTask: (taskId: string, status: TaskStatus) => Promise<void>;
   updateTask: (taskId: string, patch: TaskUpdatePatch) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
@@ -224,6 +226,7 @@ export function WorkboardProvider({
       try {
         const created = await createWorkboardTaskAction(input);
         upsertTaskInState(created);
+        return created;
       } finally {
         setIsSaving(false);
       }

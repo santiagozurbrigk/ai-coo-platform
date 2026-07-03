@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ExternalLink, FilePlus, Trash2 } from "lucide-react";
@@ -25,7 +25,10 @@ export function DocumentViewerSidebar({
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const isManual = document.sourceType === "manual";
+  useEffect(() => {
+    setConfirmDelete(false);
+  }, [document.id]);
+
   const hasOriginalFile = Boolean(document.storagePath);
 
   function handleOpenOriginal() {
@@ -81,23 +84,21 @@ export function DocumentViewerSidebar({
               Abrir archivo original
             </Button>
           ) : null}
-          {isManual ? (
-            <Button
-              type="button"
-              variant={confirmDelete ? "destructive" : "outline"}
-              size="sm"
-              className="justify-start gap-2"
-              disabled={pending}
-              onClick={handleDelete}
-            >
-              <Trash2 className="h-4 w-4" />
-              {pending
-                ? "Eliminando…"
-                : confirmDelete
-                  ? "Confirmar eliminación"
-                  : "Eliminar documento"}
-            </Button>
-          ) : null}
+          <Button
+            type="button"
+            variant={confirmDelete ? "destructive" : "outline"}
+            size="sm"
+            className="justify-start gap-2"
+            disabled={pending}
+            onClick={handleDelete}
+          >
+            <Trash2 className="h-4 w-4" />
+            {pending
+              ? "Eliminando…"
+              : confirmDelete
+                ? "Confirmar eliminación"
+                : "Eliminar documento"}
+          </Button>
           <Button
             asChild
             size="sm"

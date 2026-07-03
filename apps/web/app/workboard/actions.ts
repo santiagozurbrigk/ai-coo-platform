@@ -28,6 +28,7 @@ import {
   uuidSchema,
 } from "@/lib/validations";
 import { paths } from "@/routes/paths";
+import { loadTaskLinksBundle, deleteTaskAttachmentsForTask, getWorkboardTaskByIdAction } from "./task-link-actions";
 import type {
   MemberTimeReport,
   WorkboardMember,
@@ -63,6 +64,7 @@ export async function listWorkboardTasksAction(): Promise<WorkboardTask[]> {
 
   const members = await listWorkboardMembersAction();
   const memberMap = new Map(members.map((m) => [m.id, m]));
+  const links = await loadTaskLinksBundle(organizationId);
 
   const { data, error } = await supabase
     .from("workboard_tasks")
@@ -78,7 +80,7 @@ export async function listWorkboardTasksAction(): Promise<WorkboardTask[]> {
   }
 
   return ((data ?? []) as WorkboardTaskRow[]).map((row) =>
-    rowToTask(row, memberMap)
+    rowToTask(row, memberMap, links)
   );
 }
 
@@ -117,9 +119,7 @@ export async function createWorkboardTaskAction(
     sprintId = active?.id ?? null;
   }
 
-  const { data: row, error } = await supabase
-    .from("workboard_tasks")
-    .insert({
+  const insertRow: Record<string, unknown> = {
       organization_id: organizationId,
       title: payload.title.trim(),
       description: payload.description?.trim() ?? "",
@@ -134,18 +134,44 @@ export async function createWorkboardTaskAction(
       position,
       created_by: profile?.id ?? null,
       updated_at: new Date().toISOString(),
-    })
+    };
+
+  if (payload.sopId) {
+    insertRow.sop_id = payload.sopId;
+  }
+
+  const { data: row, error } = await supabase
+    .from("workboard_tasks")
+    .insert(insertRow)
     .select("*")
     .single();
 
   if (error) throw new Error(error.message);
+
+  const taskId = row.id as string;
+
+  if (payload.documentIds?.length) {
+    const links = payload.documentIds.map((documentId) => ({
+      task_id: taskId,
+      document_id: documentId,
+      organization_id: organizationId,
+    }));
+    const { error: linkError } = await supabase
+      .from("workboard_task_documents")
+      .upsert(links, { onConflict: "task_id,document_id", ignoreDuplicates: true });
+
+    if (linkError && !isMissingTableError(linkError.message)) {
+      console.error("[Workboard] link documents on create:", linkError.message);
+    }
+  }
+
   if (sprintId) {
-    await refreshSprintCompletionForTask(supabase, organizationId, row.id);
+    await refreshSprintCompletionForTask(supabase, organizationId, taskId);
   }
   revalidateWorkboard();
-  const members = await listWorkboardMembersAction();
-  const memberMap = new Map(members.map((m) => [m.id, m]));
-  return rowToTask(row as WorkboardTaskRow, memberMap);
+  const created = await getWorkboardTaskByIdAction(taskId);
+  if (!created) throw new Error("No se pudo cargar la tarea creada");
+  return created;
 }
 
 export async function moveWorkboardTaskAction(
@@ -229,7 +255,8 @@ export async function updateWorkboardTaskAction(
   revalidateWorkboard();
   const members = await listWorkboardMembersAction();
   const memberMap = new Map(members.map((m) => [m.id, m]));
-  return rowToTask(data as WorkboardTaskRow, memberMap);
+  const links = await loadTaskLinksBundle(organizationId);
+  return rowToTask(data as WorkboardTaskRow, memberMap, links);
 }
 
 export async function deleteWorkboardTaskAction(taskId: unknown): Promise<void> {
@@ -240,6 +267,8 @@ export async function deleteWorkboardTaskAction(taskId: unknown): Promise<void> 
 
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
+
+  await deleteTaskAttachmentsForTask(organizationId, parsed.data);
 
   const { error } = await supabase
     .from("workboard_tasks")
@@ -289,7 +318,8 @@ export async function assignTaskToLaunchAction(
 
   const members = await listWorkboardMembersAction();
   const memberMap = new Map(members.map((m) => [m.id, m]));
-  return rowToTask(row as WorkboardTaskRow, memberMap);
+  const links = await loadTaskLinksBundle(organizationId);
+  return rowToTask(row as WorkboardTaskRow, memberMap, links);
 }
 
 export async function logTaskTimeAction(input: unknown): Promise<{ ok: true }> {
@@ -586,7 +616,8 @@ export async function assignTaskToSprintAction(
 
   const members = await listWorkboardMembersAction();
   const memberMap = new Map(members.map((m) => [m.id, m]));
-  return rowToTask(row as WorkboardTaskRow, memberMap);
+  const links = await loadTaskLinksBundle(organizationId);
+  return rowToTask(row as WorkboardTaskRow, memberMap, links);
 }
 
 export async function updateSprintCompletionAction(

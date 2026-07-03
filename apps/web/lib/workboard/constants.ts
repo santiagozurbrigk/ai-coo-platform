@@ -1,5 +1,17 @@
 import type { SprintAreaFocus, TaskArea, TaskStatus } from "@/types/workboard";
 
+/**
+ * Bucket privado de Supabase Storage para adjuntos de tareas.
+ * Crear en Supabase Dashboard → Storage → New bucket
+ * Name: workboard-task-attachments | Public: false
+ */
+export const WORKBOARD_ATTACHMENTS_BUCKET = "workboard-task-attachments";
+
+export const WORKBOARD_ATTACHMENTS_MAX_BYTES = 25 * 1024 * 1024;
+
+export const WORKBOARD_ATTACHMENTS_ACCEPT =
+  ".pdf,.txt,.md,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,application/pdf,text/plain,text/markdown,image/png,image/jpeg,image/webp";
+
 export const WORKBOARD_STATUSES: TaskStatus[] = [
   "todo",
   "in_progress",

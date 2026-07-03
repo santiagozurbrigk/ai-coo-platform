@@ -1,13 +1,35 @@
 import { STATUS_LABELS, WORKBOARD_STATUSES } from "./constants";
-import type { TaskStatus, WorkboardColumn, WorkboardTask } from "@/types/workboard";
+import type { TaskPriority, TaskStatus, WorkboardColumn, WorkboardTask } from "@/types/workboard";
+
+/** Orden de prioridad en tablero: alta → media → baja (valores del check en DB). */
+const PRIORITY_SORT_ORDER: Record<TaskPriority, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
+
+/** Fecha usada para ordenar: vencimiento si existe; si no, día de creación. */
+export function taskSortDateKey(task: WorkboardTask): string {
+  if (task.dueDate) return task.dueDate;
+  return task.createdAt.slice(0, 10);
+}
+
+export function compareWorkboardTasks(a: WorkboardTask, b: WorkboardTask): number {
+  const byPriority =
+    PRIORITY_SORT_ORDER[a.priority] - PRIORITY_SORT_ORDER[b.priority];
+  if (byPriority !== 0) return byPriority;
+  return taskSortDateKey(a).localeCompare(taskSortDateKey(b));
+}
+
+export function sortWorkboardTasks(tasks: WorkboardTask[]): WorkboardTask[] {
+  return [...tasks].sort(compareWorkboardTasks);
+}
 
 export function groupTasksIntoColumns(tasks: WorkboardTask[]): WorkboardColumn[] {
   return WORKBOARD_STATUSES.map((status) => ({
     id: status,
     title: STATUS_LABELS[status],
-    tasks: tasks
-      .filter((t) => t.status === status)
-      .sort((a, b) => a.position - b.position || a.createdAt.localeCompare(b.createdAt)),
+    tasks: sortWorkboardTasks(tasks.filter((t) => t.status === status)),
   }));
 }
 

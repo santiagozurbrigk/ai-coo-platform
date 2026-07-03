@@ -4,7 +4,11 @@ import type {
   TaskStatus,
   WorkboardMember,
   WorkboardTask,
+  WorkboardTaskAttachment,
+  WorkboardTaskLinkedDocument,
+  WorkboardTaskLinkedSop,
 } from "@/types/workboard";
+import { mergeTaskLinks, type TaskLinksByTaskId } from "./task-links";
 
 const WORKBOARD_STATUS_SET = new Set<TaskStatus>([
   "todo",
@@ -44,6 +48,8 @@ export type WorkboardTaskRow = {
   time_entries?: unknown;
   sprint_id?: string | null;
   launch_id?: string | null;
+  sop_id?: string | null;
+  sop?: { id: string; title: string } | null;
   assignee?: {
     id: string;
     full_name: string | null;
@@ -85,7 +91,8 @@ export function rowToMember(row: {
 
 export function rowToTask(
   row: WorkboardTaskRow,
-  memberMap?: Map<string, WorkboardMember>
+  memberMap?: Map<string, WorkboardMember>,
+  links?: TaskLinksByTaskId
 ): WorkboardTask {
   const status = WORKBOARD_STATUS_SET.has(row.status as TaskStatus)
     ? (row.status as TaskStatus)
@@ -106,6 +113,14 @@ export function rowToTask(
     assignee = { id: m.id, name: m.name, initials: m.initials };
   }
 
+  const linkBundle = links ? mergeTaskLinks(row.id, links) : null;
+  let linkedSop: WorkboardTaskLinkedSop | null = null;
+  if (row.sop) {
+    linkedSop = { id: row.sop.id, title: row.sop.title };
+  } else if (row.sop_id && linkBundle?.linkedSop) {
+    linkedSop = linkBundle.linkedSop;
+  }
+
   return {
     id: row.id,
     status,
@@ -122,6 +137,9 @@ export function rowToTask(
     actualMinutes: row.actual_minutes ?? undefined,
     sprintId: row.sprint_id ?? undefined,
     launchId: row.launch_id ?? undefined,
+    linkedSop,
+    linkedDocuments: linkBundle?.linkedDocuments ?? [],
+    attachments: linkBundle?.attachments ?? [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

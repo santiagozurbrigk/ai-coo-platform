@@ -1,6 +1,6 @@
 import { toDateKey } from "@/lib/closing/calendar";
 import type { WorkboardTask } from "@/types/workboard";
-import { taskCalendarDate } from "./group-tasks";
+import { sortWorkboardTasks, taskCalendarDate } from "./group-tasks";
 
 export function buildMonthGrid(anchor: Date): Date[] {
   const year = anchor.getFullYear();
@@ -27,6 +27,9 @@ export function groupTasksByDateKey(
     const list = map.get(key) ?? [];
     list.push(task);
     map.set(key, list);
+  }
+  for (const [key, list] of map) {
+    map.set(key, sortWorkboardTasks(list));
   }
   return map;
 }
