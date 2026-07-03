@@ -82,10 +82,7 @@ export async function getLaunchAction(
         area,
         status,
         actual_minutes,
-        assignee:profiles!workboard_tasks_assignee_id_fkey(full_name, email),
-        assignees:workboard_task_assignees(
-          profile:profiles(full_name, email)
-        )
+        assignee:profiles!workboard_tasks_assignee_id_fkey(full_name, email)
       )
     `
     )

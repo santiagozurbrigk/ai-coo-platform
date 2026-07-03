@@ -47,9 +47,9 @@ export function filterTasksByAssignee(
 ): WorkboardTask[] {
   if (assigneeFilterId === "all") return tasks;
   if (assigneeFilterId === "unassigned") {
-    return tasks.filter((t) => (t.assigneeIds?.length ?? 0) === 0);
+    return tasks.filter((t) => !t.assigneeId);
   }
-  return tasks.filter((t) => t.assigneeIds?.includes(assigneeFilterId));
+  return tasks.filter((t) => t.assigneeId === assigneeFilterId);
 }
 
 export function filterWorkboardTasks(

@@ -39,115 +39,6 @@ function revalidateWorkboard() {
   revalidatePath(paths.platform.workboard.root);
 }
 
-function resolveAssigneeIds(input: {
-  assigneeId?: string | null;
-  assigneeIds?: string[];
-}): string[] | undefined {
-  if (input.assigneeIds !== undefined) {
-    return [...new Set(input.assigneeIds)];
-  }
-  if (input.assigneeId !== undefined) {
-    return input.assigneeId ? [input.assigneeId] : [];
-  }
-  return undefined;
-}
-
-async function loadTaskAssigneeIdsMap(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  organizationId: string,
-  taskIds: string[]
-): Promise<Map<string, string[]>> {
-  const map = new Map<string, string[]>();
-  if (taskIds.length === 0) return map;
-
-  const { data, error } = await supabase
-    .from("workboard_task_assignees")
-    .select("task_id, profile_id")
-    .eq("organization_id", organizationId)
-    .in("task_id", taskIds);
-
-  if (error) {
-    if (isMissingTableError(error.message)) return map;
-    throw new Error(error.message);
-  }
-
-  for (const row of data ?? []) {
-    const existing = map.get(row.task_id) ?? [];
-    existing.push(row.profile_id);
-    map.set(row.task_id, existing);
-  }
-
-  return map;
-}
-
-async function syncTaskAssignees(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  organizationId: string,
-  taskId: string,
-  profileIds: string[]
-): Promise<void> {
-  const { error: deleteError } = await supabase
-    .from("workboard_task_assignees")
-    .delete()
-    .eq("task_id", taskId)
-    .eq("organization_id", organizationId);
-
-  if (deleteError && !isMissingTableError(deleteError.message)) {
-    throw new Error(deleteError.message);
-  }
-
-  if (profileIds.length > 0) {
-    const { error: insertError } = await supabase
-      .from("workboard_task_assignees")
-      .insert(
-        profileIds.map((profileId) => ({
-          task_id: taskId,
-          profile_id: profileId,
-          organization_id: organizationId,
-        }))
-      );
-
-    if (insertError && !isMissingTableError(insertError.message)) {
-      throw new Error(insertError.message);
-    }
-  }
-
-  const { error: updateError } = await supabase
-    .from("workboard_tasks")
-    .update({
-      assignee_id: profileIds[0] ?? null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", taskId)
-    .eq("organization_id", organizationId);
-
-  if (updateError) throw new Error(updateError.message);
-}
-
-async function mapTasksWithAssignees(
-  rows: WorkboardTaskRow[],
-  members: WorkboardMember[],
-  assigneeMap: Map<string, string[]>
-): Promise<WorkboardTask[]> {
-  const memberMap = new Map(members.map((m) => [m.id, m]));
-  return rows.map((row) =>
-    rowToTask(row, memberMap, assigneeMap.get(row.id) ?? [])
-  );
-}
-
-async function taskRowToWorkboardTask(
-  row: WorkboardTaskRow,
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  organizationId: string
-): Promise<WorkboardTask> {
-  const members = await listWorkboardMembersAction();
-  const assigneeMap = await loadTaskAssigneeIdsMap(supabase, organizationId, [
-    row.id,
-  ]);
-  const tasks = await mapTasksWithAssignees([row], members, assigneeMap);
-  return tasks[0]!;
-}
-
 export async function listWorkboardMembersAction(): Promise<WorkboardMember[]> {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
@@ -171,6 +62,7 @@ export async function listWorkboardTasksAction(): Promise<WorkboardTask[]> {
   const supabase = await createClient();
 
   const members = await listWorkboardMembersAction();
+  const memberMap = new Map(members.map((m) => [m.id, m]));
 
   const { data, error } = await supabase
     .from("workboard_tasks")
@@ -185,14 +77,9 @@ export async function listWorkboardTasksAction(): Promise<WorkboardTask[]> {
     throw new Error(error.message);
   }
 
-  const rows = (data ?? []) as WorkboardTaskRow[];
-  const assigneeMap = await loadTaskAssigneeIdsMap(
-    supabase,
-    organizationId,
-    rows.map((row) => row.id)
+  return ((data ?? []) as WorkboardTaskRow[]).map((row) =>
+    rowToTask(row, memberMap)
   );
-
-  return mapTasksWithAssignees(rows, members, assigneeMap);
 }
 
 export async function loadWorkboardPageDataAction(): Promise<{
@@ -230,8 +117,6 @@ export async function createWorkboardTaskAction(
     sprintId = active?.id ?? null;
   }
 
-  const assigneeIds = resolveAssigneeIds(payload) ?? [];
-
   const { data: row, error } = await supabase
     .from("workboard_tasks")
     .insert({
@@ -241,7 +126,7 @@ export async function createWorkboardTaskAction(
       status: payload.status,
       area: payload.area,
       priority: payload.priority,
-      assignee_id: assigneeIds[0] ?? null,
+      assignee_id: payload.assigneeId || null,
       due_date: payload.dueDate || null,
       tags: payload.tags ?? [],
       sprint_id: sprintId || null,
@@ -254,12 +139,13 @@ export async function createWorkboardTaskAction(
     .single();
 
   if (error) throw new Error(error.message);
-  await syncTaskAssignees(supabase, organizationId, row.id, assigneeIds);
   if (sprintId) {
     await refreshSprintCompletionForTask(supabase, organizationId, row.id);
   }
   revalidateWorkboard();
-  return taskRowToWorkboardTask(row as WorkboardTaskRow, supabase, organizationId);
+  const members = await listWorkboardMembersAction();
+  const memberMap = new Map(members.map((m) => [m.id, m]));
+  return rowToTask(row as WorkboardTaskRow, memberMap);
 }
 
 export async function moveWorkboardTaskAction(
@@ -305,7 +191,6 @@ export async function updateWorkboardTaskAction(
   const { taskId, ...fields } = parsed.data;
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
-  const assigneeIds = resolveAssigneeIds(fields);
 
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
@@ -315,9 +200,7 @@ export async function updateWorkboardTaskAction(
   if (fields.status !== undefined) patch.status = fields.status;
   if (fields.area !== undefined) patch.area = fields.area;
   if (fields.priority !== undefined) patch.priority = fields.priority;
-  if (assigneeIds !== undefined) {
-    patch.assignee_id = assigneeIds[0] ?? null;
-  }
+  if (fields.assigneeId !== undefined) patch.assignee_id = fields.assigneeId || null;
   if (fields.dueDate !== undefined) patch.due_date = fields.dueDate || null;
   if (fields.tags !== undefined) patch.tags = fields.tags;
   if (fields.launchId !== undefined) patch.launch_id = fields.launchId || null;
@@ -342,12 +225,11 @@ export async function updateWorkboardTaskAction(
     .single();
 
   if (error) throw new Error(error.message);
-  if (assigneeIds !== undefined) {
-    await syncTaskAssignees(supabase, organizationId, taskId, assigneeIds);
-  }
   await refreshSprintCompletionForTask(supabase, organizationId, taskId);
   revalidateWorkboard();
-  return taskRowToWorkboardTask(data as WorkboardTaskRow, supabase, organizationId);
+  const members = await listWorkboardMembersAction();
+  const memberMap = new Map(members.map((m) => [m.id, m]));
+  return rowToTask(data as WorkboardTaskRow, memberMap);
 }
 
 export async function deleteWorkboardTaskAction(taskId: unknown): Promise<void> {
@@ -405,7 +287,9 @@ export async function assignTaskToLaunchAction(
   revalidateWorkboard();
   revalidatePath(paths.platform.lanzamientos);
 
-  return taskRowToWorkboardTask(row as WorkboardTaskRow, supabase, organizationId);
+  const members = await listWorkboardMembersAction();
+  const memberMap = new Map(members.map((m) => [m.id, m]));
+  return rowToTask(row as WorkboardTaskRow, memberMap);
 }
 
 export async function logTaskTimeAction(input: unknown): Promise<{ ok: true }> {
@@ -700,7 +584,9 @@ export async function assignTaskToSprintAction(
   await refreshSprintCompletionForTask(supabase, organizationId, data.taskId);
   revalidateWorkboard();
 
-  return taskRowToWorkboardTask(row as WorkboardTaskRow, supabase, organizationId);
+  const members = await listWorkboardMembersAction();
+  const memberMap = new Map(members.map((m) => [m.id, m]));
+  return rowToTask(row as WorkboardTaskRow, memberMap);
 }
 
 export async function updateSprintCompletionAction(

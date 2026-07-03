@@ -20,7 +20,6 @@ import { filterWorkboardTasks, groupTasksIntoColumns } from "@/lib/workboard/gro
 import { getAreaClasses, getPriorityClasses, PRIORITY_LABELS } from "@/lib/workboard/styles";
 import { useWorkboard } from "@/providers/workboard-provider";
 import type { TaskStatus, WorkboardTask } from "@/types/workboard";
-import { TaskAssigneeAvatars } from "./task-assignee-field";
 
 export function WorkboardKanban() {
   const { tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId, moveTask, deleteTask, setSelectedTask } =
@@ -179,9 +178,14 @@ export function WorkboardKanban() {
                             })}
                           </span>
                         ) : null}
-                        <TaskAssigneeAvatars
-                          assignees={task.assignees ?? (task.assignee ? [task.assignee] : [])}
-                        />
+                        {task.assignee ? (
+                          <span
+                            className="flex h-6 w-6 items-center justify-center rounded-full border border-background bg-muted text-[10px] font-medium text-foreground"
+                            title={task.assignee.name}
+                          >
+                            {task.assignee.initials}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </CardContent>

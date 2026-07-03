@@ -91,23 +91,7 @@ function rowToLinkedTask(row: Record<string, unknown>): LaunchLinkedTask {
     | null
     | undefined;
 
-  const assigneeRows = row.assignees as
-    | Array<{ profile?: { full_name?: string | null; email?: string } | null }>
-    | null
-    | undefined;
-
-  const assigneeNames = (assigneeRows ?? [])
-    .map((entry) => {
-      const profile = entry.profile;
-      return (
-        profile?.full_name?.trim() ||
-        profile?.email?.split("@")[0] ||
-        null
-      );
-    })
-    .filter((name): name is string => Boolean(name));
-
-  const legacyName =
+  const assigneeName =
     assignee?.full_name?.trim() ||
     assignee?.email?.split("@")[0] ||
     null;
@@ -117,10 +101,7 @@ function rowToLinkedTask(row: Record<string, unknown>): LaunchLinkedTask {
     title: String(row.title),
     area: String(row.area),
     status: String(row.status),
-    assigneeName:
-      assigneeNames.length > 0
-        ? assigneeNames.join(", ")
-        : legacyName,
+    assigneeName,
     actualMinutes:
       row.actual_minutes != null ? Number(row.actual_minutes) : null,
   };

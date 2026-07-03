@@ -2,7 +2,6 @@ import type {
   TaskArea,
   TaskPriority,
   TaskStatus,
-  WorkboardAssignee,
   WorkboardMember,
   WorkboardTask,
 } from "@/types/workboard";
@@ -84,27 +83,9 @@ export function rowToMember(row: {
   };
 }
 
-export function assigneesFromMemberIds(
-  ids: string[],
-  memberMap: Map<string, WorkboardMember>
-): WorkboardAssignee[] {
-  return ids
-    .map((id) => {
-      const member = memberMap.get(id);
-      if (!member) return null;
-      return {
-        id: member.id,
-        name: member.name,
-        initials: member.initials,
-      };
-    })
-    .filter((assignee): assignee is WorkboardAssignee => assignee != null);
-}
-
 export function rowToTask(
   row: WorkboardTaskRow,
-  memberMap?: Map<string, WorkboardMember>,
-  assigneeIds?: string[]
+  memberMap?: Map<string, WorkboardMember>
 ): WorkboardTask {
   const status = WORKBOARD_STATUS_SET.has(row.status as TaskStatus)
     ? (row.status as TaskStatus)
@@ -116,19 +97,8 @@ export function rowToTask(
     ? (row.priority as TaskPriority)
     : "medium";
 
-  let resolvedAssigneeIds = assigneeIds ?? [];
-  if (resolvedAssigneeIds.length === 0 && row.assignee_id) {
-    resolvedAssigneeIds = [row.assignee_id];
-  }
-
-  const assignees = memberMap
-    ? assigneesFromMemberIds(resolvedAssigneeIds, memberMap)
-    : [];
-
   let assignee: WorkboardTask["assignee"];
-  if (assignees.length > 0) {
-    assignee = assignees[0];
-  } else if (row.assignee) {
+  if (row.assignee) {
     const name = displayName(row.assignee.full_name, row.assignee.email);
     assignee = { id: row.assignee.id, name, initials: initialsFromName(name) };
   } else if (row.assignee_id && memberMap?.has(row.assignee_id)) {
@@ -144,9 +114,7 @@ export function rowToTask(
     area,
     priority,
     assignee,
-    assigneeId: resolvedAssigneeIds[0] ?? row.assignee_id,
-    assignees,
-    assigneeIds: resolvedAssigneeIds,
+    assigneeId: row.assignee_id,
     dueDate: row.due_date ?? undefined,
     tags: row.tags ?? [],
     position: row.position,

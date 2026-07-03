@@ -15,7 +15,6 @@ import { LogTimeModal } from "./log-time-modal";
 import { WorkboardTaskDetailDialog } from "./workboard-task-detail-dialog";
 import { WorkboardTimeReport } from "./workboard-time-report";
 import { WorkboardSprintHeader } from "./workboard-sprint-header";
-import { TaskAssigneeField } from "./task-assignee-field";
 import {
   Button,
   Dialog,
@@ -68,7 +67,7 @@ export function WorkboardShell() {
     description: "",
     area: "general" as TaskArea,
     priority: "medium" as TaskPriority,
-    assigneeIds: [] as string[],
+    assigneeId: "" as string,
     dueDate: "",
     tags: "",
     launchId: "",
@@ -92,7 +91,7 @@ export function WorkboardShell() {
       status: selectedStatus,
       area: newTask.area,
       priority: newTask.priority,
-      assigneeIds: newTask.assigneeIds,
+      assigneeId: newTask.assigneeId || null,
       dueDate: newTask.dueDate || null,
       tags: newTask.tags
         .split(",")
@@ -105,7 +104,7 @@ export function WorkboardShell() {
       description: "",
       area: "general",
       priority: "medium",
-      assigneeIds: [],
+      assigneeId: "",
       dueDate: "",
       tags: "",
       launchId: launchFilterId !== "all" ? launchFilterId : "",
@@ -230,7 +229,7 @@ function AddTaskDialogContent({
     description: string;
     area: TaskArea;
     priority: TaskPriority;
-    assigneeIds: string[];
+    assigneeId: string;
     dueDate: string;
     tags: string;
     launchId: string;
@@ -332,15 +331,22 @@ function AddTaskDialogContent({
           </div>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="wb-assignees">Responsables</Label>
-          <TaskAssigneeField
-            id="wb-assignees"
-            members={members}
-            value={newTask.assigneeIds}
-            onChange={(assigneeIds) =>
-              setNewTask({ ...newTask, assigneeIds })
+          <Label htmlFor="wb-assignee">Responsable</Label>
+          <select
+            id="wb-assignee"
+            className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+            value={newTask.assigneeId}
+            onChange={(e) =>
+              setNewTask({ ...newTask, assigneeId: e.target.value })
             }
-          />
+          >
+            <option value="">Sin asignar</option>
+            {members.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="wb-due">Fecha límite</Label>

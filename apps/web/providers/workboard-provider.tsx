@@ -17,7 +17,6 @@ import {
   moveWorkboardTaskAction,
   updateWorkboardTaskAction,
 } from "@/app/workboard/actions";
-import { assigneesFromMemberIds } from "@/lib/workboard/mapper";
 import type { LaunchPickerOption } from "@/types/launches";
 import type {
   TaskArea,
@@ -35,7 +34,6 @@ type TaskUpdatePatch = Partial<{
   area: TaskArea;
   priority: TaskPriority;
   assigneeId: string | null;
-  assigneeIds: string[];
   dueDate: string | null;
   tags: string[];
   estimatedMinutes: number;
@@ -70,7 +68,6 @@ type WorkboardContextValue = {
     area: TaskArea;
     priority: TaskPriority;
     assigneeId?: string | null;
-    assigneeIds?: string[];
     dueDate?: string | null;
     tags?: string[];
     launchId?: string | null;
@@ -92,17 +89,20 @@ function applyTaskPatch(
   patch: TaskUpdatePatch,
   members: WorkboardMember[]
 ): WorkboardTask {
-  const nextAssigneeIds =
-    patch.assigneeIds !== undefined
-      ? patch.assigneeIds
-      : patch.assigneeId !== undefined
-        ? patch.assigneeId
-          ? [patch.assigneeId]
-          : []
-        : prev.assigneeIds ?? (prev.assigneeId ? [prev.assigneeId] : []);
+  const nextAssigneeId =
+    patch.assigneeId !== undefined ? patch.assigneeId : prev.assigneeId;
 
-  const memberMap = new Map(members.map((member) => [member.id, member]));
-  const assignees = assigneesFromMemberIds(nextAssigneeIds, memberMap);
+  let assignee = prev.assignee;
+  if (patch.assigneeId !== undefined) {
+    if (patch.assigneeId) {
+      const member = members.find((m) => m.id === patch.assigneeId);
+      assignee = member
+        ? { id: member.id, name: member.name, initials: member.initials }
+        : undefined;
+    } else {
+      assignee = undefined;
+    }
+  }
 
   return {
     ...prev,
@@ -111,10 +111,8 @@ function applyTaskPatch(
       patch.dueDate !== undefined
         ? (patch.dueDate ?? undefined)
         : prev.dueDate,
-    assigneeIds: nextAssigneeIds,
-    assignees,
-    assigneeId: nextAssigneeIds[0] ?? null,
-    assignee: assignees[0],
+    assigneeId: nextAssigneeId,
+    assignee,
   };
 }
 
