@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import {
-  AiCard,
   Badge,
   Button,
   GlassPanel,
 } from "@ai-coo/ui";
-import { ArrowLeft, ExternalLink, Star } from "lucide-react";
+import { ArrowLeft, ExternalLink, Sparkles, Star } from "lucide-react";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import { ClientLinkedCallsSection } from "@/components/clients/client-linked-calls";
@@ -182,14 +181,24 @@ export function ClientDetail({ client: initial }: { client: Client }) {
         Marcar como caso de éxito
       </Button>
 
-      <div className="space-y-2">
-        <h2 className="text-sm font-medium">Insights de IA (mock)</h2>
-        {client.aiInsights.map((line, i) => (
-          <AiCard key={i} title="" variant="insight">
-            {line}
-          </AiCard>
-        ))}
-      </div>
+      {client.aiInsights.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium">Contexto del cierre</h2>
+          <GlassPanel className="p-5">
+            <ul className="space-y-3">
+              {client.aiInsights.map((line, i) => (
+                <li key={i} className="flex gap-3 text-sm leading-relaxed">
+                  <Sparkles
+                    className="mt-0.5 h-4 w-4 shrink-0 text-primary/70"
+                    aria-hidden
+                  />
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+          </GlassPanel>
+        </section>
+      ) : null}
     </div>
   );
 }

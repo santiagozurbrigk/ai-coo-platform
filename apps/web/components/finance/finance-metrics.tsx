@@ -34,7 +34,8 @@ export function FinanceMetrics() {
     clientsLoading,
     closingCallsLoading,
   } = usePlatformData();
-  const { paymentPlatforms, expensesSummary, monthlySeries } = useFinanceData();
+  const { paymentPlatforms, expensesSummary, monthlySeries, clientPayments } =
+    useFinanceData();
 
   const [revenueRange, setRevenueRange] =
     useState<RevenueDateRange>(DEFAULT_REVENUE_RANGE);
@@ -47,20 +48,25 @@ export function FinanceMetrics() {
       closingCalls,
       expensesSummary,
       paymentPlatforms,
-      revenueRange
+      revenueRange,
+      clientPayments
     );
   }, [
     clients,
     closingCalls,
     expensesSummary,
     paymentPlatforms,
+    clientPayments,
     revenueRange,
   ]);
 
   const periodEvents = useMemo(() => {
     const period = resolveRevenueDateRange(revenueRange);
-    return filterRevenueEvents(collectRevenueEvents(clients), period);
-  }, [clients, revenueRange]);
+    return filterRevenueEvents(
+      collectRevenueEvents(clients, clientPayments),
+      period
+    );
+  }, [clients, clientPayments, revenueRange]);
 
   const dualRows = useMemo(
     () =>

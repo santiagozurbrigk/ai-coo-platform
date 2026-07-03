@@ -4,6 +4,7 @@ import {
   isMissingTableError,
   requireOrganizationId,
   tryRequireOrganizationId,
+  getCurrentProfile,
 } from "@/lib/auth/bootstrap";
 import {
   runMutation,
@@ -19,10 +20,9 @@ import {
   type SubscriptionRow,
   type TeamCompensationRow,
 } from "@/lib/expenses/mapper";
-import { collectRevenueEvents } from "@/lib/metrics/revenue-events";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { listClientsAction } from "@/app/clients/actions";
+import { listOrganizationPaymentsAction } from "@/app/clients/payment-actions";
 import type {
   FixedExpense,
   Subscription,
@@ -46,28 +46,36 @@ function mapFinanceError(msg: string): string {
   return msg;
 }
 
+async function requireFounderRole(): Promise<void> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.role !== "founder") {
+    throw new Error("Solo el founder puede gestionar plataformas de pago");
+  }
+}
+
 function paymentPlatformTotals(
   platforms: PaymentPlatformRow[],
-  clients: Awaited<ReturnType<typeof listClientsAction>>
+  payments: Awaited<ReturnType<typeof listOrganizationPaymentsAction>>
 ): PaymentPlatformConfig[] {
-  const events = collectRevenueEvents(clients);
-  const bySlug = new Map<string, { total: number; lastAt: string }>();
+  const byPlatform = new Map<string, { total: number; lastAt: string }>();
 
-  for (const event of events) {
-    const prev = bySlug.get(event.platform) ?? { total: 0, lastAt: "" };
-    const at = event.date.slice(0, 10);
-    bySlug.set(event.platform, {
-      total: prev.total + event.amount,
+  for (const payment of payments) {
+    const platformId = payment.paymentDestinationPlatformId;
+    if (!platformId) continue;
+    const at = payment.paymentDate.slice(0, 10);
+    const prev = byPlatform.get(platformId) ?? { total: 0, lastAt: "" };
+    byPlatform.set(platformId, {
+      total: prev.total + payment.amount,
       lastAt: at > prev.lastAt ? at : prev.lastAt || at,
     });
   }
 
   return platforms.map((row) => {
-    const slug = row.slug ?? "";
-    const totals = slug ? bySlug.get(slug) : undefined;
+    const totals = byPlatform.get(row.id);
     return rowToPaymentPlatform(row, {
       totalReceived: totals?.total ?? 0,
-      lastTransactionAt: totals?.lastAt || new Date().toISOString().slice(0, 10),
+      lastTransactionAt:
+        totals?.lastAt || new Date().toISOString().slice(0, 10),
     });
   });
 }
@@ -98,7 +106,7 @@ export async function loadFinanceConfigAction(): Promise<FinanceConfigPayload> {
 
     const supabase = await createClient();
 
-    const clients = await listClientsAction();
+    const payments = await listOrganizationPaymentsAction();
 
   const [fixedRes, subsRes, teamRes, platRes] = await Promise.all([
     supabase
@@ -143,7 +151,7 @@ export async function loadFinanceConfigAction(): Promise<FinanceConfigPayload> {
       ),
       paymentPlatforms: paymentPlatformTotals(
         (platRes.data ?? []) as PaymentPlatformRow[],
-        clients
+        payments
       ),
     };
   } catch (e) {
@@ -321,6 +329,7 @@ export async function createPaymentPlatformAction(
   platform: Omit<PaymentPlatformConfig, "id" | "totalReceived" | "lastTransactionAt">
 ): Promise<MutationResult<PaymentPlatformConfig>> {
   return runMutation(async () => {
+    await requireFounderRole();
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
     const slug =
@@ -349,6 +358,7 @@ export async function updatePaymentPlatformAction(
   patch: Partial<PaymentPlatformConfig>
 ): Promise<MutationResult<PaymentPlatformConfig>> {
   return runMutation(async () => {
+    await requireFounderRole();
     const supabase = await createClient();
     const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (patch.name != null) row.name = patch.name;
@@ -364,8 +374,8 @@ export async function updatePaymentPlatformAction(
       .single();
 
     if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
-    const clients = await listClientsAction();
-    return paymentPlatformTotals([data as PaymentPlatformRow], clients)[0];
+    const payments = await listOrganizationPaymentsAction();
+    return paymentPlatformTotals([data as PaymentPlatformRow], payments)[0];
   });
 }
 
@@ -373,6 +383,7 @@ export async function deletePaymentPlatformAction(
   id: string
 ): Promise<MutationResult> {
   return runMutation(async () => {
+    await requireFounderRole();
     const supabase = await createClient();
     const { error } = await supabase.from("payment_platforms").delete().eq("id", id);
     if (error) throw new Error(mapFinanceError(error.message));

@@ -3,8 +3,6 @@ export const INTEGRATION_PROVIDERS = [
   "unipile_instagram",
   "unipile_whatsapp",
   "instagram",
-  "stripe",
-  "mercadopago",
   "manychat",
   "youtube",
   "typeform",

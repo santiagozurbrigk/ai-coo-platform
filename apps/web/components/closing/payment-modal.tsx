@@ -19,7 +19,9 @@ import {
   uploadPaymentReceiptFile,
 } from "@/components/clients/payment-receipt-dropzone";
 import { useFinanceData } from "@/providers";
-import type { ClosePaymentPayload, PaymentPlatform } from "@/types/closing";
+import type { ClosePaymentPayload } from "@/types/closing";
+import Link from "next/link";
+import { paths } from "@/routes";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm";
@@ -31,15 +33,6 @@ function platformLabel(
   const p = platforms.find((x) => x.id === id);
   if (!p) return id;
   return p.accountLabel ? `${p.name} — ${p.accountLabel}` : p.name;
-}
-
-function mapPlatformFromName(name: string): PaymentPlatform {
-  const n = name.toLowerCase();
-  if (n.includes("stripe")) return "stripe";
-  if (n.includes("mercado")) return "mercadopago";
-  if (n.includes("paypal")) return "paypal";
-  if (n.includes("bank") || n.includes("transfer")) return "bank_transfer";
-  return "other";
 }
 
 function paidAmountForType(
@@ -76,11 +69,9 @@ export function PaymentModal({
   const [mainPain, setMainPain] = useState("");
   const [objections, setObjections] = useState("");
   const [feedbackNotes, setFeedbackNotes] = useState("");
-  const [paymentSourceId, setPaymentSourceId] = useState(
-    paymentPlatforms[0]?.id ?? ""
-  );
+  const [paymentReceivedFrom, setPaymentReceivedFrom] = useState("");
   const [paymentDestId, setPaymentDestId] = useState(
-    paymentPlatforms[1]?.id ?? paymentPlatforms[0]?.id ?? ""
+    paymentPlatforms[0]?.id ?? ""
   );
   const [paymentType, setPaymentType] = useState<
     "upfront" | "installments" | "upfront_fee"
@@ -101,14 +92,12 @@ export function PaymentModal({
       setClientName(defaultName);
       setProofFile(null);
       setError(null);
-      if (!paymentSourceId && paymentPlatforms[0]) {
-        setPaymentSourceId(paymentPlatforms[0].id);
-      }
+      setPaymentReceivedFrom("");
       if (!paymentDestId && paymentPlatforms[0]) {
-        setPaymentDestId(paymentPlatforms[1]?.id ?? paymentPlatforms[0].id);
+        setPaymentDestId(paymentPlatforms[0].id);
       }
     }
-  }, [open, defaultName, paymentPlatforms, paymentSourceId, paymentDestId]);
+  }, [open, defaultName, paymentPlatforms, paymentDestId]);
 
   const handleSubmit = () => {
     const paidAmount = paidAmountForType(paymentType, {
@@ -127,6 +116,16 @@ export function PaymentModal({
       return;
     }
 
+    if (!paymentDestId) {
+      setError("Seleccioná el destino del pago.");
+      return;
+    }
+
+    if (!paymentReceivedFrom.trim()) {
+      setError("Indicá desde dónde recibiste el pago.");
+      return;
+    }
+
     if (!proofFile) {
       setError("El comprobante de pago es obligatorio.");
       return;
@@ -141,22 +140,17 @@ export function PaymentModal({
         return;
       }
 
-      const source = paymentPlatforms.find((p) => p.id === paymentSourceId);
-      const paymentDate =
-        paymentType === "installments" && firstDate
-          ? firstDate
-          : new Date().toISOString().slice(0, 10);
-
       const payload: ClosePaymentPayload = {
         clientName: clientName.trim() || defaultName,
-        platform: mapPlatformFromName(source?.name ?? "stripe"),
-        paymentSourcePlatformId: paymentSourceId || paymentPlatforms[0]?.id,
-        paymentDestinationPlatformId:
-          paymentDestId || paymentPlatforms[1]?.id || paymentPlatforms[0]?.id,
+        paymentReceivedFrom: paymentReceivedFrom.trim(),
+        paymentDestinationPlatformId: paymentDestId,
         closedByName: "Martín López",
         paymentType,
         paidAmount,
-        paymentDate,
+        paymentDate:
+          paymentType === "installments" && firstDate
+            ? firstDate
+            : new Date().toISOString().slice(0, 10),
         proof: {
           storagePath: uploaded.storagePath,
           mimeType: uploaded.mimeType,
@@ -221,18 +215,12 @@ export function PaymentModal({
               {paymentPlatforms.length > 0 ? (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField label="Pago recibido desde">
-                    <select
-                      className={selectClass}
-                      value={paymentSourceId}
-                      onChange={(e) => setPaymentSourceId(e.target.value)}
+                    <Input
+                      placeholder='Ej. "Transferencia Banco Galicia", "Wise USD"'
+                      value={paymentReceivedFrom}
+                      onChange={(e) => setPaymentReceivedFrom(e.target.value)}
                       disabled={pending}
-                    >
-                      {paymentPlatforms.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {platformLabel(p.id, paymentPlatforms)}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </FormField>
                   <FormField label="Destino del pago">
                     <select
@@ -241,6 +229,7 @@ export function PaymentModal({
                       onChange={(e) => setPaymentDestId(e.target.value)}
                       disabled={pending}
                     >
+                      <option value="">Seleccionar destino…</option>
                       {paymentPlatforms.map((p) => (
                         <option key={p.id} value={p.id}>
                           {platformLabel(p.id, paymentPlatforms)}
@@ -255,8 +244,14 @@ export function PaymentModal({
                   title="Plataformas de pago sin configurar"
                   icon={<AlertTriangle className="h-4 w-4" />}
                 >
-                  Configura plataformas en Finanzas para rastrear origen y destino
-                  del dinero.
+                  Configurá al menos un destino de cobro en{" "}
+                  <Link
+                    href={paths.platform.settings}
+                    className="font-medium underline"
+                  >
+                    Configuración → Pagos
+                  </Link>{" "}
+                  antes de registrar el cierre.
                 </SteppedAlert>
               )}
 

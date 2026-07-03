@@ -13,8 +13,6 @@ import {
   getInstagramIntegrationStatusAction,
   getYoutubeIntegrationStatusAction,
 } from "@/app/marketing/actions";
-import { getStripeIntegrationStatusAction } from "@/app/stripe/actions";
-import { getMercadoPagoIntegrationStatusAction } from "@/app/mercadopago/actions";
 import {
   countUnipileConversationsAction,
   getUnipileIntegrationStatusAction,
@@ -199,12 +197,12 @@ const REAL_PROVIDERS = new Set([
   "instagram",
   "unipile_instagram",
   "unipile_whatsapp",
-  "stripe",
-  "mercadopago",
   "typeform",
   "google_forms",
   "discord",
 ]);
+
+const HIDDEN_INTEGRATION_PROVIDERS = new Set(["stripe", "mercadopago", "paypal"]);
 
 export async function listIntegrationsAction(): Promise<Integration[]> {
   const [
@@ -215,8 +213,6 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     instagramStatus,
     unipileInstagramStatus,
     unipileWhatsappStatus,
-    stripeStatus,
-    mercadoPagoStatus,
     typeformStatus,
     googleFormsStatus,
     discordStatus,
@@ -228,8 +224,6 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     getInstagramIntegrationStatusAction(),
     getUnipileIntegrationStatusAction("instagram"),
     getUnipileIntegrationStatusAction("whatsapp"),
-    getStripeIntegrationStatusAction(),
-    getMercadoPagoIntegrationStatusAction(),
     getTypeformIntegrationStatusAction(),
     getGoogleFormsIntegrationStatusAction(),
     getDiscordIntegrationStatusAction(),
@@ -259,7 +253,9 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     discordStatus.connected ? discordStatus.stats.messagesCount : 0,
   ]);
 
-  return mockIntegrations.map((integration) => {
+  return mockIntegrations
+    .filter((integration) => !HIDDEN_INTEGRATION_PROVIDERS.has(integration.provider))
+    .map((integration) => {
     const statusMap: Record<
       string,
       { connected: boolean; lastSyncAt: string | null | undefined; records: number }
@@ -298,16 +294,6 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
         connected: unipileWhatsappStatus.connected,
         lastSyncAt: unipileWhatsappStatus.connectedAt,
         records: unipileWhatsappRecords,
-      },
-      stripe: {
-        connected: stripeStatus.connected,
-        lastSyncAt: stripeStatus.lastSyncAt,
-        records: 0,
-      },
-      mercadopago: {
-        connected: mercadoPagoStatus.connected,
-        lastSyncAt: mercadoPagoStatus.lastSyncAt,
-        records: 0,
       },
       typeform: {
         connected: typeformStatus.connected,

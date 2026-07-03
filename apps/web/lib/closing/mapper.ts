@@ -18,6 +18,7 @@ export type ClosingCallRow = {
   closed_by_name: string | null;
   payment_source_platform_id: string | null;
   payment_destination_platform_id: string | null;
+  payment_received_from: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -35,6 +36,7 @@ export function rowToClosingCall(row: ClosingCallRow): ClosingCall {
     closedByName: row.closed_by_name ?? undefined,
     paymentSourcePlatformId: row.payment_source_platform_id ?? undefined,
     paymentDestinationPlatformId: row.payment_destination_platform_id ?? undefined,
+    paymentReceivedFrom: row.payment_received_from ?? undefined,
   };
 }
 
@@ -54,6 +56,7 @@ export function closingCallToInsertRow(
     closed_by_name: call.closedByName ?? null,
     payment_source_platform_id: call.paymentSourcePlatformId ?? null,
     payment_destination_platform_id: call.paymentDestinationPlatformId ?? null,
+    payment_received_from: call.paymentReceivedFrom ?? null,
   };
 }
 
@@ -77,6 +80,9 @@ export function patchToClosingUpdateRow(
   }
   if (patch.paymentDestinationPlatformId !== undefined) {
     row.payment_destination_platform_id = patch.paymentDestinationPlatformId ?? null;
+  }
+  if (patch.paymentReceivedFrom !== undefined) {
+    row.payment_received_from = patch.paymentReceivedFrom ?? null;
   }
 
   return row;

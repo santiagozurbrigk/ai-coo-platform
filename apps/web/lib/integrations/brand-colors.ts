@@ -9,8 +9,6 @@ export const INTEGRATION_BRAND_COLORS: Record<
   unipile_instagram: { hex: "#C13584", bgClass: "bg-[#C13584]/15" },
   unipile_whatsapp: { hex: "#25D366", bgClass: "bg-[#25D366]/12" },
   instagram: { hex: "#E4405F", bgClass: "bg-[#E4405F]/12" },
-  stripe: { hex: "#635BFF", bgClass: "bg-[#635BFF]/12" },
-  mercadopago: { hex: "#009EE3", bgClass: "bg-[#009EE3]/12" },
   manychat: { hex: "#0084FF", bgClass: "bg-[#0084FF]/12" },
   youtube: { hex: "#FF0000", bgClass: "bg-[#FF0000]/12" },
   typeform: { hex: "#262627", bgClass: "bg-[#262627]/10 dark:bg-[#262627]/25" },

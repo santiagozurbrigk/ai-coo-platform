@@ -19,8 +19,6 @@ import {
 } from "@/app/calendly/actions";
 import { syncFathomMeetingsAction } from "@/app/fathom/actions";
 import { syncInstagramContentAction, syncInstagramMessagesAction } from "@/app/instagram/actions";
-import { disconnectStripeIntegrationAction } from "@/app/stripe/actions";
-import { disconnectMercadoPagoIntegrationAction } from "@/app/mercadopago/actions";
 import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
 import {
   GOOGLE_OAUTH_START_URL,
@@ -52,8 +50,6 @@ import { ManyChatManageSheet } from "./manychat-manage-sheet";
 const COMING_SOON_LABEL = "Próximamente";
 
 const INSTAGRAM_CONNECT_URL = "/api/integrations/instagram/connect";
-const STRIPE_CONNECT_URL = "/api/integrations/stripe/connect";
-const MERCADOPAGO_CONNECT_URL = "/api/integrations/mercadopago/connect";
 
 function unipileProviderFromIntegration(
   provider: Integration["provider"]
@@ -88,8 +84,6 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const [manychatImportOpen, setManychatImportOpen] = useState(false);
   const [manychatManageOpen, setManychatManageOpen] = useState(false);
   const [googleManageOpen, setGoogleManageOpen] = useState(false);
-  const [stripeManageOpen, setStripeManageOpen] = useState(false);
-  const [mercadopagoManageOpen, setMercadopagoManageOpen] = useState(false);
   const [instagramManageOpen, setInstagramManageOpen] = useState(false);
   const [manychatWebhookUrl, setManychatWebhookUrl] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -264,14 +258,6 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       window.location.href = INSTAGRAM_CONNECT_URL;
       return;
     }
-    if (integration.provider === "stripe") {
-      window.location.href = STRIPE_CONNECT_URL;
-      return;
-    }
-    if (integration.provider === "mercadopago") {
-      window.location.href = MERCADOPAGO_CONNECT_URL;
-      return;
-    }
     if (integration.provider === "calendly") {
       window.location.href = "/api/integrations/calendly/oauth/start";
       return;
@@ -397,16 +383,6 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       return;
     }
 
-    if (integration.provider === "stripe" && status === "connected") {
-      setStripeManageOpen(true);
-      return;
-    }
-
-    if (integration.provider === "mercadopago" && status === "connected") {
-      setMercadopagoManageOpen(true);
-      return;
-    }
-
     if (status === "connected" && googleProvider) {
       setGoogleManageOpen(true);
       return;
@@ -440,14 +416,6 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       }
       if (integration.provider === "instagram") {
         window.location.href = INSTAGRAM_CONNECT_URL;
-        return;
-      }
-      if (integration.provider === "stripe") {
-        window.location.href = STRIPE_CONNECT_URL;
-        return;
-      }
-      if (integration.provider === "mercadopago") {
-        window.location.href = MERCADOPAGO_CONNECT_URL;
         return;
       }
       if (googleProvider) {
@@ -654,94 +622,6 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                 }}
               >
                 Sincronizar mensajes
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      ) : null}
-
-      {integration.provider === "stripe" ? (
-        <Dialog open={stripeManageOpen} onOpenChange={setStripeManageOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Gestionar Stripe</DialogTitle>
-              <DialogDescription>
-                Revisá balance y transacciones en Finanzas o desconectá la cuenta.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="flex-col gap-2 sm:flex-row">
-              <Button variant="outline" asChild>
-                <a href={paths.platform.finance.root}>Ver en Finanzas</a>
-              </Button>
-              <Button
-                variant="outline"
-                type="button"
-                disabled={syncing}
-                onClick={async () => {
-                  setSyncing(true);
-                  try {
-                    const result = await disconnectStripeIntegrationAction();
-                    if (!result.ok) {
-                      push({ title: result.error ?? "Error", variant: "default" });
-                      return;
-                    }
-                    setStatus("not_connected");
-                    setStripeManageOpen(false);
-                    router.refresh();
-                    push({
-                      title: "Stripe desconectado",
-                      variant: "success",
-                    });
-                  } finally {
-                    setSyncing(false);
-                  }
-                }}
-              >
-                Desconectar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      ) : null}
-
-      {integration.provider === "mercadopago" ? (
-        <Dialog open={mercadopagoManageOpen} onOpenChange={setMercadopagoManageOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Gestionar Mercado Pago</DialogTitle>
-              <DialogDescription>
-                Revisá pagos y saldo estimado en Finanzas o desconectá la cuenta.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="flex-col gap-2 sm:flex-row">
-              <Button variant="outline" asChild>
-                <a href={paths.platform.finance.root}>Ver en Finanzas</a>
-              </Button>
-              <Button
-                variant="outline"
-                type="button"
-                disabled={syncing}
-                onClick={async () => {
-                  setSyncing(true);
-                  try {
-                    const result = await disconnectMercadoPagoIntegrationAction();
-                    if (!result.ok) {
-                      push({ title: result.error ?? "Error", variant: "default" });
-                      return;
-                    }
-                    setStatus("not_connected");
-                    setMercadopagoManageOpen(false);
-                    router.refresh();
-                    push({
-                      title: "Mercado Pago desconectado",
-                      variant: "success",
-                    });
-                  } finally {
-                    setSyncing(false);
-                  }
-                }}
-              >
-                Desconectar
               </Button>
             </DialogFooter>
           </DialogContent>

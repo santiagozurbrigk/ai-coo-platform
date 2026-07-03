@@ -25,6 +25,7 @@ export type ClosingCall = {
   closedByName?: string;
   paymentSourcePlatformId?: string;
   paymentDestinationPlatformId?: string;
+  paymentReceivedFrom?: string;
 };
 
 export type PaymentPlatform =
@@ -51,9 +52,10 @@ export type PaymentProofMeta = {
 
 export type ClosePaymentPayload = {
   clientName: string;
-  platform: PaymentPlatform;
-  paymentSourcePlatformId?: string;
-  paymentDestinationPlatformId?: string;
+  /** Texto libre: de dónde vino el pago del lead (banco, billetera, etc.). */
+  paymentReceivedFrom: string;
+  /** Plataforma de cobro configurada en Configuración. */
+  paymentDestinationPlatformId: string;
   closedByName?: string;
   paymentType: "upfront" | "installments" | "upfront_fee";
   totalAmount?: number;

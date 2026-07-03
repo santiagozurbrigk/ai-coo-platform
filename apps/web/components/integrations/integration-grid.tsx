@@ -134,60 +134,6 @@ export function IntegrationGrid({ integrations }: { integrations: Integration[] 
       return;
     }
 
-    if (instagramSuccess === "stripe" && !handled.current) {
-      handled.current = true;
-      push({
-        title: "Stripe conectado",
-        description: "Tu cuenta quedó vinculada. Revisá balance y transacciones en Finanzas.",
-        variant: "success",
-      });
-      return;
-    }
-    if (oauthError === "stripe_denied") {
-      handled.current = true;
-      push({
-        title: "Conexión cancelada",
-        description: "No se autorizó el acceso a Stripe.",
-      });
-      return;
-    }
-    if (oauthError === "stripe_failed") {
-      handled.current = true;
-      push({
-        title: "Error al conectar Stripe",
-        description: "Revisá las credenciales en Stripe Connect y las variables de entorno.",
-      });
-      return;
-    }
-
-    if (instagramSuccess === "mercadopago" && !handled.current) {
-      handled.current = true;
-      push({
-        title: "Mercado Pago conectado",
-        description:
-          "Tu cuenta quedó vinculada. Revisá pagos y saldo estimado en Finanzas.",
-        variant: "success",
-      });
-      return;
-    }
-    if (oauthError === "mercadopago_denied") {
-      handled.current = true;
-      push({
-        title: "Conexión cancelada",
-        description: "No se autorizó el acceso a Mercado Pago.",
-      });
-      return;
-    }
-    if (oauthError === "mercadopago_failed") {
-      handled.current = true;
-      push({
-        title: "Error al conectar Mercado Pago",
-        description:
-          "Revisá las credenciales en Mercado Pago Developers y las variables de entorno.",
-      });
-      return;
-    }
-
     const calendlyStatus = searchParams.get("calendly");
     if (calendlyStatus === "connected") {
       handled.current = true;

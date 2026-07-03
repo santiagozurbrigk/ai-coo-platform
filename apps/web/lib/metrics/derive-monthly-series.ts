@@ -1,4 +1,4 @@
-import type { Client } from "@/types/clients";
+import type { Client, ClientPayment } from "@/types/clients";
 import type { ExpensesSummary } from "@/types/expenses";
 import type { MonthlySeriesPoint } from "@/types/finance";
 import {
@@ -25,10 +25,11 @@ const MONTH_SHORT = [
 /** Últimos 6 meses: facturación = ingresos por fecha de cobro en cada mes. */
 export function deriveMonthlySeries(
   clients: Client[],
-  expenses: ExpensesSummary
+  expenses: ExpensesSummary,
+  payments?: ClientPayment[]
 ): MonthlySeriesPoint[] {
   const now = new Date();
-  const events = collectRevenueEvents(clients);
+  const events = collectRevenueEvents(clients, payments);
   const buckets: MonthlySeriesPoint[] = [];
 
   for (let i = 5; i >= 0; i--) {

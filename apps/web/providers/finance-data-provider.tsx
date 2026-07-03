@@ -22,6 +22,7 @@ import {
   updateSubscriptionAction,
   updateTeamCompensationAction,
 } from "@/app/finance/actions";
+import { listOrganizationPaymentsAction } from "@/app/clients/payment-actions";
 import {
   mockFinanceSummary,
   mockMonthlySeries,
@@ -39,6 +40,7 @@ import type {
   TeamCompensation,
 } from "@/types/expenses";
 import type { FinanceSummary, PaymentPlatformConfig } from "@/types/finance";
+import type { ClientPayment } from "@/types/clients";
 
 const useSupabase = isSupabaseConfigured();
 
@@ -53,6 +55,7 @@ type FinanceDataContextValue = {
     patch: Partial<PaymentPlatformConfig>
   ) => Promise<string | undefined>;
   removePaymentPlatform: (id: string) => Promise<string | undefined>;
+  clientPayments: ClientPayment[];
   financeSummary: FinanceSummary;
   monthlySeries: typeof mockMonthlySeries;
   fixedExpenses: FixedExpense[];
@@ -91,6 +94,13 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [teamCompensation, setTeamCompensation] = useState<TeamCompensation[]>([]);
+  const [clientPayments, setClientPayments] = useState<ClientPayment[]>([]);
+
+  const refreshClientPayments = useCallback(async () => {
+    if (!useSupabase) return;
+    const payments = await listOrganizationPaymentsAction();
+    setClientPayments(payments);
+  }, []);
 
   const refreshFinanceConfig = useCallback(async () => {
     if (!useSupabase) return;
@@ -111,6 +121,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (useSupabase) {
       void refreshFinanceConfig();
+      void refreshClientPayments();
     } else {
       void loadFinanceConfigAction().then((config) => {
         setPaymentPlatforms(config.paymentPlatforms);
@@ -120,6 +131,12 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       });
     }
   }, [refreshFinanceConfig]);
+
+  useEffect(() => {
+    if (useSupabase && !clientsLoading) {
+      void refreshClientPayments();
+    }
+  }, [clients.length, clientsLoading, refreshClientPayments]);
 
   const runFinanceMutation = useCallback(
     async (result: { success: boolean; error?: string }) => {
@@ -291,26 +308,34 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       sourceClients,
       sourceCalls,
       expensesSummary,
-      paymentPlatforms
+      paymentPlatforms,
+      undefined,
+      dataReady ? clientPayments : []
     );
   }, [
     clients,
     closingCalls,
     expensesSummary,
     paymentPlatforms,
+    clientPayments,
     dataReady,
   ]);
 
   const monthlySeries = useMemo(() => {
     if (!useSupabase) return mockMonthlySeries;
     const sourceClients = dataReady ? clients : [];
-    return deriveMonthlySeries(sourceClients, expensesSummary);
-  }, [clients, expensesSummary, dataReady]);
+    return deriveMonthlySeries(
+      sourceClients,
+      expensesSummary,
+      dataReady ? clientPayments : []
+    );
+  }, [clients, clientPayments, expensesSummary, dataReady]);
 
   const value = useMemo(
     () => ({
       paymentPlatforms,
       financeConfigLoading,
+      clientPayments,
       addPaymentPlatform,
       updatePaymentPlatform,
       removePaymentPlatform,
@@ -332,6 +357,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
     [
       paymentPlatforms,
       financeConfigLoading,
+      clientPayments,
       addPaymentPlatform,
       updatePaymentPlatform,
       removePaymentPlatform,

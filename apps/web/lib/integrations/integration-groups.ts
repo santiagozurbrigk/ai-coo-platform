@@ -17,10 +17,6 @@ export const INTEGRATION_GROUPS: IntegrationGroup[] = [
     ],
   },
   {
-    label: "Finanzas",
-    integrations: ["stripe", "mercadopago"],
-  },
-  {
     label: "Contenido y marketing",
     integrations: ["youtube", "fathom"],
   },
@@ -47,9 +43,6 @@ export const INTEGRATION_DESCRIPTIONS: Partial<
     "Importa llamadas de cierre. Sin plan Standard, sincronizá manualmente.",
   instagram:
     "Visualizá el rendimiento de tu contenido y su impacto en ventas.",
-  stripe: "Balance, transacciones e ingresos en tiempo real.",
-  mercadopago:
-    "Conectá tu cuenta y visualizá pagos aprobados y saldo estimado en Finanzas.",
   youtube: "Conectá tu canal para métricas de contenido y etiquetado IA.",
   fathom: "Reuniones y transcripciones con tu API key de Fathom.",
   typeform: "Formularios, respuestas y lead scoring.",

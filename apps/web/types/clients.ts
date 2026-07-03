@@ -38,6 +38,8 @@ export type ClientPayment = {
   storagePath: string;
   mimeType?: string;
   installmentNumber?: number;
+  paymentReceivedFrom?: string;
+  paymentDestinationPlatformId?: string;
   uploadedBy?: string;
   createdAt: string;
 };

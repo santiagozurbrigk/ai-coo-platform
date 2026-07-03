@@ -9,6 +9,8 @@ export type ClientPaymentRow = {
   storage_path: string;
   mime_type: string | null;
   installment_number: number | null;
+  payment_received_from: string | null;
+  payment_destination_platform_id: string | null;
   uploaded_by: string | null;
   created_at: string;
 };
@@ -22,6 +24,9 @@ export function rowToClientPayment(row: ClientPaymentRow): ClientPayment {
     storagePath: row.storage_path,
     mimeType: row.mime_type ?? undefined,
     installmentNumber: row.installment_number ?? undefined,
+    paymentReceivedFrom: row.payment_received_from ?? undefined,
+    paymentDestinationPlatformId:
+      row.payment_destination_platform_id ?? undefined,
     uploadedBy: row.uploaded_by ?? undefined,
     createdAt: row.created_at,
   };

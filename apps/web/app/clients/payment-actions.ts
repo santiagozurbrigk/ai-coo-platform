@@ -42,6 +42,8 @@ const recordPaymentSchema = z.object({
   storagePath: z.string().trim().min(1),
   mimeType: z.string().trim().min(1).max(200),
   installmentNumber: z.number().int().min(1).max(120).nullable().optional(),
+  paymentReceivedFrom: z.string().trim().max(500).optional(),
+  paymentDestinationPlatformId: uuidSchema.optional(),
 });
 
 const addInstallmentPaymentSchema = z.object({
@@ -176,6 +178,8 @@ export async function recordClientPaymentAction(
       storagePath,
       mimeType,
       installmentNumber,
+      paymentReceivedFrom,
+      paymentDestinationPlatformId,
     } = parsed.data;
 
     if (!storagePath.startsWith(`${organizationId}/`)) {
@@ -202,6 +206,8 @@ export async function recordClientPaymentAction(
         storage_path: storagePath,
         mime_type: mimeType,
         installment_number: installmentNumber ?? null,
+        payment_received_from: paymentReceivedFrom ?? null,
+        payment_destination_platform_id: paymentDestinationPlatformId ?? null,
         uploaded_by: uploadedBy,
       })
       .select()
@@ -238,6 +244,30 @@ export async function recordClientPaymentAction(
     revalidateClientDetail(clientId);
     return rowToClientPayment(paymentRow as ClientPaymentRow);
   });
+}
+
+export async function listOrganizationPaymentsAction(): Promise<ClientPayment[]> {
+  try {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("client_payments")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("payment_date", { ascending: false });
+
+    if (error) {
+      if (!isMissingTableError(error.message)) {
+        console.error("[listOrganizationPayments]", error.message);
+      }
+      return [];
+    }
+
+    return (data as ClientPaymentRow[]).map(rowToClientPayment);
+  } catch {
+    return [];
+  }
 }
 
 export async function listClientPaymentsAction(
@@ -349,6 +379,7 @@ export async function addInstallmentPaymentAction(
       throw new Error("No hay cuotas pendientes por registrar");
     }
 
+    const referencePayment = existing[0];
     const recordResult = await recordClientPaymentAction({
       clientId,
       amount,
@@ -356,6 +387,9 @@ export async function addInstallmentPaymentAction(
       storagePath,
       mimeType,
       installmentNumber,
+      paymentReceivedFrom: referencePayment?.paymentReceivedFrom,
+      paymentDestinationPlatformId:
+        referencePayment?.paymentDestinationPlatformId,
     });
 
     if (!recordResult.success) {

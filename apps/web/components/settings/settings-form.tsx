@@ -5,6 +5,7 @@ import { Button, Input } from "@ai-coo/ui";
 import {
   Bell,
   Building2,
+  CreditCard,
   Globe,
   Lock,
   Palette,
@@ -30,6 +31,7 @@ import {
   type SettingsTabId,
 } from "./settings-tab-nav";
 import { SignOutButton } from "./sign-out-button";
+import { PaymentPlatformsSettingsSection } from "./payment-platforms-settings-section";
 import { ThemeSelector } from "./theme-selector";
 
 function getInitials(name: string): string {
@@ -157,7 +159,11 @@ export function SettingsForm({
 
   return (
     <div className="max-w-2xl space-y-8">
-      <SettingsTabNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <SettingsTabNav
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        showPaymentsTab={initialData.isFounder}
+      />
 
       {activeTab === "general" && (
         <div className="space-y-8 pt-2">
@@ -438,6 +444,19 @@ export function SettingsForm({
       {activeTab === "ia" && (
         <div className="space-y-8 pt-2">
           <ClaudeApiKeySettings initialStatus={initialData.claudeApiKeyStatus} />
+        </div>
+      )}
+
+      {activeTab === "pagos" && initialData.isFounder && (
+        <div className="space-y-8 pt-2">
+          <section>
+            <SectionHeader
+              icon={CreditCard}
+              title="Cobros"
+              variant="settings"
+            />
+            <PaymentPlatformsSettingsSection />
+          </section>
         </div>
       )}
 

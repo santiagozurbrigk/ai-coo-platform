@@ -1,4 +1,4 @@
-import type { Client } from "@/types/clients";
+import type { Client, ClientPayment } from "@/types/clients";
 import type { ClosingCall } from "@/types/closing";
 import type { ExpensesSummary } from "@/types/expenses";
 import type {
@@ -28,6 +28,15 @@ const LEGACY_PLATFORM_TO_CONFIG_ID: Record<string, string> = {
   paypal: "pp-stripe",
   bank_transfer: "pp-wise",
 };
+
+function configIdForPlatformId(
+  platformId: string | undefined,
+  paymentPlatforms: PaymentPlatformConfig[]
+): string | null {
+  if (!platformId) return null;
+  if (paymentPlatforms.some((p) => p.id === platformId)) return platformId;
+  return null;
+}
 
 function configIdForPaymentSlug(
   platform: string,
@@ -89,10 +98,11 @@ export function deriveFinanceSummary(
   closingCalls: ClosingCall[],
   expenses: ExpensesSummary,
   paymentPlatforms: PaymentPlatformConfig[],
-  revenueRange: RevenueDateRange = DEFAULT_REVENUE_RANGE
+  revenueRange: RevenueDateRange = DEFAULT_REVENUE_RANGE,
+  payments?: ClientPayment[]
 ): FinanceSummary & { revenuePeriod: ResolvedRevenuePeriod } {
   const revenuePeriod = resolveRevenueDateRange(revenueRange);
-  const events = collectRevenueEvents(clients);
+  const events = collectRevenueEvents(clients, payments);
   const periodEvents = filterRevenueEvents(events, revenuePeriod);
 
   const facturacion = periodEvents.reduce((sum, e) => sum + e.amount, 0);
@@ -122,7 +132,9 @@ export function deriveFinanceSummary(
 
   const balanceByPlatform = new Map<string, number>();
   for (const event of periodEvents) {
-    const configId = configIdForPaymentSlug(event.platform, paymentPlatforms);
+    const configId =
+      configIdForPlatformId(event.paymentDestinationPlatformId, paymentPlatforms) ??
+      configIdForPaymentSlug(event.platform, paymentPlatforms);
     if (!configId) continue;
     balanceByPlatform.set(
       configId,

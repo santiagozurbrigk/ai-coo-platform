@@ -152,7 +152,7 @@ function buildClientFromPayment(
     name: payment.clientName,
     joinDate: new Date().toISOString().slice(0, 10),
     paymentType: payment.paymentType,
-    platform: payment.platform,
+    platform: "other",
     totalAmount: revenue,
     upfrontAmount: payment.upfrontAmount,
     feeAmount: payment.feeAmount,
@@ -494,7 +494,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
         },
         fathomUrl: payment.fathomUrl ?? call?.fathomUrl,
         closedByName: payment.closedByName ?? "Martín López",
-        paymentSourcePlatformId: payment.paymentSourcePlatformId,
+        paymentReceivedFrom: payment.paymentReceivedFrom,
         paymentDestinationPlatformId: payment.paymentDestinationPlatformId,
       });
 
@@ -511,6 +511,8 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
           storagePath: payment.proof.storagePath,
           mimeType: payment.proof.mimeType,
           installmentNumber: installmentNumberForClosePayload(payment),
+          paymentReceivedFrom: payment.paymentReceivedFrom,
+          paymentDestinationPlatformId: payment.paymentDestinationPlatformId,
         });
         if (!recordResult.success) {
           throw new Error(recordResult.error);

@@ -11,9 +11,6 @@ import { usePlatformData } from "@/providers/platform-data-provider";
 import { paths } from "@/routes";
 import { FinanceMetrics } from "./finance-metrics";
 import { FinanceCharts } from "./finance-charts";
-import { PaymentPlatformsSection } from "./payment-platforms-section";
-import { StripeSection } from "./stripe-section";
-import { MercadoPagoSection } from "./mercadopago-section";
 
 const fade = {
   initial: { opacity: 0, y: 8 },
@@ -63,18 +60,6 @@ export function FinanceOverview() {
 
       <motion.div variants={fade}>
         <FinanceMetrics />
-      </motion.div>
-
-      <motion.div variants={fade}>
-        <StripeSection />
-      </motion.div>
-
-      <motion.div variants={fade}>
-        <MercadoPagoSection />
-      </motion.div>
-
-      <motion.div variants={fade}>
-        <PaymentPlatformsSection />
       </motion.div>
 
       <motion.div variants={fade}>

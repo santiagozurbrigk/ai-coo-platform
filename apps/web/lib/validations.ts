@@ -642,6 +642,7 @@ const closingCallFieldsSchema = z.object({
   closedByName: z.string().trim().max(200).optional(),
   paymentSourcePlatformId: z.string().trim().max(100).optional(),
   paymentDestinationPlatformId: z.string().trim().max(100).optional(),
+  paymentReceivedFrom: z.string().trim().max(500).optional(),
 });
 
 export const updateClosingCallSchema = closingCallFieldsSchema.partial();

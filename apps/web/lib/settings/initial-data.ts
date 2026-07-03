@@ -6,6 +6,7 @@ import {
   type NotificationPreferences,
 } from "@/app/settings/actions";
 import { getProfileAreaDataAction } from "@/app/profile/actions";
+import { getCurrentProfile } from "@/lib/auth/bootstrap";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -22,6 +23,7 @@ export type SettingsInitialData = {
   lastSignInAt: string | null;
   claudeApiKeyStatus: ClaudeApiKeyStatus;
   notificationPreferences: NotificationPreferences;
+  isFounder: boolean;
 };
 
 const DEFAULTS: SettingsInitialData = {
@@ -52,6 +54,7 @@ const DEFAULTS: SettingsInitialData = {
     inappSaleClosed: true,
     inappGhostingAlert: true,
   },
+  isFounder: true,
 };
 
 export async function getSettingsInitialData(): Promise<SettingsInitialData> {
@@ -92,6 +95,9 @@ export async function getSettingsInitialData(): Promise<SettingsInitialData> {
   }
 
   if (isSupabaseConfigured()) {
+    const profile = await getCurrentProfile();
+    data.isFounder = profile?.role === "founder";
+
     const supabase = await createClient();
     const {
       data: { user },

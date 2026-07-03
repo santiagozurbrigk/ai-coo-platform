@@ -42,7 +42,7 @@ export const mockClosingCalls: ClosingCall[] = [
     fathomUrl: "https://fathom.video/mock/laura-gomez",
     outcome: { paymentType: "upfront", revenue: 3000 },
     closedByName: "Martín López",
-    paymentSourcePlatformId: "pp-stripe",
+    paymentReceivedFrom: "Transferencia Banco Galicia",
     paymentDestinationPlatformId: "pp-wise",
   },
   {
