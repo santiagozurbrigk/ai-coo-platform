@@ -580,7 +580,6 @@ const clientInstallmentSchema = z.object({
   status: installmentStatusSchema,
   paidAt: isoDateSchema.optional(),
   dueDate: isoDateSchema.optional(),
-  proofLabel: z.string().trim().max(200).optional(),
 });
 
 const clientFieldsSchema = z.object({

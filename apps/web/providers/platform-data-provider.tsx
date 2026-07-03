@@ -29,6 +29,12 @@ import {
   listClientsAction,
   updateClientAction,
 } from "@/app/clients/actions";
+import { recordClientPaymentAction } from "@/app/clients/payment-actions";
+import {
+  getPaidAmountFromClosePayload,
+  getPaymentDateFromClosePayload,
+  installmentNumberForClosePayload,
+} from "@/lib/clients/payment-utils";
 import { mockClosingCalls } from "@/mocks/closing";
 import { mockClients } from "@/mocks/clients";
 import { mockConversations } from "@/mocks/sales";
@@ -128,7 +134,6 @@ function buildClientFromPayment(
             status: (i === 0 ? "paid" : "pending") as "paid" | "pending",
             paidAt,
             dueDate: i === 0 ? payment.firstInstallmentDate : undefined,
-            proofLabel: i === 0 ? "comprobante-inicial.pdf" : undefined,
           };
         })
       : undefined;
@@ -496,7 +501,30 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       await syncConversationTagForCall(call, "closeado");
 
       const draft = buildClientFromPayment(callId, payment);
-      return addClient(draft);
+      const client = await addClient(draft);
+
+      if (useSupabase && payment.proof) {
+        const recordResult = await recordClientPaymentAction({
+          clientId: client.id,
+          amount: getPaidAmountFromClosePayload(payment),
+          paymentDate: getPaymentDateFromClosePayload(payment),
+          storagePath: payment.proof.storagePath,
+          mimeType: payment.proof.mimeType,
+          installmentNumber: installmentNumberForClosePayload(payment),
+        });
+        if (!recordResult.success) {
+          throw new Error(recordResult.error);
+        }
+        const { data: refreshed } = await listClientsAction().then((list) => ({
+          data: list.find((c) => c.id === client.id) ?? client,
+        }));
+        setClients((prev) =>
+          prev.map((c) => (c.id === client.id ? refreshed : c))
+        );
+        return refreshed;
+      }
+
+      return client;
     },
     [addClient, closingCalls, syncConversationTagForCall, updateClosingCall]
   );

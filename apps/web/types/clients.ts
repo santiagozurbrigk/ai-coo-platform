@@ -28,7 +28,18 @@ export type ClientInstallment = {
   /** Fecha en que se cobró (YYYY-MM-DD). Obligatoria para cuotas pagadas tras la primera. */
   paidAt?: string;
   dueDate?: string;
-  proofLabel?: string;
+};
+
+export type ClientPayment = {
+  id: string;
+  clientId: string;
+  amount: number;
+  paymentDate: string;
+  storagePath: string;
+  mimeType?: string;
+  installmentNumber?: number;
+  uploadedBy?: string;
+  createdAt: string;
 };
 
 export type Client = {

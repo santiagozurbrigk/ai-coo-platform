@@ -43,6 +43,12 @@ export type NoCloseReasonId =
   | "no_show"
   | "other";
 
+export type PaymentProofMeta = {
+  storagePath: string;
+  mimeType: string;
+  fileName: string;
+};
+
 export type ClosePaymentPayload = {
   clientName: string;
   platform: PaymentPlatform;
@@ -63,4 +69,9 @@ export type ClosePaymentPayload = {
   avatar?: string;
   mainPain?: string;
   objections?: string;
+  /** Monto efectivamente pagado en este cierre (primera cuota o pago único). */
+  paidAmount: number;
+  /** Fecha del pago registrado (YYYY-MM-DD). */
+  paymentDate: string;
+  proof: PaymentProofMeta;
 };

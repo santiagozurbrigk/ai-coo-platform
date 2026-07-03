@@ -7,10 +7,11 @@ import {
   Button,
   GlassPanel,
 } from "@ai-coo/ui";
-import { ArrowLeft, ExternalLink, Star, Upload } from "lucide-react";
+import { ArrowLeft, ExternalLink, Star } from "lucide-react";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import { ClientLinkedCallsSection } from "@/components/clients/client-linked-calls";
+import { ClientPaymentsSection } from "@/components/clients/client-payments-section";
 import { ClientDiscordActivity } from "@/components/clients/client-discord-activity";
 import { ClientTimeline } from "@/components/clients/client-timeline";
 import { paths } from "@/routes";
@@ -141,36 +142,10 @@ export function ClientDetail({ client: initial }: { client: Client }) {
             <span className="text-muted-foreground">Total:</span> $
             {client.totalAmount.toLocaleString()}
           </p>
-          {client.installments && (
-            <ul className="mt-4 space-y-2 border-t border-border pt-4">
-              {client.installments.map((inst) => (
-                <li
-                  key={inst.id}
-                  className="flex flex-wrap items-center justify-between gap-2"
-                >
-                  <span>
-                    {inst.label} — ${inst.amount.toLocaleString()} —{" "}
-                    {inst.status === "paid" ? "Pagada ✓" : "Pendiente"}
-                    {inst.status === "paid" && inst.paidAt && ` — Cobrada: ${inst.paidAt}`}
-                    {inst.status === "pending" && inst.dueDate && ` — Vence: ${inst.dueDate}`}
-                  </span>
-                  {inst.proofLabel && (
-                    <Button size="sm" variant="ghost">
-                      Ver comprobante
-                    </Button>
-                  )}
-                  {inst.status === "pending" && (
-                    <Button size="sm" variant="outline" className="gap-1">
-                      <Upload className="h-3 w-3" />
-                      Subir
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
         </GlassPanel>
       </section>
+
+      <ClientPaymentsSection client={client} />
 
       {client.salesFathomUrl && (
         <section className="space-y-3">

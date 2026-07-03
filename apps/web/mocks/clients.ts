@@ -59,7 +59,6 @@ export const mockClients: Client[] = [
         amount: 1000,
         status: "paid",
         paidAt: "2026-05-10",
-        proofLabel: "comprobante-mayo.pdf",
       },
       {
         id: "i2",
@@ -67,7 +66,6 @@ export const mockClients: Client[] = [
         amount: 1000,
         status: "paid",
         paidAt: "2026-04-20",
-        proofLabel: "comprobante-abril.pdf",
       },
       {
         id: "i3",
