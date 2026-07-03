@@ -11,11 +11,9 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import {
-  createAgentConversationAction,
-  createAgentProjectAction,
   createBusinessStageAction,
   deleteAgentConversationAction,
-  deleteAgentProjectAction,
+  deleteBusinessStageAction,
   listAgentMessagesAction,
   listAgentWorkspaceAction,
   sendAgentMessageAction,
@@ -24,8 +22,6 @@ import { paths } from "@/routes/paths";
 import type {
   AgentConversation,
   AgentMessage,
-  AgentProject,
-  AgentProjectColor,
   AgentWorkspaceData,
   BusinessStage,
 } from "@/types/agent";
@@ -40,13 +36,14 @@ type AgentDataContextValue = {
   setInputValue: (v: string) => void;
   refresh: () => Promise<void>;
   loadConversation: (conversationId: string | null) => Promise<void>;
-  sendMessage: (content: string, opts?: { conversationId?: string | null; projectId?: string | null; stageId?: string | null }) => Promise<string | null>;
-  createProject: (input: { name: string; description?: string; color: AgentProjectColor; stageId: string }) => Promise<void>;
+  sendMessage: (
+    content: string,
+    opts?: { conversationId?: string | null; contextStageId?: string | null }
+  ) => Promise<string | null>;
   createStage: (input: { name: string; description?: string }) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
-  deleteProject: (id: string) => Promise<void>;
-  startNewConversation: (opts?: { projectId?: string | null; stageId?: string | null }) => Promise<void>;
-  filteredConversations: (opts?: { projectId?: string | null; stageId?: string | null }) => AgentConversation[];
+  deleteStage: (id: string) => Promise<void>;
+  startNewConversation: () => void;
 };
 
 const AgentDataCtx = createContext<AgentDataContextValue | null>(null);
@@ -54,17 +51,14 @@ const AgentDataCtx = createContext<AgentDataContextValue | null>(null);
 export function AgentDataProvider({
   children,
   conversationId,
-  filterProjectId,
   filterStageId,
 }: {
   children: ReactNode;
   conversationId?: string | null;
-  filterProjectId?: string | null;
   filterStageId?: string | null;
 }) {
   const router = useRouter();
   const [workspace, setWorkspace] = useState<AgentWorkspaceData>({
-    projects: [],
     stages: [],
     conversations: [],
   });
@@ -110,19 +104,14 @@ export function AgentDataProvider({
   const sendMessage = useCallback(
     async (
       content: string,
-      opts?: {
-        conversationId?: string | null;
-        projectId?: string | null;
-        stageId?: string | null;
-      }
+      opts?: { conversationId?: string | null; contextStageId?: string | null }
     ) => {
       setIsSending(true);
       try {
         const result = await sendAgentMessageAction({
           conversationId: opts?.conversationId ?? conversationId ?? null,
           content,
-          projectId: opts?.projectId ?? filterProjectId ?? null,
-          stageId: opts?.stageId ?? filterStageId ?? null,
+          contextStageId: opts?.contextStageId ?? filterStageId ?? null,
         });
         setMessages(result.messages);
         setResponseRevealMessageId(
@@ -139,21 +128,7 @@ export function AgentDataProvider({
         setIsSending(false);
       }
     },
-    [conversationId, filterProjectId, filterStageId, refresh, router]
-  );
-
-  const createProject = useCallback(
-    async (input: {
-      name: string;
-      description?: string;
-      color: AgentProjectColor;
-      stageId: string;
-    }) => {
-      await createAgentProjectAction(input);
-      await refresh();
-      router.refresh();
-    },
-    [refresh, router]
+    [conversationId, filterStageId, refresh, router]
   );
 
   const createStage = useCallback(
@@ -170,63 +145,37 @@ export function AgentDataProvider({
       await deleteAgentConversationAction(id);
       await refresh();
       if (conversationId === id) {
-        router.push(paths.platform.agent.root);
-      }
-    },
-    [conversationId, refresh, router]
-  );
-
-  const deleteProject = useCallback(
-    async (id: string) => {
-      const project = workspace.projects.find((item) => item.id === id) ?? null;
-      await deleteAgentProjectAction(id);
-      await refresh();
-      if (filterProjectId === id) {
         router.push(
-          project?.stageId
-            ? paths.platform.agent.stage(project.stageId)
+          filterStageId
+            ? paths.platform.agent.stage(filterStageId)
             : paths.platform.agent.root
         );
       }
     },
-    [filterProjectId, refresh, router, workspace.projects]
+    [conversationId, filterStageId, refresh, router]
   );
 
-  const startNewConversation = useCallback(
-    async (opts?: { projectId?: string | null; stageId?: string | null }) => {
-      const projectId = opts?.projectId ?? filterProjectId ?? null;
-      const stageId = opts?.stageId ?? filterStageId ?? null;
-      if (projectId) {
-        router.push(paths.platform.agent.project(projectId));
-        setMessages([]);
-        setResponseRevealMessageId(null);
-        return;
+  const deleteStage = useCallback(
+    async (id: string) => {
+      await deleteBusinessStageAction(id);
+      await refresh();
+      router.refresh();
+      if (filterStageId === id) {
+        router.push(paths.platform.agent.root);
       }
-      if (stageId) {
-        router.push(paths.platform.agent.stage(stageId));
-        setMessages([]);
-        setResponseRevealMessageId(null);
-        return;
-      }
-      router.push(paths.platform.agent.root);
-      setMessages([]);
-      setResponseRevealMessageId(null);
     },
-    [filterProjectId, filterStageId, router]
+    [filterStageId, refresh, router]
   );
 
-  const filteredConversations = useCallback(
-    (opts?: { projectId?: string | null; stageId?: string | null }) => {
-      const pid = opts?.projectId ?? filterProjectId;
-      const sid = opts?.stageId ?? filterStageId;
-      return workspace.conversations.filter((c) => {
-        if (pid && c.projectId !== pid) return false;
-        if (sid && c.stageId !== sid) return false;
-        return true;
-      });
-    },
-    [workspace.conversations, filterProjectId, filterStageId]
-  );
+  const startNewConversation = useCallback(() => {
+    router.push(
+      filterStageId
+        ? paths.platform.agent.stage(filterStageId)
+        : paths.platform.agent.root
+    );
+    setMessages([]);
+    setResponseRevealMessageId(null);
+  }, [filterStageId, router]);
 
   const value = useMemo(
     () => ({
@@ -240,12 +189,10 @@ export function AgentDataProvider({
       refresh,
       loadConversation,
       sendMessage,
-      createProject,
       createStage,
       deleteConversation,
-      deleteProject,
+      deleteStage,
       startNewConversation,
-      filteredConversations,
     }),
     [
       workspace,
@@ -257,12 +204,10 @@ export function AgentDataProvider({
       refresh,
       loadConversation,
       sendMessage,
-      createProject,
       createStage,
       deleteConversation,
-      deleteProject,
+      deleteStage,
       startNewConversation,
-      filteredConversations,
     ]
   );
 
@@ -279,4 +224,4 @@ export function useAgentData() {
   return ctx;
 }
 
-export type { AgentConversation, AgentProject, BusinessStage };
+export type { AgentConversation, BusinessStage };

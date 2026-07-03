@@ -1,10 +1,6 @@
-import { AgentShell } from "@/components/agent/agent-shell";
+import { redirect } from "next/navigation";
+import { paths } from "@/routes/paths";
 
-export default async function AgentProjectPage({
-  params,
-}: {
-  params: Promise<{ projectId: string }>;
-}) {
-  const { projectId } = await params;
-  return <AgentShell filterProjectId={projectId} />;
+export default async function AgentProjectPage() {
+  redirect(paths.platform.agent.root);
 }

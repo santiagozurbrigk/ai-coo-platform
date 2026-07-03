@@ -1,20 +1,8 @@
 import type {
   AgentConversation,
   AgentMessage,
-  AgentProject,
-  AgentProjectColor,
   BusinessStage,
 } from "@/types/agent";
-
-export type AgentProjectRow = {
-  id: string;
-  organization_id: string;
-  stage_id: string | null;
-  name: string;
-  description: string | null;
-  color: string;
-  created_at: string;
-};
 
 export type BusinessStageRow = {
   id: string;
@@ -34,13 +22,6 @@ export type AgentConversationRow = {
   title: string | null;
   created_at: string;
   updated_at: string;
-  agent_projects?: {
-    id: string;
-    name: string;
-    color: string;
-    stage_id?: string | null;
-  } | null;
-  business_stages?: { id: string; name: string } | null;
 };
 
 export type AgentMessageRow = {
@@ -54,29 +35,6 @@ export type AgentMessageRow = {
   action_ref_id: string | null;
   created_at: string;
 };
-
-const COLORS: AgentProjectColor[] = [
-  "violet",
-  "blue",
-  "green",
-  "amber",
-  "red",
-];
-
-export function rowToProject(row: AgentProjectRow): AgentProject {
-  const color = COLORS.includes(row.color as AgentProjectColor)
-    ? (row.color as AgentProjectColor)
-    : "violet";
-  return {
-    id: row.id,
-    organizationId: row.organization_id,
-    stageId: row.stage_id ?? null,
-    name: row.name,
-    description: row.description,
-    color,
-    createdAt: row.created_at,
-  };
-}
 
 export function rowToStage(row: BusinessStageRow): BusinessStage {
   return {
@@ -94,22 +52,9 @@ export function rowToConversation(row: AgentConversationRow): AgentConversation 
   return {
     id: row.id,
     organizationId: row.organization_id,
-    projectId: row.project_id,
-    stageId: row.stage_id ?? null,
     title: row.title,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    project: row.agent_projects
-      ? {
-          id: row.agent_projects.id,
-          name: row.agent_projects.name,
-          color: row.agent_projects.color as AgentProjectColor,
-          stageId: row.agent_projects.stage_id ?? null,
-        }
-      : null,
-    stage: row.business_stages
-      ? { id: row.business_stages.id, name: row.business_stages.name }
-      : null,
   };
 }
 

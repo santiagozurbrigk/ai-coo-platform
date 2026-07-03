@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  isMissingColumnError,
   isMissingTableError,
   requireOrganizationId,
   tryRequireOrganizationId,
@@ -31,7 +30,6 @@ import { buildOrgContextText, getOrgContext } from "@/lib/ai/org-context";
 import {
   rowToConversation,
   rowToMessage,
-  rowToProject,
   rowToStage,
   type AgentConversationRow,
   type AgentMessageRow,
@@ -52,8 +50,6 @@ import { paths } from "@/routes/paths";
 import type {
   AgentConversation,
   AgentMessage,
-  AgentProject,
-  AgentProjectColor,
   AgentWorkspaceData,
   BusinessStage,
 } from "@/types/agent";
@@ -63,99 +59,6 @@ const AGENT_ERROR_REPLY =
 
 function revalidateAgent() {
   revalidatePath(paths.platform.agent.root);
-}
-
-const CONVERSATION_EMBED =
-  "*, agent_projects(id, name, color, stage_id), business_stages(id, name)";
-const CONVERSATION_EMBED_LEGACY =
-  "*, agent_projects(id, name, color), business_stages(id, name)";
-const CONVERSATION_EMBED_WITH_DESC =
-  "*, agent_projects(id, name, color, stage_id), business_stages(id, name, description)";
-const CONVERSATION_EMBED_WITH_DESC_LEGACY =
-  "*, agent_projects(id, name, color), business_stages(id, name, description)";
-
-type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
-
-async function selectAgentConversations(
-  supabase: SupabaseServerClient,
-  organizationId: string
-) {
-  const full = await supabase
-    .from("agent_conversations")
-    .select(CONVERSATION_EMBED)
-    .eq("organization_id", organizationId)
-    .order("updated_at", { ascending: false });
-
-  if (
-    full.error &&
-    isMissingColumnError(full.error.message, "stage_id")
-  ) {
-    return supabase
-      .from("agent_conversations")
-      .select(CONVERSATION_EMBED_LEGACY)
-      .eq("organization_id", organizationId)
-      .order("updated_at", { ascending: false });
-  }
-
-  return full;
-}
-
-async function selectAgentConversationById(
-  supabase: SupabaseServerClient,
-  conversationId: string,
-  organizationId: string,
-  withStageDescription = false
-) {
-  const embed = withStageDescription
-    ? CONVERSATION_EMBED_WITH_DESC
-    : CONVERSATION_EMBED;
-  const legacy = withStageDescription
-    ? CONVERSATION_EMBED_WITH_DESC_LEGACY
-    : CONVERSATION_EMBED_LEGACY;
-
-  const full = await supabase
-    .from("agent_conversations")
-    .select(embed)
-    .eq("id", conversationId)
-    .eq("organization_id", organizationId)
-    .single();
-
-  if (
-    full.error &&
-    isMissingColumnError(full.error.message, "stage_id")
-  ) {
-    return supabase
-      .from("agent_conversations")
-      .select(legacy)
-      .eq("id", conversationId)
-      .eq("organization_id", organizationId)
-      .single();
-  }
-
-  return full;
-}
-
-async function resolveProjectStageId(
-  supabase: SupabaseServerClient,
-  organizationId: string,
-  projectId: string
-): Promise<string | null> {
-  const withStage = await supabase
-    .from("agent_projects")
-    .select("stage_id")
-    .eq("id", projectId)
-    .eq("organization_id", organizationId)
-    .maybeSingle();
-
-  if (
-    withStage.error &&
-    isMissingColumnError(withStage.error.message, "stage_id")
-  ) {
-    return null;
-  }
-
-  if (withStage.error) throw new Error(withStage.error.message);
-  return withStage.data?.stage_id ?? null;
 }
 
 async function getOrgName(
@@ -172,7 +75,6 @@ async function getOrgName(
 
 export async function listAgentWorkspaceAction(): Promise<AgentWorkspaceData> {
   const empty: AgentWorkspaceData = {
-    projects: [],
     stages: [],
     conversations: [],
   };
@@ -183,24 +85,18 @@ export async function listAgentWorkspaceAction(): Promise<AgentWorkspaceData> {
 
   const supabase = await createClient();
 
-  const [projectsRes, stagesRes, conversationsRes] = await Promise.all([
-    supabase
-      .from("agent_projects")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .order("created_at", { ascending: false }),
+  const [stagesRes, conversationsRes] = await Promise.all([
     supabase
       .from("business_stages")
       .select("*")
       .eq("organization_id", organizationId)
       .order("order_index", { ascending: true }),
-    selectAgentConversations(supabase, organizationId),
+    supabase
+      .from("agent_conversations")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("updated_at", { ascending: false }),
   ]);
-
-  if (projectsRes.error) {
-    if (isMissingTableError(projectsRes.error.message)) return empty;
-    console.error("[Agent] list projects:", projectsRes.error.message);
-  }
 
   if (stagesRes.error) {
     if (isMissingTableError(stagesRes.error.message)) return empty;
@@ -210,7 +106,6 @@ export async function listAgentWorkspaceAction(): Promise<AgentWorkspaceData> {
   if (conversationsRes.error) {
     if (isMissingTableError(conversationsRes.error.message)) {
       return {
-        projects: (projectsRes.data ?? []).map(rowToProject),
         stages: (stagesRes.data ?? []).map(rowToStage),
         conversations: [],
       };
@@ -219,7 +114,6 @@ export async function listAgentWorkspaceAction(): Promise<AgentWorkspaceData> {
   }
 
   return {
-    projects: (projectsRes.data ?? []).map(rowToProject),
     stages: (stagesRes.data ?? []).map(rowToStage),
     conversations: (conversationsRes.error
       ? []
@@ -253,49 +147,6 @@ export async function listAgentMessagesAction(
   return (data ?? []).map((row) => rowToMessage(row as AgentMessageRow));
 }
 
-export async function createAgentProjectAction(input: {
-  name: string;
-  description?: string;
-  color: AgentProjectColor;
-  stageId: string;
-}): Promise<AgentProject | null> {
-  const organizationId = await requireOrganizationId();
-  const supabase = await createClient();
-
-  const { data: stage, error: stageError } = await supabase
-    .from("business_stages")
-    .select("id")
-    .eq("id", input.stageId)
-    .eq("organization_id", organizationId)
-    .maybeSingle();
-
-  if (stageError) throw new Error(stageError.message);
-  if (!stage) throw new Error("La etapa de negocio no existe");
-
-  const { data, error } = await supabase
-    .from("agent_projects")
-    .insert({
-      organization_id: organizationId,
-      stage_id: input.stageId,
-      name: input.name.trim(),
-      description: input.description?.trim() || null,
-      color: input.color,
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    if (isMissingColumnError(error.message, "stage_id")) {
-      throw new Error(
-        "Falta la columna agent_projects.stage_id en Supabase. Aplicá la migración 20260706100000_agent_projects_stage_id.sql."
-      );
-    }
-    throw new Error(error.message);
-  }
-  revalidateAgent();
-  return rowToProject(data);
-}
-
 export async function createBusinessStageAction(input: {
   name: string;
   description?: string;
@@ -326,35 +177,26 @@ export async function createBusinessStageAction(input: {
 }
 
 export async function createAgentConversationAction(opts?: {
-  projectId?: string | null;
-  stageId?: string | null;
   title?: string | null;
 }): Promise<AgentConversation | null> {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
-  const { data: inserted, error: insertError } = await supabase
+  const { data, error } = await supabase
     .from("agent_conversations")
     .insert({
       organization_id: organizationId,
-      project_id: opts?.projectId ?? null,
-      stage_id: opts?.stageId ?? null,
+      project_id: null,
+      stage_id: null,
       title: opts?.title ?? null,
     })
-    .select("id")
+    .select("*")
     .single();
 
-  if (insertError || !inserted) {
-    throw new Error(insertError?.message ?? "No se pudo crear la conversación");
+  if (error || !data) {
+    throw new Error(error?.message ?? "No se pudo crear la conversación");
   }
 
-  const { data, error } = await selectAgentConversationById(
-    supabase,
-    inserted.id as string,
-    organizationId
-  );
-
-  if (error) throw new Error(error.message);
   revalidateAgent();
   return rowToConversation(data as AgentConversationRow);
 }
@@ -375,14 +217,14 @@ export async function deleteAgentConversationAction(
   revalidateAgent();
 }
 
-export async function deleteAgentProjectAction(projectId: string): Promise<void> {
+export async function deleteBusinessStageAction(stageId: string): Promise<void> {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
   const { error } = await supabase
-    .from("agent_projects")
+    .from("business_stages")
     .delete()
-    .eq("id", projectId)
+    .eq("id", stageId)
     .eq("organization_id", organizationId);
 
   if (error) throw new Error(error.message);
@@ -504,8 +346,8 @@ async function executeAgentActions(
 export async function sendAgentMessageAction(input: {
   conversationId?: string | null;
   content: string;
-  projectId?: string | null;
-  stageId?: string | null;
+  /** Contexto de etapa solo para el prompt; no se persiste en la conversación. */
+  contextStageId?: string | null;
 }): Promise<{
   conversationId: string;
   messages: AgentMessage[];
@@ -526,36 +368,22 @@ export async function sendAgentMessageAction(input: {
   const trimmed = sanitizeText(parsedContent.data);
 
   let conversationId = input.conversationId ?? null;
-  let stageId = input.stageId ?? null;
-
-  if (!stageId && input.projectId) {
-    stageId = await resolveProjectStageId(
-      supabase,
-      organizationId,
-      input.projectId
-    );
-  }
 
   if (!conversationId) {
-    const created = await createAgentConversationAction({
-      projectId: input.projectId,
-      stageId,
-    });
+    const created = await createAgentConversationAction();
     if (!created) throw new Error("No se pudo crear la conversación");
     conversationId = created.id;
   }
 
-  const { data: convRow, error: convError } = await selectAgentConversationById(
-    supabase,
-    conversationId,
-    organizationId,
-    true
-  );
+  const { data: convRow, error: convError } = await supabase
+    .from("agent_conversations")
+    .select("*")
+    .eq("id", conversationId)
+    .eq("organization_id", organizationId)
+    .single();
 
   if (convError) throw new Error(convError.message);
   if (!convRow) throw new Error("Conversación no encontrada");
-
-  const conversation = rowToConversation(convRow as AgentConversationRow);
 
   const { count: priorCount } = await supabase
     .from("agent_messages")
@@ -588,11 +416,12 @@ export async function sendAgentMessageAction(input: {
   );
 
   let stageForPrompt: BusinessStage | null = null;
-  if (conversation.stageId) {
+  if (input.contextStageId) {
     const { data: stageRow } = await supabase
       .from("business_stages")
       .select("*")
-      .eq("id", conversation.stageId)
+      .eq("id", input.contextStageId)
+      .eq("organization_id", organizationId)
       .maybeSingle();
     if (stageRow) stageForPrompt = rowToStage(stageRow);
   }
@@ -622,7 +451,6 @@ export async function sendAgentMessageAction(input: {
     orgName,
     stageContext: buildStageContext(stageForPrompt),
     recentContext: buildRecentContextSummary(recentOrg),
-    projectName: conversation.project?.name,
     ragContext,
   });
 

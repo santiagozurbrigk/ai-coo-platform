@@ -31,14 +31,9 @@ export function buildAgentSystemPrompt(opts: {
   orgName: string;
   stageContext: string;
   recentContext: string;
-  projectName?: string | null;
   productContext?: string;
   ragContext?: string;
 }): string {
-  const projectLine = opts.projectName
-    ? `PROYECTO ACTIVO: ${opts.projectName}`
-    : "";
-
   const productBlock = opts.productContext?.trim()
     ? `\n${opts.productContext.trim()}\n`
     : "";
@@ -49,7 +44,6 @@ export function buildAgentSystemPrompt(opts: {
 
   return `
 Eres el agente de negocio de ${opts.orgName}.
-${projectLine}
 ${opts.stageContext}
 ${productBlock}
 ${ragBlock}

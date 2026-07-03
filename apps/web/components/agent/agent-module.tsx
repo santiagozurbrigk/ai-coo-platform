@@ -11,11 +11,9 @@ import { ChatMessage } from "./chat-message";
 
 export function AgentModule({
   conversationId,
-  filterProjectId,
   filterStageId,
 }: {
   conversationId?: string | null;
-  filterProjectId?: string | null;
   filterStageId?: string | null;
 }) {
   const {
@@ -36,15 +34,10 @@ export function AgentModule({
     [workspace.conversations, conversationId]
   );
 
-  const currentProject = useMemo(() => {
-    const pid = filterProjectId ?? conversation?.projectId;
-    return workspace.projects.find((p) => p.id === pid) ?? conversation?.project ?? null;
-  }, [workspace.projects, filterProjectId, conversation]);
-
   const currentStage = useMemo(() => {
-    const sid = filterStageId ?? conversation?.stageId ?? currentProject?.stageId;
-    return workspace.stages.find((s) => s.id === sid) ?? conversation?.stage ?? null;
-  }, [workspace.stages, filterStageId, conversation, currentProject]);
+    if (!filterStageId) return null;
+    return workspace.stages.find((s) => s.id === filterStageId) ?? null;
+  }, [workspace.stages, filterStageId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -55,9 +48,7 @@ export function AgentModule({
 
   const placeholder = currentStage
     ? `Preguntale sobre "${currentStage.name}"...`
-    : currentProject
-      ? `Preguntale sobre "${currentProject.name}"...`
-      : "Preguntale algo a tu agente...";
+    : "Preguntale algo a tu agente...";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -66,11 +57,6 @@ export function AgentModule({
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-violet-500/30 bg-violet-600/15">
             <Sparkles className="h-4 w-4 text-violet-500 dark:text-violet-400" />
           </div>
-          {currentProject ? (
-            <span className="text-xs text-muted-foreground">
-              {currentProject.name} /
-            </span>
-          ) : null}
           {currentStage ? (
             <div className="flex items-center gap-1.5">
               <Layers className="h-3.5 w-3.5 text-blue-400" />
@@ -120,8 +106,7 @@ export function AgentModule({
           onSend={(msg) =>
             void sendMessage(msg, {
               conversationId,
-              projectId: filterProjectId ?? conversation?.projectId,
-              stageId: filterStageId ?? conversation?.stageId ?? currentProject?.stageId,
+              contextStageId: filterStageId,
             })
           }
           isLoading={isSending}

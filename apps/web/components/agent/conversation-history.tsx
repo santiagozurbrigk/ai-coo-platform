@@ -65,12 +65,6 @@ function ConversationItem({
           : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
       )}
     >
-      {conversation.project ? (
-        <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500" />
-      ) : null}
-      {conversation.stage ? (
-        <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-      ) : null}
       <Link
         href={paths.platform.agent.conversation(conversation.id)}
         className="min-w-0 flex-1 truncate text-xs"
