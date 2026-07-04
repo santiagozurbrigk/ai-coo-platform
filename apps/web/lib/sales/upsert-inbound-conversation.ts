@@ -77,11 +77,19 @@ export async function upsertInboundConversation(
     inbound: InboundConversationPayload;
     syncInsight: string;
     messageIdPrefix: string;
+    unipileAccountId?: string;
     afterUpsert?: (conversationId: string) => Promise<void>;
   }
 ): Promise<InboundConversationUpsertResult> {
-  const { externalRef, source, inbound, syncInsight, messageIdPrefix, afterUpsert } =
-    options;
+  const {
+    externalRef,
+    source,
+    inbound,
+    syncInsight,
+    messageIdPrefix,
+    unipileAccountId,
+    afterUpsert,
+  } = options;
   const timestamp = inbound.timestamp ?? new Date().toISOString();
   const sender = inbound.sender ?? "lead";
   const messageId = buildMessageId(messageIdPrefix, inbound);
@@ -115,17 +123,21 @@ export async function upsertInboundConversation(
 
     const messages = [...priorMessages, newMessage];
     const leadName = pickInboundLeadName(row.lead_name, inbound.leadName, false);
+    const updatePayload: Record<string, unknown> = {
+      lead_name: leadName,
+      last_message: inbound.messageText,
+      last_message_at: timestamp,
+      unread: sender === "lead",
+      messages,
+      source,
+      updated_at: new Date().toISOString(),
+    };
+    if (unipileAccountId) {
+      updatePayload.unipile_account_id = unipileAccountId;
+    }
     const { error: updateError } = await supabase
       .from("conversations")
-      .update({
-        lead_name: leadName,
-        last_message: inbound.messageText,
-        last_message_at: timestamp,
-        unread: sender === "lead",
-        messages,
-        source,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", row.id);
 
     if (updateError) throw new Error(updateError.message);
@@ -163,6 +175,7 @@ export async function upsertInboundConversation(
       analysis: defaultAnalysis(syncInsight),
       external_ref: externalRef,
       source,
+      unipile_account_id: unipileAccountId ?? null,
     })
     .select("id")
     .single();

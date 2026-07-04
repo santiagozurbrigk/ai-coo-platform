@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -14,6 +15,7 @@ import {
   updateClosingCallAction,
 } from "@/app/closing/actions";
 import {
+  getConnectedUnipileAccountsAction,
   getOrganizationIdAction,
   listConversationsAction,
   markConversationReadAction,
@@ -24,6 +26,10 @@ import {
   rowToConversation,
   type ConversationRow,
 } from "@/lib/conversations/mapper";
+import {
+  shouldIncludeConversationInInbox,
+  type ConnectedUnipileAccount,
+} from "@/lib/sales/unipile-inbox-filter";
 import { createClient } from "@/lib/supabase/client";
 import { getOnboardingStatusAction } from "@/app/onboarding/actions";
 import {
@@ -201,6 +207,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
     useSupabase ? [] : mockConversations.map((c) => ({ ...c }))
   );
   const [conversationsLoading, setConversationsLoading] = useState(useSupabase);
+  const connectedUnipileAccountsRef = useRef<ConnectedUnipileAccount[]>([]);
   const [closingCalls, setClosingCalls] = useState<ClosingCall[]>(() =>
     useSupabase ? [] : mockClosingCalls.map((c) => ({ ...c }))
   );
@@ -258,7 +265,11 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
     if (!useSupabase) return;
     setConversationsLoading(true);
     try {
-      const list = await listConversationsAction();
+      const [list, connectedAccounts] = await Promise.all([
+        listConversationsAction(),
+        getConnectedUnipileAccountsAction(),
+      ]);
+      connectedUnipileAccountsRef.current = connectedAccounts;
       setConversations(list);
     } catch (e) {
       console.error("[PlatformDataProvider] listConversations", e);
@@ -308,6 +319,9 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       const organizationId = await getOrganizationIdAction();
       if (!organizationId || cancelled) return;
 
+      connectedUnipileAccountsRef.current =
+        await getConnectedUnipileAccountsAction();
+
       const nextChannel = supabase
         .channel(`conversations:org:${organizationId}`)
         .on(
@@ -319,7 +333,16 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
             filter: `organization_id=eq.${organizationId}`,
           },
           (payload) => {
-            const conversation = rowToConversation(payload.new as ConversationRow);
+            const row = payload.new as ConversationRow;
+            if (
+              !shouldIncludeConversationInInbox(
+                row,
+                connectedUnipileAccountsRef.current
+              )
+            ) {
+              return;
+            }
+            const conversation = rowToConversation(row);
             setConversations((prev) => {
               if (prev.some((c) => c.id === conversation.id)) return prev;
               return sortConversationsByRecency([conversation, ...prev]);
@@ -335,10 +358,21 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
             filter: `organization_id=eq.${organizationId}`,
           },
           (payload) => {
-            const conversation = rowToConversation(payload.new as ConversationRow);
+            const row = payload.new as ConversationRow;
+            const conversation = rowToConversation(row);
+            const included = shouldIncludeConversationInInbox(
+              row,
+              connectedUnipileAccountsRef.current
+            );
             setConversations((prev) => {
               const idx = prev.findIndex((c) => c.id === conversation.id);
-              if (idx === -1) return prev;
+              if (!included) {
+                if (idx === -1) return prev;
+                return prev.filter((c) => c.id !== conversation.id);
+              }
+              if (idx === -1) {
+                return sortConversationsByRecency([conversation, ...prev]);
+              }
               const next = [...prev];
               next[idx] = conversation;
               return sortConversationsByRecency(next);

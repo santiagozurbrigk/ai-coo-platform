@@ -11,6 +11,11 @@ import {
   rowToConversation,
   type ConversationRow,
 } from "@/lib/conversations/mapper";
+import {
+  fetchConnectedUnipileAccounts,
+  filterConversationsForInbox,
+  type ConnectedUnipileAccount,
+} from "@/lib/sales/unipile-inbox-filter";
 import { scoreConversation } from "@/lib/manychat/score-conversation";
 import { sendUnipileChatMessage, UnipileApiError } from "@/lib/unipile/client";
 import { createClient } from "@/lib/supabase/server";
@@ -42,6 +47,18 @@ export async function getOrganizationIdAction(): Promise<string | null> {
   return tryRequireOrganizationId();
 }
 
+export async function getConnectedUnipileAccountsAction(): Promise<
+  ConnectedUnipileAccount[]
+> {
+  if (!isSupabaseConfigured()) return [];
+
+  const organizationId = await tryRequireOrganizationId();
+  if (!organizationId) return [];
+
+  const supabase = await createClient();
+  return fetchConnectedUnipileAccounts(supabase, organizationId);
+}
+
 export async function listConversationsAction(): Promise<Conversation[]> {
   if (!isSupabaseConfigured()) return [];
 
@@ -51,6 +68,11 @@ export async function listConversationsAction(): Promise<Conversation[]> {
   const supabase = await createClient();
 
   await repairClosingConversationLinks(supabase, organizationId);
+
+  const connectedAccounts = await fetchConnectedUnipileAccounts(
+    supabase,
+    organizationId
+  );
 
   const { data, error } = await supabase
     .from("conversations")
@@ -69,7 +91,12 @@ export async function listConversationsAction(): Promise<Conversation[]> {
     return [];
   }
 
-  return (data as ConversationRow[]).map(rowToConversation);
+  const rows = filterConversationsForInbox(
+    data as ConversationRow[],
+    connectedAccounts
+  );
+
+  return rows.map(rowToConversation);
 }
 
 export async function updateConversationTagAction(

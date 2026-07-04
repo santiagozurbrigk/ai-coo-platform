@@ -146,6 +146,7 @@ export async function processUnipileMessageWebhook(body: unknown): Promise<void>
   const result = await upsertInboundConversation(admin, integration.organization_id, {
     externalRef,
     source: integration.provider,
+    unipileAccountId: accountId,
     inbound: {
       leadName,
       messageText,
