@@ -22,7 +22,10 @@ export default async function ProductPropositionPage() {
     <div>
       <ProductBackLink />
       <h1 className="mb-6 text-xl font-semibold text-foreground">Propuesta de valor</h1>
-      <PropositionSection initial={productData.proposition} />
+      <PropositionSection
+        initial={productData.proposition}
+        canEdit
+      />
     </div>
   );
 }

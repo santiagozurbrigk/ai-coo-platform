@@ -3,6 +3,8 @@ export { ProductSpatialView } from "./spatial-view";
 export { ProductDetailView } from "./detail-view";
 export { AvatarDetail, AvatarsSection } from "./avatar-detail";
 export { OfferDetail } from "./offer-detail";
+export { OfferDetailPageContent } from "./offer-detail-page-content";
+export { SalesFrameworksSection } from "./sales-frameworks-section";
 export { ValueLadderSection } from "./value-ladder-section";
 export { PropositionSection } from "./proposition-section";
 export { ProductBackLink } from "./product-back-link";

@@ -8,10 +8,12 @@ import {
 import { invalidateOrgContext } from "@/lib/ai/org-context";
 import {
   buildProductContextText,
+  rowToValueProposition,
   type CustomerAvatarRow,
   type ProductAgentContext,
   type ProductRow,
   type SalesFrameworkRow,
+  type ValuePropositionRow,
 } from "@/lib/product/mapper";
 import {
   extractProductContextFromRAG,
@@ -31,9 +33,13 @@ import {
   saveAvatarSchema,
   saveProductSchema,
   saveSalesFrameworkSchema,
+  saveValuePropositionSchema,
+  reorderValueLadderSchema,
+  updateValueLadderStepSchema,
   uuidSchema,
 } from "@/lib/validations";
 import { paths } from "@/routes/paths";
+import type { ValueProposition } from "@/types/product";
 
 function revalidateProduct() {
   revalidatePath(paths.platform.product.root);
@@ -263,8 +269,16 @@ export async function saveProductAction(
       guarantee: data.guarantee ?? null,
       target_avatar_id: data.targetAvatarId ?? null,
       is_active: data.isActive ?? true,
+      is_core_offer: data.isCoreOffer ?? false,
       updated_at: new Date().toISOString(),
     };
+
+    if (data.isCoreOffer) {
+      await supabase
+        .from("products")
+        .update({ is_core_offer: false, updated_at: new Date().toISOString() })
+        .eq("organization_id", organizationId);
+    }
 
     if (data.id) {
       const { error } = await supabase
@@ -397,12 +411,226 @@ export async function saveSalesFrameworkAction(
   });
 }
 
+export async function deleteSalesFrameworkAction(
+  frameworkId: string
+): Promise<MutationResult<{ ok: true }>> {
+  const idParsed = uuidSchema.safeParse(frameworkId);
+  if (!idParsed.success) {
+    return { success: false, error: firstZodError(idParsed.error) };
+  }
+
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("sales_frameworks")
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq("id", idParsed.data)
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+
+    revalidateProduct();
+    invalidateOrgContext(organizationId);
+    return { ok: true };
+  });
+}
+
+export async function getValuePropositionAction(): Promise<ValueProposition | null> {
+  if (!isSupabaseConfigured()) return null;
+
+  try {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("value_propositions")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (error) {
+      if (isMissingTableError(error.message)) return null;
+      throw new Error(error.message);
+    }
+
+    if (!data) return null;
+    return rowToValueProposition(data as ValuePropositionRow);
+  } catch {
+    return null;
+  }
+}
+
+export async function saveValuePropositionAction(
+  input: unknown
+): Promise<MutationResult<ValueProposition>> {
+  const parsed = saveValuePropositionSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const now = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .from("value_propositions")
+      .upsert(
+        {
+          organization_id: organizationId,
+          avatar_text: parsed.data.avatar,
+          result_text: parsed.data.result,
+          pain_removed_text: parsed.data.painRemoved,
+          timeframe_text: parsed.data.timeframe,
+          updated_at: now,
+        },
+        { onConflict: "organization_id" }
+      )
+      .select("*")
+      .single();
+
+    if (error) {
+      if (isMissingTableError(error.message)) {
+        throw new Error(
+          "Falta la tabla value_propositions. Ejecutá supabase/migrations/20260721100000_product_value_proposition_and_core_offer.sql"
+        );
+      }
+      throw new Error(error.message);
+    }
+
+    revalidateProduct();
+    invalidateOrgContext(organizationId);
+    void ingestProductContext(organizationId).catch((err) =>
+      console.error("[RAG] Error ingestando producto:", err)
+    );
+
+    return rowToValueProposition(data as ValuePropositionRow);
+  });
+}
+
+export async function reorderValueLadderAction(
+  input: unknown
+): Promise<MutationResult<{ ok: true }>> {
+  const parsed = reorderValueLadderSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const now = new Date().toISOString();
+
+    for (let i = 0; i < parsed.data.productIds.length; i++) {
+      const productId = parsed.data.productIds[i]!;
+      const position = i + 1;
+      const { error } = await supabase
+        .from("products")
+        .update({ value_ladder_position: position, updated_at: now })
+        .eq("id", productId)
+        .eq("organization_id", organizationId);
+
+      if (error) throw new Error(error.message);
+
+      await supabase
+        .from("value_ladder")
+        .update({ level: position })
+        .eq("product_id", productId)
+        .eq("organization_id", organizationId);
+    }
+
+    revalidateProduct();
+    invalidateOrgContext(organizationId);
+    return { ok: true };
+  });
+}
+
+export async function setCoreOfferAction(
+  productId: string
+): Promise<MutationResult<{ ok: true }>> {
+  const idParsed = uuidSchema.safeParse(productId);
+  if (!idParsed.success) {
+    return { success: false, error: firstZodError(idParsed.error) };
+  }
+
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const now = new Date().toISOString();
+
+    await supabase
+      .from("products")
+      .update({ is_core_offer: false, updated_at: now })
+      .eq("organization_id", organizationId);
+
+    const { error } = await supabase
+      .from("products")
+      .update({ is_core_offer: true, updated_at: now })
+      .eq("id", idParsed.data)
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+
+    revalidateProduct();
+    invalidateOrgContext(organizationId);
+    return { ok: true };
+  });
+}
+
+export async function updateValueLadderStepAction(
+  input: unknown
+): Promise<MutationResult<{ ok: true }>> {
+  const parsed = updateValueLadderStepSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const { productId, name, description, price, billingType } = parsed.data;
+    const now = new Date().toISOString();
+
+    const productPatch: Record<string, unknown> = { updated_at: now };
+    if (name != null) productPatch.name = name;
+    if (description != null) productPatch.description = description;
+    if (price != null) productPatch.price = price;
+    if (billingType != null) productPatch.billing_type = billingType;
+
+    const { error: productError } = await supabase
+      .from("products")
+      .update(productPatch)
+      .eq("id", productId)
+      .eq("organization_id", organizationId);
+
+    if (productError) throw new Error(productError.message);
+
+    const ladderPatch: Record<string, unknown> = {};
+    if (name != null) ladderPatch.name = name;
+    if (description != null) ladderPatch.description = description;
+
+    if (Object.keys(ladderPatch).length > 0) {
+      await supabase
+        .from("value_ladder")
+        .update(ladderPatch)
+        .eq("product_id", productId)
+        .eq("organization_id", organizationId);
+    }
+
+    revalidateProduct();
+    invalidateOrgContext(organizationId);
+    return { ok: true };
+  });
+}
+
 export async function getProductContextForOrg(
   organizationId: string
 ): Promise<ProductAgentContext> {
   const supabase = await createClient();
 
-  const [avatars, products, frameworks] = await Promise.all([
+  const [avatars, products, frameworks, propositionRes] = await Promise.all([
     supabase
       .from("customer_avatars")
       .select("*")
@@ -420,12 +648,22 @@ export async function getProductContextForOrg(
       .select("name, content, type")
       .eq("organization_id", organizationId)
       .eq("is_active", true),
+    supabase
+      .from("value_propositions")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .maybeSingle(),
   ]);
+
+  const propositionRow = propositionRes.data as ValuePropositionRow | null;
 
   return {
     primaryAvatar: (avatars.data?.[0] as CustomerAvatarRow) ?? null,
     products: (products.data ?? []) as ProductRow[],
     frameworks: (frameworks.data ?? []) as ProductAgentContext["frameworks"],
+    valueProposition: propositionRow
+      ? rowToValueProposition(propositionRow)
+      : null,
   };
 }
 

@@ -83,10 +83,19 @@ export function OfferDetail({
           <p className="mb-2 text-xs uppercase tracking-wider text-red-600/70 dark:text-red-400/70">
             Objeción que destruye
           </p>
-          <p className="text-sm text-foreground/80">&quot;{offer.mainObjection}&quot;</p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Cómo la manejamos: {offer.objectionHandler}
-          </p>
+          {offer.mainObjection ? (
+            <>
+              <p className="text-sm text-foreground/80">&quot;{offer.mainObjection}&quot;</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Cómo la manejamos: {offer.objectionHandler || "Sin datos"}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Sin objeción registrada por oferta. Las objeciones del avatar y de
+              ventas aparecen en métricas cuando hay datos.
+            </p>
+          )}
         </div>
 
         <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
@@ -106,7 +115,9 @@ export function OfferDetail({
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Tasa de cierre</span>
-              <span>{offer.stats.closeRate}%</span>
+              <span>
+                {offer.stats.closeRate > 0 ? `${offer.stats.closeRate}%` : "Sin datos"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Objeción más frecuente</span>
@@ -114,7 +125,11 @@ export function OfferDetail({
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Tasa de completación</span>
-              <span>{offer.stats.completionRate}%</span>
+              <span>
+                {offer.stats.completionRate > 0
+                  ? `${offer.stats.completionRate}%`
+                  : "Sin datos"}
+              </span>
             </div>
           </div>
         </div>
@@ -126,7 +141,7 @@ export function OfferDetail({
             <MockPhaseBadge hasRealData={hasRealData} className="ml-auto" />
           </div>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            {offer.aiInsight}
+            {offer.aiInsight || "Sin insights de IA para esta oferta todavía."}
           </p>
         </div>
       </div>

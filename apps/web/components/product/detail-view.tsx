@@ -10,6 +10,7 @@ import type { ProductData } from "@/types/product";
 import { AvatarsSection } from "./avatar-detail";
 import { ProductOfferDialog } from "./product-offer-dialog";
 import { PropositionSection } from "./proposition-section";
+import { SalesFrameworksSection } from "./sales-frameworks-section";
 import { ValueLadderSection } from "./value-ladder-section";
 
 export function ProductDetailView({
@@ -48,7 +49,13 @@ export function ProductDetailView({
         onUpdated={onUpdated}
       />
 
-      <ValueLadderSection steps={valueLadder} />
+      <ValueLadderSection
+        steps={valueLadder}
+        canEdit={canEdit && hasRealData}
+        onUpdated={onUpdated}
+      />
+
+      <SalesFrameworksSection canEdit={canEdit && hasRealData} />
 
       <section id="offers" className="scroll-mt-6 space-y-4">
         <div className="flex items-center justify-between gap-4">
@@ -124,7 +131,11 @@ export function ProductDetailView({
         </div>
       </section>
 
-      <PropositionSection initial={proposition} />
+      <PropositionSection
+        initial={proposition}
+        canEdit={canEdit}
+        onSaved={onUpdated}
+      />
 
       <ProductOfferDialog
         open={offerOpen}

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { OfferDetail, ProductBackLink } from "@/components/product";
+import { OfferDetailPageContent, ProductBackLink } from "@/components/product";
 import { getProductOfferById, getProductPageData } from "@/lib/product/queries";
 
 export default async function ProductOfferPage({
@@ -8,7 +8,7 @@ export default async function ProductOfferPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [{ hasRealData }, offer] = await Promise.all([
+  const [{ hasRealData, canEdit, productData }, offer] = await Promise.all([
     getProductPageData(),
     getProductOfferById(id),
   ]);
@@ -19,7 +19,12 @@ export default async function ProductOfferPage({
     <div>
       <ProductBackLink />
       <h1 className="mb-6 text-xl font-semibold text-foreground">{offer.name}</h1>
-      <OfferDetail offer={offer} hasRealData={hasRealData} />
+      <OfferDetailPageContent
+        offer={offer}
+        avatars={productData.avatars}
+        hasRealData={hasRealData}
+        canEdit={canEdit}
+      />
     </div>
   );
 }

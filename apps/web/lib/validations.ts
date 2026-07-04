@@ -737,6 +737,26 @@ export const saveProductSchema = z.object({
   guarantee: z.string().trim().max(2000).optional(),
   targetAvatarId: uuidSchema.optional(),
   isActive: z.boolean().optional(),
+  isCoreOffer: z.boolean().optional(),
+});
+
+export const saveValuePropositionSchema = z.object({
+  avatar: z.string().trim().max(500),
+  result: z.string().trim().max(500),
+  painRemoved: z.string().trim().max(500),
+  timeframe: z.string().trim().max(200),
+});
+
+export const reorderValueLadderSchema = z.object({
+  productIds: z.array(uuidSchema).min(1).max(20),
+});
+
+export const updateValueLadderStepSchema = z.object({
+  productId: uuidSchema,
+  name: z.string().trim().min(1).max(200).optional(),
+  description: z.string().trim().max(5000).optional(),
+  price: moneySchema.optional(),
+  billingType: productBillingTypeSchema.optional(),
 });
 
 export const saveSalesFrameworkSchema = z.object({

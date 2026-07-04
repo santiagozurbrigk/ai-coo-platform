@@ -10,6 +10,12 @@ export interface OrgContext {
   primaryAvatar?: Record<string, unknown>;
   products?: Array<Record<string, unknown>>;
   frameworks?: Array<Record<string, unknown>>;
+  valueProposition?: {
+    avatar: string;
+    result: string;
+    painRemoved: string;
+    timeframe: string;
+  };
   /** Estilo de comunicación del founder detectado por IA (uso interno). */
   toneDescription?: string;
 }
@@ -29,7 +35,7 @@ export async function getOrgContext(organizationId: string): Promise<OrgContext>
 
   const supabase = createAdminClient();
 
-  const [org, sops, avatar, products, frameworks, salesScript, tone] =
+  const [org, sops, avatar, products, frameworks, salesScript, tone, proposition] =
     await Promise.all([
       supabase
         .from("organizations")
@@ -77,6 +83,12 @@ export async function getOrgContext(organizationId: string): Promise<OrgContext>
         .select("tone_description")
         .eq("organization_id", organizationId)
         .maybeSingle(),
+
+      supabase
+        .from("value_propositions")
+        .select("avatar_text, result_text, pain_removed_text, timeframe_text")
+        .eq("organization_id", organizationId)
+        .maybeSingle(),
     ]);
 
   const toneDescription =
@@ -97,6 +109,14 @@ export async function getOrgContext(organizationId: string): Promise<OrgContext>
     products: products.data ?? [],
     frameworks: frameworks.data ?? [],
     toneDescription,
+    valueProposition: proposition.data
+      ? {
+          avatar: proposition.data.avatar_text,
+          result: proposition.data.result_text,
+          painRemoved: proposition.data.pain_removed_text,
+          timeframe: proposition.data.timeframe_text,
+        }
+      : undefined,
   };
 
   orgContextCache.set(organizationId, {
@@ -120,6 +140,18 @@ export function buildOrgContextText(context: OrgContext): string {
   }
   if (context.country) {
     sections.push(`País: ${context.country.toUpperCase()}`);
+  }
+
+  if (context.valueProposition) {
+    const vp = context.valueProposition;
+    sections.push(
+      wrapUntrustedContent(
+        "propuesta_valor",
+        `PROPUESTA DE VALOR:
+Ayudo a ${vp.avatar} a lograr ${vp.result}
+sin ${vp.painRemoved} en ${vp.timeframe}.`
+      )
+    );
   }
 
   if (context.primaryAvatar) {

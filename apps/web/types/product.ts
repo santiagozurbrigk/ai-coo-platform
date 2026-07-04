@@ -42,6 +42,7 @@ export type ProductAvatar = {
 
 export type ValueLadderStep = {
   id: string;
+  productId?: string;
   name: string;
   price: number;
   priceModel: string;

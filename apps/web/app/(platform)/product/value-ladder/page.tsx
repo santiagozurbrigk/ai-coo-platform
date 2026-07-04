@@ -22,7 +22,7 @@ export default async function ProductValueLadderPage() {
     <div>
       <ProductBackLink />
       <h1 className="mb-6 text-xl font-semibold text-foreground">Escalera de valor</h1>
-      <ValueLadderSection steps={productData.valueLadder} />
+      <ValueLadderSection steps={productData.valueLadder} canEdit />
     </div>
   );
 }

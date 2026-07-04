@@ -38,6 +38,7 @@ export type ProductRow = {
   billing_type: string | null;
   value_ladder_position: number;
   is_active: boolean;
+  is_core_offer?: boolean;
   bonuses: unknown;
   guarantee: string | null;
   target_avatar_id: string | null;
@@ -139,9 +140,9 @@ export function productRowToOffer(row: ProductRow): ProductOffer {
     objectionHandler: "",
     includes: bonuses.map((title) => ({ title })),
     stats: {
-      monthlyRevenue: "—",
+      monthlyRevenue: "Sin datos",
       closeRate: 0,
-      topObjection: "—",
+      topObjection: "Sin datos",
       completionRate: 0,
     },
     aiInsight: "",
@@ -154,12 +155,13 @@ export function valueLadderRowToStep(row: ValueLadderRow): ValueLadderStep {
 
   return {
     id: row.id,
+    productId: product?.id ?? undefined,
     name: row.name,
     price: product?.price != null ? Number(product.price) : 0,
     priceModel: row.price_range ?? billingLabel(product?.billing_type),
     description: row.description ?? product?.description ?? "",
-    isCore: false,
-    closesPerMonth: "—",
+    isCore: product?.is_core_offer ?? false,
+    closesPerMonth: "Sin datos",
     closeRate: 0,
   };
 }
@@ -167,13 +169,32 @@ export function valueLadderRowToStep(row: ValueLadderRow): ValueLadderStep {
 export function productRowToLadderStep(row: ProductRow): ValueLadderStep {
   return {
     id: row.id,
+    productId: row.id,
     name: row.name,
     price: row.price != null ? Number(row.price) : 0,
     priceModel: billingLabel(row.billing_type),
     description: row.description ?? "",
-    isCore: row.value_ladder_position === 3,
-    closesPerMonth: "—",
+    isCore: row.is_core_offer ?? false,
+    closesPerMonth: "Sin datos",
     closeRate: 0,
+  };
+}
+
+export type ValuePropositionRow = {
+  organization_id: string;
+  avatar_text: string;
+  result_text: string;
+  pain_removed_text: string;
+  timeframe_text: string;
+  updated_at: string;
+};
+
+export function rowToValueProposition(row: ValuePropositionRow): ValueProposition {
+  return {
+    avatar: row.avatar_text,
+    result: row.result_text,
+    painRemoved: row.pain_removed_text,
+    timeframe: row.timeframe_text,
   };
 }
 
@@ -207,7 +228,8 @@ export const emptyProductData: ProductData = {
 export function buildProductData(
   avatarRows: CustomerAvatarRow[],
   productRows: ProductRow[],
-  ladderRows: ValueLadderRow[]
+  ladderRows: ValueLadderRow[],
+  savedProposition?: ValueProposition | null
 ): ProductData {
   const avatars = avatarRows.map(avatarRowToProductAvatar);
   const offers = productRows.filter((p) => p.is_active).map(productRowToOffer);
@@ -216,14 +238,18 @@ export function buildProductData(
     ladderRows.length > 0
       ? ladderRows.map(valueLadderRowToStep)
       : [...productRows]
+          .filter((p) => p.is_active)
           .sort((a, b) => a.value_ladder_position - b.value_ladder_position)
           .map(productRowToLadderStep);
+
+  const derived = buildProposition(avatars, offers);
+  const proposition = savedProposition ?? derived;
 
   return {
     avatars,
     offers,
     valueLadder,
-    proposition: buildProposition(avatars, offers),
+    proposition,
   };
 }
 
@@ -310,9 +336,18 @@ export type ProductAgentContext = {
   primaryAvatar: CustomerAvatarRow | null;
   products: ProductRow[];
   frameworks: Pick<SalesFrameworkRow, "name" | "content" | "type">[];
+  valueProposition?: ValueProposition | null;
 };
 
 export function buildProductContextText(ctx: ProductAgentContext): string {
+  const propositionText = ctx.valueProposition
+    ? `
+PROPUESTA DE VALOR:
+Ayudo a ${ctx.valueProposition.avatar} a lograr ${ctx.valueProposition.result}
+sin ${ctx.valueProposition.painRemoved} en ${ctx.valueProposition.timeframe}.
+`.trim()
+    : "";
+
   const avatarText = ctx.primaryAvatar
     ? `
 AVATAR PRINCIPAL DEL NEGOCIO:
@@ -349,5 +384,7 @@ ${ctx.frameworks
 `.trim()
       : "";
 
-  return [avatarText, productsText, frameworksText].filter(Boolean).join("\n\n");
+  return [propositionText, avatarText, productsText, frameworksText]
+    .filter(Boolean)
+    .join("\n\n");
 }
