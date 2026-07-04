@@ -478,6 +478,20 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
   const markCallClosed = useCallback(
     async (callId: string, payment: ClosePaymentPayload): Promise<Client> => {
       const call = closingCalls.find((c) => c.id === callId);
+      const existingClient = clients.find((c) => c.closingCallId === callId);
+
+      if (existingClient) {
+        throw new Error(
+          "Esta llamada ya fue cerrada y tiene un cliente vinculado."
+        );
+      }
+      if (call?.status === "closed") {
+        throw new Error("Esta llamada ya está marcada como cerrada.");
+      }
+      if (call && call.status !== "scheduled") {
+        throw new Error("Solo podés cerrar llamadas que siguen agendadas.");
+      }
+
       const revenue =
         payment.paymentType === "upfront"
           ? payment.totalAmount ?? 0
@@ -493,7 +507,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
           revenue,
         },
         fathomUrl: payment.fathomUrl ?? call?.fathomUrl,
-        closedByName: payment.closedByName ?? "Martín López",
+        closedByName: payment.closedByName,
         paymentReceivedFrom: payment.paymentReceivedFrom,
         paymentDestinationPlatformId: payment.paymentDestinationPlatformId,
       });
@@ -528,12 +542,15 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
 
       return client;
     },
-    [addClient, closingCalls, syncConversationTagForCall, updateClosingCall]
+    [addClient, clients, closingCalls, syncConversationTagForCall, updateClosingCall]
   );
 
   const markCallNotClosed = useCallback(
     async (callId: string, reason: NoCloseReasonId, notes?: string) => {
       const call = closingCalls.find((c) => c.id === callId);
+      if (call && call.status !== "scheduled") {
+        throw new Error("Esta llamada ya tiene un resultado registrado.");
+      }
       await updateClosingCall(callId, {
         status: "not_closed",
         outcome: { noCloseReason: reason, notes },
@@ -546,6 +563,9 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
   const markCallNoShow = useCallback(
     async (callId: string) => {
       const call = closingCalls.find((c) => c.id === callId);
+      if (call && call.status !== "scheduled") {
+        throw new Error("Esta llamada ya tiene un resultado registrado.");
+      }
       await updateClosingCall(callId, { status: "no_show" });
       await syncConversationTagForCall(call, "muy-descalificado");
     },

@@ -409,6 +409,30 @@ function rowToUTMLead(row: Record<string, unknown>): UTMLeadCaptureRow {
   };
 }
 
+const CONTENT_ASSET_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Si llega el UUID interno del asset, guardar el external_id de YouTube para atribución. */
+async function resolveYoutubeVideoExternalId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  videoId: string | undefined
+): Promise<string | null | undefined> {
+  if (!videoId?.trim()) return videoId ?? null;
+  const trimmed = videoId.trim();
+  if (!CONTENT_ASSET_UUID_RE.test(trimmed)) return trimmed;
+
+  const { data } = await supabase
+    .from("content_assets")
+    .select("external_id")
+    .eq("organization_id", organizationId)
+    .eq("id", trimmed)
+    .eq("platform", "youtube")
+    .maybeSingle();
+
+  return data?.external_id ?? trimmed;
+}
+
 export async function createUTMLinkAction(data: {
   youtube_video_id?: string;
   youtube_video_title?: string;
@@ -453,11 +477,17 @@ export async function createUTMLinkAction(data: {
     });
     const link_type = resolveUtmLinkType(manychat_url);
 
+    const youtubeVideoId = await resolveYoutubeVideoExternalId(
+      supabase,
+      organizationId,
+      data.youtube_video_id
+    );
+
     const { data: utmLink, error } = await supabase
       .from("utm_links")
       .insert({
         organization_id: organizationId,
-        youtube_video_id: data.youtube_video_id ?? null,
+        youtube_video_id: youtubeVideoId ?? null,
         youtube_video_title: data.youtube_video_title ?? null,
         utm_source: "youtube",
         utm_medium: "video",

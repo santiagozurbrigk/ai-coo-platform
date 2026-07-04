@@ -22,6 +22,7 @@ import { useFinanceData } from "@/providers";
 import type { ClosePaymentPayload } from "@/types/closing";
 import Link from "next/link";
 import { paths } from "@/routes";
+import { getProfileAreaDataAction } from "@/app/profile/actions";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm";
@@ -86,6 +87,7 @@ export function PaymentModal({
     "monthly"
   );
   const [fathomUrl, setFathomUrl] = useState("");
+  const [closerName, setCloserName] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -96,6 +98,9 @@ export function PaymentModal({
       if (!paymentDestId && paymentPlatforms[0]) {
         setPaymentDestId(paymentPlatforms[0].id);
       }
+      void getProfileAreaDataAction().then((data) => {
+        setCloserName(data?.userName?.trim() ?? "");
+      });
     }
   }, [open, defaultName, paymentPlatforms, paymentDestId]);
 
@@ -144,7 +149,7 @@ export function PaymentModal({
         clientName: clientName.trim() || defaultName,
         paymentReceivedFrom: paymentReceivedFrom.trim(),
         paymentDestinationPlatformId: paymentDestId,
-        closedByName: "Martín López",
+        closedByName: closerName.trim() || "Usuario",
         paymentType,
         paidAmount,
         paymentDate:

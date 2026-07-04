@@ -64,6 +64,7 @@ export function ClosingOverview() {
     closingCalls,
     closingCallsLoading,
     refreshClosingCalls,
+    clients,
     markCallClosed,
     markCallNotClosed,
     markCallNoShow,
@@ -272,6 +273,7 @@ export function ClosingOverview() {
         {selected && (
           <CallDetailPanel
             call={selected}
+            linkedClient={clients.find((c) => c.closingCallId === selected.id)}
             onMarkClosed={() => setPaymentOpen(true)}
             onMarkNotClosed={() => setNoCloseOpen(true)}
             onMarkNoShow={async () => {
@@ -339,15 +341,19 @@ export function ClosingOverview() {
 
 function CallDetailPanel({
   call,
+  linkedClient,
   onMarkClosed,
   onMarkNotClosed,
   onMarkNoShow,
 }: {
   call: ClosingCall;
+  linkedClient?: { id: string; name: string };
   onMarkClosed: () => void;
   onMarkNotClosed: () => void;
   onMarkNoShow: () => void;
 }) {
+  const isScheduled = call.status === "scheduled";
+
   return (
     <GlassPanel className="w-full p-5 space-y-5">
       <div>
@@ -392,20 +398,35 @@ function CallDetailPanel({
         </section>
       )}
 
-      <section className="space-y-2 pt-2 border-t border-border">
-        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Resultado de la llamada
-        </h4>
-        <Button className="w-full" onClick={onMarkClosed}>
-          Marcar como cerrada
-        </Button>
-        <Button className="w-full" variant="outline" onClick={onMarkNotClosed}>
-          Marcar como no cerrada
-        </Button>
-        <Button className="w-full" variant="ghost" onClick={onMarkNoShow}>
-          Marcar como no show
-        </Button>
-      </section>
+      {isScheduled ? (
+        <section className="space-y-2 pt-2 border-t border-border">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Resultado de la llamada
+          </h4>
+          <Button className="w-full" onClick={onMarkClosed}>
+            Marcar como cerrada
+          </Button>
+          <Button className="w-full" variant="outline" onClick={onMarkNotClosed}>
+            Marcar como no cerrada
+          </Button>
+          <Button className="w-full" variant="ghost" onClick={onMarkNoShow}>
+            Marcar como no show
+          </Button>
+        </section>
+      ) : (
+        <section className="space-y-3 pt-2 border-t border-border">
+          <p className="text-sm text-muted-foreground">
+            Resultado registrado — no podés modificarlo desde acá.
+          </p>
+          {call.status === "closed" && linkedClient ? (
+            <Button size="sm" variant="outline" className="w-full" asChild>
+              <Link href={paths.platform.clients.detail(linkedClient.id)}>
+                Ver cliente — {linkedClient.name}
+              </Link>
+            </Button>
+          ) : null}
+        </section>
+      )}
     </GlassPanel>
   );
 }

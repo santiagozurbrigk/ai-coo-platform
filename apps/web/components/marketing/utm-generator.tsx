@@ -21,7 +21,7 @@ const SELECT_CLASS =
   "flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm dark:border-white/[0.08] dark:bg-[#1A1A1A]";
 
 type VideoOption =
-  | { kind: "youtube"; id: string; title: string }
+  | { kind: "youtube"; externalId: string; title: string }
   | { kind: "manual"; title: string };
 
 export function UTMGenerator({
@@ -57,7 +57,7 @@ export function UTMGenerator({
     }
     const asset = youtubeVideos.find((v) => v.id === selectedVideoId);
     if (!asset) return null;
-    return { kind: "youtube", id: asset.id, title: asset.title };
+    return { kind: "youtube", externalId: asset.externalId, title: asset.title };
   }, [videoMode, manualTitle, selectedVideoId, youtubeVideos]);
 
   const videoTitle = selectedVideo?.title ?? "";
@@ -117,7 +117,9 @@ export function UTMGenerator({
       try {
         const result = await createUTMLinkAction({
           youtube_video_id:
-            selectedVideo?.kind === "youtube" ? selectedVideo.id : undefined,
+            selectedVideo?.kind === "youtube" && selectedVideo.externalId
+              ? selectedVideo.externalId
+              : undefined,
           youtube_video_title: videoTitle || undefined,
           utm_campaign: effectiveCampaign,
           utm_content: content || undefined,
