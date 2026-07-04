@@ -76,9 +76,11 @@ export function filterTasksByAssignee(
 
 export function filterTasksByDoneVisibility(
   tasks: WorkboardTask[],
-  showDone: boolean
+  showDoneOnly: boolean
 ): WorkboardTask[] {
-  if (showDone) return tasks;
+  if (showDoneOnly) {
+    return tasks.filter((t) => t.status === "done");
+  }
   return tasks.filter((t) => t.status !== "done");
 }
 

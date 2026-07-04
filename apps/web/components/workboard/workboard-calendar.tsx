@@ -94,7 +94,7 @@ export function WorkboardCalendar() {
             checked={showDoneTasks}
             onChange={(e) => setShowDoneTasks(e.target.checked)}
           />
-          Mostrar tareas hechas
+          Mostrar solo tareas hechas
         </label>
       </div>
 

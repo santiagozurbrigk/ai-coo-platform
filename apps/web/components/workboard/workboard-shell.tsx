@@ -283,14 +283,15 @@ function AddTaskDialogContent({
   onResourcesDraftChange: (draft: WorkboardTaskResourcesDraft) => void;
 }) {
   return (
-    <DialogContent className="max-w-md">
-      <DialogHeader>
+    <DialogContent className="flex max-h-[min(90vh,720px)] max-w-md flex-col gap-0 overflow-hidden p-0">
+      <DialogHeader className="shrink-0">
         <DialogTitle>Nueva tarea</DialogTitle>
         <DialogDescription>
           Todos los miembros del equipo pueden crear y gestionar tareas.
         </DialogDescription>
       </DialogHeader>
-      <div className="space-y-4 py-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+        <div className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="wb-title">Título</Label>
           <Input
@@ -428,8 +429,9 @@ function AddTaskDialogContent({
           onDraftChange={onResourcesDraftChange}
           disabled={isSaving}
         />
+        </div>
       </div>
-      <DialogFooter>
+      <DialogFooter className="shrink-0">
         <Button variant="outline" onClick={onCancel}>
           Cancelar
         </Button>
