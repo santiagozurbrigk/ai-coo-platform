@@ -803,6 +803,7 @@ export const applySuggestedProductContextSchema = z.object({
   avatar: suggestedAvatarSchema,
   products: z.array(suggestedProductSchema).max(20).optional(),
   frameworks: z.array(suggestedFrameworkSchema).max(20).optional(),
+  proposition: saveValuePropositionSchema.optional(),
 });
 
 // ─── Operations ─────────────────────────────────────────────────────────────

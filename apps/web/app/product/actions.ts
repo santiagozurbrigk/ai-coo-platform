@@ -210,6 +210,11 @@ export async function applySuggestedProductContextAction(
       if (!frameworkResult.success) throw new Error(frameworkResult.error);
     }
 
+    if (validated.proposition) {
+      const propositionResult = await saveValuePropositionAction(validated.proposition);
+      if (!propositionResult.success) throw new Error(propositionResult.error);
+    }
+
     void ingestProductContext(organizationId).catch((err) =>
       console.error("[RAG] Error ingestando producto:", err)
     );

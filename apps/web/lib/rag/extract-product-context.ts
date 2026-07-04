@@ -31,11 +31,37 @@ export type SuggestedFramework = {
   content?: string;
 };
 
+export type SuggestedValueProposition = {
+  avatar?: string;
+  result?: string;
+  pain_removed?: string;
+  timeframe?: string;
+};
+
 export type ProductContextExtraction = {
   suggestedAvatar: SuggestedAvatar | null;
   suggestedProducts: SuggestedProduct[];
   suggestedFrameworks: SuggestedFramework[];
+  suggestedValueProposition: SuggestedValueProposition | null;
 };
+
+export function deriveValuePropositionFromSuggestion(
+  avatar: SuggestedAvatar | null,
+  products: SuggestedProduct[]
+): SuggestedValueProposition {
+  const core = products[0];
+  return {
+    avatar: avatar?.name ?? "tu cliente ideal",
+    result: core?.description ?? "resultado transformacional",
+    pain_removed: avatar?.main_pain ?? "el dolor principal",
+    timeframe:
+      core?.billing_type === "mensual"
+        ? "90 días"
+        : core?.billing_type === "anual"
+          ? "12 meses"
+          : "6 meses",
+  };
+}
 
 async function gatherProductContextSnippets(
   organizationId: string
@@ -129,6 +155,12 @@ Devolvé ÚNICAMENTE un JSON válido:
       "content": "<contenido del framework extraído>"
     }
   ],
+  "value_proposition": {
+    "avatar": "<a quién ayudás, en una frase corta>",
+    "result": "<resultado prometido>",
+    "pain_removed": "<dolor o problema que eliminás>",
+    "timeframe": "<en cuánto tiempo, ej: 90 días>"
+  },
   "confidence": "<high|medium|low>"
 }`;
 
@@ -136,6 +168,7 @@ Devolvé ÚNICAMENTE un JSON válido:
     avatar: SuggestedAvatar;
     products: SuggestedProduct[];
     frameworks: SuggestedFramework[];
+    value_proposition?: SuggestedValueProposition;
     confidence: string;
   }>({
     task: "product_extraction",
@@ -148,9 +181,15 @@ Devolvé ÚNICAMENTE un JSON válido:
 
   if (!result) return null;
 
+  const suggestedAvatar = result.avatar ?? null;
+  const suggestedProducts = result.products ?? [];
+
   return {
-    suggestedAvatar: result.avatar ?? null,
-    suggestedProducts: result.products ?? [],
+    suggestedAvatar,
+    suggestedProducts,
     suggestedFrameworks: result.frameworks ?? [],
+    suggestedValueProposition:
+      result.value_proposition ??
+      deriveValuePropositionFromSuggestion(suggestedAvatar, suggestedProducts),
   };
 }
