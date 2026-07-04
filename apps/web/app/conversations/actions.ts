@@ -211,6 +211,14 @@ export async function sendConversationMessageAction(
       };
     }
 
+    if (refMatch[1] === "instagram") {
+      return {
+        success: false,
+        error:
+          "El envío por Instagram está deshabilitado temporalmente. Respondé desde la app nativa de Instagram.",
+      };
+    }
+
     const chatId = refMatch[2];
 
     let sendResult;

@@ -12,10 +12,18 @@ import { ConversationTagSelect } from "./conversation-tag-select";
 
 const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 
-const REPLYABLE_SOURCES: ReadonlyArray<Conversation["source"]> = [
-  "instagram",
-  "whatsapp",
-];
+const REPLYABLE_SOURCES: ReadonlyArray<Conversation["source"]> = ["whatsapp"];
+
+function InstagramReadOnlyNotice() {
+  return (
+    <div className="shrink-0 border-t border-border bg-muted/30 p-[var(--space-card-sm)]">
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        El envío por Instagram está deshabilitado temporalmente por restricciones
+        de automatización de Meta. Para responder, usá la app nativa de Instagram.
+      </p>
+    </div>
+  );
+}
 
 function ConversationComposer({ conversationId }: { conversationId: string }) {
   const { sendConversationMessage } = usePlatformData();
@@ -198,6 +206,8 @@ export function ConversationThread({
       </div>
       {canReply ? (
         <ConversationComposer conversationId={conversation.id} />
+      ) : conversation.source === "instagram" ? (
+        <InstagramReadOnlyNotice />
       ) : null}
     </div>
   );
