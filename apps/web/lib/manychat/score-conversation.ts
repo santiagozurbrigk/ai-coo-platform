@@ -332,8 +332,6 @@ export async function scoreConversation({
       ai_qualification_score: analysis.qualification_score,
       ai_label: analysis.label,
       ai_summary: analysis.summary || null,
-      ai_tag: aiTag,
-      tag: aiTag,
       ai_pain_point: analysis.pain_point || null,
       ai_funnel_stage: aiFunnelStage,
       ai_link_shared: analysis.link_shared,
@@ -347,6 +345,10 @@ export async function scoreConversation({
       ai_recommended_action: analysis.recommended_action || null,
       last_analyzed_at: new Date().toISOString(),
     };
+    if (aiTag) {
+      updatePayload.ai_tag = aiTag;
+      updatePayload.tag = aiTag;
+    }
 
     const { error } = await supabase
       .from("conversations")
