@@ -8,13 +8,28 @@ import { formatRelativeTime } from "@/lib/format";
 import type { Conversation, ConversationTagId } from "@/types/sales";
 import { ConversationStatusBadge } from "./conversation-status-badge";
 import { ConversationTagBadge } from "./conversation-tag-badge";
-import {
-  ConversationSourceBadge,
-  CONVERSATION_SOURCE_FILTER_OPTIONS,
-  getAvailableConversationSourceFilters,
-  type ConversationSourceFilter,
-} from "./conversation-source-badge";
+import { ConversationSourceBadge } from "./conversation-source-badge";
+import { LeadAvatar } from "./lead-avatar";
 import { LeadQualificationBadge } from "./lead-qualification-badge";
+
+type InboxChannel = "instagram" | "whatsapp";
+
+const INBOX_CHANNEL_OPTIONS: { value: InboxChannel; label: string }[] = [
+  { value: "instagram", label: "Instagram" },
+  { value: "whatsapp", label: "WhatsApp" },
+];
+
+function pickDefaultChannel(conversations: Conversation[]): InboxChannel {
+  const instagramCount = conversations.filter(
+    (c) => c.source === "instagram"
+  ).length;
+  const whatsappCount = conversations.filter(
+    (c) => c.source === "whatsapp"
+  ).length;
+
+  if (whatsappCount > instagramCount) return "whatsapp";
+  return "instagram";
+}
 
 export function ConversationList({
   conversations,
@@ -26,36 +41,23 @@ export function ConversationList({
   onSelect: (id: string) => void;
 }) {
   const [tagFilter, setTagFilter] = useState<ConversationTagId | "all">("all");
-  const [sourceFilter, setSourceFilter] =
-    useState<ConversationSourceFilter>("all");
-
-  const sourceFilterOptions = useMemo(
-    () => getAvailableConversationSourceFilters(conversations),
-    [conversations]
+  const [channelFilter, setChannelFilter] = useState<InboxChannel | null>(
+    null
   );
 
-  const sourcePills = useMemo(
-    () =>
-      CONVERSATION_SOURCE_FILTER_OPTIONS.filter((option) =>
-        sourceFilterOptions.includes(option.value)
-      ),
-    [sourceFilterOptions]
-  );
-
-  const activeSourceFilter = sourceFilterOptions.includes(sourceFilter)
-    ? sourceFilter
-    : "all";
+  const activeChannel = channelFilter ?? pickDefaultChannel(conversations);
 
   const filtered = useMemo(() => {
     return conversations.filter((conversation) => {
+      const source = conversation.source;
+      if (source !== "instagram" && source !== "whatsapp") return false;
+
       const tagMatches =
         tagFilter === "all" || conversation.tag === tagFilter;
-      const source = conversation.source ?? "manychat";
-      const sourceMatches =
-        activeSourceFilter === "all" || source === activeSourceFilter;
+      const sourceMatches = source === activeChannel;
       return tagMatches && sourceMatches;
     });
-  }, [conversations, tagFilter, activeSourceFilter]);
+  }, [conversations, tagFilter, activeChannel]);
 
   return (
     <div className="flex h-full min-w-0 w-full flex-col overflow-hidden border-r border-border bg-card">
@@ -63,18 +65,11 @@ export function ConversationList({
         <p className="px-1 text-caption font-medium text-muted-foreground">
           {filtered.length} conversaciones
         </p>
-        {sourcePills.length > 1 ? (
-          <FilterPills
-            options={sourcePills.map((option) => ({
-              value: option.value,
-              label: option.label,
-            }))}
-            value={activeSourceFilter}
-            onChange={(value) =>
-              setSourceFilter(value as ConversationSourceFilter)
-            }
-          />
-        ) : null}
+        <FilterPills
+          options={INBOX_CHANNEL_OPTIONS}
+          value={activeChannel}
+          onChange={(value) => setChannelFilter(value as InboxChannel)}
+        />
         <FilterPills
           options={CONVERSATION_TAG_FILTERS.map((f) => ({
             value: f.id,
@@ -97,13 +92,23 @@ export function ConversationList({
               )}
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                  <span className="truncate text-sm font-medium">{c.leadName}</span>
-                  <ConversationSourceBadge
-                    source={c.source}
-                    showLabel={false}
-                    className="shrink-0"
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <LeadAvatar
+                    name={c.leadName}
+                    attendeeId={c.leadUnipileAttendeeId}
+                    accountId={c.unipileAccountId}
+                    className="h-8 w-8"
                   />
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                    <span className="truncate text-sm font-medium">
+                      {c.leadName}
+                    </span>
+                    <ConversationSourceBadge
+                      source={c.source}
+                      showLabel={false}
+                      className="shrink-0"
+                    />
+                  </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                   {c.analysis.qualificationScore ? (
@@ -117,10 +122,10 @@ export function ConversationList({
                   ) : null}
                 </div>
               </div>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              <p className="mt-0.5 truncate pl-10 text-xs text-muted-foreground">
                 {c.lastMessage}
               </p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-2 pl-10">
                 {c.tag && <ConversationTagBadge tag={c.tag} />}
                 <ConversationStatusBadge status={c.status} />
                 <span className="ml-auto text-2xs text-muted-foreground/80">

@@ -346,7 +346,7 @@ export async function analyzeConversationAction(
 
     const { data: row, error: selectError } = await supabase
       .from("conversations")
-      .select("id, lead_name, messages")
+      .select("id, lead_name, messages, source")
       .eq("id", conversationId)
       .eq("organization_id", organizationId)
       .maybeSingle();
@@ -374,6 +374,7 @@ export async function analyzeConversationAction(
         timestamp: m.timestamp,
       })),
       leadName: row.lead_name as string,
+      source: (row.source as string | null) ?? undefined,
     });
 
     if (!scored) {

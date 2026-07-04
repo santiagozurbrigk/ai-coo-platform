@@ -147,6 +147,10 @@ export async function processUnipileMessageWebhook(body: unknown): Promise<void>
     externalRef,
     source: integration.provider,
     unipileAccountId: accountId,
+    leadUnipileAttendeeId:
+      sender === "lead" && message.sender_id?.trim()
+        ? message.sender_id.trim()
+        : undefined,
     inbound: {
       leadName,
       messageText,

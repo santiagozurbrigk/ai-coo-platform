@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { AiCard, Badge, Button, NotchedCard, SteppedAlert } from "@ai-coo/ui";
-import { Instagram, Loader2, Sparkles, Youtube } from "lucide-react";
+import { AiCard, Badge, Button } from "@ai-coo/ui";
+import { Instagram, Loader2, Sparkles } from "lucide-react";
 import { analyzeConversationAction } from "@/app/conversations/actions";
-import { Panel } from "@/components/shared/panel";
+import { CONVERSATION_TAG_CONFIG } from "@/constants/conversation-tags";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
-import type { Conversation } from "@/types/sales";
+import { getFunnelStageLabel } from "@/lib/manychat/conversation-scoring-prompt";
 import { getQualificationTierLabel } from "@/lib/sales/qualification-score";
+import type { Conversation } from "@/types/sales";
 import { LeadQualificationBadge } from "./lead-qualification-badge";
 
 function AnalyzeButton({
@@ -73,6 +74,15 @@ const AI_LABEL_COPY: Record<
   unqualified: { label: "No calificado", variant: "destructive" },
 };
 
+function BoolFlag({ label, value }: { label: string; value?: boolean }) {
+  if (!value) return null;
+  return (
+    <Badge variant="outline" className="text-2xs">
+      {label}
+    </Badge>
+  );
+}
+
 export function ConversationAnalysisPanel({
   conversation,
 }: {
@@ -91,196 +101,247 @@ export function ConversationAnalysisPanel({
   const labelMeta = conversation.aiLabel
     ? AI_LABEL_COPY[conversation.aiLabel]
     : null;
+  const displayTag = conversation.tag ?? conversation.aiTag;
+  const tagMeta = displayTag ? CONVERSATION_TAG_CONFIG[displayTag] : null;
 
   return (
     <div className="space-y-[var(--space-card-sm)] p-[var(--space-card-sm)]">
-      {conversation.sourceVideoTitle ? (
-        <NotchedCard tab="Origen" className="shadow-none">
-          <div className="flex items-center gap-2">
-            <Youtube className="h-4 w-4 shrink-0 text-red-400" />
-            <div className="min-w-0">
-              <p className="text-caption text-muted-foreground">Video de YouTube</p>
-              <p className="text-body font-medium text-foreground">
-                {conversation.sourceVideoTitle}
-              </p>
-              {conversation.utmCampaign ? (
-                <p className="text-micro text-muted-foreground">
-                  Campaña: {conversation.utmCampaign}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </NotchedCard>
-      ) : conversation.source === "instagram" ? (
-        <NotchedCard tab="Origen" className="shadow-none">
-          <div className="flex items-center gap-2">
-            <Instagram className="h-4 w-4 shrink-0 text-pink-400" />
-            <span className="text-body text-muted-foreground">
-              DM directo de Instagram
-            </span>
-          </div>
-        </NotchedCard>
-      ) : conversation.source === "whatsapp" ? (
-        <NotchedCard tab="Origen" className="shadow-none">
-          <div className="flex items-center gap-2">
-            <span className="text-body text-muted-foreground">
-              Mensaje de WhatsApp
-            </span>
-          </div>
-        </NotchedCard>
-      ) : null}
-
-      {!hasAiScore ? (
-        <SteppedAlert
-          variant="info"
-          title="Análisis pendiente"
-          icon={<Sparkles className="h-4 w-4" />}
-        >
-          <p className="mb-2">
+      <AiCard
+        title="Análisis IA"
+        confidence={hasAiScore ? 0.85 : undefined}
+        variant={hasAiScore ? "insight" : "recommendation"}
+      >
+        {!hasAiScore ? (
+          <p className="mb-3 text-body text-muted-foreground">
             Se dispara automáticamente con 3+ mensajes, o analizala ahora.
           </p>
-          <AnalyzeButton
-            conversationId={conversation.id}
-            hasAiScore={hasAiScore}
-          />
-        </SteppedAlert>
-      ) : (
+        ) : null}
+
         <AnalyzeButton
           conversationId={conversation.id}
           hasAiScore={hasAiScore}
         />
-      )}
 
-      {score ? (
-        <NotchedCard tab="Calificación" className="shadow-none">
-          <div className="flex flex-wrap items-center gap-3">
-            <LeadQualificationBadge score={score} />
-            {labelMeta ? (
-              <Badge variant={labelMeta.variant}>{labelMeta.label}</Badge>
+        {hasAiScore ? (
+          <div className="mt-4 space-y-4">
+            {score ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <LeadQualificationBadge score={score} />
+                {labelMeta ? (
+                  <Badge variant={labelMeta.variant}>{labelMeta.label}</Badge>
+                ) : null}
+                <span className="text-caption text-muted-foreground">
+                  {getQualificationTierLabel(score.tier)} — score automático
+                </span>
+              </div>
             ) : null}
-            <span className="text-caption text-muted-foreground">
-              {getQualificationTierLabel(score.tier)} — score automático
-            </span>
-          </div>
-          <dl className="mt-4 grid grid-cols-2 gap-3 text-body">
-            <div>
-              <dt className="text-caption text-muted-foreground">Engagement</dt>
-              <dd className="font-medium tabular-nums">{score.engagement}/100</dd>
+
+            {score ? (
+              <dl className="grid grid-cols-2 gap-3 text-body">
+                <div>
+                  <dt className="text-caption text-muted-foreground">
+                    Engagement
+                  </dt>
+                  <dd className="font-medium tabular-nums">
+                    {score.engagement}/100
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-caption text-muted-foreground">Intent</dt>
+                  <dd className="font-medium tabular-nums">
+                    {score.intent}/100
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-caption text-muted-foreground">
+                    Qualification
+                  </dt>
+                  <dd className="font-medium tabular-nums">
+                    {score.qualification}/100
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-caption text-muted-foreground">
+                    Score final
+                  </dt>
+                  <dd className="font-semibold tabular-nums text-violet-700 dark:text-violet-300">
+                    {score.overall}/100
+                  </dd>
+                </div>
+              </dl>
+            ) : null}
+
+            {conversation.aiSummary ? (
+              <p className="text-body text-muted-foreground">
+                {conversation.aiSummary}
+              </p>
+            ) : null}
+
+            <dl className="grid grid-cols-2 gap-3 text-body">
+              {tagMeta ? (
+                <div className="col-span-2">
+                  <dt className="text-caption text-muted-foreground">
+                    Etiqueta IA
+                  </dt>
+                  <dd className="mt-1">
+                    <span className={tagMeta.className}>{tagMeta.label}</span>
+                  </dd>
+                </div>
+              ) : null}
+
+              {conversation.aiPainPoint ? (
+                <div className="col-span-2">
+                  <dt className="text-caption text-muted-foreground">
+                    Dolor principal
+                  </dt>
+                  <dd className="mt-1 font-medium">
+                    {conversation.aiPainPoint}
+                  </dd>
+                </div>
+              ) : null}
+
+              {conversation.aiFunnelStage ? (
+                <div className="col-span-2">
+                  <dt className="text-caption text-muted-foreground">
+                    Etapa del proceso
+                  </dt>
+                  <dd className="mt-1 font-medium">
+                    {getFunnelStageLabel(conversation.aiFunnelStage)}
+                  </dd>
+                </div>
+              ) : null}
+
+              <div>
+                <dt className="text-caption text-muted-foreground">
+                  Tiempo de respuesta
+                </dt>
+                <dd className="font-medium">
+                  {analysis.responseTimeMinutes} min
+                </dd>
+              </div>
+              <div>
+                <dt className="text-caption text-muted-foreground">
+                  Riesgo de fantasma
+                </dt>
+                <dd>
+                  <Badge variant={ghostVariant} className="mt-1 capitalize">
+                    {analysis.ghostingRisk === "high"
+                      ? "Alto"
+                      : analysis.ghostingRisk === "medium"
+                        ? "Medio"
+                        : "Bajo"}
+                  </Badge>
+                </dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-caption text-muted-foreground">
+                  Señal de agendamiento
+                </dt>
+                <dd className="mt-1 font-medium">
+                  {analysis.bookingSignal ? "Detectada" : "Ninguna"}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="flex flex-wrap gap-2">
+              <BoolFlag label="Link compartido" value={conversation.aiLinkShared} />
+              <BoolFlag
+                label="WhatsApp compartido"
+                value={conversation.aiWhatsappNumberShared}
+              />
+              <BoolFlag
+                label="Link de agendamiento"
+                value={conversation.aiBookingLinkShared}
+              />
             </div>
-            <div>
-              <dt className="text-caption text-muted-foreground">Intent</dt>
-              <dd className="font-medium tabular-nums">{score.intent}/100</dd>
-            </div>
-            <div>
-              <dt className="text-caption text-muted-foreground">Qualification</dt>
-              <dd className="font-medium tabular-nums">
-                {score.qualification}/100
-              </dd>
-            </div>
-            <div>
-              <dt className="text-caption text-muted-foreground">Score final</dt>
-              <dd className="font-semibold tabular-nums text-violet-700 dark:text-violet-300">
-                {score.overall}/100
-              </dd>
-            </div>
-          </dl>
-        </NotchedCard>
-      ) : null}
 
-      {conversation.aiSummary ? (
-        <Panel title="Resumen IA">
-          <p className="text-body text-muted-foreground">{conversation.aiSummary}</p>
-        </Panel>
-      ) : null}
+            {conversation.aiCrossChannelSource &&
+            conversation.aiCrossChannelSummary ? (
+              <div className="rounded-md border border-border bg-muted/30 p-3">
+                <div className="mb-1 flex items-center gap-1.5 text-caption font-medium text-muted-foreground">
+                  <Instagram className="h-3.5 w-3.5 text-pink-400" />
+                  Este lead vino de Instagram
+                </div>
+                <p className="text-body text-muted-foreground">
+                  {conversation.aiCrossChannelSummary}
+                </p>
+              </div>
+            ) : null}
 
-      <Panel title="Análisis">
-        <dl className="grid grid-cols-2 gap-3 text-body">
-          <div>
-            <dt className="text-caption text-muted-foreground">Tiempo de respuesta</dt>
-            <dd className="font-medium">{analysis.responseTimeMinutes} min</dd>
+            {conversation.aiBookingSignals?.length ? (
+              <div>
+                <p className="text-caption text-muted-foreground">
+                  Señales de agendamiento
+                </p>
+                <ul className="mt-1 list-disc space-y-1 pl-4 text-body text-muted-foreground">
+                  {conversation.aiBookingSignals.map((signal) => (
+                    <li key={signal}>{signal}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {analysis.ghostingRisk === "high" &&
+            conversation.aiGhostingSignals?.length ? (
+              <div>
+                <p className="text-caption font-medium text-destructive">
+                  Riesgo de fantasma alto
+                </p>
+                <ul className="mt-1 list-disc space-y-1 pl-4 text-body text-muted-foreground">
+                  {conversation.aiGhostingSignals.map((signal) => (
+                    <li key={signal}>{signal}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : conversation.aiGhostingSignals?.length ? (
+              <div>
+                <p className="text-caption text-muted-foreground">
+                  Señales de riesgo
+                </p>
+                <ul className="mt-1 list-disc space-y-1 pl-4 text-body text-muted-foreground">
+                  {conversation.aiGhostingSignals.map((signal) => (
+                    <li key={signal}>{signal}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {conversation.aiDetectedObjections?.length ? (
+              <div>
+                <p className="text-caption text-muted-foreground">
+                  Objeciones detectadas
+                </p>
+                <ul className="mt-1 space-y-2 text-body">
+                  {conversation.aiDetectedObjections.map((objection) => (
+                    <li key={`${objection.category}-${objection.text}`}>
+                      <span className="text-muted-foreground">
+                        {objection.text}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="ml-2 text-2xs capitalize"
+                      >
+                        {objection.category}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {conversation.aiRecommendedAction ? (
+              <div className="rounded-md border border-violet-500/20 bg-violet-500/5 p-3">
+                <p className="text-caption font-medium text-violet-700 dark:text-violet-300">
+                  Próximo paso recomendado
+                </p>
+                <p className="mt-1 text-body">
+                  {conversation.aiRecommendedAction}
+                </p>
+              </div>
+            ) : null}
           </div>
-          <div>
-            <dt className="text-caption text-muted-foreground">Riesgo de fantasma</dt>
-            <dd>
-              <Badge variant={ghostVariant} className="mt-1 capitalize">
-                {analysis.ghostingRisk === "high"
-                  ? "Alto"
-                  : analysis.ghostingRisk === "medium"
-                    ? "Medio"
-                    : "Bajo"}
-              </Badge>
-            </dd>
-          </div>
-          <div className="col-span-2">
-            <dt className="text-caption text-muted-foreground">Señal de agendamiento</dt>
-            <dd className="mt-1 font-medium">
-              {analysis.bookingSignal ? "Detectada" : "Ninguna"}
-            </dd>
-          </div>
-        </dl>
-      </Panel>
-
-      {analysis.ghostingRisk === "high" && conversation.aiGhostingSignals?.length ? (
-        <SteppedAlert variant="destructive" title="Riesgo de fantasma alto">
-          <ul className="list-disc space-y-1 pl-4">
-            {conversation.aiGhostingSignals.map((signal) => (
-              <li key={signal}>{signal}</li>
-            ))}
-          </ul>
-        </SteppedAlert>
-      ) : null}
-
-      {conversation.aiBookingSignals?.length ? (
-        <Panel title="Señales de agendamiento">
-          <ul className="list-disc space-y-1 pl-4 text-body text-muted-foreground">
-            {conversation.aiBookingSignals.map((signal) => (
-              <li key={signal}>{signal}</li>
-            ))}
-          </ul>
-        </Panel>
-      ) : null}
-
-      {conversation.aiGhostingSignals?.length &&
-      analysis.ghostingRisk !== "high" ? (
-        <Panel title="Señales de riesgo">
-          <ul className="list-disc space-y-1 pl-4 text-body text-muted-foreground">
-            {conversation.aiGhostingSignals.map((signal) => (
-              <li key={signal}>{signal}</li>
-            ))}
-          </ul>
-        </Panel>
-      ) : null}
-
-      {conversation.aiDetectedObjections?.length ? (
-        <Panel title="Objeciones detectadas">
-          <ul className="space-y-2 text-body">
-            {conversation.aiDetectedObjections.map((objection) => (
-              <li key={`${objection.category}-${objection.text}`}>
-                <span className="text-muted-foreground">{objection.text}</span>
-                <Badge variant="outline" className="ml-2 text-2xs capitalize">
-                  {objection.category}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      ) : null}
-
-      {conversation.aiRecommendedAction ? (
-        <AiCard title="Acción recomendada" confidence={0.85} variant="recommendation">
-          <p className="text-body">{conversation.aiRecommendedAction}</p>
-        </AiCard>
-      ) : null}
-
-      {analysis.insights.length > 0 && !hasAiScore ? (
-        <AiCard title="Insights de la conversación" confidence={0.85} variant="insight">
-          <ul className="list-disc space-y-1 pl-4">
-            {analysis.insights.map((insight, i) => (
-              <li key={i}>{insight}</li>
-            ))}
-          </ul>
-        </AiCard>
-      ) : null}
+        ) : null}
+      </AiCard>
     </div>
   );
 }

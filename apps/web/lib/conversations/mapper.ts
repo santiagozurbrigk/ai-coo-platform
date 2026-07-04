@@ -2,6 +2,8 @@ import type {
   Conversation,
   ConversationAiLabel,
   ConversationAnalysis,
+  ConversationCrossChannelSource,
+  ConversationFunnelStage,
   ConversationTagId,
   LeadQualificationScore,
   ObjectionCategory,
@@ -23,8 +25,17 @@ export type ConversationRow = {
   analysis: ConversationAnalysis;
   external_ref: string | null;
   unipile_account_id?: string | null;
+  lead_unipile_attendee_id?: string | null;
   source?: "manychat" | "instagram" | "manual" | "whatsapp" | null;
   ai_score?: number | null;
+  ai_tag?: ConversationTagId | null;
+  ai_pain_point?: string | null;
+  ai_funnel_stage?: ConversationFunnelStage | null;
+  ai_link_shared?: boolean | null;
+  ai_whatsapp_number_shared?: boolean | null;
+  ai_booking_link_shared?: boolean | null;
+  ai_cross_channel_source?: ConversationCrossChannelSource | null;
+  ai_cross_channel_summary?: string | null;
   ai_engagement_score?: number | null;
   ai_intent_score?: number | null;
   ai_qualification_score?: number | null;
@@ -150,6 +161,16 @@ export function rowToConversation(row: ConversationRow): Conversation {
     aiGhostingSignals: row.ai_ghosting_signals ?? undefined,
     aiDetectedObjections: normalizeObjections(row.ai_detected_objections),
     aiRecommendedAction: row.ai_recommended_action ?? undefined,
+    aiTag: row.ai_tag ?? undefined,
+    aiPainPoint: row.ai_pain_point ?? undefined,
+    aiFunnelStage: row.ai_funnel_stage ?? undefined,
+    aiLinkShared: row.ai_link_shared ?? undefined,
+    aiWhatsappNumberShared: row.ai_whatsapp_number_shared ?? undefined,
+    aiBookingLinkShared: row.ai_booking_link_shared ?? undefined,
+    aiCrossChannelSource: row.ai_cross_channel_source ?? undefined,
+    aiCrossChannelSummary: row.ai_cross_channel_summary ?? undefined,
+    unipileAccountId: row.unipile_account_id ?? undefined,
+    leadUnipileAttendeeId: row.lead_unipile_attendee_id ?? undefined,
     sourceVideoTitle: row.source_video_title ?? undefined,
     utmCampaign: row.utm_campaign ?? undefined,
     lastAnalyzedAt: row.last_analyzed_at ?? undefined,

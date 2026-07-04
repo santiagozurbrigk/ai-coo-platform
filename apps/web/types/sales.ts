@@ -46,6 +46,18 @@ export type ConversationSource =
   | "manual"
   | "whatsapp";
 
+export type ConversationFunnelStage =
+  | "primer_contacto"
+  | "calificando"
+  | "manejo_objeciones"
+  | "propuesta_agendamiento_enviada"
+  | "agendado"
+  | "no_show"
+  | "cerrado"
+  | "perdido_sin_respuesta";
+
+export type ConversationCrossChannelSource = "instagram";
+
 export type Conversation = {
   id: string;
   leadName: string;
@@ -57,9 +69,19 @@ export type Conversation = {
   messages: SalesMessage[];
   analysis: ConversationAnalysis;
   source?: ConversationSource;
+  unipileAccountId?: string;
+  leadUnipileAttendeeId?: string;
   aiScore?: number;
   aiLabel?: ConversationAiLabel;
   aiSummary?: string;
+  aiTag?: ConversationTagId;
+  aiPainPoint?: string;
+  aiFunnelStage?: ConversationFunnelStage;
+  aiLinkShared?: boolean;
+  aiWhatsappNumberShared?: boolean;
+  aiBookingLinkShared?: boolean;
+  aiCrossChannelSource?: ConversationCrossChannelSource;
+  aiCrossChannelSummary?: string;
   aiBookingSignals?: string[];
   aiGhostingSignals?: string[];
   aiDetectedObjections?: Array<{ text: string; category: ObjectionCategory }>;

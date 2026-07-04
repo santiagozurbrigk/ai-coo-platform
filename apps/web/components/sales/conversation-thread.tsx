@@ -9,6 +9,7 @@ import { useToast } from "@/providers/toast-provider";
 import type { Conversation, ConversationTagId } from "@/types/sales";
 import { ConversationSourceBadge } from "./conversation-source-badge";
 import { ConversationTagSelect } from "./conversation-tag-select";
+import { LeadAvatar } from "./lead-avatar";
 
 const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 
@@ -159,9 +160,17 @@ export function ConversationThread({
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <NotchedCard
         tab={
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="truncate">{conversation.leadName}</span>
-            <ConversationSourceBadge source={conversation.source} />
+          <div className="flex min-w-0 items-center gap-2">
+            <LeadAvatar
+              name={conversation.leadName}
+              attendeeId={conversation.leadUnipileAttendeeId}
+              accountId={conversation.unipileAccountId}
+              className="h-9 w-9"
+            />
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="truncate">{conversation.leadName}</span>
+              <ConversationSourceBadge source={conversation.source} />
+            </div>
           </div>
         }
         className="shrink-0 rounded-none border-0 border-b border-border shadow-none"

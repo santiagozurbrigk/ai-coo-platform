@@ -111,6 +111,33 @@ export async function listUnipileChatAttendees(
   return response.items ?? [];
 }
 
+export async function fetchUnipileAttendeePicture(
+  attendeeId: string,
+  accountId?: string
+): Promise<{ contentType: string; buffer: ArrayBuffer } | null> {
+  try {
+    const { dsn, accessToken } = assertUnipileConfig();
+    const query = accountId
+      ? `?account_id=${encodeURIComponent(accountId)}`
+      : "";
+    const url = `${dsn.replace(/\/$/, "")}/api/v1/chat_attendees/${encodeURIComponent(attendeeId)}/picture${query}`;
+
+    const res = await fetch(url, {
+      headers: { "X-API-KEY": accessToken },
+    });
+
+    if (!res.ok) return null;
+
+    const contentType = res.headers.get("content-type") ?? "image/jpeg";
+    const buffer = await res.arrayBuffer();
+    if (!buffer.byteLength) return null;
+
+    return { contentType, buffer };
+  } catch {
+    return null;
+  }
+}
+
 export type UnipileSendMessageResult = {
   object?: string;
   message_id?: string;

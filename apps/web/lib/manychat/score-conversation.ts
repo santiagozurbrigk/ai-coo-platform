@@ -1,10 +1,18 @@
 import { callClaudeJson } from "@/lib/ai/anthropic";
 import { buildOrgContextText, getOrgContext } from "@/lib/ai/org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { ObjectionCategory } from "@/types/sales";
+import type {
+  ConversationFunnelStage,
+  ConversationTagId,
+  ObjectionCategory,
+} from "@/types/sales";
 import {
   buildConversationScoringPrompt,
+  VALID_CONVERSATION_TAGS,
+  VALID_FUNNEL_STAGES,
+  type ClosingCallHint,
   type ConversationScoringMessage,
+  type CrossChannelContext,
 } from "./conversation-scoring-prompt";
 
 export type ConversationScoringResult = {
@@ -14,6 +22,13 @@ export type ConversationScoringResult = {
   qualification_score: number;
   label: "hot" | "warm" | "cold" | "unqualified";
   summary: string;
+  lead_tag?: string;
+  pain_point?: string;
+  funnel_stage?: string;
+  link_shared?: boolean;
+  whatsapp_number_shared?: boolean;
+  booking_link_shared?: boolean;
+  cross_channel_summary?: string | null;
   booking_signals?: string[];
   ghosting_signals?: string[];
   detected_objections?: Array<{ text: string; category: string }>;
@@ -41,6 +56,20 @@ function normalizeLabel(
   return "cold";
 }
 
+function normalizeTag(value: unknown): ConversationTagId | null {
+  const tag = String(value ?? "").trim() as ConversationTagId;
+  return VALID_CONVERSATION_TAGS.has(tag) ? tag : null;
+}
+
+function normalizeFunnelStage(value: unknown): ConversationFunnelStage | null {
+  const stage = String(value ?? "").trim() as ConversationFunnelStage;
+  return VALID_FUNNEL_STAGES.has(stage) ? stage : null;
+}
+
+function normalizeBoolean(value: unknown): boolean {
+  return value === true || value === "true" || value === 1;
+}
+
 function normalizeObjections(
   raw: ConversationScoringResult["detected_objections"]
 ): Array<{ text: string; category: ObjectionCategory }> {
@@ -58,6 +87,21 @@ function normalizeObjections(
         ? (o.category as ObjectionCategory)
         : "setting",
     }));
+}
+
+function funnelStageFromClosingCall(
+  status: ClosingCallHint["status"]
+): ConversationFunnelStage | null {
+  switch (status) {
+    case "scheduled":
+      return "agendado";
+    case "no_show":
+      return "no_show";
+    case "closed":
+      return "cerrado";
+    default:
+      return null;
+  }
 }
 
 async function fetchFormAnswersForLead(
@@ -91,25 +135,114 @@ async function fetchFormAnswersForLead(
   return Object.keys(record).length > 0 ? record : undefined;
 }
 
+async function fetchClosingCallHint(
+  organizationId: string,
+  leadName?: string
+): Promise<ClosingCallHint | undefined> {
+  if (!leadName?.trim()) return undefined;
+
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("closing_calls")
+    .select("status, scheduled_at")
+    .eq("organization_id", organizationId)
+    .ilike("lead_name", leadName.trim())
+    .order("scheduled_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data?.status || !data.scheduled_at) return undefined;
+
+  const status = data.status as ClosingCallHint["status"];
+  if (
+    status !== "scheduled" &&
+    status !== "closed" &&
+    status !== "not_closed" &&
+    status !== "no_show"
+  ) {
+    return undefined;
+  }
+
+  return {
+    status,
+    scheduledAt: data.scheduled_at as string,
+  };
+}
+
+type SisterInstagramRow = {
+  messages: Array<{ sender?: string; content?: string }> | null;
+  ai_summary: string | null;
+  ai_link_shared: boolean | null;
+  ai_whatsapp_number_shared: boolean | null;
+};
+
+async function fetchCrossChannelInstagramContext(
+  organizationId: string,
+  leadName?: string
+): Promise<CrossChannelContext | undefined> {
+  if (!leadName?.trim()) return undefined;
+
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("conversations")
+    .select(
+      "messages, ai_summary, ai_link_shared, ai_whatsapp_number_shared"
+    )
+    .eq("organization_id", organizationId)
+    .eq("source", "instagram")
+    .ilike("lead_name", leadName.trim())
+    .or("ai_link_shared.eq.true,ai_whatsapp_number_shared.eq.true")
+    .order("last_message_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const row = data as SisterInstagramRow | null;
+  if (!row) return undefined;
+
+  const messages = row.messages ?? [];
+  const messagesText = messages
+    .slice(-15)
+    .map((m) => {
+      const role = m.sender === "team" ? "SETTER" : "LEAD";
+      return `[${role}]: ${m.content ?? ""}`;
+    })
+    .join("\n");
+
+  if (!messagesText.trim() && !row.ai_summary?.trim()) return undefined;
+
+  return {
+    source: "instagram",
+    summary: row.ai_summary?.trim() || undefined,
+    messagesText: messagesText || row.ai_summary?.trim() || "",
+  };
+}
+
 export async function scoreConversation({
   organizationId,
   conversationId,
   messages,
   leadName,
   formAnswers,
+  source,
 }: {
   organizationId: string;
   conversationId: string;
   messages: ConversationScoringMessage[];
   leadName?: string;
   formAnswers?: Record<string, string>;
+  source?: string;
 }): Promise<boolean> {
   if (!messages?.length) return false;
 
   const supabase = createAdminClient();
 
   try {
-    const [{ data: org }, resolvedFormAnswers] = await Promise.all([
+    const [
+      { data: org },
+      resolvedFormAnswers,
+      closingCallHint,
+      crossChannelContext,
+    ] = await Promise.all([
       supabase
         .from("organizations")
         .select("name")
@@ -118,11 +251,20 @@ export async function scoreConversation({
       formAnswers
         ? Promise.resolve(formAnswers)
         : fetchFormAnswersForLead(organizationId, leadName),
+      fetchClosingCallHint(organizationId, leadName),
+      source === "whatsapp"
+        ? fetchCrossChannelInstagramContext(organizationId, leadName)
+        : Promise.resolve(undefined),
     ]);
 
     const { system, user } = buildConversationScoringPrompt(
       messages,
-      { name: leadName, formAnswers: resolvedFormAnswers },
+      {
+        name: leadName,
+        formAnswers: resolvedFormAnswers,
+        closingCall: closingCallHint,
+        crossChannel: crossChannelContext,
+      },
       { businessType: "infoproducto", productName: org?.name ?? undefined }
     );
 
@@ -136,7 +278,7 @@ export async function scoreConversation({
       cachedSystemPrompt: orgContextText,
       system,
       user,
-      maxTokens: 1000,
+      maxTokens: 1500,
     });
 
     if (!raw) {
@@ -146,6 +288,19 @@ export async function scoreConversation({
       return false;
     }
 
+    const closingOverride = closingCallHint
+      ? funnelStageFromClosingCall(closingCallHint.status)
+      : null;
+
+    const aiTag = normalizeTag(raw.lead_tag);
+    const aiFunnelStage =
+      closingOverride ?? normalizeFunnelStage(raw.funnel_stage);
+
+    const crossChannelSummary =
+      crossChannelContext && raw.cross_channel_summary?.trim()
+        ? raw.cross_channel_summary.trim()
+        : crossChannelContext?.summary ?? null;
+
     const analysis: ConversationScoringResult = {
       overall_score: clampScore(raw.overall_score),
       engagement_score: clampScore(raw.engagement_score),
@@ -153,6 +308,13 @@ export async function scoreConversation({
       qualification_score: clampScore(raw.qualification_score),
       label: normalizeLabel(raw.label),
       summary: String(raw.summary ?? "").trim(),
+      lead_tag: aiTag ?? undefined,
+      pain_point: String(raw.pain_point ?? "").trim(),
+      funnel_stage: aiFunnelStage ?? undefined,
+      link_shared: normalizeBoolean(raw.link_shared),
+      whatsapp_number_shared: normalizeBoolean(raw.whatsapp_number_shared),
+      booking_link_shared: normalizeBoolean(raw.booking_link_shared),
+      cross_channel_summary: crossChannelSummary,
       booking_signals: Array.isArray(raw.booking_signals)
         ? raw.booking_signals.map(String)
         : [],
@@ -163,21 +325,32 @@ export async function scoreConversation({
       recommended_action: String(raw.recommended_action ?? "").trim(),
     };
 
+    const updatePayload: Record<string, unknown> = {
+      ai_score: analysis.overall_score,
+      ai_engagement_score: analysis.engagement_score,
+      ai_intent_score: analysis.intent_score,
+      ai_qualification_score: analysis.qualification_score,
+      ai_label: analysis.label,
+      ai_summary: analysis.summary || null,
+      ai_tag: aiTag,
+      tag: aiTag,
+      ai_pain_point: analysis.pain_point || null,
+      ai_funnel_stage: aiFunnelStage,
+      ai_link_shared: analysis.link_shared,
+      ai_whatsapp_number_shared: analysis.whatsapp_number_shared,
+      ai_booking_link_shared: analysis.booking_link_shared,
+      ai_cross_channel_source: crossChannelContext ? "instagram" : null,
+      ai_cross_channel_summary: crossChannelSummary,
+      ai_booking_signals: analysis.booking_signals ?? [],
+      ai_ghosting_signals: analysis.ghosting_signals ?? [],
+      ai_detected_objections: analysis.detected_objections ?? [],
+      ai_recommended_action: analysis.recommended_action || null,
+      last_analyzed_at: new Date().toISOString(),
+    };
+
     const { error } = await supabase
       .from("conversations")
-      .update({
-        ai_score: analysis.overall_score,
-        ai_engagement_score: analysis.engagement_score,
-        ai_intent_score: analysis.intent_score,
-        ai_qualification_score: analysis.qualification_score,
-        ai_label: analysis.label,
-        ai_summary: analysis.summary || null,
-        ai_booking_signals: analysis.booking_signals ?? [],
-        ai_ghosting_signals: analysis.ghosting_signals ?? [],
-        ai_detected_objections: analysis.detected_objections ?? [],
-        ai_recommended_action: analysis.recommended_action || null,
-        last_analyzed_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", conversationId)
       .eq("organization_id", organizationId);
 
