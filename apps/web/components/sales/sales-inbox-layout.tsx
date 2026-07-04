@@ -18,8 +18,12 @@ import { PageLoading } from "@/components/shared/page-loading";
 export function SalesInboxLayout() {
   const searchParams = useSearchParams();
   const deepLinkId = searchParams.get("c") ?? undefined;
-  const { conversations, conversationsLoading, setConversationTag } =
-    usePlatformData();
+  const {
+    conversations,
+    conversationsLoading,
+    setConversationTag,
+    markConversationRead,
+  } = usePlatformData();
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [listOpen, setListOpen] = useState(false);
 
@@ -38,6 +42,12 @@ export function SalesInboxLayout() {
   }, [conversations, selectedId, deepLinkId]);
 
   const selected = conversations.find((c) => c.id === selectedId);
+
+  useEffect(() => {
+    if (selected?.unread) {
+      markConversationRead(selected.id);
+    }
+  }, [selected, markConversationRead]);
 
   if (conversationsLoading && conversations.length === 0) {
     return (

@@ -21,12 +21,18 @@ export async function unipileFetch<T = UnipileJson>(
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const url = `${dsn.replace(/\/$/, "")}${normalizedPath}`;
 
+  // FormData define su propio content-type (boundary) — no pisarlo.
+  const isFormData =
+    typeof FormData !== "undefined" && init?.body instanceof FormData;
+
   const res = await fetch(url, {
     ...init,
     headers: {
       "X-API-KEY": accessToken,
       accept: "application/json",
-      ...(init?.body ? { "content-type": "application/json" } : {}),
+      ...(init?.body && !isFormData
+        ? { "content-type": "application/json" }
+        : {}),
       ...init?.headers,
     },
   });
@@ -103,4 +109,35 @@ export async function listUnipileChatAttendees(
     `/api/v1/chats/${encodeURIComponent(chatId)}/attendees`
   );
   return response.items ?? [];
+}
+
+export type UnipileSendMessageResult = {
+  object?: string;
+  message_id?: string;
+};
+
+/**
+ * Envía un mensaje a un chat de Unipile (Instagram / WhatsApp).
+ * https://developer.unipile.com/docs/send-messages — POST /chats/{chat_id}/messages
+ */
+export async function sendUnipileChatMessage(options: {
+  chatId: string;
+  text: string;
+  attachment?: { fileName: string; mimeType: string; data: Blob };
+}): Promise<UnipileSendMessageResult> {
+  const form = new FormData();
+  form.append("text", options.text);
+  if (options.attachment) {
+    form.append(
+      "attachments",
+      new File([options.attachment.data], options.attachment.fileName, {
+        type: options.attachment.mimeType,
+      })
+    );
+  }
+
+  return unipileFetchWithRateLimitRetry<UnipileSendMessageResult>(
+    `/api/v1/chats/${encodeURIComponent(options.chatId)}/messages`,
+    { method: "POST", body: form }
+  );
 }

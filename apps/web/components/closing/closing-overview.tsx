@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Badge,
   Button,
@@ -59,6 +59,8 @@ function formatCallDate(iso: string) {
 
 export function ClosingOverview() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const deepLinkCallId = searchParams.get("call");
   const { push } = useToast();
   const {
     closingCalls,
@@ -94,15 +96,26 @@ export function ClosingOverview() {
     });
   }, [closingCalls]);
 
+  const appliedDeepLinkRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (closingCalls.length === 0) {
       setSelectedId(null);
       return;
     }
+    if (
+      deepLinkCallId &&
+      appliedDeepLinkRef.current !== deepLinkCallId &&
+      closingCalls.some((c) => c.id === deepLinkCallId)
+    ) {
+      appliedDeepLinkRef.current = deepLinkCallId;
+      setSelectedId(deepLinkCallId);
+      return;
+    }
     if (!selectedId || !closingCalls.some((c) => c.id === selectedId)) {
       setSelectedId(closingCalls[0].id);
     }
-  }, [closingCalls, selectedId]);
+  }, [closingCalls, selectedId, deepLinkCallId]);
 
   const selected = closingCalls.find((c) => c.id === selectedId);
 

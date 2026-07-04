@@ -10,6 +10,12 @@ const monorepoRoot = path.join(__dirname, "../..");
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@ai-coo/ui", "@ai-coo/types"],
+  experimental: {
+    serverActions: {
+      // Adjuntos de la bandeja de ventas (Unipile permite hasta 15MB).
+      bodySizeLimit: "16mb",
+    },
+  },
   outputFileTracingRoot: monorepoRoot,
   turbopack: {
     root: monorepoRoot,

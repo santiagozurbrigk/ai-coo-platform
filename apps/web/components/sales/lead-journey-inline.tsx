@@ -132,7 +132,7 @@ function StepContent({ step }: { step: LeadJourneyStep }) {
   if (closingCallId) {
     return (
       <Link
-        href={paths.platform.sales.closing}
+        href={`${paths.platform.sales.closing}?call=${encodeURIComponent(closingCallId)}`}
         className={cn(wrapperClass, "hover:border-border/60 hover:bg-muted/20")}
       >
         <div

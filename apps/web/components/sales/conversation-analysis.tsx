@@ -1,9 +1,67 @@
-import { AiCard, Badge, NotchedCard, SteppedAlert } from "@ai-coo/ui";
-import { Instagram, Sparkles, Youtube } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { AiCard, Badge, Button, NotchedCard, SteppedAlert } from "@ai-coo/ui";
+import { Instagram, Loader2, Sparkles, Youtube } from "lucide-react";
+import { analyzeConversationAction } from "@/app/conversations/actions";
 import { Panel } from "@/components/shared/panel";
+import { usePlatformData } from "@/providers";
+import { useToast } from "@/providers/toast-provider";
 import type { Conversation } from "@/types/sales";
 import { getQualificationTierLabel } from "@/lib/sales/qualification-score";
 import { LeadQualificationBadge } from "./lead-qualification-badge";
+
+function AnalyzeButton({
+  conversationId,
+  hasAiScore,
+}: {
+  conversationId: string;
+  hasAiScore: boolean;
+}) {
+  const { refreshConversations } = usePlatformData();
+  const { push } = useToast();
+  const [analyzing, setAnalyzing] = useState(false);
+
+  const handleAnalyze = async () => {
+    setAnalyzing(true);
+    try {
+      const result = await analyzeConversationAction(conversationId);
+      if (result.success) {
+        await refreshConversations();
+        push({ title: "Análisis actualizado", variant: "success" });
+      } else {
+        push({
+          title: "No se pudo analizar",
+          description: result.error,
+          variant: "default",
+        });
+      }
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="w-full gap-2"
+      disabled={analyzing}
+      onClick={() => void handleAnalyze()}
+    >
+      {analyzing ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Sparkles className="h-3.5 w-3.5" />
+      )}
+      {analyzing
+        ? "Analizando…"
+        : hasAiScore
+          ? "Re-analizar con IA"
+          : "Analizar ahora con IA"}
+    </Button>
+  );
+}
 
 const AI_LABEL_COPY: Record<
   NonNullable<Conversation["aiLabel"]>,
@@ -78,9 +136,20 @@ export function ConversationAnalysisPanel({
           title="Análisis pendiente"
           icon={<Sparkles className="h-4 w-4" />}
         >
-          <p>Análisis disponible después de 3+ mensajes</p>
+          <p className="mb-2">
+            Se dispara automáticamente con 3+ mensajes, o analizala ahora.
+          </p>
+          <AnalyzeButton
+            conversationId={conversation.id}
+            hasAiScore={hasAiScore}
+          />
         </SteppedAlert>
-      ) : null}
+      ) : (
+        <AnalyzeButton
+          conversationId={conversation.id}
+          hasAiScore={hasAiScore}
+        />
+      )}
 
       {score ? (
         <NotchedCard tab="Calificación" className="shadow-none">

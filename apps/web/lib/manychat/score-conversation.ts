@@ -103,8 +103,8 @@ export async function scoreConversation({
   messages: ConversationScoringMessage[];
   leadName?: string;
   formAnswers?: Record<string, string>;
-}): Promise<void> {
-  if (!messages?.length) return;
+}): Promise<boolean> {
+  if (!messages?.length) return false;
 
   const supabase = createAdminClient();
 
@@ -143,7 +143,7 @@ export async function scoreConversation({
       console.warn(
         `[ConversationScoring] Sin respuesta IA para conversación ${conversationId}`
       );
-      return;
+      return false;
     }
 
     const analysis: ConversationScoringResult = {
@@ -186,10 +186,12 @@ export async function scoreConversation({
     console.log(
       `[ConversationScoring] ✅ Scored conversation ${conversationId}: ${analysis.label} (${analysis.overall_score})`
     );
+    return true;
   } catch (err) {
     console.error(
       `[ConversationScoring] ❌ Error scoring conversation ${conversationId}:`,
       err
     );
+    return false;
   }
 }

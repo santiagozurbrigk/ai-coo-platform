@@ -16,6 +16,8 @@ import {
 import {
   getOrganizationIdAction,
   listConversationsAction,
+  markConversationReadAction,
+  sendConversationMessageAction,
   updateConversationTagAction,
 } from "@/app/conversations/actions";
 import {
@@ -63,6 +65,12 @@ type PlatformDataContextValue = {
   setConversationTagByLeadName: (
     leadName: string,
     tag: ConversationTagId
+  ) => Promise<void>;
+  markConversationRead: (conversationId: string) => void;
+  sendConversationMessage: (
+    conversationId: string,
+    text: string,
+    attachment?: File
   ) => Promise<void>;
   closingCalls: ClosingCall[];
   closingCallsLoading: boolean;
@@ -404,6 +412,94 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
     [conversations, persistConversationTag]
   );
 
+  const markConversationRead = useCallback((conversationId: string) => {
+    setConversations((prev) => {
+      const conv = prev.find((c) => c.id === conversationId);
+      if (!conv?.unread) return prev;
+      if (useSupabase) {
+        void markConversationReadAction(conversationId).catch((e) => {
+          console.error("[PlatformDataProvider] markConversationRead", e);
+        });
+      }
+      return prev.map((c) =>
+        c.id === conversationId ? { ...c, unread: false } : c
+      );
+    });
+  }, []);
+
+  const sendConversationMessage = useCallback(
+    async (conversationId: string, text: string, attachment?: File) => {
+      const content =
+        text.trim() || `[Adjunto: ${attachment?.name ?? "archivo"}]`;
+      const timestamp = new Date().toISOString();
+      const optimisticId = `optimistic-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+
+      // Inserción optimista: el mensaje se ve al instante.
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conversationId
+            ? {
+                ...c,
+                messages: [
+                  ...c.messages,
+                  { id: optimisticId, sender: "team" as const, content, timestamp },
+                ],
+                lastMessage: content,
+                lastMessageAt: timestamp,
+                unread: false,
+              }
+            : c
+        )
+      );
+
+      if (!useSupabase) return;
+
+      const formData = new FormData();
+      formData.set("conversationId", conversationId);
+      formData.set("text", text.trim());
+      if (attachment) formData.set("attachment", attachment);
+
+      let result: Awaited<ReturnType<typeof sendConversationMessageAction>>;
+      try {
+        result = await sendConversationMessageAction(formData);
+      } catch (e) {
+        result = {
+          success: false,
+          error: e instanceof Error ? e.message : "No se pudo enviar.",
+        };
+      }
+
+      if (result.success) {
+        const saved = result.conversation;
+        setConversations((prev) =>
+          sortConversationsByRecency(
+            prev.map((c) => (c.id === conversationId ? saved : c))
+          )
+        );
+        return;
+      }
+
+      // Reconciliar: quitar el mensaje optimista y propagar el error.
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conversationId
+            ? {
+                ...c,
+                messages: c.messages.filter((m) => m.id !== optimisticId),
+                lastMessage:
+                  c.messages.filter((m) => m.id !== optimisticId).at(-1)
+                    ?.content ?? c.lastMessage,
+              }
+            : c
+        )
+      );
+      throw new Error(result.error);
+    },
+    []
+  );
+
   const syncConversationTagForCall = useCallback(
     async (call: ClosingCall | undefined, tag: ConversationTagId) => {
       if (!call) return;
@@ -580,6 +676,8 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       salesMetricsLoading,
       setConversationTag,
       setConversationTagByLeadName,
+      markConversationRead,
+      sendConversationMessage,
       closingCalls,
       closingCallsLoading,
       updateClosingCall,
@@ -606,6 +704,8 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       salesMetricsLoading,
       setConversationTag,
       setConversationTagByLeadName,
+      markConversationRead,
+      sendConversationMessage,
       closingCalls,
       closingCallsLoading,
       updateClosingCall,
