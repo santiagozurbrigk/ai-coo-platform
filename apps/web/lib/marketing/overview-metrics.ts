@@ -16,15 +16,60 @@ export type TopConvertingItem = {
   contentType: string | null;
 };
 
+export type OverviewMetricsContext = {
+  totalOrgBookings?: number;
+  followers?: number;
+  newFollowers?: number;
+};
+
 function interactions(asset: ContentAssetView): number {
   return asset.likes + asset.comments + asset.shares + asset.saves;
 }
 
+function trendPct(current: number, previous: number): number {
+  if (previous <= 0) return current > 0 ? 100 : 0;
+  return Math.round(((current - previous) / previous) * 1000) / 10;
+}
+
+function isInDaysRange(iso: string | null, minDaysAgo: number, maxDaysAgo: number): boolean {
+  if (!iso) return false;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = Date.now();
+  const ageMs = now - date.getTime();
+  const minMs = minDaysAgo * 24 * 60 * 60 * 1000;
+  const maxMs = maxDaysAgo * 24 * 60 * 60 * 1000;
+  return ageMs >= minMs && ageMs < maxMs;
+}
+
+function periodTotals(assets: ContentAssetView[], minDaysAgo: number, maxDaysAgo: number) {
+  let reach = 0;
+  let interactionSum = 0;
+  let storyReplies = 0;
+  let comments = 0;
+  let views = 0;
+
+  for (const asset of assets) {
+    if (!isInDaysRange(asset.publishedAt, minDaysAgo, maxDaysAgo)) continue;
+    reach += asset.reach;
+    interactionSum += interactions(asset);
+    storyReplies += asset.storyReplies;
+    comments += asset.comments;
+    views += asset.views || asset.reach;
+  }
+
+  return { reach, interactionSum, storyReplies, comments, views };
+}
+
 export function buildOverviewMetricsFromAssets(
-  assets: ContentAssetView[]
+  assets: ContentAssetView[],
+  context: OverviewMetricsContext = {}
 ): MarketingOverviewMetrics {
-  const totalReach = assets.reduce((sum, a) => sum + a.reach, 0);
-  const totalInteractions = assets.reduce((sum, a) => sum + interactions(a), 0);
+  const recent = periodTotals(assets, 0, 30);
+  const previous = periodTotals(assets, 30, 60);
+
+  const totalReach = recent.reach;
+  const totalInteractions = recent.interactionSum;
   const engagementRatePct =
     totalReach > 0
       ? Math.round((totalInteractions / totalReach) * 1000) / 10
@@ -48,23 +93,47 @@ export function buildOverviewMetricsFromAssets(
     0
   );
 
+  const totalOrgBookings = context.totalOrgBookings ?? 0;
+  const bookingsInfluencedPct =
+    totalOrgBookings > 0
+      ? Math.round((bookingsInfluenced / totalOrgBookings) * 1000) / 10
+      : bookingsInfluenced > 0
+        ? 100
+        : 0;
+
+  const followers = context.followers ?? 0;
+  const newFollowers = context.newFollowers ?? 0;
+  const viewsToFollowersRate =
+    recent.views > 0 && newFollowers > 0
+      ? Math.round((newFollowers / recent.views) * 10000) / 100
+      : 0;
+
   return {
     totalReach,
-    reachTrendPct: 0,
+    reachTrendPct: trendPct(recent.reach, previous.reach),
     totalInteractions,
     engagementRatePct,
-    interactionsTrendPct: 0,
+    interactionsTrendPct: trendPct(
+      recent.interactionSum,
+      previous.interactionSum
+    ),
     contentPublished: assets.length,
     reelsCount,
     postsCount,
     storiesCount,
     conversationsGenerated,
     bookingsInfluenced,
-    bookingsInfluencedPct: 0,
+    bookingsInfluencedPct,
     salesInfluenced,
     revenueInfluenced,
-    followers: 0,
-    newFollowers: 0,
+    followers,
+    newFollowers,
+    storyReplies: recent.storyReplies,
+    storyRepliesTrendPct: trendPct(recent.storyReplies, previous.storyReplies),
+    commentsTotal: recent.comments,
+    commentsTrendPct: trendPct(recent.comments, previous.comments),
+    viewsToFollowersRate,
+    profileGrowthTrendPct: trendPct(newFollowers, Math.max(followers - newFollowers, 0)),
   };
 }
 

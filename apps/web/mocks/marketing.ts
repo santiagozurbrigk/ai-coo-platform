@@ -26,6 +26,12 @@ export const mockMarketingOverview: MarketingOverviewMetrics = {
   revenueInfluenced: 57_000,
   followers: 24_800,
   newFollowers: 1_240,
+  storyReplies: 89,
+  storyRepliesTrendPct: 12.3,
+  commentsTotal: 1847,
+  commentsTrendPct: 5.2,
+  viewsToFollowersRate: 2.4,
+  profileGrowthTrendPct: 18.4,
 };
 
 export const mockReachTimeSeries: MarketingTimePoint[] = Array.from(

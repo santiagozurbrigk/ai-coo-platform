@@ -37,7 +37,7 @@ export function UTMPageContent({
               Métricas de atribución por video de YouTube.
             </p>
           </div>
-          <UTMTable links={links} />
+          <UTMTable links={links} onLinksChange={setLinks} />
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge, Button, GlassPanel } from "@ai-coo/ui";
 import { listFormsAction } from "@/app/forms/actions";
 import { FormSyncButton } from "@/components/marketing/form-sync-button";
+import { FormDisconnectButton } from "@/components/marketing/form-disconnect-button";
 import { paths } from "@/routes";
 
 export default async function MarketingFormsPage() {
@@ -45,13 +46,14 @@ export default async function MarketingFormsPage() {
                 </Badge>
               )}
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <FormSyncButton formId={form.id} />
               <Button asChild size="sm">
                 <Link href={paths.platform.marketing.formDetail(form.id)}>
                   Ver métricas
                 </Link>
               </Button>
+              <FormDisconnectButton formId={form.id} />
             </div>
           </GlassPanel>
         ))}

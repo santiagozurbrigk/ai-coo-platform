@@ -12,7 +12,10 @@ import {
   type SalesContentRankView,
 } from "@/lib/marketing/content-sales-rank";
 import { getClosedBuyerJourneys } from "@/lib/marketing/closed-buyer-journeys";
-import type { ClosedBuyerJourney } from "@/types/marketing-insights";
+import { recomputeContentAssetAttribution } from "@/lib/marketing/content-attribution";
+import { analyzeContentSalesPatterns } from "@/lib/marketing/analyze-content-patterns";
+import { getSocialAudienceStats } from "@/lib/marketing/social-audience";
+import type { ClosedBuyerJourney, MarketingAiInsight } from "@/types/marketing-insights";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import type { ContentLabel } from "@/lib/content/label-content";
@@ -205,12 +208,29 @@ export type MarketingOverviewContext = {
     totalRevenue: number;
     totalClicks: number;
   };
+  socialAudience: {
+    followers: number;
+    newFollowers: number;
+  };
 };
 
 export async function getMarketingOverviewContextAction(): Promise<MarketingOverviewContext> {
-  const [assets, utmLinks] = await Promise.all([
+  const organizationId = await requireOrganizationId();
+
+  await recomputeContentAssetAttribution(organizationId).catch((err) => {
+    console.error("[getMarketingOverviewContext] recompute attribution:", err);
+  });
+
+  const admin = createAdminClient();
+  const [assets, utmLinks, socialAudience, bookingsCount] = await Promise.all([
     listContentAssetsAction(),
     getUTMLinksAction(),
+    getSocialAudienceStats(organizationId),
+    admin
+      .from("closing_calls")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", organizationId)
+      .then(({ count }) => count ?? 0),
   ]);
 
   const utmSummary = utmLinks.reduce(
@@ -223,6 +243,8 @@ export async function getMarketingOverviewContextAction(): Promise<MarketingOver
     { totalBookings: 0, totalSales: 0, totalRevenue: 0, totalClicks: 0 }
   );
 
+  const totalBookings = Math.max(utmSummary.totalBookings, bookingsCount);
+
   const hasUtmAttributions =
     utmSummary.totalBookings > 0 ||
     utmSummary.totalSales > 0 ||
@@ -233,7 +255,8 @@ export async function getMarketingOverviewContextAction(): Promise<MarketingOver
     hasUtmAttributions,
     assets,
     utmLinks,
-    utmSummary,
+    utmSummary: { ...utmSummary, totalBookings },
+    socialAudience,
   };
 }
 
@@ -515,6 +538,129 @@ export async function createUTMLinkAction(data: {
   });
 }
 
+export async function updateUTMLinkAction(
+  id: string,
+  data: {
+    youtube_video_id?: string;
+    youtube_video_title?: string;
+    utm_campaign?: string;
+    utm_content?: string;
+    instagram_username?: string;
+    manychat_page_id?: string;
+  }
+): Promise<MutationResult<UTMLinkRow>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const { data: existing, error: readError } = await supabase
+      .from("utm_links")
+      .select("*")
+      .eq("id", id)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (readError || !existing) {
+      throw new Error("UTM no encontrado.");
+    }
+
+    const campaign =
+      data.utm_campaign?.trim() ||
+      (existing.utm_campaign as string) ||
+      "";
+
+    if (!campaign) {
+      throw new Error("La campaña UTM es obligatoria.");
+    }
+
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("website_url")
+      .eq("id", organizationId)
+      .maybeSingle();
+
+    const baseUrl = resolveUtmBaseUrl(org?.website_url ?? null);
+    const utmContent =
+      data.utm_content !== undefined
+        ? data.utm_content || null
+        : (existing.utm_content as string | null);
+    const full_url = buildLandingUtmUrl(campaign, utmContent ?? undefined, baseUrl);
+
+    const instagramUsername = data.instagram_username
+      ? normalizeInstagramUsername(data.instagram_username)
+      : (existing.instagram_username as string | null);
+
+    const { ref: manychat_ref, url: manychat_url } = buildManychatUrl({
+      utmCampaign: campaign,
+      instagramUsername,
+      manychatPageId:
+        data.manychat_page_id?.trim() ||
+        (existing.manychat_page_id as string | null),
+    });
+    const link_type = resolveUtmLinkType(manychat_url);
+
+    const youtubeVideoId =
+      data.youtube_video_id !== undefined
+        ? await resolveYoutubeVideoExternalId(
+            supabase,
+            organizationId,
+            data.youtube_video_id
+          )
+        : (existing.youtube_video_id as string | null);
+
+    const { data: updated, error } = await supabase
+      .from("utm_links")
+      .update({
+        youtube_video_id: youtubeVideoId ?? null,
+        youtube_video_title:
+          data.youtube_video_title !== undefined
+            ? data.youtube_video_title ?? null
+            : (existing.youtube_video_title as string | null),
+        utm_campaign: campaign,
+        utm_content: utmContent,
+        full_url,
+        manychat_ref,
+        manychat_url,
+        instagram_username: instagramUsername,
+        manychat_page_id:
+          data.manychat_page_id?.trim() ||
+          (existing.manychat_page_id as string | null),
+        link_type,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("organization_id", organizationId)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === "23505") {
+        throw new Error("Ya existe un UTM con esa campaña.");
+      }
+      throw new Error(error.message);
+    }
+
+    revalidatePath(paths.platform.marketing.utms);
+    return rowToUTMLink(updated as Record<string, unknown>);
+  });
+}
+
+export async function deleteUTMLinkAction(id: string): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+
+    const { error } = await admin
+      .from("utm_links")
+      .delete()
+      .eq("id", id)
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+    revalidatePath(paths.platform.marketing.utms);
+  });
+}
+
 export async function getOrganizationWebsiteAction(): Promise<string | null> {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
@@ -708,6 +854,59 @@ export async function getClosedBuyerJourneysAction(): Promise<
     return await getClosedBuyerJourneys(organizationId);
   } catch (error) {
     console.error("[getClosedBuyerJourneys]", error);
+    return [];
+  }
+}
+
+export async function getContentPatternsAnalysisAction(): Promise<
+  MarketingAiInsight[]
+> {
+  if (!isSupabaseConfigured()) return [];
+  const organizationId = await tryRequireOrganizationId();
+  if (!organizationId) return [];
+
+  try {
+    const [rank, journeys, assets] = await Promise.all([
+      getSalesContentRank(organizationId),
+      getClosedBuyerJourneys(organizationId),
+      listContentAssetsAction(),
+    ]);
+
+    if (rank.length === 0 && journeys.length === 0) return [];
+
+    const rankSummary = rank
+      .map(
+        (r) =>
+          `- ${r.title} (${r.type}): ${r.salesCount} ventas, $${r.revenue}`
+      )
+      .join("\n");
+
+    const journeysSummary = journeys
+      .slice(0, 8)
+      .map(
+        (j) =>
+          `${j.leadName}: ${j.steps.map((s) => s.label).join(" → ")} ($${j.closedAmount})`
+      )
+      .join("\n");
+
+    const assetsSummary = assets
+      .slice(0, 20)
+      .map(
+        (a) =>
+          `- ${a.title} [${a.contentType ?? "?"}] label=${a.effectiveLabel ?? "—"} conv=${a.conversationsGenerated} ventas=${a.salesInfluenced}`
+      )
+      .join("\n");
+
+    const insights = await analyzeContentSalesPatterns({
+      organizationId,
+      rankSummary: rankSummary || "Sin ranking todavía",
+      journeysSummary: journeysSummary || "Sin journeys todavía",
+      assetsSummary: assetsSummary || "Sin contenido importado",
+    });
+
+    return insights ?? [];
+  } catch (error) {
+    console.error("[getContentPatternsAnalysis]", error);
     return [];
   }
 }

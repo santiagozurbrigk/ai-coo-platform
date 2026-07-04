@@ -81,6 +81,30 @@ export function MarketingMetricsSections({
       ? Math.round((m.salesInfluenced / m.bookingsInfluenced) * 100)
       : 0;
 
+  const storyReplies = metricsProp
+    ? { value: m.storyReplies, trend: m.storyRepliesTrendPct }
+    : extra.storyReplies;
+  const totalComments = metricsProp
+    ? { value: m.commentsTotal, trend: m.commentsTrendPct }
+    : extra.totalComments;
+  const profileGrowth = metricsProp
+    ? {
+        value: m.newFollowers,
+        trend: m.profileGrowthTrendPct,
+        label: "Nuevos seguidores",
+      }
+    : extra.profileGrowth;
+  const viewsToFollowers = metricsProp
+    ? { value: m.viewsToFollowersRate, trend: m.profileGrowthTrendPct }
+    : extra.viewsToFollowersRate;
+
+  const showEngagement =
+    !metricsProp ||
+    storyReplies.value > 0 ||
+    totalComments.value > 0 ||
+    profileGrowth.value > 0 ||
+    m.followers > 0;
+
   return (
     <div className="space-y-6">
       <section>
@@ -123,38 +147,38 @@ export function MarketingMetricsSections({
         </MetricBand>
       </section>
 
-      {!metricsProp ? (
+      {showEngagement ? (
         <section>
           <SectionHeader title="Engagement" variant="uppercase" />
           <MetricBand glass>
             <MetricStat
               title="Respuestas a historias"
-              value={formatNum(extra.storyReplies.value)}
+              value={formatNum(storyReplies.value)}
               subtitle="Últimos 30 días"
-              trendValue={formatTrend(extra.storyReplies.trend)}
-              trend={trendFromFormatted(formatTrend(extra.storyReplies.trend))}
+              trendValue={formatTrend(storyReplies.trend)}
+              trend={trendFromFormatted(formatTrend(storyReplies.trend))}
               sparklinePreset="growth"
               sparklineColor={ACCENT.engagement}
             />
             <MetricStat
               title="Comentarios totales"
-              value={formatNum(extra.totalComments.value)}
+              value={formatNum(totalComments.value)}
               subtitle="Últimos 30 días"
-              trendValue={formatTrend(extra.totalComments.trend)}
-              trend={trendFromFormatted(formatTrend(extra.totalComments.trend))}
+              trendValue={formatTrend(totalComments.trend)}
+              trend={trendFromFormatted(formatTrend(totalComments.trend))}
               sparklinePreset="comments"
               sparklineColor={ACCENT.engagement}
             />
             <MetricStat
               title="Crecimiento del perfil"
-              value={`+${formatNum(extra.profileGrowth.value)}`}
-              subtitle={extra.profileGrowth.label ?? "Nuevos seguidores"}
-              trendValue={formatTrend(extra.profileGrowth.trend)}
-              trend={trendFromFormatted(formatTrend(extra.profileGrowth.trend))}
+              value={`+${formatNum(profileGrowth.value)}`}
+              subtitle={profileGrowth.label ?? "Nuevos seguidores"}
+              trendValue={formatTrend(profileGrowth.trend)}
+              trend={trendFromFormatted(formatTrend(profileGrowth.trend))}
             >
               <RateBar
                 label="Views → Seguidores"
-                value={extra.viewsToFollowersRate.value}
+                value={viewsToFollowers.value}
                 color={ACCENT.engagement}
               />
             </MetricStat>

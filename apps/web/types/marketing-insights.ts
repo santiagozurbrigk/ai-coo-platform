@@ -55,6 +55,12 @@ export type MarketingOverviewMetrics = {
   revenueInfluenced: number;
   followers: number;
   newFollowers: number;
+  storyReplies: number;
+  storyRepliesTrendPct: number;
+  commentsTotal: number;
+  commentsTrendPct: number;
+  viewsToFollowersRate: number;
+  profileGrowthTrendPct: number;
 };
 
 export type MarketingTimePoint = {

@@ -10,7 +10,7 @@ export async function syncYoutubeChannelAndVideos(
   accessToken: string
 ): Promise<void> {
   const channelRes = await fetch(
-    "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true",
+    "https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true",
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   const channelData = (await channelRes.json()) as {
@@ -20,17 +20,29 @@ export async function syncYoutubeChannelAndVideos(
         title?: string;
         thumbnails?: { default?: { url?: string } };
       };
+      statistics?: { subscriberCount?: string };
     }[];
   };
   const channel = channelData.items?.[0];
 
   const admin = createAdminClient();
+
+  const newSubCount = Number(channel?.statistics?.subscriberCount ?? 0);
+  const { data: prevYt } = await admin
+    .from("youtube_integrations")
+    .select("subscriber_count")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  const previousSubs = Number(prevYt?.subscriber_count ?? newSubCount);
+
   await admin
     .from("youtube_integrations")
     .update({
       channel_id: channel?.id ?? null,
       channel_name: channel?.snippet?.title ?? null,
       channel_thumbnail: channel?.snippet?.thumbnails?.default?.url ?? null,
+      subscriber_count: newSubCount || null,
+      subscriber_delta: Math.max(0, newSubCount - previousSubs),
       last_sync_at: new Date().toISOString(),
     })
     .eq("organization_id", organizationId);

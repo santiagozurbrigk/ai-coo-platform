@@ -225,6 +225,33 @@ export async function syncFormAction(
   });
 }
 
+export async function disconnectFormAction(formId: string): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+
+    const { data: form } = await admin
+      .from("forms")
+      .select("id")
+      .eq("id", formId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (!form) throw new Error("Formulario no encontrado");
+
+    const { error } = await admin
+      .from("forms")
+      .delete()
+      .eq("id", formId)
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath(paths.platform.marketing.forms);
+    revalidatePath(paths.platform.integrations);
+  });
+}
+
 export async function getGoogleFormsIntegrationStatusAction(): Promise<{
   connected: boolean;
   lastSyncAt: string | null;

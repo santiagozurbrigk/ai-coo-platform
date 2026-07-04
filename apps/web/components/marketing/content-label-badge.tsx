@@ -39,7 +39,22 @@ export function ContentLabelBadge({
   const [selected, setSelected] = useState<ContentLabel | null>(effective);
   const [pending, startTransition] = useTransition();
 
-  if (!effective && !aiLabel) return null;
+  if (!effective && !open) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setSelected(null);
+          setOpen(true);
+        }}
+        className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+      >
+        + Etiquetar
+      </button>
+    );
+  }
 
   function handleSave() {
     startTransition(async () => {

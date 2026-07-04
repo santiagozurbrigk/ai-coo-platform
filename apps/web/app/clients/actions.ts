@@ -13,6 +13,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { attributeSaleToUTM } from "@/lib/utm/attribute-booking";
+import { repairClosingConversationLinks } from "@/lib/conversations/repair-links";
 import {
   createClientSchema,
   firstZodError,
@@ -68,6 +69,10 @@ export async function createClientAction(input: unknown): Promise<Client> {
 
   const supabase = await createClient();
   const insertPayload = clientToInsertRow(parsed.data, organizationId);
+
+  if (parsed.data.closingCallId) {
+    await repairClosingConversationLinks(supabase, organizationId);
+  }
 
   const { data, error } = await supabase
     .from("clients")

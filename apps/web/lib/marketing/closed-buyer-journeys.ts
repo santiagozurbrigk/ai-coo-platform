@@ -1,3 +1,4 @@
+import { repairClosingConversationLinks } from "@/lib/conversations/repair-links";
 import { createClient } from "@/lib/supabase/server";
 import { getLeadJourney, type LeadJourneyStep } from "@/lib/sales/lead-journey";
 import type { ClosedBuyerJourney, JourneyStep } from "@/types/marketing-insights";
@@ -37,6 +38,8 @@ export async function getClosedBuyerJourneys(
   organizationId: string
 ): Promise<ClosedBuyerJourney[]> {
   const supabase = await createClient();
+
+  await repairClosingConversationLinks(supabase, organizationId);
 
   const { data: clients } = await supabase
     .from("clients")

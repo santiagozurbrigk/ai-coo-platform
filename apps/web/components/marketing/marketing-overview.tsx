@@ -49,11 +49,15 @@ export function MarketingOverview({
   distribution: DistributionData;
   overview: MarketingOverviewContext;
 }) {
-  const { hasContentAssets, hasUtmAttributions, assets, utmLinks, utmSummary } =
+  const { hasContentAssets, hasUtmAttributions, assets, utmLinks, utmSummary, socialAudience } =
     overview;
 
   const metrics = hasContentAssets
-    ? buildOverviewMetricsFromAssets(assets)
+    ? buildOverviewMetricsFromAssets(assets, {
+        totalOrgBookings: utmSummary.totalBookings,
+        followers: socialAudience.followers,
+        newFollowers: socialAudience.newFollowers,
+      })
     : null;
   const reachSeries = hasContentAssets
     ? buildReachTimeSeriesFromAssets(assets)

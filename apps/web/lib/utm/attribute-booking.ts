@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { incrementContentAssetFromUtm } from "@/lib/marketing/content-attribution";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 type LeadCaptureMatch = {
@@ -134,6 +135,15 @@ export async function attributeBookingToUTM({
   console.log(
     `[UTM Attribution] Booking atribuido al UTM ${capture.utm_campaign ?? capture.utm_link_id}`
   );
+
+  await incrementContentAssetFromUtm(
+    organizationId,
+    capture.utm_link_id,
+    "bookings_influenced"
+  ).catch((err) => {
+    console.error("[UTM Attribution] content asset booking:", err);
+  });
+
   return capture.utm_link_id;
 }
 
@@ -247,4 +257,23 @@ export async function attributeSaleToUTM({
   console.log(
     `[UTM Attribution] Venta de $${revenueAmount} atribuida al UTM ${utmLinkId}`
   );
+
+  await incrementContentAssetFromUtm(
+    organizationId,
+    utmLinkId,
+    "sales_influenced"
+  ).catch((err) => {
+    console.error("[UTM Attribution] content asset sale count:", err);
+  });
+
+  if (revenueAmount > 0) {
+    await incrementContentAssetFromUtm(
+      organizationId,
+      utmLinkId,
+      "revenue_influenced",
+      revenueAmount
+    ).catch((err) => {
+      console.error("[UTM Attribution] content asset revenue:", err);
+    });
+  }
 }

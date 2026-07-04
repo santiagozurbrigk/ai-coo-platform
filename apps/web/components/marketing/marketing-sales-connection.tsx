@@ -6,6 +6,7 @@ import { ChevronDown, Sparkles, TrendingUp } from "lucide-react";
 import { Badge, cn, GlassPanel } from "@ai-coo/ui";
 import {
   getClosedBuyerJourneysAction,
+  getContentPatternsAnalysisAction,
   getSalesContentRankAction,
 } from "@/app/marketing/actions";
 import type { SalesContentRankView } from "@/lib/marketing/content-sales-rank";
@@ -13,18 +14,19 @@ import { paths } from "@/routes";
 import { ContentThumbnail } from "@/components/marketing-insights/content-thumbnail";
 import { CONTENT_TYPE_LABEL } from "@/components/marketing-insights/content-labels";
 import { EmptyState } from "@/components/shared/empty-state";
-import { useMarketingData } from "@/providers";
-import type { ClosedBuyerJourney } from "@/types/marketing-insights";
-import { InstagramEmptyState } from "./instagram-empty-state";
+import type {
+  ClosedBuyerJourney,
+  MarketingAiInsight,
+} from "@/types/marketing-insights";
 
 export function MarketingSalesConnection() {
-  const { instagramConnected } = useMarketingData();
   const [loading, setLoading] = useState(true);
+  const [patternsLoading, setPatternsLoading] = useState(true);
   const [rank, setRank] = useState<SalesContentRankView[]>([]);
   const [journeys, setJourneys] = useState<ClosedBuyerJourney[]>([]);
+  const [patterns, setPatterns] = useState<MarketingAiInsight[]>([]);
 
   useEffect(() => {
-    if (!instagramConnected) return;
     let active = true;
     setLoading(true);
     Promise.all([getSalesContentRankAction(), getClosedBuyerJourneysAction()])
@@ -44,9 +46,27 @@ export function MarketingSalesConnection() {
     return () => {
       active = false;
     };
-  }, [instagramConnected]);
+  }, []);
 
-  if (!instagramConnected) return <InstagramEmptyState />;
+  useEffect(() => {
+    let active = true;
+    setPatternsLoading(true);
+    getContentPatternsAnalysisAction()
+      .then((data) => {
+        if (!active) return;
+        setPatterns(data);
+      })
+      .catch(() => {
+        if (!active) return;
+        setPatterns([]);
+      })
+      .finally(() => {
+        if (active) setPatternsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const maxRevenue = rank.length > 0 ? Math.max(...rank.map((r) => r.revenue)) : 0;
 
@@ -58,7 +78,7 @@ export function MarketingSalesConnection() {
         </h2>
         <p className="mt-2 text-muted-foreground max-w-2xl">
           Visualizá el camino completo de cada cliente, desde el primer contenido que vio hasta
-          que compró.
+          que compró. Los datos vienen de UTMs, YouTube e Instagram según lo que tengas conectado.
         </p>
       </div>
 
@@ -70,7 +90,7 @@ export function MarketingSalesConnection() {
           <EmptyState
             icon={<TrendingUp className="h-8 w-8" />}
             title="Todavía no hay ventas atribuibles a contenido"
-            description="Cuando un cliente que cerró tenga su camino vinculado (contenido → conversación → venta), el contenido de origen va a aparecer rankeado acá."
+            description="Cuando un cliente cerrado tenga su camino vinculado (contenido → conversación → venta), el contenido de origen va a aparecer rankeado acá — con o sin UTM."
           />
         ) : (
           <div className="space-y-4">
@@ -127,7 +147,7 @@ export function MarketingSalesConnection() {
           <EmptyState
             icon={<TrendingUp className="h-8 w-8" />}
             title="Todavía no hay journeys reconstruibles"
-            description="Necesitás al menos un cliente cerrado con su conversación vinculada para reconstruir el camino completo del comprador."
+            description="Necesitás al menos un cliente cerrado con su conversación vinculada. Al cerrar una llamada, el vínculo se crea automáticamente por nombre o referencia."
           />
         ) : (
           <div className="space-y-3">
@@ -140,11 +160,29 @@ export function MarketingSalesConnection() {
 
       <section className="space-y-3">
         <h3 className="text-sm font-medium">Patrones de contenido</h3>
-        <EmptyState
-          icon={<Sparkles className="h-8 w-8" />}
-          title="Análisis de patrones — próximamente"
-          description="El análisis con IA de patrones de contenido (qué formatos y temas convierten mejor) llega en una próxima actualización."
-        />
+        {patternsLoading ? (
+          <SectionLoading />
+        ) : patterns.length === 0 ? (
+          <EmptyState
+            icon={<Sparkles className="h-8 w-8" />}
+            title="Sin patrones detectables todavía"
+            description="Cuando haya ventas atribuibles a contenido, la IA va a analizar qué formatos y etiquetas convierten mejor."
+          />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {patterns.map((insight) => (
+              <GlassPanel key={insight.id} className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium text-sm">{insight.title}</p>
+                  <Badge variant="secondary" className="shrink-0 text-[10px]">
+                    {Math.round(insight.confidence * 100)}%
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{insight.body}</p>
+              </GlassPanel>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

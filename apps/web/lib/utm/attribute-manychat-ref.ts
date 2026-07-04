@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { incrementContentAssetFromUtm } from "@/lib/marketing/content-attribution";
 
 /** Cruza ref de ManyChat con utm_links y atribuye la conversación. */
 export async function attributeConversationFromManyChatRef(
@@ -49,4 +50,12 @@ export async function attributeConversationFromManyChatRef(
   if (rpcError) {
     console.error("[utm] increment leads (manychat):", rpcError.message);
   }
+
+  await incrementContentAssetFromUtm(
+    organizationId,
+    utmLink.id,
+    "conversations_generated"
+  ).catch((err) => {
+    console.error("[utm] content asset conversation:", err);
+  });
 }

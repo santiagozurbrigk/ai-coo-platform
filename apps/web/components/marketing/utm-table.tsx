@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Globe, MessageCircle, Users } from "lucide-react";
-import { Button } from "@ai-coo/ui";
-import { getUTMFunnelAction } from "@/app/marketing/actions";
+import { Globe, MessageCircle, Pencil, Trash2, Users } from "lucide-react";
+import { Button, Input, Label } from "@ai-coo/ui";
+import {
+  deleteUTMLinkAction,
+  getUTMFunnelAction,
+  updateUTMLinkAction,
+} from "@/app/marketing/actions";
 import type { UTMFunnelData, UTMLinkRow } from "@/types/utm";
+import { UTM_CONTENT_OPTIONS } from "@/types/utm";
 import { UTMLeadsSheet } from "./utm-leads-sheet";
 
 function formatMoney(value: number): string {
@@ -15,12 +20,23 @@ function formatMoney(value: number): string {
   }).format(value);
 }
 
-export function UTMTable({ links }: { links: UTMLinkRow[] }) {
+export function UTMTable({
+  links,
+  onLinksChange,
+}: {
+  links: UTMLinkRow[];
+  onLinksChange?: (links: UTMLinkRow[]) => void;
+}) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeLink, setActiveLink] = useState<UTMLinkRow | null>(null);
   const [funnel, setFunnel] = useState<UTMFunnelData | null>(null);
   const [loadingLeads, startLoadLeads] = useTransition();
+  const [editingLink, setEditingLink] = useState<UTMLinkRow | null>(null);
+  const [editCampaign, setEditCampaign] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
   function copyToClipboard(url: string, key: string) {
     void navigator.clipboard.writeText(url);
@@ -37,6 +53,49 @@ export function UTMTable({ links }: { links: UTMLinkRow[] }) {
       const result = await getUTMFunnelAction(link.id);
       if (result.success) {
         setFunnel(result.data);
+      }
+    });
+  }
+
+  function openEdit(link: UTMLinkRow) {
+    setEditingLink(link);
+    setEditCampaign(link.utm_campaign);
+    setEditContent(link.utm_content ?? "");
+    setEditError(null);
+  }
+
+  function handleSaveEdit() {
+    if (!editingLink) return;
+    setEditError(null);
+    startTransition(async () => {
+      const res = await updateUTMLinkAction(editingLink.id, {
+        utm_campaign: editCampaign,
+        utm_content: editContent || undefined,
+      });
+      if (!res.success) {
+        setEditError(res.error);
+        return;
+      }
+      const updated = res.data;
+      onLinksChange?.(
+        links.map((l) => (l.id === updated.id ? updated : l))
+      );
+      setEditingLink(null);
+    });
+  }
+
+  function handleDelete(link: UTMLinkRow) {
+    if (
+      !window.confirm(
+        `¿Eliminar el UTM "${link.utm_campaign}"? Las atribuciones históricas también se borrarán.`
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const res = await deleteUTMLinkAction(link.id);
+      if (res.success) {
+        onLinksChange?.(links.filter((l) => l.id !== link.id));
       }
     });
   }
@@ -139,7 +198,7 @@ export function UTMTable({ links }: { links: UTMLinkRow[] }) {
                     ) : null}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-1">
                       <Button
                         type="button"
                         variant="ghost"
@@ -147,7 +206,25 @@ export function UTMTable({ links }: { links: UTMLinkRow[] }) {
                         onClick={() => openLeads(link)}
                       >
                         <Users className="h-3.5 w-3.5" />
-                        Ver leads
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEdit(link)}
+                        disabled={pending}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => handleDelete(link)}
+                        disabled={pending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </td>
@@ -157,6 +234,61 @@ export function UTMTable({ links }: { links: UTMLinkRow[] }) {
           </table>
         </div>
       </div>
+
+      {editingLink ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-lg space-y-4">
+            <h3 className="font-medium">Editar UTM</h3>
+            <p className="text-xs text-muted-foreground truncate">
+              {editingLink.youtube_video_title ?? editingLink.utm_campaign}
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="edit-campaign">Campaña</Label>
+              <Input
+                id="edit-campaign"
+                value={editCampaign}
+                onChange={(e) => setEditCampaign(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-content">Contenido (utm_content)</Label>
+              <select
+                id="edit-content"
+                className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+              >
+                <option value="">—</option>
+                {UTM_CONTENT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {editError ? (
+              <p className="text-sm text-destructive">{editError}</p>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingLink(null)}
+                disabled={pending}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveEdit}
+                disabled={pending || !editCampaign.trim()}
+              >
+                {pending ? "Guardando…" : "Guardar"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <UTMLeadsSheet
         open={sheetOpen}

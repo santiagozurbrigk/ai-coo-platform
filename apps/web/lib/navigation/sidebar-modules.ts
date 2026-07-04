@@ -36,6 +36,7 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           href: paths.platform.marketing.salesConnection,
         },
         { label: "Formularios", href: paths.platform.marketing.forms },
+        { label: "UTMs", href: paths.platform.marketing.utms },
       ],
     },
     ventas: {
