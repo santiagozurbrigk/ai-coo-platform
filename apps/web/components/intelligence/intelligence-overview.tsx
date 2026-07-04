@@ -5,7 +5,7 @@ import { FlowCta } from "@/components/shared/flow-cta";
 import { Panel } from "@/components/shared/panel";
 import { Text } from "@ai-coo/ui";
 import { es } from "@/lib/locale/es";
-import { flowLinks } from "@/lib/navigation/flow-links";
+import { resolveOpportunityLink, resolveRecommendationLink, resolveRiskLink } from "@/lib/navigation/resolve-flow-link";
 import type {
   IntelligenceBottleneck,
   IntelligenceInsight,
@@ -110,7 +110,7 @@ export function IntelligenceOverview({
                 <p className="font-medium text-sm">{o.title}</p>
                 <p className="mt-2 text-sm text-muted-foreground">{o.potential}</p>
                 <FlowCta
-                  href={flowLinks.opportunity(o.id)}
+                  href={resolveOpportunityLink(o)}
                   label={es.common.takeAction}
                 />
               </Panel>

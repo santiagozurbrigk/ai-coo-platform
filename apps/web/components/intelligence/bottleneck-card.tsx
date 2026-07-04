@@ -1,6 +1,6 @@
 import { FlowCta } from "@/components/shared/flow-cta";
 import { es } from "@/lib/locale/es";
-import { flowLinks } from "@/lib/navigation/flow-links";
+import { resolveBottleneckLink } from "@/lib/navigation/resolve-flow-link";
 import { Panel } from "@/components/shared/panel";
 import type { IntelligenceBottleneck } from "@/types/intelligence";
 
@@ -19,7 +19,7 @@ export function BottleneckCard({ item }: { item: IntelligenceBottleneck }) {
         </div>
       </dl>
       <FlowCta
-        href={flowLinks.bottleneck(item.id)}
+        href={resolveBottleneckLink(item)}
         label={es.common.takeAction}
       />
     </Panel>

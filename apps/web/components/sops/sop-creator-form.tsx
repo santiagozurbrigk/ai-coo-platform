@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, Loader2, Sparkles, Upload } from "lucide-react";
+import { AlertCircle, Loader2, Sparkles, Upload, X } from "lucide-react";
 import {
   Button,
   FormField,
@@ -11,10 +11,13 @@ import {
 } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
 import {
+  finalizeSopAttachmentAction,
   generateSOPAction,
+  prepareSopAttachmentUploadAction,
   saveSOPAction,
   type GeneratedSOPData,
 } from "@/app/sops/actions";
+import { SOP_ATTACHMENTS_ACCEPT } from "@/lib/sops/constants";
 import { useToast } from "@/providers/toast-provider";
 import { paths } from "@/routes";
 import type { GeneratedSop, SopDepartment } from "@/types/sops";
@@ -32,6 +35,11 @@ const DEPARTMENTS: { value: SopDepartment; label: string }[] = [
 ];
 
 type FormState = "idle" | "generating" | "preview" | "saving" | "error";
+
+type UploadedAttachment = {
+  id: string;
+  fileName: string;
+};
 
 function toGeneratedSop(data: GeneratedSOPData): GeneratedSop {
   return {
@@ -57,6 +65,58 @@ export function SopCreatorForm() {
   const [generated, setGenerated] = useState<GeneratedSop | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState(false);
+  const [attachments, setAttachments] = useState<UploadedAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const draftId = useMemo(() => crypto.randomUUID(), []);
+
+  const attachmentContext = attachments.length
+    ? `\n\nArchivos adjuntos de referencia:\n${attachments.map((a) => `- ${a.fileName}`).join("\n")}`
+    : "";
+
+  const handleUploadFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const prepared = await prepareSopAttachmentUploadAction({
+          draftId,
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type || "application/octet-stream",
+        });
+        if (!prepared.success) {
+          push({ title: "No se pudo subir", description: prepared.error });
+          continue;
+        }
+
+        const upload = await fetch(prepared.data.signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": prepared.data.contentType },
+          body: file,
+        });
+        if (!upload.ok) {
+          push({ title: "Error de subida", description: file.name });
+          continue;
+        }
+
+        const finalized = await finalizeSopAttachmentAction({
+          draftId,
+          storagePath: prepared.data.storagePath,
+          fileName: file.name,
+          mimeType: prepared.data.contentType,
+          fileSize: file.size,
+        });
+        if (finalized.success) {
+          setAttachments((prev) => [
+            ...prev,
+            { id: finalized.data.id, fileName: file.name },
+          ]);
+        }
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     const goalParam = searchParams.get("goal")?.trim();
@@ -83,7 +143,8 @@ export function SopCreatorForm() {
       goal: goal.trim(),
       department,
       expectedOutcome: expectedOutcome.trim(),
-      additionalContext: additionalContext.trim() || undefined,
+      additionalContext:
+        (additionalContext.trim() || "") + attachmentContext || undefined,
     });
 
     if (!result.success) {
@@ -95,7 +156,7 @@ export function SopCreatorForm() {
     setGenerated(toGeneratedSop(result.data));
     setFormState("preview");
     setEditingContent(false);
-  }, [canGenerate, goal, department, expectedOutcome, additionalContext]);
+  }, [canGenerate, goal, department, expectedOutcome, additionalContext, attachmentContext]);
 
   const handleSave = async (status: "draft" | "active") => {
     if (!generated) return;
@@ -106,12 +167,14 @@ export function SopCreatorForm() {
       goal: goal.trim(),
       department,
       expectedOutcome: expectedOutcome.trim() || undefined,
-      additionalContext: additionalContext.trim() || undefined,
+      additionalContext:
+        (additionalContext.trim() || "") + attachmentContext || undefined,
       content: generated.content,
       tags: generated.tags,
       estimatedDurationMinutes: generated.estimatedDurationMinutes,
       generatedByAI: true,
       status,
+      draftId: attachments.length > 0 ? draftId : undefined,
     });
 
     if (!result.success) {
@@ -190,15 +253,50 @@ export function SopCreatorForm() {
             />
           </FormField>
 
-          <FormField label="Adjuntos" description="Próximamente">
-            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 bg-muted/10 px-4 py-8 dark:border-white/[0.08]">
-              <Upload className="h-6 w-6 text-muted-foreground" />
-              <p className="text-center text-xs text-muted-foreground">
-                Subida de archivos disponible en una próxima versión
-              </p>
-              <Button type="button" variant="outline" size="sm" disabled>
-                Seleccionar archivos
-              </Button>
+          <FormField label="Adjuntos" description="PDF, Word, TXT, MD o imágenes (máx. 25 MB)">
+            <div className="space-y-3 rounded-xl border border-dashed border-border/60 bg-muted/10 px-4 py-4 dark:border-white/[0.08]">
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-primary hover:underline">
+                <Upload className="h-4 w-4" />
+                {uploading ? "Subiendo…" : "Seleccionar archivos"}
+                <input
+                  type="file"
+                  className="sr-only"
+                  multiple
+                  accept={SOP_ATTACHMENTS_ACCEPT}
+                  disabled={generating || saving || uploading}
+                  onChange={(e) => {
+                    void handleUploadFiles(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {attachments.length > 0 ? (
+                <ul className="space-y-1">
+                  {attachments.map((file) => (
+                    <li
+                      key={file.id}
+                      className="flex items-center justify-between gap-2 text-xs text-muted-foreground"
+                    >
+                      <span className="truncate">{file.fileName}</span>
+                      <button
+                        type="button"
+                        className="text-destructive hover:underline"
+                        onClick={() =>
+                          setAttachments((prev) =>
+                            prev.filter((a) => a.id !== file.id)
+                          )
+                        }
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Los archivos se usan como contexto para la IA al generar el SOP.
+                </p>
+              )}
             </div>
           </FormField>
 

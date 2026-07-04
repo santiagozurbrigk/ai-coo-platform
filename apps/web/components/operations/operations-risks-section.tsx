@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
-import { flowLinks } from "@/lib/navigation/flow-links";
+import { resolveRiskLink } from "@/lib/navigation/resolve-flow-link";
 import type { OperationsRisk, OperationsRiskLevel } from "@/types/operations-overview";
 
 const LEVEL_CONFIG: Record<
@@ -39,7 +39,7 @@ export function OperationsRisksSection({
           return (
             <li key={risk.id}>
               <Link
-                href={flowLinks.risk(risk.id)}
+                href={resolveRiskLink(`${risk.title} ${risk.description}`)}
                 className={cn(
                   "flex gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 transition-colors dark:border-glass dark:bg-glass dark:backdrop-blur-md",
                   config.border

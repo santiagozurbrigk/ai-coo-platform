@@ -118,6 +118,7 @@ export const saveSOPSchema = z.object({
     .optional(),
   generatedByAI: z.boolean().optional(),
   status: z.enum(["draft", "active"]).optional(),
+  draftId: z.string().trim().max(100).optional(),
 });
 
 export const updateSOPSchema = z.object({

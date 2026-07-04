@@ -1,5 +1,5 @@
 import { getWeeklyReportAction } from "@/app/operations/actions";
-import { requireOrganizationId } from "@/lib/auth/bootstrap";
+import { getCurrentProfile, requireOrganizationId } from "@/lib/auth/bootstrap";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { computeDepartmentStatuses } from "@/lib/executive-reports/compute-departments";
@@ -26,15 +26,20 @@ async function loadDepartments(): Promise<OperationsDepartment[]> {
 }
 
 export default async function OperationsOverviewPage() {
-  const [weeklyReport, departments] = await Promise.all([
+  const [weeklyReport, departments, profile] = await Promise.all([
     getWeeklyReportAction(),
     loadDepartments(),
+    getCurrentProfile(),
   ]);
 
   return (
     <div className="space-y-6">
       <PageHeader description="Salud operativa y capacidad del equipo" />
-      <OperationsOverview weeklyReport={weeklyReport} departments={departments} />
+      <OperationsOverview
+        weeklyReport={weeklyReport}
+        departments={departments}
+        isFounder={profile?.role === "founder"}
+      />
     </div>
   );
 }

@@ -18,7 +18,7 @@ import {
 } from "@/lib/operations/weekly-utils";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { firstZodError, saveWeeklyInputSchema } from "@/lib/validations";
+import { firstZodError, saveWeeklyInputSchema, uuidSchema } from "@/lib/validations";
 import { paths } from "@/routes";
 import type {
   Department,
@@ -89,6 +89,110 @@ export async function saveWeeklyInputAction(input: unknown): Promise<{ ok: true 
   revalidatePath(paths.platform.dashboard);
 
   return { ok: true };
+}
+
+const updateWeeklyInputSchema = saveWeeklyInputSchema;
+
+export async function updateWeeklyInputAction(
+  id: string,
+  input: unknown
+): Promise<{ ok: true }> {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase no configurado.");
+  }
+
+  const idParsed = uuidSchema.safeParse(id);
+  if (!idParsed.success) throw new Error(firstZodError(idParsed.error));
+
+  const parsed = updateWeeklyInputSchema.safeParse(input);
+  if (!parsed.success) throw new Error(firstZodError(parsed.error));
+
+  const { user, orgId, role, supabase } = await requireAuthContext();
+  const data = parsed.data;
+  const dbDepartment = UI_TO_DB_DEPARTMENT[data.department];
+
+  const { data: existing, error: readError } = await supabase
+    .from("weekly_inputs")
+    .select("id, submitted_by")
+    .eq("id", idParsed.data)
+    .eq("organization_id", orgId)
+    .maybeSingle();
+
+  if (readError || !existing) {
+    throw new Error("Input no encontrado.");
+  }
+
+  if (role !== "founder" && existing.submitted_by !== user.id) {
+    throw new Error("Solo podés editar tus propios inputs.");
+  }
+
+  const content = data.content?.trim() || null;
+  const rating = data.rating ?? null;
+
+  const { error } = await supabase
+    .from("weekly_inputs")
+    .update({
+      department: dbDepartment,
+      content,
+      rating,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", idParsed.data)
+    .eq("organization_id", orgId);
+
+  if (error) throw new Error(mapWeeklyError(error.message));
+
+  revalidatePath(paths.platform.operations.weeklyInputs);
+  revalidatePath(paths.platform.operations.teamInputs);
+  revalidatePath(paths.platform.operations.overview);
+
+  return { ok: true };
+}
+
+export async function deleteWeeklyInputAction(id: string): Promise<{ ok: true }> {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase no configurado.");
+  }
+
+  const idParsed = uuidSchema.safeParse(id);
+  if (!idParsed.success) throw new Error(firstZodError(idParsed.error));
+
+  const { user, orgId, role, supabase } = await requireAuthContext();
+
+  const { data: existing, error: readError } = await supabase
+    .from("weekly_inputs")
+    .select("id, submitted_by")
+    .eq("id", idParsed.data)
+    .eq("organization_id", orgId)
+    .maybeSingle();
+
+  if (readError || !existing) {
+    throw new Error("Input no encontrado.");
+  }
+
+  if (role !== "founder" && existing.submitted_by !== user.id) {
+    throw new Error("Solo podés eliminar tus propios inputs.");
+  }
+
+  const { error } = await supabase
+    .from("weekly_inputs")
+    .delete()
+    .eq("id", idParsed.data)
+    .eq("organization_id", orgId);
+
+  if (error) throw new Error(mapWeeklyError(error.message));
+
+  revalidatePath(paths.platform.operations.weeklyInputs);
+  revalidatePath(paths.platform.operations.teamInputs);
+  revalidatePath(paths.platform.operations.overview);
+
+  return { ok: true };
+}
+
+export async function getWeeklyInputsForWeekAction(
+  weekStart: string
+): Promise<WeeklyInputRow[]> {
+  return getWeeklyInputsAction(weekStart);
 }
 
 export async function getWeeklyInputsAction(

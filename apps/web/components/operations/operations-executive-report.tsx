@@ -1,7 +1,7 @@
 import { Sparkles } from "lucide-react";
 import { AiCard } from "@ai-coo/ui";
 import { FlowCta } from "@/components/shared/flow-cta";
-import { flowLinks } from "@/lib/navigation/flow-links";
+import { resolveExecutiveReportLink } from "@/lib/navigation/resolve-flow-link";
 
 export function OperationsExecutiveReport({
   paragraphs,
@@ -34,7 +34,7 @@ export function OperationsExecutiveReport({
       </AiCard>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
         <FlowCta
-          href={flowLinks.executiveReportLatest}
+          href={resolveExecutiveReportLink()}
           label="Ver reporte completo"
         />
         <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">

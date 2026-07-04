@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Panel } from "@/components/shared/panel";
-import { flowLinks } from "@/lib/navigation/flow-links";
+import { resolveMemoryLink } from "@/lib/navigation/resolve-flow-link";
 import type { MemoryChunk } from "@/types/intelligence";
 
 export function MemoryList({ chunks }: { chunks: MemoryChunk[] }) {
@@ -10,7 +10,7 @@ export function MemoryList({ chunks }: { chunks: MemoryChunk[] }) {
         {chunks.map((chunk) => (
           <li key={chunk.id}>
             <Link
-              href={flowLinks.memory(chunk.id)}
+              href={resolveMemoryLink(chunk)}
               className="flex items-center justify-between py-3 first:pt-0 last:pb-0 transition-colors hover:text-foreground"
             >
               <div>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { Badge } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
-import { flowLinks } from "@/lib/navigation/flow-links";
+import { resolveRecommendationLink } from "@/lib/navigation/resolve-flow-link";
 import type { DashboardAiRecommendation } from "@/types/dashboard";
 
 export function AiRecommendations({
@@ -19,7 +19,12 @@ export function AiRecommendations({
         {recommendations.map((rec) => (
           <Link
             key={rec.id}
-            href={flowLinks.recommendation(rec.id)}
+            href={resolveRecommendationLink({
+              id: rec.id,
+              priority: "medium",
+              title: rec.category,
+              action: rec.text,
+            })}
             className="group flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 transition-colors hover:border-violet-500/30 hover:bg-muted/35 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover"
           >
             <div className="flex items-center justify-between gap-2">

@@ -1,7 +1,7 @@
 import { AiCard } from "@ai-coo/ui";
 import { FlowCta } from "@/components/shared/flow-cta";
 import { es } from "@/lib/locale/es";
-import { flowLinks } from "@/lib/navigation/flow-links";
+import { resolveInsightLink } from "@/lib/navigation/resolve-flow-link";
 import type { IntelligenceInsight } from "@/types/intelligence";
 
 export function InsightCard({ insight }: { insight: IntelligenceInsight }) {
@@ -16,7 +16,7 @@ export function InsightCard({ insight }: { insight: IntelligenceInsight }) {
         {insight.body}
       </AiCard>
       <FlowCta
-        href={flowLinks.insight(insight.id)}
+        href={resolveInsightLink(insight)}
         label={es.common.takeAction}
       />
     </div>

@@ -1,7 +1,7 @@
 import { Badge } from "@ai-coo/ui";
 import { FlowCta } from "@/components/shared/flow-cta";
 import { es } from "@/lib/locale/es";
-import { flowLinks } from "@/lib/navigation/flow-links";
+import { resolveRecommendationLink } from "@/lib/navigation/resolve-flow-link";
 import { Panel } from "@/components/shared/panel";
 import type { IntelligenceRecommendation } from "@/types/intelligence";
 
@@ -23,7 +23,7 @@ export function RecommendationCard({ item }: { item: IntelligenceRecommendation 
       </div>
       <p className="mt-2 text-sm text-muted-foreground">{item.action}</p>
       <FlowCta
-        href={flowLinks.recommendation(item.id)}
+        href={resolveRecommendationLink(item)}
         label={es.common.takeAction}
       />
     </Panel>

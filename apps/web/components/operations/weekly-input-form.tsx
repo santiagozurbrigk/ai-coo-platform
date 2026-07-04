@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Circle, Loader2, Mic, Star } from "lucide-react";
+import { CheckCircle2, Circle, Loader2, Star } from "lucide-react";
 import {
   Button,
   FormField,
@@ -143,7 +143,6 @@ export function WeeklyInputForm({
     founder: { ...EMPTY_FIELDS },
   });
   const [submitting, setSubmitting] = useState(false);
-  const [recording, setRecording] = useState(false);
   const { push } = useToast();
   const useSupabase = isSupabaseConfigured();
 
@@ -219,15 +218,6 @@ export function WeeklyInputForm({
     }
   };
 
-  const handleMockRecording = () => {
-    setRecording(true);
-    push({
-      title: "Grabación iniciada",
-      description: "Mock — en producción se transcribirá automáticamente.",
-    });
-    window.setTimeout(() => setRecording(false), 2000);
-  };
-
   return (
     <Panel
       title="Inputs semanales"
@@ -290,22 +280,6 @@ export function WeeklyInputForm({
                   onChange={(rating) => updateField(dept.value, "rating", rating)}
                 />
               </FormField>
-
-              <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border/60 bg-muted/10 px-4 py-6 dark:border-white/[0.08]">
-                <Mic className="h-7 w-7 text-muted-foreground" />
-                <p className="text-center text-xs text-muted-foreground">
-                  Preferís hablar en lugar de escribir? Grabá una nota de voz.
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={recording}
-                  onClick={handleMockRecording}
-                >
-                  {recording ? "Grabando…" : "Grabar audio"}
-                </Button>
-              </div>
 
               <Button
                 type="button"

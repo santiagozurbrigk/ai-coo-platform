@@ -1,7 +1,7 @@
 import { AiCard } from "@ai-coo/ui";
 import { FlowCta } from "@/components/shared/flow-cta";
 import { es } from "@/lib/locale/es";
-import { flowLinks } from "@/lib/navigation/flow-links";
+import { resolveExecutiveReportLink } from "@/lib/navigation/resolve-flow-link";
 
 export function ExecutiveSummary({
   summary,
@@ -23,7 +23,7 @@ export function ExecutiveSummary({
         {summary}
       </AiCard>
       <FlowCta
-        href={detailHref ?? flowLinks.executiveReportLatest}
+        href={detailHref ?? resolveExecutiveReportLink()}
         label={detailLabel ?? es.common.viewDetail}
       />
     </div>

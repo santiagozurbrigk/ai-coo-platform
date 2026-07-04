@@ -1,6 +1,5 @@
-import { Brain } from "lucide-react";
 import { Text } from "@ai-coo/ui";
-import { EmptyState } from "@/components/shared/empty-state";
+import { IntelligenceEmptyState } from "@/components/intelligence/intelligence-empty-state";
 import { formatRelativeTime } from "@/lib/format";
 import { isIntelligenceSnapshotEmpty } from "@/lib/intelligence/utils";
 import type { IntelligenceSnapshotView } from "@/app/intelligence/actions";
@@ -8,17 +7,13 @@ import { IntelligenceOverview } from "./intelligence-overview";
 
 export function IntelligencePageContent({
   snapshot,
+  isFounder = false,
 }: {
   snapshot: IntelligenceSnapshotView;
+  isFounder?: boolean;
 }) {
   if (isIntelligenceSnapshotEmpty(snapshot)) {
-    return (
-      <EmptyState
-        icon={<Brain className="h-8 w-8" />}
-        title="Todavía no hay suficientes datos para generar insights"
-        description="El análisis cruzado con IA corre automáticamente dos veces al día. Volvé a revisar en las próximas horas cuando haya actividad en ventas, operaciones o finanzas."
-      />
-    );
+    return <IntelligenceEmptyState isFounder={isFounder} />;
   }
 
   return (

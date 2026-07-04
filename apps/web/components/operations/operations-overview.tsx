@@ -22,9 +22,11 @@ const fade = {
 export function OperationsOverview({
   weeklyReport = null,
   departments = [],
+  isFounder = false,
 }: {
   weeklyReport?: WeeklyReportRow | null;
   departments?: OperationsDepartment[];
+  isFounder?: boolean;
 }) {
   const hasReport =
     weeklyReport?.status === "ready" && Boolean(weeklyReport.executive_summary);
@@ -32,7 +34,7 @@ export function OperationsOverview({
   if (!hasReport) {
     return (
       <div className="space-y-8">
-        <OperationsReportEmptyState />
+        <OperationsReportEmptyState isFounder={isFounder} />
         {departments.length > 0 ? (
           <OperationsDepartmentsGrid departments={departments} />
         ) : null}

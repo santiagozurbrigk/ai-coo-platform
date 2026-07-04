@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Lightbulb } from "lucide-react";
 import { cn } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
-import { flowLinks } from "@/lib/navigation/flow-links";
+import { resolveRecommendationLink } from "@/lib/navigation/resolve-flow-link";
 import type {
   OperationsRecommendation,
   OperationsRiskLevel,
@@ -42,7 +42,12 @@ export function OperationsRecommendationsSection({
           return (
             <li key={rec.id}>
               <Link
-                href={flowLinks.recommendation(rec.id)}
+                href={resolveRecommendationLink({
+                  id: rec.id,
+                  priority: rec.priority,
+                  title: rec.title,
+                  action: rec.description,
+                })}
                 className="flex h-full flex-col gap-2 rounded-xl border border-border/60 bg-muted/20 p-4 transition-colors hover:border-violet-500/25 hover:bg-muted/35 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover"
               >
                 <div className="flex items-start justify-between gap-2">

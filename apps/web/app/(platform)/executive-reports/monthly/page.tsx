@@ -1,17 +1,20 @@
 import { CalendarRange } from "lucide-react";
+import { ExecutiveReportEmptyState } from "@/components/executive-reports/executive-report-empty-state";
 import { ReportDetail } from "@/components/executive-reports";
-import { EmptyState } from "@/components/shared/empty-state";
 import { getLatestExecutiveReportAction } from "@/app/executive-reports/actions";
+import { getCurrentProfile } from "@/lib/auth/bootstrap";
 
 export default async function ExecutiveReportsMonthlyPage() {
-  const report = await getLatestExecutiveReportAction("monthly");
+  const [report, profile] = await Promise.all([
+    getLatestExecutiveReportAction("monthly"),
+    getCurrentProfile(),
+  ]);
 
   if (!report) {
     return (
-      <EmptyState
-        icon={<CalendarRange className="h-8 w-8" />}
-        title="Todavía no hay reportes ejecutivos mensuales"
-        description="El reporte mensual se genera el día 1 de cada mes y analiza la tendencia sobre los reportes semanales reales del mes anterior."
+      <ExecutiveReportEmptyState
+        period="monthly"
+        isFounder={profile?.role === "founder"}
       />
     );
   }

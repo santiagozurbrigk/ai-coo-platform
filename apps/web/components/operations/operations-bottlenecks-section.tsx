@@ -2,7 +2,7 @@ import Link from "next/link";
 import { GitBranch } from "lucide-react";
 import { cn } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
-import { flowLinks } from "@/lib/navigation/flow-links";
+import { resolveBottleneckLink } from "@/lib/navigation/resolve-flow-link";
 import type {
   OperationsArea,
   OperationsBottleneck,
@@ -42,7 +42,12 @@ export function OperationsBottlenecksSection({
         {bottlenecks.map((item) => (
           <li key={item.id}>
             <Link
-              href={flowLinks.bottleneck(item.id)}
+              href={resolveBottleneckLink({
+                id: item.id,
+                area: AREA_LABELS[item.department],
+                impact: item.description,
+                frequency: IMPACT_LABELS[item.impact],
+              })}
               className="flex h-full flex-col gap-2 rounded-xl border border-border/60 bg-muted/20 p-4 transition-colors hover:border-violet-500/25 hover:bg-muted/35 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover"
             >
               <div className="flex items-start justify-between gap-2">

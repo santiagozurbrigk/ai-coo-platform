@@ -1,8 +1,18 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import { formatRelativeTime } from "@/lib/format";
 import type { TeamInput } from "@/types/operations";
 import { DepartmentBadge } from "./department-badge";
+import { WeeklyInputRowActions } from "./weekly-input-row-actions";
 
-export function TeamInputsList({ inputs }: { inputs: TeamInput[] }) {
+export function TeamInputsList({
+  inputs,
+}: {
+  inputs: TeamInput[];
+}) {
+  const router = useRouter();
+
   return (
     <ul className="space-y-3">
       {inputs.map((input) => (
@@ -16,10 +26,17 @@ export function TeamInputsList({ inputs }: { inputs: TeamInput[] }) {
               {formatRelativeTime(input.submittedAt)}
             </span>
           </div>
-          <p className="text-sm">{input.preview}</p>
+          <p className="text-sm whitespace-pre-wrap">{input.preview}</p>
           <p className="mt-1 text-2xs text-muted-foreground">
             {input.author} · {input.type}
           </p>
+          <WeeklyInputRowActions
+            inputId={input.id}
+            department={input.department}
+            content={input.preview}
+            rating={input.rating}
+            onChanged={() => router.refresh()}
+          />
         </li>
       ))}
     </ul>

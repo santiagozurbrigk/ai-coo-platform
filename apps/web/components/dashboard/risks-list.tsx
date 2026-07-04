@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { Panel } from "@/components/shared/panel";
 import { SeverityBadge } from "@/components/shared/severity-badge";
-import { flowLinks } from "@/lib/navigation/flow-links";
+import { resolveRiskLink } from "@/lib/navigation/resolve-flow-link";
 import type { DashboardRisk } from "@/types/dashboard";
 
 export function RisksList({ risks }: { risks: DashboardRisk[] }) {
@@ -12,7 +12,7 @@ export function RisksList({ risks }: { risks: DashboardRisk[] }) {
         {risks.map((risk) => (
           <li key={risk.id}>
             <Link
-              href={flowLinks.risk(risk.id)}
+              href={resolveRiskLink(`${risk.title} ${risk.description} ${risk.suggestedAction}`)}
               className="flex gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-3 transition-colors hover:border-red-500/25 hover:bg-muted/35 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover"
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-red-500/25 bg-red-500/10 text-red-400">

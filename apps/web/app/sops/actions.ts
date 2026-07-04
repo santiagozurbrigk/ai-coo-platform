@@ -9,6 +9,12 @@ import {
 import { callClaudeJson, AI_MODELS } from "@/lib/ai/anthropic";
 import { buildOrgContextText, getOrgContext, invalidateOrgContext } from "@/lib/ai/org-context";
 import { ingestDocument } from "@/lib/rag/ingest";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { SOP_ATTACHMENTS_BUCKET } from "@/lib/sops/constants";
+import {
+  isAllowedSopAttachment,
+  sanitizeFilename,
+} from "@/lib/sops/attachment-types";
 import { buildSOPGenerationPrompt } from "@/lib/sops/generate-sop-prompt";
 import {
   actionErrorMessage,
@@ -195,6 +201,14 @@ export async function saveSOPAction(
       }).catch((err) => console.error("[RAG] Error ingestando SOP:", err));
     }
 
+    if (data.draftId) {
+      await supabase
+        .from("sop_attachments")
+        .update({ sop_id: sop.id, draft_id: null })
+        .eq("organization_id", organizationId)
+        .eq("draft_id", data.draftId);
+    }
+
     revalidateSops();
     invalidateOrgContext(organizationId);
     return { id: sop.id };
@@ -377,4 +391,115 @@ export async function getSOPsAction(filters?: unknown) {
     console.warn("[getSOPsAction]", actionErrorMessage(error));
     return [];
   }
+}
+
+export async function prepareSopAttachmentUploadAction(input: {
+  draftId: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+}): Promise<
+  MutationResult<{ storagePath: string; signedUrl: string; contentType: string }>
+> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const allowed = isAllowedSopAttachment(
+      input.fileName,
+      input.mimeType,
+      input.fileSize
+    );
+    if (!allowed.ok) throw new Error(allowed.error);
+
+    const attachmentId = crypto.randomUUID();
+    const safeName = sanitizeFilename(input.fileName);
+    const storagePath = `${organizationId}/drafts/${input.draftId}/${attachmentId}-${safeName}`;
+
+    const admin = createAdminClient();
+    const { data, error } = await admin.storage
+      .from(SOP_ATTACHMENTS_BUCKET)
+      .createSignedUploadUrl(storagePath);
+
+    if (error || !data?.signedUrl) {
+      throw new Error(
+        error?.message ??
+          `No se pudo preparar la subida. ¿Existe el bucket "${SOP_ATTACHMENTS_BUCKET}"?`
+      );
+    }
+
+    return {
+      storagePath,
+      signedUrl: data.signedUrl,
+      contentType: allowed.mimeType,
+    };
+  });
+}
+
+export async function finalizeSopAttachmentAction(input: {
+  draftId: string;
+  storagePath: string;
+  fileName: string;
+  mimeType: string;
+  fileSize?: number;
+}): Promise<MutationResult<{ id: string }>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const profile = await getCurrentProfile();
+    const allowed = isAllowedSopAttachment(input.fileName, input.mimeType, input.fileSize);
+    if (!allowed.ok) throw new Error(allowed.error);
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("sop_attachments")
+      .insert({
+        organization_id: organizationId,
+        draft_id: input.draftId,
+        file_name: input.fileName,
+        storage_path: input.storagePath,
+        mime_type: allowed.mimeType,
+        file_size: input.fileSize ?? null,
+        uploaded_by: profile?.id ?? null,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      if (isMissingTableError(error.message)) {
+        throw new Error(
+          "Falta la tabla sop_attachments. Ejecutá supabase/migrations/20260719100000_sop_attachments.sql"
+        );
+      }
+      throw new Error(error.message);
+    }
+
+    return { id: data.id as string };
+  });
+}
+
+export async function deleteSopAttachmentAction(
+  attachmentId: string
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const admin = createAdminClient();
+
+    const { data: row } = await supabase
+      .from("sop_attachments")
+      .select("storage_path")
+      .eq("id", attachmentId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    const { error } = await supabase
+      .from("sop_attachments")
+      .delete()
+      .eq("id", attachmentId)
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+
+    if (row?.storage_path) {
+      await admin.storage.from(SOP_ATTACHMENTS_BUCKET).remove([row.storage_path]);
+    }
+  });
 }

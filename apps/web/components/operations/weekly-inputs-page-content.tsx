@@ -18,6 +18,7 @@ import { useToast } from "@/providers/toast-provider";
 import type { Department, WeeklyInputRow } from "@/types/operations";
 import { PageHeader } from "@/components/shared/page-header";
 import { WeeklyInputForm } from "./weekly-input-form";
+import { WeeklyInputsHistory } from "./weekly-inputs-history";
 import { WeeklyInputsList } from "./weekly-inputs-list";
 
 export function WeeklyInputsPageContent({
@@ -132,7 +133,14 @@ export function WeeklyInputsPageContent({
         onSaved={handleSaved}
       />
 
-      <WeeklyInputsList inputs={teamInputs} showEmptyState />
+      <WeeklyInputsList
+        inputs={teamInputs}
+        showEmptyState
+        editable
+        onChanged={handleSaved}
+      />
+
+      <WeeklyInputsHistory currentWeekStart={weekStart} />
 
       <p className="text-center text-xs text-muted-foreground">
         Ver reporte en{" "}
