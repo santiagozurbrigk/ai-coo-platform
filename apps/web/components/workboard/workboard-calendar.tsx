@@ -16,7 +16,7 @@ import {
   isSameMonth,
   toDateKey,
 } from "@/lib/workboard/calendar-grid";
-import { filterWorkboardTasks } from "@/lib/workboard/group-tasks";
+import { filterTasksByDoneVisibility, filterWorkboardTasks } from "@/lib/workboard/group-tasks";
 import { useWorkboard } from "@/providers/workboard-provider";
 import type { WorkboardTask } from "@/types/workboard";
 
@@ -26,18 +26,18 @@ export function WorkboardCalendar() {
   const { tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId, setSelectedTask } =
     useWorkboard();
   const [anchor, setAnchor] = useState(() => new Date());
+  const [showDoneTasks, setShowDoneTasks] = useState(false);
 
-  const filtered = useMemo(
-    () =>
-      filterWorkboardTasks(
-        tasks,
-        areaFilter,
-        sprintFilterId,
-        launchFilterId,
-        assigneeFilterId
-      ),
-    [tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId]
-  );
+  const filtered = useMemo(() => {
+    const base = filterWorkboardTasks(
+      tasks,
+      areaFilter,
+      sprintFilterId,
+      launchFilterId,
+      assigneeFilterId
+    );
+    return filterTasksByDoneVisibility(base, showDoneTasks);
+  }, [tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId, showDoneTasks]);
 
   const byDate = useMemo(() => groupTasksByDateKey(filtered), [filtered]);
   const cells = useMemo(() => buildMonthGrid(anchor), [anchor]);
@@ -73,18 +73,29 @@ export function WorkboardCalendar() {
         </Button>
       </div>
 
-      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-        {WORKBOARD_STATUSES.map((status) => (
-          <span key={status} className="flex items-center gap-1.5">
-            <span
-              className={cn(
-                "h-2 w-2 rounded-full",
-                STATUS_COLORS[status as TaskStatus].dot
-              )}
-            />
-            {STATUS_LABELS[status]}
-          </span>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+          {WORKBOARD_STATUSES.map((status) => (
+            <span key={status} className="flex items-center gap-1.5">
+              <span
+                className={cn(
+                  "h-2 w-2 rounded-full",
+                  STATUS_COLORS[status as TaskStatus].dot
+                )}
+              />
+              {STATUS_LABELS[status]}
+            </span>
+          ))}
+        </div>
+        <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-border"
+            checked={showDoneTasks}
+            onChange={(e) => setShowDoneTasks(e.target.checked)}
+          />
+          Mostrar tareas hechas
+        </label>
       </div>
 
       <div className="workboard-calendar-panel overflow-hidden rounded-xl border border-border">

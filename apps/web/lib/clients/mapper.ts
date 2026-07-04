@@ -1,5 +1,6 @@
 import type { Client, ClientInstallment } from "@/types/clients";
 import type { PaymentPlatform } from "@/types/closing";
+import { parseOfferedProductFromInsights } from "@/lib/clients/plan-utils";
 
 export type ClientRow = {
   id: string;
@@ -20,6 +21,7 @@ export type ClientRow = {
   closing_call_id: string | null;
   ai_insights: string[] | null;
   linked_calls: Client["linkedCalls"] | null;
+  offered_product: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -43,6 +45,9 @@ export function rowToClient(row: ClientRow): Client {
     closingCallId: row.closing_call_id ?? undefined,
     aiInsights: row.ai_insights ?? [],
     linkedCalls: row.linked_calls ?? [],
+    offeredProduct:
+      row.offered_product?.trim() ||
+      parseOfferedProductFromInsights(row.ai_insights ?? undefined),
   };
 }
 
@@ -68,6 +73,7 @@ export function clientToInsertRow(
     closing_call_id: client.closingCallId ?? null,
     ai_insights: client.aiInsights,
     linked_calls: client.linkedCalls,
+    offered_product: client.offeredProduct ?? null,
   };
 }
 
@@ -91,6 +97,9 @@ export function patchToUpdateRow(
   if (patch.closingCallId !== undefined) row.closing_call_id = patch.closingCallId ?? null;
   if (patch.aiInsights != null) row.ai_insights = patch.aiInsights;
   if (patch.linkedCalls != null) row.linked_calls = patch.linkedCalls;
+  if (patch.offeredProduct !== undefined) {
+    row.offered_product = patch.offeredProduct?.trim() || null;
+  }
   row.updated_at = new Date().toISOString();
   return row;
 }

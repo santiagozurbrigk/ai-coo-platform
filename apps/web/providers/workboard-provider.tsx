@@ -82,6 +82,7 @@ type WorkboardContextValue = {
   cancelComplete: () => void;
   upsertTaskInState: (task: WorkboardTask) => void;
   assignTaskToSprint: (taskId: string, sprintId: string | null) => Promise<void>;
+  kanbanDoneVisibleUntil: Record<string, number>;
 };
 
 const WorkboardContext = createContext<WorkboardContextValue | null>(null);
@@ -148,6 +149,31 @@ export function WorkboardProvider({
   const [pendingCompletePatch, setPendingCompletePatch] =
     useState<TaskUpdatePatch | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [kanbanDoneVisibleUntil, setKanbanDoneVisibleUntil] = useState<
+    Record<string, number>
+  >({});
+
+  const markKanbanDoneVisible = useCallback((taskId: string) => {
+    const until = Date.now() + 60_000;
+    setKanbanDoneVisibleUntil((prev) => ({ ...prev, [taskId]: until }));
+    window.setTimeout(() => {
+      setKanbanDoneVisibleUntil((prev) => {
+        if (prev[taskId] !== until) return prev;
+        const next = { ...prev };
+        delete next[taskId];
+        return next;
+      });
+    }, 60_000);
+  }, []);
+
+  const clearKanbanDoneVisible = useCallback((taskId: string) => {
+    setKanbanDoneVisibleUntil((prev) => {
+      if (!(taskId in prev)) return prev;
+      const next = { ...prev };
+      delete next[taskId];
+      return next;
+    });
+  }, []);
 
   const refreshSprints = useCallback(async () => {
     const list = await getSprintsAction();
@@ -170,6 +196,12 @@ export function WorkboardProvider({
       const prev = tasks.find((t) => t.id === taskId);
       if (!prev || prev.status === status) return;
 
+      if (status === "done") {
+        markKanbanDoneVisible(taskId);
+      } else if (prev.status === "done") {
+        clearKanbanDoneVisible(taskId);
+      }
+
       setTasks((current) =>
         current.map((t) => (t.id === taskId ? { ...t, status } : t))
       );
@@ -180,7 +212,7 @@ export function WorkboardProvider({
         if (prev) upsertTaskInState(prev);
       }
     },
-    [tasks, upsertTaskInState]
+    [tasks, upsertTaskInState, markKanbanDoneVisible, clearKanbanDoneVisible]
   );
 
   const finalizeComplete = useCallback(
@@ -205,6 +237,7 @@ export function WorkboardProvider({
             status: "done",
           });
           upsertTaskInState(updated);
+          markKanbanDoneVisible(pendingCompleteTask.id);
         } else {
           await performMove(pendingCompleteTask.id, "done");
         }
@@ -217,7 +250,7 @@ export function WorkboardProvider({
         setIsSaving(false);
       }
     },
-    [pendingCompleteTask, pendingCompletePatch, performMove, upsertTaskInState, refreshSprints]
+    [pendingCompleteTask, pendingCompletePatch, performMove, upsertTaskInState, refreshSprints, markKanbanDoneVisible]
   );
 
   const createTask = useCallback(
@@ -344,6 +377,7 @@ export function WorkboardProvider({
       cancelComplete,
       upsertTaskInState,
       assignTaskToSprint,
+      kanbanDoneVisibleUntil,
     }),
     [
       tasks,
@@ -369,6 +403,7 @@ export function WorkboardProvider({
       cancelComplete,
       upsertTaskInState,
       assignTaskToSprint,
+      kanbanDoneVisibleUntil,
     ]
   );
 

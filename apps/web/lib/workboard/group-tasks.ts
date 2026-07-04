@@ -74,6 +74,27 @@ export function filterTasksByAssignee(
   return tasks.filter((t) => t.assigneeId === assigneeFilterId);
 }
 
+export function filterTasksByDoneVisibility(
+  tasks: WorkboardTask[],
+  showDone: boolean
+): WorkboardTask[] {
+  if (showDone) return tasks;
+  return tasks.filter((t) => t.status !== "done");
+}
+
+/** Oculta tareas hechas en Kanban salvo las visibles temporalmente tras completarse. */
+export function filterKanbanDoneTasks(
+  tasks: WorkboardTask[],
+  visibleDoneUntil: Record<string, number>
+): WorkboardTask[] {
+  const now = Date.now();
+  return tasks.filter((task) => {
+    if (task.status !== "done") return true;
+    const until = visibleDoneUntil[task.id];
+    return until != null && now < until;
+  });
+}
+
 export function filterWorkboardTasks(
   tasks: WorkboardTask[],
   areaFilter: string,

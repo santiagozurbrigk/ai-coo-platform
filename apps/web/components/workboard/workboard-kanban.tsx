@@ -16,23 +16,29 @@ import {
   DropdownMenuTrigger,
 } from "@ai-coo/ui";
 import { TASK_AREA_LABELS } from "@/lib/workboard/constants";
-import { filterWorkboardTasks, groupTasksIntoColumns } from "@/lib/workboard/group-tasks";
+import { filterKanbanDoneTasks, filterWorkboardTasks, groupTasksIntoColumns } from "@/lib/workboard/group-tasks";
 import { getAreaClasses, getPriorityClasses, PRIORITY_LABELS } from "@/lib/workboard/styles";
 import { useWorkboard } from "@/providers/workboard-provider";
 import type { TaskStatus, WorkboardTask } from "@/types/workboard";
 
 export function WorkboardKanban() {
-  const { tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId, moveTask, deleteTask, setSelectedTask } =
+  const { tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId, moveTask, deleteTask, setSelectedTask, kanbanDoneVisibleUntil } =
     useWorkboard();
   const [draggedTask, setDraggedTask] = useState<{
     task: WorkboardTask;
     status: TaskStatus;
   } | null>(null);
 
-  const filtered = useMemo(
-    () => filterWorkboardTasks(tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId),
-    [tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId]
-  );
+  const filtered = useMemo(() => {
+    const base = filterWorkboardTasks(
+      tasks,
+      areaFilter,
+      sprintFilterId,
+      launchFilterId,
+      assigneeFilterId
+    );
+    return filterKanbanDoneTasks(base, kanbanDoneVisibleUntil);
+  }, [tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId, kanbanDoneVisibleUntil]);
   const columns = useMemo(() => groupTasksIntoColumns(filtered), [filtered]);
 
   const handleDragOver = (e: React.DragEvent) => {
