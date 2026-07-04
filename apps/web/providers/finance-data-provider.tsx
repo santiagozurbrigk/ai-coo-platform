@@ -13,9 +13,11 @@ import {
   createFixedExpenseAction,
   createPaymentPlatformAction,
   createSubscriptionAction,
+  createTeamCompensationAction,
   deleteFixedExpenseAction,
   deletePaymentPlatformAction,
   deleteSubscriptionAction,
+  deleteTeamCompensationAction,
   loadFinanceConfigAction,
   updateFixedExpenseAction,
   updatePaymentPlatformAction,
@@ -78,6 +80,10 @@ type FinanceDataContextValue = {
     id: string,
     patch: Partial<TeamCompensation>
   ) => Promise<string | undefined>;
+  addTeamCompensation: (
+    member: Omit<TeamCompensation, "id" | "estimatedThisMonth">
+  ) => Promise<string | undefined>;
+  removeTeamCompensation: (id: string) => Promise<string | undefined>;
   refreshFinanceConfig: () => Promise<void>;
 };
 
@@ -281,6 +287,36 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
     [refreshFinanceConfig, runFinanceMutation]
   );
 
+  const addTeamCompensation = useCallback(
+    async (member: Omit<TeamCompensation, "id" | "estimatedThisMonth">) => {
+      if (useSupabase) {
+        return runFinanceMutation(await createTeamCompensationAction(member));
+      }
+      setTeamCompensation((prev) => [
+        ...prev,
+        {
+          ...member,
+          id: `team-${Date.now()}`,
+          memberId: member.memberId || `member-${Date.now()}`,
+          estimatedThisMonth: 0,
+        },
+      ]);
+      return undefined;
+    },
+    [refreshFinanceConfig, runFinanceMutation]
+  );
+
+  const removeTeamCompensation = useCallback(
+    async (id: string) => {
+      if (useSupabase) {
+        return runFinanceMutation(await deleteTeamCompensationAction(id));
+      }
+      setTeamCompensation((prev) => prev.filter((t) => t.id !== id));
+      return undefined;
+    },
+    [refreshFinanceConfig, runFinanceMutation]
+  );
+
   const enrichedTeamCompensation = useMemo(
     () =>
       enrichTeamCompensationWithCommissions(teamCompensation, closingCalls),
@@ -352,6 +388,8 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       updateSubscription,
       removeSubscription,
       updateTeamCompensation,
+      addTeamCompensation,
+      removeTeamCompensation,
       refreshFinanceConfig,
     }),
     [
@@ -374,6 +412,8 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       updateSubscription,
       removeSubscription,
       updateTeamCompensation,
+      addTeamCompensation,
+      removeTeamCompensation,
       refreshFinanceConfig,
     ]
   );

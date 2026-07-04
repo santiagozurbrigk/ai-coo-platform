@@ -89,12 +89,6 @@ export {
 } from "./components/animated-number";
 export { Spotlight, type SpotlightProps } from "./components/spotlight";
 export {
-  OtcMascot,
-  type OtcMascotAssets,
-  type OtcMascotProps,
-  type OtcMascotState,
-} from "./components/otc-mascot";
-export {
   StaggerFade,
   StaggerFadeItem,
   type StaggerFadeProps,

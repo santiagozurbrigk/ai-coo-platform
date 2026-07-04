@@ -254,9 +254,11 @@ function SubscriptionsSection({
 }
 
 function TeamCompensationSection({ members }: { members: TeamCompensation[] }) {
-  const { updateTeamCompensation } = useFinanceData();
+  const { updateTeamCompensation, addTeamCompensation, removeTeamCompensation } =
+    useFinanceData();
   const { push } = useToast();
   const [editing, setEditing] = useState<TeamCompensation | null>(null);
+  const [adding, setAdding] = useState(false);
   const fixedTotal = members.reduce(
     (s, m) => s + (m.hasFixed ? m.fixedMonthly ?? 0 : 0),
     0
@@ -268,13 +270,25 @@ function TeamCompensationSection({ members }: { members: TeamCompensation[] }) {
 
   return (
     <section className="space-y-4">
-      <div>
-        <h3 className="text-sm font-medium">Gastos de equipo</h3>
-        <p className="text-xs text-muted-foreground mt-1">
-          Total costo equipo este mes: {formatMoney(fixedTotal + commTotal)} · Fijos:{" "}
-          {formatMoney(fixedTotal)} · Comisiones (desde deals cerrados):{" "}
-          {formatMoney(commTotal)}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-medium">Gastos de equipo</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Total costo equipo este mes: {formatMoney(fixedTotal + commTotal)} · Fijos:{" "}
+            {formatMoney(fixedTotal)} · Comisiones (desde deals cerrados):{" "}
+            {formatMoney(commTotal)}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setEditing(null);
+            setAdding(true);
+          }}
+        >
+          + Añadir miembro
+        </Button>
       </div>
       <div className="space-y-3">
         {members.map((m) => (
@@ -311,16 +325,56 @@ function TeamCompensationSection({ members }: { members: TeamCompensation[] }) {
             <Button size="sm" variant="outline" onClick={() => setEditing(m)}>
               Editar
             </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive"
+              onClick={() => {
+                void removeTeamCompensation(m.id).then((err) => {
+                  if (err) {
+                    push({ title: "No se pudo eliminar", description: err });
+                  }
+                });
+              }}
+            >
+              Eliminar
+            </Button>
           </GlassPanel>
         ))}
       </div>
       <TeamCompensationModal
-        open={editing !== null}
-        onOpenChange={(v) => {
-          if (!v) setEditing(null);
+        open={adding || editing !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAdding(false);
+            setEditing(null);
+          }
         }}
+        mode={adding ? "create" : "edit"}
         initial={editing ?? undefined}
         onSave={(patch) => {
+          if (adding) {
+            if (!patch.memberName?.trim() || !patch.roleLabel?.trim()) return;
+            void addTeamCompensation({
+              memberId: `member-${Date.now()}`,
+              memberName: patch.memberName.trim(),
+              roleLabel: patch.roleLabel.trim(),
+              hasFixed: patch.hasFixed ?? false,
+              fixedMonthly: patch.fixedMonthly,
+              hasCommission: patch.hasCommission ?? false,
+              commissionPercent: patch.commissionPercent,
+              commissionBasis: patch.commissionBasis,
+              commissionSummary: patch.commissionSummary,
+              notes: patch.notes,
+            }).then((err) => {
+              if (err) {
+                push({ title: "No se pudo crear", description: err });
+                return;
+              }
+              setAdding(false);
+            });
+            return;
+          }
           if (!editing) return;
           void updateTeamCompensation(editing.id, patch).then((err) => {
             if (err) {
@@ -429,9 +483,11 @@ function FixedExpenseModal({
   const [amount, setAmount] = useState("");
   const [frequency, setFrequency] = useState<"monthly" | "annual">("monthly");
   const [status, setStatus] = useState<"active" | "paused">("active");
+  const [nameError, setNameError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    setNameError(null);
     if (initial) {
       setName(initial.name);
       setCategory(initial.category);
@@ -457,8 +513,11 @@ function FixedExpenseModal({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          <FormField label="Nombre">
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          <FormField label="Nombre" required error={nameError ?? undefined}>
+            <Input value={name} onChange={(e) => {
+              setName(e.target.value);
+              if (nameError) setNameError(null);
+            }} />
           </FormField>
           <FormField label="Categoría">
             <select
@@ -502,16 +561,21 @@ function FixedExpenseModal({
             Cancelar
           </Button>
           <Button
-            onClick={() =>
+            onClick={() => {
+              const trimmed = name.trim();
+              if (!trimmed) {
+                setNameError("El nombre es obligatorio");
+                return;
+              }
               onSave({
-                name: name.trim() || "Gasto",
+                name: trimmed,
                 category,
                 amount: Number(amount) || 0,
                 currency: initial?.currency ?? "USD",
                 frequency,
                 status,
-              })
-            }
+              });
+            }}
           >
             Guardar gasto
           </Button>
@@ -537,9 +601,11 @@ function SubscriptionModal({
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
+  const [nameError, setNameError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    setNameError(null);
     if (initial) {
       setName(initial.name);
       setAmount(String(initial.amount));
@@ -561,8 +627,14 @@ function SubscriptionModal({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          <FormField label="Nombre">
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          <FormField label="Nombre" required error={nameError ?? undefined}>
+            <Input
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (nameError) setNameError(null);
+              }}
+            />
             <div className="mt-2 flex flex-wrap gap-1">
               {SUB_SUGGESTIONS.map((s) => (
                 <button
@@ -595,15 +667,20 @@ function SubscriptionModal({
             Cancelar
           </Button>
           <Button
-            onClick={() =>
+            onClick={() => {
+              const trimmed = name.trim();
+              if (!trimmed) {
+                setNameError("El nombre es obligatorio");
+                return;
+              }
               onSave({
-                name: name.trim() || "Suscripción",
+                name: trimmed,
                 amount: Number(amount) || 0,
                 currency: initial?.currency ?? "USD",
                 billingCycle,
                 icon: initial?.icon,
-              })
-            }
+              });
+            }}
           >
             Guardar
           </Button>
@@ -625,11 +702,13 @@ function TeamCompensationModal({
   onOpenChange,
   onSave,
   initial,
+  mode,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSave: (patch: Partial<TeamCompensation>) => void;
   initial?: TeamCompensation;
+  mode: "create" | "edit";
 }) {
   const [memberName, setMemberName] = useState("");
   const [roleLabel, setRoleLabel] = useState("");
@@ -640,39 +719,98 @@ function TeamCompensationModal({
   const [commissionBasis, setCommissionBasis] = useState<CommissionBasis>("per_deal");
   const [commissionSummary, setCommissionSummary] = useState("");
   const [notes, setNotes] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open || !initial) return;
-    setMemberName(initial.memberName);
-    setRoleLabel(initial.roleLabel);
-    setHasFixed(initial.hasFixed);
-    setFixedMonthly(initial.fixedMonthly != null ? String(initial.fixedMonthly) : "");
-    setHasCommission(initial.hasCommission);
-    setCommissionPercent(
-      initial.commissionPercent != null ? String(initial.commissionPercent) : ""
-    );
-    setCommissionBasis(initial.commissionBasis ?? "per_deal");
-    setCommissionSummary(initial.commissionSummary ?? "");
-    setNotes(initial.notes ?? "");
-  }, [open, initial]);
+    if (!open) return;
+    setNameError(null);
+    setRoleError(null);
+    if (mode === "edit" && initial) {
+      setMemberName(initial.memberName);
+      setRoleLabel(initial.roleLabel);
+      setHasFixed(initial.hasFixed);
+      setFixedMonthly(initial.fixedMonthly != null ? String(initial.fixedMonthly) : "");
+      setHasCommission(initial.hasCommission);
+      setCommissionPercent(
+        initial.commissionPercent != null ? String(initial.commissionPercent) : ""
+      );
+      setCommissionBasis(initial.commissionBasis ?? "per_deal");
+      setCommissionSummary(initial.commissionSummary ?? "");
+      setNotes(initial.notes ?? "");
+      return;
+    }
+    setMemberName("");
+    setRoleLabel("");
+    setHasFixed(false);
+    setFixedMonthly("");
+    setHasCommission(false);
+    setCommissionPercent("");
+    setCommissionBasis("per_deal");
+    setCommissionSummary("");
+    setNotes("");
+  }, [open, initial, mode]);
 
-  if (!initial) return null;
+  const handleSave = () => {
+    const trimmedName = memberName.trim();
+    const trimmedRole = roleLabel.trim();
+    let hasError = false;
+    if (!trimmedName) {
+      setNameError("El nombre es obligatorio");
+      hasError = true;
+    }
+    if (!trimmedRole) {
+      setRoleError("El rol es obligatorio");
+      hasError = true;
+    }
+    if (hasError) return;
+
+    onSave({
+      memberName: trimmedName,
+      roleLabel: trimmedRole,
+      hasFixed,
+      fixedMonthly: hasFixed ? Number(fixedMonthly) || 0 : undefined,
+      hasCommission,
+      commissionPercent: hasCommission ? Number(commissionPercent) || 0 : undefined,
+      commissionBasis: hasCommission ? commissionBasis : undefined,
+      commissionSummary: commissionSummary.trim() || undefined,
+      notes: notes.trim() || undefined,
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogDescription className="sr-only">
-            Editar compensación del miembro del equipo.
+            {mode === "create"
+              ? "Formulario para añadir un miembro al equipo."
+              : "Editar compensación del miembro del equipo."}
           </DialogDescription>
-          <DialogTitle>Editar compensación — {initial.memberName}</DialogTitle>
+          <DialogTitle>
+            {mode === "create"
+              ? "Añadir miembro al equipo"
+              : `Editar compensación — ${initial?.memberName ?? ""}`}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
-          <FormField label="Nombre">
-            <Input value={memberName} onChange={(e) => setMemberName(e.target.value)} />
+          <FormField label="Nombre" required error={nameError ?? undefined}>
+            <Input
+              value={memberName}
+              onChange={(e) => {
+                setMemberName(e.target.value);
+                if (nameError) setNameError(null);
+              }}
+            />
           </FormField>
-          <FormField label="Rol">
-            <Input value={roleLabel} onChange={(e) => setRoleLabel(e.target.value)} />
+          <FormField label="Rol" required error={roleError ?? undefined}>
+            <Input
+              value={roleLabel}
+              onChange={(e) => {
+                setRoleLabel(e.target.value);
+                if (roleError) setRoleError(null);
+              }}
+            />
           </FormField>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -743,24 +881,8 @@ function TeamCompensationModal({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button
-            onClick={() =>
-              onSave({
-                memberName: memberName.trim() || initial.memberName,
-                roleLabel: roleLabel.trim() || initial.roleLabel,
-                hasFixed,
-                fixedMonthly: hasFixed ? Number(fixedMonthly) || 0 : undefined,
-                hasCommission,
-                commissionPercent: hasCommission
-                  ? Number(commissionPercent) || 0
-                  : undefined,
-                commissionBasis: hasCommission ? commissionBasis : undefined,
-                commissionSummary: commissionSummary.trim() || undefined,
-                notes: notes.trim() || undefined,
-              })
-            }
-          >
-            Guardar
+          <Button onClick={handleSave}>
+            {mode === "create" ? "Añadir miembro" : "Guardar"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
+import { ArrowUpRight } from "lucide-react";
 import { GlassPanel, MetricBand, MetricStat } from "@ai-coo/ui";
 import {
   CategoryBarChart,
@@ -26,6 +28,7 @@ import {
 } from "@/lib/metrics/revenue-period";
 import { BentoCellPlace, BentoGrid } from "@/components/shared/bento-grid";
 import { FacturacionPeriodFilter } from "./facturacion-period-filter";
+import { paths } from "@/routes";
 
 export function FinanceMetrics() {
   const {
@@ -143,6 +146,16 @@ export function FinanceMetrics() {
           subtitle="Cuotas pendientes"
         />
       </MetricBand>
+
+      <div className="mb-4 flex justify-end">
+        <Link
+          href={paths.platform.settingsTab("pagos")}
+          className="inline-flex items-center gap-1 text-xs font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+        >
+          Gestionar plataformas de cobro
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
 
       <GlassPanel className="relative overflow-hidden p-0">
         <div className="min-h-[280px] w-full px-2 pb-4 pt-4">

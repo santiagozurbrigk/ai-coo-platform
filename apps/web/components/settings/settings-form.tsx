@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button, Input } from "@ai-coo/ui";
 import {
   Bell,
@@ -64,13 +65,36 @@ const LANGUAGE_OPTIONS = [
   { value: "en", label: "English" },
 ] as const;
 
+const SETTINGS_TABS: SettingsTabId[] = [
+  "general",
+  "perfil",
+  "notificaciones",
+  "ia",
+  "seguridad",
+  "pagos",
+];
+
+function resolveSettingsTab(
+  tab: string | null,
+  isFounder: boolean
+): SettingsTabId {
+  if (tab === "pagos" && isFounder) return "pagos";
+  if (tab && SETTINGS_TABS.includes(tab as SettingsTabId)) {
+    return tab as SettingsTabId;
+  }
+  return "general";
+}
+
 export function SettingsForm({
   initialData,
 }: {
   initialData: SettingsInitialData;
 }) {
   const { push } = useToast();
-  const [activeTab, setActiveTab] = useState<SettingsTabId>("general");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<SettingsTabId>(() =>
+    resolveSettingsTab(searchParams.get("tab"), initialData.isFounder)
+  );
 
   const [orgName, setOrgName] = useState(initialData.orgName);
   const [industry, setIndustry] = useState(initialData.industry);

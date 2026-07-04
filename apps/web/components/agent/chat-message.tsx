@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { Sparkles, User } from "lucide-react";
@@ -17,41 +17,22 @@ export function ChatMessage({
   actionType,
   actionRefId,
   animateReveal = false,
-  onRevealComplete,
 }: {
   role: "user" | "assistant";
   content: string;
   actionType?: AgentMessageActionType | null;
   actionRefId?: string | null;
   animateReveal?: boolean;
-  onRevealComplete?: () => void;
 }) {
   const reducedMotion = usePrefersReducedMotion();
   const shouldReveal = role === "assistant" && animateReveal && !reducedMotion;
-  const revealCompletedRef = useRef(false);
   const [visibleLength, setVisibleLength] = useState(() =>
     shouldReveal ? 0 : content.length
   );
 
   useEffect(() => {
-    revealCompletedRef.current = false;
-  }, [animateReveal, content]);
-
-  useEffect(() => {
-    const finishReveal = () => {
-      if (revealCompletedRef.current) return;
-      revealCompletedRef.current = true;
-      onRevealComplete?.();
-    };
-
-    if (!animateReveal || role !== "assistant") {
-      setVisibleLength(content.length);
-      return;
-    }
-
     if (!shouldReveal) {
       setVisibleLength(content.length);
-      finishReveal();
       return;
     }
 
@@ -60,16 +41,13 @@ export function ChatMessage({
     const interval = window.setInterval(() => {
       setVisibleLength((current) => {
         const next = Math.min(content.length, current + step);
-        if (next >= content.length) {
-          window.clearInterval(interval);
-          finishReveal();
-        }
+        if (next >= content.length) window.clearInterval(interval);
         return next;
       });
     }, 16);
 
     return () => window.clearInterval(interval);
-  }, [animateReveal, content, onRevealComplete, role, shouldReveal]);
+  }, [content, shouldReveal]);
 
   const visibleContent = useMemo(
     () => (shouldReveal ? content.slice(0, visibleLength) : content),

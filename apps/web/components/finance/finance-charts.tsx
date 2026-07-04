@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { useFinanceData } from "@/providers";
+import { paths } from "@/routes";
 import { formatMoney } from "@/lib/finance/format";
 import { chartSeriesColors } from "@/lib/chart/colors";
 import type { MonthlySeriesPoint } from "@/types/finance";
@@ -48,6 +51,15 @@ function PlatformPieChart({
       title="Ingresos por plataforma"
       subtitle={
         showPie ? "Pie · volumen por pasarela" : "Listado · volumen por pasarela"
+      }
+      action={
+        <Link
+          href={paths.platform.settingsTab("pagos")}
+          className="inline-flex items-center gap-1 text-xs font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+        >
+          Gestionar plataformas
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </Link>
       }
     >
       {showPie ? (

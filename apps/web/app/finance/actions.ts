@@ -325,6 +325,51 @@ export async function updateTeamCompensationAction(
   });
 }
 
+export async function createTeamCompensationAction(
+  member: Omit<TeamCompensation, "id" | "estimatedThisMonth">
+): Promise<MutationResult<TeamCompensation>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("team_compensation")
+      .insert({
+        organization_id: organizationId,
+        member_id: member.memberId || null,
+        member_name: member.memberName,
+        role_label: member.roleLabel,
+        has_fixed_salary: member.hasFixed,
+        fixed_amount: member.fixedMonthly ?? null,
+        has_commission: member.hasCommission,
+        commission_percentage: member.commissionPercent ?? null,
+        commission_basis: member.commissionBasis ?? null,
+        commission_applied_to: member.commissionSummary ?? null,
+        notes: member.notes ?? null,
+        estimated_this_month: 0,
+      })
+      .select()
+      .single();
+
+    if (error || !data) throw new Error(mapFinanceError(error?.message ?? "Error"));
+    return rowToTeamCompensation(data as TeamCompensationRow);
+  });
+}
+
+export async function deleteTeamCompensationAction(
+  id: string
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("team_compensation")
+      .delete()
+      .eq("id", id)
+      .eq("organization_id", organizationId);
+    if (error) throw new Error(mapFinanceError(error.message));
+  });
+}
+
 export async function createPaymentPlatformAction(
   platform: Omit<PaymentPlatformConfig, "id" | "totalReceived" | "lastTransactionAt">
 ): Promise<MutationResult<PaymentPlatformConfig>> {

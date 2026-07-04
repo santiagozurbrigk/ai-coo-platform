@@ -37,12 +37,19 @@ export function FinanceOverview() {
         <PageHeader description="Inteligencia financiera: facturación, cash collected, por cobrar y balances por plataforma" />
         <EmptyState
           title="Sin datos financieros"
-          description="Configurá tus gastos fijos y plataformas de cobro para ver tus métricas financieras."
+          description="Configurá tus plataformas de cobro en Configuración → Pagos y tus gastos fijos en Gastos para ver métricas financieras."
           icon={<DollarSign className="h-8 w-8" />}
           action={
-            <Button variant="outline" size="sm" asChild>
-              <Link href={paths.platform.finance.expenses}>Configurar finanzas</Link>
-            </Button>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href={paths.platform.settingsTab("pagos")}>
+                  Configurar plataformas de pago
+                </Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={paths.platform.finance.expenses}>Ir a Gastos</Link>
+              </Button>
+            </div>
           }
         />
       </div>

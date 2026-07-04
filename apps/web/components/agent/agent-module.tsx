@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { motion } from "framer-motion";
 import { Edit3, Layers, Sparkles } from "lucide-react";
-import { OtcMascot, type OtcMascotState } from "@ai-coo/ui";
+import { cn, usePrefersReducedMotion } from "@ai-coo/ui";
 import { PromptInputBox } from "@/components/ui/ai-prompt-box";
 import { useAgentData } from "@/providers/agent-data-provider";
 import { useToast } from "@/providers/toast-provider";
@@ -25,9 +26,6 @@ export function AgentModule() {
 
   const { push } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [isRevealing, setIsRevealing] = useState(false);
-  const [playSuccess, setPlaySuccess] = useState(false);
-  const [sendError, setSendError] = useState(false);
 
   const conversation = useMemo(
     () => workspace.conversations.find((c) => c.id === conversationId) ?? null,
@@ -39,42 +37,12 @@ export function AgentModule() {
     return workspace.stages.find((s) => s.id === filterStageId) ?? null;
   }, [workspace.stages, filterStageId]);
 
-  const mascotState = useMemo<OtcMascotState>(() => {
-    if (sendError) return "error";
-    if (isSending) return "thinking";
-    if (playSuccess) return "success";
-    if (isRevealing) return "speaking";
-    return "idle";
-  }, [sendError, isSending, playSuccess, isRevealing]);
-
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages, isSending, mascotState]);
-
-  useEffect(() => {
-    if (responseRevealMessageId) {
-      setIsRevealing(true);
-      setPlaySuccess(false);
-    } else {
-      setIsRevealing(false);
-    }
-  }, [responseRevealMessageId]);
-
-  const handleRevealComplete = useCallback(() => {
-    setIsRevealing(false);
-    setPlaySuccess(true);
-  }, []);
-
-  const handleSuccessComplete = useCallback(() => {
-    setPlaySuccess(false);
-  }, []);
-
-  const handleErrorComplete = useCallback(() => {
-    setSendError(false);
-  }, []);
+  }, [messages, isSending]);
 
   const placeholder = currentStage
     ? `Preguntale sobre "${currentStage.name}"...`
@@ -125,43 +93,10 @@ export function AgentModule() {
               actionType={msg.actionType}
               actionRefId={msg.actionRefId}
               animateReveal={msg.id === responseRevealMessageId}
-              onRevealComplete={
-                msg.id === responseRevealMessageId ? handleRevealComplete : undefined
-              }
             />
           ))
         )}
-      </div>
-
-      <div className="flex shrink-0 items-center gap-3 border-t border-border/50 px-6 py-2.5">
-        <OtcMascot
-          state={mascotState}
-          size={52}
-          alt={
-            mascotState === "thinking"
-              ? "OTC pensando"
-              : mascotState === "speaking"
-                ? "OTC hablando"
-                : mascotState === "success"
-                  ? "OTC respondió"
-                  : mascotState === "error"
-                    ? "OTC con error"
-                    : "OTC"
-          }
-          onSuccessComplete={handleSuccessComplete}
-          onErrorComplete={handleErrorComplete}
-        />
-        <p className="sr-only" aria-live="polite">
-          {mascotState === "thinking"
-            ? "El agente está pensando"
-            : mascotState === "speaking"
-              ? "El agente está respondiendo"
-              : mascotState === "success"
-                ? "Respuesta completada"
-                : mascotState === "error"
-                  ? "Error al obtener respuesta"
-                  : "Agente en espera"}
-        </p>
+        {isSending ? <ThinkingIndicator /> : null}
       </div>
 
       <div className="shrink-0 border-t border-border px-6 py-4">
@@ -171,18 +106,15 @@ export function AgentModule() {
           onSend={(msg) => {
             void (async () => {
               try {
-                setSendError(false);
-                setPlaySuccess(false);
-                setIsRevealing(false);
                 await sendMessage(msg, {
                   conversationId,
                   contextStageId: filterStageId,
                 });
               } catch {
-                setSendError(true);
                 push({
                   title: "No se pudo enviar el mensaje",
-                  description: "Revisá tu conexión o la API de Claude e intentá de nuevo.",
+                  description:
+                    "Revisá tu conexión o la API de Claude e intentá de nuevo.",
                   variant: "default",
                 });
               }
@@ -191,6 +123,54 @@ export function AgentModule() {
           isLoading={isSending}
           placeholder={placeholder}
         />
+      </div>
+    </div>
+  );
+}
+
+function ThinkingIndicator() {
+  const reducedMotion = usePrefersReducedMotion();
+  const dotTransition = {
+    duration: 0.8,
+    repeat: Infinity,
+    repeatType: "reverse" as const,
+    ease: "easeInOut" as const,
+  };
+
+  return (
+    <div className="flex gap-3" aria-label="El agente está pensando">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-violet-500/30 bg-violet-600/20">
+        {reducedMotion ? (
+          <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+        ) : (
+          <motion.div
+            animate={{ opacity: [0.55, 1, 0.55], scale: [0.96, 1.04, 0.96] }}
+            transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+          </motion.div>
+        )}
+      </div>
+      <div className="chat-message-assistant rounded-2xl border px-4 py-3">
+        <div className="flex h-5 items-center gap-1.5">
+          {[0, 1, 2].map((index) => {
+            const className = cn(
+              "h-1.5 w-1.5 rounded-full bg-violet-400/80",
+              reducedMotion && "bg-violet-400/60"
+            );
+
+            return reducedMotion ? (
+              <span key={index} className={className} />
+            ) : (
+              <motion.span
+                key={index}
+                className={className}
+                animate={{ y: [0, -3, 0], opacity: [0.45, 1, 0.45] }}
+                transition={{ ...dotTransition, delay: index * 0.14 }}
+              />
+            );
+          })}
+        </div>
       </div>
     </div>
   );
