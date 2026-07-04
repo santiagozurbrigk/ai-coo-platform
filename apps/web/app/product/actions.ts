@@ -19,6 +19,7 @@ import {
   extractProductContextFromRAG,
   type ProductContextExtraction,
 } from "@/lib/rag/extract-product-context";
+import { hasProductContextSources } from "@/lib/rag/product-context-sources";
 import { ingestProductContext } from "@/lib/rag/ingest";
 import {
   actionErrorMessage,
@@ -127,16 +128,36 @@ export async function saveAvatarAction(
   });
 }
 
-export async function extractAndSuggestProductContextAction(): Promise<ProductContextExtraction> {
-  const organizationId = await requireOrganizationId();
-  const result = await extractProductContextFromRAG(organizationId);
-  if (!result) {
-    throw new Error(
-      "No hay suficiente contexto en el sistema todavía. " +
-        "Conectá Fathom para importar calls o creá algunos SOPs primero."
-    );
+const INSUFFICIENT_CONTEXT_MESSAGE =
+  "No hay suficiente contexto en el sistema todavía. Conectá Fathom para importar calls, subí documentos en Base de conocimiento o creá algunos SOPs primero.";
+
+export async function extractAndSuggestProductContextAction(): Promise<
+  MutationResult<ProductContextExtraction>
+> {
+  try {
+    const organizationId = await requireOrganizationId();
+
+    const hasSources = await hasProductContextSources(organizationId);
+    if (!hasSources) {
+      return { success: false, error: INSUFFICIENT_CONTEXT_MESSAGE };
+    }
+
+    const result = await extractProductContextFromRAG(organizationId);
+    if (!result) {
+      return {
+        success: false,
+        error:
+          "Hay contexto en el sistema pero no pudimos generar una propuesta. Revisá que Fathom, SOPs o documentos tengan contenido de texto y volvé a intentar.",
+      };
+    }
+
+    return { success: true, data: result };
+  } catch (error) {
+    return {
+      success: false,
+      error: actionErrorMessage(error),
+    };
   }
-  return result;
 }
 
 export async function applySuggestedProductContextAction(

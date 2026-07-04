@@ -1,6 +1,10 @@
 import { callClaudeJson } from "@/lib/ai/anthropic";
 import { wrapUntrustedContent } from "@/lib/ai/wrap-untrusted-content";
-import { searchRAG } from "./search";
+import {
+  fetchProductContextFallbackText,
+  PRODUCT_CONTEXT_RAG_SOURCE_TYPES,
+} from "./product-context-sources";
+import { searchRAG, type RAGSearchResult } from "./search";
 
 export type SuggestedAvatar = {
   name?: string;
@@ -33,34 +37,63 @@ export type ProductContextExtraction = {
   suggestedFrameworks: SuggestedFramework[];
 };
 
+async function gatherProductContextSnippets(
+  organizationId: string
+): Promise<string[]> {
+  const seen = new Set<string>();
+  const snippets: string[] = [];
+
+  const addResults = (results: RAGSearchResult[]) => {
+    for (const r of results) {
+      if (seen.has(r.id)) continue;
+      seen.add(r.id);
+      snippets.push(`[${r.sourceType}] ${r.title}\n${r.content}`);
+    }
+  };
+
+  const queries = [
+    "cliente ideal dolor problema objetivo resultado transformación",
+    "producto servicio precio oferta programa mentoría curso",
+  ];
+
+  for (const query of queries) {
+    const typed = await searchRAG({
+      organizationId,
+      query,
+      matchCount: 8,
+      sourceTypes: [...PRODUCT_CONTEXT_RAG_SOURCE_TYPES],
+      minSimilarity: 0.35,
+    });
+    addResults(typed);
+
+    if (snippets.length < 4) {
+      const broad = await searchRAG({
+        organizationId,
+        query,
+        matchCount: 8,
+        minSimilarity: 0.28,
+      });
+      addResults(broad);
+    }
+  }
+
+  if (snippets.length === 0) {
+    snippets.push(...(await fetchProductContextFallbackText(organizationId)));
+  }
+
+  return snippets;
+}
+
 /**
  * Analiza el contexto existente de la org y propone avatar, productos y frameworks.
  */
 export async function extractProductContextFromRAG(
   organizationId: string
 ): Promise<ProductContextExtraction | null> {
-  const [callResults, sopResults] = await Promise.all([
-    searchRAG({
-      organizationId,
-      query: "cliente ideal dolor problema objetivo resultado",
-      matchCount: 8,
-      sourceTypes: ["fathom_call"],
-      minSimilarity: 0.6,
-    }),
-    searchRAG({
-      organizationId,
-      query: "producto servicio precio oferta programa",
-      matchCount: 5,
-      sourceTypes: ["sop", "sales_framework"],
-      minSimilarity: 0.6,
-    }),
-  ]);
+  const snippets = await gatherProductContextSnippets(organizationId);
+  if (!snippets.length) return null;
 
-  if (!callResults.length && !sopResults.length) return null;
-
-  const context = [...callResults.map((r) => r.content), ...sopResults.map((r) => r.content)].join(
-    "\n\n"
-  );
+  const context = snippets.join("\n\n");
 
   const prompt = `Analizá el siguiente contexto de un negocio de infoproductos 
 y extraé información sobre el cliente ideal, los productos y los frameworks de ventas.

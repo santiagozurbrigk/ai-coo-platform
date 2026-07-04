@@ -59,10 +59,17 @@ export function ProductRagSuggestButton({
     startTransition(async () => {
       try {
         const result = await extractAndSuggestProductContextAction();
-        setSuggestion(result);
-        setAvatar(result.suggestedAvatar);
-        setProducts(result.suggestedProducts);
-        setFrameworks(result.suggestedFrameworks);
+        if (!result.success) {
+          push({
+            title: "No se pudo analizar el contexto",
+            description: result.error,
+          });
+          return;
+        }
+        setSuggestion(result.data);
+        setAvatar(result.data.suggestedAvatar);
+        setProducts(result.data.suggestedProducts);
+        setFrameworks(result.data.suggestedFrameworks);
         setOpen(true);
       } catch (err) {
         push({
