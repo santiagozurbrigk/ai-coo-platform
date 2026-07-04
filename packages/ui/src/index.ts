@@ -88,7 +88,12 @@ export {
   type MetricAnimatedValueProps,
 } from "./components/animated-number";
 export { Spotlight, type SpotlightProps } from "./components/spotlight";
-export { OtcMascot, type OtcMascotProps } from "./components/otc-mascot";
+export {
+  OtcMascot,
+  type OtcMascotAssets,
+  type OtcMascotProps,
+  type OtcMascotState,
+} from "./components/otc-mascot";
 export {
   StaggerFade,
   StaggerFadeItem,

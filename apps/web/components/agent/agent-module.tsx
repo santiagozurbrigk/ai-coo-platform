@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Edit3, Layers, Sparkles } from "lucide-react";
-import { OtcMascot } from "@ai-coo/ui";
+import { OtcMascot, type OtcMascotState } from "@ai-coo/ui";
 import { PromptInputBox } from "@/components/ui/ai-prompt-box";
 import { useAgentData } from "@/providers/agent-data-provider";
+import { useToast } from "@/providers/toast-provider";
 import { AgentEmptyState } from "./agent-empty-state";
 import { ChatMessage } from "./chat-message";
 
@@ -22,7 +23,11 @@ export function AgentModule() {
     sendMessage,
   } = useAgentData();
 
+  const { push } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [isRevealing, setIsRevealing] = useState(false);
+  const [playSuccess, setPlaySuccess] = useState(false);
+  const [sendError, setSendError] = useState(false);
 
   const conversation = useMemo(
     () => workspace.conversations.find((c) => c.id === conversationId) ?? null,
@@ -34,12 +39,42 @@ export function AgentModule() {
     return workspace.stages.find((s) => s.id === filterStageId) ?? null;
   }, [workspace.stages, filterStageId]);
 
+  const mascotState = useMemo<OtcMascotState>(() => {
+    if (sendError) return "error";
+    if (isSending) return "thinking";
+    if (playSuccess) return "success";
+    if (isRevealing) return "speaking";
+    return "idle";
+  }, [sendError, isSending, playSuccess, isRevealing]);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages, isSending]);
+  }, [messages, isSending, mascotState]);
+
+  useEffect(() => {
+    if (responseRevealMessageId) {
+      setIsRevealing(true);
+      setPlaySuccess(false);
+    } else {
+      setIsRevealing(false);
+    }
+  }, [responseRevealMessageId]);
+
+  const handleRevealComplete = useCallback(() => {
+    setIsRevealing(false);
+    setPlaySuccess(true);
+  }, []);
+
+  const handleSuccessComplete = useCallback(() => {
+    setPlaySuccess(false);
+  }, []);
+
+  const handleErrorComplete = useCallback(() => {
+    setSendError(false);
+  }, []);
 
   const placeholder = currentStage
     ? `Preguntale sobre "${currentStage.name}"...`
@@ -90,37 +125,72 @@ export function AgentModule() {
               actionType={msg.actionType}
               actionRefId={msg.actionRefId}
               animateReveal={msg.id === responseRevealMessageId}
+              onRevealComplete={
+                msg.id === responseRevealMessageId ? handleRevealComplete : undefined
+              }
             />
           ))
         )}
-        {isSending ? <ThinkingIndicator /> : null}
+      </div>
+
+      <div className="flex shrink-0 items-center gap-3 border-t border-border/50 px-6 py-2.5">
+        <OtcMascot
+          state={mascotState}
+          size={52}
+          alt={
+            mascotState === "thinking"
+              ? "OTC pensando"
+              : mascotState === "speaking"
+                ? "OTC hablando"
+                : mascotState === "success"
+                  ? "OTC respondió"
+                  : mascotState === "error"
+                    ? "OTC con error"
+                    : "OTC"
+          }
+          onSuccessComplete={handleSuccessComplete}
+          onErrorComplete={handleErrorComplete}
+        />
+        <p className="sr-only" aria-live="polite">
+          {mascotState === "thinking"
+            ? "El agente está pensando"
+            : mascotState === "speaking"
+              ? "El agente está respondiendo"
+              : mascotState === "success"
+                ? "Respuesta completada"
+                : mascotState === "error"
+                  ? "Error al obtener respuesta"
+                  : "Agente en espera"}
+        </p>
       </div>
 
       <div className="shrink-0 border-t border-border px-6 py-4">
         <PromptInputBox
           value={inputValue}
           onValueChange={setInputValue}
-          onSend={(msg) =>
-            void sendMessage(msg, {
-              conversationId,
-              contextStageId: filterStageId,
-            })
-          }
+          onSend={(msg) => {
+            void (async () => {
+              try {
+                setSendError(false);
+                setPlaySuccess(false);
+                setIsRevealing(false);
+                await sendMessage(msg, {
+                  conversationId,
+                  contextStageId: filterStageId,
+                });
+              } catch {
+                setSendError(true);
+                push({
+                  title: "No se pudo enviar el mensaje",
+                  description: "Revisá tu conexión o la API de Claude e intentá de nuevo.",
+                  variant: "default",
+                });
+              }
+            })();
+          }}
           isLoading={isSending}
           placeholder={placeholder}
         />
-      </div>
-    </div>
-  );
-}
-
-function ThinkingIndicator() {
-  return (
-    <div className="flex gap-3" aria-label="El agente está pensando">
-      <div className="mt-0.5 h-7 w-7 shrink-0" aria-hidden />
-      <div className="chat-message-assistant flex items-center rounded-2xl border px-4 py-2.5">
-        <span className="sr-only">Pensando</span>
-        <OtcMascot size={44} />
       </div>
     </div>
   );
