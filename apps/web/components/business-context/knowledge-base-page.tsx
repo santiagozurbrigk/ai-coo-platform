@@ -6,6 +6,7 @@ import {
   Button,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   Input,
@@ -100,6 +101,17 @@ export function KnowledgeBasePage({
                       ? "Importar de Google Docs"
                       : "Importar de Google Sheets"}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              {step === "pick"
+                ? "Elegí el tipo de documento a agregar a la base de conocimiento."
+                : step === "pdf"
+                  ? "Subí un archivo PDF para indexarlo en la base de conocimiento."
+                  : step === "note"
+                    ? "Escribí una nota de texto directamente."
+                    : step === "google-docs"
+                      ? "Seleccioná un Google Doc de tu cuenta para importarlo."
+                      : "Seleccioná una Google Sheet de tu cuenta para importarla."}
+            </DialogDescription>
           </DialogHeader>
 
           {step === "pick" && (
@@ -657,7 +669,7 @@ function GoogleImportFlow({
                         : "hover:bg-muted/40 text-muted-foreground"
                     )}
                   >
-                    <GoogleDriveFileThumb fileId={file.id} kind={kind} />
+                    <GoogleDriveFileThumb fileId={file.id} kind={kind} hasThumbnail={Boolean(file.thumbnailLink)} />
                     <span className="min-w-0 flex-1">
                       <span className="font-medium text-foreground">{file.name}</span>
                       {file.description?.trim() ? (
@@ -685,7 +697,7 @@ function GoogleImportFlow({
           {selectedFile ? (
             <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-2">
               <div className="flex gap-3">
-                <GoogleDriveFileThumb fileId={selectedFile.id} kind={kind} large />
+                <GoogleDriveFileThumb fileId={selectedFile.id} kind={kind} large hasThumbnail={Boolean(selectedFile.thumbnailLink)} />
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="text-xs font-medium text-foreground">Vista previa</p>
                   <p className="text-[11px] font-medium text-foreground truncate">
@@ -734,10 +746,12 @@ function GoogleDriveFileThumb({
   fileId,
   kind,
   large = false,
+  hasThumbnail = true,
 }: {
   fileId: string;
   kind: "doc" | "sheet";
   large?: boolean;
+  hasThumbnail?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   const Icon = kind === "doc" ? FileText : FileSpreadsheet;
@@ -745,7 +759,9 @@ function GoogleDriveFileThumb({
   const sizeClass = large ? "h-[90px] w-[120px]" : "h-[68px] w-[90px]";
   const iconSize = large ? "h-8 w-8" : "h-6 w-6";
 
-  if (failed) {
+  // Don't fire the request if Drive didn't return a thumbnailLink for this file
+  // (e.g. new/empty Sheets). Render the icon fallback directly to avoid 404s.
+  if (!hasThumbnail || failed) {
     return (
       <div
         className={cn(

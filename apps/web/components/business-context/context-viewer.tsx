@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import Papa from "papaparse";
 import {
   AiCard,
   Badge,
@@ -56,6 +57,63 @@ function statusLabel(status?: DocumentStatus): string | null {
   return "Error al indexar";
 }
 
+// ---------------------------------------------------------------------------
+// CSV table renderer (Google Sheets export)
+// ---------------------------------------------------------------------------
+
+function CsvTableViewer({ csv }: { csv: string }) {
+  const result = Papa.parse<string[]>(csv, { skipEmptyLines: true });
+  const rows = result.data;
+  if (!rows.length) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        La hoja de cálculo está vacía o no tiene filas.
+      </p>
+    );
+  }
+
+  const headers = rows[0] ?? [];
+  const body = rows.slice(1);
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-border/60 bg-background shadow-sm dark:border-glass dark:bg-card/60">
+      <table className="min-w-full text-sm">
+        <thead>
+          <tr className="border-b border-border/60 bg-muted/40 dark:bg-glass">
+            {headers.map((h, i) => (
+              <th
+                key={i}
+                className="whitespace-nowrap px-4 py-2.5 text-left text-xs font-semibold text-foreground"
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {body.map((row, ri) => (
+            <tr
+              key={ri}
+              className="border-b border-border/40 last:border-0 transition-colors hover:bg-muted/20"
+            >
+              {headers.map((_, ci) => (
+                <td
+                  key={ci}
+                  className="px-4 py-2 align-top text-xs text-foreground/90"
+                >
+                  {row[ci] ?? ""}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
 function DocumentContent({
   document,
   onMarkdownRefreshed,
@@ -70,6 +128,7 @@ function DocumentContent({
   const plainText = document.transcript?.trim();
 
   const isGoogleDoc = document.sourceType === "google_docs";
+  const isGoogleSheet = document.sourceType === "sheets";
   const canResync = isGoogleDoc && !markdown;
 
   function handleResync() {
@@ -126,18 +185,23 @@ function DocumentContent({
       )}
 
       {/* Document body — rendered as a "page" with constrained width and generous margins */}
-      <div className="rounded-xl border border-border/60 bg-background px-8 py-8 shadow-sm dark:border-glass dark:bg-card/60 dark:backdrop-blur-md sm:px-12">
-        {markdown ? (
-          <div className={proseClassName}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
-          </div>
-        ) : (
-          // Fallback for PDFs, Sheets, or pre-migration plain-text documents
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-            {plainText}
-          </p>
-        )}
-      </div>
+      {isGoogleSheet && plainText ? (
+        // Google Sheets: parse CSV and render as a scrollable table (no page-margin wrapper)
+        <CsvTableViewer csv={plainText} />
+      ) : (
+        <div className="rounded-xl border border-border/60 bg-background px-8 py-8 shadow-sm dark:border-glass dark:bg-card/60 dark:backdrop-blur-md sm:px-12">
+          {markdown ? (
+            <div className={proseClassName}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
+            </div>
+          ) : (
+            // Fallback for PDFs, manual notes, or pre-migration plain-text documents
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+              {plainText}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
