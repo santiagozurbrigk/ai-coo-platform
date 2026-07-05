@@ -187,13 +187,11 @@ Button.displayName = "Button";
 interface VoiceRecorderProps {
   isRecording: boolean;
   onStartRecording: () => void;
-  onStopRecording: (duration: number) => void;
+  onStopRecording: () => void;
   visualizerBars?: number;
 }
 const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   isRecording,
-  onStartRecording,
-  onStopRecording,
   visualizerBars = 32,
 }) => {
   const [time, setTime] = React.useState(0);
@@ -201,20 +199,18 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
   React.useEffect(() => {
     if (isRecording) {
-      onStartRecording();
       timerRef.current = setInterval(() => setTime((t) => t + 1), 1000);
     } else {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-      onStopRecording(time);
       setTime(0);
     }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isRecording, time, onStartRecording, onStopRecording]);
+  }, [isRecording]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -486,7 +482,11 @@ const CustomDivider: React.FC = () => (
 
 // Main PromptInputBox Component
 interface PromptInputBoxProps {
-  onSend?: (message: string, files?: File[]) => void;
+  onSend?: (
+    message: string,
+    files?: File[],
+    flags?: { useWebSearch?: boolean; useThink?: boolean; useCanvas?: boolean }
+  ) => void;
   isLoading?: boolean;
   placeholder?: string;
   className?: string;
@@ -531,11 +531,14 @@ export const PromptInputBox = React.forwardRef(
       null,
     );
     const [isRecording, setIsRecording] = React.useState(false);
+    const [isTranscribing, setIsTranscribing] = React.useState(false);
     const [showSearch, setShowSearch] = React.useState(false);
     const [showThink, setShowThink] = React.useState(false);
     const [showCanvas, setShowCanvas] = React.useState(false);
     const uploadInputRef = React.useRef<HTMLInputElement>(null);
     const promptBoxRef = React.useRef<HTMLDivElement>(null);
+    const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+    const audioChunksRef = React.useRef<Blob[]>([]);
 
     const handleToggleChange = (value: string) => {
       if (value === "search") {
@@ -622,43 +625,107 @@ export const PromptInputBox = React.forwardRef(
 
     const handleSubmit = () => {
       if (input.trim() || files.length > 0) {
-        let messagePrefix = "";
-        if (showSearch) messagePrefix = "[Search: ";
-        else if (showThink) messagePrefix = "[Think: ";
-        else if (showCanvas) messagePrefix = "[Canvas: ";
-        const formattedInput = messagePrefix
-          ? `${messagePrefix}${input}]`
-          : input;
-        onSend(formattedInput, files);
+        onSend(input.trim(), files, {
+          useWebSearch: showSearch,
+          useThink: showThink,
+          useCanvas: showCanvas,
+        });
         setInput("");
         setFiles([]);
         setFilePreviews({});
       }
     };
 
-    const handleStartRecording = () => console.log("Started recording");
+    const startRecording = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunksRef.current = [];
 
-    const handleStopRecording = (duration: number) => {
-      console.log(`Stopped recording after ${duration} seconds`);
+        // Prefer webm/ogg for Whisper compatibility; fallback to default
+        const mimeType = MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : MediaRecorder.isTypeSupported("audio/ogg")
+            ? "audio/ogg"
+            : "";
+
+        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+        mediaRecorderRef.current = recorder;
+
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+
+        recorder.onstop = async () => {
+          stream.getTracks().forEach((t) => t.stop());
+          const blob = new Blob(audioChunksRef.current, {
+            type: mimeType || "audio/webm",
+          });
+
+          if (blob.size < 500) return; // too small, probably empty
+
+          setIsTranscribing(true);
+          try {
+            const formData = new FormData();
+            formData.append("audio", blob, `recording.${mimeType.includes("ogg") ? "ogg" : "webm"}`);
+
+            const res = await fetch("/api/agent/transcribe", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (res.ok) {
+              const data = (await res.json()) as { text?: string };
+              if (data.text?.trim()) {
+                setInput(data.text!.trim());
+              }
+            } else {
+              console.warn("[Transcribe] Error:", res.status);
+            }
+          } catch (err) {
+            console.error("[Transcribe] Failed:", err);
+          } finally {
+            setIsTranscribing(false);
+          }
+        };
+
+        recorder.start();
+        setIsRecording(true);
+      } catch (err) {
+        console.error("[Microphone] getUserMedia failed:", err);
+      }
+    };
+
+    const stopRecording = () => {
+      mediaRecorderRef.current?.stop();
+      mediaRecorderRef.current = null;
       setIsRecording(false);
-      onSend(`[Voice message - ${duration} seconds]`, []);
+    };
+
+    const handleStartRecording = () => {
+      void startRecording();
+    };
+
+    const handleStopRecording = () => {
+      stopRecording();
     };
 
     const hasContent = input.trim() !== "" || files.length > 0;
+    const isBusy = isLoading || isTranscribing;
 
     return (
       <>
         <PromptInput
           value={input}
           onValueChange={setInput}
-          isLoading={isLoading}
+          isLoading={isBusy}
           onSubmit={handleSubmit}
           className={cn(
             "prompt-input-box w-full border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-[0_8px_30px_rgba(0,0,0,0.24)] transition-all duration-300 ease-in-out",
             isRecording && "border-red-500/70",
+            isTranscribing && "border-violet-500/70",
             className,
           )}
-          disabled={isLoading || isRecording}
+          disabled={isBusy || isRecording}
           ref={ref || promptBoxRef}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -738,6 +805,17 @@ export const PromptInputBox = React.forwardRef(
               onStartRecording={handleStartRecording}
               onStopRecording={handleStopRecording}
             />
+          )}
+
+          {isTranscribing && !isRecording && (
+            <div className="flex items-center gap-2 py-2 text-xs text-violet-400">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="h-3 w-3 rounded-full border border-violet-400 border-t-transparent"
+              />
+              <span>Transcribiendo…</span>
+            </div>
           )}
 
           <PromptInputActions className="flex items-center justify-between gap-2">
@@ -941,13 +1019,13 @@ export const PromptInputBox = React.forwardRef(
 
             <PromptInputAction
               tooltip={
-                isLoading
-                  ? "Stop generation"
+                isBusy
+                  ? "Procesando…"
                   : isRecording
-                    ? "Stop recording"
+                    ? "Detener grabación"
                     : hasContent
-                      ? "Send message"
-                      : "Voice message"
+                      ? "Enviar mensaje"
+                      : "Mensaje de voz"
               }
             >
               <Button
@@ -962,13 +1040,13 @@ export const PromptInputBox = React.forwardRef(
                       : "bg-transparent text-[#9CA3AF] hover:bg-gray-600/30 hover:text-[#D1D5DB]",
                 )}
                 onClick={() => {
-                  if (isRecording) setIsRecording(false);
+                  if (isRecording) stopRecording();
                   else if (hasContent) handleSubmit();
-                  else setIsRecording(true);
+                  else void startRecording();
                 }}
-                disabled={isLoading && !hasContent}
+                disabled={isBusy && !isRecording}
               >
-                {isLoading ? (
+                {isBusy && !isRecording ? (
                   <Square className="h-4 w-4 animate-pulse fill-[#1A1A1A]" />
                 ) : isRecording ? (
                   <StopCircle className="h-5 w-5 text-red-500" />

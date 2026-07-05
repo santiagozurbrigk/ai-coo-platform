@@ -22,6 +22,8 @@ export type AgentMessageAttachment = {
   name: string;
   url: string;
   type: string;
+  /** Size in bytes, if known */
+  sizeBytes?: number;
 };
 
 export type AgentMessage = {
@@ -33,7 +35,17 @@ export type AgentMessage = {
   attachments: AgentMessageAttachment[] | null;
   actionType: AgentMessageActionType | null;
   actionRefId: string | null;
+  /** Serialized extended thinking blocks from Claude (JSON array of { text }) */
+  thinkingContent: string | null;
+  /** Long-form canvas content extracted from the response */
+  canvasContent: string | null;
   createdAt: string;
+};
+
+export type AgentFlags = {
+  useWebSearch?: boolean;
+  useThink?: boolean;
+  useCanvas?: boolean;
 };
 
 export type AgentWorkspaceData = {

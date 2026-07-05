@@ -22,6 +22,7 @@ import {
 import { paths } from "@/routes/paths";
 import type {
   AgentConversation,
+  AgentFlags,
   AgentMessage,
   AgentWorkspaceData,
   BusinessStage,
@@ -41,7 +42,7 @@ type AgentDataContextValue = {
   loadConversation: (conversationId: string | null) => Promise<void>;
   sendMessage: (
     content: string,
-    opts?: { conversationId?: string | null; contextStageId?: string | null }
+    opts?: { conversationId?: string | null; contextStageId?: string | null; flags?: AgentFlags }
   ) => Promise<string | null>;
   createStage: (input: { name: string; description?: string }) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
@@ -64,6 +65,8 @@ function buildOptimisticUserMessage(
     attachments: null,
     actionType: null,
     actionRefId: null,
+    thinkingContent: null,
+    canvasContent: null,
     createdAt: new Date().toISOString(),
   };
 }
@@ -142,7 +145,7 @@ export function AgentDataProvider({
   const sendMessage = useCallback(
     async (
       content: string,
-      opts?: { conversationId?: string | null; contextStageId?: string | null }
+      opts?: { conversationId?: string | null; contextStageId?: string | null; flags?: AgentFlags }
     ) => {
       const trimmed = content.trim();
       if (!trimmed) return null;
@@ -164,6 +167,7 @@ export function AgentDataProvider({
           conversationId: targetConversationId,
           content: trimmed,
           contextStageId: opts?.contextStageId ?? resolvedFilterStageId ?? null,
+          flags: opts?.flags,
         });
 
         setMessages(result.messages);
@@ -295,4 +299,4 @@ export function useAgentData() {
   return ctx;
 }
 
-export type { AgentConversation, BusinessStage };
+export type { AgentConversation, AgentFlags, BusinessStage };

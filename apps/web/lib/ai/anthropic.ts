@@ -347,6 +347,192 @@ export async function callClaudeText(
   return textBlock.text.trim();
 }
 
+export type AgentToolInput = {
+  name: string;
+  input: Record<string, unknown>;
+};
+
+export type ClaudeAgentResult = {
+  text: string;
+  thinkingContent: string | null;
+  toolCall: AgentToolInput | null;
+};
+
+export type ClaudeAgentRequest = {
+  organizationId: string;
+  task?: AITask;
+  model?: ClaudeModel | string;
+  feature: string;
+  system?: string;
+  cachedSystemPrompt?: string;
+  messages: { role: "user" | "assistant"; content: string }[];
+  maxTokens?: number;
+  enableWebSearch?: boolean;
+  enableThinking?: boolean;
+  thinkingBudget?: number;
+  tools?: Anthropic.Tool[];
+  onToolCall?: (name: string, input: Record<string, unknown>) => Promise<string>;
+};
+
+/**
+ * Extended Claude call for the Agent module.
+ * Supports web search, extended thinking, and custom tool calling.
+ */
+export async function callClaudeAgent(
+  req: ClaudeAgentRequest
+): Promise<ClaudeAgentResult> {
+  const { client, keySource } = await resolveClientForOrg(req.organizationId);
+  if (!client || keySource === "none") {
+    console.warn("[callClaudeAgent] Sin API key (org BYOK ni ANTHROPIC_API_KEY)");
+    return { text: "", thinkingContent: null, toolCall: null };
+  }
+
+  const logicalModel = resolveLogicalModel(req);
+  const apiModel = resolveApiModelId(logicalModel);
+  const maxTokens = req.maxTokens ?? 8192;
+  const thinkingBudget = req.thinkingBudget ?? 6000;
+
+  const systemParam = buildSystemParam(req.cachedSystemPrompt, req.system);
+
+  const tools: Anthropic.Tool[] = [...(req.tools ?? [])];
+  if (req.enableWebSearch) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tools.push({ type: "web_search_20250305", name: "web_search" } as any);
+  }
+
+  const messages: Anthropic.MessageParam[] = req.messages.map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const requestBase: Record<string, any> = {
+    model: apiModel,
+    max_tokens: maxTokens,
+    messages,
+    ...(systemParam !== undefined && { system: systemParam }),
+    ...(tools.length > 0 && { tools }),
+    ...(req.enableThinking && {
+      thinking: { type: "enabled", budget_tokens: thinkingBudget },
+    }),
+  };
+
+  let response: Anthropic.Message;
+  try {
+    if (req.cachedSystemPrompt?.trim()) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      response = (await client.beta.messages.create({
+        ...requestBase,
+        betas: [PROMPT_CACHING_BETA],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any)) as Anthropic.Message;
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      response = (await (client.messages.create as (p: any) => Promise<Anthropic.Message>)(requestBase));
+    }
+  } catch (error) {
+    throw mapAnthropicCallError(error, keySource);
+  }
+
+  await trackUsage(
+    req.organizationId,
+    logicalModel,
+    req.feature,
+    response.usage as ClaudeUsage
+  );
+
+  // Extract thinking blocks
+  const thinkingBlocks = response.content.filter((b) => b.type === "thinking");
+  const thinkingContent =
+    thinkingBlocks.length > 0
+      ? JSON.stringify(
+          thinkingBlocks.map((b) =>
+            b.type === "thinking"
+              ? { text: (b as { type: "thinking"; thinking: string }).thinking }
+              : {}
+          )
+        )
+      : null;
+
+  // Handle tool use (single round)
+  const toolUseBlock = response.content.find((b) => b.type === "tool_use");
+  if (toolUseBlock && toolUseBlock.type === "tool_use" && req.onToolCall) {
+    const tb = toolUseBlock as Anthropic.ToolUseBlock;
+    const toolResultStr = await req.onToolCall(
+      tb.name,
+      tb.input as Record<string, unknown>
+    );
+
+    const followMessages: Anthropic.MessageParam[] = [
+      ...messages,
+      { role: "assistant", content: response.content },
+      {
+        role: "user",
+        content: [
+          {
+            type: "tool_result" as const,
+            tool_use_id: tb.id,
+            content: toolResultStr,
+          },
+        ],
+      },
+    ];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const followRequest: Record<string, any> = {
+      model: apiModel,
+      max_tokens: maxTokens,
+      messages: followMessages,
+      ...(systemParam !== undefined && { system: systemParam }),
+      ...(tools.length > 0 && { tools }),
+    };
+
+    let followResponse: Anthropic.Message;
+    try {
+      if (req.cachedSystemPrompt?.trim()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        followResponse = (await client.beta.messages.create({
+          ...followRequest,
+          betas: [PROMPT_CACHING_BETA],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any)) as Anthropic.Message;
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        followResponse = (await (client.messages.create as (p: any) => Promise<Anthropic.Message>)(followRequest));
+      }
+    } catch (error) {
+      throw mapAnthropicCallError(error, keySource);
+    }
+
+    await trackUsage(
+      req.organizationId,
+      logicalModel,
+      req.feature,
+      followResponse.usage as ClaudeUsage
+    );
+
+    const followText = followResponse.content.find((b) => b.type === "text");
+    return {
+      text:
+        followText && followText.type === "text"
+          ? followText.text.trim()
+          : "",
+      thinkingContent,
+      toolCall: {
+        name: tb.name,
+        input: tb.input as Record<string, unknown>,
+      },
+    };
+  }
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  return {
+    text: textBlock && textBlock.type === "text" ? textBlock.text.trim() : "",
+    thinkingContent,
+    toolCall: null,
+  };
+}
+
 export async function callClaudeJson<T>(
   req: ClaudeJsonRequest
 ): Promise<T | null> {

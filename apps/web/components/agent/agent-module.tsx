@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Edit3, Layers, Sparkles } from "lucide-react";
 import { cn, usePrefersReducedMotion } from "@ai-coo/ui";
@@ -9,6 +9,9 @@ import { useAgentData } from "@/providers/agent-data-provider";
 import { useToast } from "@/providers/toast-provider";
 import { AgentEmptyState } from "./agent-empty-state";
 import { ChatMessage } from "./chat-message";
+import { CanvasPanel } from "./canvas-panel";
+
+type CanvasVersion = { id: string; content: string; timestamp: string };
 
 export function AgentModule() {
   const {
@@ -27,6 +30,10 @@ export function AgentModule() {
   const { push } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Canvas panel state
+  const [canvasVersions, setCanvasVersions] = useState<CanvasVersion[]>([]);
+  const [showCanvas, setShowCanvas] = useState(false);
+
   const conversation = useMemo(
     () => workspace.conversations.find((c) => c.id === conversationId) ?? null,
     [workspace.conversations, conversationId]
@@ -36,6 +43,23 @@ export function AgentModule() {
     if (!filterStageId) return null;
     return workspace.stages.find((s) => s.id === filterStageId) ?? null;
   }, [workspace.stages, filterStageId]);
+
+  // Auto-populate canvas panel when new messages with canvas content arrive
+  useEffect(() => {
+    for (const msg of messages) {
+      if (msg.role === "assistant" && msg.canvasContent) {
+        setCanvasVersions((prev) => {
+          const alreadyExists = prev.some((v) => v.id === msg.id);
+          if (alreadyExists) return prev;
+          return [
+            ...prev,
+            { id: msg.id, content: msg.canvasContent!, timestamp: msg.createdAt },
+          ];
+        });
+        setShowCanvas(true);
+      }
+    }
+  }, [messages]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -51,79 +75,105 @@ export function AgentModule() {
   const showEmptyState = !isLoading && messages.length === 0 && !isSending;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center justify-between border-b border-border bg-transparent px-6 py-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-violet-500/30 bg-violet-600/15">
-            <Sparkles className="h-4 w-4 text-violet-500 dark:text-violet-400" />
-          </div>
-          {currentStage ? (
-            <div className="flex items-center gap-1.5">
-              <Layers className="h-3.5 w-3.5 text-blue-400" />
-              <span className="text-xs text-blue-400/70">{currentStage.name}</span>
+    <div className="flex min-h-0 flex-1">
+      {/* Main chat area */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex shrink-0 items-center justify-between border-b border-border bg-transparent px-6 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-violet-500/30 bg-violet-600/15">
+              <Sparkles className="h-4 w-4 text-violet-500 dark:text-violet-400" />
             </div>
-          ) : null}
-          <h2 className="truncate text-sm font-medium text-foreground">
-            {conversation?.title || "Nueva conversación"}
-          </h2>
+            {currentStage ? (
+              <div className="flex items-center gap-1.5">
+                <Layers className="h-3.5 w-3.5 text-blue-400" />
+                <span className="text-xs text-blue-400/70">{currentStage.name}</span>
+              </div>
+            ) : null}
+            <h2 className="truncate text-sm font-medium text-foreground">
+              {conversation?.title || "Nueva conversación"}
+            </h2>
+          </div>
+          <button
+            type="button"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Editar título"
+          >
+            <Edit3 className="h-3.5 w-3.5" />
+          </button>
         </div>
-        <button
-          type="button"
-          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label="Editar título"
+
+        <div
+          ref={scrollRef}
+          className="flex-1 space-y-4 overflow-y-auto bg-transparent px-6 py-4"
         >
-          <Edit3 className="h-3.5 w-3.5" />
-        </button>
-      </div>
+          {isLoading && messages.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Cargando…</p>
+          ) : showEmptyState ? (
+            <AgentEmptyState onSuggestion={setInputValue} />
+          ) : (
+            messages.map((msg) => (
+              <ChatMessage
+                key={msg.id}
+                role={msg.role}
+                content={msg.content}
+                actionType={msg.actionType}
+                actionRefId={msg.actionRefId}
+                animateReveal={msg.id === responseRevealMessageId}
+                thinkingContent={msg.thinkingContent}
+                attachments={msg.attachments}
+              />
+            ))
+          )}
+          {isSending ? <ThinkingIndicator /> : null}
+        </div>
 
-      <div
-        ref={scrollRef}
-        className="flex-1 space-y-4 overflow-y-auto bg-transparent px-6 py-4"
-      >
-        {isLoading && messages.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Cargando…</p>
-        ) : showEmptyState ? (
-          <AgentEmptyState onSuggestion={setInputValue} />
-        ) : (
-          messages.map((msg) => (
-            <ChatMessage
-              key={msg.id}
-              role={msg.role}
-              content={msg.content}
-              actionType={msg.actionType}
-              actionRefId={msg.actionRefId}
-              animateReveal={msg.id === responseRevealMessageId}
-            />
-          ))
-        )}
-        {isSending ? <ThinkingIndicator /> : null}
-      </div>
-
-      <div className="shrink-0 border-t border-border px-6 py-4">
-        <PromptInputBox
-          value={inputValue}
-          onValueChange={setInputValue}
-          onSend={(msg) => {
-            void (async () => {
-              try {
-                await sendMessage(msg, {
-                  conversationId,
-                  contextStageId: filterStageId,
-                });
-              } catch {
-                push({
-                  title: "No se pudo enviar el mensaje",
-                  description:
-                    "Revisá tu conexión o la API de Claude e intentá de nuevo.",
-                  variant: "default",
-                });
+        <div className="shrink-0 border-t border-border px-6 py-4">
+          <PromptInputBox
+            value={inputValue}
+            onValueChange={setInputValue}
+            onSend={(msg, _files, flags) => {
+              // If canvas was active and a canvas version exists, open the panel
+              if (flags?.useCanvas) {
+                setShowCanvas(true);
               }
-            })();
-          }}
-          isLoading={isSending}
-          placeholder={placeholder}
-        />
+              void (async () => {
+                try {
+                  const result = await sendMessage(msg, {
+                    conversationId,
+                    contextStageId: filterStageId,
+                    flags,
+                  });
+
+                  // After sending, check if the newest message has canvas content
+                  if (flags?.useCanvas && result) {
+                    // Canvas content will be in the last assistant message
+                    // We'll detect it after messages update via useEffect
+                  }
+                } catch {
+                  push({
+                    title: "No se pudo enviar el mensaje",
+                    description:
+                      "Revisá tu conexión o la API de Claude e intentá de nuevo.",
+                    variant: "default",
+                  });
+                }
+              })();
+            }}
+            isLoading={isSending}
+            placeholder={placeholder}
+          />
+        </div>
       </div>
+
+      {/* Canvas side panel */}
+      {showCanvas && canvasVersions.length > 0 && (
+        <div className="w-[420px] shrink-0">
+          <CanvasPanel
+            versions={canvasVersions}
+            onClose={() => setShowCanvas(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

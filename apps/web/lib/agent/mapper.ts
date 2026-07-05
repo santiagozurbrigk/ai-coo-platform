@@ -33,6 +33,8 @@ export type AgentMessageRow = {
   attachments: unknown;
   action_type: string | null;
   action_ref_id: string | null;
+  thinking_content: string | null;
+  canvas_content: string | null;
   created_at: string;
 };
 
@@ -70,6 +72,8 @@ export function rowToMessage(row: AgentMessageRow): AgentMessage {
       : null,
     actionType: row.action_type as AgentMessage["actionType"],
     actionRefId: row.action_ref_id,
+    thinkingContent: row.thinking_content ?? null,
+    canvasContent: row.canvas_content ?? null,
     createdAt: row.created_at,
   };
 }
