@@ -6,18 +6,21 @@ import { MockPhaseBadge } from "./mock-phase-badge";
 import { ProductRagSuggestButton } from "./product-rag-suggest";
 import { ProductViewToggle, type ProductViewMode } from "./product-view-toggle";
 import { ProductSpatialView } from "./spatial-view";
+import { ProductGraphView } from "./graph-view";
 import { ProductDetailView } from "./detail-view";
 import { EmptyState } from "@/components/shared/empty-state";
-import type { ProductData, SpatialProductNode } from "@/types/product";
+import type { GraphData, ProductData, SpatialProductNode } from "@/types/product";
 
 export function ProductModule({
   productData,
   spatialNodes,
+  graphData,
   hasRealData,
   canEdit,
 }: {
   productData: ProductData;
   spatialNodes: SpatialProductNode[];
+  graphData: GraphData;
   hasRealData: boolean;
   canEdit: boolean;
 }) {
@@ -26,21 +29,23 @@ export function ProductModule({
   const searchParams = useSearchParams();
   const viewParam = searchParams.get("view");
   const [mode, setMode] = useState<ProductViewMode>(
-    viewParam === "detail" ? "detail" : "spatial"
+    viewParam === "detail" ? "detail" : viewParam === "spatial" ? "spatial" : "graph"
   );
 
   useEffect(() => {
-    setMode(viewParam === "detail" ? "detail" : "spatial");
+    setMode(
+      viewParam === "detail" ? "detail" : viewParam === "spatial" ? "spatial" : "graph"
+    );
   }, [viewParam]);
 
   const handleModeChange = useCallback(
     (next: ProductViewMode) => {
       setMode(next);
       const params = new URLSearchParams(searchParams.toString());
-      if (next === "spatial") {
+      if (next === "graph") {
         params.delete("view");
       } else {
-        params.set("view", "detail");
+        params.set("view", next);
       }
       const query = params.toString();
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
@@ -70,7 +75,9 @@ export function ProductModule({
         <ProductViewToggle mode={mode} onChange={handleModeChange} />
       </div>
 
-      {mode === "spatial" ? (
+      {mode === "graph" ? (
+        <ProductGraphView graphData={graphData} hasRealData={hasRealData} />
+      ) : mode === "spatial" ? (
         <ProductSpatialView nodes={spatialNodes} hasRealData={hasRealData} />
       ) : !hasRealData ? (
         <EmptyState

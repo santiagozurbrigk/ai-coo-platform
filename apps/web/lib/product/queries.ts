@@ -10,20 +10,23 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import {
+  buildGraphData,
   buildProductData,
   buildSpatialNodes,
   emptyProductData,
   rowToValueProposition,
   type CustomerAvatarRow,
+  type GraphFrameworkRow,
   type ProductRow,
   type ValueLadderRow,
   type ValuePropositionRow,
 } from "./mapper";
-import type { ProductData, SpatialProductNode } from "@/types/product";
+import type { GraphData, ProductData, SpatialProductNode } from "@/types/product";
 
 export type ProductPageData = {
   productData: ProductData;
   spatialNodes: SpatialProductNode[];
+  graphData: GraphData;
   hasRealData: boolean;
   canEdit: boolean;
 };
@@ -109,6 +112,7 @@ export async function getProductPageData(): Promise<ProductPageData> {
     return {
       productData: emptyProductData,
       spatialNodes: [],
+      graphData: { nodes: [], edges: [] },
       hasRealData: false,
       canEdit: false,
     };
@@ -118,7 +122,7 @@ export async function getProductPageData(): Promise<ProductPageData> {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
 
-    const [avatarsRes, productsRes, ladderRes, propositionRes, metricsInput] =
+    const [avatarsRes, productsRes, ladderRes, propositionRes, frameworksRes, positionsRes, metricsInput] =
       await Promise.all([
         supabase
           .from("customer_avatars")
@@ -142,6 +146,15 @@ export async function getProductPageData(): Promise<ProductPageData> {
           .select("*")
           .eq("organization_id", organizationId)
           .maybeSingle(),
+        supabase
+          .from("sales_frameworks")
+          .select("id, name, type")
+          .eq("organization_id", organizationId)
+          .eq("is_active", true),
+        supabase
+          .from("business_graph_node_positions")
+          .select("node_key, x, y")
+          .eq("organization_id", organizationId),
         loadProductMetricsInput(organizationId),
       ]);
 
@@ -155,6 +168,12 @@ export async function getProductPageData(): Promise<ProductPageData> {
     const avatarRows = (avatarsRes.data ?? []) as CustomerAvatarRow[];
     const productRows = (productsRes.data ?? []) as ProductRow[];
     const ladderRows = (ladderRes.data ?? []) as ValueLadderRow[];
+    const frameworkRows = (frameworksRes.data ?? []) as GraphFrameworkRow[];
+
+    const savedPositions: Record<string, { x: number; y: number }> = {};
+    for (const row of positionsRes.data ?? []) {
+      savedPositions[row.node_key] = { x: row.x, y: row.y };
+    }
 
     const savedProposition = propositionRes.data
       ? rowToValueProposition(propositionRes.data as ValuePropositionRow)
@@ -166,6 +185,7 @@ export async function getProductPageData(): Promise<ProductPageData> {
       return {
         productData: emptyProductData,
         spatialNodes: [],
+        graphData: { nodes: [], edges: [] },
         hasRealData: false,
         canEdit: true,
       };
@@ -179,9 +199,33 @@ export async function getProductPageData(): Promise<ProductPageData> {
     );
     const productData = enrichWithMetrics(base, metricsInput);
 
+    // Org name for the root graph node — best-effort from profile
+    let orgName = "Mi negocio";
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("org_name")
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+      if (profile?.org_name) orgName = profile.org_name as string;
+    } catch {
+      // ignore; use default
+    }
+
+    const graphData = buildGraphData(
+      avatarRows,
+      productRows,
+      ladderRows,
+      frameworkRows,
+      savedProposition,
+      orgName,
+      savedPositions
+    );
+
     return {
       productData,
       spatialNodes: buildSpatialNodes(productData),
+      graphData,
       hasRealData: true,
       canEdit: true,
     };
@@ -189,6 +233,7 @@ export async function getProductPageData(): Promise<ProductPageData> {
     return {
       productData: emptyProductData,
       spatialNodes: [],
+      graphData: { nodes: [], edges: [] },
       hasRealData: false,
       canEdit: true,
     };

@@ -1,5 +1,9 @@
 import { paths } from "@/routes/paths";
+import { computeTreeLayout } from "./graph-layout";
 import type {
+  GraphData,
+  GraphEdgeInit,
+  GraphNodeInit,
   ProductAvatar,
   ProductData,
   ProductOffer,
@@ -387,4 +391,160 @@ ${ctx.frameworks
   return [propositionText, avatarText, productsText, frameworksText]
     .filter(Boolean)
     .join("\n\n");
+}
+
+// ---------- Graph data builder ----------
+
+export type GraphFrameworkRow = Pick<SalesFrameworkRow, "id" | "name" | "type">;
+
+/**
+ * Builds the ReactFlow-compatible node/edge initialisation data for the
+ * product mental-model graph.
+ *
+ * @param savedPositions - positions already persisted in business_graph_node_positions
+ *                         (keys match the node_key format: "avatar:<id>", etc.)
+ */
+export function buildGraphData(
+  avatarRows: CustomerAvatarRow[],
+  productRows: ProductRow[],
+  ladderRows: ValueLadderRow[],
+  frameworkRows: GraphFrameworkRow[],
+  proposition: ValueProposition | null,
+  orgName: string,
+  savedPositions: Record<string, { x: number; y: number }>
+): GraphData {
+  const nodes: GraphNodeInit[] = [];
+  const edges: GraphEdgeInit[] = [];
+
+  // ---- helpers ----
+  const addEdge = (source: string, target: string) => {
+    edges.push({ id: `${source}→${target}`, source, target });
+  };
+
+  // ---- root ----
+  nodes.push({
+    id: "root",
+    type: "root",
+    position: { x: 0, y: 0 }, // overwritten by layout below
+    data: { label: orgName, sublabel: "Centro del negocio", href: paths.platform.product.root, orgName },
+  });
+
+  // ---- avatars ----
+  for (const av of avatarRows) {
+    const id = `avatar:${av.id}`;
+    nodes.push({
+      id,
+      type: "avatar",
+      position: { x: 0, y: 0 },
+      data: {
+        label: av.name,
+        sublabel: av.main_pain?.slice(0, 48) ?? undefined,
+        badge: av.is_primary ? "Primario" : "Avatar",
+        isPrimary: av.is_primary,
+        href: paths.platform.product.avatar(av.id),
+      },
+    });
+    addEdge("root", id);
+  }
+
+  // ---- products ----
+  for (const p of productRows) {
+    const id = `product:${p.id}`;
+    const parentId = p.target_avatar_id ? `avatar:${p.target_avatar_id}` : "root";
+    nodes.push({
+      id,
+      type: "product",
+      position: { x: 0, y: 0 },
+      data: {
+        label: p.name,
+        sublabel: p.price != null ? `$${Number(p.price).toLocaleString()}` : undefined,
+        badge: p.is_core_offer ? "Core offer" : "Producto",
+        href: paths.platform.product.offer(p.id),
+      },
+    });
+    addEdge(parentId, id);
+  }
+
+  // ---- value ladder steps ----
+  // Group by product_id; steps without a product connect to root
+  const productIdSet = new Set(productRows.map((p) => p.id));
+  for (const row of [...ladderRows].sort((a, b) => a.level - b.level)) {
+    const id = `ladder:${row.id}`;
+    const productRaw = row.product;
+    const product = Array.isArray(productRaw) ? productRaw[0] : productRaw;
+    const parentId =
+      product?.id && productIdSet.has(product.id) ? `product:${product.id}` : "root";
+    nodes.push({
+      id,
+      type: "ladder-step",
+      position: { x: 0, y: 0 },
+      data: {
+        label: row.name,
+        sublabel: `Nivel ${row.level}`,
+        badge: `Nivel ${row.level}`,
+        href: paths.platform.product.valueLadder,
+      },
+    });
+    addEdge(parentId, id);
+  }
+
+  // ---- frameworks ----
+  for (const fw of frameworkRows) {
+    const id = `framework:${fw.id}`;
+    nodes.push({
+      id,
+      type: "framework",
+      position: { x: 0, y: 0 },
+      data: {
+        label: fw.name,
+        sublabel: fw.type ?? undefined,
+        badge: fw.type ?? "Framework",
+        href: `${paths.platform.product.root}?view=detail`,
+      },
+    });
+    addEdge("root", id);
+  }
+
+  // ---- proposition ----
+  if (proposition) {
+    const summary = [
+      proposition.avatar ? `Para: ${proposition.avatar}` : null,
+      proposition.result ? `Logra: ${proposition.result}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ")
+      .slice(0, 60);
+
+    nodes.push({
+      id: "proposition",
+      type: "proposition",
+      position: { x: 0, y: 0 },
+      data: {
+        label: "Propuesta de valor",
+        sublabel: summary || undefined,
+        badge: "Propuesta",
+        href: paths.platform.product.proposition,
+      },
+    });
+    addEdge("root", "proposition");
+  }
+
+  // ---- auto-layout (only for nodes without saved positions) ----
+  const treeNodes = nodes.map((n) => ({
+    id: n.id,
+    children: edges.filter((e) => e.source === n.id).map((e) => e.target),
+  }));
+
+  const autoPositions = computeTreeLayout(treeNodes, "root", {
+    nodeWidth: 200,
+    xGap: 60,
+    yGap: 210,
+  });
+
+  for (const node of nodes) {
+    const saved = savedPositions[node.id];
+    node.position = saved ?? autoPositions[node.id] ?? { x: 0, y: 0 };
+  }
+
+  return { nodes, edges };
 }

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "transitions-dev": {
+      "source": "Jakubantalik/transitions.dev",
+      "sourceType": "github",
+      "skillPath": "skills/transitions-dev/SKILL.md",
+      "computedHash": "dfc157c9edb9b994fe0c2408dee145f0c8a640347e1b6c922b037443cc372df8"
+    },
+    "ux-designer": {
+      "source": "szilu/ux-designer-skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "1ef0a9d073b2d3cc28c22ff199ac1d7bde6bda9cdce0cbac573a25cb316a2b8d"
+    }
+  }
+}

@@ -91,3 +91,36 @@ export type ProductData = {
   offers: ProductOffer[];
   proposition: ValueProposition;
 };
+
+// ---------- Graph view (ReactFlow-based) ----------
+
+export type GraphNodeData = {
+  label: string;
+  sublabel?: string;
+  badge?: string;
+  isPrimary?: boolean;
+  href: string;
+  /** Only on root node: name of the organization. */
+  orgName?: string;
+};
+
+/** Serialisable node descriptor passed from server to client. */
+export type GraphNodeInit = {
+  id: string;
+  /** One of: 'root' | 'avatar' | 'product' | 'ladder-step' | 'framework' | 'proposition' */
+  type: string;
+  position: { x: number; y: number };
+  data: GraphNodeData;
+};
+
+/** Serialisable edge descriptor passed from server to client. */
+export type GraphEdgeInit = {
+  id: string;
+  source: string;
+  target: string;
+};
+
+export type GraphData = {
+  nodes: GraphNodeInit[];
+  edges: GraphEdgeInit[];
+};

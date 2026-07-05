@@ -1191,4 +1191,15 @@
     overflow: visible;
     background: transparent;
   }
+
+  /* Producto — vista en grafo (ReactFlow): altura fija para que el canvas sea usable */
+  .product-graph-canvas {
+    height: 680px;
+  }
+
+  /* Suprimir el outline de ReactFlow en nodos al hacer drag */
+  .react-flow__node:focus,
+  .react-flow__node:focus-visible {
+    outline: none;
+  }
 }
