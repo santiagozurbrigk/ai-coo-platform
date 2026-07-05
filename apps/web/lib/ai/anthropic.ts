@@ -387,7 +387,7 @@ export async function callClaudeAgent(
   const { client, keySource } = await resolveClientForOrg(req.organizationId);
   if (!client || keySource === "none") {
     console.warn("[callClaudeAgent] Sin API key (org BYOK ni ANTHROPIC_API_KEY)");
-    return { text: "", thinkingContent: null, toolCall: null };
+    return { text: "", thinkingContent: null, toolCall: null, toolCalls: [] };
   }
 
   const logicalModel = resolveLogicalModel(req);

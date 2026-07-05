@@ -67,6 +67,7 @@ function buildOptimisticUserMessage(
     actionRefId: null,
     thinkingContent: null,
     canvasContent: null,
+    graphProposals: null,
     createdAt: new Date().toISOString(),
   };
 }

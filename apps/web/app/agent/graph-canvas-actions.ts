@@ -26,11 +26,12 @@ export async function getGraphDataForCanvasAction(
     return { graphData: { nodes: [], edges: [] }, pendingNodeIds: [] };
   }
 
-  const organizationId = await requireOrganizationId();
+  // Auth guard — throws if not authenticated / no org
+  await requireOrganizationId();
 
   let graphData: GraphData = { nodes: [], edges: [] };
   try {
-    const pageData = await getProductPageData(organizationId);
+    const pageData = await getProductPageData();
     graphData = pageData.graphData;
   } catch {
     // Return empty graph on error

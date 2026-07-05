@@ -236,7 +236,7 @@ export async function listAgentMessagesAction(
     .filter((r) => r.action_type === "graph_proposals")
     .map((r) => r.id);
 
-  let proposalsByMessage: Map<string, GraphProposal[]> = new Map();
+  const proposalsByMessage: Map<string, GraphProposal[]> = new Map();
 
   if (graphProposalMessageIds.length > 0) {
     try {
