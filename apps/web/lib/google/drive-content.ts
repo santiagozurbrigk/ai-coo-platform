@@ -41,6 +41,35 @@ export async function listGoogleDriveFilesByMime(
   return data.files ?? [];
 }
 
+/**
+ * Exports a Google Doc as Markdown (text/markdown).
+ * Returns null if the format is not supported by the file (e.g. Sheets).
+ * Falls back to null silently so callers can degrade gracefully.
+ */
+export async function exportGoogleDocAsMarkdown(
+  accessToken: string,
+  fileId: string
+): Promise<string | null> {
+  const url = new URL(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/export`
+  );
+  url.searchParams.set("mimeType", "text/markdown");
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (res.status === 403 || res.status === 401) {
+    throw new GoogleIntegrationPermissionError(res.status);
+  }
+
+  // Some older Docs or Workspace editions may not support markdown export.
+  if (!res.ok) return null;
+
+  const text = await res.text();
+  return text.trim() || null;
+}
+
 export async function exportGoogleDriveFile(
   accessToken: string,
   fileId: string,

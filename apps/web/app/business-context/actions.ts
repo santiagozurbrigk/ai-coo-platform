@@ -11,6 +11,7 @@ import { assertDocumentIndexed } from "@/lib/business-context/rag-indexing";
 import { isOpenAIConfigured } from "@/lib/rag/embeddings";
 import {
   exportGoogleDriveFile,
+  exportGoogleDocAsMarkdown,
   exportGoogleDriveFilePreview,
   getGoogleDriveFileMetadata,
   GOOGLE_DOC_MIME,
@@ -39,7 +40,7 @@ import type { ContextDocument, FathomKnowledgeCall } from "@/types/business-cont
 import { paths } from "@/routes";
 
 const ROW_COLUMNS =
-  "id, organization_id, title, category, source, content_text, storage_path, mime_type, status, index_error, external_source_id, uploaded_by, created_at, updated_at";
+  "id, organization_id, title, category, source, content_text, content_markdown, storage_path, mime_type, status, index_error, external_source_id, uploaded_by, created_at, updated_at";
 
 const categorySchema = z.enum(
   DOCUMENT_CATEGORIES as [string, ...string[]]
@@ -356,6 +357,7 @@ async function importGoogleDriveContent(args: {
   );
 
   let content: string;
+  let contentMarkdown: string | null = null;
   let title: string;
 
   try {
@@ -365,6 +367,12 @@ async function importGoogleDriveContent(args: {
     ]);
     content = exported.trim();
     title = meta?.name?.trim() || "Documento de Google";
+
+    // For Google Docs, also export as Markdown to preserve structure in the viewer.
+    // Falls back to null silently if the API doesn't support it.
+    if (args.source === "google_doc") {
+      contentMarkdown = await exportGoogleDocAsMarkdown(accessToken, args.googleFileId);
+    }
   } catch (err) {
     if (isGooglePermissionError(err)) {
       throw new Error(
@@ -387,6 +395,7 @@ async function importGoogleDriveContent(args: {
       source: args.source,
       external_source_id: args.googleFileId,
       content_text: content,
+      content_markdown: contentMarkdown,
       status: "processing",
       uploaded_by: uploadedBy,
     })
@@ -643,6 +652,67 @@ export async function deleteDocumentAction(
     if (error) throw new Error(error.message);
 
     revalidatePath(paths.platform.businessContext.documents);
+    revalidatePath(paths.platform.businessContext.viewer(id));
+    return { id };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Re-sincronizar contenido Markdown (para Google Docs importados antes de que
+// se soportara la exportación en Markdown)
+// ---------------------------------------------------------------------------
+
+export async function resyncDocumentMarkdownAction(
+  input: unknown
+): Promise<MutationResult<{ id: string }>> {
+  const parsed = idSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: "Identificador inválido" };
+  }
+
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+    const id = parsed.data;
+
+    const { data: row } = await admin
+      .from("business_context_documents")
+      .select("id, source, external_source_id")
+      .eq("organization_id", organizationId)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!row) throw new Error("Documento no encontrado");
+    if (row.source !== "google_doc" || !row.external_source_id) {
+      throw new Error(
+        "Solo los Google Docs pueden regenerar su formato Markdown."
+      );
+    }
+
+    const accessToken = await requireGoogleAccessToken();
+    const markdown = await exportGoogleDocAsMarkdown(
+      accessToken,
+      row.external_source_id as string
+    );
+
+    if (!markdown) {
+      throw new Error(
+        "No se pudo obtener el formato Markdown de este Google Doc. " +
+          "Verificá que tu cuenta de Google tenga acceso al documento."
+      );
+    }
+
+    const { error } = await admin
+      .from("business_context_documents")
+      .update({
+        content_markdown: markdown,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("organization_id", organizationId)
+      .eq("id", id);
+
+    if (error) throw new Error(error.message);
+
     revalidatePath(paths.platform.businessContext.viewer(id));
     return { id };
   });

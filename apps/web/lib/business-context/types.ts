@@ -12,6 +12,7 @@ export type BusinessContextDocumentRow = {
   category: DocumentCategory;
   source: string;
   content_text: string | null;
+  content_markdown: string | null;
   storage_path: string | null;
   mime_type: string | null;
   status: DocumentStatus;
@@ -93,5 +94,6 @@ export function mapDocumentRowToContextDocument(
     storagePath: row.storage_path ?? undefined,
     mimeType: row.mime_type ?? undefined,
     transcript: row.content_text ?? undefined,
+    contentMarkdown: row.content_markdown ?? undefined,
   };
 }

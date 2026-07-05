@@ -69,5 +69,7 @@ export type ContextDocument = {
   participants?: string[];
   topics?: string[];
   transcript?: string;
+  /** Rich Markdown version of the content (from Google Docs or .md uploads). */
+  contentMarkdown?: string;
   insights?: string[];
 };
