@@ -126,7 +126,15 @@ export async function fetchUnipileAttendeePicture(
       headers: { "X-API-KEY": accessToken },
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const body = (await res.text()).slice(0, 300);
+      console.warn("[Unipile] attendee picture fetch failed", {
+        url,
+        status: res.status,
+        body,
+      });
+      return null;
+    }
 
     const contentType = res.headers.get("content-type") ?? "image/jpeg";
     const buffer = await res.arrayBuffer();
