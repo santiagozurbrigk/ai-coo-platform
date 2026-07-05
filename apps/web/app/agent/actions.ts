@@ -37,9 +37,11 @@ import { buildOrgContextText, getOrgContext } from "@/lib/ai/org-context";
 import {
   rowToConversation,
   rowToMessage,
+  rowToProposal,
   rowToStage,
   type AgentConversationRow,
   type AgentMessageRow,
+  type GraphProposalRow,
 } from "@/lib/agent/mapper";
 import {
   cleanAgentResponse,
@@ -50,6 +52,12 @@ import {
   buildRecentContextSummary,
   buildStageContext,
 } from "@/lib/agent/prompt";
+import {
+  ALL_PROPOSAL_TOOLS,
+  PROPOSAL_TOOL_NAMES,
+  loadProductEntityContext,
+  buildEntityContextText,
+} from "@/lib/agent/graph-proposal-tools";
 import { buildRAGContext, searchRAG } from "@/lib/rag/search";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -60,6 +68,7 @@ import type {
   AgentMessage,
   AgentWorkspaceData,
   BusinessStage,
+  GraphProposal,
 } from "@/types/agent";
 
 const AGENT_ERROR_REPLY =
@@ -220,7 +229,39 @@ export async function listAgentMessagesAction(
     throw new Error(error.message);
   }
 
-  return (data ?? []).map((row) => rowToMessage(row as AgentMessageRow));
+  const rows = (data ?? []) as AgentMessageRow[];
+
+  // Collect IDs of messages that have graph proposals attached
+  const graphProposalMessageIds = rows
+    .filter((r) => r.action_type === "graph_proposals")
+    .map((r) => r.id);
+
+  let proposalsByMessage: Map<string, GraphProposal[]> = new Map();
+
+  if (graphProposalMessageIds.length > 0) {
+    try {
+      const { data: proposalData } = await supabase
+        .from("agent_graph_proposals")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .in("message_id", graphProposalMessageIds)
+        .order("created_at", { ascending: true });
+
+      for (const row of proposalData ?? []) {
+        const p = rowToProposal(row as GraphProposalRow);
+        if (!p.messageId) continue;
+        const list = proposalsByMessage.get(p.messageId) ?? [];
+        list.push(p);
+        proposalsByMessage.set(p.messageId, list);
+      }
+    } catch {
+      // Non-critical: table may not exist yet
+    }
+  }
+
+  return rows.map((row) =>
+    rowToMessage(row, proposalsByMessage.get(row.id) ?? null)
+  );
 }
 
 export async function createBusinessStageAction(input: {
@@ -507,6 +548,10 @@ export async function sendAgentMessageAction(input: {
   const orgContext = await getOrgContext(organizationId);
   const orgContextText = buildOrgContextText(orgContext);
 
+  // Load entity context (ids + names) for proposal tools
+  const entityCtx = await loadProductEntityContext(organizationId);
+  const entityContextText = buildEntityContextText(entityCtx);
+
   let ragContext = "";
   let hasRagContext = false;
   try {
@@ -529,6 +574,7 @@ export async function sendAgentMessageAction(input: {
     stageContext: buildStageContext(stageForPrompt),
     recentContext: buildRecentContextSummary(recentOrg),
     ragContext,
+    entityContext: entityContextText,
   });
 
   const claudeMessages = history.map((m) => ({
@@ -567,8 +613,11 @@ export async function sendAgentMessageAction(input: {
       "callClaudeAgent() resuelve BYOK vía resolveClientForOrg()",
   });
 
-  let agentResult: { text: string; thinkingContent: string | null; toolCall: { name: string; input: Record<string, unknown> } | null } | null = null;
+  let agentResult: { text: string; thinkingContent: string | null; toolCall: { name: string; input: Record<string, unknown> } | null; toolCalls: { name: string; input: Record<string, unknown> }[] } | null = null;
   let claudeThrew = false;
+
+  // Accumulated proposals created during tool-use loop
+  const createdProposals: GraphProposal[] = [];
 
   try {
     agentResult = await callClaudeAgent({
@@ -580,14 +629,14 @@ export async function sendAgentMessageAction(input: {
       messages: claudeMessages,
       enableWebSearch: flags.useWebSearch,
       enableThinking: flags.useThink,
-      tools: [GENERATE_DOCUMENT_TOOL],
+      tools: [GENERATE_DOCUMENT_TOOL, ...ALL_PROPOSAL_TOOLS],
       onToolCall: async (name, toolInput) => {
+        // -- Document generation tool --
         if (name === "generate_document") {
           const fmt = toolInput.format as "docx" | "xlsx" | "pdf" | "csv";
           const baseFilename = String(toolInput.filename ?? "documento");
           const rawContent = toolInput.content as Record<string, unknown>;
 
-          // Build DocumentContent from Claude's output
           let docContent: DocumentContent;
           if (fmt === "xlsx") {
             docContent = {
@@ -633,6 +682,57 @@ export async function sendAgentMessageAction(input: {
             sizeBytes: stored.sizeBytes,
           });
         }
+
+        // -- Graph proposal tools --
+        if (PROPOSAL_TOOL_NAMES.has(name as Parameters<typeof PROPOSAL_TOOL_NAMES["has"]>[0])) {
+          const entityTypeMap: Record<string, GraphProposal["entityType"]> = {
+            propose_customer_avatar: "customer_avatar",
+            propose_product: "product",
+            propose_value_ladder_step: "value_ladder_step",
+            propose_sales_framework: "sales_framework",
+            propose_value_proposition: "value_proposition",
+          };
+          const entityType = entityTypeMap[name];
+          if (!entityType) return JSON.stringify({ error: "Unknown proposal tool" });
+
+          const entityId = typeof toolInput.id === "string" ? toolInput.id : null;
+          const action: "create" | "update" = entityId ? "update" : "create";
+          const payload = { ...toolInput };
+          delete (payload as Record<string, unknown>).id;
+
+          try {
+            const { data: proposalRow, error: insertErr } = await supabase
+              .from("agent_graph_proposals")
+              .insert({
+                organization_id: organizationId,
+                conversation_id: conversationId,
+                message_id: null, // will be set after message is created
+                entity_type: entityType,
+                action,
+                entity_id: entityId ?? null,
+                payload,
+                status: "pending",
+              })
+              .select("*")
+              .single();
+
+            if (insertErr || !proposalRow) {
+              return JSON.stringify({ error: insertErr?.message ?? "Failed to save proposal" });
+            }
+
+            const proposal = rowToProposal(proposalRow as GraphProposalRow);
+            createdProposals.push(proposal);
+
+            return JSON.stringify({
+              success: true,
+              proposalId: proposal.id,
+              message: `Propuesta registrada (${action} ${entityType}). El usuario verá la card para aprobar o descartar.`,
+            });
+          } catch (err) {
+            return JSON.stringify({ error: String(err) });
+          }
+        }
+
         return JSON.stringify({ error: "Tool not found" });
       },
     });
@@ -644,6 +744,8 @@ export async function sendAgentMessageAction(input: {
       textPreview: agentResult?.text?.slice(0, 120) ?? null,
       hasThinking: Boolean(agentResult?.thinkingContent),
       toolCallName: agentResult?.toolCall?.name ?? null,
+      toolCallsCount: agentResult?.toolCalls?.length ?? 0,
+      createdProposalsCount: createdProposals.length,
     });
   } catch (claudeErr) {
     claudeThrew = true;
@@ -670,23 +772,12 @@ export async function sendAgentMessageAction(input: {
 
   // Build document attachments if a document was generated via tool call
   let docAttachments: AgentMessage["attachments"] = null;
-  if (agentResult?.toolCall?.name === "generate_document") {
+  const docToolCall = agentResult?.toolCalls?.find((tc) => tc.name === "generate_document");
+  if (docToolCall) {
     try {
-      const toolOutput = JSON.parse(
-        // Extract the last tool result from onToolCall (stored in agentResult)
-        // We re-parse the input to reconstruct the attachment
-        JSON.stringify(agentResult.toolCall.input)
-      ) as Record<string, unknown>;
-      // The actual stored document info was returned via the tool result string
-      // and is embedded in rawAssistant — we need to retrieve it differently.
-      // Since we already called storeAgentDocument inside onToolCall, we embed
-      // the signed URL from the tool call result by looking at the assistant message.
-      // For now, we parse the tool input to get the filename hint.
+      const toolOutput = docToolCall.input;
       const docFilename = String(toolOutput.filename ?? "documento");
       const docFmt = String(toolOutput.format ?? "docx");
-      // The signed URL was returned as tool_result content — Claude's final
-      // response will mention it. We store a placeholder attachment so the UI
-      // can render a download card. The actual URL is inside the rawAssistant text.
       docAttachments = [
         {
           name: `${docFilename}.${docFmt}`,
@@ -711,8 +802,11 @@ export async function sendAgentMessageAction(input: {
   const displayContent = cleanAgentResponse(rawAssistant);
 
   // Canvas: extract long structured content into canvasContent
+  // (skip canvas extraction if there are pending proposals — graph canvas will show instead)
   const canvasContent =
-    flags.useCanvas && shouldExtractCanvas(displayContent) ? displayContent : null;
+    flags.useCanvas && createdProposals.length === 0 && shouldExtractCanvas(displayContent)
+      ? displayContent
+      : null;
   // If canvas, show a brief intro in the chat instead of the full content
   const chatContent =
     canvasContent !== null
@@ -720,19 +814,41 @@ export async function sendAgentMessageAction(input: {
         "\n\n*(El contenido completo está disponible en el panel Canvas →)*"
       : displayContent;
 
-  const { error: assistantErr } = await supabase.from("agent_messages").insert({
-    conversation_id: conversationId,
-    organization_id: organizationId,
-    role: "assistant",
-    content: chatContent,
-    action_type: actionResult?.actionType ?? null,
-    action_ref_id: actionResult?.actionRefId ?? null,
-    attachments: docAttachments ?? null,
-    thinking_content: agentResult?.thinkingContent ?? null,
-    canvas_content: canvasContent,
-  });
+  // Determine action type: proposals take priority over SOP action
+  const finalActionType = createdProposals.length > 0
+    ? ("graph_proposals" as const)
+    : (actionResult?.actionType ?? null);
+  const finalActionRefId = createdProposals.length > 0
+    ? null
+    : (actionResult?.actionRefId ?? null);
+
+  const { data: assistantMsgData, error: assistantErr } = await supabase
+    .from("agent_messages")
+    .insert({
+      conversation_id: conversationId,
+      organization_id: organizationId,
+      role: "assistant",
+      content: chatContent,
+      action_type: finalActionType,
+      action_ref_id: finalActionRefId,
+      attachments: docAttachments ?? null,
+      thinking_content: agentResult?.thinkingContent ?? null,
+      canvas_content: canvasContent,
+    })
+    .select("id")
+    .single();
 
   if (assistantErr) throw new Error(assistantErr.message);
+
+  // Back-fill message_id on created proposals so the UI can load them per message
+  if (createdProposals.length > 0 && assistantMsgData?.id) {
+    const proposalIds = createdProposals.map((p) => p.id);
+    await supabase
+      .from("agent_graph_proposals")
+      .update({ message_id: assistantMsgData.id })
+      .in("id", proposalIds)
+      .eq("organization_id", organizationId);
+  }
 
   // Se hace await (no fire-and-forget): en serverless el runtime congela el
   // trabajo async pendiente al retornar, y la llamada a Claude del título se

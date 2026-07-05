@@ -355,7 +355,10 @@ export type AgentToolInput = {
 export type ClaudeAgentResult = {
   text: string;
   thinkingContent: string | null;
+  /** Last tool call (kept for backward compatibility with generate_document) */
   toolCall: AgentToolInput | null;
+  /** All tool calls across all agentic iterations */
+  toolCalls: AgentToolInput[];
 };
 
 export type ClaudeAgentRequest = {
@@ -441,7 +444,7 @@ export async function callClaudeAgent(
     response.usage as ClaudeUsage
   );
 
-  // Extract thinking blocks
+  // Extract thinking blocks from the first response
   const thinkingBlocks = response.content.filter((b) => b.type === "thinking");
   const thinkingContent =
     thinkingBlocks.length > 0
@@ -454,51 +457,63 @@ export async function callClaudeAgent(
         )
       : null;
 
-  // Handle tool use (single round)
-  const toolUseBlock = response.content.find((b) => b.type === "tool_use");
-  if (toolUseBlock && toolUseBlock.type === "tool_use" && req.onToolCall) {
-    const tb = toolUseBlock as Anthropic.ToolUseBlock;
-    const toolResultStr = await req.onToolCall(
-      tb.name,
-      tb.input as Record<string, unknown>
+  // ---- Agentic tool-use loop (max 4 iterations) ----
+  const MAX_AGENT_ITERATIONS = 4;
+  const allToolCalls: AgentToolInput[] = [];
+  let currentResponse = response;
+  let iteration = 0;
+
+  while (iteration < MAX_AGENT_ITERATIONS && req.onToolCall) {
+    const toolUseBlocks = currentResponse.content.filter(
+      (b) => b.type === "tool_use"
+    );
+    if (toolUseBlocks.length === 0) break;
+
+    // Execute ALL tool_use blocks in this iteration in parallel
+    const toolResults = await Promise.all(
+      toolUseBlocks.map(async (block) => {
+        const tb = block as Anthropic.ToolUseBlock;
+        allToolCalls.push({
+          name: tb.name,
+          input: tb.input as Record<string, unknown>,
+        });
+        const resultStr = await req.onToolCall!(
+          tb.name,
+          tb.input as Record<string, unknown>
+        );
+        return {
+          type: "tool_result" as const,
+          tool_use_id: tb.id,
+          content: resultStr,
+        };
+      })
     );
 
-    const followMessages: Anthropic.MessageParam[] = [
-      ...messages,
-      { role: "assistant", content: response.content },
-      {
-        role: "user",
-        content: [
-          {
-            type: "tool_result" as const,
-            tool_use_id: tb.id,
-            content: toolResultStr,
-          },
-        ],
-      },
-    ];
+    // Append assistant message + tool results to the running message list
+    messages.push({ role: "assistant", content: currentResponse.content });
+    messages.push({ role: "user", content: toolResults });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const followRequest: Record<string, any> = {
+    const nextRequest: Record<string, any> = {
       model: apiModel,
       max_tokens: maxTokens,
-      messages: followMessages,
+      messages,
       ...(systemParam !== undefined && { system: systemParam }),
       ...(tools.length > 0 && { tools }),
     };
 
-    let followResponse: Anthropic.Message;
+    let nextResponse: Anthropic.Message;
     try {
       if (req.cachedSystemPrompt?.trim()) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        followResponse = (await client.beta.messages.create({
-          ...followRequest,
+        nextResponse = (await client.beta.messages.create({
+          ...nextRequest,
           betas: [PROMPT_CACHING_BETA],
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any)) as Anthropic.Message;
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        followResponse = (await (client.messages.create as (p: any) => Promise<Anthropic.Message>)(followRequest));
+        nextResponse = (await (
+          client.messages.create as (p: unknown) => Promise<Anthropic.Message>
+        )(nextRequest));
       }
     } catch (error) {
       throw mapAnthropicCallError(error, keySource);
@@ -508,28 +523,21 @@ export async function callClaudeAgent(
       req.organizationId,
       logicalModel,
       req.feature,
-      followResponse.usage as ClaudeUsage
+      nextResponse.usage as ClaudeUsage
     );
 
-    const followText = followResponse.content.find((b) => b.type === "text");
-    return {
-      text:
-        followText && followText.type === "text"
-          ? followText.text.trim()
-          : "",
-      thinkingContent,
-      toolCall: {
-        name: tb.name,
-        input: tb.input as Record<string, unknown>,
-      },
-    };
+    currentResponse = nextResponse;
+    iteration++;
   }
 
-  const textBlock = response.content.find((b) => b.type === "text");
+  const finalTextBlock = currentResponse.content.find((b) => b.type === "text");
+  const lastToolCall = allToolCalls.length > 0 ? allToolCalls[allToolCalls.length - 1]! : null;
+
   return {
-    text: textBlock && textBlock.type === "text" ? textBlock.text.trim() : "",
+    text: finalTextBlock && finalTextBlock.type === "text" ? finalTextBlock.text.trim() : "",
     thinkingContent,
-    toolCall: null,
+    toolCall: lastToolCall,
+    toolCalls: allToolCalls,
   };
 }
 

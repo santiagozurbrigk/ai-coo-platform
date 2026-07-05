@@ -16,7 +16,7 @@ export type AgentConversation = {
   updatedAt: string;
 };
 
-export type AgentMessageActionType = "created_sop" | "created_document";
+export type AgentMessageActionType = "created_sop" | "created_document" | "graph_proposals";
 
 export type AgentMessageAttachment = {
   name: string;
@@ -25,6 +25,32 @@ export type AgentMessageAttachment = {
   /** Size in bytes, if known */
   sizeBytes?: number;
 };
+
+// ---------- Graph proposals ----------
+
+export type GraphProposalEntityType =
+  | "customer_avatar"
+  | "product"
+  | "value_ladder_step"
+  | "sales_framework"
+  | "value_proposition";
+
+export type GraphProposalStatus = "pending" | "approved" | "rejected";
+
+export type GraphProposal = {
+  id: string;
+  organizationId: string;
+  conversationId: string;
+  messageId: string | null;
+  entityType: GraphProposalEntityType;
+  action: "create" | "update";
+  entityId: string | null;
+  payload: Record<string, unknown>;
+  status: GraphProposalStatus;
+  createdAt: string;
+};
+
+// ---------- Message ----------
 
 export type AgentMessage = {
   id: string;
@@ -39,6 +65,8 @@ export type AgentMessage = {
   thinkingContent: string | null;
   /** Long-form canvas content extracted from the response */
   canvasContent: string | null;
+  /** Graph proposals attached to this message (populated when actionType === "graph_proposals") */
+  graphProposals: GraphProposal[] | null;
   createdAt: string;
 };
 

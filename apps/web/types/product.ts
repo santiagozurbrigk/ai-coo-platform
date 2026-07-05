@@ -102,6 +102,8 @@ export type GraphNodeData = {
   href: string;
   /** Only on root node: name of the organization. */
   orgName?: string;
+  /** True for proposal preview nodes (dashed border, no navigation) */
+  pending?: boolean;
 };
 
 /** Serialisable node descriptor passed from server to client. */

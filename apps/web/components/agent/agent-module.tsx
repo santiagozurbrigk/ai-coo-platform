@@ -10,6 +10,8 @@ import { useToast } from "@/providers/toast-provider";
 import { AgentEmptyState } from "./agent-empty-state";
 import { ChatMessage } from "./chat-message";
 import { CanvasPanel } from "./canvas-panel";
+import { GraphCanvasPanel } from "./graph-canvas-panel";
+import type { GraphProposal } from "@/types/agent";
 
 type CanvasVersion = { id: string; content: string; timestamp: string };
 
@@ -34,6 +36,16 @@ export function AgentModule() {
   const [canvasVersions, setCanvasVersions] = useState<CanvasVersion[]>([]);
   const [showCanvas, setShowCanvas] = useState(false);
 
+  // Graph canvas: collect pending proposals from all messages
+  const pendingProposals = useMemo<GraphProposal[]>(() => {
+    return messages.flatMap((m) =>
+      m.graphProposals?.filter((p) => p.status === "pending") ?? []
+    );
+  }, [messages]);
+
+  const showGraphCanvas =
+    showCanvas && pendingProposals.length > 0 && conversationId != null;
+
   const conversation = useMemo(
     () => workspace.conversations.find((c) => c.id === conversationId) ?? null,
     [workspace.conversations, conversationId]
@@ -45,7 +57,9 @@ export function AgentModule() {
   }, [workspace.stages, filterStageId]);
 
   // Auto-populate canvas panel when new messages with canvas content arrive
+  // Also auto-open graph canvas when new pending proposals arrive
   useEffect(() => {
+    let hasPendingProposals = false;
     for (const msg of messages) {
       if (msg.role === "assistant" && msg.canvasContent) {
         setCanvasVersions((prev) => {
@@ -58,6 +72,12 @@ export function AgentModule() {
         });
         setShowCanvas(true);
       }
+      if (msg.graphProposals?.some((p) => p.status === "pending")) {
+        hasPendingProposals = true;
+      }
+    }
+    if (hasPendingProposals) {
+      setShowCanvas(true);
     }
   }, [messages]);
 
@@ -121,6 +141,7 @@ export function AgentModule() {
                 animateReveal={msg.id === responseRevealMessageId}
                 thinkingContent={msg.thinkingContent}
                 attachments={msg.attachments}
+                graphProposals={msg.graphProposals}
               />
             ))
           )}
@@ -165,15 +186,23 @@ export function AgentModule() {
         </div>
       </div>
 
-      {/* Canvas side panel */}
-      {showCanvas && canvasVersions.length > 0 && (
+      {/* Canvas side panel: graph preview (pending proposals) OR markdown canvas */}
+      {showGraphCanvas && conversationId ? (
+        <div className="w-[480px] shrink-0">
+          <GraphCanvasPanel
+            conversationId={conversationId}
+            pendingProposals={pendingProposals}
+            onClose={() => setShowCanvas(false)}
+          />
+        </div>
+      ) : showCanvas && canvasVersions.length > 0 ? (
         <div className="w-[420px] shrink-0">
           <CanvasPanel
             versions={canvasVersions}
             onClose={() => setShowCanvas(false)}
           />
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

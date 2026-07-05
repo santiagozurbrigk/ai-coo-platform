@@ -5,10 +5,15 @@ import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { Sparkles, User } from "lucide-react";
 import { cn, usePrefersReducedMotion } from "@ai-coo/ui";
-import type { AgentMessageActionType, AgentMessageAttachment } from "@/types/agent";
+import type {
+  AgentMessageActionType,
+  AgentMessageAttachment,
+  GraphProposal,
+} from "@/types/agent";
 import { ActionCard } from "./action-card";
 import { ThinkingBlock } from "./thinking-block";
 import { DocumentCard } from "./document-card";
+import { ProposalCard } from "./proposal-card";
 
 const assistantProseClassName =
   "prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-headings:font-medium prose-p:text-foreground/90 prose-p:my-2 prose-li:text-foreground/90 prose-strong:text-foreground prose-h1:text-base prose-h1:mt-3 prose-h1:mb-2 prose-h2:text-base prose-h2:mt-3 prose-h2:mb-1.5 prose-h3:text-sm prose-h3:mt-2 prose-h3:mb-1 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-code:text-foreground prose-a:text-violet-600 dark:prose-a:text-violet-400 first:prose-headings:mt-0 first:prose-p:mt-0";
@@ -21,6 +26,7 @@ export function ChatMessage({
   animateReveal = false,
   thinkingContent,
   attachments,
+  graphProposals,
 }: {
   role: "user" | "assistant";
   content: string;
@@ -29,6 +35,7 @@ export function ChatMessage({
   animateReveal?: boolean;
   thinkingContent?: string | null;
   attachments?: AgentMessageAttachment[] | null;
+  graphProposals?: GraphProposal[] | null;
 }) {
   const reducedMotion = usePrefersReducedMotion();
   const shouldReveal = role === "assistant" && animateReveal && !reducedMotion;
@@ -106,7 +113,12 @@ export function ChatMessage({
               <DocumentCard key={i} attachment={att} />
             ))
           : null}
-        {actionType && actionRefId ? (
+        {graphProposals && graphProposals.length > 0
+          ? graphProposals.map((p) => (
+              <ProposalCard key={p.id} proposal={p} />
+            ))
+          : null}
+        {actionType && actionRefId && actionType !== "graph_proposals" ? (
           <ActionCard action={actionType} refId={actionRefId} />
         ) : null}
       </div>

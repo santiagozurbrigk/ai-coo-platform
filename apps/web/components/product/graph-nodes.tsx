@@ -19,20 +19,33 @@ function NodeShell({
   className,
   hasTarget = true,
   hasSource = true,
+  pending = false,
 }: {
   children: React.ReactNode;
   className: string;
   hasTarget?: boolean;
   hasSource?: boolean;
+  pending?: boolean;
 }) {
   return (
-    <div className={cn("relative rounded-xl border shadow-sm", className)}>
+    <div
+      className={cn(
+        "relative rounded-xl border shadow-sm",
+        className,
+        pending && "ring-2 ring-dashed ring-violet-400 dark:ring-violet-400 opacity-80"
+      )}
+    >
       {hasTarget && (
         <Handle
           type="target"
           position={Position.Top}
           className="!h-2 !w-2 !border-2 !bg-background"
         />
+      )}
+      {pending && (
+        <span className="absolute -right-2 -top-2 z-10 rounded-full bg-violet-500 px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-sm">
+          Pendiente
+        </span>
       )}
       {children}
       {hasSource && (
@@ -53,6 +66,7 @@ export function RootGraphNode({ data }: NodeProps) {
   return (
     <NodeShell
       hasTarget={false}
+      pending={d.pending}
       className="w-48 border-violet-200 bg-violet-50/95 dark:border-violet-500/40 dark:bg-violet-950/50"
     >
       <div className="flex flex-col items-center gap-2 p-4">
@@ -78,6 +92,7 @@ export function AvatarGraphNode({ data }: NodeProps) {
   const d = data as GraphNodeData;
   return (
     <NodeShell
+      pending={d.pending}
       className={cn(
         "w-52",
         d.isPrimary
@@ -130,6 +145,7 @@ export function ProductGraphNode({ data }: NodeProps) {
   const isCore = d.badge === "Core offer";
   return (
     <NodeShell
+      pending={d.pending}
       className={cn(
         "w-48",
         isCore
@@ -180,7 +196,7 @@ export function ProductGraphNode({ data }: NodeProps) {
 export function LadderStepGraphNode({ data }: NodeProps) {
   const d = data as GraphNodeData;
   return (
-    <NodeShell className="w-44 border-emerald-200 bg-emerald-50/95 dark:border-emerald-500/30 dark:bg-emerald-950/40">
+    <NodeShell pending={d.pending} className="w-44 border-emerald-200 bg-emerald-50/95 dark:border-emerald-500/30 dark:bg-emerald-950/40">
       <div className="flex items-start gap-2.5 p-3">
         <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-600/20">
           <ArrowUpRight className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-300" />
@@ -205,7 +221,7 @@ export function LadderStepGraphNode({ data }: NodeProps) {
 export function FrameworkGraphNode({ data }: NodeProps) {
   const d = data as GraphNodeData;
   return (
-    <NodeShell className="w-44 border-orange-200 bg-orange-50/95 dark:border-orange-500/30 dark:bg-orange-950/40">
+    <NodeShell pending={d.pending} className="w-44 border-orange-200 bg-orange-50/95 dark:border-orange-500/30 dark:bg-orange-950/40">
       <div className="flex items-start gap-2.5 p-3">
         <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-orange-200 bg-orange-100 dark:border-orange-500/30 dark:bg-orange-600/20">
           <FileText className="h-3.5 w-3.5 text-orange-600 dark:text-orange-300" />
@@ -230,7 +246,7 @@ export function FrameworkGraphNode({ data }: NodeProps) {
 export function PropositionGraphNode({ data }: NodeProps) {
   const d = data as GraphNodeData;
   return (
-    <NodeShell className="w-52 border-amber-200 bg-amber-50/95 dark:border-amber-500/30 dark:bg-amber-950/40">
+    <NodeShell pending={d.pending} className="w-52 border-amber-200 bg-amber-50/95 dark:border-amber-500/30 dark:bg-amber-950/40">
       <div className="flex items-start gap-3 p-3">
         <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-100 dark:border-amber-500/30 dark:bg-amber-600/20">
           <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-300" />

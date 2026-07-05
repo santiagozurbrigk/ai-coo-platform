@@ -27,15 +27,33 @@ const DEFAULT_EDGE_OPTIONS = {
   animated: false,
 };
 
+const PENDING_EDGE_OPTIONS = {
+  type: "smoothstep",
+  style: { stroke: "rgba(124,58,237,0.4)", strokeWidth: 1.5, strokeDasharray: "6 3" },
+  animated: true,
+};
+
 export function ProductGraphView({
   graphData,
   hasRealData,
+  readonly = false,
+  pendingNodeIds,
 }: {
   graphData: GraphData;
   hasRealData: boolean;
+  readonly?: boolean;
+  pendingNodeIds?: Set<string>;
 }) {
   const router = useRouter();
-  const [nodes, , onNodesChange] = useNodesState(graphData.nodes as Node[]);
+
+  // Augment nodes with pending flag
+  const augmentedNodes = graphData.nodes.map((n) =>
+    pendingNodeIds?.has(n.id)
+      ? { ...n, data: { ...n.data, pending: true } }
+      : n
+  );
+
+  const [nodes, , onNodesChange] = useNodesState(augmentedNodes as Node[]);
   const [edges, , onEdgesChange] = useEdgesState(graphData.edges);
 
   // Debounce save so rapid drags only fire one write
@@ -43,20 +61,22 @@ export function ProductGraphView({
 
   const handleNodeDragStop = useCallback<OnNodeDrag<Node>>(
     (_, node) => {
+      if (readonly) return;
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
         void saveGraphNodePositionAction(node.id, node.position.x, node.position.y);
       }, 400);
     },
-    []
+    [readonly]
   );
 
   const handleNodeClick = useCallback(
     (_evt: React.MouseEvent, node: Node) => {
+      if (readonly) return;
       const href = (node.data as GraphNodeData).href;
       if (href) router.push(href);
     },
-    [router]
+    [router, readonly]
   );
 
   if (!hasRealData || nodes.length === 0) {
@@ -69,17 +89,27 @@ export function ProductGraphView({
     );
   }
 
+  // Edges leading to pending nodes get dashed style
+  const styledEdges = edges.map((e) => {
+    if (pendingNodeIds?.has(e.target) || pendingNodeIds?.has(e.source)) {
+      return { ...e, ...PENDING_EDGE_OPTIONS };
+    }
+    return e;
+  });
+
   return (
     <div className="product-graph-canvas relative overflow-hidden rounded-xl border border-border/60 bg-background dark:bg-card/40">
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={styledEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={GRAPH_NODE_TYPES}
         defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
         onNodeDragStop={handleNodeDragStop}
         onNodeClick={handleNodeClick}
+        nodesDraggable={!readonly}
+        nodesConnectable={false}
         fitView
         fitViewOptions={{ padding: 0.15 }}
         minZoom={0.25}

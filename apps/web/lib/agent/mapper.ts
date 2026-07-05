@@ -2,6 +2,7 @@ import type {
   AgentConversation,
   AgentMessage,
   BusinessStage,
+  GraphProposal,
 } from "@/types/agent";
 
 export type BusinessStageRow = {
@@ -38,6 +39,19 @@ export type AgentMessageRow = {
   created_at: string;
 };
 
+export type GraphProposalRow = {
+  id: string;
+  organization_id: string;
+  conversation_id: string;
+  message_id: string | null;
+  entity_type: string;
+  action: string;
+  entity_id: string | null;
+  payload: Record<string, unknown>;
+  status: string;
+  created_at: string;
+};
+
 export function rowToStage(row: BusinessStageRow): BusinessStage {
   return {
     id: row.id,
@@ -60,7 +74,25 @@ export function rowToConversation(row: AgentConversationRow): AgentConversation 
   };
 }
 
-export function rowToMessage(row: AgentMessageRow): AgentMessage {
+export function rowToProposal(row: GraphProposalRow): GraphProposal {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    conversationId: row.conversation_id,
+    messageId: row.message_id,
+    entityType: row.entity_type as GraphProposal["entityType"],
+    action: row.action as GraphProposal["action"],
+    entityId: row.entity_id,
+    payload: row.payload,
+    status: row.status as GraphProposal["status"],
+    createdAt: row.created_at,
+  };
+}
+
+export function rowToMessage(
+  row: AgentMessageRow,
+  proposals?: GraphProposal[] | null
+): AgentMessage {
   return {
     id: row.id,
     conversationId: row.conversation_id,
@@ -74,6 +106,7 @@ export function rowToMessage(row: AgentMessageRow): AgentMessage {
     actionRefId: row.action_ref_id,
     thinkingContent: row.thinking_content ?? null,
     canvasContent: row.canvas_content ?? null,
+    graphProposals: proposals ?? null,
     createdAt: row.created_at,
   };
 }
