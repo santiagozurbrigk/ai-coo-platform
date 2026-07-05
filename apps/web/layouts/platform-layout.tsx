@@ -10,17 +10,23 @@ import { paths } from "@/routes/paths";
 /** Shell de plataforma + transiciones de ruta (Fase 0.7) */
 export function PlatformLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const agentRoot = paths.platform.agent.root;
-  const agentFullBleed =
-    pathname === agentRoot || pathname.startsWith(`${agentRoot}/`);
+
+  const fullBleedPrefixes = [
+    paths.platform.agent.root,
+    paths.platform.sales.inbox,
+  ] as const;
+
+  const fullBleed = fullBleedPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
 
   return (
     <PlatformShell>
       <PageContent
-        fullWidth={agentFullBleed}
-        className={agentFullBleed ? "agent-page-content" : undefined}
+        fullWidth={fullBleed}
+        className={fullBleed ? "agent-page-content" : undefined}
       >
-        {agentFullBleed ? (
+        {fullBleed ? (
           <div className="agent-page-inner">{children}</div>
         ) : (
           <PageTransition>{children}</PageTransition>

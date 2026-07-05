@@ -51,14 +51,14 @@ export function SalesInboxLayout() {
     return (
       <PageLoading
         label="Cargando conversaciones…"
-        className="h-[calc(100vh-8rem)] min-h-[480px]"
+        className="h-full min-h-0 flex-1"
       />
     );
   }
 
   if (conversations.length === 0) {
     return (
-      <div className="flex h-[calc(100vh-8rem)] min-h-[480px] items-center justify-center p-[var(--space-card)]">
+      <div className="flex h-full min-h-0 flex-1 items-center justify-center p-[var(--space-card)]">
         <SteppedAlert
           variant="info"
           title="Sin conversaciones todavía"
@@ -85,7 +85,7 @@ export function SalesInboxLayout() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-[480px] w-full flex-col overflow-hidden bg-card md:flex-row">
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-card md:flex-row">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-[var(--space-card-sm)] py-2 md:hidden">
         <Dialog open={listOpen} onOpenChange={setListOpen}>
           <Button
