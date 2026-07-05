@@ -18,9 +18,9 @@ const CATEGORY_LABEL: Record<ObjectionCategory, string> = {
 };
 
 const CATEGORY_BADGE_CLASS: Record<ObjectionCategory, string> = {
-  closing: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400",
-  setting: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  marketing: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  closing: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300",
+  setting: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  marketing: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
 };
 
 function TrendIndicator({ objection }: { objection: FrequentObjectionSummary }) {

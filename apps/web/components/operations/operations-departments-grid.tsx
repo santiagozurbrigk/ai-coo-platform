@@ -20,7 +20,7 @@ const STATUS_CONFIG: Record<
 > = {
   healthy: {
     dot: "bg-emerald-400",
-    badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+    badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
   },
   warning: {
     dot: "bg-amber-400",
@@ -28,7 +28,7 @@ const STATUS_CONFIG: Record<
   },
   critical: {
     dot: "bg-red-400",
-    badge: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
+    badge: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
   },
 };
 

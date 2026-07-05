@@ -155,7 +155,7 @@ export function LogTimeModal({
                       ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                       : estimateDelta.diff === 0
                         ? "border-border bg-muted/30 text-muted-foreground"
-                        : "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400"
+                        : "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300"
                   )}
                 >
                   Estimaste {formatDuration(estimatedMinutes)} — {estimateDelta.label}

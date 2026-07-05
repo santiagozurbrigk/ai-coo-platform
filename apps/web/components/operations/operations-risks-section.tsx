@@ -11,7 +11,7 @@ const LEVEL_CONFIG: Record<
 > = {
   high: {
     label: "Alto",
-    className: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
+    className: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30",
     border: "hover:border-red-500/30",
   },
   medium: {
@@ -21,7 +21,7 @@ const LEVEL_CONFIG: Record<
   },
   low: {
     label: "Bajo",
-    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+    className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
     border: "hover:border-emerald-500/30",
   },
 };

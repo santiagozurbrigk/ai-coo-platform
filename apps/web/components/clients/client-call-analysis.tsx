@@ -63,8 +63,8 @@ function sectionIcon(score: number) {
 
 function fillerPillClass(count: number): string {
   if (count < 5) return "bg-muted/40 text-muted-foreground";
-  if (count <= 15) return "bg-amber-500/15 text-amber-700 dark:text-amber-400";
-  return "bg-red-500/15 text-red-700 dark:text-red-400";
+  if (count <= 15) return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
+  return "bg-red-500/15 text-red-700 dark:text-red-300";
 }
 
 function parseDurationMinutes(duration: string): number | undefined {

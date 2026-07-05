@@ -13,10 +13,10 @@ const CATEGORY_LABEL: Record<ContextDocument["category"], string> = {
 };
 
 const CATEGORY_CLASS: Record<ContextDocument["category"], string> = {
-  meetings: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
-  frameworks: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/30",
-  training: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-500/30",
-  sales: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+  meetings: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
+  frameworks: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
+  training: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30",
+  sales: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
   operations: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
 };
 
