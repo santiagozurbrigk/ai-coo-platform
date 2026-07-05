@@ -2,29 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Paperclip, Send, X } from "lucide-react";
-import { Button, NotchedCard, cn } from "@ai-coo/ui";
+import { Button, cn } from "@ai-coo/ui";
 import { formatRelativeTime } from "@/lib/format";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
-import type { Conversation, ConversationTagId } from "@/types/sales";
+import type { Conversation } from "@/types/sales";
 import { ConversationSourceBadge } from "./conversation-source-badge";
-import { ConversationTagSelect } from "./conversation-tag-select";
 import { LeadAvatar } from "./lead-avatar";
 
 const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 
 const REPLYABLE_SOURCES: ReadonlyArray<Conversation["source"]> = ["whatsapp"];
-
-function InstagramReadOnlyNotice() {
-  return (
-    <div className="shrink-0 border-t border-border bg-muted/30 p-[var(--space-card-sm)]">
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        El envío por Instagram está deshabilitado temporalmente por restricciones
-        de automatización de Meta. Para responder, usá la app nativa de Instagram.
-      </p>
-    </div>
-  );
-}
 
 function ConversationComposer({ conversationId }: { conversationId: string }) {
   const { sendConversationMessage } = usePlatformData();
@@ -143,10 +131,8 @@ function ConversationComposer({ conversationId }: { conversationId: string }) {
 
 export function ConversationThread({
   conversation,
-  onTagChange,
 }: {
   conversation: Conversation;
-  onTagChange?: (tag: ConversationTagId) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const canReply = REPLYABLE_SOURCES.includes(conversation.source);
@@ -158,33 +144,21 @@ export function ConversationThread({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <NotchedCard
-        tab={
-          <div className="flex min-w-0 items-center gap-2">
-            <LeadAvatar
-              name={conversation.leadName}
-              attendeeId={conversation.leadUnipileAttendeeId}
-              accountId={conversation.unipileAccountId}
-              className="h-9 w-9"
-            />
-            <div className="flex min-w-0 flex-col gap-1">
-              <span className="truncate">{conversation.leadName}</span>
-              <ConversationSourceBadge source={conversation.source} />
-            </div>
-          </div>
-        }
-        className="shrink-0 rounded-none border-0 border-b border-border shadow-none"
-      >
-        {onTagChange ? (
-          <div className="min-w-0 max-w-full">
-            <p className="mb-2 text-micro text-muted-foreground">Etiqueta</p>
-            <ConversationTagSelect
-              value={conversation.tag}
-              onChange={onTagChange}
-            />
-          </div>
-        ) : null}
-      </NotchedCard>
+      <div className="flex shrink-0 items-center gap-3 px-[var(--space-card-sm)] py-[var(--space-card-sm)]">
+        <LeadAvatar
+          name={conversation.leadName}
+          attendeeId={conversation.leadUnipileAttendeeId}
+          accountId={conversation.unipileAccountId}
+          className="h-11 w-11"
+        />
+        <span className="min-w-0 truncate text-base font-semibold">
+          {conversation.leadName}
+        </span>
+        <ConversationSourceBadge
+          source={conversation.source}
+          className="ml-auto shrink-0"
+        />
+      </div>
       <div
         ref={scrollRef}
         className="min-h-0 flex-1 space-y-[var(--space-card-sm)] overflow-y-auto p-[var(--space-card-sm)]"
@@ -215,8 +189,6 @@ export function ConversationThread({
       </div>
       {canReply ? (
         <ConversationComposer conversationId={conversation.id} />
-      ) : conversation.source === "instagram" ? (
-        <InstagramReadOnlyNotice />
       ) : null}
     </div>
   );

@@ -70,14 +70,20 @@ export function ConversationList({
           value={activeChannel}
           onChange={(value) => setChannelFilter(value as InboxChannel)}
         />
-        <FilterPills
-          options={CONVERSATION_TAG_FILTERS.map((f) => ({
-            value: f.id,
-            label: f.label,
-          }))}
+        <select
+          className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring"
           value={tagFilter}
-          onChange={(value) => setTagFilter(value as typeof tagFilter)}
-        />
+          onChange={(event) =>
+            setTagFilter(event.target.value as typeof tagFilter)
+          }
+          aria-label="Filtrar por etiqueta"
+        >
+          {CONVERSATION_TAG_FILTERS.map((filter) => (
+            <option key={filter.id} value={filter.id}>
+              {filter.label}
+            </option>
+          ))}
+        </select>
       </div>
       <StaggerFade as="ul" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         {filtered.map((c) => (

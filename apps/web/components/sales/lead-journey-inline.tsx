@@ -8,7 +8,7 @@ import {
   MessageCircle,
   Youtube,
 } from "lucide-react";
-import { NotchedCard, Skeleton, SteppedAlert, cn } from "@ai-coo/ui";
+import { Skeleton, SteppedAlert, cn } from "@ai-coo/ui";
 import { getLeadJourneyAction } from "@/app/sales/actions";
 import { paths } from "@/routes";
 import type { LeadJourneyStep } from "@/lib/sales/lead-journey";
@@ -191,10 +191,12 @@ export function LeadJourneyInline({
   }, [conversationId]);
 
   return (
-    <NotchedCard
-      tab={leadName ? `Recorrido: ${leadName}` : "Recorrido del lead"}
-      className="shrink-0 rounded-none border-x-0 border-b-0 shadow-none"
-    >
+    <div className="shrink-0 px-[var(--space-card-sm)] pb-[var(--space-card-sm)]">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-sm font-medium">
+          {leadName ? `Recorrido: ${leadName}` : "Recorrido del lead"}
+        </span>
+      </div>
       {loading ? (
         <JourneySkeleton />
       ) : steps.length === 0 ? (
@@ -219,6 +221,6 @@ export function LeadJourneyInline({
           ))}
         </ol>
       )}
-    </NotchedCard>
+    </div>
   );
 }

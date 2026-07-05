@@ -7,7 +7,6 @@ import { List, MessageCircle } from "lucide-react";
 import { Button, Dialog, DialogContent, DialogTitle, SteppedAlert } from "@ai-coo/ui";
 import { usePlatformData } from "@/providers";
 import { paths } from "@/routes";
-import type { ConversationTagId } from "@/types/sales";
 import { ConversationList } from "./conversation-list";
 import { ConversationThread } from "./conversation-thread";
 import { ConversationAnalysisPanel } from "./conversation-analysis";
@@ -21,7 +20,6 @@ export function SalesInboxLayout() {
   const {
     conversations,
     conversationsLoading,
-    setConversationTag,
     markConversationRead,
   } = usePlatformData();
   const [selectedId, setSelectedId] = useState<string | undefined>();
@@ -87,7 +85,7 @@ export function SalesInboxLayout() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-[480px] flex-col overflow-hidden rounded-[var(--radius-xl)] border border-border bg-card shadow-panel md:flex-row">
+    <div className="flex h-[calc(100vh-8rem)] min-h-[480px] w-full flex-col overflow-hidden bg-card md:flex-row">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-[var(--space-card-sm)] py-2 md:hidden">
         <Dialog open={listOpen} onOpenChange={setListOpen}>
           <Button
@@ -122,12 +120,7 @@ export function SalesInboxLayout() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:border-r md:border-border">
         {selected ? (
           <>
-            <ConversationThread
-              conversation={selected}
-              onTagChange={(tag: ConversationTagId) => {
-                void setConversationTag(selected.id, tag);
-              }}
-            />
+            <ConversationThread conversation={selected} />
             <LeadJourneyInline
               conversationId={selected.id}
               leadName={selected.leadName}
