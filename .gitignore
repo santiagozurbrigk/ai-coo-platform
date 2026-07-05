@@ -40,3 +40,8 @@ coverage
 
 # vercel
 .vercel
+
+# build logs
+*.build-out.txt
+.build-out.txt
+.typecheck-out.txt

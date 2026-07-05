@@ -60,7 +60,7 @@ export function ProductModule({
   return (
     <div className="flex min-h-0 h-full flex-col">
       {/* Header row — fijo en alto natural */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 px-6 py-5">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-border">
         <div className="space-y-2">
           <p className="max-w-xl text-sm text-muted-foreground">
             Mapa de avatares, ofertas y propuesta de valor — contexto que alimenta al Agente de
@@ -82,18 +82,18 @@ export function ProductModule({
           <ProductGraphView graphData={graphData} hasRealData={hasRealData} />
         </div>
       ) : mode === "spatial" ? (
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
+        <div className="flex-1 overflow-y-auto p-4">
           <ProductSpatialView nodes={spatialNodes} hasRealData={hasRealData} />
         </div>
       ) : !hasRealData ? (
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
+        <div className="flex-1 overflow-y-auto p-4">
           <EmptyState
             title="Sin datos de producto configurados"
             description="Agregá tu primer avatar y oferta en la vista detalle para construir tu mapa de producto."
           />
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
+        <div className="flex-1 overflow-y-auto p-4">
           <ProductDetailView
             productData={productData}
             hasRealData={hasRealData}

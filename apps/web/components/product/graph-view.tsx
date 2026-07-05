@@ -98,7 +98,7 @@ export function ProductGraphView({
   });
 
   return (
-    <div className="product-graph-canvas relative overflow-hidden rounded-xl border border-border/60 bg-background dark:bg-card/40">
+    <div className="product-graph-canvas relative bg-background dark:bg-card/40">
       <ReactFlow
         nodes={nodes}
         edges={styledEdges}
