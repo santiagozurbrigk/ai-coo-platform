@@ -1192,14 +1192,63 @@
     background: transparent;
   }
 
-  /* Producto — vista en grafo (ReactFlow): altura fija para que el canvas sea usable */
+  /* Producto — vista en grafo (ReactFlow): ocupa todo el espacio disponible */
+  .product-graph-fill {
+    flex: 1;
+    min-height: 0;
+    padding: 0 1.5rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+  }
+
   .product-graph-canvas {
-    height: 680px;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
   }
 
   /* Suprimir el outline de ReactFlow en nodos al hacer drag */
   .react-flow__node:focus,
   .react-flow__node:focus-visible {
     outline: none;
+  }
+
+  /* Dark mode: controles y minimapa de React Flow */
+  .dark .react-flow__controls {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.5rem;
+    box-shadow: none;
+  }
+
+  .dark .react-flow__controls-button {
+    background: hsl(var(--card));
+    border-bottom: 1px solid hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+    fill: hsl(var(--muted-foreground));
+  }
+
+  .dark .react-flow__controls-button:hover {
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
+    fill: hsl(var(--foreground));
+  }
+
+  .dark .react-flow__controls-button:last-child {
+    border-bottom: none;
+  }
+
+  .dark .react-flow__controls-button svg {
+    fill: inherit;
+  }
+
+  .dark .react-flow__minimap {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.5rem;
+  }
+
+  .dark .react-flow__minimap-mask {
+    fill: hsl(var(--muted) / 0.6);
   }
 }

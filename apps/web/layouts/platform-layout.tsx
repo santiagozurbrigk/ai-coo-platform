@@ -14,6 +14,7 @@ export function PlatformLayout({ children }: { children: ReactNode }) {
   const fullBleedPrefixes = [
     paths.platform.agent.root,
     paths.platform.sales.inbox,
+    paths.platform.product.root,
   ] as const;
 
   const fullBleed = fullBleedPrefixes.some(

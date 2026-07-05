@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { User, Package, ArrowUpRight, FileText, Lightbulb, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { cn } from "@ai-coo/ui";
 import { applyProposalAction, rejectProposalAction } from "@/app/agent/graph-proposal-actions";
@@ -79,13 +79,17 @@ interface ProposalCardProps {
 
 export function ProposalCard({ proposal, onSettled }: ProposalCardProps) {
   const [isPending, startTransition] = useTransition();
+  // Local display status so the card flips immediately without a page refresh
+  const [localStatus, setLocalStatus] = useState<GraphProposal["status"]>(
+    proposal.status
+  );
   const { push } = useToast();
   const meta = ENTITY_META[proposal.entityType];
 
-  if (proposal.status !== "pending") {
+  if (localStatus !== "pending") {
     return (
       <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-        {proposal.status === "approved" ? (
+        {localStatus === "approved" ? (
           <>
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
             <span>Cambio aplicado</span>
@@ -107,12 +111,14 @@ export function ProposalCard({ proposal, onSettled }: ProposalCardProps) {
   const actionLabel = proposal.action === "create" ? "Crear" : "Editar";
 
   const handleApply = () => {
+    setLocalStatus("approved"); // optimistic flip
     startTransition(async () => {
       const result = await applyProposalAction(proposal.id);
       if (result.success) {
         push({ title: "Cambio aplicado al modelo de negocio", variant: "default" });
         onSettled?.(proposal.id, "approved");
       } else {
+        setLocalStatus("pending"); // rollback on error
         push({
           title: "No se pudo aplicar el cambio",
           description: result.error,
@@ -123,6 +129,7 @@ export function ProposalCard({ proposal, onSettled }: ProposalCardProps) {
   };
 
   const handleReject = () => {
+    setLocalStatus("rejected"); // optimistic flip
     startTransition(async () => {
       await rejectProposalAction(proposal.id);
       onSettled?.(proposal.id, "rejected");
