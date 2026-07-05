@@ -84,7 +84,8 @@ ${wrapUntrustedContent("conversacion_instagram", leadInfo.crossChannel.messagesT
     : "";
 
   const system =
-    "Sos un experto en análisis de conversaciones de ventas de alto ticket para negocios de infoproductos latinoamericanos. Respondé ÚNICAMENTE con un objeto JSON válido, sin markdown ni texto adicional.";
+    "Sos un experto en análisis de conversaciones de ventas de alto ticket para negocios de infoproductos latinoamericanos. Respondé ÚNICAMENTE con un objeto JSON válido, sin markdown ni texto adicional. " +
+    "Todos los campos de texto libre (summary, pain_point, cross_channel_summary, recommended_action, booking_signals, ghosting_signals, detected_objections) deben estar en español rioplatense/latinoamericano, sin anglicismos ni palabras en inglés (nada de warm, pain point, engagement, intent, etc.).";
 
   const user = `Analizá esta conversación de Instagram/WhatsApp y devolvé un análisis estructurado en JSON.
 
