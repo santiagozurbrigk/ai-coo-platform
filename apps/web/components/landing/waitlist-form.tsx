@@ -52,6 +52,11 @@ export function WaitlistForm({
 
       setState("success");
       setEmail("");
+      // Signal the real conversion to Meta (browser pixel).
+      // Guard with typeof check so SSR and environments without the pixel are safe.
+      if (typeof window !== "undefined" && typeof window.fbq === "function") {
+        window.fbq("track", "Lead");
+      }
     } catch {
       setState("error");
       setErrorMessage("Error de conexión. Intentá de nuevo.");

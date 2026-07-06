@@ -3,6 +3,7 @@ import { sendWaitlistConfirmationEmail } from "@/lib/email/waitlist-email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { trackUTMLeadCapture } from "@/lib/utm/track-lead";
+import { sendMetaLeadEvent } from "@/lib/meta/conversions-api";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -70,6 +71,8 @@ export async function POST(request: Request) {
           });
         }
       }
+      // Report duplicate as lead event too — the user showed real intent.
+      void sendMetaLeadEvent({ email, request });
       return NextResponse.json({ ok: true });
     }
     console.error("[waitlist] insert:", error.message);
@@ -95,6 +98,7 @@ export async function POST(request: Request) {
   }
 
   void sendWaitlistConfirmationEmail(email);
+  void sendMetaLeadEvent({ email, request });
 
   return NextResponse.json({ ok: true });
 }
