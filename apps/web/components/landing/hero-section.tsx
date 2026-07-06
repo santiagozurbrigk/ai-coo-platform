@@ -9,13 +9,13 @@ export function HeroSection() {
           {/* Badge */}
           <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-violet-950/30 px-4 py-1.5 text-xs font-medium uppercase tracking-wider text-violet-400">
             <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
-            Lanzamiento 10/7
+            Lanzamiento 13/07
           </div>
 
           {/* Headline */}
           <h1 className="max-w-3xl text-5xl font-semibold leading-none tracking-[-0.04em] sm:text-6xl md:text-7xl">
             El segundo cerebro para{" "}
-            <span className="text-[#7C3AED]">infoproductores</span>
+            <span className="text-[#7C3AED] italic">infoproductores</span>
           </h1>
 
           {/* Subheading */}
