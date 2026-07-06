@@ -1,13 +1,64 @@
-const INTEGRATIONS = [
-  { name: "Calendly", desc: "Agendamiento" },
-  { name: "Instagram", desc: "Conversaciones" },
-  { name: "Fathom", desc: "Llamadas" },
-  { name: "Discord", desc: "Comunidad" },
-  { name: "Stripe", desc: "Pagos" },
-  { name: "MercadoPago", desc: "Pagos" },
-  { name: "Typeform", desc: "Formularios" },
-  { name: "YouTube", desc: "Contenido" },
-] as const;
+import { cn } from "@ai-coo/ui";
+import { INTEGRATION_BRAND_COLORS } from "@/lib/integrations/brand-colors";
+import type { IntegrationProvider } from "@/constants/integrations";
+
+type LandingIntegrationSlug = IntegrationProvider | "stripe" | "mercadopago";
+
+const INTEGRATIONS: {
+  name: string;
+  desc: string;
+  slug: LandingIntegrationSlug;
+}[] = [
+  { name: "Calendly", desc: "Agendamiento", slug: "calendly" },
+  { name: "Instagram", desc: "Conversaciones", slug: "instagram" },
+  { name: "Fathom", desc: "Llamadas", slug: "fathom" },
+  { name: "Discord", desc: "Comunidad", slug: "discord" },
+  { name: "Stripe", desc: "Pagos", slug: "stripe" },
+  { name: "MercadoPago", desc: "Pagos", slug: "mercadopago" },
+  { name: "Typeform", desc: "Formularios", slug: "typeform" },
+  { name: "YouTube", desc: "Contenido", slug: "youtube" },
+];
+
+const EXTRA_BRAND_COLORS: Record<"stripe" | "mercadopago", { hex: string; bgClass: string }> = {
+  stripe: { hex: "#635BFF", bgClass: "bg-[#635BFF]/12" },
+  mercadopago: { hex: "#009EE3", bgClass: "bg-[#009EE3]/12" },
+};
+
+function integrationBrand(slug: LandingIntegrationSlug) {
+  if (slug === "stripe" || slug === "mercadopago") {
+    return EXTRA_BRAND_COLORS[slug];
+  }
+  return INTEGRATION_BRAND_COLORS[slug];
+}
+
+function IntegrationLogo({
+  slug,
+  className,
+}: {
+  slug: LandingIntegrationSlug;
+  className?: string;
+}) {
+  const { hex } = integrationBrand(slug);
+  const logoSrc = `/integrations/${slug}.svg`;
+
+  return (
+    <span
+      aria-hidden
+      className={cn("inline-block h-7 w-7 shrink-0", className)}
+      style={{
+        backgroundColor: hex,
+        WebkitMaskImage: `url(${logoSrc})`,
+        maskImage: `url(${logoSrc})`,
+        WebkitMaskSize: "contain",
+        maskSize: "contain",
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+        WebkitMaskPosition: "center",
+        maskPosition: "center",
+      }}
+    />
+  );
+}
 
 export function IntegrationsSection() {
   return (
@@ -27,15 +78,27 @@ export function IntegrationsSection() {
         </div>
 
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {INTEGRATIONS.map(({ name, desc }) => (
-            <div
-              key={name}
-              className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 text-center"
-            >
-              <p className="text-sm font-semibold text-white">{name}</p>
-              <p className="mt-1 text-xs text-white/40">{desc}</p>
-            </div>
-          ))}
+          {INTEGRATIONS.map(({ name, desc, slug }) => {
+            const { bgClass } = integrationBrand(slug);
+
+            return (
+              <div
+                key={name}
+                className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 text-center"
+              >
+                <div
+                  className={cn(
+                    "mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl",
+                    bgClass
+                  )}
+                >
+                  <IntegrationLogo slug={slug} />
+                </div>
+                <p className="text-sm font-semibold text-white">{name}</p>
+                <p className="mt-1 text-xs text-white/40">{desc}</p>
+              </div>
+            );
+          })}
         </div>
 
         <div className="mt-10 rounded-3xl border border-violet-500/20 bg-violet-950/40 p-8 text-center">
