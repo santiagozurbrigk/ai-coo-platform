@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import type { ContentType } from "@/types/marketing-insights";
+import { resolveContentAssetFromConversation } from "@/lib/marketing/resolve-content-from-conversation";
 
 export type LeadJourneyStepType = "content" | "dm" | "booking" | "sale";
 
@@ -59,6 +61,18 @@ function normalizeUtmLink(
 
 function getMessageText(message: StoredMessage): string {
   return (message.content ?? message.message ?? "").trim();
+}
+
+function contentStepTitle(contentType: ContentType | null): string {
+  switch (contentType) {
+    case "reel":     return "Vio un Reel";
+    case "story":    return "Vio una Historia";
+    case "carousel": return "Vio un carrusel";
+    case "webinar":  return "Vio un webinar";
+    case "vsl":      return "Vio un video de YouTube";
+    case "post":     return "Vio una publicación";
+    default:         return "Vio contenido";
+  }
 }
 
 function closingStatusLabel(status: string): string {
@@ -167,9 +181,13 @@ export async function getLeadJourney(
     utmLink?.youtube_video_title ?? row.source_video_title ?? null;
 
   if (videoTitle) {
+    const asset = await resolveContentAssetFromConversation(supabase, organizationId, {
+      utm_link_id: row.utm_link_id,
+      source_video_title: row.source_video_title,
+    });
     steps.push({
       type: "content",
-      title: "Vio un video de YouTube",
+      title: contentStepTitle(asset?.type ?? null),
       description: videoTitle,
       date: row.created_at,
       metadata: {
