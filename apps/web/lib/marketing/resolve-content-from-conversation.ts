@@ -5,6 +5,7 @@ export type ResolvedContentAsset = {
   id: string;
   title: string;
   type: ContentType;
+  platform: string;
   thumbnailHue: number;
   publishLabel: string;
 };
@@ -54,6 +55,7 @@ function toResolved(row: Record<string, unknown>): ResolvedContentAsset {
     id: String(row.id),
     title: assetTitle(row),
     type: mapContentType(row.content_type as string | null),
+    platform: String(row.platform ?? ""),
     thumbnailHue: hueFromId(String(row.id)),
     publishLabel: publishLabel(row.published_at as string | null),
   };
@@ -66,7 +68,7 @@ async function findAssetByVideoId(
 ): Promise<ResolvedContentAsset | null> {
   const { data } = await supabase
     .from("content_assets")
-    .select("id, title, caption, content_type, published_at")
+    .select("id, title, caption, content_type, platform, published_at")
     .eq("organization_id", organizationId)
     .eq("platform", "youtube")
     .eq("external_id", videoId)
@@ -85,7 +87,7 @@ async function findAssetByTitle(
 
   const { data: byTitle } = await supabase
     .from("content_assets")
-    .select("id, title, caption, content_type, published_at")
+    .select("id, title, caption, content_type, platform, published_at")
     .eq("organization_id", organizationId)
     .ilike("title", needle)
     .order("published_at", { ascending: false })
@@ -96,7 +98,7 @@ async function findAssetByTitle(
 
   const { data: byCaption } = await supabase
     .from("content_assets")
-    .select("id, title, caption, content_type, published_at")
+    .select("id, title, caption, content_type, platform, published_at")
     .eq("organization_id", organizationId)
     .ilike("caption", `%${needle.slice(0, 60)}%`)
     .order("published_at", { ascending: false })
