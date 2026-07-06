@@ -18,29 +18,32 @@ const STEPS = [
 
 export function HowItWorksSection() {
   return (
-    <section className="px-4 py-24 sm:px-6 md:py-32">
+    <section className="border-t border-white/[0.04] px-4 py-28 sm:px-6 md:py-40">
       <div className="mx-auto max-w-6xl">
-        {/* Badge */}
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-violet-950/30 px-4 py-1.5 text-xs font-medium uppercase tracking-wider text-violet-400">
-          <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
-          Cómo funciona
+        <div className="mb-16 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-violet-400">
+            CÓMO FUNCIONA
+          </div>
+          <h2 className="mt-6 text-4xl font-black leading-[1] tracking-[-0.03em] md:text-6xl">
+            Conectá. Analizá. Actuá.
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-base font-normal leading-relaxed text-white/60 md:text-lg">
+            Tres pasos para pasar del caos operativo a un negocio que se gestiona
+            solo.
+          </p>
         </div>
 
-        <h2 className="max-w-2xl text-4xl font-semibold leading-[1.1] tracking-tight md:text-5xl">
-          Tu negocio, entendido y convertido en un plan de acción
-        </h2>
-
-        <div className="mt-12 grid gap-5 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {STEPS.map(({ number, title, desc }) => (
             <div
               key={number}
-              className="rounded-2xl border border-white/10 bg-white/[0.02] p-8"
+              className="rounded-3xl border border-white/[0.06] bg-white/[0.02] p-8 pt-10"
             >
-              <div className="mb-6 text-5xl font-semibold leading-none tracking-tighter text-violet-500/30">
+              <div className="mb-4 text-8xl font-black leading-none text-violet-500/15">
                 {number}
               </div>
-              <h3 className="text-lg font-semibold">{title}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-white/50">{desc}</p>
+              <h3 className="mb-3 text-xl font-black">{title}</h3>
+              <p className="text-sm leading-relaxed text-white/55">{desc}</p>
             </div>
           ))}
         </div>
