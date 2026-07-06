@@ -8,33 +8,37 @@ import { WaitlistForm } from "./waitlist-form";
 const FLOATING_SCREENSHOTS = [
   {
     src: "/screenshots/problem-1.png",
-    position: { left: -100, top: "15%" },
+    position: { left: -200, top: "10%" },
     fromRight: false,
     stagger: false,
+    rotate: "-6deg",
   },
   {
     src: "/screenshots/problem-2.png",
-    position: { left: -80, top: "52%" },
+    position: { left: -180, top: "55%" },
     fromRight: false,
     stagger: true,
+    rotate: "4deg",
   },
   {
     src: "/screenshots/problem-3.png",
-    position: { right: -100, top: "15%" },
+    position: { right: -200, top: "10%" },
     fromRight: true,
     stagger: false,
+    rotate: "6deg",
   },
   {
     src: "/screenshots/problem-4.png",
-    position: { right: -80, top: "52%" },
+    position: { right: -180, top: "55%" },
     fromRight: true,
     stagger: true,
+    rotate: "-4deg",
   },
 ] as const;
 
 const SCREENSHOT_CARD_STYLE: React.CSSProperties = {
   position: "absolute",
-  width: 360,
+  width: 420,
   borderRadius: 16,
   overflow: "hidden",
   border: "1px solid rgba(255,255,255,0.08)",
@@ -65,13 +69,14 @@ export function HeroSection() {
   return (
     <section
       ref={sectionRef}
-      className="relative flex min-h-screen items-center overflow-x-hidden px-4 py-28 sm:px-6 md:py-40"
+      className="relative flex min-h-screen items-center overflow-hidden px-4 py-28 sm:px-6 md:py-40"
     >
-      <div className="relative mx-auto w-full max-w-6xl">
-        {FLOATING_SCREENSHOTS.map(({ src, position, fromRight, stagger }) => {
-          const hiddenTransform = fromRight
-            ? "translateX(80px)"
-            : "translateX(-80px)";
+      <div
+        className="relative mx-auto w-full max-w-6xl"
+        style={{ overflow: "hidden", position: "relative" }}
+      >
+        {FLOATING_SCREENSHOTS.map(({ src, position, fromRight, stagger, rotate }) => {
+          const hiddenTranslate = fromRight ? "80px" : "-80px";
 
           return (
             <div
@@ -80,7 +85,9 @@ export function HeroSection() {
               style={{
                 ...SCREENSHOT_CARD_STYLE,
                 ...position,
-                transform: visible ? "translateX(0)" : hiddenTransform,
+                transform: visible
+                  ? `translateX(0px) rotate(${rotate})`
+                  : `translateX(${hiddenTranslate}) rotate(${rotate})`,
                 opacity: visible ? 1 : 0,
                 transition: TRANSITION,
                 transitionDelay: visible && stagger ? "0.15s" : "0s",
@@ -89,10 +96,10 @@ export function HeroSection() {
               <Image
                 src={src}
                 alt=""
-                width={720}
-                height={405}
+                width={840}
+                height={472}
                 className="h-auto w-full object-cover"
-                sizes="360px"
+                sizes="420px"
                 aria-hidden
               />
             </div>
