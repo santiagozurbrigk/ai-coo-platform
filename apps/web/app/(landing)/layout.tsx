@@ -1,3 +1,4 @@
+import { GeistSans } from "geist/font/sans";
 import { MetaPixel } from "@/components/landing/meta-pixel";
 
 export default function LandingLayout({
@@ -6,7 +7,9 @@ export default function LandingLayout({
   children: React.ReactNode;
 }) {
   return (
-    <main className="landing-page relative min-h-screen overflow-x-hidden bg-[#0A0A0A] text-white">
+    <main
+      className={`${GeistSans.className} landing-page relative min-h-screen overflow-x-hidden bg-[#0A0A0A] text-white`}
+    >
       <MetaPixel />
       <div className="landing-ambient" aria-hidden />
       <div className="app-ambient" aria-hidden />

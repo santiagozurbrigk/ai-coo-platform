@@ -120,6 +120,9 @@ importers:
       fuse.js:
         specifier: ^7.0.0
         version: 7.4.1
+      geist:
+        specifier: ^1.7.2
+        version: 1.7.2(next@15.5.18(react-dom@19.2.6(react@19.2.6))(react@19.2.6))
       lucide-react:
         specifier: ^0.511.0
         version: 0.511.0(react@19.2.6)
@@ -2508,6 +2511,11 @@ packages:
   fuse.js@7.4.1:
     resolution: {integrity: sha512-AY7lKAXK71hi3WgUvDy6oZL67UEHOOtvCAwVdOXHyJd6ZzftBy7QqxuXt4HxmmAhYjmp/YCuOELZtIvAdlZ+fw==}
     engines: {node: '>=10'}
+
+  geist@1.7.2:
+    resolution: {integrity: sha512-Gu5lDFa3pLRyoBlBPf0QIFHVdWAnpco7fS1bJm41jyLPFoguBgiubseUN2oLXMgqZ7uxAxDoXcHMhCY/fOTTgg==}
+    peerDependencies:
+      next: '>=13.2.0'
 
   generator-function@2.0.1:
     resolution: {integrity: sha512-SFdFmIJi+ybC0vjlHN0ZGVGHc3lgE0DxPAT0djjVg+kjOnSqclqmj0KQ7ykTOLP6YxoqOvuAODGdcHJn+43q3g==}
@@ -6337,6 +6345,10 @@ snapshots:
   functions-have-names@1.2.3: {}
 
   fuse.js@7.4.1: {}
+
+  geist@1.7.2(next@15.5.18(react-dom@19.2.6(react@19.2.6))(react@19.2.6)):
+    dependencies:
+      next: 15.5.18(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
 
   generator-function@2.0.1: {}
 

@@ -53,7 +53,6 @@ export function WaitlistForm({
       setState("success");
       setEmail("");
       // Signal the real conversion to Meta (browser pixel).
-      // Guard with typeof check so SSR and environments without the pixel are safe.
       if (typeof window !== "undefined" && typeof window.fbq === "function") {
         window.fbq("track", "Lead");
       }
@@ -67,7 +66,7 @@ export function WaitlistForm({
     return (
       <p
         className={cn(
-          "landing-glass glass-liquid-subtle rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-center text-sm text-emerald-400",
+          "rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-6 py-4 text-center text-sm text-emerald-400",
           className
         )}
         role="status"
@@ -99,7 +98,7 @@ export function WaitlistForm({
       <Button
         type="submit"
         disabled={state === "loading"}
-        className="h-11 shrink-0 border border-violet-400/30 bg-[#7C3AED]/90 px-6 shadow-[0_4px_24px_rgba(124,58,237,0.35)] backdrop-blur-sm transition-all duration-150 hover:bg-[#6D28D9] active:scale-95 active:bg-violet-700 active:shadow-[0_0_0_6px_rgba(124,58,237,0.2)]"
+        className="h-11 shrink-0 rounded-full bg-[#7C3AED] px-6 text-sm font-medium text-white transition-colors hover:bg-[#6D28D9] active:scale-95 disabled:opacity-60"
       >
         {state === "loading" ? "Enviando…" : submitLabel}
       </Button>

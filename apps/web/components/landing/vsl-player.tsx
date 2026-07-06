@@ -1,5 +1,4 @@
-import { PlayCircle } from "lucide-react";
-import { LandingGlass } from "./landing-glass";
+import { Play } from "lucide-react";
 
 const VSL_URL = process.env.NEXT_PUBLIC_VSL_URL?.trim();
 
@@ -18,7 +17,7 @@ function embedUrl(url: string): string {
 export function VslPlayer() {
   if (VSL_URL) {
     return (
-      <LandingGlass className="mx-auto w-full max-w-[720px] overflow-hidden rounded-2xl">
+      <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-2xl border border-white/10">
         <div className="relative aspect-video w-full">
           <iframe
             src={embedUrl(VSL_URL)}
@@ -28,23 +27,24 @@ export function VslPlayer() {
             allowFullScreen
           />
         </div>
-      </LandingGlass>
+      </div>
     );
   }
 
   return (
-    <LandingGlass className="mx-auto w-full max-w-[720px] rounded-2xl">
-      {/* TODO: reemplazar src con URL del VSL cuando esté listo (NEXT_PUBLIC_VSL_URL) */}
-      <div className="flex aspect-video flex-col items-center justify-center px-6">
-        <div className="landing-icon-well flex h-20 w-20 items-center justify-center rounded-full">
-          <PlayCircle
-            className="h-14 w-14 text-[#7C3AED]"
-            strokeWidth={1.25}
-            aria-hidden
-          />
+    <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-violet-950/80 via-[#1a0a2e] to-[#0A0A0A]">
+      <div className="relative flex aspect-video flex-col items-center justify-center">
+        <button
+          type="button"
+          aria-label="Reproducir video"
+          className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20 transition-colors hover:bg-white/20"
+        >
+          <Play className="h-8 w-8 translate-x-0.5 text-white" strokeWidth={2} fill="currentColor" />
+        </button>
+        <div className="absolute bottom-4 left-4 rounded-full border border-white/10 bg-black/40 px-3 py-1 text-xs text-white/60">
+          Video · 3:12
         </div>
-        <p className="mt-5 text-sm text-white/50">Ver cómo funciona</p>
       </div>
-    </LandingGlass>
+    </div>
   );
 }
