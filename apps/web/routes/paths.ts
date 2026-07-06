@@ -135,6 +135,7 @@ export const paths = {
     costs: "/super-admin/costs",
     infrastructure: "/super-admin/infrastructure",
     clientHealth: "/super-admin/client-health",
+    waitlist: "/super-admin/waitlist",
     holding: "/super-admin/holding",
     aiBrain: {
       root: "/super-admin/ai-brain",

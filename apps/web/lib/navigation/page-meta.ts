@@ -156,6 +156,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Usuarios",
     subtitle: "Todos los perfiles de la plataforma",
   },
+  "/super-admin/waitlist": {
+    title: "Waitlist",
+    subtitle: "Aplicaciones desde la landing pública",
+  },
   "/super-admin/costs": {
     title: "Costos de IA",
     subtitle: "Costos de IA, infra y rentabilidad por cliente",

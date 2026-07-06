@@ -54,6 +54,14 @@ export const superAdminSidebarNav: SidebarNavConfig = {
     {
       type: "link",
       module: {
+        label: "Waitlist",
+        href: paths.superAdmin.waitlist,
+        icon: "users",
+      },
+    },
+    {
+      type: "link",
+      module: {
         label: "Costos de IA",
         href: paths.superAdmin.costs,
         icon: "file-bar-chart",

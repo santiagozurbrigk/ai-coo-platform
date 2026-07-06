@@ -69,8 +69,8 @@ export function HeroSection() {
   return (
     <section
       ref={sectionRef}
-      className="flex items-center px-4 py-28 sm:px-6 md:py-40"
-      style={{ position: "relative", overflow: "hidden", minHeight: "100vh" }}
+      className="relative flex min-h-0 items-center overflow-hidden px-4 py-16 sm:px-6 sm:py-28 md:min-h-screen md:py-40"
+      style={{ position: "relative", overflow: "hidden" }}
     >
       {FLOATING_SCREENSHOTS.map(({ src, position, fromRight, stagger, rotate }) => {
         const hiddenTranslate = fromRight ? "80px" : "-80px";
@@ -103,26 +103,26 @@ export function HeroSection() {
         );
       })}
 
-      <div className="relative z-10 mx-auto max-w-3xl text-center">
+      <div className="relative z-10 mx-auto w-full max-w-3xl px-2 text-center sm:px-4">
           <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-violet-400">
             <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
             Lanzamiento 13/07
           </div>
 
-          <h1 className="mt-8 text-6xl font-black leading-[0.9] tracking-[-0.04em] md:text-8xl">
+          <h1 className="mt-6 break-words text-4xl font-black leading-[0.95] tracking-[-0.04em] sm:mt-8 sm:text-5xl md:text-6xl lg:text-8xl lg:leading-[0.9]">
             El segundo cerebro para
             <br />
             <em className="text-[#7C3AED] italic">infoproductores</em>
           </h1>
 
-          <p className="mx-auto mt-6 max-w-xl text-base font-normal leading-relaxed text-white/60 md:text-lg">
+          <p className="mx-auto mt-5 max-w-xl px-1 text-base font-normal leading-relaxed text-white/60 sm:mt-6 md:text-lg">
             Conectá ventas, marketing, finanzas, producto y clientes en un solo
             lugar. Y escalá sin perder el control.
           </p>
 
           <a
             href="#waitlist"
-            className="mt-10 inline-block rounded-full bg-[#7C3AED] px-8 py-4 text-base font-semibold text-white transition-colors hover:bg-[#6D28D9]"
+            className="mt-8 inline-block w-full max-w-xs rounded-full bg-[#7C3AED] px-8 py-4 text-base font-semibold text-white transition-colors hover:bg-[#6D28D9] sm:mt-10 sm:w-auto"
           >
             Quiero mi lugar
           </a>
@@ -135,8 +135,8 @@ export function HeroSection() {
             <VslPlayer />
           </div>
 
-        <div id="waitlist" className="mx-auto mt-10 max-w-md scroll-mt-24">
-          <WaitlistForm className="justify-center" />
+        <div id="waitlist" className="mx-auto mt-10 w-full max-w-lg scroll-mt-24">
+          <WaitlistForm className="mx-auto" />
         </div>
       </div>
     </section>

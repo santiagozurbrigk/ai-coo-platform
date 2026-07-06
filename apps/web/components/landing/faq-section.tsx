@@ -28,11 +28,6 @@ const FAQ_ITEMS = [
     answer:
       "Son los primeros 10 cupos de acceso anticipado con soporte personalizado. Cuando escalemos, habrá más lugares, pero a otro precio.",
   },
-  {
-    question: "¿Hay garantía o período de prueba?",
-    answer:
-      "Sí. Si en los primeros 14 días sentís que OTC no era lo que esperabas, te devolvemos el 100%.",
-  },
 ] as const;
 
 export function FaqSection() {
@@ -46,7 +41,7 @@ export function FaqSection() {
             PREGUNTAS FRECUENTES
           </div>
           <h2 className="mt-6 text-4xl font-black leading-[1] tracking-[-0.03em] md:text-6xl">
-            Lo que siempre preguntan
+            Preguntas frecuentes
           </h2>
         </div>
 

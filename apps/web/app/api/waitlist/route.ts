@@ -5,9 +5,22 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { trackUTMLeadCapture } from "@/lib/utm/track-lead";
 import { sendMetaLeadEvent } from "@/lib/meta/conversions-api";
+import {
+  MONTHLY_REVENUE_OPTIONS,
+  TEAM_SIZE_OPTIONS,
+} from "@/types/waitlist";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function readString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function readOptionalString(value: unknown): string | null {
+  const trimmed = readString(value);
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 export async function POST(request: Request) {
@@ -23,22 +36,55 @@ export async function POST(request: Request) {
       ? (body as Record<string, unknown>)
       : {};
 
-  const email =
-    typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+  const email = readString(payload.email).toLowerCase();
+  const firstName = readString(payload.first_name);
+  const lastName = readString(payload.last_name);
+  const phone = readString(payload.phone);
+  const instagram = readOptionalString(payload.instagram);
+  const monthlyRevenue = readString(payload.monthly_revenue);
+  const teamSize = readString(payload.team_size);
+  const operationalPain = readString(payload.operational_pain);
+  const whyNow = readString(payload.why_now);
 
-  const utm_source =
-    typeof payload.utm_source === "string" ? payload.utm_source : null;
-  const utm_medium =
-    typeof payload.utm_medium === "string" ? payload.utm_medium : null;
-  const utm_campaign =
-    typeof payload.utm_campaign === "string" ? payload.utm_campaign : null;
-  const utm_content =
-    typeof payload.utm_content === "string" ? payload.utm_content : null;
-  const pageUrl =
-    typeof payload.page_url === "string" ? payload.page_url : null;
+  const utm_source = readOptionalString(payload.utm_source);
+  const utm_medium = readOptionalString(payload.utm_medium);
+  const utm_campaign = readOptionalString(payload.utm_campaign);
+  const utm_content = readOptionalString(payload.utm_content);
+  const pageUrl = readOptionalString(payload.page_url);
 
   if (!isValidEmail(email)) {
     return NextResponse.json({ error: "Email inválido" }, { status: 400 });
+  }
+
+  if (
+    !firstName ||
+    !lastName ||
+    !phone ||
+    !monthlyRevenue ||
+    !teamSize ||
+    !operationalPain ||
+    !whyNow
+  ) {
+    return NextResponse.json(
+      { error: "Completá todos los campos del formulario." },
+      { status: 400 }
+    );
+  }
+
+  if (
+    !(MONTHLY_REVENUE_OPTIONS as readonly string[]).includes(monthlyRevenue)
+  ) {
+    return NextResponse.json(
+      { error: "Seleccioná un rango de facturación válido." },
+      { status: 400 }
+    );
+  }
+
+  if (!(TEAM_SIZE_OPTIONS as readonly string[]).includes(teamSize)) {
+    return NextResponse.json(
+      { error: "Seleccioná un tamaño de equipo válido." },
+      { status: 400 }
+    );
   }
 
   if (!isSupabaseConfigured()) {
@@ -49,38 +95,37 @@ export async function POST(request: Request) {
   }
 
   const eventId = randomUUID();
-
   const admin = createAdminClient();
-  const { error } = await admin.from("waitlist_leads").insert({
+
+  const row = {
     email,
     source: "landing",
+    first_name: firstName,
+    last_name: lastName,
+    phone,
+    instagram,
+    monthly_revenue: monthlyRevenue,
+    team_size: teamSize,
+    operational_pain: operationalPain,
+    why_now: whyNow,
     utm_source,
     utm_medium,
     utm_campaign,
     utm_content,
-  });
+  };
+
+  const { data: existing } = await admin
+    .from("waitlist_leads")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+
+  const { error } = existing
+    ? await admin.from("waitlist_leads").update(row).eq("email", email)
+    : await admin.from("waitlist_leads").insert(row);
 
   if (error) {
-    if (error.code === "23505") {
-      if (utm_campaign) {
-        const orgId = process.env.NEXT_PUBLIC_UTM_ORGANIZATION_ID?.trim();
-        if (orgId) {
-          void trackUTMLeadCapture({
-            organization_id: orgId,
-            utm_source,
-            utm_medium,
-            utm_campaign,
-            utm_content,
-            lead_identifier: email,
-            lead_email: email,
-          });
-        }
-      }
-      // Report duplicate as lead event too — the user showed real intent.
-      void sendMetaLeadEvent({ email, request, eventId, pageUrl });
-      return NextResponse.json({ ok: true, eventId });
-    }
-    console.error("[waitlist] insert:", error.message);
+    console.error("[waitlist] save:", error.message);
     return NextResponse.json(
       { error: "No pudimos registrarte. Intentá de nuevo." },
       { status: 500 }
@@ -102,7 +147,10 @@ export async function POST(request: Request) {
     }
   }
 
-  void sendWaitlistConfirmationEmail(email);
+  if (!existing) {
+    void sendWaitlistConfirmationEmail(email);
+  }
+
   void sendMetaLeadEvent({ email, request, eventId, pageUrl });
 
   return NextResponse.json({ ok: true, eventId });

@@ -10,31 +10,6 @@ import { FinalCtaSection } from "./final-cta-section";
 export function LandingPage() {
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-white/[0.05] bg-[#0A0A0A]/70 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link
-            href={paths.platform.dashboard}
-            className="text-lg font-black tracking-tight text-white transition-colors hover:text-white/80"
-          >
-            OTC
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link
-              href={paths.platform.dashboard}
-              className="text-sm text-white/70 transition-colors hover:text-white"
-            >
-              Iniciar sesión
-            </Link>
-            <a
-              href="#waitlist"
-              className="rounded-full bg-[#7C3AED] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#6D28D9]"
-            >
-              Quiero mi lugar
-            </a>
-          </div>
-        </div>
-      </header>
-
       <HeroSection />
       <ProblemsSection />
       <HowItWorksSection />

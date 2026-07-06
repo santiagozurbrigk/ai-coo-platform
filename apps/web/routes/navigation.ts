@@ -16,6 +16,7 @@ export const superAdminNavigation: NavItem[] = [
   { label: "Holding", href: paths.superAdmin.holding },
   { label: "Organizaciones", href: paths.superAdmin.organizations },
   { label: "Usuarios", href: paths.superAdmin.users },
+  { label: "Waitlist", href: paths.superAdmin.waitlist },
   { label: "Costos de IA", href: paths.superAdmin.costs },
   {
     label: "Cerebro de IA general",
