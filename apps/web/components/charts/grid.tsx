@@ -95,8 +95,8 @@ export function Grid({
           <mask id={hMaskId}>
             <rect
               fill={`url(#${hGradientId})`}
-              height={innerHeight}
-              width={innerWidth}
+              height={Math.max(0, innerHeight)}
+              width={Math.max(0, innerWidth)}
               x="0"
               y="0"
             />
@@ -119,8 +119,8 @@ export function Grid({
           <mask id={vMaskId}>
             <rect
               fill={`url(#${vGradientId})`}
-              height={innerHeight}
-              width={innerWidth}
+              height={Math.max(0, innerHeight)}
+              width={Math.max(0, innerWidth)}
               x="0"
               y="0"
             />

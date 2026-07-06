@@ -183,11 +183,11 @@ const BarInner = memo(function BarInner({
     }
     if (stacked) {
       // Stacked bars use full band width
-      return bandWidth;
+      return Math.max(0, bandWidth);
     }
     // Leave a gap between grouped bars (controlled by groupGap prop)
     const effectiveGroupGap = seriesCount > 1 ? groupGap : 0;
-    return (bandWidth - effectiveGroupGap * (seriesCount - 1)) / seriesCount;
+    return Math.max(0, (bandWidth - effectiveGroupGap * (seriesCount - 1)) / seriesCount);
   }, [bandWidth, seriesCount, stacked, groupGap]);
 
   // Calculate corner radius based on lineCap
@@ -220,13 +220,13 @@ const BarInner = memo(function BarInner({
         if (isHorizontal) {
           // Horizontal bars: category on y-axis, value on x-axis
           const valuePos = yScale(value) ?? 0;
-          barW = valuePos; // Width is the value position (grows from left)
+          barW = Math.max(0, valuePos); // Width is the value position (grows from left)
           barHeight = barWidth;
 
           if (stacked && stackOffsets) {
             const offset = stackOffsets.get(i)?.get(dataKey) ?? 0;
             x = yScale(offset) ?? 0;
-            barW = valuePos - x;
+            barW = Math.max(0, valuePos - x);
             // Apply stack gap for horizontal: shift right and reduce width
             const gapOffset = seriesIndex * stackGap;
             x += gapOffset;
@@ -246,7 +246,7 @@ const BarInner = memo(function BarInner({
         } else {
           // Vertical bars: category on x-axis, value on y-axis
           const valuePos = yScale(value) ?? 0;
-          barHeight = innerHeight - valuePos;
+          barHeight = Math.max(0, innerHeight - valuePos);
           barW = barWidth;
 
           if (stacked && stackOffsets) {

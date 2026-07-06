@@ -148,8 +148,12 @@ interface ChartInnerProps {
 }
 
 function ChartInner(props: ChartInnerProps) {
-  const { width, height } = props;
-  if (width < 10 || height < 10) {
+  const { width, height, margin } = props;
+  // Guard against negative inner dimensions (e.g. before ParentSize measures the real size,
+  // or when the container is narrower than the sum of margins).
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+  if (innerWidth <= 0 || innerHeight <= 0) {
     return null;
   }
   return <ChartCore {...props} />;

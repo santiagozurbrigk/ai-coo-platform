@@ -734,8 +734,8 @@ export function FunnelChart({
   const { w: W, h: H } = sz;
 
   const totalGap = gap * (n - 1);
-  const segW = (W - (horiz ? totalGap : 0)) / n;
-  const segH = (H - (horiz ? 0 : totalGap)) / n;
+  const segW = Math.max(0, (W - (horiz ? totalGap : 0)) / n);
+  const segH = Math.max(0, (H - (horiz ? 0 : totalGap)) / n);
 
   // Resolve grid config
   const gridEnabled = gridProp !== false;
