@@ -23,9 +23,13 @@ function parseCookie(cookieHeader: string, name: string): string | undefined {
 export async function sendMetaLeadEvent({
   email,
   request,
+  eventId,
+  pageUrl,
 }: {
   email: string;
   request: Request;
+  eventId: string;
+  pageUrl?: string | null;
 }): Promise<void> {
   const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim();
   const token = process.env.META_CONVERSIONS_API_TOKEN?.trim();
@@ -46,9 +50,9 @@ export async function sendMetaLeadEvent({
   const clientIp = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   const clientUserAgent = headers.get("user-agent") ?? undefined;
 
-  // Prefer the actual request URL; fall back to the public app URL.
+  // Use the landing page URL sent from the browser; fall back to the public app URL.
   const eventSourceUrl =
-    request.url ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://app.ai-coo.com";
+    pageUrl ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://app.ai-coo.com";
 
   const userData: Record<string, unknown> = {
     em: [em],
@@ -63,6 +67,7 @@ export async function sendMetaLeadEvent({
       {
         event_name: "Lead",
         event_time: Math.floor(Date.now() / 1000),
+        event_id: eventId,
         action_source: "website",
         event_source_url: eventSourceUrl,
         user_data: userData,

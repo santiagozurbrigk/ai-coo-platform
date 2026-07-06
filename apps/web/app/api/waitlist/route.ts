@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { sendWaitlistConfirmationEmail } from "@/lib/email/waitlist-email";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -33,6 +34,8 @@ export async function POST(request: Request) {
     typeof payload.utm_campaign === "string" ? payload.utm_campaign : null;
   const utm_content =
     typeof payload.utm_content === "string" ? payload.utm_content : null;
+  const pageUrl =
+    typeof payload.page_url === "string" ? payload.page_url : null;
 
   if (!isValidEmail(email)) {
     return NextResponse.json({ error: "Email inválido" }, { status: 400 });
@@ -44,6 +47,8 @@ export async function POST(request: Request) {
       { status: 503 }
     );
   }
+
+  const eventId = randomUUID();
 
   const admin = createAdminClient();
   const { error } = await admin.from("waitlist_leads").insert({
@@ -72,8 +77,8 @@ export async function POST(request: Request) {
         }
       }
       // Report duplicate as lead event too — the user showed real intent.
-      void sendMetaLeadEvent({ email, request });
-      return NextResponse.json({ ok: true });
+      void sendMetaLeadEvent({ email, request, eventId, pageUrl });
+      return NextResponse.json({ ok: true, eventId });
     }
     console.error("[waitlist] insert:", error.message);
     return NextResponse.json(
@@ -98,7 +103,7 @@ export async function POST(request: Request) {
   }
 
   void sendWaitlistConfirmationEmail(email);
-  void sendMetaLeadEvent({ email, request });
+  void sendMetaLeadEvent({ email, request, eventId, pageUrl });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, eventId });
 }

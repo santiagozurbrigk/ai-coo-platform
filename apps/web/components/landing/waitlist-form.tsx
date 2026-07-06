@@ -39,10 +39,15 @@ export function WaitlistForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
+          page_url: typeof window !== "undefined" ? window.location.href : undefined,
           ...utmData,
         }),
       });
-      const data = (await res.json()) as { ok?: boolean; error?: string };
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        eventId?: string;
+      };
 
       if (!res.ok || !data.ok) {
         setState("error");
@@ -53,8 +58,9 @@ export function WaitlistForm({
       setState("success");
       setEmail("");
       // Signal the real conversion to Meta (browser pixel).
+      // Pass eventID so Meta can deduplicate against the CAPI server-side event.
       if (typeof window !== "undefined" && typeof window.fbq === "function") {
-        window.fbq("track", "Lead");
+        window.fbq("track", "Lead", {}, { eventID: data.eventId });
       }
     } catch {
       setState("error");
