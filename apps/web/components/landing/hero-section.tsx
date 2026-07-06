@@ -69,44 +69,41 @@ export function HeroSection() {
   return (
     <section
       ref={sectionRef}
-      className="relative flex min-h-screen items-center overflow-hidden px-4 py-28 sm:px-6 md:py-40"
+      className="flex items-center px-4 py-28 sm:px-6 md:py-40"
+      style={{ position: "relative", overflow: "hidden", minHeight: "100vh" }}
     >
-      <div
-        className="relative mx-auto w-full max-w-6xl"
-        style={{ overflow: "hidden", position: "relative" }}
-      >
-        {FLOATING_SCREENSHOTS.map(({ src, position, fromRight, stagger, rotate }) => {
-          const hiddenTranslate = fromRight ? "80px" : "-80px";
+      {FLOATING_SCREENSHOTS.map(({ src, position, fromRight, stagger, rotate }) => {
+        const hiddenTranslate = fromRight ? "80px" : "-80px";
 
-          return (
-            <div
-              key={src}
-              className="pointer-events-none absolute hidden md:block"
-              style={{
-                ...SCREENSHOT_CARD_STYLE,
-                ...position,
-                transform: visible
-                  ? `translateX(0px) rotate(${rotate})`
-                  : `translateX(${hiddenTranslate}) rotate(${rotate})`,
-                opacity: visible ? 1 : 0,
-                transition: TRANSITION,
-                transitionDelay: visible && stagger ? "0.15s" : "0s",
-              }}
-            >
-              <Image
-                src={src}
-                alt=""
-                width={840}
-                height={472}
-                className="h-auto w-full object-cover"
-                sizes="420px"
-                aria-hidden
-              />
-            </div>
-          );
-        })}
+        return (
+          <div
+            key={src}
+            className="pointer-events-none absolute hidden md:block"
+            style={{
+              ...SCREENSHOT_CARD_STYLE,
+              ...position,
+              transform: visible
+                ? `translateX(0px) rotate(${rotate})`
+                : `translateX(${hiddenTranslate}) rotate(${rotate})`,
+              opacity: visible ? 1 : 0,
+              transition: TRANSITION,
+              transitionDelay: visible && stagger ? "0.15s" : "0s",
+            }}
+          >
+            <Image
+              src={src}
+              alt=""
+              width={840}
+              height={472}
+              className="h-auto w-full object-cover"
+              sizes="420px"
+              aria-hidden
+            />
+          </div>
+        );
+      })}
 
-        <div className="relative z-10 mx-auto max-w-3xl text-center">
+      <div className="relative z-10 mx-auto max-w-3xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-violet-400">
             <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
             Lanzamiento 13/07
@@ -138,9 +135,8 @@ export function HeroSection() {
             <VslPlayer />
           </div>
 
-          <div id="waitlist" className="mx-auto mt-10 max-w-md scroll-mt-24">
-            <WaitlistForm className="justify-center" />
-          </div>
+        <div id="waitlist" className="mx-auto mt-10 max-w-md scroll-mt-24">
+          <WaitlistForm className="justify-center" />
         </div>
       </div>
     </section>
