@@ -1,8 +1,11 @@
 import { cn } from "@ai-coo/ui";
-import { INTEGRATION_BRAND_COLORS } from "@/lib/integrations/brand-colors";
+import {
+  INTEGRATION_BRAND_COLORS,
+  integrationLogoSrc,
+} from "@/lib/integrations/brand-colors";
 import type { IntegrationProvider } from "@/constants/integrations";
 
-const INTEGRATIONS: { name: string; slug: IntegrationProvider }[] = [
+const MAIN_INTEGRATIONS: { name: string; slug: IntegrationProvider }[] = [
   { name: "Calendly", slug: "calendly" },
   { name: "Instagram", slug: "instagram" },
   { name: "Fathom", slug: "fathom" },
@@ -11,6 +14,11 @@ const INTEGRATIONS: { name: string; slug: IntegrationProvider }[] = [
   { name: "Typeform", slug: "typeform" },
   { name: "YouTube", slug: "youtube" },
   { name: "Google Docs", slug: "google_docs" },
+];
+
+const CENTERED_INTEGRATIONS: { name: string; slug: IntegrationProvider }[] = [
+  { name: "WhatsApp", slug: "unipile_whatsapp" },
+  { name: "Google Forms", slug: "google_forms" },
   { name: "Google Sheets", slug: "google_sheets" },
 ];
 
@@ -22,7 +30,7 @@ function IntegrationLogo({
   className?: string;
 }) {
   const { hex } = INTEGRATION_BRAND_COLORS[slug];
-  const logoSrc = `/integrations/${slug}.svg`;
+  const logoSrc = integrationLogoSrc(slug);
 
   return (
     <span
@@ -40,6 +48,37 @@ function IntegrationLogo({
         maskPosition: "center",
       }}
     />
+  );
+}
+
+function IntegrationCard({
+  name,
+  slug,
+  className,
+}: {
+  name: string;
+  slug: IntegrationProvider;
+  className?: string;
+}) {
+  const { bgClass } = INTEGRATION_BRAND_COLORS[slug];
+
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 text-center",
+        className
+      )}
+    >
+      <div
+        className={cn(
+          "mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl",
+          bgClass
+        )}
+      >
+        <IntegrationLogo slug={slug} />
+      </div>
+      <p className="text-sm font-semibold text-white">{name}</p>
+    </div>
   );
 }
 
@@ -61,26 +100,19 @@ export function IntegrationsSection() {
         </div>
 
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {INTEGRATIONS.map(({ name, slug }) => {
-            const { bgClass } = INTEGRATION_BRAND_COLORS[slug];
+          {MAIN_INTEGRATIONS.map((integration) => (
+            <IntegrationCard key={integration.slug} {...integration} />
+          ))}
+        </div>
 
-            return (
-              <div
-                key={slug}
-                className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 text-center"
-              >
-                <div
-                  className={cn(
-                    "mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl",
-                    bgClass
-                  )}
-                >
-                  <IntegrationLogo slug={slug} />
-                </div>
-                <p className="text-sm font-semibold text-white">{name}</p>
-              </div>
-            );
-          })}
+        <div className="mt-4 flex flex-wrap justify-center gap-4">
+          {CENTERED_INTEGRATIONS.map((integration) => (
+            <IntegrationCard
+              key={integration.slug}
+              {...integration}
+              className="w-[calc(50%-0.5rem)] md:w-[calc(25%-0.75rem)]"
+            />
+          ))}
         </div>
 
         <div className="mt-10 rounded-3xl border border-violet-500/20 bg-violet-950/40 p-8 text-center">
