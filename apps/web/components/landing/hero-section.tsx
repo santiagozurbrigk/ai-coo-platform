@@ -109,10 +109,12 @@ export function HeroSection() {
             Lanzamiento 13/07
           </div>
 
-          <h1 className="mt-6 break-words text-4xl font-black leading-[0.95] tracking-[-0.04em] sm:mt-8 sm:text-5xl md:text-6xl lg:text-8xl lg:leading-[0.9]">
+          <h1 className="mt-6 text-4xl font-black leading-[0.95] tracking-[-0.04em] sm:mt-8 sm:text-5xl md:text-6xl lg:text-8xl lg:leading-[0.9]">
             El segundo cerebro para
             <br />
-            <em className="text-[#7C3AED] italic">infoproductores</em>
+            <em className="whitespace-nowrap text-[#7C3AED] italic">
+              infoproductores
+            </em>
           </h1>
 
           <p className="mx-auto mt-5 max-w-xl px-1 text-base font-normal leading-relaxed text-white/60 sm:mt-6 md:text-lg">
