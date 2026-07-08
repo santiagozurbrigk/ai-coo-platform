@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { X, History, Copy, Check } from "lucide-react";
+import { X, History, Copy, Check, BookOpen, Loader2 } from "lucide-react";
 import { cn } from "@ai-coo/ui";
+import { saveCanvasToKnowledgeBaseAction } from "@/app/agent/actions";
 
 interface CanvasVersion {
   id: string;
@@ -23,8 +24,19 @@ export function CanvasPanel({ versions, onClose }: CanvasPanelProps) {
   const [activeIdx, setActiveIdx] = useState(versions.length - 1);
   const [showHistory, setShowHistory] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle"
+  );
 
   const active = versions[activeIdx];
+
+  const handleSaveToKnowledge = async () => {
+    if (!active || saveState === "saving") return;
+    setSaveState("saving");
+    const result = await saveCanvasToKnowledgeBaseAction({ content: active.content });
+    setSaveState(result.ok ? "saved" : "error");
+    if (result.ok) setTimeout(() => setSaveState("idle"), 3000);
+  };
 
   const handleCopy = async () => {
     if (!active) return;
@@ -69,6 +81,36 @@ export function CanvasPanel({ versions, onClose }: CanvasPanelProps) {
               <Check className="h-4 w-4 text-emerald-400" />
             ) : (
               <Copy className="h-4 w-4" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleSaveToKnowledge()}
+            disabled={saveState === "saving" || saveState === "saved"}
+            className={cn(
+              "rounded-lg p-1.5 transition-colors",
+              saveState === "saved"
+                ? "text-emerald-400"
+                : saveState === "error"
+                  ? "text-red-400 hover:bg-muted"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+            title={
+              saveState === "saving"
+                ? "Guardando..."
+                : saveState === "saved"
+                  ? "Guardado en Base de Conocimiento"
+                  : saveState === "error"
+                    ? "Error al guardar — intentá de nuevo"
+                    : "Guardar en Base de Conocimiento"
+            }
+          >
+            {saveState === "saving" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : saveState === "saved" ? (
+              <Check className="h-4 w-4 text-emerald-400" />
+            ) : (
+              <BookOpen className="h-4 w-4" />
             )}
           </button>
           <button
