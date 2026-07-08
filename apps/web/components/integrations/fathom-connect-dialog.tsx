@@ -24,12 +24,12 @@ const STEPS = [
   <>
     Ir a{" "}
     <a
-      href="https://fathom.video/settings/api"
+      href="https://fathom.video/api_settings/new"
       target="_blank"
       rel="noreferrer"
       className="text-violet-600 underline underline-offset-2 dark:text-violet-400"
     >
-      fathom.video/settings/api
+      fathom.video/api_settings/new
     </a>
   </>,
   <>
