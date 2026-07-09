@@ -414,6 +414,7 @@ export async function updatePaymentPlatformAction(
 ): Promise<MutationResult<PaymentPlatformConfig>> {
   return runMutation(async () => {
     await requireFounderRole();
+    const organizationId = await requireOrganizationId();
     const supabase = await createClient();
     const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (patch.name != null) row.name = patch.name;
@@ -425,6 +426,7 @@ export async function updatePaymentPlatformAction(
       .from("payment_platforms")
       .update(row)
       .eq("id", id)
+      .eq("organization_id", organizationId)
       .select()
       .single();
 
