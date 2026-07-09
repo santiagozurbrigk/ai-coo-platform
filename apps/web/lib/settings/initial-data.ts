@@ -20,6 +20,7 @@ export type SettingsInitialData = {
   country: string;
   displayName: string;
   email: string;
+  avatarUrl: string | null;
   lastSignInAt: string | null;
   claudeApiKeyStatus: ClaudeApiKeyStatus;
   notificationPreferences: NotificationPreferences;
@@ -36,6 +37,7 @@ const DEFAULTS: SettingsInitialData = {
   country: "",
   displayName: "Nombre Fundador",
   email: "founder@acme.co",
+  avatarUrl: null,
   lastSignInAt: null,
   claudeApiKeyStatus: {
     hasKey: false,
@@ -64,6 +66,7 @@ export async function getSettingsInitialData(): Promise<SettingsInitialData> {
   if (profile) {
     data.orgName = profile.orgName;
     data.displayName = profile.userName;
+    data.avatarUrl = profile.avatarUrl;
   }
 
   try {

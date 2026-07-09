@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Input } from "@ai-coo/ui";
 import {
   Bell,
@@ -17,6 +17,7 @@ import {
   updateNotificationPreferencesAction,
   type NotificationPreferences,
 } from "@/app/settings/actions";
+import { updateProfileAction } from "@/app/profile/actions";
 import { ClaudeApiKeySettings } from "./claude-api-key-settings";
 import { useToast } from "@/providers/toast-provider";
 import { es } from "@/lib/locale/es";
@@ -91,6 +92,7 @@ export function SettingsForm({
   initialData: SettingsInitialData;
 }) {
   const { push } = useToast();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<SettingsTabId>(() =>
     resolveSettingsTab(searchParams.get("tab"), initialData.isFounder)
@@ -107,10 +109,24 @@ export function SettingsForm({
   const [saving, startSave] = useTransition();
   const [displayName, setDisplayName] = useState(initialData.displayName);
   const [email, setEmail] = useState(initialData.email);
+  const [avatarUrl, setAvatarUrl] = useState(initialData.avatarUrl);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [savingProfile, startProfileSave] = useTransition();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [notifications, setNotifications] = useState<NotificationPreferences>(
     initialData.notificationPreferences
   );
   const [savingNotification, startNotificationSave] = useTransition();
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+      }
+    };
+  }, [avatarPreviewUrl]);
 
   const resetForm = () => {
     setOrgName(initialData.orgName);
@@ -123,7 +139,63 @@ export function SettingsForm({
     setSaveError(null);
     setDisplayName(initialData.displayName);
     setEmail(initialData.email);
+    setAvatarUrl(initialData.avatarUrl);
+    setAvatarFile(null);
+    setProfileSaveError(null);
+    if (avatarPreviewUrl) {
+      URL.revokeObjectURL(avatarPreviewUrl);
+    }
+    setAvatarPreviewUrl(null);
     setNotifications(initialData.notificationPreferences);
+  };
+
+  const handleAvatarSelect = (file: File | null) => {
+    if (avatarPreviewUrl) {
+      URL.revokeObjectURL(avatarPreviewUrl);
+    }
+    if (!file) {
+      setAvatarFile(null);
+      setAvatarPreviewUrl(null);
+      return;
+    }
+    setAvatarFile(file);
+    setAvatarPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleProfileSave = () => {
+    setProfileSaveError(null);
+    startProfileSave(async () => {
+      const formData = new FormData();
+      formData.set("fullName", displayName.trim());
+      formData.set("email", email.trim());
+      if (avatarFile) {
+        formData.set("avatar", avatarFile);
+      }
+
+      const result = await updateProfileAction(formData);
+      if (result.success) {
+        setDisplayName(result.data.fullName);
+        setEmail(result.data.email);
+        setAvatarUrl(result.data.avatarUrl);
+        setAvatarFile(null);
+        if (avatarPreviewUrl) {
+          URL.revokeObjectURL(avatarPreviewUrl);
+        }
+        setAvatarPreviewUrl(null);
+        push({
+          title: "Perfil actualizado",
+          description: "Tus datos se guardaron correctamente.",
+          variant: "success",
+        });
+        router.refresh();
+      } else {
+        setProfileSaveError(result.error);
+        push({
+          title: "No se guardó el perfil",
+          description: result.error,
+        });
+      }
+    });
   };
 
   const handleSave = () => {
@@ -326,20 +398,46 @@ export function SettingsForm({
           <section>
             <SectionHeader icon={User} title="Perfil" variant="settings" />
             <div className="mb-6 flex items-center gap-4">
-              <div
-                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-base font-semibold text-white"
-                style={{ backgroundColor: "#7C3AED" }}
-              >
-                {getInitials(displayName)}
-              </div>
+              {avatarPreviewUrl || avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarPreviewUrl ?? avatarUrl ?? ""}
+                  alt=""
+                  className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-violet-500/20"
+                />
+              ) : (
+                <div
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-base font-semibold text-white"
+                  style={{ backgroundColor: "#7C3AED" }}
+                >
+                  {getInitials(displayName)}
+                </div>
+              )}
               <div className="min-w-0 space-y-2">
                 <p className="text-sm font-medium text-foreground">
                   {displayName}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  PNG o JPG · mín. 400×400px
+                  PNG o JPG · mín. 400×400px · máx. 5 MB
                 </p>
-                <Button type="button" variant="outline" size="sm">
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    handleAvatarSelect(file);
+                    e.target.value = "";
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={savingProfile}
+                >
                   Subir foto
                 </Button>
               </div>
@@ -366,9 +464,18 @@ export function SettingsForm({
                 />
               </div>
             </div>
+            {profileSaveError ? (
+              <p className="mb-4 text-sm text-red-600 dark:text-red-400" role="alert">
+                {profileSaveError}
+              </p>
+            ) : null}
           </section>
 
-          <SettingsFormActions onSave={handleSave} onCancel={resetForm} />
+          <SettingsFormActions
+            onSave={handleProfileSave}
+            onCancel={resetForm}
+            isPending={savingProfile}
+          />
         </div>
       )}
 
