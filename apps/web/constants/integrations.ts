@@ -1,5 +1,6 @@
 export const INTEGRATION_PROVIDERS = [
   "discord",
+  "zernio",
   "unipile_instagram",
   "unipile_whatsapp",
   "instagram",

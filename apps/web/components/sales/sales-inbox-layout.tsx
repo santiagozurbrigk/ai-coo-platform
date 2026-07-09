@@ -3,18 +3,21 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { List, MessageCircle } from "lucide-react";
-import { Button, Dialog, DialogContent, DialogTitle, SteppedAlert } from "@ai-coo/ui";
+import { List, MessageCircle, Share2 } from "lucide-react";
+import { Button, Dialog, DialogContent, DialogTitle, SteppedAlert, cn } from "@ai-coo/ui";
 import { usePlatformData } from "@/providers";
 import { paths } from "@/routes";
 import { ConversationList } from "./conversation-list";
 import { ConversationThread } from "./conversation-thread";
 import { ConversationAnalysisPanel } from "./conversation-analysis";
 import { LeadJourneyInline } from "./lead-journey-inline";
+import { ZernioInboxPanel } from "./zernio-inbox-panel";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageLoading } from "@/components/shared/page-loading";
 
-export function SalesInboxLayout() {
+type InboxTab = "bandeja" | "redes";
+
+function SalesInboxClassic() {
   const searchParams = useSearchParams();
   const deepLinkId = searchParams.get("c") ?? undefined;
   const {
@@ -137,6 +140,41 @@ export function SalesInboxLayout() {
 
       <div className="hidden h-full w-[240px] min-w-[240px] max-w-[280px] shrink-0 overflow-y-auto overflow-x-hidden border-l border-border bg-card md:block lg:w-[280px] lg:min-w-[280px]">
         {selected && <ConversationAnalysisPanel conversation={selected} />}
+      </div>
+    </div>
+  );
+}
+
+export function SalesInboxLayout() {
+  const [tab, setTab] = useState<InboxTab>("bandeja");
+
+  return (
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
+      <div className="flex shrink-0 gap-1 border-b border-border px-[var(--space-card-sm)] py-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={tab === "bandeja" ? "secondary" : "ghost"}
+          className={cn("gap-2")}
+          onClick={() => setTab("bandeja")}
+        >
+          <MessageCircle className="h-4 w-4" />
+          Bandeja
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={tab === "redes" ? "secondary" : "ghost"}
+          className={cn("gap-2")}
+          onClick={() => setTab("redes")}
+        >
+          <Share2 className="h-4 w-4" />
+          Redes Sociales
+        </Button>
+      </div>
+
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {tab === "bandeja" ? <SalesInboxClassic /> : <ZernioInboxPanel />}
       </div>
     </div>
   );

@@ -8,6 +8,15 @@ export const mockIntegrations: Integration[] = [
     status: "not_connected",
     description:
       "Recibí DMs de tu cuenta personal de Instagram en el inbox de ventas (vía Unipile).",
+    hidden: true,
+  },
+  {
+    id: "int-zernio",
+    provider: "zernio",
+    name: "Zernio",
+    status: "not_connected",
+    description:
+      "DMs, comentarios y analytics de Instagram, Facebook, WhatsApp y más.",
   },
   {
     id: "int-unipile-wa",

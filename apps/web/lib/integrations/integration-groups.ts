@@ -10,7 +10,7 @@ export const INTEGRATION_GROUPS: IntegrationGroup[] = [
     label: "Ventas y conversaciones",
     integrations: [
       "manychat",
-      "unipile_instagram",
+      "zernio",
       "unipile_whatsapp",
       "calendly",
       "instagram",
@@ -37,6 +37,8 @@ export const INTEGRATION_DESCRIPTIONS: Partial<
     "DMs de Instagram personal en el inbox de ventas. Distinto de la integración de métricas de contenido.",
   unipile_whatsapp:
     "WhatsApp personal en el inbox de ventas, con scoring de IA igual que ManyChat.",
+  zernio:
+    "DMs, comentarios y analytics de Instagram, Facebook, WhatsApp y más vía OAuth oficial.",
   manychat:
     "Conecta con tu API key. Los mensajes nuevos llegan vía External Request.",
   calendly:

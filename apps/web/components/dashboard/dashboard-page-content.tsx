@@ -10,6 +10,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes";
 import { useFinanceData } from "@/providers/finance-data-provider";
 import { usePlatformData } from "@/providers/platform-data-provider";
+import type { ZernioAnalyticsSummary } from "@/app/integrations/zernio/actions";
 import type { WeeklyReportRow } from "@/types/operations";
 import type { FrequentObjectionsResult } from "@/types/sales";
 import { PageLoading } from "@/components/shared/page-loading";
@@ -23,9 +24,16 @@ const NO_REPORT_SUMMARY =
 export function DashboardPageContent({
   weeklyReport = null,
   frequentObjections = null,
+  zernioAnalytics = {
+    totalImpressions: 0,
+    totalLikes: 0,
+    totalComments: 0,
+    hasData: false,
+  },
 }: {
   weeklyReport?: WeeklyReportRow | null;
   frequentObjections?: FrequentObjectionsResult | null;
+  zernioAnalytics?: ZernioAnalyticsSummary;
 }) {
   const {
     clients,
@@ -100,5 +108,11 @@ export function DashboardPageContent({
     return <PageLoading label="Cargando panel general…" />;
   }
 
-  return <DashboardOverview data={data} weeklyReport={weeklyReport} />;
+  return (
+    <DashboardOverview
+      data={data}
+      weeklyReport={weeklyReport}
+      zernioAnalytics={zernioAnalytics}
+    />
+  );
 }

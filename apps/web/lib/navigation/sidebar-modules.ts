@@ -37,6 +37,7 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
         },
         { label: "Formularios", href: paths.platform.marketing.forms },
         { label: "UTMs", href: paths.platform.marketing.utms },
+        { label: "Comentarios", href: paths.platform.comentarios },
       ],
     },
     ventas: {
@@ -142,6 +143,7 @@ export function getParentFromPath(pathname: string): SidebarParentKey | null {
   if (pathname.startsWith(paths.platform.lanzamientos)) return null;
   if (pathname.startsWith(paths.platform.finance.root)) return "finanzas";
   if (pathname.startsWith("/marketing")) return "marketing";
+  if (pathname.startsWith(paths.platform.comentarios)) return "marketing";
   if (pathname.startsWith("/sales")) return "ventas";
   if (pathname.startsWith("/operations")) return "operaciones";
   if (pathname.startsWith("/intelligence")) return "operaciones";

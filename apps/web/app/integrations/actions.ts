@@ -17,6 +17,7 @@ import {
   countUnipileConversationsAction,
   getUnipileIntegrationStatusAction,
 } from "@/app/unipile/actions";
+import { getZernioIntegrationStatusAction } from "@/app/integrations/zernio/actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { formatRelativeTime } from "@/lib/format";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
@@ -195,6 +196,7 @@ const REAL_PROVIDERS = new Set([
   "fathom",
   "youtube",
   "instagram",
+  "zernio",
   "unipile_instagram",
   "unipile_whatsapp",
   "typeform",
@@ -216,6 +218,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     typeformStatus,
     googleFormsStatus,
     discordStatus,
+    zernioStatus,
   ] = await Promise.all([
     getCalendlyIntegrationStatusAction(),
     getManyChatIntegrationStatusAction(),
@@ -227,6 +230,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     getTypeformIntegrationStatusAction(),
     getGoogleFormsIntegrationStatusAction(),
     getDiscordIntegrationStatusAction(),
+    getZernioIntegrationStatusAction(),
   ]);
 
   const [
@@ -240,6 +244,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     typeformRecords,
     googleFormsRecords,
     discordRecords,
+    zernioRecords,
   ] = await Promise.all([
     calendlyStatus.connected ? countCalendlyClosingCalls() : 0,
     manychatStatus.connected ? countManyChatConversations() : 0,
@@ -251,6 +256,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     typeformStatus.connected ? countForms("typeform") : 0,
     googleFormsStatus.connected ? countForms("google_forms") : 0,
     discordStatus.connected ? discordStatus.stats.messagesCount : 0,
+    zernioStatus.connected ? zernioStatus.connectedAccounts.length : 0,
   ]);
 
   return mockIntegrations
@@ -310,6 +316,11 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
         lastSyncAt: discordStatus.integration?.last_event_at ?? null,
         records: discordRecords,
       },
+      zernio: {
+        connected: zernioStatus.connected,
+        lastSyncAt: null,
+        records: zernioRecords,
+      },
     };
 
     const live = statusMap[integration.provider];
@@ -324,6 +335,13 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
       }
       if (integration.provider === "unipile_whatsapp" && unipileWhatsappStatus.displayName) {
         description = `Cuenta: ${unipileWhatsappStatus.displayName}`;
+      }
+      if (integration.provider === "zernio" && zernioStatus.connectedAccounts.length > 0) {
+        const names = zernioStatus.connectedAccounts
+          .map((a) => a.username ?? a.platform)
+          .slice(0, 3)
+          .join(", ");
+        description = `${zernioStatus.connectedAccounts.length} cuenta${zernioStatus.connectedAccounts.length === 1 ? "" : "s"}: ${names}`;
       }
 
       return {

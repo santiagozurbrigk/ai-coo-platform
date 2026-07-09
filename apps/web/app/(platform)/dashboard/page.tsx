@@ -1,4 +1,5 @@
 import { getWeeklyReportAction } from "@/app/operations/actions";
+import { getZernioAnalyticsAction } from "@/app/integrations/zernio/actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { getHoldingSessionState } from "@/lib/holding/session";
 import {
@@ -29,15 +30,17 @@ export default async function DashboardPage() {
     redirect(paths.platform.holding);
   }
 
-  const [weeklyReport, frequentObjections] = await Promise.all([
+  const [weeklyReport, frequentObjections, zernioAnalytics] = await Promise.all([
     getWeeklyReportAction(),
     loadFrequentObjections(),
+    getZernioAnalyticsAction(),
   ]);
 
   return (
     <DashboardPageContent
       weeklyReport={weeklyReport}
       frequentObjections={frequentObjections}
+      zernioAnalytics={zernioAnalytics}
     />
   );
 }

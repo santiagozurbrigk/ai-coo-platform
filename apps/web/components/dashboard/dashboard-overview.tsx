@@ -13,6 +13,8 @@ import { AiRecommendations } from "./ai-recommendations";
 import { WeeklyChanges } from "./weekly-changes";
 import { NextActionsStrip } from "./next-actions-strip";
 import { DashboardEmptyState } from "./dashboard-empty-state";
+import { ZernioAnalyticsSection } from "./zernio-analytics-section";
+import type { ZernioAnalyticsSummary } from "@/app/integrations/zernio/actions";
 
 const fade = {
   initial: { opacity: 0, y: 8 },
@@ -22,9 +24,11 @@ const fade = {
 export function DashboardOverview({
   data,
   weeklyReport,
+  zernioAnalytics,
 }: {
   data: DashboardData;
   weeklyReport?: WeeklyReportRow | null;
+  zernioAnalytics?: ZernioAnalyticsSummary;
 }) {
   if (data.isEmpty) {
     return <DashboardEmptyState />;
@@ -62,6 +66,19 @@ export function DashboardOverview({
 
       <motion.div variants={fade}>
         <SalesMetricsSection metrics={data.salesMetrics} />
+      </motion.div>
+
+      <motion.div variants={fade}>
+        <ZernioAnalyticsSection
+          analytics={
+            zernioAnalytics ?? {
+              totalImpressions: 0,
+              totalLikes: 0,
+              totalComments: 0,
+              hasData: false,
+            }
+          }
+        />
       </motion.div>
 
       <motion.div variants={fade}>

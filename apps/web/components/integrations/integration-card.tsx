@@ -46,6 +46,7 @@ import { ManyChatImportDialog } from "./manychat-import-dialog";
 import { IntegrationCardShell } from "./integration-card-shell";
 import { IntegrationLogo } from "./integration-logo";
 import { ManyChatManageSheet } from "./manychat-manage-sheet";
+import { ZernioConnectModal } from "./zernio-connect-modal";
 
 const COMING_SOON_LABEL = "Próximamente";
 
@@ -85,6 +86,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const [manychatManageOpen, setManychatManageOpen] = useState(false);
   const [googleManageOpen, setGoogleManageOpen] = useState(false);
   const [instagramManageOpen, setInstagramManageOpen] = useState(false);
+  const [zernioConnectOpen, setZernioConnectOpen] = useState(false);
   const [manychatWebhookUrl, setManychatWebhookUrl] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const { push } = useToast();
@@ -346,6 +348,11 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       return;
     }
 
+    if (integration.provider === "zernio" && status === "connected") {
+      setZernioConnectOpen(true);
+      return;
+    }
+
     const unipileProvider = unipileProviderFromIntegration(integration.provider);
     if (unipileProvider && status === "connected") {
       void startUnipileConnect(unipileProvider);
@@ -426,6 +433,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         window.location.href = "/api/integrations/typeform/oauth/start";
         return;
       }
+      if (integration.provider === "zernio") {
+        setZernioConnectOpen(true);
+        return;
+      }
       const unipileProvider = unipileProviderFromIntegration(integration.provider);
       if (unipileProvider) {
         void startUnipileConnect(unipileProvider);
@@ -469,6 +480,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         : integration.provider === "calendly" ||
             integration.provider === "fathom" ||
             integration.provider === "instagram" ||
+            integration.provider === "zernio" ||
             integration.provider === "unipile_instagram" ||
             integration.provider === "unipile_whatsapp"
           ? "Gestionar"
@@ -524,6 +536,14 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         onImportContact={() => {
           setManychatManageOpen(false);
           setManychatImportOpen(true);
+        }}
+      />
+      <ZernioConnectModal
+        open={zernioConnectOpen}
+        onOpenChange={setZernioConnectOpen}
+        onConnected={() => {
+          setStatus("connected");
+          router.refresh();
         }}
       />
 
