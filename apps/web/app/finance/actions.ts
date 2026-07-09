@@ -217,8 +217,13 @@ export async function deleteFixedExpenseAction(
   id: string
 ): Promise<MutationResult> {
   return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
     const supabase = await createClient();
-    const { error } = await supabase.from("fixed_expenses").delete().eq("id", id);
+    const { error } = await supabase
+      .from("fixed_expenses")
+      .delete()
+      .eq("id", id)
+      .eq("organization_id", organizationId);
     if (error) throw new Error(mapFinanceError(error.message));
   });
 }
@@ -279,8 +284,13 @@ export async function deleteSubscriptionAction(
   id: string
 ): Promise<MutationResult> {
   return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
     const supabase = await createClient();
-    const { error } = await supabase.from("subscriptions").delete().eq("id", id);
+    const { error } = await supabase
+      .from("subscriptions")
+      .delete()
+      .eq("id", id)
+      .eq("organization_id", organizationId);
     if (error) throw new Error(mapFinanceError(error.message));
   });
 }
@@ -429,8 +439,13 @@ export async function deletePaymentPlatformAction(
 ): Promise<MutationResult> {
   return runMutation(async () => {
     await requireFounderRole();
+    const organizationId = await requireOrganizationId();
     const supabase = await createClient();
-    const { error } = await supabase.from("payment_platforms").delete().eq("id", id);
+    const { error } = await supabase
+      .from("payment_platforms")
+      .delete()
+      .eq("id", id)
+      .eq("organization_id", organizationId);
     if (error) throw new Error(mapFinanceError(error.message));
   });
 }
