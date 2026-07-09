@@ -66,6 +66,7 @@ export function WorkboardShell() {
     pendingCompleteTask,
     confirmCompleteWithTime,
     skipTimeAndComplete,
+    cancelComplete,
   } = useWorkboard();
 
   const { push } = useToast();
@@ -240,6 +241,7 @@ export function WorkboardShell() {
         onSkip={async () => {
           await skipTimeAndComplete();
         }}
+        onCancel={cancelComplete}
       />
       <WorkboardTaskDetailDialog />
     </div>

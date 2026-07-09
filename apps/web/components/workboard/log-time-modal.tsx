@@ -21,6 +21,7 @@ export interface LogTimeModalProps {
   estimatedMinutes?: number;
   onConfirm: (minutes: number, note?: string) => void | Promise<void>;
   onSkip: () => void | Promise<void>;
+  onCancel: () => void | Promise<void>;
   open: boolean;
 }
 
@@ -37,6 +38,7 @@ export function LogTimeModal({
   estimatedMinutes,
   onConfirm,
   onSkip,
+  onCancel,
   open,
 }: LogTimeModalProps) {
   const [hours, setHours] = useState("0");
@@ -98,9 +100,23 @@ export function LogTimeModal({
     }
   }
 
+  async function handleCancel() {
+    setSubmitting(true);
+    try {
+      await onCancel();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) void handleCancel();
+      }}
+    >
+      <DialogContent className="max-w-md">
         {success ? (
           <div className="py-8 text-center text-sm font-medium text-emerald-600 dark:text-emerald-400">
             ✓ Tiempo registrado
@@ -174,22 +190,32 @@ export function LogTimeModal({
               </div>
             </div>
 
-            <DialogFooter className="gap-2 sm:justify-between">
+            <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 disabled={submitting}
-                onClick={() => void handleSkip()}
+                onClick={() => void handleCancel()}
               >
-                Omitir
+                Cancelar
               </Button>
-              <Button
-                type="button"
-                disabled={submitting || totalMinutes <= 0}
-                onClick={() => void handleConfirm()}
-              >
-                {submitting ? "Registrando…" : "Registrar tiempo"}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={submitting}
+                  onClick={() => void handleSkip()}
+                >
+                  Omitir
+                </Button>
+                <Button
+                  type="button"
+                  disabled={submitting || totalMinutes <= 0}
+                  onClick={() => void handleConfirm()}
+                >
+                  {submitting ? "Registrando…" : "Registrar tiempo"}
+                </Button>
+              </div>
             </DialogFooter>
           </>
         )}

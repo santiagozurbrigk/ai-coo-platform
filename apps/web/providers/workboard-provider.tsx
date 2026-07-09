@@ -148,6 +148,8 @@ export function WorkboardProvider({
     useState<WorkboardTask | null>(null);
   const [pendingCompletePatch, setPendingCompletePatch] =
     useState<TaskUpdatePatch | null>(null);
+  const [pendingCompletePreviousStatus, setPendingCompletePreviousStatus] =
+    useState<TaskStatus | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [kanbanDoneVisibleUntil, setKanbanDoneVisibleUntil] = useState<
     Record<string, number>
@@ -244,6 +246,7 @@ export function WorkboardProvider({
 
         setPendingCompleteTask(null);
         setPendingCompletePatch(null);
+        setPendingCompletePreviousStatus(null);
         setSelectedTask(null);
         await refreshSprints();
       } finally {
@@ -275,6 +278,7 @@ export function WorkboardProvider({
       if (status === "done") {
         setPendingCompleteTask(prev);
         setPendingCompletePatch(null);
+        setPendingCompletePreviousStatus(prev.status);
         return;
       }
 
@@ -291,6 +295,7 @@ export function WorkboardProvider({
       if (patch.status === "done" && prev.status !== "done") {
         setPendingCompleteTask(applyTaskPatch(prev, patch, members));
         setPendingCompletePatch(patch);
+        setPendingCompletePreviousStatus(prev.status);
         return;
       }
 
@@ -328,9 +333,30 @@ export function WorkboardProvider({
   }, [finalizeComplete]);
 
   const cancelComplete = useCallback(() => {
-    setPendingCompleteTask(null);
-    setPendingCompletePatch(null);
-  }, []);
+    setPendingCompleteTask((pendingTask) => {
+      if (!pendingTask) return null;
+
+      const taskId = pendingTask.id;
+
+      setPendingCompletePreviousStatus((previousStatus) => {
+        if (previousStatus != null) {
+          setTasks((current) =>
+            current.map((t) =>
+              t.id === taskId ? { ...t, status: previousStatus } : t
+            )
+          );
+          setSelectedTask((sel) =>
+            sel?.id === taskId ? { ...sel, status: previousStatus } : sel
+          );
+        }
+        return null;
+      });
+
+      clearKanbanDoneVisible(taskId);
+      setPendingCompletePatch(null);
+      return null;
+    });
+  }, [clearKanbanDoneVisible]);
 
   const assignTaskToSprint = useCallback(
     async (taskId: string, sprintId: string | null) => {
