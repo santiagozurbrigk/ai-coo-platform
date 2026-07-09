@@ -133,7 +133,7 @@ const GENERATE_DOCUMENT_TOOL: Anthropic.Tool = {
 const CREATE_WORKBOARD_TASKS_TOOL: Anthropic.Tool = {
   name: "create_workboard_tasks",
   description:
-    "Crea una o más tareas directamente en el Tablero de Trabajo de OTC. SIEMPRE usar esta herramienta (en lugar de listar tareas en texto) cuando el usuario pida agregar tareas al tablero, board, kanban o tablero de trabajo.",
+    "Crea una o más tareas directamente en el Tablero de Trabajo de OTC. SIEMPRE usar esta herramienta (en lugar de listar tareas en texto) cuando el usuario pida agregar tareas al tablero, board, kanban o tablero de trabajo. Las fechas deben estar en formato YYYY-MM-DD usando el año actual.",
   input_schema: {
     type: "object" as const,
     required: ["tasks"],
@@ -163,7 +163,7 @@ const CREATE_WORKBOARD_TASKS_TOOL: Anthropic.Tool = {
             },
             due_date: {
               type: "string",
-              description: "YYYY-MM-DD o null",
+              description: "YYYY-MM-DD usando el año actual, o null",
             },
             assignee_name: {
               type: "string",
@@ -173,6 +173,81 @@ const CREATE_WORKBOARD_TASKS_TOOL: Anthropic.Tool = {
               type: "array",
               items: { type: "string" },
             },
+          },
+        },
+      },
+    },
+  },
+};
+
+const SEARCH_WORKBOARD_TASKS_TOOL: Anthropic.Tool = {
+  name: "search_workboard_tasks",
+  description:
+    "Busca tareas en el Tablero de Trabajo por nombre. Usar ANTES de update_workboard_task para obtener el ID de la tarea a modificar.",
+  input_schema: {
+    type: "object" as const,
+    required: ["query"],
+    properties: {
+      query: {
+        type: "string",
+        description: "Texto a buscar en el título de la tarea",
+      },
+      status: {
+        type: "string",
+        enum: ["todo", "in_progress", "review", "done"],
+        description: "Filtrar por estado (opcional)",
+      },
+    },
+  },
+};
+
+const UPDATE_WORKBOARD_TASK_TOOL: Anthropic.Tool = {
+  name: "update_workboard_task",
+  description:
+    "Modifica una tarea existente en el Tablero de Trabajo. Requiere el ID de la tarea (obtenerlo con search_workboard_tasks primero). Puede actualizar título, descripción, estado, área, prioridad, fecha límite y responsable.",
+  input_schema: {
+    type: "object" as const,
+    required: ["task_id", "updates"],
+    properties: {
+      task_id: {
+        type: "string",
+        description: "UUID de la tarea (obtener con search_workboard_tasks)",
+      },
+      updates: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          description: { type: "string" },
+          status: {
+            type: "string",
+            enum: ["todo", "in_progress", "review", "done"],
+          },
+          area: {
+            type: "string",
+            enum: [
+              "marketing",
+              "ventas",
+              "operaciones",
+              "finanzas",
+              "clientes",
+              "general",
+            ],
+          },
+          priority: {
+            type: "string",
+            enum: ["low", "medium", "high"],
+          },
+          due_date: {
+            type: "string",
+            description: "YYYY-MM-DD usando el año actual, o null para quitar la fecha",
+          },
+          assignee_name: {
+            type: "string",
+            description: "Nombre completo del responsable, o null para desasignar",
+          },
+          tags: {
+            type: "array",
+            items: { type: "string" },
           },
         },
       },
@@ -684,7 +759,13 @@ export async function sendAgentMessageAction(input: {
       messages: claudeMessages,
       enableWebSearch: flags.useWebSearch,
       enableThinking: flags.useThink,
-      tools: [GENERATE_DOCUMENT_TOOL, CREATE_WORKBOARD_TASKS_TOOL, ...ALL_PROPOSAL_TOOLS],
+      tools: [
+        GENERATE_DOCUMENT_TOOL,
+        CREATE_WORKBOARD_TASKS_TOOL,
+        SEARCH_WORKBOARD_TASKS_TOOL,
+        UPDATE_WORKBOARD_TASK_TOOL,
+        ...ALL_PROPOSAL_TOOLS,
+      ],
       onToolCall: async (name, toolInput) => {
         // -- Document generation tool --
         if (name === "generate_document") {
@@ -744,6 +825,31 @@ export async function sendAgentMessageAction(input: {
           return result.ok
             ? `✅ ${result.created} tarea(s) creadas en el Tablero de Trabajo.`
             : `Error al crear tareas: ${result.error}`;
+        }
+
+        if (name === "search_workboard_tasks") {
+          const result = await searchWorkboardTasksAction({
+            query: String(toolInput.query ?? ""),
+            status: toolInput.status as
+              | "todo"
+              | "in_progress"
+              | "review"
+              | "done"
+              | undefined,
+          });
+          return result.ok
+            ? JSON.stringify(result.tasks)
+            : `Error buscando tareas: ${result.error}`;
+        }
+
+        if (name === "update_workboard_task") {
+          const result = await updateWorkboardTaskAction({
+            task_id: String(toolInput.task_id ?? ""),
+            updates: (toolInput.updates ?? {}) as WorkboardTaskUpdates,
+          });
+          return result.ok
+            ? "✅ Tarea actualizada correctamente."
+            : `Error al actualizar tarea: ${result.error}`;
         }
 
         // -- Graph proposal tools --
@@ -1061,6 +1167,173 @@ type WorkboardTaskInput = {
   tags?: string[];
 };
 
+type WorkboardTaskUpdates = {
+  title?: string;
+  description?: string;
+  status?: "todo" | "in_progress" | "review" | "done";
+  area?: "marketing" | "ventas" | "operaciones" | "finanzas" | "clientes" | "general";
+  priority?: "low" | "medium" | "high";
+  due_date?: string | null;
+  assignee_name?: string | null;
+  tags?: string[];
+};
+
+async function resolveAssigneeId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  assigneeName: string | null | undefined
+): Promise<string | null> {
+  const name = assigneeName?.trim();
+  if (!name) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("organization_id", orgId)
+    .ilike("full_name", name)
+    .limit(1)
+    .maybeSingle();
+
+  return (profile?.id as string | undefined) ?? null;
+}
+
+export async function searchWorkboardTasksAction(input: {
+  query: string;
+  status?: "todo" | "in_progress" | "review" | "done";
+}): Promise<{
+  ok: boolean;
+  tasks: Array<{
+    id: string;
+    title: string;
+    status: string;
+    area: string;
+    priority: string;
+    due_date: string | null;
+    assignee_id: string | null;
+  }>;
+  error?: string;
+}> {
+  try {
+    const query = input.query.trim();
+    if (!query) {
+      return { ok: false, tasks: [], error: "La búsqueda no puede estar vacía." };
+    }
+
+    const { orgId } = await requireAuthContext();
+    const supabase = await createClient();
+
+    let request = supabase
+      .from("workboard_tasks")
+      .select("id, title, status, area, priority, due_date, assignee_id")
+      .eq("organization_id", orgId)
+      .ilike("title", `%${query}%`)
+      .limit(10);
+
+    if (input.status) {
+      request = request.eq("status", input.status);
+    }
+
+    const { data, error } = await request;
+
+    if (error) {
+      return { ok: false, tasks: [], error: error.message };
+    }
+
+    return {
+      ok: true,
+      tasks: (data ?? []).map((row) => ({
+        id: row.id as string,
+        title: row.title as string,
+        status: row.status as string,
+        area: row.area as string,
+        priority: row.priority as string,
+        due_date: (row.due_date as string | null) ?? null,
+        assignee_id: (row.assignee_id as string | null) ?? null,
+      })),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      tasks: [],
+      error: err instanceof Error ? err.message : "Error al buscar tareas.",
+    };
+  }
+}
+
+export async function updateWorkboardTaskAction(input: {
+  task_id: string;
+  updates: WorkboardTaskUpdates;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const taskId = input.task_id.trim();
+    if (!taskId) {
+      return { ok: false, error: "ID de tarea requerido." };
+    }
+
+    const { orgId } = await requireAuthContext();
+    const supabase = await createClient();
+
+    const { data: existing, error: existingError } = await supabase
+      .from("workboard_tasks")
+      .select("id")
+      .eq("id", taskId)
+      .eq("organization_id", orgId)
+      .maybeSingle();
+
+    if (existingError) {
+      return { ok: false, error: existingError.message };
+    }
+    if (!existing) {
+      return { ok: false, error: "Tarea no encontrada en tu organización." };
+    }
+
+    const patch: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    const { updates } = input;
+
+    if (updates.title !== undefined) patch.title = updates.title.trim();
+    if (updates.description !== undefined) {
+      patch.description = updates.description.trim();
+    }
+    if (updates.status !== undefined) patch.status = updates.status;
+    if (updates.area !== undefined) patch.area = updates.area;
+    if (updates.priority !== undefined) patch.priority = updates.priority;
+    if (updates.due_date !== undefined) patch.due_date = updates.due_date || null;
+    if (updates.tags !== undefined) patch.tags = updates.tags;
+    if (updates.assignee_name !== undefined) {
+      patch.assignee_id = await resolveAssigneeId(
+        supabase,
+        orgId,
+        updates.assignee_name
+      );
+    }
+
+    if (Object.keys(patch).length === 1) {
+      return { ok: false, error: "No hay campos para actualizar." };
+    }
+
+    const { error: updateError } = await supabase
+      .from("workboard_tasks")
+      .update(patch)
+      .eq("id", taskId)
+      .eq("organization_id", orgId);
+
+    if (updateError) {
+      return { ok: false, error: updateError.message };
+    }
+
+    revalidatePath(paths.platform.workboard.root);
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Error al actualizar la tarea.",
+    };
+  }
+}
+
 export async function createWorkboardTasksAction(input: {
   tasks: WorkboardTaskInput[];
 }): Promise<{ ok: boolean; created: number; taskIds: string[]; error?: string }> {
@@ -1072,6 +1345,17 @@ export async function createWorkboardTasksAction(input: {
     }
 
     const supabase = await createClient();
+
+    const { data: activeSprint } = await supabase
+      .from("sprints")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("status", "active")
+      .order("start_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const activeSprintId = (activeSprint?.id as string | undefined) ?? null;
 
     const { data: maxPosRow, error: maxPosError } = await supabase
       .from("workboard_tasks")
@@ -1090,19 +1374,11 @@ export async function createWorkboardTasksAction(input: {
     const rows: Record<string, unknown>[] = [];
 
     for (const task of tasks) {
-      let assigneeId: string | null = null;
-      const assigneeName = task.assignee_name?.trim();
-
-      if (assigneeName) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("organization_id", orgId)
-          .ilike("full_name", assigneeName)
-          .limit(1)
-          .maybeSingle();
-        assigneeId = (profile?.id as string | undefined) ?? null;
-      }
+      const assigneeId = await resolveAssigneeId(
+        supabase,
+        orgId,
+        task.assignee_name
+      );
 
       nextPosition += 1;
       rows.push({
@@ -1115,6 +1391,7 @@ export async function createWorkboardTasksAction(input: {
         assignee_id: assigneeId,
         due_date: task.due_date || null,
         tags: task.tags ?? [],
+        sprint_id: activeSprintId,
         position: nextPosition,
       });
     }

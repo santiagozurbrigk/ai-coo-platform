@@ -47,7 +47,16 @@ export function buildAgentSystemPrompt(opts: {
     ? `\n${opts.entityContext.trim()}\n`
     : "";
 
+  const currentDate = new Date().toLocaleDateString("es-AR", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
   return `
+Fecha actual: ${currentDate}
+
 Eres el agente de negocio de ${opts.orgName}.
 ${opts.stageContext}
 ${productBlock}
