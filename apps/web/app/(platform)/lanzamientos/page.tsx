@@ -1,6 +1,24 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Rocket } from "lucide-react";
+import { Button } from "@ai-coo/ui";
+import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
 import { paths } from "@/routes";
 
-export default async function LanzamientosPage() {
-  redirect(paths.platform.dashboard);
+export default function LanzamientosPage() {
+  return (
+    <div className="space-y-8">
+      <PageHeader title="Lanzamientos" />
+      <EmptyState
+        icon={<Rocket className="h-8 w-8" />}
+        title="Próximamente"
+        description="Estamos trabajando en este módulo. Estará disponible muy pronto."
+        action={
+          <Button asChild variant="outline">
+            <Link href={paths.platform.dashboard}>Volver al inicio</Link>
+          </Button>
+        }
+      />
+    </div>
+  );
 }
