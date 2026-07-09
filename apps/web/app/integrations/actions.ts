@@ -197,14 +197,18 @@ const REAL_PROVIDERS = new Set([
   "youtube",
   "instagram",
   "zernio",
-  "unipile_instagram",
   "unipile_whatsapp",
   "typeform",
   "google_forms",
   "discord",
 ]);
 
-const HIDDEN_INTEGRATION_PROVIDERS = new Set(["stripe", "mercadopago", "paypal"]);
+const HIDDEN_INTEGRATION_PROVIDERS = new Set([
+  "stripe",
+  "mercadopago",
+  "paypal",
+  "unipile_instagram",
+]);
 
 export async function listIntegrationsAction(): Promise<Integration[]> {
   const [
@@ -213,7 +217,6 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     fathomStatus,
     youtubeStatus,
     instagramStatus,
-    unipileInstagramStatus,
     unipileWhatsappStatus,
     typeformStatus,
     googleFormsStatus,
@@ -225,7 +228,6 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     getFathomIntegrationStatusAction(),
     getYoutubeIntegrationStatusAction(),
     getInstagramIntegrationStatusAction(),
-    getUnipileIntegrationStatusAction("instagram"),
     getUnipileIntegrationStatusAction("whatsapp"),
     getTypeformIntegrationStatusAction(),
     getGoogleFormsIntegrationStatusAction(),
@@ -239,7 +241,6 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     fathomRecords,
     youtubeRecords,
     instagramRecords,
-    unipileInstagramRecords,
     unipileWhatsappRecords,
     typeformRecords,
     googleFormsRecords,
@@ -251,7 +252,6 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     fathomStatus.connected ? countFathomCalls() : 0,
     youtubeStatus.connected ? countContentAssets("youtube") : 0,
     instagramStatus.connected ? countContentAssets("instagram") : 0,
-    unipileInstagramStatus.connected ? countUnipileConversationsAction("instagram") : 0,
     unipileWhatsappStatus.connected ? countUnipileConversationsAction("whatsapp") : 0,
     typeformStatus.connected ? countForms("typeform") : 0,
     googleFormsStatus.connected ? countForms("google_forms") : 0,
@@ -261,6 +261,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
 
   return mockIntegrations
     .filter((integration) => !HIDDEN_INTEGRATION_PROVIDERS.has(integration.provider))
+    .filter((integration) => integration.hidden !== true)
     .map((integration) => {
     const statusMap: Record<
       string,
@@ -290,11 +291,6 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
         connected: instagramStatus.connected,
         lastSyncAt: instagramStatus.lastSyncAt,
         records: instagramRecords,
-      },
-      unipile_instagram: {
-        connected: unipileInstagramStatus.connected,
-        lastSyncAt: unipileInstagramStatus.connectedAt,
-        records: unipileInstagramRecords,
       },
       unipile_whatsapp: {
         connected: unipileWhatsappStatus.connected,
@@ -330,9 +326,6 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
       }
 
       let description = integration.description;
-      if (integration.provider === "unipile_instagram" && unipileInstagramStatus.displayName) {
-        description = `Cuenta: ${unipileInstagramStatus.displayName}`;
-      }
       if (integration.provider === "unipile_whatsapp" && unipileWhatsappStatus.displayName) {
         description = `Cuenta: ${unipileWhatsappStatus.displayName}`;
       }

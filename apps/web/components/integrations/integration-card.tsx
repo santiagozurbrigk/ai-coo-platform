@@ -54,8 +54,7 @@ const INSTAGRAM_CONNECT_URL = "/api/integrations/instagram/connect";
 
 function unipileProviderFromIntegration(
   provider: Integration["provider"]
-): "instagram" | "whatsapp" | null {
-  if (provider === "unipile_instagram") return "instagram";
+): "whatsapp" | null {
   if (provider === "unipile_whatsapp") return "whatsapp";
   return null;
 }
@@ -128,7 +127,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     window.location.href = GOOGLE_OAUTH_START_URL[provider];
   };
 
-  const startUnipileConnect = async (provider: "instagram" | "whatsapp") => {
+  const startUnipileConnect = async (provider: "whatsapp") => {
     setSyncing(true);
     try {
       const res = await fetch(
@@ -282,6 +281,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     }
     if (integration.provider === "discord") {
       startDiscordOAuth();
+      return;
+    }
+    if (integration.provider === "zernio") {
+      setZernioConnectOpen(true);
       return;
     }
     const unipileProvider = unipileProviderFromIntegration(integration.provider);
@@ -458,7 +461,6 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     isConnected &&
     !comingSoon &&
     (integration.provider === "instagram" ||
-      integration.provider === "unipile_instagram" ||
       integration.provider === "unipile_whatsapp" ||
       integration.provider === "fathom" ||
       integration.provider === "manychat" ||
@@ -481,7 +483,6 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
             integration.provider === "fathom" ||
             integration.provider === "instagram" ||
             integration.provider === "zernio" ||
-            integration.provider === "unipile_instagram" ||
             integration.provider === "unipile_whatsapp"
           ? "Gestionar"
           : es.common.manage;

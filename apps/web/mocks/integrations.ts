@@ -2,15 +2,6 @@ import type { Integration } from "@/types/integrations";
 
 export const mockIntegrations: Integration[] = [
   {
-    id: "int-unipile-ig",
-    provider: "unipile_instagram",
-    name: "Instagram DMs",
-    status: "not_connected",
-    description:
-      "Recibí DMs de tu cuenta personal de Instagram en el inbox de ventas (vía Unipile).",
-    hidden: true,
-  },
-  {
     id: "int-zernio",
     provider: "zernio",
     name: "Zernio",
