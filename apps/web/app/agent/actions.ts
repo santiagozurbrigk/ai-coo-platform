@@ -748,6 +748,12 @@ export async function sendAgentMessageAction(input: {
 
   // Accumulated proposals created during tool-use loop
   const createdProposals: GraphProposal[] = [];
+  const generatedDocuments: Array<{
+    filename: string;
+    signedUrl: string;
+    mimeType: string;
+    sizeBytes: number;
+  }> = [];
 
   try {
     agentResult = await callClaudeAgent({
@@ -809,6 +815,13 @@ export async function sendAgentMessageAction(input: {
           const generated = await generateDocument(fmt, docContent);
           const filename = `${baseFilename}.${generated.extension}`;
           const stored = await storeAgentDocument(organizationId, filename, generated);
+
+          generatedDocuments.push({
+            filename: stored.filename,
+            signedUrl: stored.signedUrl,
+            mimeType: stored.mimeType,
+            sizeBytes: stored.sizeBytes,
+          });
 
           return JSON.stringify({
             success: true,
@@ -941,25 +954,16 @@ export async function sendAgentMessageAction(input: {
 
   // Build document attachments if a document was generated via tool call
   let docAttachments: AgentMessage["attachments"] = null;
-  const docToolCall = agentResult?.toolCalls?.find((tc) => tc.name === "generate_document");
-  if (docToolCall) {
-    try {
-      const toolOutput = docToolCall.input;
-      const docFilename = String(toolOutput.filename ?? "documento");
-      const docFmt = String(toolOutput.format ?? "docx");
-      docAttachments = [
-        {
-          name: `${docFilename}.${docFmt}`,
-          url: "",
-          type: docFmt === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            : docFmt === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            : docFmt === "pdf" ? "application/pdf"
-            : "text/csv",
-        },
-      ];
-    } catch {
-      // Attachment metadata extraction failed; skip
-    }
+  const generatedDocument = generatedDocuments.at(-1);
+  if (generatedDocument) {
+    docAttachments = [
+      {
+        name: generatedDocument.filename,
+        url: generatedDocument.signedUrl,
+        type: generatedDocument.mimeType,
+        sizeBytes: generatedDocument.sizeBytes,
+      },
+    ];
   }
 
   const actions = parseAgentActions(rawAssistant);
