@@ -12,6 +12,15 @@ export type KnowledgeBaseFilter =
   | "client_meetings"
   | "business_context";
 
+export type FathomTaskProposal = {
+  title: string;
+  description?: string;
+  area?: "marketing" | "ventas" | "operaciones" | "finanzas" | "clientes" | "general";
+  priority?: "low" | "medium" | "high";
+  due_date?: string | null;
+  assignee_name?: string | null;
+};
+
 export type FathomKnowledgeCall = {
   id: string;
   title: string;
@@ -22,6 +31,10 @@ export type FathomKnowledgeCall = {
   status: string;
   client_id: string | null;
   clientName?: string | null;
+  call_type?: string | null;
+  summary?: string | null;
+  ai_task_proposals?: FathomTaskProposal[];
+  tasks_sent_to_board?: boolean;
 };
 
 export type KnowledgeSource =

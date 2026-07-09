@@ -1,6 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { analyzeFathomTranscript } from "@/lib/fathom/analyze-transcript";
 import { generateDeepCallAnalysis } from "@/lib/fathom/deep-call-analysis";
+import {
+  extractTeamMeetingTaskProposals,
+  isTeamMeetingCallType,
+} from "@/lib/fathom/team-task-extraction";
 import { associateCallWithClients } from "@/lib/fathom/associate";
 import { isManualFathomLink } from "@/lib/fathom/client-matcher";
 import { fetchFathomMeetingTitle } from "@/lib/fathom/api";
@@ -33,7 +37,39 @@ export type FathomCallRow = {
   processed_after: string | null;
   duration_seconds?: number | null;
   call_date?: string | null;
+  summary?: string | null;
 };
+
+async function maybeExtractTeamMeetingTasks(params: {
+  callId: string;
+  organizationId: string;
+  callType: string | null | undefined;
+  transcript: string | null;
+  summary?: string | null;
+}): Promise<void> {
+  if (!isTeamMeetingCallType(params.callType) || !params.transcript?.trim()) {
+    return;
+  }
+
+  const admin = createAdminClient();
+
+  try {
+    const proposals = await extractTeamMeetingTaskProposals({
+      organizationId: params.organizationId,
+      transcript: params.transcript,
+      summary: params.summary,
+    });
+
+    if (!proposals.length) return;
+
+    await admin
+      .from("fathom_calls")
+      .update({ ai_task_proposals: proposals })
+      .eq("id", params.callId);
+  } catch (error) {
+    console.error("Error extracting tasks from team meeting:", error);
+  }
+}
 
 export async function processPendingFathomCalls(limit = 20): Promise<number> {
   const admin = createAdminClient();
@@ -130,15 +166,48 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
   );
 
   if (association.status === "unmatched") {
-    await admin
-      .from("fathom_calls")
-      .update({
-        title,
-        raw_title: call.raw_title ?? call.title,
-        status: "unmatched",
-        processed_at: new Date().toISOString(),
-      })
-      .eq("id", call.id);
+    if (call.transcript?.trim()) {
+      const analysis = await analyzeFathomTranscript({
+        organizationId: call.organization_id,
+        clientName: "Equipo interno",
+        transcript: call.transcript,
+        previousCallsSummary: "",
+      });
+
+      const callType = analysis?.call_type ?? null;
+
+      await admin
+        .from("fathom_calls")
+        .update({
+          title,
+          raw_title: call.raw_title ?? call.title,
+          status: "unmatched",
+          call_type: callType,
+          ai_situation_summary: analysis?.situation_summary ?? null,
+          ai_next_steps: analysis?.next_steps ?? [],
+          ai_problems_detected: analysis?.problems_detected ?? [],
+          processed_at: new Date().toISOString(),
+        })
+        .eq("id", call.id);
+
+      await maybeExtractTeamMeetingTasks({
+        callId: call.id,
+        organizationId: call.organization_id,
+        callType,
+        transcript: call.transcript,
+        summary: analysis?.situation_summary ?? call.summary ?? null,
+      });
+    } else {
+      await admin
+        .from("fathom_calls")
+        .update({
+          title,
+          raw_title: call.raw_title ?? call.title,
+          status: "unmatched",
+          processed_at: new Date().toISOString(),
+        })
+        .eq("id", call.id);
+    }
     return;
   }
 
@@ -239,6 +308,14 @@ export async function finalizeAssociatedCall(params: {
       processed_at: new Date().toISOString(),
     })
     .eq("id", params.callId);
+
+  await maybeExtractTeamMeetingTasks({
+    callId: params.callId,
+    organizationId: params.organizationId,
+    callType: analysis?.call_type ?? null,
+    transcript: params.transcript,
+    summary: analysis?.situation_summary ?? null,
+  });
 
   await admin.from("client_timeline_entries").insert({
     organization_id: params.organizationId,

@@ -1,6 +1,7 @@
 import { ExternalLink, Users } from "lucide-react";
 import { formatDate } from "@/lib/format";
 import { extractTranscriptPreview } from "@/lib/fathom/transcript-preview";
+import { FathomCallDetail } from "@/components/fathom/fathom-call-detail";
 import type { FathomKnowledgeCall } from "@/types/business-context";
 
 export function FathomClientCallCard({ call }: { call: FathomKnowledgeCall }) {
@@ -53,6 +54,8 @@ export function FathomClientCallCard({ call }: { call: FathomKnowledgeCall }) {
           Reunión con cliente
         </span>
       </div>
+
+      <FathomCallDetail call={call} />
     </div>
   );
 }

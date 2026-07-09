@@ -10,6 +10,10 @@ type FathomCallDbRow = {
   transcript: string | null;
   status: string;
   client_id: string | null;
+  call_type: string | null;
+  summary: string | null;
+  ai_task_proposals: FathomKnowledgeCall["ai_task_proposals"] | null;
+  tasks_sent_to_board: boolean | null;
   clients?: { name: string } | { name: string }[] | null;
 };
 
@@ -29,6 +33,12 @@ function mapRow(row: FathomCallDbRow): FathomKnowledgeCall {
     status: row.status,
     client_id: row.client_id,
     clientName: clientName ?? null,
+    call_type: row.call_type,
+    summary: row.summary,
+    ai_task_proposals: Array.isArray(row.ai_task_proposals)
+      ? row.ai_task_proposals
+      : [],
+    tasks_sent_to_board: Boolean(row.tasks_sent_to_board),
   };
 }
 
@@ -44,7 +54,7 @@ export async function loadFathomCallsForKnowledgeBase(
     admin
       .from("fathom_calls")
       .select(
-        "id, title, call_date, duration_seconds, fathom_url, transcript, status, client_id"
+        "id, title, call_date, duration_seconds, fathom_url, transcript, status, client_id, call_type, summary, ai_task_proposals, tasks_sent_to_board"
       )
       .eq("organization_id", organizationId)
       .is("client_id", null)
@@ -52,7 +62,7 @@ export async function loadFathomCallsForKnowledgeBase(
     admin
       .from("fathom_calls")
       .select(
-        "id, title, call_date, duration_seconds, fathom_url, transcript, status, client_id, clients(name)"
+        "id, title, call_date, duration_seconds, fathom_url, transcript, status, client_id, call_type, summary, ai_task_proposals, tasks_sent_to_board, clients(name)"
       )
       .eq("organization_id", organizationId)
       .not("client_id", "is", null)

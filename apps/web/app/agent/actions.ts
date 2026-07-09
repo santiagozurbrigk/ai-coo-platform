@@ -130,6 +130,56 @@ const GENERATE_DOCUMENT_TOOL: Anthropic.Tool = {
   },
 };
 
+const CREATE_WORKBOARD_TASKS_TOOL: Anthropic.Tool = {
+  name: "create_workboard_tasks",
+  description:
+    "Crea una o más tareas directamente en el Tablero de Trabajo de OTC. SIEMPRE usar esta herramienta (en lugar de listar tareas en texto) cuando el usuario pida agregar tareas al tablero, board, kanban o tablero de trabajo.",
+  input_schema: {
+    type: "object" as const,
+    required: ["tasks"],
+    properties: {
+      tasks: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["title"],
+          properties: {
+            title: { type: "string" },
+            description: { type: "string" },
+            area: {
+              type: "string",
+              enum: [
+                "marketing",
+                "ventas",
+                "operaciones",
+                "finanzas",
+                "clientes",
+                "general",
+              ],
+            },
+            priority: {
+              type: "string",
+              enum: ["low", "medium", "high"],
+            },
+            due_date: {
+              type: "string",
+              description: "YYYY-MM-DD o null",
+            },
+            assignee_name: {
+              type: "string",
+              description: "Nombre completo del responsable según profiles.full_name",
+            },
+            tags: {
+              type: "array",
+              items: { type: "string" },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Canvas detection: responses that benefit from side-panel display
 // ---------------------------------------------------------------------------
@@ -634,7 +684,7 @@ export async function sendAgentMessageAction(input: {
       messages: claudeMessages,
       enableWebSearch: flags.useWebSearch,
       enableThinking: flags.useThink,
-      tools: [GENERATE_DOCUMENT_TOOL, ...ALL_PROPOSAL_TOOLS],
+      tools: [GENERATE_DOCUMENT_TOOL, CREATE_WORKBOARD_TASKS_TOOL, ...ALL_PROPOSAL_TOOLS],
       onToolCall: async (name, toolInput) => {
         // -- Document generation tool --
         if (name === "generate_document") {
@@ -686,6 +736,14 @@ export async function sendAgentMessageAction(input: {
             mimeType: stored.mimeType,
             sizeBytes: stored.sizeBytes,
           });
+        }
+
+        if (name === "create_workboard_tasks") {
+          const tasks = Array.isArray(toolInput.tasks) ? toolInput.tasks : [];
+          const result = await createWorkboardTasksAction({ tasks });
+          return result.ok
+            ? `✅ ${result.created} tarea(s) creadas en el Tablero de Trabajo.`
+            : `Error al crear tareas: ${result.error}`;
         }
 
         // -- Graph proposal tools --
@@ -989,6 +1047,97 @@ export async function saveCanvasToKnowledgeBaseAction(input: {
     return {
       ok: false,
       error: err instanceof Error ? err.message : "Error al guardar en Base de Conocimiento.",
+    };
+  }
+}
+
+type WorkboardTaskInput = {
+  title: string;
+  description?: string;
+  area?: "marketing" | "ventas" | "operaciones" | "finanzas" | "clientes" | "general";
+  priority?: "low" | "medium" | "high";
+  due_date?: string | null;
+  assignee_name?: string | null;
+  tags?: string[];
+};
+
+export async function createWorkboardTasksAction(input: {
+  tasks: WorkboardTaskInput[];
+}): Promise<{ ok: boolean; created: number; taskIds: string[]; error?: string }> {
+  try {
+    const { orgId } = await requireAuthContext();
+    const tasks = input.tasks.filter((task) => task.title?.trim());
+    if (!tasks.length) {
+      return { ok: false, created: 0, taskIds: [], error: "No hay tareas para crear." };
+    }
+
+    const supabase = await createClient();
+
+    const { data: maxPosRow, error: maxPosError } = await supabase
+      .from("workboard_tasks")
+      .select("position")
+      .eq("organization_id", orgId)
+      .eq("status", "todo")
+      .order("position", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (maxPosError) {
+      return { ok: false, created: 0, taskIds: [], error: maxPosError.message };
+    }
+
+    let nextPosition = Number(maxPosRow?.position ?? 0);
+    const rows: Record<string, unknown>[] = [];
+
+    for (const task of tasks) {
+      let assigneeId: string | null = null;
+      const assigneeName = task.assignee_name?.trim();
+
+      if (assigneeName) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("organization_id", orgId)
+          .ilike("full_name", assigneeName)
+          .limit(1)
+          .maybeSingle();
+        assigneeId = (profile?.id as string | undefined) ?? null;
+      }
+
+      nextPosition += 1;
+      rows.push({
+        organization_id: orgId,
+        title: task.title.trim(),
+        description: task.description?.trim() ?? "",
+        status: "todo",
+        area: task.area ?? "general",
+        priority: task.priority ?? "medium",
+        assignee_id: assigneeId,
+        due_date: task.due_date || null,
+        tags: task.tags ?? [],
+        position: nextPosition,
+      });
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from("workboard_tasks")
+      .insert(rows)
+      .select("id");
+
+    if (insertError) {
+      return { ok: false, created: 0, taskIds: [], error: insertError.message };
+    }
+
+    revalidatePath(paths.platform.workboard.root);
+
+    const taskIds = (inserted ?? []).map((row) => row.id as string);
+    return { ok: true, created: taskIds.length, taskIds };
+  } catch (err) {
+    return {
+      ok: false,
+      created: 0,
+      taskIds: [],
+      error: err instanceof Error ? err.message : "Error al crear tareas en el tablero.",
     };
   }
 }

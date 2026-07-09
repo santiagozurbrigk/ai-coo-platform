@@ -19,6 +19,7 @@ import {
 } from "@/lib/fathom/process-call";
 import { syncFathomMeetingsForOrganization } from "@/lib/fathom/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { paths } from "@/routes";
@@ -219,4 +220,31 @@ export async function loadClientTimelineAction(clientId: string) {
 function revalidatePending() {
   revalidatePath(paths.platform.clients.pendingCalls);
   revalidatePath(paths.platform.clients.root);
+}
+
+export async function markFathomTasksSentToBoardAction(
+  fathomCallId: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("fathom_calls")
+      .update({ tasks_sent_to_board: true })
+      .eq("id", fathomCallId)
+      .eq("organization_id", organizationId);
+
+    if (error) {
+      return { ok: false, error: error.message };
+    }
+
+    revalidatePath(paths.platform.businessContext.documents);
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "No se pudo marcar la reunión.",
+    };
+  }
 }
