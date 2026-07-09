@@ -10,5 +10,7 @@ export type Integration = {
   recordsSynced?: number;
   /** Phase 2 — sin flujo de conexión en Phase 1 */
   comingSoon?: boolean;
+  /** Oculto en el grid hasta tener flujo real de conexión */
+  hidden?: boolean;
   description?: string;
 };

@@ -98,7 +98,8 @@ export function IntegrationGrid({ integrations }: { integrations: Integration[] 
   const { push } = useToast();
   const { setInstagramConnected } = useMarketingData();
   const handled = useRef(false);
-  const sections = groupIntegrationsByCategory(integrations);
+  const visibleIntegrations = integrations.filter((integration) => integration.hidden !== true);
+  const sections = groupIntegrationsByCategory(visibleIntegrations);
 
   useEffect(() => {
     if (handled.current) return;
