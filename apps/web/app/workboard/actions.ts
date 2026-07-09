@@ -337,7 +337,7 @@ export async function logTaskTimeAction(input: unknown): Promise<{ ok: true }> {
 
   const { data: task, error: fetchError } = await supabase
     .from("workboard_tasks")
-    .select("id, time_entries, organization_id, estimated_minutes")
+    .select("id, time_entries, organization_id, estimated_minutes, actual_minutes")
     .eq("id", data.taskId)
     .eq("organization_id", organizationId)
     .maybeSingle();
@@ -346,6 +346,8 @@ export async function logTaskTimeAction(input: unknown): Promise<{ ok: true }> {
   if (!task) throw new Error("Tarea no encontrada");
 
   const currentEntries = (task.time_entries ?? []) as TaskTimeEntry[];
+  const previousActualMinutes = Number(task.actual_minutes ?? 0);
+  const accumulatedActualMinutes = previousActualMinutes + data.actualMinutes;
   const newEntry: TaskTimeEntry = {
     logged_at: new Date().toISOString(),
     minutes: data.actualMinutes,
@@ -356,7 +358,7 @@ export async function logTaskTimeAction(input: unknown): Promise<{ ok: true }> {
   const { error } = await supabase
     .from("workboard_tasks")
     .update({
-      actual_minutes: data.actualMinutes,
+      actual_minutes: accumulatedActualMinutes,
       estimated_minutes:
         data.estimatedMinutes ?? task.estimated_minutes ?? null,
       time_entries: [...currentEntries, newEntry],
