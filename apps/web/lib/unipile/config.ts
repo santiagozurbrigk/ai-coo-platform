@@ -6,17 +6,29 @@ export const UNIPILE_HOSTED_PROVIDERS: Record<UnipileProvider, string> = {
 };
 
 export function getUnipileConfig() {
+  const accessToken =
+    process.env.UNIPILE_API_KEY?.trim() ||
+    process.env.UNIPILE_ACCESS_TOKEN?.trim() ||
+    "";
   return {
     dsn: process.env.UNIPILE_DSN?.trim() ?? "",
-    accessToken: process.env.UNIPILE_ACCESS_TOKEN?.trim() ?? "",
+    accessToken,
     webhookSecret: process.env.UNIPILE_WEBHOOK_SECRET?.trim() ?? "",
   };
+}
+
+export function normalizeUnipileApiUrl(dsn: string): string {
+  const trimmed = dsn.trim().replace(/\/$/, "");
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
 }
 
 export function assertUnipileConfig() {
   const { dsn, accessToken } = getUnipileConfig();
   if (!dsn || !accessToken) {
-    throw new Error("Unipile no configurado (UNIPILE_DSN / UNIPILE_ACCESS_TOKEN)");
+    throw new Error(
+      "Unipile no configurado (UNIPILE_DSN / UNIPILE_ACCESS_TOKEN o UNIPILE_API_KEY)"
+    );
   }
   return { dsn, accessToken };
 }

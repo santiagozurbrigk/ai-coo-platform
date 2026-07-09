@@ -52,12 +52,24 @@ export function encodeUnipileHostedName(
 
 export function decodeUnipileHostedName(name: string): {
   organizationId: string;
-  provider: UnipileProvider;
+  provider?: UnipileProvider;
 } | null {
-  const match = /^org:([^:]+):provider:(instagram|whatsapp)$/.exec(name.trim());
-  if (!match) return null;
-  return {
-    organizationId: match[1],
-    provider: match[2] as UnipileProvider,
-  };
+  const trimmed = name.trim();
+  const legacy = /^org:([^:]+):provider:(instagram|whatsapp)$/.exec(trimmed);
+  if (legacy) {
+    return {
+      organizationId: legacy[1],
+      provider: legacy[2] as UnipileProvider,
+    };
+  }
+
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      trimmed
+    )
+  ) {
+    return { organizationId: trimmed };
+  }
+
+  return null;
 }

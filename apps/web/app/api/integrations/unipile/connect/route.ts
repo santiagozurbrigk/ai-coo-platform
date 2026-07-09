@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     );
   }
 
-  const { dsn, accessToken, webhookSecret } = getUnipileConfig();
+  const { dsn, accessToken } = getUnipileConfig();
   if (!dsn || !accessToken) {
     return NextResponse.json(
       { error: "Unipile no configurado en el servidor" },
@@ -35,7 +35,6 @@ export async function GET(req: Request) {
     const url = await createUnipileHostedAuthLink({
       organizationId,
       provider: parsed.data.provider,
-      webhookSecret,
     });
 
     return NextResponse.json({ url });

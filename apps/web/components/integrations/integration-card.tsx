@@ -426,6 +426,11 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         window.location.href = "/api/integrations/typeform/oauth/start";
         return;
       }
+      const unipileProvider = unipileProviderFromIntegration(integration.provider);
+      if (unipileProvider) {
+        void startUnipileConnect(unipileProvider);
+        return;
+      }
       setConnectOpen(true);
       return;
     }

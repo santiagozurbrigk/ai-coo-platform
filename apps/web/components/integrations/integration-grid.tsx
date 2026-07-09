@@ -135,6 +135,33 @@ export function IntegrationGrid({ integrations }: { integrations: Integration[] 
       return;
     }
 
+    const unipileStatus = searchParams.get("unipile");
+    const unipileProvider = searchParams.get("provider");
+    if (unipileStatus === "success" && unipileProvider) {
+      handled.current = true;
+      const label =
+        unipileProvider === "whatsapp"
+          ? "WhatsApp"
+          : unipileProvider === "instagram"
+            ? "Instagram DMs"
+            : "Unipile";
+      push({
+        title: `${label} conectado`,
+        description:
+          "La cuenta quedó vinculada. Los mensajes llegarán al inbox de ventas.",
+        variant: "success",
+      });
+      return;
+    }
+    if (unipileStatus === "error" && unipileProvider) {
+      handled.current = true;
+      push({
+        title: "No se pudo conectar la cuenta",
+        description: "Volvé a intentar desde Integraciones.",
+      });
+      return;
+    }
+
     const calendlyStatus = searchParams.get("calendly");
     if (calendlyStatus === "connected") {
       handled.current = true;
