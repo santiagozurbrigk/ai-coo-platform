@@ -75,6 +75,7 @@ export function ZernioSidePanel({
           ai_ghosting_risk: rest.ai_ghosting_risk,
           agenda_sent: rest.agenda_sent,
           is_scheduled: rest.is_scheduled,
+          scheduling_process_missing: rest.scheduling_process_missing,
         });
       } else {
         push({ title: "Error en análisis", description: result.error });
@@ -253,6 +254,41 @@ export function ZernioSidePanel({
                 Próximo paso recomendado
               </p>
               <p className="mt-1 text-sm">{analysis.ai_recommended_action}</p>
+            </div>
+          )}
+
+          {analysis.scheduling_process_missing && (
+            <div className="rounded-md border border-yellow-500/30 bg-yellow-500/10 p-3">
+              <p className="text-caption font-medium text-yellow-700 dark:text-yellow-300">
+                ⚠️ No se encontró &quot;Proceso de agendamiento&quot; en la base de
+                conocimiento
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Creá un SOP con ese título para que la IA pueda guiar mejor al
+                setter.
+              </p>
+            </div>
+          )}
+
+          {analysis.suggested_next_message && (
+            <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
+              <p className="text-caption font-medium text-primary">
+                💬 Próximo mensaje sugerido
+              </p>
+              <p className="mt-1 text-sm italic">
+                &quot;{analysis.suggested_next_message}&quot;
+              </p>
+              <button
+                type="button"
+                className="mt-2 text-xs text-primary underline"
+                onClick={() =>
+                  void navigator.clipboard.writeText(
+                    analysis.suggested_next_message ?? ""
+                  )
+                }
+              >
+                Copiar
+              </button>
             </div>
           )}
         </div>

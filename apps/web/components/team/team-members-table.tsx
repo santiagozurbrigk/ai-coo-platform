@@ -225,6 +225,7 @@ function RoleSelect({
   onUpdated: () => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const assignableRoles = customRoles.filter((r) => !r.isDefault);
 
   if (!canManage) {
     return (
@@ -255,7 +256,7 @@ function RoleSelect({
           </option>
         ))}
       </select>
-      {customRoles.length > 0 ? (
+      {assignableRoles.length > 0 ? (
         <select
           className={selectClass}
           value={member.customRoleId ?? ""}
@@ -270,7 +271,7 @@ function RoleSelect({
           }
         >
           <option value="">Sin rol custom</option>
-          {customRoles.map((role) => (
+          {assignableRoles.map((role) => (
             <option key={role.id} value={role.id}>
               {role.name}
             </option>

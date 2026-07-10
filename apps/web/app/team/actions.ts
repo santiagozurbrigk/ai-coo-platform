@@ -319,6 +319,11 @@ export async function updateMemberRoleAction(
 
   return runMutation(async () => {
     const profile = auth.profile;
+
+    if (parsedMemberId === profile.id && profile.role === "founder") {
+      throw new Error("El founder no puede cambiar su propio rol");
+    }
+
     const supabase = await createClient();
 
     const { error } = await supabase

@@ -362,6 +362,7 @@ export type ZernioAnalysisSummary = {
   ai_ghosting_risk?: string;
   agenda_sent?: boolean;
   is_scheduled?: boolean;
+  scheduling_process_missing?: boolean;
 };
 
 export type ZernioAnalysisResult = ZernioAnalysisSummary & {
@@ -371,6 +372,8 @@ export type ZernioAnalysisResult = ZernioAnalysisSummary & {
   ai_recommended_action?: string;
   ai_summary?: string;
   link_sent?: boolean;
+  suggested_next_message?: string;
+  scheduling_process_missing?: boolean;
   error?: string;
 };
 
@@ -385,6 +388,19 @@ export async function analyzeZernioConversationAction(
     const organizationId = await requireOrganizationId();
     const admin = createAdminClient();
 
+    const { data: sopRows } = await admin
+      .from("sops")
+      .select("title, content")
+      .eq("organization_id", organizationId)
+      .eq("status", "active")
+      .or(
+        "title.ilike.%agendamiento%,title.ilike.%agenda%,title.ilike.%proceso de venta%,tags.cs.{agendamiento}"
+      )
+      .limit(1);
+
+    const schedulingSop = sopRows?.[0] ?? null;
+    const schedulingProcessMissing = !schedulingSop;
+
     const conversationText = messages
       .slice(-40)
       .map((m) => {
@@ -393,6 +409,10 @@ export async function analyzeZernioConversationAction(
         return `[${isOutbound ? "NOSOTROS" : participantName}]: ${m.text ?? ""}`;
       })
       .join("\n");
+
+    const schedulingContext = schedulingSop
+      ? `\n\n## PROCESO DE AGENDAMIENTO DEL NEGOCIO\nUsá este proceso para recomendar el siguiente mensaje al setter:\n\n${schedulingSop.content}`
+      : `\n\n## PROCESO DE AGENDAMIENTO\nNo se encontró ningún documento de proceso de agendamiento en la base de conocimiento. Igualmente intentá sugerir el mejor próximo mensaje posible basándote en el contexto de la conversación.`;
 
     const result = await callClaudeJson<{
       ai_tag: string;
@@ -406,6 +426,7 @@ export async function analyzeZernioConversationAction(
       agenda_sent: boolean;
       is_scheduled: boolean;
       link_sent: boolean;
+      suggested_next_message: string;
     }>({
       organizationId,
       task: "conversation_scoring",
@@ -415,6 +436,7 @@ export async function analyzeZernioConversationAction(
       user: `Analizá esta conversación de ${platform} con ${participantName} y respondé en español con JSON exacto:
 
 ${conversationText}
+${schedulingContext}
 
 Devolvé este JSON (sin markdown, solo JSON):
 {
@@ -426,9 +448,10 @@ Devolvé este JSON (sin markdown, solo JSON):
   "ai_recommended_action": "qué hacer ahora en máx 150 chars",
   "ai_ghosting_risk": "alto|medio|bajo",
   "ai_summary": "resumen de 2 líneas de la conversación",
-  "agenda_sent": true/false (si se mencionó o envió un link de agenda/calendly/reunión),
-  "is_scheduled": true/false (si quedó una reunión o llamada agendada confirmada),
-  "link_sent": true/false (si se envió algún link de producto, curso o ventas)
+  "agenda_sent": true/false,
+  "is_scheduled": true/false,
+  "link_sent": true/false,
+  "suggested_next_message": "el mensaje exacto que el setter debería enviar ahora, en el tono y plataforma correctos, máx 300 chars. Si el lead ya está agendado o no interesado, dejalo como cadena vacía."
 }`,
     });
 
@@ -446,12 +469,17 @@ Devolvé este JSON (sin markdown, solo JSON):
         message_count: messages.length,
         last_analyzed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        scheduling_process_missing: schedulingProcessMissing,
         ...result,
       },
       { onConflict: "organization_id,conversation_id" }
     );
 
-    return { success: true, ...result };
+    return {
+      success: true,
+      scheduling_process_missing: schedulingProcessMissing,
+      ...result,
+    };
   } catch (err) {
     return {
       success: false,

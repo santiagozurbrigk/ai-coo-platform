@@ -40,6 +40,8 @@ export function TeamInviteModal({
     null
   );
 
+  const assignableRoles = roles.filter((r) => !r.isDefault);
+
   const handleInvite = () => {
     setError(null);
     startTransition(async () => {
@@ -120,7 +122,7 @@ export function TeamInviteModal({
               </select>
             </FormField>
 
-            {roles.length > 0 ? (
+            {assignableRoles.length > 0 ? (
               <FormField label="Rol personalizado (opcional)">
                 <select
                   className={selectClass}
@@ -129,7 +131,7 @@ export function TeamInviteModal({
                   disabled={pending}
                 >
                   <option value="">Ninguno</option>
-                  {roles.map((r) => (
+                  {assignableRoles.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.name}
                     </option>
