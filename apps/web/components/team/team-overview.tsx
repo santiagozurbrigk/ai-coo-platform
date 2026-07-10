@@ -31,6 +31,7 @@ export function TeamOverview({
   roles: CustomRole[];
   invitations: TeamInvitation[];
   canManage: boolean;
+  canEditRates?: boolean;
 }) {
   const activeTab = useHashTab(DEFAULT_TAB);
   const root = paths.platform.team.root;
