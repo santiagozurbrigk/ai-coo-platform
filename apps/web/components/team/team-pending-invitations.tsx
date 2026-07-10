@@ -1,15 +1,10 @@
 "use client";
 
 import { useTransition } from "react";
-import { Badge, Button, DataTable } from "@ai-coo/ui";
+import { Button, DataTable } from "@ai-coo/ui";
 import { revokeInvitationAction } from "@/app/team/actions";
-import { USER_ROLES } from "@/constants/roles";
 import { formatRelativeTime } from "@/lib/format";
 import type { TeamInvitation } from "@/types/team";
-
-function roleLabel(role: string) {
-  return USER_ROLES.find((r) => r.value === role)?.label ?? role;
-}
 
 export function TeamPendingInvitations({
   invitations,
@@ -31,14 +26,9 @@ export function TeamPendingInvitations({
           key: "role",
           header: "Rol",
           cell: (r) => (
-            <div className="flex flex-col gap-0.5">
-              <span>{roleLabel(r.role)}</span>
-              {r.customRoleName ? (
-                <Badge variant="outline" className="w-fit text-[10px]">
-                  {r.customRoleName}
-                </Badge>
-              ) : null}
-            </div>
+            <span className="text-sm">
+              {r.customRoleName ?? "Sin rol asignado"}
+            </span>
           ),
         },
         {

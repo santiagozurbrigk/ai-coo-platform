@@ -335,15 +335,7 @@ export const completeHoldingOnboardingSchema = z.object({
   businesses: z.array(businessInOnboardingSchema).min(1).max(50),
 });
 
-export const teamUserRoleSchema = z.enum([
-  "founder",
-  "admin",
-  "project_manager",
-  "setter",
-  "operator",
-  "viewer",
-  "member",
-]);
+export const teamUserRoleSchema = z.enum(["founder", "member"]);
 
 export const permissionLevelSchema = z.enum(["none", "view", "full"]);
 

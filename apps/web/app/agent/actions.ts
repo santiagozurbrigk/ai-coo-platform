@@ -777,7 +777,9 @@ export async function sendAgentMessageAction(input: {
         if (name === "generate_document") {
           const fmt = toolInput.format as "docx" | "xlsx" | "pdf" | "csv";
           const baseFilename = String(toolInput.filename ?? "documento");
-          const rawContent = toolInput.content as Record<string, unknown>;
+          const rawContent =
+            (toolInput.content as Record<string, unknown> | null | undefined) ??
+            {};
 
           let docContent: DocumentContent;
           if (fmt === "xlsx") {
@@ -804,11 +806,22 @@ export async function sendAgentMessageAction(input: {
           } else {
             docContent = {
               kind: fmt === "pdf" ? "pdf" : "doc",
-              paragraphs: Array.isArray(rawContent.paragraphs)
-                ? (rawContent.paragraphs as { text: string; style?: string }[]).map(
-                    (p) => ({ text: p.text, style: p.style as "heading1" | "heading2" | "heading3" | "body" | "bullet" | undefined })
-                  )
-                : [{ text: String(rawContent) }],
+              paragraphs:
+                Array.isArray(rawContent.paragraphs) &&
+                rawContent.paragraphs.length > 0
+                  ? (
+                      rawContent.paragraphs as { text: string; style?: string }[]
+                    ).map((p) => ({
+                      text: p?.text ?? "",
+                      style: p?.style as
+                        | "heading1"
+                        | "heading2"
+                        | "heading3"
+                        | "body"
+                        | "bullet"
+                        | undefined,
+                    }))
+                  : [{ text: "Documento sin contenido." }],
             };
           }
 

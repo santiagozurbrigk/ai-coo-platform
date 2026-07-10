@@ -22,7 +22,7 @@ export async function getCurrentUserPermissions(): Promise<UserPermissions> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, custom_role_id, team_roles(permissions)")
+    .select("role, custom_role_id")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -40,13 +40,28 @@ export async function getCurrentUserPermissions(): Promise<UserPermissions> {
     return { role: "founder", isFounder: true, modules: full };
   }
 
-  const teamRole = Array.isArray(profile.team_roles)
-    ? profile.team_roles[0]
-    : profile.team_roles;
+  let teamRolePermissions: Record<string, string> | null = null;
+  if (profile.custom_role_id) {
+    const { data: roleRow } = await supabase
+      .from("team_roles")
+      .select("permissions")
+      .eq("id", profile.custom_role_id)
+      .maybeSingle();
+    teamRolePermissions =
+      (roleRow?.permissions as Record<string, string> | null) ?? null;
+  }
 
-  const modules = permissionsFromRow(
-    (teamRole as { permissions: Record<string, string> } | null)?.permissions ??
-      null
+  const modules = permissionsFromRow(teamRolePermissions);
+
+  console.log(
+    "[Permissions] userId:",
+    user.id,
+    "role:",
+    profile.role,
+    "custom_role_id:",
+    profile.custom_role_id,
+    "modules:",
+    modules
   );
 
   return { role: profile.role, isFounder: false, modules };

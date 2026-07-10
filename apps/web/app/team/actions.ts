@@ -315,7 +315,7 @@ export async function updateMemberRoleAction(
     return { success: false, error: auth.error };
   }
 
-  const { memberId: parsedMemberId, role, customRoleId, isActive } = auth.data;
+  const { memberId: parsedMemberId, customRoleId, isActive } = auth.data;
 
   return runMutation(async () => {
     const profile = auth.profile;
@@ -326,13 +326,25 @@ export async function updateMemberRoleAction(
 
     const supabase = await createClient();
 
+    const updates: {
+      custom_role_id?: string | null;
+      is_active?: boolean;
+    } = {};
+
+    if (customRoleId !== undefined) {
+      updates.custom_role_id = customRoleId;
+    }
+    if (isActive !== undefined) {
+      updates.is_active = isActive;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return { ok: true as const };
+    }
+
     const { error } = await supabase
       .from("profiles")
-      .update({
-        role,
-        custom_role_id: customRoleId,
-        is_active: isActive,
-      })
+      .update(updates)
       .eq("id", parsedMemberId)
       .eq("organization_id", profile.organization_id);
 

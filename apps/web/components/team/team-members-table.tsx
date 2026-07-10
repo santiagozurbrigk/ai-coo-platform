@@ -19,17 +19,12 @@ import {
   updateMemberRoleAction,
 } from "@/app/team/actions";
 import { setMemberHourlyRateAction } from "@/app/workboard/actions";
-import { USER_ROLES } from "@/constants/roles";
 import { es } from "@/lib/locale/es";
 import { formatRelativeTime } from "@/lib/format";
 import type { CustomRole, TeamMember } from "@/types/team";
-import type { UserRole } from "@ai-coo/types";
 
 const selectClass =
   "h-8 rounded-md border border-border bg-background px-2 text-xs dark:border-white/[0.08] dark:bg-[#1A1A1A]";
-
-const roleLabel = (role: TeamMember["role"]) =>
-  USER_ROLES.find((r) => r.value === role)?.label ?? role;
 
 function MemberAvatar({ member }: { member: TeamMember }) {
   const initials = member.name
@@ -227,58 +222,45 @@ function RoleSelect({
   const [pending, startTransition] = useTransition();
   const assignableRoles = customRoles.filter((r) => !r.isDefault);
 
+  if (member.role === "founder") {
+    return <Badge variant="secondary">Fundador</Badge>;
+  }
+
   if (!canManage) {
     return (
-      <span className="text-sm">
-        {member.customRoleName ?? roleLabel(member.role)}
+      <span className="text-sm">{member.customRoleName ?? "Sin rol asignado"}</span>
+    );
+  }
+
+  if (assignableRoles.length === 0) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        Creá un rol custom en la pestaña Roles
       </span>
     );
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <select
-        className={selectClass}
-        value={member.role}
-        disabled={pending}
-        onChange={(e) =>
-          startTransition(async () => {
-            await updateMemberRoleAction(member.id, {
-              role: e.target.value as UserRole,
-            });
-            onUpdated();
-          })
-        }
-      >
-        {USER_ROLES.map((r) => (
-          <option key={r.value} value={r.value}>
-            {r.label}
-          </option>
-        ))}
-      </select>
-      {assignableRoles.length > 0 ? (
-        <select
-          className={selectClass}
-          value={member.customRoleId ?? ""}
-          disabled={pending}
-          onChange={(e) =>
-            startTransition(async () => {
-              await updateMemberRoleAction(member.id, {
-                customRoleId: e.target.value || null,
-              });
-              onUpdated();
-            })
-          }
-        >
-          <option value="">Sin rol custom</option>
-          {assignableRoles.map((role) => (
-            <option key={role.id} value={role.id}>
-              {role.name}
-            </option>
-          ))}
-        </select>
-      ) : null}
-    </div>
+    <select
+      className={selectClass}
+      value={member.customRoleId ?? ""}
+      disabled={pending}
+      onChange={(e) =>
+        startTransition(async () => {
+          await updateMemberRoleAction(member.id, {
+            customRoleId: e.target.value || null,
+          });
+          onUpdated();
+        })
+      }
+    >
+      <option value="">Sin rol</option>
+      {assignableRoles.map((role) => (
+        <option key={role.id} value={role.id}>
+          {role.name}
+        </option>
+      ))}
+    </select>
   );
 }
 
