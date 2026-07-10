@@ -26,13 +26,11 @@ export function TeamOverview({
   roles: initialRoles,
   invitations: initialInvitations,
   canManage: initialCanManage,
-  canEditRates: initialCanEditRates,
 }: {
   members: TeamMember[];
   roles: CustomRole[];
   invitations: TeamInvitation[];
   canManage: boolean;
-  canEditRates: boolean;
 }) {
   const activeTab = useHashTab(DEFAULT_TAB);
   const root = paths.platform.team.root;
@@ -41,7 +39,6 @@ export function TeamOverview({
   const [roles, setRoles] = useState(initialRoles);
   const [invitations, setInvitations] = useState(initialInvitations);
   const [canManage, setCanManage] = useState(initialCanManage);
-  const [canEditRates, setCanEditRates] = useState(initialCanEditRates);
 
   const refresh = useCallback(async () => {
     if (!isSupabaseConfigured()) return;
@@ -51,7 +48,6 @@ export function TeamOverview({
       setRoles(ctx.roles);
       setInvitations(ctx.invitations);
       setCanManage(ctx.canManage);
-      setCanEditRates(ctx.canEditRates);
     } catch {
       /* keep current */
     }
@@ -100,7 +96,6 @@ export function TeamOverview({
           <TeamMembersTable
             members={members}
             customRoles={roles}
-            canEditRates={canEditRates}
             canManage={canManage}
             onUpdated={() => void refresh()}
           />

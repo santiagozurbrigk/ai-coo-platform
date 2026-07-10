@@ -1,24 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import {
-  Badge,
-  Button,
-  DataTable,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Label,
-} from "@ai-coo/ui";
+import { useTransition } from "react";
+import { Badge, Button, DataTable } from "@ai-coo/ui";
 import {
   deactivateMemberAction,
   updateMemberRoleAction,
 } from "@/app/team/actions";
-import { setMemberHourlyRateAction } from "@/app/workboard/actions";
 import { es } from "@/lib/locale/es";
 import { formatRelativeTime } from "@/lib/format";
 import type { CustomRole, TeamMember } from "@/types/team";
@@ -49,130 +36,6 @@ function MemberAvatar({ member }: { member: TeamMember }) {
     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500/15 text-[11px] font-medium text-violet-700 dark:text-violet-300">
       {initials}
     </div>
-  );
-}
-
-function HourlyRateCell({
-  member,
-  canEditRates,
-  onUpdated,
-}: {
-  member: TeamMember;
-  canEditRates: boolean;
-  onUpdated: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [rate, setRate] = useState(String(member.hourlyRate ?? ""));
-  const [currency, setCurrency] = useState(member.hourlyRateCurrency ?? "USD");
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  if (!canEditRates) {
-    return member.hourlyRate != null ? (
-      <span className="text-sm tabular-nums">
-        {member.hourlyRate} {member.hourlyRateCurrency ?? "USD"}/h
-      </span>
-    ) : (
-      <span className="text-xs text-muted-foreground">—</span>
-    );
-  }
-
-  return (
-    <>
-      <div className="flex items-center gap-2">
-        {member.hourlyRate != null ? (
-          <span className="text-sm tabular-nums">
-            {member.hourlyRate} {member.hourlyRateCurrency ?? "USD"}/h
-          </span>
-        ) : (
-          <span className="text-xs text-muted-foreground">Sin configurar</span>
-        )}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs"
-          onClick={() => {
-            setRate(String(member.hourlyRate ?? ""));
-            setCurrency(member.hourlyRateCurrency ?? "USD");
-            setError(null);
-            setOpen(true);
-          }}
-        >
-          Editar
-        </Button>
-      </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Tarifa por hora — {member.name}</DialogTitle>
-            <DialogDescription>
-              Se usa para calcular el costo de las tareas en el reporte de
-              tiempo del Workboard.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor={`rate-${member.id}`}>Tarifa por hora</Label>
-              <Input
-                id={`rate-${member.id}`}
-                type="number"
-                min={0}
-                step="0.01"
-                value={rate}
-                onChange={(e) => setRate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={`currency-${member.id}`}>Moneda</Label>
-              <select
-                id={`currency-${member.id}`}
-                className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-              >
-                <option value="USD">USD</option>
-                <option value="ARS">ARS</option>
-              </select>
-            </div>
-            {error ? (
-              <p className="text-sm text-destructive">{error}</p>
-            ) : null}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              disabled={pending}
-              onClick={() =>
-                startTransition(async () => {
-                  const hourlyRate = Number(rate);
-                  if (!Number.isFinite(hourlyRate) || hourlyRate < 0) {
-                    setError("Ingresá una tarifa válida");
-                    return;
-                  }
-                  try {
-                    await setMemberHourlyRateAction({
-                      memberId: member.id,
-                      hourlyRate,
-                      currency,
-                    });
-                    setOpen(false);
-                    onUpdated();
-                  } catch (e) {
-                    setError(
-                      e instanceof Error ? e.message : "No se pudo guardar"
-                    );
-                  }
-                })
-              }
-            >
-              {pending ? "Guardando…" : "Guardar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
   );
 }
 
@@ -267,13 +130,11 @@ function RoleSelect({
 export function TeamMembersTable({
   members,
   customRoles,
-  canEditRates = false,
   canManage = false,
   onUpdated,
 }: {
   members: TeamMember[];
   customRoles: CustomRole[];
-  canEditRates?: boolean;
   canManage?: boolean;
   onUpdated?: () => void;
 }) {
@@ -298,17 +159,6 @@ export function TeamMembersTable({
               member={r}
               customRoles={customRoles}
               canManage={canManage}
-              onUpdated={refresh}
-            />
-          ),
-        },
-        {
-          key: "hourlyRate",
-          header: "Tarifa / hora",
-          cell: (r) => (
-            <HourlyRateCell
-              member={r}
-              canEditRates={canEditRates}
               onUpdated={refresh}
             />
           ),

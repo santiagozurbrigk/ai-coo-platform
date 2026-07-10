@@ -10,7 +10,6 @@ export default async function TeamPage() {
         roles={[]}
         invitations={[]}
         canManage={false}
-        canEditRates={false}
       />
     );
   }
