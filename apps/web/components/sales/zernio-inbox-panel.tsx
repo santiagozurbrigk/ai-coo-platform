@@ -108,12 +108,12 @@ export function ZernioInboxPanel() {
   const selected = conversations.find((c) => c.id === selectedId);
 
   async function handleSend() {
-    if (!selectedId || !draft.trim()) return;
+    if (!selectedId || !selected?.accountId || !draft.trim()) return;
     setSending(true);
     try {
-      await sendZernioMessageAction(selectedId, draft.trim());
+      await sendZernioMessageAction(selectedId, draft.trim(), selected.accountId);
       setDraft("");
-      const list = await getZernioMessagesAction(selectedId);
+      const list = await getZernioMessagesAction(selectedId, selected.accountId);
       setMessages(list);
       await loadConversations();
     } catch (err) {
