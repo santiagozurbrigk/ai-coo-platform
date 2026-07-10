@@ -19,10 +19,10 @@ async function loadFfmpeg(): Promise<FfmpegModule> {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const ffmpegInstaller = require("@ffmpeg-installer/ffmpeg") as { path: string };
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const ffprobeInstaller = require("@ffprobe-installer/ffprobe") as { path: string };
+  const ffprobeStatic = require("ffprobe-static") as { path: string };
 
   ffmpegLib.setFfmpegPath(ffmpegInstaller.path);
-  ffmpegLib.setFfprobePath(ffprobeInstaller.path);
+  ffmpegLib.setFfprobePath(ffprobeStatic.path);
 
   return ffmpegLib;
 }

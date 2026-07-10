@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     "fluent-ffmpeg",
     "@ffmpeg-installer/ffmpeg",
-    "@ffprobe-installer/ffprobe",
+    "ffprobe-static",
   ],
   turbopack: {
     root: monorepoRoot,
