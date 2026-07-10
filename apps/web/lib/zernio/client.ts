@@ -113,11 +113,12 @@ export interface ZernioConversation {
 }
 
 export interface ZernioMessage {
-  _id: string;
+  id: string;
   conversationId: string;
   text?: string;
   direction: "inbound" | "outbound";
   sender?: { name?: string; username?: string };
+  attachments?: unknown[];
   createdAt: string;
 }
 
