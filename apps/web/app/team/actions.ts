@@ -231,8 +231,8 @@ export async function getTeamPageContextAction(): Promise<{
 export async function inviteTeamMemberAction(data: {
   email: string;
   fullName: string;
-  role: UserRole;
-  customRoleId?: string;
+  role?: UserRole;
+  customRoleId: string;
 }): Promise<MutationResult<{ tempCredentials: TempCredentials }>> {
   const auth = await requireManagerProfileAndParse(inviteTeamMemberSchema, data);
   if (!auth.success) {

@@ -342,6 +342,7 @@ export const teamUserRoleSchema = z.enum([
   "setter",
   "operator",
   "viewer",
+  "member",
 ]);
 
 export const permissionLevelSchema = z.enum(["none", "view", "full"]);
@@ -375,8 +376,8 @@ const teamPersonNameSchema = z
 export const inviteTeamMemberSchema = z.object({
   email: emailSchema,
   fullName: teamPersonNameSchema,
-  role: teamUserRoleSchema,
-  customRoleId: uuidSchema.optional(),
+  role: teamUserRoleSchema.optional().default("member"),
+  customRoleId: uuidSchema,
 });
 
 export const updateMemberRoleSchema = z.object({

@@ -14,10 +14,8 @@ import {
 } from "@ai-coo/ui";
 import { inviteTeamMemberAction } from "@/app/team/actions";
 import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
-import { USER_ROLES } from "@/constants/roles";
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import type { CustomRole } from "@/types/team";
-import type { UserRole } from "@ai-coo/types";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm dark:border-white/[0.08] dark:bg-[#1A1A1A]";
@@ -32,7 +30,6 @@ export function TeamInviteModal({
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<UserRole>("viewer");
   const [customRoleId, setCustomRoleId] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -43,13 +40,17 @@ export function TeamInviteModal({
   const assignableRoles = roles.filter((r) => !r.isDefault);
 
   const handleInvite = () => {
+    if (!customRoleId) {
+      setError("Seleccioná un rol");
+      return;
+    }
+
     setError(null);
     startTransition(async () => {
       const result = await inviteTeamMemberAction({
         email,
         fullName,
-        role,
-        customRoleId: customRoleId || undefined,
+        customRoleId,
       });
 
       if (!result.success) {
@@ -65,6 +66,12 @@ export function TeamInviteModal({
       onInvited();
     });
   };
+
+  const canSubmit =
+    email.trim().includes("@") &&
+    fullName.trim() &&
+    Boolean(customRoleId) &&
+    assignableRoles.length > 0;
 
   return (
     <>
@@ -107,38 +114,28 @@ export function TeamInviteModal({
               />
             </FormField>
 
-            <FormField label="Rol del sistema" required>
-              <select
-                className={selectClass}
-                value={role}
-                onChange={(e) => setRole(e.target.value as UserRole)}
-                disabled={pending}
-              >
-                {USER_ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-
-            {assignableRoles.length > 0 ? (
-              <FormField label="Rol personalizado (opcional)">
+            <FormField label="Rol" required>
+              {assignableRoles.length > 0 ? (
                 <select
                   className={selectClass}
                   value={customRoleId}
                   onChange={(e) => setCustomRoleId(e.target.value)}
                   disabled={pending}
+                  required
                 >
-                  <option value="">Ninguno</option>
+                  <option value="">Seleccioná un rol</option>
                   {assignableRoles.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.name}
                     </option>
                   ))}
                 </select>
-              </FormField>
-            ) : null}
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No hay roles creados. Creá un rol en la pestaña Roles primero.
+                </p>
+              )}
+            </FormField>
 
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
           </div>
@@ -146,11 +143,7 @@ export function TeamInviteModal({
           <DialogFooter>
             <Button
               type="button"
-              disabled={
-                pending ||
-                !email.trim().includes("@") ||
-                !fullName.trim()
-              }
+              disabled={pending || !canSubmit}
               onClick={handleInvite}
             >
               {pending ? "Creando…" : "Crear usuario"}
