@@ -67,25 +67,29 @@ export async function zernioListConversations(accountId?: string) {
   }>;
 }
 
-export async function zernioGetMessages(conversationId: string) {
+export async function zernioGetMessages(conversationId: string, accountId: string) {
   const res = await fetch(
-    `${ZERNIO_BASE}/inbox/conversations/${encodeURIComponent(conversationId)}/messages`,
+    `${ZERNIO_BASE}/inbox/conversations/${encodeURIComponent(conversationId)}/messages?accountId=${encodeURIComponent(accountId)}`,
     { headers: zernioHeaders() }
   );
   if (!res.ok) throw new Error(`Zernio getMessages: ${await res.text()}`);
   return res.json() as Promise<{
     data: ZernioMessage[];
-    pagination?: { hasMore: boolean; nextCursor: string | null };
+    pagination: { hasMore: boolean; nextCursor: string | null };
   }>;
 }
 
-export async function zernioSendMessage(conversationId: string, text: string) {
+export async function zernioSendMessage(
+  conversationId: string,
+  text: string,
+  accountId: string
+) {
   const res = await fetch(
     `${ZERNIO_BASE}/inbox/conversations/${encodeURIComponent(conversationId)}/send`,
     {
       method: "POST",
       headers: zernioHeaders(),
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ message: text, accountId }),
     }
   );
   if (!res.ok) throw new Error(`Zernio sendMessage: ${await res.text()}`);

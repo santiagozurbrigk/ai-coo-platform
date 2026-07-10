@@ -214,7 +214,8 @@ export async function listZernioConversationsAction(): Promise<
 }
 
 export async function getZernioMessagesAction(
-  conversationId: string
+  conversationId: string,
+  accountId: string
 ): Promise<ZernioMessage[]> {
   const organizationId = await requireOrganizationId();
   const integration = await getZernioIntegrationForOrg(organizationId);
@@ -222,20 +223,24 @@ export async function getZernioMessagesAction(
     throw new Error("Integración Zernio no configurada");
   }
 
-  const { data } = await zernioGetMessages(conversationId);
+  const { data } = await zernioGetMessages(conversationId, accountId);
   return data.sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
 }
 
-export async function sendZernioMessageAction(conversationId: string, text: string) {
+export async function sendZernioMessageAction(
+  conversationId: string,
+  text: string,
+  accountId: string
+) {
   const organizationId = await requireOrganizationId();
   const integration = await getZernioIntegrationForOrg(organizationId);
   if (!integration) {
     throw new Error("Integración Zernio no configurada");
   }
 
-  const result = await zernioSendMessage(conversationId, text);
+  const result = await zernioSendMessage(conversationId, text, accountId);
   revalidatePath(paths.platform.sales.inbox);
   return result;
 }

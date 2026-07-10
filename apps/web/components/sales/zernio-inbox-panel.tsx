@@ -76,9 +76,15 @@ export function ZernioInboxPanel() {
       return;
     }
 
+    const conversation = conversations.find((c) => c.id === selectedId);
+    if (!conversation?.accountId) {
+      setMessages([]);
+      return;
+    }
+
     let cancelled = false;
     setMessagesLoading(true);
-    void getZernioMessagesAction(selectedId)
+    void getZernioMessagesAction(selectedId, conversation.accountId)
       .then((list) => {
         if (!cancelled) setMessages(list);
       })
@@ -97,7 +103,7 @@ export function ZernioInboxPanel() {
     return () => {
       cancelled = true;
     };
-  }, [selectedId, push]);
+  }, [selectedId, conversations, push]);
 
   const selected = conversations.find((c) => c.id === selectedId);
 
