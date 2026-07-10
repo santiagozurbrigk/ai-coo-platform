@@ -1,12 +1,16 @@
+import type { PermissionModuleId } from "@/constants/permission-modules";
+
 export type SidebarChildItem = {
   label: string;
   href: string;
   icon?: string;
+  permissionId?: PermissionModuleId;
 };
 
 export type SidebarParentModule = {
   label: string;
   icon: string;
+  permissionId?: PermissionModuleId;
   children: SidebarChildItem[];
 };
 
@@ -17,6 +21,7 @@ export type SidebarDirectModule = {
   badge?: number;
   disabled?: boolean;
   comingSoonLabel?: string;
+  permissionId?: PermissionModuleId;
 };
 
 export type SidebarNavRootItem =

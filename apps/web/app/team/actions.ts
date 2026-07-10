@@ -47,7 +47,7 @@ function revalidateTeam() {
 }
 
 function canManageTeam(role: string | undefined): boolean {
-  return Boolean(role && ["founder", "admin"].includes(role));
+  return role === "founder";
 }
 
 async function requireManagerProfile() {
@@ -239,7 +239,7 @@ export async function inviteTeamMemberAction(data: {
     return { success: false, error: auth.error };
   }
 
-  const { email, fullName, role, customRoleId } = auth.data;
+  const { email, fullName, customRoleId } = auth.data;
 
   return runMutation(async () => {
     const profile = auth.profile;
@@ -282,7 +282,7 @@ export async function inviteTeamMemberAction(data: {
       organization_id: organizationId,
       email,
       full_name: fullName,
-      role,
+      role: "member",
       custom_role_id: customRoleId ?? null,
       invited_by: profile.id,
       is_active: true,
@@ -540,7 +540,7 @@ export async function acceptInvitationAction(input: {
       organization_id: invitation.organization_id,
       email,
       full_name: fullName,
-      role: invitation.role,
+      role: "member",
       custom_role_id: invitation.custom_role_id,
       invited_by: invitation.invited_by,
       is_active: true,
@@ -625,7 +625,7 @@ export async function completeInvitationForCurrentUserAction(
       full_name:
         (user.user_metadata?.full_name as string | undefined) ??
         user.email.split("@")[0],
-      role: invitation.role,
+      role: "member",
       custom_role_id: invitation.custom_role_id,
       invited_by: invitation.invited_by,
       is_active: true,

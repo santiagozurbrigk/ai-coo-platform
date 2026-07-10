@@ -10,6 +10,11 @@ import {
 } from "@ai-coo/ui";
 import type { SidebarNavConfig } from "@/lib/navigation/sidebar-nav-config";
 import { isSidebarChildActive } from "@/lib/navigation/sidebar-nav-config";
+import type { PermissionModuleId } from "@/constants/permission-modules";
+import {
+  canSeeNavItem,
+  usePermissions,
+} from "@/providers/permissions-provider";
 import { SidebarItem } from "./sidebar-item";
 
 export function SidebarSubNavigation({
@@ -27,8 +32,17 @@ export function SidebarSubNavigation({
 }) {
   const pathname = usePathname();
   const parentModule = config.modulesWithChildren[moduleKey];
+  const { isFounder, modules } = usePermissions();
+  const checkAccess = (moduleId: PermissionModuleId) =>
+    isFounder || (modules[moduleId] ?? "none") !== "none";
 
   if (!parentModule) return null;
+
+  const visibleChildren = parentModule.children.filter((child) =>
+    canSeeNavItem(child.permissionId, checkAccess, isFounder)
+  );
+
+  if (visibleChildren.length === 0) return null;
 
   const backButton = (
     <button
@@ -64,7 +78,7 @@ export function SidebarSubNavigation({
         <p className="sidebar-section-label mb-1 px-3">{parentModule.label}</p>
       ) : null}
 
-      {parentModule.children.map((child) => (
+      {visibleChildren.map((child) => (
         <SidebarItem
           key={child.href}
           icon={child.icon}

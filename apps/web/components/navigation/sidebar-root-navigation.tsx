@@ -4,6 +4,11 @@ import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import type { SidebarDirectModule, SidebarNavConfig } from "@/lib/navigation/sidebar-nav-config";
 import { isSidebarDirectActive } from "@/lib/navigation/sidebar-nav-config";
+import type { PermissionModuleId } from "@/constants/permission-modules";
+import {
+  canSeeNavItem,
+  usePermissions,
+} from "@/providers/permissions-provider";
 import { SidebarItem, SidebarItemWithChildren } from "./sidebar-item";
 
 export function SidebarRootNavigation({
@@ -21,6 +26,9 @@ export function SidebarRootNavigation({
 }) {
   const pathname = usePathname();
   const activeParent = config.getParentFromPath(pathname);
+  const { isFounder, modules } = usePermissions();
+  const checkAccess = (moduleId: PermissionModuleId) =>
+    isFounder || (modules[moduleId] ?? "none") !== "none";
 
   const linkModules = useMemo(() => {
     const modules = config.rootItems
@@ -45,6 +53,10 @@ export function SidebarRootNavigation({
 
         if (item.type === "link") {
           const direct = linkModuleByHref.get(item.module.href) ?? item.module;
+          if (!canSeeNavItem(direct.permissionId, checkAccess, isFounder)) {
+            return null;
+          }
+
           return (
             <SidebarItem
               key={direct.href}
@@ -63,6 +75,11 @@ export function SidebarRootNavigation({
 
         const parent = config.modulesWithChildren[item.key];
         if (!parent) return null;
+
+        const visibleChildren = parent.children.filter((child) =>
+          canSeeNavItem(child.permissionId, checkAccess, isFounder)
+        );
+        if (visibleChildren.length === 0) return null;
 
         return (
           <SidebarItemWithChildren
