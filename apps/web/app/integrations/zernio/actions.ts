@@ -20,6 +20,7 @@ import {
   type ZernioConversation,
   type ZernioMessage,
 } from "@/lib/zernio/client";
+import { callClaudeJson } from "@/lib/ai/anthropic";
 import {
   getZernioIntegrationForOrg,
   mapZernioAccountToConnected,
@@ -352,5 +353,69 @@ export async function getZernioAnalyticsAction(): Promise<ZernioAnalyticsSummary
     return { totalImpressions, totalLikes, totalComments, hasData };
   } catch {
     return { totalImpressions: 0, totalLikes: 0, totalComments: 0, hasData: false };
+  }
+}
+
+export async function analyzeZernioConversationAction(
+  participantName: string,
+  platform: string,
+  messages: Array<{ text?: string; direction: string; createdAt: string }>
+): Promise<{
+  success: boolean;
+  sentiment?: "positivo" | "neutral" | "negativo";
+  qualification?: "alto" | "medio" | "bajo";
+  painPoint?: string;
+  recommendedAction?: string;
+  ghostingRisk?: "alto" | "medio" | "bajo";
+  error?: string;
+}> {
+  try {
+    const organizationId = await requireOrganizationId();
+    const integration = await getZernioIntegrationForOrg(organizationId);
+    if (!integration) throw new Error("Sin integración Zernio");
+
+    const conversationText = messages
+      .slice(-30)
+      .map((m) => {
+        const isOutbound =
+          m.direction === "outbound" || m.direction === "outgoing";
+        return `[${isOutbound ? "YO" : participantName}]: ${m.text ?? ""}`;
+      })
+      .join("\n");
+
+    const object = await callClaudeJson<{
+      sentiment: "positivo" | "neutral" | "negativo";
+      qualification: "alto" | "medio" | "bajo";
+      painPoint: string;
+      recommendedAction: string;
+      ghostingRisk: "alto" | "medio" | "bajo";
+    }>({
+      organizationId,
+      task: "conversation_scoring",
+      feature: "zernio_conversation_analysis",
+      system:
+        "Respondé únicamente con JSON válido en español, sin markdown ni texto adicional.",
+      user: `Analizá esta conversación de ${platform} con ${participantName}:
+
+${conversationText}
+
+Devolvé un JSON con:
+- sentiment: qué tan interesado/positivo está el lead ("positivo" | "neutral" | "negativo")
+- qualification: qué tan calificado como potencial cliente ("alto" | "medio" | "bajo")
+- painPoint: el dolor o problema principal que mencionó (max 150 chars)
+- recommendedAction: qué hacer a continuación (max 200 chars)
+- ghostingRisk: riesgo de que deje de responder ("alto" | "medio" | "bajo")`,
+    });
+
+    if (!object) {
+      throw new Error("El análisis IA no devolvió resultado");
+    }
+
+    return { success: true, ...object };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Error desconocido",
+    };
   }
 }

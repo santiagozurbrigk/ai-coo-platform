@@ -150,27 +150,38 @@ export function SalesInboxLayout() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 gap-1 border-b border-border px-[var(--space-card-sm)] py-2">
-        <Button
-          type="button"
-          size="sm"
-          variant={tab === "bandeja" ? "secondary" : "ghost"}
-          className={cn("gap-2")}
-          onClick={() => setTab("bandeja")}
-        >
-          <MessageCircle className="h-4 w-4" />
-          Bandeja
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={tab === "redes" ? "secondary" : "ghost"}
-          className={cn("gap-2")}
-          onClick={() => setTab("redes")}
-        >
-          <Share2 className="h-4 w-4" />
-          Redes Sociales
-        </Button>
+      <div className="flex shrink-0 flex-col gap-1 border-b border-border px-[var(--space-card-sm)] py-2">
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant={tab === "bandeja" ? "secondary" : "ghost"}
+            className={cn("gap-2")}
+            onClick={() => setTab("bandeja")}
+          >
+            <MessageCircle className="h-4 w-4" />
+            CRM de Leads
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={tab === "redes" ? "secondary" : "ghost"}
+            className={cn("gap-2")}
+            onClick={() => setTab("redes")}
+          >
+            <Share2 className="h-4 w-4" />
+            DMs en Vivo
+          </Button>
+        </div>
+        {tab === "bandeja" ? (
+          <p className="ml-1 text-[11px] text-muted-foreground">
+            Conversaciones guardadas de ManyChat con análisis IA
+          </p>
+        ) : (
+          <p className="ml-1 text-[11px] text-muted-foreground">
+            DMs de Instagram, WhatsApp y más vía Zernio
+          </p>
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">

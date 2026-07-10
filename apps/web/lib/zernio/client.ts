@@ -103,7 +103,7 @@ export async function zernioSendMessage(
   accountId: string
 ) {
   const res = await fetch(
-    `${ZERNIO_BASE}/inbox/conversations/${encodeURIComponent(conversationId)}/send`,
+    `${ZERNIO_BASE}/inbox/conversations/${encodeURIComponent(conversationId)}/messages`,
     {
       method: "POST",
       headers: zernioHeaders(),

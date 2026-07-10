@@ -7,4 +7,4 @@ export { ConversationAnalysisPanel } from "./conversation-analysis";
 export { ConversationStatusBadge } from "./conversation-status-badge";
 export { ConversationSourceBadge } from "./conversation-source-badge";
 export { LeadQualificationBadge } from "./lead-qualification-badge";
-export { FrequentObjectionsPanel } from "./frequent-objections-panel";
+export { ZernioSidePanel } from "./zernio-side-panel";

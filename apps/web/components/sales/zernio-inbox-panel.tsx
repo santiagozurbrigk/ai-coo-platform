@@ -20,6 +20,7 @@ import {
   cn,
 } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
+import { ZernioSidePanel } from "./zernio-side-panel";
 
 const PLATFORM_COLORS: Record<string, string> = {
   instagram: "bg-[#E4405F]/15 text-[#E4405F]",
@@ -272,6 +273,18 @@ export function ZernioInboxPanel() {
             description="Elegí un chat de la lista para ver los mensajes."
             className="flex-1"
           />
+        )}
+      </div>
+
+      <div className="hidden h-full w-[240px] min-w-[240px] shrink-0 overflow-y-auto border-l border-border bg-card lg:block">
+        {selected ? (
+          <ZernioSidePanel conversation={selected} messages={messages} />
+        ) : (
+          <div className="flex h-full items-center justify-center p-4">
+            <p className="text-center text-xs text-muted-foreground">
+              Seleccioná una conversación para ver el análisis IA
+            </p>
+          </div>
         )}
       </div>
     </div>
