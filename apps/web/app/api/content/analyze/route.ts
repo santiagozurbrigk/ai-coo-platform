@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { analyzeContentPieceAction } from "@/app/marketing/content/actions";
 import { requireAuthContext } from "@/lib/auth/require-auth";
 
 export const runtime = "nodejs";
@@ -23,6 +22,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const { analyzeContentPieceAction } = await import(
+      "@/app/marketing/content/actions"
+    );
     const analysis = await analyzeContentPieceAction(contentPieceId);
     return NextResponse.json({ analysis });
   } catch (err: unknown) {
