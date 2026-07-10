@@ -68,25 +68,28 @@ export async function getContentPieceAction(
   };
 }
 
+type ContentPieceUpdateFields = Partial<
+  Pick<
+    ContentPiece,
+    | "title"
+    | "caption"
+    | "status"
+    | "analysis"
+    | "transcript"
+    | "analysis_generated_at"
+    | "brief"
+    | "metrics"
+    | "metrics_updated_at"
+  >
+> & {
+  drive_file_id?: string | null;
+  drive_file_name?: string | null;
+  drive_file_url?: string | null;
+};
+
 export async function updateContentPieceAction(
   id: string,
-  updates: Partial<
-    Pick<
-      ContentPiece,
-      | "title"
-      | "caption"
-      | "status"
-      | "drive_file_id"
-      | "drive_file_name"
-      | "drive_file_url"
-      | "analysis"
-      | "transcript"
-      | "analysis_generated_at"
-      | "brief"
-      | "metrics"
-      | "metrics_updated_at"
-    >
-  >
+  updates: ContentPieceUpdateFields
 ): Promise<void> {
   const organizationId = await requireProfileOrganizationId();
   const supabase = await createClient();
