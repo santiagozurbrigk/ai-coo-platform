@@ -73,7 +73,10 @@ export async function zernioGetMessages(conversationId: string) {
     { headers: zernioHeaders() }
   );
   if (!res.ok) throw new Error(`Zernio getMessages: ${await res.text()}`);
-  return res.json() as Promise<{ messages: ZernioMessage[] }>;
+  return res.json() as Promise<{
+    data: ZernioMessage[];
+    pagination?: { hasMore: boolean; nextCursor: string | null };
+  }>;
 }
 
 export async function zernioSendMessage(conversationId: string, text: string) {
