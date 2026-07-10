@@ -208,6 +208,62 @@ export interface ZernioComment {
   createdAt: string;
 }
 
+// ── Posts ─────────────────────────────────────────────
+export type ZernioPost = {
+  id?: string;
+  _id?: string;
+  platform?: string;
+  postType?: string;
+  platformPostUrl?: string;
+  title?: string;
+  content?: string;
+  hashtags?: string[];
+  thumbnailUrl?: string;
+  publishedAt?: string;
+  createdAt?: string;
+  profileId?: string;
+  profile?: string;
+  accountId?: string;
+};
+
+export async function zernioListPublishedPosts(params?: {
+  profileId?: string;
+  limit?: number;
+}) {
+  const url = new URL(`${ZERNIO_BASE}/posts`);
+  url.searchParams.set("status", "published");
+  url.searchParams.set("limit", String(params?.limit ?? 50));
+  if (params?.profileId) {
+    url.searchParams.set("profileId", params.profileId);
+  }
+
+  const res = await fetch(url.toString(), {
+    headers: zernioHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Zernio listPublishedPosts: ${await res.text()}`);
+  return res.json() as Promise<{ posts?: ZernioPost[] }>;
+}
+
+export async function zernioSyncExternalPosts(profileId?: string) {
+  const url = new URL(`${ZERNIO_BASE}/analytics/sync-external-posts`);
+  if (profileId) {
+    url.searchParams.set("profileId", profileId);
+  }
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    headers: zernioHeaders(),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    console.warn("[Zernio] syncExternalPosts:", await res.text());
+    return { posts: [] as ZernioPost[] };
+  }
+  const data = (await res.json()) as { posts?: ZernioPost[] };
+  return { posts: data.posts ?? [] };
+}
+
 // ── Analytics ─────────────────────────────────────────
 export async function zernioGetPostAnalytics(postId: string) {
   const res = await fetch(`${ZERNIO_BASE}/analytics/${encodeURIComponent(postId)}`, {

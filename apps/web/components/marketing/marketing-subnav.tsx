@@ -7,6 +7,7 @@ import { paths } from "@/routes";
 const TABS = [
   { label: "Overview", href: paths.platform.marketing.overview },
   { label: "Contenido", href: paths.platform.marketing.content },
+  { label: "Administrar", href: paths.platform.marketing.administrar },
   {
     label: "Conexión con Ventas",
     href: paths.platform.marketing.salesConnection,

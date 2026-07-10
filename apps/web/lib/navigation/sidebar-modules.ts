@@ -49,6 +49,11 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           permissionId: "marketing_content",
         },
         {
+          label: "Administrar",
+          href: paths.platform.marketing.administrar,
+          permissionId: "marketing",
+        },
+        {
           label: "Conexión con Ventas",
           href: paths.platform.marketing.salesConnection,
           permissionId: "marketing_sales",
@@ -61,11 +66,6 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
         {
           label: "UTMs",
           href: paths.platform.marketing.utms,
-          permissionId: "marketing",
-        },
-        {
-          label: "Comentarios",
-          href: paths.platform.comentarios,
           permissionId: "marketing",
         },
       ],
