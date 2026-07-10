@@ -223,8 +223,9 @@ export async function getZernioMessagesAction(
     throw new Error("Integración Zernio no configurada");
   }
 
-  const { data } = await zernioGetMessages(conversationId, accountId);
-  return data.sort(
+  const result = await zernioGetMessages(conversationId, accountId);
+  const messages = result.data ?? [];
+  return messages.sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
 }

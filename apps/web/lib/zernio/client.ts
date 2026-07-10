@@ -73,10 +73,15 @@ export async function zernioGetMessages(conversationId: string, accountId: strin
     { headers: zernioHeaders() }
   );
   if (!res.ok) throw new Error(`Zernio getMessages: ${await res.text()}`);
-  return res.json() as Promise<{
-    data: ZernioMessage[];
-    pagination: { hasMore: boolean; nextCursor: string | null };
-  }>;
+  const json = (await res.json()) as Record<string, unknown>;
+  console.log("[Zernio] getMessages raw response keys:", Object.keys(json));
+  const messages = json.data ?? json.messages ?? [];
+  return {
+    data: Array.isArray(messages) ? (messages as ZernioMessage[]) : [],
+    pagination:
+      (json.pagination as { hasMore: boolean; nextCursor: string | null } | null) ??
+      null,
+  };
 }
 
 export async function zernioSendMessage(
