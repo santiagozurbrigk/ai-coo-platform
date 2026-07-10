@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
     },
   },
   outputFileTracingRoot: monorepoRoot,
+  serverExternalPackages: [
+    "fluent-ffmpeg",
+    "@ffmpeg-installer/ffmpeg",
+    "@ffprobe-installer/ffprobe",
+  ],
   turbopack: {
     root: monorepoRoot,
   },

@@ -23,7 +23,8 @@ export type AITask =
   | "product_extraction"
   | "sales_analysis"
   | "intelligence_analysis"
-  | "tone_analysis";
+  | "tone_analysis"
+  | "analyze_content_piece";
 
 const TASK_MODEL_MAP: Record<AITask, string> = {
   conversation_scoring: AI_MODELS.HAIKU,
@@ -40,6 +41,7 @@ const TASK_MODEL_MAP: Record<AITask, string> = {
   sales_analysis: AI_MODELS.SONNET,
   intelligence_analysis: AI_MODELS.SONNET,
   tone_analysis: AI_MODELS.SONNET,
+  analyze_content_piece: AI_MODELS.SONNET,
 };
 
 /** Alias hasta disponibilidad GA de Sonnet 4.6 en la API */
@@ -559,6 +561,74 @@ export async function callClaudeJson<T>(
     system: req.system,
     cachedSystemPrompt: req.cachedSystemPrompt,
     messages: [{ role: "user", content: req.user }],
+  });
+
+  await trackUsage(
+    req.organizationId,
+    logicalModel,
+    req.feature,
+    response.usage as ClaudeUsage
+  );
+
+  const textBlock = response.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") return null;
+
+  const raw = textBlock.text.trim();
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+
+  try {
+    return JSON.parse(jsonMatch[0]) as T;
+  } catch {
+    return null;
+  }
+}
+
+export type ClaudeVisionImage = {
+  base64: string;
+  mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+};
+
+export async function callClaudeVisionJson<T>(req: {
+  organizationId: string;
+  task?: AITask;
+  model?: ClaudeModel | string;
+  feature: string;
+  system?: string;
+  text: string;
+  images: ClaudeVisionImage[];
+  maxTokens?: number;
+}): Promise<T | null> {
+  const { client, keySource } = await resolveClientForOrg(req.organizationId);
+  if (!client || keySource === "none") {
+    console.warn("[callClaudeVisionJson] Sin API key (org BYOK ni ANTHROPIC_API_KEY)");
+    return null;
+  }
+
+  const logicalModel = resolveLogicalModel(req);
+  const apiModel = resolveApiModelId(logicalModel);
+
+  const userContent: Anthropic.ContentBlockParam[] = [
+    { type: "text", text: req.text },
+    ...req.images.map(
+      (image): Anthropic.ImageBlockParam => ({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: image.mediaType,
+          data: image.base64,
+        },
+      })
+    ),
+  ];
+
+  const response = await createClaudeMessage(client, keySource, {
+    apiModel,
+    maxTokens: req.maxTokens ?? 2048,
+    system:
+      req.system ??
+      "Respondé únicamente con JSON válido en español, sin markdown ni texto adicional.",
+    messages: [{ role: "user", content: userContent }],
   });
 
   await trackUsage(
