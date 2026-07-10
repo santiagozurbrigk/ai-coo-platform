@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { Button, cn } from "@ai-coo/ui";
 import { ManyChatWebhookNotice } from "./manychat-webhook-notice";
+import { ManyChatCtaPanel } from "./manychat-cta-panel";
 
 export function ManyChatManageSheet({
   open,
@@ -58,6 +59,8 @@ export function ManyChatManageSheet({
               Cargando URL del webhook…
             </p>
           )}
+
+          <ManyChatCtaPanel />
         </div>
 
         <div className="mt-6 border-t border-border/40 pt-4">

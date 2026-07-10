@@ -136,3 +136,28 @@ export type SalesMetricsData = {
   bookingTrend: { label: string; value: number }[];
   closerBreakdown: CloserPerformance[];
 };
+
+export type SalesPerformanceMetrics = {
+  period: "month" | "30d";
+  closer: {
+    closeRate: number;
+    showRate: number;
+  };
+  leads: {
+    leadsCount: number;
+    agendasCount: number;
+    nurturingCount: number;
+    lostCount: number;
+  };
+  schedules: {
+    totalAgendas: number;
+  };
+  calls: {
+    cierres: number;
+    followUpScheduled: number;
+    senas: number | null;
+    asistencias: number;
+    noShows: number;
+    noCierres: number;
+  };
+};

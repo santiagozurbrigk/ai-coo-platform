@@ -1,0 +1,174 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  connectMemberFathomAction,
+  disconnectMemberFathomAction,
+  listFathomMemberStatusesAction,
+  syncMemberFathomAction,
+  type FathomMemberStatus,
+} from "@/app/fathom/member-actions";
+import { Button, Input, Label } from "@ai-coo/ui";
+import { useToast } from "@/providers/toast-provider";
+
+export function FathomMemberAccountsSection({
+  currentUserId,
+}: {
+  currentUserId: string;
+}) {
+  const { push } = useToast();
+  const [members, setMembers] = useState<FathomMemberStatus[]>([]);
+  const [apiKey, setApiKey] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState(false);
+
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const rows = await listFathomMemberStatusesAction();
+      setMembers(rows);
+    } catch (error) {
+      push({
+        title: "No se pudo cargar cuentas Fathom",
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  const currentMember = members.find((member) => member.userId === currentUserId);
+
+  const handleConnect = async () => {
+    setPending(true);
+    try {
+      const result = await connectMemberFathomAction(apiKey);
+      if (!result.ok) throw new Error(result.error ?? "No se pudo conectar");
+      setApiKey("");
+      push({ title: "Fathom conectado", variant: "success" });
+      await refresh();
+    } catch (error) {
+      push({
+        title: "Error al conectar Fathom",
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    setPending(true);
+    try {
+      await disconnectMemberFathomAction();
+      push({ title: "Fathom desconectado", variant: "success" });
+      await refresh();
+    } catch (error) {
+      push({
+        title: "Error al desconectar",
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const handleSync = async () => {
+    setPending(true);
+    try {
+      const result = await syncMemberFathomAction();
+      push({
+        title: "Sync completado",
+        description: `${result.synced} llamada(s) sincronizada(s)`,
+        variant: "success",
+      });
+      await refresh();
+    } catch (error) {
+      push({
+        title: "Error al sincronizar",
+        description: error instanceof Error ? error.message : "Error desconocido",
+      });
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 space-y-3 rounded-lg border bg-muted/20 p-3">
+      <p className="text-xs font-medium text-muted-foreground">
+        Cuentas conectadas por miembro
+      </p>
+
+      {loading ? (
+        <p className="text-xs text-muted-foreground">Cargando…</p>
+      ) : (
+        <ul className="space-y-2">
+          {members.map((member) => (
+            <li
+              key={member.userId}
+              className="flex items-center justify-between gap-2 text-xs"
+            >
+              <span className="truncate">{member.name}</span>
+              <span
+                className={
+                  member.connected
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-muted-foreground"
+                }
+              >
+                {member.connected ? "Conectado" : "No conectado"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {currentMember && !currentMember.connected ? (
+        <div className="space-y-2 border-t pt-3">
+          <Label htmlFor="member-fathom-key" className="text-xs">
+            Tu API key de Fathom
+          </Label>
+          <Input
+            id="member-fathom-key"
+            type="password"
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+            placeholder="Pegá tu API key"
+          />
+          <Button
+            size="sm"
+            onClick={() => void handleConnect()}
+            disabled={pending || !apiKey.trim()}
+          >
+            Conectar mi cuenta
+          </Button>
+        </div>
+      ) : null}
+
+      {currentMember?.connected ? (
+        <div className="flex flex-wrap gap-2 border-t pt-3">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void handleSync()}
+            disabled={pending}
+          >
+            Sincronizar mis llamadas
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => void handleDisconnect()}
+            disabled={pending}
+          >
+            Desconectar
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}

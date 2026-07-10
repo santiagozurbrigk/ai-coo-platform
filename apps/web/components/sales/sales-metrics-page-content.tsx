@@ -1,6 +1,7 @@
 "use client";
 
 import { SalesMetricsOverview } from "@/components/sales";
+import { SalesPerformanceMetricsSection } from "@/components/sales/sales-performance-metrics-section";
 import { usePlatformData } from "@/providers";
 import type { FrequentObjectionsResult } from "@/types/sales";
 
@@ -20,9 +21,12 @@ export function SalesMetricsPageContent({
   }
 
   return (
-    <SalesMetricsOverview
-      data={salesMetrics}
-      frequentObjections={frequentObjections}
-    />
+    <div className="space-y-8">
+      <SalesPerformanceMetricsSection />
+      <SalesMetricsOverview
+        data={salesMetrics}
+        frequentObjections={frequentObjections}
+      />
+    </div>
   );
 }

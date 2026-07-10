@@ -12,6 +12,7 @@ export const INTEGRATION_BRAND_COLORS: Record<
   instagram: { hex: "#E4405F", bgClass: "bg-[#E4405F]/12" },
   manychat: { hex: "#0084FF", bgClass: "bg-[#0084FF]/12" },
   youtube: { hex: "#FF0000", bgClass: "bg-[#FF0000]/12" },
+  google_ecosystem: { hex: "#4285F4", bgClass: "bg-[#4285F4]/12" },
   typeform: { hex: "#262627", bgClass: "bg-[#262627]/10 dark:bg-[#262627]/25" },
   google_forms: { hex: "#7248B9", bgClass: "bg-[#7248B9]/12" },
   airtable: { hex: "#18BFFF", bgClass: "bg-[#18BFFF]/12" },
@@ -28,5 +29,6 @@ export function integrationLogoSrc(provider: IntegrationProvider): string {
   if (provider === "unipile_instagram") return "/integrations/instagram.svg";
   if (provider === "unipile_whatsapp") return "/integrations/whatsapp.svg";
   if (provider === "zernio") return "/integrations/zernio.svg";
+  if (provider === "google_ecosystem") return "/integrations/google_forms.svg";
   return `/integrations/${provider}.svg`;
 }

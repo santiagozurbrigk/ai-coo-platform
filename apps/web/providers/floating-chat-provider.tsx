@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { sendAgentMessageAction } from "@/app/agent/actions";
+import { useOptionalPageContext } from "@/providers/page-context-provider";
 
 export type AgentChatMessage = {
   id: string;
@@ -52,6 +53,7 @@ const AGENT_ERROR_REPLY =
   "No pudimos generar la respuesta. Intentá de nuevo en unos segundos.";
 
 export function FloatingChatProvider({ children }: { children: ReactNode }) {
+  const { pageContext } = useOptionalPageContext() ?? { pageContext: null };
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isExpanding, setIsExpanding] = useState(false);
@@ -113,7 +115,7 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
     try {
       const lastUser = [...messages].reverse().find((m) => m.role === "user");
       if (!lastUser?.content.trim()) return;
-      await sendAgentMessageAction({ content: lastUser.content });
+      await sendAgentMessageAction({ content: lastUser.content, pageContext });
     } catch (error) {
       console.error("[simulateReply]", error);
       appendAssistantMessage(AGENT_ERROR_REPLY);
@@ -121,7 +123,7 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [appendAssistantMessage, messages]);
+  }, [appendAssistantMessage, messages, pageContext]);
 
   const clearNeedsAgentReply = useCallback(() => setNeedsAgentReply(false), []);
 
@@ -140,7 +142,10 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
       setIsExpanding(true);
       setPendingConversationId(null);
       try {
-        const result = await sendAgentMessageAction({ content: trimmed });
+        const result = await sendAgentMessageAction({
+          content: trimmed,
+          pageContext,
+        });
         setPendingConversationId(result.conversationId);
       } catch (error) {
         console.error("[sendFromFloating]", error);
@@ -150,7 +155,7 @@ export function FloatingChatProvider({ children }: { children: ReactNode }) {
         setHasNewMessage(true);
       }
     },
-    [appendUserMessage, appendAssistantMessage]
+    [appendUserMessage, appendAssistantMessage, pageContext]
   );
 
   const sendFromAgent = useCallback(

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getContentPieceAction } from "@/app/marketing/content/actions";
-import { ContentPieceDetail } from "@/components/marketing/content-piece-detail";
+import { MarketingContentDetailPageClient } from "@/components/marketing/marketing-content-detail-page-client";
 
 export default async function MarketingContentDetailPage({
   params,
@@ -17,6 +17,9 @@ export default async function MarketingContentDetailPage({
   }
 
   return (
-    <ContentPieceDetail piece={data} variants={data.variants ?? []} />
+    <MarketingContentDetailPageClient
+      piece={data}
+      variants={data.variants ?? []}
+    />
   );
 }

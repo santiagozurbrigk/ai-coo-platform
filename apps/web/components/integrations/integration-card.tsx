@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { getCurrentUserIdAction } from "@/app/auth/current-user-actions";
 import { paths } from "@/routes";
 import { useEffect, useState } from "react";
 import {
@@ -22,6 +23,7 @@ import { syncInstagramContentAction, syncInstagramMessagesAction } from "@/app/i
 import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
 import {
   GOOGLE_OAUTH_START_URL,
+  googleOAuthProviderForCard,
   isGoogleIntegrationProvider,
   type GoogleIntegrationProvider,
 } from "@/lib/google/oauth-paths";
@@ -41,6 +43,7 @@ import { useMarketingData, usePlatformData } from "@/providers";
 import type { Integration } from "@/types/integrations";
 import type { IntegrationCardStatus } from "./integration-status-badge";
 import { FathomConnectDialog } from "./fathom-connect-dialog";
+import { FathomMemberAccountsSection } from "./fathom-member-accounts";
 import { ManyChatConnectDialog } from "./manychat-connect-dialog";
 import { ManyChatImportDialog } from "./manychat-import-dialog";
 import { IntegrationCardShell } from "./integration-card-shell";
@@ -87,6 +90,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const [instagramManageOpen, setInstagramManageOpen] = useState(false);
   const [zernioConnectOpen, setZernioConnectOpen] = useState(false);
   const [manychatWebhookUrl, setManychatWebhookUrl] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const { push } = useToast();
   const { setInstagramConnected } = useMarketingData();
@@ -95,6 +99,13 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   useEffect(() => {
     setStatus(integration.status);
   }, [integration.status]);
+
+  useEffect(() => {
+    if (integration.provider !== "fathom") return;
+    void getCurrentUserIdAction()
+      .then(setCurrentUserId)
+      .catch(() => setCurrentUserId(null));
+  }, [integration.provider]);
 
   useEffect(() => {
     if (integration.provider !== "calendly") return;
@@ -120,7 +131,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const comingSoon = integration.comingSoon === true;
 
   const googleProvider = isGoogleIntegrationProvider(integration.provider)
-    ? integration.provider
+    ? googleOAuthProviderForCard(integration.provider)
     : null;
 
   const startGoogleOAuth = (provider: GoogleIntegrationProvider) => {
@@ -500,11 +511,31 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         name={integration.name}
         description={`${description}${calendlyManualHint}`}
         icon={
-          <IntegrationLogo
-            provider={integration.provider}
-            size="sm"
-            className="!h-5 !w-5 !rounded-none !border-0 !bg-transparent"
-          />
+          integration.provider === "zernio" ? (
+            <div className="flex items-center gap-0.5">
+              <IntegrationLogo
+                provider="zernio"
+                size="sm"
+                className="!h-5 !w-5 !rounded-none !border-0 !bg-transparent"
+              />
+              <IntegrationLogo
+                provider="instagram"
+                size="sm"
+                className="!h-4 !w-4 !rounded-none !border-0 !bg-transparent opacity-80"
+              />
+              <IntegrationLogo
+                provider="unipile_whatsapp"
+                size="sm"
+                className="!h-4 !w-4 !rounded-none !border-0 !bg-transparent opacity-80"
+              />
+            </div>
+          ) : (
+            <IntegrationLogo
+              provider={integration.provider}
+              size="sm"
+              className="!h-5 !w-5 !rounded-none !border-0 !bg-transparent"
+            />
+          )
         }
         status={comingSoon ? "not_connected" : cardStatus}
         lastSync={formatLastSync(integration, status)}
@@ -515,6 +546,12 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         onDisconnect={supportsCardDisconnect ? handleDisconnect : undefined}
         disconnectDisabled={syncing}
       />
+
+      {integration.provider === "fathom" &&
+      status === "connected" &&
+      currentUserId ? (
+        <FathomMemberAccountsSection currentUserId={currentUserId} />
+      ) : null}
 
       <FathomConnectDialog
         open={fathomConnectOpen}

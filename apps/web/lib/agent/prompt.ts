@@ -34,6 +34,7 @@ export function buildAgentSystemPrompt(opts: {
   productContext?: string;
   ragContext?: string;
   entityContext?: string;
+  pageContext?: string;
 }): string {
   const productBlock = opts.productContext?.trim()
     ? `\n${opts.productContext.trim()}\n`
@@ -45,6 +46,10 @@ export function buildAgentSystemPrompt(opts: {
 
   const entityBlock = opts.entityContext?.trim()
     ? `\n${opts.entityContext.trim()}\n`
+    : "";
+
+  const pageBlock = opts.pageContext?.trim()
+    ? `\n${opts.pageContext.trim()}\n`
     : "";
 
   const currentDate = new Date().toLocaleDateString("es-AR", {
@@ -62,6 +67,7 @@ ${opts.stageContext}
 ${productBlock}
 ${ragBlock}
 ${opts.recentContext}
+${pageBlock}
 
 Si el contexto proporcionado no es suficiente para responder,
 decí qué información adicional necesitarías y sugerí al founder

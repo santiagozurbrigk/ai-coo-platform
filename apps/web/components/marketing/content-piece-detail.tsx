@@ -28,7 +28,7 @@ import {
   Textarea,
 } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
-import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
+import { ArrowLeft, Copy, ExternalLink, Loader2 } from "lucide-react";
 
 type Props = {
   piece: ContentPieceWithVariants;
@@ -150,6 +150,20 @@ export function ContentPieceDetail({ piece, variants }: Props) {
                   year: "numeric",
                 })}
               </p>
+            ) : null}
+            {piece.platform_post_id ? (
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(piece.platform_post_id!);
+                  push({ title: "ID copiado", variant: "success" });
+                }}
+                className="mt-2 inline-flex max-w-full items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-[10px] font-mono text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                title="Copiar platform_post_id"
+              >
+                <span className="truncate">{piece.platform_post_id}</span>
+                <Copy className="h-3 w-3 shrink-0" />
+              </button>
             ) : null}
             {piece.platform_post_url ? (
               <a

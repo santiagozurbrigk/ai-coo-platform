@@ -21,6 +21,7 @@ export type ManyChatSubscriber = {
   last_interaction?: string;
   ig_username?: string;
   last_text_input?: string;
+  tags?: Array<{ id?: number; name?: string } | string>;
 };
 
 async function manyChatFetch<T>(
@@ -140,4 +141,33 @@ export async function resolveManyChatSubscriber(
   }
 
   return fetchManyChatSubscriber(apiToken, trimmed);
+}
+
+function normalizeManyChatTags(
+  tags?: Array<{ name?: string } | string>
+): string[] {
+  if (!tags?.length) return [];
+  return tags
+    .map((tag) => (typeof tag === "string" ? tag : tag.name))
+    .filter((tag): tag is string => Boolean(tag?.trim()))
+    .map((tag) => tag.trim());
+}
+
+export async function fetchManyChatSubscriberTags(
+  apiToken: string,
+  subscriberId: string
+): Promise<string[]> {
+  try {
+    const data = await manyChatFetch<{ tags?: Array<{ name?: string } | string> }>(
+      apiToken,
+      `/fb/subscriber/getTags?subscriber_id=${encodeURIComponent(subscriberId)}`
+    );
+    const fromEndpoint = normalizeManyChatTags(data.tags);
+    if (fromEndpoint.length > 0) return fromEndpoint;
+  } catch {
+    // fallback to subscriber profile tags
+  }
+
+  const subscriber = await fetchManyChatSubscriber(apiToken, subscriberId);
+  return normalizeManyChatTags(subscriber.tags);
 }

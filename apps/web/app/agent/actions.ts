@@ -52,6 +52,7 @@ import {
   buildRecentContextSummary,
   buildStageContext,
 } from "@/lib/agent/prompt";
+import { buildPageContextPrompt, type PageContextState } from "@/lib/agent/page-context";
 import {
   ALL_PROPOSAL_TOOLS,
   PROPOSAL_TOOL_NAMES,
@@ -671,6 +672,8 @@ export async function sendAgentMessageAction(input: {
   content: string;
   /** Contexto de etapa solo para el prompt; no se persiste en la conversación. */
   contextStageId?: string | null;
+  /** Contexto de la página actual (content piece, lead, etc.). */
+  pageContext?: PageContextState | null;
   flags?: AgentFlags;
 }): Promise<{
   conversationId: string;
@@ -781,6 +784,7 @@ export async function sendAgentMessageAction(input: {
     recentContext: buildRecentContextSummary(recentOrg),
     ragContext,
     entityContext: entityContextText,
+    pageContext: buildPageContextPrompt(input.pageContext ?? null),
   });
 
   const claudeMessages = history.map((m) => ({

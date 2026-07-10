@@ -11,18 +11,16 @@ export const INTEGRATION_GROUPS: IntegrationGroup[] = [
     integrations: [
       "manychat",
       "zernio",
-      "unipile_whatsapp",
       "calendly",
-      "instagram",
     ],
   },
   {
     label: "Contenido y marketing",
-    integrations: ["youtube", "fathom"],
+    integrations: ["google_ecosystem", "fathom"],
   },
   {
     label: "Formularios y datos",
-    integrations: ["typeform", "google_forms", "airtable"],
+    integrations: ["typeform", "airtable"],
   },
   {
     label: "Documentación y conocimiento",
@@ -38,7 +36,9 @@ export const INTEGRATION_DESCRIPTIONS: Partial<
   unipile_whatsapp:
     "WhatsApp personal en el inbox de ventas, con scoring de IA igual que ManyChat.",
   zernio:
-    "DMs, comentarios y analytics de Instagram, Facebook, WhatsApp y más vía OAuth oficial.",
+    "Conecta tu cuenta de Zernio para sincronizar mensajes de Instagram Direct y WhatsApp en un solo inbox.",
+  google_ecosystem:
+    "YouTube, Google Drive y Google Forms conectados con una sola cuenta OAuth.",
   manychat:
     "Conecta con tu API key. Los mensajes nuevos llegan vía External Request.",
   calendly:

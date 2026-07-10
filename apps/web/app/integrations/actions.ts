@@ -200,6 +200,7 @@ const REAL_PROVIDERS = new Set([
   "unipile_whatsapp",
   "typeform",
   "google_forms",
+  "google_ecosystem",
   "discord",
 ]);
 
@@ -208,6 +209,10 @@ const HIDDEN_INTEGRATION_PROVIDERS = new Set([
   "mercadopago",
   "paypal",
   "unipile_instagram",
+  "instagram",
+  "unipile_whatsapp",
+  "youtube",
+  "google_forms",
 ]);
 
 export async function listIntegrationsAction(): Promise<Integration[]> {
@@ -311,6 +316,15 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
         connected: discordStatus.connected,
         lastSyncAt: discordStatus.integration?.last_event_at ?? null,
         records: discordRecords,
+      },
+      google_ecosystem: {
+        connected: googleFormsStatus.connected || youtubeStatus.connected,
+        lastSyncAt:
+          [googleFormsStatus.lastSyncAt, youtubeStatus.lastSyncAt]
+            .filter(Boolean)
+            .sort()
+            .reverse()[0] ?? null,
+        records: googleFormsRecords + youtubeRecords,
       },
       zernio: {
         connected: zernioStatus.connected,

@@ -8,6 +8,16 @@ export const GOOGLE_OAUTH_START_URL: Record<GoogleIntegrationProvider, string> =
 
 export function isGoogleIntegrationProvider(
   provider: string
-): provider is GoogleIntegrationProvider {
-  return provider === "google_forms" || provider === "youtube";
+): provider is GoogleIntegrationProvider | "google_ecosystem" {
+  return (
+    provider === "google_forms" ||
+    provider === "youtube" ||
+    provider === "google_ecosystem"
+  );
+}
+
+export function googleOAuthProviderForCard(
+  provider: string
+): GoogleIntegrationProvider {
+  return provider === "youtube" ? "youtube" : "google_forms";
 }

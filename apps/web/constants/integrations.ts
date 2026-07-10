@@ -6,6 +6,7 @@ export const INTEGRATION_PROVIDERS = [
   "instagram",
   "manychat",
   "youtube",
+  "google_ecosystem",
   "typeform",
   "google_forms",
   "airtable",
