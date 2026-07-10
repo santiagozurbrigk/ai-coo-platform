@@ -33,20 +33,11 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 function conversationTitle(conversation: ZernioConversationWithAccount): string {
-  const participant = conversation.participants.find(
-    (p) => p.name || p.username
-  );
-  return (
-    participant?.name ??
-    (participant?.username ? `@${participant.username}` : "Contacto")
-  );
+  return conversation.participantName || "Contacto";
 }
 
 function conversationAvatar(conversation: ZernioConversationWithAccount): string | null {
-  const participant = conversation.participants.find(
-    (p) => p.profilePictureUrl
-  );
-  return participant?.profilePictureUrl ?? null;
+  return conversation.participantPicture ?? null;
 }
 
 export function ZernioInboxPanel() {
@@ -68,7 +59,7 @@ export function ZernioInboxPanel() {
       const list = await listZernioConversationsAction();
       setConversations(list);
       if (!selectedId && list[0]) {
-        setSelectedId(list[0]._id);
+        setSelectedId(list[0].id);
       }
     } finally {
       setLoading(false);
@@ -108,7 +99,7 @@ export function ZernioInboxPanel() {
     };
   }, [selectedId, push]);
 
-  const selected = conversations.find((c) => c._id === selectedId);
+  const selected = conversations.find((c) => c.id === selectedId);
 
   async function handleSend() {
     if (!selectedId || !draft.trim()) return;
@@ -174,12 +165,12 @@ export function ZernioInboxPanel() {
 
           return (
             <button
-              key={conversation._id}
+              key={conversation.id}
               type="button"
-              onClick={() => setSelectedId(conversation._id)}
+              onClick={() => setSelectedId(conversation.id)}
               className={cn(
                 "flex w-full items-start gap-3 border-b border-border/50 px-3 py-3 text-left transition-colors hover:bg-muted/40",
-                selectedId === conversation._id && "bg-muted/60"
+                selectedId === conversation.id && "bg-muted/60"
               )}
             >
               {avatar ? (
@@ -204,10 +195,10 @@ export function ZernioInboxPanel() {
                   </Badge>
                 </div>
                 <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                  {conversation.lastMessage?.text ?? "Sin mensajes"}
+                  {conversation.lastMessage ?? "Sin mensajes"}
                 </p>
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  {new Date(conversation.updatedAt).toLocaleString("es")}
+                  {new Date(conversation.updatedTime).toLocaleString("es")}
                 </p>
               </div>
             </button>

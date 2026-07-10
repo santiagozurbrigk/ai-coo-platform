@@ -56,7 +56,15 @@ export async function zernioListConversations(accountId?: string) {
     : `${ZERNIO_BASE}/inbox/conversations`;
   const res = await fetch(url, { headers: zernioHeaders() });
   if (!res.ok) throw new Error(`Zernio listConversations: ${await res.text()}`);
-  return res.json() as Promise<{ conversations: ZernioConversation[] }>;
+  return res.json() as Promise<{
+    data: ZernioConversation[];
+    pagination?: { hasMore: boolean; nextCursor: string | null };
+    meta: {
+      accountsQueried: number;
+      accountsFailed: number;
+      failedAccounts: unknown[];
+    };
+  }>;
 }
 
 export async function zernioGetMessages(conversationId: string) {
@@ -82,16 +90,23 @@ export async function zernioSendMessage(conversationId: string, text: string) {
 }
 
 export interface ZernioConversation {
-  _id: string;
+  id: string;
   platform: string;
-  participants: Array<{
-    name?: string;
-    username?: string;
-    profilePictureUrl?: string;
-  }>;
-  lastMessage?: { text: string; createdAt: string; direction: "inbound" | "outbound" };
-  unreadCount?: number;
-  updatedAt: string;
+  accountId: string;
+  accountUsername: string;
+  participantId: string;
+  participantName: string;
+  participantPicture?: string;
+  lastMessage?: string;
+  updatedTime: string;
+  status: "active" | "archived";
+  unreadCount: number;
+  instagramProfile?: {
+    isFollower: boolean;
+    isFollowing: boolean;
+    followerCount: number;
+    isVerified: boolean;
+  };
 }
 
 export interface ZernioMessage {

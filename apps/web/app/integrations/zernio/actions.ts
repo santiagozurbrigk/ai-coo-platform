@@ -188,10 +188,16 @@ export async function listZernioConversationsAction(): Promise<
   const results = await Promise.all(
     integration.connected_accounts.map(async (account) => {
       try {
-        const { conversations } = await zernioListConversations(account.accountId);
-        return conversations.map((conversation) => ({
+        const result = await zernioListConversations(account.accountId);
+        if (result.meta.accountsFailed > 0) {
+          console.warn(
+            "[Zernio] listConversations failed accounts:",
+            result.meta.failedAccounts
+          );
+        }
+        return result.data.map((conversation) => ({
           ...conversation,
-          accountId: account.accountId,
+          accountId: conversation.accountId || account.accountId,
         }));
       } catch {
         return [];
@@ -203,7 +209,7 @@ export async function listZernioConversationsAction(): Promise<
     .flat()
     .sort(
       (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        new Date(b.updatedTime).getTime() - new Date(a.updatedTime).getTime()
     );
 }
 
