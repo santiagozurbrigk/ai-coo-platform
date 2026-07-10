@@ -1,13 +1,8 @@
-import ffmpeg from "fluent-ffmpeg";
-import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
-import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import { randomUUID } from "crypto";
 import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-ffmpeg.setFfprobePath(ffprobeInstaller.path);
+import type ffmpeg from "fluent-ffmpeg";
 
 export type VideoProcessResult = {
   audioBuffer: Buffer;
@@ -15,10 +10,29 @@ export type VideoProcessResult = {
   durationSeconds: number;
 };
 
+type FfmpegModule = typeof ffmpeg;
+
+async function loadFfmpeg(): Promise<FfmpegModule> {
+  // Dynamic require evita que webpack bundlee ffprobe/linux-x64 en páginas de marketing.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ffmpegLib = require("fluent-ffmpeg") as FfmpegModule;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ffmpegInstaller = require("@ffmpeg-installer/ffmpeg") as { path: string };
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ffprobeInstaller = require("@ffprobe-installer/ffprobe") as { path: string };
+
+  ffmpegLib.setFfmpegPath(ffmpegInstaller.path);
+  ffmpegLib.setFfprobePath(ffprobeInstaller.path);
+
+  return ffmpegLib;
+}
+
 export async function processVideoForAnalysis(
   videoBuffer: Buffer,
   mimeType: string
 ): Promise<VideoProcessResult> {
+  const ffmpegLib = await loadFfmpeg();
+
   const workDir = join(tmpdir(), `otc-content-${randomUUID()}`);
   await mkdir(workDir, { recursive: true });
 
@@ -38,14 +52,15 @@ export async function processVideoForAnalysis(
   await writeFile(inputPath, videoBuffer);
 
   try {
-    const durationSeconds = await getVideoDuration(inputPath);
-    await extractAudio(inputPath, audioPath);
+    const durationSeconds = await getVideoDuration(ffmpegLib, inputPath);
+    await extractAudio(ffmpegLib, inputPath, audioPath);
 
     const frameCount = Math.min(
       5,
       Math.max(2, Math.floor(durationSeconds / 10))
     );
     const framePaths = await extractFrames(
+      ffmpegLib,
       inputPath,
       framesDir,
       frameCount,
@@ -61,18 +76,25 @@ export async function processVideoForAnalysis(
   }
 }
 
-function getVideoDuration(inputPath: string): Promise<number> {
+function getVideoDuration(
+  ffmpegLib: FfmpegModule,
+  inputPath: string
+): Promise<number> {
   return new Promise((resolve, reject) => {
-    ffmpeg.ffprobe(inputPath, (err, metadata) => {
+    ffmpegLib.ffprobe(inputPath, (err, metadata) => {
       if (err) reject(err);
       else resolve(metadata.format.duration ?? 0);
     });
   });
 }
 
-function extractAudio(inputPath: string, outputPath: string): Promise<void> {
+function extractAudio(
+  ffmpegLib: FfmpegModule,
+  inputPath: string,
+  outputPath: string
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
+    ffmpegLib(inputPath)
       .noVideo()
       .audioCodec("libmp3lame")
       .audioQuality(5)
@@ -84,6 +106,7 @@ function extractAudio(inputPath: string, outputPath: string): Promise<void> {
 }
 
 function extractFrames(
+  ffmpegLib: FfmpegModule,
   inputPath: string,
   framesDir: string,
   frameCount: number,
@@ -98,7 +121,7 @@ function extractFrames(
       timestamps.push(String(seconds));
     }
 
-    ffmpeg(inputPath)
+    ffmpegLib(inputPath)
       .screenshots({
         timestamps,
         filename: "frame-%i.jpg",

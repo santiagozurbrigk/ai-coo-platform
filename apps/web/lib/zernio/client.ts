@@ -245,6 +245,39 @@ export async function zernioListPublishedPosts(params?: {
   return res.json() as Promise<{ posts?: ZernioPost[] }>;
 }
 
+export async function zernioCreatePost(params: {
+  profileId: string;
+  platform: string;
+  postType?: string;
+  status: "draft" | "published";
+  content: string;
+  accountId?: string;
+}) {
+  const res = await fetch(`${ZERNIO_BASE}/posts`, {
+    method: "POST",
+    headers: zernioHeaders(),
+    body: JSON.stringify({
+      profileId: params.profileId,
+      platform: params.platform,
+      postType: params.postType ?? "post",
+      status: params.status,
+      content: params.content,
+      ...(params.accountId ? { accountId: params.accountId } : {}),
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Zernio createPost: ${await res.text()}`);
+  }
+
+  return res.json() as Promise<{
+    post?: ZernioPost & { platformPostUrl?: string };
+    id?: string;
+    _id?: string;
+    platformPostUrl?: string;
+  }>;
+}
+
 export async function zernioSyncExternalPosts(profileId?: string) {
   const url = new URL(`${ZERNIO_BASE}/analytics/sync-external-posts`);
   if (profileId) {

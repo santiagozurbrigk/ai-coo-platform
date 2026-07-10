@@ -4,6 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  generateVariantCaptionAction,
+  publishVariantAsZernioDraftAction,
+} from "@/app/marketing/content/actions";
+import {
   linkDriveFileToContentAction,
   unlinkDriveFileAction,
 } from "@/app/marketing/content/drive-actions";
@@ -11,9 +15,20 @@ import { DriveFilePicker } from "@/components/marketing/drive-file-picker";
 import { ZernioPostComments } from "@/components/marketing/zernio-post-comments";
 import { paths } from "@/routes";
 import type { ContentPiece, ContentPieceWithVariants } from "@/types/content";
-import { Button, cn } from "@ai-coo/ui";
+import {
+  Badge,
+  Button,
+  cn,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Textarea,
+} from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
 
 type Props = {
   piece: ContentPieceWithVariants;
@@ -275,40 +290,112 @@ export function ContentPieceDetail({ piece, variants }: Props) {
 
 function MetricasTab({ piece }: { piece: ContentPiece }) {
   const metrics = piece.metrics;
-  if (!metrics) {
-    return (
-      <p className="text-sm text-muted-foreground">Sin métricas disponibles.</p>
-    );
-  }
-
-  const stats = [
-    { label: "Likes", value: metrics.likes, icon: "❤️" },
-    { label: "Comentarios", value: metrics.comments, icon: "💬" },
-    { label: "Compartidos", value: metrics.shares, icon: "↗️" },
-    { label: "Guardados", value: metrics.saves, icon: "🔖" },
-    { label: "Reach", value: metrics.reach, icon: "👁️" },
-    { label: "Impresiones", value: metrics.impressions, icon: "📊" },
-    { label: "Views", value: metrics.views, icon: "▶️" },
-  ].filter((stat) => stat.value !== undefined && stat.value !== null);
-
-  if (stats.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">Sin métricas disponibles.</p>
-    );
-  }
+  const stats = metrics
+    ? [
+        { label: "Likes", value: metrics.likes, icon: "❤️" },
+        { label: "Comentarios", value: metrics.comments, icon: "💬" },
+        { label: "Compartidos", value: metrics.shares, icon: "↗️" },
+        { label: "Guardados", value: metrics.saves, icon: "🔖" },
+        { label: "Reach", value: metrics.reach, icon: "👁️" },
+        { label: "Impresiones", value: metrics.impressions, icon: "📊" },
+        { label: "Views", value: metrics.views, icon: "▶️" },
+      ].filter((stat) => stat.value !== undefined && stat.value !== null)
+    : [];
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-      {stats.map((stat) => (
-        <div key={stat.label} className="rounded-lg border p-3">
-          <p className="text-xs text-muted-foreground">
-            {stat.icon} {stat.label}
+    <div className="space-y-6">
+      {stats.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          {stats.map((stat) => (
+            <div key={stat.label} className="rounded-lg border p-3">
+              <p className="text-xs text-muted-foreground">
+                {stat.icon} {stat.label}
+              </p>
+              <p className="mt-1 text-2xl font-semibold">
+                {(stat.value ?? 0).toLocaleString("es-AR")}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">Sin métricas disponibles.</p>
+      )}
+
+      <SalesAttributionSection piece={piece} />
+    </div>
+  );
+}
+
+function SalesAttributionSection({ piece }: { piece: ContentPiece }) {
+  const attribution = piece.sales_attributed;
+
+  const funnelSteps = attribution
+    ? [
+        { label: "Leads", value: attribution.lead_count, icon: "💬" },
+        { label: "Agendados", value: attribution.scheduled_count, icon: "📅" },
+        { label: "Cerrados", value: attribution.closed_count, icon: "✅" },
+        {
+          label: "Revenue",
+          value: attribution.total_revenue,
+          icon: "💰",
+          isCurrency: true,
+        },
+      ]
+    : [];
+
+  return (
+    <div className="rounded-xl border p-4">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold">Atribución de ventas</h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Leads del inbox atribuidos a esta pieza (ventana de 7 días post-publicación).
+        </p>
+      </div>
+
+      {!attribution ? (
+        <div className="rounded-lg bg-muted/50 px-4 py-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Sin atribución de ventas todavía.
           </p>
-          <p className="mt-1 text-2xl font-semibold">
-            {(stat.value ?? 0).toLocaleString("es-AR")}
+          <p className="mt-1 text-xs text-muted-foreground">
+            Los leads que escriban al inbox dentro de los 7 días posteriores a la
+            publicación se atribuirán automáticamente a esta pieza.
           </p>
         </div>
-      ))}
+      ) : (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-stretch gap-2">
+            {funnelSteps.map((step, index) => (
+              <div key={step.label} className="flex items-center gap-2">
+                <div className="min-w-[88px] rounded-lg border bg-card p-3 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    {step.icon} {step.label}
+                  </p>
+                  <p className="mt-1 text-xl font-semibold">
+                    {step.isCurrency
+                      ? step.value.toLocaleString("es-AR", {
+                          style: "currency",
+                          currency: "USD",
+                          maximumFractionDigits: 0,
+                        })
+                      : step.value.toLocaleString("es-AR")}
+                  </p>
+                </div>
+                {index < funnelSteps.length - 1 ? (
+                  <span className="hidden text-muted-foreground sm:inline">→</span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+
+          {attribution.last_attributed_at ? (
+            <p className="text-xs text-muted-foreground">
+              Última atribución:{" "}
+              {new Date(attribution.last_attributed_at).toLocaleString("es-AR")}
+            </p>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }
@@ -440,6 +527,65 @@ function ComentariosTab({ piece }: { piece: ContentPiece }) {
 }
 
 function VariantesTab({ variants }: { variants: ContentPiece[] }) {
+  const router = useRouter();
+  const { push } = useToast();
+  const [publishVariantId, setPublishVariantId] = useState<string | null>(null);
+  const [captionDraft, setCaptionDraft] = useState("");
+  const [generatingCaption, setGeneratingCaption] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+
+  const resetPublishDialog = () => {
+    setPublishVariantId(null);
+    setCaptionDraft("");
+  };
+
+  const closePublishDialog = () => {
+    if (generatingCaption || publishing) return;
+    resetPublishDialog();
+  };
+
+  const handleOpenPublish = async (variantId: string) => {
+    setPublishVariantId(variantId);
+    setCaptionDraft("");
+    setGeneratingCaption(true);
+
+    try {
+      const caption = await generateVariantCaptionAction(variantId);
+      setCaptionDraft(caption);
+    } catch (err) {
+      setPublishVariantId(null);
+      push({
+        title: "No se pudo generar el caption",
+        description: err instanceof Error ? err.message : "Error desconocido",
+      });
+    } finally {
+      setGeneratingCaption(false);
+    }
+  };
+
+  const handleConfirmPublish = async () => {
+    if (!publishVariantId || !captionDraft.trim()) return;
+
+    setPublishing(true);
+    try {
+      await publishVariantAsZernioDraftAction(publishVariantId, captionDraft);
+      push({
+        title: "Variante enviada a Zernio",
+        description: "El draft quedó creado en Zernio.",
+        variant: "success",
+      });
+      resetPublishDialog();
+      router.refresh();
+    } catch (err) {
+      push({
+        title: "No se pudo enviar a Zernio",
+        description: err instanceof Error ? err.message : "Error desconocido",
+      });
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   if (variants.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -452,50 +598,147 @@ function VariantesTab({ variants }: { variants: ContentPiece[] }) {
   }
 
   return (
-    <div className="space-y-4">
-      {variants.map((variant) => (
-        <div key={variant.id} className="rounded-xl border p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-950 dark:text-purple-300">
-              Variante IA
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {new Date(variant.created_at).toLocaleDateString("es-AR")}
-            </span>
-          </div>
-
-          {variant.brief ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-lg bg-blue-50 p-2 dark:bg-blue-950/40">
-                  <p className="text-xs text-muted-foreground">Formato</p>
-                  <p className="text-xs font-medium">{variant.brief.formato?.name}</p>
-                </div>
-                <div className="rounded-lg bg-orange-50 p-2 dark:bg-orange-950/40">
-                  <p className="text-xs text-muted-foreground">Dolor</p>
-                  <p className="text-xs font-medium">{variant.brief.dolor?.name}</p>
-                </div>
-                <div className="rounded-lg bg-purple-50 p-2 dark:bg-purple-950/40">
-                  <p className="text-xs text-muted-foreground">Ángulo</p>
-                  <p className="text-xs font-medium">{variant.brief.angulo?.name}</p>
-                </div>
-              </div>
-
-              {variant.brief.structure?.map((section, index) => (
-                <div key={index} className="rounded-lg border p-3">
-                  <p className="text-xs font-semibold text-primary">{section.part}</p>
-                  <p className="mt-1 text-sm">{section.description}</p>
-                  {section.example_script ? (
-                    <p className="mt-2 rounded bg-muted p-2 font-mono text-xs">
-                      {section.example_script}
-                    </p>
+    <>
+      <div className="space-y-4">
+        {variants.map((variant) => (
+          <div key={variant.id} className="rounded-xl border p-4">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                Variante IA
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {new Date(variant.created_at).toLocaleDateString("es-AR")}
+              </span>
+              {variant.platform_post_id ? (
+                <Badge variant="secondary" className="gap-1">
+                  Enviado a Zernio
+                  {variant.platform_post_url ? (
+                    <a
+                      href={variant.platform_post_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center hover:text-primary"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
                   ) : null}
-                </div>
-              ))}
+                </Badge>
+              ) : null}
             </div>
-          ) : null}
-        </div>
-      ))}
-    </div>
+
+            {variant.brief ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-lg bg-blue-50 p-2 dark:bg-blue-950/40">
+                    <p className="text-xs text-muted-foreground">Formato</p>
+                    <p className="text-xs font-medium">{variant.brief.formato?.name}</p>
+                  </div>
+                  <div className="rounded-lg bg-orange-50 p-2 dark:bg-orange-950/40">
+                    <p className="text-xs text-muted-foreground">Dolor</p>
+                    <p className="text-xs font-medium">{variant.brief.dolor?.name}</p>
+                  </div>
+                  <div className="rounded-lg bg-purple-50 p-2 dark:bg-purple-950/40">
+                    <p className="text-xs text-muted-foreground">Ángulo</p>
+                    <p className="text-xs font-medium">{variant.brief.angulo?.name}</p>
+                  </div>
+                </div>
+
+                {variant.brief.structure?.map((section, index) => (
+                  <div key={index} className="rounded-lg border p-3">
+                    <p className="text-xs font-semibold text-primary">{section.part}</p>
+                    <p className="mt-1 text-sm">{section.description}</p>
+                    {section.example_script ? (
+                      <p className="mt-2 rounded bg-muted p-2 font-mono text-xs">
+                        {section.example_script}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+
+                {!variant.platform_post_id ? (
+                  <div className="pt-1">
+                    <Button
+                      size="sm"
+                      onClick={() => void handleOpenPublish(variant.id)}
+                      disabled={!variant.brief || generatingCaption}
+                    >
+                      {generatingCaption && publishVariantId === variant.id ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generando caption…
+                        </>
+                      ) : (
+                        "Aprobar y enviar a Zernio"
+                      )}
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Esta variante no tiene brief todavía.
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <Dialog
+        open={publishVariantId !== null}
+        onOpenChange={(open) => {
+          if (!open) closePublishDialog();
+        }}
+      >
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Enviar variante a Zernio</DialogTitle>
+            <DialogDescription>
+              Revisá y editá el caption antes de crear el draft en Zernio.
+            </DialogDescription>
+          </DialogHeader>
+
+          {generatingCaption ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generando caption con IA…
+            </div>
+          ) : (
+            <Textarea
+              value={captionDraft}
+              onChange={(event) => setCaptionDraft(event.target.value)}
+              rows={8}
+              className="min-h-[180px] resize-y"
+              placeholder="Caption para el post…"
+            />
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={closePublishDialog}
+              disabled={generatingCaption || publishing}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => void handleConfirmPublish()}
+              disabled={
+                generatingCaption || publishing || captionDraft.trim().length === 0
+              }
+            >
+              {publishing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Enviando…
+                </>
+              ) : (
+                "Confirmar envío"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

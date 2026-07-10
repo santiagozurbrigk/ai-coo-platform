@@ -10,7 +10,6 @@ import {
   toClaudeImageMediaType,
 } from "@/lib/content/content-analysis-prompt";
 import { transcribeAudioBuffer } from "@/lib/content/transcribe-whisper";
-import { processVideoForAnalysis } from "@/lib/content/video-processor";
 import { createClient } from "@/lib/supabase/server";
 import type {
   ContentAnalysis,
@@ -20,8 +19,12 @@ import type {
   ContentPieceStatus,
   ContentPieceType,
   ContentPieceWithVariants,
+  ContentSalesAttributed,
 } from "@/types/content";
 import { paths } from "@/routes";
+import { computeSalesAttributionForOrg } from "@/lib/marketing/content-sales-attribution";
+import { getZernioIntegrationForOrg } from "@/lib/zernio/integration";
+import { zernioCreatePost } from "@/lib/zernio/client";
 import { downloadDriveFileAction } from "./drive-actions";
 
 async function requireProfileOrganizationId(): Promise<string> {
@@ -161,6 +164,7 @@ export async function analyzeContentPieceAction(
   }> = [];
 
   if (isVideoMimeType(mimeType)) {
+    const { processVideoForAnalysis } = await import("@/lib/content/video-processor");
     const { audioBuffer, frames } = await processVideoForAnalysis(buffer, mimeType);
     transcript = await transcribeAudioBuffer(audioBuffer);
     visionImages.push(
@@ -341,6 +345,7 @@ export type TopPerformingContentResult = {
   platform_post_url?: string;
   published_at?: string;
   metrics?: ContentMetrics;
+  sales_attributed?: ContentSalesAttributed;
   analysis_summary: {
     formato?: string;
     dolor?: string;
@@ -348,6 +353,11 @@ export type TopPerformingContentResult = {
   } | null;
   score: number;
 };
+
+function salesScore(attribution?: ContentSalesAttributed | null): number {
+  if (!attribution) return 0;
+  return attribution.total_revenue || attribution.closed_count * 1000;
+}
 
 function engagementTotalScore(metrics: ContentMetrics): number {
   return (
@@ -360,15 +370,48 @@ function engagementTotalScore(metrics: ContentMetrics): number {
 
 function metricScore(
   metric: string,
-  metrics: ContentMetrics
+  metrics: ContentMetrics,
+  salesAttributed?: ContentSalesAttributed | null
 ): number {
   if (metric === "engagement_total") {
     return engagementTotalScore(metrics);
   }
   if (metric === "sales") {
-    return metrics.saves ?? 0;
+    return salesScore(salesAttributed);
   }
   return metrics[metric as keyof ContentMetrics] ?? 0;
+}
+
+export async function updateSalesAttributionAction(
+  contentPieceIds?: string[]
+): Promise<void> {
+  const organizationId = await requireProfileOrganizationId();
+  const supabase = await createClient();
+
+  const attributionMap = await computeSalesAttributionForOrg(
+    supabase,
+    organizationId
+  );
+
+  let pieceIds = [...attributionMap.keys()];
+  if (contentPieceIds?.length) {
+    pieceIds = pieceIds.filter((id) => contentPieceIds.includes(id));
+  }
+
+  await Promise.all(
+    pieceIds.map(async (pieceId) => {
+      const salesAttributed = attributionMap.get(pieceId);
+      if (!salesAttributed) return;
+
+      const { error } = await supabase
+        .from("content_pieces")
+        .update({ sales_attributed: salesAttributed })
+        .eq("id", pieceId)
+        .eq("organization_id", organizationId);
+
+      if (error) throw new Error(error.message);
+    })
+  );
 }
 
 export async function getTopPerformingContentAction({
@@ -383,15 +426,22 @@ export async function getTopPerformingContentAction({
   const organizationId = await requireProfileOrganizationId();
   const supabase = await createClient();
 
+  if (metric === "sales") {
+    await updateSalesAttributionAction();
+  }
+
   let query = supabase
     .from("content_pieces")
     .select(
-      "id, type, title, caption, thumbnail_url, platform_post_url, metrics, published_at, analysis"
+      "id, type, title, caption, thumbnail_url, platform_post_url, metrics, published_at, analysis, sales_attributed"
     )
     .eq("organization_id", organizationId)
     .eq("source", "zernio")
-    .is("variants_of", null)
-    .not("metrics", "is", null);
+    .is("variants_of", null);
+
+  if (metric !== "sales") {
+    query = query.not("metrics", "is", null);
+  }
 
   if (typeFilter !== "all") {
     query = query.eq("type", typeFilter);
@@ -414,17 +464,19 @@ export async function getTopPerformingContentAction({
     published_at?: string | null;
     analysis?: ContentAnalysis | null;
     metrics?: ContentMetrics | null;
+    sales_attributed?: ContentSalesAttributed | null;
   };
 
   const sorted = [...(pieces as RankedPiece[])].sort((a, b) => {
-    const scoreA = metricScore(metric, a.metrics ?? {});
-    const scoreB = metricScore(metric, b.metrics ?? {});
+    const scoreA = metricScore(metric, a.metrics ?? {}, a.sales_attributed);
+    const scoreB = metricScore(metric, b.metrics ?? {}, b.sales_attributed);
     return scoreB - scoreA;
   });
 
   return sorted.slice(0, limit).map((piece) => {
     const metrics = piece.metrics ?? undefined;
     const analysis = piece.analysis ?? undefined;
+    const salesAttributed = piece.sales_attributed ?? undefined;
 
     return {
       id: piece.id,
@@ -433,6 +485,7 @@ export async function getTopPerformingContentAction({
       platform_post_url: piece.platform_post_url ?? undefined,
       published_at: piece.published_at ?? undefined,
       metrics,
+      sales_attributed: salesAttributed,
       analysis_summary: analysis
         ? {
             formato: analysis.formato?.name,
@@ -440,7 +493,178 @@ export async function getTopPerformingContentAction({
             angulo: analysis.angulo?.name,
           }
         : null,
-      score: metrics ? metricScore(metric, metrics) : 0,
+      score: metricScore(metric, metrics ?? {}, salesAttributed),
     };
   });
+}
+
+export async function generateVariantCaptionAction(
+  variantId: string
+): Promise<string> {
+  const organizationId = await requireProfileOrganizationId();
+  const supabase = await createClient();
+
+  const { data: variant, error } = await supabase
+    .from("content_pieces")
+    .select("*")
+    .eq("id", variantId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (error || !variant) {
+    throw new Error("Variante no encontrada");
+  }
+
+  const brief = variant.brief as ContentBrief | null;
+  if (!brief) {
+    throw new Error("La variante no tiene brief");
+  }
+
+  let sourceCaption: string | null = null;
+  if (variant.variants_of) {
+    const { data: sourcePiece } = await supabase
+      .from("content_pieces")
+      .select("caption")
+      .eq("id", variant.variants_of)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    sourceCaption = (sourcePiece?.caption as string | null) ?? null;
+  }
+
+  const prompt = `Generá un caption para Instagram en español (máximo 150 palabras) a partir de este brief de contenido.
+
+Ángulo (usar como hook): ${brief.angulo.name} — ${brief.angulo.description}
+Dolor: ${brief.dolor.name} — ${brief.dolor.description}
+Formato: ${brief.formato.name} — ${brief.formato.description}
+${sourceCaption ? `Caption original de referencia: "${sourceCaption}"` : ""}
+
+Estructura del guión:
+${brief.structure
+  .map(
+    (section) =>
+      `- ${section.part}: ${section.description}${section.example_script ? ` (ej: ${section.example_script})` : ""}`
+  )
+  .join("\n")}
+
+El caption debe sonar natural, abrir con el ángulo como gancho, desarrollar el dolor y cerrar con un CTA suave. Sin hashtags.
+
+Respondé con JSON: { "caption": "..." }`;
+
+  const result = await callClaudeJson<{ caption: string }>({
+    organizationId,
+    task: "create_content_variants",
+    feature: "marketing_content",
+    user: prompt,
+    maxTokens: 800,
+  });
+
+  const caption = result?.caption?.trim();
+  if (!caption) {
+    throw new Error("No se pudo generar el caption");
+  }
+
+  return caption;
+}
+
+export async function publishVariantAsZernioDraftAction(
+  variantId: string,
+  caption: string
+): Promise<{ postId: string; caption: string; platformPostUrl?: string }> {
+  const organizationId = await requireProfileOrganizationId();
+  const supabase = await createClient();
+  const trimmedCaption = caption.trim();
+
+  if (!trimmedCaption) {
+    throw new Error("El caption no puede estar vacío");
+  }
+
+  const { data: variant, error } = await supabase
+    .from("content_pieces")
+    .select("*")
+    .eq("id", variantId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (error || !variant) {
+    throw new Error("Variante no encontrada");
+  }
+
+  if (!variant.brief) {
+    throw new Error("La variante no tiene brief");
+  }
+
+  if (!variant.variants_of) {
+    throw new Error("Esta pieza no es una variante");
+  }
+
+  const { data: sourcePiece, error: sourceError } = await supabase
+    .from("content_pieces")
+    .select("platform, type")
+    .eq("id", variant.variants_of)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (sourceError || !sourcePiece) {
+    throw new Error("Pieza fuente no encontrada");
+  }
+
+  const integration = await getZernioIntegrationForOrg(organizationId);
+  if (!integration?.connected_accounts.length) {
+    throw new Error("Zernio no está conectado");
+  }
+
+  const platform =
+    sourcePiece.platform ??
+    integration.connected_accounts.find((a) => a.platform === "instagram")
+      ?.platform ??
+    integration.connected_accounts[0]?.platform ??
+    "instagram";
+
+  const accountId =
+    integration.connected_accounts.find(
+      (account) => account.platform === platform
+    )?.accountId ?? integration.connected_accounts[0]?.accountId;
+
+  const created = await zernioCreatePost({
+    profileId: integration.zernio_profile_id,
+    platform,
+    postType: sourcePiece.type === "reel" ? "reel" : sourcePiece.type,
+    status: "draft",
+    content: trimmedCaption,
+    accountId,
+  });
+
+  const post = created.post ?? created;
+  const postId = String(post.id ?? post._id ?? "");
+  if (!postId) {
+    throw new Error("Zernio no devolvió ID del post");
+  }
+
+  const platformPostUrl =
+    post.platformPostUrl ??
+    created.platformPostUrl ??
+    `https://zernio.com/posts/${postId}`;
+
+  const { error: updateError } = await supabase
+    .from("content_pieces")
+    .update({
+      status: "draft",
+      platform,
+      platform_post_id: postId,
+      platform_post_url: platformPostUrl,
+      caption: trimmedCaption,
+    })
+    .eq("id", variantId)
+    .eq("organization_id", organizationId);
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+
+  revalidatePath(paths.platform.marketing.content);
+  if (variant.variants_of) {
+    revalidatePath(paths.platform.marketing.contentDetail(variant.variants_of));
+  }
+
+  return { postId, caption: trimmedCaption, platformPostUrl };
 }

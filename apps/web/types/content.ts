@@ -66,6 +66,14 @@ export type ContentMetrics = {
   views?: number;
 };
 
+export type ContentSalesAttributed = {
+  lead_count: number;
+  scheduled_count: number;
+  closed_count: number;
+  total_revenue: number;
+  last_attributed_at: string;
+};
+
 export type ContentPiece = {
   id: string;
   organization_id: string;
@@ -95,6 +103,8 @@ export type ContentPiece = {
 
   metrics?: ContentMetrics;
   metrics_updated_at?: string;
+
+  sales_attributed?: ContentSalesAttributed;
 
   status: ContentPieceStatus;
   created_at: string;
