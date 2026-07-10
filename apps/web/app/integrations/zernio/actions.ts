@@ -243,7 +243,6 @@ export async function sendZernioMessageAction(
   }
 
   const result = await zernioSendMessage(conversationId, text, accountId);
-  revalidatePath(paths.platform.sales.inbox);
   return result;
 }
 
@@ -356,66 +355,139 @@ export async function getZernioAnalyticsAction(): Promise<ZernioAnalyticsSummary
   }
 }
 
+export type ZernioAnalysisSummary = {
+  ai_tag?: string;
+  ai_status?: string;
+  ai_qualification?: string;
+  ai_ghosting_risk?: string;
+  agenda_sent?: boolean;
+  is_scheduled?: boolean;
+};
+
+export type ZernioAnalysisResult = ZernioAnalysisSummary & {
+  success: boolean;
+  ai_sentiment?: string;
+  ai_pain_point?: string;
+  ai_recommended_action?: string;
+  ai_summary?: string;
+  link_sent?: boolean;
+  error?: string;
+};
+
 export async function analyzeZernioConversationAction(
+  conversationId: string,
+  accountId: string,
   participantName: string,
   platform: string,
   messages: Array<{ text?: string; direction: string; createdAt: string }>
-): Promise<{
-  success: boolean;
-  sentiment?: "positivo" | "neutral" | "negativo";
-  qualification?: "alto" | "medio" | "bajo";
-  painPoint?: string;
-  recommendedAction?: string;
-  ghostingRisk?: "alto" | "medio" | "bajo";
-  error?: string;
-}> {
+): Promise<ZernioAnalysisResult> {
   try {
     const organizationId = await requireOrganizationId();
-    const integration = await getZernioIntegrationForOrg(organizationId);
-    if (!integration) throw new Error("Sin integración Zernio");
+    const admin = createAdminClient();
 
     const conversationText = messages
-      .slice(-30)
+      .slice(-40)
       .map((m) => {
         const isOutbound =
           m.direction === "outbound" || m.direction === "outgoing";
-        return `[${isOutbound ? "YO" : participantName}]: ${m.text ?? ""}`;
+        return `[${isOutbound ? "NOSOTROS" : participantName}]: ${m.text ?? ""}`;
       })
       .join("\n");
 
-    const object = await callClaudeJson<{
-      sentiment: "positivo" | "neutral" | "negativo";
-      qualification: "alto" | "medio" | "bajo";
-      painPoint: string;
-      recommendedAction: string;
-      ghostingRisk: "alto" | "medio" | "bajo";
+    const result = await callClaudeJson<{
+      ai_tag: string;
+      ai_status: string;
+      ai_qualification: string;
+      ai_sentiment: string;
+      ai_pain_point: string;
+      ai_recommended_action: string;
+      ai_ghosting_risk: string;
+      ai_summary: string;
+      agenda_sent: boolean;
+      is_scheduled: boolean;
+      link_sent: boolean;
     }>({
       organizationId,
       task: "conversation_scoring",
       feature: "zernio_conversation_analysis",
       system:
         "Respondé únicamente con JSON válido en español, sin markdown ni texto adicional.",
-      user: `Analizá esta conversación de ${platform} con ${participantName}:
+      user: `Analizá esta conversación de ${platform} con ${participantName} y respondé en español con JSON exacto:
 
 ${conversationText}
 
-Devolvé un JSON con:
-- sentiment: qué tan interesado/positivo está el lead ("positivo" | "neutral" | "negativo")
-- qualification: qué tan calificado como potencial cliente ("alto" | "medio" | "bajo")
-- painPoint: el dolor o problema principal que mencionó (max 150 chars)
-- recommendedAction: qué hacer a continuación (max 200 chars)
-- ghostingRisk: riesgo de que deje de responder ("alto" | "medio" | "bajo")`,
+Devolvé este JSON (sin markdown, solo JSON):
+{
+  "ai_tag": "caliente|tibio|frio|agendado|no_interesado",
+  "ai_status": "interesado|no_interesado|agendado|esperando_respuesta",
+  "ai_qualification": "alto|medio|bajo",
+  "ai_sentiment": "positivo|neutral|negativo",
+  "ai_pain_point": "el dolor o problema principal que mencionó en máx 100 chars",
+  "ai_recommended_action": "qué hacer ahora en máx 150 chars",
+  "ai_ghosting_risk": "alto|medio|bajo",
+  "ai_summary": "resumen de 2 líneas de la conversación",
+  "agenda_sent": true/false (si se mencionó o envió un link de agenda/calendly/reunión),
+  "is_scheduled": true/false (si quedó una reunión o llamada agendada confirmada),
+  "link_sent": true/false (si se envió algún link de producto, curso o ventas)
+}`,
     });
 
-    if (!object) {
+    if (!result) {
       throw new Error("El análisis IA no devolvió resultado");
     }
 
-    return { success: true, ...object };
+    await admin.from("zernio_conversation_analysis").upsert(
+      {
+        organization_id: organizationId,
+        conversation_id: conversationId,
+        account_id: accountId,
+        participant_name: participantName,
+        platform,
+        message_count: messages.length,
+        last_analyzed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        ...result,
+      },
+      { onConflict: "organization_id,conversation_id" }
+    );
+
+    return { success: true, ...result };
   } catch (err) {
     return {
       success: false,
       error: err instanceof Error ? err.message : "Error desconocido",
     };
+  }
+}
+
+export async function getZernioAnalysisBatchAction(
+  conversationIds: string[]
+): Promise<Record<string, ZernioAnalysisSummary>> {
+  if (conversationIds.length === 0) return {};
+  try {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("zernio_conversation_analysis")
+      .select(
+        "conversation_id, ai_tag, ai_status, ai_qualification, ai_ghosting_risk, agenda_sent, is_scheduled"
+      )
+      .eq("organization_id", organizationId)
+      .in("conversation_id", conversationIds);
+
+    const map: Record<string, ZernioAnalysisSummary> = {};
+    for (const row of data ?? []) {
+      map[row.conversation_id as string] = {
+        ai_tag: row.ai_tag as string | undefined,
+        ai_status: row.ai_status as string | undefined,
+        ai_qualification: row.ai_qualification as string | undefined,
+        ai_ghosting_risk: row.ai_ghosting_risk as string | undefined,
+        agenda_sent: row.agenda_sent as boolean | undefined,
+        is_scheduled: row.is_scheduled as boolean | undefined,
+      };
+    }
+    return map;
+  } catch {
+    return {};
   }
 }

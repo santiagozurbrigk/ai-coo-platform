@@ -1,24 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  getZernioAnalysisBatchAction,
   getZernioIntegrationStatusAction,
   getZernioMessagesAction,
   listZernioConversationsAction,
   sendZernioMessageAction,
+  type ZernioAnalysisSummary,
   type ZernioConversationWithAccount,
 } from "@/app/integrations/zernio/actions";
 import type { ZernioMessage } from "@/lib/zernio/client";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageLoading } from "@/components/shared/page-loading";
 import { paths } from "@/routes";
-import {
-  Badge,
-  Button,
-  Input,
-  cn,
-} from "@ai-coo/ui";
+import { Badge, Button, Input, cn } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
 import { ZernioSidePanel } from "./zernio-side-panel";
 
@@ -33,6 +30,17 @@ const PLATFORM_COLORS: Record<string, string> = {
   tiktok: "bg-foreground/10 text-foreground",
 };
 
+const TAG_CONFIG: Record<string, { label: string; className: string }> = {
+  caliente: { label: "🔥 Caliente", className: "bg-red-500/15 text-red-500" },
+  tibio: { label: "🌡 Tibio", className: "bg-orange-500/15 text-orange-500" },
+  frio: { label: "❄️ Frío", className: "bg-blue-500/15 text-blue-500" },
+  agendado: { label: "✅ Agendado", className: "bg-green-500/15 text-green-500" },
+  no_interesado: {
+    label: "✗ No interesado",
+    className: "bg-muted text-muted-foreground",
+  },
+};
+
 function conversationTitle(conversation: ZernioConversationWithAccount): string {
   return conversation.participantName || "Contacto";
 }
@@ -41,10 +49,41 @@ function conversationAvatar(conversation: ZernioConversationWithAccount): string
   return conversation.participantPicture ?? null;
 }
 
+function ConversationAvatar({
+  src,
+  name,
+}: {
+  src: string | null;
+  name: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const initial = name.slice(0, 1).toUpperCase();
+
+  if (!src || failed) {
+    return (
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+        {initial}
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      className="h-9 w-9 shrink-0 rounded-full object-cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export function ZernioInboxPanel() {
   const { push } = useToast();
+  const hasAutoSelected = useRef(false);
   const [hasIntegration, setHasIntegration] = useState<boolean | null>(null);
   const [conversations, setConversations] = useState<ZernioConversationWithAccount[]>([]);
+  const [analysisMap, setAnalysisMap] = useState<Record<string, ZernioAnalysisSummary>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ZernioMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -59,13 +98,18 @@ export function ZernioInboxPanel() {
       setHasIntegration(status.connected || Boolean(status.profileId));
       const list = await listZernioConversationsAction();
       setConversations(list);
-      if (!selectedId && list[0]) {
+      if (list.length > 0) {
+        const batch = await getZernioAnalysisBatchAction(list.map((c) => c.id));
+        setAnalysisMap(batch);
+      }
+      if (!hasAutoSelected.current && list[0]) {
         setSelectedId(list[0].id);
+        hasAutoSelected.current = true;
       }
     } finally {
       setLoading(false);
     }
-  }, [selectedId]);
+  }, []);
 
   useEffect(() => {
     void loadConversations();
@@ -108,16 +152,36 @@ export function ZernioInboxPanel() {
 
   const selected = conversations.find((c) => c.id === selectedId);
 
+  const handleAnalysisUpdated = useCallback(
+    (conversationId: string, summary: ZernioAnalysisSummary) => {
+      setAnalysisMap((prev) => ({ ...prev, [conversationId]: summary }));
+    },
+    []
+  );
+
   async function handleSend() {
     if (!selectedId || !selected?.accountId || !draft.trim()) return;
+    const text = draft.trim();
     setSending(true);
+    setDraft("");
+
+    const optimisticMsg: ZernioMessage = {
+      id: `optimistic-${Date.now()}`,
+      conversationId: selectedId,
+      text,
+      direction: "outbound",
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+
     try {
-      await sendZernioMessageAction(selectedId, draft.trim(), selected.accountId);
-      setDraft("");
-      const list = await getZernioMessagesAction(selectedId, selected.accountId);
-      setMessages(list);
-      await loadConversations();
+      await sendZernioMessageAction(selectedId, text, selected.accountId);
+      void getZernioMessagesAction(selectedId, selected.accountId)
+        .then(setMessages)
+        .catch(() => null);
     } catch (err) {
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+      setDraft(text);
       push({
         title: "No se pudo enviar",
         description: err instanceof Error ? err.message : "Error desconocido",
@@ -165,10 +229,11 @@ export function ZernioInboxPanel() {
     <div className="flex h-full min-h-0 flex-1 overflow-hidden">
       <div className="hidden h-full w-[280px] shrink-0 flex-col overflow-y-auto border-r border-border md:flex">
         {conversations.map((conversation) => {
-          const avatar = conversationAvatar(conversation);
           const platformClass =
             PLATFORM_COLORS[conversation.platform.toLowerCase()] ??
             "bg-muted text-muted-foreground";
+          const tag = analysisMap[conversation.id]?.ai_tag;
+          const tagConfig = tag ? TAG_CONFIG[tag] : null;
 
           return (
             <button
@@ -180,18 +245,10 @@ export function ZernioInboxPanel() {
                 selectedId === conversation.id && "bg-muted/60"
               )}
             >
-              {avatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={avatar}
-                  alt=""
-                  className="h-9 w-9 shrink-0 rounded-full object-cover"
-                />
-              ) : (
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                  {conversationTitle(conversation).slice(0, 1).toUpperCase()}
-                </div>
-              )}
+              <ConversationAvatar
+                src={conversationAvatar(conversation)}
+                name={conversationTitle(conversation)}
+              />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
                   <p className="truncate text-sm font-medium">
@@ -201,6 +258,16 @@ export function ZernioInboxPanel() {
                     {conversation.platform}
                   </Badge>
                 </div>
+                {tagConfig && (
+                  <span
+                    className={cn(
+                      "mt-0.5 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                      tagConfig.className
+                    )}
+                  >
+                    {tagConfig.label}
+                  </span>
+                )}
                 <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                   {conversation.lastMessage ?? "Sin mensajes"}
                 </p>
@@ -278,7 +345,12 @@ export function ZernioInboxPanel() {
 
       <div className="hidden h-full w-[240px] min-w-[240px] shrink-0 overflow-y-auto border-l border-border bg-card lg:block">
         {selected ? (
-          <ZernioSidePanel conversation={selected} messages={messages} />
+          <ZernioSidePanel
+            conversation={selected}
+            messages={messages}
+            savedAnalysis={analysisMap[selected.id]}
+            onAnalysisUpdated={handleAnalysisUpdated}
+          />
         ) : (
           <div className="flex h-full items-center justify-center p-4">
             <p className="text-center text-xs text-muted-foreground">
