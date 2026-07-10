@@ -33,17 +33,53 @@ type ContentPieceSyncRow = {
   status: ContentPieceStatus;
 };
 
-function mapZernioType(platform: string, postType: string): ContentPieceType {
+function mapZernioType(
+  platform: string,
+  postType?: string,
+  mediaType?: string
+): ContentPieceType {
   if (platform === "youtube") return "youtube";
-  if (postType === "reel") return "reel";
-  if (postType === "story") return "story";
-  if (postType === "carousel" || postType === "album") return "carousel";
+  const resolvedType = postType ?? mediaType;
+  if (resolvedType === "reel" || resolvedType === "video") return "reel";
+  if (resolvedType === "story") return "story";
+  if (resolvedType === "carousel" || resolvedType === "album") return "carousel";
   return "post";
 }
 
 function zernioPostId(post: ZernioPost): string | null {
-  const id = post.id ?? post._id;
+  const id = post.platformPostId ?? post.id ?? post._id;
   return id ? String(id) : null;
+}
+
+function flattenZernioPosts(rawPosts: ZernioPost[]): ZernioPost[] {
+  const result: ZernioPost[] = [];
+
+  for (const post of rawPosts) {
+    if (post.platforms?.length) {
+      for (const platformEntry of post.platforms) {
+        if (platformEntry.status === "failed") continue;
+
+        const accountId =
+          typeof platformEntry.accountId === "object"
+            ? platformEntry.accountId?._id
+            : platformEntry.accountId;
+
+        result.push({
+          ...post,
+          platform: platformEntry.platform ?? post.platform,
+          platformPostUrl: platformEntry.platformPostUrl ?? post.platformPostUrl,
+          accountId: accountId ?? post.accountId,
+          postType: platformEntry.postType ?? post.postType,
+          id: post.id ?? post._id,
+        });
+      }
+      continue;
+    }
+
+    result.push(post);
+  }
+
+  return result;
 }
 
 function belongsToIntegration(
@@ -69,11 +105,12 @@ function mapPostToRow(
   const platformPostId = zernioPostId(post);
   if (!platformPostId) return null;
 
-  const postType = post.postType?.trim() || "post";
+  const postType = post.postType?.trim();
+  const mediaType = post.mediaType?.trim();
 
   return {
     organization_id: organizationId,
-    type: mapZernioType(platform, postType),
+    type: mapZernioType(platform, postType, mediaType),
     source: "zernio",
     platform,
     platform_post_id: platformPostId,
@@ -109,13 +146,49 @@ async function requireOrganizationId(): Promise<string> {
   return profile.organization_id;
 }
 
-async function fetchZernioPosts(profileId: string): Promise<ZernioPost[]> {
-  const [{ posts: publishedPosts = [] }, externalResult] = await Promise.all([
-    zernioListPublishedPosts({ profileId, limit: 50 }),
-    zernioSyncExternalPosts(profileId).catch(() => ({ posts: [] as ZernioPost[] })),
+async function fetchZernioPosts(
+  profileId: string,
+  accountIds: string[]
+): Promise<ZernioPost[]> {
+  const [{ posts: zernioPosts = [] }, externalResults] = await Promise.all([
+    zernioListPublishedPosts({
+      profileId,
+      source: "zernio",
+      status: "published",
+      limit: 50,
+    }),
+    Promise.all(
+      accountIds.map(async (accountId) => {
+        const syncResult = await zernioSyncExternalPosts(accountId);
+        console.info("[syncZernioContent] syncExternalPosts", {
+          accountId,
+          posts: syncResult.posts.length,
+          synced: syncResult.synced,
+        });
+
+        const { posts: listedPosts = [] } = await zernioListPublishedPosts({
+          accountId,
+          source: "external",
+          status: "published",
+          limit: 50,
+        });
+
+        const merged = dedupePosts([
+          ...syncResult.posts,
+          ...listedPosts,
+        ]);
+
+        return merged.map((post) => ({
+          ...post,
+          accountId: post.accountId ?? accountId,
+        }));
+      })
+    ),
   ]);
 
-  return dedupePosts([...publishedPosts, ...(externalResult.posts ?? [])]);
+  return dedupePosts(
+    flattenZernioPosts([...zernioPosts, ...externalResults.flat()])
+  );
 }
 
 function aggregatePlatformMetrics(
@@ -164,13 +237,30 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
     throw new Error("Zernio no está conectado");
   }
 
-  const accountIds = new Set(
-    integration.connected_accounts.map((account) => account.accountId)
+  const accountIds = integration.connected_accounts.map(
+    (account) => account.accountId
   );
 
-  const posts = await fetchZernioPosts(integration.zernio_profile_id);
+  let posts: ZernioPost[];
+  try {
+    posts = await fetchZernioPosts(integration.zernio_profile_id, accountIds);
+  } catch (error) {
+    console.error("[syncZernioContent] fetchZernioPosts failed", {
+      profileId: integration.zernio_profile_id,
+      accountIds,
+      error: error instanceof Error ? error.message : error,
+    });
+    throw error;
+  }
+
+  console.info("[syncZernioContent] fetched posts", {
+    total: posts.length,
+    profileId: integration.zernio_profile_id,
+    accountIds,
+  });
+
   const filteredPosts = posts.filter((post) =>
-    belongsToIntegration(post, integration.zernio_profile_id, accountIds)
+    belongsToIntegration(post, integration.zernio_profile_id, new Set(accountIds))
   );
 
   const upsertRows = filteredPosts
@@ -178,6 +268,10 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
     .filter((row): row is ContentPieceSyncRow => row !== null);
 
   if (upsertRows.length === 0) {
+    console.info("[syncZernioContent] no rows to upsert after filtering", {
+      fetched: posts.length,
+      filtered: filteredPosts.length,
+    });
     return { synced: 0 };
   }
 

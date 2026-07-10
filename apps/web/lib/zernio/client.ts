@@ -11,6 +11,45 @@ function zernioHeaders() {
   };
 }
 
+async function zernioFetchJson<T>(
+  label: string,
+  url: string,
+  init?: RequestInit
+): Promise<T> {
+  const res = await fetch(url, { ...init, cache: "no-store" });
+  const bodyText = await res.text();
+  const preview = bodyText.slice(0, 200);
+
+  if (!res.ok) {
+    console.error(`[Zernio] ${label} failed`, {
+      status: res.status,
+      url,
+      preview,
+    });
+    throw new Error(`Zernio ${label}: HTTP ${res.status} — ${preview}`);
+  }
+
+  const contentType = res.headers.get("content-type") ?? "";
+  if (
+    !contentType.includes("application/json") &&
+    bodyText.trimStart().startsWith("<")
+  ) {
+    console.error(`[Zernio] ${label} returned HTML`, {
+      status: res.status,
+      url,
+      preview,
+    });
+    throw new Error(`Zernio ${label}: respuesta HTML inesperada — ${preview}`);
+  }
+
+  try {
+    return JSON.parse(bodyText) as T;
+  } catch {
+    console.error(`[Zernio] ${label} invalid JSON`, { url, preview });
+    throw new Error(`Zernio ${label}: JSON inválido — ${preview}`);
+  }
+}
+
 // ── Profiles ──────────────────────────────────────────
 export async function zernioCreateProfile(name: string) {
   const res = await fetch(`${ZERNIO_BASE}/profiles`, {
@@ -213,7 +252,9 @@ export type ZernioPost = {
   id?: string;
   _id?: string;
   platform?: string;
+  platformPostId?: string;
   postType?: string;
+  mediaType?: string;
   platformPostUrl?: string;
   title?: string;
   content?: string;
@@ -224,25 +265,62 @@ export type ZernioPost = {
   profileId?: string;
   profile?: string;
   accountId?: string;
+  platforms?: Array<{
+    platform?: string;
+    accountId?: string | { _id?: string };
+    platformPostUrl?: string;
+    postType?: string;
+    status?: string;
+  }>;
 };
 
 export async function zernioListPublishedPosts(params?: {
   profileId?: string;
+  accountId?: string;
+  source?: "zernio" | "external";
+  status?: "draft" | "scheduled" | "published" | "failed";
   limit?: number;
 }) {
   const url = new URL(`${ZERNIO_BASE}/posts`);
-  url.searchParams.set("status", "published");
+  url.searchParams.set("status", params?.status ?? "published");
   url.searchParams.set("limit", String(params?.limit ?? 50));
+  url.searchParams.set("source", params?.source ?? "zernio");
   if (params?.profileId) {
     url.searchParams.set("profileId", params.profileId);
   }
+  if (params?.accountId) {
+    url.searchParams.set("accountId", params.accountId);
+  }
 
-  const res = await fetch(url.toString(), {
+  return zernioFetchJson<{ posts?: ZernioPost[] }>(
+    "listPublishedPosts",
+    url.toString(),
+    { headers: zernioHeaders() }
+  );
+}
+
+export async function zernioSyncExternalPosts(accountId: string): Promise<{
+  posts: ZernioPost[];
+  synced?: {
+    postsFound?: number;
+    postsSynced?: number;
+    skipped?: boolean;
+  };
+}> {
+  const data = await zernioFetchJson<{
+    posts?: ZernioPost[];
+    synced?: {
+      postsFound?: number;
+      postsSynced?: number;
+      skipped?: boolean;
+    };
+  }>("syncExternalPosts", `${ZERNIO_BASE}/posts/sync-external`, {
+    method: "POST",
     headers: zernioHeaders(),
-    cache: "no-store",
+    body: JSON.stringify({ accountId }),
   });
-  if (!res.ok) throw new Error(`Zernio listPublishedPosts: ${await res.text()}`);
-  return res.json() as Promise<{ posts?: ZernioPost[] }>;
+
+  return { posts: data.posts ?? [], synced: data.synced };
 }
 
 export async function zernioCreatePost(params: {
@@ -276,25 +354,6 @@ export async function zernioCreatePost(params: {
     _id?: string;
     platformPostUrl?: string;
   }>;
-}
-
-export async function zernioSyncExternalPosts(profileId?: string) {
-  const url = new URL(`${ZERNIO_BASE}/analytics/sync-external-posts`);
-  if (profileId) {
-    url.searchParams.set("profileId", profileId);
-  }
-
-  const res = await fetch(url.toString(), {
-    method: "GET",
-    headers: zernioHeaders(),
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    console.warn("[Zernio] syncExternalPosts:", await res.text());
-    return { posts: [] as ZernioPost[] };
-  }
-  const data = (await res.json()) as { posts?: ZernioPost[] };
-  return { posts: data.posts ?? [] };
 }
 
 // ── Analytics ─────────────────────────────────────────
