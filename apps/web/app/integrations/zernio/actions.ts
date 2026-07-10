@@ -9,6 +9,7 @@ import {
   zernioCreateProfile,
   zernioGetConnectUrl,
   zernioGetMessages,
+  zernioGetPostComments,
   zernioGetPostsAnalytics,
   zernioHideComment,
   zernioListAccounts,
@@ -273,6 +274,35 @@ export async function listZernioCommentsAction(): Promise<ZernioCommentWithAccou
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
+}
+
+export async function getZernioPostCommentsAction(
+  postId: string
+): Promise<ZernioCommentWithAccount[]> {
+  const organizationId = await requireOrganizationId();
+  const integration = await getZernioIntegrationForOrg(organizationId);
+  if (!integration || integration.connected_accounts.length === 0) {
+    return [];
+  }
+
+  try {
+    const { comments } = await zernioGetPostComments(postId);
+    return comments
+      .map((comment) => ({
+        ...comment,
+        accountId: integration.connected_accounts.find(
+          (account) =>
+            account.platform.toLowerCase() === comment.platform.toLowerCase()
+        )?.accountId,
+      }))
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+  } catch {
+    const allComments = await listZernioCommentsAction();
+    return allComments.filter((comment) => comment.postId === postId);
+  }
 }
 
 export async function replyToZernioCommentAction(

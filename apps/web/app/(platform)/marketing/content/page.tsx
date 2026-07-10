@@ -1,5 +1,6 @@
 import { getContentPiecesAction } from "@/app/marketing/content/actions";
 import { maybeSyncZernioContentAction } from "@/app/marketing/content/sync-actions";
+import { ContentPieceGrid } from "@/components/marketing/content-piece-grid";
 
 export default async function MarketingContentPage() {
   try {
@@ -13,20 +14,14 @@ export default async function MarketingContentPage() {
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Contenido</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">Contenido</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {pieces.length} piezas · sincronizado desde Instagram
+          </p>
+        </div>
       </div>
-      {/* ContentPieceGrid se implementa en Prompt #12 */}
-      <pre>
-        {JSON.stringify(
-          pieces.map((piece) => ({
-            id: piece.id,
-            type: piece.type,
-            title: piece.title,
-          })),
-          null,
-          2
-        )}
-      </pre>
+      <ContentPieceGrid pieces={pieces} />
     </div>
   );
 }
