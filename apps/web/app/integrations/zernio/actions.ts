@@ -2,42 +2,63 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
+import { requireAuthContext } from "@/lib/auth/require-auth";
+import {
+  integrationConnectRateLimit,
+  rateLimitErrorMessage,
+} from "@/lib/rate-limit";
+import { apiKeySchema, firstZodError } from "@/lib/validations";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes";
 import {
-  zernioCreateProfile,
-  zernioGetConnectUrl,
-  zernioGetMessages,
-  zernioGetPostComments,
-  zernioGetPostsAnalytics,
-  zernioHideComment,
-  zernioListAccounts,
-  zernioListComments,
-  zernioListConversations,
-  zernioReplyToComment,
-  zernioSendMessage,
   type ZernioComment,
   type ZernioConversation,
   type ZernioMessage,
+  createZernioClient,
 } from "@/lib/zernio/client";
 import { callClaudeJson } from "@/lib/ai/anthropic";
 import {
+  encryptZernioApiKey,
+  formatZernioChannelsLabel,
+  getZernioChannelStatus,
+  getZernioClientForOrganization,
   getZernioIntegrationForOrg,
   mapZernioAccountToConnected,
+  resolveZernioAccountName,
+  resolveZernioProfileId,
   type ZernioConnectedAccount,
 } from "@/lib/zernio/integration";
 
 export type ZernioIntegrationStatus = {
   connected: boolean;
   profileId: string | null;
+  accountName: string | null;
   connectedAccounts: ZernioConnectedAccount[];
+  channelsLabel: string;
+  hasInstagram: boolean;
+  hasWhatsapp: boolean;
+  lastSyncAt: string | null;
 };
 
 const EMPTY_STATUS: ZernioIntegrationStatus = {
   connected: false,
   profileId: null,
+  accountName: null,
   connectedAccounts: [],
+  channelsLabel: formatZernioChannelsLabel({
+    hasInstagram: false,
+    hasWhatsapp: false,
+  }),
+  hasInstagram: false,
+  hasWhatsapp: false,
+  lastSyncAt: null,
+};
+
+export type ZernioConnectState = {
+  error?: string;
+  success?: string;
+  accountName?: string;
 };
 
 export type ZernioConversationWithAccount = ZernioConversation & {
@@ -55,50 +76,20 @@ export type ZernioAnalyticsSummary = {
   hasData: boolean;
 };
 
-async function ensureZernioProfileId(
-  organizationId: string
-): Promise<{ profileId: string; integrationId: string }> {
-  const admin = createAdminClient();
-  const existing = await getZernioIntegrationForOrg(organizationId);
-  if (existing) {
-    return {
-      profileId: existing.zernio_profile_id,
-      integrationId: existing.id,
-    };
-  }
-
-  const created = await zernioCreateProfile(organizationId);
-  const profileId = created.profile._id;
-
-  const { data, error } = await admin
-    .from("zernio_integrations")
-    .insert({
-      organization_id: organizationId,
-      zernio_profile_id: profileId,
-      connected_accounts: [],
-      is_active: true,
-      updated_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
-
-  if (error) throw new Error(error.message);
-
-  revalidatePath(paths.platform.integrations);
-  return { profileId, integrationId: data.id as string };
-}
-
-function filterAccountsForProfile(
-  accounts: Awaited<ReturnType<typeof zernioListAccounts>>["accounts"],
-  profileId: string
-) {
-  const filtered = accounts.filter(
-    (account) =>
-      account.profileId === profileId ||
-      account.profile === profileId ||
-      !account.profileId
-  );
-  return filtered.length > 0 ? filtered : accounts;
+function buildStatusFromRow(
+  row: NonNullable<Awaited<ReturnType<typeof getZernioIntegrationForOrg>>>
+): ZernioIntegrationStatus {
+  const channels = getZernioChannelStatus(row.connected_accounts);
+  return {
+    connected: Boolean(row.api_key),
+    profileId: row.zernio_profile_id,
+    accountName: row.account_name,
+    connectedAccounts: row.connected_accounts,
+    hasInstagram: channels.hasInstagram,
+    hasWhatsapp: channels.hasWhatsapp,
+    channelsLabel: formatZernioChannelsLabel(channels),
+    lastSyncAt: row.updated_at,
+  };
 }
 
 export async function getZernioIntegrationStatusAction(): Promise<ZernioIntegrationStatus> {
@@ -109,73 +100,103 @@ export async function getZernioIntegrationStatusAction(): Promise<ZernioIntegrat
     const row = await getZernioIntegrationForOrg(organizationId);
     if (!row) return EMPTY_STATUS;
 
-    return {
-      connected: row.connected_accounts.length > 0,
-      profileId: row.zernio_profile_id,
-      connectedAccounts: row.connected_accounts,
-    };
+    return buildStatusFromRow(row);
   } catch {
     return EMPTY_STATUS;
   }
 }
 
-export async function saveZernioIntegrationAction(profileId: string) {
-  const organizationId = await requireOrganizationId();
-  const admin = createAdminClient();
-  const { accounts } = await zernioListAccounts();
-  const connectedAccounts = filterAccountsForProfile(accounts, profileId).map(
-    mapZernioAccountToConnected
+export async function connectZernioAction(
+  _prev: ZernioConnectState,
+  formData: FormData
+): Promise<ZernioConnectState> {
+  const parsed = apiKeySchema.safeParse(
+    String(formData.get("apiKey") ?? "").trim()
   );
+  if (!parsed.success) {
+    return { error: firstZodError(parsed.error) };
+  }
 
-  const { error } = await admin.from("zernio_integrations").upsert(
-    {
-      organization_id: organizationId,
-      zernio_profile_id: profileId,
-      connected_accounts: connectedAccounts,
-      is_active: true,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "organization_id" }
-  );
+  if (!isSupabaseConfigured()) {
+    return { error: "Supabase no configurado." };
+  }
 
-  if (error) throw new Error(error.message);
-  revalidatePath(paths.platform.integrations);
-  return { connectedAccounts };
-}
+  try {
+    const { user, orgId: organizationId } = await requireAuthContext();
+    const { allowed, resetAt } = integrationConnectRateLimit(user.id);
+    if (!allowed) {
+      return { error: rateLimitErrorMessage(resetAt) };
+    }
 
-export async function getZernioConnectUrlAction(platform: string) {
-  const organizationId = await requireOrganizationId();
-  const { profileId } = await ensureZernioProfileId(organizationId);
-  const { authUrl } = await zernioGetConnectUrl(platform, profileId);
-  return { authUrl };
+    const client = createZernioClient(parsed.data);
+
+    let accounts: Awaited<ReturnType<typeof client.listAccounts>>["accounts"];
+    try {
+      ({ accounts } = await client.listAccounts());
+    } catch {
+      return { error: "API key inválida" };
+    }
+
+    const connectedAccounts = (accounts ?? []).map(mapZernioAccountToConnected);
+    const profileId = resolveZernioProfileId(accounts ?? [], organizationId);
+    const accountName = resolveZernioAccountName(connectedAccounts);
+
+    const admin = createAdminClient();
+    const { error } = await admin.from("zernio_integrations").upsert(
+      {
+        organization_id: organizationId,
+        api_key: encryptZernioApiKey(parsed.data),
+        zernio_profile_id: profileId,
+        account_name: accountName,
+        connected_accounts: connectedAccounts,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "organization_id" }
+    );
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath(paths.platform.integrations);
+    return {
+      success: "Zernio conectado correctamente.",
+      accountName,
+    };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "No se pudo conectar Zernio",
+    };
+  }
 }
 
 export async function refreshZernioAccountsAction() {
   const organizationId = await requireOrganizationId();
   const integration = await getZernioIntegrationForOrg(organizationId);
-  if (!integration) {
-    const { profileId } = await ensureZernioProfileId(organizationId);
-    return saveZernioIntegrationAction(profileId);
+  if (!integration?.api_key) {
+    throw new Error("Zernio no está conectado");
   }
 
-  const { accounts } = await zernioListAccounts();
-  const connectedAccounts = filterAccountsForProfile(
-    accounts,
-    integration.zernio_profile_id
-  ).map(mapZernioAccountToConnected);
+  const client = await getZernioClientForOrganization(organizationId);
+  const { accounts } = await client.listAccounts();
+  const connectedAccounts = (accounts ?? []).map(mapZernioAccountToConnected);
+  const accountName = resolveZernioAccountName(
+    connectedAccounts,
+    integration.account_name
+  );
 
   const admin = createAdminClient();
   const { error } = await admin
     .from("zernio_integrations")
     .update({
       connected_accounts: connectedAccounts,
+      account_name: accountName,
       updated_at: new Date().toISOString(),
     })
     .eq("organization_id", organizationId);
 
   if (error) throw new Error(error.message);
   revalidatePath(paths.platform.integrations);
-  return { connectedAccounts };
+  return { connectedAccounts, accountName };
 }
 
 export async function listZernioConversationsAction(): Promise<
@@ -187,10 +208,12 @@ export async function listZernioConversationsAction(): Promise<
     return [];
   }
 
+  const client = await getZernioClientForOrganization(organizationId);
+
   const results = await Promise.all(
     integration.connected_accounts.map(async (account) => {
       try {
-        const result = await zernioListConversations(account.accountId);
+        const result = await client.listConversations(account.accountId);
         if (result.meta.accountsFailed > 0) {
           console.warn(
             "[Zernio] listConversations failed accounts:",
@@ -225,7 +248,8 @@ export async function getZernioMessagesAction(
     throw new Error("Integración Zernio no configurada");
   }
 
-  const result = await zernioGetMessages(conversationId, accountId);
+  const client = await getZernioClientForOrganization(organizationId);
+  const result = await client.getMessages(conversationId, accountId);
   const messages = result.data ?? [];
   return messages.sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -243,7 +267,8 @@ export async function sendZernioMessageAction(
     throw new Error("Integración Zernio no configurada");
   }
 
-  const result = await zernioSendMessage(conversationId, text, accountId);
+  const client = await getZernioClientForOrganization(organizationId);
+  const result = await client.sendMessage(conversationId, text, accountId);
   return result;
 }
 
@@ -254,10 +279,12 @@ export async function listZernioCommentsAction(): Promise<ZernioCommentWithAccou
     return [];
   }
 
+  const client = await getZernioClientForOrganization(organizationId);
+
   const results = await Promise.all(
     integration.connected_accounts.map(async (account) => {
       try {
-        const { comments } = await zernioListComments(account.accountId);
+        const { comments } = await client.listComments(account.accountId);
         return comments.map((comment) => ({
           ...comment,
           accountId: account.accountId,
@@ -285,8 +312,10 @@ export async function getZernioPostCommentsAction(
     return [];
   }
 
+  const client = await getZernioClientForOrganization(organizationId);
+
   try {
-    const { comments } = await zernioGetPostComments(postId);
+    const { comments } = await client.getPostComments(postId);
     return comments
       .map((comment) => ({
         ...comment,
@@ -317,7 +346,8 @@ export async function replyToZernioCommentAction(
     throw new Error("Integración Zernio no configurada");
   }
 
-  const result = await zernioReplyToComment(postId, commentId, message, accountId);
+  const client = await getZernioClientForOrganization(organizationId);
+  const result = await client.replyToComment(postId, commentId, message, accountId);
 
   const admin = createAdminClient();
   await admin
@@ -337,7 +367,8 @@ export async function hideZernioCommentAction(postId: string, commentId: string)
     throw new Error("Integración Zernio no configurada");
   }
 
-  const result = await zernioHideComment(postId, commentId);
+  const client = await getZernioClientForOrganization(organizationId);
+  const result = await client.hideComment(postId, commentId);
 
   const admin = createAdminClient();
   await admin
@@ -362,7 +393,8 @@ export async function getZernioAnalyticsAction(): Promise<ZernioAnalyticsSummary
       return { totalImpressions: 0, totalLikes: 0, totalComments: 0, hasData: false };
     }
 
-    const analytics = await zernioGetPostsAnalytics();
+    const client = await getZernioClientForOrganization(organizationId);
+    const analytics = await client.getPostsAnalytics();
     const posts = (analytics as { posts?: Array<{ analytics?: Record<string, { impressions?: number; likes?: number; comments?: number }> }> }).posts ?? [];
 
     let totalImpressions = 0;

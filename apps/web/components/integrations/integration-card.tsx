@@ -11,6 +11,7 @@ import {
   disconnectInstagramAction,
   disconnectManyChatAction,
   disconnectTypeformAction,
+  disconnectZernioAction,
 } from "@/app/integrations/actions";
 import { disconnectDiscordIntegrationAction } from "@/app/discord/actions";
 import { disconnectUnipileIntegrationAction } from "@/app/unipile/actions";
@@ -213,6 +214,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       calendly: disconnectCalendlyAction,
       typeform: disconnectTypeformAction,
       discord: disconnectDiscordIntegrationAction,
+      zernio: disconnectZernioAction,
     };
 
     const unipileProvider = unipileProviderFromIntegration(integration.provider);
@@ -477,7 +479,8 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       integration.provider === "manychat" ||
       integration.provider === "calendly" ||
       integration.provider === "typeform" ||
-      integration.provider === "discord");
+      integration.provider === "discord" ||
+      integration.provider === "zernio");
 
   const description =
     integration.description ??

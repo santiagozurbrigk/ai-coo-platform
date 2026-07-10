@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { zernioListComments, zernioListConversations } from "@/lib/zernio/client";
-import { getZernioIntegrationForOrg } from "@/lib/zernio/integration";
+import { getZernioClientForOrganization, getZernioIntegrationForOrg } from "@/lib/zernio/integration";
 import type { ContentSalesAttributed } from "@/types/content";
 
 const ATTRIBUTION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -121,10 +120,11 @@ export async function computeSalesAttributionForOrg(
   const integration = await getZernioIntegrationForOrg(organizationId);
   if (integration?.connected_accounts.length) {
     try {
+      const client = await getZernioClientForOrganization(organizationId);
       const commentAuthorsByPost = new Map<string, Set<string>>();
 
       for (const account of integration.connected_accounts) {
-        const { comments } = await zernioListComments(account.accountId);
+        const { comments } = await client.listComments(account.accountId);
         for (const comment of comments) {
           const pieceId = pieceIdsByPlatformPostId.get(comment.postId);
           if (!pieceId) continue;
@@ -150,7 +150,7 @@ export async function computeSalesAttributionForOrg(
       }
 
       for (const account of integration.connected_accounts) {
-        const result = await zernioListConversations(account.accountId);
+        const result = await client.listConversations(account.accountId);
         for (const conversation of result.data) {
           if (conversationIds.has(conversation.id)) continue;
 

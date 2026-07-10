@@ -3,11 +3,9 @@
 import { getCurrentProfile } from "@/lib/auth/bootstrap";
 import { createClient } from "@/lib/supabase/server";
 import {
-  zernioGetPostAnalytics,
-  zernioListPublishedPosts,
   type ZernioPost,
 } from "@/lib/zernio/client";
-import { getZernioIntegrationForOrg } from "@/lib/zernio/integration";
+import { getZernioClientForOrganization, getZernioIntegrationForOrg } from "@/lib/zernio/integration";
 import type {
   ContentMetrics,
   ContentPieceSource,
@@ -157,8 +155,12 @@ async function requireOrganizationId(): Promise<string> {
   return profile.organization_id;
 }
 
-async function fetchZernioPosts(profileId: string): Promise<ZernioPost[]> {
-  const { posts: zernioPosts = [] } = await zernioListPublishedPosts({
+async function fetchZernioPosts(
+  organizationId: string,
+  profileId: string
+): Promise<ZernioPost[]> {
+  const client = await getZernioClientForOrganization(organizationId);
+  const { posts: zernioPosts = [] } = await client.listPublishedPosts({
     profileId,
     source: "zernio",
     status: "published",
@@ -220,7 +222,7 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
 
   let posts: ZernioPost[];
   try {
-    posts = await fetchZernioPosts(integration.zernio_profile_id);
+    posts = await fetchZernioPosts(organizationId, integration.zernio_profile_id);
   } catch (error) {
     console.error("[syncZernioContent] fetchZernioPosts failed", {
       profileId: integration.zernio_profile_id,
@@ -374,10 +376,12 @@ export async function syncZernioMetricsAction(
   if (error) throw new Error(error.message);
   if (!pieces || pieces.length === 0) return;
 
+  const client = await getZernioClientForOrganization(organizationId);
+
   const updates = await Promise.allSettled(
     pieces.map(async (piece) => {
       const postId = piece.platform_post_id as string;
-      const analytics = await zernioGetPostAnalytics(postId);
+      const analytics = await client.getPostAnalytics(postId);
       const metrics = aggregatePlatformMetrics(analytics.platforms ?? {});
 
       return {

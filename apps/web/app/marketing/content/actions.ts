@@ -23,8 +23,7 @@ import type {
 } from "@/types/content";
 import { paths } from "@/routes";
 import { computeSalesAttributionForOrg } from "@/lib/marketing/content-sales-attribution";
-import { getZernioIntegrationForOrg } from "@/lib/zernio/integration";
-import { zernioCreatePost } from "@/lib/zernio/client";
+import { getZernioClientForOrganization, getZernioIntegrationForOrg } from "@/lib/zernio/integration";
 import { downloadDriveFileAction } from "./drive-actions";
 
 async function requireProfileOrganizationId(): Promise<string> {
@@ -625,7 +624,9 @@ export async function publishVariantAsZernioDraftAction(
       (account) => account.platform === platform
     )?.accountId ?? integration.connected_accounts[0]?.accountId;
 
-  const created = await zernioCreatePost({
+  const client = await getZernioClientForOrganization(organizationId);
+
+  const created = await client.createPost({
     profileId: integration.zernio_profile_id,
     platform,
     postType: sourcePiece.type === "reel" ? "reel" : sourcePiece.type,

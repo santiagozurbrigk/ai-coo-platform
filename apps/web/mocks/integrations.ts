@@ -7,7 +7,7 @@ export const mockIntegrations: Integration[] = [
     name: "Zernio",
     status: "not_connected",
     description:
-      "DMs, comentarios y analytics de Instagram, Facebook, WhatsApp y más.",
+      "Conecta tu cuenta de Zernio para sincronizar mensajes de Instagram Direct y WhatsApp en un solo inbox.",
   },
   {
     id: "int-unipile-wa",

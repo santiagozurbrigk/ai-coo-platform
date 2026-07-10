@@ -130,6 +130,20 @@ export async function disconnectTypeformAction(): Promise<MutationResult> {
   });
 }
 
+export async function disconnectZernioAction(): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("zernio_integrations")
+      .delete()
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+    revalidatePath(paths.platform.integrations);
+  });
+}
+
 async function countManyChatConversations(): Promise<number> {
   if (!isSupabaseConfigured()) return 0;
   const organizationId = await requireOrganizationId();
@@ -328,7 +342,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
       },
       zernio: {
         connected: zernioStatus.connected,
-        lastSyncAt: null,
+        lastSyncAt: zernioStatus.lastSyncAt,
         records: zernioRecords,
       },
     };
@@ -343,12 +357,14 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
       if (integration.provider === "unipile_whatsapp" && unipileWhatsappStatus.displayName) {
         description = `Cuenta: ${unipileWhatsappStatus.displayName}`;
       }
-      if (integration.provider === "zernio" && zernioStatus.connectedAccounts.length > 0) {
-        const names = zernioStatus.connectedAccounts
-          .map((a) => a.username ?? a.platform)
-          .slice(0, 3)
-          .join(", ");
-        description = `${zernioStatus.connectedAccounts.length} cuenta${zernioStatus.connectedAccounts.length === 1 ? "" : "s"}: ${names}`;
+      if (integration.provider === "zernio" && zernioStatus.connected) {
+        const accountLabel = zernioStatus.accountName
+          ? `Cuenta: ${zernioStatus.accountName}`
+          : null;
+        const channels = zernioStatus.channelsLabel;
+        description = [accountLabel, `Canales: ${channels}`]
+          .filter(Boolean)
+          .join(" · ");
       }
 
       return {
