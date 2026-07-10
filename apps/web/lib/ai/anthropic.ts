@@ -24,7 +24,8 @@ export type AITask =
   | "sales_analysis"
   | "intelligence_analysis"
   | "tone_analysis"
-  | "analyze_content_piece";
+  | "analyze_content_piece"
+  | "create_content_variants";
 
 const TASK_MODEL_MAP: Record<AITask, string> = {
   conversation_scoring: AI_MODELS.HAIKU,
@@ -42,6 +43,7 @@ const TASK_MODEL_MAP: Record<AITask, string> = {
   intelligence_analysis: AI_MODELS.SONNET,
   tone_analysis: AI_MODELS.SONNET,
   analyze_content_piece: AI_MODELS.SONNET,
+  create_content_variants: AI_MODELS.SONNET,
 };
 
 /** Alias hasta disponibilidad GA de Sonnet 4.6 en la API */
