@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/server";
 import {
   zernioGetPostAnalytics,
   zernioListPublishedPosts,
-  zernioSyncExternalPosts,
   type ZernioPost,
 } from "@/lib/zernio/client";
 import { getZernioIntegrationForOrg } from "@/lib/zernio/integration";
@@ -46,9 +45,21 @@ function mapZernioType(
   return "post";
 }
 
+function isZernioInternalId(id: string): boolean {
+  return /^[a-f0-9]{24}$/i.test(id);
+}
+
 function zernioPostId(post: ZernioPost): string | null {
-  const id = post.platformPostId ?? post.id ?? post._id;
-  return id ? String(id) : null;
+  const platformPostId = post.platformPostId?.trim();
+  if (platformPostId) return platformPostId;
+
+  const fallback = post.id ?? post._id;
+  if (!fallback) return null;
+
+  const id = String(fallback).trim();
+  if (!id || isZernioInternalId(id)) return null;
+
+  return id;
 }
 
 function flattenZernioPosts(rawPosts: ZernioPost[]): ZernioPost[] {
@@ -146,49 +157,15 @@ async function requireOrganizationId(): Promise<string> {
   return profile.organization_id;
 }
 
-async function fetchZernioPosts(
-  profileId: string,
-  accountIds: string[]
-): Promise<ZernioPost[]> {
-  const [{ posts: zernioPosts = [] }, externalResults] = await Promise.all([
-    zernioListPublishedPosts({
-      profileId,
-      source: "zernio",
-      status: "published",
-      limit: 50,
-    }),
-    Promise.all(
-      accountIds.map(async (accountId) => {
-        const syncResult = await zernioSyncExternalPosts(accountId);
-        console.info("[syncZernioContent] syncExternalPosts", {
-          accountId,
-          posts: syncResult.posts.length,
-          synced: syncResult.synced,
-        });
+async function fetchZernioPosts(profileId: string): Promise<ZernioPost[]> {
+  const { posts: zernioPosts = [] } = await zernioListPublishedPosts({
+    profileId,
+    source: "zernio",
+    status: "published",
+    limit: 50,
+  });
 
-        const { posts: listedPosts = [] } = await zernioListPublishedPosts({
-          accountId,
-          source: "external",
-          status: "published",
-          limit: 50,
-        });
-
-        const merged = dedupePosts([
-          ...syncResult.posts,
-          ...listedPosts,
-        ]);
-
-        return merged.map((post) => ({
-          ...post,
-          accountId: post.accountId ?? accountId,
-        }));
-      })
-    ),
-  ]);
-
-  return dedupePosts(
-    flattenZernioPosts([...zernioPosts, ...externalResults.flat()])
-  );
+  return dedupePosts(flattenZernioPosts(zernioPosts));
 }
 
 function aggregatePlatformMetrics(
@@ -243,7 +220,7 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
 
   let posts: ZernioPost[];
   try {
-    posts = await fetchZernioPosts(integration.zernio_profile_id, accountIds);
+    posts = await fetchZernioPosts(integration.zernio_profile_id);
   } catch (error) {
     console.error("[syncZernioContent] fetchZernioPosts failed", {
       profileId: integration.zernio_profile_id,
@@ -265,7 +242,10 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
 
   const upsertRows = filteredPosts
     .map((post) => mapPostToRow(post, organizationId))
-    .filter((row): row is ContentPieceSyncRow => row !== null);
+    .filter(
+      (row): row is ContentPieceSyncRow =>
+        row !== null && Boolean(row.platform_post_id?.trim())
+    );
 
   if (upsertRows.length === 0) {
     console.info("[syncZernioContent] no rows to upsert after filtering", {
@@ -291,7 +271,9 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
   );
 
   const toInsert = upsertRows.filter(
-    (row) => !existingByPlatformId.has(row.platform_post_id)
+    (row) =>
+      Boolean(row.platform_post_id.trim()) &&
+      !existingByPlatformId.has(row.platform_post_id)
   );
   const toUpdate = upsertRows.filter((row) =>
     existingByPlatformId.has(row.platform_post_id)
