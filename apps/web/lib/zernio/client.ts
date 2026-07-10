@@ -74,10 +74,23 @@ export async function zernioGetMessages(conversationId: string, accountId: strin
   );
   if (!res.ok) throw new Error(`Zernio getMessages: ${await res.text()}`);
   const json = (await res.json()) as Record<string, unknown>;
-  console.log("[Zernio] getMessages raw response keys:", Object.keys(json));
-  const messages = json.data ?? json.messages ?? [];
+  const rawList = Array.isArray(json.messages)
+    ? json.messages
+    : Array.isArray(json.data)
+      ? json.data
+      : [];
+  const rawMessages: ZernioMessage[] = rawList.map((m: Record<string, unknown>) => ({
+    ...m,
+    text: (m.message ?? m.text) as string | undefined,
+    direction:
+      m.direction === "incoming"
+        ? "inbound"
+        : m.direction === "outgoing"
+          ? "outbound"
+          : (m.direction as "inbound" | "outbound"),
+  })) as ZernioMessage[];
   return {
-    data: Array.isArray(messages) ? (messages as ZernioMessage[]) : [],
+    data: rawMessages,
     pagination:
       (json.pagination as { hasMore: boolean; nextCursor: string | null } | null) ??
       null,
@@ -124,11 +137,22 @@ export interface ZernioConversation {
 export interface ZernioMessage {
   id: string;
   conversationId: string;
+  accountId?: string;
+  platform?: string;
+  message?: string;
   text?: string;
-  direction: "inbound" | "outbound";
-  sender?: { name?: string; username?: string };
-  attachments?: unknown[];
+  senderId?: string;
+  senderName?: string;
+  direction: "incoming" | "outgoing" | "inbound" | "outbound";
   createdAt: string;
+  attachments?: Array<{
+    id?: string;
+    type?: string;
+    url?: string;
+    filename?: string;
+    previewUrl?: string;
+  }>;
+  deliveryStatus?: string;
 }
 
 // ── Comments ──────────────────────────────────────────
