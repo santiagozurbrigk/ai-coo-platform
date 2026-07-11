@@ -3,6 +3,10 @@ import { sendAgentMessageAction } from "@/app/agent/actions";
 import type { AgentFlags } from "@/types/agent";
 import type { PageContextState } from "@/lib/agent/page-context";
 
+/** Agente sin streaming: espera respuesta completa de Claude + tool loop. */
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
 export async function POST(req: Request) {
   if (req.signal.aborted) {
     return NextResponse.json({ error: "Cancelled" }, { status: 499 });

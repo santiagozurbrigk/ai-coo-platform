@@ -48,7 +48,7 @@ import {
   parseAgentActions,
 } from "@/lib/agent/parse-actions";
 import { resolveAgentFlags } from "@/lib/agent/canvas-intent";
-import { resolveAgentMaxTokens } from "@/lib/agent/max-tokens";
+import { resolveAgentMaxTokens, resolveAgentThinkingBudget } from "@/lib/agent/max-tokens";
 import {
   buildCanvasChatIntro,
   stripDownloadUrls,
@@ -867,6 +867,7 @@ export async function sendAgentMessageAction(input: {
         enableThinking: flags.useThink,
         useCanvas: flags.useCanvas,
       }),
+      thinkingBudget: resolveAgentThinkingBudget(flags.useThink),
       enableWebSearch: flags.useWebSearch,
       enableThinking: flags.useThink,
       tools: [

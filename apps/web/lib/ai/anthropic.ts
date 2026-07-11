@@ -348,8 +348,8 @@ export async function callClaudeAgent(
 
   const logicalModel = resolveLogicalModel(req);
   const apiModel = resolveApiModelId(logicalModel);
-  const maxTokens = req.maxTokens ?? 16384;
-  const thinkingBudget = req.thinkingBudget ?? 8000;
+  const maxTokens = req.maxTokens ?? 4096;
+  const thinkingBudget = req.thinkingBudget ?? 4000;
 
   const { result } = await executeWithCredentialFallback(
     req.organizationId,

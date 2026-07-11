@@ -180,16 +180,6 @@ export async function resolveCredentialForOrg(
     }
   }
 
-  // TODO: remover cuando BYOK esté estable en prod
-  console.warn("[credential-resolver:debug] resolveCredentialForOrg", {
-    organizationId,
-    hasEncryptedKey: Boolean(row.claude_api_key_encrypted),
-    keyStatus: row.claude_api_key_status,
-    source: resolution.source,
-    hasClient: Boolean(resolution.client),
-    mode: resolution.mode,
-  });
-
   return resolution;
 }
 
