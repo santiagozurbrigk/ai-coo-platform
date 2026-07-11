@@ -126,9 +126,17 @@ function extractThinkingContent(message: Anthropic.Message): string | null {
   );
 }
 
-function extractText(message: Anthropic.Message): string {
-  const textBlock = message.content.find((b) => b.type === "text");
-  return textBlock && textBlock.type === "text" ? textBlock.text.trim() : "";
+function extractAllText(message: Anthropic.Message): string {
+  return message.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+}
+
+function getToolUseBlocks(message: Anthropic.Message): Anthropic.ToolUseBlock[] {
+  return message.content.filter(
+    (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
+  );
 }
 
 async function runStreamTurn(
@@ -141,8 +149,9 @@ async function runStreamTurn(
     tools: Anthropic.Tool[];
     enableThinking: boolean;
     thinkingBudget: number;
-    cachedSystemPrompt?: string;
+    usePromptCaching: boolean;
     emitter: AgentSseEmitter;
+    onTextDelta: (chunk: string) => void;
     signal?: AbortSignal;
   }
 ): Promise<Anthropic.Message> {
@@ -162,7 +171,7 @@ async function runStreamTurn(
     throw new DOMException("Aborted", "AbortError");
   }
 
-  const stream = params.cachedSystemPrompt?.trim()
+  const stream = params.usePromptCaching
     ? client.beta.messages.stream({
         ...requestBase,
         betas: [PROMPT_CACHING_BETA],
@@ -174,9 +183,9 @@ async function runStreamTurn(
       );
 
   stream.on("text", (textDelta) => {
-    if (textDelta) {
-      params.emitter.emit("delta", { type: "text", content: textDelta });
-    }
+    if (!textDelta) return;
+    params.onTextDelta(textDelta);
+    params.emitter.emit("delta", { type: "text", content: textDelta });
   });
 
   if (params.signal) {
@@ -217,6 +226,7 @@ export async function streamClaudeAgent(
   try {
     const client = resolution.client;
     const systemParam = buildSystemParam(req.cachedSystemPrompt, req.system);
+    const usePromptCaching = Boolean(req.cachedSystemPrompt?.trim());
 
     const tools: Anthropic.Tool[] = [...(req.tools ?? [])];
     if (req.enableWebSearch) {
@@ -229,6 +239,12 @@ export async function streamClaudeAgent(
       content: m.content,
     }));
 
+    let streamedText = "";
+
+    const appendStreamedText = (chunk: string) => {
+      streamedText += chunk;
+    };
+
     let currentResponse = await runStreamTurn(client, {
       apiModel,
       maxTokens,
@@ -237,8 +253,9 @@ export async function streamClaudeAgent(
       tools,
       enableThinking: Boolean(req.enableThinking),
       thinkingBudget,
-      cachedSystemPrompt: req.cachedSystemPrompt,
+      usePromptCaching,
       emitter: req.emitter,
+      onTextDelta: appendStreamedText,
       signal: req.signal,
     });
 
@@ -250,18 +267,47 @@ export async function streamClaudeAgent(
     );
 
     const thinkingContent = extractThinkingContent(currentResponse);
+    let accumulatedTurnText = extractAllText(currentResponse);
     let iteration = 0;
 
-    while (iteration < MAX_AGENT_ITERATIONS && req.onToolCall) {
-      const toolUseBlocks = currentResponse.content.filter(
-        (b) => b.type === "tool_use"
-      );
+    while (iteration < MAX_AGENT_ITERATIONS) {
+      if ((currentResponse.stop_reason as string | null) === "pause_turn") {
+        messages.push({ role: "assistant", content: currentResponse.content });
+
+        currentResponse = await runStreamTurn(client, {
+          apiModel,
+          maxTokens,
+          systemParam,
+          messages,
+          tools,
+          enableThinking: false,
+          thinkingBudget,
+          usePromptCaching: false,
+          emitter: req.emitter,
+          onTextDelta: appendStreamedText,
+          signal: req.signal,
+        });
+
+        await trackUsage(
+          req.organizationId,
+          logicalModel,
+          req.feature,
+          currentResponse.usage
+        );
+
+        accumulatedTurnText += extractAllText(currentResponse);
+        iteration++;
+        continue;
+      }
+
+      if (!req.onToolCall) break;
+
+      const toolUseBlocks = getToolUseBlocks(currentResponse);
       if (toolUseBlocks.length === 0) break;
 
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
-      for (const block of toolUseBlocks) {
-        const tb = block as Anthropic.ToolUseBlock;
+      for (const tb of toolUseBlocks) {
         req.emitter.emit("tool_start", {
           type: "tool_start",
           toolName: tb.name,
@@ -296,8 +342,9 @@ export async function streamClaudeAgent(
         tools,
         enableThinking: false,
         thinkingBudget,
-        cachedSystemPrompt: undefined,
+        usePromptCaching: false,
         emitter: req.emitter,
+        onTextDelta: appendStreamedText,
         signal: req.signal,
       });
 
@@ -315,6 +362,7 @@ export async function streamClaudeAgent(
         });
       }
 
+      accumulatedTurnText += extractAllText(currentResponse);
       iteration++;
     }
 
@@ -325,8 +373,10 @@ export async function streamClaudeAgent(
       });
     }
 
+    const text = streamedText.trim() || accumulatedTurnText.trim();
+
     return {
-      text: extractText(currentResponse),
+      text,
       thinkingContent,
     };
   } catch (error) {

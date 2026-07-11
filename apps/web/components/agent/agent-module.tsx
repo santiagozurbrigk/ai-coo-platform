@@ -24,6 +24,7 @@ export function AgentModule() {
     messages,
     streamingMessageId,
     streamingDisplayedText,
+    activeToolName,
     agentStatus,
     isLoading,
     isSending,
@@ -159,7 +160,11 @@ export function AgentModule() {
             ))
           )}
 
-          <AgentStatusIndicator status={agentStatus} onRetry={() => void retryLastMessage()} />
+          <AgentStatusIndicator
+            status={agentStatus}
+            activeToolName={activeToolName}
+            onRetry={() => void retryLastMessage()}
+          />
         </div>
 
         <div

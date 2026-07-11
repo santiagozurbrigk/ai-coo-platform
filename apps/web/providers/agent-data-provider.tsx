@@ -45,6 +45,7 @@ type AgentDataContextValue = {
   messages: AgentMessage[];
   streamingMessageId: string | null;
   streamingDisplayedText: string;
+  activeToolName: string | null;
   agentStatus: AgentStatus;
   isLoading: boolean;
   isSending: boolean;
@@ -146,6 +147,7 @@ export function AgentDataProvider({
   });
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [activeToolName, setActiveToolName] = useState<string | null>(null);
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("idle");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -167,11 +169,13 @@ export function AgentDataProvider({
     if (!id) {
       setMessages([]);
       setStreamingMessageId(null);
+      setActiveToolName(null);
       return;
     }
     const rows = await listAgentMessagesAction(id);
     setMessages(rows);
     setStreamingMessageId(null);
+    setActiveToolName(null);
   }, []);
 
   useEffect(() => {
@@ -209,6 +213,7 @@ export function AgentDataProvider({
     setIsSending(false);
     setStreamingMessageId(null);
     resetStreamTypewriter();
+    setActiveToolName(null);
     setAgentStatus("cancelled");
     clearCompleteTimer();
     setTimeout(() => setAgentStatus("idle"), 1200);
@@ -249,6 +254,7 @@ export function AgentDataProvider({
       setIsSending(true);
       isSendingRef.current = true;
       setStreamingMessageId(null);
+      setActiveToolName(null);
       setAgentStatus("thinking");
       clearCompleteTimer();
       startStreamTypewriter();
@@ -316,17 +322,26 @@ export function AgentDataProvider({
               appendStreamBuffer(chunk);
             }
 
-            if (evt.event === "tool_start" && !receivedDelta) {
-              receivedDelta = true;
-              setAgentStatus("generating");
-              setStreamingMessageId(streamingId);
-              setMessages((prev) => {
-                if (prev.some((message) => message.id === streamingId)) return prev;
-                return [
-                  ...prev,
-                  buildOptimisticAssistantMessage(streamingId, resultConversationId),
-                ];
-              });
+            if (evt.event === "tool_start") {
+              const toolName = String(evt.data.toolName ?? "");
+              if (toolName) setActiveToolName(toolName);
+
+              if (!receivedDelta) {
+                receivedDelta = true;
+                setAgentStatus("generating");
+                setStreamingMessageId(streamingId);
+                setMessages((prev) => {
+                  if (prev.some((message) => message.id === streamingId)) return prev;
+                  return [
+                    ...prev,
+                    buildOptimisticAssistantMessage(streamingId, resultConversationId),
+                  ];
+                });
+              }
+            }
+
+            if (evt.event === "tool_end") {
+              setActiveToolName(null);
             }
 
             if (evt.event === "done") {
@@ -361,6 +376,7 @@ export function AgentDataProvider({
             );
             setStreamingMessageId(null);
             resetStreamTypewriter();
+            setActiveToolName(null);
             markComplete();
             void refresh();
             return {
@@ -391,6 +407,7 @@ export function AgentDataProvider({
         setMessages(finalMessages);
         setStreamingMessageId(null);
         resetStreamTypewriter();
+        setActiveToolName(null);
         markComplete();
 
         const navigatedAway =
@@ -413,6 +430,7 @@ export function AgentDataProvider({
         if (controller.signal.aborted) {
           setStreamingMessageId(null);
           resetStreamTypewriter();
+          setActiveToolName(null);
           setAgentStatus("cancelled");
           setTimeout(() => setAgentStatus("idle"), 1200);
           return { conversationId: null, openCanvas: false };
@@ -427,6 +445,7 @@ export function AgentDataProvider({
         );
         setStreamingMessageId(null);
         resetStreamTypewriter();
+        setActiveToolName(null);
         setAgentStatus("error");
         throw error;
       } finally {
@@ -510,6 +529,7 @@ export function AgentDataProvider({
     );
     setMessages([]);
     setStreamingMessageId(null);
+    setActiveToolName(null);
     setAgentStatus("idle");
   }, [resolvedFilterStageId, router]);
 
@@ -523,6 +543,7 @@ export function AgentDataProvider({
       messages,
       streamingMessageId,
       streamingDisplayedText: streamingDisplayedText,
+      activeToolName,
       agentStatus,
       isLoading,
       isSending,
@@ -545,6 +566,7 @@ export function AgentDataProvider({
       messages,
       streamingMessageId,
       streamingDisplayedText,
+      activeToolName,
       agentStatus,
       isLoading,
       isSending,
