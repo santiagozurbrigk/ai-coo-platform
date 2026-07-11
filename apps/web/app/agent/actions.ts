@@ -24,9 +24,9 @@ import {
   callClaudeText,
   callClaudeAgent,
   detectAgentComplexity,
-  getClientForOrg,
   isAnthropicConfigured,
 } from "@/lib/ai/anthropic";
+import { resolveClientForOrg } from "@/lib/ai/credential-resolver";
 import type Anthropic from "@anthropic-ai/sdk";
 import {
   generateDocument,
@@ -807,31 +807,39 @@ export async function sendAgentMessageAction(input: {
   const flags = resolveAgentFlags(trimmed, input.flags ?? {});
 
   const anthropicConfigured = isAnthropicConfigured();
-  const anthropicKeyPresent = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
-  let orgClaudeClientAvailable = false;
+  const anthropicGlobalKeyPresent = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+
+  let clientResolution: Awaited<ReturnType<typeof resolveClientForOrg>> = {
+    client: null,
+    keySource: "none",
+  };
   try {
-    orgClaudeClientAvailable = Boolean(await getClientForOrg(organizationId));
+    clientResolution = await resolveClientForOrg(organizationId);
   } catch (clientErr) {
-    console.error("[Agent:Claude] getClientForOrg failed", {
+    console.error("[Agent:Claude] resolveClientForOrg failed", {
       organizationId,
       err: clientErr,
       message: clientErr instanceof Error ? clientErr.message : String(clientErr),
     });
   }
 
+  const orgClaudeClientAvailable = Boolean(clientResolution.client);
+  const orgByokKeyPresent = clientResolution.keySource === "api_key";
+
   console.error("[Agent:Claude] pre-call diagnostics", {
     commit: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
     conversationId,
     organizationId,
     isAnthropicConfigured: anthropicConfigured,
-    anthropicKeyPresent,
+    anthropicGlobalKeyPresent,
+    orgByokKeyPresent,
+    orgClaudeClientSource: clientResolution.keySource,
     orgClaudeClientAvailable,
     agentTask,
     hasRagContext,
     historyMessageCount: claudeMessages.length,
     flags,
-    note:
-      "callClaudeAgent() resuelve BYOK vía resolveClientForOrg()",
+    note: "callClaudeAgent() resuelve BYOK vía resolveClientForOrg()",
   });
 
   let agentResult: { text: string; thinkingContent: string | null; toolCall: { name: string; input: Record<string, unknown> } | null; toolCalls: { name: string; input: Record<string, unknown> }[] } | null = null;

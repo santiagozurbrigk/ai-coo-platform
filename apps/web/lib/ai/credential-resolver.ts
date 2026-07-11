@@ -44,13 +44,32 @@ async function loadOrgCredentialRow(
   organizationId: string
 ): Promise<OrgCredentialRow | null> {
   const supabase = createAdminClient();
-  const { data } = await supabase
+  // Solo columnas BYOK base — no depender de migración OAuth (#19)
+  const { data, error } = await supabase
     .from("organizations")
-    .select("claude_api_key_encrypted, claude_api_key_status, claude_credential_mode")
+    .select("claude_api_key_encrypted, claude_api_key_status")
     .eq("id", organizationId)
     .maybeSingle();
 
-  return (data as OrgCredentialRow | null) ?? null;
+  if (error) {
+    console.error("[credential-resolver] Error leyendo credenciales de org", {
+      organizationId,
+      message: error.message,
+      code: error.code,
+    });
+    return null;
+  }
+
+  if (!data) {
+    console.warn("[credential-resolver] Org no encontrada", { organizationId });
+    return null;
+  }
+
+  return {
+    claude_api_key_encrypted: data.claude_api_key_encrypted as string | null,
+    claude_api_key_status: data.claude_api_key_status as string | null,
+    claude_credential_mode: null,
+  };
 }
 
 function decryptApiKeyIfValid(row: OrgCredentialRow): string | null {
@@ -161,6 +180,16 @@ export async function resolveCredentialForOrg(
     }
   }
 
+  // TODO: remover cuando BYOK esté estable en prod
+  console.warn("[credential-resolver:debug] resolveCredentialForOrg", {
+    organizationId,
+    hasEncryptedKey: Boolean(row.claude_api_key_encrypted),
+    keyStatus: row.claude_api_key_status,
+    source: resolution.source,
+    hasClient: Boolean(resolution.client),
+    mode: resolution.mode,
+  });
+
   return resolution;
 }
 
@@ -169,6 +198,22 @@ export async function getClientForOrg(
 ): Promise<Anthropic | null> {
   const { client } = await resolveCredentialForOrg(organizationId);
   return client;
+}
+
+export type ClientResolution = {
+  client: Anthropic | null;
+  keySource: ClaudeCredentialSource | "none";
+};
+
+/** Alias legacy usado por diagnósticos del agente y callers previos al Prompt #20. */
+export async function resolveClientForOrg(
+  organizationId?: string
+): Promise<ClientResolution> {
+  const resolution = await resolveCredentialForOrg(organizationId);
+  return {
+    client: resolution.client,
+    keySource: resolution.source,
+  };
 }
 
 export async function requireCredentialForOrg(
