@@ -179,6 +179,7 @@ export async function refreshZernioAccountsAction() {
   const client = await getZernioClientForOrganization(organizationId);
   const { accounts } = await client.listAccounts();
   const connectedAccounts = (accounts ?? []).map(mapZernioAccountToConnected);
+  const profileId = resolveZernioProfileId(accounts ?? [], organizationId);
   const accountName = resolveZernioAccountName(
     connectedAccounts,
     integration.account_name
@@ -190,6 +191,7 @@ export async function refreshZernioAccountsAction() {
     .update({
       connected_accounts: connectedAccounts,
       account_name: accountName,
+      zernio_profile_id: profileId,
       updated_at: new Date().toISOString(),
     })
     .eq("organization_id", organizationId);

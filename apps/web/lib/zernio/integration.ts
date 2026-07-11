@@ -1,4 +1,5 @@
 import { createZernioClient, type ZernioClient } from "@/lib/zernio/client";
+import { extractProfileId } from "@/lib/zernio/profile-id";
 import { decrypt, encrypt } from "@/lib/security/encryption";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -82,8 +83,31 @@ export async function getZernioIntegrationForOrg(
   if (error) throw new Error(error.message);
   if (!data) return null;
 
+  const rawProfileId = data.zernio_profile_id as string;
+  const normalizedProfileId = extractProfileId(rawProfileId) || rawProfileId;
+
+  // Self-heal: corregir valores legacy guardados como JSON completo
+  if (normalizedProfileId !== rawProfileId) {
+    void admin
+      .from("zernio_integrations")
+      .update({
+        zernio_profile_id: normalizedProfileId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("organization_id", organizationId)
+      .then(({ error: healError }) => {
+        if (healError) {
+          console.warn("[Zernio] failed to self-heal zernio_profile_id", {
+            organizationId,
+            error: healError.message,
+          });
+        }
+      });
+  }
+
   return {
     ...data,
+    zernio_profile_id: normalizedProfileId,
     connected_accounts: (data.connected_accounts as ZernioConnectedAccount[]) ?? [],
     api_key: (data.api_key as string | null) ?? null,
     account_name: (data.account_name as string | null) ?? null,
@@ -137,15 +161,22 @@ export async function findZernioOrgByProfileId(
   profileId: string
 ): Promise<string | null> {
   const admin = createAdminClient();
+  const normalized = extractProfileId(profileId) || profileId;
   const { data, error } = await admin
     .from("zernio_integrations")
-    .select("organization_id")
-    .eq("zernio_profile_id", profileId)
-    .eq("is_active", true)
-    .maybeSingle();
+    .select("organization_id, zernio_profile_id")
+    .eq("is_active", true);
 
   if (error) throw new Error(error.message);
-  return (data?.organization_id as string | undefined) ?? null;
+
+  for (const row of data ?? []) {
+    const stored = extractProfileId(row.zernio_profile_id as string);
+    if (stored === normalized) {
+      return row.organization_id as string;
+    }
+  }
+
+  return null;
 }
 
 export function mapZernioAccountToConnected(account: {
@@ -179,12 +210,16 @@ export function resolveZernioAccountName(
 }
 
 export function resolveZernioProfileId(
-  accounts: Array<{ profileId?: string; profile?: string }>,
+  accounts: Array<{ profileId?: unknown; profile?: unknown }>,
   organizationId: string
 ): string {
-  return (
-    accounts.find((account) => account.profileId)?.profileId ??
-    accounts.find((account) => account.profile)?.profile ??
-    organizationId
-  );
+  for (const account of accounts) {
+    const fromProfileId = extractProfileId(account.profileId);
+    if (fromProfileId) return fromProfileId;
+    const fromProfile = extractProfileId(account.profile);
+    if (fromProfile) return fromProfile;
+  }
+  return organizationId;
 }
+
+export { extractProfileId };

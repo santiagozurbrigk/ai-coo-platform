@@ -6,6 +6,7 @@ import {
   type ZernioPost,
 } from "@/lib/zernio/client";
 import { getZernioClientForOrganization, getZernioIntegrationForOrg } from "@/lib/zernio/integration";
+import { extractProfileId } from "@/lib/zernio/profile-id";
 import { syncContentMetricsForOrg } from "@/lib/marketing/sync-content-metrics";
 import type {
   ContentPieceSource,
@@ -96,7 +97,7 @@ function belongsToIntegration(
   profileId: string,
   accountIds: Set<string>
 ): boolean {
-  const postProfileId = post.profileId ?? post.profile;
+  const postProfileId = extractProfileId(post.profileId ?? post.profile);
   if (postProfileId && postProfileId === profileId) return true;
   if (post.accountId && accountIds.has(post.accountId)) return true;
   return false;

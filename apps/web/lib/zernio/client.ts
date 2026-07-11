@@ -1,4 +1,5 @@
 import { ZERNIO_API_KEYS_URL } from "@/lib/zernio/constants";
+import { extractProfileId } from "@/lib/zernio/profile-id";
 
 const ZERNIO_BASE = "https://zernio.com/api/v1";
 
@@ -284,7 +285,7 @@ export function createZernioClient(apiKey: string) {
       url.searchParams.set("limit", String(params?.limit ?? 50));
       url.searchParams.set("source", params?.source ?? "zernio");
       if (params?.profileId) {
-        url.searchParams.set("profileId", params.profileId);
+        url.searchParams.set("profileId", extractProfileId(params.profileId));
       }
       if (params?.accountId) {
         url.searchParams.set("accountId", params.accountId);
@@ -326,7 +327,7 @@ export function createZernioClient(apiKey: string) {
         method: "POST",
         headers: headers(),
         body: JSON.stringify({
-          profileId: params.profileId,
+          profileId: extractProfileId(params.profileId),
           platform: params.platform,
           postType: params.postType ?? "post",
           status: params.status,
