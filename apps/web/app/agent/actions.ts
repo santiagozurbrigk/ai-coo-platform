@@ -47,6 +47,15 @@ import {
   cleanAgentResponse,
   parseAgentActions,
 } from "@/lib/agent/parse-actions";
+import { resolveAgentFlags } from "@/lib/agent/canvas-intent";
+import {
+  buildCanvasChatIntro,
+  stripDownloadUrls,
+} from "@/lib/agent/sanitize-agent-output";
+import {
+  documentContentToMarkdown,
+  markdownToDocParagraphs,
+} from "@/lib/agent/document-to-markdown";
 import {
   buildAgentSystemPrompt,
   buildRecentContextSummary,
@@ -87,7 +96,7 @@ const AGENT_ERROR_REPLY =
 const GENERATE_DOCUMENT_TOOL: Anthropic.Tool = {
   name: "generate_document",
   description:
-    "Genera un documento descargable (Word, Excel, PDF o CSV) y lo sube al storage. Usá esta tool cuando el usuario pida un informe, propuesta, planilla, tabla de datos u otro documento estructurado.",
+    "Genera datos tabulares exportables (Excel/CSV). NO uses esta tool para SOPs, reportes ni documentos de texto — esos van al Canvas en markdown. Nunca devuelvas ni menciones URLs de descarga al usuario.",
   input_schema: {
     type: "object" as const,
     required: ["format", "filename", "content"],
@@ -678,6 +687,7 @@ export async function sendAgentMessageAction(input: {
 }): Promise<{
   conversationId: string;
   messages: AgentMessage[];
+  openCanvas: boolean;
 }> {
   const { user, orgId: organizationId } = await requireAuthContext();
 
@@ -793,7 +803,7 @@ export async function sendAgentMessageAction(input: {
   }));
 
   const agentTask = detectAgentComplexity(trimmed, hasRagContext);
-  const flags = input.flags ?? {};
+  const flags = resolveAgentFlags(trimmed, input.flags ?? {});
 
   const anthropicConfigured = isAnthropicConfigured();
   const anthropicKeyPresent = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
@@ -834,6 +844,7 @@ export async function sendAgentMessageAction(input: {
     mimeType: string;
     sizeBytes: number;
   }> = [];
+  let canvasFromDocument: string | null = null;
 
   try {
     agentResult = await callClaudeAgent({
@@ -912,19 +923,16 @@ export async function sendAgentMessageAction(input: {
           const filename = `${baseFilename}.${generated.extension}`;
           const stored = await storeAgentDocument(organizationId, filename, generated);
 
-          generatedDocuments.push({
-            filename: stored.filename,
-            signedUrl: stored.signedUrl,
-            mimeType: stored.mimeType,
-            sizeBytes: stored.sizeBytes,
-          });
+          const markdown = documentContentToMarkdown(docContent);
+          if (markdown.trim()) {
+            canvasFromDocument = `# ${baseFilename}\n\n${markdown}`;
+          }
 
           return JSON.stringify({
             success: true,
             filename: stored.filename,
-            signedUrl: stored.signedUrl,
-            mimeType: stored.mimeType,
-            sizeBytes: stored.sizeBytes,
+            message:
+              "Documento disponible en el panel Canvas. No incluyas links ni URLs de descarga en tu respuesta.",
           });
         }
 
@@ -1156,19 +1164,21 @@ export async function sendAgentMessageAction(input: {
     organizationId,
     actions
   );
-  const displayContent = cleanAgentResponse(rawAssistant);
+  const displayContent = stripDownloadUrls(cleanAgentResponse(rawAssistant));
 
-  // Canvas: extract long structured content into canvasContent
-  // (skip canvas extraction if there are pending proposals — graph canvas will show instead)
-  const canvasContent =
-    flags.useCanvas && createdProposals.length === 0 && shouldExtractCanvas(displayContent)
+  const extractedCanvas =
+    createdProposals.length === 0 && shouldExtractCanvas(displayContent)
       ? displayContent
       : null;
-  // If canvas, show a brief intro in the chat instead of the full content
+
+  const canvasContent =
+    flags.useCanvas && createdProposals.length === 0
+      ? canvasFromDocument ?? extractedCanvas
+      : null;
+
   const chatContent =
     canvasContent !== null
-      ? displayContent.split("\n").slice(0, 3).join("\n").trim() +
-        "\n\n*(El contenido completo está disponible en el panel Canvas →)*"
+      ? buildCanvasChatIntro(canvasContent.match(/^# (.+)$/m)?.[1])
       : displayContent;
 
   // Determine action type: proposals take priority over SOP action
@@ -1225,7 +1235,7 @@ export async function sendAgentMessageAction(input: {
   revalidateAgent();
 
   const messages = await listAgentMessagesAction(conversationId);
-  return { conversationId, messages };
+  return { conversationId, messages, openCanvas: flags.useCanvas };
 }
 
 function extractCanvasTitle(content: string, title?: string | null): string {
@@ -1247,6 +1257,39 @@ function chunkCanvasContent(content: string): string[] {
     chunks.push(trimmed.slice(i, i + 1200));
   }
   return chunks.length > 0 ? chunks : [trimmed];
+}
+
+export async function exportCanvasAsDocxAction(content: string): Promise<{
+  ok: boolean;
+  filename?: string;
+  base64?: string;
+  error?: string;
+}> {
+  try {
+    const trimmed = content.trim();
+    if (!trimmed) {
+      return { ok: false, error: "El canvas está vacío." };
+    }
+
+    await requireAuthContext();
+
+    const title = extractCanvasTitle(trimmed);
+    const generated = await generateDocument("docx", {
+      kind: "doc",
+      paragraphs: markdownToDocParagraphs(trimmed),
+    });
+
+    return {
+      ok: true,
+      filename: `${title.replace(/[^\w\s-]/g, "").trim() || "documento"}.docx`,
+      base64: generated.buffer.toString("base64"),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "No se pudo exportar el documento",
+    };
+  }
 }
 
 export async function saveCanvasToKnowledgeBaseAction(input: {

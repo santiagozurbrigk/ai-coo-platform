@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { resolveAgentFlags } from "@/lib/agent/canvas-intent";
 import {
   createBusinessStageAction,
   deleteAgentConversationAction,
@@ -43,7 +44,7 @@ type AgentDataContextValue = {
   sendMessage: (
     content: string,
     opts?: { conversationId?: string | null; contextStageId?: string | null; flags?: AgentFlags }
-  ) => Promise<string | null>;
+  ) => Promise<{ conversationId: string | null; openCanvas: boolean }>;
   createStage: (input: { name: string; description?: string }) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
   deleteStage: (id: string) => Promise<void>;
@@ -149,10 +150,12 @@ export function AgentDataProvider({
       opts?: { conversationId?: string | null; contextStageId?: string | null; flags?: AgentFlags }
     ) => {
       const trimmed = content.trim();
-      if (!trimmed) return null;
+      if (!trimmed) return { conversationId: null, openCanvas: false };
 
       const targetConversationId =
         opts?.conversationId ?? resolvedConversationId ?? null;
+
+      const flags = resolveAgentFlags(trimmed, opts?.flags);
 
       setInputValue("");
       setMessages((prev) => [
@@ -168,7 +171,7 @@ export function AgentDataProvider({
           conversationId: targetConversationId,
           content: trimmed,
           contextStageId: opts?.contextStageId ?? resolvedFilterStageId ?? null,
-          flags: opts?.flags,
+          flags,
         });
 
         setMessages(result.messages);
@@ -188,7 +191,10 @@ export function AgentDataProvider({
         }
 
         void refresh();
-        return result.conversationId;
+        return {
+          conversationId: result.conversationId,
+          openCanvas: result.openCanvas,
+        };
       } catch (error) {
         setMessages((prev) =>
           prev.filter((message) => !message.id.startsWith("optimistic-"))

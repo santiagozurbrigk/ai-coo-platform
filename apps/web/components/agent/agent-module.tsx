@@ -12,6 +12,7 @@ import { ChatMessage } from "./chat-message";
 import { CanvasPanel } from "./canvas-panel";
 import { GraphCanvasPanel } from "./graph-canvas-panel";
 import type { GraphProposal } from "@/types/agent";
+import { detectCanvasIntent } from "@/lib/agent/canvas-intent";
 
 type CanvasVersion = { id: string; content: string; timestamp: string };
 
@@ -35,6 +36,7 @@ export function AgentModule() {
   // Canvas panel state
   const [canvasVersions, setCanvasVersions] = useState<CanvasVersion[]>([]);
   const [showCanvas, setShowCanvas] = useState(false);
+  const [canvasPending, setCanvasPending] = useState(false);
 
   // Graph canvas: collect pending proposals from all messages
   const pendingProposals = useMemo<GraphProposal[]>(() => {
@@ -71,6 +73,7 @@ export function AgentModule() {
           ];
         });
         setShowCanvas(true);
+        setCanvasPending(false);
       }
       if (msg.graphProposals?.some((p) => p.status === "pending")) {
         hasPendingProposals = true;
@@ -87,6 +90,12 @@ export function AgentModule() {
       behavior: "smooth",
     });
   }, [messages, isSending]);
+
+  useEffect(() => {
+    if (!isSending && canvasPending && canvasVersions.length === 0) {
+      setCanvasPending(false);
+    }
+  }, [isSending, canvasPending, canvasVersions.length]);
 
   const placeholder = currentStage
     ? `Preguntale sobre "${currentStage.name}"...`
@@ -153,9 +162,12 @@ export function AgentModule() {
             value={inputValue}
             onValueChange={setInputValue}
             onSend={(msg, _files, flags) => {
-              // If canvas was active and a canvas version exists, open the panel
-              if (flags?.useCanvas) {
+              const willUseCanvas = Boolean(
+                flags?.useCanvas || detectCanvasIntent(msg)
+              );
+              if (willUseCanvas) {
                 setShowCanvas(true);
+                setCanvasPending(true);
               }
               void (async () => {
                 try {
@@ -165,12 +177,12 @@ export function AgentModule() {
                     flags,
                   });
 
-                  // After sending, check if the newest message has canvas content
-                  if (flags?.useCanvas && result) {
-                    // Canvas content will be in the last assistant message
-                    // We'll detect it after messages update via useEffect
+                  if (result.openCanvas) {
+                    setShowCanvas(true);
+                    setCanvasPending(true);
                   }
                 } catch {
+                  setCanvasPending(false);
                   push({
                     title: "No se pudo enviar el mensaje",
                     description:
@@ -195,11 +207,15 @@ export function AgentModule() {
             onClose={() => setShowCanvas(false)}
           />
         </div>
-      ) : showCanvas && canvasVersions.length > 0 ? (
+      ) : showCanvas && (canvasVersions.length > 0 || canvasPending) ? (
         <div className="w-[420px] shrink-0">
           <CanvasPanel
             versions={canvasVersions}
-            onClose={() => setShowCanvas(false)}
+            isLoading={canvasPending && canvasVersions.length === 0}
+            onClose={() => {
+              setShowCanvas(false);
+              setCanvasPending(false);
+            }}
           />
         </div>
       ) : null}

@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { X, History, Copy, Check, BookOpen, Loader2 } from "lucide-react";
+import { X, History, Copy, Check, BookOpen, Loader2, Download } from "lucide-react";
 import { cn } from "@ai-coo/ui";
-import { saveCanvasToKnowledgeBaseAction } from "@/app/agent/actions";
+import {
+  exportCanvasAsDocxAction,
+  saveCanvasToKnowledgeBaseAction,
+} from "@/app/agent/actions";
 
 interface CanvasVersion {
   id: string;
@@ -14,21 +17,42 @@ interface CanvasVersion {
 
 interface CanvasPanelProps {
   versions: CanvasVersion[];
+  isLoading?: boolean;
   onClose: () => void;
 }
 
 const proseClass =
   "prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-headings:font-semibold prose-p:text-foreground/90 prose-p:my-2 prose-li:text-foreground/90 prose-strong:text-foreground prose-pre:my-2 prose-code:text-foreground prose-a:text-violet-600 dark:prose-a:text-violet-400";
 
-export function CanvasPanel({ versions, onClose }: CanvasPanelProps) {
-  const [activeIdx, setActiveIdx] = useState(versions.length - 1);
+function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function extractFilename(content: string): string {
+  const heading = content.match(/^#{1,2} (.+)$/m);
+  const base = heading?.[1]?.trim() || "documento";
+  return base.replace(/[^\w\s-áéíóúñÁÉÍÓÚÑ]/g, "").trim() || "documento";
+}
+
+export function CanvasPanel({ versions, isLoading = false, onClose }: CanvasPanelProps) {
+  const [activeIdx, setActiveIdx] = useState(Math.max(versions.length - 1, 0));
   const [showHistory, setShowHistory] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">(
     "idle"
   );
+  const [downloadState, setDownloadState] = useState<"idle" | "downloading">("idle");
 
-  const active = versions[activeIdx];
+  useEffect(() => {
+    setActiveIdx(Math.max(versions.length - 1, 0));
+  }, [versions.length]);
+
+  const active = versions[activeIdx] ?? versions[versions.length - 1];
 
   const handleSaveToKnowledge = async () => {
     if (!active || saveState === "saving") return;
@@ -45,9 +69,35 @@ export function CanvasPanel({ versions, onClose }: CanvasPanelProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleDownload = async () => {
+    if (!active || downloadState === "downloading") return;
+    setDownloadState("downloading");
+
+    try {
+      const docxResult = await exportCanvasAsDocxAction(active.content);
+      if (docxResult.ok && docxResult.base64 && docxResult.filename) {
+        const bytes = Uint8Array.from(atob(docxResult.base64), (c) => c.charCodeAt(0));
+        downloadBlob(
+          docxResult.filename,
+          new Blob([bytes], {
+            type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          })
+        );
+        return;
+      }
+
+      const filename = `${extractFilename(active.content)}.md`;
+      downloadBlob(
+        filename,
+        new Blob([active.content], { type: "text/markdown;charset=utf-8" })
+      );
+    } finally {
+      setDownloadState("idle");
+    }
+  };
+
   return (
     <div className="flex h-full flex-col border-l border-border bg-background">
-      {/* Header */}
       <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">Canvas</span>
@@ -85,8 +135,21 @@ export function CanvasPanel({ versions, onClose }: CanvasPanelProps) {
           </button>
           <button
             type="button"
+            onClick={() => void handleDownload()}
+            disabled={!active || downloadState === "downloading" || isLoading}
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+            title="Descargar documento"
+          >
+            {downloadState === "downloading" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+          </button>
+          <button
+            type="button"
             onClick={() => void handleSaveToKnowledge()}
-            disabled={saveState === "saving" || saveState === "saved"}
+            disabled={!active || saveState === "saving" || saveState === "saved" || isLoading}
             className={cn(
               "rounded-lg p-1.5 transition-colors",
               saveState === "saved"
@@ -124,12 +187,9 @@ export function CanvasPanel({ versions, onClose }: CanvasPanelProps) {
         </div>
       </div>
 
-      {/* Version history sidebar */}
       {showHistory && (
         <div className="shrink-0 border-b border-border bg-muted/40 px-3 py-2">
-          <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-            Versiones
-          </p>
+          <p className="mb-1.5 text-xs font-medium text-muted-foreground">Versiones</p>
           <div className="flex flex-col gap-1">
             {versions.map((v, i) => (
               <button
@@ -156,9 +216,13 @@ export function CanvasPanel({ versions, onClose }: CanvasPanelProps) {
         </div>
       )}
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
-        {active ? (
+        {isLoading && !active ? (
+          <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Generando documento…
+          </div>
+        ) : active ? (
           <div className={proseClass}>
             <ReactMarkdown>{active.content}</ReactMarkdown>
           </div>
