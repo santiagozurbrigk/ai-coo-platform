@@ -396,8 +396,8 @@ export async function callClaudeAgent(
 
   const logicalModel = resolveLogicalModel(req);
   const apiModel = resolveApiModelId(logicalModel);
-  const maxTokens = req.maxTokens ?? 8192;
-  const thinkingBudget = req.thinkingBudget ?? 6000;
+  const maxTokens = req.maxTokens ?? 16384;
+  const thinkingBudget = req.thinkingBudget ?? 8000;
 
   const systemParam = buildSystemParam(req.cachedSystemPrompt, req.system);
 
@@ -531,11 +531,21 @@ export async function callClaudeAgent(
     );
 
     currentResponse = nextResponse;
+    if (currentResponse.stop_reason === "max_tokens") {
+      console.warn("[callClaudeAgent] Respuesta truncada (max_tokens) en iteración", iteration);
+    }
     iteration++;
   }
 
   const finalTextBlock = currentResponse.content.find((b) => b.type === "text");
   const lastToolCall = allToolCalls.length > 0 ? allToolCalls[allToolCalls.length - 1]! : null;
+
+  if (currentResponse.stop_reason === "max_tokens") {
+    console.warn("[callClaudeAgent] Respuesta truncada por max_tokens", {
+      maxTokens,
+      enableThinking: req.enableThinking,
+    });
+  }
 
   return {
     text: finalTextBlock && finalTextBlock.type === "text" ? finalTextBlock.text.trim() : "",

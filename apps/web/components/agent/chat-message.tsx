@@ -27,6 +27,8 @@ export function ChatMessage({
   thinkingContent,
   attachments,
   graphProposals,
+  cancelled = false,
+  onRevealComplete,
 }: {
   role: "user" | "assistant";
   content: string;
@@ -36,6 +38,8 @@ export function ChatMessage({
   thinkingContent?: string | null;
   attachments?: AgentMessageAttachment[] | null;
   graphProposals?: GraphProposal[] | null;
+  cancelled?: boolean;
+  onRevealComplete?: () => void;
 }) {
   const reducedMotion = usePrefersReducedMotion();
   const shouldReveal = role === "assistant" && animateReveal && !reducedMotion;
@@ -54,13 +58,18 @@ export function ChatMessage({
     const interval = window.setInterval(() => {
       setVisibleLength((current) => {
         const next = Math.min(content.length, current + step);
-        if (next >= content.length) window.clearInterval(interval);
+        if (next >= content.length) {
+          window.clearInterval(interval);
+          onRevealComplete?.();
+        }
         return next;
       });
     }, 16);
 
     return () => window.clearInterval(interval);
-  }, [content, shouldReveal]);
+  }, [content, shouldReveal, onRevealComplete]);
+
+  const isStreaming = shouldReveal && visibleLength < content.length;
 
   const visibleContent = useMemo(
     () => (shouldReveal ? content.slice(0, visibleLength) : content),
@@ -103,11 +112,17 @@ export function ChatMessage({
           {role === "assistant" ? (
             <div className={assistantProseClassName}>
               <ReactMarkdown>{visibleContent}</ReactMarkdown>
+              {isStreaming ? (
+                <span className="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-violet-400 align-middle" />
+              ) : null}
             </div>
           ) : (
             content
           )}
         </div>
+        {cancelled ? (
+          <p className="text-xs italic text-muted-foreground">Respuesta cancelada</p>
+        ) : null}
         {attachments && attachments.length > 0
           ? attachments.map((att, i) => (
               <DocumentCard key={i} attachment={att} />

@@ -13,6 +13,8 @@ import {
   X,
 } from "lucide-react";
 import React from "react";
+import type { AgentStatus } from "@/lib/agent/types";
+import { isAgentBusy } from "@/lib/agent/types";
 
 // Utility function for className merging
 const cn = (...classes: (string | undefined | null | false)[]) =>
@@ -488,6 +490,9 @@ interface PromptInputBoxProps {
     flags?: { useWebSearch?: boolean; useThink?: boolean; useCanvas?: boolean }
   ) => void;
   isLoading?: boolean;
+  agentStatus?: AgentStatus;
+  onCancel?: () => void;
+  inputDisabled?: boolean;
   placeholder?: string;
   className?: string;
   value?: string;
@@ -498,6 +503,9 @@ export const PromptInputBox = React.forwardRef(
     const {
       onSend = () => {},
       isLoading = false,
+      agentStatus = "idle",
+      onCancel,
+      inputDisabled = false,
       placeholder = "Type your message here...",
       className,
       value: controlledValue,
@@ -710,7 +718,10 @@ export const PromptInputBox = React.forwardRef(
     };
 
     const hasContent = input.trim() !== "" || files.length > 0;
+    const agentBusy = isAgentBusy(agentStatus);
+    const showCancel = agentBusy && Boolean(onCancel);
     const isBusy = isLoading || isTranscribing;
+    const formDisabled = inputDisabled || isBusy || isRecording;
 
     return (
       <>
@@ -725,7 +736,7 @@ export const PromptInputBox = React.forwardRef(
             isTranscribing && "border-violet-500/70",
             className,
           )}
-          disabled={isBusy || isRecording}
+          disabled={formDisabled}
           ref={ref || promptBoxRef}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -1019,13 +1030,15 @@ export const PromptInputBox = React.forwardRef(
 
             <PromptInputAction
               tooltip={
-                isBusy
-                  ? "Procesando…"
-                  : isRecording
-                    ? "Detener grabación"
-                    : hasContent
-                      ? "Enviar mensaje"
-                      : "Mensaje de voz"
+                showCancel
+                  ? "Cancelar"
+                  : isBusy
+                    ? "Procesando…"
+                    : isRecording
+                      ? "Detener grabación"
+                      : hasContent
+                        ? "Enviar mensaje"
+                        : "Mensaje de voz"
               }
             >
               <Button
@@ -1033,20 +1046,25 @@ export const PromptInputBox = React.forwardRef(
                 size="icon"
                 className={cn(
                   "h-8 w-8 rounded-full transition-all duration-200",
-                  isRecording
-                    ? "bg-transparent text-red-500 hover:bg-gray-600/30 hover:text-red-400"
-                    : hasContent
-                      ? "bg-white text-[#1A1A1A] hover:bg-white/80"
-                      : "bg-transparent text-[#9CA3AF] hover:bg-gray-600/30 hover:text-[#D1D5DB]",
+                  showCancel
+                    ? "bg-red-500/15 text-red-400 hover:bg-red-500/25 hover:text-red-300"
+                    : isRecording
+                      ? "bg-transparent text-red-500 hover:bg-gray-600/30 hover:text-red-400"
+                      : hasContent
+                        ? "bg-white text-[#1A1A1A] hover:bg-white/80"
+                        : "bg-transparent text-[#9CA3AF] hover:bg-gray-600/30 hover:text-[#D1D5DB]",
                 )}
                 onClick={() => {
-                  if (isRecording) stopRecording();
+                  if (showCancel) onCancel?.();
+                  else if (isRecording) stopRecording();
                   else if (hasContent) handleSubmit();
                   else void startRecording();
                 }}
-                disabled={isBusy && !isRecording}
+                disabled={isBusy && !isRecording && !showCancel}
               >
-                {isBusy && !isRecording ? (
+                {showCancel ? (
+                  <Square className="h-4 w-4 fill-current" />
+                ) : isBusy && !isRecording ? (
                   <Square className="h-4 w-4 animate-pulse fill-[#1A1A1A]" />
                 ) : isRecording ? (
                   <StopCircle className="h-5 w-5 text-red-500" />
