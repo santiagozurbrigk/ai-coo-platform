@@ -101,13 +101,16 @@ export function useStreamTypewriter(opts: { instant?: boolean }) {
 
     let raf = 0;
     const tick = () => {
-      if (!activeRef.current) return;
-      const target = bufferedRef.current;
-      const currentLen = displayedLenRef.current;
-      if (currentLen < target.length) {
-        const nextLen = Math.min(currentLen + CHARS_PER_FRAME, target.length);
-        displayedLenRef.current = nextLen;
-        setDisplayedText(target.slice(0, nextLen));
+      // El loop debe seguir vivo siempre; solo avanza cuando está activo.
+      // (No hacer `return` temprano: eso mataría el RAF y el texto aparecería de golpe.)
+      if (activeRef.current) {
+        const target = bufferedRef.current;
+        const currentLen = displayedLenRef.current;
+        if (currentLen < target.length) {
+          const nextLen = Math.min(currentLen + CHARS_PER_FRAME, target.length);
+          displayedLenRef.current = nextLen;
+          setDisplayedText(target.slice(0, nextLen));
+        }
       }
       raf = requestAnimationFrame(tick);
     };

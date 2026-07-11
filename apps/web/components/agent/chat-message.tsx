@@ -72,9 +72,6 @@ export function ChatMessage({
     return () => window.clearInterval(interval);
   }, [content, shouldReveal, onRevealComplete]);
 
-  const isStreaming =
-    isLiveStreaming || (shouldReveal && visibleLength < content.length);
-
   const visibleContent = useMemo(
     () =>
       shouldReveal && !isLiveStreaming
@@ -82,6 +79,12 @@ export function ChatMessage({
         : content,
     [content, shouldReveal, isLiveStreaming, visibleLength]
   );
+
+  // El cursor parpadeante solo aparece cuando ya hay texto emitiéndose.
+  // Entre `thinking` y el primer delta (contenido vacío) no debe verse nada.
+  const isStreaming =
+    (isLiveStreaming || (shouldReveal && visibleLength < content.length)) &&
+    visibleContent.length > 0;
 
   return (
     <motion.div

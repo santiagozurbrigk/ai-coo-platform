@@ -132,8 +132,9 @@ export function createAgentToolHandler(ctx: AgentToolHandlerContext) {
 
     if (name === "search_workboard_tasks") {
       const { searchWorkboardTasksAction } = await import("@/app/agent/actions");
+      const query = String(toolInput.query ?? "");
       const result = await searchWorkboardTasksAction({
-        query: String(toolInput.query ?? ""),
+        query,
         status: toolInput.status as
           | "todo"
           | "in_progress"
@@ -141,9 +142,26 @@ export function createAgentToolHandler(ctx: AgentToolHandlerContext) {
           | "done"
           | undefined,
       });
-      return result.ok
-        ? JSON.stringify(result.tasks)
-        : `Error buscando tareas: ${result.error}`;
+      if (!result.ok) {
+        return JSON.stringify({
+          success: false,
+          error: result.error,
+          suggestion:
+            "Reintentá la búsqueda con menos palabras o sin filtro de estado.",
+        });
+      }
+      if (result.tasks.length === 0) {
+        return JSON.stringify({
+          success: true,
+          tasks: [],
+          message: query
+            ? `No se encontraron tareas que coincidan con "${query}".`
+            : "El Tablero de Trabajo no tiene tareas todavía.",
+          suggestion:
+            "Probá con otras palabras clave del título, quitá el filtro de estado, o buscá con query vacío ('') para listar todas las tareas. Si igual no hay resultados, confirmá con el usuario el nombre de la tarea antes de intentar modificarla.",
+        });
+      }
+      return JSON.stringify({ success: true, tasks: result.tasks });
     }
 
     if (name === "update_workboard_task") {
@@ -152,9 +170,18 @@ export function createAgentToolHandler(ctx: AgentToolHandlerContext) {
         task_id: String(toolInput.task_id ?? ""),
         updates: (toolInput.updates ?? {}) as WorkboardTaskUpdates,
       });
-      return result.ok
-        ? "✅ Tarea actualizada correctamente."
-        : `Error al actualizar tarea: ${result.error}`;
+      if (result.ok) {
+        return JSON.stringify({
+          success: true,
+          message: "Tarea actualizada correctamente.",
+        });
+      }
+      return JSON.stringify({
+        success: false,
+        error: result.error,
+        suggestion:
+          "Verificá que el task_id provenga de search_workboard_tasks (no lo inventes). Volvé a buscar la tarea por título para obtener el id correcto y reintentá.",
+      });
     }
 
     if (name === "analyze_content_piece") {
@@ -163,6 +190,14 @@ export function createAgentToolHandler(ctx: AgentToolHandlerContext) {
         const { analyzeContentPieceAction } = await import(
           "@/app/marketing/content/actions"
         );
+        if (!contentPieceId) {
+          return JSON.stringify({
+            success: false,
+            error: "Falta content_piece_id.",
+            suggestion:
+              "Conseguí el id de la pieza con get_top_performing_content (busca por métrica y filtra por tipo) antes de analizarla. No inventes el id.",
+          });
+        }
         const analysis = await analyzeContentPieceAction(contentPieceId);
         return JSON.stringify({
           success: true,
@@ -178,6 +213,8 @@ export function createAgentToolHandler(ctx: AgentToolHandlerContext) {
         return JSON.stringify({
           success: false,
           error: err instanceof Error ? err.message : "Error desconocido",
+          suggestion:
+            "La pieza puede no tener un archivo de Drive vinculado, o el id puede ser incorrecto. Confirmá con get_top_performing_content que el id existe, o avisale al usuario que la pieza necesita un archivo vinculado para analizarse.",
         });
       }
     }
@@ -229,6 +266,19 @@ export function createAgentToolHandler(ctx: AgentToolHandlerContext) {
           typeFilter,
         });
 
+        if (results.length === 0) {
+          return JSON.stringify({
+            success: true,
+            results: [],
+            count: 0,
+            message: `No hay piezas de contenido${
+              typeFilter !== "all" ? ` del tipo "${typeFilter}"` : ""
+            } con datos para la métrica "${metric}".`,
+            suggestion:
+              "Probá con type_filter='all' o con otra métrica (ej: 'engagement_total'). Si sigue vacío, es probable que el módulo Contenido aún no tenga piezas cargadas — avisale al usuario.",
+          });
+        }
+
         return JSON.stringify({
           success: true,
           results,
@@ -238,6 +288,8 @@ export function createAgentToolHandler(ctx: AgentToolHandlerContext) {
         return JSON.stringify({
           success: false,
           error: err instanceof Error ? err.message : "Error desconocido",
+          suggestion:
+            "Reintentá con type_filter='all' y metric='engagement_total'. Si el error persiste, informá al usuario que no se pudo acceder a las métricas de contenido.",
         });
       }
     }
