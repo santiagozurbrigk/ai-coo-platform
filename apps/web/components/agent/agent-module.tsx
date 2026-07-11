@@ -23,6 +23,7 @@ export function AgentModule() {
     workspace,
     messages,
     streamingMessageId,
+    streamingDisplayedText,
     agentStatus,
     isLoading,
     isSending,
@@ -142,7 +143,9 @@ export function AgentModule() {
               <ChatMessage
                 key={msg.id}
                 role={msg.role}
-                content={msg.content}
+                content={
+                  msg.id === streamingMessageId ? streamingDisplayedText : msg.content
+                }
                 actionType={msg.actionType}
                 actionRefId={msg.actionRefId}
                 isLiveStreaming={msg.id === streamingMessageId}

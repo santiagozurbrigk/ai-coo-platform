@@ -12,7 +12,7 @@ type AgentStatusIndicatorProps = {
 };
 
 export function AgentStatusIndicator({ status, onRetry }: AgentStatusIndicatorProps) {
-  const showOrb = status === "thinking" || status === "generating";
+  const showOrb = status === "thinking";
 
   return (
     <AnimatePresence mode="wait">
@@ -25,15 +25,13 @@ export function AgentStatusIndicator({ status, onRetry }: AgentStatusIndicatorPr
           transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
           className="flex gap-3"
           aria-live="polite"
-          aria-label={status === "generating" ? "Generando respuesta" : "Pensando"}
+          aria-label="Pensando"
         >
           <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center">
-            <AgentThinkingOrb active={status === "generating"} className="h-8 w-8" />
+            <AgentThinkingOrb active={false} className="h-8 w-8" />
           </div>
           <div className="chat-message-assistant rounded-2xl border px-4 py-3">
-            <p className="text-sm text-muted-foreground">
-              {status === "generating" ? "Escribiendo respuesta…" : "Pensando…"}
-            </p>
+            <p className="text-sm text-muted-foreground">Pensando…</p>
           </div>
         </motion.div>
       ) : null}

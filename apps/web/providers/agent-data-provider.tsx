@@ -13,7 +13,9 @@ import {
 import { useRouter } from "next/navigation";
 import { resolveAgentFlags } from "@/lib/agent/canvas-intent";
 import { parseSseBuffer } from "@/lib/agent/sse";
+import { useStreamTypewriter } from "@/lib/agent/use-stream-typewriter";
 import type { AgentStatus } from "@/lib/agent/types";
+import { usePrefersReducedMotion } from "@ai-coo/ui";
 import {
   createBusinessStageAction,
   deleteAgentConversationAction,
@@ -42,6 +44,7 @@ type AgentDataContextValue = {
   workspace: AgentWorkspaceData;
   messages: AgentMessage[];
   streamingMessageId: string | null;
+  streamingDisplayedText: string;
   agentStatus: AgentStatus;
   isLoading: boolean;
   isSending: boolean;
@@ -113,6 +116,7 @@ export function AgentDataProvider({
   filterStageId?: string | null;
 }) {
   const router = useRouter();
+  const reducedMotion = usePrefersReducedMotion();
   const pageContext = useOptionalPageContext()?.pageContext ?? null;
   const resolvedConversationId = conversationId ?? null;
   const resolvedFilterStageId = filterStageId ?? null;
@@ -123,6 +127,17 @@ export function AgentDataProvider({
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastSendRef = useRef<{ content: string; flags?: AgentFlags; conversationId: string | null } | null>(null);
   const completeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const streamTypewriter = useStreamTypewriter({ instant: reducedMotion });
+  const {
+    displayedText: streamingDisplayedText,
+    start: startStreamTypewriter,
+    appendBuffer: appendStreamBuffer,
+    markStreamEnded: markStreamEnded,
+    waitForCatchUp: waitForStreamCatchUp,
+    snapToBuffer: snapStreamToBuffer,
+    reset: resetStreamTypewriter,
+  } = streamTypewriter;
 
   const [workspace, setWorkspace] = useState<AgentWorkspaceData>({
     stages: [],
@@ -191,10 +206,12 @@ export function AgentDataProvider({
     abortControllerRef.current = null;
     isSendingRef.current = false;
     setIsSending(false);
+    setStreamingMessageId(null);
+    resetStreamTypewriter();
     setAgentStatus("cancelled");
     clearCompleteTimer();
     setTimeout(() => setAgentStatus("idle"), 1200);
-  }, [clearCompleteTimer]);
+  }, [clearCompleteTimer, resetStreamTypewriter]);
 
   const markComplete = useCallback(() => {
     setAgentStatus("complete");
@@ -233,6 +250,7 @@ export function AgentDataProvider({
       setStreamingMessageId(null);
       setAgentStatus("thinking");
       clearCompleteTimer();
+      startStreamTypewriter();
 
       const streamingId = `streaming-${crypto.randomUUID()}`;
       let receivedDelta = false;
@@ -293,13 +311,7 @@ export function AgentDataProvider({
                 ]);
               }
 
-              setMessages((prev) =>
-                prev.map((message) =>
-                  message.id === streamingId
-                    ? { ...message, content: message.content + chunk }
-                    : message
-                )
-              );
+              appendStreamBuffer(chunk);
             }
 
             if (evt.event === "tool_start" && !receivedDelta) {
@@ -338,9 +350,14 @@ export function AgentDataProvider({
           throw new Error("Respuesta inválida del agente");
         }
 
+        markStreamEnded();
+        await waitForStreamCatchUp();
+        snapStreamToBuffer();
+
         const finalMessages = await listAgentMessagesAction(resultConversationId);
         setMessages(finalMessages);
         setStreamingMessageId(null);
+        resetStreamTypewriter();
         markComplete();
 
         const navigatedAway =
@@ -361,6 +378,8 @@ export function AgentDataProvider({
         };
       } catch (error) {
         if (controller.signal.aborted) {
+          setStreamingMessageId(null);
+          resetStreamTypewriter();
           setAgentStatus("cancelled");
           setTimeout(() => setAgentStatus("idle"), 1200);
           return { conversationId: null, openCanvas: false };
@@ -374,6 +393,7 @@ export function AgentDataProvider({
           )
         );
         setStreamingMessageId(null);
+        resetStreamTypewriter();
         setAgentStatus("error");
         throw error;
       } finally {
@@ -392,6 +412,12 @@ export function AgentDataProvider({
       router,
       clearCompleteTimer,
       markComplete,
+      startStreamTypewriter,
+      appendStreamBuffer,
+      markStreamEnded,
+      waitForStreamCatchUp,
+      snapStreamToBuffer,
+      resetStreamTypewriter,
     ]
   );
 
@@ -462,6 +488,7 @@ export function AgentDataProvider({
       workspace,
       messages,
       streamingMessageId,
+      streamingDisplayedText: streamingDisplayedText,
       agentStatus,
       isLoading,
       isSending,
@@ -483,6 +510,7 @@ export function AgentDataProvider({
       workspace,
       messages,
       streamingMessageId,
+      streamingDisplayedText,
       agentStatus,
       isLoading,
       isSending,
