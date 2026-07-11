@@ -101,6 +101,10 @@
     {
       "path": "/api/cron/executive-report-monthly",
       "schedule": "0 13 1 * *"
+    },
+    {
+      "path": "/api/cron/sync-content-metrics",
+      "schedule": "0 6 * * *"
     }
   ]
 }

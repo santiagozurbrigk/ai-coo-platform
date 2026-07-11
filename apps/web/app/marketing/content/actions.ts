@@ -34,6 +34,43 @@ async function requireProfileOrganizationId(): Promise<string> {
   return profile.organization_id;
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resuelve una pieza por UUID interno o, si el ID no es UUID (ej. Instagram
+ * media ID numérico como "17896293831516409"), por platform_post_id.
+ */
+async function resolveContentPieceRow(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  id: string
+): Promise<ContentPiece | null> {
+  const trimmed = id.trim();
+  if (!trimmed) return null;
+
+  if (UUID_RE.test(trimmed)) {
+    const { data, error } = await supabase
+      .from("content_pieces")
+      .select("*")
+      .eq("id", trimmed)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (data) return data as ContentPiece;
+  }
+
+  // Fallback: buscar por ID de plataforma (Instagram media ID, YouTube video ID)
+  const { data: byPlatformId, error: platformError } = await supabase
+    .from("content_pieces")
+    .select("*")
+    .eq("platform_post_id", trimmed)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  if (platformError) throw new Error(platformError.message);
+  return (byPlatformId as ContentPiece | null) ?? null;
+}
+
 export async function getContentPiecesAction(params?: {
   type?: ContentPieceType;
   status?: ContentPieceStatus;
@@ -67,21 +104,25 @@ export async function getContentPieceAction(
   const organizationId = await requireProfileOrganizationId();
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  const piece = await resolveContentPieceRow(supabase, organizationId, id);
+  if (!piece) {
+    throw new Error(
+      "Pieza no encontrada (se buscó por UUID interno y por ID de plataforma)"
+    );
+  }
+
+  const { data: variants, error } = await supabase
     .from("content_pieces")
     .select("*")
     .eq("organization_id", organizationId)
-    .or(`id.eq.${id},variants_of.eq.${id}`)
+    .eq("variants_of", piece.id)
     .order("created_at", { ascending: true });
 
   if (error) throw new Error(error.message);
 
-  const piece = data?.find((p) => p.id === id);
-  if (!piece) throw new Error("Pieza no encontrada");
-
   return {
-    ...(piece as ContentPiece),
-    variants: (data?.filter((p) => p.variants_of === id) ?? []) as ContentPiece[],
+    ...piece,
+    variants: (variants ?? []) as ContentPiece[],
   };
 }
 
@@ -139,15 +180,16 @@ export async function analyzeContentPieceAction(
   const organizationId = await requireProfileOrganizationId();
   const supabase = await createClient();
 
-  const { data: piece, error } = await supabase
-    .from("content_pieces")
-    .select("*")
-    .eq("id", contentPieceId)
-    .eq("organization_id", organizationId)
-    .maybeSingle();
+  const piece = await resolveContentPieceRow(
+    supabase,
+    organizationId,
+    contentPieceId
+  );
 
-  if (error || !piece) {
-    throw new Error("Pieza no encontrada");
+  if (!piece) {
+    throw new Error(
+      "Pieza no encontrada (se buscó por UUID interno y por ID de plataforma)"
+    );
   }
 
   if (!piece.drive_file_id) {
@@ -211,7 +253,7 @@ export async function analyzeContentPieceAction(
       analysis,
       analysis_generated_at: new Date().toISOString(),
     })
-    .eq("id", contentPieceId)
+    .eq("id", piece.id)
     .eq("organization_id", organizationId);
 
   if (updateError) {
@@ -239,15 +281,16 @@ export async function createContentVariantsAction({
   const supabase = await createClient();
   const variantCount = Math.min(Math.max(count, 1), 5);
 
-  const { data: source, error } = await supabase
-    .from("content_pieces")
-    .select("*")
-    .eq("id", sourceContentId)
-    .eq("organization_id", organizationId)
-    .maybeSingle();
+  const source = await resolveContentPieceRow(
+    supabase,
+    organizationId,
+    sourceContentId
+  );
 
-  if (error || !source) {
-    throw new Error("Pieza fuente no encontrada");
+  if (!source) {
+    throw new Error(
+      "Pieza fuente no encontrada (se buscó por UUID interno y por ID de plataforma)"
+    );
   }
 
   const sourceAnalysis = source.analysis as ContentAnalysis | null | undefined;
@@ -317,7 +360,7 @@ Respondé con este JSON exacto:
     type: source.type as ContentPieceType,
     source: "ai_generated" as const,
     platform: source.platform,
-    variants_of: sourceContentId,
+    variants_of: source.id,
     brief: variant as ContentBrief,
     status: "draft" as const,
   }));
@@ -332,7 +375,7 @@ Respondé con este JSON exacto:
   }
 
   revalidatePath(paths.platform.marketing.content);
-  revalidatePath(paths.platform.marketing.contentDetail(sourceContentId));
+  revalidatePath(paths.platform.marketing.contentDetail(source.id));
 
   return (inserted ?? []).map((row) => row.id as string);
 }

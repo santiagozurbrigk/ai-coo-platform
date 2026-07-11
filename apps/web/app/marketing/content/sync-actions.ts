@@ -6,8 +6,8 @@ import {
   type ZernioPost,
 } from "@/lib/zernio/client";
 import { getZernioClientForOrganization, getZernioIntegrationForOrg } from "@/lib/zernio/integration";
+import { syncContentMetricsForOrg } from "@/lib/marketing/sync-content-metrics";
 import type {
-  ContentMetrics,
   ContentPieceSource,
   ContentPieceStatus,
   ContentPieceType,
@@ -170,44 +170,6 @@ async function fetchZernioPosts(
   return dedupePosts(flattenZernioPosts(zernioPosts));
 }
 
-function aggregatePlatformMetrics(
-  platforms: Record<
-    string,
-    {
-      impressions?: number;
-      likes?: number;
-      comments?: number;
-      shares?: number;
-      reach?: number;
-      clicks?: number;
-    }
-  >
-): ContentMetrics {
-  let likes = 0;
-  let comments = 0;
-  let shares = 0;
-  let reach = 0;
-  let impressions = 0;
-
-  for (const metrics of Object.values(platforms)) {
-    likes += metrics.likes ?? 0;
-    comments += metrics.comments ?? 0;
-    shares += metrics.shares ?? 0;
-    reach += metrics.reach ?? 0;
-    impressions += metrics.impressions ?? 0;
-  }
-
-  return {
-    likes,
-    comments,
-    shares,
-    saves: 0,
-    reach,
-    impressions,
-    views: impressions || reach,
-  };
-}
-
 export async function syncZernioContentAction(): Promise<{ synced: number }> {
   const organizationId = await requireOrganizationId();
   const integration = await getZernioIntegrationForOrg(organizationId);
@@ -314,6 +276,15 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
     })
   );
 
+  // Trigger inmediato: sincronizar métricas de las piezas recién creadas/actualizadas
+  // en background para no bloquear la respuesta al usuario.
+  void syncContentMetricsForOrg(organizationId).catch((err) => {
+    console.error("[syncZernioContent] metrics sync failed", {
+      organizationId,
+      error: err instanceof Error ? err.message : err,
+    });
+  });
+
   return { synced: upsertRows.length };
 }
 
@@ -356,64 +327,5 @@ export async function syncZernioMetricsAction(
   contentPieceIds?: string[]
 ): Promise<void> {
   const organizationId = await requireOrganizationId();
-  const integration = await getZernioIntegrationForOrg(organizationId);
-  if (!integration || integration.connected_accounts.length === 0) return;
-
-  const supabase = await createClient();
-
-  let query = supabase
-    .from("content_pieces")
-    .select("id, platform_post_id")
-    .eq("organization_id", organizationId)
-    .eq("source", "zernio")
-    .not("platform_post_id", "is", null);
-
-  if (contentPieceIds && contentPieceIds.length > 0) {
-    query = query.in("id", contentPieceIds);
-  }
-
-  const { data: pieces, error } = await query.limit(20);
-  if (error) throw new Error(error.message);
-  if (!pieces || pieces.length === 0) return;
-
-  const client = await getZernioClientForOrganization(organizationId);
-
-  const updates = await Promise.allSettled(
-    pieces.map(async (piece) => {
-      const postId = piece.platform_post_id as string;
-      const analytics = await client.getPostAnalytics(postId);
-      const metrics = aggregatePlatformMetrics(analytics.platforms ?? {});
-
-      return {
-        id: piece.id as string,
-        metrics,
-        metrics_updated_at: new Date().toISOString(),
-      };
-    })
-  );
-
-  const successfulUpdates = updates
-    .filter(
-      (result): result is PromiseFulfilledResult<{
-        id: string;
-        metrics: ContentMetrics;
-        metrics_updated_at: string;
-      }> => result.status === "fulfilled" && result.value !== null
-    )
-    .map((result) => result.value);
-
-  if (successfulUpdates.length === 0) return;
-
-  await Promise.all(
-    successfulUpdates.map((update) =>
-      supabase
-        .from("content_pieces")
-        .update({
-          metrics: update.metrics,
-          metrics_updated_at: update.metrics_updated_at,
-        })
-        .eq("id", update.id)
-        .eq("organization_id", organizationId)
-    )
-  );
+  await syncContentMetricsForOrg(organizationId, contentPieceIds);
 }

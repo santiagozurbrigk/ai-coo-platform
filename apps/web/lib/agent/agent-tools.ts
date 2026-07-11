@@ -235,7 +235,8 @@ export const ANALYZE_CONTENT_PIECE_TOOL: Anthropic.Tool = {
       content_piece_id: {
         type: "string",
         description:
-          "UUID EXACTO de la pieza en la tabla content_pieces. Debe provenir del sistema, no inventarse.",
+          "ID de la pieza: UUID interno de content_pieces o el ID de plataforma " +
+          "(Instagram media ID numérico largo, ej. '17896293831516409'). Debe provenir del sistema, no inventarse.",
       },
     },
   },
@@ -258,7 +259,8 @@ export const CREATE_CONTENT_VARIANTS_TOOL: Anthropic.Tool = {
       source_content_id: {
         type: "string",
         description:
-          "UUID EXACTO de la pieza fuente (la que se quiere replicar). Debe provenir del sistema.",
+          "ID de la pieza fuente (la que se quiere replicar): UUID interno o ID de plataforma " +
+          "(Instagram media ID numérico largo). Debe provenir del sistema.",
       },
       count: {
         type: "number",
