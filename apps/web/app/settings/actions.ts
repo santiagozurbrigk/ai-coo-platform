@@ -8,7 +8,12 @@ import {
   validateClaudeApiKey,
   validationErrorMessage,
 } from "@/lib/ai/validate-claude-key";
-import { invalidateOrgKeyCache } from "@/lib/ai/anthropic";
+import type { ClaudeCredentialMode } from "@/lib/ai/credential-types";
+import {
+  invalidateOrgCredentialCache,
+  isAnthropicOAuthConfigured,
+  removeOAuthForOrg,
+} from "@/lib/ai/credential-resolver";
 import { invalidateOrgContext } from "@/lib/ai/org-context";
 import { decrypt, encrypt, maskSecret } from "@/lib/security/encryption";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -30,6 +35,18 @@ export type ClaudeApiKeyStatus = {
   status: "none" | "valid" | "valid_no_credits" | "invalid" | "error";
   lastValidated: string | null;
   keyPreview: string | null;
+};
+
+export type AiCredentialStatus = {
+  mode: ClaudeCredentialMode;
+  oauth: {
+    connected: boolean;
+    connectAvailable: boolean;
+    failedAt: string | null;
+    lastProbeAt: string | null;
+    lastSuccessAt: string | null;
+  };
+  apiKey: ClaudeApiKeyStatus;
 };
 
 export type OrganizationSettings = {
@@ -479,10 +496,83 @@ export async function saveClaudeApiKeyAction(
 
     if (error) throw new Error(error.message);
 
-    invalidateOrgKeyCache(orgId);
+    invalidateOrgCredentialCache(orgId);
     invalidateOrgContext(orgId);
     revalidatePath(paths.platform.settings);
     return { maskedKey: maskSecret(trimmed), status: keyStatus };
+  });
+}
+
+export async function getAiCredentialStatusAction(): Promise<AiCredentialStatus> {
+  const apiKey = await getClaudeApiKeyStatusAction();
+
+  if (!isSupabaseConfigured()) {
+    return {
+      mode: "api_key_active",
+      oauth: {
+        connected: false,
+        connectAvailable: isAnthropicOAuthConfigured(),
+        failedAt: null,
+        lastProbeAt: null,
+        lastSuccessAt: null,
+      },
+      apiKey,
+    };
+  }
+
+  try {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const { data } = await supabase
+      .from("organization_claude_status")
+      .select(
+        "has_claude_oauth, claude_credential_mode, claude_oauth_failed_at, claude_oauth_last_probe_at, claude_oauth_last_success_at"
+      )
+      .eq("id", organizationId)
+      .maybeSingle();
+
+    return {
+      mode:
+        (data?.claude_credential_mode as ClaudeCredentialMode) ??
+        "api_key_active",
+      oauth: {
+        connected: Boolean(data?.has_claude_oauth),
+        connectAvailable: isAnthropicOAuthConfigured(),
+        failedAt: (data?.claude_oauth_failed_at as string | null) ?? null,
+        lastProbeAt: (data?.claude_oauth_last_probe_at as string | null) ?? null,
+        lastSuccessAt:
+          (data?.claude_oauth_last_success_at as string | null) ?? null,
+      },
+      apiKey,
+    };
+  } catch {
+    return {
+      mode: "api_key_active",
+      oauth: {
+        connected: false,
+        connectAvailable: isAnthropicOAuthConfigured(),
+        failedAt: null,
+        lastProbeAt: null,
+        lastSuccessAt: null,
+      },
+      apiKey,
+    };
+  }
+}
+
+export async function removeClaudeOAuthAction(): Promise<MutationResult> {
+  return runMutation(async () => {
+    if (!isSupabaseConfigured()) {
+      throw new Error("Supabase no configurado.");
+    }
+
+    const { orgId } = await requireAuthContext();
+    await removeOAuthForOrg(orgId);
+    invalidateOrgCredentialCache(orgId);
+    invalidateOrgContext(orgId);
+    revalidatePath(paths.platform.settings);
+    return undefined;
   });
 }
 
@@ -506,7 +596,7 @@ export async function removeClaudeApiKeyAction(): Promise<MutationResult> {
 
     if (error) throw new Error(error.message);
 
-    invalidateOrgKeyCache(orgId);
+    invalidateOrgCredentialCache(orgId);
     invalidateOrgContext(orgId);
     revalidatePath(paths.platform.settings);
     return undefined;

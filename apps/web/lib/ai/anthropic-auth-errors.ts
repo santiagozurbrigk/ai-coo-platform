@@ -1,14 +1,7 @@
 import {
-  isAnthropicNoCreditsError,
   parseAnthropicErrorBody,
   type AnthropicErrorBody,
 } from "@/lib/ai/validate-claude-key";
-
-export type ClaudeKeySource = "oauth" | "api_key" | "global";
-
-function isOrgOwnedKey(source: ClaudeKeySource): boolean {
-  return source === "oauth" || source === "api_key";
-}
 
 function extractAnthropicError(
   error: unknown
@@ -54,23 +47,35 @@ function parseAnthropicErrorFromMessage(
   };
 }
 
-export function claudeNoCreditsUserMessage(keySource: ClaudeKeySource): string {
-  if (isOrgOwnedKey(keySource)) {
-    return "No se pudo generar el contenido con IA: tu cuenta de Claude no tiene créditos disponibles. Revisá tu configuración en Settings → IA, o contactá al soporte si el problema persiste.";
+/** Solo fallos de autenticación explícitos — no rate limit, timeouts ni errores de modelo. */
+export function isAnthropicAuthFailure(error: unknown): boolean {
+  const parsed = extractAnthropicError(error);
+  if (!parsed) return false;
+
+  if (parsed.status === 429) return false;
+
+  const errorType = parsed.body?.error?.type ?? "";
+  const message = (parsed.body?.error?.message ?? "").toLowerCase();
+
+  if (parsed.status === 401) return true;
+
+  if (parsed.status === 403) {
+    return (
+      errorType === "authentication_error" ||
+      errorType === "permission_error" ||
+      message.includes("not authorized") ||
+      message.includes("authentication") ||
+      message.includes("invalid api key") ||
+      message.includes("invalid x-api-key")
+    );
   }
 
-  return "No se pudo generar el contenido con IA: el servicio no está disponible momentáneamente por falta de capacidad de IA. Contactá al soporte si el problema persiste.";
+  return errorType === "authentication_error";
 }
 
-export function mapAnthropicCallError(
-  error: unknown,
-  keySource: ClaudeKeySource
-): Error {
-  const parsed = extractAnthropicError(error);
-  if (parsed && isAnthropicNoCreditsError(parsed.status, parsed.body)) {
-    return new Error(claudeNoCreditsUserMessage(keySource));
-  }
+export const NO_AI_CREDENTIALS_MESSAGE =
+  "Reconectá tus credenciales de IA en Configuración → IA.";
 
-  if (error instanceof Error) return error;
-  return new Error("No se pudo completar la solicitud a Claude.");
+export function noAiCredentialsError(): Error {
+  return new Error(NO_AI_CREDENTIALS_MESSAGE);
 }

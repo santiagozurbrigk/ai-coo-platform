@@ -1,7 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { isAnthropicAuthFailure } from "@/lib/ai/anthropic-auth-errors";
 import { mapAnthropicCallError, type ClaudeKeySource } from "@/lib/ai/anthropic-errors";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { decrypt } from "@/lib/security/encryption";
+import {
+  invalidateOrgCredentialCache,
+  markOAuthDegraded,
+  resolveCredentialForOrg,
+  resolveFallbackApiKeyForOrg,
+} from "@/lib/ai/credential-resolver";
 import { trackTokenUsage } from "@/lib/track-token-usage";
 
 /** IDs de modelo para la API de Anthropic */
@@ -157,91 +162,57 @@ type ClaudeUsage = {
   cache_creation_input_tokens?: number;
 };
 
-const orgKeyCache = new Map<string, { key: string; cachedAt: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000;
-
-function getGlobalClient(): Anthropic | null {
-  const key = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!key) return null;
-  return new Anthropic({ apiKey: key });
-}
-
 export function isAnthropicConfigured(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
 }
 
 export function invalidateOrgKeyCache(organizationId: string): void {
-  orgKeyCache.delete(organizationId);
+  invalidateOrgCredentialCache(organizationId);
 }
 
-type ClientResolution = {
-  client: Anthropic | null;
-  keySource: ClaudeKeySource | "none";
-};
+function toKeySource(
+  source: "oauth" | "api_key" | "global" | "none"
+): ClaudeKeySource {
+  if (source === "oauth") return "oauth";
+  if (source === "api_key") return "api_key";
+  return "global";
+}
 
-async function resolveClientForOrg(
-  organizationId?: string
-): Promise<ClientResolution> {
-  if (!organizationId) {
-    const client = getGlobalClient();
-    return { client, keySource: client ? "global" : "none" };
+async function executeWithCredentialFallback<T>(
+  organizationId: string,
+  fn: (client: Anthropic, keySource: ClaudeKeySource) => Promise<T>
+): Promise<{ result: T | null; keySource: ClaudeKeySource | "none" }> {
+  const resolution = await resolveCredentialForOrg(organizationId);
+  if (!resolution.client || resolution.source === "none") {
+    console.warn("[anthropic] Sin credencial (org ni ANTHROPIC_API_KEY global)");
+    return { result: null, keySource: "none" };
   }
 
-  const cached = orgKeyCache.get(organizationId);
-  if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
-    return {
-      client: new Anthropic({ apiKey: cached.key }),
-      keySource: "byok",
-    };
-  }
+  const keySource = toKeySource(resolution.source);
 
   try {
-    const supabase = createAdminClient();
-    const { data } = await supabase
-      .from("organizations")
-      .select("claude_api_key_encrypted, claude_api_key_status")
-      .eq("id", organizationId)
-      .maybeSingle();
-
-    if (
-      data?.claude_api_key_encrypted &&
-      (data.claude_api_key_status === "valid" ||
-        data.claude_api_key_status === "valid_no_credits")
-    ) {
-      let apiKey: string;
-      try {
-        apiKey = decrypt(data.claude_api_key_encrypted);
-      } catch {
-        console.warn(
-          "[getClientForOrg] No se pudo descifrar BYOK key para org",
-          organizationId
-        );
-        const client = getGlobalClient();
-        return { client, keySource: client ? "global" : "none" };
+    const result = await fn(resolution.client, keySource);
+    return { result, keySource };
+  } catch (error) {
+    if (resolution.usedOAuth && isAnthropicAuthFailure(error)) {
+      console.warn(
+        "[anthropic] OAuth degradado por fallo de auth, reintentando con API key",
+        organizationId
+      );
+      await markOAuthDegraded(organizationId);
+      const fallbackClient = await resolveFallbackApiKeyForOrg(organizationId);
+      if (!fallbackClient) {
+        throw mapAnthropicCallError(error, keySource);
       }
-
-      orgKeyCache.set(organizationId, {
-        key: apiKey,
-        cachedAt: Date.now(),
-      });
-      return {
-        client: new Anthropic({ apiKey }),
-        keySource: "byok",
-      };
+      try {
+        const result = await fn(fallbackClient, "api_key");
+        return { result, keySource: "api_key" };
+      } catch (fallbackError) {
+        throw mapAnthropicCallError(fallbackError, "api_key");
+      }
     }
-  } catch {
-    // Fallback a key global
+    throw mapAnthropicCallError(error, keySource);
   }
-
-  const client = getGlobalClient();
-  return { client, keySource: client ? "global" : "none" };
-}
-
-export async function getClientForOrg(
-  organizationId?: string
-): Promise<Anthropic | null> {
-  const { client } = await resolveClientForOrg(organizationId);
-  return client;
 }
 
 export type ClaudeJsonRequest = {
@@ -319,36 +290,37 @@ async function createClaudeMessage(
 export async function callClaudeText(
   req: ClaudeTextRequest
 ): Promise<string | null> {
-  const { client, keySource } = await resolveClientForOrg(req.organizationId);
-  if (!client || keySource === "none") {
-    console.warn("[callClaudeText] Sin API key (org BYOK ni ANTHROPIC_API_KEY)");
-    return null;
-  }
-
   const logicalModel = resolveLogicalModel(req);
   const apiModel = resolveApiModelId(logicalModel);
 
-  const response = await createClaudeMessage(client, keySource, {
-    apiModel,
-    maxTokens: req.maxTokens ?? 4096,
-    system: req.system,
-    cachedSystemPrompt: req.cachedSystemPrompt,
-    messages: req.messages.map((m) => ({
-      role: m.role,
-      content: m.content,
-    })),
-  });
-
-  await trackUsage(
+  const { result } = await executeWithCredentialFallback(
     req.organizationId,
-    logicalModel,
-    req.feature,
-    response.usage as ClaudeUsage
+    async (client, keySource) => {
+      const response = await createClaudeMessage(client, keySource, {
+        apiModel,
+        maxTokens: req.maxTokens ?? 4096,
+        system: req.system,
+        cachedSystemPrompt: req.cachedSystemPrompt,
+        messages: req.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+      });
+
+      await trackUsage(
+        req.organizationId,
+        logicalModel,
+        req.feature,
+        response.usage as ClaudeUsage
+      );
+
+      const textBlock = response.content.find((b) => b.type === "text");
+      if (!textBlock || textBlock.type !== "text") return null;
+      return textBlock.text.trim();
+    }
   );
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") return null;
-  return textBlock.text.trim();
+  return result;
 }
 
 export type AgentToolInput = {
@@ -388,212 +360,216 @@ export type ClaudeAgentRequest = {
 export async function callClaudeAgent(
   req: ClaudeAgentRequest
 ): Promise<ClaudeAgentResult> {
-  const { client, keySource } = await resolveClientForOrg(req.organizationId);
-  if (!client || keySource === "none") {
-    console.warn("[callClaudeAgent] Sin API key (org BYOK ni ANTHROPIC_API_KEY)");
-    return { text: "", thinkingContent: null, toolCall: null, toolCalls: [] };
-  }
+  const empty: ClaudeAgentResult = {
+    text: "",
+    thinkingContent: null,
+    toolCall: null,
+    toolCalls: [],
+  };
 
   const logicalModel = resolveLogicalModel(req);
   const apiModel = resolveApiModelId(logicalModel);
   const maxTokens = req.maxTokens ?? 16384;
   const thinkingBudget = req.thinkingBudget ?? 8000;
 
-  const systemParam = buildSystemParam(req.cachedSystemPrompt, req.system);
-
-  const tools: Anthropic.Tool[] = [...(req.tools ?? [])];
-  if (req.enableWebSearch) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tools.push({ type: "web_search_20250305", name: "web_search" } as any);
-  }
-
-  const messages: Anthropic.MessageParam[] = req.messages.map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const requestBase: Record<string, any> = {
-    model: apiModel,
-    max_tokens: maxTokens,
-    messages,
-    ...(systemParam !== undefined && { system: systemParam }),
-    ...(tools.length > 0 && { tools }),
-    ...(req.enableThinking && {
-      thinking: { type: "enabled", budget_tokens: thinkingBudget },
-    }),
-  };
-
-  let response: Anthropic.Message;
-  try {
-    if (req.cachedSystemPrompt?.trim()) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      response = (await client.beta.messages.create({
-        ...requestBase,
-        betas: [PROMPT_CACHING_BETA],
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any)) as Anthropic.Message;
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      response = (await (client.messages.create as (p: any) => Promise<Anthropic.Message>)(requestBase));
-    }
-  } catch (error) {
-    throw mapAnthropicCallError(error, keySource);
-  }
-
-  await trackUsage(
+  const { result } = await executeWithCredentialFallback(
     req.organizationId,
-    logicalModel,
-    req.feature,
-    response.usage as ClaudeUsage
-  );
+    async (client, keySource) => {
+      const systemParam = buildSystemParam(req.cachedSystemPrompt, req.system);
 
-  // Extract thinking blocks from the first response
-  const thinkingBlocks = response.content.filter((b) => b.type === "thinking");
-  const thinkingContent =
-    thinkingBlocks.length > 0
-      ? JSON.stringify(
-          thinkingBlocks.map((b) =>
-            b.type === "thinking"
-              ? { text: (b as { type: "thinking"; thinking: string }).thinking }
-              : {}
-          )
-        )
-      : null;
+      const tools: Anthropic.Tool[] = [...(req.tools ?? [])];
+      if (req.enableWebSearch) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tools.push({ type: "web_search_20250305", name: "web_search" } as any);
+      }
 
-  // ---- Agentic tool-use loop (max 4 iterations) ----
-  const MAX_AGENT_ITERATIONS = 4;
-  const allToolCalls: AgentToolInput[] = [];
-  let currentResponse = response;
-  let iteration = 0;
+      const messages: Anthropic.MessageParam[] = req.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
 
-  while (iteration < MAX_AGENT_ITERATIONS && req.onToolCall) {
-    const toolUseBlocks = currentResponse.content.filter(
-      (b) => b.type === "tool_use"
-    );
-    if (toolUseBlocks.length === 0) break;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const requestBase: Record<string, any> = {
+        model: apiModel,
+        max_tokens: maxTokens,
+        messages,
+        ...(systemParam !== undefined && { system: systemParam }),
+        ...(tools.length > 0 && { tools }),
+        ...(req.enableThinking && {
+          thinking: { type: "enabled", budget_tokens: thinkingBudget },
+        }),
+      };
 
-    // Execute ALL tool_use blocks in this iteration in parallel
-    const toolResults = await Promise.all(
-      toolUseBlocks.map(async (block) => {
-        const tb = block as Anthropic.ToolUseBlock;
-        allToolCalls.push({
-          name: tb.name,
-          input: tb.input as Record<string, unknown>,
-        });
-        const resultStr = await req.onToolCall!(
-          tb.name,
-          tb.input as Record<string, unknown>
-        );
-        return {
-          type: "tool_result" as const,
-          tool_use_id: tb.id,
-          content: resultStr,
-        };
-      })
-    );
-
-    // Append assistant message + tool results to the running message list
-    messages.push({ role: "assistant", content: currentResponse.content });
-    messages.push({ role: "user", content: toolResults });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const nextRequest: Record<string, any> = {
-      model: apiModel,
-      max_tokens: maxTokens,
-      messages,
-      ...(systemParam !== undefined && { system: systemParam }),
-      ...(tools.length > 0 && { tools }),
-    };
-
-    let nextResponse: Anthropic.Message;
-    try {
+      let response: Anthropic.Message;
       if (req.cachedSystemPrompt?.trim()) {
-        nextResponse = (await client.beta.messages.create({
-          ...nextRequest,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        response = (await client.beta.messages.create({
+          ...requestBase,
           betas: [PROMPT_CACHING_BETA],
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any)) as Anthropic.Message;
       } else {
-        nextResponse = (await (
-          client.messages.create as (p: unknown) => Promise<Anthropic.Message>
-        )(nextRequest));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        response = (await (client.messages.create as (p: any) => Promise<Anthropic.Message>)(requestBase));
       }
-    } catch (error) {
-      throw mapAnthropicCallError(error, keySource);
+
+      await trackUsage(
+        req.organizationId,
+        logicalModel,
+        req.feature,
+        response.usage as ClaudeUsage
+      );
+
+      const thinkingBlocks = response.content.filter((b) => b.type === "thinking");
+      const thinkingContent =
+        thinkingBlocks.length > 0
+          ? JSON.stringify(
+              thinkingBlocks.map((b) =>
+                b.type === "thinking"
+                  ? { text: (b as { type: "thinking"; thinking: string }).thinking }
+                  : {}
+              )
+            )
+          : null;
+
+      const MAX_AGENT_ITERATIONS = 4;
+      const allToolCalls: AgentToolInput[] = [];
+      let currentResponse = response;
+      let iteration = 0;
+
+      while (iteration < MAX_AGENT_ITERATIONS && req.onToolCall) {
+        const toolUseBlocks = currentResponse.content.filter(
+          (b) => b.type === "tool_use"
+        );
+        if (toolUseBlocks.length === 0) break;
+
+        const toolResults = await Promise.all(
+          toolUseBlocks.map(async (block) => {
+            const tb = block as Anthropic.ToolUseBlock;
+            allToolCalls.push({
+              name: tb.name,
+              input: tb.input as Record<string, unknown>,
+            });
+            const resultStr = await req.onToolCall!(
+              tb.name,
+              tb.input as Record<string, unknown>
+            );
+            return {
+              type: "tool_result" as const,
+              tool_use_id: tb.id,
+              content: resultStr,
+            };
+          })
+        );
+
+        messages.push({ role: "assistant", content: currentResponse.content });
+        messages.push({ role: "user", content: toolResults });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const nextRequest: Record<string, any> = {
+          model: apiModel,
+          max_tokens: maxTokens,
+          messages,
+          ...(systemParam !== undefined && { system: systemParam }),
+          ...(tools.length > 0 && { tools }),
+        };
+
+        let nextResponse: Anthropic.Message;
+        if (req.cachedSystemPrompt?.trim()) {
+          nextResponse = (await client.beta.messages.create({
+            ...nextRequest,
+            betas: [PROMPT_CACHING_BETA],
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any)) as Anthropic.Message;
+        } else {
+          nextResponse = (await (
+            client.messages.create as (p: unknown) => Promise<Anthropic.Message>
+          )(nextRequest));
+        }
+
+        await trackUsage(
+          req.organizationId,
+          logicalModel,
+          req.feature,
+          nextResponse.usage as ClaudeUsage
+        );
+
+        currentResponse = nextResponse;
+        if (currentResponse.stop_reason === "max_tokens") {
+          console.warn(
+            "[callClaudeAgent] Respuesta truncada (max_tokens) en iteración",
+            iteration
+          );
+        }
+        iteration++;
+      }
+
+      const finalTextBlock = currentResponse.content.find((b) => b.type === "text");
+      const lastToolCall =
+        allToolCalls.length > 0 ? allToolCalls[allToolCalls.length - 1]! : null;
+
+      if (currentResponse.stop_reason === "max_tokens") {
+        console.warn("[callClaudeAgent] Respuesta truncada por max_tokens", {
+          maxTokens,
+          enableThinking: req.enableThinking,
+        });
+      }
+
+      return {
+        text:
+          finalTextBlock && finalTextBlock.type === "text"
+            ? finalTextBlock.text.trim()
+            : "",
+        thinkingContent,
+        toolCall: lastToolCall,
+        toolCalls: allToolCalls,
+      };
     }
+  );
 
-    await trackUsage(
-      req.organizationId,
-      logicalModel,
-      req.feature,
-      nextResponse.usage as ClaudeUsage
-    );
-
-    currentResponse = nextResponse;
-    if (currentResponse.stop_reason === "max_tokens") {
-      console.warn("[callClaudeAgent] Respuesta truncada (max_tokens) en iteración", iteration);
-    }
-    iteration++;
-  }
-
-  const finalTextBlock = currentResponse.content.find((b) => b.type === "text");
-  const lastToolCall = allToolCalls.length > 0 ? allToolCalls[allToolCalls.length - 1]! : null;
-
-  if (currentResponse.stop_reason === "max_tokens") {
-    console.warn("[callClaudeAgent] Respuesta truncada por max_tokens", {
-      maxTokens,
-      enableThinking: req.enableThinking,
-    });
-  }
-
-  return {
-    text: finalTextBlock && finalTextBlock.type === "text" ? finalTextBlock.text.trim() : "",
-    thinkingContent,
-    toolCall: lastToolCall,
-    toolCalls: allToolCalls,
-  };
+  return result ?? empty;
 }
 
 export async function callClaudeJson<T>(
   req: ClaudeJsonRequest
 ): Promise<T | null> {
-  const { client, keySource } = await resolveClientForOrg(req.organizationId);
-  if (!client || keySource === "none") {
-    console.warn("[callClaudeJson] Sin API key (org BYOK ni ANTHROPIC_API_KEY)");
-    return null;
-  }
-
   const logicalModel = resolveLogicalModel(req);
   const apiModel = resolveApiModelId(logicalModel);
 
-  const response = await createClaudeMessage(client, keySource, {
-    apiModel,
-    maxTokens: req.maxTokens ?? 2048,
-    system: req.system,
-    cachedSystemPrompt: req.cachedSystemPrompt,
-    messages: [{ role: "user", content: req.user }],
-  });
-
-  await trackUsage(
+  const { result } = await executeWithCredentialFallback(
     req.organizationId,
-    logicalModel,
-    req.feature,
-    response.usage as ClaudeUsage
+    async (client, keySource) => {
+      const response = await createClaudeMessage(client, keySource, {
+        apiModel,
+        maxTokens: req.maxTokens ?? 2048,
+        system: req.system,
+        cachedSystemPrompt: req.cachedSystemPrompt,
+        messages: [{ role: "user", content: req.user }],
+      });
+
+      await trackUsage(
+        req.organizationId,
+        logicalModel,
+        req.feature,
+        response.usage as ClaudeUsage
+      );
+
+      const textBlock = response.content.find((b) => b.type === "text");
+      if (!textBlock || textBlock.type !== "text") return null;
+
+      const raw = textBlock.text.trim();
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return null;
+
+      try {
+        return JSON.parse(jsonMatch[0]) as T;
+      } catch {
+        return null;
+      }
+    }
   );
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") return null;
-
-  const raw = textBlock.text.trim();
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
-
-  try {
-    return JSON.parse(jsonMatch[0]) as T;
-  } catch {
-    return null;
-  }
+  return result;
 }
 
 export type ClaudeVisionImage = {
@@ -611,12 +587,6 @@ export async function callClaudeVisionJson<T>(req: {
   images: ClaudeVisionImage[];
   maxTokens?: number;
 }): Promise<T | null> {
-  const { client, keySource } = await resolveClientForOrg(req.organizationId);
-  if (!client || keySource === "none") {
-    console.warn("[callClaudeVisionJson] Sin API key (org BYOK ni ANTHROPIC_API_KEY)");
-    return null;
-  }
-
   const logicalModel = resolveLogicalModel(req);
   const apiModel = resolveApiModelId(logicalModel);
 
@@ -634,32 +604,41 @@ export async function callClaudeVisionJson<T>(req: {
     ),
   ];
 
-  const response = await createClaudeMessage(client, keySource, {
-    apiModel,
-    maxTokens: req.maxTokens ?? 2048,
-    system:
-      req.system ??
-      "Respondé únicamente con JSON válido en español, sin markdown ni texto adicional.",
-    messages: [{ role: "user", content: userContent }],
-  });
-
-  await trackUsage(
+  const { result } = await executeWithCredentialFallback(
     req.organizationId,
-    logicalModel,
-    req.feature,
-    response.usage as ClaudeUsage
+    async (client, keySource) => {
+      const response = await createClaudeMessage(client, keySource, {
+        apiModel,
+        maxTokens: req.maxTokens ?? 2048,
+        system:
+          req.system ??
+          "Respondé únicamente con JSON válido en español, sin markdown ni texto adicional.",
+        messages: [{ role: "user", content: userContent }],
+      });
+
+      await trackUsage(
+        req.organizationId,
+        logicalModel,
+        req.feature,
+        response.usage as ClaudeUsage
+      );
+
+      const textBlock = response.content.find((b) => b.type === "text");
+      if (!textBlock || textBlock.type !== "text") return null;
+
+      const raw = textBlock.text.trim();
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return null;
+
+      try {
+        return JSON.parse(jsonMatch[0]) as T;
+      } catch {
+        return null;
+      }
+    }
   );
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") return null;
-
-  const raw = textBlock.text.trim();
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
-
-  try {
-    return JSON.parse(jsonMatch[0]) as T;
-  } catch {
-    return null;
-  }
+  return result;
 }
+
+export { getClientForOrg } from "@/lib/ai/credential-resolver";

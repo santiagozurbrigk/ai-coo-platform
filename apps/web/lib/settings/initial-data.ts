@@ -1,8 +1,8 @@
 import {
-  getClaudeApiKeyStatusAction,
+  getAiCredentialStatusAction,
   getNotificationPreferencesAction,
   getOrganizationSettingsAction,
-  type ClaudeApiKeyStatus,
+  type AiCredentialStatus,
   type NotificationPreferences,
 } from "@/app/settings/actions";
 import { getProfileAreaDataAction } from "@/app/profile/actions";
@@ -22,7 +22,7 @@ export type SettingsInitialData = {
   email: string;
   avatarUrl: string | null;
   lastSignInAt: string | null;
-  claudeApiKeyStatus: ClaudeApiKeyStatus;
+  claudeCredentials: AiCredentialStatus;
   notificationPreferences: NotificationPreferences;
   isFounder: boolean;
 };
@@ -39,11 +39,21 @@ const DEFAULTS: SettingsInitialData = {
   email: "founder@acme.co",
   avatarUrl: null,
   lastSignInAt: null,
-  claudeApiKeyStatus: {
-    hasKey: false,
-    status: "none",
-    lastValidated: null,
-    keyPreview: null,
+  claudeCredentials: {
+    mode: "api_key_active",
+    oauth: {
+      connected: false,
+      connectAvailable: false,
+      failedAt: null,
+      lastProbeAt: null,
+      lastSuccessAt: null,
+    },
+    apiKey: {
+      hasKey: false,
+      status: "none",
+      lastValidated: null,
+      keyPreview: null,
+    },
   },
   notificationPreferences: {
     emailWeeklyReport: true,
@@ -86,7 +96,7 @@ export async function getSettingsInitialData(): Promise<SettingsInitialData> {
   }
 
   try {
-    data.claudeApiKeyStatus = await getClaudeApiKeyStatusAction();
+    data.claudeCredentials = await getAiCredentialStatusAction();
   } catch {
     // Mantener default
   }
