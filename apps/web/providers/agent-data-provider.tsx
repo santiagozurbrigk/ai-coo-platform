@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { resolveAgentFlags } from "@/lib/agent/canvas-intent";
+import { parseSseBuffer } from "@/lib/agent/sse";
 import type { AgentStatus } from "@/lib/agent/types";
 import {
   createBusinessStageAction,
@@ -40,7 +41,7 @@ type AgentDataContextValue = {
   filterStageId: string | null;
   workspace: AgentWorkspaceData;
   messages: AgentMessage[];
-  responseRevealMessageId: string | null;
+  streamingMessageId: string | null;
   agentStatus: AgentStatus;
   isLoading: boolean;
   isSending: boolean;
@@ -53,7 +54,6 @@ type AgentDataContextValue = {
     opts?: { conversationId?: string | null; contextStageId?: string | null; flags?: AgentFlags }
   ) => Promise<SendMessageResult>;
   cancelSend: () => void;
-  onRevealComplete: () => void;
   retryLastMessage: () => Promise<void>;
   createStage: (input: { name: string; description?: string }) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
@@ -62,6 +62,26 @@ type AgentDataContextValue = {
 };
 
 const AgentDataCtx = createContext<AgentDataContextValue | null>(null);
+
+function buildOptimisticAssistantMessage(
+  id: string,
+  conversationId: string | null
+): AgentMessage {
+  return {
+    id,
+    conversationId: conversationId ?? "pending",
+    organizationId: "",
+    role: "assistant",
+    content: "",
+    attachments: null,
+    actionType: null,
+    actionRefId: null,
+    thinkingContent: null,
+    canvasContent: null,
+    graphProposals: null,
+    createdAt: new Date().toISOString(),
+  };
+}
 
 function buildOptimisticUserMessage(
   content: string,
@@ -109,7 +129,7 @@ export function AgentDataProvider({
     conversations: [],
   });
   const [messages, setMessages] = useState<AgentMessage[]>([]);
-  const [responseRevealMessageId, setResponseRevealMessageId] = useState<string | null>(null);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("idle");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -130,12 +150,12 @@ export function AgentDataProvider({
   const loadConversation = useCallback(async (id: string | null) => {
     if (!id) {
       setMessages([]);
-      setResponseRevealMessageId(null);
+      setStreamingMessageId(null);
       return;
     }
     const rows = await listAgentMessagesAction(id);
     setMessages(rows);
-    setResponseRevealMessageId(null);
+    setStreamingMessageId(null);
   }, []);
 
   useEffect(() => {
@@ -176,7 +196,7 @@ export function AgentDataProvider({
     setTimeout(() => setAgentStatus("idle"), 1200);
   }, [clearCompleteTimer]);
 
-  const onRevealComplete = useCallback(() => {
+  const markComplete = useCallback(() => {
     setAgentStatus("complete");
     clearCompleteTimer();
     completeTimerRef.current = setTimeout(() => {
@@ -210,9 +230,14 @@ export function AgentDataProvider({
       ]);
       setIsSending(true);
       isSendingRef.current = true;
-      setResponseRevealMessageId(null);
+      setStreamingMessageId(null);
       setAgentStatus("thinking");
       clearCompleteTimer();
+
+      const streamingId = `streaming-${crypto.randomUUID()}`;
+      let receivedDelta = false;
+      let resultConversationId: string | null = targetConversationId;
+      let openCanvas = false;
 
       try {
         const res = await fetch("/api/agent/send", {
@@ -232,41 +257,107 @@ export function AgentDataProvider({
           return { conversationId: null, openCanvas: false };
         }
 
-        const payload = (await res.json()) as
-          | { conversationId: string; messages: AgentMessage[]; openCanvas: boolean }
-          | { error: string };
-
-        if (!res.ok) {
-          throw new Error("error" in payload ? payload.error : "Error al enviar");
+        const reader = res.body?.getReader();
+        if (!reader) {
+          throw new Error("Stream no disponible");
         }
 
-        if (!("conversationId" in payload)) {
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let streamError: string | null = null;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (controller.signal.aborted) {
+            await reader.cancel();
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+          const parsed = parseSseBuffer(buffer);
+          buffer = parsed.rest;
+
+          for (const evt of parsed.events) {
+            if (evt.event === "delta" && evt.data.type === "text") {
+              const chunk = String(evt.data.content ?? "");
+              if (!chunk) continue;
+
+              if (!receivedDelta) {
+                receivedDelta = true;
+                setAgentStatus("generating");
+                setStreamingMessageId(streamingId);
+                setMessages((prev) => [
+                  ...prev,
+                  buildOptimisticAssistantMessage(streamingId, resultConversationId),
+                ]);
+              }
+
+              setMessages((prev) =>
+                prev.map((message) =>
+                  message.id === streamingId
+                    ? { ...message, content: message.content + chunk }
+                    : message
+                )
+              );
+            }
+
+            if (evt.event === "tool_start" && !receivedDelta) {
+              receivedDelta = true;
+              setAgentStatus("generating");
+              setStreamingMessageId(streamingId);
+              setMessages((prev) => {
+                if (prev.some((message) => message.id === streamingId)) return prev;
+                return [
+                  ...prev,
+                  buildOptimisticAssistantMessage(streamingId, resultConversationId),
+                ];
+              });
+            }
+
+            if (evt.event === "done") {
+              resultConversationId = String(evt.data.conversationId ?? resultConversationId);
+              openCanvas = Boolean(evt.data.openCanvas);
+            }
+
+            if (evt.event === "error") {
+              streamError = String(evt.data.message ?? "Error al enviar");
+            }
+          }
+        }
+
+        if (streamError) {
+          throw new Error(streamError);
+        }
+
+        if (!res.ok && !receivedDelta) {
+          throw new Error("Error al enviar");
+        }
+
+        if (!resultConversationId) {
           throw new Error("Respuesta inválida del agente");
         }
 
-        setMessages(payload.messages);
-        const assistantId =
-          [...payload.messages].reverse().find((message) => message.role === "assistant")?.id ??
-          null;
-
-        setAgentStatus("generating");
-        setResponseRevealMessageId(assistantId);
+        const finalMessages = await listAgentMessagesAction(resultConversationId);
+        setMessages(finalMessages);
+        setStreamingMessageId(null);
+        markComplete();
 
         const navigatedAway =
           !resolvedConversationId ||
-          resolvedConversationId !== payload.conversationId;
+          resolvedConversationId !== resultConversationId;
 
         if (navigatedAway) {
-          skipLoadForConversationRef.current = payload.conversationId;
-          router.replace(paths.platform.agent.conversation(payload.conversationId), {
+          skipLoadForConversationRef.current = resultConversationId;
+          router.replace(paths.platform.agent.conversation(resultConversationId), {
             scroll: false,
           });
         }
 
         void refresh();
         return {
-          conversationId: payload.conversationId,
-          openCanvas: payload.openCanvas,
+          conversationId: resultConversationId,
+          openCanvas,
         };
       } catch (error) {
         if (controller.signal.aborted) {
@@ -276,8 +367,13 @@ export function AgentDataProvider({
         }
 
         setMessages((prev) =>
-          prev.filter((message) => !message.id.startsWith("optimistic-"))
+          prev.filter(
+            (message) =>
+              !message.id.startsWith("optimistic-") &&
+              !message.id.startsWith("streaming-")
+          )
         );
+        setStreamingMessageId(null);
         setAgentStatus("error");
         throw error;
       } finally {
@@ -295,6 +391,7 @@ export function AgentDataProvider({
       refresh,
       router,
       clearCompleteTimer,
+      markComplete,
     ]
   );
 
@@ -352,7 +449,7 @@ export function AgentDataProvider({
         : paths.platform.agent.root
     );
     setMessages([]);
-    setResponseRevealMessageId(null);
+    setStreamingMessageId(null);
     setAgentStatus("idle");
   }, [resolvedFilterStageId, router]);
 
@@ -364,7 +461,7 @@ export function AgentDataProvider({
       filterStageId: resolvedFilterStageId,
       workspace,
       messages,
-      responseRevealMessageId,
+      streamingMessageId,
       agentStatus,
       isLoading,
       isSending,
@@ -374,7 +471,6 @@ export function AgentDataProvider({
       loadConversation,
       sendMessage,
       cancelSend,
-      onRevealComplete,
       retryLastMessage,
       createStage,
       deleteConversation,
@@ -386,7 +482,7 @@ export function AgentDataProvider({
       resolvedFilterStageId,
       workspace,
       messages,
-      responseRevealMessageId,
+      streamingMessageId,
       agentStatus,
       isLoading,
       isSending,
@@ -395,7 +491,6 @@ export function AgentDataProvider({
       loadConversation,
       sendMessage,
       cancelSend,
-      onRevealComplete,
       retryLastMessage,
       createStage,
       deleteConversation,

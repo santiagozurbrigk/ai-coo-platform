@@ -24,6 +24,7 @@ export function ChatMessage({
   actionType,
   actionRefId,
   animateReveal = false,
+  isLiveStreaming = false,
   thinkingContent,
   attachments,
   graphProposals,
@@ -35,6 +36,7 @@ export function ChatMessage({
   actionType?: AgentMessageActionType | null;
   actionRefId?: string | null;
   animateReveal?: boolean;
+  isLiveStreaming?: boolean;
   thinkingContent?: string | null;
   attachments?: AgentMessageAttachment[] | null;
   graphProposals?: GraphProposal[] | null;
@@ -42,7 +44,8 @@ export function ChatMessage({
   onRevealComplete?: () => void;
 }) {
   const reducedMotion = usePrefersReducedMotion();
-  const shouldReveal = role === "assistant" && animateReveal && !reducedMotion;
+  const shouldReveal =
+    role === "assistant" && animateReveal && !isLiveStreaming && !reducedMotion;
   const [visibleLength, setVisibleLength] = useState(() =>
     shouldReveal ? 0 : content.length
   );
@@ -69,11 +72,15 @@ export function ChatMessage({
     return () => window.clearInterval(interval);
   }, [content, shouldReveal, onRevealComplete]);
 
-  const isStreaming = shouldReveal && visibleLength < content.length;
+  const isStreaming =
+    isLiveStreaming || (shouldReveal && visibleLength < content.length);
 
   const visibleContent = useMemo(
-    () => (shouldReveal ? content.slice(0, visibleLength) : content),
-    [content, shouldReveal, visibleLength]
+    () =>
+      shouldReveal && !isLiveStreaming
+        ? content.slice(0, visibleLength)
+        : content,
+    [content, shouldReveal, isLiveStreaming, visibleLength]
   );
 
   return (

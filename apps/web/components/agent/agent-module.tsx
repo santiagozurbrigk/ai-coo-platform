@@ -22,7 +22,7 @@ export function AgentModule() {
     filterStageId,
     workspace,
     messages,
-    responseRevealMessageId,
+    streamingMessageId,
     agentStatus,
     isLoading,
     isSending,
@@ -30,7 +30,6 @@ export function AgentModule() {
     setInputValue,
     sendMessage,
     cancelSend,
-    onRevealComplete,
     retryLastMessage,
   } = useAgentData();
 
@@ -146,12 +145,9 @@ export function AgentModule() {
                 content={msg.content}
                 actionType={msg.actionType}
                 actionRefId={msg.actionRefId}
-                animateReveal={msg.id === responseRevealMessageId}
-                onRevealComplete={
-                  msg.id === responseRevealMessageId ? onRevealComplete : undefined
-                }
+                isLiveStreaming={msg.id === streamingMessageId}
                 cancelled={
-                  agentStatus === "cancelled" && msg.id === responseRevealMessageId
+                  agentStatus === "cancelled" && msg.id === streamingMessageId
                 }
                 thinkingContent={msg.thinkingContent}
                 attachments={msg.attachments}
