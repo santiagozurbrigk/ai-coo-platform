@@ -6,16 +6,9 @@ import { PlatformShell } from "@/components/layout/platform-shell";
 import { PageContent } from "@/components/layout/page-content";
 import { PageTransition } from "@/components/layout/page-transition";
 import { paths } from "@/routes/paths";
-import type { AiCredentialBannerState } from "@/lib/ai/credential-types";
 
 /** Shell de plataforma + transiciones de ruta (Fase 0.7) */
-export function PlatformLayout({
-  children,
-  aiCredentialBanner,
-}: {
-  children: ReactNode;
-  aiCredentialBanner?: AiCredentialBannerState | null;
-}) {
+export function PlatformLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   const fullBleedPrefixes = [
@@ -29,7 +22,7 @@ export function PlatformLayout({
   );
 
   return (
-    <PlatformShell aiCredentialBanner={aiCredentialBanner}>
+    <PlatformShell>
       <PageContent
         fullWidth={fullBleed}
         className={fullBleed ? "agent-page-content" : undefined}

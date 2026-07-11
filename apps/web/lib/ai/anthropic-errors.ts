@@ -4,10 +4,10 @@ import {
   type AnthropicErrorBody,
 } from "@/lib/ai/validate-claude-key";
 
-export type ClaudeKeySource = "oauth" | "api_key" | "global";
+export type ClaudeKeySource = "api_key" | "global";
 
 function isOrgOwnedKey(source: ClaudeKeySource): boolean {
-  return source === "oauth" || source === "api_key";
+  return source === "api_key";
 }
 
 function extractAnthropicError(

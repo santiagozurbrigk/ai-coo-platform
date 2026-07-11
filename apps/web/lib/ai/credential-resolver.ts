@@ -1,22 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { decrypt, encrypt } from "@/lib/security/encryption";
+import { decrypt } from "@/lib/security/encryption";
 import type {
   ClaudeCredentialMode,
   ClaudeCredentialSource,
   OrgCredentialState,
   ResolvedCredential,
 } from "@/lib/ai/credential-types";
+import { normalizeCredentialMode } from "@/lib/ai/credential-types";
 import { noAiCredentialsError } from "@/lib/ai/anthropic-auth-errors";
-import {
-  probeOAuthTokenRequest,
-  shouldRunOAuthProbe,
-} from "@/lib/ai/oauth-probe";
 
 type CachedCredential = {
-  apiKey?: string;
-  oauthToken?: string;
-  source: ClaudeCredentialSource;
+  apiKey: string;
   mode: ClaudeCredentialMode;
   cachedAt: number;
 };
@@ -30,14 +25,6 @@ function getGlobalClient(): Anthropic | null {
   return new Anthropic({ apiKey: key });
 }
 
-export function isAnthropicOAuthConfigured(): boolean {
-  return Boolean(
-    process.env.ANTHROPIC_OAUTH_CLIENT_ID?.trim() &&
-      process.env.ANTHROPIC_OAUTH_CLIENT_SECRET?.trim() &&
-      process.env.ANTHROPIC_OAUTH_REDIRECT_URI?.trim()
-  );
-}
-
 export function invalidateOrgCredentialCache(organizationId: string): void {
   credentialCache.delete(organizationId);
 }
@@ -47,53 +34,11 @@ export function invalidateOrgKeyCache(organizationId: string): void {
   invalidateOrgCredentialCache(organizationId);
 }
 
-function createClientFromCredential(
-  source: ClaudeCredentialSource,
-  secret: string
-): Anthropic {
-  if (source === "oauth") {
-    return new Anthropic({ authToken: secret });
-  }
-  return new Anthropic({ apiKey: secret });
-}
-
 type OrgCredentialRow = {
   claude_api_key_encrypted: string | null;
   claude_api_key_status: string | null;
-  claude_oauth_token_encrypted: string | null;
-  claude_credential_mode: ClaudeCredentialMode | null;
-  claude_oauth_failed_at: string | null;
-  claude_oauth_last_probe_at: string | null;
-  claude_oauth_last_success_at: string | null;
+  claude_credential_mode: string | null;
 };
-
-export async function loadOrgCredentialState(
-  organizationId: string
-): Promise<OrgCredentialState> {
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from("organizations")
-    .select(
-      "claude_api_key_encrypted, claude_api_key_status, claude_oauth_token_encrypted, claude_credential_mode, claude_oauth_failed_at, claude_oauth_last_probe_at, claude_oauth_last_success_at"
-    )
-    .eq("id", organizationId)
-    .maybeSingle();
-
-  const row = data as OrgCredentialRow | null;
-
-  return {
-    organizationId,
-    mode: row?.claude_credential_mode ?? "api_key_active",
-    hasOAuth: Boolean(row?.claude_oauth_token_encrypted),
-    hasApiKey: Boolean(row?.claude_api_key_encrypted),
-    apiKeyStatus:
-      (row?.claude_api_key_status as OrgCredentialState["apiKeyStatus"]) ??
-      "none",
-    oauthFailedAt: row?.claude_oauth_failed_at ?? null,
-    oauthLastProbeAt: row?.claude_oauth_last_probe_at ?? null,
-    oauthLastSuccessAt: row?.claude_oauth_last_success_at ?? null,
-  };
-}
 
 async function loadOrgCredentialRow(
   organizationId: string
@@ -101,9 +46,7 @@ async function loadOrgCredentialRow(
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("organizations")
-    .select(
-      "claude_api_key_encrypted, claude_api_key_status, claude_oauth_token_encrypted, claude_credential_mode, claude_oauth_failed_at, claude_oauth_last_probe_at, claude_oauth_last_success_at"
-    )
+    .select("claude_api_key_encrypted, claude_api_key_status, claude_credential_mode")
     .eq("id", organizationId)
     .maybeSingle();
 
@@ -122,176 +65,43 @@ function decryptApiKeyIfValid(row: OrgCredentialRow): string | null {
   try {
     return decrypt(row.claude_api_key_encrypted);
   } catch {
-    console.warn(
-      "[credential-resolver] No se pudo descifrar API key para org"
-    );
+    console.warn("[credential-resolver] No se pudo descifrar API key para org");
     return null;
   }
 }
 
-function decryptOAuthToken(row: OrgCredentialRow): string | null {
-  if (!row.claude_oauth_token_encrypted) return null;
-  try {
-    return decrypt(row.claude_oauth_token_encrypted);
-  } catch {
-    console.warn(
-      "[credential-resolver] No se pudo descifrar OAuth token para org"
-    );
-    return null;
-  }
-}
-
-export async function readOAuthTokenForOrg(
+export async function loadOrgCredentialState(
   organizationId: string
-): Promise<string | null> {
+): Promise<OrgCredentialState> {
   const row = await loadOrgCredentialRow(organizationId);
-  if (!row) return null;
-  return decryptOAuthToken(row);
-}
+  const apiKey = row ? decryptApiKeyIfValid(row) : null;
+  const hasApiKey = Boolean(apiKey);
 
-async function runOAuthProbeIfDue(
-  organizationId: string,
-  lastProbeAt: string | null
-): Promise<void> {
-  if (!shouldRunOAuthProbe(lastProbeAt)) return;
-
-  await touchOAuthProbeTimestamp(organizationId);
-
-  const row = await loadOrgCredentialRow(organizationId);
-  if (!row) return;
-
-  const token = decryptOAuthToken(row);
-  if (!token) return;
-
-  const ok = await probeOAuthTokenRequest(token);
-  if (ok) {
-    await markOAuthActive(organizationId);
-  }
-}
-
-async function touchOAuthProbeTimestamp(organizationId: string): Promise<void> {
-  const supabase = createAdminClient();
-  await supabase
-    .from("organizations")
-    .update({ claude_oauth_last_probe_at: new Date().toISOString() })
-    .eq("id", organizationId);
-  invalidateOrgCredentialCache(organizationId);
-}
-
-export async function markOAuthDegraded(organizationId: string): Promise<void> {
-  const supabase = createAdminClient();
-  const now = new Date().toISOString();
-  await supabase
-    .from("organizations")
-    .update({
-      claude_credential_mode: "oauth_degraded",
-      claude_oauth_failed_at: now,
-    })
-    .eq("id", organizationId);
-  invalidateOrgCredentialCache(organizationId);
-}
-
-export async function markOAuthActive(organizationId: string): Promise<void> {
-  const supabase = createAdminClient();
-  const now = new Date().toISOString();
-  await supabase
-    .from("organizations")
-    .update({
-      claude_credential_mode: "oauth_active",
-      claude_oauth_failed_at: null,
-      claude_oauth_last_success_at: now,
-      claude_oauth_last_probe_at: now,
-    })
-    .eq("id", organizationId);
-  invalidateOrgCredentialCache(organizationId);
-}
-
-export async function saveOAuthTokensForOrg(
-  organizationId: string,
-  tokens: {
-    accessToken: string;
-    refreshToken?: string | null;
-    expiresAt?: string | null;
-  }
-): Promise<void> {
-  const supabase = createAdminClient();
-  const now = new Date().toISOString();
-  await supabase
-    .from("organizations")
-    .update({
-      claude_oauth_token_encrypted: encrypt(tokens.accessToken),
-      claude_oauth_refresh_token_encrypted: tokens.refreshToken
-        ? encrypt(tokens.refreshToken)
-        : null,
-      claude_oauth_token_expires_at: tokens.expiresAt ?? null,
-      claude_credential_mode: "oauth_active",
-      claude_oauth_failed_at: null,
-      claude_oauth_last_success_at: now,
-    })
-    .eq("id", organizationId);
-  invalidateOrgCredentialCache(organizationId);
-}
-
-export async function removeOAuthForOrg(organizationId: string): Promise<void> {
-  const row = await loadOrgCredentialRow(organizationId);
-  const hasApiKey =
-    row?.claude_api_key_encrypted &&
-    (row.claude_api_key_status === "valid" ||
-      row.claude_api_key_status === "valid_no_credits");
-
-  const supabase = createAdminClient();
-  await supabase
-    .from("organizations")
-    .update({
-      claude_oauth_token_encrypted: null,
-      claude_oauth_refresh_token_encrypted: null,
-      claude_oauth_token_expires_at: null,
-      claude_credential_mode: hasApiKey ? "api_key_active" : "api_key_active",
-      claude_oauth_failed_at: null,
-    })
-    .eq("id", organizationId);
-  invalidateOrgCredentialCache(organizationId);
+  return {
+    organizationId,
+    mode: normalizeCredentialMode(row?.claude_credential_mode, hasApiKey),
+    hasApiKey: Boolean(row?.claude_api_key_encrypted),
+    apiKeyStatus:
+      (row?.claude_api_key_status as OrgCredentialState["apiKeyStatus"]) ??
+      "none",
+  };
 }
 
 type Resolution = {
   client: Anthropic | null;
   source: ClaudeCredentialSource | "none";
   mode: ClaudeCredentialMode;
-  usedOAuth: boolean;
 };
 
-async function resolveFromRow(
-  row: OrgCredentialRow,
-  preferOAuth: boolean
-): Promise<Resolution> {
-  const mode = row.claude_credential_mode ?? "api_key_active";
+function resolveFromRow(row: OrgCredentialRow): Resolution {
   const apiKey = decryptApiKeyIfValid(row);
-  const oauthToken = decryptOAuthToken(row);
-
-  if (preferOAuth && oauthToken && mode === "oauth_active") {
-    return {
-      client: createClientFromCredential("oauth", oauthToken),
-      source: "oauth",
-      mode,
-      usedOAuth: true,
-    };
-  }
+  const mode = normalizeCredentialMode(row.claude_credential_mode, Boolean(apiKey));
 
   if (apiKey) {
     return {
-      client: createClientFromCredential("api_key", apiKey),
+      client: new Anthropic({ apiKey }),
       source: "api_key",
       mode,
-      usedOAuth: false,
-    };
-  }
-
-  if (oauthToken && mode === "oauth_active") {
-    return {
-      client: createClientFromCredential("oauth", oauthToken),
-      source: "oauth",
-      mode,
-      usedOAuth: true,
     };
   }
 
@@ -299,16 +109,13 @@ async function resolveFromRow(
   return {
     client: globalClient,
     source: globalClient ? "global" : "none",
-    mode,
-    usedOAuth: false,
+    mode: "unconfigured",
   };
 }
 
 /**
  * Resuelve la credencial activa para una organización.
- * - oauth_active → OAuth token
- * - oauth_degraded / api_key_active → API key
- * - fallback global si no hay credenciales de org
+ * Modos OAuth legacy en DB se tratan como api_key_active (usa API key si existe).
  */
 export async function resolveCredentialForOrg(
   organizationId?: string
@@ -318,27 +125,16 @@ export async function resolveCredentialForOrg(
     return {
       client,
       source: client ? "global" : "none",
-      mode: "api_key_active",
-      usedOAuth: false,
+      mode: client ? "api_key_active" : "unconfigured",
     };
   }
 
   const cached = credentialCache.get(organizationId);
   if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
-    const secret = cached.oauthToken ?? cached.apiKey;
-    if (!secret) {
-      return {
-        client: null,
-        source: "none",
-        mode: cached.mode,
-        usedOAuth: cached.source === "oauth",
-      };
-    }
     return {
-      client: createClientFromCredential(cached.source, secret),
-      source: cached.source,
+      client: new Anthropic({ apiKey: cached.apiKey }),
+      source: "api_key",
       mode: cached.mode,
-      usedOAuth: cached.source === "oauth",
     };
   }
 
@@ -348,56 +144,24 @@ export async function resolveCredentialForOrg(
     return {
       client,
       source: client ? "global" : "none",
-      mode: "api_key_active",
-      usedOAuth: false,
+      mode: client ? "api_key_active" : "unconfigured",
     };
   }
 
-  const mode = row.claude_credential_mode ?? "api_key_active";
+  const resolution = resolveFromRow(row);
 
-  if (mode === "oauth_degraded") {
-    void runOAuthProbeIfDue(organizationId, row.claude_oauth_last_probe_at);
-  }
-
-  const preferOAuth = mode === "oauth_active";
-  const resolution = await resolveFromRow(row, preferOAuth);
-
-  if (
-    resolution.client &&
-    resolution.source !== "none" &&
-    resolution.source !== "global"
-  ) {
-    const cacheEntry: CachedCredential = {
-      source: resolution.source,
-      mode: resolution.mode,
-      cachedAt: Date.now(),
-    };
-    if (resolution.source === "oauth") {
-      const token = decryptOAuthToken(row);
-      if (token) cacheEntry.oauthToken = token;
-    } else if (resolution.source === "api_key") {
-      const key = decryptApiKeyIfValid(row);
-      if (key) cacheEntry.apiKey = key;
+  if (resolution.client && resolution.source === "api_key") {
+    const apiKey = decryptApiKeyIfValid(row);
+    if (apiKey) {
+      credentialCache.set(organizationId, {
+        apiKey,
+        mode: resolution.mode,
+        cachedAt: Date.now(),
+      });
     }
-    credentialCache.set(organizationId, cacheEntry);
   }
 
   return resolution;
-}
-
-/** Resuelve credencial de respaldo (API key) tras fallo de OAuth. */
-export async function resolveFallbackApiKeyForOrg(
-  organizationId: string
-): Promise<Anthropic | null> {
-  const row = await loadOrgCredentialRow(organizationId);
-  if (!row) return getGlobalClient();
-
-  const apiKey = decryptApiKeyIfValid(row);
-  if (apiKey) {
-    return createClientFromCredential("api_key", apiKey);
-  }
-
-  return getGlobalClient();
 }
 
 export async function getClientForOrg(

@@ -18,7 +18,7 @@ import {
   type NotificationPreferences,
 } from "@/app/settings/actions";
 import { updateProfileAction } from "@/app/profile/actions";
-import { ClaudeCredentialsSettings } from "./claude-credentials-settings";
+import { ClaudeApiKeySettings } from "./claude-api-key-settings";
 import { useToast } from "@/providers/toast-provider";
 import { es } from "@/lib/locale/es";
 import { formatRelativeTime } from "@/lib/format";
@@ -574,7 +574,7 @@ export function SettingsForm({
 
       {activeTab === "ia" && (
         <div className="space-y-8 pt-2">
-          <ClaudeCredentialsSettings initialStatus={initialData.claudeCredentials} />
+          <ClaudeApiKeySettings initialStatus={initialData.claudeApiKeyStatus} />
         </div>
       )}
 

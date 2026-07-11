@@ -1,11 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { isAnthropicAuthFailure } from "@/lib/ai/anthropic-auth-errors";
 import { mapAnthropicCallError, type ClaudeKeySource } from "@/lib/ai/anthropic-errors";
 import {
   invalidateOrgCredentialCache,
-  markOAuthDegraded,
   resolveCredentialForOrg,
-  resolveFallbackApiKeyForOrg,
 } from "@/lib/ai/credential-resolver";
 import { trackTokenUsage } from "@/lib/track-token-usage";
 
@@ -171,9 +168,8 @@ export function invalidateOrgKeyCache(organizationId: string): void {
 }
 
 function toKeySource(
-  source: "oauth" | "api_key" | "global" | "none"
+  source: "api_key" | "global" | "none"
 ): ClaudeKeySource {
-  if (source === "oauth") return "oauth";
   if (source === "api_key") return "api_key";
   return "global";
 }
@@ -194,23 +190,6 @@ async function executeWithCredentialFallback<T>(
     const result = await fn(resolution.client, keySource);
     return { result, keySource };
   } catch (error) {
-    if (resolution.usedOAuth && isAnthropicAuthFailure(error)) {
-      console.warn(
-        "[anthropic] OAuth degradado por fallo de auth, reintentando con API key",
-        organizationId
-      );
-      await markOAuthDegraded(organizationId);
-      const fallbackClient = await resolveFallbackApiKeyForOrg(organizationId);
-      if (!fallbackClient) {
-        throw mapAnthropicCallError(error, keySource);
-      }
-      try {
-        const result = await fn(fallbackClient, "api_key");
-        return { result, keySource: "api_key" };
-      } catch (fallbackError) {
-        throw mapAnthropicCallError(fallbackError, "api_key");
-      }
-    }
     throw mapAnthropicCallError(error, keySource);
   }
 }

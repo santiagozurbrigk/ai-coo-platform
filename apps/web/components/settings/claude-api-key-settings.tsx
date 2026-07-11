@@ -103,7 +103,19 @@ export function ClaudeApiKeySettings({
 
   return (
     <section>
-      <SectionHeader icon={KeyRound} title="API de Claude" variant="settings" />
+      <SectionHeader icon={KeyRound} title="Claude API Key" variant="settings" />
+      <p className="mb-4 text-sm text-muted-foreground">
+        Necesitás una cuenta en{" "}
+        <Link
+          href="https://console.anthropic.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-violet-600 underline underline-offset-2 hover:text-violet-500 dark:text-violet-400"
+        >
+          console.anthropic.com
+        </Link>
+        . El costo promedio para uso típico es $10–30/mes.
+      </p>
 
       {status.hasKey ? (
         <div className="space-y-4 rounded-xl border border-border/60 bg-card/40 p-4 dark:border-glass dark:bg-glass">
@@ -164,12 +176,6 @@ export function ClaudeApiKeySettings({
               Validada el: {validatedLabel}
             </p>
           ) : null}
-          {status.status === "valid" ? (
-            <p className="text-sm text-muted-foreground">
-              Con tu plan de Claude, el costo mensual de IA en OTC está cubierto
-              por tu suscripción existente.
-            </p>
-          ) : null}
           <Button
             type="button"
             variant="outline"
@@ -194,9 +200,8 @@ export function ClaudeApiKeySettings({
               Conectá tu API key de Claude
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Usá tu propia cuenta de Claude para procesar IA. Si tenés el plan
-              de $100/mes de Claude, tu API key tiene suficiente capacidad para
-              todo el uso de OTC.
+              Las funciones de IA de OTC usan tu cuenta de Anthropic. Creá una
+              key en la consola y pegala acá.
             </p>
             <Link
               href="https://console.anthropic.com/settings/keys"

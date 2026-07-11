@@ -5,7 +5,6 @@ import { HoldingPlatformProvider } from "@/components/holding/holding-platform-p
 import { getHoldingSessionState } from "@/lib/holding/session";
 import { PlatformLayout } from "@/layouts";
 import { getCurrentUserPermissions } from "@/lib/auth/get-current-permissions";
-import { getAiCredentialBannerState } from "@/lib/ai/get-credential-banner-state";
 import { PermissionsProvider } from "@/providers/permissions-provider";
 
 export default async function PlatformRouteLayout({
@@ -13,10 +12,9 @@ export default async function PlatformRouteLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [holdingSession, permissions, aiCredentialBanner] = await Promise.all([
+  const [holdingSession, permissions] = await Promise.all([
     getHoldingSessionState(),
     getCurrentUserPermissions(),
-    getAiCredentialBannerState(),
   ]);
 
   return (
@@ -25,9 +23,7 @@ export default async function PlatformRouteLayout({
         <HoldingPlatformProvider value={holdingSession}>
           <OnboardingGuard>
             <WelcomeGate>
-              <PlatformLayout aiCredentialBanner={aiCredentialBanner}>
-                {children}
-              </PlatformLayout>
+              <PlatformLayout>{children}</PlatformLayout>
             </WelcomeGate>
           </OnboardingGuard>
         </HoldingPlatformProvider>
