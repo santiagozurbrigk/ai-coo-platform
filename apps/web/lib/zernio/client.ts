@@ -109,6 +109,7 @@ export type ZernioPost = {
     postType?: string;
     status?: string;
   }>;
+  analytics?: ZernioPostAnalytics;
 };
 
 export type ZernioPostAnalytics = {
