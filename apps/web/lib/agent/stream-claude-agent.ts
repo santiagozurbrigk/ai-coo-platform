@@ -7,6 +7,10 @@ import {
 import { mapAnthropicCallError } from "@/lib/ai/anthropic-errors";
 import { resolveCredentialForOrg } from "@/lib/ai/credential-resolver";
 import { trackTokenUsage } from "@/lib/track-token-usage";
+import {
+  resolveAgentMaxTokens,
+  resolveAgentThinkingBudget,
+} from "@/lib/agent/max-tokens";
 import type { AgentSseEmitter } from "@/lib/agent/sse";
 
 const PROMPT_CACHING_BETA = "prompt-caching-2024-07-31";
@@ -95,6 +99,7 @@ export type StreamClaudeAgentRequest = {
   maxTokens?: number;
   enableWebSearch?: boolean;
   enableThinking?: boolean;
+  useCanvas?: boolean;
   thinkingBudget?: number;
   tools?: Anthropic.Tool[];
   onToolCall?: (name: string, input: Record<string, unknown>) => Promise<string>;
@@ -192,8 +197,14 @@ export async function streamClaudeAgent(
 ): Promise<StreamClaudeAgentResult | null> {
   const logicalModel = resolveLogicalModel(req);
   const apiModel = resolveApiModelId(logicalModel);
-  const maxTokens = req.maxTokens ?? 4096;
-  const thinkingBudget = req.thinkingBudget ?? 4000;
+  const maxTokens =
+    req.maxTokens ??
+    resolveAgentMaxTokens({
+      enableThinking: req.enableThinking,
+      useCanvas: req.useCanvas,
+    });
+  const thinkingBudget =
+    req.thinkingBudget ?? resolveAgentThinkingBudget(req.enableThinking);
 
   const resolution = await resolveCredentialForOrg(req.organizationId);
   if (!resolution.client || resolution.source === "none") {

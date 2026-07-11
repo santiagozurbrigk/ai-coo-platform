@@ -137,6 +137,7 @@ export function AgentDataProvider({
     waitForCatchUp: waitForStreamCatchUp,
     snapToBuffer: snapStreamToBuffer,
     reset: resetStreamTypewriter,
+    getTextSnapshot,
   } = streamTypewriter;
 
   const [workspace, setWorkspace] = useState<AgentWorkspaceData>({
@@ -254,6 +255,7 @@ export function AgentDataProvider({
 
       const streamingId = `streaming-${crypto.randomUUID()}`;
       let receivedDelta = false;
+      let receivedDone = false;
       let resultConversationId: string | null = targetConversationId;
       let openCanvas = false;
 
@@ -328,6 +330,7 @@ export function AgentDataProvider({
             }
 
             if (evt.event === "done") {
+              receivedDone = true;
               resultConversationId = String(evt.data.conversationId ?? resultConversationId);
               openCanvas = Boolean(evt.data.openCanvas);
             }
@@ -340,6 +343,36 @@ export function AgentDataProvider({
 
         if (streamError) {
           throw new Error(streamError);
+        }
+
+        if (!receivedDone) {
+          markStreamEnded();
+          await waitForStreamCatchUp();
+          snapStreamToBuffer();
+
+          if (receivedDelta) {
+            const { buffered } = getTextSnapshot();
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === streamingId
+                  ? { ...message, content: buffered || message.content }
+                  : message
+              )
+            );
+            setStreamingMessageId(null);
+            resetStreamTypewriter();
+            markComplete();
+            void refresh();
+            return {
+              conversationId: resultConversationId ?? targetConversationId,
+              openCanvas: false,
+            };
+          }
+
+          if (!res.ok) {
+            throw new Error("Error al enviar");
+          }
+          throw new Error("Stream terminó sin respuesta completa");
         }
 
         if (!res.ok && !receivedDelta) {
@@ -418,6 +451,7 @@ export function AgentDataProvider({
       waitForStreamCatchUp,
       snapStreamToBuffer,
       resetStreamTypewriter,
+      getTextSnapshot,
     ]
   );
 

@@ -350,6 +350,7 @@ export async function streamAgentMessage(
       thinkingBudget: resolveAgentThinkingBudget(flags.useThink),
       enableWebSearch: flags.useWebSearch,
       enableThinking: flags.useThink,
+      useCanvas: flags.useCanvas,
       tools: AGENT_CHAT_TOOLS,
       onToolCall,
       emitter: input.emitter,

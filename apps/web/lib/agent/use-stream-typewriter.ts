@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const CHARS_PER_FRAME = 3;
+const DRAIN_TIMEOUT_MS = 2000;
 
 export function useStreamTypewriter(opts: { instant?: boolean }) {
   const instant = opts.instant ?? false;
@@ -11,6 +12,7 @@ export function useStreamTypewriter(opts: { instant?: boolean }) {
   const bufferedRef = useRef("");
   const displayedLenRef = useRef(0);
   const streamEndedRef = useRef(false);
+  const streamEndedAtRef = useRef<number | null>(null);
   const activeRef = useRef(false);
 
   const syncDisplayed = useCallback((text: string) => {
@@ -22,6 +24,7 @@ export function useStreamTypewriter(opts: { instant?: boolean }) {
     bufferedRef.current = "";
     displayedLenRef.current = 0;
     streamEndedRef.current = false;
+    streamEndedAtRef.current = null;
     activeRef.current = false;
     setBufferedText("");
     setDisplayedText("");
@@ -31,6 +34,7 @@ export function useStreamTypewriter(opts: { instant?: boolean }) {
     bufferedRef.current = "";
     displayedLenRef.current = 0;
     streamEndedRef.current = false;
+    streamEndedAtRef.current = null;
     setBufferedText("");
     setDisplayedText("");
     activeRef.current = true;
@@ -50,25 +54,47 @@ export function useStreamTypewriter(opts: { instant?: boolean }) {
 
   const markStreamEnded = useCallback(() => {
     streamEndedRef.current = true;
+    streamEndedAtRef.current = Date.now();
   }, []);
 
   const snapToBuffer = useCallback(() => {
     syncDisplayed(bufferedRef.current);
   }, [syncDisplayed]);
 
+  const getTextSnapshot = useCallback(() => {
+    const buffered = bufferedRef.current;
+    return {
+      buffered,
+      displayed: buffered.slice(0, displayedLenRef.current),
+    };
+  }, []);
+
   const waitForCatchUp = useCallback((): Promise<void> => {
     if (instant) return Promise.resolve();
     return new Promise((resolve) => {
       const check = () => {
-        if (displayedLenRef.current >= bufferedRef.current.length) {
+        const buffered = bufferedRef.current;
+        if (displayedLenRef.current >= buffered.length) {
           resolve();
           return;
         }
+
+        const endedAt = streamEndedAtRef.current;
+        if (
+          streamEndedRef.current &&
+          endedAt !== null &&
+          Date.now() - endedAt >= DRAIN_TIMEOUT_MS
+        ) {
+          syncDisplayed(buffered);
+          resolve();
+          return;
+        }
+
         requestAnimationFrame(check);
       };
       check();
     });
-  }, [instant]);
+  }, [instant, syncDisplayed]);
 
   useEffect(() => {
     if (instant) return;
@@ -98,6 +124,7 @@ export function useStreamTypewriter(opts: { instant?: boolean }) {
     markStreamEnded,
     snapToBuffer,
     waitForCatchUp,
+    getTextSnapshot,
     reset,
   };
 }
