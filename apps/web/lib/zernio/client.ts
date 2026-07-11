@@ -111,6 +111,32 @@ export type ZernioPost = {
   }>;
 };
 
+export type ZernioPostAnalytics = {
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  saves?: number;
+  reach?: number;
+  impressions?: number;
+  views?: number;
+  engagementRate?: number;
+};
+
+/** Post item from GET /v1/analytics (external or late source). */
+export type ZernioAnalyticsPost = {
+  postId?: string;
+  platformPostId?: string;
+  content?: string;
+  publishedAt?: string;
+  platform?: string;
+  platformPostUrl?: string;
+  thumbnailUrl?: string;
+  mediaType?: string;
+  postType?: string;
+  isExternal?: boolean;
+  analytics?: ZernioPostAnalytics;
+};
+
 export type ZernioClient = ReturnType<typeof createZernioClient>;
 
 export function createZernioClient(apiKey: string) {
@@ -363,9 +389,38 @@ export function createZernioClient(apiKey: string) {
             shares?: number;
             comments?: number;
             reach?: number;
+            saves?: number;
           }
         >;
       }>;
+    },
+
+    async listPostAnalytics(params?: {
+      accountId?: string;
+      source?: "late" | "external" | "all";
+      platform?: string;
+      profileId?: string;
+      limit?: number;
+    }) {
+      const url = new URL(`${ZERNIO_BASE}/analytics`);
+      url.searchParams.set("source", params?.source ?? "all");
+      url.searchParams.set("limit", String(params?.limit ?? 50));
+      if (params?.accountId) {
+        url.searchParams.set("accountId", params.accountId);
+      }
+      if (params?.platform) {
+        url.searchParams.set("platform", params.platform);
+      }
+      if (params?.profileId) {
+        url.searchParams.set("profileId", extractProfileId(params.profileId));
+      }
+
+      const data = await zernioFetchJson<
+        ZernioAnalyticsPost[] | { posts?: ZernioAnalyticsPost[] }
+      >("listPostAnalytics", url.toString(), { headers: headers() });
+
+      const posts = Array.isArray(data) ? data : (data.posts ?? []);
+      return { posts };
     },
 
     async getAccountAnalytics(accountId: string, startDate: string, endDate: string) {
@@ -470,6 +525,16 @@ export async function zernioCreatePost(params: {
 
 export async function zernioGetPostAnalytics(postId: string) {
   return defaultClient().getPostAnalytics(postId);
+}
+
+export async function zernioListPostAnalytics(params?: {
+  accountId?: string;
+  source?: "late" | "external" | "all";
+  platform?: string;
+  profileId?: string;
+  limit?: number;
+}) {
+  return defaultClient().listPostAnalytics(params);
 }
 
 export async function zernioGetAccountAnalytics(

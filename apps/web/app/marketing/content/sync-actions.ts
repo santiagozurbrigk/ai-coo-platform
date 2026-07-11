@@ -3,18 +3,20 @@
 import { getCurrentProfile } from "@/lib/auth/bootstrap";
 import { createClient } from "@/lib/supabase/server";
 import {
-  type ZernioPost,
+  type ZernioAnalyticsPost,
+  type ZernioPostAnalytics,
 } from "@/lib/zernio/client";
 import { getZernioClientForOrganization, getZernioIntegrationForOrg } from "@/lib/zernio/integration";
-import { extractProfileId } from "@/lib/zernio/profile-id";
 import { syncContentMetricsForOrg } from "@/lib/marketing/sync-content-metrics";
 import type {
+  ContentMetrics,
   ContentPieceSource,
   ContentPieceStatus,
   ContentPieceType,
 } from "@/types/content";
 
 const SYNC_INTERVAL_MS = 30 * 60 * 1000;
+const ANALYTICS_FETCH_LIMIT = 50;
 
 type ContentPieceSyncRow = {
   organization_id: string;
@@ -29,6 +31,8 @@ type ContentPieceSyncRow = {
   thumbnail_url: string | null;
   published_at: string | null;
   status: ContentPieceStatus;
+  metrics: ContentMetrics;
+  metrics_updated_at: string;
 };
 
 function mapZernioType(
@@ -48,71 +52,43 @@ function isZernioInternalId(id: string): boolean {
   return /^[a-f0-9]{24}$/i.test(id);
 }
 
-function zernioPostId(post: ZernioPost): string | null {
+function analyticsPlatformPostId(post: ZernioAnalyticsPost): string | null {
   const platformPostId = post.platformPostId?.trim();
   if (platformPostId) return platformPostId;
 
-  const fallback = post.id ?? post._id;
-  if (!fallback) return null;
+  const fallback = post.postId?.trim();
+  if (!fallback || isZernioInternalId(fallback)) return null;
 
-  const id = String(fallback).trim();
-  if (!id || isZernioInternalId(id)) return null;
-
-  return id;
+  return fallback;
 }
 
-function flattenZernioPosts(rawPosts: ZernioPost[]): ZernioPost[] {
-  const result: ZernioPost[] = [];
+function mapAnalyticsToMetrics(analytics?: ZernioPostAnalytics): ContentMetrics {
+  const impressions = analytics?.impressions ?? 0;
+  const reach = analytics?.reach ?? 0;
+  const views = analytics?.views ?? (impressions || reach);
 
-  for (const post of rawPosts) {
-    if (post.platforms?.length) {
-      for (const platformEntry of post.platforms) {
-        if (platformEntry.status === "failed") continue;
-
-        const accountId =
-          typeof platformEntry.accountId === "object"
-            ? platformEntry.accountId?._id
-            : platformEntry.accountId;
-
-        result.push({
-          ...post,
-          platform: platformEntry.platform ?? post.platform,
-          platformPostUrl: platformEntry.platformPostUrl ?? post.platformPostUrl,
-          accountId: accountId ?? post.accountId,
-          postType: platformEntry.postType ?? post.postType,
-          id: post.id ?? post._id,
-        });
-      }
-      continue;
-    }
-
-    result.push(post);
-  }
-
-  return result;
+  return {
+    likes: analytics?.likes ?? 0,
+    comments: analytics?.comments ?? 0,
+    shares: analytics?.shares ?? 0,
+    saves: analytics?.saves ?? 0,
+    reach,
+    impressions,
+    views,
+  };
 }
 
-function belongsToIntegration(
-  post: ZernioPost,
-  profileId: string,
-  accountIds: Set<string>
-): boolean {
-  const postProfileId = extractProfileId(post.profileId ?? post.profile);
-  if (postProfileId && postProfileId === profileId) return true;
-  if (post.accountId && accountIds.has(post.accountId)) return true;
-  return false;
-}
-
-function mapPostToRow(
-  post: ZernioPost,
-  organizationId: string
+function mapAnalyticsPostToRow(
+  post: ZernioAnalyticsPost,
+  organizationId: string,
+  metricsUpdatedAt: string
 ): ContentPieceSyncRow | null {
-  const platform = post.platform?.trim();
+  const platform = post.platform?.trim().toLowerCase();
   if (!platform || (platform !== "instagram" && platform !== "youtube")) {
     return null;
   }
 
-  const platformPostId = zernioPostId(post);
+  const platformPostId = analyticsPlatformPostId(post);
   if (!platformPostId) return null;
 
   const postType = post.postType?.trim();
@@ -125,21 +101,23 @@ function mapPostToRow(
     platform,
     platform_post_id: platformPostId,
     platform_post_url: post.platformPostUrl?.trim() || null,
-    title: post.title?.trim() || null,
+    title: null,
     caption: post.content?.trim() || null,
-    hashtags: Array.isArray(post.hashtags) ? post.hashtags : [],
+    hashtags: [],
     thumbnail_url: post.thumbnailUrl?.trim() || null,
-    published_at: post.publishedAt ?? post.createdAt ?? null,
+    published_at: post.publishedAt ?? null,
     status: "published",
+    metrics: mapAnalyticsToMetrics(post.analytics),
+    metrics_updated_at: metricsUpdatedAt,
   };
 }
 
-function dedupePosts(posts: ZernioPost[]): ZernioPost[] {
+function dedupeAnalyticsPosts(posts: ZernioAnalyticsPost[]): ZernioAnalyticsPost[] {
   const seen = new Set<string>();
-  const result: ZernioPost[] = [];
+  const result: ZernioAnalyticsPost[] = [];
 
   for (const post of posts) {
-    const id = zernioPostId(post);
+    const id = analyticsPlatformPostId(post);
     if (!id || seen.has(id)) continue;
     seen.add(id);
     result.push(post);
@@ -156,19 +134,38 @@ async function requireOrganizationId(): Promise<string> {
   return profile.organization_id;
 }
 
-async function fetchZernioPosts(
+async function fetchExternalPostsFromAnalytics(
   organizationId: string,
-  profileId: string
-): Promise<ZernioPost[]> {
+  accountIds: string[]
+): Promise<ZernioAnalyticsPost[]> {
   const client = await getZernioClientForOrganization(organizationId);
-  const { posts: zernioPosts = [] } = await client.listPublishedPosts({
-    profileId,
-    source: "zernio",
-    status: "published",
-    limit: 50,
-  });
 
-  return dedupePosts(flattenZernioPosts(zernioPosts));
+  const results = await Promise.allSettled(
+    accountIds.map(async (accountId) => {
+      const { posts } = await client.listPostAnalytics({
+        accountId,
+        source: "external",
+        limit: ANALYTICS_FETCH_LIMIT,
+      });
+      return posts;
+    })
+  );
+
+  const allPosts: ZernioAnalyticsPost[] = [];
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      allPosts.push(...result.value);
+      continue;
+    }
+    console.warn("[syncZernioContent] listPostAnalytics failed for account", {
+      error:
+        result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason),
+    });
+  }
+
+  return dedupeAnalyticsPosts(allPosts);
 }
 
 export async function syncZernioContentAction(): Promise<{ synced: number }> {
@@ -179,34 +176,36 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
     throw new Error("Zernio no está conectado");
   }
 
-  const accountIds = integration.connected_accounts.map(
-    (account) => account.accountId
-  );
+  const contentAccountIds = integration.connected_accounts
+    .filter((account) => {
+      const platform = account.platform.toLowerCase();
+      return platform === "instagram" || platform === "youtube";
+    })
+    .map((account) => account.accountId);
 
-  let posts: ZernioPost[];
+  if (contentAccountIds.length === 0) {
+    throw new Error("No hay cuentas de Instagram o YouTube conectadas en Zernio");
+  }
+
+  let posts: ZernioAnalyticsPost[];
   try {
-    posts = await fetchZernioPosts(organizationId, integration.zernio_profile_id);
+    posts = await fetchExternalPostsFromAnalytics(organizationId, contentAccountIds);
   } catch (error) {
-    console.error("[syncZernioContent] fetchZernioPosts failed", {
-      profileId: integration.zernio_profile_id,
-      accountIds,
+    console.error("[syncZernioContent] fetchExternalPostsFromAnalytics failed", {
+      accountIds: contentAccountIds,
       error: error instanceof Error ? error.message : error,
     });
     throw error;
   }
 
-  console.info("[syncZernioContent] fetched posts", {
+  console.info("[syncZernioContent] fetched external posts", {
     total: posts.length,
-    profileId: integration.zernio_profile_id,
-    accountIds,
+    accountIds: contentAccountIds,
   });
 
-  const filteredPosts = posts.filter((post) =>
-    belongsToIntegration(post, integration.zernio_profile_id, new Set(accountIds))
-  );
-
-  const upsertRows = filteredPosts
-    .map((post) => mapPostToRow(post, organizationId))
+  const metricsUpdatedAt = new Date().toISOString();
+  const upsertRows = posts
+    .map((post) => mapAnalyticsPostToRow(post, organizationId, metricsUpdatedAt))
     .filter(
       (row): row is ContentPieceSyncRow =>
         row !== null && Boolean(row.platform_post_id?.trim())
@@ -215,7 +214,6 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
   if (upsertRows.length === 0) {
     console.info("[syncZernioContent] no rows to upsert after filtering", {
       fetched: posts.length,
-      filtered: filteredPosts.length,
     });
     return { synced: 0 };
   }
@@ -269,6 +267,8 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
           thumbnail_url: row.thumbnail_url,
           published_at: row.published_at,
           status: row.status,
+          metrics: row.metrics,
+          metrics_updated_at: row.metrics_updated_at,
         })
         .eq("id", id)
         .eq("organization_id", organizationId);
@@ -277,8 +277,7 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
     })
   );
 
-  // Trigger inmediato: sincronizar métricas de las piezas recién creadas/actualizadas
-  // en background para no bloquear la respuesta al usuario.
+  // Refrescar métricas en background por si algún post quedó sin analytics completos.
   void syncContentMetricsForOrg(organizationId).catch((err) => {
     console.error("[syncZernioContent] metrics sync failed", {
       organizationId,
