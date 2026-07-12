@@ -21,7 +21,8 @@ import {
   callClaudeText,
   detectAgentComplexity,
 } from "@/lib/ai/anthropic";
-import { buildOrgContextText, getOrgContext } from "@/lib/ai/org-context";
+import { compactConversationMessages } from "@/lib/agent/compact-conversation";
+import { buildJitOrgContextText } from "@/lib/agent/jit-context";
 import {
   rowToMessage,
   rowToStage,
@@ -282,8 +283,7 @@ export async function streamAgentMessage(
   }
 
   const orgName = await getOrgName(supabase, organizationId);
-  const orgContext = await getOrgContext(organizationId);
-  const orgContextText = buildOrgContextText(orgContext);
+  const orgContextText = await buildJitOrgContextText(organizationId, trimmed);
 
   const entityCtx = await loadProductEntityContext(organizationId);
   const entityContextText = buildEntityContextText(entityCtx);
@@ -316,6 +316,10 @@ export async function streamAgentMessage(
     role: m.role,
     content: m.content,
   }));
+  const messagesForClaude = await compactConversationMessages(
+    organizationId,
+    claudeMessages
+  );
 
   const agentTask = detectAgentComplexity(trimmed, hasRagContext);
   const flags = resolveAgentFlags(trimmed, input.flags ?? {});
@@ -342,7 +346,7 @@ export async function streamAgentMessage(
       feature: "agent_chat",
       cachedSystemPrompt: orgContextText,
       system,
-      messages: claudeMessages,
+      messages: messagesForClaude,
       maxTokens: resolveAgentMaxTokens({
         enableThinking: flags.useThink,
         useCanvas: flags.useCanvas,
