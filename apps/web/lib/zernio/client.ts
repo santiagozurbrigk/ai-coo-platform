@@ -1,7 +1,5 @@
-import { ZERNIO_API_KEYS_URL } from "@/lib/zernio/constants";
+import { ZERNIO_API_BASE, ZERNIO_API_KEYS_URL } from "@/lib/zernio/constants";
 import { extractProfileId } from "@/lib/zernio/profile-id";
-
-const ZERNIO_BASE = "https://zernio.com/api/v1";
 
 export { ZERNIO_API_KEYS_URL };
 
@@ -188,7 +186,7 @@ export function createZernioClient(apiKey: string) {
     },
 
     async listAccounts() {
-      const res = await fetch(`${ZERNIO_BASE}/accounts`, { headers: headers() });
+      const res = await fetch(`${ZERNIO_API_BASE}/accounts`, { headers: headers() });
       if (!res.ok) {
         throw new Error(`Zernio listAccounts: HTTP ${res.status}`);
       }
@@ -197,8 +195,8 @@ export function createZernioClient(apiKey: string) {
 
     async listConversations(accountId?: string) {
       const url = accountId
-        ? `${ZERNIO_BASE}/inbox/conversations?accountId=${encodeURIComponent(accountId)}`
-        : `${ZERNIO_BASE}/inbox/conversations`;
+        ? `${ZERNIO_API_BASE}/inbox/conversations?accountId=${encodeURIComponent(accountId)}`
+        : `${ZERNIO_API_BASE}/inbox/conversations`;
       const res = await fetch(url, { headers: headers() });
       if (!res.ok) throw new Error(`Zernio listConversations: ${await res.text()}`);
       return res.json() as Promise<{
@@ -214,7 +212,7 @@ export function createZernioClient(apiKey: string) {
 
     async getMessages(conversationId: string, accountId: string) {
       const res = await fetch(
-        `${ZERNIO_BASE}/inbox/conversations/${encodeURIComponent(conversationId)}/messages?accountId=${encodeURIComponent(accountId)}`,
+        `${ZERNIO_API_BASE}/inbox/conversations/${encodeURIComponent(conversationId)}/messages?accountId=${encodeURIComponent(accountId)}`,
         { headers: headers() }
       );
       if (!res.ok) throw new Error(`Zernio getMessages: ${await res.text()}`);
@@ -244,7 +242,7 @@ export function createZernioClient(apiKey: string) {
 
     async sendMessage(conversationId: string, text: string, accountId: string) {
       const res = await fetch(
-        `${ZERNIO_BASE}/inbox/conversations/${encodeURIComponent(conversationId)}/messages`,
+        `${ZERNIO_API_BASE}/inbox/conversations/${encodeURIComponent(conversationId)}/messages`,
         {
           method: "POST",
           headers: headers(),
@@ -257,8 +255,8 @@ export function createZernioClient(apiKey: string) {
 
     async listComments(accountId?: string) {
       const url = accountId
-        ? `${ZERNIO_BASE}/inbox/comments?accountId=${encodeURIComponent(accountId)}`
-        : `${ZERNIO_BASE}/inbox/comments`;
+        ? `${ZERNIO_API_BASE}/inbox/comments?accountId=${encodeURIComponent(accountId)}`
+        : `${ZERNIO_API_BASE}/inbox/comments`;
       const res = await fetch(url, { headers: headers() });
       if (!res.ok) throw new Error(`Zernio listComments: ${await res.text()}`);
       return res.json() as Promise<{ comments: ZernioComment[] }>;
@@ -266,7 +264,7 @@ export function createZernioClient(apiKey: string) {
 
     async getPostComments(postId: string) {
       const res = await fetch(
-        `${ZERNIO_BASE}/inbox/comments/${encodeURIComponent(postId)}`,
+        `${ZERNIO_API_BASE}/inbox/comments/${encodeURIComponent(postId)}`,
         { headers: headers() }
       );
       if (!res.ok) throw new Error(`Zernio getPostComments: ${await res.text()}`);
@@ -280,7 +278,7 @@ export function createZernioClient(apiKey: string) {
       accountId: string
     ) {
       const res = await fetch(
-        `${ZERNIO_BASE}/inbox/comments/${encodeURIComponent(postId)}`,
+        `${ZERNIO_API_BASE}/inbox/comments/${encodeURIComponent(postId)}`,
         {
           method: "POST",
           headers: headers(),
@@ -293,7 +291,7 @@ export function createZernioClient(apiKey: string) {
 
     async hideComment(postId: string, commentId: string) {
       const res = await fetch(
-        `${ZERNIO_BASE}/inbox/comments/${encodeURIComponent(postId)}/${encodeURIComponent(commentId)}/hide`,
+        `${ZERNIO_API_BASE}/inbox/comments/${encodeURIComponent(postId)}/${encodeURIComponent(commentId)}/hide`,
         { method: "POST", headers: headers() }
       );
       if (!res.ok) throw new Error(`Zernio hideComment: ${await res.text()}`);
@@ -307,7 +305,7 @@ export function createZernioClient(apiKey: string) {
       status?: "draft" | "scheduled" | "published" | "failed";
       limit?: number;
     }) {
-      const url = new URL(`${ZERNIO_BASE}/posts`);
+      const url = new URL(`${ZERNIO_API_BASE}/posts`);
       url.searchParams.set("status", params?.status ?? "published");
       url.searchParams.set("limit", String(params?.limit ?? 50));
       url.searchParams.set("source", params?.source ?? "zernio");
@@ -333,7 +331,7 @@ export function createZernioClient(apiKey: string) {
           postsSynced?: number;
           skipped?: boolean;
         };
-      }>("syncExternalPosts", `${ZERNIO_BASE}/posts/sync-external`, {
+      }>("syncExternalPosts", `${ZERNIO_API_BASE}/posts/sync-external`, {
         method: "POST",
         headers: headers(),
         body: JSON.stringify({ accountId }),
@@ -350,7 +348,7 @@ export function createZernioClient(apiKey: string) {
       content: string;
       accountId?: string;
     }) {
-      const res = await fetch(`${ZERNIO_BASE}/posts`, {
+      const res = await fetch(`${ZERNIO_API_BASE}/posts`, {
         method: "POST",
         headers: headers(),
         body: JSON.stringify({
@@ -376,12 +374,45 @@ export function createZernioClient(apiKey: string) {
     },
 
     async getPostAnalytics(postId: string) {
-      const res = await fetch(`${ZERNIO_BASE}/analytics/${encodeURIComponent(postId)}`, {
-        headers: headers(),
-      });
-      if (!res.ok) throw new Error(`Zernio getPostAnalytics: ${await res.text()}`);
-      return res.json() as Promise<{
-        platforms: Record<
+      const trimmed = postId.trim();
+      if (!trimmed) {
+        throw new Error("Zernio getPostAnalytics: postId vacío");
+      }
+
+      const url = new URL(`${ZERNIO_API_BASE}/analytics`);
+      url.searchParams.set("postId", trimmed);
+
+      const data = await zernioFetchJson<Record<string, unknown>>(
+        "getPostAnalytics",
+        url.toString(),
+        { headers: headers() }
+      );
+
+      const posts = data.posts;
+      if (Array.isArray(posts) && posts.length > 0) {
+        const post = posts[0] as {
+          analytics?: unknown;
+          platforms?: Record<string, unknown>;
+        };
+        return (post.analytics ?? post.platforms ?? post) as {
+          platforms?: Record<
+            string,
+            {
+              impressions?: number;
+              likes?: number;
+              clicks?: number;
+              shares?: number;
+              comments?: number;
+              reach?: number;
+              saves?: number;
+              views?: number;
+            }
+          >;
+        };
+      }
+
+      return data as {
+        platforms?: Record<
           string,
           {
             impressions?: number;
@@ -391,9 +422,10 @@ export function createZernioClient(apiKey: string) {
             comments?: number;
             reach?: number;
             saves?: number;
+            views?: number;
           }
         >;
-      }>;
+      };
     },
 
     async listPostAnalytics(params?: {
@@ -403,7 +435,7 @@ export function createZernioClient(apiKey: string) {
       profileId?: string;
       limit?: number;
     }) {
-      const url = new URL(`${ZERNIO_BASE}/analytics`);
+      const url = new URL(`${ZERNIO_API_BASE}/analytics`);
       url.searchParams.set("source", params?.source ?? "all");
       url.searchParams.set("limit", String(params?.limit ?? 50));
       if (params?.accountId) {
@@ -426,7 +458,7 @@ export function createZernioClient(apiKey: string) {
 
     async getAccountAnalytics(accountId: string, startDate: string, endDate: string) {
       const res = await fetch(
-        `${ZERNIO_BASE}/analytics/account/${encodeURIComponent(accountId)}?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
+        `${ZERNIO_API_BASE}/analytics/account/${encodeURIComponent(accountId)}?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
         { headers: headers() }
       );
       if (!res.ok) throw new Error(`Zernio getAccountAnalytics: ${await res.text()}`);
@@ -434,7 +466,7 @@ export function createZernioClient(apiKey: string) {
     },
 
     async getPostsAnalytics() {
-      const res = await fetch(`${ZERNIO_BASE}/analytics/posts`, {
+      const res = await fetch(`${ZERNIO_API_BASE}/analytics/posts`, {
         headers: headers(),
       });
       if (!res.ok) throw new Error(`Zernio getPostsAnalytics: ${await res.text()}`);
@@ -449,7 +481,7 @@ function defaultClient() {
 
 // Legacy exports (env API key) — prefer createZernioClient / getZernioClientForOrganization
 export async function zernioCreateProfile(name: string) {
-  const res = await fetch(`${ZERNIO_BASE}/profiles`, {
+  const res = await fetch(`${ZERNIO_API_BASE}/profiles`, {
     method: "POST",
     headers: buildHeaders(resolveEnvApiKey()),
     body: JSON.stringify({ name }),
