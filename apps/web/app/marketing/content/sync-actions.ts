@@ -276,6 +276,8 @@ async function fetchExternalPostsViaSync(
 }
 
 export async function syncZernioContentAction(): Promise<{ synced: number }> {
+  console.log("[syncZernioContent] throttle check", { reason: "running" });
+
   const organizationId = await requireOrganizationId();
   const integration = await getZernioIntegrationForOrg(organizationId);
 
@@ -435,8 +437,20 @@ export async function maybeSyncZernioContentAction(): Promise<void> {
     : null;
   const isStale =
     lastSyncAt === null || Date.now() - lastSyncAt > SYNC_INTERVAL_MS;
+  const shouldSkip = !hasNoData && !isStale;
 
-  if (!hasNoData && !isStale) return;
+  console.log("[syncZernioContent] throttle check", {
+    reason: shouldSkip ? "skipped" : "running",
+    hasNoData,
+    isStale,
+    count: count ?? 0,
+    latestUpdatedAt: latestRow?.updated_at ?? null,
+    lastSyncAtMs: lastSyncAt,
+    ageMs: lastSyncAt !== null ? Date.now() - lastSyncAt : null,
+    syncIntervalMs: SYNC_INTERVAL_MS,
+  });
+
+  if (shouldSkip) return;
 
   await syncZernioContentAction();
 }
