@@ -3,49 +3,9 @@ import {
   getZernioClientForOrganization,
   getZernioIntegrationForOrg,
 } from "@/lib/zernio/integration";
-import type { ContentMetrics } from "@/types/content";
+import { resolvePostAnalytics } from "@/lib/zernio/resolve-analytics";
 
 const METRICS_BATCH_LIMIT = 50;
-
-type PlatformMetrics = {
-  impressions?: number;
-  likes?: number;
-  comments?: number;
-  shares?: number;
-  reach?: number;
-  clicks?: number;
-  saves?: number;
-};
-
-function aggregatePlatformMetrics(
-  platforms: Record<string, PlatformMetrics>
-): ContentMetrics {
-  let likes = 0;
-  let comments = 0;
-  let shares = 0;
-  let saves = 0;
-  let reach = 0;
-  let impressions = 0;
-
-  for (const metrics of Object.values(platforms)) {
-    likes += metrics.likes ?? 0;
-    comments += metrics.comments ?? 0;
-    shares += metrics.shares ?? 0;
-    saves += metrics.saves ?? 0;
-    reach += metrics.reach ?? 0;
-    impressions += metrics.impressions ?? 0;
-  }
-
-  return {
-    likes,
-    comments,
-    shares,
-    saves,
-    reach,
-    impressions,
-    views: impressions || reach,
-  };
-}
 
 export type SyncContentMetricsResult = {
   attempted: number;
@@ -92,15 +52,13 @@ export async function syncContentMetricsForOrg(
     pieces.map(async (piece) => {
       const postId = piece.platform_post_id as string;
       const analytics = await client.getPostAnalytics(postId);
-      const metrics = aggregatePlatformMetrics(
-        (analytics.platforms ?? {}) as Record<string, PlatformMetrics>
-      );
+      const { metrics, lastUpdated } = resolvePostAnalytics(analytics);
 
       const { error: updateError } = await admin
         .from("content_pieces")
         .update({
           metrics,
-          metrics_updated_at: new Date().toISOString(),
+          metrics_updated_at: lastUpdated ?? new Date().toISOString(),
         })
         .eq("id", piece.id as string)
         .eq("organization_id", organizationId);
