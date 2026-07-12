@@ -537,7 +537,7 @@ function ComentariosTab({ piece }: { piece: ContentPiece }) {
     );
   }
 
-  return <ZernioPostComments postId={piece.platform_post_id} />;
+  return <ZernioPostComments contentPieceId={piece.id} />;
 }
 
 function VariantesTab({ variants }: { variants: ContentPiece[] }) {

@@ -315,16 +315,31 @@ export async function getZernioPostCommentsAction(
   }
 
   const client = await getZernioClientForOrganization(organizationId);
+  const account = integration.connected_accounts.find(
+    (item) => item.platform.toLowerCase() === "instagram"
+  );
+  if (!account) return [];
 
   try {
-    const { comments } = await client.getPostComments(postId);
+    const response = await client.getPostComments(
+      postId,
+      account.accountId
+    );
+    const { comments } = response;
     return comments
       .map((comment) => ({
-        ...comment,
-        accountId: integration.connected_accounts.find(
-          (account) =>
-            account.platform.toLowerCase() === comment.platform.toLowerCase()
-        )?.accountId,
+        _id: comment.id,
+        postId,
+        platform: response.meta.platform ?? "instagram",
+        author: {
+          name: comment.from?.name,
+          username: comment.from?.username,
+          profilePictureUrl: comment.from?.picture,
+        },
+        text: comment.message,
+        isHidden: comment.isHidden,
+        createdAt: comment.createdTime,
+        accountId: account.accountId,
       }))
       .sort(
         (a, b) =>

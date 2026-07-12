@@ -1,91 +1,190 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import {
-  getZernioPostCommentsAction,
-  hideZernioCommentAction,
-  replyToZernioCommentAction,
-  type ZernioCommentWithAccount,
-} from "@/app/integrations/zernio/actions";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { Heart, MessageCircle } from "lucide-react";
+import { getContentPieceCommentsAction } from "@/app/marketing/content/comment-actions";
 import { EmptyState } from "@/components/shared/empty-state";
-import { PageLoading } from "@/components/shared/page-loading";
-import { Badge, Button, Card, CardContent, Input, cn } from "@ai-coo/ui";
-import { useToast } from "@/providers/toast-provider";
-
-const PLATFORM_COLORS: Record<string, string> = {
-  instagram: "bg-[#E4405F]/15 text-[#E4405F]",
-  facebook: "bg-[#1877F2]/15 text-[#1877F2]",
-  whatsapp: "bg-[#25D366]/15 text-[#25D366]",
-};
+import { formatRelativeTime } from "@/lib/format";
+import type {
+  ZernioPostComment,
+  ZernioPostCommentsResponse,
+} from "@/lib/zernio/client";
+import { Button, Skeleton } from "@ai-coo/ui";
 
 type Props = {
-  postId: string;
+  contentPieceId: string;
 };
 
-export function ZernioPostComments({ postId }: Props) {
-  const { push } = useToast();
-  const [comments, setComments] = useState<ZernioCommentWithAccount[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [replyingId, setReplyingId] = useState<string | null>(null);
-  const [replyDraft, setReplyDraft] = useState("");
-  const [actionId, setActionId] = useState<string | null>(null);
+function CommentSkeleton() {
+  return (
+    <div className="flex gap-3 border-b py-4 last:border-b-0">
+      <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+      <div className="flex-1 space-y-2">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-2/3" />
+      </div>
+    </div>
+  );
+}
 
-  const loadComments = useCallback(async () => {
-    setLoading(true);
-    try {
-      const list = await getZernioPostCommentsAction(postId);
-      setComments(list);
-    } finally {
-      setLoading(false);
-    }
-  }, [postId]);
+function AuthorAvatar({ comment }: { comment: ZernioPostComment }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const name = comment.from?.name ?? comment.from?.username ?? "Usuario";
+  const initial = name.trim().charAt(0).toUpperCase() || "?";
+
+  if (comment.from?.picture && !imageFailed) {
+    return (
+      <Image
+        src={comment.from.picture}
+        alt=""
+        width={40}
+        height={40}
+        unoptimized
+        className="h-10 w-10 shrink-0 rounded-full bg-muted object-cover"
+        onError={() => setImageFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <div
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground"
+      aria-hidden="true"
+    >
+      {initial}
+    </div>
+  );
+}
+
+function CommentRow({ comment }: { comment: ZernioPostComment }) {
+  const name = comment.from?.name ?? comment.from?.username ?? "Usuario";
+  const username = comment.from?.username;
+
+  return (
+    <article className="flex gap-3 border-b py-4 last:border-b-0">
+      <AuthorAvatar comment={comment} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="text-sm font-semibold">{name}</span>
+          {username ? (
+            <span className="text-xs text-muted-foreground">@{username}</span>
+          ) : null}
+          <time
+            className="text-xs text-muted-foreground"
+            dateTime={comment.createdTime}
+            title={new Date(comment.createdTime).toLocaleString("es-AR")}
+          >
+            {formatRelativeTime(comment.createdTime)}
+          </time>
+        </div>
+
+        <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed">
+          {comment.message}
+        </p>
+
+        <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <Heart className="h-3.5 w-3.5" aria-hidden="true" />
+            {comment.likeCount ?? 0}
+            <span className="sr-only"> Me gusta</span>
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+            {comment.replyCount ?? comment.replies?.length ?? 0}
+            <span className="sr-only"> Respuestas</span>
+          </span>
+          {comment.isHidden ? <span>Oculto</span> : null}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export function ZernioPostComments({ contentPieceId }: Props) {
+  const [comments, setComments] = useState<ZernioPostComment[]>([]);
+  const [pagination, setPagination] =
+    useState<ZernioPostCommentsResponse["pagination"] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
+
+  const loadComments = useCallback(
+    async (cursor?: string) => {
+      const requestId = ++requestIdRef.current;
+      if (cursor) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
+      try {
+        const response = await getContentPieceCommentsAction(
+          contentPieceId,
+          cursor
+        );
+        if (requestId !== requestIdRef.current) return;
+
+        setComments((current) => {
+          if (!cursor) return response.comments;
+          const knownIds = new Set(current.map((comment) => comment.id));
+          return [
+            ...current,
+            ...response.comments.filter((comment) => !knownIds.has(comment.id)),
+          ];
+        });
+        setPagination(response.pagination);
+      } catch (err) {
+        if (requestId !== requestIdRef.current) return;
+        setError(
+          err instanceof Error ? err.message : "No se pudieron cargar los comentarios"
+        );
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
+      }
+    },
+    [contentPieceId]
+  );
 
   useEffect(() => {
     void loadComments();
+    return () => {
+      requestIdRef.current += 1;
+    };
   }, [loadComments]);
 
-  async function handleReply(comment: ZernioCommentWithAccount) {
-    if (!replyDraft.trim() || !comment.accountId) return;
-    setActionId(comment._id);
-    try {
-      await replyToZernioCommentAction(
-        comment.postId,
-        comment._id,
-        replyDraft.trim(),
-        comment.accountId
-      );
-      setReplyingId(null);
-      setReplyDraft("");
-      await loadComments();
-      push({ title: "Respuesta enviada", variant: "success" });
-    } catch (err) {
-      push({
-        title: "No se pudo responder",
-        description: err instanceof Error ? err.message : "Error desconocido",
-      });
-    } finally {
-      setActionId(null);
-    }
-  }
-
-  async function handleHide(comment: ZernioCommentWithAccount) {
-    setActionId(comment._id);
-    try {
-      await hideZernioCommentAction(comment.postId, comment._id);
-      await loadComments();
-      push({ title: "Comentario oculto", variant: "success" });
-    } catch (err) {
-      push({
-        title: "No se pudo ocultar",
-        description: err instanceof Error ? err.message : "Error desconocido",
-      });
-    } finally {
-      setActionId(null);
-    }
-  }
-
   if (loading) {
-    return <PageLoading label="Cargando comentarios…" />;
+    return (
+      <div aria-label="Cargando comentarios" aria-busy="true">
+        <CommentSkeleton />
+        <CommentSkeleton />
+        <CommentSkeleton />
+      </div>
+    );
+  }
+
+  if (error && comments.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <p className="text-sm font-medium">No se pudieron cargar los comentarios</p>
+        <p className="mt-1 max-w-md text-xs text-muted-foreground">{error}</p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-4"
+          onClick={() => void loadComments()}
+        >
+          Reintentar
+        </Button>
+      </div>
+    );
   }
 
   if (comments.length === 0) {
@@ -98,94 +197,30 @@ export function ZernioPostComments({ postId }: Props) {
   }
 
   return (
-    <div className="space-y-3">
-      {comments.map((comment) => {
-        const platformClass =
-          PLATFORM_COLORS[comment.platform.toLowerCase()] ??
-          "bg-muted text-muted-foreground";
+    <div>
+      <div>
+        {comments.map((comment) => (
+          <CommentRow key={comment.id} comment={comment} />
+        ))}
+      </div>
 
-        return (
-          <Card key={comment._id}>
-            <CardContent className="space-y-3 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge className={cn("capitalize", platformClass)}>
-                    {comment.platform}
-                  </Badge>
-                  <span className="text-sm font-medium">
-                    {comment.author?.name ??
-                      (comment.author?.username
-                        ? `@${comment.author.username}`
-                        : "Autor")}
-                  </span>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(comment.createdAt).toLocaleString("es-AR")}
-                </span>
-              </div>
+      {error ? (
+        <p className="mt-3 text-center text-xs text-destructive">{error}</p>
+      ) : null}
 
-              <p className="text-sm text-foreground">{comment.text}</p>
-
-              {comment.isHidden ? (
-                <p className="text-xs text-muted-foreground">Oculto</p>
-              ) : null}
-
-              {replyingId === comment._id ? (
-                <div className="flex gap-2">
-                  <Input
-                    value={replyDraft}
-                    onChange={(e) => setReplyDraft(e.target.value)}
-                    placeholder="Tu respuesta…"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={actionId === comment._id || !replyDraft.trim()}
-                    onClick={() => void handleReply(comment)}
-                  >
-                    Enviar
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setReplyingId(null);
-                      setReplyDraft("");
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={!comment.accountId || comment.isHidden}
-                    onClick={() => {
-                      setReplyingId(comment._id);
-                      setReplyDraft("");
-                    }}
-                  >
-                    Responder
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={actionId === comment._id || comment.isHidden}
-                    onClick={() => void handleHide(comment)}
-                  >
-                    Ocultar
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
+      {pagination?.hasMore && pagination.cursor ? (
+        <div className="flex justify-center pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={loadingMore}
+            onClick={() => void loadComments(pagination.cursor ?? undefined)}
+          >
+            {loadingMore ? "Cargando…" : "Cargar más"}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

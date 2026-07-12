@@ -83,6 +83,42 @@ export interface ZernioComment {
   createdAt: string;
 }
 
+export type ZernioPostCommentAuthor = {
+  id: string;
+  name?: string;
+  username?: string;
+  picture?: string;
+  isOwner?: boolean;
+};
+
+export type ZernioPostComment = {
+  id: string;
+  message: string;
+  createdTime: string;
+  from: ZernioPostCommentAuthor;
+  likeCount?: number;
+  replyCount?: number;
+  replies?: ZernioPostComment[];
+  canReply?: boolean;
+  canHide?: boolean;
+  isHidden?: boolean;
+  isLiked?: boolean;
+};
+
+export type ZernioPostCommentsResponse = {
+  comments: ZernioPostComment[];
+  pagination: {
+    hasMore: boolean;
+    cursor: string | null;
+  };
+  meta: {
+    platform: string;
+    postId: string;
+    accountId: string;
+    lastUpdated?: string;
+  };
+};
+
 export type ZernioPost = {
   id?: string;
   _id?: string;
@@ -262,13 +298,24 @@ export function createZernioClient(apiKey: string) {
       return res.json() as Promise<{ comments: ZernioComment[] }>;
     },
 
-    async getPostComments(postId: string) {
-      const res = await fetch(
-        `${ZERNIO_API_BASE}/inbox/comments/${encodeURIComponent(postId)}`,
+    async getPostComments(
+      postId: string,
+      accountId: string,
+      limit = 25,
+      cursor?: string
+    ) {
+      const url = new URL(
+        `${ZERNIO_API_BASE}/inbox/comments/${encodeURIComponent(postId)}`
+      );
+      url.searchParams.set("accountId", accountId);
+      url.searchParams.set("limit", String(limit));
+      if (cursor) url.searchParams.set("cursor", cursor);
+
+      return zernioFetchJson<ZernioPostCommentsResponse>(
+        "getPostComments",
+        url.toString(),
         { headers: headers() }
       );
-      if (!res.ok) throw new Error(`Zernio getPostComments: ${await res.text()}`);
-      return res.json() as Promise<{ comments: ZernioComment[] }>;
     },
 
     async replyToComment(
@@ -514,8 +561,13 @@ export async function zernioListComments(accountId?: string) {
   return defaultClient().listComments(accountId);
 }
 
-export async function zernioGetPostComments(postId: string) {
-  return defaultClient().getPostComments(postId);
+export async function zernioGetPostComments(
+  postId: string,
+  accountId: string,
+  limit = 25,
+  cursor?: string
+) {
+  return defaultClient().getPostComments(postId, accountId, limit, cursor);
 }
 
 export async function zernioReplyToComment(
