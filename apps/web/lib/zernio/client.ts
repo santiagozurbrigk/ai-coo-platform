@@ -155,6 +155,11 @@ export type ZernioLinkedAd = {
 
 export type ZernioAdsResponse = {
   ads: ZernioLinkedAd[];
+  pagination?: {
+    hasMore?: boolean;
+    cursor?: string | null;
+    total?: number;
+  };
 };
 
 export type ZernioPost = {
@@ -368,6 +373,27 @@ export function createZernioClient(apiKey: string) {
       url.searchParams.set("limit", String(limit));
 
       return zernioFetchJson<ZernioAdsResponse>("getLinkedAds", url.toString(), {
+        headers: headers(),
+      });
+    },
+
+    async listAds(params?: {
+      source?: string;
+      limit?: number;
+      status?: string;
+      platform?: string;
+      fromDate?: string;
+      toDate?: string;
+    }) {
+      const url = new URL(`${ZERNIO_API_BASE}/ads`);
+      url.searchParams.set("source", params?.source ?? "all");
+      url.searchParams.set("limit", String(params?.limit ?? 100));
+      if (params?.status) url.searchParams.set("status", params.status);
+      if (params?.platform) url.searchParams.set("platform", params.platform);
+      if (params?.fromDate) url.searchParams.set("fromDate", params.fromDate);
+      if (params?.toDate) url.searchParams.set("toDate", params.toDate);
+
+      return zernioFetchJson<ZernioAdsResponse>("listAds", url.toString(), {
         headers: headers(),
       });
     },
