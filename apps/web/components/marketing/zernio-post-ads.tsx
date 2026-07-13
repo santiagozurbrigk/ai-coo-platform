@@ -4,22 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getContentPieceAdsAction } from "@/app/marketing/content/ad-actions";
 import { EmptyState } from "@/components/shared/empty-state";
 import type { ZernioAdStatus, ZernioLinkedAd } from "@/lib/zernio/client";
+import { formatCurrency, formatNumber, normalizeAdMetrics } from "@/lib/utils/format-ad-metrics";
 import { Badge, Button, cn, Skeleton } from "@ai-coo/ui";
 
 type Props = {
   contentPieceId: string;
 };
-
-function formatMoney(value: number): string {
-  return `$${value.toLocaleString("es-AR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-function formatNumber(value: number): string {
-  return value.toLocaleString("es-AR");
-}
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -81,23 +71,12 @@ function MetricCell({ label, value }: { label: string; value: string }) {
 }
 
 function AdCard({ ad }: { ad: ZernioLinkedAd }) {
-  const metrics = ad.metrics ?? {
-    spend: 0,
-    roas: 0,
-    impressions: 0,
-    reach: 0,
-    ctr: 0,
-    cpc: 0,
-    clicks: 0,
-    cpm: 0,
-    conversions: 0,
-    costPerConversion: 0,
-  };
+  const metrics = normalizeAdMetrics(ad.metrics);
 
   const budgetLabel =
     ad.budget?.type === "daily"
-      ? `${formatMoney(ad.budget.amount)}/día`
-      : `${formatMoney(ad.budget?.amount ?? 0)}/total`;
+      ? `${formatCurrency(ad.budget.amount)}/día`
+      : `${formatCurrency(ad.budget?.amount ?? 0)}/total`;
 
   const endLabel = ad.schedule?.endDate
     ? formatDate(ad.schedule.endDate)
@@ -122,12 +101,12 @@ function AdCard({ ad }: { ad: ZernioLinkedAd }) {
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-3">
-        <MetricCell label="Gasto" value={formatMoney(metrics.spend)} />
+        <MetricCell label="Gasto" value={formatCurrency(metrics.spend)} />
         <MetricCell label="ROAS" value={`${metrics.roas}x`} />
         <MetricCell label="Impresiones" value={formatNumber(metrics.impressions)} />
         <MetricCell label="Alcance" value={formatNumber(metrics.reach)} />
         <MetricCell label="CTR" value={`${metrics.ctr}%`} />
-        <MetricCell label="CPC" value={formatMoney(metrics.cpc)} />
+        <MetricCell label="CPC" value={formatCurrency(metrics.cpc)} />
       </div>
 
       <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">

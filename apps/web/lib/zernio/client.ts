@@ -128,6 +128,33 @@ export type ZernioAdStatus =
   | "cancelled"
   | "error";
 
+export type ZernioAdMetrics = {
+  spend: number;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+  engagement: number;
+  conversions: number;
+  costPerConversion: number;
+  purchaseValue: number;
+  roas: number;
+  actions: Record<string, number>;
+  actionValues: Record<string, number>;
+  videoPlayActions: number;
+  video30SecWatchedActions: number;
+  videoThruplayWatchedActions: number;
+  videoP25WatchedActions: number;
+  videoP50WatchedActions: number;
+  videoP75WatchedActions: number;
+  videoP95WatchedActions: number;
+  videoP100WatchedActions: number;
+  videoAvgTimeWatchedActions: number;
+  lastSyncedAt: string;
+};
+
 export type ZernioLinkedAd = {
   _id: string;
   name: string;
@@ -135,18 +162,7 @@ export type ZernioLinkedAd = {
   status: ZernioAdStatus;
   adType: string;
   budget: { amount: number; type: "daily" | "lifetime" };
-  metrics: {
-    spend: number;
-    impressions: number;
-    reach: number;
-    clicks: number;
-    ctr: number;
-    cpc: number;
-    cpm: number;
-    roas: number;
-    conversions: number;
-    costPerConversion: number;
-  };
+  metrics: ZernioAdMetrics;
   campaignName: string;
   adSetName: string;
   schedule: { startDate: string; endDate?: string };

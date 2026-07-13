@@ -1,16 +1,25 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { Fragment, useCallback, useMemo, useState, useTransition } from "react";
 import Image from "next/image";
-import { ExternalLink, Megaphone } from "lucide-react";
+import { ChevronDown, ExternalLink, Megaphone } from "lucide-react";
 import {
   getMarketingAdsAction,
   type MarketingAdsFilters,
 } from "@/app/marketing/content/ad-actions";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterPills } from "@/components/marketing/filter-pills";
-import type { ZernioAdStatus, ZernioLinkedAd } from "@/lib/zernio/client";
-import { Badge, cn, MetricBand, MetricStat, Skeleton } from "@ai-coo/ui";
+import type { ZernioAdMetrics, ZernioAdStatus, ZernioLinkedAd } from "@/lib/zernio/client";
+import {
+  formatActionKey,
+  formatCurrency,
+  formatMultiplier,
+  formatNumber,
+  formatPercent,
+  formatSeconds,
+  normalizeAdMetrics,
+} from "@/lib/utils/format-ad-metrics";
+import { Badge, cn, MetricStat, Skeleton } from "@ai-coo/ui";
 
 type Props = {
   initialAds: ZernioLinkedAd[];
@@ -21,6 +30,8 @@ type Props = {
 type StatusFilter = "all" | "active" | "paused" | "error";
 type PlatformFilter = "all" | "facebook" | "instagram";
 type RangeDays = 7 | 30 | 90;
+
+const TABLE_COLUMN_COUNT = 9;
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "Todos" },
@@ -50,21 +61,6 @@ const STATUS_LABELS: Record<ZernioAdStatus, string> = {
   cancelled: "Cancelado",
   error: "Error",
 };
-
-function formatMoney(value: number): string {
-  return `$${value.toLocaleString("es-AR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  })}`;
-}
-
-function formatNumber(value: number): string {
-  return value.toLocaleString("es-AR");
-}
-
-function formatPercent(value: number): string {
-  return `${value.toFixed(2)}%`;
-}
 
 function resolveDateRange(days: RangeDays) {
   const to = new Date();
@@ -106,15 +102,28 @@ function buildFilters(
 }
 
 function aggregateKpis(ads: ZernioLinkedAd[]) {
-  const spend = ads.reduce((sum, ad) => sum + (ad.metrics?.spend ?? 0), 0);
-  const impressions = ads.reduce(
-    (sum, ad) => sum + (ad.metrics?.impressions ?? 0),
+  const normalized = ads.map((ad) => normalizeAdMetrics(ad.metrics));
+
+  const spend = normalized.reduce((sum, metrics) => sum + metrics.spend, 0);
+  const impressions = normalized.reduce(
+    (sum, metrics) => sum + metrics.impressions,
     0
   );
-  const roasValues = ads
-    .map((ad) => ad.metrics?.roas ?? 0)
+  const reach = normalized.reduce((sum, metrics) => sum + metrics.reach, 0);
+  const conversions = normalized.reduce(
+    (sum, metrics) => sum + metrics.conversions,
+    0
+  );
+  const purchaseValue = normalized.reduce(
+    (sum, metrics) => sum + metrics.purchaseValue,
+    0
+  );
+
+  const roasValues = normalized.map((metrics) => metrics.roas).filter((value) => value > 0);
+  const ctrValues = normalized.map((metrics) => metrics.ctr);
+  const costPerConvValues = normalized
+    .map((metrics) => metrics.costPerConversion)
     .filter((value) => value > 0);
-  const ctrValues = ads.map((ad) => ad.metrics?.ctr ?? 0);
 
   const roasAvg =
     roasValues.length > 0
@@ -124,8 +133,22 @@ function aggregateKpis(ads: ZernioLinkedAd[]) {
     ctrValues.length > 0
       ? ctrValues.reduce((sum, value) => sum + value, 0) / ctrValues.length
       : 0;
+  const costPerConvAvg =
+    costPerConvValues.length > 0
+      ? costPerConvValues.reduce((sum, value) => sum + value, 0) /
+        costPerConvValues.length
+      : 0;
 
-  return { spend, impressions, roasAvg, ctrAvg };
+  return {
+    spend,
+    impressions,
+    reach,
+    conversions,
+    roasAvg,
+    ctrAvg,
+    costPerConvAvg,
+    purchaseValue,
+  };
 }
 
 function TableSkeleton() {
@@ -135,7 +158,10 @@ function TableSkeleton() {
         <Skeleton className="h-4 w-full max-w-xl" />
       </div>
       {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="flex items-center gap-4 border-b px-4 py-4 last:border-b-0">
+        <div
+          key={index}
+          className="flex items-center gap-4 border-b px-4 py-4 last:border-b-0"
+        >
           <Skeleton className="h-10 w-10 shrink-0 rounded-md" />
           <div className="grid flex-1 grid-cols-4 gap-3">
             <Skeleton className="h-4 w-full" />
@@ -145,6 +171,141 @@ function TableSkeleton() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function DetailMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border bg-muted/20 p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-semibold tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: string }) {
+  return (
+    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      {children}
+    </h4>
+  );
+}
+
+function AdExpandedDetails({ metrics }: { metrics: ZernioAdMetrics }) {
+  const actionEntries = Object.entries(metrics.actions).filter(
+    ([, value]) => value > 0
+  );
+  const showVideo = metrics.videoPlayActions > 0;
+  const showActions = actionEntries.length > 0;
+
+  return (
+    <div className="space-y-5 bg-muted/10 px-4 py-5">
+      <section className="space-y-3">
+        <SectionTitle>Performance</SectionTitle>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <DetailMetric label="Spend" value={formatCurrency(metrics.spend)} />
+          <DetailMetric label="Impressions" value={formatNumber(metrics.impressions)} />
+          <DetailMetric label="Reach" value={formatNumber(metrics.reach)} />
+          <DetailMetric label="Clicks" value={formatNumber(metrics.clicks)} />
+          <DetailMetric label="CTR" value={formatPercent(metrics.ctr)} />
+          <DetailMetric label="CPC" value={formatCurrency(metrics.cpc)} />
+          <DetailMetric label="CPM" value={formatCurrency(metrics.cpm)} />
+          <DetailMetric label="Engagement" value={formatNumber(metrics.engagement)} />
+        </div>
+      </section>
+
+      <section className="space-y-3 border-t pt-5">
+        <SectionTitle>Conversiones</SectionTitle>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <DetailMetric label="Conversions" value={formatNumber(metrics.conversions)} />
+          <DetailMetric
+            label="Cost/Conv"
+            value={formatCurrency(metrics.costPerConversion)}
+          />
+          <DetailMetric
+            label="Purchase Value"
+            value={formatCurrency(metrics.purchaseValue)}
+          />
+          <DetailMetric label="ROAS" value={formatMultiplier(metrics.roas)} />
+        </div>
+      </section>
+
+      {showVideo ? (
+        <section className="space-y-3 border-t pt-5">
+          <SectionTitle>Video</SectionTitle>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <DetailMetric
+              label="Reproducciones"
+              value={formatNumber(metrics.videoPlayActions)}
+            />
+            <DetailMetric
+              label="30 seg"
+              value={formatNumber(metrics.video30SecWatchedActions)}
+            />
+            <DetailMetric
+              label="ThruPlay"
+              value={formatNumber(metrics.videoThruplayWatchedActions)}
+            />
+            <DetailMetric
+              label="Tiempo promedio"
+              value={formatSeconds(metrics.videoAvgTimeWatchedActions)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <DetailMetric
+              label="Visto 25%"
+              value={formatNumber(metrics.videoP25WatchedActions)}
+            />
+            <DetailMetric
+              label="Visto 50%"
+              value={formatNumber(metrics.videoP50WatchedActions)}
+            />
+            <DetailMetric
+              label="Visto 75%"
+              value={formatNumber(metrics.videoP75WatchedActions)}
+            />
+            <DetailMetric
+              label="Visto 95%"
+              value={formatNumber(metrics.videoP95WatchedActions)}
+            />
+            <DetailMetric
+              label="Visto 100%"
+              value={formatNumber(metrics.videoP100WatchedActions)}
+            />
+          </div>
+        </section>
+      ) : null}
+
+      {showActions ? (
+        <section className="space-y-3 border-t pt-5">
+          <SectionTitle>Acciones de Meta</SectionTitle>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {actionEntries.map(([key, count]) => {
+              const monetaryValue = metrics.actionValues[key];
+              return (
+                <div key={key} className="rounded-md border bg-background p-3">
+                  <p className="text-xs font-medium">{formatActionKey(key)}</p>
+                  <p className="mt-1 text-sm font-semibold tabular-nums">
+                    {formatNumber(count)}
+                  </p>
+                  {monetaryValue != null && monetaryValue > 0 ? (
+                    <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                      {formatCurrency(monetaryValue)}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {metrics.lastSyncedAt ? (
+        <p className="border-t pt-4 text-xs text-muted-foreground">
+          Última sync: {new Date(metrics.lastSyncedAt).toLocaleString("es-AR")}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -174,81 +335,89 @@ function AdPreview({ ad }: { ad: ZernioLinkedAd }) {
   );
 }
 
-function AdTableRow({ ad }: { ad: ZernioLinkedAd }) {
-  const metrics = ad.metrics ?? {
-    spend: 0,
-    impressions: 0,
-    ctr: 0,
-    roas: 0,
-    reach: 0,
-    clicks: 0,
-    cpc: 0,
-    cpm: 0,
-    conversions: 0,
-    costPerConversion: 0,
-  };
-
+function AdTableRow({
+  ad,
+  expanded,
+  onToggle,
+}: {
+  ad: ZernioLinkedAd;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const metrics = normalizeAdMetrics(ad.metrics);
   const budgetLabel =
     ad.budget?.type === "daily"
-      ? `${formatMoney(ad.budget.amount)}/día`
-      : `${formatMoney(ad.budget?.amount ?? 0)}/total`;
+      ? `${formatCurrency(ad.budget.amount)}/día`
+      : `${formatCurrency(ad.budget?.amount ?? 0)}/total`;
 
   const permalink = ad.creative?.instagramPermalinkUrl;
 
-  const handleRowClick = () => {
-    if (!permalink) return;
-    window.open(permalink, "_blank", "noopener,noreferrer");
-  };
-
   return (
-    <tr
-      className={cn(
-        "border-b last:border-b-0",
-        permalink && "cursor-pointer hover:bg-muted/40"
-      )}
-      onClick={handleRowClick}
-      onKeyDown={(event) => {
-        if (!permalink) return;
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          handleRowClick();
-        }
-      }}
-      tabIndex={permalink ? 0 : undefined}
-      role={permalink ? "link" : undefined}
-      aria-label={permalink ? `Ver en Instagram: ${ad.name}` : undefined}
-    >
-      <td className="px-4 py-3">
-        <AdPreview ad={ad} />
-      </td>
-      <td className="px-4 py-3">
-        <div className="min-w-[180px]">
-          <p className="text-sm font-medium">{ad.name}</p>
-          {permalink ? (
-            <span className="mt-0.5 inline-flex items-center gap-1 text-xs text-primary">
-              Ver en Instagram
-              <ExternalLink className="h-3 w-3" aria-hidden="true" />
-            </span>
-          ) : null}
-        </div>
-      </td>
-      <td className="px-4 py-3 text-sm text-muted-foreground">{ad.campaignName}</td>
-      <td className="px-4 py-3">
-        <Badge
-          variant="outline"
-          className={cn("capitalize", statusBadgeClass(ad.status))}
-        >
-          {STATUS_LABELS[ad.status] ?? ad.status}
-        </Badge>
-      </td>
-      <td className="px-4 py-3 text-sm tabular-nums">{budgetLabel}</td>
-      <td className="px-4 py-3 text-sm tabular-nums">{formatMoney(metrics.spend)}</td>
-      <td className="px-4 py-3 text-sm tabular-nums">
-        {formatNumber(metrics.impressions)}
-      </td>
-      <td className="px-4 py-3 text-sm tabular-nums">{formatPercent(metrics.ctr)}</td>
-      <td className="px-4 py-3 text-sm tabular-nums">{metrics.roas.toFixed(2)}x</td>
-    </tr>
+    <Fragment>
+      <tr className="border-b">
+        <td className="px-2 py-3">
+          <button
+            type="button"
+            onClick={onToggle}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-expanded={expanded}
+            aria-label={expanded ? "Ocultar métricas" : "Ver métricas completas"}
+          >
+            <ChevronDown
+              className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")}
+              aria-hidden="true"
+            />
+          </button>
+        </td>
+        <td className="px-4 py-3">
+          <AdPreview ad={ad} />
+        </td>
+        <td className="px-4 py-3">
+          <div className="min-w-[200px]">
+            <p className="text-sm font-medium">{ad.name}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{ad.campaignName}</p>
+            {permalink ? (
+              <a
+                href={permalink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                Ver en Instagram
+                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+              </a>
+            ) : null}
+          </div>
+        </td>
+        <td className="px-4 py-3">
+          <Badge
+            variant="outline"
+            className={cn("capitalize", statusBadgeClass(ad.status))}
+          >
+            {STATUS_LABELS[ad.status] ?? ad.status}
+          </Badge>
+        </td>
+        <td className="px-4 py-3 text-sm tabular-nums">{budgetLabel}</td>
+        <td className="px-4 py-3 text-sm tabular-nums">
+          {formatCurrency(metrics.spend)}
+        </td>
+        <td className="px-4 py-3 text-sm tabular-nums">
+          {formatNumber(metrics.impressions)}
+        </td>
+        <td className="px-4 py-3 text-sm tabular-nums">
+          {formatMultiplier(metrics.roas)}
+        </td>
+        <td className="px-4 py-3 text-sm tabular-nums">{formatPercent(metrics.ctr)}</td>
+      </tr>
+
+      {expanded ? (
+        <tr className="border-b bg-muted/5">
+          <td colSpan={TABLE_COLUMN_COUNT} className="p-0">
+            <AdExpandedDetails metrics={metrics} />
+          </td>
+        </tr>
+      ) : null}
+    </Fragment>
   );
 }
 
@@ -262,6 +431,7 @@ export function AdsDashboard({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
   const [rangeDays, setRangeDays] = useState<RangeDays>(initialRangeDays);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
 
   const kpis = useMemo(() => aggregateKpis(ads), [ads]);
@@ -274,6 +444,7 @@ export function AdsDashboard({
         );
         setAds(result.ads);
         setError(result.error ?? null);
+        setExpandedIds(new Set());
       });
     },
     []
@@ -297,6 +468,15 @@ export function AdsDashboard({
     refetch(statusFilter, platformFilter, next);
   };
 
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -306,12 +486,22 @@ export function AdsDashboard({
         </p>
       </div>
 
-      <MetricBand glass>
-        <MetricStat title="Gasto total" value={formatMoney(kpis.spend)} />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <MetricStat title="Gasto total" value={formatCurrency(kpis.spend)} />
         <MetricStat title="Impresiones" value={formatNumber(kpis.impressions)} />
-        <MetricStat title="ROAS promedio" value={`${kpis.roasAvg.toFixed(2)}x`} />
+        <MetricStat title="Alcance" value={formatNumber(kpis.reach)} />
+        <MetricStat title="Conversiones totales" value={formatNumber(kpis.conversions)} />
+        <MetricStat title="ROAS promedio" value={formatMultiplier(kpis.roasAvg)} />
         <MetricStat title="CTR promedio" value={formatPercent(kpis.ctrAvg)} />
-      </MetricBand>
+        <MetricStat
+          title="Costo/Conversión promedio"
+          value={formatCurrency(kpis.costPerConvAvg)}
+        />
+        <MetricStat
+          title="Valor de compras total"
+          value={formatCurrency(kpis.purchaseValue)}
+        />
+      </div>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-center">
         <div className="space-y-1">
@@ -363,20 +553,25 @@ export function AdsDashboard({
           <table className="min-w-full text-left">
             <thead className="border-b bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
+                <th className="w-10 px-2 py-3" aria-label="Expandir" />
                 <th className="px-4 py-3 font-medium">Preview</th>
-                <th className="px-4 py-3 font-medium">Nombre</th>
-                <th className="px-4 py-3 font-medium">Campaña</th>
+                <th className="px-4 py-3 font-medium">Nombre + Campaña</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Budget</th>
-                <th className="px-4 py-3 font-medium">Gasto</th>
-                <th className="px-4 py-3 font-medium">Impresiones</th>
-                <th className="px-4 py-3 font-medium">CTR</th>
+                <th className="px-4 py-3 font-medium">Spend</th>
+                <th className="px-4 py-3 font-medium">Impressions</th>
                 <th className="px-4 py-3 font-medium">ROAS</th>
+                <th className="px-4 py-3 font-medium">CTR</th>
               </tr>
             </thead>
             <tbody>
               {ads.map((ad) => (
-                <AdTableRow key={ad._id} ad={ad} />
+                <AdTableRow
+                  key={ad._id}
+                  ad={ad}
+                  expanded={expandedIds.has(ad._id)}
+                  onToggle={() => toggleExpanded(ad._id)}
+                />
               ))}
             </tbody>
           </table>
