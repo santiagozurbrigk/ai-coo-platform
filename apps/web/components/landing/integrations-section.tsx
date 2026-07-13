@@ -29,7 +29,7 @@ function IntegrationLogo({
   slug: IntegrationProvider;
   className?: string;
 }) {
-  const { hex } = INTEGRATION_BRAND_COLORS[slug];
+  const brand = INTEGRATION_BRAND_COLORS[slug];
   const logoSrc = integrationLogoSrc(slug);
 
   return (
@@ -37,7 +37,7 @@ function IntegrationLogo({
       aria-hidden
       className={cn("inline-block h-7 w-7 shrink-0", className)}
       style={{
-        backgroundColor: hex,
+        backgroundColor: brand.bg,
         WebkitMaskImage: `url(${logoSrc})`,
         maskImage: `url(${logoSrc})`,
         WebkitMaskSize: "contain",
