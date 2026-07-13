@@ -106,6 +106,25 @@ export async function disconnectCalendlyAction(): Promise<MutationResult> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const admin = createAdminClient();
+
+    // Cancelar la suscripción webhook en Calendly antes de borrar la fila
+    const { data: integration } = await admin
+      .from("calendly_integrations")
+      .select("access_token, webhook_subscription_uri")
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (integration?.webhook_subscription_uri && integration?.access_token) {
+      try {
+        await fetch(integration.webhook_subscription_uri, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${integration.access_token}` },
+        });
+      } catch {
+        // No bloquear la desconexión si Calendly no responde
+      }
+    }
+
     const { error } = await admin
       .from("calendly_integrations")
       .delete()

@@ -161,26 +161,8 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   };
 
   const startDiscordOAuth = () => {
-    const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
-    if (!clientId) {
-      push({
-        title: "Discord no configurado",
-        description: "Falta NEXT_PUBLIC_DISCORD_CLIENT_ID en el entorno.",
-        variant: "default",
-      });
-      return;
-    }
-    const params = new URLSearchParams({
-      client_id: clientId,
-      permissions: "68608",
-      scope: "bot",
-      redirect_uri: `${window.location.origin}/api/integrations/discord/callback`,
-      response_type: "code",
-    });
-    window.open(
-      `https://discord.com/oauth2/authorize?${params.toString()}`,
-      "_blank"
-    );
+    // Redirige al start route del servidor que genera state + cookie antes de ir a Discord
+    window.location.href = "/api/integrations/discord/oauth/start";
   };
 
   const handleDisconnectGoogle = async (provider: GoogleIntegrationProvider) => {
