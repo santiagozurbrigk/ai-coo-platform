@@ -119,6 +119,44 @@ export type ZernioPostCommentsResponse = {
   };
 };
 
+export type ZernioAdStatus =
+  | "active"
+  | "paused"
+  | "pending_review"
+  | "rejected"
+  | "completed"
+  | "cancelled"
+  | "error";
+
+export type ZernioLinkedAd = {
+  _id: string;
+  name: string;
+  platform: string;
+  status: ZernioAdStatus;
+  adType: string;
+  budget: { amount: number; type: "daily" | "lifetime" };
+  metrics: {
+    spend: number;
+    impressions: number;
+    reach: number;
+    clicks: number;
+    ctr: number;
+    cpc: number;
+    cpm: number;
+    roas: number;
+    conversions: number;
+    costPerConversion: number;
+  };
+  campaignName: string;
+  adSetName: string;
+  schedule: { startDate: string; endDate?: string };
+  creative: { thumbnailUrl?: string; instagramPermalinkUrl?: string };
+};
+
+export type ZernioAdsResponse = {
+  ads: ZernioLinkedAd[];
+};
+
 export type ZernioPost = {
   id?: string;
   _id?: string;
@@ -316,6 +354,22 @@ export function createZernioClient(apiKey: string) {
         url.toString(),
         { headers: headers() }
       );
+    },
+
+    async getLinkedAds(effectiveInstagramMediaId: string, limit = 10) {
+      const trimmed = effectiveInstagramMediaId.trim();
+      if (!trimmed) {
+        throw new Error("Zernio getLinkedAds: effectiveInstagramMediaId vacío");
+      }
+
+      const url = new URL(`${ZERNIO_API_BASE}/ads`);
+      url.searchParams.set("effectiveInstagramMediaId", trimmed);
+      url.searchParams.set("source", "all");
+      url.searchParams.set("limit", String(limit));
+
+      return zernioFetchJson<ZernioAdsResponse>("getLinkedAds", url.toString(), {
+        headers: headers(),
+      });
     },
 
     async replyToComment(

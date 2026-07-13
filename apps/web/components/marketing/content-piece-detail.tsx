@@ -13,6 +13,7 @@ import {
 } from "@/app/marketing/content/drive-actions";
 import { DriveFilePicker } from "@/components/marketing/drive-file-picker";
 import { ZernioPostComments } from "@/components/marketing/zernio-post-comments";
+import { ZernioPostAds } from "@/components/marketing/zernio-post-ads";
 import { paths } from "@/routes";
 import type { ContentPiece, ContentPieceWithVariants } from "@/types/content";
 import {
@@ -35,7 +36,7 @@ type Props = {
   variants: ContentPiece[];
 };
 
-type DetailTab = "metricas" | "analisis" | "comentarios" | "variantes";
+type DetailTab = "metricas" | "analisis" | "comentarios" | "anuncios" | "variantes";
 
 export function ContentPieceDetail({ piece, variants }: Props) {
   const router = useRouter();
@@ -242,6 +243,7 @@ export function ContentPieceDetail({ piece, variants }: Props) {
                 ["metricas", "Métricas"],
                 ["analisis", `Análisis${piece.analysis ? " ✓" : ""}`],
                 ["comentarios", "Comentarios"],
+                ["anuncios", "Anuncios"],
                 [
                   "variantes",
                   `Variantes${variants.length > 0 ? ` (${variants.length})` : ""}`,
@@ -270,6 +272,7 @@ export function ContentPieceDetail({ piece, variants }: Props) {
             {activeTab === "comentarios" ? (
               <ComentariosTab piece={piece} />
             ) : null}
+            {activeTab === "anuncios" ? <AnunciosTab piece={piece} /> : null}
             {activeTab === "variantes" ? (
               <VariantesTab variants={variants} />
             ) : null}
@@ -538,6 +541,10 @@ function ComentariosTab({ piece }: { piece: ContentPiece }) {
   }
 
   return <ZernioPostComments contentPieceId={piece.id} />;
+}
+
+function AnunciosTab({ piece }: { piece: ContentPiece }) {
+  return <ZernioPostAds contentPieceId={piece.id} />;
 }
 
 function VariantesTab({ variants }: { variants: ContentPiece[] }) {
