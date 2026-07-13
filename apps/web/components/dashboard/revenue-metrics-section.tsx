@@ -17,6 +17,8 @@ export function RevenueMetricsSection({
             value={metric.value}
             trend={metric.trend}
             trendValue={metric.trendValue}
+            chartData={metric.sparklineData}
+            chartEndLabel="Hoy"
           />
         ))}
       </MetricBand>

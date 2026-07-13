@@ -22,6 +22,8 @@ export function SalesMetricsSection({
             value={metric.value}
             trend={metric.trend}
             trendValue={metric.trendValue}
+            chartData={metric.sparklineData}
+            chartEndLabel="Hoy"
           />
         ))}
       </MetricBand>

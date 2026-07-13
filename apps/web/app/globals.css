@@ -411,8 +411,9 @@
 
   html.dark .shell-topbar,
   html.dark .topbar {
-    border-bottom-color: var(--glass-border);
-    background: rgba(26, 26, 26, 0.82);
+    /* Superficie elevada sobre el panel (#1a1a1a) — usa glass-bg-strong para separación visual */
+    background: rgba(34, 34, 34, 0.92);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
     /* B — fórmula Whop completa */
     backdrop-filter: blur(20px) saturate(190%) contrast(90%) brightness(80%);
     -webkit-backdrop-filter: blur(20px) saturate(190%) contrast(90%) brightness(80%);
