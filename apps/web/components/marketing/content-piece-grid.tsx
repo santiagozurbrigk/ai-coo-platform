@@ -4,6 +4,8 @@ import Link from "next/link";
 import type { ContentPiece } from "@/types/content";
 import { paths } from "@/routes";
 import { cn } from "@ai-coo/ui";
+import { Check, Folder, Heart } from "lucide-react";
+import { ContentTypeIcon } from "@/components/marketing/marketing-icons";
 
 type Props = {
   pieces: ContentPiece[];
@@ -23,14 +25,6 @@ const SOURCE_COLOR: Record<string, string> = {
   ai_generated: "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300",
   manual: "bg-muted text-muted-foreground",
 };
-
-function typeEmoji(type: ContentPiece["type"]): string {
-  if (type === "reel" || type === "youtube") return "🎬";
-  if (type === "story") return "📱";
-  if (type === "carousel") return "🖼️";
-  if (type === "brief") return "✨";
-  return "📄";
-}
 
 export function ContentPieceGrid({ pieces }: Props) {
   if (pieces.length === 0) {
@@ -68,8 +62,8 @@ function ContentPieceCard({ piece }: { piece: ContentPiece }) {
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-3xl text-muted-foreground">
-            {typeEmoji(piece.type)}
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+            <ContentTypeIcon type={piece.type} size={32} />
           </div>
         )}
 
@@ -78,14 +72,16 @@ function ContentPieceCard({ piece }: { piece: ContentPiece }) {
         </span>
 
         {piece.analysis ? (
-          <span className="absolute right-2 top-2 rounded bg-green-500 px-1.5 py-0.5 text-xs text-white">
-            ✓ Analizado
+          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded bg-green-500 px-1.5 py-0.5 text-xs text-white">
+            <Check className="h-3 w-3" aria-hidden />
+            Analizado
           </span>
         ) : null}
 
         {piece.drive_file_id ? (
           <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded bg-white/90 px-1.5 py-0.5 text-xs text-gray-700">
-            📁 Drive
+            <Folder className="h-3 w-3 text-yellow-500" aria-hidden />
+            Drive
           </span>
         ) : null}
       </div>
@@ -110,8 +106,9 @@ function ContentPieceCard({ piece }: { piece: ContentPiece }) {
           </span>
 
           {piece.metrics ? (
-            <span className="text-xs text-muted-foreground">
-              {(piece.metrics.likes ?? 0).toLocaleString("es-AR")} ❤️
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <Heart className="h-3 w-3" aria-hidden />
+              {(piece.metrics.likes ?? 0).toLocaleString("es-AR")}
             </span>
           ) : null}
         </div>

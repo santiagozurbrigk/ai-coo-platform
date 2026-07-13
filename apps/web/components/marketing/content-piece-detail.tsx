@@ -12,6 +12,12 @@ import {
   unlinkDriveFileAction,
 } from "@/app/marketing/content/drive-actions";
 import { DriveFilePicker } from "@/components/marketing/drive-file-picker";
+import {
+  AnalysisDimensionIcon,
+  ContentTypeIcon,
+  MetricIcon,
+  type MetricIconName,
+} from "@/components/marketing/marketing-icons";
 import { ZernioPostComments } from "@/components/marketing/zernio-post-comments";
 import { ZernioPostAds } from "@/components/marketing/zernio-post-ads";
 import { paths } from "@/routes";
@@ -29,7 +35,7 @@ import {
   Textarea,
 } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
-import { ArrowLeft, Copy, ExternalLink, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Copy, ExternalLink, Folder, Loader2, X } from "lucide-react";
 
 type Props = {
   piece: ContentPieceWithVariants;
@@ -129,12 +135,8 @@ export function ContentPieceDetail({ piece, variants }: Props) {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-4xl">
-                {piece.type === "reel"
-                  ? "🎬"
-                  : piece.type === "youtube"
-                    ? "▶️"
-                    : "🖼️"}
+              <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                <ContentTypeIcon type={piece.type} size={40} />
               </div>
             )}
           </div>
@@ -184,9 +186,7 @@ export function ContentPieceDetail({ piece, variants }: Props) {
             </p>
             {piece.drive_file_id ? (
               <div className="flex items-start gap-2">
-                <span className="text-lg" aria-hidden>
-                  📁
-                </span>
+                <Folder className="h-5 w-5 shrink-0 text-yellow-500" aria-hidden />
                 <div className="min-w-0 flex-1">
                   <a
                     href={piece.drive_file_url ?? "#"}
@@ -240,28 +240,37 @@ export function ContentPieceDetail({ piece, variants }: Props) {
           <div className="flex gap-0 border-b px-4">
             {(
               [
-                ["metricas", "Métricas"],
-                ["analisis", `Análisis${piece.analysis ? " ✓" : ""}`],
-                ["comentarios", "Comentarios"],
-                ["anuncios", "Anuncios"],
-                [
-                  "variantes",
-                  `Variantes${variants.length > 0 ? ` (${variants.length})` : ""}`,
-                ],
+                { tab: "metricas" as const, label: "Métricas" },
+                {
+                  tab: "analisis" as const,
+                  label: "Análisis",
+                  showCheck: Boolean(piece.analysis),
+                },
+                { tab: "comentarios" as const, label: "Comentarios" },
+                { tab: "anuncios" as const, label: "Anuncios" },
+                {
+                  tab: "variantes" as const,
+                  label: `Variantes${variants.length > 0 ? ` (${variants.length})` : ""}`,
+                },
               ] as const
-            ).map(([tab, label]) => (
+            ).map((item) => (
               <button
-                key={tab}
+                key={item.tab}
                 type="button"
-                onClick={() => setActiveTab(tab)}
+                onClick={() => setActiveTab(item.tab)}
                 className={cn(
                   "border-b-2 px-4 py-3 text-sm font-medium transition-colors",
-                  activeTab === tab
+                  activeTab === item.tab
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
-                {label}
+                <span className="inline-flex items-center gap-1.5">
+                  {item.label}
+                  {"showCheck" in item && item.showCheck ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
+                  ) : null}
+                </span>
               </button>
             ))}
           </div>
@@ -291,7 +300,7 @@ export function ContentPieceDetail({ piece, variants }: Props) {
                 className="text-muted-foreground hover:text-foreground"
                 aria-label="Cerrar"
               >
-                ✕
+                <X className="h-4 w-4" aria-hidden />
               </button>
             </div>
             <DriveFilePicker
@@ -308,15 +317,21 @@ export function ContentPieceDetail({ piece, variants }: Props) {
 function MetricasTab({ piece }: { piece: ContentPiece }) {
   const metrics = piece.metrics;
   const stats = metrics
-    ? [
-        { label: "Likes", value: metrics.likes, icon: "❤️" },
-        { label: "Comentarios", value: metrics.comments, icon: "💬" },
-        { label: "Compartidos", value: metrics.shares, icon: "↗️" },
-        { label: "Guardados", value: metrics.saves, icon: "🔖" },
-        { label: "Reach", value: metrics.reach, icon: "👁️" },
-        { label: "Impresiones", value: metrics.impressions, icon: "📊" },
-        { label: "Views", value: metrics.views, icon: "▶️" },
-      ].filter((stat) => stat.value !== undefined && stat.value !== null)
+    ? (
+        [
+          { label: "Likes", value: metrics.likes, icon: "likes" as const },
+          { label: "Comentarios", value: metrics.comments, icon: "comments" as const },
+          { label: "Compartidos", value: metrics.shares, icon: "shares" as const },
+          { label: "Guardados", value: metrics.saves, icon: "saves" as const },
+          { label: "Reach", value: metrics.reach, icon: "reach" as const },
+          { label: "Impresiones", value: metrics.impressions, icon: "impressions" as const },
+          { label: "Views", value: metrics.views, icon: "views" as const },
+        ] as Array<{
+          label: string;
+          value: number | undefined;
+          icon: MetricIconName;
+        }>
+      ).filter((stat) => stat.value !== undefined && stat.value !== null)
     : [];
 
   return (
@@ -325,8 +340,9 @@ function MetricasTab({ piece }: { piece: ContentPiece }) {
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           {stats.map((stat) => (
             <div key={stat.label} className="rounded-lg border p-3">
-              <p className="text-xs text-muted-foreground">
-                {stat.icon} {stat.label}
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <MetricIcon name={stat.icon} size={14} />
+                {stat.label}
               </p>
               <p className="mt-1 text-2xl font-semibold">
                 {(stat.value ?? 0).toLocaleString("es-AR")}
@@ -348,13 +364,17 @@ function SalesAttributionSection({ piece }: { piece: ContentPiece }) {
 
   const funnelSteps = attribution
     ? [
-        { label: "Leads", value: attribution.lead_count, icon: "💬" },
-        { label: "Agendados", value: attribution.scheduled_count, icon: "📅" },
-        { label: "Cerrados", value: attribution.closed_count, icon: "✅" },
+        { label: "Leads", value: attribution.lead_count, icon: "leads" as const },
+        {
+          label: "Agendados",
+          value: attribution.scheduled_count,
+          icon: "scheduled" as const,
+        },
+        { label: "Cerrados", value: attribution.closed_count, icon: "closed" as const },
         {
           label: "Revenue",
           value: attribution.total_revenue,
-          icon: "💰",
+          icon: "revenue" as const,
           isCurrency: true,
         },
       ]
@@ -385,8 +405,9 @@ function SalesAttributionSection({ piece }: { piece: ContentPiece }) {
             {funnelSteps.map((step, index) => (
               <div key={step.label} className="flex items-center gap-2">
                 <div className="min-w-[88px] rounded-lg border bg-card p-3 text-center">
-                  <p className="text-xs text-muted-foreground">
-                    {step.icon} {step.label}
+                  <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                    <MetricIcon name={step.icon} size={14} />
+                    {step.label}
                   </p>
                   <p className="mt-1 text-xl font-semibold">
                     {step.isCurrency
@@ -399,7 +420,9 @@ function SalesAttributionSection({ piece }: { piece: ContentPiece }) {
                   </p>
                 </div>
                 {index < funnelSteps.length - 1 ? (
-                  <span className="hidden text-muted-foreground sm:inline">→</span>
+                  <span className="hidden text-muted-foreground sm:inline">
+                    <ChevronRight className="h-4 w-4" aria-hidden />
+                  </span>
                 ) : null}
               </div>
             ))}
@@ -436,21 +459,21 @@ function AnalisisTab({ piece }: { piece: ContentPiece }) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <AnalysisCard
           label="Formato"
-          emoji="🎥"
+          dimension="formato"
           name={analysis.formato.name}
           description={analysis.formato.description}
           color="blue"
         />
         <AnalysisCard
           label="Dolor"
-          emoji="⚡"
+          dimension="dolor"
           name={analysis.dolor.name}
           description={analysis.dolor.description}
           color="orange"
         />
         <AnalysisCard
           label="Ángulo"
-          emoji="🎯"
+          dimension="angulo"
           name={analysis.angulo.name}
           description={analysis.angulo.description}
           color="purple"
@@ -501,13 +524,13 @@ function AnalisisTab({ piece }: { piece: ContentPiece }) {
 
 function AnalysisCard({
   label,
-  emoji,
+  dimension,
   name,
   description,
   color,
 }: {
   label: string;
-  emoji: string;
+  dimension: "formato" | "dolor" | "angulo";
   name: string;
   description: string;
   color: "blue" | "orange" | "purple";
@@ -522,8 +545,9 @@ function AnalysisCard({
 
   return (
     <div className={cn("rounded-lg border p-4", colorMap[color])}>
-      <p className="mb-1 text-xs font-medium text-muted-foreground">
-        {emoji} {label}
+      <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <AnalysisDimensionIcon dimension={dimension} size={14} />
+        {label}
       </p>
       <p className="text-sm font-semibold">{name}</p>
       <p className="mt-1 text-xs text-muted-foreground">{description}</p>

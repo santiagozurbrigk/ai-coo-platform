@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getZernioAnalysisBatchAction,
   getZernioIntegrationStatusAction,
@@ -14,9 +14,15 @@ import {
 import type { ZernioMessage } from "@/lib/zernio/client";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageLoading } from "@/components/shared/page-loading";
+import { FilterPills } from "@/components/marketing/filter-pills";
+import {
+  segmentedNavContainerClass,
+  segmentedNavItemClass,
+} from "@/components/shared/segmented-nav-styles";
 import { paths } from "@/routes";
 import { Badge, Button, Input, cn } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
+import { Search } from "lucide-react";
 import { ZernioSidePanel } from "./zernio-side-panel";
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -48,6 +54,22 @@ function conversationTitle(conversation: ZernioConversationWithAccount): string 
 function conversationAvatar(conversation: ZernioConversationWithAccount): string | null {
   return conversation.participantPicture ?? null;
 }
+
+type PlatformFilter = "all" | "instagram" | "whatsapp";
+type InboxStatusFilter = "all" | "unread" | "archived";
+
+const PLATFORM_FILTERS: { value: PlatformFilter; label: string; dotClass?: string }[] =
+  [
+    { value: "instagram", label: "Instagram", dotClass: "bg-[#E4405F]" },
+    { value: "whatsapp", label: "WhatsApp", dotClass: "bg-[#25D366]" },
+    { value: "all", label: "Todos" },
+  ];
+
+const STATUS_FILTERS: { value: InboxStatusFilter; label: string }[] = [
+  { value: "all", label: "Todos" },
+  { value: "unread", label: "No leídos" },
+  { value: "archived", label: "Archivados" },
+];
 
 function ConversationAvatar({
   src,
@@ -90,6 +112,37 @@ export function ZernioInboxPanel() {
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<InboxStatusFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredConversations = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    return conversations.filter((conversation) => {
+      const platform = conversation.platform.toLowerCase();
+      if (platformFilter !== "all" && platform !== platformFilter) return false;
+      if (statusFilter === "unread" && !(conversation.unreadCount > 0)) return false;
+      if (statusFilter === "archived" && conversation.status !== "archived") {
+        return false;
+      }
+      if (query) {
+        const title = conversationTitle(conversation).toLowerCase();
+        const lastMessage = (conversation.lastMessage ?? "").toLowerCase();
+        if (!title.includes(query) && !lastMessage.includes(query)) return false;
+      }
+      return true;
+    });
+  }, [conversations, platformFilter, statusFilter, searchQuery]);
+
+  useEffect(() => {
+    setSelectedId((current) => {
+      if (current && filteredConversations.some((c) => c.id === current)) {
+        return current;
+      }
+      return filteredConversations[0]?.id ?? null;
+    });
+  }, [filteredConversations]);
 
   const loadConversations = useCallback(async () => {
     setLoading(true);
@@ -227,8 +280,57 @@ export function ZernioInboxPanel() {
 
   return (
     <div className="flex h-full min-h-0 flex-1 overflow-hidden">
-      <div className="hidden h-full w-[280px] shrink-0 flex-col overflow-y-auto border-r border-border md:flex">
-        {conversations.map((conversation) => {
+      <div className="hidden h-full w-[280px] shrink-0 flex-col overflow-hidden border-r border-border md:flex">
+        <div className="space-y-3 border-b border-border p-3">
+          <div className={segmentedNavContainerClass}>
+            {PLATFORM_FILTERS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setPlatformFilter(option.value)}
+                className={cn(
+                  segmentedNavItemClass(platformFilter === option.value),
+                  "inline-flex items-center gap-1.5"
+                )}
+              >
+                {option.dotClass ? (
+                  <span
+                    className={cn("h-2 w-2 shrink-0 rounded-full", option.dotClass)}
+                    aria-hidden
+                  />
+                ) : null}
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Buscar conversación..."
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
+
+          <FilterPills
+            options={STATUS_FILTERS}
+            value={statusFilter}
+            onChange={(value) => setStatusFilter(value as InboxStatusFilter)}
+          />
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {filteredConversations.length === 0 ? (
+            <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+              No hay conversaciones con estos filtros.
+            </p>
+          ) : (
+            filteredConversations.map((conversation) => {
           const platformClass =
             PLATFORM_COLORS[conversation.platform.toLowerCase()] ??
             "bg-muted text-muted-foreground";
@@ -277,7 +379,9 @@ export function ZernioInboxPanel() {
               </div>
             </button>
           );
-        })}
+            })
+          )}
+        </div>
       </div>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">

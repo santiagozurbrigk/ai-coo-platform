@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { FileText } from "lucide-react";
 import { cn } from "@ai-coo/ui";
 import type { TopConvertingItem } from "@/lib/marketing/overview-metrics";
 import { CONTENT_TYPE_LABEL } from "@/components/marketing-insights/content-labels";
@@ -108,7 +109,7 @@ export function TopConvertingContentList({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <span className="text-lg">📄</span>
+                  <FileText className="h-5 w-5 text-muted-foreground" aria-hidden />
                 )}
               </div>
               <div className="min-w-0 flex-1">

@@ -14,7 +14,11 @@ import { paths } from "@/routes";
 import type { ContentPiece } from "@/types/content";
 import { Button, Input, cn } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
-import { LayoutGrid, List, RefreshCw } from "lucide-react";
+import { LayoutGrid, List, RefreshCw, Folder } from "lucide-react";
+import {
+  ContentTypeIcon,
+  DriveMimeIcon,
+} from "@/components/marketing/marketing-icons";
 
 type DriveFile = DriveFileListItem;
 type ViewMode = "grid" | "list";
@@ -27,23 +31,6 @@ function isFolder(mimeType: string): boolean {
 
 function driveFileUrl(file: DriveFile): string {
   return file.webViewLink ?? `https://drive.google.com/file/d/${file.id}/view`;
-}
-
-function getFileIcon(file: DriveFile): string {
-  if (isFolder(file.mimeType)) return "📁";
-  if (file.mimeType.startsWith("video/")) return "🎬";
-  if (file.mimeType.startsWith("image/")) return "🖼️";
-  if (file.mimeType.includes("pdf")) return "📄";
-  if (file.mimeType.includes("spreadsheet") || file.mimeType.includes("excel")) {
-    return "📊";
-  }
-  if (file.mimeType.includes("document") || file.mimeType.includes("word")) {
-    return "📝";
-  }
-  if (file.mimeType.includes("presentation") || file.mimeType.includes("powerpoint")) {
-    return "📽️";
-  }
-  return "📄";
 }
 
 export function DriveAdminView() {
@@ -234,7 +221,7 @@ export function DriveAdminView() {
           className="gap-1.5"
           onClick={() => setShowNewFolderModal(true)}
         >
-          <span aria-hidden>📁</span>
+          <Folder className="h-4 w-4 text-yellow-500" aria-hidden />
           Nueva carpeta
         </Button>
 
@@ -320,7 +307,6 @@ export function DriveAdminView() {
                       <DriveFileCard
                         key={file.id}
                         file={file}
-                        icon={getFileIcon(file)}
                         onOpen={() => void navigateToFolder(file)}
                       />
                     ))}
@@ -338,7 +324,6 @@ export function DriveAdminView() {
                       <DriveFileCard
                         key={file.id}
                         file={file}
-                        icon={getFileIcon(file)}
                         onOpen={() => window.open(driveFileUrl(file), "_blank")}
                         onLink={() => void handleOpenLinkModal(file)}
                       />
@@ -350,7 +335,6 @@ export function DriveAdminView() {
           ) : (
             <DriveListView
               files={filteredFiles}
-              getFileIcon={getFileIcon}
               onNavigate={(file) => void navigateToFolder(file)}
               onLink={(file) => void handleOpenLinkModal(file)}
             />
@@ -417,21 +401,23 @@ export function DriveAdminView() {
                     disabled={linkingFile}
                     className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-accent disabled:opacity-50"
                   >
-                    <span className="text-lg" aria-hidden>
-                      {piece.type === "reel"
-                        ? "🎬"
-                        : piece.type === "youtube"
-                          ? "▶️"
-                          : "🖼️"}
-                    </span>
+                    <ContentTypeIcon type={piece.type} size={20} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
                         {piece.title ?? piece.caption?.slice(0, 50) ?? "Sin título"}
                       </p>
-                      <p className="text-xs capitalize text-muted-foreground">
-                        {piece.type} ·{" "}
-                        {piece.source === "zernio" ? "Instagram" : piece.source}
-                        {piece.drive_file_id ? " · 📁 Drive vinculado" : ""}
+                      <p className="flex flex-wrap items-center gap-1 text-xs capitalize text-muted-foreground">
+                        <span>
+                          {piece.type} ·{" "}
+                          {piece.source === "zernio" ? "Instagram" : piece.source}
+                        </span>
+                        {piece.drive_file_id ? (
+                          <span className="inline-flex items-center gap-1">
+                            ·
+                            <Folder className="h-3 w-3 text-yellow-500" aria-hidden />
+                            Drive vinculado
+                          </span>
+                        ) : null}
                       </p>
                     </div>
                   </button>
@@ -459,12 +445,10 @@ export function DriveAdminView() {
 
 function DriveFileCard({
   file,
-  icon,
   onOpen,
   onLink,
 }: {
   file: DriveFile;
-  icon: string;
   onOpen: () => void;
   onLink?: () => void;
 }) {
@@ -492,9 +476,7 @@ function DriveFileCard({
             className="h-full w-full object-cover"
           />
         ) : (
-          <span className="text-4xl" aria-hidden>
-            {icon}
-          </span>
+          <DriveMimeIcon mimeType={file.mimeType} size={40} />
         )}
       </div>
 
@@ -527,12 +509,10 @@ function DriveFileCard({
 
 function DriveListView({
   files,
-  getFileIcon,
   onNavigate,
   onLink,
 }: {
   files: DriveFile[];
-  getFileIcon: (file: DriveFile) => string;
   onNavigate: (file: DriveFile) => void;
   onLink: (file: DriveFile) => void;
 }) {
@@ -566,7 +546,7 @@ function DriveListView({
                   }
                   className="flex w-full items-center gap-2 text-left"
                 >
-                  <span aria-hidden>{getFileIcon(file)}</span>
+                  <DriveMimeIcon mimeType={file.mimeType} size={16} />
                   <span className="truncate">{file.name}</span>
                 </button>
               </td>

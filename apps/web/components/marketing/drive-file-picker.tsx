@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button, Input, cn } from "@ai-coo/ui";
+import { DriveMimeIcon } from "@/components/marketing/marketing-icons";
 import {
   listDriveFilesAction,
   type DriveFileListItem,
@@ -25,13 +26,6 @@ function isFolder(mimeType: string): boolean {
 
 function driveFileUrl(file: DriveFileListItem): string {
   return file.webViewLink ?? `https://drive.google.com/file/d/${file.id}/view`;
-}
-
-function fileIcon(mimeType: string): string {
-  if (isFolder(mimeType)) return "📁";
-  if (mimeType.startsWith("video/")) return "🎬";
-  if (mimeType.startsWith("image/")) return "🖼️";
-  return "📄";
 }
 
 export function DriveFilePicker({
@@ -222,9 +216,7 @@ export function DriveFilePicker({
                   }
                 }}
               >
-                <span className="flex-shrink-0 text-lg" aria-hidden>
-                  {fileIcon(file.mimeType)}
-                </span>
+                <DriveMimeIcon mimeType={file.mimeType} size={20} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{file.name}</p>
                   <p className="text-xs text-muted-foreground">

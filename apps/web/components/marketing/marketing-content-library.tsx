@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Film, LayoutGrid, List, Search } from "lucide-react";
 import { Badge, Button, Input, cn } from "@ai-coo/ui";
+import { ContentTypeIcon, MetricIcon } from "@/components/marketing/marketing-icons";
 import type { ContentAssetView } from "@/app/marketing/actions";
 import { paths } from "@/routes";
 import type { ContentLabel } from "@/lib/content/label-content";
@@ -470,12 +471,13 @@ function ContentTypeBadge({ asset }: { asset: ContentAssetView }) {
   return <Badge variant="secondary">{label}</Badge>;
 }
 
-function contentTypeEmoji(type: string | null) {
-  if (type === "reel") return "🎬";
-  if (type === "story") return "⭕";
-  if (type === "vsl") return "📺";
-  if (type === "carousel") return "🖼️";
-  return "📄";
+function contentTypeLabel(type: string | null) {
+  const normalized = (type ?? "post").toLowerCase();
+  if (normalized === "reel") return "Reel";
+  if (normalized === "story") return "Story";
+  if (normalized === "vsl") return "VSL";
+  if (normalized === "carousel") return "Carousel";
+  return "Post";
 }
 
 function ContentGridCard({
@@ -499,14 +501,14 @@ function ContentGridCard({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted/60 to-muted text-4xl">
-              {contentTypeEmoji(type)}
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted/60 to-muted text-muted-foreground">
+              <ContentTypeIcon type={type} size={40} />
             </div>
           )}
           <div className="absolute left-2 top-2 flex flex-wrap gap-1">
-            <span className="rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] text-white/80 backdrop-blur-sm">
-              {contentTypeEmoji(type)}{" "}
-              {type.charAt(0).toUpperCase() + type.slice(1)}
+            <span className="inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] text-white/80 backdrop-blur-sm">
+              <ContentTypeIcon type={type} size={12} className="text-white/80" />
+              {contentTypeLabel(type)}
             </span>
             {asset.reelType === "trial_reel" ? (
               <span className="rounded-md border border-amber-500/30 bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-400 backdrop-blur-sm">
@@ -541,13 +543,25 @@ function ContentGridCard({
             {asset.title}
           </p>
           <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-            <span>👁 {formatReach(asset.views)}</span>
-            <span>❤️ {formatReach(asset.likes)}</span>
+            <span className="inline-flex items-center gap-1">
+              <MetricIcon name="views" size={12} />
+              {formatReach(asset.views)}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <MetricIcon name="likes" size={12} />
+              {formatReach(asset.likes)}
+            </span>
             {asset.saves > 0 ? (
-              <span>🔖 {formatReach(asset.saves)}</span>
+              <span className="inline-flex items-center gap-1">
+                <MetricIcon name="saves" size={12} />
+                {formatReach(asset.saves)}
+              </span>
             ) : null}
             {asset.storyReplies > 0 ? (
-              <span>💬 {formatReach(asset.storyReplies)}</span>
+              <span className="inline-flex items-center gap-1">
+                <MetricIcon name="comments" size={12} />
+                {formatReach(asset.storyReplies)}
+              </span>
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground/80">

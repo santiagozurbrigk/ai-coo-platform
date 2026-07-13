@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { ContentTypeIcon } from "@/components/marketing/marketing-icons";
 import { Badge, Button, GlassPanel } from "@ai-coo/ui";
 import type { ContentAssetView } from "@/app/marketing/actions";
 import { paths } from "@/routes";
@@ -33,8 +34,8 @@ export function MarketingContentDetail({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-4xl">
-              📄
+            <div className="flex h-full items-center justify-center text-muted-foreground">
+              <ContentTypeIcon type={type} size={40} />
             </div>
           )}
         </div>

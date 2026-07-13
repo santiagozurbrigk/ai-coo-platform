@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Pencil } from "lucide-react";
 import { Button, cn } from "@ai-coo/ui";
 import { updateContentLabelAction } from "@/app/marketing/actions";
 import type { ContentLabel } from "@/lib/content/label-content";
@@ -82,11 +83,9 @@ export function ContentLabelBadge({
         )}
       >
         {effective ?? "Sin etiqueta"}
-        {manualLabel && (
-          <span className="text-[10px] opacity-70" title="Editado manualmente">
-            ✎
-          </span>
-        )}
+        {manualLabel ? (
+          <Pencil className="h-3 w-3 opacity-70" aria-label="Editado manualmente" />
+        ) : null}
       </button>
 
       {open && (
