@@ -4,8 +4,7 @@ import { motion } from "framer-motion";
 import type { DashboardData } from "@/types/dashboard";
 import type { WeeklyReportRow } from "@/types/operations";
 import { ExecutiveSummary } from "./executive-summary";
-import { RisksList } from "./risks-list";
-import { OpportunitiesList } from "./opportunities-list";
+import { AlertsIntelligence } from "./alerts-intelligence";
 import { RevenueMetricsSection } from "./revenue-metrics-section";
 import { SalesMetricsSection } from "./sales-metrics-section";
 import { OperationalMetricsSection } from "./operational-metrics-section";
@@ -14,6 +13,7 @@ import { WeeklyChanges } from "./weekly-changes";
 import { NextActionsStrip } from "./next-actions-strip";
 import { DashboardEmptyState } from "./dashboard-empty-state";
 import { ZernioAnalyticsSection } from "./zernio-analytics-section";
+import { TopKpiRow } from "./top-kpi-row";
 import type { ZernioAnalyticsSummary } from "@/app/integrations/zernio/actions";
 
 const fade = {
@@ -36,28 +36,32 @@ export function DashboardOverview({
 
   return (
     <motion.div
-      className="space-y-8"
+      className="space-y-6"
       initial="initial"
       animate="animate"
       variants={{
-        animate: { transition: { staggerChildren: 0.06 } },
+        animate: { transition: { staggerChildren: 0.05 } },
       }}
     >
+      {/* KPIs clave — visible sin scrollear */}
       <motion.div variants={fade}>
-        <ExecutiveSummary
-          summary={data.executiveSummary}
-          detailHref={data.weeklyReportCtaHref}
-          detailLabel={
-            data.weeklyReportCtaHref
-              ? "Completar inputs semanales"
-              : undefined
-          }
+        <TopKpiRow
+          revenueMetrics={data.revenueMetrics}
+          salesMetrics={data.salesMetrics}
         />
       </motion.div>
 
-      <motion.div variants={fade} className="grid gap-4 lg:grid-cols-2">
-        <RisksList risks={data.risks} />
-        <OpportunitiesList opportunities={data.opportunities} />
+      {/* Qué hacer ahora — justo después de los números */}
+      <motion.div variants={fade}>
+        <NextActionsStrip weeklyReport={weeklyReport} />
+      </motion.div>
+
+      {/* Alertas e inteligencia: riesgos + oportunidades unificados */}
+      <motion.div variants={fade}>
+        <AlertsIntelligence
+          risks={data.risks}
+          opportunities={data.opportunities}
+        />
       </motion.div>
 
       <motion.div variants={fade}>
@@ -94,7 +98,15 @@ export function DashboardOverview({
       </motion.div>
 
       <motion.div variants={fade}>
-        <NextActionsStrip weeklyReport={weeklyReport} />
+        <ExecutiveSummary
+          summary={data.executiveSummary}
+          detailHref={data.weeklyReportCtaHref}
+          detailLabel={
+            data.weeklyReportCtaHref
+              ? "Completar inputs semanales"
+              : undefined
+          }
+        />
       </motion.div>
     </motion.div>
   );
