@@ -125,19 +125,19 @@ Fallback: `system-ui, sans-serif` / `monospace`.
 | `--space-sidebar-x` | `12px` | Padding horizontal sidebar |
 | `--space-sidebar-item-y` | `8px` | Padding vertical ítems nav |
 
-### Radios (`tokens.css` → Tailwind)
+### Radios (`tokens.css` → Tailwind) — sistema Whop-style proporcional
 
-| Token | Valor | Clase Tailwind |
-|-------|-------|----------------|
-| `--radius-sm` | `0.5rem` | `rounded-sm` |
-| `--radius-md` | `0.875rem` | `rounded-md` |
-| `--radius` / `--radius-lg` | `1.25rem` | `rounded-lg` |
-| `--radius-xl` | `1.75rem` | `rounded-xl` |
-| `--radius-2xl` | `2rem` | `rounded-2xl` |
-| `--radius-page` | `2rem` | `rounded-page` |
-| `--radius-pill` | `9999px` | `rounded-pill` |
+| Token | Valor | px | Clase Tailwind | Uso |
+|-------|-------|----|----------------|-----|
+| `--radius-sm` | `0.375rem` | 6px | `rounded-sm` | Tags, badges pequeños |
+| `--radius-md` | `0.5rem` | 8px | `rounded-md` | Inputs, botones, elementos chicos |
+| `--radius` / `--radius-lg` | `0.75rem` | 12px | `rounded-lg` | **Cards (uso principal)** |
+| `--radius-xl` | `1rem` | 16px | `rounded-xl` | Cards grandes, paneles |
+| `--radius-2xl` | `1.25rem` | 20px | `rounded-2xl` | Paneles elevados |
+| `--radius-page` | `1.25rem` | 20px | `rounded-page` | Shell container |
+| `--radius-pill` | `9999px` | — | `rounded-pill` | Nav items, pills |
 
-**Panel principal:** `--shell-panel-radius: var(--radius-page)` (32px).
+**Panel principal:** `--shell-panel-radius: var(--radius-page)` (20px).
 
 ### Shell
 
@@ -162,41 +162,45 @@ Fallback: `system-ui, sans-serif` / `monospace`.
 
 Clases: `.glow-primary`, `.surface-card`, `.shadow-glow`, `.shadow-card`, `.shadow-panel`, `.shadow-band`.
 
-### Glass (`globals.css` + `tokens.css`)
+### Glass (`globals.css` + `tokens.css`) — fórmula Frosted UI real
 
 | Clase | Comportamiento |
 |-------|----------------|
-| `.glass` | Fondo glass, borde, `shadow-card`; dark: `backdrop-blur(12px) saturate(200%)` |
+| `.glass` | Fondo glass, borde, `shadow-card`; dark: `blur(20px) saturate(190%) contrast(90%) brightness(80%)` |
 | `.glass-strong` | Elevación mayor, `rounded-xl` |
-| `.glass-nested` | Superficie anidada, sin sombra |
-| `.surface-glass` | Card 20px radius; hover: lift + glow primario |
+| `.glass-nested` | Superficie anidada, `blur(12px)` |
+| `.surface-glass` | Card `rounded-xl`; hover: lift + `shadow-float` neutro |
 | `.glass-liquid` | Borde animado conic-gradient violeta (8s) |
 | `.glass-liquid-subtle` | Radial gradients violeta (6s alternate) |
 | `.glass-liquid-border` | Borde rotatorio conic (4s) |
 
-**Hover glow en cards:** `.glass`, `.ai-card`, `.surface-glass` → `box-shadow: var(--shadow-glow)` con borde `primary/22%`.
+**Hover neutral en cards genéricos:** `.glass`, `.surface-glass` → `shadow-float` + borde `white/12%`. Sin glow violeta.
+**Hover AI:** `.ai-card` → mantiene `shadow-glow` violeta (intencional, solo en elementos IA).
 
 **Glass tokens dark:**
-- `--glass-bg`: `rgba(255,255,255,0.03)`
-- `--glass-bg-strong`: `rgba(255,255,255,0.06)`
+- `--glass-bg`: `rgba(26,26,26,0.82)` — panel visible (Whop: gray-2 @ 82%)
+- `--glass-bg-strong`: `rgba(34,34,34,0.88)` — elevado
+- `--glass-bg-nested`: `rgba(18,18,18,0.75)` — anidado
 - `--glass-border-color`: `rgba(255,255,255,0.08)`
-- `--glass-blur`: `12px`
+- `--glass-blur`: `20px`
 
 ---
 
 ## Principios de motion
 
-### Duración y easing estándar
+### Duración y easing estándar — curva spring-like (Whop)
 
 | Contexto | Duración | Easing |
 |----------|----------|--------|
-| Botones / hover surfaces | `150ms` | `ease` / `ease-out` |
+| Botones / hover | `150ms` | `ease` / `ease-out` |
+| **Apertura panels, dialogs, cards enter** | `300ms` | **`cubic-bezier(0.16, 1, 0.3, 1)`** — spring |
+| **Cierre / exit** | `150ms` | `cubic-bezier(0.16, 1, 0.3, 1)` |
 | Sidebar collapse | `200ms` | `ease` |
-| Page / card enter | `200ms` | `ease-out` / `[0.25, 0.1, 0.25, 1]` |
-| Context panel | `250ms` | `ease` |
 | Btn press animation | `300ms` | `ease-out` |
 | Shimmer skeleton | `2s` | `linear infinite` |
 | Pulse glow | `2.5s` | `ease-in-out infinite` |
+
+**CSS token:** `--ease-spring: cubic-bezier(0.16, 1, 0.3, 1)` · `--duration-enter: 300ms` · `--duration-exit: 150ms`
 
 ### Keyframes existentes (`preset.ts` + `globals.css`)
 

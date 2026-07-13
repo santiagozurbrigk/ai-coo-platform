@@ -37,8 +37,9 @@
     --glass-bg-elevated: rgba(255, 255, 255, 0.06);
     --glass-border: rgba(255, 255, 255, 0.08);
     --glass-border-hover: rgba(255, 255, 255, 0.14);
-    --glass-blur: blur(12px);
-    --glass-blur-heavy: blur(20px);
+    /* B — blur actualizado, filtro completo en .dark via clases */
+    --glass-blur: blur(20px);
+    --glass-blur-heavy: blur(24px);
 
     --color-text-primary: 10 10 10;
     --color-text-secondary: 10 10 10;
@@ -232,26 +233,29 @@
     border: 1px solid var(--glass-border-color);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-card);
+    /* D — transición spring-like */
     transition:
-      border-color 150ms ease,
-      box-shadow 150ms ease,
-      transform 150ms ease;
+      border-color 200ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
+  /* B — fórmula glass real: blur 20px + saturate + contrast + brightness */
   .dark .glass {
-    backdrop-filter: blur(var(--glass-blur)) saturate(200%);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(200%);
+    backdrop-filter: blur(20px) saturate(190%) contrast(90%) brightness(80%);
+    -webkit-backdrop-filter: blur(20px) saturate(190%) contrast(90%) brightness(80%);
     border-top-color: rgba(255, 255, 255, 0.12);
   }
 
+  /* C — hover neutral: sin glow violeta en cards genéricos */
   .glass:hover {
-    border-color: hsl(var(--primary) / 0.22);
-    box-shadow: var(--shadow-glow), var(--shadow-card);
+    border-color: hsl(var(--border) / 0.8);
+    box-shadow: var(--shadow-float);
   }
 
   .dark .glass:hover {
-    border-color: rgba(124, 58, 237, 0.22);
-    box-shadow: var(--shadow-glow);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: var(--shadow-card);
   }
 
   .glass-strong {
@@ -260,14 +264,14 @@
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-float);
     transition:
-      border-color 150ms ease,
-      box-shadow 150ms ease,
-      transform 150ms ease;
+      border-color 200ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .dark .glass-strong {
-    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    backdrop-filter: blur(20px) saturate(190%) contrast(90%) brightness(80%);
+    -webkit-backdrop-filter: blur(20px) saturate(190%) contrast(90%) brightness(80%);
     border-top-color: rgba(255, 255, 255, 0.16);
   }
 
@@ -279,8 +283,8 @@
   }
 
   .dark .glass-nested {
-    backdrop-filter: blur(var(--glass-blur-md)) saturate(180%);
-    -webkit-backdrop-filter: blur(var(--glass-blur-md)) saturate(180%);
+    backdrop-filter: blur(12px) saturate(190%) contrast(90%) brightness(80%);
+    -webkit-backdrop-filter: blur(12px) saturate(190%) contrast(90%) brightness(80%);
     border-top-color: rgba(255, 255, 255, 0.1);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
@@ -294,21 +298,29 @@
   }
 
   .surface-glass {
-    @apply rounded-[20px] border border-border bg-card shadow-sm transition-all duration-150 ease-out;
+    @apply rounded-xl border border-border bg-card shadow-sm;
+    transition:
+      border-color 200ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
+  /* C — hover neutro: eleva con sombra float, sin glow violeta */
   .surface-glass:hover {
-    @apply -translate-y-px border-primary/20;
-    box-shadow: var(--shadow-glow), var(--shadow-card);
+    @apply -translate-y-px;
+    border-color: hsl(var(--border) / 0.8);
+    box-shadow: var(--shadow-float);
   }
 
   .dark .surface-glass {
-    @apply border-glass bg-glass shadow-none backdrop-blur-md;
+    backdrop-filter: blur(20px) saturate(190%) contrast(90%) brightness(80%);
+    -webkit-backdrop-filter: blur(20px) saturate(190%) contrast(90%) brightness(80%);
+    @apply border-glass bg-glass shadow-none;
   }
 
   .dark .surface-glass:hover {
-    @apply border-primary/25 bg-glass-hover;
-    box-shadow: var(--shadow-glow);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: var(--shadow-float);
   }
 
   .text-primary-token {
@@ -400,9 +412,10 @@
   html.dark .shell-topbar,
   html.dark .topbar {
     border-bottom-color: var(--glass-border);
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur-heavy);
-    -webkit-backdrop-filter: var(--glass-blur-heavy);
+    background: rgba(26, 26, 26, 0.82);
+    /* B — fórmula Whop completa */
+    backdrop-filter: blur(20px) saturate(190%) contrast(90%) brightness(80%);
+    -webkit-backdrop-filter: blur(20px) saturate(190%) contrast(90%) brightness(80%);
   }
 
   :root:not(.dark) .shell-topbar,
@@ -635,10 +648,11 @@
 
   .ai-card {
     @apply border border-border bg-card text-foreground shadow-sm;
+    /* D — spring transition en ai-card también */
     transition:
-      border-color 150ms ease,
-      box-shadow 150ms ease,
-      transform 150ms ease;
+      border-color 200ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .ai-card:hover {
@@ -684,6 +698,8 @@
   .metric-value {
     font-size: var(--text-metric-value-size);
     line-height: var(--text-metric-value-lh);
+    /* E — tracking crisp en valores numéricos grandes (Whop: 0em en sizes grandes) */
+    letter-spacing: -0.03em;
     @apply font-semibold text-foreground;
   }
 
@@ -695,7 +711,8 @@
   .metric-stat-value {
     font-size: var(--text-metric-value-size);
     line-height: var(--text-metric-value-lh);
-    @apply font-semibold tracking-tight text-foreground;
+    letter-spacing: -0.03em;
+    @apply font-semibold text-foreground;
   }
 
   html.dark .surface-card,
