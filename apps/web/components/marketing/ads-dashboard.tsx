@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useMemo, useState, useTransition } from "react";
 import Image from "next/image";
-import { ChevronDown, ExternalLink, Megaphone } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ExternalLink, Megaphone } from "lucide-react";
 import {
   getMarketingAdsAction,
   type MarketingAdsFilters,
@@ -33,6 +33,9 @@ type RangeDays = 7 | 30 | 90;
 
 const TABLE_COLUMN_COUNT = 9;
 
+type SortKey = "spend" | "impressions" | "roas" | "ctr" | "budget";
+type SortDir = "asc" | "desc";
+
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "Todos" },
   { value: "active", label: "Activos" },
@@ -61,6 +64,20 @@ const STATUS_LABELS: Record<ZernioAdStatus, string> = {
   cancelled: "Cancelado",
   error: "Error",
 };
+
+function roasColorClass(roas: number): string {
+  if (roas <= 0) return "text-muted-foreground";
+  if (roas >= 2) return "text-emerald-600 dark:text-emerald-400 font-semibold";
+  if (roas >= 1) return "text-amber-600 dark:text-amber-400";
+  return "text-red-600 dark:text-red-400";
+}
+
+function ctrColorClass(ctr: number): string {
+  if (ctr <= 0) return "text-muted-foreground";
+  if (ctr >= 2) return "text-emerald-600 dark:text-emerald-400 font-semibold";
+  if (ctr >= 1) return "text-amber-600 dark:text-amber-400";
+  return "text-red-600 dark:text-red-400";
+}
 
 function resolveDateRange(days: RangeDays) {
   const to = new Date();
@@ -149,6 +166,106 @@ function aggregateKpis(ads: ZernioLinkedAd[]) {
     costPerConvAvg,
     purchaseValue,
   };
+}
+
+function StatusSummary({ ads }: { ads: ZernioLinkedAd[] }) {
+  const counts = useMemo(() => {
+    const result = { active: 0, paused: 0, error: 0, other: 0 };
+    for (const ad of ads) {
+      if (ad.status === "active") result.active++;
+      else if (ad.status === "paused") result.paused++;
+      else if (ad.status === "error" || ad.status === "rejected") result.error++;
+      else result.other++;
+    }
+    return result;
+  }, [ads]);
+
+  if (ads.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {counts.active > 0 && (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          {counts.active} activo{counts.active !== 1 ? "s" : ""}
+        </span>
+      )}
+      {counts.paused > 0 && (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          {counts.paused} pausado{counts.paused !== 1 ? "s" : ""}
+        </span>
+      )}
+      {counts.error > 0 && (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+          {counts.error} con error
+        </span>
+      )}
+      {counts.other > 0 && (
+        <span className="inline-flex items-center gap-1.5 rounded-full border bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground">
+          {counts.other} otro{counts.other !== 1 ? "s" : ""}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function SpendBudgetBar({ spend, budgetAmount }: { spend: number; budgetAmount: number }) {
+  if (budgetAmount <= 0) return <span className="text-sm tabular-nums">{formatCurrency(spend)}</span>;
+  const pct = Math.min((spend / budgetAmount) * 100, 100);
+  const barColor =
+    pct >= 90 ? "bg-red-500" : pct >= 60 ? "bg-amber-500" : "bg-emerald-500";
+
+  return (
+    <div className="min-w-[90px] space-y-1">
+      <span className="text-sm tabular-nums">{formatCurrency(spend)}</span>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn("h-full rounded-full transition-all", barColor)}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-[10px] text-muted-foreground">{pct.toFixed(0)}% del budget</span>
+    </div>
+  );
+}
+
+function SortableHeader({
+  label,
+  sortKey,
+  currentKey,
+  dir,
+  onSort,
+}: {
+  label: string;
+  sortKey: SortKey;
+  currentKey: SortKey | null;
+  dir: SortDir;
+  onSort: (key: SortKey) => void;
+}) {
+  const active = currentKey === sortKey;
+  return (
+    <th className="px-4 py-3 font-medium">
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          "inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-foreground",
+          active ? "text-foreground" : "text-muted-foreground"
+        )}
+      >
+        {label}
+        <ArrowUpDown
+          className={cn(
+            "h-3 w-3 transition-opacity",
+            active ? "opacity-100" : "opacity-40"
+          )}
+          aria-hidden="true"
+        />
+      </button>
+    </th>
+  );
 }
 
 function TableSkeleton() {
@@ -398,16 +515,18 @@ function AdTableRow({
           </Badge>
         </td>
         <td className="px-4 py-3 text-sm tabular-nums">{budgetLabel}</td>
-        <td className="px-4 py-3 text-sm tabular-nums">
-          {formatCurrency(metrics.spend)}
+        <td className="px-4 py-3">
+          <SpendBudgetBar spend={metrics.spend} budgetAmount={ad.budget?.amount ?? 0} />
         </td>
         <td className="px-4 py-3 text-sm tabular-nums">
           {formatNumber(metrics.impressions)}
         </td>
-        <td className="px-4 py-3 text-sm tabular-nums">
+        <td className={cn("px-4 py-3 text-sm tabular-nums", roasColorClass(metrics.roas))}>
           {formatMultiplier(metrics.roas)}
         </td>
-        <td className="px-4 py-3 text-sm tabular-nums">{formatPercent(metrics.ctr)}</td>
+        <td className={cn("px-4 py-3 text-sm tabular-nums", ctrColorClass(metrics.ctr))}>
+          {formatPercent(metrics.ctr)}
+        </td>
       </tr>
 
       {expanded ? (
@@ -432,9 +551,32 @@ export function AdsDashboard({
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
   const [rangeDays, setRangeDays] = useState<RangeDays>(initialRangeDays);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [pending, startTransition] = useTransition();
 
   const kpis = useMemo(() => aggregateKpis(ads), [ads]);
+
+  const sortedAds = useMemo(() => {
+    if (!sortKey) return ads;
+    return [...ads].sort((a, b) => {
+      const ma = normalizeAdMetrics(a.metrics);
+      const mb = normalizeAdMetrics(b.metrics);
+      let valA = 0;
+      let valB = 0;
+      if (sortKey === "spend") { valA = ma.spend; valB = mb.spend; }
+      else if (sortKey === "impressions") { valA = ma.impressions; valB = mb.impressions; }
+      else if (sortKey === "roas") { valA = ma.roas; valB = mb.roas; }
+      else if (sortKey === "ctr") { valA = ma.ctr; valB = mb.ctr; }
+      else if (sortKey === "budget") { valA = a.budget?.amount ?? 0; valB = b.budget?.amount ?? 0; }
+      return sortDir === "desc" ? valB - valA : valA - valB;
+    });
+  }, [ads, sortKey, sortDir]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    else { setSortKey(key); setSortDir("desc"); }
+  };
 
   const refetch = useCallback(
     (status: StatusFilter, platform: PlatformFilter, range: RangeDays) => {
@@ -549,33 +691,36 @@ export function AdsDashboard({
       ) : null}
 
       {!pending && ads.length > 0 ? (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="min-w-full text-left">
-            <thead className="border-b bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="w-10 px-2 py-3" aria-label="Expandir" />
-                <th className="px-4 py-3 font-medium">Preview</th>
-                <th className="px-4 py-3 font-medium">Nombre + Campaña</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Budget</th>
-                <th className="px-4 py-3 font-medium">Spend</th>
-                <th className="px-4 py-3 font-medium">Impressions</th>
-                <th className="px-4 py-3 font-medium">ROAS</th>
-                <th className="px-4 py-3 font-medium">CTR</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ads.map((ad) => (
-                <AdTableRow
-                  key={ad._id}
-                  ad={ad}
-                  expanded={expandedIds.has(ad._id)}
-                  onToggle={() => toggleExpanded(ad._id)}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <StatusSummary ads={ads} />
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="min-w-full text-left">
+              <thead className="border-b bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="w-10 px-2 py-3" aria-label="Expandir" />
+                  <th className="px-4 py-3 font-medium">Preview</th>
+                  <th className="px-4 py-3 font-medium">Nombre + Campaña</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <SortableHeader label="Budget" sortKey="budget" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Spend" sortKey="spend" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Impressions" sortKey="impressions" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortableHeader label="ROAS" sortKey="roas" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortableHeader label="CTR" sortKey="ctr" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                </tr>
+              </thead>
+              <tbody>
+                {sortedAds.map((ad) => (
+                  <AdTableRow
+                    key={ad._id}
+                    ad={ad}
+                    expanded={expandedIds.has(ad._id)}
+                    onToggle={() => toggleExpanded(ad._id)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : null}
     </div>
   );
