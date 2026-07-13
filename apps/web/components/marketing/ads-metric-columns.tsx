@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Columns3, X } from "lucide-react";
 import {
+  formatActionKey,
   formatCurrency,
   formatMultiplier,
   formatNumber,
@@ -20,15 +21,20 @@ export type MetricKey =
   | "videoAvgTimeWatchedActions" | "videoP25WatchedActions" | "videoP50WatchedActions"
   | "videoP75WatchedActions" | "videoP100WatchedActions";
 
+/** Clave dinámica para eventos de Meta (actions / actionValues de Zernio) */
+export type DynamicMetricKey = `action:${string}` | `actionValue:${string}`;
+export type AnyMetricKey = MetricKey | DynamicMetricKey;
+
 export type MetricDef = {
-  key: MetricKey;
+  key: AnyMetricKey;
   label: string;
   shortLabel: string;
-  category: "Performance" | "Conversiones" | "Video";
+  category: "Performance" | "Conversiones" | "Video" | "Eventos";
   format: (v: number) => string;
   sortable: boolean;
   colorFn?: (v: number) => string;
   defaultSelected: boolean;
+  isDynamic?: boolean;
 };
 
 // ─── Color helpers ───────────────────────────────────────────────────────────
@@ -75,35 +81,61 @@ export const ALL_METRIC_DEFS: MetricDef[] = [
   { key: "videoP100WatchedActions",    label: "Video al 100%",           shortLabel: "V.100%",     category: "Video", format: formatNumber,  sortable: false, defaultSelected: false },
 ];
 
-const DEFAULT_SELECTED = new Set<MetricKey>(
+const DEFAULT_SELECTED = new Set<AnyMetricKey>(
   ALL_METRIC_DEFS.filter((d) => d.defaultSelected).map((d) => d.key)
 );
 
-const LS_KEY = "otc_ads_columns_v1";
+const LS_KEY = "otc_ads_columns_v2";
 
-function loadSavedColumns(): Set<MetricKey> {
-  if (typeof window === "undefined") return DEFAULT_SELECTED;
+function loadSavedColumns(): Set<AnyMetricKey> | null {
+  if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return DEFAULT_SELECTED;
+    if (!raw) return null;
     const parsed: string[] = JSON.parse(raw);
-    const valid = parsed.filter((k) => ALL_METRIC_DEFS.some((d) => d.key === k));
-    return valid.length > 0 ? new Set(valid as MetricKey[]) : DEFAULT_SELECTED;
+    return parsed.length > 0 ? new Set(parsed as AnyMetricKey[]) : null;
   } catch {
-    return DEFAULT_SELECTED;
+    return null;
   }
+}
+
+function buildActionDef(actionKey: string): MetricDef {
+  const label = formatActionKey(actionKey);
+  return {
+    key: `action:${actionKey}` as DynamicMetricKey,
+    label,
+    shortLabel: label.length > 12 ? label.slice(0, 10) + "…" : label,
+    category: "Eventos",
+    format: formatNumber,
+    sortable: true,
+    defaultSelected: false,
+    isDynamic: true,
+  };
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
-export function useMetricColumns() {
-  const [selected, setSelected] = useState<Set<MetricKey>>(DEFAULT_SELECTED);
+export function useMetricColumns(availableActions: string[] = []) {
+  const [selected, setSelected] = useState<Set<AnyMetricKey>>(DEFAULT_SELECTED);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setSelected(loadSavedColumns());
+    const saved = loadSavedColumns();
+    if (saved) setSelected(saved);
+    setHydrated(true);
   }, []);
 
-  const toggle = (key: MetricKey) => {
+  const dynamicDefs = useMemo(
+    () => availableActions.map(buildActionDef),
+    [availableActions]
+  );
+
+  const allDefs = useMemo(
+    () => [...ALL_METRIC_DEFS, ...dynamicDefs],
+    [dynamicDefs]
+  );
+
+  const toggle = (key: AnyMetricKey) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(key)) {
@@ -122,10 +154,10 @@ export function useMetricColumns() {
     try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
   };
 
-  // Preserve definition order
-  const activeDefs = ALL_METRIC_DEFS.filter((d) => selected.has(d.key));
+  // Preserve definition order: static first, then dynamic
+  const activeDefs = allDefs.filter((d) => selected.has(d.key));
 
-  return { selected, toggle, reset, activeDefs };
+  return { selected, toggle, reset, activeDefs, dynamicDefs, hydrated };
 }
 
 // ─── MetricColumnSelector component ─────────────────────────────────────────
@@ -134,10 +166,12 @@ export function MetricColumnSelector({
   selected,
   onToggle,
   onReset,
+  dynamicDefs = [],
 }: {
-  selected: Set<MetricKey>;
-  onToggle: (key: MetricKey) => void;
+  selected: Set<AnyMetricKey>;
+  onToggle: (key: AnyMetricKey) => void;
   onReset: () => void;
+  dynamicDefs?: MetricDef[];
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -154,7 +188,34 @@ export function MetricColumnSelector({
     selected.size === DEFAULT_SELECTED.size &&
     [...selected].every((k) => DEFAULT_SELECTED.has(k));
 
-  const categories = ["Performance", "Conversiones", "Video"] as const;
+  const staticCategories = ["Performance", "Conversiones", "Video"] as const;
+  const hasEvents = dynamicDefs.length > 0;
+
+  function MetricItem({ def }: { def: MetricDef }) {
+    const isSelected = selected.has(def.key);
+    return (
+      <button
+        key={def.key}
+        type="button"
+        onClick={() => onToggle(def.key)}
+        className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-muted"
+      >
+        <span
+          className={cn(
+            "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+            isSelected
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-background"
+          )}
+        >
+          {isSelected && <Check className="h-3 w-3" aria-hidden />}
+        </span>
+        <span className={cn("text-left", !isSelected && "text-muted-foreground")}>
+          {def.label}
+        </span>
+      </button>
+    );
+  }
 
   return (
     <div className="relative" ref={ref}>
@@ -202,42 +263,30 @@ export function MetricColumnSelector({
           </div>
 
           {/* Metric list */}
-          <div className="max-h-[420px] overflow-y-auto p-2">
-            {categories.map((cat) => {
+          <div className="max-h-[480px] overflow-y-auto p-2">
+            {staticCategories.map((cat) => {
               const defs = ALL_METRIC_DEFS.filter((d) => d.category === cat);
               return (
                 <div key={cat} className="mb-1">
                   <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     {cat}
                   </p>
-                  {defs.map((def) => {
-                    const isSelected = selected.has(def.key);
-                    return (
-                      <button
-                        key={def.key}
-                        type="button"
-                        onClick={() => onToggle(def.key)}
-                        className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-muted"
-                      >
-                        <span
-                          className={cn(
-                            "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-                            isSelected
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-background"
-                          )}
-                        >
-                          {isSelected && <Check className="h-3 w-3" aria-hidden />}
-                        </span>
-                        <span className={cn("text-left", !isSelected && "text-muted-foreground")}>
-                          {def.label}
-                        </span>
-                      </button>
-                    );
-                  })}
+                  {defs.map((def) => <MetricItem key={def.key} def={def} />)}
                 </div>
               );
             })}
+
+            {hasEvents && (
+              <div className="mb-1 border-t pt-1 mt-1">
+                <p className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Eventos de Meta
+                </p>
+                <p className="px-2 pb-1.5 text-[10px] text-muted-foreground/70">
+                  Acciones reales de tu píxel de Meta
+                </p>
+                {dynamicDefs.map((def) => <MetricItem key={def.key} def={def} />)}
+              </div>
+            )}
           </div>
         </div>
       )}

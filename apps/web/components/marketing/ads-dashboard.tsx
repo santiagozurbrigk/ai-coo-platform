@@ -40,6 +40,7 @@ import {
   ctrColorClass,
   roasColorClass,
   useMetricColumns,
+  type AnyMetricKey,
   type MetricDef,
   type MetricKey,
 } from "./ads-metric-columns";
@@ -55,7 +56,7 @@ type Props = {
 type StatusFilter = "all" | "active" | "paused" | "error";
 type PlatformFilter = "all" | "facebook" | "instagram";
 type RangeDays = 7 | 30 | 90;
-type SortKey = MetricKey | "budget";
+type SortKey = AnyMetricKey | "budget";
 type SortDir = "asc" | "desc";
 type ViewMode = "flat" | "campaigns";
 
@@ -497,7 +498,13 @@ function AdTableRow({
         <td className="px-4 py-3 text-sm tabular-nums">{budgetLabel}</td>
 
         {activeDefs.map((def) => {
-          const val = (metrics[def.key] as number) ?? 0;
+          let val: number;
+          if (def.isDynamic && def.key.startsWith("action:")) {
+            const actionKey = def.key.slice("action:".length);
+            val = metrics.actions?.[actionKey] ?? 0;
+          } else {
+            val = (metrics[def.key as MetricKey] as number) ?? 0;
+          }
           return (
             <td
               key={def.key}
@@ -736,8 +743,19 @@ export function AdsDashboard({ initialAds, initialError = null, initialRangeDays
 
   const [pending, startTransition] = useTransition();
 
+  // Unique action keys from all ads data (for dynamic event columns)
+  const availableActions = useMemo(() => {
+    const keys = new Set<string>();
+    for (const ad of ads) {
+      for (const k of Object.keys(ad.metrics?.actions ?? {})) {
+        if ((ad.metrics.actions[k] ?? 0) > 0) keys.add(k);
+      }
+    }
+    return [...keys].sort();
+  }, [ads]);
+
   // Metric column selector
-  const { selected: selectedMetrics, toggle: toggleMetric, reset: resetMetrics, activeDefs } = useMetricColumns();
+  const { selected: selectedMetrics, toggle: toggleMetric, reset: resetMetrics, activeDefs, dynamicDefs } = useMetricColumns(availableActions);
 
   // ── Derived: unique campaign names from all ads
   const campaignOptions = useMemo(() => {
@@ -767,8 +785,13 @@ export function AdsDashboard({ initialAds, initialError = null, initialRangeDays
     return [...displayAds].sort((a, b) => {
       const ma = normalizeAdMetrics(a.metrics);
       const mb = normalizeAdMetrics(b.metrics);
-      const valA = sortKey === "budget" ? a.budget?.amount ?? 0 : (ma[sortKey as MetricKey] as number) ?? 0;
-      const valB = sortKey === "budget" ? b.budget?.amount ?? 0 : (mb[sortKey as MetricKey] as number) ?? 0;
+      const resolveVal = (m: ReturnType<typeof normalizeAdMetrics>, ad: ZernioLinkedAd, key: SortKey): number => {
+        if (key === "budget") return ad.budget?.amount ?? 0;
+        if (typeof key === "string" && key.startsWith("action:")) return m.actions?.[key.slice("action:".length)] ?? 0;
+        return (m[key as MetricKey] as number) ?? 0;
+      };
+      const valA = resolveVal(ma, a, sortKey);
+      const valB = resolveVal(mb, b, sortKey);
       return sortDir === "desc" ? valB - valA : valA - valB;
     });
   }, [displayAds, sortKey, sortDir]);
@@ -932,6 +955,7 @@ export function AdsDashboard({ initialAds, initialError = null, initialRangeDays
               selected={selectedMetrics}
               onToggle={toggleMetric}
               onReset={resetMetrics}
+              dynamicDefs={dynamicDefs}
             />
           </div>
         </div>
