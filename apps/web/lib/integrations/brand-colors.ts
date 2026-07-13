@@ -1,28 +1,34 @@
 import type { IntegrationProvider } from "@/constants/integrations";
 
-/** Colores de marca para logos en cards de integraciones (Simple Icons / guías públicas). */
-export const INTEGRATION_BRAND_COLORS: Record<
-  IntegrationProvider,
-  { hex: string; bgClass: string }
-> = {
-  discord: { hex: "#5865F2", bgClass: "bg-[#5865F2]/12" },
-  zernio: { hex: "#6366F1", bgClass: "bg-[#6366F1]/12" },
-  unipile_instagram: { hex: "#C13584", bgClass: "bg-[#C13584]/15" },
-  unipile_whatsapp: { hex: "#25D366", bgClass: "bg-[#25D366]/12" },
-  instagram: { hex: "#E4405F", bgClass: "bg-[#E4405F]/12" },
-  manychat: { hex: "#0084FF", bgClass: "bg-[#0084FF]/12" },
-  youtube: { hex: "#FF0000", bgClass: "bg-[#FF0000]/12" },
-  google_ecosystem: { hex: "#4285F4", bgClass: "bg-[#4285F4]/12" },
-  typeform: { hex: "#262627", bgClass: "bg-[#262627]/10 dark:bg-[#262627]/25" },
-  google_forms: { hex: "#7248B9", bgClass: "bg-[#7248B9]/12" },
-  airtable: { hex: "#18BFFF", bgClass: "bg-[#18BFFF]/12" },
-  notion: { hex: "#000000", bgClass: "bg-black/8 dark:bg-white/10" },
-  google_sheets: { hex: "#0F9D58", bgClass: "bg-[#0F9D58]/12" },
-  google_docs: { hex: "#4285F4", bgClass: "bg-[#4285F4]/12" },
-  fathom: { hex: "#007299", bgClass: "bg-[#007299]/12" },
-  loom: { hex: "#625DF5", bgClass: "bg-[#625DF5]/12" },
-  calendly: { hex: "#006BFF", bgClass: "bg-[#006BFF]/12" },
-  miro: { hex: "#050038", bgClass: "bg-[#FFD02F]/25" },
+export type IntegrationBrand = {
+  /** Color hex para el fondo sólido del logo */
+  bg: string;
+  /** Clase Tailwind para el fondo (soporte gradientes) */
+  bgClass?: string;
+  /** true = ícono blanco sobre fondo, false = ícono oscuro (logos claros) */
+  whiteIcon?: boolean;
+};
+
+/** Colores de marca: ícono blanco sobre fondo sólido (estilo app icon real). */
+export const INTEGRATION_BRAND_COLORS: Record<IntegrationProvider, IntegrationBrand> = {
+  discord:          { bg: "#5865F2" },
+  zernio:           { bg: "#6366F1" },
+  unipile_instagram:{ bg: "#C13584", bgClass: "bg-gradient-to-br from-[#833ab4] via-[#fd1d1d] to-[#fcb045]" },
+  unipile_whatsapp: { bg: "#25D366" },
+  instagram:        { bg: "#C13584", bgClass: "bg-gradient-to-br from-[#833ab4] via-[#fd1d1d] to-[#fcb045]" },
+  manychat:         { bg: "#0084FF" },
+  youtube:          { bg: "#FF0000" },
+  google_ecosystem: { bg: "#4285F4" },
+  typeform:         { bg: "#262627" },
+  google_forms:     { bg: "#7248B9" },
+  airtable:         { bg: "#18BFFF" },
+  notion:           { bg: "#000000" },
+  google_sheets:    { bg: "#0F9D58" },
+  google_docs:      { bg: "#4285F4" },
+  fathom:           { bg: "#007299" },
+  loom:             { bg: "#625DF5" },
+  calendly:         { bg: "#006BFF" },
+  miro:             { bg: "#050038" },
 };
 
 export function integrationLogoSrc(provider: IntegrationProvider): string {

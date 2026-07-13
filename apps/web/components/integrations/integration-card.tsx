@@ -497,29 +497,15 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         description={`${description}${calendlyManualHint}`}
         icon={
           integration.provider === "zernio" ? (
-            <div className="flex items-center gap-0.5">
-              <IntegrationLogo
-                provider="zernio"
-                size="sm"
-                className="!h-5 !w-5 !rounded-none !border-0 !bg-transparent"
-              />
-              <IntegrationLogo
-                provider="instagram"
-                size="sm"
-                className="!h-4 !w-4 !rounded-none !border-0 !bg-transparent opacity-80"
-              />
-              <IntegrationLogo
-                provider="unipile_whatsapp"
-                size="sm"
-                className="!h-4 !w-4 !rounded-none !border-0 !bg-transparent opacity-80"
-              />
+            <div className="relative shrink-0">
+              <IntegrationLogo provider="zernio" size="sm" />
+              <div className="absolute -bottom-1 -right-1 flex items-center gap-px">
+                <IntegrationLogo provider="instagram" size="xs" className="!h-4 !w-4 !rounded-md ring-1 ring-background" />
+                <IntegrationLogo provider="unipile_whatsapp" size="xs" className="!h-4 !w-4 !rounded-md ring-1 ring-background" />
+              </div>
             </div>
           ) : (
-            <IntegrationLogo
-              provider={integration.provider}
-              size="sm"
-              className="!h-5 !w-5 !rounded-none !border-0 !bg-transparent"
-            />
+            <IntegrationLogo provider={integration.provider} size="sm" />
           )
         }
         status={comingSoon ? "not_connected" : cardStatus}
