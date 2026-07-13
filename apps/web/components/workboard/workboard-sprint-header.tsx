@@ -243,11 +243,21 @@ export function WorkboardSprintHeader({
 
       <FilterPills
         options={[
-          { value: "all", label: "Todas las áreas" },
-          ...TASK_AREA_OPTIONS.map((o) => ({
-            value: o.value,
-            label: o.label,
-          })),
+          {
+            value: "all",
+            label: `Todas las áreas${displayedSprint ? ` (${displayedSprint.totalTasks})` : ""}`,
+          },
+          ...TASK_AREA_OPTIONS.map((o) => {
+            const count = tasks.filter(
+              (t) =>
+                t.area === o.value &&
+                (sprintFilterId === "all" || t.sprintId === sprintFilterId)
+            ).length;
+            return {
+              value: o.value,
+              label: count > 0 ? `${o.label} (${count})` : o.label,
+            };
+          }),
         ]}
         value={areaFilter}
         onChange={onAreaFilterChange}

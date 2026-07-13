@@ -45,24 +45,93 @@ function StatusBadge({ status }: { status?: DocumentStatus }) {
   return null;
 }
 
-export function DocumentCard({ document }: { document: ContextDocument }) {
-  return (
-    <div className="relative flex h-[160px] flex-col gap-2 overflow-hidden rounded-xl border border-border/40 bg-muted/30 p-4 transition-colors hover:border-border/70 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover transition-all duration-200">
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="line-clamp-2 text-[13px] font-medium leading-snug text-foreground">
-          {document.title}
-        </h3>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <span
-            className={cn(
-              "rounded-full border px-2 py-0.5 text-[10px] font-medium",
-              CATEGORY_CLASS[document.category]
-            )}
-          >
-            {CATEGORY_LABEL[document.category]}
-          </span>
-          <StatusBadge status={document.status} />
+function StatusDot({ status }: { status?: DocumentStatus }) {
+  if (status === "indexed") {
+    return (
+      <span
+        className="mt-1 h-2 w-2 shrink-0 rounded-full bg-emerald-500"
+        title="Indexado"
+      />
+    );
+  }
+  if (status === "processing") {
+    return (
+      <span
+        className="mt-1 h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-500"
+        title="Indexando…"
+      />
+    );
+  }
+  if (status === "error") {
+    return (
+      <span
+        className="mt-1 h-2 w-2 shrink-0 rounded-full bg-destructive"
+        title="Error al indexar"
+      />
+    );
+  }
+  return <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-muted-foreground/30" />;
+}
+
+export function DocumentCard({ document, listView = false }: { document: ContextDocument; listView?: boolean }) {
+  if (listView) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-muted/30 px-4 py-3 transition-all duration-200 hover:border-border/70 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover">
+        <StatusDot status={document.status} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-medium text-foreground">{document.title}</p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+            <span>{document.updatedAt}</span>
+            <span>·</span>
+            <span className="inline-flex items-center gap-1">
+              {document.sourceType === "google_docs" ? (
+                <FileText className="h-3 w-3 text-[#4285F4]" aria-hidden />
+              ) : document.sourceType === "sheets" ? (
+                <FileSpreadsheet className="h-3 w-3 text-[#0F9D58]" aria-hidden />
+              ) : null}
+              {document.source}
+            </span>
+          </div>
         </div>
+        <span
+          className={cn(
+            "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+            CATEGORY_CLASS[document.category]
+          )}
+        >
+          {CATEGORY_LABEL[document.category]}
+        </span>
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+          className="h-7 shrink-0 px-3 text-[11px]"
+        >
+          <Link href={paths.platform.businessContext.viewer(document.id)}>
+            Ver
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative flex h-[160px] flex-col gap-2 overflow-hidden rounded-xl border border-border/40 bg-muted/30 p-4 transition-all duration-200 hover:border-border/70 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-start gap-2">
+          <StatusDot status={document.status} />
+          <h3 className="line-clamp-2 text-[13px] font-medium leading-snug text-foreground">
+            {document.title}
+          </h3>
+        </div>
+        <span
+          className={cn(
+            "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+            CATEGORY_CLASS[document.category]
+          )}
+        >
+          {CATEGORY_LABEL[document.category]}
+        </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">

@@ -68,14 +68,11 @@ export function KnowledgeBasePage({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-primary/30 bg-primary/5 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold">Agregar documento</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Subí PDFs, escribí notas o importá desde Google Docs y Sheets — se indexan automáticamente para que la IA los use como contexto.
-          </p>
-        </div>
-        <Button size="lg" className="gap-2 shrink-0" onClick={() => setAddOpen(true)}>
+      <div className="flex items-center justify-between gap-4 rounded-xl border border-border/50 bg-muted/20 px-4 py-3">
+        <p className="text-sm text-muted-foreground">
+          Subí PDFs, notas o importá desde Google Docs y Sheets — se indexan automáticamente para la IA.
+        </p>
+        <Button size="sm" className="gap-1.5 shrink-0" onClick={() => setAddOpen(true)}>
           <Plus className="h-4 w-4" />
           Agregar documento
         </Button>
