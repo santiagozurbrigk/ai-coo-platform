@@ -672,8 +672,8 @@ function CampaignView({
 
                       {/* Ads table */}
                       {adSetExpanded && (
-                        <div className="overflow-x-auto border-t bg-muted/5">
-                          <table className="min-w-full text-left">
+                        <div className="w-full min-w-0 overflow-x-auto border-t bg-muted/5">
+                          <table className="w-full text-left" style={{ minWidth: "max-content" }}>
                             <thead className="border-b bg-muted/30 text-[11px] uppercase tracking-wide text-muted-foreground">
                               <tr>
                                 <th className="w-10 px-2 py-2" />
@@ -826,7 +826,7 @@ export function AdsDashboard({ initialAds, initialError = null, initialRangeDays
   const totalCols = 5 + activeDefs.length;
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold">Anuncios</h1>
@@ -974,8 +974,8 @@ export function AdsDashboard({ initialAds, initialError = null, initialRangeDays
 
           {/* ── Flat table view ── */}
           {viewMode === "flat" && (
-            <div className="overflow-x-auto rounded-lg border">
-              <table className="min-w-full text-left">
+            <div className="w-full min-w-0 overflow-x-auto rounded-lg border">
+              <table className="w-full text-left" style={{ minWidth: "max-content" }}>
                 <thead className="border-b bg-muted/30 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="w-10 px-2 py-3" aria-label="Expandir" />
