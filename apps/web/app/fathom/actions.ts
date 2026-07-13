@@ -57,6 +57,19 @@ export async function connectFathomAction(
       return { error: result.error ?? "No se pudo conectar Fathom." };
     }
 
+    // Auto-registrar al usuario que conectó la integración como miembro conectado
+    const admin = createAdminClient();
+    await admin.from("team_member_integrations").upsert(
+      {
+        organization_id: orgId,
+        user_id: user.id,
+        integration_type: "fathom",
+        encrypted_api_key: parsed.data,
+        connected_at: new Date().toISOString(),
+      },
+      { onConflict: "organization_id,user_id,integration_type" }
+    );
+
     revalidatePath(paths.platform.integrations);
 
     if (result.error) {

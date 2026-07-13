@@ -95,9 +95,8 @@ export async function connectMemberFathomAction(
       organization_id: organizationId,
       user_id: user.id,
       integration_type: "fathom",
-      api_key: storeApiKey(parsed.data),
+      encrypted_api_key: storeApiKey(parsed.data),
       connected_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     },
     { onConflict: "organization_id,user_id,integration_type" }
   );
@@ -129,18 +128,18 @@ export async function syncMemberFathomAction(): Promise<{ synced: number }> {
 
   const { data: integration, error } = await admin
     .from("team_member_integrations")
-    .select("api_key, last_sync_at")
+    .select("encrypted_api_key, last_sync_at")
     .eq("organization_id", organizationId)
     .eq("user_id", user.id)
     .eq("integration_type", "fathom")
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  if (!integration?.api_key) {
+  if (!integration?.encrypted_api_key) {
     throw new Error("No tenés Fathom conectado");
   }
 
-  const apiKey = readApiKey(integration.api_key as string);
+  const apiKey = readApiKey(integration.encrypted_api_key as string);
   const meetings = await listFathomMeetings(apiKey, {
     createdAfter: (integration.last_sync_at as string | null) ?? undefined,
     maxPages: 5,
@@ -184,7 +183,6 @@ export async function syncMemberFathomAction(): Promise<{ synced: number }> {
     .from("team_member_integrations")
     .update({
       last_sync_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     })
     .eq("organization_id", organizationId)
     .eq("user_id", user.id)
