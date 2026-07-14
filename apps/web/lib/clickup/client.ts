@@ -94,7 +94,7 @@ export async function fetchClickUpTasks(
 ): Promise<ClickUpTask[]> {
   const data = await clickupFetch<{ tasks?: ClickUpTask[] }>(
     apiToken,
-    `/list/${listId}/task?include_closed=true&subtasks=true&page=${page}`
+    `/list/${listId}/task?include_closed=true&page=${page}`
   );
   return data.tasks ?? [];
 }
