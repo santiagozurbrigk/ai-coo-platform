@@ -73,6 +73,11 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           href: paths.platform.marketing.utms,
           permissionId: "marketing",
         },
+        {
+          label: "Automatizaciones",
+          href: paths.platform.marketing.automatizaciones,
+          permissionId: "marketing",
+        },
       ],
     },
     ventas: {

@@ -58,4 +58,12 @@ export const mockIntegrations: Integration[] = [
     description:
       "Conectá tu servidor para capturar conversaciones con clientes, detectar testimonios automáticamente y tener visibilidad completa de cada cliente.",
   },
+  {
+    id: "int-clickup",
+    provider: "clickup",
+    name: "ClickUp",
+    status: "not_connected",
+    description:
+      "Importá tus clientes desde ClickUp a OTC con mapeo inteligente de campos personalizados.",
+  },
 ];

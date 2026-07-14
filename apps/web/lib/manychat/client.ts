@@ -59,6 +59,21 @@ export async function fetchManyChatPageInfo(apiToken: string): Promise<ManyChatP
   return manyChatFetch<ManyChatPageInfo>(apiToken, "/fb/page/getInfo");
 }
 
+export type ManyChatFlow = {
+  ns: string;
+  name: string;
+  status: "enabled" | "disabled" | "draft" | string;
+};
+
+export async function fetchManyChatFlows(apiToken: string): Promise<ManyChatFlow[]> {
+  try {
+    const data = await manyChatFetch<ManyChatFlow[]>(apiToken, "/fb/page/getFlows");
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchManyChatSubscriber(
   apiToken: string,
   subscriberId: string

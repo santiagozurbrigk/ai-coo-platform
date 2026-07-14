@@ -17,6 +17,7 @@ export const INTEGRATION_PROVIDERS = [
   "loom",
   "calendly",
   "miro",
+  "clickup",
 ] as const;
 
 export type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number];

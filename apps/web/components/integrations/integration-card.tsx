@@ -51,6 +51,7 @@ import { IntegrationCardShell } from "./integration-card-shell";
 import { IntegrationLogo } from "./integration-logo";
 import { ManyChatManageSheet } from "./manychat-manage-sheet";
 import { ZernioConnectModal } from "./zernio-connect-modal";
+import { ClickUpImportWizard } from "./clickup-import-wizard";
 
 const COMING_SOON_LABEL = "Próximamente";
 
@@ -90,6 +91,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const [googleManageOpen, setGoogleManageOpen] = useState(false);
   const [instagramManageOpen, setInstagramManageOpen] = useState(false);
   const [zernioConnectOpen, setZernioConnectOpen] = useState(false);
+  const [clickupImportOpen, setClickupImportOpen] = useState(false);
   const [manychatWebhookUrl, setManychatWebhookUrl] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -282,6 +284,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       setZernioConnectOpen(true);
       return;
     }
+    if (integration.provider === "clickup") {
+      setClickupImportOpen(true);
+      return;
+    }
     const unipileProvider = unipileProviderFromIntegration(integration.provider);
     if (unipileProvider) {
       void startUnipileConnect(unipileProvider);
@@ -348,6 +354,11 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
 
     if (integration.provider === "zernio" && status === "connected") {
       setZernioConnectOpen(true);
+      return;
+    }
+
+    if (integration.provider === "clickup") {
+      setClickupImportOpen(true);
       return;
     }
 
@@ -435,6 +446,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         setZernioConnectOpen(true);
         return;
       }
+      if (integration.provider === "clickup") {
+        setClickupImportOpen(true);
+        return;
+      }
       const unipileProvider = unipileProviderFromIntegration(integration.provider);
       if (unipileProvider) {
         void startUnipileConnect(unipileProvider);
@@ -474,8 +489,12 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     : syncing
       ? es.status.integration.syncing
       : !isConnected
-        ? es.common.connect
-        : integration.provider === "calendly" ||
+        ? integration.provider === "clickup"
+          ? "Importar clientes"
+          : es.common.connect
+        : integration.provider === "clickup"
+          ? "Importar clientes"
+          : integration.provider === "calendly" ||
             integration.provider === "fathom" ||
             integration.provider === "instagram" ||
             integration.provider === "zernio" ||
@@ -554,6 +573,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
           setStatus("connected");
           router.refresh();
         }}
+      />
+      <ClickUpImportWizard
+        open={clickupImportOpen}
+        onOpenChange={setClickupImportOpen}
       />
 
       {googleProvider ? (
