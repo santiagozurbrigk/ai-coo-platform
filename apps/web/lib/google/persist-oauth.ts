@@ -4,6 +4,7 @@ type GoogleTokens = {
   access_token: string;
   refresh_token?: string;
   expires_in?: number;
+  scope?: string;
 };
 
 function tokenExpiresAt(expiresIn?: number): string | null {
@@ -24,6 +25,7 @@ export async function persistUnifiedGoogleTokens(
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token ?? null,
     token_expires_at: tokenExpiresAt(tokens.expires_in),
+    granted_scopes: tokens.scope ?? null,
     status: "connected",
     last_sync_at: now,
   };

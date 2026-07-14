@@ -39,6 +39,7 @@ export async function exchangeGoogleCode(params: {
   access_token: string;
   refresh_token?: string;
   expires_in?: number;
+  scope?: string;
 }> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
