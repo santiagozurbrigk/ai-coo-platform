@@ -261,3 +261,78 @@ export async function markFathomTasksSentToBoardAction(
     };
   }
 }
+
+export async function updateFathomTaskProposalsAction(
+  fathomCallId: string,
+  proposals: Array<Record<string, unknown>>
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("fathom_calls")
+      .update({ ai_task_proposals: proposals })
+      .eq("id", fathomCallId)
+      .eq("organization_id", organizationId);
+
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "No se pudo guardar.",
+    };
+  }
+}
+
+export async function getSalesCallsAction(): Promise<
+  Array<{
+    id: string;
+    title: string;
+    fathom_url: string | null;
+    call_date: string | null;
+    duration_seconds: number | null;
+    ai_situation_summary: string | null;
+    status: string;
+    call_analyses: {
+      id: string;
+      overall_score: number | null;
+      closer_name: string | null;
+      lead_qualified: boolean | null;
+      sold: boolean;
+      booked: boolean;
+      summary: string | null;
+      strengths: string[];
+      improvements: string[];
+      objections: Array<{ text: string; handled: boolean }>;
+    } | null;
+  }>
+> {
+  try {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("fathom_calls")
+      .select(
+        `id, title, fathom_url, call_date, duration_seconds, ai_situation_summary, status,
+         call_analyses(id, overall_score, closer_name, lead_qualified, sold, booked, summary, strengths, improvements, objections)`
+      )
+      .eq("organization_id", organizationId)
+      .eq("call_type", "consulting")
+      .order("call_date", { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+
+    return (data ?? []).map((row) => ({
+      ...row,
+      call_analyses: Array.isArray(row.call_analyses)
+        ? (row.call_analyses[0] ?? null)
+        : (row.call_analyses ?? null),
+    }));
+  } catch {
+    return [];
+  }
+}

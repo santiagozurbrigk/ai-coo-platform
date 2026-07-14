@@ -65,6 +65,7 @@ export const paths = {
       inbox: `${PLATFORM}/sales/inbox`,
       metrics: `${PLATFORM}/sales/metrics`,
       closing: `${PLATFORM}/sales/closing`,
+      llamadas: `${PLATFORM}/sales/llamadas`,
     },
 
     clients: {

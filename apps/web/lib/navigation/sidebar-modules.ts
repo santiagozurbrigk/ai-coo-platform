@@ -100,6 +100,11 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           href: paths.platform.sales.closing,
           permissionId: "closing",
         },
+        {
+          label: "Llamadas",
+          href: paths.platform.sales.llamadas,
+          permissionId: "closing",
+        },
       ],
     },
     operaciones: {

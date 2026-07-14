@@ -16,6 +16,7 @@ type FathomCallDetailProps = {
 export function FathomCallDetail({ call, onTasksSent }: FathomCallDetailProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [tasksSent, setTasksSent] = useState(Boolean(call.tasks_sent_to_board));
+  const [allRejected, setAllRejected] = useState(false);
 
   const proposals = (call.ai_task_proposals ?? []) as FathomTaskProposal[];
   const isTeamMeeting = isTeamMeetingCallType(call.call_type);
@@ -23,8 +24,9 @@ export function FathomCallDetail({ call, onTasksSent }: FathomCallDetailProps) {
 
   if (!isTeamMeeting || !hasProposals) return null;
 
-  const handleSuccess = () => {
+  const handleSuccess = (rejected?: boolean) => {
     setTasksSent(true);
+    if (rejected) setAllRejected(true);
     onTasksSent?.();
   };
 
@@ -34,7 +36,7 @@ export function FathomCallDetail({ call, onTasksSent }: FathomCallDetailProps) {
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2">
           <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
           <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
-            Tareas enviadas al tablero ✓
+            {allRejected ? "Tareas revisadas — ninguna agregada" : "Tareas enviadas al tablero ✓"}
           </span>
         </div>
       ) : (
