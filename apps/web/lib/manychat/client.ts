@@ -56,7 +56,27 @@ async function manyChatFetch<T>(
 }
 
 export async function fetchManyChatPageInfo(apiToken: string): Promise<ManyChatPageInfo> {
-  return manyChatFetch<ManyChatPageInfo>(apiToken, "/fb/page/getInfo");
+  const resp = await fetch(`${MANYCHAT_API_BASE}/fb/page/getInfo`, {
+    headers: {
+      Authorization: `Bearer ${apiToken}`,
+      Accept: "application/json",
+    },
+  });
+
+  const json = (await resp.json().catch(() => null)) as ManyChatApiResponse<ManyChatPageInfo> | null;
+
+  // 401/403 → definitely invalid key
+  if (resp.status === 401 || resp.status === 403) {
+    throw new Error("API key de ManyChat inválida. Revísala en tu cuenta de ManyChat → Settings → API.");
+  }
+
+  // Other non-ok status or error status can mean the account has no FB page
+  // (Instagram/WhatsApp-only accounts). Accept the key as valid with empty page info.
+  if (!resp.ok || json?.status === "error") {
+    return {};
+  }
+
+  return (json?.data ?? json ?? {}) as ManyChatPageInfo;
 }
 
 export type ManyChatFlow = {
