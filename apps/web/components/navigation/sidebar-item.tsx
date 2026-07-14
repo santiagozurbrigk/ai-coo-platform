@@ -71,7 +71,7 @@ export function SidebarItem({
         </span>
       ) : null}
       {!collapsed && !comingSoonLabel && badge != null && badge > 0 ? (
-        <span className="ml-auto rounded-full bg-primary px-1.5 py-0.5 text-2xs font-medium text-primary-foreground tabular-nums">
+        <span className="ml-auto px-1 text-2xs font-normal text-muted-foreground/60 tabular-nums">
           {badge}
         </span>
       ) : null}
