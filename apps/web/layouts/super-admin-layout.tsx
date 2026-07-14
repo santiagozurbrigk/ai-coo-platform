@@ -10,6 +10,14 @@ import { ToastViewport } from "@/components/shared/toast-viewport";
 import { ThreeColumnLayout } from "@/layouts/three-column-layout";
 import { getPageMeta } from "@/lib/navigation/page-meta";
 import { ToastProvider } from "@/providers/toast-provider";
+import { PermissionsProvider } from "@/providers/permissions-provider";
+import { emptyPermissions } from "@/constants/permission-modules";
+
+const SUPER_ADMIN_PERMISSIONS = {
+  role: "operator" as const,
+  isFounder: true,
+  modules: emptyPermissions(),
+};
 
 export function SuperAdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -17,6 +25,7 @@ export function SuperAdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <ToastProvider>
+      <PermissionsProvider value={SUPER_ADMIN_PERMISSIONS}>
       <TooltipProvider>
         <ThreeColumnLayout sidebar={<SuperAdminSidebar />}>
           <Topbar
@@ -30,6 +39,7 @@ export function SuperAdminLayout({ children }: { children: ReactNode }) {
           </div>
         </ThreeColumnLayout>
       </TooltipProvider>
+      </PermissionsProvider>
       <ToastViewport />
     </ToastProvider>
   );

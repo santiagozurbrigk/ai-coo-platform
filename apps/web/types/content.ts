@@ -6,7 +6,7 @@ export type ContentPieceType =
   | "youtube"
   | "brief";
 
-export type ContentPieceSource = "zernio" | "manual" | "ai_generated";
+export type ContentPieceSource = "zernio" | "manual" | "ai_generated" | "google";
 
 export type ContentPieceStatus =
   | "draft"

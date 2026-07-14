@@ -1,5 +1,4 @@
 import { AppProviders } from "@/providers";
-import { OnboardingGuard } from "@/components/platform/onboarding-guard";
 import { WelcomeGate } from "@/components/platform/welcome-gate";
 import { HoldingPlatformProvider } from "@/components/holding/holding-platform-provider";
 import { getHoldingSessionState } from "@/lib/holding/session";
@@ -21,11 +20,9 @@ export default async function PlatformRouteLayout({
     <AppProviders>
       <PermissionsProvider value={permissions}>
         <HoldingPlatformProvider value={holdingSession}>
-          <OnboardingGuard>
-            <WelcomeGate>
-              <PlatformLayout>{children}</PlatformLayout>
-            </WelcomeGate>
-          </OnboardingGuard>
+          <WelcomeGate>
+            <PlatformLayout>{children}</PlatformLayout>
+          </WelcomeGate>
         </HoldingPlatformProvider>
       </PermissionsProvider>
     </AppProviders>

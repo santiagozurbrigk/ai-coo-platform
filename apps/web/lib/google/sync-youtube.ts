@@ -1,4 +1,3 @@
-import { labelContentAsset } from "@/lib/content/label-content";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   fetchYouTubeVideoDetails,
@@ -71,6 +70,7 @@ export async function syncYoutubeChannelAndVideos(
     .filter((id): id is string => Boolean(id));
 
   const videoDetails = await fetchYouTubeVideoDetails(videoIds, accessToken);
+  const now = new Date().toISOString();
 
   for (const item of searchItems) {
     const videoId = item.id?.videoId;
@@ -78,20 +78,8 @@ export async function syncYoutubeChannelAndVideos(
     const snippet = item.snippet;
     const title = snippet?.title ?? "Video";
     const caption = snippet?.description ?? "";
-    const metrics = videoDetails.get(videoId);
-
-    const label = await labelContentAsset({
-      organizationId,
-      title,
-      caption,
-      contentType: "video",
-      views: metrics?.view_count ?? 0,
-      likes: metrics?.like_count ?? 0,
-      comments: metrics?.comment_count ?? 0,
-    });
-
-    const nativeFields = metrics
-      ? youtubeMetricsToAssetFields(metrics)
+    const nativeFields = videoDetails.get(videoId)
+      ? youtubeMetricsToAssetFields(videoDetails.get(videoId)!)
       : {
           views: 0,
           likes: 0,
@@ -101,31 +89,34 @@ export async function syncYoutubeChannelAndVideos(
           platform_metadata: {},
         };
 
-    await admin.from("content_assets").upsert(
+    const metrics = {
+      views: nativeFields.views,
+      likes: nativeFields.likes,
+      comments: nativeFields.comments,
+      shares: 0,
+      saves: 0,
+      reach: 0,
+      impressions: 0,
+    };
+
+    await admin.from("content_pieces").upsert(
       {
         organization_id: organizationId,
+        type: "youtube",
+        source: "google",
         platform: "youtube",
-        external_id: videoId,
+        platform_post_id: videoId,
+        platform_post_url: `https://www.youtube.com/watch?v=${videoId}`,
         title,
         caption,
-        thumbnail_url:
-          nativeFields.thumbnail_url ??
-          snippet?.thumbnails?.medium?.url ??
-          null,
-        content_type: "video",
-        published_at:
-          metrics?.published_at ?? snippet?.publishedAt ?? null,
-        views: nativeFields.views,
-        likes: nativeFields.likes,
-        comments: nativeFields.comments,
-        duration_seconds: nativeFields.duration_seconds,
-        platform_metadata: nativeFields.platform_metadata,
-        ai_content_label: label?.label ?? null,
-        ai_label_confidence: label?.confidence ?? null,
-        ai_label_reasoning: label?.reasoning ?? null,
-        last_synced_at: new Date().toISOString(),
+        hashtags: [],
+        thumbnail_url: nativeFields.thumbnail_url ?? snippet?.thumbnails?.medium?.url ?? null,
+        published_at: videoDetails.get(videoId)?.published_at ?? snippet?.publishedAt ?? null,
+        status: "published",
+        metrics,
+        metrics_updated_at: now,
       },
-      { onConflict: "organization_id,platform,external_id" }
+      { onConflict: "organization_id,platform_post_id" }
     );
   }
 }
