@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button, cn } from "@ai-coo/ui";
@@ -11,12 +10,11 @@ import {
   getWeeklyInputsAction,
 } from "@/app/operations/actions";
 import { mapWeeklyInputRowsToTeamInputs } from "@/lib/operations/weekly-input-mapper";
-import { formatWeekRange, getCurrentWeekStart } from "@/lib/operations/weekly-utils";
+import { getCurrentWeekStart } from "@/lib/operations/weekly-utils";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes";
 import { useToast } from "@/providers/toast-provider";
 import type { Department, WeeklyInputRow } from "@/types/operations";
-import { PageHeader } from "@/components/shared/page-header";
 import { WeeklyInputForm } from "./weekly-input-form";
 import { WeeklyInputsHistory } from "./weekly-inputs-history";
 import { WeeklyInputsList } from "./weekly-inputs-list";
@@ -92,8 +90,8 @@ export function WeeklyInputsPageContent({
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <PageHeader description="Contexto semanal por departamento para reportes ejecutivos" />
-          <p className="text-sm text-muted-foreground">{formatWeekRange(weekStart)}</p>
+          <p className="text-sm font-medium">Completa los inputs por departamento</p>
+          <p className="text-xs text-muted-foreground">Al guardar al menos 2 departamentos podés generar el reporte ejecutivo.</p>
         </div>
 
         <div className="flex flex-col gap-2 sm:items-end">
@@ -164,16 +162,6 @@ export function WeeklyInputsPageContent({
       />
 
       <WeeklyInputsHistory currentWeekStart={weekStart} />
-
-      <p className="text-center text-xs text-muted-foreground">
-        Ver reporte en{" "}
-        <Link
-          href={paths.platform.operations.overview}
-          className="text-violet-600 dark:text-violet-400 hover:underline"
-        >
-          Operaciones → Overview
-        </Link>
-      </p>
     </div>
   );
 }

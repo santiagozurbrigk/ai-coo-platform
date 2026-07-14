@@ -68,7 +68,7 @@ export function OperationsReportEmptyState({
 
         {isFounder ? (
           <p className="text-xs text-muted-foreground">
-            "Generar reporte ahora" ejecuta el mismo pipeline que el cron semanal
+            &quot;Generar reporte ahora&quot; ejecuta el mismo pipeline que el cron semanal
             (Operaciones, reporte ejecutivo e Inteligencia).
           </p>
         ) : null}

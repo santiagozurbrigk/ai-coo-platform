@@ -112,8 +112,8 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           permissionId: "operations_overview",
         },
         {
-          label: "Inputs semanales",
-          href: paths.platform.operations.weeklyInputs,
+          label: "Inputs",
+          href: paths.platform.operations.inputs,
           permissionId: "operations_overview",
         },
         {
@@ -121,23 +121,10 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           href: paths.platform.operations.sops,
           permissionId: "operations_sops",
         },
-        {
-          label: "Team Inputs",
-          href: paths.platform.operations.teamInputs,
-          permissionId: "operations_team_inputs",
-        },
         { label: "Inteligencia", href: paths.platform.intelligence.root },
         {
-          label: "Reporte semanal",
-          href: paths.platform.executiveReports.weekly,
-        },
-        {
-          label: "Reporte mensual",
-          href: paths.platform.executiveReports.monthly,
-        },
-        {
-          label: "Historial reportes",
-          href: paths.platform.executiveReports.history,
+          label: "Reportes",
+          href: paths.platform.operations.reportes,
         },
         { label: "Área del fundador", href: paths.founder.root },
       ],
