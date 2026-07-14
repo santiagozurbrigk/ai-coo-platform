@@ -5,6 +5,7 @@ export type SidebarChildItem = {
   href: string;
   icon?: string;
   permissionId?: PermissionModuleId;
+  hidden?: boolean;
 };
 
 export type SidebarParentModule = {

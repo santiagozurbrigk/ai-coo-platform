@@ -57,6 +57,7 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           label: "Administrar",
           href: paths.platform.marketing.administrar,
           permissionId: "marketing",
+          hidden: true,
         },
         {
           label: "Conexión con Ventas",

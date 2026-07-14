@@ -77,7 +77,7 @@ export function SidebarRootNavigation({
         if (!parent) return null;
 
         const visibleChildren = parent.children.filter((child) =>
-          canSeeNavItem(child.permissionId, checkAccess, isFounder)
+          !child.hidden && canSeeNavItem(child.permissionId, checkAccess, isFounder)
         );
         if (visibleChildren.length === 0) return null;
 
