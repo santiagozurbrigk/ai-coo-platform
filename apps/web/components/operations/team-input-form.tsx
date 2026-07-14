@@ -2,14 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, FormField, Textarea } from "@ai-coo/ui";
+import { Loader2, Send } from "lucide-react";
+import { Button, FormField, Textarea, cn } from "@ai-coo/ui";
 import { saveWeeklyInputAction } from "@/app/operations/actions";
 import { Panel } from "@/components/shared/panel";
 import { useToast } from "@/providers/toast-provider";
 import type { Department } from "@/types/operations";
-
-const selectClass =
-  "flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm";
 
 const DEPARTMENTS: { value: Department; label: string }[] = [
   { value: "sales", label: "Ventas" },
@@ -33,7 +31,7 @@ export function TeamInputForm() {
       await saveWeeklyInputAction({ department, content: text.trim() });
       setText("");
       push({
-        title: "Input guardado ✓",
+        title: "Input guardado",
         description:
           "Quedó registrado en el contexto semanal — la IA lo tendrá en cuenta en sus análisis.",
         variant: "success",
@@ -52,37 +50,57 @@ export function TeamInputForm() {
   };
 
   return (
-    <Panel title="Enviar input al equipo" contentClassName="space-y-4">
+    <Panel title="Enviar input" contentClassName="space-y-4">
       <p className="text-xs text-muted-foreground">
-        Información intencional que quieres que la IA y el liderazgo tengan en cuenta —
+        Información que querés que la IA y el liderazgo tengan en cuenta esta semana —
         lo que el sistema no detecta automáticamente.
       </p>
+
       <FormField label="Departamento">
-        <select
-          className={selectClass}
-          value={department}
-          onChange={(e) => setDepartment(e.target.value as Department)}
-        >
+        <div className="flex flex-wrap gap-1.5">
           {DEPARTMENTS.map((d) => (
-            <option key={d.value} value={d.value}>
+            <button
+              key={d.value}
+              type="button"
+              onClick={() => setDepartment(d.value)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                department === d.value
+                  ? "border-violet-500/50 bg-violet-500/10 text-violet-600 dark:text-violet-400"
+                  : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
+              )}
+            >
               {d.label}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
       </FormField>
+
       <FormField label="Contenido">
         <Textarea
           placeholder="Algo que el equipo o la IA deba saber esta semana..."
           value={text}
           onChange={(e) => setText(e.target.value)}
-          rows={5}
+          rows={6}
         />
       </FormField>
+
       <Button
         onClick={() => void handleSubmit()}
         disabled={submitting || !text.trim()}
+        className="w-full bg-violet-600 hover:bg-violet-700"
       >
-        {submitting ? "Guardando…" : "Enviar input"}
+        {submitting ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Guardando…
+          </>
+        ) : (
+          <>
+            <Send className="mr-2 h-4 w-4" />
+            Enviar input
+          </>
+        )}
       </Button>
     </Panel>
   );
