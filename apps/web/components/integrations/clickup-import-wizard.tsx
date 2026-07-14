@@ -161,7 +161,7 @@ export function ClickUpImportWizard({ open, onOpenChange }: ClickUpImportWizardP
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl">
         <DialogHeader>
           <DialogTitle>Importar clientes desde ClickUp</DialogTitle>
           <DialogDescription>
@@ -262,10 +262,10 @@ export function ClickUpImportWizard({ open, onOpenChange }: ClickUpImportWizardP
                     {clickupFields.map((f) => {
                       const m = mapping.find((x) => x.clickupField === f.name);
                       return (
-                        <div key={f.name} className="grid grid-cols-2 gap-3 px-3 py-2 items-center">
-                          <span className="truncate text-xs text-foreground font-medium">{f.name}</span>
+                        <div key={f.name} className="flex items-center gap-2 px-3 py-2">
+                          <span className="w-[45%] shrink-0 truncate text-xs text-foreground font-medium">{f.name}</span>
                           <select
-                            className={`${SELECT_CLS} text-xs py-1`}
+                            className={`${SELECT_CLS} min-w-0 flex-1 text-xs py-1`}
                             value={m?.otcField ?? ""}
                             onChange={(e) => updateMapping(f.name, e.target.value as OtcClientField | "")}
                           >

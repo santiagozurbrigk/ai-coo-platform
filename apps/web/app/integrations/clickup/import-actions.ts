@@ -118,26 +118,15 @@ export type ImportClickUpResult =
   | { success: true; inserted: number; errors: number }
   | { success: false; error: string };
 
-const BUILTIN_FIELD_NAME = "Nombre de tarea";
-
 export async function importClickUpClientsAction(
   apiKey: string,
   listId: string,
-  mapping: FieldMapping[]
+  clientMapping: FieldMapping[]
 ): Promise<ImportClickUpResult> {
   if (!isSupabaseConfigured()) return { success: false, error: "Supabase no configurado." };
 
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
-
-  // Normalize mapping: otcField may arrive as string "null" from serialization
-  const activeMapping = mapping
-    .map((m) => ({ ...m, otcField: m.otcField === null || (m.otcField as unknown) === "null" ? null : m.otcField }))
-    .filter((m) => m.otcField !== null) as (FieldMapping & { otcField: OtcClientField })[];
-
-  if (!activeMapping.some((m) => m.otcField === "name")) {
-    return { success: false, error: "Debes mapear al menos el campo Nombre." };
-  }
 
   let tasks: ClickUpTask[];
   try {
@@ -146,41 +135,64 @@ export async function importClickUpClientsAction(
     return { success: false, error: e instanceof Error ? e.message : "Error al obtener tareas." };
   }
 
+  if (!tasks.length) return { success: false, error: "No se encontraron tareas en la lista." };
+
+  // Re-build auto-mapping server-side so we don't depend on client serialization.
+  // Then override with explicit client choices for custom fields.
+  const customFieldNames = Array.from(
+    new Set(tasks.flatMap((t) => (t.custom_fields ?? []).map((cf) => cf.name).filter(Boolean)))
+  ) as string[];
+
+  const serverAutoMapping = buildAutoMapping([
+    { name: "task_name_builtin", isBuiltin: true },
+    ...customFieldNames.map((n) => ({ name: n, isBuiltin: false })),
+  ]);
+
+  // For custom fields: prefer the client mapping (user may have adjusted it)
+  const effectiveMapping: (FieldMapping & { isBuiltin?: boolean })[] = serverAutoMapping.map((sm) => {
+    if (sm.clickupField === "task_name_builtin") return { ...sm, isBuiltin: true };
+    const override = clientMapping.find((m) => m.clickupField === sm.clickupField);
+    if (override) return { ...override, isBuiltin: false };
+    return { ...sm, isBuiltin: false };
+  });
+
+  const activeMapping = effectiveMapping.filter(
+    (m) => m.otcField !== null && m.otcField !== ("null" as OtcClientField)
+  ) as (FieldMapping & { otcField: OtcClientField; isBuiltin?: boolean })[];
+
   let inserted = 0;
   let skipped = 0;
   let insertErrors = 0;
 
   for (const task of tasks) {
-    const clientRow: Record<string, unknown> = { organization_id: organizationId };
+    // Always use task.name directly — never rely on mapping serialization for this
+    const taskName = (task.name ?? "").trim();
+    if (!taskName) { skipped++; continue; }
 
+    const clientRow: Record<string, unknown> = {
+      organization_id: organizationId,
+      name: taskName,
+    };
+
+    // Apply custom field mappings
     for (const m of activeMapping) {
-      // Resolve raw value: builtin = task.name, custom = find by name in custom_fields
-      const rawValue =
-        m.clickupField === BUILTIN_FIELD_NAME
-          ? (task.name ?? "")
-          : resolveCustomFieldValue(
-              (task.custom_fields ?? []).find((cf) => cf.name === m.clickupField)?.value,
-              (task.custom_fields ?? []).find((cf) => cf.name === m.clickupField)?.type ?? ""
-            );
-
+      if (m.otcField === "name" || m.isBuiltin) continue; // already set above
+      const cf = (task.custom_fields ?? []).find((f) => f.name === m.clickupField);
+      if (!cf) continue;
+      const rawValue = resolveCustomFieldValue(cf.value, cf.type ?? "");
       const coerced = coerceFieldValue(m.otcField, rawValue);
-      if (coerced !== null) {
-        clientRow[m.otcField] = coerced;
-      }
+      if (coerced !== null) clientRow[m.otcField] = coerced;
     }
-
-    const name = clientRow.name as string | undefined;
-    if (!name?.trim()) { skipped++; continue; }
 
     if (!clientRow.join_date) clientRow.join_date = new Date().toISOString().slice(0, 10);
     if (!clientRow.status) clientRow.status = "active";
-    if (!clientRow.total_amount) clientRow.total_amount = 0;
+    if (clientRow.total_amount == null) clientRow.total_amount = 0;
     if (!clientRow.payment_type) clientRow.payment_type = "one_time";
     if (!clientRow.platform) clientRow.platform = "other";
 
     const { error } = await supabase.from("clients").insert(clientRow);
     if (error) {
-      console.error("[clickup import] insert error:", error.message, JSON.stringify(clientRow));
+      console.error("[clickup import] insert error:", error.message, "row:", JSON.stringify(clientRow));
       insertErrors++;
       continue;
     }
