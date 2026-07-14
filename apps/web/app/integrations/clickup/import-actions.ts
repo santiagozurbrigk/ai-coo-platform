@@ -137,6 +137,13 @@ export async function importClickUpClientsAction(
 
   if (!tasks.length) return { success: false, error: "No se encontraron tareas en la lista." };
 
+  // DEBUG TEMPORAL — borrar después
+  const t0 = tasks[0];
+  return {
+    success: false,
+    error: `DEBUG task[0]: name="${t0.name}" | keys=${Object.keys(t0).join(",")} | name_type=${typeof t0.name}`,
+  };
+
   // Re-build auto-mapping server-side so we don't depend on client serialization.
   // Then override with explicit client choices for custom fields.
   const customFieldNames = Array.from(
