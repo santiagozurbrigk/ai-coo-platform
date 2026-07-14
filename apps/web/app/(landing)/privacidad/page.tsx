@@ -157,17 +157,41 @@ export default function PrivacyPolicyPage() {
             </div>
             <div className="border-t border-white/10 pt-4">
               <p className="font-medium text-white/90">YouTube</p>
-              <p className="mt-1">
-                Scope:{" "}
-                <code className="rounded bg-white/10 px-1 text-xs text-violet-300">
-                  youtube.readonly
-                </code>
+              <p className="mt-1 flex flex-wrap gap-1">
+                {[
+                  "youtube.readonly",
+                  "yt-analytics.readonly",
+                  "yt-analytics-monetary.readonly",
+                  "youtube.upload",
+                ].map((s) => (
+                  <code
+                    key={s}
+                    className="rounded bg-white/10 px-1 text-xs text-violet-300"
+                  >
+                    {s}
+                  </code>
+                ))}
+              </p>
+              <p className="mt-2">
+                <span className="text-white/90">youtube.readonly:</span>{" "}
+                sincronizamos tu canal, videos y estadísticas básicas con el
+                módulo de contenido de OTC.
               </p>
               <p className="mt-1">
-                Accedemos a los datos públicos de tu canal (videos, métricas de
-                vistas, estadísticas de canal) para sincronizarlos con el módulo
-                de contenido de OTC. No publicamos, modificamos ni eliminamos
-                videos ni configuraciones del canal.
+                <span className="text-white/90">yt-analytics.readonly y yt-analytics-monetary.readonly:</span>{" "}
+                accedemos a métricas avanzadas de tus videos (retención de
+                audiencia, fuentes de tráfico, demografía e ingresos del canal)
+                para enriquecer el análisis de contenido dentro de OTC.
+              </p>
+              <p className="mt-1">
+                <span className="text-white/90">youtube.upload:</span>{" "}
+                permite subir videos a tu canal directamente desde OTC cuando
+                uses la función de publicación de contenido.
+              </p>
+              <p className="mt-1">
+                OTC no elimina videos, no modifica títulos ni descripciones sin
+                tu acción explícita, y no accede a configuraciones de monetización
+                más allá de las métricas de lectura autorizadas.
               </p>
             </div>
           </div>
