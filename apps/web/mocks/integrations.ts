@@ -55,6 +55,7 @@ export const mockIntegrations: Integration[] = [
     provider: "discord",
     name: "Discord",
     status: "not_connected",
+    hidden: true,
     description:
       "Conectá tu servidor para capturar conversaciones con clientes, detectar testimonios automáticamente y tener visibilidad completa de cada cliente.",
   },
