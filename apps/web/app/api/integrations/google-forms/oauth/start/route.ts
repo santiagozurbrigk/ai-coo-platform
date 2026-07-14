@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { createGooglePkce, getGoogleEnv, googleAuthUrl } from "@/lib/google/oauth";
-import { GOOGLE_UNIFIED_SCOPES } from "@/lib/google/scopes";
+import { GOOGLE_UNIFIED_SCOPES, GOOGLE_FORMS_DRIVE_SCOPES } from "@/lib/google/scopes";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const env = getGoogleEnv();
   const redirectUri = process.env.GOOGLE_FORMS_REDIRECT_URI;
   if (!env || !redirectUri) {
@@ -17,12 +17,15 @@ export async function GET() {
   const state = crypto.randomBytes(18).toString("hex");
   const { codeVerifier, codeChallenge } = createGooglePkce();
 
-  // googleAuthUrl incluye access_type=offline y prompt=consent (fuerza pantalla de permisos)
+  // youtube=0 means the user explicitly opted out of YouTube scopes
+  const includeYoutube = request.nextUrl.searchParams.get("youtube") !== "0";
+  const scopes = includeYoutube ? [...GOOGLE_UNIFIED_SCOPES] : [...GOOGLE_FORMS_DRIVE_SCOPES];
+
   const res = NextResponse.redirect(
     googleAuthUrl({
       clientId: env.clientId,
       redirectUri,
-      scopes: [...GOOGLE_UNIFIED_SCOPES],
+      scopes,
       state,
       codeChallenge,
     })
@@ -30,7 +33,7 @@ export async function GET() {
 
   res.cookies.set(
     "google_forms_oauth",
-    JSON.stringify({ organizationId, state, codeVerifier }),
+    JSON.stringify({ organizationId, state, codeVerifier, includeYoutube }),
     {
       httpOnly: true,
       sameSite: "lax",

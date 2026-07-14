@@ -54,6 +54,7 @@ import { ManyChatManageSheet } from "./manychat-manage-sheet";
 import { ZernioConnectModal } from "./zernio-connect-modal";
 import { ClickUpImportWizard } from "./clickup-import-wizard";
 import { YoutubeApiKeyDialog } from "./youtube-api-key-dialog";
+import { GoogleEcosystemConnectDialog } from "./google-ecosystem-connect-dialog";
 
 const COMING_SOON_LABEL = "Próximamente";
 
@@ -95,6 +96,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const [zernioConnectOpen, setZernioConnectOpen] = useState(false);
   const [clickupImportOpen, setClickupImportOpen] = useState(false);
   const [youtubeApiKeyOpen, setYoutubeApiKeyOpen] = useState(false);
+  const [googleEcosystemOpen, setGoogleEcosystemOpen] = useState(false);
   const [manychatWebhookUrl, setManychatWebhookUrl] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -442,6 +444,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         setYoutubeApiKeyOpen(true);
         return;
       }
+      if (integration.provider === "google_ecosystem") {
+        setGoogleEcosystemOpen(true);
+        return;
+      }
       if (googleProvider) {
         startGoogleOAuth(googleProvider);
         return;
@@ -607,7 +613,14 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                 variant="outline"
                 type="button"
                 disabled={syncing}
-                onClick={() => startGoogleOAuth(googleProvider)}
+                onClick={() => {
+                  setGoogleManageOpen(false);
+                  if (integration.provider === "google_ecosystem") {
+                    setGoogleEcosystemOpen(true);
+                  } else {
+                    startGoogleOAuth(googleProvider);
+                  }
+                }}
               >
                 Reconectar
               </Button>
@@ -703,6 +716,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         open={youtubeApiKeyOpen}
         onOpenChange={setYoutubeApiKeyOpen}
         onConnected={() => setStatus("connected")}
+      />
+      <GoogleEcosystemConnectDialog
+        open={googleEcosystemOpen}
+        onOpenChange={setGoogleEcosystemOpen}
       />
 
       {integration.provider !== "instagram" ? (

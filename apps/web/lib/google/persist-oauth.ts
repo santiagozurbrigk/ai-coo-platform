@@ -13,10 +13,11 @@ function tokenExpiresAt(expiresIn?: number): string | null {
     : null;
 }
 
-/** Guarda tokens en Forms y YouTube (misma conexión Google unificada). */
+/** Guarda tokens en Forms y opcionalmente en YouTube (misma conexión Google unificada). */
 export async function persistUnifiedGoogleTokens(
   organizationId: string,
-  tokens: GoogleTokens
+  tokens: GoogleTokens,
+  includeYoutube = true
 ): Promise<{ formsError?: string; youtubeError?: string }> {
   const admin = createAdminClient();
   const now = new Date().toISOString();
@@ -30,14 +31,17 @@ export async function persistUnifiedGoogleTokens(
     last_sync_at: now,
   };
 
-  const [formsRes, youtubeRes] = await Promise.all([
-    admin.from("google_forms_integrations").upsert(base, {
-      onConflict: "organization_id",
-    }),
-    admin.from("youtube_integrations").upsert(base, {
-      onConflict: "organization_id",
-    }),
-  ]);
+  const formsRes = await admin
+    .from("google_forms_integrations")
+    .upsert(base, { onConflict: "organization_id" });
+
+  if (!includeYoutube) {
+    return { formsError: formsRes.error?.message };
+  }
+
+  const youtubeRes = await admin
+    .from("youtube_integrations")
+    .upsert({ ...base, auth_method: "oauth" }, { onConflict: "organization_id" });
 
   return {
     formsError: formsRes.error?.message,
