@@ -282,7 +282,7 @@ export function DriveAdminView() {
             ) : null}
             {needsReconnect ? (
               <Button asChild size="sm">
-                <a href={GOOGLE_OAUTH_START_URL.youtube}>Reconectar Google con Drive</a>
+                <a href={GOOGLE_OAUTH_START_URL.google_forms}>Reconectar Google con Drive</a>
               </Button>
             ) : null}
           </div>

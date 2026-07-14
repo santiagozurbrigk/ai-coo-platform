@@ -31,10 +31,9 @@ import type { Integration } from "@/types/integrations";
 
 const GOOGLE_INTEGRATION_TABLE: Record<
   GoogleIntegrationProvider,
-  "google_forms_integrations" | "youtube_integrations"
+  "google_forms_integrations"
 > = {
   google_forms: "google_forms_integrations",
-  youtube: "youtube_integrations",
 };
 
 /** Desconecta una integración Google (revoca tokens en DB). */

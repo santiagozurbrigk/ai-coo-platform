@@ -15,6 +15,7 @@ import {
 } from "@/app/integrations/actions";
 import { disconnectDiscordIntegrationAction } from "@/app/discord/actions";
 import { disconnectUnipileIntegrationAction } from "@/app/unipile/actions";
+import { disconnectYoutubeAction } from "@/app/youtube/actions";
 import {
   getCalendlyIntegrationStatusAction,
   pullCalendlyScheduledEventsAction,
@@ -52,6 +53,7 @@ import { IntegrationLogo } from "./integration-logo";
 import { ManyChatManageSheet } from "./manychat-manage-sheet";
 import { ZernioConnectModal } from "./zernio-connect-modal";
 import { ClickUpImportWizard } from "./clickup-import-wizard";
+import { YoutubeApiKeyDialog } from "./youtube-api-key-dialog";
 
 const COMING_SOON_LABEL = "Próximamente";
 
@@ -92,6 +94,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const [instagramManageOpen, setInstagramManageOpen] = useState(false);
   const [zernioConnectOpen, setZernioConnectOpen] = useState(false);
   const [clickupImportOpen, setClickupImportOpen] = useState(false);
+  const [youtubeApiKeyOpen, setYoutubeApiKeyOpen] = useState(false);
   const [manychatWebhookUrl, setManychatWebhookUrl] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -199,6 +202,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       typeform: disconnectTypeformAction,
       discord: disconnectDiscordIntegrationAction,
       zernio: disconnectZernioAction,
+      youtube: disconnectYoutubeAction,
     };
 
     const unipileProvider = unipileProviderFromIntegration(integration.provider);
@@ -434,6 +438,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         window.location.href = INSTAGRAM_CONNECT_URL;
         return;
       }
+      if (integration.provider === "youtube") {
+        setYoutubeApiKeyOpen(true);
+        return;
+      }
       if (googleProvider) {
         startGoogleOAuth(googleProvider);
         return;
@@ -459,6 +467,11 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       return;
     }
 
+    if (integration.provider === "youtube" && status === "connected") {
+      setYoutubeApiKeyOpen(true);
+      return;
+    }
+
     handleManage();
   };
 
@@ -477,7 +490,8 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       integration.provider === "calendly" ||
       integration.provider === "typeform" ||
       integration.provider === "discord" ||
-      integration.provider === "zernio");
+      integration.provider === "zernio" ||
+      integration.provider === "youtube");
 
   const description =
     integration.description ??
@@ -684,6 +698,12 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
           </DialogContent>
         </Dialog>
       ) : null}
+
+      <YoutubeApiKeyDialog
+        open={youtubeApiKeyOpen}
+        onOpenChange={setYoutubeApiKeyOpen}
+        onConnected={() => setStatus("connected")}
+      />
 
       {integration.provider !== "instagram" ? (
         <Dialog open={connectOpen} onOpenChange={setConnectOpen}>

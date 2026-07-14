@@ -4,13 +4,42 @@ import {
   youtubeMetricsToAssetFields,
 } from "@/lib/youtube/video-metrics";
 
+type YouTubeAuth =
+  | { type: "oauth"; accessToken: string }
+  | { type: "api_key"; apiKey: string; channelId: string };
+
+function buildYouTubeUrl(path: string, params: Record<string, string>, auth: YouTubeAuth): string {
+  const url = new URL(`https://www.googleapis.com/youtube/v3/${path}`);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  if (auth.type === "api_key") url.searchParams.set("key", auth.apiKey);
+  return url.toString();
+}
+
+function authHeaders(auth: YouTubeAuth): HeadersInit {
+  if (auth.type === "oauth") return { Authorization: `Bearer ${auth.accessToken}` };
+  return {};
+}
+
 export async function syncYoutubeChannelAndVideos(
   organizationId: string,
-  accessToken: string
+  accessTokenOrAuth: string | YouTubeAuth
 ): Promise<void> {
+  // Backwards-compat: string = OAuth access token
+  const auth: YouTubeAuth =
+    typeof accessTokenOrAuth === "string"
+      ? { type: "oauth", accessToken: accessTokenOrAuth }
+      : accessTokenOrAuth;
+
+  const channelParams: Record<string, string> = { part: "snippet,statistics" };
+  if (auth.type === "oauth") {
+    channelParams.mine = "true";
+  } else {
+    channelParams.id = auth.channelId;
+  }
+
   const channelRes = await fetch(
-    "https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true",
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+    buildYouTubeUrl("channels", channelParams, auth),
+    { headers: authHeaders(auth) }
   );
   const channelData = (await channelRes.json()) as {
     items?: {
@@ -49,8 +78,12 @@ export async function syncYoutubeChannelAndVideos(
   if (!channel?.id) return;
 
   const searchRes = await fetch(
-    `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channel.id}&maxResults=25&order=date&type=video`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+    buildYouTubeUrl(
+      "search",
+      { part: "snippet", channelId: channel.id, maxResults: "25", order: "date", type: "video" },
+      auth
+    ),
+    { headers: authHeaders(auth) }
   );
   const searchData = (await searchRes.json()) as {
     items?: {
@@ -69,7 +102,11 @@ export async function syncYoutubeChannelAndVideos(
     .map((item) => item.id?.videoId)
     .filter((id): id is string => Boolean(id));
 
-  const videoDetails = await fetchYouTubeVideoDetails(videoIds, accessToken);
+  const videoDetails = await fetchYouTubeVideoDetails(
+    videoIds,
+    auth.type === "oauth" ? auth.accessToken : undefined,
+    auth.type === "api_key" ? auth.apiKey : undefined
+  );
   const now = new Date().toISOString();
 
   for (const item of searchItems) {
