@@ -340,7 +340,7 @@ export function ClickUpImportWizard({ open, onOpenChange }: ClickUpImportWizardP
                   </p>
                   {resultErrors > 0 && (
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {resultErrors} fila{resultErrors !== 1 ? "s" : ""} omitida{resultErrors !== 1 ? "s" : ""} (sin nombre).
+                      {resultErrors} fila{resultErrors !== 1 ? "s" : ""} omitida{resultErrors !== 1 ? "s" : ""}.
                     </p>
                   )}
                 </div>

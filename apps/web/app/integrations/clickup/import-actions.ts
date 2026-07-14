@@ -189,7 +189,7 @@ export async function importClickUpClientsAction(
     if (!clientRow.join_date) clientRow.join_date = new Date().toISOString().slice(0, 10);
     if (!clientRow.status) clientRow.status = "active";
     if (clientRow.total_amount == null) clientRow.total_amount = 0;
-    if (!clientRow.payment_type) clientRow.payment_type = "one_time";
+    if (!clientRow.payment_type) clientRow.payment_type = "upfront";
     if (!clientRow.platform) clientRow.platform = "other";
 
     const { error } = await supabase.from("clients").insert(clientRow);
@@ -220,6 +220,27 @@ function coerceFieldValue(field: OtcClientField, raw: string): unknown {
     case "join_date": {
       const d = new Date(trimmed);
       return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+    }
+    case "payment_type": {
+      const pt = trimmed.toLowerCase();
+      if (/instal|cuota|mensual|quota/i.test(pt)) return "installments";
+      if (/anticipo.*cuota|upfront.*fee|cuota.*anticipo/i.test(pt)) return "upfront_fee";
+      return "upfront";
+    }
+    case "status": {
+      const st = trimmed.toLowerCase();
+      if (/activ/i.test(st)) return "active";
+      if (/inactiv|pausad/i.test(st)) return "pending_onboarding";
+      if (/exit|success/i.test(st)) return "success_case";
+      return "active";
+    }
+    case "platform": {
+      const pl = trimmed.toLowerCase();
+      if (/mercado|mp\b/i.test(pl)) return "mercadopago";
+      if (/stripe/i.test(pl)) return "stripe";
+      if (/paypal/i.test(pl)) return "paypal";
+      if (/transfer|banco|bank/i.test(pl)) return "bank_transfer";
+      return "other";
     }
     default:
       return trimmed;
