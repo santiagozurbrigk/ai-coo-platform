@@ -5,35 +5,19 @@ import { LayoutGrid, List, Search } from "lucide-react";
 import { Input, StaggerFade, StaggerFadeItem, cn } from "@ai-coo/ui";
 import type {
   ContextDocument,
+  CustomCategory,
   DocumentCategory,
   FathomKnowledgeCall,
 } from "@/types/business-context";
+import { DOCUMENT_CATEGORY_LABELS } from "@/lib/business-context/constants";
 import { DocumentCard } from "./document-card";
 import { FathomClientCallCard } from "./fathom-client-call-card";
 import { FathomContextCallCard } from "./fathom-context-call-card";
 import { KnowledgeBaseEmptyState } from "./knowledge-base-empty-state";
 
-type CategoryFilter = DocumentCategory | "all";
+type CategoryFilter = string; // "all" | builtin slug | custom slug
 type SortOption = "newest" | "oldest" | "category";
 type ViewMode = "grid" | "list";
-
-const CATEGORY_KEYS: CategoryFilter[] = [
-  "all",
-  "meetings",
-  "frameworks",
-  "training",
-  "sales",
-  "operations",
-];
-
-const CATEGORY_LABELS: Record<CategoryFilter, string> = {
-  all: "Todas",
-  meetings: "Reuniones",
-  frameworks: "Frameworks",
-  training: "Training",
-  sales: "Ventas",
-  operations: "Operaciones",
-};
 
 const tabClass =
   "rounded-full border px-3 py-1 text-xs font-medium transition-colors";
@@ -42,27 +26,39 @@ export function DocumentGrid({
   documents,
   contextCalls = [],
   clientMeetingCalls = [],
+  customCategories = [],
 }: {
   documents: ContextDocument[];
   contextCalls?: FathomKnowledgeCall[];
   clientMeetingCalls?: FathomKnowledgeCall[];
+  customCategories?: CustomCategory[];
 }) {
   const [filter, setFilter] = useState<CategoryFilter>("all");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("newest");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
-  const categoryCounts = useMemo(() => {
-    const counts: Record<CategoryFilter, number> = {
-      all: documents.length,
-      meetings: 0,
-      frameworks: 0,
-      training: 0,
-      sales: 0,
-      operations: 0,
+  // Build a label map that covers built-ins + custom categories
+  const categoryLabelMap = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {
+      all: "Todas",
+      ...(DOCUMENT_CATEGORY_LABELS as Record<string, string>),
     };
+    for (const cat of customCategories) map[cat.slug] = cat.name;
+    return map;
+  }, [customCategories]);
+
+  // Build the ordered filter keys: all → builtins → custom
+  const categoryKeys = useMemo<CategoryFilter[]>(() => {
+    const builtins = Object.keys(DOCUMENT_CATEGORY_LABELS) as CategoryFilter[];
+    const customSlugs = customCategories.map((c) => c.slug);
+    return ["all", ...builtins, ...customSlugs];
+  }, [customCategories]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: documents.length };
     for (const doc of documents) {
-      if (doc.category in counts) counts[doc.category]++;
+      counts[doc.category] = (counts[doc.category] ?? 0) + 1;
     }
     return counts;
   }, [documents]);
@@ -156,14 +152,15 @@ export function DocumentGrid({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {CATEGORY_KEYS.map((key) => {
+        {categoryKeys.map((key) => {
           const count = categoryCounts[key];
+          const rawLabel = categoryLabelMap[key] ?? key;
           const label =
             key === "all"
               ? `Todas (${count})`
               : count > 0
-                ? `${CATEGORY_LABELS[key]} (${count})`
-                : CATEGORY_LABELS[key];
+                ? `${rawLabel} (${count})`
+                : rawLabel;
           return (
             <button
               key={key}

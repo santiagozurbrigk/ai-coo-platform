@@ -1,9 +1,21 @@
-export type DocumentCategory =
+/** Built-in category slugs (always available, never stored in DB). */
+export type BuiltinDocumentCategory =
   | "meetings"
   | "frameworks"
   | "training"
   | "sales"
   | "operations";
+
+/** Category slug — built-in or a custom slug created by the org. */
+export type DocumentCategory = BuiltinDocumentCategory | (string & {});
+
+export type CustomCategory = {
+  id: string;
+  organization_id: string;
+  name: string;
+  slug: string;
+  created_at: string;
+};
 
 /** Filtros de la base de conocimiento (documentos + Fathom). */
 export type KnowledgeBaseFilter =
