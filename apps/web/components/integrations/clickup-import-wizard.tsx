@@ -23,6 +23,7 @@ import {
 import type { ClickUpWorkspace, ClickUpList } from "@/lib/clickup/client";
 import { OTC_FIELDS, type FieldMapping, type OtcClientField } from "@/lib/clickup/field-mapper";
 import { useToast } from "@/providers/toast-provider";
+import { usePlatformData } from "@/providers";
 
 type Step = "key" | "list" | "mapping" | "result";
 
@@ -37,6 +38,7 @@ const SELECT_CLS =
 export function ClickUpImportWizard({ open, onOpenChange }: ClickUpImportWizardProps) {
   const router = useRouter();
   const { push } = useToast();
+  const { refreshClients } = usePlatformData();
   const [isPending, startTransition] = useTransition();
 
   const [step, setStep] = useState<Step>("key");
@@ -147,6 +149,7 @@ export function ClickUpImportWizard({ open, onOpenChange }: ClickUpImportWizardP
       setResultInserted(res.inserted);
       setResultErrors(res.errors);
       setStep("result");
+      await refreshClients();
       router.refresh();
     });
   };
