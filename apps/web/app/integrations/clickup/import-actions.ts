@@ -118,6 +118,8 @@ export type ImportClickUpResult =
   | { success: true; inserted: number; errors: number }
   | { success: false; error: string };
 
+const BUILTIN_FIELD_NAME = "Nombre de tarea";
+
 export async function importClickUpClientsAction(
   apiKey: string,
   listId: string,
@@ -128,7 +130,11 @@ export async function importClickUpClientsAction(
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
-  const activeMapping = mapping.filter((m) => m.otcField !== null);
+  // Normalize mapping: otcField may arrive as string "null" from serialization
+  const activeMapping = mapping
+    .map((m) => ({ ...m, otcField: m.otcField === null || (m.otcField as unknown) === "null" ? null : m.otcField }))
+    .filter((m) => m.otcField !== null) as (FieldMapping & { otcField: OtcClientField })[];
+
   if (!activeMapping.some((m) => m.otcField === "name")) {
     return { success: false, error: "Debes mapear al menos el campo Nombre." };
   }
@@ -140,30 +146,31 @@ export async function importClickUpClientsAction(
     return { success: false, error: e instanceof Error ? e.message : "Error al obtener tareas." };
   }
 
-  const allFields: ClickUpFieldSource[] = [
-    { name: "Nombre de tarea", isBuiltin: true },
-    ...Array.from(new Set(tasks.flatMap((t) => (t.custom_fields ?? []).map((cf) => cf.name)))).map((n) => ({ name: n })),
-  ];
-
   let inserted = 0;
-  let errors = 0;
+  let skipped = 0;
+  let insertErrors = 0;
 
   for (const task of tasks) {
-    const rawRow = extractRowValues(task, allFields);
-
     const clientRow: Record<string, unknown> = { organization_id: organizationId };
 
     for (const m of activeMapping) {
-      if (!m.otcField) continue;
-      const raw = rawRow[m.clickupField] ?? "";
-      const coerced = coerceFieldValue(m.otcField, raw);
+      // Resolve raw value: builtin = task.name, custom = find by name in custom_fields
+      const rawValue =
+        m.clickupField === BUILTIN_FIELD_NAME
+          ? (task.name ?? "")
+          : resolveCustomFieldValue(
+              (task.custom_fields ?? []).find((cf) => cf.name === m.clickupField)?.value,
+              (task.custom_fields ?? []).find((cf) => cf.name === m.clickupField)?.type ?? ""
+            );
+
+      const coerced = coerceFieldValue(m.otcField, rawValue);
       if (coerced !== null) {
         clientRow[m.otcField] = coerced;
       }
     }
 
     const name = clientRow.name as string | undefined;
-    if (!name?.trim()) { errors++; continue; }
+    if (!name?.trim()) { skipped++; continue; }
 
     if (!clientRow.join_date) clientRow.join_date = new Date().toISOString().slice(0, 10);
     if (!clientRow.status) clientRow.status = "active";
@@ -172,11 +179,15 @@ export async function importClickUpClientsAction(
     if (!clientRow.platform) clientRow.platform = "other";
 
     const { error } = await supabase.from("clients").insert(clientRow);
-    if (error) { errors++; continue; }
+    if (error) {
+      console.error("[clickup import] insert error:", error.message, JSON.stringify(clientRow));
+      insertErrors++;
+      continue;
+    }
     inserted++;
   }
 
-  return { success: true, inserted, errors };
+  return { success: true, inserted, errors: skipped + insertErrors };
 }
 
 function coerceFieldValue(field: OtcClientField, raw: string): unknown {
