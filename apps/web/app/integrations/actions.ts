@@ -243,7 +243,6 @@ const HIDDEN_INTEGRATION_PROVIDERS = new Set([
   "unipile_instagram",
   "instagram",
   "unipile_whatsapp",
-  "youtube",
   "google_forms",
 ]);
 

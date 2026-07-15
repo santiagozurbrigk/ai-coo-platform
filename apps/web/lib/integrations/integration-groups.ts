@@ -16,7 +16,7 @@ export const INTEGRATION_GROUPS: IntegrationGroup[] = [
   },
   {
     label: "Contenido y marketing",
-    integrations: ["google_ecosystem", "fathom"],
+    integrations: ["google_ecosystem", "youtube", "fathom"],
   },
   {
     label: "Formularios y datos",
@@ -38,14 +38,14 @@ export const INTEGRATION_DESCRIPTIONS: Partial<
   zernio:
     "Conecta tu cuenta de Zernio para sincronizar mensajes de Instagram Direct y WhatsApp en un solo inbox.",
   google_ecosystem:
-    "YouTube, Google Drive y Google Forms conectados con una sola cuenta OAuth.",
+    "Google Drive y Google Forms (+ YouTube si usás la misma cuenta Google) conectados con OAuth.",
   manychat:
     "Conecta con tu API key. Los mensajes nuevos llegan vía External Request.",
   calendly:
     "Importa llamadas de cierre. Sin plan Standard, sincronizá manualmente.",
   instagram:
     "Visualizá el rendimiento de tu contenido y su impacto en ventas.",
-  youtube: "Conectá tu canal para métricas de contenido y etiquetado IA.",
+  youtube: "Canal de YouTube en otra cuenta de Google. Conectá con tu API key de YouTube Data.",
   fathom: "Reuniones y transcripciones con tu API key de Fathom.",
   typeform: "Formularios, respuestas y lead scoring.",
   google_forms:
