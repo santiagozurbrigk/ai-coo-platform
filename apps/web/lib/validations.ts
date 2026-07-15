@@ -27,7 +27,7 @@ export const apiKeySchema = z
   .string()
   .min(10, "API key demasiado corta")
   .max(256, "API key demasiado larga")
-  .regex(/^[a-zA-Z0-9_\-\.]+$/, "La API key contiene caracteres no válidos");
+  .regex(/^[a-zA-Z0-9_\-\.:]+$/, "La API key contiene caracteres no válidos");
 
 export const moneySchema = z
   .number()
