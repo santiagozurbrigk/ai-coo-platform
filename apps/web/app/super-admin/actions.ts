@@ -31,6 +31,9 @@ import {
   setOrganizationStatusSchema,
   updateOrganizationMrrSchema,
 } from "@/lib/validations";
+import { requireOrganizationId } from "@/lib/auth/bootstrap";
+import { getGoogleAccessTokenForOrganization } from "@/lib/google/get-access-token";
+import { resolveBrainFileMimeType, isAllowedBrainFile as validateBrainFile } from "@/lib/ai-brain/file-types";
 import type { z } from "zod";
 import type { BrainContentType } from "@/types/ai-brain";
 import type { CreateFounderResult } from "@/types/super-admin";
@@ -585,6 +588,105 @@ export async function getAiBrainSignedUrlAction(
       throw new Error(error?.message ?? "No se pudo generar el enlace");
     }
     return { url: data.signedUrl };
+  });
+}
+
+/**
+ * Descarga un archivo de Google Drive del super-admin y lo sube al bucket ai-brain-documents.
+ * Retorna storagePath, fileName, fileSize y mimeType listos para createAiBrainDocumentAction.
+ */
+export async function importDriveFileForBrainAction(input: {
+  fileId: string;
+  fileName: string;
+  mimeType: string;
+  fileSize?: number;
+}): Promise<
+  MutationResult<{
+    storagePath: string;
+    fileName: string;
+    fileSizeBytes: number;
+    mimeType: string;
+  }>
+> {
+  await requireSuperAdmin();
+
+  return runMutation(async () => {
+    // Resolve Google access token from the super-admin's own org
+    const organizationId = await requireOrganizationId();
+    const accessToken = await getGoogleAccessTokenForOrganization(organizationId);
+    if (!accessToken) {
+      throw new Error(
+        "No hay conexión con Google Drive. Conectá el Ecosistema Google desde Integraciones."
+      );
+    }
+
+    // Resolve MIME type — Google Docs/Sheets need export
+    let dlUrl: string;
+    let resolvedMime = input.mimeType;
+
+    const EXPORT_MAP: Record<string, string> = {
+      "application/vnd.google-apps.document":
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.google-apps.spreadsheet":
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    };
+
+    if (EXPORT_MAP[input.mimeType]) {
+      resolvedMime = EXPORT_MAP[input.mimeType];
+      dlUrl = `https://www.googleapis.com/drive/v3/files/${input.fileId}/export?mimeType=${encodeURIComponent(resolvedMime)}`;
+    } else {
+      dlUrl = `https://www.googleapis.com/drive/v3/files/${input.fileId}?alt=media`;
+    }
+
+    // Resolve filename extension
+    const EXT_MAP: Record<string, string> = {
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+      "application/pdf": ".pdf",
+      "text/plain": ".txt",
+      "text/markdown": ".md",
+    };
+    let fileName = input.fileName;
+    const hasExt = /\.\w+$/.test(fileName);
+    if (!hasExt && EXT_MAP[resolvedMime]) {
+      fileName = fileName + EXT_MAP[resolvedMime];
+    }
+
+    // Validate file type
+    const allowed = validateBrainFile(fileName, resolvedMime, input.fileSize);
+    if (!allowed.ok) throw new Error(allowed.error);
+
+    // Download from Drive
+    const dlRes = await fetch(dlUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!dlRes.ok) {
+      throw new Error(
+        `Error al descargar el archivo de Drive (${dlRes.status}). Verificá los permisos.`
+      );
+    }
+
+    const buffer = await dlRes.arrayBuffer();
+    const fileSizeBytes = buffer.byteLength;
+
+    // Upload to ai-brain-documents bucket
+    const admin = createAdminClient();
+    const docId = crypto.randomUUID();
+    const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const storagePath = `${docId}-${safeName}`;
+
+    const { error: uploadError } = await admin.storage
+      .from(AI_BRAIN_BUCKET)
+      .upload(storagePath, buffer, {
+        contentType: resolvedMime,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new Error(`Error al subir al bucket: ${uploadError.message}`);
+    }
+
+    return { storagePath, fileName, fileSizeBytes, mimeType: resolvedMime };
   });
 }
 

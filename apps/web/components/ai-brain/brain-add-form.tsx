@@ -3,12 +3,13 @@
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Upload, Layout, CheckCircle2 } from "lucide-react";
+import { Upload, Layout, CheckCircle2, HardDrive } from "lucide-react";
 import { Button, GlassPanel, cn } from "@ai-coo/ui";
 import { paths } from "@/routes";
 import {
   createAiBrainDocumentAction,
   prepareAiBrainFileUploadAction,
+  importDriveFileForBrainAction,
 } from "@/app/super-admin/actions";
 import {
   AI_BRAIN_ACCEPT,
@@ -16,6 +17,7 @@ import {
   isAllowedBrainFile,
 } from "@/lib/ai-brain/file-types";
 import type { BrainCategory, BrainContentType } from "@/types/ai-brain";
+import { DriveFilePicker } from "@/components/marketing/drive-file-picker";
 
 const CONTENT_TYPES: { key: BrainContentType; label: string }[] = [
   { key: "document", label: "Documento" },
@@ -47,12 +49,23 @@ const COVERAGE_OPTIONS = [
   "financial_planning",
 ];
 
+type FileSource = "local" | "drive";
+
+type DriveSelection = {
+  id: string;
+  name: string;
+  mimeType?: string;
+  size?: number;
+};
+
 export function BrainAddForm() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [contentType, setContentType] = useState<BrainContentType>("document");
+  const [fileSource, setFileSource] = useState<FileSource>("local");
   const [dragOver, setDragOver] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [driveFile, setDriveFile] = useState<DriveSelection | null>(null);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<BrainCategory>("general");
   const [tags, setTags] = useState("");
@@ -92,33 +105,53 @@ export function BrainAddForm() {
     startTransition(async () => {
       let storagePath: string | undefined;
       let fileMimeType: string | undefined;
+      let resolvedFileName: string | undefined;
+      let resolvedFileSize: number | undefined;
 
-      if (file && file.size > 0) {
-        const prep = await prepareAiBrainFileUploadAction({
-          fileName: file.name,
-          fileSize: file.size,
-          mimeType: file.type,
-        });
-        if (!prep.success) {
-          setError(prep.error);
-          return;
+      if (showDropzone) {
+        if (fileSource === "drive" && driveFile) {
+          // Import from Google Drive
+          const res = await importDriveFileForBrainAction({
+            fileId: driveFile.id,
+            fileName: driveFile.name,
+            mimeType: driveFile.mimeType ?? "application/octet-stream",
+            fileSize: driveFile.size,
+          });
+          if (!res.success) {
+            setError(res.error);
+            return;
+          }
+          storagePath = res.data.storagePath;
+          fileMimeType = res.data.mimeType;
+          resolvedFileName = res.data.fileName;
+          resolvedFileSize = res.data.fileSizeBytes;
+        } else if (fileSource === "local" && file && file.size > 0) {
+          // Upload local file
+          const prep = await prepareAiBrainFileUploadAction({
+            fileName: file.name,
+            fileSize: file.size,
+            mimeType: file.type,
+          });
+          if (!prep.success) {
+            setError(prep.error);
+            return;
+          }
+          const uploadRes = await fetch(prep.data.signedUrl, {
+            method: "PUT",
+            headers: { "Content-Type": prep.data.contentType },
+            body: file,
+          });
+          if (!uploadRes.ok) {
+            setError(
+              `Error al subir el archivo (${uploadRes.status}). Revisá el bucket en Supabase Storage.`
+            );
+            return;
+          }
+          storagePath = prep.data.storagePath;
+          fileMimeType = prep.data.contentType;
+          resolvedFileName = file.name;
+          resolvedFileSize = file.size;
         }
-
-        const uploadRes = await fetch(prep.data.signedUrl, {
-          method: "PUT",
-          headers: { "Content-Type": prep.data.contentType },
-          body: file,
-        });
-
-        if (!uploadRes.ok) {
-          setError(
-            `Error al subir el archivo (${uploadRes.status}). Revisá el bucket en Supabase Storage.`
-          );
-          return;
-        }
-
-        storagePath = prep.data.storagePath;
-        fileMimeType = prep.data.contentType;
       }
 
       const res = await createAiBrainDocumentAction({
@@ -130,8 +163,8 @@ export function BrainAddForm() {
         coverageAreas: coverage.join(","),
         miroUrl: miroUrl.trim() || undefined,
         storagePath,
-        fileName: file?.name,
-        fileSizeBytes: file?.size,
+        fileName: resolvedFileName ?? file?.name,
+        fileSizeBytes: resolvedFileSize ?? file?.size,
         fileMimeType,
       });
 
@@ -173,6 +206,7 @@ export function BrainAddForm() {
               onClick={() => {
                 setContentType(key);
                 setFile(null);
+                setDriveFile(null);
               }}
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
@@ -188,52 +222,116 @@ export function BrainAddForm() {
       </div>
 
       {showDropzone && (
-        <div
-          className={cn(
-            "flex min-h-[200px] flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-colors",
-            dragOver
-              ? "border-primary bg-primary/5"
-              : "border-border/60 bg-muted/10",
-            pending && "pointer-events-none opacity-70"
+        <div className="space-y-3">
+          {/* Source selector */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setFileSource("local"); setDriveFile(null); }}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                fileSource === "local"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Desde mi PC
+            </button>
+            <button
+              type="button"
+              onClick={() => { setFileSource("drive"); setFile(null); }}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                fileSource === "drive"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <HardDrive className="h-3.5 w-3.5" />
+              Desde Google Drive
+            </button>
+          </div>
+
+          {fileSource === "local" && (
+            <div
+              className={cn(
+                "flex min-h-[200px] flex-col items-center justify-center rounded-xl border-2 border-dashed p-8 text-center transition-colors",
+                dragOver
+                  ? "border-primary bg-primary/5"
+                  : "border-border/60 bg-muted/10",
+                pending && "pointer-events-none opacity-70"
+              )}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const f = e.dataTransfer.files[0];
+                if (f) onFileSelected(f);
+              }}
+              onClick={() => fileRef.current?.click()}
+              role="button"
+              tabIndex={0}
+            >
+              <input
+                ref={fileRef}
+                type="file"
+                className="hidden"
+                accept={AI_BRAIN_ACCEPT}
+                onChange={(e) => onFileSelected(e.target.files?.[0] ?? null)}
+              />
+              {file ? (
+                <>
+                  <CheckCircle2 className="mb-3 h-10 w-10 text-emerald-500" />
+                  <p className="font-medium">{file.name}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {(file.size / 1024).toFixed(1)} KB
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Upload className="mb-3 h-10 w-10 text-muted-foreground" />
+                  <p className="font-medium">Arrastra archivos aquí</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {AI_BRAIN_FORMATS_LABEL}
+                  </p>
+                </>
+              )}
+            </div>
           )}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            const f = e.dataTransfer.files[0];
-            if (f) onFileSelected(f);
-          }}
-          onClick={() => fileRef.current?.click()}
-          role="button"
-          tabIndex={0}
-        >
-          <input
-            ref={fileRef}
-            type="file"
-            className="hidden"
-            accept={AI_BRAIN_ACCEPT}
-            onChange={(e) => onFileSelected(e.target.files?.[0] ?? null)}
-          />
-          {file ? (
-            <>
-              <CheckCircle2 className="mb-3 h-10 w-10 text-emerald-500" />
-              <p className="font-medium">{file.name}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {(file.size / 1024).toFixed(1)} KB
-              </p>
-            </>
-          ) : (
-            <>
-              <Upload className="mb-3 h-10 w-10 text-muted-foreground" />
-              <p className="font-medium">Arrastra archivos aquí</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {AI_BRAIN_FORMATS_LABEL}
-              </p>
-            </>
+
+          {fileSource === "drive" && (
+            driveFile ? (
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{driveFile.name}</p>
+                  {driveFile.size && (
+                    <p className="text-xs text-muted-foreground">
+                      {(driveFile.size / 1024).toFixed(1)} KB
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDriveFile(null)}
+                  className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Cambiar
+                </button>
+              </div>
+            ) : (
+              <DriveFilePicker
+                onSelect={(f) => {
+                  setDriveFile({ id: f.id, name: f.name });
+                  if (!title) setTitle(f.name.replace(/\.[^.]+$/, ""));
+                }}
+              />
+            )
           )}
         </div>
       )}
@@ -327,6 +425,9 @@ export function BrainAddForm() {
           placeholder="https://miro.com/app/board/…"
           className="h-9 w-full rounded-lg border border-border/60 bg-muted/20 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
         />
+        <p className="text-xs text-muted-foreground">
+          Solo guarda el link del tablero — el contenido no se indexa en Phase 1.
+        </p>
       </GlassPanel>
 
       <div className="flex flex-wrap gap-3">
