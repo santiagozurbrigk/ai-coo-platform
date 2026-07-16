@@ -26,6 +26,7 @@ export default async function AiBrainDocumentPage({ params }: Props) {
       fileName={row.file_name}
       sourceUrl={row.source_url}
       imagePreviewUrl={imagePreviewUrl}
+      contentText={row.content_text}
     />
   );
 }

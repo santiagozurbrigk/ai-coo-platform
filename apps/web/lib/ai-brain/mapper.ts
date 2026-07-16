@@ -24,6 +24,7 @@ export type AiBrainDocumentRow = {
   status: string;
   uploaded_by: string | null;
   coverage_areas: string[] | null;
+  content_text: string | null;
   created_at: string;
   updated_at: string;
 };

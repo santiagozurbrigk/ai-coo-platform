@@ -33,6 +33,7 @@ import {
 } from "@/lib/validations";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { getGoogleAccessTokenForOrganization } from "@/lib/google/get-access-token";
+import { processAiBrainDocument } from "@/lib/ai-brain/process-document";
 import { resolveBrainFileMimeType, isAllowedBrainFile as validateBrainFile } from "@/lib/ai-brain/file-types";
 import type { z } from "zod";
 import type { BrainContentType } from "@/types/ai-brain";
@@ -588,6 +589,18 @@ export async function getAiBrainSignedUrlAction(
       throw new Error(error?.message ?? "No se pudo generar el enlace");
     }
     return { url: data.signedUrl };
+  });
+}
+
+export async function processAiBrainDocumentAction(
+  documentId: string
+): Promise<MutationResult<{ charCount: number }>> {
+  return runMutation(async () => {
+    await requireSuperAdmin();
+    const result = await processAiBrainDocument(documentId);
+    if (!result.ok) throw new Error(result.error);
+    revalidatePath(paths.superAdmin.aiBrain.document(documentId));
+    return { charCount: result.charCount };
   });
 }
 
