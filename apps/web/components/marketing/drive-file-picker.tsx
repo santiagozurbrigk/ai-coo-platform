@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { CheckCircle2 } from "lucide-react";
 import { Button, Input, cn } from "@ai-coo/ui";
 import { DriveMimeIcon } from "@/components/marketing/marketing-icons";
 import {
@@ -11,8 +12,12 @@ import {
 import { GOOGLE_OAUTH_START_URL } from "@/lib/google/oauth-paths";
 import { paths } from "@/routes";
 
+type SelectionFile = { id: string; name: string; url: string };
+
 type Props = {
-  onSelect: (file: { id: string; name: string; url: string }) => void;
+  onSelect: (file: SelectionFile) => void;
+  onSelectMultiple?: (files: SelectionFile[]) => void;
+  multiSelect?: boolean;
   onClose?: () => void;
   mimeTypeFilter?: string;
   className?: string;
@@ -30,6 +35,8 @@ function driveFileUrl(file: DriveFileListItem): string {
 
 export function DriveFilePicker({
   onSelect,
+  onSelectMultiple,
+  multiSelect = false,
   onClose,
   mimeTypeFilter,
   className,
@@ -44,6 +51,7 @@ export function DriveFilePicker({
     []
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const loadFiles = useCallback(
     async (folderId?: string, query?: string) => {
@@ -85,12 +93,14 @@ export function DriveFilePicker({
   const navigateToFolder = async (folderId: string, folderName: string) => {
     setCurrentFolderId(folderId);
     setBreadcrumb((prev) => [...prev, { id: folderId, name: folderName }]);
+    setSelected(new Set());
     await loadFiles(folderId);
   };
 
   const navigateToRoot = async () => {
     setBreadcrumb([]);
     setCurrentFolderId(undefined);
+    setSelected(new Set());
     await loadFiles(undefined);
   };
 
@@ -99,15 +109,32 @@ export function DriveFilePicker({
     const target = newBreadcrumb[index];
     setBreadcrumb(newBreadcrumb);
     setCurrentFolderId(target?.id);
+    setSelected(new Set());
     await loadFiles(target?.id);
   };
 
-  const handleSelect = (file: DriveFileListItem) => {
-    onSelect({
-      id: file.id,
-      name: file.name,
-      url: driveFileUrl(file),
+  const toggleSelect = (file: DriveFileListItem) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(file.id)) {
+        next.delete(file.id);
+      } else {
+        next.add(file.id);
+      }
+      return next;
     });
+  };
+
+  const handleConfirmMultiple = () => {
+    const picked = files
+      .filter((f) => selected.has(f.id) && !isFolder(f.mimeType))
+      .map((f) => ({ id: f.id, name: f.name, url: driveFileUrl(f) }));
+    if (picked.length === 0) return;
+    onSelectMultiple?.(picked);
+  };
+
+  const handleSingleSelect = (file: DriveFileListItem) => {
+    onSelect({ id: file.id, name: file.name, url: driveFileUrl(file) });
   };
 
   return (
@@ -193,55 +220,99 @@ export function DriveFilePicker({
         ) : null}
 
         {!loading && !error
-          ? files.map((file) => (
-              <div
-                key={file.id}
-                role="button"
-                tabIndex={0}
-                className="flex cursor-pointer items-center gap-3 border-b px-3 py-2 last:border-0 hover:bg-accent"
-                onClick={() => {
-                  if (isFolder(file.mimeType)) {
-                    void navigateToFolder(file.id, file.name);
-                  } else {
-                    handleSelect(file);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter" && e.key !== " ") return;
-                  e.preventDefault();
-                  if (isFolder(file.mimeType)) {
-                    void navigateToFolder(file.id, file.name);
-                  } else {
-                    handleSelect(file);
-                  }
-                }}
-              >
-                <DriveMimeIcon mimeType={file.mimeType} size={20} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(file.modifiedTime).toLocaleDateString("es-AR")}
-                    {file.size
-                      ? ` · ${(Number.parseInt(file.size, 10) / 1024 / 1024).toFixed(1)} MB`
-                      : null}
-                  </p>
+          ? files.map((file) => {
+              const folder = isFolder(file.mimeType);
+              const isChecked = selected.has(file.id);
+              return (
+                <div
+                  key={file.id}
+                  role={multiSelect && !folder ? "checkbox" : "button"}
+                  aria-checked={multiSelect && !folder ? isChecked : undefined}
+                  tabIndex={0}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-3 border-b px-3 py-2 last:border-0 hover:bg-accent",
+                    multiSelect && !folder && isChecked && "bg-primary/5"
+                  )}
+                  onClick={() => {
+                    if (folder) {
+                      void navigateToFolder(file.id, file.name);
+                    } else if (multiSelect) {
+                      toggleSelect(file);
+                    } else {
+                      handleSingleSelect(file);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    if (folder) {
+                      void navigateToFolder(file.id, file.name);
+                    } else if (multiSelect) {
+                      toggleSelect(file);
+                    } else {
+                      handleSingleSelect(file);
+                    }
+                  }}
+                >
+                  {multiSelect && !folder ? (
+                    <div
+                      className={cn(
+                        "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                        isChecked
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border"
+                      )}
+                    >
+                      {isChecked ? (
+                        <CheckCircle2 className="h-3 w-3" />
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <DriveMimeIcon mimeType={file.mimeType} size={20} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{file.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(file.modifiedTime).toLocaleDateString("es-AR")}
+                      {file.size
+                        ? ` · ${(Number.parseInt(file.size, 10) / 1024 / 1024).toFixed(1)} MB`
+                        : null}
+                    </p>
+                  </div>
+                  {!multiSelect && !folder ? (
+                    <button
+                      type="button"
+                      className="flex-shrink-0 text-xs text-primary hover:underline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSingleSelect(file);
+                      }}
+                    >
+                      Seleccionar
+                    </button>
+                  ) : null}
                 </div>
-                {!isFolder(file.mimeType) ? (
-                  <button
-                    type="button"
-                    className="flex-shrink-0 text-xs text-primary hover:underline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSelect(file);
-                    }}
-                  >
-                    Seleccionar
-                  </button>
-                ) : null}
-              </div>
-            ))
+              );
+            })
           : null}
       </div>
+
+      {multiSelect && (
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <span className="text-xs text-muted-foreground">
+            {selected.size === 0
+              ? "Ningún archivo seleccionado"
+              : `${selected.size} archivo${selected.size !== 1 ? "s" : ""} seleccionado${selected.size !== 1 ? "s" : ""}`}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            disabled={selected.size === 0}
+            onClick={handleConfirmMultiple}
+          >
+            Confirmar selección
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
