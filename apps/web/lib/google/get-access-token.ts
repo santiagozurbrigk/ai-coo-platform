@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { refreshGoogleAccessToken } from "@/lib/google/refresh-token";
-import { GOOGLE_UNIFIED_SCOPES } from "@/lib/google/scopes";
+import { GOOGLE_FORMS_DRIVE_SCOPES } from "@/lib/google/scopes";
 
 type GoogleIntegrationRow = {
   organization_id: string;
@@ -10,11 +10,11 @@ type GoogleIntegrationRow = {
   granted_scopes: string | null;
 };
 
-/** Returns false if the stored token is missing any of the current required scopes. */
+/** Returns false if the stored token is missing the minimum Drive+Forms scopes. */
 function hasRequiredScopes(grantedScopes: string | null): boolean {
   if (!grantedScopes) return false;
   const granted = new Set(grantedScopes.split(/\s+/));
-  return GOOGLE_UNIFIED_SCOPES.every((s) => granted.has(s));
+  return GOOGLE_FORMS_DRIVE_SCOPES.every((s) => granted.has(s));
 }
 
 async function resolveAccessToken(
