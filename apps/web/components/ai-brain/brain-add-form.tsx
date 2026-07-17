@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Upload, Layout, CheckCircle2, HardDrive, X } from "lucide-react";
@@ -19,6 +19,7 @@ import {
 } from "@/lib/ai-brain/file-types";
 import type { BrainCategory, BrainContentType } from "@/types/ai-brain";
 import { DriveFilePicker } from "@/components/marketing/drive-file-picker";
+import { useToast } from "@/providers/toast-provider";
 
 const CONTENT_TYPES: { key: BrainContentType; label: string }[] = [
   { key: "document", label: "Documento" },
@@ -55,6 +56,7 @@ type DriveSelection = { id: string; name: string; mimeType: string };
 
 export function BrainAddForm() {
   const router = useRouter();
+  const { push: pushToast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [contentType, setContentType] = useState<BrainContentType>("document");
   const [fileSource, setFileSource] = useState<FileSource>("local");
@@ -191,7 +193,11 @@ export function BrainAddForm() {
           coverageAreas: coverage.join(","),
           miroUrl: miroUrl.trim() || undefined,
         });
-        if (!res.success) { setError(res.error); return; }
+        if (!res.success) {
+          setError(res.error);
+          pushToast({ title: "Error", description: res.error });
+          return;
+        }
         router.push(paths.superAdmin.aiBrain.document(res.data.id));
         return;
       }
@@ -230,13 +236,16 @@ export function BrainAddForm() {
       setProgress(null);
 
       if (errors.length === filesToProcess.length) {
-        // All failed — show first error as it's likely systemic (e.g. not connected)
-        setError(`Error al subir archivos: ${errors[0]}`);
+        const msg = `Error al subir archivos: ${errors[0]}`;
+        setError(msg);
+        pushToast({ title: "Error al subir", description: errors[0] });
         return;
       }
       if (errors.length) {
-        setError(`${errors.length} archivo(s) no se pudieron subir. El resto se procesó correctamente.`);
-        return;
+        const msg = `${errors.length} archivo(s) no se pudieron subir. El resto se procesó correctamente.`;
+        setError(msg);
+        pushToast({ title: "Subida parcial", description: msg });
+        // still redirect — partial success
       }
 
       if (filesToProcess.length === 1 && lastId) {

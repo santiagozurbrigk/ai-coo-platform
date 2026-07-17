@@ -650,9 +650,9 @@ export async function importDriveFileForBrainAction(input: {
 
     if (EXPORT_MAP[input.mimeType]) {
       resolvedMime = EXPORT_MAP[input.mimeType];
-      dlUrl = `https://www.googleapis.com/drive/v3/files/${input.fileId}/export?mimeType=${encodeURIComponent(resolvedMime)}`;
+      dlUrl = `https://www.googleapis.com/drive/v3/files/${input.fileId}/export?mimeType=${encodeURIComponent(resolvedMime)}&supportsAllDrives=true`;
     } else {
-      dlUrl = `https://www.googleapis.com/drive/v3/files/${input.fileId}?alt=media`;
+      dlUrl = `https://www.googleapis.com/drive/v3/files/${input.fileId}?alt=media&supportsAllDrives=true`;
     }
 
     // Resolve filename extension
