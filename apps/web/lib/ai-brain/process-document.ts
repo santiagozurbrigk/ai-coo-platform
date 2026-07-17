@@ -31,8 +31,8 @@ async function fetchMiroBoardText(boardId: string, accessToken: string): Promise
   let cursor: string | undefined;
 
   // Fetch up to 500 items across pages
-  for (let page = 0; page < 5; page++) {
-    const params = new URLSearchParams({ limit: "100" });
+  for (let page = 0; page < 10; page++) {
+    const params = new URLSearchParams({ limit: "50" });
     if (cursor) params.set("cursor", cursor);
 
     const res = await fetch(
