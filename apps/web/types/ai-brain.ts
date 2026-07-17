@@ -31,6 +31,7 @@ export type BrainDocument = {
   uploadedBy: string;
   uploadDate: string;
   description?: string;
+  aiSummary?: string;
   tags?: string[];
   coverageAreas: string[];
   usageStats: {

@@ -1,5 +1,6 @@
 "use server";
 
+import Anthropic from "@anthropic-ai/sdk";
 import { revalidatePath } from "next/cache";
 import { isAllowedBrainFile } from "@/lib/ai-brain/file-types";
 import { AI_BRAIN_BUCKET, uiContentTypeToDb } from "@/lib/ai-brain/mapper";
@@ -790,5 +791,126 @@ export async function regenerateTempPasswordAction(
     const credentials = await regenerateUserTempPassword(auth.data.userId);
     revalidateSuperAdmin();
     return credentials;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// AI Brain — Batch API (Anthropic)
+// ---------------------------------------------------------------------------
+
+/**
+ * Envía todos los documentos activos con content_text al Anthropic Batch API
+ * para generar ai_summary de cada uno. 50% más barato que requests individuales.
+ */
+export async function submitBrainSummaryBatchAction(): Promise<
+  MutationResult<{ batchId: string; docCount: number }>
+> {
+  return runMutation(async () => {
+    await requireSuperAdmin();
+
+    const admin = createAdminClient();
+
+    // Buscar docs activos con content_text pero sin ai_summary
+    const { data: docs, error: docsErr } = await admin
+      .from("ai_brain_documents")
+      .select("id, title, content_text")
+      .eq("status", "active")
+      .is("ai_summary", null)
+      .not("content_text", "is", null);
+
+    if (docsErr) throw new Error(docsErr.message);
+    if (!docs || docs.length === 0) {
+      throw new Error("No hay documentos activos con contenido para resumir");
+    }
+
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY no configurada");
+
+    const client = new Anthropic({ apiKey: anthropicKey });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const requests: any[] = docs.map((doc) => ({
+      custom_id: doc.id,
+      params: {
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 200,
+        messages: [
+          {
+            role: "user",
+            content: `Título: ${doc.title}\n\nContenido:\n${String(doc.content_text ?? "").slice(0, 4000)}\n\nEscribí un resumen de 1-2 oraciones en español que describa de qué trata este documento y por qué es útil. Solo el resumen, sin preámbulo.`,
+          },
+        ],
+      },
+    }));
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const batch = await (client.beta.messages.batches as any).create({ requests });
+
+    // Marcar todos los docs con el batch_job_id
+    const docIds = docs.map((d) => d.id);
+    await admin
+      .from("ai_brain_documents")
+      .update({ batch_job_id: batch.id })
+      .in("id", docIds);
+
+    revalidatePath(paths.superAdmin.aiBrain.root);
+
+    return { batchId: batch.id as string, docCount: docs.length };
+  });
+}
+
+/**
+ * Consulta el estado de un batch y aplica los resultados a ai_brain_documents.
+ */
+export async function syncBrainBatchResultsAction(
+  batchId: string
+): Promise<
+  MutationResult<{ status: string; processed: number; pending: number }>
+> {
+  return runMutation(async () => {
+    await requireSuperAdmin();
+
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY no configurada");
+
+    const client = new Anthropic({ apiKey: anthropicKey });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const batch = await (client.beta.messages.batches as any).retrieve(batchId);
+
+    if (batch.processing_status !== "ended") {
+      return {
+        status: batch.processing_status as string,
+        processed: 0,
+        pending: (batch.request_counts?.processing ?? 0) + (batch.request_counts?.errored ?? 0),
+      };
+    }
+
+    const admin = createAdminClient();
+    let processed = 0;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for await (const result of await (client.beta.messages.batches as any).results(batchId)) {
+      if (result.result?.type !== "succeeded") continue;
+
+      const summaryText = (result.result.message?.content ?? [])
+        .filter((b: { type: string }) => b.type === "text")
+        .map((b: { type: string; text: string }) => b.text)
+        .join("")
+        .trim();
+
+      if (!summaryText) continue;
+
+      await admin
+        .from("ai_brain_documents")
+        .update({ ai_summary: summaryText, batch_job_id: null })
+        .eq("id", result.custom_id);
+
+      processed++;
+    }
+
+    revalidatePath(paths.superAdmin.aiBrain.root);
+
+    return { status: "ended", processed, pending: 0 };
   });
 }

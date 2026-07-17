@@ -359,7 +359,7 @@ export async function callClaudeAgent(
       const tools: Anthropic.Tool[] = [...(req.tools ?? [])];
       if (req.enableWebSearch) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        tools.push({ type: "web_search_20250305", name: "web_search" } as any);
+        tools.push({ type: "web_search_20260209", name: "web_search" } as any);
       }
 
       const messages: Anthropic.MessageParam[] = req.messages.map((m) => ({

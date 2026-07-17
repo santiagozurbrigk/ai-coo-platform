@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, BrainCircuit, Eye, Search, Trash2 } from "lucide-react";
+import { Archive, BrainCircuit, Eye, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
 import { Badge, Button, DataTable } from "@ai-coo/ui";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import { paths } from "@/routes";
@@ -11,6 +11,8 @@ import {
   archiveAiBrainDocumentAction,
   deleteAiBrainDocumentAction,
   processAiBrainDocumentAction,
+  submitBrainSummaryBatchAction,
+  syncBrainBatchResultsAction,
 } from "@/app/super-admin/actions";
 import { useToast } from "@/providers/toast-provider";
 import type { BrainContentStatus, BrainContentType, BrainDocument } from "@/types/ai-brain";
@@ -42,6 +44,8 @@ export function BrainLibrary({ documents }: { documents: BrainDocument[] }) {
   const [query, setQuery] = useState("");
   const [pending, startTransition] = useTransition();
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [batchPending, setBatchPending] = useState(false);
 
   const filtered = useMemo(() => {
     let list = documents;
@@ -72,6 +76,48 @@ export function BrainLibrary({ documents }: { documents: BrainDocument[] }) {
     startTransition(async () => {
       await deleteAiBrainDocumentAction(id);
       router.refresh();
+    });
+  }
+
+  function submitBatch() {
+    setBatchPending(true);
+    void submitBrainSummaryBatchAction().then((res) => {
+      setBatchPending(false);
+      if (res.success) {
+        setBatchId(res.data.batchId);
+        pushToast({
+          title: "Batch enviado",
+          description: `${res.data.docCount} documentos en proceso. Hacé clic en "Sincronizar" en unos minutos.`,
+          variant: "success",
+        });
+      } else {
+        pushToast({ title: "Error al enviar batch", description: res.error });
+      }
+    });
+  }
+
+  function syncBatch(id: string) {
+    setBatchPending(true);
+    void syncBrainBatchResultsAction(id).then((res) => {
+      setBatchPending(false);
+      if (res.success) {
+        if (res.data.status !== "ended") {
+          pushToast({
+            title: "Batch en proceso",
+            description: `Estado: ${res.data.status}. Intentá de nuevo en unos minutos.`,
+          });
+        } else {
+          setBatchId(null);
+          pushToast({
+            title: "Resúmenes aplicados",
+            description: `${res.data.processed} documentos actualizados.`,
+            variant: "success",
+          });
+          router.refresh();
+        }
+      } else {
+        pushToast({ title: "Error al sincronizar", description: res.error });
+      }
     });
   }
 
@@ -109,9 +155,40 @@ export function BrainLibrary({ documents }: { documents: BrainDocument[] }) {
             className="h-9 w-full rounded-lg border border-border/60 bg-muted/20 pl-9 pr-3 text-sm outline-none ring-primary/30 placeholder:text-muted-foreground focus:ring-2"
           />
         </div>
-        <Button asChild size="sm">
-          <Link href={paths.superAdmin.aiBrain.add}>Añadir contenido</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {batchId ? (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={batchPending}
+              onClick={() => syncBatch(batchId)}
+            >
+              {batchPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Sincronizar resúmenes
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={batchPending}
+              onClick={submitBatch}
+            >
+              {batchPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Resumir con IA (batch)
+            </Button>
+          )}
+          <Button asChild size="sm">
+            <Link href={paths.superAdmin.aiBrain.add}>Añadir contenido</Link>
+          </Button>
+        </div>
       </div>
 
       <FilterPills
