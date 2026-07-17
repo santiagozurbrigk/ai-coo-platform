@@ -3,14 +3,16 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, Eye, Search, Trash2 } from "lucide-react";
+import { Archive, BrainCircuit, Eye, Search, Trash2 } from "lucide-react";
 import { Badge, Button, DataTable } from "@ai-coo/ui";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import { paths } from "@/routes";
 import {
   archiveAiBrainDocumentAction,
   deleteAiBrainDocumentAction,
+  processAiBrainDocumentAction,
 } from "@/app/super-admin/actions";
+import { useToast } from "@/providers/toast-provider";
 import type { BrainContentStatus, BrainContentType, BrainDocument } from "@/types/ai-brain";
 import { BrainStatusBadge } from "./brain-status-badge";
 import { BrainTypeIcon, brainTypeLabel } from "./brain-type-icon";
@@ -34,10 +36,12 @@ const STATUS_FILTERS: { key: BrainContentStatus | "all"; label: string }[] = [
 
 export function BrainLibrary({ documents }: { documents: BrainDocument[] }) {
   const router = useRouter();
+  const { push: pushToast } = useToast();
   const [filter, setFilter] = useState<BrainContentType | "all">("all");
   const [statusFilter, setStatusFilter] = useState<BrainContentStatus | "all">("all");
   const [query, setQuery] = useState("");
   const [pending, startTransition] = useTransition();
+  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(() => {
     let list = documents;
@@ -68,6 +72,27 @@ export function BrainLibrary({ documents }: { documents: BrainDocument[] }) {
     startTransition(async () => {
       await deleteAiBrainDocumentAction(id);
       router.refresh();
+    });
+  }
+
+  function process(id: string) {
+    setProcessingIds((prev) => new Set(prev).add(id));
+    void processAiBrainDocumentAction(id).then((res) => {
+      setProcessingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      if (res.success) {
+        pushToast({
+          title: "Procesado",
+          description: `${res.data.charCount.toLocaleString("es-AR")} caracteres indexados.`,
+          variant: "success",
+        });
+        router.refresh();
+      } else {
+        pushToast({ title: "Error al procesar", description: res.error });
+      }
     });
   }
 
@@ -151,6 +176,18 @@ export function BrainLibrary({ documents }: { documents: BrainDocument[] }) {
                     <Eye className="h-4 w-4" />
                   </Link>
                 </Button>
+                {r.type !== "image" && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-primary"
+                    title="Procesar e indexar"
+                    disabled={processingIds.has(r.id)}
+                    onClick={() => process(r.id)}
+                  >
+                    <BrainCircuit className={`h-4 w-4 ${processingIds.has(r.id) ? "animate-pulse" : ""}`} />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
