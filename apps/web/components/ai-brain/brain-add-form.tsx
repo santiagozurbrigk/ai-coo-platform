@@ -11,6 +11,7 @@ import {
   prepareAiBrainFileUploadAction,
   importDriveFileForBrainAction,
 } from "@/app/super-admin/actions";
+import { listDriveFilesForSuperAdminSafeAction } from "@/app/super-admin/drive-actions";
 import {
   AI_BRAIN_ACCEPT,
   AI_BRAIN_FORMATS_LABEL,
@@ -416,6 +417,9 @@ export function BrainAddForm() {
             ) : (
               <DriveFilePicker
                 multiSelect
+                listAction={listDriveFilesForSuperAdminSafeAction}
+                connectUrl="/api/integrations/super-admin-google/oauth/start"
+                reconnectUrl="/api/integrations/super-admin-google/oauth/start"
                 onSelect={(f) => {
                   setDriveFiles([{ id: f.id, name: f.name }]);
                   if (!title) setTitle(f.name.replace(/\.[^.]+$/, ""));

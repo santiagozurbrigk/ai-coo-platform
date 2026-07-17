@@ -8,11 +8,18 @@ import { DriveMimeIcon } from "@/components/marketing/marketing-icons";
 import {
   listDriveFilesSafeAction,
   type DriveFileListItem,
+  type DriveListResult,
 } from "@/app/marketing/content/drive-actions";
 import { GOOGLE_OAUTH_START_URL } from "@/lib/google/oauth-paths";
 import { paths } from "@/routes";
 
 type SelectionFile = { id: string; name: string; url: string };
+
+type ListAction = (params?: {
+  folderId?: string;
+  mimeTypeFilter?: string;
+  query?: string;
+}) => Promise<DriveListResult>;
 
 type Props = {
   onSelect: (file: SelectionFile) => void;
@@ -21,6 +28,9 @@ type Props = {
   onClose?: () => void;
   mimeTypeFilter?: string;
   className?: string;
+  listAction?: ListAction;
+  connectUrl?: string;
+  reconnectUrl?: string;
 };
 
 const FOLDER_MIME = "application/vnd.google-apps.folder";
@@ -40,6 +50,9 @@ export function DriveFilePicker({
   onClose,
   mimeTypeFilter,
   className,
+  listAction = listDriveFilesSafeAction,
+  connectUrl,
+  reconnectUrl,
 }: Props) {
   const [files, setFiles] = useState<DriveFileListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +74,7 @@ export function DriveFilePicker({
       setNeedsConnect(false);
 
       try {
-        const result = await listDriveFilesSafeAction({
+        const result = await listAction({
           folderId,
           mimeTypeFilter,
           query: query || undefined,
@@ -203,12 +216,18 @@ export function DriveFilePicker({
             <p className="text-sm text-destructive">{error}</p>
             {needsConnect ? (
               <Button asChild size="sm">
-                <Link href={paths.platform.integrations}>Ir a Integraciones</Link>
+                {connectUrl ? (
+                  <a href={connectUrl}>Conectar Google Drive</a>
+                ) : (
+                  <Link href={paths.platform.integrations}>Ir a Integraciones</Link>
+                )}
               </Button>
             ) : null}
             {needsReconnect ? (
               <Button asChild size="sm">
-                <a href={GOOGLE_OAUTH_START_URL.google_forms}>Reconectar Google con Drive</a>
+                <a href={reconnectUrl ?? GOOGLE_OAUTH_START_URL.google_forms}>
+                  Reconectar Google con Drive
+                </a>
               </Button>
             ) : null}
           </div>
