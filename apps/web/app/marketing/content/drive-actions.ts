@@ -54,6 +54,35 @@ function escapeDriveQueryValue(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+export type DriveListResult =
+  | { ok: true; files: DriveFileListItem[] }
+  | { ok: false; errorCode: "GOOGLE_NOT_CONNECTED" | "GOOGLE_INSUFFICIENT_PERMISSIONS" | "OTHER"; message: string };
+
+/**
+ * Versión safe que devuelve un Result en lugar de hacer throw.
+ * Usar esta en client components para que el error code llegue correctamente
+ * en producción (Next.js sanitiza los throw de Server Actions).
+ */
+export async function listDriveFilesSafeAction(params?: {
+  folderId?: string;
+  mimeTypeFilter?: string;
+  query?: string;
+}): Promise<DriveListResult> {
+  try {
+    const files = await listDriveFilesAction(params);
+    return { ok: true, files };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Error desconocido";
+    if (msg === "GOOGLE_NOT_CONNECTED") {
+      return { ok: false, errorCode: "GOOGLE_NOT_CONNECTED", message: msg };
+    }
+    if (msg === "GOOGLE_INSUFFICIENT_PERMISSIONS") {
+      return { ok: false, errorCode: "GOOGLE_INSUFFICIENT_PERMISSIONS", message: msg };
+    }
+    return { ok: false, errorCode: "OTHER", message: msg };
+  }
+}
+
 export async function listDriveFilesAction(params?: {
   folderId?: string;
   mimeTypeFilter?: string;

@@ -6,7 +6,7 @@ import { CheckCircle2 } from "lucide-react";
 import { Button, Input, cn } from "@ai-coo/ui";
 import { DriveMimeIcon } from "@/components/marketing/marketing-icons";
 import {
-  listDriveFilesAction,
+  listDriveFilesSafeAction,
   type DriveFileListItem,
 } from "@/app/marketing/content/drive-actions";
 import { GOOGLE_OAUTH_START_URL } from "@/lib/google/oauth-paths";
@@ -61,24 +61,25 @@ export function DriveFilePicker({
       setNeedsConnect(false);
 
       try {
-        const result = await listDriveFilesAction({
+        const result = await listDriveFilesSafeAction({
           folderId,
           mimeTypeFilter,
           query: query || undefined,
         });
-        setFiles(result);
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Error desconocido";
-        if (message === "GOOGLE_NOT_CONNECTED") {
-          setNeedsConnect(true);
-          setError("No hay conexión con Google Drive. Conectá tu cuenta de Google primero.");
-        } else if (message === "GOOGLE_INSUFFICIENT_PERMISSIONS") {
-          setNeedsReconnect(true);
-          setError("Permisos insuficientes. Reconectá tu cuenta de Google con acceso a Drive.");
+        if (!result.ok) {
+          if (result.errorCode === "GOOGLE_NOT_CONNECTED") {
+            setNeedsConnect(true);
+            setError("No hay conexión con Google Drive. Conectá tu cuenta de Google primero.");
+          } else if (result.errorCode === "GOOGLE_INSUFFICIENT_PERMISSIONS") {
+            setNeedsReconnect(true);
+            setError("Permisos insuficientes. Reconectá tu cuenta de Google con acceso a Drive.");
+          } else {
+            setError(result.message);
+          }
+          setFiles([]);
         } else {
-          setError(message);
+          setFiles(result.files);
         }
-        setFiles([]);
       } finally {
         setLoading(false);
       }
