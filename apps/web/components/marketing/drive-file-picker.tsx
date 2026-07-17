@@ -13,7 +13,7 @@ import {
 import { GOOGLE_OAUTH_START_URL } from "@/lib/google/oauth-paths";
 import { paths } from "@/routes";
 
-type SelectionFile = { id: string; name: string; url: string };
+type SelectionFile = { id: string; name: string; url: string; mimeType: string };
 
 type ListAction = (params?: {
   folderId?: string;
@@ -142,13 +142,13 @@ export function DriveFilePicker({
   const handleConfirmMultiple = () => {
     const picked = files
       .filter((f) => selected.has(f.id) && !isFolder(f.mimeType))
-      .map((f) => ({ id: f.id, name: f.name, url: driveFileUrl(f) }));
+      .map((f) => ({ id: f.id, name: f.name, url: driveFileUrl(f), mimeType: f.mimeType }));
     if (picked.length === 0) return;
     onSelectMultiple?.(picked);
   };
 
   const handleSingleSelect = (file: DriveFileListItem) => {
-    onSelect({ id: file.id, name: file.name, url: driveFileUrl(file) });
+    onSelect({ id: file.id, name: file.name, url: driveFileUrl(file), mimeType: file.mimeType });
   };
 
   return (

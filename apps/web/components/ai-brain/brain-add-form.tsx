@@ -51,7 +51,7 @@ const COVERAGE_OPTIONS = [
 ];
 
 type FileSource = "local" | "drive";
-type DriveSelection = { id: string; name: string };
+type DriveSelection = { id: string; name: string; mimeType: string };
 
 export function BrainAddForm() {
   const router = useRouter();
@@ -154,7 +154,7 @@ export function BrainAddForm() {
     const imported = await importDriveFileForBrainAction({
       fileId: driveFile.id,
       fileName: driveFile.name,
-      mimeType: "application/octet-stream",
+      mimeType: driveFile.mimeType,
     });
     if (!imported.success) return { ok: false, error: imported.error };
 
@@ -229,8 +229,13 @@ export function BrainAddForm() {
 
       setProgress(null);
 
+      if (errors.length === filesToProcess.length) {
+        // All failed — show first error as it's likely systemic (e.g. not connected)
+        setError(`Error al subir archivos: ${errors[0]}`);
+        return;
+      }
       if (errors.length) {
-        setError(`Errores: ${errors.join(" · ")}`);
+        setError(`${errors.length} archivo(s) no se pudieron subir. El resto se procesó correctamente.`);
         return;
       }
 
@@ -421,11 +426,11 @@ export function BrainAddForm() {
                 connectUrl="/api/integrations/super-admin-google/oauth/start"
                 reconnectUrl="/api/integrations/super-admin-google/oauth/start"
                 onSelect={(f) => {
-                  setDriveFiles([{ id: f.id, name: f.name }]);
+                  setDriveFiles([{ id: f.id, name: f.name, mimeType: f.mimeType }]);
                   if (!title) setTitle(f.name.replace(/\.[^.]+$/, ""));
                 }}
                 onSelectMultiple={(files) => {
-                  setDriveFiles(files.map((f) => ({ id: f.id, name: f.name })));
+                  setDriveFiles(files.map((f) => ({ id: f.id, name: f.name, mimeType: f.mimeType })));
                   if (!title && files.length === 1) {
                     setTitle(files[0].name.replace(/\.[^.]+$/, ""));
                   }

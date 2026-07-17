@@ -31,8 +31,6 @@ import {
   setOrganizationStatusSchema,
   updateOrganizationMrrSchema,
 } from "@/lib/validations";
-import { requireOrganizationId } from "@/lib/auth/bootstrap";
-import { getGoogleAccessTokenForOrganization } from "@/lib/google/get-access-token";
 import { processAiBrainDocument } from "@/lib/ai-brain/process-document";
 import { resolveBrainFileMimeType, isAllowedBrainFile as validateBrainFile } from "@/lib/ai-brain/file-types";
 import type { z } from "zod";
@@ -624,12 +622,18 @@ export async function importDriveFileForBrainAction(input: {
   await requireSuperAdmin();
 
   return runMutation(async () => {
-    // Resolve Google access token from the super-admin's own org
-    const organizationId = await requireOrganizationId();
-    const accessToken = await getGoogleAccessTokenForOrganization(organizationId);
+    // Use the super-admin's own Google Drive token (stored by user_id)
+    const user = await requireSuperAdmin();
+    const adminDb = createAdminClient();
+    const { data: tokenRow } = await adminDb
+      .from("super_admin_google_tokens")
+      .select("access_token")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const accessToken = tokenRow?.access_token ?? null;
     if (!accessToken) {
       throw new Error(
-        "No hay conexión con Google Drive. Conectá el Ecosistema Google desde Integraciones."
+        "No hay conexión con Google Drive. Conectá tu cuenta de Google desde el botón 'Desde Google Drive' en el formulario."
       );
     }
 
