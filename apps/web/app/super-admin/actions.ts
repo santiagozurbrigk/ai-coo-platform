@@ -799,6 +799,35 @@ export async function regenerateTempPasswordAction(
 // ---------------------------------------------------------------------------
 
 /**
+ * Resuelve un cliente Anthropic para uso del super-admin:
+ * intenta la clave global y, si no existe, usa la de cualquier org activa.
+ */
+async function resolveSuperAdminAnthropicClient(
+  admin: ReturnType<typeof createAdminClient>
+): Promise<Anthropic> {
+  const globalKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (globalKey) return new Anthropic({ apiKey: globalKey });
+
+  // Fallback: tomar la primera org con API key propia configurada
+  const { data: orgs } = await admin
+    .from("organizations")
+    .select("id, claude_api_key_encrypted")
+    .not("claude_api_key_encrypted", "is", null)
+    .eq("status", "active")
+    .limit(1);
+
+  if (!orgs || orgs.length === 0) {
+    throw new Error(
+      "No hay credencial de Anthropic disponible. Configurá ANTHROPIC_API_KEY en las variables de entorno o conectá una org con BYOK."
+    );
+  }
+
+  const { decrypt } = await import("@/lib/security/encryption");
+  const apiKey = await decrypt(orgs[0].claude_api_key_encrypted as string);
+  return new Anthropic({ apiKey });
+}
+
+/**
  * Envía todos los documentos activos con content_text al Anthropic Batch API
  * para generar ai_summary de cada uno. 50% más barato que requests individuales.
  */
@@ -823,10 +852,7 @@ export async function submitBrainSummaryBatchAction(): Promise<
       throw new Error("No hay documentos activos con contenido para resumir");
     }
 
-    const anthropicKey = process.env.ANTHROPIC_API_KEY;
-    if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY no configurada");
-
-    const client = new Anthropic({ apiKey: anthropicKey });
+    const client = await resolveSuperAdminAnthropicClient(admin);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const requests: any[] = docs.map((doc) => ({
@@ -870,10 +896,8 @@ export async function syncBrainBatchResultsAction(
   return runMutation(async () => {
     await requireSuperAdmin();
 
-    const anthropicKey = process.env.ANTHROPIC_API_KEY;
-    if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY no configurada");
-
-    const client = new Anthropic({ apiKey: anthropicKey });
+    const admin = createAdminClient();
+    const client = await resolveSuperAdminAnthropicClient(admin);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const batch = await (client.beta.messages.batches as any).retrieve(batchId);
@@ -886,7 +910,6 @@ export async function syncBrainBatchResultsAction(
       };
     }
 
-    const admin = createAdminClient();
     let processed = 0;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
