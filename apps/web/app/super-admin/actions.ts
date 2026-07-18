@@ -802,28 +802,29 @@ export async function regenerateTempPasswordAction(
  * Resuelve un cliente Anthropic para uso del super-admin:
  * intenta la clave global y, si no existe, usa la de cualquier org activa.
  */
+// Org "Optimiza tu Control" — fuente de credencial para operaciones super-admin
+const SUPER_ADMIN_CREDENTIAL_ORG_ID = "46cce98c-6d4c-4e4d-94a7-7cc24ae1104d";
+
 async function resolveSuperAdminAnthropicClient(
   admin: ReturnType<typeof createAdminClient>
 ): Promise<Anthropic> {
   const globalKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (globalKey) return new Anthropic({ apiKey: globalKey });
 
-  // Fallback: tomar la primera org con API key propia configurada
-  const { data: orgs } = await admin
+  const { data: org } = await admin
     .from("organizations")
-    .select("id, claude_api_key_encrypted")
-    .not("claude_api_key_encrypted", "is", null)
-    .eq("status", "active")
-    .limit(1);
+    .select("claude_api_key_encrypted")
+    .eq("id", SUPER_ADMIN_CREDENTIAL_ORG_ID)
+    .maybeSingle();
 
-  if (!orgs || orgs.length === 0) {
+  if (!org?.claude_api_key_encrypted) {
     throw new Error(
-      "No hay credencial de Anthropic disponible. Configurá ANTHROPIC_API_KEY en las variables de entorno o conectá una org con BYOK."
+      "No hay credencial de Anthropic disponible. Configurá ANTHROPIC_API_KEY en las variables de entorno."
     );
   }
 
   const { decrypt } = await import("@/lib/security/encryption");
-  const apiKey = await decrypt(orgs[0].claude_api_key_encrypted as string);
+  const apiKey = await decrypt(org.claude_api_key_encrypted);
   return new Anthropic({ apiKey });
 }
 
