@@ -215,7 +215,8 @@ export async function executeImportAction(
   fileName: string,
   selectedSheets: string[],
   columnMapping: ColumnMapping,
-  module: "closing" | "finance" | "content"
+  module: "closing" | "finance" | "content",
+  headerRowsBySheet: Record<string, number>
 ): Promise<{ success: true; data: ImportResult } | { success: false; error: string }> {
   try {
     const { user, orgId } = await requireAuthContext();
@@ -244,12 +245,27 @@ export async function executeImportAction(
       });
       allRows = parsed.data as Record<string, string>[];
     } else {
-      const sheets = parseWorkbookSheets(buffer);
+      // Compute headers from the exact row indices the user selected in the UI
+      const workbook = (await import("xlsx")).read(buffer, { type: "buffer", cellDates: true, cellNF: true });
       const headersBySheet: Record<string, { headerRow: number; headers: string[] }> = {};
-      for (const s of sheets) {
-        if (selectedSheets.includes(s.name)) {
-          headersBySheet[s.name] = { headerRow: s.headerRow, headers: s.headers };
+      for (const sheetName of selectedSheets) {
+        const ws = workbook.Sheets[sheetName];
+        if (!ws || !ws["!ref"]) continue;
+        const XLSX = await import("xlsx");
+        const range = XLSX.utils.decode_range(ws["!ref"]);
+        const hRow = headerRowsBySheet[sheetName] ?? 0;
+        const absHeaderRow = range.s.r + hRow;
+        const headers: string[] = [];
+        const seen: Record<string, number> = {};
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          const cell = ws[XLSX.utils.encode_cell({ r: absHeaderRow, c })];
+          if (!cell || !cell.v) continue;
+          const val = String(cell.w ?? cell.v).trim();
+          if (!val) continue;
+          seen[val] = (seen[val] ?? 0) + 1;
+          headers.push(seen[val] > 1 ? `${val} (${seen[val]})` : val);
         }
+        headersBySheet[sheetName] = { headerRow: absHeaderRow, headers };
       }
       allRows = extractRowsFromSheets(buffer, selectedSheets, headersBySheet);
     }
