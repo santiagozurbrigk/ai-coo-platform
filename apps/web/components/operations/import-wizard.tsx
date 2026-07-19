@@ -23,7 +23,6 @@ import {
   executeImportAction,
   undoImportAction,
   listImportBatchesAction,
-  IMPORT_BUCKET,
 } from "@/app/operations/import-actions";
 import type {
   ColumnMapping,
@@ -88,7 +87,7 @@ export function ImportWizard({ pastBatches }: { pastBatches: ImportBatch[] }) {
       const path = `imports/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
 
       const { error: uploadErr } = await supabase.storage
-        .from(IMPORT_BUCKET)
+        .from("import-files")
         .upload(path, file, { upsert: false });
 
       if (uploadErr) {

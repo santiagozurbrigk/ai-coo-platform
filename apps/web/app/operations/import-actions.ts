@@ -15,7 +15,7 @@ import type {
 } from "@/types/import";
 import { CLOSING_FIELDS } from "@/types/import";
 
-export const IMPORT_BUCKET = "import-files";
+const IMPORT_BUCKET = "import-files";
 
 const CLOSING_STATUS_MAP: Record<string, string> = {
   cerrado: "closed",
