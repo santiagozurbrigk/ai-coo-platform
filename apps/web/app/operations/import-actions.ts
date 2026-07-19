@@ -336,13 +336,51 @@ export async function executeImportAction(
     const chunkSize = 100;
     const targetTable = module === "finance" ? "import_finance_rows" : "closing_calls";
 
+    const insertedClosingCalls: Array<{ id: string; lead_name: string; scheduled_at: string; amount?: number; amount_local?: number; program?: string }> = [];
+
     for (let i = 0; i < imported.length; i += chunkSize) {
       const chunk = imported.slice(i, i + chunkSize);
-      const { error: insertErr } = await admin.from(targetTable).insert(chunk);
-      if (insertErr) {
-        console.error("[executeImportAction] insert chunk error", insertErr);
+      if (module === "closing") {
+        const { data: rows, error: insertErr } = await admin
+          .from(targetTable)
+          .insert(chunk)
+          .select("id, lead_name, scheduled_at, status, amount, amount_local, program");
+        if (insertErr) {
+          console.error("[executeImportAction] insert chunk error", insertErr);
+        } else {
+          insertedCount += chunk.length;
+          for (const r of rows ?? []) {
+            if (r.status === "closed") insertedClosingCalls.push(r);
+          }
+        }
       } else {
-        insertedCount += chunk.length;
+        const { error: insertErr } = await admin.from(targetTable).insert(chunk);
+        if (insertErr) {
+          console.error("[executeImportAction] insert chunk error", insertErr);
+        } else {
+          insertedCount += chunk.length;
+        }
+      }
+    }
+
+    // Auto-create client records for imported closed calls
+    if (insertedClosingCalls.length > 0) {
+      const clientRows = insertedClosingCalls.map((call) => ({
+        organization_id: orgId,
+        name: call.lead_name,
+        join_date: call.scheduled_at
+          ? call.scheduled_at.slice(0, 10)
+          : new Date().toISOString().slice(0, 10),
+        payment_type: "upfront" as const,
+        platform: "other" as const,
+        total_amount: call.amount ?? call.amount_local ?? 0,
+        status: "active",
+        closing_call_id: call.id,
+        ...(call.program ? { offered_product: call.program } : {}),
+      }));
+      const { error: clientErr } = await admin.from("clients").insert(clientRows);
+      if (clientErr) {
+        console.error("[executeImportAction] auto-create clients error", clientErr);
       }
     }
 
