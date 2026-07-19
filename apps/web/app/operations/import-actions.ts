@@ -15,7 +15,8 @@ import type {
 } from "@/types/import";
 import { CLOSING_FIELDS } from "@/types/import";
 
-const MAX_FILE_SIZE_MB = 10;
+export const IMPORT_BUCKET = "import-files";
+
 const CLOSING_STATUS_MAP: Record<string, string> = {
   cerrado: "closed",
   "no cerrado": "not_closed",
@@ -24,30 +25,30 @@ const CLOSING_STATUS_MAP: Record<string, string> = {
   "not closed": "not_closed",
 };
 
-// ─── Step 1: Analyze file ────────────────────────────────────────────────────
+// ─── Step 1: Analyze file (by storage path) ──────────────────────────────────
 
 export async function analyzeImportFileAction(
-  formData: FormData
+  storagePath: string,
+  fileName: string
 ): Promise<{ success: true; data: FileAnalysis } | { success: false; error: string }> {
   try {
-    await requireOrganizationId();
+    const admin = createAdminClient();
 
-    const file = formData.get("file");
-    if (!(file instanceof File)) return { success: false, error: "No se recibió ningún archivo." };
-    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-      return { success: false, error: `El archivo supera los ${MAX_FILE_SIZE_MB} MB.` };
+    const { data: fileData, error: downloadErr } = await admin.storage
+      .from(IMPORT_BUCKET)
+      .download(storagePath);
+
+    if (downloadErr || !fileData) {
+      return { success: false, error: "No se pudo leer el archivo del servidor." };
     }
 
-    const ext = file.name.split(".").pop()?.toLowerCase();
+    const ext = fileName.split(".").pop()?.toLowerCase();
     const supported = ["xlsx", "xls", "xlsm", "csv"];
     if (!ext || !supported.includes(ext)) {
-      return {
-        success: false,
-        error: `Formato no soportado (.${ext}). Usá .xlsx, .xls o .csv.`,
-      };
+      return { success: false, error: `Formato no soportado (.${ext}). Usá .xlsx, .xls o .csv.` };
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = Buffer.from(await fileData.arrayBuffer());
 
     let sheets: SheetPreview[];
     if (ext === "csv") {
@@ -59,13 +60,12 @@ export async function analyzeImportFileAction(
         dynamicTyping: false,
       });
       const headers = parsed.meta.fields ?? [];
-      const sampleRows = (parsed.data as Record<string, string>[]).slice(0, 5);
       sheets = [
         {
           name: "Hoja1",
           headerRow: 0,
           headers,
-          sampleRows,
+          sampleRows: (parsed.data as Record<string, string>[]).slice(0, 5),
           totalRows: parsed.data.length,
           filledPct: 90,
           detectedType: "closing_leads",
@@ -77,13 +77,10 @@ export async function analyzeImportFileAction(
     }
 
     if (sheets.length === 0) {
-      return {
-        success: false,
-        error: "No se encontraron hojas con datos reconocibles en el archivo.",
-      };
+      return { success: false, error: "No se encontraron hojas con datos reconocibles en el archivo." };
     }
 
-    // Ask Claude Haiku to recommend sheets and module
+    const organizationId = await requireOrganizationId();
     const sheetsInfo = sheets.map((s) => ({
       name: s.name,
       headers: s.headers.slice(0, 20),
@@ -91,8 +88,6 @@ export async function analyzeImportFileAction(
       detectedType: s.detectedType,
       sample: s.sampleRows[0] ?? {},
     }));
-
-    const organizationId = await requireOrganizationId();
 
     const aiResponse = await callClaudeJson<{
       recommendedSheets: string[];
@@ -140,7 +135,7 @@ Solo incluir en recommendedSheets las hojas con datos de transacciones/registros
     };
   } catch (err) {
     console.error("[analyzeImportFileAction]", err);
-    return { success: false, error: "Error al analizar el archivo. Verificá el formato." };
+    return { success: false, error: "Error al analizar el archivo." };
   }
 }
 
@@ -153,7 +148,6 @@ export async function suggestColumnMappingAction(
 ): Promise<{ success: true; data: ColumnMapping } | { success: false; error: string }> {
   try {
     const organizationId = await requireOrganizationId();
-
     const fields = CLOSING_FIELDS;
 
     const mapping = await callClaudeJson<Record<string, string | null>>({
@@ -190,10 +184,11 @@ Respondé con un JSON donde:
   }
 }
 
-// ─── Step 3: Execute import ───────────────────────────────────────────────────
+// ─── Step 3: Execute import (reads from storage) ──────────────────────────────
 
 export async function executeImportAction(
-  formData: FormData,
+  storagePath: string,
+  fileName: string,
   selectedSheets: string[],
   columnMapping: ColumnMapping,
   module: "closing" | "finance" | "content"
@@ -203,15 +198,18 @@ export async function executeImportAction(
     const supabase = await createClient();
     const admin = createAdminClient();
 
-    const file = formData.get("file");
-    if (!(file instanceof File)) return { success: false, error: "Archivo no encontrado." };
+    const { data: fileData, error: downloadErr } = await admin.storage
+      .from(IMPORT_BUCKET)
+      .download(storagePath);
 
-    const ext = file.name.split(".").pop()?.toLowerCase();
-    const buffer = Buffer.from(await file.arrayBuffer());
+    if (downloadErr || !fileData) {
+      return { success: false, error: "No se pudo descargar el archivo del servidor." };
+    }
 
-    // Get sheet metadata for header row detection
+    const ext = fileName.split(".").pop()?.toLowerCase();
+    const buffer = Buffer.from(await fileData.arrayBuffer());
+
     let allRows: Record<string, string>[];
-
     if (ext === "csv") {
       const { default: Papa } = await import("papaparse");
       const text = buffer.toString("utf-8");
@@ -238,7 +236,7 @@ export async function executeImportAction(
       .insert({
         organization_id: orgId,
         module,
-        file_name: file.name,
+        file_name: fileName,
         status: "pending",
         column_mapping: columnMapping,
         selected_sheets: selectedSheets,
@@ -305,6 +303,9 @@ export async function executeImportAction(
       })
       .eq("id", batch.id);
 
+    // Clean up temp file from storage
+    await admin.storage.from(IMPORT_BUCKET).remove([storagePath]);
+
     return {
       success: true,
       data: {
@@ -320,7 +321,7 @@ export async function executeImportAction(
   }
 }
 
-// ─── Step 4: Undo import ──────────────────────────────────────────────────────
+// ─── Undo import ──────────────────────────────────────────────────────────────
 
 export async function undoImportAction(
   batchId: string
@@ -330,7 +331,6 @@ export async function undoImportAction(
     const supabase = await createClient();
     const admin = createAdminClient();
 
-    // Verify batch belongs to org
     const { data: batch } = await supabase
       .from("import_batches")
       .select("id, status")
@@ -341,10 +341,7 @@ export async function undoImportAction(
     if (!batch) return { success: false, error: "Importación no encontrada." };
     if (batch.status === "undone") return { success: false, error: "Esta importación ya fue deshecha." };
 
-    // Delete imported rows
     await admin.from("closing_calls").delete().eq("import_batch_id", batchId);
-
-    // Mark batch as undone
     await supabase
       .from("import_batches")
       .update({ status: "undone", updated_at: new Date().toISOString() })
@@ -401,34 +398,28 @@ function mapClosingRow(
   if (!leadName) return { skip: `Fila ${rowNum}: sin nombre de lead` };
 
   const rawDate = get("scheduled_at");
-  let scheduledAt: string | null = parseDate(rawDate);
-  if (!scheduledAt) {
-    // Use a placeholder date to avoid data loss; flag it
-    scheduledAt = new Date("2000-01-01").toISOString();
-  }
+  const scheduledAt: string = parseDate(rawDate) ?? new Date("2000-01-01").toISOString();
 
   const rawStatus = get("status").toLowerCase();
   const status = CLOSING_STATUS_MAP[rawStatus] ?? "not_closed";
 
   const rawAmount = get("amount").replace(/[^0-9.,]/g, "").replace(",", ".");
-  const amount = rawAmount ? parseFloat(rawAmount) || null : null;
+  const amount = rawAmount ? parseFloat(rawAmount) || undefined : undefined;
 
   return {
     lead_name: leadName,
     scheduled_at: scheduledAt,
     status,
-    amount: amount ?? undefined,
-    setter_name: get("setter_name") || undefined,
-    closed_by_name: get("closed_by_name") || undefined,
+    ...(amount !== undefined && { amount }),
+    ...(get("setter_name") && { setter_name: get("setter_name") }),
+    ...(get("closed_by_name") && { closed_by_name: get("closed_by_name") }),
     form_answers: [],
   };
 }
 
 function parseDate(raw: string): string | null {
   if (!raw) return null;
-  // Already ISO
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw;
-  // DD/MM/YYYY or DD-MM-YYYY
   const match = raw.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{2,4})$/);
   if (match) {
     const [, d, m, y] = match;
@@ -436,7 +427,6 @@ function parseDate(raw: string): string | null {
     const date = new Date(`${year}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`);
     if (!isNaN(date.getTime())) return date.toISOString();
   }
-  // Try native parse as last resort
   const d = new Date(raw);
   if (!isNaN(d.getTime())) return d.toISOString();
   return null;

@@ -15,6 +15,7 @@ import {
   Upload,
 } from "lucide-react";
 import { Badge, Button } from "@ai-coo/ui";
+import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/providers/toast-provider";
 import {
   analyzeImportFileAction,
@@ -22,6 +23,7 @@ import {
   executeImportAction,
   undoImportAction,
   listImportBatchesAction,
+  IMPORT_BUCKET,
 } from "@/app/operations/import-actions";
 import type {
   ColumnMapping,
@@ -32,6 +34,7 @@ import type {
 import { CLOSING_FIELDS } from "@/types/import";
 
 type Step = "upload" | "sheets" | "mapping" | "result";
+type UploadStatus = "idle" | "uploading" | "analyzing" | "done" | "error";
 
 const MODULE_LABELS: Record<string, string> = {
   closing: "Closing / Ventas",
@@ -46,34 +49,75 @@ export function ImportWizard({ pastBatches }: { pastBatches: ImportBatch[] }) {
   const [pending, startTransition] = useTransition();
 
   const [step, setStep] = useState<Step>("upload");
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [file, setFile] = useState<File | null>(null);
+  const [storagePath, setStoragePath] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<FileAnalysis | null>(null);
   const [selectedSheets, setSelectedSheets] = useState<string[]>([]);
   const [mapping, setMapping] = useState<ColumnMapping>({});
   const [result, setResult] = useState<ImportResult | null>(null);
   const [batches, setBatches] = useState<ImportBatch[]>(pastBatches);
 
-  // ─── Step 1: Upload & analyze ──────────────────────────────────────────────
+  // ─── Step 1: Upload to storage, then analyze ──────────────────────────────
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
-    if (f) setFile(f);
+    if (f) {
+      setFile(f);
+      setUploadStatus("idle");
+      setStoragePath(null);
+    }
   }
 
-  function analyzeFile() {
+  async function uploadAndAnalyze() {
     if (!file) return;
-    startTransition(async () => {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await analyzeImportFileAction(fd);
-      if (!res.success) {
-        toast({ title: "Error al analizar", description: res.error });
+
+    const MAX_MB = 50;
+    if (file.size > MAX_MB * 1024 * 1024) {
+      toast({ title: "Archivo muy grande", description: `El máximo es ${MAX_MB} MB.` });
+      return;
+    }
+
+    try {
+      // 1. Upload to Supabase Storage from the browser (bypasses Vercel 4.5MB limit)
+      setUploadStatus("uploading");
+      setUploadProgress(0);
+
+      const supabase = createClient();
+      const path = `imports/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from(IMPORT_BUCKET)
+        .upload(path, file, { upsert: false });
+
+      if (uploadErr) {
+        setUploadStatus("error");
+        toast({ title: "Error al subir el archivo", description: uploadErr.message });
         return;
       }
-      setAnalysis(res.data);
-      setSelectedSheets(res.data.recommendedSheets);
-      setStep("sheets");
-    });
+
+      setUploadProgress(100);
+      setStoragePath(path);
+      setUploadStatus("analyzing");
+
+      // 2. Server action reads from storage and analyzes
+      startTransition(async () => {
+        const res = await analyzeImportFileAction(path, file.name);
+        if (!res.success) {
+          setUploadStatus("error");
+          toast({ title: "Error al analizar", description: res.error });
+          return;
+        }
+        setUploadStatus("done");
+        setAnalysis(res.data);
+        setSelectedSheets(res.data.recommendedSheets);
+        setStep("sheets");
+      });
+    } catch (err) {
+      setUploadStatus("error");
+      toast({ title: "Error inesperado", description: err instanceof Error ? err.message : "Intentá de nuevo." });
+    }
   }
 
   // ─── Step 2: Sheet selection → get mapping ─────────────────────────────────
@@ -85,7 +129,6 @@ export function ImportWizard({ pastBatches }: { pastBatches: ImportBatch[] }) {
     }
     startTransition(async () => {
       if (!analysis) return;
-      // Get headers from first selected sheet
       const firstSheet = analysis.sheets.find((s) => selectedSheets.includes(s.name));
       if (!firstSheet) return;
       const sampleRow = firstSheet.sampleRows[0] ?? {};
@@ -99,15 +142,14 @@ export function ImportWizard({ pastBatches }: { pastBatches: ImportBatch[] }) {
     });
   }
 
-  // ─── Step 3: Column mapping → execute ─────────────────────────────────────
+  // ─── Step 3: Execute import ────────────────────────────────────────────────
 
   function executeImport() {
-    if (!file || !analysis) return;
+    if (!storagePath || !analysis || !file) return;
     startTransition(async () => {
-      const fd = new FormData();
-      fd.append("file", file);
       const res = await executeImportAction(
-        fd,
+        storagePath,
+        file.name,
         selectedSheets,
         mapping,
         analysis.recommendedModule
@@ -122,7 +164,7 @@ export function ImportWizard({ pastBatches }: { pastBatches: ImportBatch[] }) {
     });
   }
 
-  // ─── Undo ─────────────────────────────────────────────────────────────────
+  // ─── Undo ──────────────────────────────────────────────────────────────────
 
   function undoBatch(batchId: string) {
     if (!confirm("¿Deshacer esta importación? Se eliminarán todos los registros importados.")) return;
@@ -138,19 +180,24 @@ export function ImportWizard({ pastBatches }: { pastBatches: ImportBatch[] }) {
     });
   }
 
-  // ─── Reset ────────────────────────────────────────────────────────────────
+  // ─── Reset ─────────────────────────────────────────────────────────────────
 
   function reset() {
     setStep("upload");
     setFile(null);
+    setStoragePath(null);
     setAnalysis(null);
     setSelectedSheets([]);
     setMapping({});
     setResult(null);
+    setUploadStatus("idle");
+    setUploadProgress(0);
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // ─── Render ────────────────────────────────────────────────────────────────
+
+  const isAnalyzing = uploadStatus === "uploading" || uploadStatus === "analyzing" || pending;
 
   return (
     <div className="space-y-6">
@@ -171,16 +218,8 @@ export function ImportWizard({ pastBatches }: { pastBatches: ImportBatch[] }) {
           return (
             <span key={s} className="flex items-center gap-2">
               {i > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
-              <span
-                className={
-                  active
-                    ? "font-semibold text-foreground"
-                    : done
-                    ? "text-primary"
-                    : ""
-                }
-              >
-                {done ? <CheckCircle2 className="inline h-3.5 w-3.5 mr-1 text-primary" /> : null}
+              <span className={active ? "font-semibold text-foreground" : done ? "text-primary" : ""}>
+                {done && <CheckCircle2 className="inline h-3.5 w-3.5 mr-1 text-primary" />}
                 {labels[s]}
               </span>
             </span>
@@ -192,20 +231,35 @@ export function ImportWizard({ pastBatches }: { pastBatches: ImportBatch[] }) {
       {step === "upload" && (
         <div className="space-y-4">
           <div
-            className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border/60 bg-muted/20 p-10 text-center cursor-pointer hover:border-primary/40 transition-colors"
-            onClick={() => fileRef.current?.click()}
+            className={`flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-10 text-center transition-colors ${
+              file
+                ? "border-primary/40 bg-primary/5"
+                : "border-border/60 bg-muted/20 hover:border-primary/30 cursor-pointer"
+            }`}
+            onClick={() => !file && fileRef.current?.click()}
           >
             <FileSpreadsheet className="h-10 w-10 text-muted-foreground" />
             <div>
-              <p className="font-medium">Arrastrá o hacé clic para subir</p>
+              <p className="font-medium">
+                {file ? file.name : "Arrastrá o hacé clic para subir"}
+              </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Formatos: .xlsx, .xls, .xlsm, .csv — máx. 10 MB
+                {file
+                  ? `${(file.size / 1024 / 1024).toFixed(2)} MB · .${file.name.split(".").pop()?.toUpperCase()}`
+                  : "Formatos: .xlsx, .xls, .xlsm, .csv — máx. 50 MB"}
               </p>
             </div>
             {file && (
-              <Badge variant="secondary" className="text-xs">
-                {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-              </Badge>
+              <button
+                className="text-xs text-muted-foreground underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFile(null);
+                  if (fileRef.current) fileRef.current.value = "";
+                }}
+              >
+                Cambiar archivo
+              </button>
             )}
           </div>
           <input
@@ -215,13 +269,41 @@ export function ImportWizard({ pastBatches }: { pastBatches: ImportBatch[] }) {
             className="hidden"
             onChange={handleFileChange}
           />
-          <Button onClick={analyzeFile} disabled={!file || pending} className="w-full sm:w-auto">
-            {pending ? (
+
+          {/* Upload progress */}
+          {uploadStatus === "uploading" && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Subiendo archivo...</span>
+                <span className="text-muted-foreground">{uploadProgress}%</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-300 rounded-full"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {uploadStatus === "analyzing" && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Analizando hojas con IA...
+            </div>
+          )}
+
+          <Button
+            onClick={uploadAndAnalyze}
+            disabled={!file || isAnalyzing}
+            className="w-full sm:w-auto"
+          >
+            {isAnalyzing ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Sparkles className="mr-2 h-4 w-4" />
             )}
-            Analizar con IA
+            {isAnalyzing ? "Procesando..." : "Analizar con IA"}
           </Button>
         </div>
       )}
@@ -255,7 +337,9 @@ export function ImportWizard({ pastBatches }: { pastBatches: ImportBatch[] }) {
                 <label
                   key={sheet.name}
                   className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
-                    checked ? "border-primary/50 bg-primary/5" : "border-border/60 hover:border-border"
+                    checked
+                      ? "border-primary/50 bg-primary/5"
+                      : "border-border/60 hover:border-border"
                   }`}
                 >
                   <input
@@ -271,7 +355,7 @@ export function ImportWizard({ pastBatches }: { pastBatches: ImportBatch[] }) {
                     }
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Table className="h-4 w-4 text-muted-foreground shrink-0" />
                       <span className="font-medium text-sm">{sheet.name}</span>
                       <Badge variant="outline" className="text-xs">
@@ -287,7 +371,11 @@ export function ImportWizard({ pastBatches }: { pastBatches: ImportBatch[] }) {
                     </p>
                     {sheet.sampleRows[0] && (
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Primera fila: {Object.values(sheet.sampleRows[0]).filter(Boolean).slice(0, 4).join(" · ")}
+                        Primera fila:{" "}
+                        {Object.values(sheet.sampleRows[0])
+                          .filter(Boolean)
+                          .slice(0, 4)
+                          .join(" · ")}
                       </p>
                     )}
                   </div>
@@ -318,7 +406,8 @@ export function ImportWizard({ pastBatches }: { pastBatches: ImportBatch[] }) {
           <div className="rounded-lg border border-border/60 bg-muted/10 p-4">
             <p className="text-sm font-medium">Mapeo de columnas</p>
             <p className="text-sm text-muted-foreground mt-0.5">
-              La IA pre-mapeó las columnas. Revisá y corregí si hace falta.
+              La IA pre-mapeó las columnas. Revisá y corregí si hace falta. Los campos con{" "}
+              <span className="text-destructive">*</span> son obligatorios.
             </p>
           </div>
 
@@ -424,14 +513,19 @@ export function ImportWizard({ pastBatches }: { pastBatches: ImportBatch[] }) {
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">{b.fileName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {MODULE_LABELS[b.module]} · {b.rowsImported} registros ·{" "}
-                      {b.createdAt.slice(0, 10)}
+                      {MODULE_LABELS[b.module]} · {b.rowsImported} registros · {b.createdAt.slice(0, 10)}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <Badge
-                    variant={b.status === "completed" ? "default" : b.status === "undone" ? "secondary" : "outline"}
+                    variant={
+                      b.status === "completed"
+                        ? "default"
+                        : b.status === "undone"
+                        ? "secondary"
+                        : "outline"
+                    }
                     className="text-xs"
                   >
                     {b.status === "completed"
@@ -516,7 +610,7 @@ function ColumnMappingTable({
                     ))}
                   </select>
                 </td>
-                <td className="px-3 py-2 text-muted-foreground text-xs">
+                <td className="px-3 py-2 text-muted-foreground text-xs max-w-[200px] truncate">
                   {sampleValue || "—"}
                 </td>
               </tr>
