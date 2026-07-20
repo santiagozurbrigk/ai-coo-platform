@@ -139,6 +139,12 @@ export function FinanceOverview({ importedTransactions = [] }: FinanceOverviewPr
     >
       <PageHeader description="Inteligencia financiera: facturación, cash collected, por cobrar y balances por plataforma" />
 
+      {importedTransactions.length > 0 && (
+        <motion.div variants={fade}>
+          <ImportedTransactionsTable transactions={importedTransactions} />
+        </motion.div>
+      )}
+
       <motion.div variants={fade}>
         <FinanceMetrics />
       </motion.div>
@@ -149,12 +155,6 @@ export function FinanceOverview({ importedTransactions = [] }: FinanceOverviewPr
         </h3>
         <FinanceCharts />
       </motion.div>
-
-      {importedTransactions.length > 0 && (
-        <motion.div variants={fade}>
-          <ImportedTransactionsTable transactions={importedTransactions} />
-        </motion.div>
-      )}
     </motion.div>
   );
 }
