@@ -467,9 +467,9 @@ export async function undoImportAction(
 
 export async function listImportBatchesAction(): Promise<ImportBatch[]> {
   try {
-    const supabase = await createClient();
+    const admin = createAdminClient();
     const orgId = await requireOrganizationId();
-    const { data } = await supabase
+    const { data } = await admin
       .from("import_batches")
       .select("id, module, file_name, status, rows_imported, rows_skipped, created_at")
       .eq("organization_id", orgId)

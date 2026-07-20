@@ -21,6 +21,7 @@ import {
   type TeamCompensationRow,
 } from "@/lib/expenses/mapper";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { listOrganizationPaymentsAction } from "@/app/clients/payment-actions";
 import type {
@@ -455,8 +456,8 @@ export async function listImportedTransactionsAction(): Promise<ImportedTransact
   try {
     const organizationId = await tryRequireOrganizationId();
     if (!organizationId) return [];
-    const supabase = await createClient();
-    const { data, error } = await supabase
+    const admin = createAdminClient();
+    const { data, error } = await admin
       .from("import_finance_rows")
       .select("id, date, description, amount_usd, amount_local, category, client_name, closer_name, notes, import_batch_id, created_at")
       .eq("organization_id", organizationId)

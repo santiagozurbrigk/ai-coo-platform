@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { PageHeader } from "@/components/shared/page-header";
 import { ImportWizard } from "@/components/operations/import-wizard";
 import { listImportBatchesAction } from "@/app/operations/import-actions";
