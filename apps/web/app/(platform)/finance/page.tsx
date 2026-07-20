@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { FinanceOverview } from "@/components/finance/finance-overview";
 import { listImportedTransactionsAction } from "@/app/finance/actions";
 
