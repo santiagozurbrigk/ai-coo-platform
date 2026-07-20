@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { DollarSign, FileSpreadsheet } from "lucide-react";
+import { ChevronDown, ChevronUp, DollarSign, FileSpreadsheet } from "lucide-react";
 import { Button } from "@ai-coo/ui";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -25,11 +26,17 @@ function formatCurrency(value: number | null, currency: "USD" | "ARS"): string {
     : `$${value.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ARS`;
 }
 
+const PREVIEW_ROWS = 5;
+
 function ImportedTransactionsTable({ transactions }: { transactions: ImportedTransaction[] }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (transactions.length === 0) return null;
 
   const totalUsd = transactions.reduce((s, t) => s + (t.amountUsd ?? 0), 0);
   const totalArs = transactions.reduce((s, t) => s + (t.amountLocal ?? 0), 0);
+  const visible = expanded ? transactions : transactions.slice(0, PREVIEW_ROWS);
+  const hasMore = transactions.length > PREVIEW_ROWS;
 
   return (
     <div className="space-y-3">
@@ -61,7 +68,7 @@ function ImportedTransactionsTable({ transactions }: { transactions: ImportedTra
               </tr>
             </thead>
             <tbody className="divide-y">
-              {transactions.map((t) => (
+              {visible.map((t) => (
                 <tr key={t.id} className="hover:bg-muted/20 transition-colors">
                   <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
                     {t.date ? t.date.slice(0, 10) : "-"}
@@ -81,6 +88,25 @@ function ImportedTransactionsTable({ transactions }: { transactions: ImportedTra
             </tbody>
           </table>
         </div>
+
+        {hasMore && (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors border-t"
+          >
+            {expanded ? (
+              <>
+                <ChevronUp className="h-3.5 w-3.5" />
+                Mostrar menos
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3.5 w-3.5" />
+                Ver todas ({transactions.length})
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -146,7 +172,7 @@ export function FinanceOverview({ importedTransactions = [] }: FinanceOverviewPr
       )}
 
       <motion.div variants={fade}>
-        <FinanceMetrics />
+        <FinanceMetrics importedTransactions={importedTransactions} />
       </motion.div>
 
       <motion.div variants={fade}>
