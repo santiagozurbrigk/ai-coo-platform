@@ -437,7 +437,18 @@ export async function undoImportAction(
     if (batch.module === "finance") {
       await admin.from("import_finance_rows").delete().eq("import_batch_id", batchId);
     } else {
+      // Collect call IDs before deleting so we can cascade to auto-created clients
+      const { data: calls } = await admin
+        .from("closing_calls")
+        .select("id")
+        .eq("import_batch_id", batchId);
+
       await admin.from("closing_calls").delete().eq("import_batch_id", batchId);
+
+      if (calls && calls.length > 0) {
+        const callIds = calls.map((c) => c.id);
+        await admin.from("clients").delete().in("closing_call_id", callIds);
+      }
     }
 
     await supabase
