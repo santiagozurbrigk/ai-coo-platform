@@ -21,7 +21,6 @@ import {
   type TeamCompensationRow,
 } from "@/lib/expenses/mapper";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { listOrganizationPaymentsAction } from "@/app/clients/payment-actions";
 import type {
@@ -437,53 +436,6 @@ export async function updatePaymentPlatformAction(
   });
 }
 
-export type ImportedTransaction = {
-  id: string;
-  date: string | null;
-  description: string;
-  amountUsd: number | null;
-  amountLocal: number | null;
-  category: string | null;
-  clientName: string | null;
-  closerName: string | null;
-  notes: string | null;
-  importBatchId: string;
-  createdAt: string;
-};
-
-export async function listImportedTransactionsAction(): Promise<ImportedTransaction[]> {
-  if (!isSupabaseConfigured()) return [];
-  try {
-    const organizationId = await tryRequireOrganizationId();
-    if (!organizationId) return [];
-    const admin = createAdminClient();
-    const { data, error } = await admin
-      .from("import_finance_rows")
-      .select("id, date, description, amount_usd, amount_local, category, client_name, closer_name, notes, import_batch_id, created_at")
-      .eq("organization_id", organizationId)
-      .order("date", { ascending: false })
-      .limit(200);
-    if (error) {
-      console.error("[listImportedTransactions]", error);
-      return [];
-    }
-    return (data ?? []).map((r) => ({
-      id: r.id,
-      date: r.date,
-      description: r.description,
-      amountUsd: r.amount_usd ?? null,
-      amountLocal: r.amount_local ?? null,
-      category: r.category ?? null,
-      clientName: r.client_name ?? null,
-      closerName: r.closer_name ?? null,
-      notes: r.notes ?? null,
-      importBatchId: r.import_batch_id,
-      createdAt: r.created_at,
-    }));
-  } catch {
-    return [];
-  }
-}
 
 export async function deletePaymentPlatformAction(
   id: string

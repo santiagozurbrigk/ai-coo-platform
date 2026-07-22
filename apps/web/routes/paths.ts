@@ -79,7 +79,6 @@ export const paths = {
       sops: `${PLATFORM}/operations/sops`,
       inputs: `${PLATFORM}/operations/inputs`,
       reportes: `${PLATFORM}/operations/reportes`,
-      importar: `${PLATFORM}/operations/importar`,
       // legacy — kept for backwards compat, map to new routes
       teamInputs: `${PLATFORM}/operations/inputs`,
       weeklyInputs: `${PLATFORM}/operations/inputs`,

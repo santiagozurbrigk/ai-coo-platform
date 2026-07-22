@@ -131,11 +131,7 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           label: "Reportes",
           href: paths.platform.operations.reportes,
         },
-        {
-          label: "Importar datos",
-          href: paths.platform.operations.importar,
-        },
-        { label: "Área del fundador", href: paths.founder.root },
+{ label: "Área del fundador", href: paths.founder.root },
       ],
     },
   };
@@ -227,8 +223,7 @@ export function getParentFromPath(pathname: string): SidebarParentKey | null {
   if (pathname.startsWith(paths.platform.comentarios)) return "marketing";
   if (pathname.startsWith("/sales")) return "ventas";
   if (pathname.startsWith("/operations")) return "operaciones";
-  if (pathname.startsWith("/operations/importar")) return "operaciones";
-  if (pathname.startsWith("/intelligence")) return "operaciones";
+if (pathname.startsWith("/intelligence")) return "operaciones";
   if (pathname.startsWith("/executive-reports")) return "operaciones";
   if (pathname.startsWith("/founder")) return "operaciones";
   return null;

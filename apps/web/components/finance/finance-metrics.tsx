@@ -29,13 +29,8 @@ import {
 import { BentoCellPlace, BentoGrid } from "@/components/shared/bento-grid";
 import { FacturacionPeriodFilter } from "./facturacion-period-filter";
 import { paths } from "@/routes";
-import type { ImportedTransaction } from "@/app/finance/actions";
 
-interface FinanceMetricsProps {
-  importedTransactions?: ImportedTransaction[];
-}
-
-export function FinanceMetrics({ importedTransactions = [] }: FinanceMetricsProps) {
+export function FinanceMetrics() {
   const {
     clients,
     closingCalls,
@@ -50,18 +45,8 @@ export function FinanceMetrics({ importedTransactions = [] }: FinanceMetricsProp
 
   const loading = clientsLoading || closingCallsLoading;
 
-  const importedAmountUsd = useMemo(() => {
-    const period = resolveRevenueDateRange(revenueRange);
-    return importedTransactions.reduce((sum, t) => {
-      if (!t.amountUsd || !t.date) return sum;
-      const d = new Date(t.date.slice(0, 10) + "T00:00:00");
-      if (d < period.start || d > period.end) return sum;
-      return sum + t.amountUsd;
-    }, 0);
-  }, [importedTransactions, revenueRange]);
-
   const summary = useMemo(() => {
-    const base = deriveFinanceSummary(
+    return deriveFinanceSummary(
       clients,
       closingCalls,
       expensesSummary,
@@ -69,11 +54,6 @@ export function FinanceMetrics({ importedTransactions = [] }: FinanceMetricsProp
       revenueRange,
       clientPayments
     );
-    return {
-      ...base,
-      facturacion: base.facturacion + importedAmountUsd,
-      cashCollected: base.cashCollected + importedAmountUsd,
-    };
   }, [
     clients,
     closingCalls,
@@ -81,7 +61,6 @@ export function FinanceMetrics({ importedTransactions = [] }: FinanceMetricsProp
     paymentPlatforms,
     clientPayments,
     revenueRange,
-    importedAmountUsd,
   ]);
 
   const periodEvents = useMemo(() => {
