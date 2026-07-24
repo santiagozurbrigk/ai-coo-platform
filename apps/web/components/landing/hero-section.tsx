@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { paths } from "@/routes";
 import { VslPlayer } from "./vsl-player";
 
 export function HeroSection() {
@@ -32,19 +30,13 @@ export function HeroSection() {
         </p>
 
         {/* CTA */}
-        <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+        <div className="mt-8">
           <a
             href="#agendar"
             className="inline-block w-full max-w-[240px] rounded-full bg-[#7C3AED] px-8 py-4 text-base font-semibold text-white shadow-[0_0_30px_rgba(124,58,237,0.35)] transition-colors hover:bg-[#6D28D9] sm:w-auto"
           >
             Empezá gratis ahora
           </a>
-          <Link
-            href={paths.platform.dashboard}
-            className="text-sm text-white/40 transition-colors hover:text-white/70"
-          >
-            Ya tengo cuenta →
-          </Link>
         </div>
 
         {/* Social proof */}
