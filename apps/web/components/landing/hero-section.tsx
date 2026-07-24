@@ -4,8 +4,8 @@ import { VslPlayer } from "./vsl-player";
 
 export function HeroSection() {
   return (
-    <section className="relative flex min-h-0 items-center overflow-hidden px-4 py-20 sm:px-6 sm:py-32 md:min-h-screen md:py-44">
-      {/* Main content */}
+    <section className="relative overflow-hidden px-4 pb-0 pt-20 sm:px-6 sm:pt-32 md:pt-44">
+      {/* Text content — constrained */}
       <div className="relative z-10 mx-auto w-full max-w-3xl px-2 text-center sm:px-4">
         {/* Badge */}
         <div className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]">
@@ -44,11 +44,11 @@ export function HeroSection() {
           <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]" />
           Más founders conectan OTC cada semana
         </p>
+      </div>
 
-        {/* VSL */}
-        <div className="mx-auto mt-16 w-full max-w-3xl">
-          <VslPlayer />
-        </div>
+      {/* VSL — full width, breaks out of text container */}
+      <div className="relative z-10 mx-auto mt-16 w-full max-w-5xl px-2 sm:px-4">
+        <VslPlayer />
       </div>
     </section>
   );
