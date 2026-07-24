@@ -1,25 +1,34 @@
-import { WaitlistForm } from "./waitlist-form";
-
 export function FinalCtaSection() {
   return (
     <section className="border-y border-[#7C3AED]/10 bg-[#7C3AED]/5 px-4 py-32 sm:px-6">
       <div className="mx-auto max-w-3xl text-center">
         <h2 className="text-5xl font-black tracking-tight md:text-7xl">
-          Ya construiste algo grande.
+          Probalo gratis.
           <br />
-          Ahora escalalo.
+          <span className="text-[#7C3AED]">Sin tarjeta.</span>
         </h2>
         <p className="mx-auto mt-6 max-w-lg text-lg leading-relaxed text-white/60">
-          OTC entra a tu negocio, entiende cómo funciona y empieza a darte
-          claridad y acción desde el día 1.
+          Agendá una sesión de onboarding de 30 minutos y salís con OTC funcionando
+          con datos reales de tu negocio. 3 días de acceso completo, gratis.
         </p>
-        <WaitlistForm
-          submitLabel="Aplicar a un cupo"
-          className="mx-auto mt-10 justify-center"
-        />
-        <p className="mt-6 text-sm text-white/40">
-          Solo 10 cupos · Sin permanencia mínima
-        </p>
+
+        <a
+          href="#agendar"
+          className="mt-10 inline-block rounded-full bg-[#7C3AED] px-10 py-4 text-base font-semibold text-white transition-colors hover:bg-[#6D28D9]"
+        >
+          Agendá tu sesión gratis
+        </a>
+
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
+          {["Sin tarjeta de crédito", "Onboarding 1:1 incluido", "3 días de acceso completo"].map(
+            (item) => (
+              <span key={item} className="flex items-center gap-1.5 text-sm text-white/40">
+                <span className="h-1 w-1 rounded-full bg-violet-400" />
+                {item}
+              </span>
+            )
+          )}
+        </div>
       </div>
     </section>
   );

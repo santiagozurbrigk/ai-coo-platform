@@ -4,29 +4,34 @@ import { useState } from "react";
 
 const FAQ_ITEMS = [
   {
-    question: "¿Necesito saber de tecnología para usar OTC?",
+    question: "¿La prueba gratis es realmente gratis?",
     answer:
-      "No. El onboarding es guiado y la IA hace el trabajo pesado. Vos configurás tus reglas en lenguaje natural.",
+      "Sí. No pedimos tarjeta de crédito. 3 días de acceso completo a OTC, sin costo y sin compromiso. Si querés continuar, te contamos los planes después del onboarding.",
   },
   {
-    question: "¿Qué pasa si ya uso otras herramientas?",
+    question: "¿Qué pasa en la sesión de onboarding?",
     answer:
-      "OTC se conecta a lo que ya usás: Calendly, Instagram, Fathom, Discord, Stripe y más. No tenés que cambiar todo, solo centralizarlo.",
+      "Es una videollamada de 30 minutos donde conectamos tus integraciones en vivo: Calendly, Instagram, Zernio, gastos y equipo. Salís de la llamada con OTC funcionando con datos reales de tu negocio.",
   },
   {
-    question: "¿Cuánto tiempo tarda el onboarding?",
+    question: "¿Necesito saber de tecnología?",
     answer:
-      "El primer día ya tenés las integraciones conectadas y el Agente de negocio configurado. La primera semana ya tenés reportes reales.",
+      "No. El onboarding es guiado, lo hacemos nosotros con vos. Vos explicás tu negocio, nosotros configuramos el sistema.",
   },
   {
-    question: "¿Mis datos y los de mis clientes están seguros?",
+    question: "¿Qué herramientas se conectan?",
     answer:
-      "Sí. Todo corre sobre infraestructura encriptada. Nunca compartimos ni vendemos datos de tu negocio.",
+      "Calendly, Instagram (vía Zernio), Fathom, Discord, Google Drive, Typeform, Google Forms, Mercado Pago y más. Si usás algo que no está en la lista, lo vemos en el onboarding.",
   },
   {
-    question: "¿Los 10 cupos son definitivos?",
+    question: "¿Cuánto tiempo tarda ver resultados?",
     answer:
-      "Son los primeros 10 cupos de acceso anticipado con soporte personalizado. Cuando escalemos, habrá más lugares, pero a otro precio.",
+      "El primer día ya tenés métricas reales de tu negocio. En los 3 días de prueba podés ver facturación, tasa de cierre, contenido con atribución y el agente IA respondiendo sobre tu negocio.",
+  },
+  {
+    question: "¿Qué pasa cuando terminan los 3 días?",
+    answer:
+      "Te contactamos para contarte los planes. Si decidís no continuar, no pasa nada. Sin presiones, sin cobros automáticos.",
   },
 ] as const;
 
@@ -48,15 +53,12 @@ export function FaqSection() {
         <ul className="divide-y divide-white/[0.06]">
           {FAQ_ITEMS.map(({ question, answer }, index) => {
             const isOpen = openIndex === index;
-
             return (
               <li key={question}>
                 <button
                   type="button"
                   className="flex w-full cursor-pointer items-center justify-between py-5 text-left"
-                  onClick={() =>
-                    setOpenIndex(isOpen ? null : index)
-                  }
+                  onClick={() => setOpenIndex(isOpen ? null : index)}
                   aria-expanded={isOpen}
                 >
                   <span className="pr-4 text-base font-semibold text-white">
@@ -68,12 +70,12 @@ export function FaqSection() {
                 </button>
                 <div
                   style={{
-                    maxHeight: isOpen ? "240px" : "0px",
+                    maxHeight: isOpen ? "300px" : "0px",
                     overflow: "hidden",
                     transition: "max-height 0.3s ease",
                   }}
                 >
-                  <p className="mt-0 pr-8 text-sm leading-relaxed text-white/55">
+                  <p className="pb-5 pr-8 text-sm leading-relaxed text-white/55">
                     {answer}
                   </p>
                 </div>
