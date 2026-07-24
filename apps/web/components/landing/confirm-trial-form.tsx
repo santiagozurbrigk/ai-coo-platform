@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input, Button } from "@ai-coo/ui";
 import { getStoredUtmData } from "@/components/landing/utm-capture";
 
@@ -20,6 +20,13 @@ export function ConfirmTrialForm() {
   const [instagram, setInstagram] = useState("");
   const [state, setState] = useState<State>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [calendlyEventUrl, setCalendlyEventUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const eventUri = params.get("calendly_event");
+    if (eventUri) setCalendlyEventUrl(eventUri);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,6 +49,7 @@ export function ConfirmTrialForm() {
           last_name: name.trim().split(" ").slice(1).join(" ") || "-",
           phone: phone.trim(),
           instagram: instagram.trim() || undefined,
+          calendly_event_url: calendlyEventUrl ?? undefined,
           page_url: typeof window !== "undefined" ? window.location.href : undefined,
           ...utmData,
         }),

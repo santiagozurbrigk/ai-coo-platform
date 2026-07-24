@@ -24,7 +24,13 @@ function CalendlyWidget() {
         e.data !== null &&
         e.data.event === "calendly.event_scheduled"
       ) {
-        window.location.href = "/prueba";
+        const eventUri: string | undefined =
+          typeof e.data.payload?.event?.uri === "string"
+            ? (e.data.payload.event.uri as string)
+            : undefined;
+        const url = new URL("/prueba", window.location.origin);
+        if (eventUri) url.searchParams.set("calendly_event", eventUri);
+        window.location.href = url.toString();
       }
     }
     window.addEventListener("message", handleMessage);

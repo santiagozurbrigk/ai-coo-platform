@@ -14,12 +14,16 @@ type WaitlistLeadRow = {
   operational_pain: string | null;
   why_now: string | null;
   source: string;
+  calendly_event_url: string | null;
   utm_source: string | null;
   utm_medium: string | null;
   utm_campaign: string | null;
   utm_content: string | null;
   created_at: string;
 };
+
+const LEAD_SELECT =
+  "id, email, first_name, last_name, phone, instagram, monthly_revenue, team_size, operational_pain, why_now, source, calendly_event_url, utm_source, utm_medium, utm_campaign, utm_content, created_at";
 
 function rowToWaitlistLead(row: WaitlistLeadRow): WaitlistLead {
   return {
@@ -34,6 +38,7 @@ function rowToWaitlistLead(row: WaitlistLeadRow): WaitlistLead {
     operationalPain: row.operational_pain,
     whyNow: row.why_now,
     source: row.source,
+    calendlyEventUrl: row.calendly_event_url,
     utmSource: row.utm_source,
     utmMedium: row.utm_medium,
     utmCampaign: row.utm_campaign,
@@ -47,14 +52,24 @@ export async function loadWaitlistLeads(): Promise<WaitlistLead[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("waitlist_leads")
-    .select(
-      "id, email, first_name, last_name, phone, instagram, monthly_revenue, team_size, operational_pain, why_now, source, utm_source, utm_medium, utm_campaign, utm_content, created_at"
-    )
+    .select(LEAD_SELECT)
     .order("created_at", { ascending: false });
 
-  if (error) {
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => rowToWaitlistLead(row as WaitlistLeadRow));
+}
+
+export async function loadTrialLeads(): Promise<WaitlistLead[]> {
+  await requireSuperAdmin();
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("waitlist_leads")
+    .select(LEAD_SELECT)
+    .eq("source", "trial")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
 
   return (data ?? []).map((row) => rowToWaitlistLead(row as WaitlistLeadRow));
 }

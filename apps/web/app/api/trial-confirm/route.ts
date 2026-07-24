@@ -35,6 +35,7 @@ export async function POST(request: Request) {
   const lastName = readString(payload.last_name);
   const phone = readString(payload.phone);
   const instagram = readOptionalString(payload.instagram);
+  const calendlyEventUrl = readOptionalString(payload.calendly_event_url);
   const utm_source = readOptionalString(payload.utm_source);
   const utm_medium = readOptionalString(payload.utm_medium);
   const utm_campaign = readOptionalString(payload.utm_campaign);
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
     last_name: lastName || "-",
     phone,
     instagram,
+    calendly_event_url: calendlyEventUrl,
     monthly_revenue: "No especificado",
     team_size: "Solo yo",
     operational_pain: "Trial confirmado vía /prueba",
