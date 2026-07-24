@@ -41,6 +41,7 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/api/queue/")) return true;
   if (pathname.startsWith("/api/rag/")) return true;
   if (pathname === "/prueba" || pathname.startsWith("/prueba/")) return true;
+  if (pathname === "/api/trial-confirm") return true;
   if (pathname.startsWith("/invite")) return true;
   if (pathname.startsWith("/api/invite/")) return true;
   if (pathname.startsWith("/api/webhooks/instagram/")) return true;

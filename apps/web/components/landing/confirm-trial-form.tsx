@@ -33,7 +33,7 @@ export function ConfirmTrialForm() {
 
     try {
       const utmData = getStoredUtmData();
-      const res = await fetch("/api/waitlist", {
+      const res = await fetch("/api/trial-confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -42,10 +42,6 @@ export function ConfirmTrialForm() {
           last_name: name.trim().split(" ").slice(1).join(" ") || "-",
           phone: phone.trim(),
           instagram: instagram.trim() || undefined,
-          monthly_revenue: "trial_confirmed",
-          team_size: "-",
-          operational_pain: "Trial confirmado via /prueba",
-          why_now: "Completó formulario post-Calendly",
           page_url: typeof window !== "undefined" ? window.location.href : undefined,
           ...utmData,
         }),
