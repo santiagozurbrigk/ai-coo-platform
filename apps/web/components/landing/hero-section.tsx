@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { paths } from "@/routes";
+import { VslPlayer } from "./vsl-player";
 
 const FLOATING_SCREENSHOTS = [
   {
@@ -135,16 +136,15 @@ export function HeroSection() {
           </Link>
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          {TRUST_ITEMS.map((item) => (
-            <span
-              key={item}
-              className="flex items-center gap-1.5 text-xs text-white/40"
-            >
-              <span className="h-1 w-1 rounded-full bg-violet-400" />
-              {item}
-            </span>
-          ))}
+        {/* Social proof */}
+        <p className="mt-4 flex items-center justify-center gap-2 text-sm text-white/50">
+          <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+          Más founders conectan OTC cada semana
+        </p>
+
+        {/* VSL */}
+        <div className="mx-auto mt-14 w-full max-w-3xl">
+          <VslPlayer />
         </div>
       </div>
     </section>
