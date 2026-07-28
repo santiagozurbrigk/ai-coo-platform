@@ -2,6 +2,7 @@
 
 import {
   isMissingTableError,
+  requireOrganizationId,
   tryRequireOrganizationId,
 } from "@/lib/auth/bootstrap";
 import {
@@ -70,6 +71,7 @@ export async function updateClosingCallAction(
     throw new Error(firstZodError(patchParsed.error));
   }
 
+  const organizationId = await requireOrganizationId();
   const supabase = await createClient();
   const updateRow = patchToClosingUpdateRow(patchParsed.data);
 
@@ -77,6 +79,7 @@ export async function updateClosingCallAction(
     .from("closing_calls")
     .update(updateRow)
     .eq("id", idParsed.data)
+    .eq("organization_id", organizationId)
     .select()
     .single();
 

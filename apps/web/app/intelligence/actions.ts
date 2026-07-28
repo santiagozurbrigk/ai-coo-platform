@@ -1,6 +1,6 @@
 "use server";
 
-import { tryRequireOrganizationId } from "@/lib/auth/bootstrap";
+import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import type {
@@ -36,8 +36,7 @@ function parseJsonArray<T>(value: unknown): T[] {
 export async function getIntelligenceSnapshotAction(): Promise<IntelligenceSnapshotView> {
   if (!isSupabaseConfigured()) return EMPTY_SNAPSHOT;
 
-  const organizationId = await tryRequireOrganizationId();
-  if (!organizationId) return EMPTY_SNAPSHOT;
+  const organizationId = await requireOrganizationId();
 
   const supabase = await createClient();
   const { data, error } = await supabase

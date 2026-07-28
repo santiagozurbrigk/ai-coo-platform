@@ -17,7 +17,8 @@ type CachedCredential = {
 };
 
 const credentialCache = new Map<string, CachedCredential>();
-const CACHE_TTL_MS = 5 * 60 * 1000;
+// TTL corto para minimizar ventana de credenciales stale en entorno serverless multi-instancia
+const CACHE_TTL_MS = 30 * 1000;
 
 function getGlobalClient(): Anthropic | null {
   const key = process.env.ANTHROPIC_API_KEY?.trim();

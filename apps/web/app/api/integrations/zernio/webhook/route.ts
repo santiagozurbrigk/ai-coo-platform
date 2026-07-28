@@ -61,18 +61,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Supabase no configurado" }, { status: 500 });
   }
 
-  // Verificar firma HMAC si hay un secret configurado
   const webhookSecret = process.env.ZERNIO_WEBHOOK_SECRET;
   const rawBody = await req.text();
 
-  if (webhookSecret) {
-    const signature =
-      req.headers.get("x-zernio-signature") ??
-      req.headers.get("x-hub-signature-256") ??
-      req.headers.get("x-signature");
-    if (!verifyZernioSignature(webhookSecret, rawBody, signature)) {
-      return NextResponse.json({ error: "Firma inválida" }, { status: 401 });
-    }
+  // El secret es obligatorio en producción — si no está configurado, rechazar con 503
+  if (!webhookSecret) {
+    console.error("[Zernio Webhook] ZERNIO_WEBHOOK_SECRET no configurado");
+    return NextResponse.json(
+      { error: "Webhook no configurado correctamente" },
+      { status: 503 }
+    );
+  }
+
+  const signature =
+    req.headers.get("x-zernio-signature") ??
+    req.headers.get("x-hub-signature-256") ??
+    req.headers.get("x-signature");
+  if (!verifyZernioSignature(webhookSecret, rawBody, signature)) {
+    return NextResponse.json({ error: "Firma inválida" }, { status: 401 });
   }
 
   let body: WebhookBody;

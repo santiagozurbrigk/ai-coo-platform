@@ -26,9 +26,6 @@ const PUBLIC_PATHS = [
   paths.demo,
   paths.designSystem,
   paths.superAdmin.login,
-  "/superadmin",
-  "/super-admin",
-  "/founder",
 ] as const;
 
 function isPublicPath(pathname: string): boolean {
