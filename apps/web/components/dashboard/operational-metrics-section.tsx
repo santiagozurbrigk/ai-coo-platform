@@ -10,7 +10,7 @@ export function OperationalMetricsSection({
   return (
     <Panel
       title="Métricas operacionales"
-      subtitle="Tasks completadas e inputs semanales del equipo"
+      subtitle="Actividad del equipo y tareas completadas"
     >
       <MetricBand>
         {metrics.map((metric) => (

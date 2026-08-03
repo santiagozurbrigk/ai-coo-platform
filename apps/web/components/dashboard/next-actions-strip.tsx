@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { ArrowRight, Calendar, FilePlus, Inbox, Sparkles } from "lucide-react";
+import { ArrowRight, Inbox, MessageSquare, Sparkles, TrendingUp } from "lucide-react";
 import { GlassPanel, cn } from "@ai-coo/ui";
 import { paths } from "@/routes";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -18,38 +18,30 @@ const DEMO_ACTIONS: Array<{
   icon: LucideIcon;
 }> = [
   {
-    href: paths.platform.operations.weeklyInputs,
-    label: "Input semanal",
-    description: "Menos de 2 min",
-    icon: Calendar,
-  },
-  {
     href: paths.platform.sales.inbox,
     label: "Revisar bandeja",
     description: "12 sin responder",
     icon: Inbox,
   },
   {
-    href: `${paths.platform.sops.root}#crear`,
-    label: "Crear SOP",
-    description: "Asistido por IA",
-    icon: FilePlus,
-  },
-  {
-    href: paths.platform.executiveReports.weekly,
-    label: "Reporte Semana 20",
-    description: "Generado el lunes",
+    href: paths.platform.agent.root,
+    label: "Agente de negocio",
+    description: "Consultá con IA",
     icon: Sparkles,
   },
+  {
+    href: paths.platform.marketing.overview,
+    label: "Marketing",
+    description: "Ver rendimiento",
+    icon: TrendingUp,
+  },
+  {
+    href: paths.platform.sales.closing,
+    label: "Llamadas de cierre",
+    description: "Próximas sesiones",
+    icon: MessageSquare,
+  },
 ];
-
-function formatReportWeekLabel(weekStart: string): string {
-  const d = new Date(`${weekStart}T12:00:00`);
-  return `Semana del ${d.toLocaleDateString("es", {
-    day: "numeric",
-    month: "short",
-  })}`;
-}
 
 function buildActions(
   unanswered: number,
@@ -62,18 +54,6 @@ function buildActions(
     icon: LucideIcon;
   }> = [];
 
-  const hasReport =
-    weeklyReport?.status === "ready" && Boolean(weeklyReport.executive_summary);
-
-  if (!hasReport) {
-    actions.push({
-      href: paths.platform.operations.weeklyInputs,
-      label: "Input semanal",
-      description: "Generar reporte con IA",
-      icon: Calendar,
-    });
-  }
-
   if (unanswered > 0) {
     actions.push({
       href: paths.platform.sales.inbox,
@@ -83,14 +63,19 @@ function buildActions(
     });
   }
 
-  if (hasReport && weeklyReport?.week_start) {
-    actions.push({
-      href: paths.platform.executiveReports.weekly,
-      label: formatReportWeekLabel(weeklyReport.week_start),
-      description: "Resumen ejecutivo listo",
-      icon: Sparkles,
-    });
-  }
+  actions.push({
+    href: paths.platform.agent.root,
+    label: "Agente de negocio",
+    description: "Consultá con IA",
+    icon: Sparkles,
+  });
+
+  actions.push({
+    href: paths.platform.marketing.overview,
+    label: "Marketing",
+    description: "Ver rendimiento",
+    icon: TrendingUp,
+  });
 
   return actions;
 }
