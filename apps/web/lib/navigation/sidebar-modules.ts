@@ -200,19 +200,14 @@ const byHref = (href: string) =>
 
 const platformRootItems: SidebarNavRootItem[] = [
   { type: "link", module: byHref(paths.platform.dashboard) },
-  { type: "link", module: byHref(paths.platform.workboard.root) },
   { type: "link", module: byHref(paths.platform.agent.root) },
   { type: "link", module: byHref(paths.platform.clients.root) },
-  { type: "link", module: byHref(paths.platform.businessContext.documents) },
-  { type: "link", module: byHref(paths.platform.integrations) },
-  { type: "link", module: byHref(paths.platform.team.root) },
   { type: "divider" },
   { type: "parent", key: "marketing" },
   { type: "parent", key: "ventas" },
-  { type: "link", module: productDirectModule },
-  { type: "link", module: lanzamientosDirectModule },
-  { type: "parent", key: "operaciones" },
   { type: "parent", key: "finanzas" },
+  { type: "divider" },
+  { type: "link", module: byHref(paths.platform.workboard.root) },
 ];
 
 export function getParentFromPath(pathname: string): SidebarParentKey | null {
