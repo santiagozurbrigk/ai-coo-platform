@@ -11,12 +11,30 @@ export const SIDEBAR_PARENT_KEYS = [
   "marketing",
   "ventas",
   "operaciones",
+  "agente",
 ] as const;
 
 export type SidebarParentKey = (typeof SIDEBAR_PARENT_KEYS)[number];
 
 export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> =
   {
+    agente: {
+      label: "Agente de negocio",
+      icon: "sparkles",
+      permissionId: "agent",
+      children: [
+        {
+          label: "Chat",
+          href: paths.platform.agent.root,
+          permissionId: "agent",
+        },
+        {
+          label: "Base de conocimiento",
+          href: paths.platform.businessContext.documents,
+          permissionId: "knowledge_base",
+        },
+      ],
+    },
     finanzas: {
       label: "Finanzas",
       icon: "wallet",
@@ -200,7 +218,7 @@ const byHref = (href: string) =>
 
 const platformRootItems: SidebarNavRootItem[] = [
   { type: "link", module: byHref(paths.platform.dashboard) },
-  { type: "link", module: byHref(paths.platform.agent.root) },
+  { type: "parent", key: "agente" },
   { type: "link", module: byHref(paths.platform.clients.root) },
   { type: "divider" },
   { type: "parent", key: "marketing" },
@@ -211,14 +229,15 @@ const platformRootItems: SidebarNavRootItem[] = [
 ];
 
 export function getParentFromPath(pathname: string): SidebarParentKey | null {
-  if (pathname.startsWith(paths.platform.product.root)) return null;
-  if (pathname.startsWith(paths.platform.lanzamientos)) return null;
+  if (pathname.startsWith(paths.platform.agent.root)) return "agente";
+  if (pathname.startsWith(paths.platform.businessContext.documents)) return "agente";
+  if (pathname.startsWith("/platform/business-context")) return "agente";
   if (pathname.startsWith(paths.platform.finance.root)) return "finanzas";
   if (pathname.startsWith("/marketing")) return "marketing";
   if (pathname.startsWith(paths.platform.comentarios)) return "marketing";
   if (pathname.startsWith("/sales")) return "ventas";
   if (pathname.startsWith("/operations")) return "operaciones";
-if (pathname.startsWith("/intelligence")) return "operaciones";
+  if (pathname.startsWith("/intelligence")) return "operaciones";
   if (pathname.startsWith("/executive-reports")) return "operaciones";
   if (pathname.startsWith("/founder")) return "operaciones";
   return null;
