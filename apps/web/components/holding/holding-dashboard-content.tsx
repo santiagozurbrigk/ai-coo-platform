@@ -64,13 +64,22 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
   const [tempCredentials, setTempCredentials] = useState<TempCredentials | null>(
     null
   );
+  const [enterError, setEnterError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const { businesses, kpis } = data;
 
   function enterBusiness(businessOrgId: string) {
     setPendingId(businessOrgId);
-    startTransition(() => {
-      void enterBusinessAction(businessOrgId);
+    setEnterError(null);
+    startTransition(async () => {
+      try {
+        await enterBusinessAction(businessOrgId);
+      } catch (e) {
+        setEnterError(
+          e instanceof Error ? e.message : "No se pudo entrar al negocio"
+        );
+        setPendingId(null);
+      }
     });
   }
 
@@ -151,7 +160,7 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
                 <Button
                   size="sm"
                   className="w-full"
-                  disabled={!orgId || pending}
+                  disabled={!orgId || (pending && pendingId === orgId)}
                   onClick={() => orgId && enterBusiness(orgId)}
                 >
                   {pending && pendingId === orgId
@@ -183,6 +192,10 @@ export function HoldingDashboardContent({ data }: { data: HoldingDashboardData }
             );
           })}
         </div>
+      )}
+
+      {enterError && (
+        <p className="text-sm text-destructive">{enterError}</p>
       )}
 
       <AddBusinessModal
