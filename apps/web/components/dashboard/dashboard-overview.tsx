@@ -14,6 +14,7 @@ import { NextActionsStrip } from "./next-actions-strip";
 import { DashboardEmptyState } from "./dashboard-empty-state";
 import { ZernioAnalyticsSection } from "./zernio-analytics-section";
 import { TopKpiRow } from "./top-kpi-row";
+import { SalesFunnelStrip } from "./sales-funnel-strip";
 import type { ZernioAnalyticsSummary } from "@/app/integrations/zernio/actions";
 
 const fade = {
@@ -40,10 +41,10 @@ export function DashboardOverview({
       initial="initial"
       animate="animate"
       variants={{
-        animate: { transition: { staggerChildren: 0.05 } },
+        animate: { transition: { staggerChildren: 0.06 } },
       }}
     >
-      {/* KPIs clave — visible sin scrollear */}
+      {/* 1 — KPIs de un vistazo */}
       <motion.div variants={fade}>
         <TopKpiRow
           revenueMetrics={data.revenueMetrics}
@@ -51,12 +52,17 @@ export function DashboardOverview({
         />
       </motion.div>
 
-      {/* Qué hacer ahora — justo después de los números */}
+      {/* 2 — Qué hacer ahora */}
       <motion.div variants={fade}>
         <NextActionsStrip weeklyReport={weeklyReport} />
       </motion.div>
 
-      {/* Alertas e inteligencia: riesgos + oportunidades unificados */}
+      {/* 3 — Embudo de conversión */}
+      <motion.div variants={fade}>
+        <SalesFunnelStrip />
+      </motion.div>
+
+      {/* 4 — Alertas: riesgos + oportunidades */}
       <motion.div variants={fade}>
         <AlertsIntelligence
           risks={data.risks}
@@ -64,14 +70,17 @@ export function DashboardOverview({
         />
       </motion.div>
 
+      {/* 5 — Métricas de ingresos con sparklines */}
       <motion.div variants={fade}>
         <RevenueMetricsSection metrics={data.revenueMetrics} />
       </motion.div>
 
+      {/* 6 — Métricas de ventas con sparklines */}
       <motion.div variants={fade}>
         <SalesMetricsSection metrics={data.salesMetrics} />
       </motion.div>
 
+      {/* 7 — Redes sociales con engagement visual */}
       <motion.div variants={fade}>
         <ZernioAnalyticsSection
           analytics={
@@ -85,18 +94,22 @@ export function DashboardOverview({
         />
       </motion.div>
 
+      {/* 8 — Métricas operacionales */}
       <motion.div variants={fade}>
         <OperationalMetricsSection metrics={data.dashboardOperationalMetrics} />
       </motion.div>
 
+      {/* 9 — Recomendaciones IA */}
       <motion.div variants={fade}>
         <AiRecommendations recommendations={data.aiRecommendations} />
       </motion.div>
 
+      {/* 10 — Cambios semanales */}
       <motion.div variants={fade}>
         <WeeklyChanges changes={data.weeklyChanges} />
       </motion.div>
 
+      {/* 11 — Resumen ejecutivo */}
       <motion.div variants={fade}>
         <ExecutiveSummary
           summary={data.executiveSummary}
