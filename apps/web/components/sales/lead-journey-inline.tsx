@@ -1,36 +1,66 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   Calendar,
   DollarSign,
   MessageCircle,
   Youtube,
+  MessageSquare,
+  Image as ImageIcon,
+  Zap,
 } from "lucide-react";
 import { Skeleton, SteppedAlert, cn } from "@ai-coo/ui";
-import { getLeadJourneyAction } from "@/app/sales/actions";
+import { getLeadJourneyAction, getZernioLeadJourneyAction } from "@/app/sales/actions";
 import { paths } from "@/routes";
 import type { LeadJourneyStep } from "@/lib/sales/lead-journey";
 
-const STEP_ICON: Record<
+// ─── Configuración visual por tipo de paso ────────────────────────────────────
+
+const STEP_CONFIG: Record<
   LeadJourneyStep["type"],
-  { icon: typeof Youtube; className: string }
+  { icon: typeof Youtube; className: string; dotClass: string }
 > = {
-  content: { icon: Youtube, className: "text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/25" },
+  content: {
+    icon: Youtube,
+    className: "text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/25",
+    dotClass: "bg-red-500/70",
+  },
+  comment: {
+    icon: MessageSquare,
+    className: "text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/25",
+    dotClass: "bg-amber-500/70",
+  },
+  story_reply: {
+    icon: ImageIcon,
+    className: "text-pink-600 dark:text-pink-400 bg-pink-500/10 border-pink-500/25",
+    dotClass: "bg-pink-500/70",
+  },
+  cta: {
+    icon: Zap,
+    className: "text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 border-yellow-500/25",
+    dotClass: "bg-yellow-500/70",
+  },
   dm: {
     icon: MessageCircle,
     className: "text-violet-600 dark:text-violet-400 bg-violet-500/10 border-violet-500/25",
+    dotClass: "bg-violet-500/70",
   },
   booking: {
     icon: Calendar,
     className: "text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/25",
+    dotClass: "bg-blue-500/70",
   },
   sale: {
     icon: DollarSign,
     className: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/25",
+    dotClass: "bg-emerald-500/70",
   },
 };
+
+// ─── Formateo de fecha ────────────────────────────────────────────────────────
 
 function formatStepDate(date: string): string {
   const parsed = new Date(date);
@@ -41,6 +71,8 @@ function formatStepDate(date: string): string {
     year: "numeric",
   });
 }
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function JourneySkeleton() {
   return (
@@ -58,19 +90,84 @@ function JourneySkeleton() {
   );
 }
 
+// ─── Thumbnail de contenido ───────────────────────────────────────────────────
+
+function ContentThumbnailChip({
+  thumbnailUrl,
+  platformPostUrl,
+  contentTitle,
+}: {
+  thumbnailUrl?: string;
+  platformPostUrl?: string;
+  contentTitle?: string;
+}) {
+  if (!thumbnailUrl) return null;
+
+  const inner = (
+    <div className="mt-2 flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-2 py-1.5 text-[10px] text-muted-foreground hover:border-border hover:bg-muted/60 transition-colors">
+      <div className="relative h-8 w-8 flex-shrink-0 overflow-hidden rounded-md bg-muted">
+        <Image
+          src={thumbnailUrl}
+          alt={contentTitle ?? "Contenido"}
+          fill
+          className="object-cover"
+          unoptimized
+        />
+      </div>
+      <span className="line-clamp-2 leading-snug">
+        {contentTitle ?? "Ver contenido"}
+      </span>
+    </div>
+  );
+
+  if (platformPostUrl) {
+    return (
+      <a href={platformPostUrl} target="_blank" rel="noopener noreferrer">
+        {inner}
+      </a>
+    );
+  }
+
+  return inner;
+}
+
+// ─── Paso individual ──────────────────────────────────────────────────────────
+
 function StepContent({ step }: { step: LeadJourneyStep }) {
-  const config = STEP_ICON[step.type];
+  const config = STEP_CONFIG[step.type];
   const Icon = config.icon;
-  const url =
-    typeof step.metadata?.url === "string" ? step.metadata.url : undefined;
-  const clientId =
-    typeof step.metadata?.clientId === "string"
-      ? step.metadata.clientId
+
+  const thumbnailUrl =
+    typeof step.metadata?.thumbnailUrl === "string"
+      ? step.metadata.thumbnailUrl
       : undefined;
+  const platformPostUrl =
+    typeof step.metadata?.platformPostUrl === "string"
+      ? step.metadata.platformPostUrl
+      : typeof step.metadata?.url === "string"
+        ? step.metadata.url
+        : undefined;
+  const contentTitle =
+    typeof step.metadata?.contentTitle === "string"
+      ? step.metadata.contentTitle
+      : undefined;
+  const clientId =
+    typeof step.metadata?.clientId === "string" ? step.metadata.clientId : undefined;
   const closingCallId =
     typeof step.metadata?.closingCallId === "string"
       ? step.metadata.closingCallId
       : undefined;
+
+  const iconNode = (
+    <div
+      className={cn(
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
+        config.className
+      )}
+    >
+      <Icon className="h-4 w-4" />
+    </div>
+  );
 
   const body = (
     <div className="min-w-0 flex-1 space-y-1">
@@ -78,8 +175,16 @@ function StepContent({ step }: { step: LeadJourneyStep }) {
       <p className="text-xs italic text-muted-foreground line-clamp-2">
         {step.description}
       </p>
+      {/* Thumbnail del contenido (reels, posts, historias) */}
+      {(step.type === "comment" || step.type === "story_reply" || step.type === "content") && (
+        <ContentThumbnailChip
+          thumbnailUrl={thumbnailUrl}
+          platformPostUrl={platformPostUrl}
+          contentTitle={contentTitle}
+        />
+      )}
       {step.date ? (
-        <p className="text-[10px] text-muted-foreground/80">
+        <p className="text-[10px] text-muted-foreground/70">
           {formatStepDate(step.date)}
         </p>
       ) : null}
@@ -87,43 +192,16 @@ function StepContent({ step }: { step: LeadJourneyStep }) {
   );
 
   const wrapperClass =
-    "flex gap-3 rounded-lg border border-transparent px-1 py-1 transition-colors";
+    "flex gap-3 rounded-lg border border-transparent px-1 py-1.5 transition-colors";
 
-  if (url) {
-    return (
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={cn(wrapperClass, "hover:border-border/60 hover:bg-muted/20")}
-      >
-        <div
-          className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
-            config.className
-          )}
-        >
-          <Icon className="h-4 w-4" />
-        </div>
-        {body}
-      </a>
-    );
-  }
-
+  // Para ventas y bookings: link interno
   if (clientId) {
     return (
       <Link
         href={paths.platform.clients.detail(clientId)}
         className={cn(wrapperClass, "hover:border-border/60 hover:bg-muted/20")}
       >
-        <div
-          className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
-            config.className
-          )}
-        >
-          <Icon className="h-4 w-4" />
-        </div>
+        {iconNode}
         {body}
       </Link>
     );
@@ -135,40 +213,51 @@ function StepContent({ step }: { step: LeadJourneyStep }) {
         href={`${paths.platform.sales.closing}?call=${encodeURIComponent(closingCallId)}`}
         className={cn(wrapperClass, "hover:border-border/60 hover:bg-muted/20")}
       >
-        <div
-          className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
-            config.className
-          )}
-        >
-          <Icon className="h-4 w-4" />
-        </div>
+        {iconNode}
         {body}
       </Link>
     );
   }
 
+  // Para contenido con URL externa directa (sin thumbnail chip ya incluido)
+  if (platformPostUrl && step.type === "content" && !thumbnailUrl) {
+    return (
+      <a
+        href={platformPostUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn(wrapperClass, "hover:border-border/60 hover:bg-muted/20")}
+      >
+        {iconNode}
+        {body}
+      </a>
+    );
+  }
+
   return (
     <div className={wrapperClass}>
-      <div
-        className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
-          config.className
-        )}
-      >
-        <Icon className="h-4 w-4" />
-      </div>
+      {iconNode}
       {body}
     </div>
   );
 }
 
+// ─── Componente principal ─────────────────────────────────────────────────────
+
 export function LeadJourneyInline({
   conversationId,
   leadName,
+  zernioAccountId,
+  zernioParticipantId,
+  zernioParticipantName,
 }: {
-  conversationId: string;
+  /** UUID de conversación en la DB (inbox legacy). Si no se provee, usa el modo Zernio. */
+  conversationId?: string;
   leadName?: string;
+  /** Props de Zernio para buscar comentarios en contenido y enriquecer el journey */
+  zernioAccountId?: string;
+  zernioParticipantId?: string;
+  zernioParticipantName?: string;
 }) {
   const [steps, setSteps] = useState<LeadJourneyStep[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,7 +266,22 @@ export function LeadJourneyInline({
     let cancelled = false;
     setLoading(true);
 
-    getLeadJourneyAction(conversationId)
+    const fetchFn =
+      conversationId
+        ? getLeadJourneyAction(conversationId, {
+            zernioAccountId,
+            zernioParticipantId,
+            zernioParticipantName,
+          })
+        : zernioAccountId && zernioParticipantName
+          ? getZernioLeadJourneyAction(
+              zernioAccountId,
+              zernioParticipantId ?? "",
+              zernioParticipantName
+            )
+          : Promise.resolve([] as LeadJourneyStep[]);
+
+    fetchFn
       .then((result) => {
         if (!cancelled) setSteps(result);
       })
@@ -188,22 +292,33 @@ export function LeadJourneyInline({
     return () => {
       cancelled = true;
     };
-  }, [conversationId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, zernioAccountId, zernioParticipantId]);
+
+  const hasRichData = steps.some((s) =>
+    ["comment", "story_reply", "cta"].includes(s.type)
+  );
 
   return (
     <div className="shrink-0 px-[var(--space-card-sm)] pb-[var(--space-card-sm)]">
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex items-center justify-between gap-2">
         <span className="text-sm font-medium">
           {leadName ? `Recorrido: ${leadName}` : "Recorrido del lead"}
         </span>
+        {!loading && hasRichData && (
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+            {steps.length} eventos
+          </span>
+        )}
       </div>
+
       {loading ? (
         <JourneySkeleton />
       ) : steps.length === 0 ? (
         <SteppedAlert variant="info" title="Sin recorrido registrado">
           <p>
-            Conectá UTMs en tus videos de YouTube para trackear de dónde vienen tus
-            leads.
+            Conectá UTMs en tus videos de YouTube o Zernio para trackear de dónde vienen
+            tus leads.
           </p>
         </SteppedAlert>
       ) : (

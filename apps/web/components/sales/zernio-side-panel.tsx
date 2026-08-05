@@ -11,6 +11,7 @@ import {
 } from "@/app/integrations/zernio/actions";
 import { useToast } from "@/providers/toast-provider";
 import type { ZernioMessage } from "@/lib/zernio/client";
+import { LeadJourneyInline } from "./lead-journey-inline";
 
 const TAG_CONFIG: Record<string, { label: string; className: string }> = {
   caliente: { label: "🔥 Caliente", className: "bg-red-500/15 text-red-500" },
@@ -110,6 +111,17 @@ export function ZernioSidePanel({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-y-auto p-[var(--space-card-sm)]">
+      {/* Recorrido del lead */}
+      <div className="mb-4 border-b border-border pb-4">
+        <LeadJourneyInline
+          conversationId={conversation.id}
+          leadName={conversation.participantName}
+          zernioAccountId={conversation.accountId}
+          zernioParticipantId={conversation.participantId}
+          zernioParticipantName={conversation.participantName}
+        />
+      </div>
+
       <div className="mb-[var(--space-card-sm)] flex items-center gap-2">
         <Sparkles className="h-4 w-4 shrink-0 text-primary" />
         <h2 className="text-sm font-medium">Análisis IA</h2>

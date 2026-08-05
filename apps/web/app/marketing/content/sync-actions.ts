@@ -8,6 +8,7 @@ import {
 import { getZernioClientForOrganization, getZernioIntegrationForOrg } from "@/lib/zernio/integration";
 import { resolvePostAnalytics } from "@/lib/zernio/resolve-analytics";
 import { syncContentMetricsForOrg } from "@/lib/marketing/sync-content-metrics";
+import { persistStoryThumbnail } from "@/lib/marketing/story-thumbnail-storage";
 import type {
   ContentMetrics,
   ContentPieceSource,
@@ -244,9 +245,22 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
   );
 
   if (toInsert.length > 0) {
+    // Para historias nuevas: persistir thumbnail antes de que expire en Instagram (24hs)
+    const withPersistedThumbnails = await Promise.all(
+      toInsert.map(async (row) => {
+        if (row.type !== "story" || !row.thumbnail_url) return row;
+        const persistedUrl = await persistStoryThumbnail(
+          row.organization_id,
+          row.platform_post_id,
+          row.thumbnail_url
+        );
+        return persistedUrl ? { ...row, thumbnail_url: persistedUrl } : row;
+      })
+    );
+
     const { error: insertError } = await supabase
       .from("content_pieces")
-      .insert(toInsert);
+      .insert(withPersistedThumbnails);
 
     if (insertError) throw new Error(insertError.message);
   }
