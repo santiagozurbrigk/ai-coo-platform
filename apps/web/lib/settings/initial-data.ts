@@ -25,6 +25,7 @@ export type SettingsInitialData = {
   claudeApiKeyStatus: ClaudeApiKeyStatus;
   notificationPreferences: NotificationPreferences;
   isFounder: boolean;
+  isCloser: boolean;
 };
 
 const DEFAULTS: SettingsInitialData = {
@@ -57,6 +58,7 @@ const DEFAULTS: SettingsInitialData = {
     inappGhostingAlert: true,
   },
   isFounder: true,
+  isCloser: false,
 };
 
 export async function getSettingsInitialData(): Promise<SettingsInitialData> {
@@ -100,6 +102,26 @@ export async function getSettingsInitialData(): Promise<SettingsInitialData> {
   if (isSupabaseConfigured()) {
     const profile = await getCurrentProfile();
     data.isFounder = profile?.role === "founder";
+
+    // Detectar si el usuario es un closer (custom_role → team_roles.name ILIKE 'closer')
+    if (profile?.id && profile.organization_id) {
+      const supabaseForRole = await createClient();
+      const { data: profileWithRole } = await supabaseForRole
+        .from("profiles")
+        .select("custom_role_id")
+        .eq("id", profile.id)
+        .maybeSingle();
+      if (profileWithRole?.custom_role_id) {
+        const { data: roleRow } = await supabaseForRole
+          .from("team_roles")
+          .select("name")
+          .eq("id", profileWithRole.custom_role_id)
+          .maybeSingle();
+        data.isCloser = roleRow?.name
+          ? roleRow.name.toLowerCase().includes("closer")
+          : false;
+      }
+    }
 
     const supabase = await createClient();
     const {

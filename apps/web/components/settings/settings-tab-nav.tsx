@@ -8,7 +8,8 @@ export type SettingsTabId =
   | "notificaciones"
   | "ia"
   | "seguridad"
-  | "pagos";
+  | "pagos"
+  | "closer-calendly";
 
 const BASE_TABS: { id: SettingsTabId; label: string }[] = [
   { id: "general", label: "General" },
@@ -19,17 +20,24 @@ const BASE_TABS: { id: SettingsTabId; label: string }[] = [
 ];
 
 const PAYMENTS_TAB = { id: "pagos" as const, label: "Pagos" };
+const CLOSER_CALENDLY_TAB = { id: "closer-calendly" as const, label: "Mi Calendly" };
 
 export function SettingsTabNav({
   activeTab,
   onTabChange,
   showPaymentsTab = false,
+  showCloserCalendlyTab = false,
 }: {
   activeTab: SettingsTabId;
   onTabChange: (tab: SettingsTabId) => void;
   showPaymentsTab?: boolean;
+  showCloserCalendlyTab?: boolean;
 }) {
-  const tabs = showPaymentsTab ? [...BASE_TABS, PAYMENTS_TAB] : BASE_TABS;
+  const tabs = [
+    ...BASE_TABS,
+    ...(showPaymentsTab ? [PAYMENTS_TAB] : []),
+    ...(showCloserCalendlyTab ? [CLOSER_CALENDLY_TAB] : []),
+  ];
   return (
     <nav className="border-b border-border/40">
       <div className="flex gap-6">

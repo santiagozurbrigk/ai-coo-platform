@@ -22,12 +22,14 @@ import { paths } from "@/routes";
 import type { ClosingCall, ClosingCallStatus } from "@/types/closing";
 import { CalendlyManualSyncNotice } from "@/components/integrations/calendly-manual-sync-notice";
 import { ClosingCalendar } from "./closing-calendar";
+import { ClosersRanking } from "./closers-ranking";
 import { PaymentModal } from "./payment-modal";
 import { NoCloseModal } from "./no-close-modal";
 
 const TABS = [
   { label: "Calendario", hash: "calendario" },
   { label: "Lista", hash: "lista" },
+  { label: "Equipo", hash: "equipo" },
 ] as const;
 
 const STATUS_LABEL: Record<ClosingCallStatus, string> = {
@@ -140,7 +142,13 @@ export function ClosingOverview() {
         isTabActive={(href) => (href.split("#")[1] ?? "calendario") === activeTab}
       />
 
-      <div className="flex flex-col gap-6">
+      {activeTab === "equipo" ? (
+        <div className="space-y-4">
+          <ClosersRanking />
+        </div>
+      ) : null}
+
+      <div className={activeTab === "equipo" ? "hidden" : "flex flex-col gap-6"}>
         <div className="min-w-0 w-full space-y-4">
           {closingCallsLoading ? (
             <p className="text-sm text-muted-foreground">Cargando llamadas…</p>

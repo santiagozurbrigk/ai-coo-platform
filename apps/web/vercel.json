@@ -105,6 +105,10 @@
     {
       "path": "/api/cron/sync-content-metrics",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/calendly-sync-closers",
+      "schedule": "0 * * * *"
     }
   ]
 }
