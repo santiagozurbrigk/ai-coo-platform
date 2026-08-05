@@ -181,25 +181,34 @@ export function ZernioInboxPanel() {
     }
 
     let cancelled = false;
-    setMessagesLoading(true);
-    void getZernioMessagesAction(selectedId, conversation.accountId)
-      .then((list) => {
+    const accountId = conversation.accountId;
+    const conversationId = selectedId;
+
+    async function loadMessages(showLoader: boolean) {
+      if (showLoader) setMessagesLoading(true);
+      try {
+        const list = await getZernioMessagesAction(conversationId, accountId);
         if (!cancelled) setMessages(list);
-      })
-      .catch((err) => {
-        if (!cancelled) {
+      } catch (err) {
+        if (!cancelled && showLoader) {
           push({
             title: "Error al cargar mensajes",
             description: err instanceof Error ? err.message : "Error desconocido",
           });
         }
-      })
-      .finally(() => {
-        if (!cancelled) setMessagesLoading(false);
-      });
+      } finally {
+        if (!cancelled && showLoader) setMessagesLoading(false);
+      }
+    }
+
+    void loadMessages(true);
+
+    // Polling cada 30 s para mostrar nuevos mensajes sin necesidad de F5
+    const interval = setInterval(() => void loadMessages(false), 30_000);
 
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, [selectedId, conversations, push]);
 

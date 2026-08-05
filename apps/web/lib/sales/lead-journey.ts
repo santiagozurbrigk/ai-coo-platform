@@ -5,7 +5,7 @@ import {
   type ResolvedContentAsset,
 } from "@/lib/marketing/resolve-content-from-conversation";
 import { getZernioClientForOrganization } from "@/lib/zernio/integration";
-import type { ZernioComment } from "@/lib/zernio/client";
+import type { ZernioPostComment } from "@/lib/zernio/client";
 
 export type LeadJourneyStepType =
   | "content"      // vio contenido (vía UTM)
@@ -130,34 +130,13 @@ function closingStatusLabel(status: string): string {
   return "agendada";
 }
 
-/** Normaliza un nombre/username para comparación fuzzy: minúsculas, sin @. */
-function normalizeName(s: string): string {
-  return s.toLowerCase().replace(/^@/, "").trim();
-}
-
-/**
- * Decide si un autor de comentario en Zernio corresponde al lead.
- * Intenta match exacto por username, luego fuzzy por nombre.
- */
-function commentBelongsToLead(
-  comment: ZernioComment,
-  participantId: string | null,
-  participantName: string | null
+/** Decide si un comentario de post pertenece al lead usando el Instagram user ID. */
+function postCommentBelongsToLead(
+  comment: ZernioPostComment,
+  participantId: string | null
 ): boolean {
-  const authorUsername = normalizeName(comment.author?.username ?? "");
-  const authorName = normalizeName(comment.author?.name ?? "");
-
-  if (participantId) {
-    const pid = normalizeName(participantId);
-    if (authorUsername === pid) return true;
-  }
-  if (participantName) {
-    const pname = normalizeName(participantName);
-    if (authorUsername === pname) return true;
-    if (authorName === pname) return true;
-  }
-
-  return false;
+  if (!participantId) return false;
+  return comment.from?.id === participantId;
 }
 
 // ─── Sub-queries ──────────────────────────────────────────────────────────────
@@ -221,17 +200,18 @@ async function findClient(
 }
 
 /**
- * Busca comentarios del lead en todos los posts/reels de la org usando Zernio.
- * Retorna pasos de tipo "comment" con metadata del content_piece para mostrar thumbnail.
+ * Busca comentarios del lead en los posts/reels de la org usando Zernio.
+ * Usa `getPostComments` por pieza de contenido y matchea por `from.id === participantId`
+ * (Instagram user ID numérico) — el único identificador confiable disponible en Zernio.
  */
 async function fetchZernioCommentSteps(
   organizationId: string,
   supabase: Awaited<ReturnType<typeof createClient>>,
   zernioAccountId: string | null,
   participantId: string | null,
-  participantName: string | null
 ): Promise<LeadJourneyStep[]> {
-  if (!zernioAccountId || (!participantId && !participantName)) return [];
+  // Sin participantId (IG user ID numérico) no hay forma de matchear con certeza
+  if (!zernioAccountId || !participantId) return [];
 
   let zernioClient;
   try {
@@ -240,61 +220,68 @@ async function fetchZernioCommentSteps(
     return [];
   }
 
-  let allComments: ZernioComment[] = [];
-  try {
-    const res = await zernioClient.listComments(zernioAccountId);
-    allComments = res.comments ?? [];
-  } catch (err) {
-    console.warn("[leadJourney] listComments failed", {
-      error: err instanceof Error ? err.message : err,
-    });
-    return [];
-  }
-
-  const leadComments = allComments.filter((c) =>
-    commentBelongsToLead(c, participantId, participantName)
-  );
-
-  if (leadComments.length === 0) return [];
-
-  // Matchear los posts con content_pieces para obtener thumbnails
-  const postIds = [...new Set(leadComments.map((c) => c.postId))];
-
+  // Obtener piezas de contenido recientes de la org (reels, posts, carruseles, historias)
   const { data: contentPieces } = await supabase
     .from("content_pieces")
     .select("id, platform_post_id, type, title, caption, thumbnail_url, platform_post_url, published_at")
     .eq("organization_id", organizationId)
-    .in("platform_post_id", postIds);
+    .not("platform_post_id", "is", null)
+    .order("published_at", { ascending: false })
+    .limit(30);
 
-  const pieceByPostId = new Map<string, ContentPieceRow>(
-    (contentPieces ?? []).map((p) => [p.platform_post_id as string, p as ContentPieceRow])
+  if (!contentPieces?.length) return [];
+
+  // Para cada pieza, buscar comentarios en paralelo y filtrar por IG user ID del lead
+  const results = await Promise.allSettled(
+    contentPieces.map(async (piece) => {
+      try {
+        const res = await zernioClient.getPostComments(
+          piece.platform_post_id as string,
+          zernioAccountId,
+          50
+        );
+        const matching = (res.comments ?? []).filter((c) =>
+          postCommentBelongsToLead(c, participantId)
+        );
+        return { piece: piece as ContentPieceRow, comments: matching };
+      } catch {
+        return { piece: piece as ContentPieceRow, comments: [] };
+      }
+    })
   );
 
-  return leadComments.map((comment): LeadJourneyStep => {
-    const piece = pieceByPostId.get(comment.postId) ?? null;
-    const typeLabel = piece ? contentTypeLabel(piece.type) : "publicación";
-    const contentTitle = piece?.title ?? piece?.caption?.slice(0, 60) ?? null;
+  const steps: LeadJourneyStep[] = [];
 
-    return {
-      type: "comment",
-      title: `Comentó en un ${typeLabel}`,
-      description: comment.text
-        ? `"${comment.text.slice(0, 120)}"`
-        : contentTitle
-          ? `en "${contentTitle}"`
-          : `en ${typeLabel.toLowerCase()}`,
-      date: comment.createdAt,
-      metadata: {
-        commentText: comment.text,
-        postId: comment.postId,
-        contentPieceId: piece?.id ?? undefined,
-        contentType: piece?.type ?? undefined,
-        thumbnailUrl: piece?.thumbnail_url ?? undefined,
-        platformPostUrl: piece?.platform_post_url ?? undefined,
-        contentTitle: contentTitle ?? undefined,
-      },
-    };
-  });
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    const { piece, comments } = result.value;
+    const typeLabel = contentTypeLabel(piece.type);
+    const contentTitle = piece.title ?? piece.caption?.slice(0, 60) ?? null;
+
+    for (const comment of comments) {
+      steps.push({
+        type: "comment",
+        title: `Comentó en un ${typeLabel}`,
+        description: comment.message
+          ? `"${comment.message.slice(0, 120)}"`
+          : contentTitle
+            ? `en "${contentTitle}"`
+            : `en ${typeLabel.toLowerCase()}`,
+        date: comment.createdTime,
+        metadata: {
+          commentText: comment.message,
+          postId: piece.platform_post_id,
+          contentPieceId: piece.id,
+          contentType: piece.type,
+          thumbnailUrl: piece.thumbnail_url ?? undefined,
+          platformPostUrl: piece.platform_post_url ?? undefined,
+          contentTitle: contentTitle ?? undefined,
+        },
+      });
+    }
+  }
+
+  return steps;
 }
 
 /**
@@ -384,7 +371,6 @@ export async function getZernioLeadJourney(
     supabase,
     context.zernioAccountId,
     context.zernioParticipantId,
-    context.zernioParticipantName
   );
   steps.push(...commentSteps);
 
@@ -456,7 +442,6 @@ export async function getLeadJourney(
     supabase,
     context?.zernioAccountId ?? null,
     context?.zernioParticipantId ?? null,
-    context?.zernioParticipantName ?? row.lead_name
   );
   steps.push(...commentSteps);
 
