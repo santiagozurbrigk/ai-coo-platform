@@ -12,12 +12,29 @@ export const SIDEBAR_PARENT_KEYS = [
   "ventas",
   "operaciones",
   "agente",
+  "configuracion",
 ] as const;
 
 export type SidebarParentKey = (typeof SIDEBAR_PARENT_KEYS)[number];
 
 export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> =
   {
+    configuracion: {
+      label: "Configuración",
+      icon: "settings",
+      children: [
+        {
+          label: "Ajustes",
+          href: paths.platform.settings,
+          permissionId: "settings",
+        },
+        {
+          label: "Integraciones",
+          href: paths.platform.integrations,
+          permissionId: "integrations",
+        },
+      ],
+    },
     agente: {
       label: "Agente de negocio",
       icon: "sparkles",
@@ -200,12 +217,6 @@ export const directModules: SidebarDirectModule[] = [
     permissionId: "knowledge_base",
   },
   {
-    label: "Integraciones",
-    href: paths.platform.integrations,
-    icon: "plug",
-    permissionId: "integrations",
-  },
-  {
     label: "Equipo",
     href: paths.platform.team.root,
     icon: "users",
@@ -227,6 +238,7 @@ const platformRootItems: SidebarNavRootItem[] = [
   { type: "parent", key: "finanzas" },
   { type: "divider" },
   { type: "link", module: byHref(paths.platform.workboard.root) },
+  { type: "parent", key: "configuracion" },
 ];
 
 export function getParentFromPath(pathname: string): SidebarParentKey | null {
@@ -241,6 +253,9 @@ export function getParentFromPath(pathname: string): SidebarParentKey | null {
   if (pathname.startsWith("/intelligence")) return "operaciones";
   if (pathname.startsWith("/executive-reports")) return "operaciones";
   if (pathname.startsWith("/founder")) return "operaciones";
+  if (pathname.startsWith(paths.platform.settings)) return "configuracion";
+  if (pathname.startsWith(paths.platform.integrations)) return "configuracion";
+  if (pathname.startsWith(paths.platform.integrationsDiscord)) return "configuracion";
   return null;
 }
 

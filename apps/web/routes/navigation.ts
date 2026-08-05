@@ -4,10 +4,8 @@ import { paths } from "./paths";
 
 export type { NavItem } from "@/lib/navigation/nav-types";
 
-/** Configuración — separada del menú principal, anclada al pie del sidebar. */
-export const secondaryNavigation: NavItem[] = [
-  { label: "Configuración", href: paths.platform.settings, icon: "settings" },
-];
+/** Vínculos del footer del sidebar (sin Configuración, que vive en el menú principal). */
+export const secondaryNavigation: NavItem[] = [];
 
 /** Sincronizado con `platformSidebarNav` (sidebar + command palette). */
 export const platformNavigation: NavItem[] = buildPlatformNavigation();
