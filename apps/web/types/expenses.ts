@@ -27,10 +27,11 @@ export type Subscription = {
 };
 
 export type CommissionBasis =
-  | "per_deal"
-  | "monthly_revenue"
-  | "upsells"
-  | "custom";
+  | "per_deal"         // % sobre revenue de cada deal cerrado este mes
+  | "monthly_revenue"  // % sobre MRR total de clientes activos
+  | "upsells"          // % sobre revenue de clientes nuevos del mes
+  | "per_booking"      // monto fijo por cada llamada agendada este mes
+  | "custom";          // estimación manual
 
 export type TeamCompensation = {
   id: string;
@@ -42,6 +43,8 @@ export type TeamCompensation = {
   hasCommission: boolean;
   commissionPercent?: number;
   commissionBasis?: CommissionBasis;
+  /** Monto fijo por evento (usado con commission_basis = 'per_booking') */
+  commissionFixedPerEvent?: number;
   commissionSummary?: string;
   notes?: string;
   estimatedThisMonth: number;

@@ -51,6 +51,7 @@ export type TeamCompensationRow = {
   has_commission: boolean;
   commission_basis: string | null;
   commission_percentage: number | null;
+  commission_fixed_per_event: number | null;
   commission_applied_to: string | null;
   notes: string | null;
   estimated_this_month: number;
@@ -108,6 +109,10 @@ export function rowToTeamCompensation(row: TeamCompensationRow): TeamCompensatio
         ? Number(row.commission_percentage)
         : undefined,
     commissionBasis: (row.commission_basis as CommissionBasis | null) ?? undefined,
+    commissionFixedPerEvent:
+      row.commission_fixed_per_event != null
+        ? Number(row.commission_fixed_per_event)
+        : undefined,
     commissionSummary: row.commission_applied_to ?? undefined,
     notes: row.notes ?? undefined,
     estimatedThisMonth: Number(row.estimated_this_month ?? 0),

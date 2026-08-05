@@ -314,6 +314,9 @@ export async function updateTeamCompensationAction(
     if (patch.commissionBasis !== undefined) {
       row.commission_basis = patch.commissionBasis ?? null;
     }
+    if (patch.commissionFixedPerEvent !== undefined) {
+      row.commission_fixed_per_event = patch.commissionFixedPerEvent ?? null;
+    }
     if (patch.commissionSummary !== undefined) {
       row.commission_applied_to = patch.commissionSummary ?? null;
     }
@@ -353,6 +356,7 @@ export async function createTeamCompensationAction(
         has_commission: member.hasCommission,
         commission_percentage: member.commissionPercent ?? null,
         commission_basis: member.commissionBasis ?? null,
+        commission_fixed_per_event: member.commissionFixedPerEvent ?? null,
         commission_applied_to: member.commissionSummary ?? null,
         notes: member.notes ?? null,
         estimated_this_month: 0,
@@ -450,5 +454,158 @@ export async function deletePaymentPlatformAction(
       .eq("id", id)
       .eq("organization_id", organizationId);
     if (error) throw new Error(mapFinanceError(error.message));
+  });
+}
+
+// ─── Team Payroll auto-computation ───────────────────────────────────────────
+
+export type MemberPayrollResult = {
+  memberId: string;
+  memberName: string;
+  roleLabel: string;
+  fixedAmount: number;
+  commissionAmount: number;
+  total: number;
+  breakdown: string;
+};
+
+/**
+ * Computes each team member's actual compensation for the current month
+ * using real data from the DB (closing_calls, conversations, clients).
+ */
+export async function computeTeamPayrollAction(): Promise<MemberPayrollResult[]> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  // Current month boundaries (UTC)
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+
+  // Fetch team members
+  const { data: teamRows, error: teamErr } = await supabase
+    .from("team_compensation")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .order("member_name");
+
+  if (teamErr || !teamRows) return [];
+
+  const members = (teamRows as TeamCompensationRow[]).map(rowToTeamCompensation);
+
+  // Fetch source data once for all members
+  const [closedCallsRes, bookedConvsRes, activeClientsRes, newClientsRes] =
+    await Promise.all([
+      // Closed deals this month
+      supabase
+        .from("closing_calls")
+        .select("id, closed_by_name, outcome")
+        .eq("organization_id", organizationId)
+        .eq("status", "closed")
+        .gte("scheduled_at", monthStart)
+        .lte("scheduled_at", monthEnd),
+
+      // Booked conversations this month (for setters)
+      supabase
+        .from("conversations")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .eq("status", "booked")
+        .gte("updated_at", monthStart)
+        .lte("updated_at", monthEnd),
+
+      // Active clients MRR
+      supabase
+        .from("clients")
+        .select("total_amount")
+        .eq("organization_id", organizationId)
+        .eq("status", "active"),
+
+      // New clients this month (upsells / new sales)
+      supabase
+        .from("clients")
+        .select("total_amount")
+        .eq("organization_id", organizationId)
+        .gte("join_date", monthStart)
+        .lte("join_date", monthEnd),
+    ]);
+
+  type ClosingRow = { id: string; closed_by_name: string | null; outcome: Record<string, unknown> | null };
+  const closedCalls = (closedCallsRes.data ?? []) as ClosingRow[];
+  const bookedCount = bookedConvsRes.data?.length ?? 0;
+  const totalMRR = (activeClientsRes.data ?? []).reduce(
+    (s, c) => s + Number(c.total_amount ?? 0),
+    0
+  );
+  const newClientsRevenue = (newClientsRes.data ?? []).reduce(
+    (s, c) => s + Number(c.total_amount ?? 0),
+    0
+  );
+  const newClientsCount = newClientsRes.data?.length ?? 0;
+
+  return members.map((m) => {
+    const fixedAmount = m.hasFixed ? (m.fixedMonthly ?? 0) : 0;
+    let commissionAmount = 0;
+    let breakdown = "";
+
+    if (m.hasCommission && m.commissionBasis) {
+      switch (m.commissionBasis) {
+        case "per_deal": {
+          const myDeals = closedCalls.filter((c) => {
+            const name = (c.closed_by_name ?? "").toLowerCase();
+            const memberLower = m.memberName.toLowerCase();
+            return name.includes(memberLower) || memberLower.includes((name.split(" ")[0]) ?? "");
+          });
+          const totalRevenue = myDeals.reduce((s, c) => {
+            const rev = (c.outcome as { revenue?: number } | null)?.revenue ?? 0;
+            return s + Number(rev);
+          }, 0);
+          const pct = m.commissionPercent ?? 0;
+          commissionAmount = (totalRevenue * pct) / 100;
+          breakdown = totalRevenue > 0
+            ? `${myDeals.length} deal${myDeals.length !== 1 ? "s" : ""} cerrado${myDeals.length !== 1 ? "s" : ""} · $${totalRevenue.toLocaleString("es-AR")} total · ${pct}%`
+            : `${myDeals.length} deal${myDeals.length !== 1 ? "s" : ""} cerrado${myDeals.length !== 1 ? "s" : ""} (sin revenue registrado)`;
+          break;
+        }
+
+        case "monthly_revenue": {
+          const pct = m.commissionPercent ?? 0;
+          commissionAmount = (totalMRR * pct) / 100;
+          breakdown = `MRR activo: $${totalMRR.toLocaleString("es-AR")} · ${pct}%`;
+          break;
+        }
+
+        case "upsells": {
+          const pct = m.commissionPercent ?? 0;
+          commissionAmount = (newClientsRevenue * pct) / 100;
+          breakdown = `${newClientsCount} cliente${newClientsCount !== 1 ? "s" : ""} nuevo${newClientsCount !== 1 ? "s" : ""} este mes · $${newClientsRevenue.toLocaleString("es-AR")} · ${pct}%`;
+          break;
+        }
+
+        case "per_booking": {
+          const fixedPerEvent = m.commissionFixedPerEvent ?? 0;
+          commissionAmount = bookedCount * fixedPerEvent;
+          breakdown = `${bookedCount} llamada${bookedCount !== 1 ? "s" : ""} agendada${bookedCount !== 1 ? "s" : ""} × $${fixedPerEvent.toLocaleString("es-AR")}`;
+          break;
+        }
+
+        case "custom":
+        default: {
+          commissionAmount = Math.max(0, m.estimatedThisMonth - fixedAmount);
+          breakdown = "Estimación manual";
+          break;
+        }
+      }
+    }
+
+    return {
+      memberId: m.id,
+      memberName: m.memberName,
+      roleLabel: m.roleLabel,
+      fixedAmount,
+      commissionAmount,
+      total: fixedAmount + commissionAmount,
+      breakdown,
+    };
   });
 }
