@@ -220,6 +220,7 @@ const platformRootItems: SidebarNavRootItem[] = [
   { type: "link", module: byHref(paths.platform.dashboard) },
   { type: "parent", key: "agente" },
   { type: "link", module: byHref(paths.platform.clients.root) },
+  { type: "link", module: byHref(paths.platform.team.root) },
   { type: "divider" },
   { type: "parent", key: "marketing" },
   { type: "parent", key: "ventas" },
