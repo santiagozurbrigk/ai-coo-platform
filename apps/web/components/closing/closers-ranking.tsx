@@ -237,7 +237,7 @@ export function ClosersRanking() {
         <div>
           <p className="text-sm font-medium text-foreground">Sin closers registrados</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Los miembros del equipo con rol "Closer" aparecerán aquí con sus métricas.
+            Los miembros del equipo con rol &ldquo;Closer&rdquo; aparecerán aquí con sus métricas.
           </p>
         </div>
       </div>
