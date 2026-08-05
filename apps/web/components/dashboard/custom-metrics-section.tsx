@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Edit2, Plus, Trash2 } from "lucide-react";
 import { cn } from "@ai-coo/ui";
-import type { ComputedCustomMetric } from "@/lib/metrics/custom-metrics";
+import type { ComputedCustomMetric, MetricDisplayLocation } from "@/lib/metrics/custom-metrics";
 import { deleteCustomMetricAction } from "@/app/metrics/actions";
 import { CustomMetricBuilder } from "./custom-metric-builder";
 
@@ -78,8 +78,10 @@ function CustomMetricCard({
 
 export function CustomMetricsSection({
   initialMetrics,
+  location = "dashboard",
 }: {
   initialMetrics: ComputedCustomMetric[];
+  location?: MetricDisplayLocation;
 }) {
   const [metrics, setMetrics] = useState<ComputedCustomMetric[]>(initialMetrics);
   const [builderOpen, setBuilderOpen] = useState(false);
@@ -96,9 +98,9 @@ export function CustomMetricsSection({
   }
 
   async function handleSaved() {
-    // Refetch from server after save
+    // Refetch from server after save (filtered by this section's location)
     const { getCustomMetricsAction } = await import("@/app/metrics/actions");
-    const updated = await getCustomMetricsAction();
+    const updated = await getCustomMetricsAction(location);
     setMetrics(updated);
   }
 
@@ -164,6 +166,7 @@ export function CustomMetricsSection({
         open={builderOpen}
         onOpenChange={setBuilderOpen}
         editing={editingMetric}
+        defaultLocation={location}
         onSaved={handleSaved}
       />
     </div>

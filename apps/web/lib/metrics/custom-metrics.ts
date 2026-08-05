@@ -23,6 +23,17 @@ export const METRIC_SOURCES = [
 
 export type MetricSource = (typeof METRIC_SOURCES)[number]["value"];
 
+export const METRIC_DISPLAY_LOCATIONS = [
+  { value: "dashboard",  label: "Panel General",  icon: "LayoutDashboard" },
+  { value: "clients",    label: "Clientes",        icon: "Users"           },
+  { value: "sales",      label: "Ventas",          icon: "MessageSquare"   },
+  { value: "closing",    label: "Closing",         icon: "Phone"           },
+  { value: "marketing",  label: "Marketing",       icon: "TrendingUp"      },
+  { value: "finance",    label: "Finanzas",        icon: "DollarSign"      },
+] as const;
+
+export type MetricDisplayLocation = (typeof METRIC_DISPLAY_LOCATIONS)[number]["value"];
+
 export const METRIC_OPERATIONS = [
   { value: "none",     label: "Sin operación (valor directo)" },
   { value: "multiply", label: "Multiplicar  (A × B)"          },
@@ -53,6 +64,7 @@ export type CustomMetric = {
   source_b: MetricSource | null;
   constant_b: number | null;
   display_format: MetricDisplayFormat;
+  display_location: MetricDisplayLocation;
   sort_order: number;
   created_at: string;
 };

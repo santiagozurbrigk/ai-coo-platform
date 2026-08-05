@@ -9,6 +9,7 @@ import {
   type ComputedCustomMetric,
   type CustomMetric,
   type MetricDisplayFormat,
+  type MetricDisplayLocation,
   type MetricOperation,
   type MetricSource,
 } from "@/lib/metrics/custom-metrics";
@@ -16,16 +17,24 @@ import { runMutation, type MutationResult } from "@/lib/server/action-result";
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
-export async function getCustomMetricsAction(): Promise<ComputedCustomMetric[]> {
+export async function getCustomMetricsAction(
+  location?: MetricDisplayLocation
+): Promise<ComputedCustomMetric[]> {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("custom_metrics")
     .select("*")
     .eq("organization_id", organizationId)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
+
+  if (location) {
+    query = query.eq("display_location", location);
+  }
+
+  const { data, error } = await query;
 
   if (error || !data) return [];
 
@@ -70,6 +79,7 @@ export type CreateCustomMetricInput = {
   source_b?: MetricSource;
   constant_b?: number;
   display_format: MetricDisplayFormat;
+  display_location: MetricDisplayLocation;
 };
 
 export async function createCustomMetricAction(
@@ -100,6 +110,7 @@ export async function createCustomMetricAction(
         source_b: input.source_b ?? null,
         constant_b: input.constant_b ?? null,
         display_format: input.display_format,
+        display_location: input.display_location,
         sort_order: nextOrder,
       })
       .select("id")
@@ -128,6 +139,7 @@ export async function updateCustomMetricAction(
     if (input.source_b !== undefined) update.source_b = input.source_b ?? null;
     if (input.constant_b !== undefined) update.constant_b = input.constant_b ?? null;
     if (input.display_format !== undefined) update.display_format = input.display_format;
+    if (input.display_location !== undefined) update.display_location = input.display_location;
 
     const { error } = await supabase
       .from("custom_metrics")

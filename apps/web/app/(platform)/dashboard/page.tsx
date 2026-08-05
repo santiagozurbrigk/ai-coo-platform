@@ -36,7 +36,7 @@ export default async function DashboardPage() {
       getWeeklyReportAction(),
       loadFrequentObjections(),
       getZernioAnalyticsAction(),
-      isSupabaseConfigured() ? getCustomMetricsAction() : Promise.resolve([]),
+      isSupabaseConfigured() ? getCustomMetricsAction("dashboard") : Promise.resolve([]),
     ]);
 
   return (

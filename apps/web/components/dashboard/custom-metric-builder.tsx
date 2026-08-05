@@ -11,12 +11,14 @@ import {
 } from "@ai-coo/ui";
 import {
   METRIC_DISPLAY_FORMATS,
+  METRIC_DISPLAY_LOCATIONS,
   METRIC_OPERATIONS,
   METRIC_SOURCES,
   applyOperation,
   formatMetricValue,
   type ComputedCustomMetric,
   type MetricDisplayFormat,
+  type MetricDisplayLocation,
   type MetricOperation,
   type MetricSource,
 } from "@/lib/metrics/custom-metrics";
@@ -102,9 +104,10 @@ type BuilderState = {
   constant_b: string;
   useConstant: boolean;
   display_format: MetricDisplayFormat;
+  display_location: MetricDisplayLocation;
 };
 
-function initState(metric?: ComputedCustomMetric): BuilderState {
+function initState(metric?: ComputedCustomMetric, defaultLocation: MetricDisplayLocation = "dashboard"): BuilderState {
   if (!metric) {
     return {
       name: "",
@@ -115,6 +118,7 @@ function initState(metric?: ComputedCustomMetric): BuilderState {
       constant_b: "",
       useConstant: false,
       display_format: "number",
+      display_location: defaultLocation,
     };
   }
   return {
@@ -126,6 +130,7 @@ function initState(metric?: ComputedCustomMetric): BuilderState {
     constant_b: metric.constant_b != null ? String(metric.constant_b) : "",
     useConstant: metric.source_b == null && metric.constant_b != null,
     display_format: metric.display_format,
+    display_location: metric.display_location,
   };
 }
 
@@ -133,20 +138,22 @@ export function CustomMetricBuilder({
   open,
   onOpenChange,
   editing,
+  defaultLocation = "dashboard",
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   editing?: ComputedCustomMetric;
+  defaultLocation?: MetricDisplayLocation;
   onSaved: () => void;
 }) {
-  const [state, setState] = useState<BuilderState>(() => initState(editing));
+  const [state, setState] = useState<BuilderState>(() => initState(editing, defaultLocation));
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   // Reset when dialog opens with different editing target
   const handleOpenChange = (v: boolean) => {
-    if (v) setState(initState(editing));
+    if (v) setState(initState(editing, defaultLocation));
     setError(null);
     onOpenChange(v);
   };
@@ -193,6 +200,7 @@ export function CustomMetricBuilder({
         ? parseFloat(state.constant_b)
         : undefined,
       display_format: state.display_format,
+      display_location: state.display_location,
     };
   }
 
@@ -353,6 +361,34 @@ export function CustomMetricBuilder({
                   )}
                 >
                   {fmt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Display location */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              Mostrar en pantalla
+            </label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {METRIC_DISPLAY_LOCATIONS.map((loc) => (
+                <button
+                  key={loc.value}
+                  type="button"
+                  onClick={() => set("display_location", loc.value as MetricDisplayLocation)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors text-left",
+                    state.display_location === loc.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  )}
+                >
+                  <span className={cn(
+                    "h-1.5 w-1.5 rounded-full flex-shrink-0",
+                    state.display_location === loc.value ? "bg-primary" : "bg-muted-foreground/40"
+                  )} />
+                  {loc.label}
                 </button>
               ))}
             </div>
