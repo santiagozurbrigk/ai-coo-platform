@@ -48,10 +48,17 @@ export function ContentPieceGrid({ pieces }: Props) {
 }
 
 function ContentPieceCard({ piece }: { piece: ContentPiece }) {
+  const likes = piece.metrics?.likes ?? 0;
+  const reach = piece.metrics?.reach ?? piece.metrics?.impressions ?? 0;
+
   return (
     <Link
       href={paths.platform.marketing.contentDetail(piece.id)}
-      className="group block overflow-hidden rounded-xl border bg-card transition-shadow hover:shadow-md"
+      className={cn(
+        "group block overflow-hidden rounded-xl border bg-card transition-all duration-200",
+        "hover:shadow-lg hover:-translate-y-0.5",
+        "dark:border-white/[0.07] dark:bg-white/[0.04] hover:dark:bg-white/[0.07]"
+      )}
     >
       <div className="relative aspect-[9/16] overflow-hidden bg-muted">
         {piece.thumbnail_url ? (
@@ -67,57 +74,68 @@ function ContentPieceCard({ piece }: { piece: ContentPiece }) {
           </div>
         )}
 
-        <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-xs font-medium text-white">
+        {/* Bottom gradient overlay */}
+        {piece.thumbnail_url && (
+          <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
+        )}
+
+        <span className="absolute left-2 top-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
           {TYPE_LABEL[piece.type] ?? piece.type}
         </span>
 
         {piece.analysis ? (
-          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded bg-green-500 px-1.5 py-0.5 text-xs text-white">
+          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-emerald-500/90 px-1.5 py-0.5 text-[10px] text-white backdrop-blur-sm">
             <Check className="h-3 w-3" aria-hidden />
-            Analizado
+            IA
           </span>
         ) : null}
 
+        {/* Metrics overlay at bottom */}
+        {likes > 0 && (
+          <div className="absolute bottom-2 left-2 flex items-center gap-2">
+            <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-white drop-shadow">
+              <Heart className="h-3 w-3" aria-hidden />
+              {likes > 999 ? `${(likes / 1000).toFixed(1)}k` : likes.toLocaleString("es-AR")}
+            </span>
+            {reach > 0 && (
+              <span className="text-[10px] text-white/70 drop-shadow">
+                {reach > 999 ? `${(reach / 1000).toFixed(0)}k` : reach} alc.
+              </span>
+            )}
+          </div>
+        )}
+
         {piece.drive_file_id ? (
-          <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded bg-white/90 px-1.5 py-0.5 text-xs text-gray-700">
+          <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] text-gray-700 backdrop-blur-sm">
             <Folder className="h-3 w-3 text-yellow-500" aria-hidden />
             Drive
           </span>
         ) : null}
       </div>
 
-      <div className="p-3">
-        <p className="mb-1 line-clamp-2 text-xs font-medium">
+      <div className="p-2.5">
+        <p className="line-clamp-2 text-xs font-medium leading-snug">
           {piece.title ?? piece.caption?.slice(0, 60) ?? "Sin título"}
         </p>
 
-        <div className="mt-1 flex items-center justify-between">
+        {piece.analysis?.angulo ? (
+          <p className="mt-1 line-clamp-1 text-[10px] italic text-muted-foreground">
+            {piece.analysis.angulo.name}
+          </p>
+        ) : (
           <span
             className={cn(
-              "rounded px-1.5 py-0.5 text-xs",
+              "mt-1 inline-block rounded px-1 py-0.5 text-[10px]",
               SOURCE_COLOR[piece.source] ?? SOURCE_COLOR.manual
             )}
           >
             {piece.source === "zernio"
               ? "Instagram"
               : piece.source === "ai_generated"
-                ? "IA"
+                ? "IA generado"
                 : "Manual"}
           </span>
-
-          {piece.metrics ? (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <Heart className="h-3 w-3" aria-hidden />
-              {(piece.metrics.likes ?? 0).toLocaleString("es-AR")}
-            </span>
-          ) : null}
-        </div>
-
-        {piece.analysis?.angulo ? (
-          <p className="mt-1.5 line-clamp-1 text-xs italic text-muted-foreground">
-            {piece.analysis.angulo.name}
-          </p>
-        ) : null}
+        )}
       </div>
     </Link>
   );

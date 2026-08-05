@@ -315,12 +315,12 @@ export function LeadJourneyInline({
       {loading ? (
         <JourneySkeleton />
       ) : steps.length === 0 ? (
-        <SteppedAlert variant="info" title="Sin recorrido registrado">
-          <p>
-            Conectá UTMs en tus videos de YouTube o Zernio para trackear de dónde vienen
-            tus leads.
+        <div className="rounded-lg border border-border/50 bg-muted/20 px-3 py-4 text-center">
+          <p className="text-[11px] font-medium text-muted-foreground">Sin recorrido registrado</p>
+          <p className="mt-1 text-[10px] text-muted-foreground/70 leading-relaxed">
+            Conectá UTMs en tus videos o Zernio para trackear de dónde vienen tus leads.
           </p>
-        </SteppedAlert>
+        </div>
       ) : (
         <ol className="relative space-y-0">
           {steps.map((step, index) => (
@@ -328,7 +328,7 @@ export function LeadJourneyInline({
               {index < steps.length - 1 ? (
                 <span
                   aria-hidden
-                  className="absolute left-[15px] top-9 bottom-0 w-px bg-border/60"
+                  className="absolute left-[15px] top-9 bottom-0 w-px bg-gradient-to-b from-border/80 to-border/20"
                 />
               ) : null}
               <StepContent step={step} />

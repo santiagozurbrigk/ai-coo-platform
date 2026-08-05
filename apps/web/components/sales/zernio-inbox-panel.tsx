@@ -55,6 +55,21 @@ function conversationAvatar(conversation: ZernioConversationWithAccount): string
   return conversation.participantPicture ?? null;
 }
 
+function relativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "ahora";
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks} sem`;
+  const months = Math.floor(days / 30);
+  return `${months} mes`;
+}
+
 type PlatformFilter = "all" | "instagram" | "whatsapp";
 type InboxStatusFilter = "all" | "unread" | "archived";
 
@@ -346,44 +361,67 @@ export function ZernioInboxPanel() {
           const tag = analysisMap[conversation.id]?.ai_tag;
           const tagConfig = tag ? TAG_CONFIG[tag] : null;
 
+          const isUnread = conversation.unreadCount > 0;
+
           return (
             <button
               key={conversation.id}
               type="button"
               onClick={() => setSelectedId(conversation.id)}
               className={cn(
-                "flex w-full items-start gap-3 border-b border-border/50 px-3 py-3 text-left transition-colors hover:bg-muted/40",
-                selectedId === conversation.id && "bg-muted/60"
+                "relative flex w-full items-start gap-3 border-b border-border/40 px-3 py-3 text-left transition-colors hover:bg-muted/40",
+                selectedId === conversation.id
+                  ? "bg-muted/60"
+                  : isUnread && "bg-primary/[0.03]"
               )}
             >
-              <ConversationAvatar
-                src={conversationAvatar(conversation)}
-                name={conversationTitle(conversation)}
-              />
+              {/* Unread indicator */}
+              {isUnread && selectedId !== conversation.id && (
+                <span
+                  aria-label="No leído"
+                  className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary"
+                />
+              )}
+              <div className="relative shrink-0">
+                <ConversationAvatar
+                  src={conversationAvatar(conversation)}
+                  name={conversationTitle(conversation)}
+                />
+                {isUnread && (
+                  <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-primary" />
+                )}
+              </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-sm font-medium">
+                <div className="flex items-center justify-between gap-1">
+                  <p className={cn("truncate text-sm", isUnread ? "font-semibold" : "font-medium")}>
                     {conversationTitle(conversation)}
                   </p>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">
+                    {relativeTime(conversation.updatedTime)}
+                  </span>
+                </div>
+                <div className="mt-0.5 flex items-center gap-1.5">
                   <Badge className={cn("shrink-0 text-[10px] capitalize", platformClass)}>
                     {conversation.platform}
                   </Badge>
+                  {tagConfig && (
+                    <span
+                      className={cn(
+                        "inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                        tagConfig.className
+                      )}
+                    >
+                      {tagConfig.label}
+                    </span>
+                  )}
+                  {isUnread && (
+                    <span className="ml-auto shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                      {conversation.unreadCount}
+                    </span>
+                  )}
                 </div>
-                {tagConfig && (
-                  <span
-                    className={cn(
-                      "mt-0.5 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                      tagConfig.className
-                    )}
-                  >
-                    {tagConfig.label}
-                  </span>
-                )}
-                <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                <p className={cn("mt-0.5 line-clamp-1 text-xs", isUnread ? "text-foreground/80" : "text-muted-foreground")}>
                   {conversation.lastMessage ?? "Sin mensajes"}
-                </p>
-                <p className="mt-1 text-[10px] text-muted-foreground">
-                  {new Date(conversation.updatedTime).toLocaleString("es")}
                 </p>
               </div>
             </button>
@@ -411,15 +449,15 @@ export function ZernioInboxPanel() {
                   <div
                     key={message.id}
                     className={cn(
-                      "max-w-[85%] rounded-xl px-3 py-2 text-sm",
+                      "max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm",
                       message.direction === "outbound"
-                        ? "ml-auto bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground"
+                        ? "ml-auto rounded-br-sm bg-primary text-primary-foreground"
+                        : "rounded-bl-sm bg-muted text-foreground"
                     )}
                   >
-                    <p>{message.text ?? "[Sin texto]"}</p>
-                    <p className="mt-1 text-[10px] opacity-70">
-                      {new Date(message.createdAt).toLocaleString("es")}
+                    <p className="leading-snug">{message.text ?? "[Sin texto]"}</p>
+                    <p className="mt-1 text-[10px] opacity-60">
+                      {relativeTime(message.createdAt)}
                     </p>
                   </div>
                 ))
