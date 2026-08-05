@@ -15,6 +15,25 @@ export type ContentPieceStatus =
   | "published"
   | "archived";
 
+export type ContentFormatType =
+  | "storytime"
+  | "talking_head"
+  | "pov"
+  | "listicle"
+  | "green_screen"
+  | "hot_take"
+  | "carousel"
+  | "otro";
+
+export type ContentHookType =
+  | "dolor_directo"
+  | "curiosidad"
+  | "contrarian"
+  | "prueba_social"
+  | "resultado";
+
+export type ContentCtaType = "dm" | "comment_word" | "link" | "none";
+
 export type ContentAnalysis = {
   formato: {
     name: string;
@@ -34,6 +53,10 @@ export type ContentAnalysis = {
     description: string;
     script_note?: string;
   }>;
+  // Clasificación estructurada para patrones
+  format_type?: ContentFormatType;
+  hook_type?: ContentHookType;
+  cta_type?: ContentCtaType;
 };
 
 export type ContentBrief = {
@@ -105,6 +128,11 @@ export type ContentPiece = {
   metrics_updated_at?: string;
 
   sales_attributed?: ContentSalesAttributed;
+
+  // Clasificación estructurada (columnas propias en DB)
+  format_type?: ContentFormatType;
+  hook_type?: ContentHookType;
+  cta_type?: ContentCtaType;
 
   status: ContentPieceStatus;
   created_at: string;

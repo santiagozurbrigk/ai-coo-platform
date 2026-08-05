@@ -193,7 +193,9 @@ export async function analyzeContentPieceAction(
   }
 
   if (!piece.drive_file_id) {
-    throw new Error("No hay archivo de Drive vinculado a esta pieza");
+    throw new Error(
+      "Esta pieza no tiene un video de Drive vinculado. Para analizarla, primero vinculá el archivo de Drive desde el panel de la pieza y luego volvé a intentarlo."
+    );
   }
 
   const { buffer, mimeType } = await downloadDriveFileAction(piece.drive_file_id);
@@ -246,12 +248,20 @@ export async function analyzeContentPieceAction(
     throw new Error("El análisis IA no devolvió resultado");
   }
 
+  // Extraer campos de clasificación estructurada del JSON devuelto
+  const formatType = analysis.format_type ?? null;
+  const hookType = analysis.hook_type ?? null;
+  const ctaType = analysis.cta_type ?? null;
+
   const { error: updateError } = await supabase
     .from("content_pieces")
     .update({
       transcript: transcript ?? null,
       analysis,
       analysis_generated_at: new Date().toISOString(),
+      format_type: formatType,
+      hook_type: hookType,
+      cta_type: ctaType,
     })
     .eq("id", piece.id)
     .eq("organization_id", organizationId);

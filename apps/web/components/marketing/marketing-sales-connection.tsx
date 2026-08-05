@@ -2,38 +2,42 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Sparkles, TrendingUp } from "lucide-react";
+import { ChevronDown, TrendingUp } from "lucide-react";
 import { Badge, cn, GlassPanel } from "@ai-coo/ui";
 import {
   getClosedBuyerJourneysAction,
-  getContentPatternsAnalysisAction,
   getSalesContentRankAction,
 } from "@/app/marketing/actions";
+import { getLatestContentPatternReportAction } from "@/app/marketing/content/pattern-report-actions";
 import type { SalesContentRankView } from "@/lib/marketing/content-sales-rank";
 import { paths } from "@/routes";
 import { ContentThumbnail } from "@/components/marketing-insights/content-thumbnail";
 import { CONTENT_TYPE_LABEL } from "@/components/marketing-insights/content-labels";
 import { EmptyState } from "@/components/shared/empty-state";
-import type {
-  ClosedBuyerJourney,
-  MarketingAiInsight,
-} from "@/types/marketing-insights";
+import { ContentPatternReport } from "@/components/marketing/content-pattern-report";
+import type { ClosedBuyerJourney } from "@/types/marketing-insights";
+import type { ContentPatternReport as ContentPatternReportType } from "@/app/marketing/content/pattern-report-actions";
 
 export function MarketingSalesConnection() {
   const [loading, setLoading] = useState(true);
-  const [patternsLoading, setPatternsLoading] = useState(true);
   const [rank, setRank] = useState<SalesContentRankView[]>([]);
   const [journeys, setJourneys] = useState<ClosedBuyerJourney[]>([]);
-  const [patterns, setPatterns] = useState<MarketingAiInsight[]>([]);
+  const [latestReport, setLatestReport] =
+    useState<ContentPatternReportType | null>(null);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
-    Promise.all([getSalesContentRankAction(), getClosedBuyerJourneysAction()])
-      .then(([rankData, journeyData]) => {
+    Promise.all([
+      getSalesContentRankAction(),
+      getClosedBuyerJourneysAction(),
+      getLatestContentPatternReportAction(),
+    ])
+      .then(([rankData, journeyData, reportData]) => {
         if (!active) return;
         setRank(rankData);
         setJourneys(journeyData);
+        setLatestReport(reportData);
       })
       .catch(() => {
         if (!active) return;
@@ -42,26 +46,6 @@ export function MarketingSalesConnection() {
       })
       .finally(() => {
         if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    setPatternsLoading(true);
-    getContentPatternsAnalysisAction()
-      .then((data) => {
-        if (!active) return;
-        setPatterns(data);
-      })
-      .catch(() => {
-        if (!active) return;
-        setPatterns([]);
-      })
-      .finally(() => {
-        if (active) setPatternsLoading(false);
       });
     return () => {
       active = false;
@@ -158,30 +142,14 @@ export function MarketingSalesConnection() {
         )}
       </section>
 
-      <section className="space-y-3">
-        <h3 className="text-sm font-medium">Patrones de contenido</h3>
-        {patternsLoading ? (
-          <SectionLoading />
-        ) : patterns.length === 0 ? (
-          <EmptyState
-            icon={<Sparkles className="h-8 w-8" />}
-            title="Sin patrones detectables todavía"
-            description="Cuando haya ventas atribuibles a contenido, la IA va a analizar qué formatos y etiquetas convierten mejor."
-          />
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {patterns.map((insight) => (
-              <GlassPanel key={insight.id} className="p-4 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-medium text-sm">{insight.title}</p>
-                  <Badge variant="secondary" className="shrink-0 text-[10px]">
-                    {Math.round(insight.confidence * 100)}%
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">{insight.body}</p>
-              </GlassPanel>
-            ))}
+      <section>
+        {loading ? (
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">Patrones de contenido</h3>
+            <SectionLoading />
           </div>
+        ) : (
+          <ContentPatternReport initialReport={latestReport} />
         )}
       </section>
     </div>
