@@ -1,5 +1,6 @@
 import { getWeeklyReportAction } from "@/app/operations/actions";
 import { getZernioAnalyticsAction } from "@/app/integrations/zernio/actions";
+import { getCustomMetricsAction } from "@/app/metrics/actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { getHoldingSessionState } from "@/lib/holding/session";
 import {
@@ -30,17 +31,20 @@ export default async function DashboardPage() {
     redirect(paths.platform.holding);
   }
 
-  const [weeklyReport, frequentObjections, zernioAnalytics] = await Promise.all([
-    getWeeklyReportAction(),
-    loadFrequentObjections(),
-    getZernioAnalyticsAction(),
-  ]);
+  const [weeklyReport, frequentObjections, zernioAnalytics, customMetrics] =
+    await Promise.all([
+      getWeeklyReportAction(),
+      loadFrequentObjections(),
+      getZernioAnalyticsAction(),
+      isSupabaseConfigured() ? getCustomMetricsAction() : Promise.resolve([]),
+    ]);
 
   return (
     <DashboardPageContent
       weeklyReport={weeklyReport}
       frequentObjections={frequentObjections}
       zernioAnalytics={zernioAnalytics}
+      customMetrics={customMetrics}
     />
   );
 }

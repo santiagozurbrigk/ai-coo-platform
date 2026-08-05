@@ -13,6 +13,7 @@ import { usePlatformData } from "@/providers/platform-data-provider";
 import type { ZernioAnalyticsSummary } from "@/app/integrations/zernio/actions";
 import type { WeeklyReportRow } from "@/types/operations";
 import type { FrequentObjectionsResult } from "@/types/sales";
+import type { ComputedCustomMetric } from "@/lib/metrics/custom-metrics";
 import { PageLoading } from "@/components/shared/page-loading";
 import { DashboardOverview } from "./dashboard-overview";
 
@@ -30,10 +31,12 @@ export function DashboardPageContent({
     totalComments: 0,
     hasData: false,
   },
+  customMetrics = [],
 }: {
   weeklyReport?: WeeklyReportRow | null;
   frequentObjections?: FrequentObjectionsResult | null;
   zernioAnalytics?: ZernioAnalyticsSummary;
+  customMetrics?: ComputedCustomMetric[];
 }) {
   const {
     clients,
@@ -113,6 +116,7 @@ export function DashboardPageContent({
       data={data}
       weeklyReport={weeklyReport}
       zernioAnalytics={zernioAnalytics}
+      customMetrics={customMetrics}
     />
   );
 }

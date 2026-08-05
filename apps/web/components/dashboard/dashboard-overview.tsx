@@ -15,7 +15,9 @@ import { DashboardEmptyState } from "./dashboard-empty-state";
 import { ZernioAnalyticsSection } from "./zernio-analytics-section";
 import { TopKpiRow } from "./top-kpi-row";
 import { SalesFunnelStrip } from "./sales-funnel-strip";
+import { CustomMetricsSection } from "./custom-metrics-section";
 import type { ZernioAnalyticsSummary } from "@/app/integrations/zernio/actions";
+import type { ComputedCustomMetric } from "@/lib/metrics/custom-metrics";
 
 const fade = {
   initial: { opacity: 0, y: 8 },
@@ -26,10 +28,12 @@ export function DashboardOverview({
   data,
   weeklyReport,
   zernioAnalytics,
+  customMetrics = [],
 }: {
   data: DashboardData;
   weeklyReport?: WeeklyReportRow | null;
   zernioAnalytics?: ZernioAnalyticsSummary;
+  customMetrics?: ComputedCustomMetric[];
 }) {
   if (data.isEmpty) {
     return <DashboardEmptyState />;
@@ -50,6 +54,11 @@ export function DashboardOverview({
           revenueMetrics={data.revenueMetrics}
           salesMetrics={data.salesMetrics}
         />
+      </motion.div>
+
+      {/* 1b — Métricas personalizadas */}
+      <motion.div variants={fade}>
+        <CustomMetricsSection initialMetrics={customMetrics} />
       </motion.div>
 
       {/* 2 — Qué hacer ahora */}
