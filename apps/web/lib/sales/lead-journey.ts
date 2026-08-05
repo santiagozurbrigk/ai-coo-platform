@@ -240,11 +240,26 @@ async function fetchZernioCommentSteps(
           zernioAccountId,
           50
         );
-        const matching = (res.comments ?? []).filter((c) =>
+        const allComments = res.comments ?? [];
+        const matching = allComments.filter((c) =>
           postCommentBelongsToLead(c, participantId)
         );
+        if (allComments.length > 0) {
+          console.log("[leadJourney] getPostComments debug", {
+            postId: piece.platform_post_id,
+            pieceTitle: piece.title ?? piece.caption?.slice(0, 30),
+            totalComments: allComments.length,
+            participantId,
+            sampleFromIds: allComments.slice(0, 3).map((c) => c.from?.id),
+            matchingCount: matching.length,
+          });
+        }
         return { piece: piece as ContentPieceRow, comments: matching };
-      } catch {
+      } catch (err) {
+        console.warn("[leadJourney] getPostComments error", {
+          postId: piece.platform_post_id,
+          error: err instanceof Error ? err.message : err,
+        });
         return { piece: piece as ContentPieceRow, comments: [] };
       }
     })
