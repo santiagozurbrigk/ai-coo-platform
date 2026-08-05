@@ -114,7 +114,6 @@ export function ZernioSidePanel({
       {/* Recorrido del lead */}
       <div className="mb-4 border-b border-border pb-4">
         <LeadJourneyInline
-          conversationId={conversation.id}
           leadName={conversation.participantName}
           zernioAccountId={conversation.accountId}
           zernioParticipantId={conversation.participantId}
