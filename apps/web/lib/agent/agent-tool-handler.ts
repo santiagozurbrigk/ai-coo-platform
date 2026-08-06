@@ -8,6 +8,17 @@ import { documentContentToMarkdown } from "@/lib/agent/document-to-markdown";
 import {
   PROPOSAL_TOOL_NAMES,
 } from "@/lib/agent/graph-proposal-tools";
+import { DATA_READER_TOOL_NAMES } from "@/lib/agent/data-reader-tools";
+import {
+  handleGetBusinessSnapshot,
+  handleGetClientsData,
+  handleGetSalesMetrics,
+  handleGetClosingCalls,
+  handleGetFinanceSummary,
+  handleGetMarketingOverview,
+  handleGetLeadMagnetsData,
+  handleGetOperationsSummary,
+} from "@/lib/agent/data-reader-handlers";
 import { rowToProposal, type GraphProposalRow } from "@/lib/agent/mapper";
 import type { GraphProposal } from "@/types/agent";
 
@@ -46,6 +57,31 @@ export function createAgentToolHandler(ctx: AgentToolHandlerContext) {
     toolInput: Record<string, unknown>
   ): Promise<string> => {
     const { organizationId, conversationId, supabase, state } = ctx;
+
+    // ── Data reader tools (acceso a todos los módulos) ─────────────────────────
+    if (DATA_READER_TOOL_NAMES.has(name as Parameters<typeof DATA_READER_TOOL_NAMES["has"]>[0])) {
+      const ctx = { organizationId, supabase };
+      switch (name) {
+        case "get_business_snapshot":
+          return handleGetBusinessSnapshot(ctx, toolInput);
+        case "get_clients_data":
+          return handleGetClientsData(ctx, toolInput);
+        case "get_sales_metrics":
+          return handleGetSalesMetrics(ctx, toolInput);
+        case "get_closing_calls":
+          return handleGetClosingCalls(ctx, toolInput);
+        case "get_finance_summary":
+          return handleGetFinanceSummary(ctx, toolInput);
+        case "get_marketing_overview":
+          return handleGetMarketingOverview(ctx, toolInput);
+        case "get_lead_magnets_data":
+          return handleGetLeadMagnetsData(ctx);
+        case "get_operations_summary":
+          return handleGetOperationsSummary(ctx);
+        default:
+          return JSON.stringify({ error: "Data reader tool not implemented" });
+      }
+    }
 
     if (name === "generate_document") {
       const fmt = toolInput.format as "docx" | "xlsx" | "pdf" | "csv";
