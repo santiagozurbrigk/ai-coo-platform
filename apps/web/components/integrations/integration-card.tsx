@@ -530,7 +530,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       : "";
 
   return (
-    <>
+    <div className="flex flex-col">
       <IntegrationCardShell
         name={integration.name}
         description={`${description}${calendlyManualHint}`}
@@ -746,6 +746,6 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
           </DialogContent>
         </Dialog>
       ) : null}
-    </>
+    </div>
   );
 }

@@ -38,6 +38,8 @@ import { useToast } from "@/providers/toast-provider";
 import { ArrowLeft, Check, ChevronRight, Copy, ExternalLink, Folder, Loader2, X } from "lucide-react";
 import type { ContentBenchmark } from "@/app/marketing/content/actions";
 import { RingDistributionChart } from "@/components/charts/platform/ring-distribution-chart";
+import { GaugeTargetChart } from "@/components/charts/platform/gauge-target-chart";
+import { CategoryBarChart } from "@/components/charts/platform/category-bar-chart";
 
 type Props = {
   piece: ContentPieceWithVariants;
@@ -326,7 +328,6 @@ function MetricasTab({ piece, benchmark }: { piece: ContentPiece; benchmark?: Co
   const saves = metrics?.saves ?? 0;
   const views = metrics?.views ?? 0;
   const reach = metrics?.reach ?? 0;
-  const impressions = metrics?.impressions ?? 0;
 
   const interactions = likes + comments + shares;
   const engagementRate = views > 0 ? (interactions / views) * 100 : 0;
@@ -334,7 +335,7 @@ function MetricasTab({ piece, benchmark }: { piece: ContentPiece; benchmark?: Co
 
   const hasMetrics = interactions > 0 || views > 0 || saves > 0;
 
-  const stats = (
+  const kpiStats = (
     [
       { label: "Views", value: metrics?.views, icon: "views" as const },
       { label: "Reach", value: metrics?.reach, icon: "reach" as const },
@@ -346,12 +347,23 @@ function MetricasTab({ piece, benchmark }: { piece: ContentPiece; benchmark?: Co
     ] as Array<{ label: string; value: number | undefined; icon: MetricIconName }>
   ).filter((s) => s.value !== undefined && s.value !== null);
 
+  // Benchmark comparison items
+  const benchmarkRows = benchmark && benchmark.totalPieces >= 2
+    ? [
+        { label: "Views", pieceValue: views, orgAvg: benchmark.avgViews },
+        { label: "Likes", pieceValue: likes, orgAvg: benchmark.avgLikes },
+        { label: "Comentarios", pieceValue: comments, orgAvg: benchmark.avgComments },
+        { label: "Guardados", pieceValue: saves, orgAvg: benchmark.avgSaves },
+        { label: "Reach", pieceValue: reach, orgAvg: benchmark.avgReach },
+      ].filter((r) => r.pieceValue > 0 || r.orgAvg > 0)
+    : [];
+
   return (
     <div className="space-y-6">
-      {/* KPI chips compactos */}
-      {stats.length > 0 ? (
+      {/* KPI row */}
+      {kpiStats.length > 0 ? (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {stats.map((stat) => (
+          {kpiStats.map((stat) => (
             <div key={stat.label} className="rounded-lg border bg-muted/20 p-2.5">
               <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
                 <MetricIcon name={stat.icon} size={12} />
@@ -367,11 +379,11 @@ function MetricasTab({ piece, benchmark }: { piece: ContentPiece; benchmark?: Co
         <p className="text-sm text-muted-foreground">Sin métricas disponibles.</p>
       )}
 
-      {/* Gráficos de análisis */}
+      {/* Gráficos Bklit */}
       {hasMetrics && (
         <div className="grid gap-4 sm:grid-cols-2">
-          {/* Distribución de engagement */}
-          {interactions > 0 && (
+          {/* Distribución de interacciones — RingDistributionChart */}
+          {interactions + saves > 0 && (
             <div className="rounded-xl border bg-card p-4 space-y-3">
               <div>
                 <p className="text-sm font-semibold">Distribución de interacciones</p>
@@ -387,19 +399,19 @@ function MetricasTab({ piece, benchmark }: { piece: ContentPiece; benchmark?: Co
                   ].filter((s) => s.value > 0)}
                   centerValue={(interactions + saves).toLocaleString("es-AR")}
                   centerLabel="total"
-                  className="max-w-[140px]"
+                  className="max-w-[150px]"
                   emptyMessage="Sin interacciones"
                 />
-                <div className="space-y-2 flex-1">
+                <div className="space-y-2 flex-1 min-w-0">
                   {[
                     { label: "Likes", value: likes, color: "#E11D48" },
                     { label: "Comentarios", value: comments, color: "#7C3AED" },
                     { label: "Compartidos", value: shares, color: "#185FA5" },
                     { label: "Guardados", value: saves, color: "#0F6E56" },
-                  ].filter(s => s.value > 0).map((s) => (
+                  ].filter((s) => s.value > 0).map((s) => (
                     <div key={s.label} className="flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full shrink-0" style={{ background: s.color }} />
-                      <span className="text-xs text-muted-foreground flex-1">{s.label}</span>
+                      <span className="text-xs text-muted-foreground flex-1 truncate">{s.label}</span>
                       <span className="text-xs font-semibold tabular-nums">{s.value.toLocaleString("es-AR")}</span>
                     </div>
                   ))}
@@ -408,143 +420,91 @@ function MetricasTab({ piece, benchmark }: { piece: ContentPiece; benchmark?: Co
             </div>
           )}
 
-          {/* Ratios clave */}
+          {/* Ratios clave — GaugeTargetChart */}
           {views > 0 && (
             <div className="rounded-xl border bg-card p-4 space-y-3">
               <div>
                 <p className="text-sm font-semibold">Ratios clave</p>
-                <p className="text-xs text-muted-foreground">Basado en {views.toLocaleString("es-AR")} views</p>
+                <p className="text-xs text-muted-foreground">
+                  Basado en {views.toLocaleString("es-AR")} views
+                </p>
               </div>
-              <div className="space-y-4">
-                {[
-                  {
-                    label: "Engagement rate",
-                    description: "Interacciones / views",
-                    value: engagementRate,
-                    benchmark: benchmark?.avgEngagementRate,
-                    color: "#7C3AED",
-                  },
-                  {
-                    label: "Save rate",
-                    description: "Guardados / views",
-                    value: saveRate,
-                    benchmark: benchmark?.avgSaveRate,
-                    color: "#0F6E56",
-                  },
-                ].map((ratio) => {
-                  const isBetter = ratio.benchmark != null && ratio.value > ratio.benchmark;
-                  const diffLabel = ratio.benchmark != null
-                    ? ratio.value >= ratio.benchmark
-                      ? `+${(ratio.value - ratio.benchmark).toFixed(1)}% vs promedio`
-                      : `-${(ratio.benchmark - ratio.value).toFixed(1)}% vs promedio`
-                    : null;
-                  const pct = Math.min(100, ratio.value);
-                  const benchmarkPct = ratio.benchmark != null ? Math.min(100, ratio.benchmark) : null;
-                  return (
-                    <div key={ratio.label} className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs font-medium text-foreground">{ratio.label}</p>
-                          <p className="text-[10px] text-muted-foreground">{ratio.description}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-bold tabular-nums" style={{ color: ratio.color }}>
-                            {ratio.value.toFixed(1)}%
-                          </p>
-                          {diffLabel && (
-                            <p className={cn("text-[10px] font-medium", isBetter ? "text-emerald-500" : "text-rose-400")}>
-                              {diffLabel}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {/* Barra con benchmark overlay */}
-                      <div className="relative h-2 overflow-hidden rounded-full bg-muted/50">
-                        <div
-                          className="h-full rounded-full transition-all duration-700"
-                          style={{ width: `${pct}%`, background: ratio.color }}
-                        />
-                        {benchmarkPct != null && (
-                          <div
-                            className="absolute top-0 h-full w-0.5 bg-foreground/30"
-                            style={{ left: `${benchmarkPct}%` }}
-                          />
-                        )}
-                      </div>
-                      {benchmarkPct != null && (
-                        <p className="text-[10px] text-muted-foreground/60">
-                          Promedio org: {ratio.benchmark?.toFixed(1)}%
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <p className="text-center text-[10px] text-muted-foreground">Engagement rate</p>
+                  <GaugeTargetChart
+                    value={Math.round(engagementRate * 10) / 10}
+                    max={Math.max(20, Math.ceil(engagementRate * 1.5))}
+                    target={benchmark?.avgEngagementRate}
+                    label="engagement"
+                    suffix="%"
+                    variant="booking"
+                    className="h-[120px]"
+                    subtitle={
+                      benchmark?.avgEngagementRate != null
+                        ? `Promedio org: ${benchmark.avgEngagementRate.toFixed(1)}%`
+                        : undefined
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-center text-[10px] text-muted-foreground">Save rate</p>
+                  <GaugeTargetChart
+                    value={Math.round(saveRate * 10) / 10}
+                    max={Math.max(10, Math.ceil(saveRate * 1.5))}
+                    target={benchmark?.avgSaveRate}
+                    label="guardados"
+                    suffix="%"
+                    variant="default"
+                    className="h-[120px]"
+                    subtitle={
+                      benchmark?.avgSaveRate != null
+                        ? `Promedio org: ${benchmark.avgSaveRate.toFixed(1)}%`
+                        : undefined
+                    }
+                  />
+                </div>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Benchmark vs promedio de la org */}
-      {benchmark && benchmark.totalPieces >= 2 && (interactions > 0 || views > 0) && (
-        <div className="rounded-xl border bg-card p-4 space-y-3">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-semibold">Esta pieza vs promedio de la org</p>
-              <p className="text-xs text-muted-foreground">
-                Comparado con el promedio de {benchmark.totalPieces} piezas
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-full bg-primary" />
-                Esta pieza
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-full bg-muted-foreground/40" />
-                Promedio
-              </span>
-            </div>
+      {/* Esta pieza vs promedio org — CategoryBarChart horizontal por métrica */}
+      {benchmarkRows.length > 0 && (
+        <div className="rounded-xl border bg-card p-4 space-y-4">
+          <div>
+            <p className="text-sm font-semibold">Esta pieza vs promedio de la org</p>
+            <p className="text-xs text-muted-foreground">
+              Comparado con el promedio de {benchmark!.totalPieces} piezas del mismo tipo
+            </p>
           </div>
-          <div className="space-y-3">
-            {[
-              { label: "Views", value: views, avg: benchmark.avgViews },
-              { label: "Likes", value: likes, avg: benchmark.avgLikes },
-              { label: "Comentarios", value: comments, avg: benchmark.avgComments },
-              { label: "Guardados", value: saves, avg: benchmark.avgSaves },
-              { label: "Reach", value: reach, avg: benchmark.avgReach },
-            ]
-              .filter((r) => r.value > 0 || r.avg > 0)
-              .map(({ label, value, avg }) => {
-                const max = Math.max(value, avg, 1);
-                const valuePct = Math.round((value / max) * 100);
-                const avgPct = Math.round((avg / max) * 100);
-                const isAbove = value >= avg;
-                return (
-                  <div key={label} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground w-20 shrink-0">{label}</span>
-                      <span className={cn("font-semibold tabular-nums", isAbove ? "text-emerald-500" : "text-rose-400")}>
-                        {value.toLocaleString("es-AR")}
-                      </span>
-                    </div>
-                    <div className="relative space-y-0.5">
-                      <div className="h-2 overflow-hidden rounded-full bg-muted/30">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all duration-700"
-                          style={{ width: `${valuePct}%` }}
-                        />
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-muted/20">
-                        <div
-                          className="h-full rounded-full bg-muted-foreground/30 transition-all duration-700"
-                          style={{ width: `${avgPct}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-primary">Esta pieza</p>
+              <CategoryBarChart
+                horizontal
+                items={benchmarkRows.map((r) => ({
+                  label: r.label,
+                  value: r.pieceValue,
+                  color: "var(--primary)",
+                }))}
+                barFill="var(--primary)"
+                className="min-h-[180px]"
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">Promedio org</p>
+              <CategoryBarChart
+                horizontal
+                items={benchmarkRows.map((r) => ({
+                  label: r.label,
+                  value: r.orgAvg,
+                }))}
+                barFill="var(--chart-bar-mono, var(--muted-foreground))"
+                className="min-h-[180px]"
+              />
+            </div>
           </div>
         </div>
       )}
