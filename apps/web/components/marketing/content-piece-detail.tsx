@@ -36,15 +36,18 @@ import {
 } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
 import { ArrowLeft, Check, ChevronRight, Copy, ExternalLink, Folder, Loader2, X } from "lucide-react";
+import type { ContentBenchmark } from "@/app/marketing/content/actions";
+import { RingDistributionChart } from "@/components/charts/platform/ring-distribution-chart";
 
 type Props = {
   piece: ContentPieceWithVariants;
   variants: ContentPiece[];
+  benchmark?: ContentBenchmark | null;
 };
 
 type DetailTab = "metricas" | "analisis" | "comentarios" | "anuncios" | "variantes";
 
-export function ContentPieceDetail({ piece, variants }: Props) {
+export function ContentPieceDetail({ piece, variants, benchmark }: Props) {
   const router = useRouter();
   const { push } = useToast();
   const [analyzing, setAnalyzing] = useState(false);
@@ -276,7 +279,7 @@ export function ContentPieceDetail({ piece, variants }: Props) {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
-            {activeTab === "metricas" ? <MetricasTab piece={piece} /> : null}
+            {activeTab === "metricas" ? <MetricasTab piece={piece} benchmark={benchmark} /> : null}
             {activeTab === "analisis" ? <AnalisisTab piece={piece} /> : null}
             {activeTab === "comentarios" ? (
               <ComentariosTab piece={piece} />
@@ -314,37 +317,47 @@ export function ContentPieceDetail({ piece, variants }: Props) {
   );
 }
 
-function MetricasTab({ piece }: { piece: ContentPiece }) {
+function MetricasTab({ piece, benchmark }: { piece: ContentPiece; benchmark?: ContentBenchmark | null }) {
   const metrics = piece.metrics;
-  const stats = metrics
-    ? (
-        [
-          { label: "Likes", value: metrics.likes, icon: "likes" as const },
-          { label: "Comentarios", value: metrics.comments, icon: "comments" as const },
-          { label: "Compartidos", value: metrics.shares, icon: "shares" as const },
-          { label: "Guardados", value: metrics.saves, icon: "saves" as const },
-          { label: "Reach", value: metrics.reach, icon: "reach" as const },
-          { label: "Impresiones", value: metrics.impressions, icon: "impressions" as const },
-          { label: "Views", value: metrics.views, icon: "views" as const },
-        ] as Array<{
-          label: string;
-          value: number | undefined;
-          icon: MetricIconName;
-        }>
-      ).filter((stat) => stat.value !== undefined && stat.value !== null)
-    : [];
+
+  const likes = metrics?.likes ?? 0;
+  const comments = metrics?.comments ?? 0;
+  const shares = metrics?.shares ?? 0;
+  const saves = metrics?.saves ?? 0;
+  const views = metrics?.views ?? 0;
+  const reach = metrics?.reach ?? 0;
+  const impressions = metrics?.impressions ?? 0;
+
+  const interactions = likes + comments + shares;
+  const engagementRate = views > 0 ? (interactions / views) * 100 : 0;
+  const saveRate = views > 0 ? (saves / views) * 100 : 0;
+
+  const hasMetrics = interactions > 0 || views > 0 || saves > 0;
+
+  const stats = (
+    [
+      { label: "Views", value: metrics?.views, icon: "views" as const },
+      { label: "Reach", value: metrics?.reach, icon: "reach" as const },
+      { label: "Impresiones", value: metrics?.impressions, icon: "impressions" as const },
+      { label: "Likes", value: metrics?.likes, icon: "likes" as const },
+      { label: "Comentarios", value: metrics?.comments, icon: "comments" as const },
+      { label: "Compartidos", value: metrics?.shares, icon: "shares" as const },
+      { label: "Guardados", value: metrics?.saves, icon: "saves" as const },
+    ] as Array<{ label: string; value: number | undefined; icon: MetricIconName }>
+  ).filter((s) => s.value !== undefined && s.value !== null);
 
   return (
     <div className="space-y-6">
+      {/* KPI chips compactos */}
       {stats.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {stats.map((stat) => (
-            <div key={stat.label} className="rounded-lg border p-3">
-              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <MetricIcon name={stat.icon} size={14} />
+            <div key={stat.label} className="rounded-lg border bg-muted/20 p-2.5">
+              <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <MetricIcon name={stat.icon} size={12} />
                 {stat.label}
               </p>
-              <p className="mt-1 text-2xl font-semibold">
+              <p className="mt-0.5 text-lg font-semibold tabular-nums leading-tight">
                 {(stat.value ?? 0).toLocaleString("es-AR")}
               </p>
             </div>
@@ -352,6 +365,188 @@ function MetricasTab({ piece }: { piece: ContentPiece }) {
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">Sin métricas disponibles.</p>
+      )}
+
+      {/* Gráficos de análisis */}
+      {hasMetrics && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Distribución de engagement */}
+          {interactions > 0 && (
+            <div className="rounded-xl border bg-card p-4 space-y-3">
+              <div>
+                <p className="text-sm font-semibold">Distribución de interacciones</p>
+                <p className="text-xs text-muted-foreground">Likes · Comentarios · Compartidos · Guardados</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <RingDistributionChart
+                  slices={[
+                    { label: "Likes", value: likes, color: "#E11D48" },
+                    { label: "Comentarios", value: comments, color: "#7C3AED" },
+                    { label: "Compartidos", value: shares, color: "#185FA5" },
+                    { label: "Guardados", value: saves, color: "#0F6E56" },
+                  ].filter((s) => s.value > 0)}
+                  centerValue={(interactions + saves).toLocaleString("es-AR")}
+                  centerLabel="total"
+                  className="max-w-[140px]"
+                  emptyMessage="Sin interacciones"
+                />
+                <div className="space-y-2 flex-1">
+                  {[
+                    { label: "Likes", value: likes, color: "#E11D48" },
+                    { label: "Comentarios", value: comments, color: "#7C3AED" },
+                    { label: "Compartidos", value: shares, color: "#185FA5" },
+                    { label: "Guardados", value: saves, color: "#0F6E56" },
+                  ].filter(s => s.value > 0).map((s) => (
+                    <div key={s.label} className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full shrink-0" style={{ background: s.color }} />
+                      <span className="text-xs text-muted-foreground flex-1">{s.label}</span>
+                      <span className="text-xs font-semibold tabular-nums">{s.value.toLocaleString("es-AR")}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Ratios clave */}
+          {views > 0 && (
+            <div className="rounded-xl border bg-card p-4 space-y-3">
+              <div>
+                <p className="text-sm font-semibold">Ratios clave</p>
+                <p className="text-xs text-muted-foreground">Basado en {views.toLocaleString("es-AR")} views</p>
+              </div>
+              <div className="space-y-4">
+                {[
+                  {
+                    label: "Engagement rate",
+                    description: "Interacciones / views",
+                    value: engagementRate,
+                    benchmark: benchmark?.avgEngagementRate,
+                    color: "#7C3AED",
+                  },
+                  {
+                    label: "Save rate",
+                    description: "Guardados / views",
+                    value: saveRate,
+                    benchmark: benchmark?.avgSaveRate,
+                    color: "#0F6E56",
+                  },
+                ].map((ratio) => {
+                  const isBetter = ratio.benchmark != null && ratio.value > ratio.benchmark;
+                  const diffLabel = ratio.benchmark != null
+                    ? ratio.value >= ratio.benchmark
+                      ? `+${(ratio.value - ratio.benchmark).toFixed(1)}% vs promedio`
+                      : `-${(ratio.benchmark - ratio.value).toFixed(1)}% vs promedio`
+                    : null;
+                  const pct = Math.min(100, ratio.value);
+                  const benchmarkPct = ratio.benchmark != null ? Math.min(100, ratio.benchmark) : null;
+                  return (
+                    <div key={ratio.label} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-foreground">{ratio.label}</p>
+                          <p className="text-[10px] text-muted-foreground">{ratio.description}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold tabular-nums" style={{ color: ratio.color }}>
+                            {ratio.value.toFixed(1)}%
+                          </p>
+                          {diffLabel && (
+                            <p className={cn("text-[10px] font-medium", isBetter ? "text-emerald-500" : "text-rose-400")}>
+                              {diffLabel}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {/* Barra con benchmark overlay */}
+                      <div className="relative h-2 overflow-hidden rounded-full bg-muted/50">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{ width: `${pct}%`, background: ratio.color }}
+                        />
+                        {benchmarkPct != null && (
+                          <div
+                            className="absolute top-0 h-full w-0.5 bg-foreground/30"
+                            style={{ left: `${benchmarkPct}%` }}
+                          />
+                        )}
+                      </div>
+                      {benchmarkPct != null && (
+                        <p className="text-[10px] text-muted-foreground/60">
+                          Promedio org: {ratio.benchmark?.toFixed(1)}%
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Benchmark vs promedio de la org */}
+      {benchmark && benchmark.totalPieces >= 2 && (interactions > 0 || views > 0) && (
+        <div className="rounded-xl border bg-card p-4 space-y-3">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm font-semibold">Esta pieza vs promedio de la org</p>
+              <p className="text-xs text-muted-foreground">
+                Comparado con el promedio de {benchmark.totalPieces} piezas
+              </p>
+            </div>
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-2 w-2 rounded-full bg-primary" />
+                Esta pieza
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-2 w-2 rounded-full bg-muted-foreground/40" />
+                Promedio
+              </span>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {[
+              { label: "Views", value: views, avg: benchmark.avgViews },
+              { label: "Likes", value: likes, avg: benchmark.avgLikes },
+              { label: "Comentarios", value: comments, avg: benchmark.avgComments },
+              { label: "Guardados", value: saves, avg: benchmark.avgSaves },
+              { label: "Reach", value: reach, avg: benchmark.avgReach },
+            ]
+              .filter((r) => r.value > 0 || r.avg > 0)
+              .map(({ label, value, avg }) => {
+                const max = Math.max(value, avg, 1);
+                const valuePct = Math.round((value / max) * 100);
+                const avgPct = Math.round((avg / max) * 100);
+                const isAbove = value >= avg;
+                return (
+                  <div key={label} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground w-20 shrink-0">{label}</span>
+                      <span className={cn("font-semibold tabular-nums", isAbove ? "text-emerald-500" : "text-rose-400")}>
+                        {value.toLocaleString("es-AR")}
+                      </span>
+                    </div>
+                    <div className="relative space-y-0.5">
+                      <div className="h-2 overflow-hidden rounded-full bg-muted/30">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all duration-700"
+                          style={{ width: `${valuePct}%` }}
+                        />
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-muted/20">
+                        <div
+                          className="h-full rounded-full bg-muted-foreground/30 transition-all duration-700"
+                          style={{ width: `${avgPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
       )}
 
       <SalesAttributionSection piece={piece} />
