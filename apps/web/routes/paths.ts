@@ -59,6 +59,7 @@ export const paths = {
       formDetail: (id: string) => `${PLATFORM}/marketing/forms/${id}`,
       utms: `${PLATFORM}/marketing/utms`,
       automatizaciones: `${PLATFORM}/marketing/automatizaciones`,
+      leadMagnets: `${PLATFORM}/marketing/lead-magnets`,
     },
 
     sales: {

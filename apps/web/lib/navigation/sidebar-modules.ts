@@ -114,6 +114,11 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           href: paths.platform.marketing.automatizaciones,
           permissionId: "marketing",
         },
+        {
+          label: "Lead Magnets",
+          href: paths.platform.marketing.leadMagnets,
+          permissionId: "marketing",
+        },
       ],
     },
     ventas: {

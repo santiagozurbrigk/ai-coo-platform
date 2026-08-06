@@ -19,6 +19,10 @@ import {
 } from "@/lib/zernio/client";
 import { callClaudeJson } from "@/lib/ai/anthropic";
 import {
+  getLeadMagnetUrlsForOrgAction,
+  registerLeadMagnetFromDmAction,
+} from "@/app/marketing/lead-magnets-actions";
+import {
   encryptZernioApiKey,
   formatZernioChannelsLabel,
   getZernioChannelStatus,
@@ -536,6 +540,33 @@ Devolvé este JSON (sin markdown, solo JSON):
 
     if (!result) {
       throw new Error("El análisis IA no devolvió resultado");
+    }
+
+    // ── Detección de Lead Magnets en mensajes salientes ──────────────────────
+    // Obtener LMs activos de la org con sus URLs
+    const lmUrls = await getLeadMagnetUrlsForOrgAction(organizationId);
+    if (lmUrls.length > 0) {
+      // Solo mensajes outbound (los que envía el equipo)
+      const outboundTexts = messages
+        .filter((m) => m.direction === "outbound" || m.direction === "outgoing")
+        .map((m) => m.text ?? "")
+        .join(" ");
+
+      for (const lm of lmUrls) {
+        const urlsToCheck = [lm.assetUrl, lm.redirectUrl].filter(Boolean) as string[];
+        const found = urlsToCheck.some(
+          (url) => outboundTexts.includes(url)
+        );
+        if (found) {
+          // Registrar el lead (idempotente por conversationId + leadMagnetId)
+          await registerLeadMagnetFromDmAction({
+            organizationId,
+            conversationId,
+            participantName,
+            leadMagnetId: lm.id,
+          });
+        }
+      }
     }
 
     await admin.from("zernio_conversation_analysis").upsert(
