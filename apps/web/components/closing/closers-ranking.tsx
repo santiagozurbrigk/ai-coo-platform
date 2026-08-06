@@ -18,6 +18,7 @@ import {
   type CloserMetrics,
 } from "@/app/sales/closer-actions";
 import { useToast } from "@/providers/toast-provider";
+import { RadarPerformanceChart } from "@/components/charts/platform/radar-performance-chart";
 
 function MetricChip({
   label,
@@ -295,6 +296,62 @@ export function ClosersRanking() {
         <Award className="h-3.5 w-3.5 text-muted-foreground ml-auto" />
         <span className="text-xs text-muted-foreground">Ranking por cierres</span>
       </div>
+
+      {/* Radar comparativo de closers */}
+      {metrics.length >= 2 && (() => {
+        const maxConv = Math.max(...metrics.map((m) => m.conversionPct), 1);
+        const maxScore = Math.max(...metrics.map((m) => m.avgScore ?? 0), 1);
+        const maxRevenue = Math.max(...metrics.map((m) => m.totalRevenue), 1);
+        const maxCalls = Math.max(...metrics.map((m) => m.totalCalls), 1);
+
+        const radarMetrics = [
+          { key: "conversion", label: "Conversión" },
+          { key: "score", label: "Score IA" },
+          { key: "revenue", label: "Revenue" },
+          { key: "calls", label: "Volumen" },
+        ];
+
+        const RADAR_COLORS = ["#7C3AED", "#0F6E56", "#185FA5", "#D97706", "#E11D48"];
+
+        const series = metrics.slice(0, 5).map((m, i) => ({
+          label: (m.closerName ?? "Closer").split(" ")[0] ?? "Closer",
+          color: RADAR_COLORS[i] ?? "#7C3AED",
+          values: {
+            conversion: maxConv > 0 ? (m.conversionPct / maxConv) * 100 : 0,
+            score: maxScore > 0 ? ((m.avgScore ?? 0) / maxScore) * 100 : 0,
+            revenue: maxRevenue > 0 ? (m.totalRevenue / maxRevenue) * 100 : 0,
+            calls: maxCalls > 0 ? (m.totalCalls / maxCalls) * 100 : 0,
+          },
+        }));
+
+        return (
+          <div className="rounded-xl border border-border bg-card dark:border-glass dark:bg-glass p-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-foreground">Comparativa del equipo</p>
+              <p className="text-xs text-muted-foreground">Radar multidimensional por closer</p>
+            </div>
+            <div className="flex items-center justify-center gap-4 flex-wrap">
+              <RadarPerformanceChart
+                metrics={radarMetrics.map((rm) => ({ key: rm.key, label: rm.label }))}
+                series={series.map((s) => ({
+                  label: s.label,
+                  color: s.color,
+                  values: s.values,
+                }))}
+                className="max-w-[280px]"
+              />
+              <div className="space-y-2">
+                {series.map((s) => (
+                  <div key={s.label} className="flex items-center gap-2">
+                    <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: s.color }} />
+                    <span className="text-xs font-medium text-foreground">{s.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Cards */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

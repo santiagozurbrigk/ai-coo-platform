@@ -28,6 +28,8 @@ import {
 import { useToast } from "@/providers/toast-provider";
 import { LeadMagnetFormModal } from "./lead-magnet-form-modal";
 import { LeadMagnetDetailPanel } from "./lead-magnet-detail-panel";
+import { FunnelChartPanel } from "@/components/charts/platform/funnel-chart-panel";
+import { RingDistributionChart } from "@/components/charts/platform/ring-distribution-chart";
 
 // ─── Helpers visuales ─────────────────────────────────────────────────────────
 
@@ -209,7 +211,7 @@ export function LeadMagnetsOverview({
       </div>
 
       {/* Resumen */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" id="lm-summary">
         {[
           { icon: Megaphone, label: "Lead Magnets", value: lms.length },
           { icon: Users, label: "Leads captados", value: totalLeads },
@@ -229,6 +231,78 @@ export function LeadMagnetsOverview({
           </GlassPanel>
         ))}
       </div>
+
+      {/* Gráficos: embudo de conversión + distribución por canal */}
+      {lms.length > 0 && (totalLeads > 0 || totalClients > 0) && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Embudo leads → clientes */}
+          <GlassPanel className="p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Embudo de conversión</p>
+              <p className="text-xs text-muted-foreground">De leads a clientes atribuidos</p>
+            </div>
+            <FunnelChartPanel
+              orientation="horizontal"
+              color="hsl(var(--primary))"
+              stages={[
+                { label: "Leads captados", value: totalLeads },
+                { label: "Clientes", value: totalClients },
+              ].filter((s) => s.value > 0)}
+              style={{ minHeight: 160, aspectRatio: "2.8 / 1" }}
+              className="min-h-[160px]"
+            />
+          </GlassPanel>
+
+          {/* Distribución por canal */}
+          <GlassPanel className="p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Leads por canal</p>
+              <p className="text-xs text-muted-foreground">Distribución de captación</p>
+            </div>
+            {(() => {
+              const byChannel = lms.reduce<Record<string, number>>((acc, lm) => {
+                acc[lm.channel] = (acc[lm.channel] ?? 0) + lm.totalLeads;
+                return acc;
+              }, {});
+              const channelColors: Record<string, string> = {
+                manychat: "#7C3AED",
+                typeform: "#0F6E56",
+                google_forms: "#185FA5",
+                landing: "#D97706",
+                instagram_dm: "#E11D48",
+                manual: "#64748B",
+              };
+              const slices = Object.entries(byChannel)
+                .filter(([, v]) => v > 0)
+                .map(([key, value]) => ({
+                  label: CHANNEL_LABEL[key as LeadMagnetChannel] ?? key,
+                  value,
+                  color: channelColors[key] ?? "#94A3B8",
+                }));
+              return (
+                <div className="flex items-center gap-4">
+                  <RingDistributionChart
+                    slices={slices}
+                    centerValue={totalLeads.toString()}
+                    centerLabel="Leads"
+                    className="max-w-[160px]"
+                    emptyMessage="Sin leads registrados"
+                  />
+                  <div className="flex-1 space-y-2">
+                    {slices.map((s) => (
+                      <div key={s.label} className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full shrink-0" style={{ background: s.color }} />
+                        <span className="text-xs text-muted-foreground flex-1 truncate">{s.label}</span>
+                        <span className="text-xs font-semibold tabular-nums">{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+          </GlassPanel>
+        </div>
+      )}
 
       <div className={lms.length === 0 ? "space-y-4" : "grid gap-6 lg:grid-cols-[1fr_380px]"}>
         {/* Lista */}

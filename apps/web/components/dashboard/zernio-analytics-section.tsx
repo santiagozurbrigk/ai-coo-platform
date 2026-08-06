@@ -1,51 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Eye, Heart, MessageCircle, TrendingUp } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 import { cn } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
 import { paths } from "@/routes";
 import type { ZernioAnalyticsSummary } from "@/app/integrations/zernio/actions";
-
-function EngagementBar({
-  label,
-  value,
-  max,
-  color,
-  icon: Icon,
-}: {
-  label: string;
-  value: number;
-  max: number;
-  color: string;
-  icon: React.ElementType;
-}) {
-  const pct = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 4;
-  return (
-    <div className="flex items-center gap-3">
-      <div
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
-        style={{ background: `${color}18`, color }}
-      >
-        <Icon className="h-3.5 w-3.5" />
-      </div>
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-muted-foreground">{label}</span>
-          <span className="text-xs font-semibold tabular-nums">
-            {value.toLocaleString("es")}
-          </span>
-        </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted/50">
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${pct}%`, background: color }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
+import { RingDistributionChart } from "@/components/charts/platform/ring-distribution-chart";
 
 export function ZernioAnalyticsSection({
   analytics,
@@ -84,55 +45,55 @@ export function ZernioAnalyticsSection({
       ? ((engagements / totalImpressions) * 100).toFixed(1)
       : "0.0";
 
-  const max = Math.max(totalImpressions, totalLikes, totalComments, 1);
+  const slices = [
+    { label: "Impresiones", value: totalImpressions, color: "#7C3AED" },
+    { label: "Likes", value: totalLikes, color: "#E11D48" },
+    { label: "Comentarios", value: totalComments, color: "#0F6E56" },
+  ].filter((s) => s.value > 0);
+
+  const totalEngagement = totalImpressions + totalLikes + totalComments;
 
   return (
     <Panel
       title="Rendimiento en Redes"
       subtitle="Últimos 30 días vía Zernio"
     >
-      <div className="grid gap-6 sm:grid-cols-[auto_1fr]">
-        {/* Engagement rate hero */}
-        <div
-          className={cn(
-            "flex flex-col items-center justify-center rounded-xl border border-border/40 bg-muted/20 px-6 py-4 sm:min-w-[120px]",
-            "dark:border-glass dark:bg-glass"
-          )}
-        >
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <TrendingUp className="h-4.5 w-4.5" />
-          </div>
-          <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight text-primary">
-            {engagementRate}%
-          </p>
-          <p className="mt-0.5 text-center text-[10px] text-muted-foreground">
-            engagement rate
-          </p>
-        </div>
+      <div className="grid gap-6 sm:grid-cols-[auto_1fr] items-center">
+        {/* Ring chart distribución */}
+        <RingDistributionChart
+          slices={slices}
+          centerValue={`${engagementRate}%`}
+          centerLabel="engagement"
+          className="max-w-[180px]"
+          emptyMessage="Sin datos de engagement"
+        />
 
-        {/* Bars */}
+        {/* Detalle por métrica */}
         <div className="space-y-3">
-          <EngagementBar
-            label="Impresiones"
-            value={totalImpressions}
-            max={max}
-            color="#7C3AED"
-            icon={Eye}
-          />
-          <EngagementBar
-            label="Likes"
-            value={totalLikes}
-            max={max}
-            color="#E11D48"
-            icon={Heart}
-          />
-          <EngagementBar
-            label="Comentarios"
-            value={totalComments}
-            max={max}
-            color="#0F6E56"
-            icon={MessageCircle}
-          />
+          {[
+            { label: "Impresiones", value: totalImpressions, color: "#7C3AED" },
+            { label: "Likes", value: totalLikes, color: "#E11D48" },
+            { label: "Comentarios", value: totalComments, color: "#0F6E56" },
+          ].map(({ label, value, color }) => {
+            const pct = totalEngagement > 0 ? Math.round((value / totalEngagement) * 100) : 0;
+            return (
+              <div key={label} className="flex items-center gap-3">
+                <div className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
+                <span className="flex-1 text-xs text-muted-foreground">{label}</span>
+                <span className="text-xs text-muted-foreground/60 tabular-nums">{pct}%</span>
+                <span className="text-xs font-semibold tabular-nums w-20 text-right">
+                  {value.toLocaleString("es")}
+                </span>
+              </div>
+            );
+          })}
+          <div className={cn(
+            "mt-2 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2"
+          )}>
+            <TrendingUp className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs text-muted-foreground">Engagement rate</span>
+            <span className="ml-auto text-sm font-semibold text-primary tabular-nums">{engagementRate}%</span>
+          </div>
         </div>
       </div>
     </Panel>
