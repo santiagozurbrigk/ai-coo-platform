@@ -122,8 +122,9 @@ export function LeadMagnetFormModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl">
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border/40">
+      <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl flex flex-col max-h-[90vh]">
+        {/* Header fijo */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border/40 shrink-0">
           <h2 className="text-base font-semibold text-foreground">Nuevo Lead Magnet</h2>
           <button
             type="button"
@@ -134,160 +135,149 @@ export function LeadMagnetFormModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Nombre */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Nombre del LM
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: Guía de escala para infoproductores"
-              required
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
-          </div>
-
-          {/* Descripción */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Descripción <span className="normal-case text-muted-foreground/60">(opcional)</span>
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="¿De qué trata este lead magnet?"
-              rows={2}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
-            />
-          </div>
-
-          {/* Tipo */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Tipo de LM
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {TYPES.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => setType(t.value)}
-                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                    type === t.value
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:border-border/70 hover:text-foreground"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Canal */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Canal de entrega
-            </label>
-            <div className="space-y-2">
-              {CHANNELS.map((c) => (
-                <label
-                  key={c.value}
-                  className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
-                    channel === c.value
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-border/70"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="channel"
-                    value={c.value}
-                    checked={channel === c.value}
-                    onChange={() => handleChannelChange(c.value)}
-                    className="mt-0.5 accent-primary"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{c.label}</p>
-                    <p className="text-xs text-muted-foreground">{c.description}</p>
-                  </div>
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+          {/* Scroll area */}
+          <div className="overflow-y-auto flex-1 px-6 py-5">
+            <div className="grid grid-cols-2 gap-x-5 gap-y-5">
+              {/* Nombre — full width */}
+              <div className="col-span-2 space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Nombre del LM
                 </label>
-              ))}
-            </div>
-          </div>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ej: Guía de escala para infoproductores"
+                  required
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
 
-          {/* ManyChat flow selector */}
-          {channel === "manychat" && (
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Flujo de ManyChat asociado
-              </label>
-              {loadingFlows ? (
-                <p className="text-xs text-muted-foreground">Cargando flujos...</p>
-              ) : flows.length > 0 ? (
-                <select
-                  value={manychatFlowId}
-                  onChange={handleFlowSelect}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                >
-                  <option value="">Seleccionar flujo</option>
-                  {flows.map((f) => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
+              {/* Tipo */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Tipo de LM
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {TYPES.map((t) => (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setType(t.value)}
+                      className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors text-left ${
+                        type === t.value
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:border-border/70 hover:text-foreground"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
                   ))}
-                </select>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Sin flujos disponibles — conectá ManyChat en Integraciones primero.
-                </p>
+                </div>
+              </div>
+
+              {/* Canal */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Canal de entrega
+                </label>
+                <div className="space-y-1.5">
+                  {CHANNELS.map((c) => (
+                    <label
+                      key={c.value}
+                      className={`flex items-start gap-2.5 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${
+                        channel === c.value
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-border/70"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="channel"
+                        value={c.value}
+                        checked={channel === c.value}
+                        onChange={() => handleChannelChange(c.value)}
+                        className="mt-0.5 accent-primary shrink-0"
+                      />
+                      <div>
+                        <p className="text-xs font-medium text-foreground">{c.label}</p>
+                        <p className="text-[11px] text-muted-foreground leading-snug">{c.description}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Descripción — full width */}
+              <div className="col-span-2 space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Descripción <span className="normal-case text-muted-foreground/60">(opcional)</span>
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="¿De qué trata este lead magnet?"
+                  rows={2}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                />
+              </div>
+
+              {/* ManyChat flow selector — full width */}
+              {channel === "manychat" && (
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Flujo de ManyChat asociado
+                  </label>
+                  {loadingFlows ? (
+                    <p className="text-xs text-muted-foreground">Cargando flujos...</p>
+                  ) : flows.length > 0 ? (
+                    <select
+                      value={manychatFlowId}
+                      onChange={handleFlowSelect}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    >
+                      <option value="">Seleccionar flujo</option>
+                      {flows.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Sin flujos disponibles — conectá ManyChat en Integraciones primero.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* URL del asset — full width */}
+              {(channel !== "manychat") && (
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {channel === "instagram_dm" ? "URL del LM (para detección automática)" : "URL del LM"}
+                    {channel !== "instagram_dm" && <span className="normal-case text-muted-foreground/60 ml-1">(opcional)</span>}
+                  </label>
+                  {channel === "instagram_dm" && (
+                    <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 mb-2">
+                      <p className="text-xs text-primary/90 leading-relaxed">
+                        OTC detecta automáticamente cuando enviás este link en tus DMs de Instagram y registra al lead.
+                      </p>
+                    </div>
+                  )}
+                  <input
+                    type="url"
+                    value={assetUrl}
+                    onChange={(e) => setAssetUrl(e.target.value)}
+                    placeholder={channel === "instagram_dm" ? "https://drive.google.com/..." : "https://..."}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
               )}
             </div>
-          )}
+          </div>
 
-          {/* URL del asset */}
-          {channel !== "manychat" && channel !== "instagram_dm" && (
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                URL del LM <span className="normal-case text-muted-foreground/60">(opcional)</span>
-              </label>
-              <input
-                type="url"
-                value={assetUrl}
-                onChange={(e) => setAssetUrl(e.target.value)}
-                placeholder="https://..."
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-              />
-            </div>
-          )}
-
-          {/* Nota sobre detección IG */}
-          {channel === "instagram_dm" && (
-            <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
-              <p className="text-xs text-primary/90 leading-relaxed">
-                <span className="font-medium">Detección automática:</span> OTC analiza tus DMs de Instagram y registra automáticamente cuando enviás el link de este LM en una conversación. Para que funcione, completá la URL del recurso.
-              </p>
-            </div>
-          )}
-
-          {channel === "instagram_dm" && (
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                URL del LM (para detección automática)
-              </label>
-              <input
-                type="url"
-                value={assetUrl}
-                onChange={(e) => setAssetUrl(e.target.value)}
-                placeholder="https://drive.google.com/..."
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-              />
-            </div>
-          )}
-
-          {/* Acciones */}
-          <div className="flex gap-2 pt-2">
+          {/* Footer fijo con acciones */}
+          <div className="flex gap-2 px-6 py-4 border-t border-border/40 shrink-0">
             <Button
               type="button"
               variant="outline"
