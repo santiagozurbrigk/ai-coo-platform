@@ -322,44 +322,64 @@ export function ContentPieceDetail({ piece, variants, benchmark }: Props) {
 function MetricasTab({ piece, benchmark }: { piece: ContentPiece; benchmark?: ContentBenchmark | null }) {
   const metrics = piece.metrics;
 
-  const likes = metrics?.likes ?? 0;
+  const likes    = metrics?.likes    ?? 0;
   const comments = metrics?.comments ?? 0;
-  const shares = metrics?.shares ?? 0;
-  const saves = metrics?.saves ?? 0;
-  const views = metrics?.views ?? 0;
-  const reach = metrics?.reach ?? 0;
+  const shares   = metrics?.shares   ?? 0;
+  const saves    = metrics?.saves    ?? 0;
+  const views    = metrics?.views    ?? 0;
+  const reach    = metrics?.reach    ?? 0;
 
-  const interactions = likes + comments + shares;
+  const interactions  = likes + comments + shares;
   const engagementRate = views > 0 ? (interactions / views) * 100 : 0;
-  const saveRate = views > 0 ? (saves / views) * 100 : 0;
+  const saveRate       = views > 0 ? (saves / views) * 100 : 0;
 
   const hasMetrics = interactions > 0 || views > 0 || saves > 0;
 
   const kpiStats = (
     [
-      { label: "Views", value: metrics?.views, icon: "views" as const },
-      { label: "Reach", value: metrics?.reach, icon: "reach" as const },
+      { label: "Views",       value: metrics?.views,       icon: "views"       as const },
+      { label: "Reach",       value: metrics?.reach,       icon: "reach"       as const },
       { label: "Impresiones", value: metrics?.impressions, icon: "impressions" as const },
-      { label: "Likes", value: metrics?.likes, icon: "likes" as const },
-      { label: "Comentarios", value: metrics?.comments, icon: "comments" as const },
-      { label: "Compartidos", value: metrics?.shares, icon: "shares" as const },
-      { label: "Guardados", value: metrics?.saves, icon: "saves" as const },
+      { label: "Likes",       value: metrics?.likes,       icon: "likes"       as const },
+      { label: "Comentarios", value: metrics?.comments,    icon: "comments"    as const },
+      { label: "Compartidos", value: metrics?.shares,      icon: "shares"      as const },
+      { label: "Guardados",   value: metrics?.saves,       icon: "saves"       as const },
     ] as Array<{ label: string; value: number | undefined; icon: MetricIconName }>
   ).filter((s) => s.value !== undefined && s.value !== null);
 
-  const showBenchmark = !!(benchmark && benchmark.totalPieces >= 2);
-
-  // Distribución slices
+  // Distribución: slices con valor > 0
   const distributionSlices = [
-    { label: "Likes", value: likes, color: "#E11D48" },
-    { label: "Comentarios", value: comments, color: "#7C3AED" },
-    { label: "Compartidos", value: shares, color: "#185FA5" },
-    { label: "Guardados", value: saves, color: "#0F6E56" },
+    { label: "Likes",        value: likes,    color: "#E11D48" },
+    { label: "Comentarios",  value: comments, color: "#7C3AED" },
+    { label: "Compartidos",  value: shares,   color: "#185FA5" },
+    { label: "Guardados",    value: saves,    color: "#0F6E56" },
   ].filter((s) => s.value > 0);
+
+  // Radar benchmark: normalizar POR EJE a 0-100 (patrón del proyecto: marketing-charts.tsx, closers-ranking.tsx)
+  const showBenchmark = !!(benchmark && benchmark.totalPieces >= 2);
+  const radarMetrics  = ["views", "likes", "comments", "saves", "reach"] as const;
+
+  const pieceRaw = { views, likes, comments, saves, reach };
+  const orgRaw   = {
+    views:    benchmark?.avgViews    ?? 0,
+    likes:    benchmark?.avgLikes    ?? 0,
+    comments: benchmark?.avgComments ?? 0,
+    saves:    benchmark?.avgSaves    ?? 0,
+    reach:    benchmark?.avgReach    ?? 0,
+  };
+
+  // Por cada eje: el mayor valor recibe 100, el menor se escala proporcionalmente
+  const normalizedPiece: Record<string, number> = {};
+  const normalizedOrg:   Record<string, number> = {};
+  for (const key of radarMetrics) {
+    const axisMax = Math.max(pieceRaw[key], orgRaw[key], 1);
+    normalizedPiece[key] = Math.round((pieceRaw[key] / axisMax) * 100);
+    normalizedOrg[key]   = Math.round((orgRaw[key]   / axisMax) * 100);
+  }
 
   return (
     <div className="space-y-6">
-      {/* KPI row */}
+      {/* ── KPI chips ── */}
       {kpiStats.length > 0 ? (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {kpiStats.map((stat) => (
@@ -380,32 +400,31 @@ function MetricasTab({ piece, benchmark }: { piece: ContentPiece; benchmark?: Co
 
       {hasMetrics && (
         <div className="grid gap-4 sm:grid-cols-2">
-          {/* Distribución de interacciones */}
+          {/* ── Distribución: RingDistributionChart en su propio card sin constraints de flex ── */}
           {distributionSlices.length > 0 && (
-            <div className="rounded-xl border bg-card p-4 space-y-3">
-              <p className="text-sm font-semibold">Distribución</p>
-              <div className="flex items-center gap-6">
-                <div className="w-[140px] shrink-0">
-                  <RingDistributionChart
-                    slices={distributionSlices}
-                    centerValue={(interactions + saves).toLocaleString("es-AR")}
-                    centerLabel="total"
-                  />
-                </div>
-                <div className="space-y-2 flex-1 min-w-0">
-                  {distributionSlices.map((s) => (
-                    <div key={s.label} className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full shrink-0" style={{ background: s.color }} />
-                      <span className="text-xs text-muted-foreground flex-1 truncate">{s.label}</span>
-                      <span className="text-xs font-semibold tabular-nums">{s.value.toLocaleString("es-AR")}</span>
-                    </div>
-                  ))}
-                </div>
+            <div className="rounded-xl border bg-card p-4 space-y-3 overflow-hidden">
+              <p className="text-sm font-semibold">Distribución de interacciones</p>
+              {/* El chart usa internamente max-w-[220px] aspect-square min-h-[200px];
+                  NO restringir el width del contenedor para evitar conflictos de aspect-ratio */}
+              <RingDistributionChart
+                slices={distributionSlices}
+                centerValue={(interactions + saves).toLocaleString("es-AR")}
+                centerLabel="total"
+              />
+              {/* Leyenda debajo del donut */}
+              <div className="space-y-1.5 pt-1">
+                {distributionSlices.map((s) => (
+                  <div key={s.label} className="flex items-center gap-2">
+                    <div className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} />
+                    <span className="flex-1 truncate text-xs text-muted-foreground">{s.label}</span>
+                    <span className="text-xs font-semibold tabular-nums">{s.value.toLocaleString("es-AR")}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Ratios clave */}
+          {/* ── Ratios clave: stat cards con delta vs org avg ── */}
           {views > 0 && (
             <div className="rounded-xl border bg-card p-4 space-y-3">
               <div>
@@ -433,42 +452,42 @@ function MetricasTab({ piece, benchmark }: { piece: ContentPiece; benchmark?: Co
         </div>
       )}
 
-      {/* Radar: Esta pieza vs promedio org */}
+      {/* ── Radar: Esta pieza vs promedio org ── */}
       {showBenchmark && (
-        <div className="rounded-xl border bg-card p-4 space-y-3">
+        <div className="rounded-xl border bg-card p-4 space-y-3 overflow-hidden">
           <div>
             <p className="text-sm font-semibold">Esta pieza vs promedio org</p>
             <p className="text-xs text-muted-foreground">
               Comparado con el promedio de {benchmark!.totalPieces} piezas del mismo tipo
             </p>
           </div>
-          <RadarPerformanceChart
-            metrics={[
-              { key: "views", label: "Views" },
-              { key: "likes", label: "Likes" },
-              { key: "comments", label: "Comentarios" },
-              { key: "saves", label: "Guardados" },
-              { key: "reach", label: "Reach" },
-            ]}
-            series={[
-              {
-                label: "Esta pieza",
-                color: "#7C3AED",
-                values: { views, likes, comments, saves, reach },
-              },
-              {
-                label: "Promedio org",
-                color: "#64748B",
-                values: {
-                  views: benchmark!.avgViews,
-                  likes: benchmark!.avgLikes,
-                  comments: benchmark!.avgComments,
-                  saves: benchmark!.avgSaves,
-                  reach: benchmark!.avgReach,
-                },
-              },
-            ]}
-          />
+          {/* Layout igual que closers-ranking.tsx: flex centered con leyenda al costado */}
+          <div className="flex flex-wrap items-center justify-center gap-6 py-2">
+            <RadarPerformanceChart
+              metrics={[
+                { key: "views",    label: "Views"       },
+                { key: "likes",    label: "Likes"       },
+                { key: "comments", label: "Comentarios" },
+                { key: "saves",    label: "Guardados"   },
+                { key: "reach",    label: "Reach"       },
+              ]}
+              series={[
+                { label: "Esta pieza",   color: "#7C3AED", values: normalizedPiece },
+                { label: "Promedio org", color: "#64748B", values: normalizedOrg   },
+              ]}
+              className="max-w-[280px]"
+            />
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#7C3AED]" />
+                <span className="text-xs font-medium">Esta pieza</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#64748B]" />
+                <span className="text-xs font-medium text-muted-foreground">Promedio org</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -488,22 +507,15 @@ function RatioCard({
   suffix?: string;
   benchmarkValue?: number;
 }) {
-  const roundedValue = Math.round(value * 10) / 10;
+  const roundedValue     = Math.round(value * 10) / 10;
   const roundedBenchmark = benchmarkValue != null ? Math.round(benchmarkValue * 10) / 10 : null;
+  const delta            = roundedBenchmark != null ? roundedValue - roundedBenchmark : null;
 
-  const delta =
-    roundedBenchmark != null ? roundedValue - roundedBenchmark : null;
-
-  let DeltaIcon = Minus;
+  let DeltaIcon  = Minus;
   let deltaColor = "text-muted-foreground";
   if (delta != null && Math.abs(delta) >= 0.1) {
-    if (delta > 0) {
-      DeltaIcon = TrendingUp;
-      deltaColor = "text-emerald-500";
-    } else {
-      DeltaIcon = TrendingDown;
-      deltaColor = "text-rose-500";
-    }
+    if (delta > 0) { DeltaIcon = TrendingUp;   deltaColor = "text-emerald-500"; }
+    else           { DeltaIcon = TrendingDown;  deltaColor = "text-rose-500";   }
   }
 
   return (
