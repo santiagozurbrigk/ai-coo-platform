@@ -230,11 +230,11 @@ export function LeadMagnetsOverview({
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+      <div className={lms.length === 0 ? "space-y-4" : "grid gap-6 lg:grid-cols-[1fr_380px]"}>
         {/* Lista */}
         <div className="space-y-4">
           {lms.length === 0 ? (
-            <div className="flex flex-col items-center gap-4 py-16 text-center">
+            <div className="flex flex-col items-center justify-center gap-4 py-24 text-center w-full">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/40">
                 <Megaphone className="h-6 w-6 text-muted-foreground" />
               </div>
