@@ -1,7 +1,7 @@
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { getFrequentObjections, mockFrequentObjectionSummaries } from "@/lib/metrics/frequent-objections";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { SalesMetricsPageContent } from "@/components/sales/sales-metrics-page-content";
+import { SalesMetricsRedesign } from "@/components/sales/sales-metrics-redesign";
 import type { FrequentObjectionsResult } from "@/types/sales";
 
 async function loadFrequentObjections(): Promise<FrequentObjectionsResult> {
@@ -20,6 +20,6 @@ export default async function SalesMetricsPage() {
   const frequentObjections = await loadFrequentObjections();
 
   return (
-    <SalesMetricsPageContent frequentObjections={frequentObjections} />
+    <SalesMetricsRedesign frequentObjections={frequentObjections} />
   );
 }
