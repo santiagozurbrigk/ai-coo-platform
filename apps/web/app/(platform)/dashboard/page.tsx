@@ -1,4 +1,3 @@
-import { getWeeklyReportAction } from "@/app/operations/actions";
 import { getZernioAnalyticsAction } from "@/app/integrations/zernio/actions";
 import { getCustomMetricsAction } from "@/app/metrics/actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
@@ -31,9 +30,8 @@ export default async function DashboardPage() {
     redirect(paths.platform.holding);
   }
 
-  const [weeklyReport, frequentObjections, zernioAnalytics, customMetrics] =
+  const [frequentObjections, zernioAnalytics, customMetrics] =
     await Promise.all([
-      getWeeklyReportAction(),
       loadFrequentObjections(),
       getZernioAnalyticsAction(),
       isSupabaseConfigured() ? getCustomMetricsAction("dashboard") : Promise.resolve([]),
@@ -41,7 +39,6 @@ export default async function DashboardPage() {
 
   return (
     <DashboardPageContent
-      weeklyReport={weeklyReport}
       frequentObjections={frequentObjections}
       zernioAnalytics={zernioAnalytics}
       customMetrics={customMetrics}

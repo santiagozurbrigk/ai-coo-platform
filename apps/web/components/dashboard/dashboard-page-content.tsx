@@ -2,16 +2,10 @@
 
 import { useMemo } from "react";
 import { deriveDashboardData } from "@/lib/metrics/derive-dashboard-data";
-import {
-  weeklyReportToDashboardRecommendations,
-  weeklyReportToDashboardRisks,
-} from "@/lib/operations/map-weekly-report";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { paths } from "@/routes";
 import { useFinanceData } from "@/providers/finance-data-provider";
 import { usePlatformData } from "@/providers/platform-data-provider";
 import type { ZernioAnalyticsSummary } from "@/app/integrations/zernio/actions";
-import type { WeeklyReportRow } from "@/types/operations";
 import type { FrequentObjectionsResult } from "@/types/sales";
 import type { ComputedCustomMetric } from "@/lib/metrics/custom-metrics";
 import { PageLoading } from "@/components/shared/page-loading";
@@ -19,11 +13,7 @@ import { DashboardOverview } from "./dashboard-overview";
 
 const useSupabase = isSupabaseConfigured();
 
-const NO_REPORT_SUMMARY =
-  "Sin reporte esta semana. Completá los inputs en Operaciones para generar el resumen ejecutivo con IA.";
-
 export function DashboardPageContent({
-  weeklyReport = null,
   frequentObjections = null,
   zernioAnalytics = {
     totalImpressions: 0,
@@ -33,7 +23,6 @@ export function DashboardPageContent({
   },
   customMetrics = [],
 }: {
-  weeklyReport?: WeeklyReportRow | null;
   frequentObjections?: FrequentObjectionsResult | null;
   zernioAnalytics?: ZernioAnalyticsSummary;
   customMetrics?: ComputedCustomMetric[];
@@ -74,26 +63,9 @@ export function DashboardPageContent({
       conversations.length === 0 &&
       closingCalls.length === 0;
 
-    const hasWeeklyReport =
-      weeklyReport?.status === "ready" && Boolean(weeklyReport.executive_summary);
-
     return {
       ...derived,
       isEmpty: !useSupabase || hasNoActivity,
-      executiveSummary: hasWeeklyReport
-        ? weeklyReport!.executive_summary!
-        : useSupabase
-          ? NO_REPORT_SUMMARY
-          : derived.executiveSummary,
-      risks: hasWeeklyReport
-        ? weeklyReportToDashboardRisks(weeklyReport!)
-        : derived.risks,
-      aiRecommendations: hasWeeklyReport
-        ? weeklyReportToDashboardRecommendations(weeklyReport!)
-        : derived.aiRecommendations,
-      weeklyReportCtaHref: hasWeeklyReport
-        ? undefined
-        : paths.platform.operations.weeklyInputs,
     };
   }, [
     clients,
@@ -102,8 +74,6 @@ export function DashboardPageContent({
     expensesSummary,
     paymentPlatforms,
     salesMetrics,
-    loading,
-    weeklyReport,
     frequentObjections,
   ]);
 
@@ -114,9 +84,7 @@ export function DashboardPageContent({
   return (
     <DashboardOverview
       data={data}
-      weeklyReport={weeklyReport}
       zernioAnalytics={zernioAnalytics}
-      customMetrics={customMetrics}
     />
   );
 }

@@ -253,21 +253,24 @@ function DistributionCard({ dist }: { dist: DistributionData }) {
 
 const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
+// Franjas de 2 horas para el heatmap compacto (12 filas en lugar de 24)
+const HOUR_SLOTS = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
+
 function CompactHeatmap({ cells }: { cells: HeatmapCell[] }) {
-  const [tip, setTip] = useState<HeatmapCell | null>(null);
+  const [tip, setTip] = useState<{ day: number; hour: number; val: number } | null>(null);
 
-  // detectar horas únicas para filas
-  const hours = useMemo(() => {
-    const set = new Set(cells.map((c) => c.hour));
-    return Array.from(set).sort((a, b) => a - b);
-  }, [cells]);
-
-  // agrupar en matriz [hour][day]
+  // Agrupar engagement en franjas de 2h (promedio)
   const matrix = useMemo(() => {
     const m: Record<number, Record<number, number>> = {};
-    for (const c of cells) {
-      if (!m[c.hour]) m[c.hour] = {};
-      m[c.hour][c.day] = c.engagement;
+    for (const slot of HOUR_SLOTS) {
+      m[slot] = {};
+      for (let day = 0; day < 7; day++) {
+        const matching = cells.filter((c) => c.day === day && c.hour >= slot && c.hour < slot + 2);
+        m[slot][day] =
+          matching.length > 0
+            ? matching.reduce((s, c) => s + c.engagement, 0) / matching.length
+            : 0;
+      }
     }
     return m;
   }, [cells]);
@@ -285,40 +288,39 @@ function CompactHeatmap({ cells }: { cells: HeatmapCell[] }) {
       </div>
 
       <div className="flex gap-2">
-        {/* etiquetas de hora */}
-        <div className="flex flex-col justify-between py-1 pr-1 text-[9px] text-muted-foreground"
-          style={{ minWidth: 26 }}>
-          {hours.filter((_, i) => i % 2 === 0).map((h) => (
+        {/* etiquetas de hora (cada franja de 2h) */}
+        <div className="flex flex-col justify-between pr-1 text-[9px] text-muted-foreground" style={{ minWidth: 24 }}>
+          {HOUR_SLOTS.filter((_, i) => i % 3 === 0).map((h) => (
             <span key={h} className="leading-none">{h}h</span>
           ))}
         </div>
 
         {/* grilla */}
-        <div className="flex-1 overflow-x-auto">
+        <div className="flex-1">
           {/* cabecera días */}
-          <div className="mb-1 grid gap-0.5" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
+          <div className="mb-1 grid gap-1" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
             {DAY_LABELS.map((d) => (
               <div key={d} className="text-center text-[10px] font-medium text-muted-foreground">
                 {d}
               </div>
             ))}
           </div>
-          {/* filas de horas */}
-          <div className="flex flex-col gap-0.5">
-            {hours.map((h) => (
-              <div key={h} className="grid gap-0.5" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
+          {/* 12 filas × 7 columnas */}
+          <div className="flex flex-col gap-1">
+            {HOUR_SLOTS.map((h) => (
+              <div key={h} className="grid gap-1" style={{ gridTemplateColumns: "repeat(7, 1fr)" }}>
                 {[0, 1, 2, 3, 4, 5, 6].map((day) => {
                   const val = matrix[h]?.[day] ?? 0;
-                  const cell = cells.find((c) => c.hour === h && c.day === day) ?? null;
                   return (
                     <button
                       key={day}
                       type="button"
-                      className="aspect-square w-full rounded-[3px] transition-transform hover:scale-110"
+                      className="w-full rounded-[3px] transition-transform hover:scale-110"
                       style={{
+                        height: 12,
                         background: `color-mix(in oklch, var(--chart-1) ${Math.round(8 + val * 92)}%, transparent)`,
                       }}
-                      onMouseEnter={() => setTip(cell)}
+                      onMouseEnter={() => setTip({ day, hour: h, val })}
                       onMouseLeave={() => setTip(null)}
                     />
                   );
@@ -333,7 +335,7 @@ function CompactHeatmap({ cells }: { cells: HeatmapCell[] }) {
       <div className="flex items-center justify-between">
         {tip ? (
           <p className="text-[11px] text-muted-foreground">
-            {DAY_LABELS[tip.day]} {tip.hour}:00 — {(tip.engagement * 100).toFixed(0)}%
+            {DAY_LABELS[tip.day]} {tip.hour}:00–{tip.hour + 2}:00 — {(tip.val * 100).toFixed(0)}%
           </p>
         ) : (
           <span />
@@ -521,9 +523,6 @@ export function MarketingOverview({
   return (
     <div className="space-y-5">
 
-      {/* ── 0. Top Contenido — full-width, arriba de todo ───────────────────── */}
-      {topConverting.length > 0 && <TopContentCard ranked={topConverting} />}
-
       {/* ── 1. KPIs primarios (4 heroes) + secundarios (3 compactos) ────────── */}
       <div className="space-y-3">
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
@@ -615,6 +614,9 @@ export function MarketingOverview({
           <PerformanceRadarCard types={typePerformance} />
         </div>
       </div>
+
+      {/* ── 5. Contenido que más convierte — full-width, última sección ──────── */}
+      {topConverting.length > 0 && <TopContentCard ranked={topConverting} />}
 
     </div>
   );
