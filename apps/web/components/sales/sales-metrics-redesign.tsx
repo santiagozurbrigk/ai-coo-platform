@@ -33,6 +33,7 @@ import {
   FunnelChartPanel,
   RingDistributionChart,
   PieDistributionChart,
+  SparklineChart,
   TrendLineChart,
   ChartShell,
   DualAreaChart,
@@ -115,17 +116,17 @@ function KpiHeroCard({
           )}
         </div>
       </div>
-      {/* Chart pegado al borde inferior, sin padding */}
+      {/* Sparkline pegado al borde inferior — sin min-height constraints */}
       {trendData && trendData.length >= 2 && (
-        <div className="mt-auto h-[80px] w-full overflow-hidden">
-          <TrendLineChart
-            data={trendData}
-            className="h-[80px] min-h-[80px]"
-            aspectRatio="auto"
+        <div className="mt-auto h-[72px] w-full overflow-hidden">
+          <SparklineChart
+            data={trendData.map((d) => d.value)}
+            color="var(--chart-1)"
+            className="h-[72px] w-full"
           />
         </div>
       )}
-      {(!trendData || trendData.length < 2) && <div className="h-4" />}
+      {(!trendData || trendData.length < 2) && <div className="h-5" />}
     </GlassPanel>
   );
 }
@@ -139,7 +140,6 @@ function StatCard({
   deltaInverse,
   suffix = "",
   icon: Icon,
-  iconColor = "bg-muted text-muted-foreground",
   dimmed = false,
 }: {
   label: string;
@@ -148,7 +148,6 @@ function StatCard({
   deltaInverse?: boolean;
   suffix?: string;
   icon?: React.ElementType;
-  iconColor?: string;
   dimmed?: boolean;
 }) {
   return (
@@ -156,12 +155,12 @@ function StatCard({
       <div className="flex items-start justify-between gap-2">
         <p className="text-[11px] text-muted-foreground leading-tight">{label}</p>
         {Icon && (
-          <div className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-md", iconColor)}>
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-violet-500/15 text-violet-500">
             <Icon size={12} />
           </div>
         )}
       </div>
-      <p className="text-[1.6rem] font-bold tabular-nums leading-none">
+      <p className="text-[2rem] font-bold tabular-nums leading-none">
         {value}{suffix}
       </p>
       {delta !== undefined && delta !== null && (
@@ -394,25 +393,21 @@ export function SalesMetricsRedesign({
                 label="Leads totales"
                 value={isLoading ? "—" : (perfMetrics?.leads.leadsCount ?? 0)}
                 icon={Users}
-                iconColor="bg-violet-500/15 text-violet-500"
               />
               <StatCard
                 label="Agendas"
                 value={isLoading ? "—" : (perfMetrics?.leads.agendasCount ?? 0)}
                 icon={CalendarCheck}
-                iconColor="bg-emerald-500/15 text-emerald-500"
               />
               <StatCard
                 label="En nutrición"
                 value={isLoading ? "—" : (perfMetrics?.leads.nurturingCount ?? 0)}
                 icon={Heart}
-                iconColor="bg-blue-500/15 text-blue-500"
               />
               <StatCard
                 label="Perdidos"
                 value={isLoading ? "—" : (perfMetrics?.leads.lostCount ?? 0)}
                 icon={UserMinus}
-                iconColor="bg-rose-500/15 text-rose-500"
               />
             </div>
           </section>
@@ -428,11 +423,11 @@ export function SalesMetricsRedesign({
               </p>
               <p className="text-xs text-muted-foreground">Semanas recientes · {periodLabel}</p>
             </div>
-            <div className="flex-1 min-h-[140px] overflow-hidden">
+            <div className="flex-1 min-h-[80px] overflow-hidden">
               <HeroAreaChart
                 data={agendasTrend}
                 color="var(--chart-2)"
-                className="h-full min-h-[140px]"
+                className="h-full min-h-[80px]"
                 emptyMessage="Sin agendas en el período"
               />
             </div>
@@ -446,40 +441,31 @@ export function SalesMetricsRedesign({
                 label="Cierres"
                 value={isLoading ? "—" : (perfMetrics?.calls.cierres ?? 0)}
                 icon={CheckCircle}
-                iconColor="bg-emerald-500/15 text-emerald-500"
               />
               <StatCard
                 label="Asistencias"
                 value={isLoading ? "—" : (perfMetrics?.calls.asistencias ?? 0)}
                 icon={PhoneCall}
-                iconColor="bg-blue-500/15 text-blue-500"
               />
               <StatCard
                 label="Inasistencias"
                 value={isLoading ? "—" : (perfMetrics?.calls.noShows ?? 0)}
                 icon={XCircle}
-                iconColor="bg-amber-500/15 text-amber-500"
               />
               <StatCard
                 label="Seguimientos"
                 value={isLoading ? "—" : (perfMetrics?.calls.followUpScheduled ?? 0)}
                 icon={CalendarCheck}
-                iconColor="bg-violet-500/15 text-violet-500"
               />
               <StatCard
                 label="No cierres"
                 value={isLoading ? "—" : (perfMetrics?.calls.noCierres ?? 0)}
                 icon={XCircle}
-                iconColor="bg-rose-500/15 text-rose-500"
               />
               <StatCard
                 label="Señas"
-                value={
-                  isLoading ? "—"
-                  : (perfMetrics?.calls.senas ?? "—")
-                }
+                value={isLoading ? "—" : (perfMetrics?.calls.senas ?? "—")}
                 icon={Activity}
-                iconColor="bg-muted text-muted-foreground"
                 dimmed={!perfMetrics?.calls.senas}
               />
             </div>
@@ -616,10 +602,7 @@ export function SalesMetricsRedesign({
 
           {/* Tiempo de respuesta */}
           <GlassPanel className="flex items-center gap-4 p-4">
-            <div className={cn(
-              "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
-              salesMetrics.avgResponseMin <= 10 ? "bg-emerald-500/15 text-emerald-500" : "bg-amber-500/15 text-amber-500"
-            )}>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-500">
               <Clock size={20} />
             </div>
             <div>
