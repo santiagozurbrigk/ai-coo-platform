@@ -56,10 +56,10 @@ export function DashboardOverview({
         />
       </motion.div>
 
-      {/* 1b — Métricas personalizadas */}
-      <motion.div variants={fade}>
+      {/* 1b — Métricas personalizadas (temporalmente oculto) */}
+      {/* <motion.div variants={fade}>
         <CustomMetricsSection initialMetrics={customMetrics} />
-      </motion.div>
+      </motion.div> */}
 
       {/* 2 — Qué hacer ahora */}
       <motion.div variants={fade}>

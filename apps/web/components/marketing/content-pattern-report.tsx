@@ -47,6 +47,7 @@ export function ContentPatternReport({
   const [rangeOpen, setRangeOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [minCount, setMinCount] = useState(2);
 
   async function handleGenerate() {
     setLoading(true);
@@ -185,21 +186,43 @@ export function ContentPatternReport({
             )}
           </div>
 
+          {/* Filtro de mínimo de apariciones */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground">Mínimo de apariciones:</span>
+            <div className="flex gap-1">
+              {[1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setMinCount(n)}
+                  className={cn(
+                    "rounded px-2 py-0.5 font-medium transition-colors",
+                    minCount === n
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {n}+
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Rankings */}
           <div className="grid gap-4 sm:grid-cols-3">
             <RankingCard
               title="Formatos"
-              items={report.top_formats}
+              items={report.top_formats.filter((i) => i.count >= minCount)}
               colorClass="bg-violet-500/20 text-violet-400"
             />
             <RankingCard
               title="Hooks"
-              items={report.top_hooks}
+              items={report.top_hooks.filter((i) => i.count >= minCount)}
               colorClass="bg-blue-500/20 text-blue-400"
             />
             <RankingCard
               title="Temas / Dolores"
-              items={report.top_topics}
+              items={report.top_topics.filter((i) => i.count >= minCount)}
               colorClass="bg-amber-500/20 text-amber-400"
             />
           </div>

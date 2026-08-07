@@ -449,7 +449,7 @@ export function ZernioInboxPanel() {
                   <div
                     key={message.id}
                     className={cn(
-                      "max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm",
+                      "max-w-[72%] rounded-xl px-3 py-1.5 text-[13px] shadow-sm",
                       message.direction === "outbound"
                         ? "ml-auto rounded-br-sm bg-primary text-primary-foreground"
                         : "rounded-bl-sm bg-muted text-foreground"

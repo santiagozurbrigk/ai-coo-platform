@@ -32,7 +32,7 @@ export function SalesFunnelStrip() {
     { label: "Agendados", value: booked },
     { label: "Cierres", value: closed },
     { label: "Clientes activos", value: activeClients },
-  ].filter((s) => s.value >= 0);
+  ].filter((s) => s.value > 0);
 
   return (
     <div

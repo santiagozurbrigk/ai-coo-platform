@@ -272,7 +272,7 @@ function CategorySelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value as DocumentCategory)}
-      className="h-9 w-full rounded-lg border border-border/60 bg-muted/20 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+      className="h-9 w-full rounded-lg border border-border/60 bg-background px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30 dark:bg-muted/40"
     >
       {DOCUMENT_CATEGORIES.map((cat) => (
         <option key={cat} value={cat}>
@@ -350,7 +350,7 @@ function WriteNoteFlow({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Ej. Framework de onboarding Q3"
-          className="h-9 w-full rounded-lg border border-border/60 bg-muted/20 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+          className="h-9 w-full rounded-lg border border-border/60 bg-background px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30 dark:bg-muted/40"
         />
       </div>
 
@@ -541,7 +541,7 @@ function UploadPdfFlow({
           required
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="h-9 w-full rounded-lg border border-border/60 bg-muted/20 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+          className="h-9 w-full rounded-lg border border-border/60 bg-background px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/30 dark:bg-muted/40"
         />
       </div>
 

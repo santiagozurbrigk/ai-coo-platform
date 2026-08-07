@@ -681,6 +681,140 @@ function AnalisisTab({ piece }: { piece: ContentPiece }) {
         </div>
       ) : null}
 
+      {/* Insights y potencial viral */}
+      {analysis.insights_virales ? (
+        <div className="rounded-lg border p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Potencial viral
+            </p>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                analysis.insights_virales.potencial === "alto"
+                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                  : analysis.insights_virales.potencial === "medio"
+                    ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                    : "bg-muted text-muted-foreground"
+              )}
+            >
+              {analysis.insights_virales.potencial.charAt(0).toUpperCase() +
+                analysis.insights_virales.potencial.slice(1)}
+            </span>
+          </div>
+          {analysis.insights_virales.fortalezas.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                Fortalezas
+              </p>
+              <ul className="space-y-1">
+                {analysis.insights_virales.fortalezas.map((f, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-sm">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {analysis.insights_virales.areas_mejora.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                Áreas de mejora
+              </p>
+              <ul className="space-y-1">
+                {analysis.insights_virales.areas_mejora.map((a, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-sm">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                    {a}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* Análisis visual */}
+      {analysis.analisis_visual ? (
+        <div className="rounded-lg border p-4 space-y-3">
+          <p className="text-xs font-medium text-muted-foreground">
+            Análisis visual
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {[
+              { label: "Formato", value: analysis.analisis_visual.formato },
+              { label: "Tipo de plano", value: analysis.analisis_visual.tipo_plano },
+              { label: "Escena", value: analysis.analisis_visual.escena },
+              { label: "Orientación", value: analysis.analisis_visual.orientacion },
+              {
+                label: "Personas",
+                value:
+                  analysis.analisis_visual.personas != null
+                    ? String(analysis.analisis_visual.personas)
+                    : undefined,
+              },
+              {
+                label: "Cara visible",
+                value:
+                  analysis.analisis_visual.cara_visible != null
+                    ? analysis.analisis_visual.cara_visible
+                      ? "Sí"
+                      : "No"
+                    : undefined,
+              },
+              {
+                label: "Texto en pantalla",
+                value:
+                  analysis.analisis_visual.texto_en_pantalla != null
+                    ? analysis.analisis_visual.texto_en_pantalla
+                      ? "Sí"
+                      : "No"
+                    : undefined,
+              },
+              { label: "Fondo / Entorno", value: analysis.analisis_visual.fondo },
+            ]
+              .filter((item) => item.value != null)
+              .map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-md border bg-muted/20 px-3 py-2 space-y-0.5"
+                >
+                  <p className="text-[10px] text-muted-foreground">
+                    {item.label}
+                  </p>
+                  <p className="text-sm font-medium">{item.value}</p>
+                </div>
+              ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Tono de voz y delivery */}
+      {analysis.tono_voz ? (
+        <div className="rounded-lg border p-4 space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            Tono de voz y delivery
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {analysis.tono_voz.tipo && (
+              <div className="rounded-md border bg-muted/20 px-3 py-2">
+                <p className="text-[10px] text-muted-foreground">Tipo de voz</p>
+                <p className="text-sm font-medium">{analysis.tono_voz.tipo}</p>
+              </div>
+            )}
+            {analysis.tono_voz.velocidad_wpm != null && (
+              <div className="rounded-md border bg-muted/20 px-3 py-2">
+                <p className="text-[10px] text-muted-foreground">Velocidad</p>
+                <p className="text-sm font-medium tabular-nums">
+                  {analysis.tono_voz.velocidad_wpm} WPM
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+
       {piece.transcript ? (
         <details className="rounded-lg border">
           <summary className="cursor-pointer px-4 py-3 text-sm font-medium">

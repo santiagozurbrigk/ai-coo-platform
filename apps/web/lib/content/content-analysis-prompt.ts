@@ -79,7 +79,26 @@ Respondé con JSON exactamente en este formato:
   ],
   "format_type": "uno de: storytime | talking_head | pov | listicle | green_screen | hot_take | carousel | otro",
   "hook_type": "uno de: dolor_directo | curiosidad | contrarian | prueba_social | resultado",
-  "cta_type": "uno de: dm | comment_word | link | none"
+  "cta_type": "uno de: dm | comment_word | link | none",
+  "insights_virales": {
+    "potencial": "uno de: alto | medio | bajo (basado en engagement, hook y ángulo)",
+    "fortalezas": ["fortaleza 1 concreta", "fortaleza 2 concreta"],
+    "areas_mejora": ["área de mejora 1 accionable", "área de mejora 2 accionable"]
+  },
+  "analisis_visual": {
+    "formato": "vertical/horizontal/cuadrado",
+    "tipo_plano": "primer plano/plano medio/plano general/etc.",
+    "escena": "interior/exterior/estudio/calle/etc.",
+    "orientacion": "vertical/horizontal",
+    "personas": 1,
+    "cara_visible": true,
+    "texto_en_pantalla": false,
+    "fondo": "descripción del fondo o entorno"
+  },
+  "tono_voz": {
+    "tipo": "conversacional/autoritativo/didáctico/emotivo/etc.",
+    "velocidad_wpm": 150
+  }
 }`;
 }
 

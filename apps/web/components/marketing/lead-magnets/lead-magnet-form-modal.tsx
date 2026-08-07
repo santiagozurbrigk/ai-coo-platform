@@ -188,8 +188,8 @@ export function LeadMagnetFormModal({
                       key={c.value}
                       className={`flex items-start gap-2.5 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${
                         channel === c.value
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-border/70"
+                          ? "border-primary bg-primary/10"
+                          : "border-border bg-muted/30 hover:bg-muted/50"
                       }`}
                     >
                       <input

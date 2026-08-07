@@ -57,6 +57,28 @@ export type ContentAnalysis = {
   format_type?: ContentFormatType;
   hook_type?: ContentHookType;
   cta_type?: ContentCtaType;
+  // Insights y potencial viral
+  insights_virales?: {
+    potencial: "alto" | "medio" | "bajo";
+    fortalezas: string[];
+    areas_mejora: string[];
+  };
+  // Análisis visual
+  analisis_visual?: {
+    formato?: string;
+    tipo_plano?: string;
+    escena?: string;
+    orientacion?: string;
+    personas?: number;
+    cara_visible?: boolean;
+    texto_en_pantalla?: boolean;
+    fondo?: string;
+  };
+  // Tono de voz y delivery
+  tono_voz?: {
+    tipo?: string;
+    velocidad_wpm?: number;
+  };
 };
 
 export type ContentBrief = {
