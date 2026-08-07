@@ -8,10 +8,14 @@ export function SparklineChart({
   data,
   color = "var(--chart-1)",
   className,
+  /** Override del aspect ratio del SVG. "none" desactiva el constraint (útil en
+   *  contenedores con altura fija donde se requiere ancho completo). */
+  aspectRatio = "3 / 1",
 }: {
   data: number[];
   color?: string;
   className?: string;
+  aspectRatio?: string;
 }) {
   if (data.length < 2) return null;
 
@@ -25,7 +29,7 @@ export function SparklineChart({
     <AreaChart
       data={rows}
       xDataKey="date"
-      aspectRatio="3 / 1"
+      aspectRatio={aspectRatio}
       className={cn("h-full w-full min-h-[32px]", className)}
       animationDuration={700}
       margin={{ top: 4, right: 4, bottom: 4, left: 4 }}

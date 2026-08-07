@@ -54,9 +54,12 @@ export function KpiHeroCard({
 
       {sparkData && sparkData.length >= 2 ? (
         <div className="mt-auto h-16 w-full overflow-hidden">
+          {/* aspectRatio="none" permite que el SVG llene el ancho completo del
+              contenedor de altura fija sin quedar restringido por la proporción */}
           <SparklineChart
             data={sparkData}
             color="#7C3AED"
+            aspectRatio="none"
             className="h-16 w-full"
           />
         </div>
