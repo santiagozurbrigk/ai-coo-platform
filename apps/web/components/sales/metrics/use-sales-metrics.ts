@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePlatformData } from "@/providers";
+import { usePlatformData, useFinanceData } from "@/providers";
 import { deriveSalesMetrics } from "@/lib/metrics/derive-sales-metrics";
 import { padTimeSeriesZeros } from "@/lib/chart/pad-time-series";
 import {
@@ -14,6 +14,7 @@ import type { DateRange } from "./date-range-picker";
 export function useSalesMetrics(dateRange: DateRange) {
   const { conversations, closingCalls, salesMetrics, salesMetricsLoading } =
     usePlatformData();
+  const { financeSummary, monthlySeries, financeConfigLoading } = useFinanceData();
 
   // ── Métricas de performance (server action) ────────────────────────────────
   const [perfMetrics, setPerfMetrics] = useState<SalesPerformanceMetrics | null>(null);
@@ -175,11 +176,26 @@ export function useSalesMetrics(dateRange: DateRange) {
     ].filter((s) => s.value > 0);
   }, [perfMetrics, filteredConversations]);
 
+  // ── Series de facturación para sparklines ─────────────────────────────────
+  const facturacionSparkData = useMemo(
+    () => monthlySeries.map((m) => m.facturacion),
+    [monthlySeries]
+  );
+
+  const cashCollectedSparkData = useMemo(
+    () => monthlySeries.map((m) => m.cashCollected),
+    [monthlySeries]
+  );
+
   return {
-    isLoading: salesMetricsLoading || perfLoading,
+    isLoading: salesMetricsLoading || perfLoading || financeConfigLoading,
     perfMetrics,
     filteredMetrics,
     filteredConversations,
+    // finanzas
+    financeSummary,
+    facturacionSparkData,
+    cashCollectedSparkData,
     // series
     bookingSparkData,
     agendasSparkData,

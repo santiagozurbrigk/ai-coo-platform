@@ -12,9 +12,12 @@ import {
   UserMinus,
   Heart,
   Activity,
+  DollarSign,
+  Wallet,
 } from "lucide-react";
 import { GlassPanel } from "@ai-coo/ui";
 import { formatPercent } from "@/lib/format";
+import { formatMoney } from "@/lib/finance/format";
 import {
   ChartShell,
   DualAreaChart,
@@ -49,6 +52,9 @@ export function SalesMetricsRedesign({
     perfMetrics,
     filteredMetrics,
     filteredConversations,
+    financeSummary,
+    facturacionSparkData,
+    cashCollectedSparkData,
     bookingSparkData,
     agendasSparkData,
     weeklyTrend,
@@ -86,8 +92,8 @@ export function SalesMetricsRedesign({
       {/* ── Selector de período ─────────────────────────────────────────────── */}
       <DateRangePicker value={dateRange} onChange={setDateRange} />
 
-      {/* ── 1. KPI Heroes: Close rate + Show rate ──────────────────────────── */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* ── 1. KPI Heroes: 4 métricas principales ──────────────────────────── */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiHeroCard
           label="Close Rate"
           hint="Cierres / asistencias"
@@ -101,6 +107,20 @@ export function SalesMetricsRedesign({
           value={isLoading ? "—" : formatPercent(perfMetrics?.closer.showRate ?? 0)}
           icon={Users}
           sparkData={[...bookingSparkData].reverse()}
+        />
+        <KpiHeroCard
+          label="Facturación"
+          hint="Total facturado este período"
+          value={isLoading ? "—" : formatMoney(financeSummary.facturacion)}
+          icon={DollarSign}
+          sparkData={facturacionSparkData}
+        />
+        <KpiHeroCard
+          label="Cash Collected"
+          hint="Ganancia neta cobrada"
+          value={isLoading ? "—" : formatMoney(financeSummary.cashCollected)}
+          icon={Wallet}
+          sparkData={cashCollectedSparkData}
         />
       </div>
 
