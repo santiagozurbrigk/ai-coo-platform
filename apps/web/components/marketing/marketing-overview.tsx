@@ -3,15 +3,13 @@
 import {
   Eye,
   Heart,
-  BarChart3,
   FileText,
   Users,
   MessageCircle,
   UserPlus,
   TrendingUp,
   Link2,
-  Clock,
-  PieChart,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import { Button, GlassPanel } from "@ai-coo/ui";
@@ -22,7 +20,6 @@ import {
   ChartShell,
   DualAreaChart,
   FunnelChartPanel,
-  RingDistributionChart,
 } from "@/components/charts/platform";
 import { ContentLabelDistributionChart } from "@/components/marketing/content-label-distribution-chart";
 import {
@@ -31,11 +28,9 @@ import {
   PublishHeatmap,
 } from "./marketing-charts";
 import { paths } from "@/routes";
-// Componentes del módulo overview
+// Componentes reutilizables del módulo de métricas
 import { KpiHeroCard } from "@/components/sales/metrics/kpi-hero-card";
-import { MarketingStatCard } from "./overview/marketing-stat-card";
 import { UtmAttributionCard } from "./overview/utm-attribution-card";
-import { ConversionStrip } from "./overview/conversion-strip";
 import { useMarketingOverview } from "./overview/use-marketing-overview";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -66,7 +61,6 @@ export function MarketingOverview({
   const {
     hasContentAssets,
     hasUtmAttributions,
-    utmLinks,
     utmSummary,
     distribution: dist,
     metrics,
@@ -81,7 +75,6 @@ export function MarketingOverview({
     funnelHasData,
   } = useMarketingOverview(overview, distribution);
 
-  // ── Métricas vacías — mostrar estado de conexión ──────────────────────────
   if (!hasContentAssets) {
     return (
       <EmptyState
@@ -100,246 +93,246 @@ export function MarketingOverview({
 
   const m = metrics!;
 
-  // Slices para ring chart de estado de contenido
-  const contentTypeSlices = [
-    { label: "Reels", value: m.reelsCount, color: "#7C3AED" },
-    { label: "Posts", value: m.postsCount, color: "#10b981" },
-    { label: "Stories", value: m.storiesCount, color: "#f59e0b" },
+  // ── Funnel stages para conversión a ventas ────────────────────────────────
+  const conversionFunnel = [
+    {
+      label: "Conversaciones",
+      value: m.conversationsGenerated || contentFunnel[0]?.value || 0,
+    },
+    {
+      label: "Bookings",
+      value: m.bookingsInfluenced || contentFunnel[1]?.value || 0,
+    },
+    {
+      label: "Ventas",
+      value: m.salesInfluenced || contentFunnel[2]?.value || 0,
+    },
   ].filter((s) => s.value > 0);
 
-  return (
-    <div className="space-y-6">
+  // Fallback si no hay datos de conversión: usar contentFunnel completo
+  const funnelData =
+    conversionFunnel.length >= 2
+      ? conversionFunnel
+      : funnelHasData
+      ? contentFunnel.map((s) => ({ label: s.stage, value: s.value }))
+      : [];
 
-      {/* ── 1. KPI Heroes: 4 métricas principales ────────────────────────── */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  return (
+    <div className="space-y-5">
+
+      {/* ── Row 1: 6 KPI heroes ─────────────────────────────────────────── */}
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
+
+        {/* Alcance total */}
         <KpiHeroCard
           label="Alcance total"
           hint="Últimos 30 días"
           value={formatNum(m.totalReach)}
-          delta={m.reachTrendPct}
+          trendPct={m.reachTrendPct}
           icon={Eye}
           sparkData={reachSparkData}
         />
+
+        {/* Interacciones */}
         <KpiHeroCard
-          label="Interacciones"
+          label="Interacciones totales"
           hint={`Engagement ${m.engagementRatePct}%`}
           value={formatNum(m.totalInteractions)}
-          delta={m.interactionsTrendPct}
+          trendPct={m.interactionsTrendPct}
           icon={Heart}
           sparkData={interactionsSparkData}
         />
+
+        {/* Contenido publicado — sin sparkline, con badges de formato */}
         <KpiHeroCard
           label="Contenido publicado"
-          hint={`${m.reelsCount} reels · ${m.postsCount} posts · ${m.storiesCount} stories`}
           value={String(m.contentPublished)}
           icon={FileText}
-          sparkData={reachSparkData.map((_, i) => (i % 2 === 0 ? 1 : 0))}
-        />
+        >
+          <div className="flex flex-wrap gap-1 pt-1">
+            {[
+              { label: `${m.reelsCount} reels` },
+              { label: `${m.postsCount} posts` },
+              { label: `${m.storiesCount} stories` },
+            ].map((tag) => (
+              <span
+                key={tag.label}
+                className="rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground"
+              >
+                {tag.label}
+              </span>
+            ))}
+          </div>
+        </KpiHeroCard>
+
+        {/* Respuestas a historias */}
         <KpiHeroCard
-          label="Nuevos seguidores"
-          hint="Crecimiento del perfil"
+          label="Respuestas a historias"
+          hint="Últimos 30 días"
+          value={formatNum(m.storyReplies)}
+          trendPct={m.storyRepliesTrendPct}
+          icon={MessageCircle}
+          sparkData={interactionsSparkData}
+        />
+
+        {/* Comentarios totales */}
+        <KpiHeroCard
+          label="Comentarios totales"
+          hint="Últimos 30 días"
+          value={formatNum(m.commentsTotal)}
+          trendPct={m.commentsTrendPct}
+          icon={MessageCircle}
+          sparkData={reachSparkData}
+        />
+
+        {/* Crecimiento del perfil */}
+        <KpiHeroCard
+          label="Crecimiento del perfil"
+          hint="Nuevos seguidores"
           value={`+${formatNum(m.newFollowers)}`}
-          delta={m.profileGrowthTrendPct}
+          trendPct={m.profileGrowthTrendPct}
           icon={UserPlus}
           sparkData={interactionsSparkData.map((v) => Math.round(v * 0.1))}
-        />
+        >
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
+            <span>Views → Seguidores</span>
+            <span>{m.viewsToFollowersRate}%</span>
+          </div>
+        </KpiHeroCard>
       </div>
 
-      {/* ── 2. Layout asimétrico: contenido + sidebar ────────────────────── */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-
-        {/* ── Columna izquierda ──────────────────────────────────────────── */}
-        <div className="space-y-5">
-
-          {/* Conversión a ventas — strip horizontal */}
-          <section className="space-y-3">
-            <h3 className="text-[13px] font-semibold">Conversión a ventas</h3>
-            <ConversionStrip metrics={m} />
-          </section>
-
-          {/* Tendencia: Alcance vs Interacciones */}
-          {dualTrendData.length >= 2 && (
-            <ChartShell
-              title="Alcance e interacciones"
-              subtitle="Últimos 30 días · área dual"
-            >
-              <div className="h-[200px] w-full overflow-hidden">
-                <DualAreaChart
-                  data={dualTrendData}
-                  primaryKey="primary"
-                  secondaryKey="secondary"
-                  primaryLabel="Alcance"
-                  secondaryLabel="Interacciones"
-                  className="h-[200px]"
-                />
-              </div>
-            </ChartShell>
-          )}
-
-          {/* Funnel de contenido + Top contenido — 2 columnas */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            {funnelHasData ? (
-              <ChartShell
-                title="Funnel contenido → venta"
-                subtitle="Embudo por etapas"
-              >
-                <div className="h-[180px]">
-                  <FunnelChartPanel
-                    stages={contentFunnel.map((s) => ({
-                      label: s.stage,
-                      value: s.value,
-                    }))}
-                    orientation="vertical"
-                    className="h-[180px]"
-                  />
-                </div>
-              </ChartShell>
-            ) : (
-              <GlassPanel className="flex min-h-[200px] flex-col items-center justify-center gap-3 p-6 text-center">
-                <TrendingUp size={20} className="text-muted-foreground/50" />
-                <div>
-                  <p className="text-sm font-medium">Funnel contenido → ventas</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Generá links UTM para trackear qué contenido convierte
-                  </p>
-                </div>
-                <Button size="sm" variant="outline" asChild>
-                  <Link href={paths.platform.marketing.utms}>Crear UTMs</Link>
-                </Button>
-              </GlassPanel>
-            )}
-
-            {topConverting.length > 0 ? (
-              <TopConvertingContentList ranked={topConverting} />
-            ) : (
-              <GlassPanel className="flex min-h-[200px] flex-col items-center justify-center gap-3 p-6 text-center">
-                <BarChart3 size={20} className="text-muted-foreground/50" />
-                <div>
-                  <p className="text-sm font-medium">Contenido que más convierte</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Aparecerá cuando haya conversaciones vinculadas a contenido
-                  </p>
-                </div>
-              </GlassPanel>
-            )}
+      {/* ── Row 2: Conversión a ventas con funnel chart ──────────────────── */}
+      <ChartShell
+        title="Conversión a ventas"
+        subtitle="Embudo de contenido → conversaciones → bookings → ventas"
+      >
+        {funnelData.length >= 2 ? (
+          <div className="h-[160px]">
+            <FunnelChartPanel
+              stages={funnelData}
+              orientation="horizontal"
+              className="h-[160px]"
+            />
           </div>
-
-          {/* Heatmap de publicación (ocupa toda la columna) */}
-          {showHeatmap && heatmap ? (
-            <PublishHeatmap cells={heatmap} />
-          ) : null}
-
-          {/* Performance por tipo */}
-          {typePerformance.length > 0 && (
-            <TypeRadarChart types={typePerformance} />
-          )}
-        </div>
-
-        {/* ── Sidebar derecho ────────────────────────────────────────────── */}
-        <div className="space-y-4">
-
-          {/* Engagement */}
-          <h3 className="text-[13px] font-semibold">Engagement</h3>
-
-          <MarketingStatCard
-            label="Respuestas a historias"
-            value={formatNum(m.storyReplies)}
-            sub="Últimos 30 días"
-            trendPct={m.storyRepliesTrendPct}
-            icon={MessageCircle}
-          />
-
-          <MarketingStatCard
-            label="Comentarios totales"
-            value={formatNum(m.commentsTotal)}
-            sub="Últimos 30 días"
-            trendPct={m.commentsTrendPct}
-            icon={MessageCircle}
-          />
-
-          <MarketingStatCard
-            label="Crecimiento del perfil"
-            value={`+${formatNum(m.newFollowers)}`}
-            sub="Nuevos seguidores"
-            trendPct={m.profileGrowthTrendPct}
-            icon={Users}
-          >
-            {/* Barra Views → Seguidores */}
-            <div className="mt-1 space-y-1">
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                <span>Views → Seguidores</span>
-                <span>{m.viewsToFollowersRate}%</span>
-              </div>
-              <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-violet-500"
-                  style={{ width: `${Math.min(m.viewsToFollowersRate, 100)}%` }}
-                />
-              </div>
-            </div>
-          </MarketingStatCard>
-
-          {/* Distribución de contenido — ring chart compacto */}
-          {dist.hasContentAssets && (
-            <GlassPanel className="space-y-3 p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Distribución de contenido
+        ) : (
+          <div className="flex h-[120px] flex-col items-center justify-center gap-3">
+            <TrendingUp size={20} className="text-muted-foreground/40" />
+            <div className="text-center">
+              <p className="text-sm font-medium">Sin datos de conversión</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Generá links UTM para trackear qué contenido genera bookings y ventas
               </p>
-              {contentTypeSlices.length > 0 ? (
-                <div className="flex items-center gap-3">
-                  <RingDistributionChart
-                    slices={contentTypeSlices}
-                    centerValue={String(m.contentPublished)}
-                    centerLabel="Total"
-                    className="max-w-[90px] min-w-[90px] shrink-0"
-                  />
-                  <div className="flex-1 space-y-1.5">
-                    {contentTypeSlices.map((s) => (
-                      <div
-                        key={s.label}
-                        className="flex items-center justify-between gap-2"
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <div
-                            className="h-2 w-2 shrink-0 rounded-full"
-                            style={{ background: s.color }}
-                          />
-                          <span className="text-xs text-muted-foreground">
-                            {s.label}
-                          </span>
-                        </div>
-                        <span className="text-xs font-semibold tabular-nums">
-                          {s.value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <ContentLabelDistributionChart
-                  counts={dist.counts}
-                  total={dist.total}
-                  insight={dist.insight}
-                  hasContentAssets
-                />
-              )}
-            </GlassPanel>
-          )}
+            </div>
+            <Button size="sm" variant="outline" asChild>
+              <Link href={paths.platform.marketing.utms}>Crear UTMs</Link>
+            </Button>
+          </div>
+        )}
+      </ChartShell>
 
-          {/* Atribución UTM */}
-          <UtmAttributionCard
-            summary={utmSummary}
-            hasData={hasUtmAttributions}
+      {/* ── Row 3: 3 columnas iguales ────────────────────────────────────── */}
+      <div className="grid gap-4 md:grid-cols-3">
+
+        {/* Distribución de contenido publicado */}
+        {dist.hasContentAssets ? (
+          <GlassPanel className="space-y-3 p-4">
+            <div>
+              <h4 className="text-sm font-medium">Distribución de contenido publicado</h4>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Pie animado por etiqueta de contenido
+              </p>
+            </div>
+            <ContentLabelDistributionChart
+              counts={dist.counts}
+              total={dist.total}
+              insight={dist.insight}
+              hasContentAssets
+            />
+          </GlassPanel>
+        ) : (
+          <EmptyCell
+            icon={BarChart3}
+            title="Distribución de contenido"
+            description="Conectá Instagram para ver la distribución por etiqueta."
           />
-        </div>
+        )}
+
+        {/* Alcance e interacciones — DualAreaChart */}
+        {dualTrendData.length >= 2 ? (
+          <ChartShell
+            title="Alcance e interacciones"
+            subtitle="Área dual · Últimos 30 días"
+            className="h-full"
+          >
+            <div className="h-[220px] w-full overflow-hidden">
+              <DualAreaChart
+                data={dualTrendData}
+                primaryKey="primary"
+                secondaryKey="secondary"
+                primaryLabel="Alcance"
+                secondaryLabel="Interacciones"
+                className="h-[220px]"
+              />
+            </div>
+          </ChartShell>
+        ) : (
+          <EmptyCell
+            icon={Eye}
+            title="Sin datos de alcance"
+            description="Importá contenido para ver la tendencia de alcance e interacciones."
+          />
+        )}
+
+        {/* Contenido que más convierte */}
+        {topConverting.length > 0 ? (
+          <TopConvertingContentList ranked={topConverting} />
+        ) : (
+          <EmptyCell
+            icon={BarChart3}
+            title="Contenido que más convierte"
+            description="Aparecerá cuando haya conversaciones vinculadas a contenido publicado."
+          />
+        )}
+      </div>
+
+      {/* ── Row 4: 3 columnas iguales ────────────────────────────────────── */}
+      <div className="grid gap-4 md:grid-cols-3">
+
+        {/* Performance por tipo — Radar */}
+        {typePerformance.length > 0 ? (
+          <TypeRadarChart types={typePerformance} />
+        ) : (
+          <EmptyCell
+            icon={BarChart3}
+            title="Performance por tipo"
+            description="Importá contenido para comparar reels, posts y otros formatos."
+          />
+        )}
+
+        {/* Heatmap de publicación */}
+        {showHeatmap && heatmap ? (
+          <PublishHeatmap cells={heatmap} />
+        ) : (
+          <EmptyCell
+            icon={BarChart3}
+            title="Mejores días y horarios"
+            description="Publicá más contenido para ver tus mejores días y horarios de engagement."
+          />
+        )}
+
+        {/* Conexión ventas — UTM */}
+        <UtmAttributionCard
+          summary={utmSummary}
+          hasData={hasUtmAttributions}
+        />
       </div>
     </div>
   );
 }
 
-// ─── Sub-componentes locales ───────────────────────────────────────────────────
+// ─── Sub-componente reutilizable de estado vacío ──────────────────────────────
 
-function SectionEmpty({
+function EmptyCell({
   icon: Icon,
   title,
   description,
@@ -349,14 +342,12 @@ function SectionEmpty({
   description: string;
 }) {
   return (
-    <div className="flex h-full min-h-[200px] items-center">
-      <EmptyState
-        variant="inline"
-        className="w-full"
-        icon={<Icon className="h-5 w-5" />}
-        title={title}
-        description={description}
-      />
-    </div>
+    <GlassPanel className="flex min-h-[200px] flex-col items-center justify-center gap-3 p-6 text-center">
+      <Icon size={20} className="text-muted-foreground/40" />
+      <div>
+        <p className="text-sm font-medium">{title}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+      </div>
+    </GlassPanel>
   );
 }
