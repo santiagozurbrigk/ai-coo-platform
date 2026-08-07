@@ -205,13 +205,17 @@ export function MarketingOverview({
       <ChartShell
         title="Conversión a ventas"
         subtitle="Embudo de contenido → conversaciones → bookings → ventas"
+        className="overflow-hidden"
       >
         {funnelData.length >= 2 ? (
-          <div className="h-[160px]">
+          <div
+            className="w-full"
+            style={{ height: 180, overflow: "hidden", contain: "paint" }}
+          >
             <FunnelChartPanel
               stages={funnelData}
               orientation="horizontal"
-              className="h-[160px]"
+              style={{ minHeight: 0, height: 180, aspectRatio: "auto", width: "100%" }}
             />
           </div>
         ) : (
