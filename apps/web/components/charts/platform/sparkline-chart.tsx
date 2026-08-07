@@ -37,8 +37,7 @@ export function SparklineChart({
         fillOpacity={0.25}
         showLine
         showHighlight={false}
-        showMarkers
-        markers={{ radius: 3 }}
+        showMarkers={false}
       />
     </AreaChart>
   );
