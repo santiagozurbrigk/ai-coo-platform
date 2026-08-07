@@ -33,10 +33,8 @@ import {
   FunnelChartPanel,
   RingDistributionChart,
   PieDistributionChart,
-  SparklineChart,
   TrendLineChart,
   ChartShell,
-  CategoryBarChart,
   DualAreaChart,
 } from "@/components/charts/platform";
 import { FrequentObjectionsSection } from "./frequent-objections-section";
@@ -76,7 +74,7 @@ function DeltaBadge({
   );
 }
 
-// ─── KPI hero card (icono + número + sparkline) ────────────────────────────────
+// ─── KPI hero card (texto arriba full-width + TrendLine abajo pegado al borde) ──
 
 function KpiHeroCard({
   label,
@@ -84,43 +82,50 @@ function KpiHeroCard({
   value,
   delta,
   deltaInverse,
-  sparkData,
+  trendData,
   icon: Icon,
   iconColor = "bg-violet-500/15 text-violet-500",
-  chartColor = "var(--chart-1)",
 }: {
   label: string;
   hint?: string;
   value: string;
   delta?: number | null;
   deltaInverse?: boolean;
-  sparkData?: number[];
+  trendData?: { label: string; value: number }[];
   icon: React.ElementType;
   iconColor?: string;
-  chartColor?: string;
 }) {
   return (
-    <GlassPanel className="flex min-h-[120px] items-center gap-0 overflow-hidden p-0">
-      <div className="flex flex-col justify-center gap-1.5 py-5 pl-5 pr-3 shrink-0 min-w-[180px]">
-        <div className="flex items-center gap-2">
-          <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg", iconColor)}>
-            <Icon size={14} />
+    <GlassPanel className="flex flex-col overflow-hidden p-0">
+      {/* Header — texto e icono en la misma fila */}
+      <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <div className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg", iconColor)}>
+              <Icon size={14} />
+            </div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {label}
+            </p>
           </div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {label}
-          </p>
+          <p className="text-[2.4rem] font-bold tabular-nums leading-none tracking-tight">{value}</p>
+          {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+          {delta !== undefined && delta !== null && (
+            <DeltaBadge delta={delta} inverse={deltaInverse} />
+          )}
         </div>
-        <p className="text-[2.2rem] font-bold tabular-nums leading-none tracking-tight">{value}</p>
-        {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
-        {delta !== undefined && delta !== null && (
-          <DeltaBadge delta={delta} inverse={deltaInverse} />
-        )}
       </div>
-      {sparkData && sparkData.length >= 2 && (
-        <div className="h-full min-h-[100px] flex-1 self-stretch overflow-hidden opacity-80">
-          <SparklineChart data={sparkData} color={chartColor} className="h-full min-h-[100px]" />
+      {/* Chart pegado al borde inferior, sin padding */}
+      {trendData && trendData.length >= 2 && (
+        <div className="mt-auto h-[80px] w-full overflow-hidden">
+          <TrendLineChart
+            data={trendData}
+            className="h-[80px] min-h-[80px]"
+            aspectRatio="auto"
+          />
         </div>
       )}
+      {(!trendData || trendData.length < 2) && <div className="h-4" />}
     </GlassPanel>
   );
 }
@@ -221,13 +226,8 @@ export function SalesMetricsRedesign({
 
   const isLoading = salesMetricsLoading || perfLoading;
 
-  // Booking trend
+  // Booking trend (para trend lines de KPI heroes)
   const bookingTrend = padTimeSeriesZeros(salesMetrics.bookingTrend, 7);
-  const bookingSparkData = bookingTrend.map((d) => d.value);
-
-  // Close/Show rate sparks
-  const closeRateSparkData = bookingSparkData;
-  const showRateSparkData = [...bookingSparkData].reverse();
 
   // Agendas trend (últimas 4 semanas — para HeroAreaChart)
   const agendasTrend = useMemo(() => {
@@ -366,21 +366,17 @@ export function SalesMetricsRedesign({
           label="Close Rate"
           hint="Cierres / asistencias"
           value={isLoading ? "—" : formatPercent(perfMetrics?.closer.closeRate ?? 0)}
-          delta={null}
           icon={Target}
           iconColor="bg-violet-500/15 text-violet-500"
-          sparkData={closeRateSparkData}
-          chartColor="var(--chart-1)"
+          trendData={bookingTrend}
         />
         <KpiHeroCard
           label="Show Rate"
           hint="Asistencias / agendas"
           value={isLoading ? "—" : formatPercent(perfMetrics?.closer.showRate ?? 0)}
-          delta={null}
           icon={Users}
           iconColor="bg-emerald-500/15 text-emerald-500"
-          sparkData={showRateSparkData}
-          chartColor="var(--chart-2)"
+          trendData={[...bookingTrend].reverse()}
         />
       </div>
 
@@ -594,25 +590,27 @@ export function SalesMetricsRedesign({
             </div>
           </GlassPanel>
 
-          {/* Ring + métrica: Tasa de fantasma */}
-          <GlassPanel className="flex items-center gap-4 p-4">
-            <div className="shrink-0">
-              <RingDistributionChart
-                slices={[
-                  { label: "Ghosted", value: salesMetrics.ghostingRate, color: "#f59e0b" },
-                  { label: "Resto", value: Math.max(0, 100 - salesMetrics.ghostingRate), color: "var(--border)" },
-                ]}
-                centerValue={`${Math.round(salesMetrics.ghostingRate)}%`}
-                centerLabel="Fantasma"
-                className="max-w-[90px] min-w-[90px]"
-              />
-            </div>
-            <div>
+          {/* Gauge: Tasa de fantasma */}
+          <GlassPanel className="overflow-hidden p-0">
+            <div className="px-4 pt-3.5">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Tasa de fantasma
               </p>
-              <p className="text-2xl font-bold tabular-nums">{formatPercent(salesMetrics.ghostingRate)}</p>
+              <div className="flex items-baseline gap-2 mt-0.5">
+                <p className="text-2xl font-bold tabular-nums">
+                  {formatPercent(salesMetrics.ghostingRate)}
+                </p>
+              </div>
               <p className="text-[11px] text-muted-foreground">Objetivo: &lt;20%</p>
+            </div>
+            <div className="px-2 pb-2">
+              <GaugeMetricChart
+                value={salesMetrics.ghostingRate}
+                max={100}
+                label="Fantasma"
+                suffix="%"
+                className="max-w-[220px]"
+              />
             </div>
           </GlassPanel>
 
