@@ -41,6 +41,31 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-08 — Fix "Conectá tus redes" en dashboard + scrollbars en modales
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `bef3902` — fix(dashboard+ui): mostrar métricas Zernio en dashboard y eliminar scrollbars en modales  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `dashboard`, `packages/ui`
+
+**Qué se hizo:**
+1. **`app/integrations/zernio/actions.ts` — `getZernioAnalyticsAction`**: Reemplazada la llamada a `client.getPostsAnalytics()` (→ `/analytics/posts` de Zernio) por una query a `content_pieces` en Supabase. La función ahora suma `metrics.impressions`, `metrics.likes` y `metrics.comments` de las piezas de Zernio publicadas en los últimos 30 días. `hasData` se setea `true` en cuanto existe al menos una pieza de Zernio en la DB (aunque las métricas sean 0), mostrando el ring chart en vez del empty state "Conectá tus redes". Si no hay piezas en los últimos 30 días, hace un segundo query sin filtro de fecha para verificar si hay piezas históricas.
+2. **`packages/ui/src/primitives/dialog.tsx` — `DialogContent`**: Agrega `overflow-x-hidden` al conjunto de clases base de todos los `DialogContent`. Fix global para la scrollbar horizontal que aparecía en modales con `overflow-y-auto` (especialmente visible en el modal de Zernio "Conectar Zernio").
+
+**Por qué / finalidad:**
+- El dashboard mostraba "Conectá tus redes para ver analytics / Vinculá cuentas en Zernio..." aunque Zernio estaba conectado y había contenido sincronizado. La causa: `getPostsAnalytics()` llama `/analytics/posts` de Zernio cuyo formato de respuesta (`{ posts: [...], analytics: Record<platform, metrics> }`) no matcheaba el parsing del código → todas las métricas quedaban en 0 → `hasData = false`.
+- En el modal de Zernio (y otros modales con `overflow-y-auto`) aparecían tanto una scrollbar vertical como una horizontal. La scrollbar horizontal se activa porque la vertical ocupa espacio (en Windows/sistema con scrollbars siempre visibles), lo que estrecha el contenido disponible y puede disparar overflow horizontal. `overflow-x-hidden` lo previene globalmente.
+
+**Decisiones de diseño relevantes:**
+- `content_pieces` es la fuente de verdad para métricas de Zernio (ya normalizadas por `resolvePostAnalytics`). Usarla en el dashboard evita una llamada en vivo a Zernio en cada carga del dashboard (más lento y frágil).
+- `overflow-x-hidden` en el base `DialogContent` es seguro: los diálogos tienen `max-w-lg` fijo y nunca necesitan scroll horizontal. La propiedad puede sobreescribirse pasando `overflow-x-auto` en `className` si algún caso especial lo requiriera.
+
+**Riesgos / deuda técnica pendiente:**
+- Si hay piezas de Zernio pero ninguna en los últimos 30 días, el dashboard mostrará el ring chart con métricas en 0 (con "Sin datos de engagement") en vez del empty state. Es el comportamiento correcto ya que Zernio está conectado y tiene datos históricos.
+- La función `getZernioAnalyticsAction` ahora importa `createClient` de `@/lib/supabase/server` en el archivo `zernio/actions.ts`. Verificar que no haya conflictos con el uso existente de `createAdminClient`.
+
+---
+
 ### 2026-08-08 — Fix React #418 (hidratación) en detalle de contenido + sync de historias Zernio
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
