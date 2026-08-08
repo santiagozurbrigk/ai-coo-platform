@@ -3,16 +3,15 @@
 import { useMemo } from "react";
 import { ContentPieceDetail } from "@/components/marketing/content-piece-detail";
 import { PageContextRegistrar } from "@/providers";
-import type { ContentPieceWithVariants } from "@/types/content";
-import type { ContentBenchmark } from "@/app/marketing/content/actions";
+import type { ContentMetrics, ContentPieceWithVariants } from "@/types/content";
 
 type Props = {
   piece: ContentPieceWithVariants;
   variants: ContentPieceWithVariants["variants"];
-  benchmark?: ContentBenchmark | null;
+  orgAvg?: ContentMetrics | null;
 };
 
-export function MarketingContentDetailPageClient({ piece, variants, benchmark }: Props) {
+export function MarketingContentDetailPageClient({ piece, variants, orgAvg }: Props) {
   const pageContext = useMemo(
     () => ({
       entityType: "content_piece" as const,
@@ -37,7 +36,11 @@ export function MarketingContentDetailPageClient({ piece, variants, benchmark }:
 
   return (
     <PageContextRegistrar context={pageContext}>
-      <ContentPieceDetail piece={piece} variants={variants ?? piece.variants ?? []} benchmark={benchmark} />
+      <ContentPieceDetail
+        piece={piece}
+        variants={variants ?? piece.variants ?? []}
+        orgAvg={orgAvg ?? null}
+      />
     </PageContextRegistrar>
   );
 }
