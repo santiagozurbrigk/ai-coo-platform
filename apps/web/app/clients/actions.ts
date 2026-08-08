@@ -13,6 +13,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { attributeSaleToUTM } from "@/lib/utm/attribute-booking";
+import { attributeLeadMagnetToClientAction } from "@/app/marketing/lead-magnets-actions";
 import { repairClosingConversationLinks } from "@/lib/conversations/repair-links";
 import {
   createClientSchema,
@@ -104,6 +105,16 @@ export async function createClientAction(input: unknown): Promise<Client> {
     revenue: saved.totalAmount,
   }).catch((err) => {
     console.error("[CreateClient] Error en atribución UTM de venta:", err);
+  });
+
+  // Atribuir al último Lead Magnet que recibió este lead (por nombre)
+  await attributeLeadMagnetToClientAction({
+    organizationId,
+    clientId: saved.id,
+    clientName: saved.name,
+    revenueAmount: saved.totalAmount ?? undefined,
+  }).catch((err) => {
+    console.error("[CreateClient] Error en atribución Lead Magnet:", err);
   });
 
   return saved;

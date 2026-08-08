@@ -9,6 +9,7 @@ import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { scheduleBusinessContextRagIndexing } from "@/lib/business-context/schedule-rag-indexing";
 import { assertDocumentIndexed } from "@/lib/business-context/rag-indexing";
 import { isOpenAIConfigured } from "@/lib/rag/embeddings";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import {
   exportGoogleDriveFile,
   exportGoogleDocAsMarkdown,
@@ -42,9 +43,13 @@ import { paths } from "@/routes";
 const ROW_COLUMNS =
   "id, organization_id, title, category, source, content_text, content_markdown, storage_path, mime_type, status, index_error, external_source_id, uploaded_by, created_at, updated_at";
 
-const categorySchema = z.enum(
-  DOCUMENT_CATEGORIES as [string, ...string[]]
-);
+// Accept built-in slugs AND custom org slugs (any non-empty lowercase-dashed string)
+const categorySchema = z
+  .string()
+  .trim()
+  .min(1, "La categoría es obligatoria")
+  .max(80, "Slug de categoría demasiado largo")
+  .regex(/^[a-z0-9_-]+$/, "Slug inválido");
 
 const createTextNoteSchema = z.object({
   title: z.string().trim().min(1, "El título es obligatorio").max(200),
@@ -715,5 +720,115 @@ export async function resyncDocumentMarkdownAction(
 
     revalidatePath(paths.platform.businessContext.viewer(id));
     return { id };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Custom categories
+// ---------------------------------------------------------------------------
+
+export type CustomCategoryRow = {
+  id: string;
+  organization_id: string;
+  name: string;
+  slug: string;
+  created_at: string;
+};
+
+const customCategoryNameSchema = z
+  .string()
+  .trim()
+  .min(1, "El nombre es obligatorio")
+  .max(60, "Máximo 60 caracteres");
+
+function toSlug(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 80);
+}
+
+export async function getCustomCategoriesAction(): Promise<CustomCategoryRow[]> {
+  if (!isSupabaseConfigured()) return [];
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("knowledge_base_categories")
+    .select("id, organization_id, name, slug, created_at")
+    .eq("organization_id", organizationId)
+    .order("created_at", { ascending: true });
+  return (data ?? []) as CustomCategoryRow[];
+}
+
+export async function createCustomCategoryAction(
+  input: unknown
+): Promise<MutationResult<CustomCategoryRow>> {
+  const parsed = customCategoryNameSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Nombre inválido" };
+  }
+
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const name = parsed.data.trim();
+    const slug = toSlug(name);
+
+    if (!slug) throw new Error("Nombre inválido para generar un slug");
+
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("knowledge_base_categories")
+      .insert({ organization_id: organizationId, name, slug })
+      .select("id, organization_id, name, slug, created_at")
+      .single();
+
+    if (error) {
+      if (error.code === "23505") throw new Error("Ya existe una categoría con ese nombre");
+      throw new Error(error.message);
+    }
+
+    revalidatePath(paths.platform.businessContext.documents);
+    return data as CustomCategoryRow;
+  });
+}
+
+export async function deleteCustomCategoryAction(
+  id: string
+): Promise<MutationResult<{ documentsReassigned: number }>> {
+  const parsed = idSchema.safeParse(id);
+  if (!parsed.success) return { success: false, error: "ID inválido" };
+
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+
+    // Load the category to get its slug
+    const { data: cat, error: catErr } = await admin
+      .from("knowledge_base_categories")
+      .select("slug")
+      .eq("id", parsed.data)
+      .eq("organization_id", organizationId)
+      .single();
+
+    if (catErr || !cat) throw new Error("Categoría no encontrada");
+
+    // Reassign documents using this slug to 'operations' (default fallback)
+    const { count } = await admin
+      .from("business_context_documents")
+      .update({ category: "operations" })
+      .eq("organization_id", organizationId)
+      .eq("category", (cat as { slug: string }).slug);
+
+    await admin
+      .from("knowledge_base_categories")
+      .delete()
+      .eq("id", parsed.data)
+      .eq("organization_id", organizationId);
+
+    revalidatePath(paths.platform.businessContext.documents);
+    return { documentsReassigned: count ?? 0 };
   });
 }

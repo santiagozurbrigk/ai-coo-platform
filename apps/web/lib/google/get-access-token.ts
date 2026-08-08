@@ -1,12 +1,21 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { refreshGoogleAccessToken } from "@/lib/google/refresh-token";
+import { GOOGLE_FORMS_DRIVE_SCOPES } from "@/lib/google/scopes";
 
 type GoogleIntegrationRow = {
   organization_id: string;
   access_token: string | null;
   refresh_token: string | null;
   token_expires_at: string | null;
+  granted_scopes: string | null;
 };
+
+/** Returns false if the stored token is missing the minimum Drive+Forms scopes. */
+function hasRequiredScopes(grantedScopes: string | null): boolean {
+  if (!grantedScopes) return false;
+  const granted = new Set(grantedScopes.split(/\s+/));
+  return GOOGLE_FORMS_DRIVE_SCOPES.every((s) => granted.has(s));
+}
 
 async function resolveAccessToken(
   integration: GoogleIntegrationRow
@@ -42,18 +51,20 @@ async function resolveAccessToken(
   return integration.access_token;
 }
 
-/** Token OAuth de Google (Forms/YouTube/Drive) para la org, con refresh automático. */
+/** Token OAuth de Google (Forms/YouTube/Drive) para la org, con refresh automático.
+ *  Retorna null si el token no existe o si le faltan scopes (el usuario debe reconectar). */
 export async function getGoogleAccessTokenForOrganization(
   organizationId: string
 ): Promise<string | null> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("google_forms_integrations")
-    .select("organization_id, access_token, refresh_token, token_expires_at")
+    .select("organization_id, access_token, refresh_token, token_expires_at, granted_scopes")
     .eq("organization_id", organizationId)
     .eq("status", "connected")
     .maybeSingle();
 
   if (!data?.access_token) return null;
+  if (!hasRequiredScopes(data.granted_scopes)) return null;
   return resolveAccessToken(data as GoogleIntegrationRow);
 }

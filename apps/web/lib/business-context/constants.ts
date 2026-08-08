@@ -1,4 +1,4 @@
-import type { DocumentCategory } from "@/types/business-context";
+import type { BuiltinDocumentCategory } from "@/types/business-context";
 
 /**
  * Bucket privado de Supabase Storage para los PDFs subidos manualmente.
@@ -7,7 +7,7 @@ import type { DocumentCategory } from "@/types/business-context";
  */
 export const BUSINESS_CONTEXT_BUCKET = "business-context-documents";
 
-export const DOCUMENT_CATEGORY_LABELS: Record<DocumentCategory, string> = {
+export const DOCUMENT_CATEGORY_LABELS: Record<BuiltinDocumentCategory, string> = {
   meetings: "Reuniones",
   frameworks: "Frameworks",
   training: "Training",
@@ -17,4 +17,4 @@ export const DOCUMENT_CATEGORY_LABELS: Record<DocumentCategory, string> = {
 
 export const DOCUMENT_CATEGORIES = Object.keys(
   DOCUMENT_CATEGORY_LABELS
-) as DocumentCategory[];
+) as BuiltinDocumentCategory[];

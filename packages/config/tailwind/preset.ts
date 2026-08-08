@@ -155,15 +155,16 @@ const preset: Partial<Config> = {
         },
       },
       animation: {
-        "fade-in": "fade-in 0.2s ease-out",
+        "fade-in": "fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
         "pulse-glow": "pulse-glow 2.5s ease-in-out infinite",
         shimmer: "shimmer 2s linear infinite",
         "dialog-overlay-show": "dialog-overlay-show 200ms ease-out",
         "dialog-overlay-hide": "dialog-overlay-hide 150ms ease-out forwards",
+        /* D — curva spring-like en aperturas, exit rápido */
         "dialog-content-show":
-          "dialog-content-show 200ms cubic-bezier(0.25, 0.1, 0.25, 1)",
+          "dialog-content-show 300ms cubic-bezier(0.16, 1, 0.3, 1)",
         "dialog-content-hide":
-          "dialog-content-hide 150ms cubic-bezier(0.25, 0.1, 0.25, 1) forwards",
+          "dialog-content-hide 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
         "dialog-content-show-reduced": "dialog-content-show-reduced 0ms linear",
         "dialog-content-hide-reduced": "dialog-content-hide-reduced 0ms linear forwards",
       },

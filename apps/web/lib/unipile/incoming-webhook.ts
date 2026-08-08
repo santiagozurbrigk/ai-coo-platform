@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import {
   getRequestIp,
@@ -16,9 +17,29 @@ import {
 import { processUnipileMessageWebhook } from "@/lib/unipile/process-message";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
+function verifyUnipileSecret(req: Request): boolean {
+  const secret = process.env.UNIPILE_WEBHOOK_SECRET;
+  if (!secret) return false;
+  const headerToken = req.headers.get("x-unipile-secret") ?? req.headers.get("x-webhook-secret");
+  if (!headerToken) return false;
+  try {
+    const expected = Buffer.from(secret);
+    const received = Buffer.from(headerToken);
+    if (expected.length !== received.length) return false;
+    return crypto.timingSafeEqual(expected, received);
+  } catch {
+    return false;
+  }
+}
+
 export async function handleUnipileIncomingWebhook(req: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: "Supabase no configurado" }, { status: 500 });
+  }
+
+  // Verificar secret compartido si está configurado
+  if (process.env.UNIPILE_WEBHOOK_SECRET && !verifyUnipileSecret(req)) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
   const ip = getRequestIp(req);

@@ -63,13 +63,21 @@ export const mockDashboard: DashboardData = {
     { id: "wc5", label: "Inputs semanales: 12 de 16 equipos", direction: "neutral" },
   ],
   revenueMetrics: [
-    { id: "m1", label: "MRR", value: "$84.2K", trend: "up", trendValue: "+8,3%" },
+    {
+      id: "m1",
+      label: "MRR",
+      value: "$84.2K",
+      trend: "up",
+      trendValue: "+8,3%",
+      sparklineData: [71000, 73500, 72800, 75200, 77600, 79100, 81400, 84200],
+    },
     {
       id: "m2",
       label: "Nuevos clientes",
       value: "7",
       trend: "up",
       trendValue: "+3 vs mes ant.",
+      sparklineData: [2, 3, 2, 4, 3, 5, 6, 7],
     },
     {
       id: "m3",
@@ -77,6 +85,7 @@ export const mockDashboard: DashboardData = {
       value: "2,1%",
       trend: "down",
       trendValue: "-0,4 pp",
+      sparklineData: [3.2, 3.0, 2.9, 2.7, 2.8, 2.5, 2.3, 2.1],
     },
   ],
   salesMetrics: [
@@ -86,6 +95,7 @@ export const mockDashboard: DashboardData = {
       value: "34,2%",
       trend: "up",
       trendValue: "+8%",
+      sparklineData: [24, 26, 25, 28, 29, 31, 33, 34],
     },
     {
       id: "s-active",
@@ -93,6 +103,7 @@ export const mockDashboard: DashboardData = {
       value: "47",
       trend: "up",
       trendValue: "+12",
+      sparklineData: [30, 32, 35, 33, 38, 41, 44, 47],
     },
     {
       id: "s-ghost",
@@ -100,6 +111,7 @@ export const mockDashboard: DashboardData = {
       value: "18,5%",
       trend: "down",
       trendValue: "-2,3%",
+      sparklineData: [24, 23, 22, 21, 20, 19.5, 19, 18.5],
     },
   ],
   operationalMetrics: [

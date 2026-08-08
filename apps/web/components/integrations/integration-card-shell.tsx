@@ -38,37 +38,36 @@ export function IntegrationCardShell({
   const isSyncing = status === "syncing";
 
   return (
-    <div className="relative flex h-[130px] flex-col gap-2.5 overflow-hidden rounded-xl border border-border/40 bg-muted/30 p-4 transition-colors hover:border-border/70 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover transition-all duration-200">
-      <div className="flex items-center justify-between">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/40 bg-background">
-            {icon}
-          </div>
-          <span className="truncate text-[13px] font-medium text-foreground">
+    <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-border/40 bg-muted/30 p-4 transition-all duration-200 hover:border-border/70 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover">
+      {/* Header: logo + nombre + badge */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-3">
+          {icon}
+          <span className="truncate text-[13px] font-semibold text-foreground">
             {name}
           </span>
         </div>
-        <IntegrationStatusBadge
-          status={isSyncing ? "syncing" : status}
-        />
+        <IntegrationStatusBadge status={isSyncing ? "syncing" : status} />
       </div>
 
-      <p className="line-clamp-2 flex-1 text-[11px] leading-relaxed text-muted-foreground">
+      {/* Descripción */}
+      <p className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
         {description}
       </p>
 
-      <div className="mt-auto flex items-center justify-between gap-2">
-        <span className="truncate text-[11px] text-muted-foreground">
+      {/* Footer: sync info + acciones */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-[10px] text-muted-foreground/70">
           {lastSync ? `Sync: ${lastSync}` : ""}
         </span>
         {isConnected ? (
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1.5">
             {onDisconnect ? (
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 type="button"
-                className="h-7 shrink-0 px-2 text-[10px] text-red-400 border-red-500/20 hover:bg-red-900/10"
+                className="h-7 shrink-0 px-2.5 text-[11px] text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
                 disabled={disconnectDisabled}
                 onClick={onDisconnect}
               >

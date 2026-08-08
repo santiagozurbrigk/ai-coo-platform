@@ -11,12 +11,47 @@ export const SIDEBAR_PARENT_KEYS = [
   "marketing",
   "ventas",
   "operaciones",
+  "agente",
+  "configuracion",
 ] as const;
 
 export type SidebarParentKey = (typeof SIDEBAR_PARENT_KEYS)[number];
 
 export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> =
   {
+    configuracion: {
+      label: "Configuración",
+      icon: "settings",
+      children: [
+        {
+          label: "Ajustes",
+          href: paths.platform.settings,
+          permissionId: "settings",
+        },
+        {
+          label: "Integraciones",
+          href: paths.platform.integrations,
+          permissionId: "integrations",
+        },
+      ],
+    },
+    agente: {
+      label: "Agente de negocio",
+      icon: "sparkles",
+      permissionId: "agent",
+      children: [
+        {
+          label: "Chat",
+          href: paths.platform.agent.root,
+          permissionId: "agent",
+        },
+        {
+          label: "Base de conocimiento",
+          href: paths.platform.businessContext.documents,
+          permissionId: "knowledge_base",
+        },
+      ],
+    },
     finanzas: {
       label: "Finanzas",
       icon: "wallet",
@@ -57,6 +92,7 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           label: "Administrar",
           href: paths.platform.marketing.administrar,
           permissionId: "marketing",
+          hidden: true,
         },
         {
           label: "Conexión con Ventas",
@@ -71,6 +107,16 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
         {
           label: "UTMs",
           href: paths.platform.marketing.utms,
+          permissionId: "marketing",
+        },
+        {
+          label: "Automatizaciones",
+          href: paths.platform.marketing.automatizaciones,
+          permissionId: "marketing",
+        },
+        {
+          label: "Lead Magnets",
+          href: paths.platform.marketing.leadMagnets,
           permissionId: "marketing",
         },
       ],
@@ -94,6 +140,11 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           href: paths.platform.sales.closing,
           permissionId: "closing",
         },
+        {
+          label: "Llamadas",
+          href: paths.platform.sales.llamadas,
+          permissionId: "closing",
+        },
       ],
     },
     operaciones: {
@@ -106,8 +157,8 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           permissionId: "operations_overview",
         },
         {
-          label: "Inputs semanales",
-          href: paths.platform.operations.weeklyInputs,
+          label: "Inputs",
+          href: paths.platform.operations.inputs,
           permissionId: "operations_overview",
         },
         {
@@ -115,25 +166,12 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           href: paths.platform.operations.sops,
           permissionId: "operations_sops",
         },
-        {
-          label: "Team Inputs",
-          href: paths.platform.operations.teamInputs,
-          permissionId: "operations_team_inputs",
-        },
         { label: "Inteligencia", href: paths.platform.intelligence.root },
         {
-          label: "Reporte semanal",
-          href: paths.platform.executiveReports.weekly,
+          label: "Reportes",
+          href: paths.platform.operations.reportes,
         },
-        {
-          label: "Reporte mensual",
-          href: paths.platform.executiveReports.monthly,
-        },
-        {
-          label: "Historial reportes",
-          href: paths.platform.executiveReports.history,
-        },
-        { label: "Área del fundador", href: paths.founder.root },
+{ label: "Área del fundador", href: paths.founder.root },
       ],
     },
   };
@@ -184,12 +222,6 @@ export const directModules: SidebarDirectModule[] = [
     permissionId: "knowledge_base",
   },
   {
-    label: "Integraciones",
-    href: paths.platform.integrations,
-    icon: "plug",
-    permissionId: "integrations",
-  },
-  {
     label: "Equipo",
     href: paths.platform.team.root,
     icon: "users",
@@ -202,24 +234,22 @@ const byHref = (href: string) =>
 
 const platformRootItems: SidebarNavRootItem[] = [
   { type: "link", module: byHref(paths.platform.dashboard) },
-  { type: "link", module: byHref(paths.platform.workboard.root) },
-  { type: "link", module: byHref(paths.platform.agent.root) },
+  { type: "parent", key: "agente" },
   { type: "link", module: byHref(paths.platform.clients.root) },
-  { type: "link", module: byHref(paths.platform.businessContext.documents) },
-  { type: "link", module: byHref(paths.platform.integrations) },
   { type: "link", module: byHref(paths.platform.team.root) },
   { type: "divider" },
   { type: "parent", key: "marketing" },
   { type: "parent", key: "ventas" },
-  { type: "link", module: productDirectModule },
-  { type: "link", module: lanzamientosDirectModule },
-  { type: "parent", key: "operaciones" },
   { type: "parent", key: "finanzas" },
+  { type: "divider" },
+  { type: "link", module: byHref(paths.platform.workboard.root) },
+  { type: "parent", key: "configuracion" },
 ];
 
 export function getParentFromPath(pathname: string): SidebarParentKey | null {
-  if (pathname.startsWith(paths.platform.product.root)) return null;
-  if (pathname.startsWith(paths.platform.lanzamientos)) return null;
+  if (pathname.startsWith(paths.platform.agent.root)) return "agente";
+  if (pathname.startsWith(paths.platform.businessContext.documents)) return "agente";
+  if (pathname.startsWith("/platform/business-context")) return "agente";
   if (pathname.startsWith(paths.platform.finance.root)) return "finanzas";
   if (pathname.startsWith("/marketing")) return "marketing";
   if (pathname.startsWith(paths.platform.comentarios)) return "marketing";
@@ -228,6 +258,9 @@ export function getParentFromPath(pathname: string): SidebarParentKey | null {
   if (pathname.startsWith("/intelligence")) return "operaciones";
   if (pathname.startsWith("/executive-reports")) return "operaciones";
   if (pathname.startsWith("/founder")) return "operaciones";
+  if (pathname.startsWith(paths.platform.settings)) return "configuracion";
+  if (pathname.startsWith(paths.platform.integrations)) return "configuracion";
+  if (pathname.startsWith(paths.platform.integrationsDiscord)) return "configuracion";
   return null;
 }
 

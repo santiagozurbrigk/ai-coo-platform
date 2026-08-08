@@ -11,7 +11,7 @@ const DIRECTION_CONFIG = {
   },
   down: {
     icon: ArrowDown,
-    className: "text-emerald-400",
+    className: "text-red-400",
     prefix: "↓",
   },
   neutral: {

@@ -1,6 +1,6 @@
 "use server";
 
-import { tryRequireOrganizationId } from "@/lib/auth/bootstrap";
+import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { uuidSchema } from "@/lib/validations";
@@ -54,8 +54,7 @@ export async function getLatestExecutiveReportAction(
 ): Promise<ExecutiveReport | null> {
   if (!isSupabaseConfigured()) return null;
 
-  const organizationId = await tryRequireOrganizationId();
-  if (!organizationId) return null;
+  const organizationId = await requireOrganizationId();
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -78,9 +77,7 @@ export async function getLatestExecutiveReportAction(
 export async function listExecutiveReportsAction(): Promise<ExecutiveReport[]> {
   if (!isSupabaseConfigured()) return [];
 
-  const organizationId = await tryRequireOrganizationId();
-  if (!organizationId) return [];
-
+  const organizationId = await requireOrganizationId();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("executive_reports")
@@ -104,8 +101,7 @@ export async function getExecutiveReportByIdAction(
 
   if (!isSupabaseConfigured()) return null;
 
-  const organizationId = await tryRequireOrganizationId();
-  if (!organizationId) return null;
+  const organizationId = await requireOrganizationId();
 
   const supabase = await createClient();
   const { data, error } = await supabase

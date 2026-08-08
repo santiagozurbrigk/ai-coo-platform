@@ -1,9 +1,23 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { Button } from "@ai-coo/ui";
-import { Panel } from "@/components/shared/panel";
+import { ArrowRight, ClipboardList, Sparkles } from "lucide-react";
+import { Button, cn } from "@ai-coo/ui";
 import { GenerateWeeklyPipelineButton } from "@/components/operations/generate-weekly-pipeline-button";
 import { paths } from "@/routes";
+
+const STEPS = [
+  {
+    icon: ClipboardList,
+    label: "Completá los inputs semanales",
+    description: "Al menos 2 departamentos para activar el reporte.",
+    href: paths.platform.operations.weeklyInputs,
+  },
+  {
+    icon: Sparkles,
+    label: "Generá el reporte con IA",
+    description: "El sistema analiza inputs, métricas y actividad.",
+    href: null,
+  },
+];
 
 export function OperationsReportEmptyState({
   isFounder = false,
@@ -11,12 +25,37 @@ export function OperationsReportEmptyState({
   isFounder?: boolean;
 }) {
   return (
-    <Panel title="Reporte ejecutivo">
-      <div className="flex flex-col items-start gap-4 py-4">
-        <p className="text-sm text-muted-foreground">
-          Completá los inputs semanales del equipo para generar tu reporte ejecutivo
-          con IA, o generá uno ahora si ya hay actividad en la plataforma.
-        </p>
+    <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 p-6 dark:bg-glass dark:border-glass">
+      <div className="space-y-5">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold">Sin reporte ejecutivo esta semana</h3>
+          <p className="text-sm text-muted-foreground">
+            Completá los inputs del equipo para que la IA genere tu análisis operacional semanal.
+          </p>
+        </div>
+
+        <ol className="space-y-3">
+          {STEPS.map((step, i) => {
+            const Icon = step.icon;
+            return (
+              <li key={i} className="flex items-start gap-3">
+                <span className={cn(
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                  i === 0
+                    ? "bg-violet-500/15 text-violet-600 dark:text-violet-400"
+                    : "bg-muted text-muted-foreground"
+                )}>
+                  {i + 1}
+                </span>
+                <div className="space-y-0.5 pt-0.5">
+                  <p className="text-sm font-medium leading-tight">{step.label}</p>
+                  <p className="text-xs text-muted-foreground">{step.description}</p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+
         <div className="flex flex-wrap gap-2">
           <Button asChild className="bg-violet-600 hover:bg-violet-700">
             <Link href={paths.platform.operations.weeklyInputs}>
@@ -24,8 +63,9 @@ export function OperationsReportEmptyState({
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
-          <GenerateWeeklyPipelineButton isFounder={isFounder} />
+          {isFounder ? <GenerateWeeklyPipelineButton isFounder={isFounder} /> : null}
         </div>
+
         {isFounder ? (
           <p className="text-xs text-muted-foreground">
             &quot;Generar reporte ahora&quot; ejecuta el mismo pipeline que el cron semanal
@@ -33,6 +73,6 @@ export function OperationsReportEmptyState({
           </p>
         ) : null}
       </div>
-    </Panel>
+    </div>
   );
 }

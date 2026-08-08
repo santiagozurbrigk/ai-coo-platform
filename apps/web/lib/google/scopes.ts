@@ -1,9 +1,17 @@
-/** Scopes unificados: Forms + Drive + YouTube en una sola conexión Google. */
+/** Scopes unificados: Forms + Drive (solo lectura) + YouTube en una sola conexión Google. */
 export const GOOGLE_UNIFIED_SCOPES = [
-  "https://www.googleapis.com/auth/drive",
   "https://www.googleapis.com/auth/drive.readonly",
   "https://www.googleapis.com/auth/forms.responses.readonly",
   "https://www.googleapis.com/auth/forms.body.readonly",
   "https://www.googleapis.com/auth/youtube.readonly",
   "https://www.googleapis.com/auth/yt-analytics.readonly",
+  "https://www.googleapis.com/auth/yt-analytics-monetary.readonly",
+  "https://www.googleapis.com/auth/youtube.upload",
+] as const;
+
+/** Scopes sin YouTube: para usuarios que conectan YouTube con API key desde otra cuenta. */
+export const GOOGLE_FORMS_DRIVE_SCOPES = [
+  "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/forms.responses.readonly",
+  "https://www.googleapis.com/auth/forms.body.readonly",
 ] as const;

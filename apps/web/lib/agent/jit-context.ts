@@ -2,6 +2,7 @@ import { AI_MODELS, callClaudeText } from "@/lib/ai/anthropic";
 import { wrapUntrustedContent } from "@/lib/ai/wrap-untrusted-content";
 import { getOrgContext, type OrgContext } from "@/lib/ai/org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { loadGlobalBrainContextBlocks } from "@/lib/ai-brain/global-context";
 
 export type ContextBlockMeta = {
   id: string;
@@ -201,12 +202,13 @@ export async function listAvailableContextBlocks(
   organizationId: string
 ): Promise<ContextBlock[]> {
   const fetchedAt = new Date().toISOString();
-  const [orgContext, documentBlocks] = await Promise.all([
+  const [orgContext, documentBlocks, brainBlocks] = await Promise.all([
     getOrgContext(organizationId),
     loadBusinessContextBlocks(organizationId),
+    loadGlobalBrainContextBlocks(),
   ]);
 
-  return [...buildOrgBlocks(orgContext, fetchedAt), ...documentBlocks];
+  return [...buildOrgBlocks(orgContext, fetchedAt), ...documentBlocks, ...brainBlocks];
 }
 
 async function selectRelevantContextBlockIds(

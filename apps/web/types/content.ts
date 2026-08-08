@@ -6,7 +6,7 @@ export type ContentPieceType =
   | "youtube"
   | "brief";
 
-export type ContentPieceSource = "zernio" | "manual" | "ai_generated";
+export type ContentPieceSource = "zernio" | "manual" | "ai_generated" | "google";
 
 export type ContentPieceStatus =
   | "draft"
@@ -14,6 +14,25 @@ export type ContentPieceStatus =
   | "scheduled"
   | "published"
   | "archived";
+
+export type ContentFormatType =
+  | "storytime"
+  | "talking_head"
+  | "pov"
+  | "listicle"
+  | "green_screen"
+  | "hot_take"
+  | "carousel"
+  | "otro";
+
+export type ContentHookType =
+  | "dolor_directo"
+  | "curiosidad"
+  | "contrarian"
+  | "prueba_social"
+  | "resultado";
+
+export type ContentCtaType = "dm" | "comment_word" | "link" | "none";
 
 export type ContentAnalysis = {
   formato: {
@@ -34,6 +53,32 @@ export type ContentAnalysis = {
     description: string;
     script_note?: string;
   }>;
+  // Clasificación estructurada para patrones
+  format_type?: ContentFormatType;
+  hook_type?: ContentHookType;
+  cta_type?: ContentCtaType;
+  // Insights y potencial viral
+  insights_virales?: {
+    potencial: "alto" | "medio" | "bajo";
+    fortalezas: string[];
+    areas_mejora: string[];
+  };
+  // Análisis visual
+  analisis_visual?: {
+    formato?: string;
+    tipo_plano?: string;
+    escena?: string;
+    orientacion?: string;
+    personas?: number;
+    cara_visible?: boolean;
+    texto_en_pantalla?: boolean;
+    fondo?: string;
+  };
+  // Tono de voz y delivery
+  tono_voz?: {
+    tipo?: string;
+    velocidad_wpm?: number;
+  };
 };
 
 export type ContentBrief = {
@@ -105,6 +150,11 @@ export type ContentPiece = {
   metrics_updated_at?: string;
 
   sales_attributed?: ContentSalesAttributed;
+
+  // Clasificación estructurada (columnas propias en DB)
+  format_type?: ContentFormatType;
+  hook_type?: ContentHookType;
+  cta_type?: ContentCtaType;
 
   status: ContentPieceStatus;
   created_at: string;

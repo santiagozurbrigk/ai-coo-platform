@@ -3,14 +3,18 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, Eye, Search, Trash2 } from "lucide-react";
+import { Archive, BrainCircuit, Eye, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
 import { Badge, Button, DataTable } from "@ai-coo/ui";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import { paths } from "@/routes";
 import {
   archiveAiBrainDocumentAction,
   deleteAiBrainDocumentAction,
+  processAiBrainDocumentAction,
+  submitBrainSummaryBatchAction,
+  syncBrainBatchResultsAction,
 } from "@/app/super-admin/actions";
+import { useToast } from "@/providers/toast-provider";
 import type { BrainContentStatus, BrainContentType, BrainDocument } from "@/types/ai-brain";
 import { BrainStatusBadge } from "./brain-status-badge";
 import { BrainTypeIcon, brainTypeLabel } from "./brain-type-icon";
@@ -34,10 +38,14 @@ const STATUS_FILTERS: { key: BrainContentStatus | "all"; label: string }[] = [
 
 export function BrainLibrary({ documents }: { documents: BrainDocument[] }) {
   const router = useRouter();
+  const { push: pushToast } = useToast();
   const [filter, setFilter] = useState<BrainContentType | "all">("all");
   const [statusFilter, setStatusFilter] = useState<BrainContentStatus | "all">("all");
   const [query, setQuery] = useState("");
   const [pending, startTransition] = useTransition();
+  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [batchPending, setBatchPending] = useState(false);
 
   const filtered = useMemo(() => {
     let list = documents;
@@ -71,6 +79,69 @@ export function BrainLibrary({ documents }: { documents: BrainDocument[] }) {
     });
   }
 
+  function submitBatch() {
+    setBatchPending(true);
+    void submitBrainSummaryBatchAction().then((res) => {
+      setBatchPending(false);
+      if (res.success) {
+        setBatchId(res.data.batchId);
+        pushToast({
+          title: "Batch enviado",
+          description: `${res.data.docCount} documentos en proceso. Hacé clic en "Sincronizar" en unos minutos.`,
+          variant: "success",
+        });
+      } else {
+        pushToast({ title: "Error al enviar batch", description: res.error });
+      }
+    });
+  }
+
+  function syncBatch(id: string) {
+    setBatchPending(true);
+    void syncBrainBatchResultsAction(id).then((res) => {
+      setBatchPending(false);
+      if (res.success) {
+        if (res.data.status !== "ended") {
+          pushToast({
+            title: "Batch en proceso",
+            description: `Estado: ${res.data.status}. Intentá de nuevo en unos minutos.`,
+          });
+        } else {
+          setBatchId(null);
+          pushToast({
+            title: "Resúmenes aplicados",
+            description: `${res.data.processed} documentos actualizados.`,
+            variant: "success",
+          });
+          router.refresh();
+        }
+      } else {
+        pushToast({ title: "Error al sincronizar", description: res.error });
+      }
+    });
+  }
+
+  function process(id: string) {
+    setProcessingIds((prev) => new Set(prev).add(id));
+    void processAiBrainDocumentAction(id).then((res) => {
+      setProcessingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      if (res.success) {
+        pushToast({
+          title: "Procesado",
+          description: `${res.data.charCount.toLocaleString("es-AR")} caracteres indexados.`,
+          variant: "success",
+        });
+        router.refresh();
+      } else {
+        pushToast({ title: "Error al procesar", description: res.error });
+      }
+    });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -84,9 +155,40 @@ export function BrainLibrary({ documents }: { documents: BrainDocument[] }) {
             className="h-9 w-full rounded-lg border border-border/60 bg-muted/20 pl-9 pr-3 text-sm outline-none ring-primary/30 placeholder:text-muted-foreground focus:ring-2"
           />
         </div>
-        <Button asChild size="sm">
-          <Link href={paths.superAdmin.aiBrain.add}>Añadir contenido</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {batchId ? (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={batchPending}
+              onClick={() => syncBatch(batchId)}
+            >
+              {batchPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Sincronizar resúmenes
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={batchPending}
+              onClick={submitBatch}
+            >
+              {batchPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Resumir con IA (batch)
+            </Button>
+          )}
+          <Button asChild size="sm">
+            <Link href={paths.superAdmin.aiBrain.add}>Añadir contenido</Link>
+          </Button>
+        </div>
       </div>
 
       <FilterPills
@@ -151,6 +253,18 @@ export function BrainLibrary({ documents }: { documents: BrainDocument[] }) {
                     <Eye className="h-4 w-4" />
                   </Link>
                 </Button>
+                {r.type !== "image" && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-primary"
+                    title="Procesar e indexar"
+                    disabled={processingIds.has(r.id)}
+                    onClick={() => process(r.id)}
+                  >
+                    <BrainCircuit className={`h-4 w-4 ${processingIds.has(r.id) ? "animate-pulse" : ""}`} />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"

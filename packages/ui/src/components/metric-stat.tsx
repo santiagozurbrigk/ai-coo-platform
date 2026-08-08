@@ -13,6 +13,7 @@ import {
 } from "../lib/metric-trend";
 import { Sparkline } from "./sparkline";
 import { MetricAnimatedValue } from "./animated-number";
+import { MetricLineChart } from "./metric-line-chart";
 
 export type { MetricTrend } from "../lib/metric-trend";
 export type { MetricSparklinePreset } from "./decorative-sparkline";
@@ -35,6 +36,12 @@ export interface MetricStatProps {
   progressCaption?: string;
   progressVariant?: "trend" | "violet";
   children?: React.ReactNode;
+  /** Datos para el gráfico de línea full-width en el fondo (estilo Whop) */
+  chartData?: number[];
+  /** Datos período anterior para línea de comparación */
+  chartPreviousData?: number[];
+  chartStartLabel?: string;
+  chartEndLabel?: string;
 }
 
 export function MetricStat({
@@ -55,6 +62,10 @@ export function MetricStat({
   progressCaption,
   progressVariant = "trend",
   children,
+  chartData,
+  chartPreviousData,
+  chartStartLabel,
+  chartEndLabel,
 }: MetricStatProps) {
   const cfg = metricTrendConfig[trend];
   const TrendIcon = cfg.icon;
@@ -160,6 +171,19 @@ export function MetricStat({
 
       {children ? <div className="relative mt-2">{children}</div> : null}
       </div>
+
+      {chartData && chartData.length >= 2 && (
+        <div className="mt-2 h-[64px] w-full">
+          <MetricLineChart
+            data={chartData}
+            previousData={chartPreviousData}
+            startLabel={chartStartLabel}
+            endLabel={chartEndLabel}
+            color={sparklineColor !== "hsl(var(--foreground))" ? sparklineColor : "hsl(var(--primary))"}
+            className="h-full px-4 pb-2"
+          />
+        </div>
+      )}
     </div>
   );
 }

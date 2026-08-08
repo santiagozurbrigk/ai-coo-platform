@@ -4,9 +4,9 @@ import { LandingPage } from "@/components/landing/landing-page";
 import { UTMCapture } from "@/components/landing/utm-capture";
 
 export const metadata: Metadata = {
-  title: "Optimiza Tu Control — Sistema operativo para infoproductos",
+  title: "OTC — Probalo gratis 3 días. Sin tarjeta de crédito.",
   description:
-    "Conectá tus herramientas, la IA analiza todo, y cada mañana sabés qué está pasando, por qué, y qué hacer.",
+    "El sistema operativo para infoproductores. Ventas, clientes, marketing, finanzas y operaciones en un solo lugar. Onboarding personalizado incluido.",
 };
 
 const UTM_ORG_ID = process.env.NEXT_PUBLIC_UTM_ORGANIZATION_ID?.trim() ?? "";

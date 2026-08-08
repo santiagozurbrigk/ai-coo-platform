@@ -236,13 +236,13 @@ export function PublishHeatmap({ cells }: { cells: HeatmapCell[] }) {
         <CategoryBarChart items={byDay} className="min-h-[160px] flex-1 lg:max-w-[42%]" />
         <div className="min-h-[120px] flex-1 overflow-x-auto">
         <div
-          className="inline-grid gap-0.5"
+          className="grid w-full gap-0.5"
           style={{ gridTemplateColumns: "repeat(7, 1fr)" }}
         >
           {DAY_LABELS.map((d) => (
             <div
               key={d}
-              className="pb-1 text-center text-[9px] text-muted-foreground"
+              className="pb-1 text-center text-[9px] text-muted-foreground truncate"
             >
               {d}
             </div>
@@ -251,7 +251,7 @@ export function PublishHeatmap({ cells }: { cells: HeatmapCell[] }) {
             <button
               key={`${cell.day}-${cell.hour}`}
               type="button"
-              className="h-3 w-6 rounded-sm transition-transform hover:scale-110"
+              className="aspect-square w-full rounded-sm transition-transform hover:scale-110"
               style={{
                 background: `color-mix(in oklch, var(--chart-1) ${8 + cell.engagement * 92}%, transparent)`,
               }}

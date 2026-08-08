@@ -65,7 +65,7 @@ export function resolveMemoryLink(chunk: MemoryChunk): string {
   if (UUID_RE.test(chunk.id)) {
     return paths.platform.businessContext.viewer(chunk.id);
   }
-  return `${paths.platform.intelligence.root}#memoria`;
+  return paths.platform.businessContext.documents;
 }
 
 export function resolveRecommendationLink(
@@ -73,31 +73,31 @@ export function resolveRecommendationLink(
 ): string {
   return routeByKeywords(
     `${item.title} ${item.action}`,
-    `${paths.platform.intelligence.root}#recommendations`
+    paths.platform.agent.root
   );
 }
 
 export function resolveBottleneckLink(item: IntelligenceBottleneck): string {
   return routeByKeywords(
     `${item.area} ${item.impact}`,
-    paths.platform.operations.weeklyInputs
+    paths.platform.sales.inbox
   );
 }
 
 export function resolveInsightLink(item: IntelligenceInsight): string {
   return routeByKeywords(
     `${item.title} ${item.body} ${item.department}`,
-    paths.platform.intelligence.root
+    paths.platform.agent.root
   );
 }
 
 export function resolveOpportunityLink(item: IntelligenceOpportunity): string {
   return routeByKeywords(
     `${item.title} ${item.potential}`,
-    `${paths.platform.intelligence.root}#opportunities`
+    paths.platform.marketing.overview
   );
 }
 
 export function resolveRiskLink(text: string): string {
-  return routeByKeywords(text, paths.platform.intelligence.root);
+  return routeByKeywords(text, paths.platform.sales.inbox);
 }

@@ -1,5 +1,6 @@
 "use server";
 
+import Anthropic from "@anthropic-ai/sdk";
 import { revalidatePath } from "next/cache";
 import { isAllowedBrainFile } from "@/lib/ai-brain/file-types";
 import { AI_BRAIN_BUCKET, uiContentTypeToDb } from "@/lib/ai-brain/mapper";
@@ -31,6 +32,8 @@ import {
   setOrganizationStatusSchema,
   updateOrganizationMrrSchema,
 } from "@/lib/validations";
+import { processAiBrainDocument } from "@/lib/ai-brain/process-document";
+import { resolveBrainFileMimeType, isAllowedBrainFile as validateBrainFile } from "@/lib/ai-brain/file-types";
 import type { z } from "zod";
 import type { BrainContentType } from "@/types/ai-brain";
 import type { CreateFounderResult } from "@/types/super-admin";
@@ -588,6 +591,123 @@ export async function getAiBrainSignedUrlAction(
   });
 }
 
+export async function processAiBrainDocumentAction(
+  documentId: string
+): Promise<MutationResult<{ charCount: number }>> {
+  return runMutation(async () => {
+    await requireSuperAdmin();
+    const result = await processAiBrainDocument(documentId);
+    if (!result.ok) throw new Error(result.error);
+    revalidatePath(paths.superAdmin.aiBrain.document(documentId));
+    return { charCount: result.charCount };
+  });
+}
+
+/**
+ * Descarga un archivo de Google Drive del super-admin y lo sube al bucket ai-brain-documents.
+ * Retorna storagePath, fileName, fileSize y mimeType listos para createAiBrainDocumentAction.
+ */
+export async function importDriveFileForBrainAction(input: {
+  fileId: string;
+  fileName: string;
+  mimeType: string;
+  fileSize?: number;
+}): Promise<
+  MutationResult<{
+    storagePath: string;
+    fileName: string;
+    fileSizeBytes: number;
+    mimeType: string;
+  }>
+> {
+  await requireSuperAdmin();
+
+  return runMutation(async () => {
+    // Use the super-admin's own Google Drive token (stored by user_id)
+    const user = await requireSuperAdmin();
+    const adminDb = createAdminClient();
+    const { data: tokenRow } = await adminDb
+      .from("super_admin_google_tokens")
+      .select("access_token")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const accessToken = tokenRow?.access_token ?? null;
+    if (!accessToken) {
+      throw new Error(
+        "No hay conexión con Google Drive. Conectá tu cuenta de Google desde el botón 'Desde Google Drive' en el formulario."
+      );
+    }
+
+    // Resolve MIME type — Google Docs/Sheets need export
+    let dlUrl: string;
+    let resolvedMime = input.mimeType;
+
+    const EXPORT_MAP: Record<string, string> = {
+      "application/vnd.google-apps.document":
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.google-apps.spreadsheet":
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    };
+
+    if (EXPORT_MAP[input.mimeType]) {
+      resolvedMime = EXPORT_MAP[input.mimeType];
+      dlUrl = `https://www.googleapis.com/drive/v3/files/${input.fileId}/export?mimeType=${encodeURIComponent(resolvedMime)}&supportsAllDrives=true`;
+    } else {
+      dlUrl = `https://www.googleapis.com/drive/v3/files/${input.fileId}?alt=media&supportsAllDrives=true`;
+    }
+
+    // Resolve filename extension
+    const EXT_MAP: Record<string, string> = {
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+      "application/pdf": ".pdf",
+      "text/plain": ".txt",
+      "text/markdown": ".md",
+    };
+    let fileName = input.fileName;
+    const hasExt = /\.\w+$/.test(fileName);
+    if (!hasExt && EXT_MAP[resolvedMime]) {
+      fileName = fileName + EXT_MAP[resolvedMime];
+    }
+
+    // Validate file type
+    const allowed = validateBrainFile(fileName, resolvedMime, input.fileSize);
+    if (!allowed.ok) throw new Error(allowed.error);
+
+    // Download from Drive
+    const dlRes = await fetch(dlUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!dlRes.ok) {
+      throw new Error(
+        `Error al descargar el archivo de Drive (${dlRes.status}). Verificá los permisos.`
+      );
+    }
+
+    const buffer = await dlRes.arrayBuffer();
+    const fileSizeBytes = buffer.byteLength;
+
+    // Upload to ai-brain-documents bucket
+    const admin = createAdminClient();
+    const docId = crypto.randomUUID();
+    const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const storagePath = `${docId}-${safeName}`;
+
+    const { error: uploadError } = await admin.storage
+      .from(AI_BRAIN_BUCKET)
+      .upload(storagePath, buffer, {
+        contentType: resolvedMime,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new Error(`Error al subir al bucket: ${uploadError.message}`);
+    }
+
+    return { storagePath, fileName, fileSizeBytes, mimeType: resolvedMime };
+  });
+}
+
 export async function createHoldingOrgAction(
   input: unknown
 ): Promise<MutationResult<{ orgId: string; tempCredentials: TempCredentials }>> {
@@ -671,5 +791,150 @@ export async function regenerateTempPasswordAction(
     const credentials = await regenerateUserTempPassword(auth.data.userId);
     revalidateSuperAdmin();
     return credentials;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// AI Brain — Batch API (Anthropic)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resuelve un cliente Anthropic para uso del super-admin:
+ * intenta la clave global y, si no existe, usa la de cualquier org activa.
+ */
+// Org "Optimiza tu Control" — fuente de credencial para operaciones super-admin
+const SUPER_ADMIN_CREDENTIAL_ORG_ID = "46cce98c-6d4c-4e4d-94a7-7cc24ae1104d";
+
+async function resolveSuperAdminAnthropicClient(
+  admin: ReturnType<typeof createAdminClient>
+): Promise<Anthropic> {
+  const globalKey = process.env.ANTHROPIC_API_KEY?.trim();
+  if (globalKey) return new Anthropic({ apiKey: globalKey });
+
+  const { data: org } = await admin
+    .from("organizations")
+    .select("claude_api_key_encrypted")
+    .eq("id", SUPER_ADMIN_CREDENTIAL_ORG_ID)
+    .maybeSingle();
+
+  if (!org?.claude_api_key_encrypted) {
+    throw new Error(
+      "No hay credencial de Anthropic disponible. Configurá ANTHROPIC_API_KEY en las variables de entorno."
+    );
+  }
+
+  const { decrypt } = await import("@/lib/security/encryption");
+  const apiKey = await decrypt(org.claude_api_key_encrypted);
+  return new Anthropic({ apiKey });
+}
+
+/**
+ * Envía todos los documentos activos con content_text al Anthropic Batch API
+ * para generar ai_summary de cada uno. 50% más barato que requests individuales.
+ */
+export async function submitBrainSummaryBatchAction(): Promise<
+  MutationResult<{ batchId: string; docCount: number }>
+> {
+  return runMutation(async () => {
+    await requireSuperAdmin();
+
+    const admin = createAdminClient();
+
+    // Buscar docs activos con content_text pero sin ai_summary
+    const { data: docs, error: docsErr } = await admin
+      .from("ai_brain_documents")
+      .select("id, title, content_text")
+      .eq("status", "active")
+      .is("ai_summary", null)
+      .not("content_text", "is", null);
+
+    if (docsErr) throw new Error(docsErr.message);
+    if (!docs || docs.length === 0) {
+      throw new Error("No hay documentos activos con contenido para resumir");
+    }
+
+    const client = await resolveSuperAdminAnthropicClient(admin);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const requests: any[] = docs.map((doc) => ({
+      custom_id: doc.id,
+      params: {
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 200,
+        messages: [
+          {
+            role: "user",
+            content: `Título: ${doc.title}\n\nContenido:\n${String(doc.content_text ?? "").slice(0, 4000)}\n\nEscribí un resumen de 1-2 oraciones en español que describa de qué trata este documento y por qué es útil. Solo el resumen, sin preámbulo.`,
+          },
+        ],
+      },
+    }));
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const batch = await (client.beta.messages.batches as any).create({ requests });
+
+    // Marcar todos los docs con el batch_job_id
+    const docIds = docs.map((d) => d.id);
+    await admin
+      .from("ai_brain_documents")
+      .update({ batch_job_id: batch.id })
+      .in("id", docIds);
+
+    revalidatePath(paths.superAdmin.aiBrain.root);
+
+    return { batchId: batch.id as string, docCount: docs.length };
+  });
+}
+
+/**
+ * Consulta el estado de un batch y aplica los resultados a ai_brain_documents.
+ */
+export async function syncBrainBatchResultsAction(
+  batchId: string
+): Promise<
+  MutationResult<{ status: string; processed: number; pending: number }>
+> {
+  return runMutation(async () => {
+    await requireSuperAdmin();
+
+    const admin = createAdminClient();
+    const client = await resolveSuperAdminAnthropicClient(admin);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const batch = await (client.beta.messages.batches as any).retrieve(batchId);
+
+    if (batch.processing_status !== "ended") {
+      return {
+        status: batch.processing_status as string,
+        processed: 0,
+        pending: (batch.request_counts?.processing ?? 0) + (batch.request_counts?.errored ?? 0),
+      };
+    }
+
+    let processed = 0;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for await (const result of await (client.beta.messages.batches as any).results(batchId)) {
+      if (result.result?.type !== "succeeded") continue;
+
+      const summaryText = (result.result.message?.content ?? [])
+        .filter((b: { type: string }) => b.type === "text")
+        .map((b: { type: string; text: string }) => b.text)
+        .join("")
+        .trim();
+
+      if (!summaryText) continue;
+
+      await admin
+        .from("ai_brain_documents")
+        .update({ ai_summary: summaryText, batch_job_id: null })
+        .eq("id", result.custom_id);
+
+      processed++;
+    }
+
+    revalidatePath(paths.superAdmin.aiBrain.root);
+
+    return { status: "ended", processed, pending: 0 };
   });
 }

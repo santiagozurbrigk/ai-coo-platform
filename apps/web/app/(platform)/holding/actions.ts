@@ -27,6 +27,7 @@ import {
   enterBusinessSchema,
   firstZodError,
   regenerateBusinessFounderTempPasswordSchema,
+  saveHoldingBillingModelSchema,
 } from "@/lib/validations";
 import type { z } from "zod";
 import { paths } from "@/routes";
@@ -217,6 +218,7 @@ export async function getHoldingDashboardAction() {
       if (!orgId) {
         return {
           ...b,
+          hasFounder: false,
           metrics: {
             mrr: 0,
             holdingRevenue: 0,
@@ -226,7 +228,8 @@ export async function getHoldingDashboardAction() {
         };
       }
 
-      const [clientsRes, conversationsRes, closingRes] = await Promise.all([
+      const admin = createAdminClient();
+      const [clientsRes, conversationsRes, closingRes, founderRes] = await Promise.all([
         supabase
           .from("clients")
           .select("total_amount")
@@ -242,6 +245,11 @@ export async function getHoldingDashboardAction() {
           .eq("organization_id", orgId)
           .eq("status", "closed")
           .gte("scheduled_at", thirtyDaysAgo),
+        admin
+          .from("profiles")
+          .select("id", { count: "exact", head: true })
+          .eq("organization_id", orgId)
+          .eq("role", "founder"),
       ]);
 
       const mrr =
@@ -259,6 +267,7 @@ export async function getHoldingDashboardAction() {
 
       return {
         ...b,
+        hasFounder: (founderRes.count ?? 0) > 0,
         metrics: {
           mrr,
           holdingRevenue,
@@ -423,5 +432,34 @@ export async function regenerateBusinessFounderTempPasswordAction(
     const credentials = await regenerateUserTempPassword(founder.id);
     revalidatePath(paths.platform.holding);
     return credentials;
+  });
+}
+
+export async function updateHoldingBillingModelAction(
+  model: unknown
+): Promise<MutationResult<{ billingModel: HoldingBillingModel }>> {
+  let profile: HoldingProfileContext;
+  try {
+    profile = await requireHoldingProfile();
+  } catch (error) {
+    return { success: false, error: actionErrorMessage(error) };
+  }
+
+  const parsed = saveHoldingBillingModelSchema.safeParse({ model });
+  if (!parsed.success) {
+    return { success: false, error: firstZodError(parsed.error) };
+  }
+
+  return runMutation(async () => {
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("organizations")
+      .update({ holding_billing_model: parsed.data.model })
+      .eq("id", profile.holdingOrgId);
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath(paths.platform.holding);
+    return { billingModel: parsed.data.model };
   });
 }

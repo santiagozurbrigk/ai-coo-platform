@@ -49,7 +49,7 @@ export function WeeklyInputsList({
     );
   }
 
-  return (
+  const list = (
     <ul className="space-y-2">
       {inputs.map((input) => {
         const Icon = TYPE_ICON[input.type];
@@ -66,12 +66,12 @@ export function WeeklyInputsList({
                 <span className="text-2xs text-muted-foreground">
                   {TYPE_LABEL[input.type]}
                 </span>
+                <span className="ml-auto text-2xs text-muted-foreground">
+                  {formatRelativeTime(input.submittedAt)}
+                </span>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground whitespace-pre-wrap">
+              <p className="mt-1 text-xs text-muted-foreground whitespace-pre-wrap line-clamp-3">
                 {input.preview}
-              </p>
-              <p className="mt-1 text-2xs text-muted-foreground">
-                {formatRelativeTime(input.submittedAt)}
               </p>
               {editable ? (
                 <WeeklyInputRowActions
@@ -88,4 +88,14 @@ export function WeeklyInputsList({
       })}
     </ul>
   );
+
+  if (showEmptyState) {
+    return (
+      <Panel title={`Envíos recientes (${inputs.length})`}>
+        {list}
+      </Panel>
+    );
+  }
+
+  return list;
 }

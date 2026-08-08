@@ -16,6 +16,7 @@ import {
 } from "@ai-coo/ui";
 import { PageHeader } from "@/components/shared/page-header";
 import { useFinanceData } from "@/providers";
+import { TeamPayrollSection } from "@/components/finance/team-payroll-section";
 import { useToast } from "@/providers/toast-provider";
 import { formatMoney, monthlyEquivalent } from "@/lib/finance/format";
 import type {
@@ -91,6 +92,8 @@ export function ExpensesOverview() {
           <span className="tabular-nums">{formatMoney(s.totalMonthly)}</span>
         </div>
       </GlassPanel>
+
+      <TeamPayrollSection />
 
       <FixedExpensesSection
         expenses={fixedExpenses}
@@ -691,10 +694,11 @@ function SubscriptionModal({
 }
 
 const COMMISSION_BASIS_LABEL: Record<CommissionBasis, string> = {
-  per_deal: "% por deal cerrado",
-  monthly_revenue: "% sobre ingresos del mes",
-  upsells: "% sobre upsells",
-  custom: "Personalizado",
+  per_deal: "% por deal cerrado (closer)",
+  monthly_revenue: "% sobre MRR total (CSM)",
+  upsells: "% sobre clientes nuevos (CSM/ventas)",
+  per_booking: "Monto fijo por llamada agendada (setter)",
+  custom: "Estimación manual",
 };
 
 function TeamCompensationModal({
@@ -716,6 +720,7 @@ function TeamCompensationModal({
   const [fixedMonthly, setFixedMonthly] = useState("");
   const [hasCommission, setHasCommission] = useState(false);
   const [commissionPercent, setCommissionPercent] = useState("");
+  const [commissionFixedPerEvent, setCommissionFixedPerEvent] = useState("");
   const [commissionBasis, setCommissionBasis] = useState<CommissionBasis>("per_deal");
   const [commissionSummary, setCommissionSummary] = useState("");
   const [notes, setNotes] = useState("");
@@ -735,6 +740,9 @@ function TeamCompensationModal({
       setCommissionPercent(
         initial.commissionPercent != null ? String(initial.commissionPercent) : ""
       );
+      setCommissionFixedPerEvent(
+        initial.commissionFixedPerEvent != null ? String(initial.commissionFixedPerEvent) : ""
+      );
       setCommissionBasis(initial.commissionBasis ?? "per_deal");
       setCommissionSummary(initial.commissionSummary ?? "");
       setNotes(initial.notes ?? "");
@@ -746,6 +754,7 @@ function TeamCompensationModal({
     setFixedMonthly("");
     setHasCommission(false);
     setCommissionPercent("");
+    setCommissionFixedPerEvent("");
     setCommissionBasis("per_deal");
     setCommissionSummary("");
     setNotes("");
@@ -771,7 +780,12 @@ function TeamCompensationModal({
       hasFixed,
       fixedMonthly: hasFixed ? Number(fixedMonthly) || 0 : undefined,
       hasCommission,
-      commissionPercent: hasCommission ? Number(commissionPercent) || 0 : undefined,
+      commissionPercent: hasCommission && commissionBasis !== "per_booking"
+        ? Number(commissionPercent) || 0
+        : undefined,
+      commissionFixedPerEvent: hasCommission && commissionBasis === "per_booking"
+        ? Number(commissionFixedPerEvent) || 0
+        : undefined,
       commissionBasis: hasCommission ? commissionBasis : undefined,
       commissionSummary: commissionSummary.trim() || undefined,
       notes: notes.trim() || undefined,
@@ -839,13 +853,6 @@ function TeamCompensationModal({
           </label>
           {hasCommission && (
             <>
-              <FormField label="Porcentaje">
-                <Input
-                  type="number"
-                  value={commissionPercent}
-                  onChange={(e) => setCommissionPercent(e.target.value)}
-                />
-              </FormField>
               <FormField label="Base de comisión">
                 <select
                   className={selectClass}
@@ -861,9 +868,31 @@ function TeamCompensationModal({
                   ))}
                 </select>
               </FormField>
-              <FormField label="Descripción (opcional)">
+
+              {commissionBasis === "per_booking" ? (
+                <FormField label="Monto fijo por llamada agendada (USD)">
+                  <Input
+                    type="number"
+                    placeholder="Ej: 50"
+                    value={commissionFixedPerEvent}
+                    onChange={(e) => setCommissionFixedPerEvent(e.target.value)}
+                  />
+                </FormField>
+              ) : commissionBasis !== "custom" ? (
+                <FormField label="Porcentaje (%)">
+                  <Input
+                    type="number"
+                    placeholder="Ej: 10"
+                    value={commissionPercent}
+                    onChange={(e) => setCommissionPercent(e.target.value)}
+                  />
+                </FormField>
+              ) : null}
+
+              <FormField label="Nota (opcional)">
                 <Input
                   value={commissionSummary}
+                  placeholder="Ej: 10% sobre revenue de deals cerrados"
                   onChange={(e) => setCommissionSummary(e.target.value)}
                 />
               </FormField>

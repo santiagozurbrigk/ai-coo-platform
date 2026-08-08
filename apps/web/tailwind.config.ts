@@ -21,9 +21,10 @@ const config: Config = {
         lg: "20px",
       },
       backgroundColor: {
-        glass: "rgba(255, 255, 255, 0.03)",
-        "glass-hover": "rgba(255, 255, 255, 0.05)",
-        "glass-elevated": "rgba(255, 255, 255, 0.06)",
+        /* F — superficies dark visibles (Whop: gray-2 @ 82%, jerarquía 3 capas) */
+        glass: "rgba(26, 26, 26, 0.82)",
+        "glass-hover": "rgba(34, 34, 34, 0.86)",
+        "glass-elevated": "rgba(38, 38, 38, 0.90)",
       },
       borderColor: {
         glass: "rgba(255, 255, 255, 0.08)",

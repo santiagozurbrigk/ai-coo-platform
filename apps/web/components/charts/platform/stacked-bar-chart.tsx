@@ -47,7 +47,8 @@ export function StackedBarChart({
         xDataKey="name"
         stacked
         yDomainPadding={yDomainPadding}
-        aspectRatio={data.length <= 2 ? "3 / 1" : "2.2 / 1"}
+        aspectRatio={data.length <= 2 ? "4 / 1" : "2.2 / 1"}
+        barWidth={data.length <= 2 ? 48 : undefined}
         className="w-full"
         animationDuration={1000}
         margin={{ top: 20, right: 12, bottom: 36, left: 8 }}

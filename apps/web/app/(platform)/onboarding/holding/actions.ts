@@ -166,45 +166,59 @@ export async function completeHoldingOnboardingAction(data: unknown) {
   // Validación cruzada según modelo ya guardado (no cabe en el schema estático).
   validateBusinessesForBillingModel(businesses, billingModel);
 
-  for (const business of businesses) {
-    const { data: newOrg, error: orgError } = await admin
-      .from("organizations")
-      .insert({
-        name: business.name,
+  const createdOrgIds: string[] = [];
+
+  try {
+    for (const business of businesses) {
+      const { data: newOrg, error: orgError } = await admin
+        .from("organizations")
+        .insert({
+          name: business.name,
+          status: "active",
+          account_type: "founder",
+          skip_onboarding: true,
+        })
+        .select("id")
+        .single();
+
+      if (orgError || !newOrg) {
+        throw new Error(orgError?.message ?? `Error creando "${business.name}"`);
+      }
+
+      createdOrgIds.push(newOrg.id);
+
+      const { error: linkError } = await admin.from("holding_businesses").insert({
+        holding_org_id: holdingOrgId,
+        business_org_id: newOrg.id,
+        business_name: business.name,
+        revenue_share_pct:
+          billingModel === "revenue_share"
+            ? business.revenueSharePct ?? null
+            : null,
+        fixed_fee_amount:
+          billingModel === "fixed_fee"
+            ? business.fixedFeeAmount ?? null
+            : null,
+        fixed_fee_currency:
+          billingModel === "fixed_fee"
+            ? business.fixedFeeCurrency ?? "USD"
+            : null,
         status: "active",
-        account_type: "founder",
-        skip_onboarding: true,
-      })
-      .select("id")
-      .single();
+      });
 
-    if (orgError || !newOrg) {
-      throw new Error(orgError?.message ?? `Error creando "${business.name}"`);
+      if (linkError) {
+        throw new Error(linkError.message);
+      }
     }
-
-    const { error: linkError } = await admin.from("holding_businesses").insert({
-      holding_org_id: holdingOrgId,
-      business_org_id: newOrg.id,
-      business_name: business.name,
-      revenue_share_pct:
-        billingModel === "revenue_share"
-          ? business.revenueSharePct ?? null
-          : null,
-      fixed_fee_amount:
-        billingModel === "fixed_fee"
-          ? business.fixedFeeAmount ?? null
-          : null,
-      fixed_fee_currency:
-        billingModel === "fixed_fee"
-          ? business.fixedFeeCurrency ?? "USD"
-          : null,
-      status: "active",
-    });
-
-    if (linkError) {
-      await admin.from("organizations").delete().eq("id", newOrg.id);
-      throw new Error(linkError.message);
+  } catch (err) {
+    // Rollback: eliminar todas las orgs creadas en este intento
+    if (createdOrgIds.length > 0) {
+      await admin
+        .from("organizations")
+        .delete()
+        .in("id", createdOrgIds);
     }
+    throw err;
   }
 
   await markHoldingOnboardingComplete(holdingOrgId, {

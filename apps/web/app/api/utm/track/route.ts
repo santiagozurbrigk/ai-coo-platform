@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { trackUTMLeadCapture } from "@/lib/utm/track-lead";
+import { apiRateLimit, getRequestIp, rateLimitExceeded } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  const ip = getRequestIp(request);
+  const { allowed, resetAt } = apiRateLimit(`utm:${ip}`);
+  if (!allowed) return rateLimitExceeded(resetAt);
+
   let body: unknown;
   try {
     body = await request.json();

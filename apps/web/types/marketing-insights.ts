@@ -108,7 +108,7 @@ export type ClosedBuyerJourney = {
   steps: JourneyStep[];
 };
 
-export type JourneyStepType = "content" | "dm" | "booking" | "sale";
+export type JourneyStepType = "content" | "comment" | "story_reply" | "cta" | "dm" | "booking" | "sale";
 
 export type JourneyStep = {
   type: JourneyStepType;

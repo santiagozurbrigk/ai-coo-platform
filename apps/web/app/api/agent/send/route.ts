@@ -1,5 +1,6 @@
 import { streamAgentMessage } from "@/lib/agent/stream-agent-message";
 import { createSseEmitter, formatSseEvent } from "@/lib/agent/sse";
+import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import type { AgentFlags } from "@/types/agent";
 import type { PageContextState } from "@/lib/agent/page-context";
 
@@ -13,6 +14,16 @@ const SSE_HEADERS = {
 };
 
 export async function POST(req: Request) {
+  // Auth gate — must happen before the stream is created
+  try {
+    await requireOrganizationId();
+  } catch {
+    return new Response(formatSseEvent("error", { message: "No autenticado" }), {
+      status: 401,
+      headers: SSE_HEADERS,
+    });
+  }
+
   if (req.signal.aborted) {
     return new Response(formatSseEvent("error", { message: "Cancelled" }), {
       status: 499,

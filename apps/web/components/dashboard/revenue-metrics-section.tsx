@@ -1,5 +1,5 @@
+import { MetricBand, MetricStat } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
-import { DashboardMetricsBand } from "@/components/shared/metrics-band";
 import type { DashboardMetric } from "@/types/dashboard";
 
 export function RevenueMetricsSection({
@@ -9,7 +9,19 @@ export function RevenueMetricsSection({
 }) {
   return (
     <Panel title="Métricas de ingresos" subtitle="MRR, nuevos clientes y churn del mes">
-      <DashboardMetricsBand metrics={metrics} />
+      <MetricBand>
+        {metrics.map((metric) => (
+          <MetricStat
+            key={metric.id}
+            title={metric.label}
+            value={metric.value}
+            trend={metric.trend}
+            trendValue={metric.trendValue}
+            chartData={metric.sparklineData}
+            chartEndLabel="Hoy"
+          />
+        ))}
+      </MetricBand>
     </Panel>
   );
 }

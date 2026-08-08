@@ -193,7 +193,9 @@ export async function analyzeContentPieceAction(
   }
 
   if (!piece.drive_file_id) {
-    throw new Error("No hay archivo de Drive vinculado a esta pieza");
+    throw new Error(
+      "Esta pieza no tiene un video de Drive vinculado. Para analizarla, primero vinculá el archivo de Drive desde el panel de la pieza y luego volvé a intentarlo."
+    );
   }
 
   const { buffer, mimeType } = await downloadDriveFileAction(piece.drive_file_id);
@@ -246,12 +248,20 @@ export async function analyzeContentPieceAction(
     throw new Error("El análisis IA no devolvió resultado");
   }
 
+  // Extraer campos de clasificación estructurada del JSON devuelto
+  const formatType = analysis.format_type ?? null;
+  const hookType = analysis.hook_type ?? null;
+  const ctaType = analysis.cta_type ?? null;
+
   const { error: updateError } = await supabase
     .from("content_pieces")
     .update({
       transcript: transcript ?? null,
       analysis,
       analysis_generated_at: new Date().toISOString(),
+      format_type: formatType,
+      hook_type: hookType,
+      cta_type: ctaType,
     })
     .eq("id", piece.id)
     .eq("organization_id", organizationId);
@@ -711,4 +721,82 @@ export async function publishVariantAsZernioDraftAction(
   }
 
   return { postId, caption: trimmedCaption, platformPostUrl };
+}
+
+// ─── Benchmark de métricas de la org ─────────────────────────────────────────
+
+export type ContentBenchmark = {
+  avgLikes: number;
+  avgComments: number;
+  avgShares: number;
+  avgSaves: number;
+  avgReach: number;
+  avgImpressions: number;
+  avgViews: number;
+  avgEngagementRate: number;
+  avgSaveRate: number;
+  totalPieces: number;
+};
+
+export async function getContentBenchmarkAction(
+  type?: string
+): Promise<ContentBenchmark> {
+  const organizationId = await requireProfileOrganizationId();
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("content_pieces")
+    .select("metrics")
+    .eq("organization_id", organizationId)
+    .not("metrics", "is", null);
+
+  if (type && type !== "all") {
+    query = query.eq("type", type);
+  }
+
+  const { data } = await query;
+  const pieces = (data ?? []) as { metrics: Record<string, number> | null }[];
+  const total = pieces.length;
+
+  if (total === 0) {
+    return {
+      avgLikes: 0, avgComments: 0, avgShares: 0, avgSaves: 0,
+      avgReach: 0, avgImpressions: 0, avgViews: 0,
+      avgEngagementRate: 0, avgSaveRate: 0, totalPieces: 0,
+    };
+  }
+
+  const sum = pieces.reduce(
+    (acc, p) => {
+      const m = p.metrics ?? {};
+      acc.likes += (m.likes ?? 0);
+      acc.comments += (m.comments ?? 0);
+      acc.shares += (m.shares ?? 0);
+      acc.saves += (m.saves ?? 0);
+      acc.reach += (m.reach ?? 0);
+      acc.impressions += (m.impressions ?? 0);
+      acc.views += (m.views ?? 0);
+      return acc;
+    },
+    { likes: 0, comments: 0, shares: 0, saves: 0, reach: 0, impressions: 0, views: 0 }
+  );
+
+  const avgViews = sum.views / total;
+  const avgInteractions = (sum.likes + sum.comments + sum.shares) / total;
+  const avgSaves = sum.saves / total;
+  const avgEngagementRate = avgViews > 0 ? (avgInteractions / avgViews) * 100 : 0;
+  const avgSaveRate = avgViews > 0 ? (avgSaves / avgViews) * 100 : 0;
+
+  return {
+    avgLikes: Math.round(sum.likes / total),
+    avgComments: Math.round(sum.comments / total),
+    avgShares: Math.round(sum.shares / total),
+    avgSaves: Math.round(avgSaves),
+    avgReach: Math.round(sum.reach / total),
+    avgImpressions: Math.round(sum.impressions / total),
+    avgViews: Math.round(avgViews),
+    avgEngagementRate: Math.round(avgEngagementRate * 10) / 10,
+    avgSaveRate: Math.round(avgSaveRate * 10) / 10,
+    totalPieces: total,
+  };
 }

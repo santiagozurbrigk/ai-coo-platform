@@ -10,6 +10,7 @@ export type WaitlistLead = {
   operationalPain: string | null;
   whyNow: string | null;
   source: string;
+  calendlyEventUrl: string | null;
   utmSource: string | null;
   utmMedium: string | null;
   utmCampaign: string | null;

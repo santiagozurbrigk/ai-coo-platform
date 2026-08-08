@@ -18,8 +18,8 @@ import {
   getFrequentObjections,
   mockFrequentObjectionSummaries,
 } from "@/lib/metrics/frequent-objections";
-import { getLeadJourney } from "@/lib/sales/lead-journey";
-import type { LeadJourneyStep } from "@/lib/sales/lead-journey";
+import { getLeadJourney, getZernioLeadJourney } from "@/lib/sales/lead-journey";
+import type { LeadJourneyStep, LeadJourneyContext } from "@/lib/sales/lead-journey";
 
 type CallAnalysisRow = {
   closer_id: string | null;
@@ -215,13 +215,37 @@ export async function getMockCallAnalysisKeysAction() {
 }
 
 export async function getLeadJourneyAction(
-  conversationId: string
+  conversationId: string,
+  context?: LeadJourneyContext
 ): Promise<LeadJourneyStep[]> {
   if (!isSupabaseConfigured()) return [];
 
   try {
     const organizationId = await requireOrganizationId();
-    return await getLeadJourney(organizationId, conversationId);
+    return await getLeadJourney(organizationId, conversationId, context);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Journey para el inbox de Zernio: busca por nombre del lead en la DB
+ * y enriquece con comentarios de Zernio + CTAs de ManyChat.
+ */
+export async function getZernioLeadJourneyAction(
+  accountId: string,
+  participantId: string,
+  participantName: string
+): Promise<LeadJourneyStep[]> {
+  if (!isSupabaseConfigured()) return [];
+
+  try {
+    const organizationId = await requireOrganizationId();
+    return await getZernioLeadJourney(organizationId, {
+      zernioAccountId: accountId,
+      zernioParticipantId: participantId,
+      zernioParticipantName: participantName,
+    });
   } catch {
     return [];
   }

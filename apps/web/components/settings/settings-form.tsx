@@ -34,6 +34,7 @@ import {
 } from "./settings-tab-nav";
 import { SignOutButton } from "./sign-out-button";
 import { PaymentPlatformsSettingsSection } from "./payment-platforms-settings-section";
+import { CloserCalendlySettings } from "./closer-calendly-settings";
 import { ThemeSelector } from "./theme-selector";
 
 function getInitials(name: string): string {
@@ -73,13 +74,16 @@ const SETTINGS_TABS: SettingsTabId[] = [
   "ia",
   "seguridad",
   "pagos",
+  "closer-calendly",
 ];
 
 function resolveSettingsTab(
   tab: string | null,
-  isFounder: boolean
+  isFounder: boolean,
+  isCloser: boolean
 ): SettingsTabId {
   if (tab === "pagos" && isFounder) return "pagos";
+  if (tab === "closer-calendly" && isCloser) return "closer-calendly";
   if (tab && SETTINGS_TABS.includes(tab as SettingsTabId)) {
     return tab as SettingsTabId;
   }
@@ -95,7 +99,7 @@ export function SettingsForm({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<SettingsTabId>(() =>
-    resolveSettingsTab(searchParams.get("tab"), initialData.isFounder)
+    resolveSettingsTab(searchParams.get("tab"), initialData.isFounder, initialData.isCloser)
   );
 
   const [orgName, setOrgName] = useState(initialData.orgName);
@@ -259,6 +263,7 @@ export function SettingsForm({
         activeTab={activeTab}
         onTabChange={setActiveTab}
         showPaymentsTab={initialData.isFounder}
+        showCloserCalendlyTab={initialData.isCloser}
       />
 
       {activeTab === "general" && (
@@ -588,6 +593,12 @@ export function SettingsForm({
             />
             <PaymentPlatformsSettingsSection />
           </section>
+        </div>
+      )}
+
+      {activeTab === "closer-calendly" && initialData.isCloser && (
+        <div className="space-y-6 pt-2">
+          <CloserCalendlySettings />
         </div>
       )}
 

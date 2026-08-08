@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ExternalLink, Trash2 } from "lucide-react";
+import { Archive, ExternalLink, RefreshCw, Trash2 } from "lucide-react";
 import { Badge, Button, GlassPanel, Text } from "@ai-coo/ui";
 import { Panel } from "@/components/shared/panel";
 import { paths } from "@/routes";
@@ -11,6 +11,7 @@ import {
   archiveAiBrainDocumentAction,
   deleteAiBrainDocumentAction,
   getAiBrainSignedUrlAction,
+  processAiBrainDocumentAction,
 } from "@/app/super-admin/actions";
 import type { BrainDocument } from "@/types/ai-brain";
 import { BrainStatusBadge } from "./brain-status-badge";
@@ -22,20 +23,24 @@ export function BrainDocumentViewer({
   fileName,
   sourceUrl,
   imagePreviewUrl,
+  contentText,
 }: {
   document: BrainDocument;
   fileUrl?: string | null;
   fileName?: string | null;
   sourceUrl?: string | null;
   imagePreviewUrl?: string | null;
+  contentText?: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [indexMsg, setIndexMsg] = useState<string | null>(null);
 
   const isImage = doc.type === "image";
   const isMiro = doc.type === "miro";
   const miroLink = sourceUrl ?? doc.previewText;
+  const canProcess = doc.type !== "image" && (!!fileUrl || isMiro);
 
   function runArchive() {
     startTransition(async () => {
@@ -59,6 +64,22 @@ export function BrainDocumentViewer({
     const res = await getAiBrainSignedUrlAction(fileUrl);
     if (res.success) window.open(res.data.url, "_blank");
     else setError(res.error);
+  }
+
+  function runProcess() {
+    setError(null);
+    setIndexMsg(null);
+    startTransition(async () => {
+      const res = await processAiBrainDocumentAction(doc.id);
+      if (!res.success) {
+        setError(res.error);
+      } else {
+        setIndexMsg(
+          `Indexado correctamente — ${res.data.charCount.toLocaleString("es-AR")} caracteres extraídos.`
+        );
+        router.refresh();
+      }
+    });
   }
 
   return (
@@ -99,6 +120,11 @@ export function BrainDocumentViewer({
       {error && (
         <p className="text-sm text-destructive" role="alert">
           {error}
+        </p>
+      )}
+      {indexMsg && (
+        <p className="text-sm text-emerald-500" role="status">
+          {indexMsg}
         </p>
       )}
 
@@ -157,10 +183,35 @@ export function BrainDocumentViewer({
         </Panel>
 
         <Panel title="Indexación">
-          <p className="text-sm text-muted-foreground">
-            Este documento será procesado automáticamente cuando el motor de IA
-            esté activo en Phase 2.
-          </p>
+          <div className="space-y-3">
+            {contentText ? (
+              <>
+                <p className="text-xs text-muted-foreground line-clamp-4 font-mono leading-relaxed">
+                  {contentText.slice(0, 400)}
+                  {contentText.length > 400 ? "…" : ""}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {contentText.length.toLocaleString("es-AR")} caracteres indexados · disponible en el agente de IA
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                El contenido aún no fue procesado. Hacé clic en <strong>Procesar</strong> para extraer el texto e incorporarlo al cerebro global.
+              </p>
+            )}
+            {canProcess && (
+              <Button
+                type="button"
+                size="sm"
+                variant={contentText ? "secondary" : "default"}
+                disabled={pending}
+                onClick={runProcess}
+              >
+                <RefreshCw className="mr-1.5 h-4 w-4" />
+                {pending ? "Procesando…" : contentText ? "Re-procesar" : "Procesar e indexar"}
+              </Button>
+            )}
+          </div>
         </Panel>
       </div>
 

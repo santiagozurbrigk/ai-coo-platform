@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { ALL_PROPOSAL_TOOLS } from "@/lib/agent/graph-proposal-tools";
+import { ALL_DATA_READER_TOOLS } from "@/lib/agent/data-reader-tools";
 
 export const GENERATE_DOCUMENT_TOOL: Anthropic.Tool = {
   name: "generate_document",
@@ -316,6 +317,9 @@ export const GET_TOP_PERFORMING_CONTENT_TOOL: Anthropic.Tool = {
 };
 
 export const AGENT_CHAT_TOOLS: Anthropic.Tool[] = [
+  // Datos del negocio (read-only, todos los módulos)
+  ...ALL_DATA_READER_TOOLS,
+  // Acciones sobre el negocio
   GENERATE_DOCUMENT_TOOL,
   CREATE_WORKBOARD_TASKS_TOOL,
   SEARCH_WORKBOARD_TASKS_TOOL,

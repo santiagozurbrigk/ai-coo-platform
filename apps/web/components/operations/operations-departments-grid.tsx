@@ -103,7 +103,7 @@ export function OperationsDepartmentsGrid({
                             className={cn(
                               "h-3 w-3",
                               metric.trend === "up" && "text-emerald-400",
-                              metric.trend === "down" && "text-emerald-400",
+                              metric.trend === "down" && "text-red-400",
                               metric.trend === "neutral" && "text-muted-foreground"
                             )}
                           />

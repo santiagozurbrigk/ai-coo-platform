@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calendar, MoreVertical, Tag } from "lucide-react";
+import { AlertCircle, Calendar, MoreVertical, Plus, Tag } from "lucide-react";
 import {
   Badge,
   Button,
@@ -21,8 +21,13 @@ import { getAreaClasses, getPriorityClasses, PRIORITY_LABELS } from "@/lib/workb
 import { useWorkboard } from "@/providers/workboard-provider";
 import type { TaskStatus, WorkboardTask } from "@/types/workboard";
 
+function isOverdue(dueDate?: string): boolean {
+  if (!dueDate) return false;
+  return new Date(dueDate + "T23:59:59") < new Date();
+}
+
 export function WorkboardKanban() {
-  const { tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId, moveTask, deleteTask, setSelectedTask, kanbanDoneVisibleUntil } =
+  const { tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId, moveTask, deleteTask, setSelectedTask, kanbanDoneVisibleUntil, createTask } =
     useWorkboard();
   const [draggedTask, setDraggedTask] = useState<{
     task: WorkboardTask;
@@ -83,122 +88,145 @@ export function WorkboardKanban() {
                 Sin tareas
               </p>
             ) : (
-              column.tasks.map((task) => (
-                <Card
-                  key={task.id}
-                  draggable
-                  onDragStart={() =>
-                    setDraggedTask({ task, status: column.id as TaskStatus })
-                  }
-                  onDragEnd={() => setDraggedTask(null)}
-                  onClick={() => setSelectedTask(task)}
-                  className={cn(
-                    "cursor-grab rounded-[var(--radius-lg)] border-border shadow-card transition-shadow active:cursor-grabbing hover:shadow-md",
-                    draggedTask?.task.id === task.id && "opacity-50"
-                  )}
-                >
-                  <CardHeader className="pb-2 pt-[var(--space-card-sm)]">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-sm font-medium leading-snug">
-                        {task.title}
-                      </CardTitle>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 shrink-0 p-0"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedTask(task);
-                            }}
-                          >
-                            Ver detalle
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void deleteTask(task.id);
-                            }}
-                          >
-                            Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-[var(--space-card-sm)] pb-[var(--space-card-sm)]">
-                    {task.description ? (
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
-                        {task.description}
-                      </p>
-                    ) : null}
-
-                    <Badge
-                      variant="outline"
-                      className={cn("text-[10px]", getAreaClasses(task.area))}
-                    >
-                      {TASK_AREA_LABELS[task.area]}
-                    </Badge>
-
-                    {task.tags.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {task.tags.map((tag) => (
-                          <Badge
-                            key={tag}
-                            variant="outline"
-                            className="gap-0.5 text-[10px] font-normal"
-                          >
-                            <Tag className="h-2.5 w-2.5" />
-                            {tag}
-                          </Badge>
-                        ))}
+              column.tasks.map((task) => {
+                const overdue = isOverdue(task.dueDate) && task.status !== "done";
+                return (
+                  <Card
+                    key={task.id}
+                    draggable
+                    onDragStart={() =>
+                      setDraggedTask({ task, status: column.id as TaskStatus })
+                    }
+                    onDragEnd={() => setDraggedTask(null)}
+                    onClick={() => setSelectedTask(task)}
+                    className={cn(
+                      "cursor-grab rounded-[var(--radius-lg)] border-border shadow-card transition-shadow active:cursor-grabbing hover:shadow-md",
+                      draggedTask?.task.id === task.id && "opacity-50"
+                    )}
+                  >
+                    <CardHeader className="pb-2 pt-[var(--space-card-sm)]">
+                      <div className="flex items-start justify-between gap-2">
+                        <CardTitle className="text-sm font-medium leading-snug">
+                          {task.title}
+                        </CardTitle>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 shrink-0 p-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTask(task);
+                              }}
+                            >
+                              Ver detalle
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void deleteTask(task.id);
+                              }}
+                            >
+                              Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                    ) : null}
+                    </CardHeader>
+                    <CardContent className="space-y-[var(--space-card-sm)] pb-[var(--space-card-sm)]">
+                      {task.description ? (
+                        <p className="line-clamp-2 text-xs text-muted-foreground">
+                          {task.description}
+                        </p>
+                      ) : null}
 
-                    <div className="flex items-center justify-between gap-2 pt-1">
                       <Badge
                         variant="outline"
-                        className={cn(
-                          "text-[10px]",
-                          getPriorityClasses(task.priority)
-                        )}
+                        className={cn("text-[10px]", getAreaClasses(task.area))}
                       >
-                        {PRIORITY_LABELS[task.priority]}
+                        {TASK_AREA_LABELS[task.area]}
                       </Badge>
-                      <div className="flex items-center gap-2">
-                        {task.dueDate ? (
-                          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(task.dueDate).toLocaleDateString("es", {
-                              day: "numeric",
-                              month: "short",
-                            })}
-                          </span>
-                        ) : null}
-                        {task.assignee ? (
-                          <span
-                            className="flex h-6 w-6 items-center justify-center rounded-full border border-background bg-muted text-[10px] font-medium text-foreground"
-                            title={task.assignee.name}
-                          >
-                            {task.assignee.initials}
-                          </span>
-                        ) : null}
+
+                      {task.tags.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {task.tags.map((tag) => (
+                            <Badge
+                              key={tag}
+                              variant="outline"
+                              className="gap-0.5 text-[10px] font-normal"
+                            >
+                              <Tag className="h-2.5 w-2.5" />
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      <div className="flex items-center justify-between gap-2 pt-1">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px]",
+                            getPriorityClasses(task.priority)
+                          )}
+                        >
+                          {PRIORITY_LABELS[task.priority]}
+                        </Badge>
+                        <div className="flex items-center gap-2">
+                          {task.dueDate ? (
+                            <span
+                              className={cn(
+                                "flex items-center gap-1 text-[10px]",
+                                overdue
+                                  ? "font-medium text-red-600 dark:text-red-400"
+                                  : "text-muted-foreground"
+                              )}
+                            >
+                              {overdue ? (
+                                <AlertCircle className="h-3 w-3" />
+                              ) : (
+                                <Calendar className="h-3 w-3" />
+                              )}
+                              {new Date(task.dueDate).toLocaleDateString("es", {
+                                day: "numeric",
+                                month: "short",
+                              })}
+                            </span>
+                          ) : null}
+                          {task.assignee ? (
+                            <span
+                              className="flex h-6 w-6 items-center justify-center rounded-full border border-background bg-muted text-[10px] font-medium text-foreground"
+                              title={task.assignee.name}
+                            >
+                              {task.assignee.initials}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                    </CardContent>
+                  </Card>
+                );
+              })
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => void createTask({ title: "Nueva tarea", status: column.id as TaskStatus, area: "general", priority: "medium", assigneeId: null, dueDate: null, tags: [], launchId: null })}
+            className="mt-2 flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Agregar tarea
+          </button>
         </div>
       ))}
     </div>

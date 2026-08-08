@@ -16,7 +16,9 @@ declare global {
   }
 }
 
-const PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+const RAW_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
+// Meta Pixel IDs are numeric strings — validate before injecting into script
+const PIXEL_ID = /^\d+$/.test(RAW_PIXEL_ID ?? "") ? RAW_PIXEL_ID : null;
 
 /**
  * Injects the Meta Pixel snippet for the landing pages only.

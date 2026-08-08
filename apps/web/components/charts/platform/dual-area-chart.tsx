@@ -13,6 +13,7 @@ export function DualAreaChart({
   primaryLabel,
   secondaryLabel,
   className,
+  aspectRatio = "2.2 / 1",
 }: {
   data: { label: string; primary: number; secondary: number }[];
   primaryKey: string;
@@ -20,6 +21,8 @@ export function DualAreaChart({
   primaryLabel: string;
   secondaryLabel: string;
   className?: string;
+  /** SVG aspect ratio. Pasá "none" para llenar un contenedor de altura fija. */
+  aspectRatio?: string;
 }) {
   const rows = data.map((d, i) => {
     const date = new Date();
@@ -37,7 +40,7 @@ export function DualAreaChart({
       <AreaChart
         data={rows}
         xDataKey="date"
-        aspectRatio="2.2 / 1"
+        aspectRatio={aspectRatio}
         className="w-full"
         animationDuration={1000}
         margin={{ top: 20, right: 12, bottom: 32, left: 8 }}

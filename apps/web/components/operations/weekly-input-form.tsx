@@ -225,19 +225,23 @@ export function WeeklyInputForm({
       contentClassName="space-y-4"
     >
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Department)}>
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 lg:grid-cols-5">
+        <TabsList className="flex h-auto w-full flex-wrap gap-1 bg-transparent p-0">
           {DEPARTMENTS.map((dept) => {
             const done = completedDepartments.includes(dept.value);
             return (
               <TabsTrigger
                 key={dept.value}
                 value={dept.value}
-                className="gap-1.5 text-xs sm:text-sm"
+                className={cn(
+                  "flex-1 gap-1.5 rounded-lg border text-xs sm:text-sm",
+                  "data-[state=active]:border-violet-500/50 data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 dark:data-[state=active]:text-violet-400",
+                  done && "border-emerald-500/30 bg-emerald-500/5"
+                )}
               >
                 {done ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                 ) : (
-                  <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+                  <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
                 )}
                 {dept.label}
               </TabsTrigger>
@@ -250,52 +254,64 @@ export function WeeklyInputForm({
           const tabHasContent =
             data.weekSummary.trim() || data.problems.trim() || data.rating > 0;
 
+          const isDone = completedDepartments.includes(dept.value);
           return (
-            <TabsContent key={dept.value} value={dept.value} className="space-y-4 pt-2">
-              <FormField label={dept.weekLabel}>
-                <Textarea
-                  placeholder={dept.weekPlaceholder}
-                  value={data.weekSummary}
-                  onChange={(e) =>
-                    updateField(dept.value, "weekSummary", e.target.value)
-                  }
-                  rows={3}
-                />
-              </FormField>
+            <TabsContent key={dept.value} value={dept.value} className="space-y-4 pt-3">
+              {isDone ? (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Ya guardaste el input de {dept.label} esta semana. Podés actualizarlo completando los campos de nuevo.
+                </p>
+              ) : null}
 
-              <FormField label={dept.problemsLabel}>
-                <Textarea
-                  placeholder={dept.problemsPlaceholder}
-                  value={data.problems}
-                  onChange={(e) =>
-                    updateField(dept.value, "problems", e.target.value)
-                  }
-                  rows={3}
-                />
-              </FormField>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label={dept.weekLabel}>
+                  <Textarea
+                    placeholder={dept.weekPlaceholder}
+                    value={data.weekSummary}
+                    onChange={(e) =>
+                      updateField(dept.value, "weekSummary", e.target.value)
+                    }
+                    rows={4}
+                  />
+                </FormField>
 
-              <FormField label="Calificación de la semana (1–5)">
-                <RatingPicker
-                  value={data.rating}
-                  onChange={(rating) => updateField(dept.value, "rating", rating)}
-                />
-              </FormField>
+                <FormField label={dept.problemsLabel}>
+                  <Textarea
+                    placeholder={dept.problemsPlaceholder}
+                    value={data.problems}
+                    onChange={(e) =>
+                      updateField(dept.value, "problems", e.target.value)
+                    }
+                    rows={4}
+                  />
+                </FormField>
+              </div>
 
-              <Button
-                type="button"
-                className="w-full bg-violet-600 hover:bg-violet-700 sm:w-auto"
-                disabled={!tabHasContent || submitting}
-                onClick={() => void handleSubmitTab(dept.value)}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Guardando…
-                  </>
-                ) : (
-                  `Guardar input de ${dept.label}`
-                )}
-              </Button>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <FormField label="Calificación de la semana (1–5)">
+                  <RatingPicker
+                    value={data.rating}
+                    onChange={(rating) => updateField(dept.value, "rating", rating)}
+                  />
+                </FormField>
+
+                <Button
+                  type="button"
+                  className="bg-violet-600 hover:bg-violet-700"
+                  disabled={!tabHasContent || submitting}
+                  onClick={() => void handleSubmitTab(dept.value)}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Guardando…
+                    </>
+                  ) : (
+                    `Guardar ${dept.label}`
+                  )}
+                </Button>
+              </div>
             </TabsContent>
           );
         })}

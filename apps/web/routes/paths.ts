@@ -58,12 +58,15 @@ export const paths = {
       forms: `${PLATFORM}/marketing/forms`,
       formDetail: (id: string) => `${PLATFORM}/marketing/forms/${id}`,
       utms: `${PLATFORM}/marketing/utms`,
+      automatizaciones: `${PLATFORM}/marketing/automatizaciones`,
+      leadMagnets: `${PLATFORM}/marketing/lead-magnets`,
     },
 
     sales: {
       inbox: `${PLATFORM}/sales/inbox`,
       metrics: `${PLATFORM}/sales/metrics`,
       closing: `${PLATFORM}/sales/closing`,
+      llamadas: `${PLATFORM}/sales/llamadas`,
     },
 
     clients: {
@@ -75,8 +78,11 @@ export const paths = {
     operations: {
       overview: `${PLATFORM}/operations/overview`,
       sops: `${PLATFORM}/operations/sops`,
-      teamInputs: `${PLATFORM}/operations/team-inputs`,
-      weeklyInputs: `${PLATFORM}/operations/weekly-inputs`,
+      inputs: `${PLATFORM}/operations/inputs`,
+      reportes: `${PLATFORM}/operations/reportes`,
+      // legacy — kept for backwards compat, map to new routes
+      teamInputs: `${PLATFORM}/operations/inputs`,
+      weeklyInputs: `${PLATFORM}/operations/inputs`,
     },
 
     executiveReports: {
@@ -139,6 +145,7 @@ export const paths = {
     infrastructure: "/super-admin/infrastructure",
     clientHealth: "/super-admin/client-health",
     waitlist: "/super-admin/waitlist",
+    trials: "/super-admin/trials",
     holding: "/super-admin/holding",
     aiBrain: {
       root: "/super-admin/ai-brain",

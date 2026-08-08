@@ -32,16 +32,16 @@ export function VslPlayer() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-violet-950/80 via-[#1a0a2e] to-[#0A0A0A]">
+    <div className="mx-auto w-full overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-violet-950/80 via-[#1a0a2e] to-[#0A0A0A]">
       <div className="relative flex aspect-video flex-col items-center justify-center">
         <button
           type="button"
           aria-label="Reproducir video"
-          className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20 transition-colors hover:bg-white/20"
+          className="flex h-24 w-24 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20 transition-colors hover:bg-white/20"
         >
-          <Play className="h-8 w-8 translate-x-0.5 text-white" strokeWidth={2} fill="currentColor" />
+          <Play className="h-10 w-10 translate-x-0.5 text-white" strokeWidth={2} fill="currentColor" />
         </button>
-        <div className="absolute bottom-4 left-4 rounded-full border border-white/10 bg-black/40 px-3 py-1 text-xs text-white/60">
+        <div className="absolute bottom-5 left-5 rounded-full border border-white/10 bg-black/40 px-3 py-1 text-xs text-white/60">
           Video · 3:12
         </div>
       </div>

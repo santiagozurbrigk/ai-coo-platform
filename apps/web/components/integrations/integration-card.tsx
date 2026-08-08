@@ -15,6 +15,7 @@ import {
 } from "@/app/integrations/actions";
 import { disconnectDiscordIntegrationAction } from "@/app/discord/actions";
 import { disconnectUnipileIntegrationAction } from "@/app/unipile/actions";
+import { disconnectYoutubeAction } from "@/app/youtube/actions";
 import {
   getCalendlyIntegrationStatusAction,
   pullCalendlyScheduledEventsAction,
@@ -51,6 +52,9 @@ import { IntegrationCardShell } from "./integration-card-shell";
 import { IntegrationLogo } from "./integration-logo";
 import { ManyChatManageSheet } from "./manychat-manage-sheet";
 import { ZernioConnectModal } from "./zernio-connect-modal";
+import { ClickUpImportWizard } from "./clickup-import-wizard";
+import { YoutubeApiKeyDialog } from "./youtube-api-key-dialog";
+import { GoogleEcosystemConnectDialog } from "./google-ecosystem-connect-dialog";
 
 const COMING_SOON_LABEL = "Próximamente";
 
@@ -90,6 +94,9 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const [googleManageOpen, setGoogleManageOpen] = useState(false);
   const [instagramManageOpen, setInstagramManageOpen] = useState(false);
   const [zernioConnectOpen, setZernioConnectOpen] = useState(false);
+  const [clickupImportOpen, setClickupImportOpen] = useState(false);
+  const [youtubeApiKeyOpen, setYoutubeApiKeyOpen] = useState(false);
+  const [googleEcosystemOpen, setGoogleEcosystemOpen] = useState(false);
   const [manychatWebhookUrl, setManychatWebhookUrl] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -161,26 +168,8 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   };
 
   const startDiscordOAuth = () => {
-    const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
-    if (!clientId) {
-      push({
-        title: "Discord no configurado",
-        description: "Falta NEXT_PUBLIC_DISCORD_CLIENT_ID en el entorno.",
-        variant: "default",
-      });
-      return;
-    }
-    const params = new URLSearchParams({
-      client_id: clientId,
-      permissions: "68608",
-      scope: "bot",
-      redirect_uri: `${window.location.origin}/api/integrations/discord/callback`,
-      response_type: "code",
-    });
-    window.open(
-      `https://discord.com/oauth2/authorize?${params.toString()}`,
-      "_blank"
-    );
+    // Redirige al start route del servidor que genera state + cookie antes de ir a Discord
+    window.location.href = "/api/integrations/discord/oauth/start";
   };
 
   const handleDisconnectGoogle = async (provider: GoogleIntegrationProvider) => {
@@ -215,6 +204,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       typeform: disconnectTypeformAction,
       discord: disconnectDiscordIntegrationAction,
       zernio: disconnectZernioAction,
+      youtube: disconnectYoutubeAction,
     };
 
     const unipileProvider = unipileProviderFromIntegration(integration.provider);
@@ -300,6 +290,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       setZernioConnectOpen(true);
       return;
     }
+    if (integration.provider === "clickup") {
+      setClickupImportOpen(true);
+      return;
+    }
     const unipileProvider = unipileProviderFromIntegration(integration.provider);
     if (unipileProvider) {
       void startUnipileConnect(unipileProvider);
@@ -366,6 +360,11 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
 
     if (integration.provider === "zernio" && status === "connected") {
       setZernioConnectOpen(true);
+      return;
+    }
+
+    if (integration.provider === "clickup") {
+      setClickupImportOpen(true);
       return;
     }
 
@@ -441,6 +440,14 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         window.location.href = INSTAGRAM_CONNECT_URL;
         return;
       }
+      if (integration.provider === "youtube") {
+        setYoutubeApiKeyOpen(true);
+        return;
+      }
+      if (integration.provider === "google_ecosystem") {
+        setGoogleEcosystemOpen(true);
+        return;
+      }
       if (googleProvider) {
         startGoogleOAuth(googleProvider);
         return;
@@ -453,12 +460,21 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         setZernioConnectOpen(true);
         return;
       }
+      if (integration.provider === "clickup") {
+        setClickupImportOpen(true);
+        return;
+      }
       const unipileProvider = unipileProviderFromIntegration(integration.provider);
       if (unipileProvider) {
         void startUnipileConnect(unipileProvider);
         return;
       }
       setConnectOpen(true);
+      return;
+    }
+
+    if (integration.provider === "youtube" && status === "connected") {
+      setYoutubeApiKeyOpen(true);
       return;
     }
 
@@ -480,7 +496,8 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       integration.provider === "calendly" ||
       integration.provider === "typeform" ||
       integration.provider === "discord" ||
-      integration.provider === "zernio");
+      integration.provider === "zernio" ||
+      integration.provider === "youtube");
 
   const description =
     integration.description ??
@@ -492,8 +509,12 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     : syncing
       ? es.status.integration.syncing
       : !isConnected
-        ? es.common.connect
-        : integration.provider === "calendly" ||
+        ? integration.provider === "clickup"
+          ? "Importar clientes"
+          : es.common.connect
+        : integration.provider === "clickup"
+          ? "Importar clientes"
+          : integration.provider === "calendly" ||
             integration.provider === "fathom" ||
             integration.provider === "instagram" ||
             integration.provider === "zernio" ||
@@ -509,35 +530,21 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       : "";
 
   return (
-    <>
+    <div className="flex flex-col">
       <IntegrationCardShell
         name={integration.name}
         description={`${description}${calendlyManualHint}`}
         icon={
           integration.provider === "zernio" ? (
-            <div className="flex items-center gap-0.5">
-              <IntegrationLogo
-                provider="zernio"
-                size="sm"
-                className="!h-5 !w-5 !rounded-none !border-0 !bg-transparent"
-              />
-              <IntegrationLogo
-                provider="instagram"
-                size="sm"
-                className="!h-4 !w-4 !rounded-none !border-0 !bg-transparent opacity-80"
-              />
-              <IntegrationLogo
-                provider="unipile_whatsapp"
-                size="sm"
-                className="!h-4 !w-4 !rounded-none !border-0 !bg-transparent opacity-80"
-              />
+            <div className="relative shrink-0">
+              <IntegrationLogo provider="zernio" size="sm" />
+              <div className="absolute -bottom-1 -right-1 flex items-center gap-px">
+                <IntegrationLogo provider="instagram" size="xs" className="!h-4 !w-4 !rounded-md ring-1 ring-background" />
+                <IntegrationLogo provider="unipile_whatsapp" size="xs" className="!h-4 !w-4 !rounded-md ring-1 ring-background" />
+              </div>
             </div>
           ) : (
-            <IntegrationLogo
-              provider={integration.provider}
-              size="sm"
-              className="!h-5 !w-5 !rounded-none !border-0 !bg-transparent"
-            />
+            <IntegrationLogo provider={integration.provider} size="sm" />
           )
         }
         status={comingSoon ? "not_connected" : cardStatus}
@@ -587,6 +594,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
           router.refresh();
         }}
       />
+      <ClickUpImportWizard
+        open={clickupImportOpen}
+        onOpenChange={setClickupImportOpen}
+      />
 
       {googleProvider ? (
         <Dialog open={googleManageOpen} onOpenChange={setGoogleManageOpen}>
@@ -602,7 +613,14 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
                 variant="outline"
                 type="button"
                 disabled={syncing}
-                onClick={() => startGoogleOAuth(googleProvider)}
+                onClick={() => {
+                  setGoogleManageOpen(false);
+                  if (integration.provider === "google_ecosystem") {
+                    setGoogleEcosystemOpen(true);
+                  } else {
+                    startGoogleOAuth(googleProvider);
+                  }
+                }}
               >
                 Reconectar
               </Button>
@@ -694,6 +712,16 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         </Dialog>
       ) : null}
 
+      <YoutubeApiKeyDialog
+        open={youtubeApiKeyOpen}
+        onOpenChange={setYoutubeApiKeyOpen}
+        onConnected={() => setStatus("connected")}
+      />
+      <GoogleEcosystemConnectDialog
+        open={googleEcosystemOpen}
+        onOpenChange={setGoogleEcosystemOpen}
+      />
+
       {integration.provider !== "instagram" ? (
         <Dialog open={connectOpen} onOpenChange={setConnectOpen}>
           <DialogContent>
@@ -718,6 +746,6 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
           </DialogContent>
         </Dialog>
       ) : null}
-    </>
+    </div>
   );
 }

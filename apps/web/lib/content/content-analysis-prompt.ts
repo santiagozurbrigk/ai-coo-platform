@@ -1,4 +1,4 @@
-import type { ContentMetrics } from "@/types/content";
+import type { ContentCtaType, ContentFormatType, ContentHookType, ContentMetrics } from "@/types/content";
 
 export function buildContentAnalysisPrompt(piece: {
   caption?: string | null;
@@ -32,6 +32,31 @@ ${contentContext}
 
 ${piece.hasImages ? "Te paso capturas/imágenes del contenido para que las analices visualmente." : ""}
 
+CLASIFICACIÓN ESTRUCTURADA — usá exactamente uno de los valores permitidos:
+
+format_type (el formato narrativo principal):
+  - storytime: historia narrada con desarrollo cronológico
+  - talking_head: presenter directo a cámara sin recursos extra
+  - pov: punto de vista inmersivo desde la perspectiva del usuario/cliente
+  - listicle: lista de puntos o pasos numerados
+  - green_screen: pantalla verde o fondo editado con recursos visuales
+  - hot_take: opinión polémica o contraria a la norma
+  - carousel: serie de slides/imágenes swipeables
+  - otro: ninguno de los anteriores
+
+hook_type (el tipo de gancho en los primeros 3 segundos):
+  - dolor_directo: nombra el problema del ICP de forma directa
+  - curiosidad: genera intriga o pregunta sin revelar la respuesta inmediatamente
+  - contrarian: afirmación que va contra la creencia común
+  - prueba_social: resultado, número o caso de éxito que valida la promesa
+  - resultado: muestra el resultado final antes de explicar el proceso
+
+cta_type (el llamado a la acción principal):
+  - dm: pide que manden un DM o mensaje directo
+  - comment_word: pide comentar una palabra específica
+  - link: redirige a un link (en bio o sticker)
+  - none: no hay CTA explícito
+
 Respondé con JSON exactamente en este formato:
 {
   "formato": {
@@ -51,7 +76,29 @@ Respondé con JSON exactamente en este formato:
     { "part": "Hook (0-3s)", "description": "qué pasa en esta parte", "script_note": "nota sobre el guión si aplica" },
     { "part": "Desarrollo (3-45s)", "description": "...", "script_note": "..." },
     { "part": "Cierre / CTA (45-60s)", "description": "...", "script_note": "..." }
-  ]
+  ],
+  "format_type": "uno de: storytime | talking_head | pov | listicle | green_screen | hot_take | carousel | otro",
+  "hook_type": "uno de: dolor_directo | curiosidad | contrarian | prueba_social | resultado",
+  "cta_type": "uno de: dm | comment_word | link | none",
+  "insights_virales": {
+    "potencial": "uno de: alto | medio | bajo (basado en engagement, hook y ángulo)",
+    "fortalezas": ["fortaleza 1 concreta", "fortaleza 2 concreta"],
+    "areas_mejora": ["área de mejora 1 accionable", "área de mejora 2 accionable"]
+  },
+  "analisis_visual": {
+    "formato": "vertical/horizontal/cuadrado",
+    "tipo_plano": "primer plano/plano medio/plano general/etc.",
+    "escena": "interior/exterior/estudio/calle/etc.",
+    "orientacion": "vertical/horizontal",
+    "personas": 1,
+    "cara_visible": true,
+    "texto_en_pantalla": false,
+    "fondo": "descripción del fondo o entorno"
+  },
+  "tono_voz": {
+    "tipo": "conversacional/autoritativo/didáctico/emotivo/etc.",
+    "velocidad_wpm": 150
+  }
 }`;
 }
 

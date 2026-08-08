@@ -52,7 +52,8 @@ function toPlatformMetadata(video: YouTubeVideoItem): YouTubePlatformMetadata {
 /** Obtiene statistics + contentDetails para hasta 50 videos por request. */
 export async function fetchYouTubeVideoDetails(
   videoIds: string[],
-  accessToken: string
+  accessToken?: string,
+  apiKey?: string
 ): Promise<Map<string, YouTubePlatformMetadata>> {
   const result = new Map<string, YouTubePlatformMetadata>();
   if (videoIds.length === 0) return result;
@@ -63,11 +64,15 @@ export async function fetchYouTubeVideoDetails(
   }
 
   for (const chunk of chunks) {
-    const url =
+    let url =
       `https://www.googleapis.com/youtube/v3/videos?` +
       `id=${chunk.join(",")}` +
-      `&part=statistics,contentDetails,snippet` +
-      `&access_token=${encodeURIComponent(accessToken)}`;
+      `&part=statistics,contentDetails,snippet`;
+    if (apiKey) {
+      url += `&key=${encodeURIComponent(apiKey)}`;
+    } else if (accessToken) {
+      url += `&access_token=${encodeURIComponent(accessToken)}`;
+    }
 
     const res = await fetch(url);
     if (!res.ok) continue;

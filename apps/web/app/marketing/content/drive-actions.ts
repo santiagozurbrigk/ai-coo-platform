@@ -54,6 +54,35 @@ function escapeDriveQueryValue(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+export type DriveListResult =
+  | { ok: true; files: DriveFileListItem[] }
+  | { ok: false; errorCode: "GOOGLE_NOT_CONNECTED" | "GOOGLE_INSUFFICIENT_PERMISSIONS" | "OTHER"; message: string };
+
+/**
+ * Versión safe que devuelve un Result en lugar de hacer throw.
+ * Usar esta en client components para que el error code llegue correctamente
+ * en producción (Next.js sanitiza los throw de Server Actions).
+ */
+export async function listDriveFilesSafeAction(params?: {
+  folderId?: string;
+  mimeTypeFilter?: string;
+  query?: string;
+}): Promise<DriveListResult> {
+  try {
+    const files = await listDriveFilesAction(params);
+    return { ok: true, files };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Error desconocido";
+    if (msg === "GOOGLE_NOT_CONNECTED") {
+      return { ok: false, errorCode: "GOOGLE_NOT_CONNECTED", message: msg };
+    }
+    if (msg === "GOOGLE_INSUFFICIENT_PERMISSIONS") {
+      return { ok: false, errorCode: "GOOGLE_INSUFFICIENT_PERMISSIONS", message: msg };
+    }
+    return { ok: false, errorCode: "OTHER", message: msg };
+  }
+}
+
 export async function listDriveFilesAction(params?: {
   folderId?: string;
   mimeTypeFilter?: string;
@@ -263,62 +292,13 @@ export async function downloadDriveFileAction(
   };
 }
 
-const FOLDER_MIME = "application/vnd.google-apps.folder";
-
-export async function createDriveFolderAction(params: {
+export async function createDriveFolderAction(_params: {
   name: string;
   parentFolderId?: string;
 }): Promise<{ id: string; name: string; mimeType: string }> {
-  const token = await requireGoogleAccessToken();
-  const trimmedName = params.name.trim();
-
-  if (!trimmedName) {
-    throw new Error("El nombre de la carpeta es requerido");
-  }
-
-  const body: {
-    name: string;
-    mimeType: string;
-    parents?: string[];
-  } = {
-    name: trimmedName,
-    mimeType: FOLDER_MIME,
-  };
-
-  if (params.parentFolderId) {
-    body.parents = [params.parentFolderId];
-  } else {
-    body.parents = ["root"];
-  }
-
-  const res = await fetch(
-    "https://www.googleapis.com/drive/v3/files?supportsAllDrives=true",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    }
+  throw new Error(
+    "La creación de carpetas no está disponible temporalmente. Seleccioná una carpeta existente de tu Drive."
   );
-
-  if (!res.ok) {
-    try {
-      const err = (await res.json()) as { error?: { message?: string } };
-      if (res.status === 401 || res.status === 403) {
-        throw new Error("GOOGLE_INSUFFICIENT_PERMISSIONS");
-      }
-      throw new Error(err.error?.message ?? "Error al crear carpeta");
-    } catch (error) {
-      if (error instanceof Error && error.message.startsWith("GOOGLE_")) {
-        throw error;
-      }
-      handleDriveApiError(res);
-    }
-  }
-
-  return res.json() as Promise<{ id: string; name: string; mimeType: string }>;
 }
 
 export async function searchDriveFilesAction(

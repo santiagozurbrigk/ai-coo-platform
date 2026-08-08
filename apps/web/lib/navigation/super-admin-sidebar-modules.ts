@@ -62,6 +62,14 @@ export const superAdminSidebarNav: SidebarNavConfig = {
     {
       type: "link",
       module: {
+        label: "Pruebas gratis",
+        href: paths.superAdmin.trials,
+        icon: "calendar-check",
+      },
+    },
+    {
+      type: "link",
+      module: {
         label: "Costos de IA",
         href: paths.superAdmin.costs,
         icon: "file-bar-chart",

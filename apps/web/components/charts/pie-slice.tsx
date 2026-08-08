@@ -114,7 +114,10 @@ function AnimatedSliceTranslate({
 
   const animatedPath = useTransform(mountProgress, (mount) => {
     const currentEndAngle = startAngle + (endAngle - startAngle) * mount;
-    if (currentEndAngle <= startAngle + 0.01) {
+    // Guard: el arco debe ser mayor que padAngle para que d3 no produzca NaN.
+    // padAngle reduce la extensión efectiva del arco; si el arco parcial < padAngle
+    // la extensión resultante es negativa → NaN en los paths SVG.
+    if (currentEndAngle <= startAngle + Math.max(0.01, padAngle)) {
       return "";
     }
     return generateArcPath(
@@ -213,7 +216,7 @@ function AnimatedSliceGrow({
     ([mount, currentOuterRadius]) => {
       const currentEndAngle =
         startAngle + (endAngle - startAngle) * (mount as number);
-      if (currentEndAngle <= startAngle + 0.01) {
+      if (currentEndAngle <= startAngle + Math.max(0.01, padAngle)) {
         return "";
       }
       return generateArcPath(

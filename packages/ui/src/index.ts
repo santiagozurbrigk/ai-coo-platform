@@ -80,6 +80,7 @@ export {
   type SectionHeaderVariant,
 } from "./components/section-header";
 export { Sparkline, type SparklineProps } from "./components/sparkline";
+export { MetricLineChart, type MetricLineChartProps } from "./components/metric-line-chart";
 export { AiCard, type AiCardProps } from "./components/ai-card";
 export {
   AnimatedNumber,

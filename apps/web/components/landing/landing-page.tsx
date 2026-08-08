@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { paths } from "@/routes";
 import { HeroSection } from "./hero-section";
+
 import { ProblemsSection } from "./problems-section";
 import { HowItWorksSection } from "./how-it-works-section";
+import { WhatsIncludedSection } from "./whats-included-section";
+import { TrialBookingSection } from "./trial-booking-section";
 import { IntegrationsSection } from "./integrations-section";
 import { FaqSection } from "./faq-section";
 import { FinalCtaSection } from "./final-cta-section";
@@ -13,6 +16,8 @@ export function LandingPage() {
       <HeroSection />
       <ProblemsSection />
       <HowItWorksSection />
+      <WhatsIncludedSection />
+      <TrialBookingSection />
       <IntegrationsSection />
       <FaqSection />
       <FinalCtaSection />
@@ -22,7 +27,7 @@ export function LandingPage() {
           <div>
             <p className="text-lg font-black text-white">OTC</p>
             <p className="mt-2 max-w-xs text-sm text-white/50">
-              El segundo cerebro para infoproductores
+              El sistema operativo para infoproductores
             </p>
             <p className="mt-6 text-xs text-white/40">
               © 2026 Optimiza Tu Control · optimizatucontrol.com
@@ -36,11 +41,17 @@ export function LandingPage() {
               Iniciar sesión
             </Link>
             <a
-              href="#waitlist"
+              href="#agendar"
               className="text-white/70 transition-colors hover:text-white"
             >
-              Aplicar a un cupo
+              Prueba gratis
             </a>
+            <Link
+              href="/privacidad"
+              className="text-white/70 transition-colors hover:text-white"
+            >
+              Privacidad
+            </Link>
           </div>
         </div>
       </footer>

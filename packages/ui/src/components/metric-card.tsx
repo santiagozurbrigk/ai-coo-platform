@@ -10,6 +10,7 @@ import {
 } from "./decorative-sparkline";
 import { Sparkline } from "./sparkline";
 import { MetricAnimatedValue } from "./animated-number";
+import { MetricLineChart } from "./metric-line-chart";
 
 export type MetricTrend = "up" | "down" | "neutral";
 
@@ -39,6 +40,14 @@ export interface MetricCardProps {
   /** Bar color when `progress` is set. */
   progressVariant?: "trend" | "violet";
   children?: React.ReactNode;
+  /** Datos para el gráfico de línea full-width en el fondo de la card (estilo Whop) */
+  chartData?: number[];
+  /** Datos período anterior para línea de comparación gris */
+  chartPreviousData?: number[];
+  /** Etiqueta izquierda del gráfico (fecha inicio) */
+  chartStartLabel?: string;
+  /** Etiqueta derecha del gráfico. Default "Hoy" */
+  chartEndLabel?: string;
 }
 
 const trendConfig = {
@@ -101,6 +110,10 @@ export function MetricCard({
   progressCaption,
   progressVariant = "trend",
   children,
+  chartData,
+  chartPreviousData,
+  chartStartLabel,
+  chartEndLabel,
 }: MetricCardProps) {
   const cfg = trendConfig[trend];
   const TrendIcon = cfg.icon;
@@ -214,6 +227,19 @@ export function MetricCard({
 
         {children}
       </CardContent>
+
+      {chartData && chartData.length >= 2 && (
+        <div className="mt-1 h-[72px] w-full">
+          <MetricLineChart
+            data={chartData}
+            previousData={chartPreviousData}
+            startLabel={chartStartLabel}
+            endLabel={chartEndLabel}
+            color={sparklineColor !== "hsl(var(--foreground))" ? sparklineColor : "hsl(var(--primary))"}
+            className="h-full px-4 pb-3"
+          />
+        </div>
+      )}
     </Card>
   );
 }

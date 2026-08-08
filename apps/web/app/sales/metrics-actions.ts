@@ -4,12 +4,19 @@ import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { createClient } from "@/lib/supabase/server";
 import type { SalesPerformanceMetrics } from "@/types/sales";
 
-export type SalesMetricsPeriod = "month" | "30d";
+export type SalesMetricsPeriod = "month" | "30d" | "custom";
 
-function periodBounds(period: SalesMetricsPeriod): { from: string; to: string } {
+export type SalesMetricsDateRange = { from: string; to: string };
+
+function periodBounds(
+  period: SalesMetricsPeriod,
+  custom?: SalesMetricsDateRange
+): SalesMetricsDateRange {
+  if (period === "custom" && custom) {
+    return custom;
+  }
   const to = new Date();
   const from = new Date();
-
   if (period === "month") {
     from.setDate(1);
     from.setHours(0, 0, 0, 0);
@@ -17,7 +24,6 @@ function periodBounds(period: SalesMetricsPeriod): { from: string; to: string } 
     from.setDate(from.getDate() - 30);
     from.setHours(0, 0, 0, 0);
   }
-
   return { from: from.toISOString(), to: to.toISOString() };
 }
 
@@ -29,11 +35,12 @@ const NURTURING_STAGES = new Set([
 ]);
 
 export async function getSalesPerformanceMetricsAction(
-  period: SalesMetricsPeriod = "month"
+  period: SalesMetricsPeriod = "month",
+  dateRange?: SalesMetricsDateRange
 ): Promise<SalesPerformanceMetrics> {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
-  const { from, to } = periodBounds(period);
+  const { from, to } = periodBounds(period, dateRange);
 
   const { data: calls, error: callsError } = await supabase
     .from("closing_calls")

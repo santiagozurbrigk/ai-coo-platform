@@ -20,10 +20,12 @@ export type AiBrainDocumentRow = {
   file_size_bytes: number | null;
   source_url: string | null;
   description: string | null;
+  ai_summary: string | null;
   tags: string[] | null;
   status: string;
   uploaded_by: string | null;
   coverage_areas: string[] | null;
+  content_text: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -111,6 +113,7 @@ export function rowToBrainDocument(row: AiBrainDocumentRow): BrainDocument {
     uploadedBy: row.uploaded_by ?? "Super Admin",
     uploadDate: row.created_at.slice(0, 10),
     description: row.description ?? undefined,
+    aiSummary: row.ai_summary ?? undefined,
     tags: row.tags ?? [],
     coverageAreas: row.coverage_areas ?? [],
     usageStats: {

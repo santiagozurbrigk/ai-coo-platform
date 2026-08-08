@@ -4,11 +4,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes";
 import { withOAuthNoCache } from "@/lib/integrations/oauth-callback-headers";
+import { cookies } from "next/headers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
+
+type OAuthCookie = { organizationId: string; state: string };
 
 function integrationsRedirect(
   origin: string,
@@ -18,7 +21,9 @@ function integrationsRedirect(
   for (const [key, value] of Object.entries(params)) {
     target.searchParams.set(key, value);
   }
-  return withOAuthNoCache(NextResponse.redirect(target));
+  const res = withOAuthNoCache(NextResponse.redirect(target));
+  res.cookies.delete("discord_oauth");
+  return res;
 }
 
 export async function GET(request: NextRequest) {
@@ -26,12 +31,27 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
   const guildId = searchParams.get("guild_id");
+  const stateParam = searchParams.get("state");
 
   if (!code || !guildId) {
     return integrationsRedirect(origin, { discord: "error" });
   }
 
-  const clientId = process.env.DISCORD_CLIENT_ID;
+  // Validar state contra cookie para prevenir CSRF
+  const cookieStore = await cookies();
+  const cookieRaw = cookieStore.get("discord_oauth")?.value;
+  let oauth: OAuthCookie | null = null;
+  try {
+    oauth = cookieRaw ? (JSON.parse(cookieRaw) as OAuthCookie) : null;
+  } catch { /* ignore */ }
+
+  if (!oauth || !stateParam || oauth.state !== stateParam) {
+    return integrationsRedirect(origin, { discord: "error" });
+  }
+
+  const organizationId = oauth.organizationId;
+
+  const clientId = process.env.DISCORD_CLIENT_ID ?? process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
   const clientSecret = process.env.DISCORD_CLIENT_SECRET;
   const redirectUri =
     process.env.DISCORD_REDIRECT_URI ??
@@ -70,29 +90,10 @@ export async function GET(request: NextRequest) {
   );
   const guildData = (await guildResponse.json()) as { name?: string };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return integrationsRedirect(origin, { discord: "error" });
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organization_id")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile?.organization_id) {
-    return integrationsRedirect(origin, { discord: "error" });
-  }
-
   const admin = createAdminClient();
   const { error } = await admin.from("discord_integrations").upsert(
     {
-      organization_id: profile.organization_id,
+      organization_id: organizationId,
       guild_id: guildId,
       guild_name: guildData.name ?? null,
       status: "connected",

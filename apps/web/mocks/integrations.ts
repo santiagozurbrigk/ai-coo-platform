@@ -33,9 +33,9 @@ export const mockIntegrations: Integration[] = [
     name: "Ecosistema Google",
     status: "not_connected",
     description:
-      "YouTube, Google Drive y Google Forms conectados con una sola cuenta OAuth.",
+      "Google Drive y Google Forms (+ YouTube si usás la misma cuenta Google) conectados con OAuth.",
   },
-  { id: "int-yt", provider: "youtube", name: "YouTube", status: "not_connected", hidden: true },
+  { id: "int-yt", provider: "youtube", name: "YouTube (API key)", status: "not_connected" },
   { id: "int-tf", provider: "typeform", name: "Typeform", status: "not_connected" },
   { id: "int-gf", provider: "google_forms", name: "Google Forms", status: "not_connected", hidden: true },
   { id: "int3", provider: "notion", name: "Notion", status: "syncing", lastSync: "Ahora", recordsSynced: 318, hidden: true },
@@ -55,7 +55,16 @@ export const mockIntegrations: Integration[] = [
     provider: "discord",
     name: "Discord",
     status: "not_connected",
+    hidden: true,
     description:
       "Conectá tu servidor para capturar conversaciones con clientes, detectar testimonios automáticamente y tener visibilidad completa de cada cliente.",
+  },
+  {
+    id: "int-clickup",
+    provider: "clickup",
+    name: "ClickUp",
+    status: "not_connected",
+    description:
+      "Importá tus clientes desde ClickUp a OTC con mapeo inteligente de campos personalizados.",
   },
 ];

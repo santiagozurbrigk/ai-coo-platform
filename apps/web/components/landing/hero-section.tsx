@@ -1,145 +1,54 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { VslPlayer } from "./vsl-player";
-import { WaitlistForm } from "./waitlist-form";
-
-const FLOATING_SCREENSHOTS = [
-  {
-    src: "/screenshots/problem-1.png",
-    position: { left: -200, top: "10%" },
-    fromRight: false,
-    stagger: false,
-    rotate: "-6deg",
-  },
-  {
-    src: "/screenshots/problem-2.png",
-    position: { left: -180, top: "55%" },
-    fromRight: false,
-    stagger: true,
-    rotate: "4deg",
-  },
-  {
-    src: "/screenshots/problem-3.png",
-    position: { right: -200, top: "10%" },
-    fromRight: true,
-    stagger: false,
-    rotate: "6deg",
-  },
-  {
-    src: "/screenshots/problem-4.png",
-    position: { right: -180, top: "55%" },
-    fromRight: true,
-    stagger: true,
-    rotate: "-4deg",
-  },
-] as const;
-
-const SCREENSHOT_CARD_STYLE: React.CSSProperties = {
-  position: "absolute",
-  width: 420,
-  borderRadius: 16,
-  overflow: "hidden",
-  border: "1px solid rgba(255,255,255,0.08)",
-  boxShadow: "0 32px 80px rgba(0,0,0,0.6)",
-};
-
-const TRANSITION = "transform 0.8s ease, opacity 0.8s ease";
 
 export function HeroSection() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setVisible(entry.isIntersecting);
-      },
-      { threshold: 0.05, rootMargin: "0px" }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <section
-      ref={sectionRef}
-      className="relative flex min-h-0 items-center overflow-hidden px-4 py-16 sm:px-6 sm:py-28 md:min-h-screen md:py-40"
-      style={{ position: "relative", overflow: "hidden" }}
-    >
-      {FLOATING_SCREENSHOTS.map(({ src, position, fromRight, stagger, rotate }) => {
-        const hiddenTranslate = fromRight ? "80px" : "-80px";
-
-        return (
-          <div
-            key={src}
-            className="pointer-events-none absolute hidden md:block"
-            style={{
-              ...SCREENSHOT_CARD_STYLE,
-              ...position,
-              transform: visible
-                ? `translateX(0px) rotate(${rotate})`
-                : `translateX(${hiddenTranslate}) rotate(${rotate})`,
-              opacity: visible ? 1 : 0,
-              transition: TRANSITION,
-              transitionDelay: visible && stagger ? "0.15s" : "0s",
-            }}
-          >
-            <Image
-              src={src}
-              alt=""
-              width={840}
-              height={472}
-              className="h-auto w-full object-cover"
-              sizes="420px"
-              aria-hidden
-            />
-          </div>
-        );
-      })}
-
+    <section className="relative overflow-hidden px-4 pb-0 pt-20 sm:px-6 sm:pt-32 md:pt-44">
+      {/* Text content — constrained */}
       <div className="relative z-10 mx-auto w-full max-w-3xl px-2 text-center sm:px-4">
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-violet-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
-            Lanzamiento 13/07
-          </div>
-
-          <h1 className="mt-6 text-4xl font-black leading-[0.95] tracking-[-0.04em] sm:mt-8 sm:text-5xl md:text-6xl lg:text-8xl lg:leading-[0.9]">
-            El segundo cerebro para
-            <br />
-            <em className="whitespace-nowrap text-[#7C3AED] italic">
-              infoproductores
-            </em>
-          </h1>
-
-          <p className="mx-auto mt-5 max-w-xl px-1 text-base font-normal leading-relaxed text-white/60 sm:mt-6 md:text-lg">
-            Conectá ventas, marketing, finanzas, producto y clientes en un solo
-            lugar. Y escalá sin perder el control.
-          </p>
-
-          <a
-            href="#waitlist"
-            className="mt-8 inline-block w-full max-w-xs rounded-full bg-[#7C3AED] px-8 py-4 text-base font-semibold text-white transition-colors hover:bg-[#6D28D9] sm:mt-10 sm:w-auto"
-          >
-            Quiero mi lugar
-          </a>
-
-          <p className="mt-4 text-sm text-white/40">
-            Solo 10 cupos · Completá el formulario para aplicar
-          </p>
-
-          <div className="mx-auto mt-16 w-full max-w-3xl">
-            <VslPlayer />
-          </div>
-
-        <div id="waitlist" className="mx-auto mt-10 w-full max-w-lg scroll-mt-24">
-          <WaitlistForm className="mx-auto" />
+        {/* Badge */}
+        <div className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]">
+          <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
+          Prueba gratuita · 3 días · Sin tarjeta
         </div>
+
+        {/* Headline */}
+        <h1 className="mt-7 text-4xl font-black leading-[1.05] tracking-[-0.02em] sm:text-5xl md:text-[56px]">
+          El sistema operativo para
+          <br />
+          tu{" "}
+          <em className="text-[#7C3AED] not-italic">
+            infoproducto
+          </em>
+        </h1>
+
+        {/* Subheadline */}
+        <p className="mx-auto mt-5 max-w-lg text-base font-normal leading-relaxed text-white/55 md:text-lg">
+          Ventas, clientes, marketing, finanzas y operaciones en un solo lugar.
+          Probalo 3 días gratis con onboarding personalizado incluido.
+        </p>
+
+        {/* CTA */}
+        <div className="mt-8">
+          <a
+            href="#agendar"
+            className="inline-block w-full max-w-[240px] rounded-full bg-[#7C3AED] px-8 py-4 text-base font-semibold text-white shadow-[0_0_30px_rgba(124,58,237,0.35)] transition-colors hover:bg-[#6D28D9] sm:w-auto"
+          >
+            Empezá gratis ahora
+          </a>
+        </div>
+
+        {/* Social proof */}
+        <p className="mt-5 flex items-center justify-center gap-2 text-sm text-white/45">
+          <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]" />
+          Más founders conectan OTC cada semana
+        </p>
+      </div>
+
+      {/* VSL — full width, breaks out of text container */}
+      <div className="relative z-10 mx-auto mt-16 w-full max-w-5xl px-2 sm:px-4">
+        <VslPlayer />
       </div>
     </section>
   );

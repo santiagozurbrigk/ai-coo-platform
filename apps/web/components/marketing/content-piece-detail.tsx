@@ -36,15 +36,20 @@ import {
 } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
 import { ArrowLeft, Check, ChevronRight, Copy, ExternalLink, Folder, Loader2, X } from "lucide-react";
+import type { ContentBenchmark } from "@/app/marketing/content/actions";
+import { RingDistributionChart } from "@/components/charts/platform/ring-distribution-chart";
+import { RadarPerformanceChart } from "@/components/charts/platform/radar-performance-chart";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 type Props = {
   piece: ContentPieceWithVariants;
   variants: ContentPiece[];
+  benchmark?: ContentBenchmark | null;
 };
 
 type DetailTab = "metricas" | "analisis" | "comentarios" | "anuncios" | "variantes";
 
-export function ContentPieceDetail({ piece, variants }: Props) {
+export function ContentPieceDetail({ piece, variants, benchmark }: Props) {
   const router = useRouter();
   const { push } = useToast();
   const [analyzing, setAnalyzing] = useState(false);
@@ -276,7 +281,7 @@ export function ContentPieceDetail({ piece, variants }: Props) {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
-            {activeTab === "metricas" ? <MetricasTab piece={piece} /> : null}
+            {activeTab === "metricas" ? <MetricasTab piece={piece} benchmark={benchmark} /> : null}
             {activeTab === "analisis" ? <AnalisisTab piece={piece} /> : null}
             {activeTab === "comentarios" ? (
               <ComentariosTab piece={piece} />
@@ -314,37 +319,76 @@ export function ContentPieceDetail({ piece, variants }: Props) {
   );
 }
 
-function MetricasTab({ piece }: { piece: ContentPiece }) {
+function MetricasTab({ piece, benchmark }: { piece: ContentPiece; benchmark?: ContentBenchmark | null }) {
   const metrics = piece.metrics;
-  const stats = metrics
-    ? (
-        [
-          { label: "Likes", value: metrics.likes, icon: "likes" as const },
-          { label: "Comentarios", value: metrics.comments, icon: "comments" as const },
-          { label: "Compartidos", value: metrics.shares, icon: "shares" as const },
-          { label: "Guardados", value: metrics.saves, icon: "saves" as const },
-          { label: "Reach", value: metrics.reach, icon: "reach" as const },
-          { label: "Impresiones", value: metrics.impressions, icon: "impressions" as const },
-          { label: "Views", value: metrics.views, icon: "views" as const },
-        ] as Array<{
-          label: string;
-          value: number | undefined;
-          icon: MetricIconName;
-        }>
-      ).filter((stat) => stat.value !== undefined && stat.value !== null)
-    : [];
+
+  const likes    = metrics?.likes    ?? 0;
+  const comments = metrics?.comments ?? 0;
+  const shares   = metrics?.shares   ?? 0;
+  const saves    = metrics?.saves    ?? 0;
+  const views    = metrics?.views    ?? 0;
+  const reach    = metrics?.reach    ?? 0;
+
+  const interactions  = likes + comments + shares;
+  const engagementRate = views > 0 ? (interactions / views) * 100 : 0;
+  const saveRate       = views > 0 ? (saves / views) * 100 : 0;
+
+  const hasMetrics = interactions > 0 || views > 0 || saves > 0;
+
+  const kpiStats = (
+    [
+      { label: "Views",       value: metrics?.views,       icon: "views"       as const },
+      { label: "Reach",       value: metrics?.reach,       icon: "reach"       as const },
+      { label: "Impresiones", value: metrics?.impressions, icon: "impressions" as const },
+      { label: "Likes",       value: metrics?.likes,       icon: "likes"       as const },
+      { label: "Comentarios", value: metrics?.comments,    icon: "comments"    as const },
+      { label: "Compartidos", value: metrics?.shares,      icon: "shares"      as const },
+      { label: "Guardados",   value: metrics?.saves,       icon: "saves"       as const },
+    ] as Array<{ label: string; value: number | undefined; icon: MetricIconName }>
+  ).filter((s) => s.value !== undefined && s.value !== null);
+
+  // Distribución: slices con valor > 0
+  const distributionSlices = [
+    { label: "Likes",        value: likes,    color: "#E11D48" },
+    { label: "Comentarios",  value: comments, color: "#7C3AED" },
+    { label: "Compartidos",  value: shares,   color: "#185FA5" },
+    { label: "Guardados",    value: saves,    color: "#0F6E56" },
+  ].filter((s) => s.value > 0);
+
+  // Radar benchmark: normalizar POR EJE a 0-100 (patrón del proyecto: marketing-charts.tsx, closers-ranking.tsx)
+  const showBenchmark = !!(benchmark && benchmark.totalPieces >= 2);
+  const radarMetrics  = ["views", "likes", "comments", "saves", "reach"] as const;
+
+  const pieceRaw = { views, likes, comments, saves, reach };
+  const orgRaw   = {
+    views:    benchmark?.avgViews    ?? 0,
+    likes:    benchmark?.avgLikes    ?? 0,
+    comments: benchmark?.avgComments ?? 0,
+    saves:    benchmark?.avgSaves    ?? 0,
+    reach:    benchmark?.avgReach    ?? 0,
+  };
+
+  // Por cada eje: el mayor valor recibe 100, el menor se escala proporcionalmente
+  const normalizedPiece: Record<string, number> = {};
+  const normalizedOrg:   Record<string, number> = {};
+  for (const key of radarMetrics) {
+    const axisMax = Math.max(pieceRaw[key], orgRaw[key], 1);
+    normalizedPiece[key] = Math.round((pieceRaw[key] / axisMax) * 100);
+    normalizedOrg[key]   = Math.round((orgRaw[key]   / axisMax) * 100);
+  }
 
   return (
     <div className="space-y-6">
-      {stats.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          {stats.map((stat) => (
-            <div key={stat.label} className="rounded-lg border p-3">
-              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <MetricIcon name={stat.icon} size={14} />
+      {/* ── KPI chips ── */}
+      {kpiStats.length > 0 ? (
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {kpiStats.map((stat) => (
+            <div key={stat.label} className="rounded-lg border bg-muted/20 p-2.5">
+              <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <MetricIcon name={stat.icon} size={12} />
                 {stat.label}
               </p>
-              <p className="mt-1 text-2xl font-semibold">
+              <p className="mt-0.5 text-lg font-semibold tabular-nums leading-tight">
                 {(stat.value ?? 0).toLocaleString("es-AR")}
               </p>
             </div>
@@ -354,7 +398,138 @@ function MetricasTab({ piece }: { piece: ContentPiece }) {
         <p className="text-sm text-muted-foreground">Sin métricas disponibles.</p>
       )}
 
+      {hasMetrics && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* ── Distribución: RingDistributionChart en su propio card sin constraints de flex ── */}
+          {distributionSlices.length > 0 && (
+            <div className="rounded-xl border bg-card p-4 space-y-3 overflow-hidden">
+              <p className="text-sm font-semibold">Distribución de interacciones</p>
+              {/* El chart usa internamente max-w-[220px] aspect-square min-h-[200px];
+                  NO restringir el width del contenedor para evitar conflictos de aspect-ratio */}
+              <RingDistributionChart
+                slices={distributionSlices}
+                centerValue={(interactions + saves).toLocaleString("es-AR")}
+                centerLabel="total"
+              />
+              {/* Leyenda debajo del donut */}
+              <div className="space-y-1.5 pt-1">
+                {distributionSlices.map((s) => (
+                  <div key={s.label} className="flex items-center gap-2">
+                    <div className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} />
+                    <span className="flex-1 truncate text-xs text-muted-foreground">{s.label}</span>
+                    <span className="text-xs font-semibold tabular-nums">{s.value.toLocaleString("es-AR")}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Ratios clave: stat cards con delta vs org avg ── */}
+          {views > 0 && (
+            <div className="rounded-xl border bg-card p-4 space-y-3">
+              <div>
+                <p className="text-sm font-semibold">Ratios clave</p>
+                <p className="text-xs text-muted-foreground">
+                  Basado en {views.toLocaleString("es-AR")} views
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <RatioCard
+                  label="Engagement rate"
+                  value={engagementRate}
+                  suffix="%"
+                  benchmarkValue={benchmark?.avgEngagementRate}
+                />
+                <RatioCard
+                  label="Save rate"
+                  value={saveRate}
+                  suffix="%"
+                  benchmarkValue={benchmark?.avgSaveRate}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Radar: Esta pieza vs promedio org ── */}
+      {showBenchmark && (
+        <div className="rounded-xl border bg-card p-4 space-y-3 overflow-hidden">
+          <div>
+            <p className="text-sm font-semibold">Esta pieza vs promedio org</p>
+            <p className="text-xs text-muted-foreground">
+              Comparado con el promedio de {benchmark!.totalPieces} piezas del mismo tipo
+            </p>
+          </div>
+          {/* Layout igual que closers-ranking.tsx: flex centered con leyenda al costado */}
+          <div className="flex flex-wrap items-center justify-center gap-6 py-2">
+            <RadarPerformanceChart
+              metrics={[
+                { key: "views",    label: "Views"       },
+                { key: "likes",    label: "Likes"       },
+                { key: "comments", label: "Comentarios" },
+                { key: "saves",    label: "Guardados"   },
+                { key: "reach",    label: "Reach"       },
+              ]}
+              series={[
+                { label: "Esta pieza",   color: "#7C3AED", values: normalizedPiece },
+                { label: "Promedio org", color: "#64748B", values: normalizedOrg   },
+              ]}
+              className="max-w-[280px]"
+            />
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#7C3AED]" />
+                <span className="text-xs font-medium">Esta pieza</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#64748B]" />
+                <span className="text-xs font-medium text-muted-foreground">Promedio org</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <SalesAttributionSection piece={piece} />
+    </div>
+  );
+}
+
+function RatioCard({
+  label,
+  value,
+  suffix = "%",
+  benchmarkValue,
+}: {
+  label: string;
+  value: number;
+  suffix?: string;
+  benchmarkValue?: number;
+}) {
+  const roundedValue     = Math.round(value * 10) / 10;
+  const roundedBenchmark = benchmarkValue != null ? Math.round(benchmarkValue * 10) / 10 : null;
+  const delta            = roundedBenchmark != null ? roundedValue - roundedBenchmark : null;
+
+  let DeltaIcon  = Minus;
+  let deltaColor = "text-muted-foreground";
+  if (delta != null && Math.abs(delta) >= 0.1) {
+    if (delta > 0) { DeltaIcon = TrendingUp;   deltaColor = "text-emerald-500"; }
+    else           { DeltaIcon = TrendingDown;  deltaColor = "text-rose-500";   }
+  }
+
+  return (
+    <div className="rounded-lg border bg-muted/20 p-3 space-y-1">
+      <p className="text-[10px] text-muted-foreground leading-tight">{label}</p>
+      <p className="text-2xl font-bold tabular-nums leading-none">
+        {roundedValue.toFixed(1)}{suffix}
+      </p>
+      {roundedBenchmark != null && (
+        <div className={cn("flex items-center gap-1 text-[10px]", deltaColor)}>
+          <DeltaIcon size={10} />
+          <span>org avg {roundedBenchmark.toFixed(1)}{suffix}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -502,6 +677,140 @@ function AnalisisTab({ piece }: { piece: ContentPiece }) {
                 ) : null}
               </div>
             ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Insights y potencial viral */}
+      {analysis.insights_virales ? (
+        <div className="rounded-lg border p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Potencial viral
+            </p>
+            <span
+              className={cn(
+                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                analysis.insights_virales.potencial === "alto"
+                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                  : analysis.insights_virales.potencial === "medio"
+                    ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                    : "bg-muted text-muted-foreground"
+              )}
+            >
+              {analysis.insights_virales.potencial.charAt(0).toUpperCase() +
+                analysis.insights_virales.potencial.slice(1)}
+            </span>
+          </div>
+          {analysis.insights_virales.fortalezas.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                Fortalezas
+              </p>
+              <ul className="space-y-1">
+                {analysis.insights_virales.fortalezas.map((f, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-sm">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {analysis.insights_virales.areas_mejora.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                Áreas de mejora
+              </p>
+              <ul className="space-y-1">
+                {analysis.insights_virales.areas_mejora.map((a, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-sm">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                    {a}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* Análisis visual */}
+      {analysis.analisis_visual ? (
+        <div className="rounded-lg border p-4 space-y-3">
+          <p className="text-xs font-medium text-muted-foreground">
+            Análisis visual
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {[
+              { label: "Formato", value: analysis.analisis_visual.formato },
+              { label: "Tipo de plano", value: analysis.analisis_visual.tipo_plano },
+              { label: "Escena", value: analysis.analisis_visual.escena },
+              { label: "Orientación", value: analysis.analisis_visual.orientacion },
+              {
+                label: "Personas",
+                value:
+                  analysis.analisis_visual.personas != null
+                    ? String(analysis.analisis_visual.personas)
+                    : undefined,
+              },
+              {
+                label: "Cara visible",
+                value:
+                  analysis.analisis_visual.cara_visible != null
+                    ? analysis.analisis_visual.cara_visible
+                      ? "Sí"
+                      : "No"
+                    : undefined,
+              },
+              {
+                label: "Texto en pantalla",
+                value:
+                  analysis.analisis_visual.texto_en_pantalla != null
+                    ? analysis.analisis_visual.texto_en_pantalla
+                      ? "Sí"
+                      : "No"
+                    : undefined,
+              },
+              { label: "Fondo / Entorno", value: analysis.analisis_visual.fondo },
+            ]
+              .filter((item) => item.value != null)
+              .map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-md border bg-muted/20 px-3 py-2 space-y-0.5"
+                >
+                  <p className="text-[10px] text-muted-foreground">
+                    {item.label}
+                  </p>
+                  <p className="text-sm font-medium">{item.value}</p>
+                </div>
+              ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Tono de voz y delivery */}
+      {analysis.tono_voz ? (
+        <div className="rounded-lg border p-4 space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            Tono de voz y delivery
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {analysis.tono_voz.tipo && (
+              <div className="rounded-md border bg-muted/20 px-3 py-2">
+                <p className="text-[10px] text-muted-foreground">Tipo de voz</p>
+                <p className="text-sm font-medium">{analysis.tono_voz.tipo}</p>
+              </div>
+            )}
+            {analysis.tono_voz.velocidad_wpm != null && (
+              <div className="rounded-md border bg-muted/20 px-3 py-2">
+                <p className="text-[10px] text-muted-foreground">Velocidad</p>
+                <p className="text-sm font-medium tabular-nums">
+                  {analysis.tono_voz.velocidad_wpm} WPM
+                </p>
+              </div>
+            )}
           </div>
         </div>
       ) : null}

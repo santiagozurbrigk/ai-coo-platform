@@ -138,7 +138,7 @@ export type SalesMetricsData = {
 };
 
 export type SalesPerformanceMetrics = {
-  period: "month" | "30d";
+  period: "month" | "30d" | "custom";
   closer: {
     closeRate: number;
     showRate: number;

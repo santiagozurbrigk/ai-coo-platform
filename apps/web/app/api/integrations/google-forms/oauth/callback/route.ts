@@ -16,6 +16,7 @@ type OAuthCookie = {
   organizationId: string;
   state: string;
   codeVerifier: string;
+  includeYoutube?: boolean;
 };
 
 export async function GET(request: NextRequest) {
@@ -64,12 +65,15 @@ export async function GET(request: NextRequest) {
       codeVerifier: cookie.codeVerifier,
     });
 
+    const includeYoutube = cookie.includeYoutube !== false;
+
     const { formsError, youtubeError } = await persistUnifiedGoogleTokens(
       cookie.organizationId,
-      tokens
+      tokens,
+      includeYoutube
     );
 
-    if (formsError || youtubeError) {
+    if (formsError || (includeYoutube && youtubeError)) {
       console.error("[google-forms/oauth/callback] DB:", formsError, youtubeError);
       return integrationsOAuthRedirect(origin, "google_forms", "error", "google_forms_oauth");
     }
@@ -101,13 +105,15 @@ export async function GET(request: NextRequest) {
       console.error("[google-forms/oauth/callback] sync forms:", e);
     }
 
-    try {
-      await syncYoutubeChannelAndVideos(
-        cookie.organizationId,
-        tokens.access_token
-      );
-    } catch (e) {
-      console.error("[google-forms/oauth/callback] sync youtube:", e);
+    if (includeYoutube) {
+      try {
+        await syncYoutubeChannelAndVideos(
+          cookie.organizationId,
+          tokens.access_token
+        );
+      } catch (e) {
+        console.error("[google-forms/oauth/callback] sync youtube:", e);
+      }
     }
 
     return integrationsOAuthRedirect(

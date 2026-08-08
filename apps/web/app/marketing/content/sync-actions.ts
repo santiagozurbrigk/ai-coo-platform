@@ -8,6 +8,10 @@ import {
 import { getZernioClientForOrganization, getZernioIntegrationForOrg } from "@/lib/zernio/integration";
 import { resolvePostAnalytics } from "@/lib/zernio/resolve-analytics";
 import { syncContentMetricsForOrg } from "@/lib/marketing/sync-content-metrics";
+import {
+  persistContentThumbnail,
+  isInstagramCdnUrl,
+} from "@/lib/marketing/story-thumbnail-storage";
 import type {
   ContentMetrics,
   ContentPieceSource,
@@ -243,10 +247,35 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
     existingByPlatformId.has(row.platform_post_id)
   );
 
+  /**
+   * Persiste la thumbnail de una fila en Supabase Storage si la URL es efímera.
+   * Aplica a todos los tipos (posts, reels, carousels, stories).
+   */
+  async function resolveThumbnailUrl(row: ContentPieceSyncRow): Promise<string | null> {
+    const url = row.thumbnail_url;
+    if (!url) return null;
+    // Si la URL ya está persistida (no es CDN de Instagram), la usamos tal cual
+    if (!isInstagramCdnUrl(url)) return url;
+    return persistContentThumbnail(
+      row.organization_id,
+      row.platform_post_id,
+      url,
+      row.type
+    );
+  }
+
   if (toInsert.length > 0) {
+    // Persistir thumbnails de todos los tipos antes de insertar
+    const withPersistedThumbnails = await Promise.all(
+      toInsert.map(async (row) => {
+        const persistedUrl = await resolveThumbnailUrl(row);
+        return persistedUrl ? { ...row, thumbnail_url: persistedUrl } : row;
+      })
+    );
+
     const { error: insertError } = await supabase
       .from("content_pieces")
-      .insert(toInsert);
+      .insert(withPersistedThumbnails);
 
     if (insertError) throw new Error(insertError.message);
   }
@@ -255,6 +284,10 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
     toUpdate.map(async (row) => {
       const id = existingByPlatformId.get(row.platform_post_id);
       if (!id) return;
+
+      // Si la URL en el sync es efímera (CDN Instagram), persistirla ahora
+      // (repara filas existentes que tenían URL expirada)
+      const thumbnailUrl = await resolveThumbnailUrl(row);
 
       const { error } = await supabase
         .from("content_pieces")
@@ -265,7 +298,7 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
           title: row.title,
           caption: row.caption,
           hashtags: row.hashtags,
-          thumbnail_url: row.thumbnail_url,
+          thumbnail_url: thumbnailUrl,
           published_at: row.published_at,
           status: row.status,
           metrics: row.metrics,

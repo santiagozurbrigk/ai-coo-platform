@@ -1,17 +1,45 @@
-import { labelContentAsset } from "@/lib/content/label-content";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   fetchYouTubeVideoDetails,
   youtubeMetricsToAssetFields,
 } from "@/lib/youtube/video-metrics";
 
+type YouTubeAuth =
+  | { type: "oauth"; accessToken: string }
+  | { type: "api_key"; apiKey: string; channelId: string };
+
+function buildYouTubeUrl(path: string, params: Record<string, string>, auth: YouTubeAuth): string {
+  const url = new URL(`https://www.googleapis.com/youtube/v3/${path}`);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  if (auth.type === "api_key") url.searchParams.set("key", auth.apiKey);
+  return url.toString();
+}
+
+function authHeaders(auth: YouTubeAuth): HeadersInit {
+  if (auth.type === "oauth") return { Authorization: `Bearer ${auth.accessToken}` };
+  return {};
+}
+
 export async function syncYoutubeChannelAndVideos(
   organizationId: string,
-  accessToken: string
+  accessTokenOrAuth: string | YouTubeAuth
 ): Promise<void> {
+  // Backwards-compat: string = OAuth access token
+  const auth: YouTubeAuth =
+    typeof accessTokenOrAuth === "string"
+      ? { type: "oauth", accessToken: accessTokenOrAuth }
+      : accessTokenOrAuth;
+
+  const channelParams: Record<string, string> = { part: "snippet,statistics" };
+  if (auth.type === "oauth") {
+    channelParams.mine = "true";
+  } else {
+    channelParams.id = auth.channelId;
+  }
+
   const channelRes = await fetch(
-    "https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true",
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+    buildYouTubeUrl("channels", channelParams, auth),
+    { headers: authHeaders(auth) }
   );
   const channelData = (await channelRes.json()) as {
     items?: {
@@ -50,8 +78,12 @@ export async function syncYoutubeChannelAndVideos(
   if (!channel?.id) return;
 
   const searchRes = await fetch(
-    `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channel.id}&maxResults=25&order=date&type=video`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+    buildYouTubeUrl(
+      "search",
+      { part: "snippet", channelId: channel.id, maxResults: "25", order: "date", type: "video" },
+      auth
+    ),
+    { headers: authHeaders(auth) }
   );
   const searchData = (await searchRes.json()) as {
     items?: {
@@ -70,7 +102,12 @@ export async function syncYoutubeChannelAndVideos(
     .map((item) => item.id?.videoId)
     .filter((id): id is string => Boolean(id));
 
-  const videoDetails = await fetchYouTubeVideoDetails(videoIds, accessToken);
+  const videoDetails = await fetchYouTubeVideoDetails(
+    videoIds,
+    auth.type === "oauth" ? auth.accessToken : undefined,
+    auth.type === "api_key" ? auth.apiKey : undefined
+  );
+  const now = new Date().toISOString();
 
   for (const item of searchItems) {
     const videoId = item.id?.videoId;
@@ -78,20 +115,8 @@ export async function syncYoutubeChannelAndVideos(
     const snippet = item.snippet;
     const title = snippet?.title ?? "Video";
     const caption = snippet?.description ?? "";
-    const metrics = videoDetails.get(videoId);
-
-    const label = await labelContentAsset({
-      organizationId,
-      title,
-      caption,
-      contentType: "video",
-      views: metrics?.view_count ?? 0,
-      likes: metrics?.like_count ?? 0,
-      comments: metrics?.comment_count ?? 0,
-    });
-
-    const nativeFields = metrics
-      ? youtubeMetricsToAssetFields(metrics)
+    const nativeFields = videoDetails.get(videoId)
+      ? youtubeMetricsToAssetFields(videoDetails.get(videoId)!)
       : {
           views: 0,
           likes: 0,
@@ -101,31 +126,34 @@ export async function syncYoutubeChannelAndVideos(
           platform_metadata: {},
         };
 
-    await admin.from("content_assets").upsert(
+    const metrics = {
+      views: nativeFields.views,
+      likes: nativeFields.likes,
+      comments: nativeFields.comments,
+      shares: 0,
+      saves: 0,
+      reach: 0,
+      impressions: 0,
+    };
+
+    await admin.from("content_pieces").upsert(
       {
         organization_id: organizationId,
+        type: "youtube",
+        source: "google",
         platform: "youtube",
-        external_id: videoId,
+        platform_post_id: videoId,
+        platform_post_url: `https://www.youtube.com/watch?v=${videoId}`,
         title,
         caption,
-        thumbnail_url:
-          nativeFields.thumbnail_url ??
-          snippet?.thumbnails?.medium?.url ??
-          null,
-        content_type: "video",
-        published_at:
-          metrics?.published_at ?? snippet?.publishedAt ?? null,
-        views: nativeFields.views,
-        likes: nativeFields.likes,
-        comments: nativeFields.comments,
-        duration_seconds: nativeFields.duration_seconds,
-        platform_metadata: nativeFields.platform_metadata,
-        ai_content_label: label?.label ?? null,
-        ai_label_confidence: label?.confidence ?? null,
-        ai_label_reasoning: label?.reasoning ?? null,
-        last_synced_at: new Date().toISOString(),
+        hashtags: [],
+        thumbnail_url: nativeFields.thumbnail_url ?? snippet?.thumbnails?.medium?.url ?? null,
+        published_at: videoDetails.get(videoId)?.published_at ?? snippet?.publishedAt ?? null,
+        status: "published",
+        metrics,
+        metrics_updated_at: now,
       },
-      { onConflict: "organization_id,platform,external_id" }
+      { onConflict: "organization_id,platform_post_id" }
     );
   }
 }

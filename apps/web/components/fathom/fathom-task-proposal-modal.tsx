@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -13,7 +13,10 @@ import {
   Label,
 } from "@ai-coo/ui";
 import { createWorkboardTasksAction } from "@/app/agent/actions";
-import { markFathomTasksSentToBoardAction } from "@/app/fathom/actions";
+import {
+  markFathomTasksSentToBoardAction,
+  updateFathomTaskProposalsAction,
+} from "@/app/fathom/actions";
 import type { FathomTaskProposal } from "@/lib/fathom/team-task-extraction";
 import { cn } from "@/lib/utils";
 
@@ -32,14 +35,17 @@ const PRIORITY_OPTIONS = [
   { value: "high", label: "Alta" },
 ] as const;
 
-type EditableProposal = FathomTaskProposal & { selected: boolean };
+type EditableProposal = FathomTaskProposal & {
+  selected: boolean;
+  rejected: boolean;
+};
 
 type FathomTaskProposalModalProps = {
   proposals: FathomTaskProposal[];
   fathomCallId: string;
   open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (allRejected?: boolean) => void;
 };
 
 export function FathomTaskProposalModal({
@@ -50,14 +56,20 @@ export function FathomTaskProposalModal({
   onSuccess,
 }: FathomTaskProposalModalProps) {
   const [items, setItems] = useState<EditableProposal[]>(() =>
-    proposals.map((proposal) => ({ ...proposal, selected: true }))
+    proposals.map((p) => ({
+      ...p,
+      selected: !(p as Record<string, unknown>).rejected,
+      rejected: Boolean((p as Record<string, unknown>).rejected),
+    }))
   );
   const [saving, setSaving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const visibleItems = items.filter((i) => !i.rejected);
   const selectedCount = useMemo(
-    () => items.filter((item) => item.selected).length,
-    [items]
+    () => visibleItems.filter((i) => i.selected).length,
+    [visibleItems]
   );
 
   const updateItem = (index: number, patch: Partial<EditableProposal>) => {
@@ -66,8 +78,51 @@ export function FathomTaskProposalModal({
     );
   };
 
+  const rejectItem = async (index: number) => {
+    const updated = items.map((item, i) =>
+      i === index ? { ...item, rejected: true, selected: false } : item
+    );
+    setItems(updated);
+
+    // Persist the rejection immediately
+    await updateFathomTaskProposalsAction(
+      fathomCallId,
+      updated.map(({ selected: _s, ...rest }) => rest)
+    );
+
+    // If all are now rejected, auto-close the banner
+    if (updated.every((i) => i.rejected)) {
+      await markFathomTasksSentToBoardAction(fathomCallId);
+      onSuccess(true);
+      onClose();
+    }
+  };
+
+  const handleRejectAll = async () => {
+    setRejecting(true);
+    setError(null);
+    try {
+      const allRejected = items.map((i) => ({
+        ...i,
+        rejected: true,
+        selected: false,
+      }));
+      await updateFathomTaskProposalsAction(
+        fathomCallId,
+        allRejected.map(({ selected: _s, ...rest }) => rest)
+      );
+      await markFathomTasksSentToBoardAction(fathomCallId);
+      onSuccess(true);
+      onClose();
+    } catch {
+      setError("No se pudieron rechazar las tareas.");
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   const handleSubmit = async () => {
-    const selected = items.filter((item) => item.selected);
+    const selected = visibleItems.filter((i) => i.selected);
     if (!selected.length || saving) return;
 
     setSaving(true);
@@ -103,129 +158,168 @@ export function FathomTaskProposalModal({
     onClose();
   };
 
+  const originalIndex = (visibleIndex: number) => {
+    let count = -1;
+    for (let i = 0; i < items.length; i++) {
+      if (!items[i].rejected) {
+        count++;
+        if (count === visibleIndex) return i;
+      }
+    }
+    return visibleIndex;
+  };
+
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Agregar tareas al Tablero de Trabajo</DialogTitle>
+          <DialogTitle>Revisar tareas detectadas</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            La IA detectó estas tareas en la reunión. Podés agregarlas al tablero, editarlas o rechazarlas.
+          </p>
         </DialogHeader>
 
         <div className="space-y-3">
-          {items.map((item, index) => (
-            <div
-              key={`${item.title}-${index}`}
-              className={cn(
-                "rounded-xl border border-violet-500/20 bg-violet-500/5 p-4 dark:bg-violet-500/10",
-                !item.selected && "opacity-60"
-              )}
-            >
-              <label className="mb-3 flex cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={item.selected}
-                  onChange={(e) => updateItem(index, { selected: e.target.checked })}
-                  className="mt-1 h-4 w-4 rounded border-violet-400 text-violet-600 focus:ring-violet-500"
-                />
-                <span className="text-xs font-medium text-muted-foreground">
-                  Incluir esta tarea
-                </span>
-              </label>
-
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor={`task-title-${index}`}>Título</Label>
-                  <Input
-                    id={`task-title-${index}`}
-                    value={item.title}
-                    onChange={(e) => updateItem(index, { title: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor={`task-desc-${index}`}>Descripción</Label>
-                  <Input
-                    id={`task-desc-${index}`}
-                    value={item.description ?? ""}
-                    onChange={(e) =>
-                      updateItem(index, { description: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`task-area-${index}`}>Área</Label>
-                    <select
-                      id={`task-area-${index}`}
-                      value={item.area ?? "general"}
-                      onChange={(e) =>
-                        updateItem(index, {
-                          area: e.target.value as EditableProposal["area"],
-                        })
-                      }
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+          {visibleItems.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              Todas las tareas fueron rechazadas.
+            </p>
+          ) : (
+            visibleItems.map((item, visibleIdx) => {
+              const realIdx = originalIndex(visibleIdx);
+              return (
+                <div
+                  key={`${item.title}-${realIdx}`}
+                  className={cn(
+                    "rounded-xl border border-violet-500/20 bg-violet-500/5 p-4 dark:bg-violet-500/10",
+                    !item.selected && "opacity-60"
+                  )}
+                >
+                  {/* Header row: checkbox + reject button */}
+                  <div className="mb-3 flex items-center justify-between">
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={item.selected}
+                        onChange={(e) =>
+                          updateItem(realIdx, { selected: e.target.checked })
+                        }
+                        className="h-4 w-4 rounded border-violet-400 text-violet-600 focus:ring-violet-500"
+                      />
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Incluir esta tarea
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => void rejectItem(realIdx)}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      title="Rechazar esta tarea"
                     >
-                      {AREA_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Rechazar
+                    </button>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`task-priority-${index}`}>Prioridad</Label>
-                    <select
-                      id={`task-priority-${index}`}
-                      value={item.priority ?? "medium"}
-                      onChange={(e) =>
-                        updateItem(index, {
-                          priority: e.target.value as EditableProposal["priority"],
-                        })
-                      }
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                    >
-                      {PRIORITY_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`task-title-${realIdx}`}>Título</Label>
+                      <Input
+                        id={`task-title-${realIdx}`}
+                        value={item.title}
+                        onChange={(e) =>
+                          updateItem(realIdx, { title: e.target.value })
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`task-desc-${realIdx}`}>Descripción</Label>
+                      <Input
+                        id={`task-desc-${realIdx}`}
+                        value={item.description ?? ""}
+                        onChange={(e) =>
+                          updateItem(realIdx, { description: e.target.value })
+                        }
+                      />
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`task-area-${realIdx}`}>Área</Label>
+                        <select
+                          id={`task-area-${realIdx}`}
+                          value={item.area ?? "general"}
+                          onChange={(e) =>
+                            updateItem(realIdx, {
+                              area: e.target.value as EditableProposal["area"],
+                            })
+                          }
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                          {AREA_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`task-priority-${realIdx}`}>Prioridad</Label>
+                        <select
+                          id={`task-priority-${realIdx}`}
+                          value={item.priority ?? "medium"}
+                          onChange={(e) =>
+                            updateItem(realIdx, {
+                              priority: e.target.value as EditableProposal["priority"],
+                            })
+                          }
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                          {PRIORITY_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`task-due-${realIdx}`}>Vencimiento</Label>
+                        <Input
+                          id={`task-due-${realIdx}`}
+                          type="date"
+                          value={item.due_date ?? ""}
+                          onChange={(e) =>
+                            updateItem(realIdx, {
+                              due_date: e.target.value || null,
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`task-assignee-${realIdx}`}>Responsable</Label>
+                        <Input
+                          id={`task-assignee-${realIdx}`}
+                          value={item.assignee_name ?? ""}
+                          onChange={(e) =>
+                            updateItem(realIdx, {
+                              assignee_name: e.target.value || null,
+                            })
+                          }
+                          placeholder="Nombre del equipo"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`task-due-${index}`}>Vencimiento</Label>
-                    <Input
-                      id={`task-due-${index}`}
-                      type="date"
-                      value={item.due_date ?? ""}
-                      onChange={(e) =>
-                        updateItem(index, {
-                          due_date: e.target.value || null,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor={`task-assignee-${index}`}>Responsable</Label>
-                    <Input
-                      id={`task-assignee-${index}`}
-                      value={item.assignee_name ?? ""}
-                      onChange={(e) =>
-                        updateItem(index, {
-                          assignee_name: e.target.value || null,
-                        })
-                      }
-                      placeholder="Nombre del equipo"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+              );
+            })
+          )}
         </div>
 
         {error ? (
@@ -234,14 +328,33 @@ export function FathomTaskProposalModal({
           </p>
         ) : null}
 
-        <DialogFooter>
-          <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
-            Cancelar
+        <DialogFooter className="gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            className="text-muted-foreground"
+            onClick={() => void handleRejectAll()}
+            disabled={saving || rejecting || visibleItems.length === 0}
+          >
+            {rejecting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-2 h-4 w-4" />
+            )}
+            Rechazar todas
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={saving || rejecting}
+          >
+            Cerrar
           </Button>
           <Button
             type="button"
             onClick={() => void handleSubmit()}
-            disabled={saving || selectedCount === 0}
+            disabled={saving || rejecting || selectedCount === 0}
           >
             {saving ? (
               <>
