@@ -1,9 +1,46 @@
 # CLAUDE.md — Contexto maestro del monorepo OTC
 
 Documento de referencia para **Claude Code**, Cursor y desarrolladores nuevos.  
-Repo: `ai-coo-platform` · App principal: `apps/web` · Última revisión: julio 2026.
+Repo: `ai-coo-platform` · App principal: `apps/web` · Última revisión: agosto 2026.
+
+---
+
+## ⚡ REGLAS OBLIGATORIAS PARA CLAUDE CODE — LEER PRIMERO
+
+> Estas reglas aplican a **cualquier sesión** que modifique código en este repo.
+
+### 1. Leer CHANGES.md al inicio de cada sesión
+
+**Antes de hacer cualquier cambio**, leer [`CHANGES.md`](./CHANGES.md) en la raíz del repo.  
+Este archivo contiene el historial de cambios con contexto de qué se hizo, por qué y qué decisiones se tomaron. Es la memoria del proyecto entre sesiones.
+
+```
+Read /home/user/ai-coo-platform/CHANGES.md
+```
+
+### 2. Actualizar CHANGES.md al final de cada sesión
+
+**Después de cada bloque de cambios significativo** (no necesariamente al final de cada commit, pero sí antes de terminar una sesión de trabajo), agregar una entrada en `CHANGES.md` con el formato documentado en ese archivo:
+
+- **Fecha** (formato `AAAA-MM-DD`)
+- **Título corto** del cambio
+- **Branch y commit(s)**
+- **Módulo(s) afectado(s)**
+- **Qué se hizo** — descripción técnica concreta
+- **Por qué / finalidad** — el problema que resuelve o la feature implementada
+- **Decisiones de diseño relevantes** — trade-offs, alternativas consideradas
+- **Riesgos / deuda técnica pendiente** — qué quedó sin hacer o puede romperse
+
+Agregar la entrada **al principio del historial** (orden cronológico inverso — más reciente arriba).
+
+### 3. Nunca saltear la actualización de CHANGES.md
+
+Aunque el cambio parezca pequeño (un bugfix de una línea, un tweak de UI), documentarlo. La continuidad de contexto entre sesiones depende de este registro. Un cambio sin documentar es contexto perdido.
+
+---
 
 **Fuentes complementarias (leer si hace falta profundizar):**
+- `CHANGES.md` — **historial de cambios con contexto** (leer siempre primero)
 - `OTC_OPERATIONAL_NOTES.md` — operaciones, integraciones, crons, env vars en detalle
 - `DESIGN.md` — design system OTC
 - `docs/PROJECT_CONSTITUTION.md` — visión de producto
