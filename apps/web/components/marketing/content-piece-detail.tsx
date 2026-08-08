@@ -50,6 +50,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { safeThumbnailUrl } from "@/lib/marketing/cdn-utils";
 
 // ─── Types & helpers ────────────────────────────────────────────────────────
 
@@ -156,6 +157,9 @@ export function ContentPieceDetail({ piece, variants, orgAvg }: Props) {
         ? "Instagram"
         : "plataforma";
 
+  // Filtrar URLs efímeras del CDN de Instagram (expiran ~1-2hs → generan 403 en consola)
+  const pieceThumbnail = safeThumbnailUrl(piece.thumbnail_url);
+
   const tabs = [
     { tab: "metricas" as const, label: "Métricas" },
     { tab: "analisis" as const, label: "Análisis", showCheck: Boolean(piece.analysis) },
@@ -181,12 +185,12 @@ export function ContentPieceDetail({ piece, variants, orgAvg }: Props) {
       <div className="flex min-h-[680px] overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
         {/* ─── Left panel ──────────────────────────────────────────── */}
         <div className="flex w-64 flex-shrink-0 flex-col gap-4 border-r border-border/60 p-4">
-          {/* Thumbnail */}
+          {/* Thumbnail — filtra URLs CDN expiradas de Instagram para evitar 403 en consola */}
           <div className="relative aspect-[9/16] overflow-hidden rounded-xl bg-muted shadow-inner">
-            {piece.thumbnail_url ? (
+            {pieceThumbnail ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={piece.thumbnail_url}
+                src={pieceThumbnail}
                 alt=""
                 className="h-full w-full object-cover"
               />

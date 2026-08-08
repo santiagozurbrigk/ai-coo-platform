@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { safeThumbnailUrl } from "@/lib/marketing/cdn-utils";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Film, LayoutGrid, List, Search } from "lucide-react";
@@ -493,10 +494,10 @@ function ContentGridCard({
     <div className="content-card group overflow-hidden rounded-xl border border-border transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5">
       <Link href={paths.platform.marketing.contentDetail(asset.id)}>
         <div className="relative aspect-[9/16] overflow-hidden rounded-t-xl bg-muted/40">
-          {asset.thumbnailUrl ? (
+          {safeThumbnailUrl(asset.thumbnailUrl) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={asset.thumbnailUrl}
+              src={safeThumbnailUrl(asset.thumbnailUrl)!}
               alt=""
               className="h-full w-full object-cover"
             />

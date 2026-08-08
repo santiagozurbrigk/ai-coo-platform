@@ -35,6 +35,7 @@ import type { ContentTypePerformance, HeatmapCell } from "@/types/marketing-insi
 import type { RadarData, RadarMetric } from "@/components/charts/radar-context";
 import type { FunnelStage } from "@/components/charts/funnel-chart";
 import { useMemo, useState } from "react";
+import { safeThumbnailUrl } from "@/lib/marketing/cdn-utils";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -118,9 +119,9 @@ function TopContentCard({ ranked }: { ranked: TopConvertingItem[] }) {
                   {i + 1}
                 </span>
                 <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted/50">
-                  {item.thumbnailUrl ? (
+                  {safeThumbnailUrl(item.thumbnailUrl) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                    <img src={safeThumbnailUrl(item.thumbnailUrl)!} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <FileText size={14} className="text-muted-foreground" />
                   )}

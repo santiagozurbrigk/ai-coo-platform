@@ -9,17 +9,11 @@
  */
 import type { ContentPieceType } from "@/types/content";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isInstagramCdnUrl } from "@/lib/marketing/cdn-utils";
+
+export { isInstagramCdnUrl } from "@/lib/marketing/cdn-utils";
 
 const BUCKET = "content-thumbnails";
-
-/** Detecta si una URL es efímera de Instagram CDN (expiran ~1-2hs). */
-export function isInstagramCdnUrl(url: string): boolean {
-  return (
-    url.includes("scontent") ||
-    url.includes("cdninstagram.com") ||
-    url.includes("fbcdn.net")
-  );
-}
 
 /** Detecta si una URL ya está persistida en nuestro bucket de Supabase. */
 export function isPersistedThumbnail(url: string, supabaseUrl: string): boolean {

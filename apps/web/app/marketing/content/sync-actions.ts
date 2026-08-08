@@ -265,11 +265,13 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
   }
 
   if (toInsert.length > 0) {
-    // Persistir thumbnails de todos los tipos antes de insertar
+    // Persistir thumbnails de todos los tipos antes de insertar.
+    // Si la persistencia falla, guardar null en lugar de la URL efímera del CDN de
+    // Instagram (que expira en ~1-2hs y generaría errores 403 en el navegador).
     const withPersistedThumbnails = await Promise.all(
       toInsert.map(async (row) => {
         const persistedUrl = await resolveThumbnailUrl(row);
-        return persistedUrl ? { ...row, thumbnail_url: persistedUrl } : row;
+        return { ...row, thumbnail_url: persistedUrl ?? null };
       })
     );
 
@@ -322,9 +324,58 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
   return { synced: upsertRows.length };
 }
 
+/**
+ * Limpia URLs efímeras del CDN de Instagram que quedaron almacenadas en rows existentes.
+ * Las URLs CDN de Instagram expiran en ~1-2hs, causando errores 403 en el navegador.
+ * Se nulifican en DB → el próximo sync trae URLs frescas y las persiste en Supabase Storage.
+ */
+async function repairExpiredCdnThumbnails(organizationId: string): Promise<void> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("content_pieces")
+    .select("id, thumbnail_url")
+    .eq("organization_id", organizationId)
+    .not("thumbnail_url", "is", null);
+
+  if (error) {
+    console.warn("[repairExpiredCdnThumbnails] error fetching rows", { error: error.message });
+    return;
+  }
+
+  const expiredIds = (data ?? [])
+    .filter((row) => row.thumbnail_url && isInstagramCdnUrl(row.thumbnail_url as string))
+    .map((row) => row.id as string);
+
+  if (expiredIds.length === 0) return;
+
+  const { error: updateError } = await supabase
+    .from("content_pieces")
+    .update({ thumbnail_url: null })
+    .in("id", expiredIds)
+    .eq("organization_id", organizationId);
+
+  if (updateError) {
+    console.warn("[repairExpiredCdnThumbnails] error nulling CDN URLs", { error: updateError.message });
+    return;
+  }
+
+  console.log("[repairExpiredCdnThumbnails] cleaned up expired CDN URLs", {
+    organizationId,
+    count: expiredIds.length,
+  });
+}
+
 export async function maybeSyncZernioContentAction(): Promise<void> {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
+
+  // Reparar URLs CDN efímeras vencidas en rows existentes (en background, no bloquea el throttle check)
+  void repairExpiredCdnThumbnails(organizationId).catch((err) => {
+    console.warn("[maybeSyncZernioContent] repair thumbnails failed", {
+      error: err instanceof Error ? err.message : err,
+    });
+  });
 
   const { count, error: countError } = await supabase
     .from("content_pieces")
