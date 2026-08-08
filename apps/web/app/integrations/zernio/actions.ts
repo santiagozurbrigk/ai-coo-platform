@@ -9,6 +9,7 @@ import {
 } from "@/lib/rate-limit";
 import { apiKeySchema, firstZodError } from "@/lib/validations";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes";
 import {
@@ -409,31 +410,67 @@ export async function getZernioAnalyticsAction(): Promise<ZernioAnalyticsSummary
 
   try {
     const organizationId = await requireOrganizationId();
+
+    // Verificar que Zernio esté conectado (para mostrar el empty state correcto)
     const integration = await getZernioIntegrationForOrg(organizationId);
-    if (!integration || integration.connected_accounts.length === 0) {
+    if (!integration) {
       return { totalImpressions: 0, totalLikes: 0, totalComments: 0, hasData: false };
     }
 
-    const client = await getZernioClientForOrganization(organizationId);
-    const analytics = await client.getPostsAnalytics();
-    const posts = (analytics as { posts?: Array<{ analytics?: Record<string, { impressions?: number; likes?: number; comments?: number }> }> }).posts ?? [];
+    // Leer métricas desde content_pieces (ya normalizadas por resolvePostAnalytics en el sync).
+    // Evita llamar al endpoint /analytics/posts de Zernio que devuelve un formato inconsistente
+    // y puede retornar 0 aunque haya datos, causando que el dashboard muestre "Conectá tus redes".
+    const supabase = await createClient();
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data, error } = await supabase
+      .from("content_pieces")
+      .select("metrics")
+      .eq("organization_id", organizationId)
+      .eq("source", "zernio")
+      .gte("published_at", thirtyDaysAgo);
+
+    if (error) {
+      console.warn("[getZernioAnalyticsAction] content_pieces query failed:", error.message);
+      return { totalImpressions: 0, totalLikes: 0, totalComments: 0, hasData: false };
+    }
+
+    const pieces = data ?? [];
+
+    // Si no hay piezas en los últimos 30 días, ampliar a todas las piezas Zernio
+    // para detectar si hay datos históricos y mostrar el dashboard en vez del empty state.
+    const allData = pieces.length === 0
+      ? (await supabase
+          .from("content_pieces")
+          .select("metrics")
+          .eq("organization_id", organizationId)
+          .eq("source", "zernio")
+          .limit(1)
+        ).data ?? []
+      : pieces;
+
+    if (allData.length === 0) {
+      // Hay integración pero todavía no se sincronizó contenido
+      return { totalImpressions: 0, totalLikes: 0, totalComments: 0, hasData: false };
+    }
 
     let totalImpressions = 0;
     let totalLikes = 0;
     let totalComments = 0;
 
-    for (const post of posts) {
-      const platforms = post.analytics ?? {};
-      for (const metrics of Object.values(platforms)) {
-        totalImpressions += metrics.impressions ?? 0;
-        totalLikes += metrics.likes ?? 0;
-        totalComments += metrics.comments ?? 0;
-      }
+    for (const row of pieces) {
+      const m = row.metrics as Record<string, number> | null;
+      if (!m) continue;
+      totalImpressions += m.impressions ?? 0;
+      totalLikes += m.likes ?? 0;
+      totalComments += m.comments ?? 0;
     }
 
-    const hasData = totalImpressions > 0 || totalLikes > 0 || totalComments > 0;
-    return { totalImpressions, totalLikes, totalComments, hasData };
-  } catch {
+    // hasData = true si hay piezas de Zernio (aunque las métricas sean 0 por no haber
+    // corrido el sync de métricas todavía) — muestra el ring chart en vez del empty state.
+    return { totalImpressions, totalLikes, totalComments, hasData: true };
+  } catch (err) {
+    console.error("[getZernioAnalyticsAction] unexpected error:", err instanceof Error ? err.message : err);
     return { totalImpressions: 0, totalLikes: 0, totalComments: 0, hasData: false };
   }
 }
