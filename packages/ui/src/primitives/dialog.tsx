@@ -44,6 +44,9 @@ const DialogContent = React.forwardRef<
         // Evita que al aparecer la scrollbar vertical el contenido se expanda horizontalmente
         // y genere una scrollbar horizontal innecesaria.
         "overflow-x-hidden",
+        // Ocultar el track del scrollbar en WebKit y Firefox cuando se activa overflow-y-auto.
+        // El contenido sigue siendo scrolleable — solo se oculta la barra visual.
+        "[&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
         className
       )}
       {...props}

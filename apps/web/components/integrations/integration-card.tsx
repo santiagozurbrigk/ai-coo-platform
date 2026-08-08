@@ -577,15 +577,17 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         open={manychatImportOpen}
         onOpenChange={setManychatImportOpen}
       />
-      <ManyChatManageSheet
-        open={manychatManageOpen}
-        onOpenChange={setManychatManageOpen}
-        webhookUrl={manychatWebhookUrl}
-        onImportContact={() => {
-          setManychatManageOpen(false);
-          setManychatImportOpen(true);
-        }}
-      />
+      {integration.provider === "manychat" ? (
+        <ManyChatManageSheet
+          open={manychatManageOpen}
+          onOpenChange={setManychatManageOpen}
+          webhookUrl={manychatWebhookUrl}
+          onImportContact={() => {
+            setManychatManageOpen(false);
+            setManychatImportOpen(true);
+          }}
+        />
+      ) : null}
       <ZernioConnectModal
         open={zernioConnectOpen}
         onOpenChange={setZernioConnectOpen}
