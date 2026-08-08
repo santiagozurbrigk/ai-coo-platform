@@ -41,6 +41,35 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-08 — Fix React #418 (hidratación) en detalle de contenido + sync de historias Zernio
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `d724eae` — fix(marketing): hidratación React #418 y sync de historias Zernio  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `marketing`, `lib/marketing`
+
+**Qué se hizo:**
+1. **`content-piece-detail.tsx` — React error #418**: Añadido `suppressHydrationWarning` en todos los elementos que renderizan fechas/números con `toLocaleString("es-AR")` / `toLocaleDateString("es-AR")` (elementos `<p>` y `<span>` en líneas de fecha de publicación, métricas actualizadas, funnel de atribución de ventas, fecha de variantes IA). Para el prop `subtitle` de `ChartShell` (string interpolado — no admite `suppressHydrationWarning` directamente), se reemplazó `totalInteractions.toLocaleString("es-AR")` por `fmtNum(totalInteractions)` que evita separadores de locale para valores ≥1000.
+2. **`sync-actions.ts` — `fetchExternalPostsViaSync`**: Además del `syncExternalPosts` (POST /posts/sync-external → toca Instagram /me/media, NO trae stories), ahora también llama `listPublishedPosts({ source: "external", accountId, limit: 200 })` para cada cuenta. Esto recupera todos los posts externos conocidos por Zernio, incluyendo historias si Zernio las sincroniza vía otro mecanismo. Los dos conjuntos se mergean y se deduplicam con `dedupeExternalPosts`.
+3. **`sync-actions.ts` — `externalPlatformPostId`**: Fallback para historias sin `platformPostId`: si el `_id` de Zernio es un MongoDB ObjectID (24 hex chars) y el tipo es `story`, se usa `zstory_<id>` como identificador en lugar de descartar la historia.
+4. **Logging**: Se añade logging detallado con `storyCount` y `types` en ambas llamadas a Zernio para diagnosticar qué tipos devuelve cada endpoint.
+
+**Por qué / finalidad:**
+- **Error #418**: El componente `ContentPieceDetail` es `"use client"` pero Next.js igual lo pre-renderiza en el servidor (SSR). `toLocaleString("es-AR")` produce resultados distintos entre Node.js (ICU limitada o de sistema) y el browser, causando mismatch en el texto hidratado → React error #418.
+- **Historias**: `syncExternalPosts` (POST /posts/sync-external) solo sincroniza el feed `/me/media` de Instagram, que por diseño de la API de Meta no incluye stories (están en `/me/stories`). Las historias publicadas no aparecían en el módulo de Contenido porque nunca se obtenían. El usuario publicó una historia manualmente y al hacer sync manual no la veía.
+
+**Decisiones de diseño relevantes:**
+- `suppressHydrationWarning` es preferible a envolver en `useEffect`/`useState` porque no cambia el comportamiento de la UI (la fecha se muestra igual) y no agrega re-render.
+- Para el subtitle prop de ChartShell, `fmtNum()` es locale-safe para valores ≥1000 (usa `K`/`M` con `toFixed`) y para <1000 los separadores locales son irrelevantes (no hay miles).
+- `zstory_<id>` como prefijo para IDs de historias sin platformPostId evita colisiones con IDs reales de Instagram y hace el origen obvio en la DB.
+- La llamada `listPublishedPosts({ source: "external" })` es complementaria a `syncExternalPosts`: la primera lista lo que Zernio ya conoce, la segunda fuerza un re-sync desde Instagram.
+
+**Riesgos / deuda técnica pendiente:**
+- No se sabe con certeza si Zernio incluye stories en `GET /posts?source=external`. Hay logging para diagnosticarlo. Si `storyCount` sigue siendo 0, el problema está en Zernio (no sincroniza stories de Instagram en `/me/stories`) y requeriría un endpoint separado en Zernio o un mecanismo diferente.
+- La URL de una historia en Instagram solo existe mientras la historia está activa (24hs). Si Zernio no guarda el `thumbnailUrl` de la historia, la columna `thumbnail_url` quedaría null.
+
+---
+
 ### 2026-08-08 — Fix errores 403 en consola del módulo Marketing por URLs CDN de Instagram expiradas
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
