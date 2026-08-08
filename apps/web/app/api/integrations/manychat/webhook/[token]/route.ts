@@ -16,7 +16,7 @@ export async function POST(
   }
 
   const ip = getRequestIp(req);
-  const { allowed, resetAt } = webhookRateLimit(`manychat:${ip}`);
+  const { allowed, resetAt } = await webhookRateLimit(`manychat:${ip}`);
   if (!allowed) return rateLimitExceeded(resetAt);
 
   const { token } = await context.params;

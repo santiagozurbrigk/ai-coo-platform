@@ -631,7 +631,7 @@ async function executeAgentActions(
 ): Promise<{ actionType: AgentMessage["actionType"]; actionRefId: string } | null> {
   for (const action of actions) {
     if (action.type === "CREATE_SOP") {
-      const { allowed, resetAt } = sopGenerateRateLimit(organizationId);
+      const { allowed, resetAt } = await sopGenerateRateLimit(organizationId);
       if (!allowed) {
         throw new Error(rateLimitErrorMessage(resetAt));
       }
@@ -692,7 +692,7 @@ export async function sendAgentMessageAction(input: {
 }> {
   const { user, orgId: organizationId } = await requireAuthContext();
 
-  const { allowed, resetAt } = aiRateLimit(user.id);
+  const { allowed, resetAt } = await aiRateLimit(user.id);
   if (!allowed) {
     throw new Error(rateLimitErrorMessage(resetAt));
   }

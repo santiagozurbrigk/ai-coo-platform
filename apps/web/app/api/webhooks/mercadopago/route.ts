@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   const ip = getRequestIp(request);
-  const { allowed, resetAt } = webhookRateLimit(`mercadopago:${ip}`);
+  const { allowed, resetAt } = await webhookRateLimit(`mercadopago:${ip}`);
   if (!allowed) return rateLimitExceeded(resetAt);
 
   const url = new URL(request.url);

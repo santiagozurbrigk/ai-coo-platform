@@ -25,6 +25,10 @@
 - Server → valida sesión + escribe key en DB vía admin client
 - Sync/webhooks → admin client + secrets en env o DB
 
+## Rate limiting
+
+Los contadores viven en Postgres (`public.rate_limits` + `consume_rate_limit`, migración `20260808100000`), no en memoria del proceso: en Vercel cada lambda tenía su propio `Map` y los límites de auth (5/15min) y de IA (10/min) se reseteaban en cada cold start. Sin Supabase configurado se usa un contador en memoria (solo dev).
+
 ## Acción RLS
 
 Migración `20260606100000_security_hardening_rls.sql` elimina políticas SELECT en tablas de integraciones para que un cliente autenticado no pueda leer `api_key`, `access_token`, etc. directamente desde Supabase JS.

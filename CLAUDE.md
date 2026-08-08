@@ -415,6 +415,7 @@ curl -X POST "https://<app-url>/api/cron/sync-content-metrics" \
 | `rag_documents` / `rag_chunks` | `organization_id`, embeddings | |
 | `token_usage` | `organization_id`, modelo, feature, tokens | Costos IA |
 | `holding_businesses` | `holding_org_id`, `business_org_id` | Portfolio holding |
+| `rate_limits` | `key`, `count`, `reset_at` | Contador de rate limiting compartido entre lambdas (`consume_rate_limit`); solo service role |
 
 ### RLS (Row Level Security)
 

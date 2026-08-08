@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.error;
 
-  const { allowed, resetAt } = integrationConnectRateLimit(auth.user.id);
+  const { allowed, resetAt } = await integrationConnectRateLimit(auth.user.id);
   if (!allowed) {
     return NextResponse.json(
       { error: rateLimitErrorMessage(resetAt) },

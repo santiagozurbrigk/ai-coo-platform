@@ -46,7 +46,7 @@ export async function connectFathomAction(
   try {
     const { user, orgId } = await requireAuthContext();
 
-    const { allowed, resetAt } = integrationConnectRateLimit(user.id);
+    const { allowed, resetAt } = await integrationConnectRateLimit(user.id);
     if (!allowed) {
       return { error: rateLimitErrorMessage(resetAt) };
     }
@@ -87,7 +87,7 @@ export async function syncFathomMeetingsAction(): Promise<
   return runMutation(async () => {
     const { user, orgId } = await requireAuthContext();
 
-    const { allowed, resetAt } = integrationRateLimit(`fathom-sync:${user.id}`);
+    const { allowed, resetAt } = await integrationRateLimit(`fathom-sync:${user.id}`);
     if (!allowed) {
       throw new Error(rateLimitErrorMessage(resetAt));
     }

@@ -108,7 +108,7 @@ export async function POST(req: Request) {
   }
 
   const ip = getRequestIp(req);
-  const { allowed, resetAt } = webhookRateLimit(`calendly:${ip}`);
+  const { allowed, resetAt } = await webhookRateLimit(`calendly:${ip}`);
   if (!allowed) return rateLimitExceeded(resetAt);
 
   try {

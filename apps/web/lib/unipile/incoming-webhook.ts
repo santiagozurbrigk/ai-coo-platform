@@ -22,7 +22,7 @@ export async function handleUnipileIncomingWebhook(req: Request) {
   }
 
   const ip = getRequestIp(req);
-  const { allowed, resetAt } = unipileWebhookRateLimit(`unipile:${ip}`);
+  const { allowed, resetAt } = await unipileWebhookRateLimit(`unipile:${ip}`);
   if (!allowed) return rateLimitExceeded(resetAt);
 
   let body: unknown;

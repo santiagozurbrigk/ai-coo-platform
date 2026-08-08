@@ -104,7 +104,7 @@ export async function connectManyChatAction(
   try {
     const { user, orgId: organizationId } = await requireAuthContext();
 
-    const { allowed, resetAt } = integrationConnectRateLimit(user.id);
+    const { allowed, resetAt } = await integrationConnectRateLimit(user.id);
     if (!allowed) {
       return { error: rateLimitErrorMessage(resetAt) };
     }

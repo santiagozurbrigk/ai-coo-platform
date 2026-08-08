@@ -19,7 +19,7 @@ export function parseAnimatableMetricValue(
   }
 
   const str = String(value).trim();
-  const match = str.match(/^([^0-9\-+]*)([\-+]?[0-9][0-9,.\s]*)(.*)$/);
+  const match = str.match(/^([^0-9\-+]*)([-+]?[0-9][0-9,.\s]*)(.*)$/);
   if (!match) return null;
 
   const [, prefix, numPart, suffix] = match;

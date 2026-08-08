@@ -119,7 +119,7 @@ export async function signInAction(
     return { error: "Completa email y contraseña." };
   }
 
-  const { allowed, resetAt } = authRateLimit(`signin:${emailParsed.data}`);
+  const { allowed, resetAt } = await authRateLimit(`signin:${emailParsed.data}`);
   if (!allowed) {
     return { error: rateLimitErrorMessage(resetAt) };
   }
@@ -175,7 +175,7 @@ export async function signInSuperAdminAction(
     return { error: "Completa email y contraseña." };
   }
 
-  const { allowed, resetAt } = authRateLimit(
+  const { allowed, resetAt } = await authRateLimit(
     `signin-superadmin:${emailParsed.data}`
   );
   if (!allowed) {
@@ -243,7 +243,7 @@ export async function signUpAction(
     return { error: "Completa email y contraseña." };
   }
 
-  const { allowed, resetAt } = authRateLimit(`signup:${emailParsed.data}`);
+  const { allowed, resetAt } = await authRateLimit(`signup:${emailParsed.data}`);
   if (!allowed) {
     return { error: rateLimitErrorMessage(resetAt) };
   }
