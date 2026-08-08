@@ -63,7 +63,19 @@ function externalPlatformPostId(post: ZernioPost): string | null {
   if (!fallback) return null;
 
   const id = String(fallback).trim();
-  if (!id || isZernioInternalId(id)) return null;
+  if (!id) return null;
+
+  // Para posts/reels/carousels descartamos IDs internos de Zernio (MongoDB ObjectID)
+  // ya que siempre deben tener un platformPostId de Instagram/YouTube.
+  // Para historias (stories) Instagram asigna IDs numéricos que Zernio puede guardar
+  // solo en `id`/`_id`; si es MongoDB-shaped lo prefijamos para no confundirlo con
+  // IDs reales de Instagram pero aun así lo persistimos.
+  const postType = (post.postType ?? post.mediaType ?? "").toLowerCase();
+  if (postType === "story" && isZernioInternalId(id)) {
+    return `zstory_${id}`;
+  }
+
+  if (isZernioInternalId(id)) return null;
 
   return id;
 }
@@ -131,25 +143,63 @@ async function fetchExternalPostsViaSync(
 ): Promise<ZernioPost[]> {
   const client = await getZernioClientForOrganization(organizationId);
 
-  const results = await Promise.allSettled(
+  // 1) Triggerear sync desde Instagram /me/media (posts, reels, carousels)
+  const syncResults = await Promise.allSettled(
     accountIds.map(async (accountId) => {
       const { posts, synced } = await client.syncExternalPosts(accountId);
       console.info("[syncZernioContent] syncExternalPosts", {
         accountId,
         postsFound: synced?.postsFound ?? posts.length,
         postsSynced: synced?.postsSynced ?? posts.length,
+        types: posts.map((p) => p.postType ?? p.mediaType ?? "?").slice(0, 10),
       });
       return posts;
     })
   );
 
   const allPosts: ZernioPost[] = [];
-  for (const result of results) {
+  for (const result of syncResults) {
     if (result.status === "fulfilled") {
       allPosts.push(...result.value);
       continue;
     }
     console.warn("[syncZernioContent] syncExternalPosts failed for account", {
+      error:
+        result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason),
+    });
+  }
+
+  // 2) Traer TODOS los posts externos conocidos por Zernio (incluye historias si Zernio
+  //    las sincroniza por su cuenta). Esto complementa syncExternalPosts, que solo toca
+  //    /me/media de Instagram (no incluye stories nativas).
+  const listResults = await Promise.allSettled(
+    accountIds.map(async (accountId) => {
+      const { posts: listed } = await client.listPublishedPosts({
+        source: "external",
+        accountId,
+        limit: 200,
+      });
+      const safeList = listed ?? [];
+      console.info("[syncZernioContent] listPublishedPosts external", {
+        accountId,
+        total: safeList.length,
+        types: safeList.map((p) => p.postType ?? p.mediaType ?? "?").slice(0, 10),
+        storyCount: safeList.filter(
+          (p) => (p.postType ?? p.mediaType ?? "").toLowerCase() === "story"
+        ).length,
+      });
+      return safeList;
+    })
+  );
+
+  for (const result of listResults) {
+    if (result.status === "fulfilled") {
+      allPosts.push(...result.value);
+      continue;
+    }
+    console.warn("[syncZernioContent] listPublishedPosts failed for account", {
       error:
         result.reason instanceof Error
           ? result.reason.message

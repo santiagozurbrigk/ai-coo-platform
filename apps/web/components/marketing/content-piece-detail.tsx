@@ -211,7 +211,7 @@ export function ContentPieceDetail({ piece, variants, orgAvg }: Props) {
               {piece.caption ?? piece.title ?? "Sin descripción"}
             </p>
             {piece.published_at ? (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground" suppressHydrationWarning>
                 {new Date(piece.published_at).toLocaleDateString("es-AR", {
                   day: "numeric",
                   month: "long",
@@ -521,7 +521,7 @@ function MetricasTab({
         {/* Donut */}
         <ChartShell
           title="Distribución de interacciones"
-          subtitle={`${totalInteractions.toLocaleString("es-AR")} interacciones totales`}
+          subtitle={`${fmtNum(totalInteractions)} interacciones totales`}
           className="min-h-[200px]"
         >
           {donutSlices.length > 0 ? (
@@ -627,7 +627,7 @@ function MetricasTab({
 
       {/* Metrics freshness */}
       {piece.metrics_updated_at ? (
-        <p className="text-[10px] text-muted-foreground text-right">
+        <p className="text-[10px] text-muted-foreground text-right" suppressHydrationWarning>
           Métricas actualizadas:{" "}
           {new Date(piece.metrics_updated_at).toLocaleString("es-AR", {
             day: "numeric",
@@ -819,7 +819,7 @@ function SalesAttributionSection({ piece }: { piece: ContentPiece }) {
                     <MetricIcon name={step.icon} size={11} />
                     {step.label}
                   </div>
-                  <p className="text-base font-bold tabular-nums">
+                  <p className="text-base font-bold tabular-nums" suppressHydrationWarning>
                     {step.isCurrency
                       ? step.value.toLocaleString("es-AR", {
                           style: "currency",
@@ -836,7 +836,7 @@ function SalesAttributionSection({ piece }: { piece: ContentPiece }) {
             ))}
           </div>
           {attribution.last_attributed_at ? (
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-[10px] text-muted-foreground" suppressHydrationWarning>
               Última atribución:{" "}
               {new Date(attribution.last_attributed_at).toLocaleString("es-AR")}
             </p>
@@ -1089,7 +1089,7 @@ function VariantesTab({ variants }: { variants: ContentPiece[] }) {
               <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                 Variante IA
               </span>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-[11px] text-muted-foreground" suppressHydrationWarning>
                 {new Date(variant.created_at).toLocaleDateString("es-AR")}
               </span>
               {variant.platform_post_id ? (
