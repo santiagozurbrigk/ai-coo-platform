@@ -4,7 +4,7 @@ import { apiRateLimit, getRequestIp, rateLimitExceeded } from "@/lib/rate-limit"
 
 export async function POST(request: Request) {
   const ip = getRequestIp(request);
-  const { allowed, resetAt } = apiRateLimit(`utm:${ip}`);
+  const { allowed, resetAt } = await apiRateLimit(`utm:${ip}`);
   if (!allowed) return rateLimitExceeded(resetAt);
 
   let body: unknown;
