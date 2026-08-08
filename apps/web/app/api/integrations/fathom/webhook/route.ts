@@ -28,7 +28,7 @@ function verifySignature(
 
 export async function POST(request: NextRequest) {
   const ip = getRequestIp(request);
-  const { allowed, resetAt } = webhookRateLimit(`fathom:${ip}`);
+  const { allowed, resetAt } = await webhookRateLimit(`fathom:${ip}`);
   if (!allowed) return rateLimitExceeded(resetAt);
 
   const rawBody = await request.text();

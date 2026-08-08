@@ -1,39 +1,84 @@
 import { NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 type RateLimitEntry = { count: number; resetAt: number };
 
-const rateLimitMap = new Map<string, RateLimitEntry>();
+/** Fallback para desarrollo local sin Supabase. No sirve en serverless. */
+const inMemoryCounters = new Map<string, RateLimitEntry>();
 
 export interface RateLimitConfig {
   windowMs: number;
   maxRequests: number;
 }
 
+export interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetAt: number;
+}
+
+function consumeInMemory(
+  identifier: string,
+  config: RateLimitConfig
+): RateLimitResult {
+  const now = Date.now();
+  const entry = inMemoryCounters.get(identifier);
+
+  if (!entry || now > entry.resetAt) {
+    const resetAt = now + config.windowMs;
+    inMemoryCounters.set(identifier, { count: 1, resetAt });
+    return { allowed: true, remaining: config.maxRequests - 1, resetAt };
+  }
+
+  if (entry.count >= config.maxRequests) {
+    return { allowed: false, remaining: 0, resetAt: entry.resetAt };
+  }
+
+  entry.count++;
+  return {
+    allowed: true,
+    remaining: config.maxRequests - entry.count,
+    resetAt: entry.resetAt,
+  };
+}
+
+/**
+ * Contador compartido en Postgres (`consume_rate_limit`), para que el límite
+ * valga entre instancias serverless y sobreviva a los cold starts.
+ */
 export function rateLimit(config: RateLimitConfig) {
-  return function checkRateLimit(identifier: string): {
-    allowed: boolean;
-    remaining: number;
-    resetAt: number;
-  } {
-    const now = Date.now();
-    const entry = rateLimitMap.get(identifier);
-
-    if (!entry || now > entry.resetAt) {
-      const resetAt = now + config.windowMs;
-      rateLimitMap.set(identifier, { count: 1, resetAt });
-      return { allowed: true, remaining: config.maxRequests - 1, resetAt };
+  return async function checkRateLimit(
+    identifier: string
+  ): Promise<RateLimitResult> {
+    if (!isSupabaseConfigured()) {
+      return consumeInMemory(identifier, config);
     }
 
-    if (entry.count >= config.maxRequests) {
-      return { allowed: false, remaining: 0, resetAt: entry.resetAt };
-    }
+    try {
+      const { data, error } = await createAdminClient()
+        .rpc("consume_rate_limit", {
+          p_key: identifier,
+          p_window_ms: config.windowMs,
+          p_max_requests: config.maxRequests,
+        })
+        .single<{ allowed: boolean; remaining: number; reset_at: string }>();
 
-    entry.count++;
-    return {
-      allowed: true,
-      remaining: config.maxRequests - entry.count,
-      resetAt: entry.resetAt,
-    };
+      if (error || !data) {
+        throw new Error(error?.message ?? "consume_rate_limit sin respuesta");
+      }
+
+      return {
+        allowed: data.allowed,
+        remaining: data.remaining,
+        resetAt: new Date(data.reset_at).getTime(),
+      };
+    } catch (err) {
+      // Fail-open: un problema de infraestructura no debe cortar el tráfico
+      // legítimo. Queda el contador local de la instancia como red mínima.
+      console.error("[rateLimit] fallback en memoria:", err);
+      return consumeInMemory(identifier, config);
+    }
   };
 }
 
