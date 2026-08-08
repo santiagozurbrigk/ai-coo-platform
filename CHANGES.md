@@ -41,6 +41,32 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-08 — Fix scrollbar vertical en modales + panel ManyChatManageSheet roto en integraciones
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `791a6fa` — fix(integrations): ocultar scrollbar vertical en modales y corregir panel de ManyChat  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `packages/ui`, `integrations`
+
+**Qué se hizo:**
+1. **`packages/ui/src/primitives/dialog.tsx` — `DialogContent`**: Agrega `[&::-webkit-scrollbar]:hidden` y `[scrollbar-width:none]` al conjunto de clases base. Oculta el track del scrollbar en WebKit (Chrome, Edge, Safari) y Firefox cuando el `DialogContent` tiene `overflow-y-auto` aplicado vía `className`. El contenido sigue siendo scrolleable; solo desaparece la barra visual.
+2. **`apps/web/components/integrations/manychat-manage-sheet.tsx`**: Mueve `shadow-xl` al estado abierto (`open = true`). Cuando el panel está cerrado (`translate-x-full`), la clase `shadow-xl` se reemplaza por `shadow-none`. Root cause: la sombra de un elemento `fixed` no está sujeta a `overflow: clip` del ancestro → sangraba ~25px hacia el interior del viewport → aparecía como una franja/panel oscuro en el borde derecho de la página de integraciones.
+3. **`apps/web/components/integrations/integration-card.tsx`**: Renderiza `ManyChatManageSheet` condicionalmente solo cuando `integration.provider === 'manychat'`. Antes se renderizaba para todas las cards de integración (N instancias de un aside fijo en el DOM), lo que multiplicaba el artefacto visual.
+
+**Por qué / finalidad:**
+- El usuario reportó que en la página de integraciones aparecía "una card a la derecha o una especie de sidebar roto que no llega a verse". Era el shadow del `ManyChatManageSheet` closed sangrando en el viewport.
+- El usuario también reportó scrollbar vertical visible en el modal de Zernio (y otros modales) tras el fix de scrollbar horizontal de la sesión anterior.
+
+**Decisiones de diseño relevantes:**
+- `scrollbar-width: none` es Firefox; `::-webkit-scrollbar { display: none }` es WebKit. Ambos se necesitan para cobertura cross-browser.
+- El render condicional del `ManyChatManageSheet` por provider es correcto: el estado `manychatManageOpen` y su handler están en `IntegrationCard` y solo se usan cuando `provider === 'manychat'`.
+- Separar shadow del transform permite que la animación de slide-in/out siga funcionando sin artefactos.
+
+**Riesgos / deuda técnica pendiente:**
+- `ManyChatManageSheet` es un aside fijo custom (no usa Radix Sheet). Podría migrarse a un Sheet de Radix para mayor accesibilidad (focus trap, escape key handling).
+
+---
+
 ### 2026-08-08 — Fix "Conectá tus redes" en dashboard + scrollbars en modales
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
