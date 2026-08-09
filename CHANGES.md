@@ -41,6 +41,59 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-09 — Fix MRR=0 y Nuevos clientes=0 en Panel General
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `26dcf51` — fix(dashboard): corregir MRR=0 y Nuevos clientes=0 en Panel General  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `lib/metrics/derive-dashboard-data.ts`, `components/dashboard/dashboard-page-content.tsx`
+
+**Qué se hizo:**
+
+**Bug 1 — MRR = 0 US$:**  
+`deriveDashboardData` llamaba a `deriveFinanceSummary` sin el argumento `payments`. Esto hace que `collectRevenueEvents` use el fallback `collectRevenueEventsFromClients`, que genera eventos de cobro solo a partir de `client.installments[].paidAt`. Los clientes seed con `payment_type = 'upfront_fee'` y `installments = []` no producían ningún evento → MRR = 0, aunque hubiera pagos reales en `client_payments`.
+
+**Fix:** Se agregó un parámetro opcional `payments?: ClientPayment[]` a `deriveDashboardData` y se pasa a `deriveFinanceSummary`. `DashboardPageContent` ahora extrae `clientPayments` de `useFinanceData()` (ya disponible en el provider) y lo pasa al cálculo.
+
+**Bug 2 — Nuevos clientes = 0:**  
+`new Date("2026-08-01").getMonth()` retorna `6` (julio) en entornos UTC-3 porque la cadena ISO sin hora se parsea como UTC midnight, y `getMonth()` devuelve la fecha en hora local — que en UTC-3 es `2026-07-31T21:00:00`. Este bug suprimía todo cliente cuyo `joinDate` sea el 1° del mes.
+
+**Fix:** Se reemplaza la comparación `getMonth() / getFullYear()` por comparación de string `YYYY-MM`: `c.joinDate.slice(0, 7) === nowYearMonth`. Inmune a offsets de timezone.
+
+**Por qué / finalidad:**
+Estas dos métricas aparecían en "0" en el Panel General incluso con datos seed coherentes insertados. Afectan directamente la legibilidad del dashboard para el founder.
+
+**Decisiones de diseño relevantes:**
+- Se eligió agregar `payments?` a `deriveDashboardData` (en lugar de reestructurar para recibir un `FinanceSummary` pre-computado) para mantener la función pura y testeable sin providers.
+- `clientPayments` ya estaba disponible en `FinanceDataProvider` y `FinanceDataContext` — solo faltaba consumirlo en el componente del dashboard.
+- La comparación de string `YYYY-MM` es más robusta que `parseDateOnly` (de `revenue-period.ts`) porque no requiere importar otra dependencia.
+
+**Riesgos / deuda técnica pendiente:**
+- El mismo bug de UTC-midnight podría existir en otros sitios del codebase que usen `new Date("YYYY-MM-DD")` y luego llamen a `.getMonth()` / `.getFullYear()`. Buscar en el futuro: `new Date(.*joinDate|createdAt|paidAt.*).getMonth\(` o similar.
+- Si `clientPayments` crece mucho (miles de pagos), el `useMemo` del dashboard se recalculará cada vez que varíe el array. No es un problema hoy pero a escala habría que memoizar mejor.
+
+---
+
+### 2026-08-09 — Diagnóstico de bugs de dashboards con seed data: hallazgos
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Autor:** Claude (investigación, sin cambios de código)  
+**Módulo(s) afectado(s):** análisis cross-módulo
+
+**Qué se hizo:**
+Investigación exhaustiva de tres problemas reportados tras insertar datos seed:
+
+**Prioridad 1 — "Tasa de agendamiento: 550%" y "Tasa de fantasma: 125%":**  
+No hay bug matemático. Con los datos seed: `bookingRate = 55%` (22/40 conversaciones son booked/agendado/closeado), `ghostingRate = 12.5%` (5/40). El formato "55,0%" (coma decimal española en `derive-dashboard-data.ts`) puede confundirse visualmente con "550%" en fuente pequeña. Las fórmulas en `derive-sales-metrics.ts` son correctas (siempre ≤100%).
+
+**Prioridad 3 — "Distribución de contenido publicado: VENTA 100%":**  
+No hay bug. Las 6 `content_assets` existentes son posts de Instagram del tipo "Si querés…, entrá a la waitlist" — CTA directo → correctamente etiquetados como VENTA por la IA. Los datos seed se insertaron en `content_pieces` (Zernio, tabla separada), que el gráfico de distribución no consulta. `getContentDistributionDataAction` usa `listContentAssetsAction()` que solo lee `content_assets`.
+
+**Riesgos / deuda técnica pendiente:**
+- El gráfico "Distribución de contenido publicado" no incluye `content_pieces` (Zernio). `content_pieces.analysis->>'ai_label'` usa una taxonomía diferente (texto libre: "Ventas y conversión", "Estrategia de contenido", etc.) — no se mapea directamente a AUTORIDAD/ATRACCION/NUTRICION/VENTA. Para incluir `content_pieces` en el gráfico habría que agregar una columna `content_objective TEXT` o normalizar el mapeo en la acción.
+
+---
+
 ### 2026-08-09 — Seed data ficticio en Supabase para testing visual de dashboards
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
