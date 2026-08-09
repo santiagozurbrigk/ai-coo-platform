@@ -41,6 +41,82 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-09 — Seed data ficticio en Supabase para testing visual de dashboards
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** sin commit — operación directa en DB de Supabase (no hay cambios de código)  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** Supabase DB (org `46cce98c-6d4c-4e4d-94a7-7cc24ae1104d` — "Optimiza tu Control")
+
+**Qué se hizo:**
+Inserción de datos ficticios de prueba en la base de datos del proyecto Supabase (`nrzlylzbmsuowzhpdnjl`) para la org de Santiago Zurbrigk, con el objetivo de testear visualmente charts y dashboards. Todos los registros están marcados con identificadores específicos para fácil eliminación posterior.
+
+**Resumen de registros insertados:**
+
+| Tabla | Registros | Marcador de seed |
+|-------|-----------|-----------------|
+| `clients` | 25 clientes | `nickname = '_seed_otc'` |
+| `client_payments` | 48 pagos | `payment_received_from = '_seed_otc'` |
+| `closing_calls` | 38 llamadas | `notes = '_seed_otc'` |
+| `call_analyses` | 22 análisis | `fathom_call_id LIKE 'seed_%'` |
+| `conversations` | 40 conversaciones | `external_ref LIKE '_seed_otc_%'` |
+| `content_pieces` | 30 piezas | `drive_file_name = '_seed_otc'` |
+
+**Detalles de cada tabla:**
+
+- **clients**: 25 clientes ficticios (dic 2025 → ago 2026). Mezcla de `active`, `success_case`, `onboarding_done`, `pending_onboarding`. 3 productos: Mentoría 1:1 Premium ($2500), Consultoría Intensiva ($800), Membresía Comunidad Pro ($97/mes). Plataformas: mercadopago, stripe, bank_transfer. Email termina en `@seed.otc`.
+- **client_payments**: 48 pagos coherentes con cada cliente. Pagos upfront, cuotas (3 meses) y membresías mensuales. Total recaudado seed: ~$39,337. Fechas spread dic 2025 → ago 2026.
+- **closing_calls**: 38 llamadas de cierre. Statuses: 21 `closed` ($35,091 en revenue), 11 `not_closed`, 5 `no_show`, 1 `scheduled`. Con `outcome` JSONB, `form_answers`, `no_close_reason`, `amount`. Spread dic 2025 → ago 2026.
+- **call_analyses**: 22 análisis de llamadas (Fathom-style). Score promedio 86/100. 21 sold=true. Campos completos: `section_scores`, `objections`, `power_phrases`, `weak_phrases`, `filler_words_count`, `summary`, `strengths`, `improvements`.
+- **conversations**: 40 conversaciones DM. 14 `closed`, 8 `booked`, 13 `active`, 5 `ghosted`. Todos los campos IA completados: `ai_score`, `ai_label` (hot/warm/cold), `ai_funnel_stage`, `ai_detected_objections`, `ai_booking_signals`, `ai_recommended_action`, etc.
+- **content_pieces**: 30 piezas publicadas feb → jul 2026 con tendencia de crecimiento clara. Views feb: 19K total → jul: 115K total. 2 reels virales: "Storytime: el día que perdí un cliente" (28.4K views, may 2026) y "Hot take: si tu mentoría no tiene sistema" (45.2K views, jul 2026). Campos: `metrics` (JSONB flat), `analysis` (JSONB con ai_label, ai_score, strengths, improvements), `format_type`, `hook_type`, `cta_type`.
+
+**Por qué / finalidad:**
+El usuario necesitaba datos reales y coherentes para testear visualmente cómo funcionan los charts de clientes, el pipeline de ventas, el scoring de leads, los análisis de llamadas y las métricas de contenido. Los datos vacíos no permiten evaluar el diseño de los dashboards.
+
+**Script de limpieza (EJECUTAR cuando se quieran eliminar los datos seed):**
+```sql
+-- Ejecutar en este orden para respetar FK constraints
+DELETE FROM call_analyses
+  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
+  AND fathom_call_id LIKE 'seed_%';
+
+DELETE FROM client_payments
+  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
+  AND payment_received_from = '_seed_otc';
+
+DELETE FROM closing_calls
+  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
+  AND notes = '_seed_otc';
+
+DELETE FROM conversations
+  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
+  AND external_ref LIKE '_seed_otc_%';
+
+DELETE FROM content_pieces
+  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
+  AND drive_file_name = '_seed_otc';
+
+DELETE FROM clients
+  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
+  AND nickname = '_seed_otc';
+```
+
+**Decisiones de diseño relevantes:**
+- Se eligió marcar con campos existentes en lugar de agregar una columna `is_seed` para no alterar el schema.
+- `conversations.external_ref` tiene un unique constraint por `(organization_id, external_ref)`, por eso se usó `_seed_otc_001..040` en lugar del mismo valor en todos.
+- Los datos son coherentes entre sí: los clientes tienen pagos que suman su `total_amount`, las llamadas de cierre coinciden con los leads de conversaciones, los análisis de llamadas referencian las mismas llamadas.
+- Las métricas de `content_pieces` usan el formato "flat" que `resolvePostAnalytics` normaliza correctamente.
+- Las `call_analyses` no están vinculadas a `closing_calls` por FK (la tabla no tiene constraint directo) — son análisis independientes con `fathom_call_id` de tipo texto.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **Estos datos son temporales** — recordar ejecutar el script de limpieza antes de ir a producción real o antes de demos con clientes reales.
+- Los `client_payments` tienen `storage_path = '_seed_otc'` (NOT NULL) — este campo normalmente apunta a un path de Storage de Supabase. No hay archivo real asociado.
+- Los `content_pieces` tienen `drive_file_name = '_seed_otc'` pero sin `drive_file_id` real — los links de Drive no funcionarán para estos registros.
+- Los análisis de llamadas tienen `fathom_call_id` ficticios — no se pueden cargar transcripciones reales desde Fathom para estos registros.
+
+---
+
 ### 2026-08-08 — Fix scrollbar vertical en modales + panel ManyChatManageSheet roto en integraciones
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
