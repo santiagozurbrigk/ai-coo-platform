@@ -37,7 +37,7 @@ export function DashboardPageContent({
     closingCallsLoading,
   } = usePlatformData();
 
-  const { expensesSummary, paymentPlatforms, financeConfigLoading } =
+  const { expensesSummary, paymentPlatforms, financeConfigLoading, clientPayments } =
     useFinanceData();
 
   const loading =
@@ -55,7 +55,8 @@ export function DashboardPageContent({
       expensesSummary,
       paymentPlatforms,
       salesMetrics,
-      frequentObjections?.objections ?? []
+      frequentObjections?.objections ?? [],
+      clientPayments
     );
 
     const hasNoActivity =
@@ -75,6 +76,7 @@ export function DashboardPageContent({
     paymentPlatforms,
     salesMetrics,
     frequentObjections,
+    clientPayments,
   ]);
 
   if (loading) {
