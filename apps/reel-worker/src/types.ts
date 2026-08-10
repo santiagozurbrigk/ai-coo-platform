@@ -42,5 +42,10 @@ export type ReelVariationJobPayload = {
 export type VariantSpec = {
   type: ReelVariationType;
   outputSuffix: string;
-  buildFfmpegArgs: (inputPath: string, outputPath: string, lutsDir: string) => string[];
+  buildFfmpegArgs: (
+    inputPath: string,
+    outputPath: string,
+    lutsDir: string,
+    originalCaption?: string | null,
+  ) => string[];
 };

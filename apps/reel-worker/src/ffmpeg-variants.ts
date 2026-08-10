@@ -107,13 +107,17 @@ export const VARIANT_SPECS: VariantSpec[] = [
     buildFfmpegArgs: (input, output, lutsDir) => {
       const musicPath = path.join(lutsDir, "background-music.mp3");
       const hasMusicFile = fs.existsSync(musicPath);
-      if (!hasMusicFile) {
-        // Sin archivo de música: anular audio (reemplazar con silencio)
+
+      if (hasMusicFile) {
+        // Con archivo de música: mezclar audio original + música de fondo (volumen bajo)
         return [
           "-i", input,
-          "-f", "lavfi", "-i", "anullsrc=cl=stereo:r=44100",
+          "-stream_loop", "-1", "-i", musicPath,
+          "-filter_complex",
+          // Audio original al 100%, música de fondo al 20%, mezclar
+          "[0:a]volume=1.0[orig];[1:a]volume=0.20[bg];[orig][bg]amix=inputs=2:duration=first[a_mix]",
           "-map", "0:v",
-          "-map", "1:a",
+          "-map", "[a_mix]",
           "-c:v", "libx264",
           "-c:a", "aac",
           "-shortest",
@@ -124,15 +128,13 @@ export const VARIANT_SPECS: VariantSpec[] = [
           "-y", output,
         ];
       }
+
+      // Sin archivo de música: conservar audio original intacto
+      // La variante se diferencia por metadatos y crop (fingerprint anti-detección)
       return [
         "-i", input,
-        "-stream_loop", "-1", "-i", musicPath,
-        "-map", "0:v",
-        "-map", "1:a",
         "-c:v", "libx264",
-        "-c:a", "aac",
-        "-shortest",
-        "-af", "volume=0.4",
+        "-c:a", "copy",           // conservar audio original
         "-preset", "fast",
         "-crf", "22",
         "-vf", "crop=iw-1:ih-2:0:1",
@@ -144,22 +146,29 @@ export const VARIANT_SPECS: VariantSpec[] = [
   {
     type: "subtitles",
     outputSuffix: "v4_subtitles",
-    buildFfmpegArgs: (input, output, _lutsDir) => [
-      // Subtítulos generados artificialmente con drawtext
-      // El texto se quema con un estilo llamativo tipo captions
-      "-i", input,
-      "-vf", [
-        "crop=iw-2:ih-1:1:0",
-        "drawtext=text='':fontsize=28:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=8:" +
-          "x=(w-text_w)/2:y=h-th-60",
-      ].join(","),
-      "-c:v", "libx264",
-      "-c:a", "copy",
-      "-preset", "fast",
-      "-crf", "22",
-      ...buildAntiDetectionArgs(-5),
-      "-y", output,
-    ],
+    buildFfmpegArgs: (input, output, _lutsDir, originalCaption) => {
+      // Texto del caption truncado y saneado para drawtext
+      // Con execFileSync no hay shell: los paréntesis en x=(w-text_w)/2 son seguros
+      const subtitleText = safeDrawtextValue(originalCaption);
+
+      return [
+        "-i", input,
+        "-vf", [
+          "crop=iw-2:ih-1:1:0",
+          // Banda negra semitransparente + texto blanco centrado en la parte inferior
+          // fontfile omitido → FFmpeg usa el font del sistema
+          `drawtext=text='${subtitleText}':fontsize=34:fontcolor=white` +
+            ":box=1:boxcolor=black@0.65:boxborderw=12" +
+            ":x=(w-text_w)/2:y=h-th-80",
+        ].join(","),
+        "-c:v", "libx264",
+        "-c:a", "copy",
+        "-preset", "fast",
+        "-crf", "22",
+        ...buildAntiDetectionArgs(-5),
+        "-y", output,
+      ];
+    },
   },
   {
     type: "color",
@@ -184,6 +193,23 @@ export const VARIANT_SPECS: VariantSpec[] = [
     },
   },
 ];
+
+// ─── Helper: texto seguro para drawtext ──────────────────────────────────────
+
+/**
+ * Limpia el texto para usarlo como valor de `text=` en el filtro drawtext de FFmpeg.
+ * Con execFileSync no hay escaping de shell, pero sí hay que respetar el parser
+ * interno de FFmpeg para el filter graph.
+ * Estrategia: conservar solo caracteres seguros y usar single-quoting en el filtro.
+ */
+function safeDrawtextValue(caption: string | null | undefined): string {
+  const raw = (caption ?? "").trim() || "Mirá el video";
+  return raw
+    .replace(/['"\\:,;[\]]/g, " ") // quitar chars especiales de FFmpeg filter graph
+    .replace(/\s+/g, " ")
+    .trim()
+    .substring(0, 55);             // max 55 chars para que entre en el frame
+}
 
 // ─── Runner ───────────────────────────────────────────────────────────────────
 

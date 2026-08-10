@@ -233,8 +233,8 @@ export async function processReelVariationJob(
       console.log(`[Processor] processing variant ${i + 1}/${VARIANT_SPECS.length}: ${spec.type}`);
 
       try {
-        // Aplicar transformación FFmpeg
-        const ffmpegArgs = spec.buildFfmpegArgs(sourcePath, outputPath, LUTS_DIR);
+        // Aplicar transformación FFmpeg (pasamos el caption para la variante de subtítulos)
+        const ffmpegArgs = spec.buildFfmpegArgs(sourcePath, outputPath, LUTS_DIR, originalCaption);
         runFfmpeg(ffmpegArgs);
 
         // Subir a Storage y obtener URL firmada

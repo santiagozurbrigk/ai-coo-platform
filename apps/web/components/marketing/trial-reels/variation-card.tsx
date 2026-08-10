@@ -27,8 +27,8 @@ const VARIATION_LABELS: Record<ReelVariationType, string> = {
 const VARIATION_DESCRIPTIONS: Record<ReelVariationType, string> = {
   speed_up:   "Video acelerado un 25% para mayor dinamismo y engagement",
   speed_down: "Video a -15% de velocidad, más contemplativo",
-  music:      "Audio original reemplazado con música de fondo",
-  subtitles:  "Subtítulos quemados para espectadores sin sonido",
+  music:      "Música de fondo mezclada sobre el audio original",
+  subtitles:  "Texto del caption quemado en el video para ver sin sonido",
   color:      "LUT de color cálido aplicado para diferente estética",
 };
 
