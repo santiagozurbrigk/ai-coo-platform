@@ -117,7 +117,7 @@ app.post("/", async (req, res) => {
 
 // ─── Inicio ───────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`[Worker] reel-worker listening on port ${PORT}`);
   console.log(`[Worker] env: ${process.env.NODE_ENV ?? "development"}`);
   console.log(`[Worker] QStash signing: ${receiver ? "enabled" : "disabled (dev mode)"}`);
