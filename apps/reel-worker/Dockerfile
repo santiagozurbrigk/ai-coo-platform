@@ -30,7 +30,7 @@ RUN npm install --omit=dev --ignore-scripts
 # Código compilado
 COPY --from=builder /app/dist ./dist
 
-# Archivos de recursos (LUTs y música de fondo)
+# Archivos de recursos (LUTs y música de fondo) — opcionales, el worker usa fallbacks si no existen
 COPY luts ./luts
 
 ENV NODE_ENV=production
