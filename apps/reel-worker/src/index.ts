@@ -112,18 +112,24 @@ app.post("/", async (req, res) => {
 
   console.log("[Worker] received job", { jobId: payload.jobId });
 
-  // 3. Responder 200 inmediatamente (QStash requiere respuesta antes de 30s)
-  res.json({ ok: true, jobId: payload.jobId, status: "accepted" });
-
-  // 4. Procesar en background (async sin bloquear)
-  setImmediate(() => {
-    processReelVariationJob(payload).catch((err: unknown) => {
-      console.error("[Worker] unhandled error in processReelVariationJob", {
-        jobId: payload.jobId,
-        error: err instanceof Error ? err.message : String(err),
-      });
+  // 3. Procesar sincrónicamente — la conexión HTTP queda abierta durante todo el
+  //    proceso FFmpeg. QStash espera hasta timeout:900s (configurado en el publish),
+  //    por lo que Fly.io NO apaga la máquina mientras el trabajo está en curso.
+  //    Si respondemos 200 antes y procesamos en background, Fly.io puede matar
+  //    la máquina al cerrar la conexión HTTP (auto_stop_machines = true).
+  try {
+    await processReelVariationJob(payload);
+    res.json({ ok: true, jobId: payload.jobId, status: "done" });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[Worker] unhandled error in processReelVariationJob", {
+      jobId: payload.jobId,
+      error: message,
     });
-  });
+    // Responder 200 aunque haya error — el job ya fue marcado como "failed"
+    // en DB por el processor. Si respondemos 5xx, QStash reintentaría.
+    res.json({ ok: false, jobId: payload.jobId, status: "failed", error: message });
+  }
 });
 
 // ─── Inicio ───────────────────────────────────────────────────────────────────

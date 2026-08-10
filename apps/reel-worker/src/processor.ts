@@ -111,13 +111,26 @@ export async function processReelVariationJob(
   const started = Date.now();
   console.log("[Processor] job started", { jobId, organizationId });
 
+  // Verificar idempotencia — si el job ya fue procesado (retries de QStash),
+  // evitar reprocesar. Solo continuar si está en estado "pending".
+  const admin = getSupabaseAdmin();
+  const { data: existingJob } = await admin
+    .from("reel_variation_jobs")
+    .select("status")
+    .eq("id", jobId)
+    .single();
+
+  if (existingJob && existingJob.status !== "pending") {
+    console.log("[Processor] job already in status", existingJob.status, "— skipping", { jobId });
+    return;
+  }
+
   // Directorio temporal único por job
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), `reel-job-${jobId}-`));
   const ext = path.extname(sourceFileName) || ".mp4";
   const sourcePath = path.join(workDir, `source${ext}`);
 
   // Marcar como processing en DB
-  const admin = getSupabaseAdmin();
   await admin
     .from("reel_variation_jobs")
     .update({ status: "processing" })
