@@ -9,6 +9,17 @@
  *   POST /              → Recibe y procesa un job (validado con QStash signature)
  */
 
+// Log inmediato para detectar crash al inicio (visible en fly logs)
+console.log("[Worker] starting up, Node.js", process.version, "pid", process.pid);
+process.on("uncaughtException", (err) => {
+  console.error("[Worker] uncaughtException", err.message, err.stack);
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[Worker] unhandledRejection", reason);
+  process.exit(1);
+});
+
 import express from "express";
 import { z } from "zod";
 import { Receiver } from "@upstash/qstash";

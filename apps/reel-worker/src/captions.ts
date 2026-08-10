@@ -6,7 +6,15 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ReelVariationType } from "./types";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+// Lazy — no inicializar en module level para evitar crash si la var no está
+// seteada en el momento en que el módulo carga (p.ej. tests, inicio del worker).
+let _client: Anthropic | null = null;
+function getClient(): Anthropic {
+  if (!_client) {
+    _client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
+  return _client;
+}
 
 const VARIANT_TONE: Record<ReelVariationType, string> = {
   speed_up:   "energético y rápido, con frases cortas y dinámicas",
@@ -58,7 +66,7 @@ Reglas:
 - Sin emojis en exceso (máximo 2-3 por caption)`;
 
   try {
-    const response = await client.messages.create({
+    const response = await getClient().messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 1500,
       messages: [{ role: "user", content: prompt }],
