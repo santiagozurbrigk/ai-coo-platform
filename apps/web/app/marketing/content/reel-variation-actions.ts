@@ -177,7 +177,12 @@ export async function createTrialReelsJobAction(
     const client = getQStashClient();
     if (client) {
       const workerUrl = getReelWorkerUrl();
-      console.log("[TrialReels] publishing to QStash", { jobId, workerUrl });
+      const workerAuthSecret = process.env.WORKER_AUTH_SECRET?.trim();
+      console.log("[TrialReels] publishing to QStash", {
+        jobId,
+        workerUrl,
+        hasWorkerAuthSecret: Boolean(workerAuthSecret),
+      });
       try {
         const qstashResult = await client.publishJSON({
           url: workerUrl,
@@ -189,6 +194,11 @@ export async function createTrialReelsJobAction(
             sourceFileName: fileName,
             originalCaption: (piece as ContentPiece & { caption?: string }).caption ?? piece.title ?? null,
           },
+          // Pasar el secret al worker vía Authorization header.
+          // QStash lo reenvía como-está al worker, que lo verifica antes que la firma QStash.
+          headers: workerAuthSecret
+            ? { Authorization: `Bearer ${workerAuthSecret}` }
+            : undefined,
           retries: 2,
           timeout: 900, // 15 min — FFmpeg puede tardar
         });

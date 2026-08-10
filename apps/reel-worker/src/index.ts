@@ -60,6 +60,22 @@ function buildReceiver(): Receiver | null {
 const receiver = buildReceiver();
 
 async function verifySignature(req: express.Request, rawBody: string): Promise<boolean> {
+  // 1. Bearer token auth (WORKER_AUTH_SECRET) — método primario, más simple y confiable.
+  //    QStash entrega el header Authorization con el secret configurado en el publish.
+  const workerSecret = process.env.WORKER_AUTH_SECRET?.trim();
+  if (workerSecret) {
+    const authHeader = req.headers["authorization"];
+    if (typeof authHeader === "string" && authHeader === `Bearer ${workerSecret}`) {
+      console.log("[Worker] auth via WORKER_AUTH_SECRET OK");
+      return true;
+    }
+    // Si el secret está configurado pero el header no coincide, rechazar.
+    // No continuar a QStash signing para evitar bypass accidental.
+    console.warn("[Worker] WORKER_AUTH_SECRET configurado pero Authorization header inválido");
+    return false;
+  }
+
+  // 2. QStash signature verification (fallback si no hay WORKER_AUTH_SECRET)
   if (!receiver) {
     // Sin signing keys: en dev se acepta si viene de la red interna
     const isLocalOrInternal =
@@ -77,7 +93,9 @@ async function verifySignature(req: express.Request, rawBody: string): Promise<b
   if (!signature || typeof signature !== "string") return false;
 
   try {
-    return await receiver.verify({ signature, body: rawBody });
+    const valid = await receiver.verify({ signature, body: rawBody });
+    if (valid) console.log("[Worker] auth via QStash signature OK");
+    return valid;
   } catch {
     return false;
   }
@@ -137,7 +155,7 @@ app.post("/", async (req, res) => {
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`[Worker] reel-worker listening on port ${PORT}`);
   console.log(`[Worker] env: ${process.env.NODE_ENV ?? "development"}`);
-  console.log(`[Worker] QStash signing: ${receiver ? "enabled" : "disabled (dev mode)"}`);
+  console.log(`[Worker] auth: WORKER_AUTH_SECRET=${process.env.WORKER_AUTH_SECRET ? "configured" : "MISSING"} | QStash signing=${receiver ? "enabled" : "disabled"}`);
   console.log(`[Worker] Supabase URL: ${process.env.SUPABASE_URL ? "configured" : "MISSING"}`);
   console.log(`[Worker] Anthropic API: ${process.env.ANTHROPIC_API_KEY ? "configured" : "MISSING"}`);
 });

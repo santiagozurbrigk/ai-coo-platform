@@ -1,6 +1,10 @@
 import { notFound } from "next/navigation";
 import { getContentPieceAction, getContentPiecesAction } from "@/app/marketing/content/actions";
 import { listReelVariationJobsForPieceAction } from "@/app/marketing/content/reel-variation-actions";
+
+// Las Server Actions llamadas desde esta ruta pueden tardar hasta 5 minutos
+// (descarga de video desde Drive + subida a Supabase Storage en archivos grandes).
+export const maxDuration = 300;
 import { MarketingContentDetailPageClient } from "@/components/marketing/marketing-content-detail-page-client";
 import type { ContentMetrics, ContentPiece } from "@/types/content";
 
