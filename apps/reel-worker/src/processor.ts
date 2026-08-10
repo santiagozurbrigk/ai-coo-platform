@@ -54,6 +54,54 @@ async function downloadFromStorage(
   fs.writeFileSync(destPath, buffer);
 }
 
+/**
+ * Descarga un archivo de Google Drive usando el access token proporcionado
+ * y lo guarda en destPath.
+ * @returns El tamaño en bytes del archivo descargado.
+ */
+async function downloadFromDrive(
+  driveFileId: string,
+  accessToken: string,
+  destPath: string
+): Promise<number> {
+  const url = new URL(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveFileId)}`
+  );
+  url.searchParams.set("alt", "media");
+  url.searchParams.set("supportsAllDrives", "true");
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Google Drive download failed: ${res.status} ${res.statusText}`);
+  }
+
+  if (!res.body) {
+    throw new Error("Google Drive download: empty response body");
+  }
+
+  // Escribir en streaming para evitar acumular el video entero en memoria
+  const { Writable } = await import("stream");
+  const { pipeline } = await import("stream/promises");
+  const { createWriteStream } = await import("fs");
+
+  const writer = createWriteStream(destPath);
+
+  // Convertir el ReadableStream web a Node.js Readable
+  // Node.js ≥18 soporta Readable.fromWeb()
+  const { Readable } = await import("stream");
+  const nodeReadable = Readable.fromWeb(
+    res.body as import("stream/web").ReadableStream<Uint8Array>
+  );
+
+  await pipeline(nodeReadable, writer);
+
+  const stat = fs.statSync(destPath);
+  return stat.size;
+}
+
 async function uploadToStorage(
   localPath: string,
   storagePath: string,
@@ -107,9 +155,14 @@ async function markJobFailed(jobId: string, message: string): Promise<void> {
 export async function processReelVariationJob(
   payload: ReelVariationJobPayload
 ): Promise<void> {
-  const { jobId, organizationId, sourceStoragePath, sourceFileName, originalCaption } = payload;
+  const { jobId, organizationId, originalCaption } = payload;
+  const sourceFileName = payload.sourceFileName;
   const started = Date.now();
-  console.log("[Processor] job started", { jobId, organizationId });
+  console.log("[Processor] job started", {
+    jobId,
+    organizationId,
+    source: payload.driveFileId ? "drive" : "storage",
+  });
 
   // Verificar idempotencia — si el job ya fue procesado (retries de QStash),
   // evitar reprocesar. Solo continuar si está en estado "pending".
@@ -127,7 +180,10 @@ export async function processReelVariationJob(
 
   // Directorio temporal único por job
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), `reel-job-${jobId}-`));
-  const ext = path.extname(sourceFileName) || ".mp4";
+  const mimeType = payload.driveMimeType ?? "video/mp4";
+  const ext = mimeType.includes("quicktime") ? ".mov"
+            : mimeType.includes("mp4") ? ".mp4"
+            : path.extname(sourceFileName) || ".mp4";
   const sourcePath = path.join(workDir, `source${ext}`);
 
   // Marcar como processing en DB
@@ -153,10 +209,18 @@ export async function processReelVariationJob(
   await updateJobVariations(jobId, initialVariations);
 
   try {
-    // 1. Descargar video fuente
-    console.log("[Processor] downloading source video...");
-    await downloadFromStorage(sourceStoragePath, sourcePath);
-    console.log("[Processor] source downloaded", { bytes: fs.statSync(sourcePath).size });
+    // 1. Descargar video fuente (Drive directo o Supabase Storage legacy)
+    if (payload.driveFileId && payload.driveAccessToken) {
+      console.log("[Processor] downloading source video from Drive...");
+      const bytes = await downloadFromDrive(payload.driveFileId, payload.driveAccessToken, sourcePath);
+      console.log("[Processor] Drive download OK", { bytes });
+    } else if (payload.sourceStoragePath) {
+      console.log("[Processor] downloading source video from Storage...");
+      await downloadFromStorage(payload.sourceStoragePath, sourcePath);
+      console.log("[Processor] Storage download OK", { bytes: fs.statSync(sourcePath).size });
+    } else {
+      throw new Error("Payload inválido: se requiere driveFileId+driveAccessToken o sourceStoragePath");
+    }
 
     // 2. Procesar cada variante
     const processedVariations: ReelVariation[] = [...initialVariations];

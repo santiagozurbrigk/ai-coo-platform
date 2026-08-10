@@ -29,7 +29,12 @@ export type ReelVariationJobPayload = {
   jobId: string;
   organizationId: string;
   sourcePieceId: string;
-  sourceStoragePath: string;
+  /** Fuente Drive (nuevo) — el worker descarga directamente con el token */
+  driveFileId?: string;
+  driveAccessToken?: string;  // Access token OAuth (válido ~1h desde la creación del job)
+  driveMimeType?: string;
+  /** Fuente Storage (legacy) — ruta en Supabase Storage bucket trial-reels */
+  sourceStoragePath?: string;
   sourceFileName: string;
   originalCaption: string | null;
 };

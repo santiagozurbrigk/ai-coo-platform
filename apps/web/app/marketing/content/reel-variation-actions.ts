@@ -18,65 +18,10 @@ async function requireOrgId(): Promise<string> {
   return profile.organization_id;
 }
 
-const STORAGE_BUCKET = "trial-reels";
+// El video ya NO se descarga en Vercel — el worker lo descarga directamente de Drive.
+// Solo se usa MAX_VIDEO_BYTES para validar el tamaño reportado por la API de Drive.
 const MAX_VIDEO_BYTES = 500 * 1024 * 1024; // 500 MB
-
-// ─── Descarga de Drive ────────────────────────────────────────────────────────
-
-async function downloadDriveVideo(
-  fileId: string,
-  accessToken: string
-): Promise<{ buffer: ArrayBuffer; mimeType: string; name: string }> {
-  // Metadatos
-  const metaUrl = new URL(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`
-  );
-  metaUrl.searchParams.set("fields", "id,name,mimeType,size");
-  metaUrl.searchParams.set("supportsAllDrives", "true");
-
-  const metaRes = await fetch(metaUrl.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!metaRes.ok) {
-    const code = metaRes.status;
-    throw new Error(
-      code === 401 || code === 403
-        ? "GOOGLE_INSUFFICIENT_PERMISSIONS"
-        : `Error al leer metadatos de Drive (${code})`
-    );
-  }
-
-  const meta = (await metaRes.json()) as {
-    id: string;
-    name: string;
-    mimeType: string;
-    size?: string;
-  };
-
-  const fileSize = meta.size ? Number.parseInt(meta.size, 10) : 0;
-  if (fileSize > MAX_VIDEO_BYTES) {
-    throw new Error("El video supera el límite de 500 MB");
-  }
-
-  const downloadUrl = new URL(
-    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`
-  );
-  downloadUrl.searchParams.set("alt", "media");
-  downloadUrl.searchParams.set("supportsAllDrives", "true");
-
-  const res = await fetch(downloadUrl.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok) {
-    throw new Error(`Error al descargar video de Drive (${res.status})`);
-  }
-
-  return {
-    buffer: await res.arrayBuffer(),
-    mimeType: meta.mimeType,
-    name: meta.name,
-  };
-}
+const STORAGE_BUCKET = "trial-reels"; // usado en publicación y refresh de URLs
 
 // ─── Crear job ────────────────────────────────────────────────────────────────
 
@@ -120,42 +65,48 @@ export async function createTrialReelsJobAction(
       };
     }
 
-    // 3. Descargar el video desde Drive
-    let videoBuffer: ArrayBuffer;
-    let mimeType: string;
-    let fileName: string;
+    // 3. Obtener solo metadatos del archivo de Drive (sin descargar el video)
+    //    El worker descarga directamente usando el access token.
+    let driveMimeType: string;
+    let driveFileName: string;
 
     try {
-      const downloaded = await downloadDriveVideo(piece.drive_file_id, accessToken);
-      videoBuffer = downloaded.buffer;
-      mimeType = downloaded.mimeType;
-      fileName = downloaded.name;
+      const metaUrl = new URL(
+        `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(piece.drive_file_id)}`
+      );
+      metaUrl.searchParams.set("fields", "id,name,mimeType,size");
+      metaUrl.searchParams.set("supportsAllDrives", "true");
+
+      const metaRes = await fetch(metaUrl.toString(), {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!metaRes.ok) {
+        const code = metaRes.status;
+        throw new Error(
+          code === 401 || code === 403 ? "GOOGLE_INSUFFICIENT_PERMISSIONS" : `Error metadatos Drive (${code})`
+        );
+      }
+      const meta = (await metaRes.json()) as { name: string; mimeType: string; size?: string };
+      driveMimeType = meta.mimeType;
+      driveFileName = meta.name;
+
+      const fileSize = meta.size ? Number.parseInt(meta.size, 10) : 0;
+      if (fileSize > MAX_VIDEO_BYTES) {
+        return { ok: false, errorCode: "FILE_TOO_LARGE", message: "El video supera el límite de 500 MB" };
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Error al descargar";
+      const msg = err instanceof Error ? err.message : "Error al leer metadatos";
       if (msg === "GOOGLE_NOT_CONNECTED" || msg === "GOOGLE_INSUFFICIENT_PERMISSIONS") {
         return { ok: false, errorCode: msg, message: "Sin acceso a Google Drive" };
       }
-      return { ok: false, errorCode: "DRIVE_DOWNLOAD_FAILED", message: msg };
+      return { ok: false, errorCode: "DRIVE_META_FAILED", message: msg };
     }
 
-    // 4. Subir video fuente a Supabase Storage
+    // 4. Crear el job en DB
+    //    El video fuente lo descarga el worker directamente de Drive.
     const admin = createAdminClient();
     const jobId = crypto.randomUUID();
-    const ext = mimeType.includes("mp4") ? "mp4" : mimeType.includes("quicktime") ? "mov" : "mp4";
-    const sourceStoragePath = `${organizationId}/source/${jobId}.${ext}`;
 
-    const { error: uploadError } = await admin.storage
-      .from(STORAGE_BUCKET)
-      .upload(sourceStoragePath, videoBuffer, {
-        contentType: mimeType,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      throw new Error(`Error al subir video fuente: ${uploadError.message}`);
-    }
-
-    // 5. Crear el job en DB
     const { error: insertError } = await admin
       .from("reel_variation_jobs")
       .insert({
@@ -168,8 +119,6 @@ export async function createTrialReelsJobAction(
       });
 
     if (insertError) {
-      // Limpiar el archivo subido si falla el insert
-      await admin.storage.from(STORAGE_BUCKET).remove([sourceStoragePath]);
       throw new Error(`Error al crear job: ${insertError.message}`);
     }
 
@@ -190,8 +139,10 @@ export async function createTrialReelsJobAction(
             jobId,
             organizationId,
             sourcePieceId: contentPieceId,
-            sourceStoragePath,
-            sourceFileName: fileName,
+            driveFileId: piece.drive_file_id,
+            driveAccessToken: accessToken,
+            driveMimeType: driveMimeType,
+            sourceFileName: driveFileName,
             originalCaption: (piece as ContentPiece & { caption?: string }).caption ?? piece.title ?? null,
           },
           // Pasar el secret al worker vía Authorization header.

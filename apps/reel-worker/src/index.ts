@@ -43,7 +43,12 @@ const jobPayloadSchema = z.object({
   jobId: z.string().uuid(),
   organizationId: z.string().uuid(),
   sourcePieceId: z.string().uuid(),
-  sourceStoragePath: z.string().min(1),
+  // Fuente Drive (nuevo): el worker descarga directamente
+  driveFileId: z.string().min(1).optional(),
+  driveAccessToken: z.string().min(1).optional(),
+  driveMimeType: z.string().min(1).optional(),
+  // Fuente Storage (legacy)
+  sourceStoragePath: z.string().min(1).optional(),
   sourceFileName: z.string().min(1),
   originalCaption: z.string().nullable().optional(),
 });
