@@ -8,7 +8,7 @@
  *   - Strip de metadatos del original (-map_metadata -1)
  */
 
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 import type { VariantSpec } from "./types";
@@ -72,15 +72,14 @@ export const VARIANT_SPECS: VariantSpec[] = [
     outputSuffix: "v1_speed_up",
     buildFfmpegArgs: (input, output, _lutsDir) => [
       "-i", input,
-      "-filter_complex", "[0:v]setpts=0.8*PTS[v];[0:a]atempo=1.25[a]",
+      // Crop incluido en filter_complex — no se puede usar -vf y -filter_complex juntos
+      "-filter_complex", "[0:v]setpts=0.8*PTS,crop=iw-1:ih-1:0:0[v];[0:a]atempo=1.25[a]",
       "-map", "[v]",
       "-map", "[a]",
       "-c:v", "libx264",
       "-c:a", "aac",
       "-preset", "fast",
       "-crf", "22",
-      // Crop 1px para cambiar fingerprint
-      "-vf", "crop=iw-1:ih-1:0:0",
       ...buildAntiDetectionArgs(3),
       "-y", output,
     ],
@@ -90,14 +89,14 @@ export const VARIANT_SPECS: VariantSpec[] = [
     outputSuffix: "v2_speed_down",
     buildFfmpegArgs: (input, output, _lutsDir) => [
       "-i", input,
-      "-filter_complex", "[0:v]setpts=1.15*PTS[v];[0:a]atempo=0.87[a]",
+      // Crop incluido en filter_complex — no se puede usar -vf y -filter_complex juntos
+      "-filter_complex", "[0:v]setpts=1.15*PTS,crop=iw-2:ih-1:1:0[v];[0:a]atempo=0.87[a]",
       "-map", "[v]",
       "-map", "[a]",
       "-c:v", "libx264",
       "-c:a", "aac",
       "-preset", "fast",
       "-crf", "22",
-      "-vf", "crop=iw-2:ih-1:1:0",
       ...buildAntiDetectionArgs(-2),
       "-y", output,
     ],
@@ -189,7 +188,13 @@ export const VARIANT_SPECS: VariantSpec[] = [
 // ─── Runner ───────────────────────────────────────────────────────────────────
 
 export function runFfmpeg(args: string[]): void {
-  const cmd = ["ffmpeg", ...args].join(" ");
-  console.log("[FFmpeg]", cmd.substring(0, 200) + (cmd.length > 200 ? "..." : ""));
-  execSync(cmd, { stdio: "pipe" });
+  // Log del comando (para diagnóstico — truncado a 200 chars)
+  const cmdPreview = ["ffmpeg", ...args].join(" ");
+  console.log("[FFmpeg]", cmdPreview.substring(0, 200) + (cmdPreview.length > 200 ? "..." : ""));
+
+  // Usar execFileSync en lugar de execSync(string) para evitar que el shell interprete
+  // caracteres especiales en los argumentos: corchetes [0:a], paréntesis (w-text_w),
+  // espacios en valores de metadata (creation_time=2026-08-04 08:35:32), etc.
+  // execFileSync pasa cada elemento del array como argumento independiente, sin shell.
+  execFileSync("ffmpeg", args, { stdio: "pipe" });
 }

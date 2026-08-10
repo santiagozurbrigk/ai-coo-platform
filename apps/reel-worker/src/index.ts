@@ -20,13 +20,13 @@ process.on("unhandledRejection", (reason) => {
   process.exit(1);
 });
 
-import express from "express";
+import express, { type Express } from "express";
 import { z } from "zod";
 import { Receiver } from "@upstash/qstash";
 import { processReelVariationJob } from "./processor";
 import type { ReelVariationJobPayload } from "./types";
 
-const app = express();
+const app: Express = express();
 app.use(express.text({ type: "*/*", limit: "10mb" }));
 
 const PORT = Number(process.env.PORT ?? 8080);
