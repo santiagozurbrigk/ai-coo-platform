@@ -41,6 +41,66 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-10 — Feature: Trial Reels — generación automática de 5 variaciones de reels
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** pendiente  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** marketing/content, reel-worker (nuevo servicio), supabase/migrations, types, components
+
+**Qué se hizo:**
+
+Feature completa de Trial Reels: el usuario selecciona un reel de `content_pieces` (que tenga un `drive_file_id` vinculado), OTC descarga el video desde Google Drive, lo sube a Supabase Storage y encola un job en QStash. Un worker en Fly.io procesa el video con FFmpeg generando 5 variantes automáticamente. El usuario puede previsualizar cada variante, editar el caption y hashtags, incluir/excluir variantes, y publicarlas en Zernio con delay configurable entre posts.
+
+**Archivos creados:**
+- `supabase/migrations/20260810120000_trial_reels_jobs.sql` — Tabla `reel_variation_jobs` + bucket `trial-reels` + RLS + índices + trigger
+- `apps/web/types/reel-variations.ts` — Tipos TypeScript para el módulo
+- `apps/web/app/marketing/content/reel-variation-actions.ts` — Server Actions: `createTrialReelsJobAction`, `getReelVariationJobAction`, `listReelVariationJobsForPieceAction`, `updateReelVariationAction`, `setReelVariationDelayAction`, `publishVariationsAction`, `refreshVariationPreviewUrlsAction`
+- `apps/web/app/api/queue/process-reel-variations/route.ts` — Endpoint receptor de QStash (fallback dev / Vercel)
+- `apps/web/app/api/queue/process-reel-variations/processor.ts` — Procesador FFmpeg inline (dev)
+- `apps/reel-worker/` — Worker completo para Fly.io (Node.js + FFmpeg):
+  - `src/types.ts`, `src/ffmpeg-variants.ts`, `src/captions.ts`, `src/processor.ts`, `src/index.ts`
+  - `fly.toml`, `Dockerfile`, `package.json`, `tsconfig.json`, `README.md`
+- `apps/web/components/marketing/trial-reels/trial-reels-button.tsx` — Botón CTA
+- `apps/web/components/marketing/trial-reels/variation-card.tsx` — Card por variante con video player + editor de caption
+- `apps/web/components/marketing/trial-reels/trial-reels-panel.tsx` — Panel completo con Supabase Realtime, selector de delay, y publicación
+- `apps/web/components/marketing/trial-reels/index.ts` — Barrel export
+
+**Archivos modificados:**
+- `apps/web/components/marketing/content-piece-detail.tsx` — Nueva tab "Trial Reels" + TrialReelsButton en panel izquierdo (solo para reels con Drive vinculado)
+- `apps/web/components/marketing/marketing-content-detail-page-client.tsx` — Prop `initialReelJobs`
+- `apps/web/app/(platform)/marketing/content/[id]/page.tsx` — Fetcha `reel_variation_jobs` en paralelo para SSR
+- `.env.example` — Agregada variable `REEL_WORKER_URL`
+
+**Por qué / finalidad:**
+
+Estrategia de "Trial Reels": publicar 5 variaciones de un reel que funcionó bien, cambiando velocidad, música, subtítulos y colorimetría. Usada por creadores para maximizar alcance y testear qué variante tiene mejor performance. OTC automatiza todo el proceso desde la descarga hasta la publicación.
+
+**Decisiones de diseño relevantes:**
+
+1. **Worker separado en Fly.io** (no Vercel lambda): FFmpeg procesar video tarda varios minutos, Vercel tiene límite de 300s y no tiene FFmpeg instalado. Fly.io con `performance-2x` (2 vCPU, 4 GB RAM) lo maneja sin límite.
+
+2. **El video fuente se descarga desde Next.js (no el worker)**: Para la descarga de Drive se necesita el token OAuth de Google del usuario, que está en la sesión Next.js. El servidor Next.js descarga el video en la Server Action y lo sube a Supabase Storage. El worker solo accede a Storage (con service role), sin necesitar tokens de usuario.
+
+3. **Metadatos anti-detección**: Cada variante reescribe `creation_time`, `encoder`, `make`, `model`; strip con `-map_metadata -1`; bitrate variado ±5%; crop de 1-2px. Esto rompe el fingerprint de video para que Instagram no detecte el mismo video resubido.
+
+4. **Supabase Realtime en el panel**: El estado del job se actualiza en tiempo real sin polling — el worker actualiza DB directamente y el cliente recibe las actualizaciones vía `postgres_changes`.
+
+5. **Captions con Haiku**: Se generan al momento de `preview_ready` con tonos diferentes por variante (energético para speed_up, contemplativo para speed_down, etc.). El usuario puede editarlos antes de publicar.
+
+6. **Publicación como draft en Zernio**: `createPost` con `status: 'draft'` porque Zernio necesita el video subido directamente vía su UI para Instagram reels. La URL firmada de Storage se adjunta para que el usuario la use desde Zernio si la publicación directa falla.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **Fly.io no configurado**: El worker necesita deploy en Fly.io y que `REEL_WORKER_URL` esté en las env vars de Vercel. Sin esto, QStash apunta al endpoint fallback de Next.js que en Vercel devuelve error (sin FFmpeg).
+- **LUT y música**: Sin `luts/warm.cube` y `luts/background-music.mp3`, las variantes V3 y V5 usan fallbacks (silencio y eq filter). Para producción real, incluir assets de calidad.
+- **Videos > 500 MB**: El límite actual es 500 MB. Videos muy pesados fallarán en descarga.
+- **Delay entre publicaciones**: El delay real de horas se simula con 30s max para no bloquear el servidor en la Server Action. Para delays reales, implementar con un schedule de QStash (future work).
+- **Instagram Reels vía Zernio**: La publicación directa de reels puede requerir endpoints específicos de Zernio que aún no están mapeados en el cliente. Verificar con equipo Zernio.
+- **Concurrencia**: `fly.toml` limita a 2 requests concurrent y 1 soft limit. Si hay muchos jobs simultáneos, se pondrán en cola o se rechazarán.
+
+---
+
 ### 2026-08-09 — Fix MRR=0 y Nuevos clientes=0 en Panel General
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  

@@ -11,6 +11,8 @@ import {
   linkDriveFileToContentAction,
   unlinkDriveFileAction,
 } from "@/app/marketing/content/drive-actions";
+import { TrialReelsButton, TrialReelsPanel } from "@/components/marketing/trial-reels";
+import type { ReelVariationJob } from "@/types/reel-variations";
 import { DriveFilePicker } from "@/components/marketing/drive-file-picker";
 import {
   AnalysisDimensionIcon,
@@ -58,9 +60,10 @@ type Props = {
   piece: ContentPieceWithVariants;
   variants: ContentPiece[];
   orgAvg: ContentMetrics | null;
+  initialReelJobs?: ReelVariationJob[];
 };
 
-type DetailTab = "metricas" | "analisis" | "comentarios" | "anuncios" | "variantes";
+type DetailTab = "metricas" | "analisis" | "comentarios" | "anuncios" | "variantes" | "trial_reels";
 
 function computeEngagementRate(m: ContentMetrics): number | null {
   const { likes = 0, comments = 0, shares = 0, saves = 0, reach = 0 } = m;
@@ -92,12 +95,13 @@ function fmtNum(value: number): string {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function ContentPieceDetail({ piece, variants, orgAvg }: Props) {
+export function ContentPieceDetail({ piece, variants, orgAvg, initialReelJobs = [] }: Props) {
   const router = useRouter();
   const { push } = useToast();
   const [analyzing, setAnalyzing] = useState(false);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>("metricas");
+  const [reelJobs, setReelJobs] = useState<ReelVariationJob[]>(initialReelJobs);
 
   const handleAnalyze = async () => {
     setAnalyzing(true);
@@ -168,6 +172,10 @@ export function ContentPieceDetail({ piece, variants, orgAvg }: Props) {
     {
       tab: "variantes" as const,
       label: `Variantes${variants.length > 0 ? ` (${variants.length})` : ""}`,
+    },
+    {
+      tab: "trial_reels" as const,
+      label: `Trial Reels${reelJobs.length > 0 ? ` (${reelJobs.length})` : ""}`,
     },
   ] as const;
 
@@ -312,6 +320,37 @@ export function ContentPieceDetail({ piece, variants, orgAvg }: Props) {
               </p>
             ) : null}
           </div>
+
+          {/* Trial Reels button */}
+          {(piece.type === "reel" || piece.type === "story") && (
+            <TrialReelsButton
+              contentPieceId={piece.id}
+              hasDriveFile={Boolean(piece.drive_file_id)}
+              onJobCreated={(jobId) => {
+                // Agregar job placeholder y cambiar a tab trial_reels
+                setReelJobs((prev) => [
+                  {
+                    id: jobId,
+                    organization_id: "",
+                    source_piece_id: piece.id,
+                    status: "pending",
+                    delay_hours: 2,
+                    variations: [],
+                    error_message: null,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                  },
+                  ...prev,
+                ]);
+                setActiveTab("trial_reels");
+              }}
+            />
+          )}
+          {(piece.type === "reel" || piece.type === "story") && !piece.drive_file_id && (
+            <p className="text-center text-[10px] text-muted-foreground">
+              Vinculá un video de Drive para Trial Reels
+            </p>
+          )}
         </div>
 
         {/* ─── Right panel ─────────────────────────────────────────── */}
@@ -350,6 +389,19 @@ export function ContentPieceDetail({ piece, variants, orgAvg }: Props) {
             {activeTab === "anuncios" ? <AnunciosTab piece={piece} /> : null}
             {activeTab === "variantes" ? (
               <VariantesTab variants={variants} />
+            ) : null}
+            {activeTab === "trial_reels" ? (
+              <div className="p-5">
+                <p className="mb-4 text-xs text-muted-foreground">
+                  Generación automática de 5 variaciones del reel con FFmpeg.
+                  Cada variante aplica una transformación diferente (velocidad, música, subtítulos, color)
+                  y reescribe los metadatos del archivo para publicación como trial reels.
+                </p>
+                <TrialReelsPanel
+                  contentPieceId={piece.id}
+                  initialJobs={reelJobs}
+                />
+              </div>
             ) : null}
           </div>
         </div>

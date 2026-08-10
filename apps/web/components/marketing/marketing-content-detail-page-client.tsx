@@ -4,14 +4,16 @@ import { useMemo } from "react";
 import { ContentPieceDetail } from "@/components/marketing/content-piece-detail";
 import { PageContextRegistrar } from "@/providers";
 import type { ContentMetrics, ContentPieceWithVariants } from "@/types/content";
+import type { ReelVariationJob } from "@/types/reel-variations";
 
 type Props = {
   piece: ContentPieceWithVariants;
   variants: ContentPieceWithVariants["variants"];
   orgAvg?: ContentMetrics | null;
+  initialReelJobs?: ReelVariationJob[];
 };
 
-export function MarketingContentDetailPageClient({ piece, variants, orgAvg }: Props) {
+export function MarketingContentDetailPageClient({ piece, variants, orgAvg, initialReelJobs }: Props) {
   const pageContext = useMemo(
     () => ({
       entityType: "content_piece" as const,
@@ -40,6 +42,7 @@ export function MarketingContentDetailPageClient({ piece, variants, orgAvg }: Pr
         piece={piece}
         variants={variants ?? piece.variants ?? []}
         orgAvg={orgAvg ?? null}
+        initialReelJobs={initialReelJobs}
       />
     </PageContextRegistrar>
   );

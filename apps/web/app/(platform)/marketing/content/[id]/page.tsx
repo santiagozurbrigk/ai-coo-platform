@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getContentPieceAction, getContentPiecesAction } from "@/app/marketing/content/actions";
+import { listReelVariationJobsForPieceAction } from "@/app/marketing/content/reel-variation-actions";
 import { MarketingContentDetailPageClient } from "@/components/marketing/marketing-content-detail-page-client";
 import type { ContentMetrics, ContentPiece } from "@/types/content";
 
@@ -46,8 +47,11 @@ export default async function MarketingContentDetailPage({
     notFound();
   }
 
-  // Fetch org pieces in parallel for avg computation (non-blocking)
-  const allPieces = await getContentPiecesAction({ limit: 50 }).catch(() => []);
+  // Fetch org pieces y reel jobs en paralelo (no bloqueantes)
+  const [allPieces, initialReelJobs] = await Promise.all([
+    getContentPiecesAction({ limit: 50 }).catch(() => []),
+    listReelVariationJobsForPieceAction(id).catch(() => []),
+  ]);
   const orgAvg = computeOrgAvgMetrics(allPieces);
 
   return (
@@ -55,6 +59,7 @@ export default async function MarketingContentDetailPage({
       piece={data}
       variants={data.variants ?? []}
       orgAvg={orgAvg}
+      initialReelJobs={initialReelJobs}
     />
   );
 }
