@@ -94,7 +94,7 @@ export async function createTrialReelsJobAction(
     // 1. Leer la pieza de contenido
     const { data: piece, error: pieceError } = await supabase
       .from("content_pieces")
-      .select("id, drive_file_id, title, description, status, type")
+      .select("id, drive_file_id, title, caption, status, type")
       .eq("id", contentPieceId)
       .eq("organization_id", organizationId)
       .maybeSingle();
@@ -185,7 +185,7 @@ export async function createTrialReelsJobAction(
           sourcePieceId: contentPieceId,
           sourceStoragePath,
           sourceFileName: fileName,
-          originalCaption: (piece as ContentPiece & { description?: string }).description ?? piece.title ?? null,
+          originalCaption: (piece as ContentPiece & { caption?: string }).caption ?? piece.title ?? null,
         },
         retries: 2,
         timeout: 900, // 15 min — FFmpeg puede tardar

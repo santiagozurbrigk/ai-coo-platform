@@ -259,10 +259,12 @@ export function TrialReelsPanel({ contentPieceId, initialJobs = [] }: Props) {
             >
               Job #{jobs.length - i}
               {" · "}
-              {new Date(job.created_at).toLocaleDateString("es-AR", {
-                day: "numeric",
-                month: "short",
-              })}
+              <span suppressHydrationWarning>
+                {new Date(job.created_at).toLocaleDateString("es-AR", {
+                  day: "numeric",
+                  month: "short",
+                })}
+              </span>
             </button>
           ))}
           <button

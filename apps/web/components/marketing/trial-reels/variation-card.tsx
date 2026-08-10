@@ -246,14 +246,16 @@ export function VariationCard({ jobId, index, variation, onUpdate }: Props) {
       {/* Publicado en */}
       {isPublished && variation.published_at && (
         <div className="border-t px-4 py-2">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground" suppressHydrationWarning>
             Publicado el{" "}
-            {new Date(variation.published_at).toLocaleDateString("es-AR", {
-              day: "numeric",
-              month: "long",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            <span suppressHydrationWarning>
+              {new Date(variation.published_at).toLocaleDateString("es-AR", {
+                day: "numeric",
+                month: "long",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
             {variation.zernio_post_id && (
               <span className="ml-2 text-muted-foreground/70">
                 · ID: {variation.zernio_post_id}
