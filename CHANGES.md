@@ -41,6 +41,40 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-10 — Fix: reel-worker procesaba en background, Fly.io mataba la máquina antes de que FFmpeg corriera
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `7996341` — fix(reel-worker): procesar sincrónicamente para evitar que Fly.io mate la máquina  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** apps/reel-worker (index.ts, processor.ts)
+
+**Qué se hizo:**
+
+- `index.ts`: El endpoint POST del worker ahora procesa el job **sincrónicamente** (await `processReelVariationJob(payload)` antes de llamar `res.json()`). La conexión HTTP queda abierta mientras corre FFmpeg; Fly.io no puede apagar la máquina mientras haya una conexión activa.
+- `processor.ts`: Agregado check de **idempotencia** al inicio de `processReelVariationJob`: si el job ya está en un estado distinto de `"pending"`, se hace return inmediato. Previene reprocesamiento si QStash reintenta una entrega mientras el worker ya está ejecutando.
+- Respuesta en error: si `processReelVariationJob` lanza, se responde `200 { ok: false, status: "failed" }` en lugar de `500`, para que QStash no reintente (el processor ya marcó el job como "failed" en DB).
+
+**Por qué / finalidad:**
+
+El job `df1405b3` quedó en estado `"pending"` indefinidamente sin que el worker lo procesara. Diagnóstico:
+- Con `auto_stop_machines = true` y `min_machines_running = 0` en fly.toml, Fly.io detiene la máquina cuando no hay conexiones HTTP activas.
+- El patrón anterior era: responder `200 OK` inmediatamente → luego procesar en `setImmediate()`.
+- Al cerrar la conexión HTTP (200 enviado), Fly.io consideraba la máquina idle y la apagaba antes de que `processReelVariationJob` actualizara la DB a `"processing"` y mucho antes de que FFmpeg terminara.
+- El job quedaba en `"pending"` para siempre porque QStash ya no reintentaba (consideraba la entrega exitosa al recibir 200).
+
+**Decisiones de diseño relevantes:**
+
+- Alternativas consideradas: (a) `min_machines_running = 1` (costo constante), (b) aumentar `stop_timeout` en fly.toml (no resuelve trabajo de minutos), (c) procesar sincrónicamente ✓ (aprovecha `timeout: 900` ya configurado en QStash).
+- El `timeout: 900` en QStash publishJSON permite que la conexión esté abierta hasta 15 minutos, más que suficiente para FFmpeg (estimado 2-5 min para 5 variantes de un video de reel).
+
+**Riesgos / deuda técnica pendiente:**
+
+- El job `df1405b3` quedó en estado `"pending"` y no puede rerecuperarse automáticamente (QStash ya no va a reintentarlo). El usuario debe crear un nuevo job desde la UI para ese reel.
+- Si FFmpeg tarda más de 15 minutos (videos muy largos), QStash timeout-eará la request y reintentará. El check de idempotencia evita doble procesamiento si esto ocurre.
+- La respuesta 200 con `{ ok: false }` en caso de error es no convencional; se podría cambiar a usar QStash's "callback URL" para notificaciones de fallo sin depender del HTTP response code.
+
+---
+
 ### 2026-08-10 — Fix: errores de TypeScript/ESLint en archivos de Trial Reels para pasar build de Vercel
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
