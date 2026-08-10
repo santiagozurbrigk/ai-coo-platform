@@ -11,6 +11,7 @@ import * as os from "os";
 import * as path from "path";
 import { execSync } from "child_process";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { ReelVariation, ReelVariationType } from "@/types/reel-variations";
 
 const STORAGE_BUCKET = "trial-reels";
 
@@ -24,7 +25,7 @@ type Payload = {
 };
 
 type VariantDef = {
-  type: string;
+  type: ReelVariationType;
   suffix: string;
   filterComplex?: string;
   vf?: string;
@@ -69,7 +70,7 @@ export async function processReelJob(payload: Payload): Promise<void> {
 
   await admin.from("reel_variation_jobs").update({ status: "processing" }).eq("id", jobId);
 
-  const initialVariations = VARIANTS.map((v) => ({
+  const initialVariations: ReelVariation[] = VARIANTS.map((v) => ({
     type: v.type,
     storage_path: "",
     preview_url: "",

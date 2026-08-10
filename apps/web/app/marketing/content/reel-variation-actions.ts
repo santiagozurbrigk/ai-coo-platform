@@ -201,7 +201,7 @@ export async function createTrialReelsJobAction(
         .eq("id", jobId);
     }
 
-    revalidatePath(paths.marketingContent);
+    revalidatePath(paths.platform.marketing.content);
 
     return { ok: true, jobId };
   } catch (err) {
@@ -459,7 +459,7 @@ export async function publishVariationsAction(
       })
       .eq("id", jobId);
 
-    revalidatePath(paths.marketingContent);
+    revalidatePath(paths.platform.marketing.content);
 
     return { ok: true, published, skipped };
   } catch (err) {

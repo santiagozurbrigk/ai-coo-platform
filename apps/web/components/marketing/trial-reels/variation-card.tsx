@@ -210,7 +210,7 @@ export function VariationCard({ jobId, index, variation, onUpdate }: Props) {
             </label>
             <Textarea
               value={localDescription}
-              onChange={(e) => setLocalDescription(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setLocalDescription(e.target.value)}
               rows={3}
               placeholder="Caption para esta variante…"
               className="mt-1 resize-none text-sm"
@@ -222,7 +222,7 @@ export function VariationCard({ jobId, index, variation, onUpdate }: Props) {
             </label>
             <Textarea
               value={localHashtags}
-              onChange={(e) => setLocalHashtags(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setLocalHashtags(e.target.value)}
               rows={2}
               placeholder="#emprendimiento #negocio #marketing"
               className="mt-1 resize-none text-sm font-mono"
