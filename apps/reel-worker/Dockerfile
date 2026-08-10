@@ -2,7 +2,7 @@
 # Multi-stage para imagen pequeña (~400 MB con FFmpeg)
 
 # ─── Stage 1: Build ───────────────────────────────────────────────────────────
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 COPY package.json ./
@@ -14,7 +14,7 @@ RUN npm install -D typescript @types/node @types/express @types/fluent-ffmpeg @t
 RUN npx tsc
 
 # ─── Stage 2: Runtime ─────────────────────────────────────────────────────────
-FROM node:20-slim AS runner
+FROM node:22-slim AS runner
 
 # Instalar FFmpeg desde repositorio oficial Debian
 RUN apt-get update && \
