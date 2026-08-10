@@ -177,21 +177,39 @@ export async function createTrialReelsJobAction(
     const client = getQStashClient();
     if (client) {
       const workerUrl = getReelWorkerUrl();
-      await client.publishJSON({
-        url: workerUrl,
-        body: {
-          jobId,
-          organizationId,
-          sourcePieceId: contentPieceId,
-          sourceStoragePath,
-          sourceFileName: fileName,
-          originalCaption: (piece as ContentPiece & { caption?: string }).caption ?? piece.title ?? null,
-        },
-        retries: 2,
-        timeout: 900, // 15 min — FFmpeg puede tardar
-      });
+      console.log("[TrialReels] publishing to QStash", { jobId, workerUrl });
+      try {
+        const qstashResult = await client.publishJSON({
+          url: workerUrl,
+          body: {
+            jobId,
+            organizationId,
+            sourcePieceId: contentPieceId,
+            sourceStoragePath,
+            sourceFileName: fileName,
+            originalCaption: (piece as ContentPiece & { caption?: string }).caption ?? piece.title ?? null,
+          },
+          retries: 2,
+          timeout: 900, // 15 min — FFmpeg puede tardar
+        });
+        console.log("[TrialReels] QStash published OK", { jobId, messageId: qstashResult.messageId, workerUrl });
+      } catch (qstashErr) {
+        // Si QStash falla al publicar, marcar el job como failed en DB
+        // para que el usuario vea el error en vez de quedar en "pending" indefinidamente.
+        const qstashMsg = qstashErr instanceof Error ? qstashErr.message : String(qstashErr);
+        console.error("[TrialReels] QStash publish failed", { jobId, workerUrl, error: qstashMsg });
+        await admin
+          .from("reel_variation_jobs")
+          .update({
+            status: "failed",
+            error_message: `Error al enviar al worker: ${qstashMsg}`,
+          })
+          .eq("id", jobId);
+        return { ok: false, errorCode: "QSTASH_FAILED", message: `Error al enviar al worker: ${qstashMsg}` };
+      }
     } else {
       // Sin QStash en dev: marcar como fallido con mensaje amigable
+      console.warn("[TrialReels] QSTASH_TOKEN no configurado — job marcado como failed", { jobId });
       await admin
         .from("reel_variation_jobs")
         .update({
