@@ -41,6 +41,46 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-10 — Fix: Trial Reels quedaba en "pending" por 401 del worker (signing keys QStash incorrectas)
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `9726810` — fix(trial-reels): WORKER_AUTH_SECRET para evitar 401 por signing keys de QStash  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** apps/reel-worker (index.ts), apps/web (reel-variation-actions.ts, [id]/page.tsx)
+
+**Qué se hizo:**
+
+- `apps/reel-worker/src/index.ts`: La función `verifySignature()` ahora verifica primero un `Authorization: Bearer <WORKER_AUTH_SECRET>` header. Si `WORKER_AUTH_SECRET` está configurado y el header coincide → acepta. Si no coincide → rechaza sin continuar a QStash signing. Si `WORKER_AUTH_SECRET` no está configurado → cae al flujo previo de QStash signing.
+- `apps/web/app/marketing/content/reel-variation-actions.ts`: `createTrialReelsJobAction` pasa `Authorization: Bearer <WORKER_AUTH_SECRET>` como header custom en el `client.publishJSON()` de QStash (QStash reenvía el header al worker). También agrega log del `hasWorkerAuthSecret` para diagnóstico.
+- `apps/web/app/(platform)/marketing/content/[id]/page.tsx`: Agrega `export const maxDuration = 300` para que la Server Action no sea cortada por el timeout de Vercel mientras descarga el video de Drive o sube a Supabase (archivos grandes pueden tardar >10s).
+- Startup log del worker ahora muestra explícitamente si `WORKER_AUTH_SECRET` está configurado.
+
+**Por qué / finalidad:**
+
+Después del fix de procesamiento sincrónico (commit `7996341`), los jobs SEGUÍAN quedando en `"pending"` indefinidamente. El diagnóstico:
+- QStash entregaba el job al worker (`https://otc-reel-worker.fly.dev/`)
+- El worker verificaba la firma usando `QSTASH_CURRENT_SIGNING_KEY` / `QSTASH_NEXT_SIGNING_KEY` — estos secrets estaban configurados en Fly.io pero probablemente con valores incorrectos o desincronizados respecto a lo que QStash usa para firmar
+- El worker respondía `401 Unauthorized`
+- QStash reintentaba 2 veces (retries: 2), fallaba los 3 intentos, abandonaba la entrega
+- Job quedaba para siempre en `"pending"` (QStash no tiene mecanismo para marcar el job como fallido en la DB nuestra)
+
+**Decisiones de diseño relevantes:**
+
+- Usar `WORKER_AUTH_SECRET` como token Bearer en lugar de depender de las signing keys de QStash, que son más complejas de sincronizar y verificar (JWT con timestamp, URL, etc.). El Bearer token es más simple, más predecible y más fácil de debuggear.
+- Si `WORKER_AUTH_SECRET` está seteado y el header NO coincide, rechazar inmediatamente sin caer al QStash signing. Esto previene bypass accidental por token desconfigurado.
+- QStash soporta pasar headers custom en `publishJSON({ headers: {...} })` — los reenvía intactos al endpoint destino.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **El usuario debe configurar `WORKER_AUTH_SECRET` como secret en Fly.io Y como env var en Vercel.** Sin esto, la autenticación del worker cae al flujo QStash signing previo (que sigue sin funcionar si las keys están mal).
+- Pasos necesarios:
+  1. Generar un string aleatorio: `openssl rand -base64 32`
+  2. Configurar en Fly.io: `fly secrets set WORKER_AUTH_SECRET=<valor> --app otc-reel-worker`
+  3. Configurar en Vercel: env var `WORKER_AUTH_SECRET=<mismo valor>` → redeploy
+  4. Redeploy Fly.io: `fly deploy --config apps/reel-worker/fly.toml`
+
+---
+
 ### 2026-08-10 — Fix: reel-worker procesaba en background, Fly.io mataba la máquina antes de que FFmpeg corriera
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
