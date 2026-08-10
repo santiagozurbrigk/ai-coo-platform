@@ -41,10 +41,47 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-10 — Fix: errores de TypeScript/ESLint en archivos de Trial Reels para pasar build de Vercel
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `8413c0a` — fix(trial-reels): escapar comillas en JSX para ESLint  
+  `939d5c9` — fix(trial-reels): corregir errores de TypeScript en archivos nuevos  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** marketing/trial-reels, packages/ui, api/queue
+
+**Qué se hizo:**
+
+Cuatro errores bloqueaban el build de Vercel en los archivos de Trial Reels introducidos en el commit anterior:
+
+1. **ESLint `react/no-unescaped-entities`** (`trial-reels-panel.tsx` línea 234): Las comillas dobles en JSX literal (`"Crear Trial Reels"`) no están permitidas. Fix: `&ldquo;…&rdquo;`.
+
+2. **TypeScript `Type 'string' is not assignable to type 'null'`** (`processor.ts` línea 134): `initialVariations` era inferido como `{ error: null }[]` en vez de `ReelVariation[]`, por lo que asignar `error: msg` (string) fallaba. Fix: agregar anotación explícita `const initialVariations: ReelVariation[]` y tipar `VariantDef.type` como `ReelVariationType`.
+
+3. **TypeScript `Property 'marketing' does not exist on type`** (`reel-variation-actions.ts` líneas 204 y 462): Se usaba `paths.marketing.content` (inexistente en nivel raíz) en vez de `paths.platform.marketing.content`.
+
+4. **TypeScript implicit `any`** (`variation-card.tsx` líneas 213, 225): `onChange` handlers sin tipo. Fix: `React.ChangeEvent<HTMLTextAreaElement>`.
+
+5. **Badge `children` en React 19** (`badge.tsx`): `React.HTMLAttributes` ya no incluye `children` en React 19. Fix: declarar `children?: React.ReactNode` explícitamente en `BadgeProps`.
+
+**Por qué / finalidad:**
+Cada commit a la rama dispara un preview deployment en Vercel. Los errores en archivos nuevos (no cacheados por Turbo) fallaban el build impidiendo testear el feature completo en producción.
+
+**Decisiones de diseño relevantes:**
+- Los errores de Badge `children` son pre-existentes en muchos archivos del proyecto que ya pasan el build (se sirven desde la caché de Turbo). Solo los archivos nuevos (sin caché) se ven afectados.
+- La anotación `ReelVariation[]` en `processor.ts` es la solución mínima — no restructurar la función.
+
+**Riesgos / deuda técnica pendiente:**
+- El warning de Badge `children` es cosmético en tsc local pero no falla Vercel — hay ~15 archivos pre-existentes con el mismo error que Vercel ignora por caché de Turbo. A largo plazo, migrar todos los usos.
+- El fix de Badge en `packages/ui` es una mejora general pero la raíz del problema es que React 19 eliminó `children` de `HTMLAttributes` — todos los componentes con `extends React.HTMLAttributes` de la UI deben revisarse.
+
+---
+
 ### 2026-08-10 — Feature: Trial Reels — generación automática de 5 variaciones de reels
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
-**Commit(s):** pendiente  
+**Commit(s):** `1ad489d` — feat(marketing): Trial Reels — generación automática de 5 variaciones de reels  
+  `b137a0f` — fix(reel-worker): crear carpeta luts vacía para Docker build  
+  `2191cf5` — fix(reel-worker): escuchar en 0.0.0.0 para compatibilidad con Fly.io  
 **Autor:** Claude  
 **Módulo(s) afectado(s):** marketing/content, reel-worker (nuevo servicio), supabase/migrations, types, components
 
