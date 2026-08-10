@@ -231,7 +231,7 @@ export function TrialReelsPanel({ contentPieceId, initialJobs = [] }: Props) {
       <div className="py-8 text-center text-sm text-muted-foreground">
         No hay jobs de Trial Reels para esta pieza.
         <br />
-        Usá el botón "Crear Trial Reels" para empezar.
+        Usá el botón &ldquo;Crear Trial Reels&rdquo; para empezar.
       </div>
     );
   }
