@@ -41,6 +41,79 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-10 — Fix: reel-worker crasheaba en Node.js 20 por falta de soporte nativo de WebSocket
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `257d5a1` — fix(reel-worker): Node.js 22 para soporte nativo de WebSocket  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** apps/reel-worker (Dockerfile, package.json)
+
+**Qué se hizo:**
+
+- `apps/reel-worker/Dockerfile`: Cambiado `FROM node:20-slim` → `FROM node:22-slim` en ambas etapas (builder y runner).
+- `apps/reel-worker/package.json`: Actualizado `"engines": { "node": ">=20" }` → `"engines": { "node": ">=22" }`.
+
+**Por qué / finalidad:**
+
+Los jobs seguían en estado `"pending"` incluso después del fix de autenticación triple. Fly.io logs revelaron el crash real al procesar el primer job:
+
+```
+error: 'Node.js 20 detected without native WebSocket support.
+Suggested solution: For Node.js < 22, install "ws" package and provide it via the transport option:
+import ws from "ws"
+new RealtimeClient(url, { transport: ws })'
+```
+
+`@supabase/supabase-js` v2.45 require WebSocket nativo (disponible en Node.js 22+) o instalar el paquete `ws` manualmente. Al llamar `createClient()` en `processor.ts`, la librería de Supabase Realtime intentaba inicializar una conexión WebSocket y crasheaba inmediatamente sin marcar el job como "failed" en DB. El job quedaba en `"pending"` para siempre.
+
+**Decisiones de diseño relevantes:**
+
+- Alternativa 1: agregar `ws` como dependencia y pasarla via `transport` en el `createClient()`. Más invasivo, requiere cambios en processor.ts.
+- Alternativa 2: subir a Node.js 22 (WebSocket nativo desde v21.6+). Sin cambios de código, Docker multi-stage lo soporta bien. ✓ Elegida.
+- Node.js 22 es LTS desde octubre 2024 — cambio sin riesgo de compatibilidad.
+
+**Riesgos / deuda técnica pendiente:**
+
+- Requirió que el usuario hiciera `git pull` antes de `fly deploy` — el primer intento de deploy usó el Dockerfile local con node:20 (ya que la imagen cacheada en Docker no había cambiado). El segundo intento (con `git pull` previo) compiló node:22 correctamente.
+- Si en el futuro se actualiza `@supabase/supabase-js` a v3+, verificar si siguen usando WebSocket nativo o si cambian el modelo de transporte.
+
+---
+
+### 2026-08-10 — Fix: autenticación del worker con triple redundancia (X-Worker-Secret + Bearer + query param)
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `a6a513d` — fix(trial-reels): auth robusta con X-Worker-Secret header y query param  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** apps/reel-worker (index.ts), apps/web (reel-variation-actions.ts)
+
+**Qué se hizo:**
+
+- `apps/reel-worker/src/index.ts`: `verifySignature()` ahora intenta autenticación en este orden:
+  1. **X-Worker-Secret** header (custom, nunca stripeado por proxies ni QStash)
+  2. **Authorization: Bearer `<secret>`** header (método original)
+  3. **`?workerSecret=<secret>`** URL query param (fallback absoluto — QStash nunca modifica query params)
+  - Si ninguno coincide, log de diagnóstico mostrando cuántos chars llegaron vs esperados para detectar mismatches.
+- `apps/web/app/marketing/content/reel-variation-actions.ts`: `createTrialReelsJobAction` ahora:
+  - Agrega `workerSecret` en la URL como query param (`?workerSecret=<secret>`)
+  - Pasa ambos headers `X-Worker-Secret` y `Authorization: Bearer` en el `publishJSON()` de QStash
+
+**Por qué / finalidad:**
+
+Después de confirmar que QStash entregaba el job al worker (imageId en response), los jobs seguían en `"pending"`. La hipótesis era que QStash stripeaba el header `Authorization` en tránsito (comportamiento documentado en algunos proxies). La solución: enviar el secret por tres canales distintos para máxima robustez, sin depender de que ninguno en particular llegue intacto.
+
+**Decisiones de diseño relevantes:**
+
+- QStash garantiza que los query params de la URL destino llegan intactos al endpoint — los headers son más propensos a ser modificados/stripeados.
+- El log de diagnóstico (`got N chars, expected M`) permite detectar mismatches de WORKER_AUTH_SECRET entre Fly.io y Vercel sin exponer el secret completo en logs.
+- La verificación se hace en el orden más-a-menos confiable: header custom → header estándar → query param.
+
+**Riesgos / deuda técnica pendiente:**
+
+- El query param expone el secret en logs de Fly.io y QStash si están habilitados. Para uso en producción de alta seguridad, idealmente usar solo el header X-Worker-Secret. Por ahora el triple-método es adecuado para el contexto.
+- Si en el futuro se cambia WORKER_AUTH_SECRET, hay que actualizarlo en dos lugares: Fly.io secrets Y Vercel env vars (y hacer redeploy de ambos).
+
+---
+
 ### 2026-08-10 — Fix: Trial Reels quedaba en "pending" por 401 del worker (signing keys QStash incorrectas)
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
