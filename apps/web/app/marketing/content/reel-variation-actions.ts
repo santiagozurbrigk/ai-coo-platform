@@ -125,11 +125,18 @@ export async function createTrialReelsJobAction(
     // 6. Publicar en QStash → worker de Fly.io
     const client = getQStashClient();
     if (client) {
-      const workerUrl = getReelWorkerUrl();
+      const workerBaseUrl = getReelWorkerUrl();
       const workerAuthSecret = process.env.WORKER_AUTH_SECRET?.trim();
+
+      // Incluir el secret en la URL como query param — QStash nunca stripea query params,
+      // a diferencia del header Authorization que algunos proxies pueden bloquear.
+      const workerUrl = workerAuthSecret
+        ? `${workerBaseUrl}?workerSecret=${encodeURIComponent(workerAuthSecret)}`
+        : workerBaseUrl;
+
       console.log("[TrialReels] publishing to QStash", {
         jobId,
-        workerUrl,
+        workerUrl: workerBaseUrl, // No loggear el secret completo en la URL
         hasWorkerAuthSecret: Boolean(workerAuthSecret),
       });
       try {
@@ -145,10 +152,14 @@ export async function createTrialReelsJobAction(
             sourceFileName: driveFileName,
             originalCaption: (piece as ContentPiece & { caption?: string }).caption ?? piece.title ?? null,
           },
-          // Pasar el secret al worker vía Authorization header.
-          // QStash lo reenvía como-está al worker, que lo verifica antes que la firma QStash.
+          // Pasar el secret también en headers (múltiples métodos para robustez).
+          // X-Worker-Secret: nunca stripped por proxies.
+          // Authorization: método original como fallback.
           headers: workerAuthSecret
-            ? { Authorization: `Bearer ${workerAuthSecret}` }
+            ? {
+                "X-Worker-Secret": workerAuthSecret,
+                Authorization: `Bearer ${workerAuthSecret}`,
+              }
             : undefined,
           retries: 2,
           timeout: 900, // 15 min — FFmpeg puede tardar

@@ -65,18 +65,48 @@ function buildReceiver(): Receiver | null {
 const receiver = buildReceiver();
 
 async function verifySignature(req: express.Request, rawBody: string): Promise<boolean> {
-  // 1. Bearer token auth (WORKER_AUTH_SECRET) — método primario, más simple y confiable.
-  //    QStash entrega el header Authorization con el secret configurado en el publish.
+  // 1. Bearer token auth (WORKER_AUTH_SECRET) — método primario.
+  //    Se verifica en tres formas para mayor robustez:
+  //    a) Header X-Worker-Secret (custom, nunca stripped por proxies)
+  //    b) Header Authorization: Bearer <secret>
+  //    c) Query param ?workerSecret=<secret> (fallback absoluto)
   const workerSecret = process.env.WORKER_AUTH_SECRET?.trim();
   if (workerSecret) {
-    const authHeader = req.headers["authorization"];
-    if (typeof authHeader === "string" && authHeader === `Bearer ${workerSecret}`) {
-      console.log("[Worker] auth via WORKER_AUTH_SECRET OK");
+    // a) Custom header (más confiable — los proxies no lo tocan)
+    const xWorkerSecret = req.headers["x-worker-secret"];
+    if (typeof xWorkerSecret === "string" && xWorkerSecret === workerSecret) {
+      console.log("[Worker] auth via X-Worker-Secret header OK");
       return true;
     }
-    // Si el secret está configurado pero el header no coincide, rechazar.
-    // No continuar a QStash signing para evitar bypass accidental.
-    console.warn("[Worker] WORKER_AUTH_SECRET configurado pero Authorization header inválido");
+
+    // b) Authorization: Bearer <secret>
+    const authHeader = req.headers["authorization"];
+    if (typeof authHeader === "string" && authHeader === `Bearer ${workerSecret}`) {
+      console.log("[Worker] auth via Authorization header OK");
+      return true;
+    }
+
+    // c) Query parameter (fallback si QStash stripea headers)
+    const querySecret = (req.query.workerSecret as string | undefined)?.trim();
+    if (querySecret && querySecret === workerSecret) {
+      console.log("[Worker] auth via query param OK");
+      return true;
+    }
+
+    // Log de diagnóstico — muestra qué llegó (parcialmente) para detectar mismatches
+    const receivedSecret = workerSecret.substring(0, 4) + "..."; // primeros 4 chars del esperado
+    console.warn("[Worker] WORKER_AUTH_SECRET configurado pero ningún método coincidió", {
+      xWorkerSecretPresent: typeof xWorkerSecret === "string",
+      xWorkerSecretMatch: typeof xWorkerSecret === "string"
+        ? `(got ${xWorkerSecret.length} chars, expected ${workerSecret.length})`
+        : "not present",
+      authHeaderPresent: typeof authHeader === "string",
+      authHeaderSnippet: typeof authHeader === "string"
+        ? authHeader.substring(0, Math.min(20, authHeader.length)) + "..."
+        : "not present",
+      querySecretPresent: Boolean(querySecret),
+      secretExpectedPrefix: receivedSecret,
+    });
     return false;
   }
 
