@@ -193,11 +193,11 @@ export function TrialReelsPanel({ contentPieceId, initialJobs = [] }: Props) {
         return;
       }
       push({
-        title: `${result.published} variante${result.published === 1 ? "" : "s"} publicada${result.published === 1 ? "" : "s"}`,
+        title: `${result.scheduled} variante${result.scheduled === 1 ? "" : "s"} programada${result.scheduled === 1 ? "" : "s"}`,
         description:
-          result.skipped > 0
-            ? `${result.skipped} excluidas o ya publicadas.`
-            : undefined,
+          result.scheduled > 1 && activeJob?.delay_hours
+            ? `Se publicarán con ${activeJob.delay_hours}h de diferencia entre cada una.`
+            : "La publicación está en proceso.",
         variant: "success",
       });
     } catch (err) {
@@ -238,8 +238,8 @@ export function TrialReelsPanel({ contentPieceId, initialJobs = [] }: Props) {
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
-  const includedCount = activeJob?.variations.filter((v) => v.included && v.status === "ready").length ?? 0;
-  const readyCount = activeJob?.variations.filter((v) => v.status === "ready").length ?? 0;
+  const includedCount = activeJob?.variations.filter((v) => v.included && (v.status === "ready" || v.status === "scheduled")).length ?? 0;
+  const readyCount = activeJob?.variations.filter((v) => v.status === "ready" || v.status === "scheduled").length ?? 0;
 
   return (
     <div className="space-y-4">

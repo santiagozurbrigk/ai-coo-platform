@@ -8,10 +8,11 @@ export type ReelVariationType =
   | "color";       // corrección colorimétrica / LUT (V5)
 
 export type ReelVariationStatus =
-  | "processing"
-  | "ready"
-  | "published"
-  | "failed";
+  | "processing"   // worker generando la variante
+  | "ready"        // lista para que el usuario revise y publique
+  | "scheduled"    // encolada en QStash, se publicará en el delay configurado
+  | "published"    // publicada en Zernio
+  | "failed";      // error en generación o publicación
 
 export type ReelJobStatus =
   | "pending"

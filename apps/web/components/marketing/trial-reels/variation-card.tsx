@@ -8,6 +8,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Clock,
   Instagram,
   Loader2,
   X,
@@ -93,6 +94,7 @@ export function VariationCard({ jobId, index, variation, onUpdate }: Props) {
   };
 
   const isReady = variation.status === "ready";
+  const isScheduled = variation.status === "scheduled";
   const isPublished = variation.status === "published";
   const isFailed = variation.status === "failed";
   const isProcessing = variation.status === "processing";
@@ -128,8 +130,14 @@ export function VariationCard({ jobId, index, variation, onUpdate }: Props) {
             Procesando
           </Badge>
         )}
-        {isReady && !isPublished && (
+        {isReady && (
           <Badge variant="secondary" className="text-muted-foreground">Lista</Badge>
+        )}
+        {isScheduled && (
+          <Badge className="gap-1 bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/30">
+            <Clock className="h-3 w-3" />
+            Programada
+          </Badge>
         )}
         {isPublished && (
           <Badge className="gap-1 bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/30">
@@ -164,7 +172,7 @@ export function VariationCard({ jobId, index, variation, onUpdate }: Props) {
         )}
 
         {/* Expandir/colapsar video */}
-        {isReady && variation.preview_url && (
+        {(isReady || isScheduled) && variation.preview_url && (
           <Button
             variant="ghost"
             size="sm"
@@ -188,7 +196,7 @@ export function VariationCard({ jobId, index, variation, onUpdate }: Props) {
       )}
 
       {/* Preview de video */}
-      {isReady && videoExpanded && variation.preview_url && (
+      {(isReady || isScheduled) && videoExpanded && variation.preview_url && (
         <div className="px-4 pb-4">
           <video
             src={variation.preview_url}

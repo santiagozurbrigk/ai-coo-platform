@@ -5,7 +5,7 @@ import { getCurrentProfile } from "@/lib/auth/bootstrap";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getGoogleAccessTokenForOrganization } from "@/lib/google/get-access-token";
-import { getQStashClient, getPublicAppUrl } from "@/lib/queue/qstash-client";
+import { getQStashClient, getPublicAppUrl, getReelVariationPublishUrl } from "@/lib/queue/qstash-client";
 import type { ReelVariationJob, ReelVariation } from "@/types/reel-variations";
 import type { ContentPiece } from "@/types/content";
 import { paths } from "@/routes";
@@ -302,9 +302,18 @@ export async function setReelVariationDelayAction(
 // ─── Publicar variantes ───────────────────────────────────────────────────────
 
 export type PublishVariationsResult =
-  | { ok: true; published: number; skipped: number }
+  | { ok: true; scheduled: number }
   | { ok: false; message: string };
 
+/**
+ * Encola cada variante incluida en QStash con el delay real configurado.
+ * - Variante en posición 0 → delay 0 (inmediata)
+ * - Variante en posición 1 → delay delay_hours * 3600 segundos
+ * - Variante en posición N → delay N * delay_hours * 3600 segundos
+ *
+ * El endpoint /api/queue/publish-reel-variation procesa cada una y actualiza la DB.
+ * Esta acción retorna inmediatamente sin esperar a que se publiquen.
+ */
 export async function publishVariationsAction(
   jobId: string
 ): Promise<PublishVariationsResult> {
@@ -312,7 +321,7 @@ export async function publishVariationsAction(
     const organizationId = await requireOrgId();
     const admin = createAdminClient();
 
-    // 1. Leer job con admin (necesitamos leer para actualizar estado)
+    // 1. Leer job con admin
     const { data: job, error: jobErr } = await admin
       .from("reel_variation_jobs")
       .select("*")
@@ -329,129 +338,114 @@ export async function publishVariationsAction(
       };
     }
 
-    // 2. Obtener cliente Zernio de la org
-    const { getZernioClientForOrganization } = await import(
-      "@/lib/zernio/integration"
-    );
-    let zernioClient;
-    try {
-      zernioClient = await getZernioClientForOrganization(organizationId);
-    } catch {
-      return {
-        ok: false,
-        message: "Zernio no está conectado. Configuralo en Integraciones.",
-      };
-    }
+    const variations = (job.variations ?? []) as ReelVariation[];
+    const delayHours = (job.delay_hours as number) ?? 0;
 
-    // 3. Marcar como publicando
+    // 2. Marcar las variantes incluidas como "scheduled" y el job como "publishing"
+    const updatedVariations = variations.map((v) =>
+      v.included && v.status === "ready"
+        ? { ...v, status: "scheduled" as const }
+        : v
+    );
+
     await admin
       .from("reel_variation_jobs")
-      .update({ status: "publishing" })
+      .update({ status: "publishing", variations: updatedVariations })
       .eq("id", jobId);
 
-    const variations = (job.variations ?? []) as ReelVariation[];
-    const delayMs = (job.delay_hours as number) * 60 * 60 * 1000;
+    // 3. Publicar mensajes en QStash con delay real por posición
+    const qstashClient = getQStashClient();
+    const publishUrl = getReelVariationPublishUrl();
+    const workerAuthSecret = process.env.WORKER_AUTH_SECRET?.trim();
 
-    let published = 0;
-    let skipped = 0;
-    const updatedVariations = [...variations];
+    // URL con secret en query param (QStash nunca stripea query params)
+    const urlWithSecret = workerAuthSecret
+      ? `${publishUrl}?workerSecret=${encodeURIComponent(workerAuthSecret)}`
+      : publishUrl;
+
+    let scheduled = 0;
+    let position = 0; // posición entre las variantes incluidas (para el delay)
 
     for (let i = 0; i < variations.length; i++) {
       const variation = variations[i];
+      if (!variation.included || variation.status !== "ready") continue;
 
-      if (!variation.included || variation.status === "published") {
-        skipped++;
-        continue;
-      }
+      const delaySecs = position * delayHours * 3600; // 0 para la primera
+      position++;
 
-      // Obtener URL firmada del video
-      const { data: signedData } = await admin.storage
-        .from(STORAGE_BUCKET)
-        .createSignedUrl(variation.storage_path, 3600); // 1h para que Zernio pueda descargarlo
-
-      if (!signedData?.signedUrl) {
-        updatedVariations[i] = {
-          ...variation,
-          status: "failed",
-          error: "No se pudo generar URL firmada para el video",
-        };
-        continue;
-      }
-
-      // Delay entre publicaciones (excepto la primera)
-      if (published > 0 && delayMs > 0) {
-        await new Promise((r) => setTimeout(r, Math.min(delayMs, 30_000)));
-        // En producción el delay real se maneja con un schedule de QStash
-        // Por ahora usamos 30s max para no bloquear el servidor indefinidamente
-      }
-
-      try {
-        // Publicar vía Zernio — creamos el post con el caption completo.
-        // La URL firmada del video se incluye en el content para que Zernio
-        // pueda procesarla al momento de publicar en Instagram.
-        const caption =
-          variation.description +
-          (variation.hashtags?.length ? `\n\n${variation.hashtags.join(" ")}` : "");
-
-        // Obtener profileId e instagramAccountId de la integración
-        const { getZernioIntegrationForOrg } = await import("@/lib/zernio/integration");
-        const integration = await getZernioIntegrationForOrg(organizationId);
-        const igAccount = integration?.connected_accounts?.find(
-          (a) => a.platform === "instagram"
-        );
-
-        const result = await zernioClient.createPost({
-          profileId: integration?.zernio_profile_id ?? "",
-          platform: "instagram",
-          postType: "reel",
-          status: "draft", // draft para que el usuario confirme antes de publicar
-          content: caption,
-          ...(igAccount ? { accountId: igAccount.accountId } : {}),
-        });
-
-        updatedVariations[i] = {
-          ...variation,
-          status: "published",
-          zernio_post_id: (result as { id?: string; _id?: string })?.id
-            ?? (result as { id?: string; _id?: string })?._id
-            ?? null,
-          published_at: new Date().toISOString(),
-          error: null,
-        };
-        published++;
-      } catch (publishErr) {
-        const msg =
-          publishErr instanceof Error ? publishErr.message : "Error al publicar";
-        updatedVariations[i] = {
-          ...variation,
-          status: "failed",
-          error: msg,
-        };
-        console.error("[TrialReels] publish variation failed", {
+      if (qstashClient) {
+        try {
+          const publishResult = await qstashClient.publishJSON({
+            url: urlWithSecret,
+            body: { jobId, variationIndex: i, organizationId },
+            headers: workerAuthSecret
+              ? {
+                  "X-Worker-Secret": workerAuthSecret,
+                  Authorization: `Bearer ${workerAuthSecret}`,
+                }
+              : undefined,
+            delay: delaySecs > 0 ? delaySecs : undefined,
+            retries: 2,
+          });
+          console.log("[TrialReels] variation enqueued", {
+            jobId,
+            variationIndex: i,
+            type: variation.type,
+            delaySecs,
+            messageId: publishResult.messageId,
+          });
+          scheduled++;
+        } catch (qErr) {
+          const msg = qErr instanceof Error ? qErr.message : String(qErr);
+          console.error("[TrialReels] failed to enqueue variation", {
+            jobId,
+            variationIndex: i,
+            error: msg,
+          });
+          // Marcar esta variante como fallida directamente en DB
+          const fresh = await admin
+            .from("reel_variation_jobs")
+            .select("variations")
+            .eq("id", jobId)
+            .maybeSingle();
+          if (fresh.data) {
+            const vars = [...((fresh.data.variations ?? []) as ReelVariation[])];
+            vars[i] = { ...vars[i], status: "failed", error: `Error al encolar: ${msg}` };
+            await admin
+              .from("reel_variation_jobs")
+              .update({ variations: vars })
+              .eq("id", jobId);
+          }
+        }
+      } else {
+        // Sin QStash configurado (dev): marcar directamente como failed con mensaje claro
+        console.warn("[TrialReels] QSTASH_TOKEN no configurado — variante sin publicar", {
           jobId,
-          index: i,
-          type: variation.type,
-          error: msg,
+          variationIndex: i,
         });
+        const fresh = await admin
+          .from("reel_variation_jobs")
+          .select("variations")
+          .eq("id", jobId)
+          .maybeSingle();
+        if (fresh.data) {
+          const vars = [...((fresh.data.variations ?? []) as ReelVariation[])];
+          vars[i] = {
+            ...vars[i],
+            status: "failed",
+            error: "QStash no está configurado (modo desarrollo)",
+          };
+          await admin
+            .from("reel_variation_jobs")
+            .update({ variations: vars })
+            .eq("id", jobId);
+        }
       }
     }
 
-    // 4. Actualizar variantes y estado final
-    const allDone = updatedVariations
-      .filter((v) => v.included)
-      .every((v) => v.status === "published" || v.status === "failed");
-
-    await admin
-      .from("reel_variation_jobs")
-      .update({
-        variations: updatedVariations,
-        status: allDone ? "done" : "publishing",
-      })
-      .eq("id", jobId);
-
     revalidatePath(paths.platform.marketing.content);
 
-    return { ok: true, published, skipped };
+    return { ok: true, scheduled };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido";
     console.error("[TrialReels] publishVariationsAction error", { jobId, message });
