@@ -11,16 +11,25 @@
  *   { jobId, variationIndex, organizationId }
  *
  * Idempotente: si variation.status !== "scheduled", responde 200 sin hacer nada.
+ *
+ * Flujo de publicación:
+ *   1. Descargar video desde Supabase Storage (URL firmada)
+ *   2. Subir a Zernio via presigned URL → obtener fileUrl permanente
+ *   3. Crear post en Zernio con mediaItems: [{ type: "video", url: fileUrl }]
  */
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyQueueRequest } from "@/lib/queue/verify-queue-request";
+import { sendTrialReelsDoneEmail } from "@/lib/email";
+import { getPublicAppUrl } from "@/lib/queue/qstash-client";
 import type { ReelVariation } from "@/types/reel-variations";
+import type { ZernioClient, ZernioMediaPresignResponse } from "@/lib/zernio/client";
 
 export const runtime = "nodejs";
-export const maxDuration = 30; // publicar en Zernio es rápido (<5s)
+// 60s: descarga de Supabase + upload a Zernio + createPost puede tardar 30-50s
+export const maxDuration = 60;
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -29,6 +38,113 @@ const payloadSchema = z.object({
   variationIndex: z.number().int().min(0).max(9),
   organizationId: z.string().uuid(),
 });
+
+// ─── Helper: upload de video a Zernio ────────────────────────────────────────
+
+/**
+ * Descarga el video desde Supabase Storage y lo sube al storage de Zernio
+ * usando el flujo de presigned URL.
+ * Retorna la fileUrl permanente para usar en mediaItems del post.
+ */
+async function uploadVideoToZernio(
+  zernioClient: ZernioClient,
+  supabaseSignedUrl: string,
+  storagePath: string
+): Promise<string> {
+  // Extraer nombre de archivo del storage path (ej: "org-id/job-id/speed_up.mp4")
+  const filename = storagePath.split("/").pop() ?? "variante.mp4";
+  const contentType = "video/mp4";
+
+  // 1. Obtener URL presignada de Zernio
+  let presign: ZernioMediaPresignResponse;
+  try {
+    presign = await zernioClient.getMediaPresignedUrl(filename, contentType);
+  } catch (err) {
+    throw new Error(
+      `Error al obtener URL de upload de Zernio: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+
+  if (!presign.uploadUrl || !presign.fileUrl) {
+    throw new Error("Zernio no devolvió uploadUrl/fileUrl válidos");
+  }
+
+  // 2. Descargar el video desde Supabase Storage
+  const videoRes = await fetch(supabaseSignedUrl);
+  if (!videoRes.ok) {
+    throw new Error(`Error al descargar video de Storage: HTTP ${videoRes.status}`);
+  }
+
+  // 3. Subir el video a Zernio vía presigned URL (PUT)
+  //    Buffereamos el video en memoria para compatibilidad con Vercel
+  const videoBuffer = await videoRes.arrayBuffer();
+
+  const uploadRes = await fetch(presign.uploadUrl, {
+    method: "PUT",
+    body: videoBuffer,
+    headers: { "Content-Type": contentType },
+  });
+
+  if (!uploadRes.ok) {
+    const uploadBody = await uploadRes.text().catch(() => "");
+    throw new Error(
+      `Error al subir video a Zernio: HTTP ${uploadRes.status} — ${uploadBody.slice(0, 200)}`
+    );
+  }
+
+  console.log("[PublishVariation] video uploaded to Zernio", {
+    filename,
+    fileUrl: presign.fileUrl,
+    sizeBytes: videoBuffer.byteLength,
+  });
+
+  return presign.fileUrl;
+}
+
+// ─── Helper: notificar al admin de la org ────────────────────────────────────
+
+/**
+ * Busca el email del admin/founder de la org y envía el email de notificación.
+ * Best-effort: si falla, solo loggea — nunca lanza.
+ */
+async function notifyOrgAdminDone(
+  admin: ReturnType<typeof createAdminClient>,
+  organizationId: string,
+  variations: ReelVariation[]
+): Promise<void> {
+  // Buscar el perfil admin de la org
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("email")
+    .eq("organization_id", organizationId)
+    .eq("role", "admin")
+    .maybeSingle();
+
+  const email = profile?.email;
+  if (!email) {
+    console.log("[PublishVariation] no admin email found, skipping notification", { organizationId });
+    return;
+  }
+
+  const included = variations.filter((v) => v.included);
+  const published = included.filter((v) => v.status === "published").length;
+  const failed = included.filter((v) => v.status === "failed").length;
+
+  let appUrl: string;
+  try {
+    appUrl = getPublicAppUrl();
+  } catch {
+    appUrl = "https://app.otc.com";
+  }
+
+  const result = await sendTrialReelsDoneEmail({ to: email, published, failed, appUrl });
+
+  if (result.ok) {
+    console.log("[PublishVariation] notification sent", { email, published, failed });
+  } else {
+    console.warn("[PublishVariation] notification failed", { email, error: result.error });
+  }
+}
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
@@ -102,7 +218,7 @@ export async function POST(request: Request) {
       "@/lib/zernio/integration"
     );
 
-    let zernioClient;
+    let zernioClient: ZernioClient;
     try {
       zernioClient = await getZernioClientForOrganization(organizationId);
     } catch {
@@ -114,22 +230,28 @@ export async function POST(request: Request) {
       (a: { platform: string }) => a.platform === "instagram"
     );
 
-    // 6. Crear URL firmada del video (TTL 1h — suficiente para que Zernio procese)
+    // 6. Crear URL firmada de Supabase Storage (TTL 2h — suficiente para el upload a Zernio)
     const { data: signedData } = await admin.storage
       .from("trial-reels")
-      .createSignedUrl(variation.storage_path, 3600);
+      .createSignedUrl(variation.storage_path, 7200);
 
     if (!signedData?.signedUrl) {
-      throw new Error("No se pudo generar URL firmada para el video");
+      throw new Error("No se pudo generar URL firmada para el video en Storage");
     }
 
-    // 7. Publicar en Zernio como draft
-    //    La URL firmada se incluye en el content para que el usuario pueda
-    //    descargar y subir el video manualmente a Zernio si el upload directo no está disponible.
+    // 7. Subir el video a Zernio y obtener la URL permanente
+    const videoFileUrl = await uploadVideoToZernio(
+      zernioClient,
+      signedData.signedUrl,
+      variation.storage_path
+    );
+
+    // 8. Construir caption
     const caption =
       variation.description +
       (variation.hashtags?.length ? `\n\n${variation.hashtags.join(" ")}` : "");
 
+    // 9. Crear el post en Zernio como draft con el video adjunto
     const result = await zernioClient.createPost({
       profileId: integration?.zernio_profile_id ?? "",
       platform: "instagram",
@@ -137,15 +259,20 @@ export async function POST(request: Request) {
       status: "draft",
       content: caption,
       ...(igAccount ? { accountId: igAccount.accountId } : {}),
+      mediaItems: [{ type: "video", url: videoFileUrl }],
     });
+
+    const zernioPostId =
+      (result as { id?: string; _id?: string; post?: { id?: string; _id?: string } })?.post?.id ??
+      (result as { id?: string; _id?: string })?.id ??
+      (result as { id?: string; _id?: string })?.id ??
+      (result as { _id?: string })?._id ??
+      null;
 
     updatedVariations[variationIndex] = {
       ...variation,
       status: "published",
-      zernio_post_id:
-        (result as { id?: string; _id?: string })?.id ??
-        (result as { id?: string; _id?: string })?._id ??
-        null,
+      zernio_post_id: zernioPostId,
       published_at: new Date().toISOString(),
       error: null,
     };
@@ -154,7 +281,8 @@ export async function POST(request: Request) {
       jobId,
       variationIndex,
       type: variation.type,
-      zernioPostId: updatedVariations[variationIndex].zernio_post_id,
+      zernioPostId,
+      videoFileUrl,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -167,7 +295,7 @@ export async function POST(request: Request) {
     };
   }
 
-  // 8. Verificar si todas las variantes incluidas terminaron (published | failed)
+  // 10. Verificar si todas las variantes incluidas terminaron (published | failed)
   const includedVariations = updatedVariations.filter((v) => v.included);
   const allDone = includedVariations.every(
     (v) => v.status === "published" || v.status === "failed"
@@ -183,6 +311,11 @@ export async function POST(request: Request) {
 
   if (allDone) {
     console.log("[PublishVariation] all done, job marked as done", { jobId });
+
+    // Notificar al founder por email (best-effort — nunca bloquea la respuesta)
+    void notifyOrgAdminDone(admin, organizationId, updatedVariations).catch((e) =>
+      console.warn("[PublishVariation] email notification failed", e)
+    );
   }
 
   return NextResponse.json({
