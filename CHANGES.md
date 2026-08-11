@@ -41,10 +41,23 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-11 — chore: migraciones DB para FEAT-1 y FEAT-2 (solo DB, sin UI)
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** supabase/migrations
+
+**Qué se hizo:**
+- Migración `20260811140000`: tablas `story_sequences` y `story_frames` con RLS (FEAT-1 Secuencias de historias)
+- Migración `20260811150000`: tablas `competitors` y `competitor_posts` con RLS (FEAT-2 Análisis de competidores)
+- Ambas migraciones aplicadas en producción. Sin UI todavía — Santiago implementará cuando lo indique.
+
+---
+
 ### 2026-08-11 — feat: add-ons por org, música Trial Reels, regenerar captions, sync stories
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
-**Commit(s):** pendiente  
+**Commit(s):** `7e55341`  
 **Autor:** Claude  
 **Módulo(s) afectado(s):** super-admin, marketing/trial-reels, navigation/sidebar, lib/zernio, permissions
 

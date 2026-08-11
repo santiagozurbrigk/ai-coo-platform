@@ -100,15 +100,16 @@ DELETE FROM clients
 
 ---
 
-## 🟣 Nuevos Features — Analizar, planear e implementar
+## 🟣 Nuevos Features — Implementar cuando Santiago lo indique
 
 ### [FEAT-1] Secuencias de historias
 
-**Qué es:** Feature para planificar y publicar secuencias de historias de Instagram como una unidad cohesiva (no historias sueltas).  
-**Estado:** Pendiente de análisis completo — investigar cómo funciona la API de Zernio para historias, si soporta publicación programada de múltiples stories en secuencia, y qué hace el flujo para el founder.  
+**Qué es:** Feature para planificar y publicar secuencias de historias de Instagram como una unidad cohesiva.  
+**Estado DB:** Tablas `story_sequences` y `story_frames` ya creadas en producción (migración 20260811140000). Listas para usar.  
+**Pendiente:** Análisis conjunto con Santiago + implementación de UI y acciones.  
 **Preguntas a resolver antes de implementar:**
 - ¿Zernio soporta publicación de historias? ¿Individual o en lote?
-- ¿Qué tipo de contenido va en cada historia de la secuencia (video, imagen, encuesta)?
+- ¿Qué tipo de contenido va en cada historia (video, imagen, texto)?
 - ¿El founder define la secuencia en OTC o en Zernio?
 - ¿Hay delay entre historias de la misma secuencia?
 - ¿Cómo se integra con el módulo de Marketing/Contenido existente?
@@ -118,13 +119,14 @@ DELETE FROM clients
 ### [FEAT-2] Análisis de competidores
 
 **Qué es:** Feature para que el founder monitoree cuentas de competidores y extraiga insights de su estrategia de contenido.  
-**Estado:** Pendiente de análisis completo — definir qué datos se pueden obtener, de qué fuentes, y qué análisis hace la IA.  
+**Estado DB:** Tablas `competitors` y `competitor_posts` ya creadas en producción (migración 20260811150000). Listas para usar.  
+**Pendiente:** Análisis conjunto con Santiago + implementación de UI, acciones y análisis IA.  
 **Preguntas a resolver antes de implementar:**
-- ¿Desde dónde se obtienen los datos? (Zernio tiene endpoints de competidores, scraping, API de Meta)
-- ¿Qué se analiza? (frecuencia de publicación, formatos, hooks, CTAs, temas, engagement)
+- ¿Desde dónde se obtienen los datos? (Zernio, scraping, API de Meta, entrada manual)
+- ¿Qué se analiza? (frecuencia, formatos, hooks, CTAs, temas, engagement)
 - ¿Dónde vive en el producto? (¿tab en Marketing? ¿módulo separado?)
 - ¿La IA genera un reporte periódico o es on-demand?
-- ¿Cuántos competidores por org? ¿Hay límite?
+- ¿Cuántos competidores por org?
 
 ---
 
