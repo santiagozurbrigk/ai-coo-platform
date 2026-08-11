@@ -231,6 +231,20 @@ export type ZernioAnalyticsPost = {
   analytics?: ZernioPostAnalytics;
 };
 
+// ─── Media ────────────────────────────────────────────────────────────────────
+
+export type ZernioMediaPresignResponse = {
+  /** URL temporal para hacer PUT del archivo (expira en minutos) */
+  uploadUrl: string;
+  /** URL pública permanente para referenciar el archivo en posts */
+  fileUrl: string;
+};
+
+export type ZernioMediaItem = {
+  type: "image" | "video" | "gif";
+  url: string;
+};
+
 export type ZernioClient = ReturnType<typeof createZernioClient>;
 
 export function createZernioClient(apiKey: string) {
@@ -483,6 +497,28 @@ export function createZernioClient(apiKey: string) {
       return { posts: data.posts ?? [], synced: data.synced };
     },
 
+    /**
+     * Obtiene una URL presignada para subir un archivo de media directamente
+     * al storage de Zernio. Flujo:
+     *   1. Llamar este método → obtener { uploadUrl, fileUrl }
+     *   2. PUT del archivo binario a uploadUrl
+     *   3. Pasar fileUrl en mediaItems al llamar createPost
+     */
+    async getMediaPresignedUrl(
+      filename: string,
+      contentType: string
+    ): Promise<ZernioMediaPresignResponse> {
+      return zernioFetchJson<ZernioMediaPresignResponse>(
+        "getMediaPresignedUrl",
+        `${ZERNIO_API_BASE}/media/presign`,
+        {
+          method: "POST",
+          headers: headers(),
+          body: JSON.stringify({ filename, contentType }),
+        }
+      );
+    },
+
     async createPost(params: {
       profileId: string;
       platform: string;
@@ -490,6 +526,8 @@ export function createZernioClient(apiKey: string) {
       status: "draft" | "published";
       content: string;
       accountId?: string;
+      /** Items de media (imágenes o videos) a adjuntar al post */
+      mediaItems?: ZernioMediaItem[];
     }) {
       const res = await fetch(`${ZERNIO_API_BASE}/posts`, {
         method: "POST",
@@ -501,6 +539,7 @@ export function createZernioClient(apiKey: string) {
           status: params.status,
           content: params.content,
           ...(params.accountId ? { accountId: params.accountId } : {}),
+          ...(params.mediaItems?.length ? { mediaItems: params.mediaItems } : {}),
         }),
       });
 
