@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { updateReelVariationAction } from "@/app/marketing/content/reel-variation-actions";
+import {
+  updateReelVariationAction,
+  retryVariationAction,
+  regenerateCaptionAction,
+} from "@/app/marketing/content/reel-variation-actions";
 import { Badge, Button, Textarea, cn } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
 import {
@@ -11,6 +15,7 @@ import {
   Clock,
   Instagram,
   Loader2,
+  RefreshCw,
   X,
 } from "lucide-react";
 import type { ReelVariation, ReelVariationType } from "@/types/reel-variations";
@@ -47,6 +52,8 @@ type Props = {
 export function VariationCard({ jobId, index, variation, onUpdate }: Props) {
   const { push } = useToast();
   const [saving, setSaving] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [localDescription, setLocalDescription] = useState(variation.description);
   const [localHashtags, setLocalHashtags] = useState(
     (variation.hashtags ?? []).join(" ")
@@ -79,6 +86,42 @@ export function VariationCard({ jobId, index, variation, onUpdate }: Props) {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    try {
+      const result = await retryVariationAction(jobId, index);
+      if (result.ok) {
+        onUpdate(index, { status: "scheduled", error: null });
+        push({ title: "Variante reencolada", description: "Se publicará en breve.", variant: "success" });
+      } else {
+        push({ title: "No se pudo reintentar", description: result.message });
+      }
+    } catch (err) {
+      push({ title: "Error al reintentar", description: err instanceof Error ? err.message : "Error desconocido" });
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  const handleRegenerateCaption = async () => {
+    setGenerating(true);
+    try {
+      const result = await regenerateCaptionAction(jobId, index);
+      if (result.ok) {
+        setLocalDescription(result.description);
+        setLocalHashtags(result.hashtags.join(" "));
+        onUpdate(index, { description: result.description, hashtags: result.hashtags });
+        push({ title: "Caption generado", description: "Revisá y guardá si te gusta.", variant: "success" });
+      } else {
+        push({ title: "No se pudo generar", description: result.message });
+      }
+    } catch (err) {
+      push({ title: "Error al generar", description: err instanceof Error ? err.message : "Error desconocido" });
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -188,11 +231,27 @@ export function VariationCard({ jobId, index, variation, onUpdate }: Props) {
         )}
       </div>
 
-      {/* Error message */}
-      {isFailed && variation.error && (
-        <p className="px-4 pb-3 text-xs text-destructive">
-          {variation.error}
-        </p>
+      {/* Error message + botón reintentar */}
+      {isFailed && (
+        <div className="px-4 pb-3 flex items-start gap-3">
+          {variation.error && (
+            <p className="flex-1 text-xs text-destructive mt-0.5">{variation.error}</p>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleRetry}
+            disabled={retrying}
+            className="shrink-0 gap-1 h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/10"
+          >
+            {retrying ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3" />
+            )}
+            {retrying ? "Reintentando…" : "Reintentar"}
+          </Button>
+        </div>
       )}
 
       {/* Preview de video */}
@@ -237,17 +296,33 @@ export function VariationCard({ jobId, index, variation, onUpdate }: Props) {
             />
           </div>
 
-          {isDirty && (
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               size="sm"
-              onClick={handleSave}
-              disabled={saving}
+              variant="outline"
+              onClick={handleRegenerateCaption}
+              disabled={generating || saving}
               className="gap-1"
             >
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              {saving ? "Guardando…" : "Guardar cambios"}
+              {generating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              {generating ? "Generando…" : "Generar con IA"}
             </Button>
-          )}
+            {isDirty && (
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={saving || generating}
+                className="gap-1"
+              >
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                {saving ? "Guardando…" : "Guardar cambios"}
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
