@@ -234,16 +234,6 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  if (
-    user?.email &&
-    (await isSuperAdminEmail(user.email)) &&
-    pathname === paths.auth.onboarding
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = paths.superAdmin.organizations;
-    return NextResponse.redirect(url);
-  }
-
   if (user?.id) {
     void (async () => {
       try {

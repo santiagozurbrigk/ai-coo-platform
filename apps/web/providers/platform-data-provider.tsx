@@ -31,7 +31,6 @@ import {
   type ConnectedUnipileAccount,
 } from "@/lib/sales/unipile-inbox-filter";
 import { createClient } from "@/lib/supabase/client";
-import { getOnboardingStatusAction } from "@/app/onboarding/actions";
 import {
   createClientAction,
   listClientsAction,
@@ -56,7 +55,6 @@ import type {
 import { deriveSalesMetrics } from "@/lib/metrics/derive-sales-metrics";
 import { mockSalesMetrics } from "@/mocks/sales";
 import type { Conversation, ConversationTagId, SalesMetricsData } from "@/types/sales";
-import type { OnboardingData } from "@/types/onboarding";
 import type { CustomRole } from "@/types/team";
 
 type PlatformDataContextValue = {
@@ -97,9 +95,6 @@ type PlatformDataContextValue = {
   refreshClients: () => Promise<void>;
   refreshClosingCalls: () => Promise<void>;
   refreshConversations: () => Promise<void>;
-  onboardingComplete: boolean | null;
-  onboardingData: OnboardingData | null;
-  refreshOnboarding: () => Promise<void>;
 };
 
 const PlatformDataContext = createContext<PlatformDataContextValue | null>(null);
@@ -228,13 +223,6 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
   );
   const [clientsLoading, setClientsLoading] = useState(useSupabase);
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
-  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(
-    useSupabase ? null : false
-  );
-  const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(
-    null
-  );
-
   const refreshClients = useCallback(async () => {
     if (!useSupabase) return;
     setClientsLoading(true);
@@ -278,34 +266,17 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const refreshOnboarding = useCallback(async () => {
-    if (!useSupabase) {
-      setOnboardingComplete(false);
-      setOnboardingData(null);
-      return;
-    }
-    try {
-      const status = await getOnboardingStatusAction();
-      setOnboardingComplete(status.completed);
-      setOnboardingData(status.data);
-    } catch (e) {
-      console.error("[PlatformDataProvider] onboarding", e);
-    }
-  }, []);
-
   useEffect(() => {
     if (!useSupabase) return;
     void (async () => {
       await refreshClients();
       await refreshClosingCalls();
       await refreshConversations();
-      await refreshOnboarding();
     })();
   }, [
     refreshClients,
     refreshClosingCalls,
     refreshConversations,
-    refreshOnboarding,
   ]);
 
   useEffect(() => {
@@ -727,9 +698,6 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       refreshClients,
       refreshClosingCalls,
       refreshConversations,
-      onboardingComplete,
-      onboardingData,
-      refreshOnboarding,
     }),
     [
       conversations,
@@ -755,9 +723,6 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       refreshClients,
       refreshClosingCalls,
       refreshConversations,
-      onboardingComplete,
-      onboardingData,
-      refreshOnboarding,
     ]
   );
 
