@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { UserPermissions } from "@/lib/auth/get-current-permissions";
+import type { UserPermissions, AddOnId } from "@/lib/auth/get-current-permissions";
 import { emptyPermissions } from "@/constants/permission-modules";
 import type { PermissionModuleId } from "@/constants/permission-modules";
 import type { PermissionLevel } from "@/types/team";
@@ -10,6 +10,7 @@ const defaultPermissions: UserPermissions = {
   role: "viewer",
   isFounder: false,
   modules: emptyPermissions(),
+  enabledAddOns: [],
 };
 
 const PermissionsCtx = createContext<UserPermissions>(defaultPermissions);
@@ -46,4 +47,14 @@ export function canSeeNavItem(
 ): boolean {
   if (!permissionId) return isFounder;
   return canAccess(permissionId);
+}
+
+/** Retorna los add-ons habilitados para la org activa */
+export function useEnabledAddOns(): AddOnId[] {
+  return useContext(PermissionsCtx).enabledAddOns;
+}
+
+/** Retorna true si el add-on especificado está habilitado para la org */
+export function useHasAddOn(addOnId: AddOnId): boolean {
+  return useContext(PermissionsCtx).enabledAddOns.includes(addOnId);
 }

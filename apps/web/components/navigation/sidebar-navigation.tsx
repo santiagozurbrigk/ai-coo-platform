@@ -3,10 +3,11 @@
 import { useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { paths } from "@/routes";
-import { platformSidebarNav } from "@/lib/navigation/sidebar-modules";
+import { buildPlatformSidebarNav } from "@/lib/navigation/sidebar-modules";
 import type { SidebarDirectModule } from "@/lib/navigation/sidebar-nav-config";
 import { useHoldingSession } from "@/components/holding/holding-platform-provider";
 import { usePlatformData } from "@/providers";
+import { useEnabledAddOns } from "@/providers/permissions-provider";
 import { SidebarItem } from "./sidebar-item";
 import { SidebarTwoLevelNavigation } from "./sidebar-two-level-navigation";
 
@@ -14,6 +15,9 @@ export function SidebarNavigation({ collapsed }: { collapsed?: boolean }) {
   const pathname = usePathname();
   const { isHolding } = useHoldingSession();
   const { clients } = usePlatformData();
+  const enabledAddOns = useEnabledAddOns();
+
+  const config = buildPlatformSidebarNav(enabledAddOns);
 
   const mapDirectModules = useCallback(
     (modules: SidebarDirectModule[]) =>
@@ -43,7 +47,7 @@ export function SidebarNavigation({ collapsed }: { collapsed?: boolean }) {
         </div>
       )}
       <SidebarTwoLevelNavigation
-        config={platformSidebarNav}
+        config={config}
         collapsed={collapsed}
         mapDirectModules={mapDirectModules}
       />

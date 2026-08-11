@@ -79,6 +79,7 @@ export type AdminOrganizationDetail = {
   timezone: string | null;
   createdAt: string;
   mrrUsd: number;
+  enabledAddOns: string[];
   founder: {
     id: string | null;
     name: string;

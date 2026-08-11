@@ -3,11 +3,16 @@ import { permissionsFromRow } from "@/lib/team/mapper";
 import { emptyPermissions } from "@/constants/permission-modules";
 import type { PermissionModuleId } from "@/constants/permission-modules";
 import type { PermissionLevel } from "@/types/team";
+import { ADD_ON_IDS, type AddOnId } from "@/lib/auth/add-on-ids";
+export { ADD_ON_IDS } from "@/lib/auth/add-on-ids";
+export type { AddOnId } from "@/lib/auth/add-on-ids";
 
 export type UserPermissions = {
   role: string;
   isFounder: boolean;
   modules: Record<PermissionModuleId, PermissionLevel>;
+  /** Módulos add-on activados para esta org */
+  enabledAddOns: AddOnId[];
 };
 
 export async function getCurrentUserPermissions(): Promise<UserPermissions> {
@@ -17,17 +22,31 @@ export async function getCurrentUserPermissions(): Promise<UserPermissions> {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { role: "viewer", isFounder: false, modules: emptyPermissions() };
+    return { role: "viewer", isFounder: false, modules: emptyPermissions(), enabledAddOns: [] };
   }
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, custom_role_id")
+    .select("role, custom_role_id, organization_id")
     .eq("id", user.id)
     .maybeSingle();
 
   if (!profile) {
-    return { role: "viewer", isFounder: false, modules: emptyPermissions() };
+    return { role: "viewer", isFounder: false, modules: emptyPermissions(), enabledAddOns: [] };
+  }
+
+  // Leer add-ons habilitados para la org
+  let enabledAddOns: AddOnId[] = [];
+  if (profile.organization_id) {
+    const { data: orgRow } = await supabase
+      .from("organizations")
+      .select("enabled_add_ons")
+      .eq("id", profile.organization_id as string)
+      .maybeSingle();
+    const raw = (orgRow?.enabled_add_ons as string[] | null) ?? [];
+    enabledAddOns = raw.filter((id): id is AddOnId =>
+      ADD_ON_IDS.includes(id as AddOnId)
+    );
   }
 
   const isFounder = profile.role === "founder";
@@ -37,7 +56,7 @@ export async function getCurrentUserPermissions(): Promise<UserPermissions> {
     for (const key of Object.keys(full) as PermissionModuleId[]) {
       full[key] = "full";
     }
-    return { role: "founder", isFounder: true, modules: full };
+    return { role: "founder", isFounder: true, modules: full, enabledAddOns };
   }
 
   let teamRolePermissions: Record<string, string> | null = null;
@@ -60,9 +79,11 @@ export async function getCurrentUserPermissions(): Promise<UserPermissions> {
     profile.role,
     "custom_role_id:",
     profile.custom_role_id,
+    "enabledAddOns:",
+    enabledAddOns,
     "modules:",
     modules
   );
 
-  return { role: profile.role, isFounder: false, modules };
+  return { role: profile.role, isFounder: false, modules, enabledAddOns };
 }

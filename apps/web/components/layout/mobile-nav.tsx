@@ -8,9 +8,10 @@ import { Button, Dialog, DialogContent, DialogTitle, cn } from "@ai-coo/ui";
 import { countPendingFathomCallsAction } from "@/app/fathom/actions";
 import { secondaryNavigation } from "@/routes/navigation";
 import { paths } from "@/routes";
-import { platformSidebarNav } from "@/lib/navigation/sidebar-modules";
+import { buildPlatformSidebarNav } from "@/lib/navigation/sidebar-modules";
 import type { SidebarDirectModule } from "@/lib/navigation/sidebar-nav-config";
 import { isPathActive } from "@/lib/navigation/active-path";
+import { useEnabledAddOns } from "@/providers/permissions-provider";
 import { SidebarTwoLevelNavigation } from "@/components/navigation/sidebar-two-level-navigation";
 import { NavIcon } from "@/components/navigation/nav-icons";
 import { AppBrandHeader } from "@/components/brand";
@@ -19,6 +20,8 @@ export function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const [pendingCalls, setPendingCalls] = useState(0);
+  const enabledAddOns = useEnabledAddOns();
+  const platformSidebarNav = buildPlatformSidebarNav(enabledAddOns);
 
   const close = () => setOpen(false);
 

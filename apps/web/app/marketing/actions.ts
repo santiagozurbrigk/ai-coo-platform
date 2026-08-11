@@ -32,7 +32,7 @@ import {
   resolveUtmLinkType,
 } from "@/lib/utm/build-links";
 import { slugifyCampaign } from "@/lib/utm/slugify-campaign";
-import { estimateRetentionAtCTA } from "@/lib/youtube/retention";
+import { getRetentionAtCTA } from "@/lib/youtube/analytics";
 import type {
   UTMBookingAttributionRow,
   UTMLeadCaptureRow,
@@ -289,7 +289,7 @@ export async function updateCTAMinuteAction(
 
     const { data: asset, error: fetchError } = await supabase
       .from("content_assets")
-      .select("duration_seconds, platform_metadata")
+      .select("duration_seconds, platform_metadata, external_id")
       .eq("id", assetId)
       .eq("organization_id", organizationId)
       .maybeSingle();
@@ -304,7 +304,10 @@ export async function updateCTAMinuteAction(
         ? Number(asset.duration_seconds)
         : (metadata.youtube?.duration_seconds ?? 0);
 
-    const retentionAtCtaPct = estimateRetentionAtCTA(
+    const videoId = (asset.external_id as string | null) ?? null;
+    const retentionAtCtaPct = await getRetentionAtCTA(
+      organizationId,
+      videoId,
       ctaSecond,
       durationSeconds
     );
@@ -344,6 +347,30 @@ export async function getContentLabelDistributionAction(): Promise<
   return base;
 }
 
+/**
+ * Mapea los campos de análisis de content_pieces (hook_type, cta_type)
+ * a la taxonomía ContentLabel (AUTORIDAD / ATRACCION / NUTRICION / VENTA).
+ *
+ * Reglas de negocio:
+ * - CTA de conversión directa (dm, comment_word) → VENTA
+ * - Hook contrarian o prueba_social sin CTA de venta → AUTORIDAD
+ * - Hook de curiosidad sin CTA de venta → ATRACCION
+ * - Hook de dolor directo o resultado sin CTA de venta → NUTRICION
+ * - Sin datos suficientes → null (se omite)
+ */
+function mapContentPieceAnalysisToLabel(analysis: {
+  hook_type?: string | null;
+  cta_type?: string | null;
+}): ContentLabel | null {
+  const { hook_type, cta_type } = analysis;
+  if (!hook_type && !cta_type) return null;
+  if (cta_type === "dm" || cta_type === "comment_word") return "VENTA";
+  if (hook_type === "contrarian" || hook_type === "prueba_social") return "AUTORIDAD";
+  if (hook_type === "curiosidad") return "ATRACCION";
+  if (hook_type === "dolor_directo" || hook_type === "resultado") return "NUTRICION";
+  return null;
+}
+
 export async function getContentDistributionDataAction(): Promise<{
   counts: Record<ContentLabel, number>;
   total: number;
@@ -351,8 +378,32 @@ export async function getContentDistributionDataAction(): Promise<{
   hasContentAssets: boolean;
 }> {
   const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  // 1. Piezas legacy (content_assets) — ya etiquetadas con ContentLabel
   const assets = await listContentAssetsAction();
-  const stats = buildDistributionStats(assets);
+
+  // 2. Piezas Zernio (content_pieces) — mapear desde analysis.hook_type/cta_type
+  const { data: pieces } = await supabase
+    .from("content_pieces")
+    .select("analysis")
+    .eq("organization_id", organizationId)
+    .not("analysis", "is", null);
+
+  const zernioItems = (pieces ?? [])
+    .map((p) => {
+      const a = p.analysis as { hook_type?: string | null; cta_type?: string | null } | null;
+      if (!a) return null;
+      const effectiveLabel = mapContentPieceAnalysisToLabel(a);
+      return effectiveLabel
+        ? { effectiveLabel, conversationsGenerated: 0, bookingsInfluenced: 0, salesInfluenced: 0 }
+        : null;
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+
+  // 3. Combinar ambas fuentes para las estadísticas
+  const combined = [...assets, ...zernioItems];
+  const stats = buildDistributionStats(combined);
   const insight = await generateDistributionInsight({
     organizationId,
     stats,
@@ -362,7 +413,7 @@ export async function getContentDistributionDataAction(): Promise<{
     counts: stats.counts,
     total: stats.total,
     insight,
-    hasContentAssets: assets.length > 0,
+    hasContentAssets: combined.length > 0,
   };
 }
 

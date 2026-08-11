@@ -9,13 +9,17 @@ Repo: `ai-coo-platform` · App principal: `apps/web` · Última revisión: agost
 
 > Estas reglas aplican a **cualquier sesión** que modifique código en este repo.
 
-### 1. Leer CHANGES.md al inicio de cada sesión
+### 1. Leer CHANGES.md y PENDIENTES.md al inicio de cada sesión
 
-**Antes de hacer cualquier cambio**, leer [`CHANGES.md`](./CHANGES.md) en la raíz del repo.  
-Este archivo contiene el historial de cambios con contexto de qué se hizo, por qué y qué decisiones se tomaron. Es la memoria del proyecto entre sesiones.
+**Antes de hacer cualquier cambio**, leer los dos archivos siguientes en la raíz del repo:
+
+**[`CHANGES.md`](./CHANGES.md)** — historial de cambios con contexto técnico: qué se hizo, por qué, qué decisiones se tomaron. Es la memoria del proyecto entre sesiones.
+
+**[`PENDIENTES.md`](./PENDIENTES.md)** — backlog de trabajo pendiente organizado por prioridad: bugs conocidos, features en progreso, deuda técnica. Actualizar al finalizar cada sesión.
 
 ```
 Read /home/user/ai-coo-platform/CHANGES.md
+Read /home/user/ai-coo-platform/PENDIENTES.md
 ```
 
 ### 2. Actualizar CHANGES.md al final de cada sesión
@@ -33,9 +37,14 @@ Read /home/user/ai-coo-platform/CHANGES.md
 
 Agregar la entrada **al principio del historial** (orden cronológico inverso — más reciente arriba).
 
-### 3. Nunca saltear la actualización de CHANGES.md
+### 3. Nunca saltear la actualización de CHANGES.md y PENDIENTES.md
 
-Aunque el cambio parezca pequeño (un bugfix de una línea, un tweak de UI), documentarlo. La continuidad de contexto entre sesiones depende de este registro. Un cambio sin documentar es contexto perdido.
+Aunque el cambio parezca pequeño (un bugfix de una línea, un tweak de UI), documentarlo en `CHANGES.md`. La continuidad de contexto entre sesiones depende de este registro.
+
+Al finalizar cada sesión, también actualizar `PENDIENTES.md`:
+- Mover a `✅ Completados` los ítems que se terminaron (con fecha)
+- Agregar nuevos pendientes que hayan surgido durante la sesión
+- Actualizar la descripción de ítems que cambiaron de scope o estado
 
 ### 4. Workflow de Git — ramas, PRs y merges
 
@@ -79,7 +88,8 @@ Claude Code usa el prefijo `claude/` asignado por el sistema — está bien, no 
 ---
 
 **Fuentes complementarias (leer si hace falta profundizar):**
-- `CHANGES.md` — **historial de cambios con contexto** (leer siempre primero)
+- `CHANGES.md` — **historial de cambios con contexto** (leer siempre al inicio)
+- `PENDIENTES.md` — **backlog de pendientes** (leer siempre al inicio, actualizar al terminar)
 - `OTC_OPERATIONAL_NOTES.md` — operaciones, integraciones, crons, env vars en detalle
 - `DESIGN.md` — design system OTC
 - `docs/PROJECT_CONSTITUTION.md` — visión de producto

@@ -6,7 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getGoogleAccessTokenForOrganization } from "@/lib/google/get-access-token";
 import { getQStashClient, getPublicAppUrl, getReelVariationPublishUrl } from "@/lib/queue/qstash-client";
-import type { ReelVariationJob, ReelVariation } from "@/types/reel-variations";
+import { callClaudeJson } from "@/lib/ai/anthropic";
+import type { ReelVariationJob, ReelVariation, ReelVariationType } from "@/types/reel-variations";
 import type { ContentPiece } from "@/types/content";
 import { paths } from "@/routes";
 
@@ -102,9 +103,17 @@ export async function createTrialReelsJobAction(
       return { ok: false, errorCode: "DRIVE_META_FAILED", message: msg };
     }
 
-    // 4. Crear el job en DB
-    //    El video fuente lo descarga el worker directamente de Drive.
+    // 4. Leer reel_music_path de la org (música personalizada para la variante "music")
     const admin = createAdminClient();
+    const { data: orgRow } = await admin
+      .from("organizations")
+      .select("reel_music_path")
+      .eq("id", organizationId)
+      .maybeSingle();
+    const reelMusicPath: string | null = (orgRow?.reel_music_path as string | null | undefined) ?? null;
+
+    // 5. Crear el job en DB
+    //    El video fuente lo descarga el worker directamente de Drive.
     const jobId = crypto.randomUUID();
 
     const { error: insertError } = await admin
@@ -151,6 +160,7 @@ export async function createTrialReelsJobAction(
             driveMimeType: driveMimeType,
             sourceFileName: driveFileName,
             originalCaption: (piece as ContentPiece & { caption?: string }).caption ?? piece.title ?? null,
+            reelMusicPath,
           },
           // Pasar el secret también en headers (múltiples métodos para robustez).
           // X-Worker-Secret: nunca stripped por proxies.
@@ -500,4 +510,202 @@ export async function refreshVariationPreviewUrlsAction(
   }
 
   return { ...job, variations: updated } as ReelVariationJob;
+}
+
+// ─── Reintentar variante fallida ──────────────────────────────────────────────
+
+export type RetryVariationResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
+/**
+ * Reencola en QStash una variante que quedó en estado "failed".
+ * Idempotente: si ya está en "scheduled" o "published", devuelve ok sin hacer nada.
+ */
+export async function retryVariationAction(
+  jobId: string,
+  variationIndex: number
+): Promise<RetryVariationResult> {
+  try {
+    const organizationId = await requireOrgId();
+    const admin = createAdminClient();
+
+    const { data: job, error: jobErr } = await admin
+      .from("reel_variation_jobs")
+      .select("*")
+      .eq("id", jobId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (jobErr) throw new Error(jobErr.message);
+    if (!job) throw new Error("Job no encontrado");
+
+    const variations = (job.variations ?? []) as ReelVariation[];
+    const variation = variations[variationIndex];
+    if (!variation) throw new Error("Índice de variante inválido");
+
+    // Idempotencia: solo reintentar si está fallida
+    if (variation.status !== "failed") {
+      return { ok: true }; // ya está en otro estado, no hacer nada
+    }
+
+    // Marcar como "scheduled" y limpiar error previo
+    const updatedVariations = [...variations];
+    updatedVariations[variationIndex] = {
+      ...variation,
+      status: "scheduled",
+      error: null,
+    };
+
+    await admin
+      .from("reel_variation_jobs")
+      .update({
+        variations: updatedVariations,
+        status: "publishing", // reactivar el job si estaba en "done"
+      })
+      .eq("id", jobId);
+
+    // Encolar en QStash
+    const qstashClient = getQStashClient();
+    const publishUrl = getReelVariationPublishUrl();
+    const workerAuthSecret = process.env.WORKER_AUTH_SECRET?.trim();
+    const urlWithSecret = workerAuthSecret
+      ? `${publishUrl}?workerSecret=${encodeURIComponent(workerAuthSecret)}`
+      : publishUrl;
+
+    if (qstashClient) {
+      await qstashClient.publishJSON({
+        url: urlWithSecret,
+        body: { jobId, variationIndex, organizationId },
+        headers: workerAuthSecret
+          ? {
+              "X-Worker-Secret": workerAuthSecret,
+              Authorization: `Bearer ${workerAuthSecret}`,
+            }
+          : undefined,
+        retries: 2,
+      });
+      console.log("[TrialReels] variation retry enqueued", { jobId, variationIndex });
+    } else {
+      // Sin QStash: volver a marcar como failed
+      updatedVariations[variationIndex] = {
+        ...updatedVariations[variationIndex],
+        status: "failed",
+        error: "QStash no está configurado (modo desarrollo)",
+      };
+      await admin
+        .from("reel_variation_jobs")
+        .update({ variations: updatedVariations })
+        .eq("id", jobId);
+      return { ok: false, message: "QStash no está configurado" };
+    }
+
+    revalidatePath(paths.platform.marketing.content);
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error desconocido";
+    console.error("[TrialReels] retryVariationAction error", { jobId, variationIndex, message });
+    return { ok: false, message };
+  }
+}
+
+// ─── Regenerar caption con IA ─────────────────────────────────────────────────
+
+const VARIANT_TONE: Record<ReelVariationType, string> = {
+  speed_up:   "energético y rápido, con frases cortas y dinámicas",
+  speed_down: "contemplativo y profundo, con más espacio para reflexionar",
+  music:      "emotivo y evocador, conectando con la música de fondo",
+  subtitles:  "directo y claro, ideal para quienes ven sin sonido",
+  color:      "cálido y cercano, con tono de conversación informal",
+};
+
+export type RegenerateCaptionResult =
+  | { ok: true; description: string; hashtags: string[] }
+  | { ok: false; message: string };
+
+/**
+ * Regenera el caption y hashtags de una variante usando Claude Haiku.
+ * Mantiene el mensaje original pero adapta el tono al tipo de variante.
+ */
+export async function regenerateCaptionAction(
+  jobId: string,
+  variationIndex: number
+): Promise<RegenerateCaptionResult> {
+  try {
+    const organizationId = await requireOrgId();
+    const admin = createAdminClient();
+
+    const { data: job, error: jobErr } = await admin
+      .from("reel_variation_jobs")
+      .select("variations, content_piece_id")
+      .eq("id", jobId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (jobErr) throw new Error(jobErr.message);
+    if (!job) throw new Error("Job no encontrado");
+
+    const variations = (job.variations ?? []) as ReelVariation[];
+    const variation = variations[variationIndex];
+    if (!variation) throw new Error("Índice de variante inválido");
+
+    // Obtener caption original de la pieza de contenido
+    const supabase = await createClient();
+    const { data: piece } = await supabase
+      .from("content_pieces")
+      .select("caption, title")
+      .eq("id", job.content_piece_id as string)
+      .maybeSingle();
+
+    const originalCaption = piece?.caption ?? piece?.title ?? variation.description ?? "Contenido de valor sobre negocio.";
+    const tone = VARIANT_TONE[variation.type];
+
+    const result = await callClaudeJson<{ description: string; hashtags: string[] }>({
+      organizationId,
+      task: "content_labeling",
+      feature: "reel_caption_regeneration",
+      system: "Sos experto en marketing de contenido para Instagram. Respondé solo JSON, sin texto extra.",
+      user: `Tenés este caption original de un reel de Instagram:
+<caption>
+${originalCaption}
+</caption>
+
+Generá una variación del caption para una versión del video con tono: ${tone}.
+Mantené el mensaje principal pero adaptá el tono completamente.
+
+Reglas:
+- Máximo 150 palabras en description
+- Entre 3 y 8 hashtags relevantes
+- En español (es-AR), sin emojis en exceso (máximo 2-3)
+
+Respondé con este JSON exacto:
+{"description":"El caption completo aquí...","hashtags":["#hashtag1","#hashtag2"]}`,
+      maxTokens: 600,
+    });
+
+    if (!result?.description) {
+      return { ok: false, message: "La IA no devolvió un caption válido" };
+    }
+
+    // Guardar en DB
+    const updatedVariations = [...variations];
+    updatedVariations[variationIndex] = {
+      ...variation,
+      description: result.description,
+      hashtags: result.hashtags ?? [],
+    };
+
+    await admin
+      .from("reel_variation_jobs")
+      .update({ variations: updatedVariations })
+      .eq("id", jobId);
+
+    revalidatePath(paths.platform.marketing.content);
+
+    return { ok: true, description: result.description, hashtags: result.hashtags ?? [] };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error desconocido";
+    console.error("[TrialReels] regenerateCaptionAction error", { jobId, variationIndex, message });
+    return { ok: false, message };
+  }
 }

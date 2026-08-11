@@ -104,15 +104,16 @@ export const VARIANT_SPECS: VariantSpec[] = [
   {
     type: "music",
     outputSuffix: "v3_music",
-    buildFfmpegArgs: (input, output, lutsDir) => {
-      const musicPath = path.join(lutsDir, "background-music.mp3");
-      const hasMusicFile = fs.existsSync(musicPath);
+    buildFfmpegArgs: (input, output, lutsDir, _caption, customMusicPath) => {
+      // Prioridad: 1) track personalizado de la org  2) default en luts/
+      const resolvedMusicPath = customMusicPath ?? path.join(lutsDir, "background-music.mp3");
+      const hasMusicFile = fs.existsSync(resolvedMusicPath);
 
       if (hasMusicFile) {
         // Con archivo de música: mezclar audio original + música de fondo (volumen bajo)
         return [
           "-i", input,
-          "-stream_loop", "-1", "-i", musicPath,
+          "-stream_loop", "-1", "-i", resolvedMusicPath,
           "-filter_complex",
           // Audio original al 100%, música de fondo al 20%, mezclar
           "[0:a]volume=1.0[orig];[1:a]volume=0.20[bg];[orig][bg]amix=inputs=2:duration=first[a_mix]",

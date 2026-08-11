@@ -1,4 +1,5 @@
 import { paths } from "@/routes/paths";
+import type { AddOnId } from "@/lib/auth/get-current-permissions";
 import type {
   SidebarDirectModule,
   SidebarNavConfig,
@@ -232,7 +233,8 @@ export const directModules: SidebarDirectModule[] = [
 const byHref = (href: string) =>
   directModules.find((m) => m.href === href) as SidebarDirectModule;
 
-const platformRootItems: SidebarNavRootItem[] = [
+/** Items base del sidebar (siempre visibles) */
+const coreRootItems: SidebarNavRootItem[] = [
   { type: "link", module: byHref(paths.platform.dashboard) },
   { type: "parent", key: "agente" },
   { type: "link", module: byHref(paths.platform.clients.root) },
@@ -245,6 +247,35 @@ const platformRootItems: SidebarNavRootItem[] = [
   { type: "link", module: byHref(paths.platform.workboard.root) },
   { type: "parent", key: "configuracion" },
 ];
+
+/**
+ * Construye los items del sidebar incluyendo los módulos add-on activos.
+ * Se llama desde los componentes de navegación con los add-ons de la org.
+ */
+export function buildPlatformRootItems(enabledAddOns: AddOnId[]): SidebarNavRootItem[] {
+  const items: SidebarNavRootItem[] = [];
+
+  for (const item of coreRootItems) {
+    items.push(item);
+    // Insertar Operaciones y Producto después de Finanzas (antes del divider)
+    if (
+      item.type === "parent" &&
+      item.key === "finanzas"
+    ) {
+      if (enabledAddOns.includes("operaciones")) {
+        items.push({ type: "parent", key: "operaciones" });
+      }
+      if (enabledAddOns.includes("producto")) {
+        items.push({ type: "link", module: productDirectModule });
+      }
+    }
+  }
+
+  return items;
+}
+
+/** Fallback estático para cuando no se conocen los add-ons (compat.) */
+const platformRootItems: SidebarNavRootItem[] = coreRootItems;
 
 export function getParentFromPath(pathname: string): SidebarParentKey | null {
   if (pathname.startsWith(paths.platform.agent.root)) return "agente";
@@ -269,6 +300,15 @@ export const platformSidebarNav: SidebarNavConfig = {
   getParentFromPath,
   rootItems: platformRootItems,
 };
+
+/** Versión con add-ons inyectados — usar en componentes que tienen acceso a enabledAddOns */
+export function buildPlatformSidebarNav(enabledAddOns: AddOnId[]): SidebarNavConfig {
+  return {
+    modulesWithChildren,
+    getParentFromPath,
+    rootItems: buildPlatformRootItems(enabledAddOns),
+  };
+}
 
 export {
   isSidebarChildActive,

@@ -43,6 +43,49 @@ export function getReelVariationPublishUrl(): string {
   return `${getPublicAppUrl()}/api/queue/publish-reel-variation`;
 }
 
+export function getFathomAnalysisQueueUrl(): string {
+  return `${getPublicAppUrl()}/api/queue/process-fathom-analysis`;
+}
+
+export type FathomAnalysisJobPayload = {
+  organizationId: string;
+  fathomCallId: string;
+  transcript: string;
+  closerName?: string;
+  leadName?: string;
+  durationMinutes?: number;
+  formAnswers?: Record<string, string>;
+  callTitle?: string;
+  callDate?: string | null;
+  fathomUrl?: string | null;
+  clientId?: string | null;
+};
+
+export async function publishFathomAnalysisJob(
+  payload: FathomAnalysisJobPayload
+): Promise<boolean> {
+  try {
+    const client = getQStashClient();
+    if (!client) return false;
+
+    const response = await client.publishJSON({
+      url: getFathomAnalysisQueueUrl(),
+      body: payload,
+      retries: 2,
+    });
+
+    console.log("[Queue] fathom-analysis published to QStash", {
+      fathomCallId: payload.fathomCallId,
+      organizationId: payload.organizationId,
+      messageId: response.messageId,
+    });
+    return true;
+  } catch (err) {
+    console.error("[Queue] QStash fathom-analysis publish failed", err);
+    return false;
+  }
+}
+
 export async function publishRagIngestionJob(
   payload: RagIngestionJobPayload
 ): Promise<boolean> {

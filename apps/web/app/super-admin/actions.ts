@@ -32,6 +32,7 @@ import {
   setOrganizationStatusSchema,
   updateOrganizationMrrSchema,
 } from "@/lib/validations";
+import { ADD_ON_IDS } from "@/lib/auth/add-on-ids";
 import { processAiBrainDocument } from "@/lib/ai-brain/process-document";
 import { resolveBrainFileMimeType, isAllowedBrainFile as validateBrainFile } from "@/lib/ai-brain/file-types";
 import type { z } from "zod";
@@ -936,5 +937,35 @@ export async function syncBrainBatchResultsAction(
     revalidatePath(paths.superAdmin.aiBrain.root);
 
     return { status: "ended", processed, pending: 0 };
+  });
+}
+
+/**
+ * Actualiza los add-ons habilitados para una organización.
+ * Solo permite valores válidos definidos en ADD_ON_IDS.
+ */
+export async function updateOrgAddOnsAction(
+  orgId: string,
+  addOns: string[]
+): Promise<MutationResult<{ enabledAddOns: string[] }>> {
+  return runMutation(async () => {
+    await requireSuperAdmin();
+
+    const validated = addOns.filter((id): id is (typeof ADD_ON_IDS)[number] =>
+      ADD_ON_IDS.includes(id as (typeof ADD_ON_IDS)[number])
+    );
+
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("organizations")
+      .update({ enabled_add_ons: validated })
+      .eq("id", orgId);
+
+    if (error) throw new Error(error.message);
+
+    revalidateSuperAdmin();
+    revalidatePath(`/super-admin/organizations/${orgId}`);
+
+    return { enabledAddOns: validated };
   });
 }

@@ -41,6 +41,117 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-11 — TECH-1: Fathom deep analysis vía QStash + TECH-2: retención real YouTube Analytics
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** fathom, marketing (YouTube), queue
+
+**Qué se hizo:**
+
+**TECH-1 — Fathom async con QStash:**
+- `lib/queue/qstash-client.ts`: agrega `FathomAnalysisJobPayload`, `getFathomAnalysisQueueUrl()` y `publishFathomAnalysisJob()`.
+- `app/api/queue/process-fathom-analysis/route.ts`: nuevo endpoint worker con `maxDuration=300`, validación Zod, auth via `verifyQueueRequest`, y retorno 500 para que QStash reintente (hasta 2 veces).
+- `lib/fathom/process-call.ts`: reemplaza `void generateDeepCallAnalysis(...)` por `await publishFathomAnalysisJob(...)` + fallback inline si QStash no está configurado.
+
+**TECH-2 — Retención real YouTube Analytics:**
+- `lib/youtube/analytics.ts`: nuevo archivo con `getRetentionAtCTA(organizationId, videoId, ctaSecond, durationSeconds)`. Lee token de `youtube_integrations`, verifica scope `yt-analytics.readonly`, refresca si hace falta, llama a YouTube Analytics API v2 (`elapsedVideoTimeRatio` / `audienceWatchRatio`), interpola el punto más cercano al segundo del CTA. Fallback gracioso a `estimateRetentionAtCTA` en cualquier error.
+- `app/marketing/actions.ts`: `updateCTAMinuteAction` ahora selecciona `external_id` del asset y llama `getRetentionAtCTA` en lugar de `estimateRetentionAtCTA`. Usa el video ID real de YouTube para obtener la curva de retención real.
+
+**SEED cleanup:**
+- Ejecutados los DELETE en Supabase (prod) para la org `46cce98c-6d4c-4e4d-94a7-7cc24ae1104d`: 171 registros ficticios eliminados de `call_analyses`, `client_payments`, `closing_calls`, `conversations`, `content_pieces` y `clients`.
+
+**Por qué / finalidad:**
+
+TECH-1: `void asyncFn()` en Vercel es un anti-patrón — el proceso Node.js muere cuando la función serverless retorna, por lo que el análisis profundo de Fathom se perdía silenciosamente en producción. QStash garantiza ejecución con reintentos en un endpoint dedicado con `maxDuration=300`.
+
+TECH-2: `estimateRetentionAtCTA` era un modelo sintético (curva exponencial). Con `yt-analytics.readonly` (ya en `GOOGLE_UNIFIED_SCOPES`) se obtiene la curva real del video para calcular cuántos espectadores quedan en el segundo del CTA.
+
+**Decisiones de diseño relevantes:**
+- QStash como transporte, no BullMQ — ya estaba instalado y configurado en la plataforma.
+- Fallback inline si `QSTASH_TOKEN` no está seteado — cero regresión en entornos sin QStash.
+- `getRetentionAtCTA` es async y silenciosa — si no hay token o la API falla, devuelve la estimación; no hay error visible para el usuario.
+- Los componentes cliente (`content-platform-metrics.tsx`) siguen usando `estimateRetentionAtCTA` como display fallback, lo cual es correcto: el valor real ya viene persistido en `retention_at_cta_pct` desde el Server Action.
+
+**Riesgos / deuda técnica pendiente:**
+- Tokens de YouTube existentes sin scope `yt-analytics.readonly` seguirán usando estimación hasta que el usuario reconecte YouTube. Sin impacto en UX, solo en precisión.
+- `TRIAL-1` (reintentar variante fallida) sigue pendiente.
+
+---
+
+### 2026-08-11 — chore: migraciones DB para FEAT-1 y FEAT-2 (solo DB, sin UI)
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** supabase/migrations
+
+**Qué se hizo:**
+- Migración `20260811140000`: tablas `story_sequences` y `story_frames` con RLS (FEAT-1 Secuencias de historias)
+- Migración `20260811150000`: tablas `competitors` y `competitor_posts` con RLS (FEAT-2 Análisis de competidores)
+- Ambas migraciones aplicadas en producción. Sin UI todavía — Santiago implementará cuando lo indique.
+
+---
+
+### 2026-08-11 — feat: add-ons por org, música Trial Reels, regenerar captions, sync stories
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `7e55341`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** super-admin, marketing/trial-reels, navigation/sidebar, lib/zernio, permissions
+
+**Qué se hizo:**
+
+**1. [TECH-3] Mecanismo de add-ons por org (sidebar dinámico):**
+- `supabase/migrations/20260811130000_enabled_add_ons.sql`: columna `enabled_add_ons TEXT[] NOT NULL DEFAULT '{}'` en `organizations`.
+- `lib/auth/get-current-permissions.ts`: tipos `ADD_ON_IDS` y `AddOnId`; `UserPermissions` extendido con `enabledAddOns: AddOnId[]`; lectura desde DB en `getCurrentUserPermissions`.
+- `providers/permissions-provider.tsx`: hooks `useEnabledAddOns()` y `useHasAddOn(addOnId)`.
+- `lib/navigation/sidebar-modules.ts`: `buildPlatformRootItems(enabledAddOns)` inyecta `operaciones` y `producto` después de `finanzas` si están activos; `buildPlatformSidebarNav()` para componentes que tienen los add-ons.
+- `components/navigation/sidebar-navigation.tsx` y `components/layout/mobile-nav.tsx`: usan `buildPlatformSidebarNav(enabledAddOns)`.
+- `layouts/super-admin-layout.tsx`: `SUPER_ADMIN_PERMISSIONS` incluye `enabledAddOns: []`.
+- `types/super-admin.ts`: `AdminOrganizationDetail` tiene campo `enabledAddOns: string[]`.
+- `lib/super-admin/queries.ts`: `loadOrganizationDetail` fetchea `enabled_add_ons` de la org.
+- `app/super-admin/actions.ts`: `updateOrgAddOnsAction(orgId, addOns[])` valida contra `ADD_ON_IDS` y guarda.
+- `components/super-admin/organization-detail.tsx`: sección "Módulos add-on" con botones toggle por add-on; llama `updateOrgAddOnsAction` on click.
+
+**2. [TRIAL-3] Música personalizable por org en Trial Reels:**
+- `supabase/migrations/20260811120000_reel_music_path.sql`: columna `reel_music_path TEXT` en `organizations`.
+- `apps/reel-worker/src/types.ts`: `reelMusicPath?: string | null` en `ReelVariationJobPayload`; 5° parámetro `customMusicPath` en `VariantSpec.buildFfmpegArgs`.
+- `apps/reel-worker/src/ffmpeg-variants.ts`: variante `music` usa `customMusicPath ?? lutsDir/background-music.mp3`.
+- `apps/reel-worker/src/processor.ts`: descarga `reel_music_path` de Storage antes del loop de variantes.
+- `app/marketing/content/reel-variation-actions.ts`: lee `reel_music_path` de la org y lo incluye en payload QStash.
+- `app/marketing/content/reel-music-actions.ts` (nuevo): `uploadReelMusicAction`, `deleteReelMusicAction`, `getReelMusicPathAction`.
+- `components/marketing/trial-reels/reel-music-upload.tsx` (nuevo): UI de upload/delete con accept MP3/M4A/WAV, muestra filename actual.
+- `app/(platform)/integrations/page.tsx`: sección "Trial Reels" con `<ReelMusicUpload>`.
+
+**3. [TRIAL-2] Regenerar captions con IA por variante:**
+- `components/marketing/trial-reels/variation-card.tsx`: botón "Generar con IA" con estado `generating`, llama `regenerateCaptionAction`, actualiza estado local y propaga via `onUpdate`.
+
+**4. [BUG-1] Sync de stories de Instagram:**
+- `lib/zernio/client.ts`: `listPublishedPosts` acepta `type?: string`; nuevo método `syncExternalStories(accountId)` con fallback gracioso para 404/405/400.
+- `app/marketing/content/sync-actions.ts`: paso 3 en `fetchExternalPostsViaSync` lanza `syncExternalStories` + `listPublishedPosts({type: "story"})` en paralelo por cada accountId; combina y deduplica.
+
+**Por qué / finalidad:**
+
+- **Add-ons**: permite a Santiago activar módulos premium (Operaciones, Producto, etc.) por cliente desde super-admin sin tocar código — negocio de módulos add-on listo para operar.
+- **Música Trial Reels**: cada org puede personalizar el track de fondo de sus reels (variante music) subiendo su propio archivo desde `/integrations`.
+- **Regenerar captions**: founder puede hacer varios intentos de IA para el caption/hashtags sin regenerar el video.
+- **Stories**: intento de traer historias de Instagram al módulo de marketing, que históricamente solo traía posts.
+
+**Decisiones de diseño relevantes:**
+
+- **Add-ons como TEXT[]**: simple, sin tabla extra ni JSON, con validación en server action. Extensible.
+- **Toggle inmediato en super-admin**: click → llamada server action → optimistic update en estado local → revalidate. Sin modal de confirmación para velocidad.
+- **Stories dual-strategy**: llamar dos endpoints independientes de Zernio (sync dedicado + listPublishedPosts con type) aumenta probabilidad de éxito sin depender de un solo endpoint desconocido.
+- **Música en Storage → path en DB**: el worker descarga el archivo antes de FFmpeg, sin transmitir binarios entre servicios.
+
+**Riesgos / deuda técnica pendiente:**
+
+- Stories: si Zernio no expone stories en ninguno de los dos endpoints, seguirán siendo 0. Requiere verificación en producción con una historia real publicada.
+- Add-ons: los cambios de add-ons requieren re-login del usuario (sesión cacheada en `PermissionsProvider`). Agregar revalidación automática sería ideal pero no es bloqueante.
+- TRIAL-4: los assets reales de LUT (`warm.cube`) y música (`background-music.mp3`) siguen sin estar en el repo del worker — Santiago debe conseguirlos.
+
+---
+
 ### 2026-08-11 — feat: upload real de video a Zernio, email de notificación y cron de limpieza
 
 **Rama/branch:** `feat/trial-reels-video-upload`  

@@ -222,7 +222,23 @@ export async function processReelVariationJob(
       throw new Error("Payload inválido: se requiere driveFileId+driveAccessToken o sourceStoragePath");
     }
 
-    // 2. Procesar cada variante
+    // 2. Descargar track de música personalizado de la org (si existe)
+    let customMusicPath: string | null = null;
+    if (payload.reelMusicPath) {
+      const musicDest = path.join(workDir, "org-background-music.mp3");
+      try {
+        await downloadFromStorage(payload.reelMusicPath, musicDest);
+        customMusicPath = musicDest;
+        console.log("[Processor] org music downloaded", { path: payload.reelMusicPath, size: fs.statSync(musicDest).size });
+      } catch (musicErr) {
+        console.warn("[Processor] org music download failed — usando música por defecto", {
+          reelMusicPath: payload.reelMusicPath,
+          error: musicErr instanceof Error ? musicErr.message : String(musicErr),
+        });
+      }
+    }
+
+    // 3. Procesar cada variante
     const processedVariations: ReelVariation[] = [...initialVariations];
 
     for (let i = 0; i < VARIANT_SPECS.length; i++) {
@@ -233,8 +249,15 @@ export async function processReelVariationJob(
       console.log(`[Processor] processing variant ${i + 1}/${VARIANT_SPECS.length}: ${spec.type}`);
 
       try {
-        // Aplicar transformación FFmpeg (pasamos el caption para la variante de subtítulos)
-        const ffmpegArgs = spec.buildFfmpegArgs(sourcePath, outputPath, LUTS_DIR, originalCaption);
+        // Aplicar transformación FFmpeg
+        // Para la variante "music": pasar la ruta de música personalizada si existe
+        const ffmpegArgs = spec.buildFfmpegArgs(
+          sourcePath,
+          outputPath,
+          LUTS_DIR,
+          originalCaption,
+          spec.type === "music" ? customMusicPath : null,
+        );
         runFfmpeg(ffmpegArgs);
 
         // Subir a Storage y obtener URL firmada
@@ -268,7 +291,7 @@ export async function processReelVariationJob(
       }
     }
 
-    // 3. Generar captions con Haiku para las variantes exitosas
+    // 4. Generar captions con Haiku para las variantes exitosas
     console.log("[Processor] generating captions with Haiku...");
     const successfulTypes = processedVariations
       .filter((v) => v.status === "ready")
@@ -287,7 +310,7 @@ export async function processReelVariationJob(
       }
     }
 
-    // 4. Marcar job como preview_ready
+    // 5. Marcar job como preview_ready
     await updateJobVariations(jobId, processedVariations, "preview_ready");
 
     const durationMs = Date.now() - started;

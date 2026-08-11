@@ -9,6 +9,9 @@ import { associateCallWithClients } from "@/lib/fathom/associate";
 import { isManualFathomLink } from "@/lib/fathom/client-matcher";
 import { fetchFathomMeetingTitle } from "@/lib/fathom/api";
 import { ingestDocument } from "@/lib/rag/ingest";
+import {
+  publishFathomAnalysisJob,
+} from "@/lib/queue/qstash-client";
 import type { CalendlyFormAnswer } from "@/types/closing";
 
 function formAnswersToRecord(
@@ -356,8 +359,7 @@ export async function finalizeAssociatedCall(params: {
       .limit(1)
       .maybeSingle();
 
-    // TODO Phase 2: mover a BullMQ queue
-    void generateDeepCallAnalysis({
+    const deepAnalysisPayload = {
       organizationId: params.organizationId,
       fathomCallId: params.fathomCallId,
       transcript: params.transcript,
@@ -370,9 +372,19 @@ export async function finalizeAssociatedCall(params: {
       callDate: params.callDate,
       fathomUrl: params.fathomUrl,
       clientId: params.clientId,
-    }).catch((err) => {
-      console.error("[ProcessCall] Error en deep analysis:", err);
-    });
+    };
+
+    // Intentar encolar en QStash para garantizar ejecución
+    // (evita que Vercel mate el análisis cuando la función cron termina)
+    const enqueued = await publishFathomAnalysisJob(deepAnalysisPayload).catch(() => false);
+
+    if (!enqueued) {
+      // Fallback: ejecutar inline si QStash no está configurado
+      console.log("[ProcessCall] QStash no disponible — ejecutando deep analysis inline");
+      void generateDeepCallAnalysis(deepAnalysisPayload).catch((err) => {
+        console.error("[ProcessCall] Error en deep analysis inline:", err);
+      });
+    }
   }
 
   if (params.transcript?.trim()) {
