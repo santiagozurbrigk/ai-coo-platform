@@ -41,6 +41,50 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-11 — feat: upload real de video a Zernio, email de notificación y cron de limpieza
+
+**Rama/branch:** `feat/trial-reels-video-upload`  
+**Commit(s):** `84010ef` — feat(trial-reels): upload real del video a Zernio antes de publicar; `b6b674b` — feat(trial-reels): email de notificación + cron de limpieza de Storage  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** api/queue/publish-reel-variation, lib/zernio, lib/email, api/cron/cleanup-trial-reels, vercel.json
+
+**Qué se hizo:**
+
+**1. Upload real de video a Zernio (bug crítico resuelto):**
+- `lib/zernio/client.ts`: agregados tipos `ZernioMediaPresignResponse` y `ZernioMediaItem`; nuevo método `getMediaPresignedUrl(filename, contentType)` que llama `POST /v1/media/presign`; `createPost()` acepta `mediaItems?: ZernioMediaItem[]` en el payload.
+- `api/queue/publish-reel-variation/route.ts`: helper `uploadVideoToZernio()` implementa el flujo completo: obtener presigned URL de Zernio → descargar video de Supabase Storage (URL firmada TTL 2h) → `PUT` video buffer a Zernio → retornar `fileUrl` permanente. `createPost()` ahora incluye `mediaItems: [{ type: "video", url: videoFileUrl }]`. `maxDuration` subido de 30 → 60s.
+
+**2. Email de notificación al admin de la org:**
+- `lib/email/trial-reels-email.ts` (nuevo): template HTML con header púrpura OTC, cajas de stats verde/rojo, CTA button. Versión texto plano.
+- `lib/email.ts`: `sendTrialReelsDoneEmail()` usando Resend con subject dinámico ("N Trial Reels publicados" o "N publicados, M con error").
+- En `publish-reel-variation/route.ts`: cuando `allDone === true`, llama `notifyOrgAdminDone()` best-effort (fire-and-forget, nunca bloquea la respuesta).
+
+**3. Cron de limpieza de Storage:**
+- `api/cron/cleanup-trial-reels/route.ts` (nuevo): busca jobs con `status in ('done', 'failed')` y `updated_at < 30 días atrás`; elimina archivos del bucket `trial-reels` vía `admin.storage.from('trial-reels').remove(paths)`; loggea archivos eliminados y errores; idempotente.
+- `vercel.json`: entrada del nuevo cron a las 03:00 UTC diariamente.
+
+**Por qué / finalidad:**
+
+El bug principal del feature era que `createPost` en Zernio no tenía el campo `mediaItems` — los reels se creaban en Zernio como borradores vacíos sin video adjunto. La investigación de la API de Zernio (vía repos GitHub de zernio-dev) reveló el flujo de 2 pasos: presign URL → upload binario → usar fileUrl permanente en mediaItems.
+
+El email de notificación cierra el loop para el founder: sabe cuándo terminaron de publicar sus reels sin tener que abrir OTC manualmente. La limpieza de Storage evita acumulación de videos en el bucket trial-reels (cada job puede pesar ~50-200 MB) con retención de 30 días.
+
+**Decisiones de diseño relevantes:**
+
+- **Bufferar video en memoria**: `videoRes.arrayBuffer()` en el worker de Vercel — más simple y compatible con Vercel Edge/Node. Alternativa (streaming) más eficiente pero compleja y con menor compatibilidad.
+- **Presigned URL TTL 2h**: el proceso completo (descarga Supabase + upload Zernio) puede tardar hasta 60s; 2h es holgado y cubre reintentos de QStash.
+- **notifyOrgAdminDone best-effort**: `void fn().catch(log)` — un fallo de email nunca debe romper la respuesta del endpoint.
+- **30 días de retención en Storage**: balance entre debugging (poder ver videos de jobs fallidos) y costo de Storage. Configurable via constante `RETENTION_DAYS`.
+
+**Riesgos / deuda técnica pendiente:**
+
+- Música personalizable por org (upload a Storage, worker descarga) pendiente.
+- Re-intentar variante fallida individualmente (sin recrear el job) pendiente.
+- Re-generar captions/hashtags con IA por variante pendiente.
+- El cron de limpieza no limpia la carpeta raíz si quedó vacía — Supabase Storage no tiene `rmdir` automático, pero no genera costo ni error.
+
+---
+
 ### 2026-08-11 — feat: delay real entre publicaciones de Trial Reels con QStash
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
