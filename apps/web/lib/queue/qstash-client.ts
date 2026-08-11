@@ -39,6 +39,10 @@ export function getRagIngestionWorkerUrl(): string {
   return `${getPublicAppUrl()}/api/queue/process-rag-ingestion`;
 }
 
+export function getReelVariationPublishUrl(): string {
+  return `${getPublicAppUrl()}/api/queue/publish-reel-variation`;
+}
+
 export async function publishRagIngestionJob(
   payload: RagIngestionJobPayload
 ): Promise<boolean> {

@@ -41,6 +41,526 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-11 — feat: delay real entre publicaciones de Trial Reels con QStash
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `a53ce78` — feat(trial-reels): delay real entre publicaciones con QStash  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** marketing/trial-reels, api/queue, lib/queue
+
+**Qué se hizo:**
+
+- `publishVariationsAction` refactorizado: en lugar de publicar sincrónicamente con `setTimeout` falso (máx 30s), ahora encola cada variante incluida en QStash con `delay = posición * delay_hours * 3600` segundos. Retorna inmediatamente con `{ ok: true, scheduled: N }`.
+- Nuevo endpoint `POST /api/queue/publish-reel-variation/route.ts`: recibe `{ jobId, variationIndex, organizationId }`, verifica auth (WORKER_AUTH_SECRET triple-auth o firma QStash), genera URL firmada del video en Supabase Storage (TTL 1h), publica en Zernio como draft, actualiza la variante en DB (→ `published` o `failed`). Marca el job como `"done"` cuando todas las variantes incluidas terminan.
+- Nuevo estado `"scheduled"` en `ReelVariationStatus`: las variantes pasan a este estado cuando quedan encoladas, antes de que QStash las dispare.
+- `variation-card.tsx`: badge "Programada" (azul) para variantes en estado `scheduled`, con ícono `Clock`. También permite expandir preview de video en estado `scheduled`.
+- `trial-reels-panel.tsx`: toast de confirmación actualizado al nuevo return type; `includedCount` ahora cuenta también variantes `scheduled`.
+- `lib/queue/verify-queue-request.ts` (nuevo): helper de auth para endpoints de cola, triple-método consistente con el worker de Fly.io.
+- `lib/queue/qstash-client.ts`: helper `getReelVariationPublishUrl()`.
+
+**Por qué / finalidad:**
+
+El delay entre publicaciones era un `setTimeout(r, Math.min(delayMs, 30_000))` dentro de un Server Action — nunca podría respetar delays de horas sin que Vercel (30s máx en funciones serverless) cortara la conexión. Con QStash se encolan N mensajes independientes, cada uno con su `delay` en segundos; QStash los re-entrega al endpoint correcto en el momento exacto, sin mantener ninguna conexión abierta.
+
+**Decisiones de diseño relevantes:**
+
+- **Posición vs. índice para el delay**: el delay se calcula en base a la posición entre las variantes *incluidas* (no el índice absoluto). La primera incluida siempre se publica inmediatamente (delay=0), la segunda con delay_hours de lag, etc. Esto evita gaps si el usuario excluyó variantes intermedias.
+- **Idempotencia en el endpoint**: el endpoint verifica `variation.status !== "scheduled"` antes de procesar; si QStash reintenta (retries=2) y la variante ya fue procesada, responde 200 sin duplicar.
+- **Return 200 siempre en el endpoint**: aunque la publicación falle, se responde 200 para que QStash no reintente infinitamente (el error se persiste en `variation.error`).
+- **Sin Zernio → falla temprana**: si Zernio no está conectado, `publishVariationsAction` NO falla (sí lo haría el endpoint de publicación individual). Se optó por dejar que falle el endpoint individual para no bloquear el flujo de scheduling.
+
+**Riesgos / deuda técnica pendiente:**
+
+- El endpoint de publicación no adjunta el video binario a Zernio — solo envía el caption. Para que Zernio suba el video a Instagram, hace falta que la API de Zernio soporte una URL de media en el payload `createPost`. Verificar con la documentación de Zernio si el campo `mediaUrl` existe.
+- Las URLs firmadas de Supabase Storage (generadas en el endpoint) tienen TTL de 1h — si el delay configurado supera 1h, la URL expirará antes de que Zernio la procese. Solución futura: generar la URL firmada en el momento de publicar (ya está implementado así — el endpoint genera la URL en el momento en que QStash lo dispara, no antes).
+- Música personalizable por org (upload a Storage, worker descarga) pendiente.
+- Notificación al founder cuando todas las variantes terminaron pendiente.
+- Limpieza automática de Storage (trial-reels bucket) pendiente.
+
+---
+
+### 2026-08-10 — Fix: reel-worker crasheaba en Node.js 20 por falta de soporte nativo de WebSocket
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `257d5a1` — fix(reel-worker): Node.js 22 para soporte nativo de WebSocket  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** apps/reel-worker (Dockerfile, package.json)
+
+**Qué se hizo:**
+
+- `apps/reel-worker/Dockerfile`: Cambiado `FROM node:20-slim` → `FROM node:22-slim` en ambas etapas (builder y runner).
+- `apps/reel-worker/package.json`: Actualizado `"engines": { "node": ">=20" }` → `"engines": { "node": ">=22" }`.
+
+**Por qué / finalidad:**
+
+Los jobs seguían en estado `"pending"` incluso después del fix de autenticación triple. Fly.io logs revelaron el crash real al procesar el primer job:
+
+```
+error: 'Node.js 20 detected without native WebSocket support.
+Suggested solution: For Node.js < 22, install "ws" package and provide it via the transport option:
+import ws from "ws"
+new RealtimeClient(url, { transport: ws })'
+```
+
+`@supabase/supabase-js` v2.45 require WebSocket nativo (disponible en Node.js 22+) o instalar el paquete `ws` manualmente. Al llamar `createClient()` en `processor.ts`, la librería de Supabase Realtime intentaba inicializar una conexión WebSocket y crasheaba inmediatamente sin marcar el job como "failed" en DB. El job quedaba en `"pending"` para siempre.
+
+**Decisiones de diseño relevantes:**
+
+- Alternativa 1: agregar `ws` como dependencia y pasarla via `transport` en el `createClient()`. Más invasivo, requiere cambios en processor.ts.
+- Alternativa 2: subir a Node.js 22 (WebSocket nativo desde v21.6+). Sin cambios de código, Docker multi-stage lo soporta bien. ✓ Elegida.
+- Node.js 22 es LTS desde octubre 2024 — cambio sin riesgo de compatibilidad.
+
+**Riesgos / deuda técnica pendiente:**
+
+- Requirió que el usuario hiciera `git pull` antes de `fly deploy` — el primer intento de deploy usó el Dockerfile local con node:20 (ya que la imagen cacheada en Docker no había cambiado). El segundo intento (con `git pull` previo) compiló node:22 correctamente.
+- Si en el futuro se actualiza `@supabase/supabase-js` a v3+, verificar si siguen usando WebSocket nativo o si cambian el modelo de transporte.
+
+---
+
+### 2026-08-10 — Fix: autenticación del worker con triple redundancia (X-Worker-Secret + Bearer + query param)
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `a6a513d` — fix(trial-reels): auth robusta con X-Worker-Secret header y query param  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** apps/reel-worker (index.ts), apps/web (reel-variation-actions.ts)
+
+**Qué se hizo:**
+
+- `apps/reel-worker/src/index.ts`: `verifySignature()` ahora intenta autenticación en este orden:
+  1. **X-Worker-Secret** header (custom, nunca stripeado por proxies ni QStash)
+  2. **Authorization: Bearer `<secret>`** header (método original)
+  3. **`?workerSecret=<secret>`** URL query param (fallback absoluto — QStash nunca modifica query params)
+  - Si ninguno coincide, log de diagnóstico mostrando cuántos chars llegaron vs esperados para detectar mismatches.
+- `apps/web/app/marketing/content/reel-variation-actions.ts`: `createTrialReelsJobAction` ahora:
+  - Agrega `workerSecret` en la URL como query param (`?workerSecret=<secret>`)
+  - Pasa ambos headers `X-Worker-Secret` y `Authorization: Bearer` en el `publishJSON()` de QStash
+
+**Por qué / finalidad:**
+
+Después de confirmar que QStash entregaba el job al worker (imageId en response), los jobs seguían en `"pending"`. La hipótesis era que QStash stripeaba el header `Authorization` en tránsito (comportamiento documentado en algunos proxies). La solución: enviar el secret por tres canales distintos para máxima robustez, sin depender de que ninguno en particular llegue intacto.
+
+**Decisiones de diseño relevantes:**
+
+- QStash garantiza que los query params de la URL destino llegan intactos al endpoint — los headers son más propensos a ser modificados/stripeados.
+- El log de diagnóstico (`got N chars, expected M`) permite detectar mismatches de WORKER_AUTH_SECRET entre Fly.io y Vercel sin exponer el secret completo en logs.
+- La verificación se hace en el orden más-a-menos confiable: header custom → header estándar → query param.
+
+**Riesgos / deuda técnica pendiente:**
+
+- El query param expone el secret en logs de Fly.io y QStash si están habilitados. Para uso en producción de alta seguridad, idealmente usar solo el header X-Worker-Secret. Por ahora el triple-método es adecuado para el contexto.
+- Si en el futuro se cambia WORKER_AUTH_SECRET, hay que actualizarlo en dos lugares: Fly.io secrets Y Vercel env vars (y hacer redeploy de ambos).
+
+---
+
+### 2026-08-10 — Fix: Trial Reels quedaba en "pending" por 401 del worker (signing keys QStash incorrectas)
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `9726810` — fix(trial-reels): WORKER_AUTH_SECRET para evitar 401 por signing keys de QStash  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** apps/reel-worker (index.ts), apps/web (reel-variation-actions.ts, [id]/page.tsx)
+
+**Qué se hizo:**
+
+- `apps/reel-worker/src/index.ts`: La función `verifySignature()` ahora verifica primero un `Authorization: Bearer <WORKER_AUTH_SECRET>` header. Si `WORKER_AUTH_SECRET` está configurado y el header coincide → acepta. Si no coincide → rechaza sin continuar a QStash signing. Si `WORKER_AUTH_SECRET` no está configurado → cae al flujo previo de QStash signing.
+- `apps/web/app/marketing/content/reel-variation-actions.ts`: `createTrialReelsJobAction` pasa `Authorization: Bearer <WORKER_AUTH_SECRET>` como header custom en el `client.publishJSON()` de QStash (QStash reenvía el header al worker). También agrega log del `hasWorkerAuthSecret` para diagnóstico.
+- `apps/web/app/(platform)/marketing/content/[id]/page.tsx`: Agrega `export const maxDuration = 300` para que la Server Action no sea cortada por el timeout de Vercel mientras descarga el video de Drive o sube a Supabase (archivos grandes pueden tardar >10s).
+- Startup log del worker ahora muestra explícitamente si `WORKER_AUTH_SECRET` está configurado.
+
+**Por qué / finalidad:**
+
+Después del fix de procesamiento sincrónico (commit `7996341`), los jobs SEGUÍAN quedando en `"pending"` indefinidamente. El diagnóstico:
+- QStash entregaba el job al worker (`https://otc-reel-worker.fly.dev/`)
+- El worker verificaba la firma usando `QSTASH_CURRENT_SIGNING_KEY` / `QSTASH_NEXT_SIGNING_KEY` — estos secrets estaban configurados en Fly.io pero probablemente con valores incorrectos o desincronizados respecto a lo que QStash usa para firmar
+- El worker respondía `401 Unauthorized`
+- QStash reintentaba 2 veces (retries: 2), fallaba los 3 intentos, abandonaba la entrega
+- Job quedaba para siempre en `"pending"` (QStash no tiene mecanismo para marcar el job como fallido en la DB nuestra)
+
+**Decisiones de diseño relevantes:**
+
+- Usar `WORKER_AUTH_SECRET` como token Bearer en lugar de depender de las signing keys de QStash, que son más complejas de sincronizar y verificar (JWT con timestamp, URL, etc.). El Bearer token es más simple, más predecible y más fácil de debuggear.
+- Si `WORKER_AUTH_SECRET` está seteado y el header NO coincide, rechazar inmediatamente sin caer al QStash signing. Esto previene bypass accidental por token desconfigurado.
+- QStash soporta pasar headers custom en `publishJSON({ headers: {...} })` — los reenvía intactos al endpoint destino.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **El usuario debe configurar `WORKER_AUTH_SECRET` como secret en Fly.io Y como env var en Vercel.** Sin esto, la autenticación del worker cae al flujo QStash signing previo (que sigue sin funcionar si las keys están mal).
+- Pasos necesarios:
+  1. Generar un string aleatorio: `openssl rand -base64 32`
+  2. Configurar en Fly.io: `fly secrets set WORKER_AUTH_SECRET=<valor> --app otc-reel-worker`
+  3. Configurar en Vercel: env var `WORKER_AUTH_SECRET=<mismo valor>` → redeploy
+  4. Redeploy Fly.io: `fly deploy --config apps/reel-worker/fly.toml`
+
+---
+
+### 2026-08-10 — Fix: reel-worker procesaba en background, Fly.io mataba la máquina antes de que FFmpeg corriera
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `7996341` — fix(reel-worker): procesar sincrónicamente para evitar que Fly.io mate la máquina  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** apps/reel-worker (index.ts, processor.ts)
+
+**Qué se hizo:**
+
+- `index.ts`: El endpoint POST del worker ahora procesa el job **sincrónicamente** (await `processReelVariationJob(payload)` antes de llamar `res.json()`). La conexión HTTP queda abierta mientras corre FFmpeg; Fly.io no puede apagar la máquina mientras haya una conexión activa.
+- `processor.ts`: Agregado check de **idempotencia** al inicio de `processReelVariationJob`: si el job ya está en un estado distinto de `"pending"`, se hace return inmediato. Previene reprocesamiento si QStash reintenta una entrega mientras el worker ya está ejecutando.
+- Respuesta en error: si `processReelVariationJob` lanza, se responde `200 { ok: false, status: "failed" }` en lugar de `500`, para que QStash no reintente (el processor ya marcó el job como "failed" en DB).
+
+**Por qué / finalidad:**
+
+El job `df1405b3` quedó en estado `"pending"` indefinidamente sin que el worker lo procesara. Diagnóstico:
+- Con `auto_stop_machines = true` y `min_machines_running = 0` en fly.toml, Fly.io detiene la máquina cuando no hay conexiones HTTP activas.
+- El patrón anterior era: responder `200 OK` inmediatamente → luego procesar en `setImmediate()`.
+- Al cerrar la conexión HTTP (200 enviado), Fly.io consideraba la máquina idle y la apagaba antes de que `processReelVariationJob` actualizara la DB a `"processing"` y mucho antes de que FFmpeg terminara.
+- El job quedaba en `"pending"` para siempre porque QStash ya no reintentaba (consideraba la entrega exitosa al recibir 200).
+
+**Decisiones de diseño relevantes:**
+
+- Alternativas consideradas: (a) `min_machines_running = 1` (costo constante), (b) aumentar `stop_timeout` en fly.toml (no resuelve trabajo de minutos), (c) procesar sincrónicamente ✓ (aprovecha `timeout: 900` ya configurado en QStash).
+- El `timeout: 900` en QStash publishJSON permite que la conexión esté abierta hasta 15 minutos, más que suficiente para FFmpeg (estimado 2-5 min para 5 variantes de un video de reel).
+
+**Riesgos / deuda técnica pendiente:**
+
+- El job `df1405b3` quedó en estado `"pending"` y no puede rerecuperarse automáticamente (QStash ya no va a reintentarlo). El usuario debe crear un nuevo job desde la UI para ese reel.
+- Si FFmpeg tarda más de 15 minutos (videos muy largos), QStash timeout-eará la request y reintentará. El check de idempotencia evita doble procesamiento si esto ocurre.
+- La respuesta 200 con `{ ok: false }` en caso de error es no convencional; se podría cambiar a usar QStash's "callback URL" para notificaciones de fallo sin depender del HTTP response code.
+
+---
+
+### 2026-08-10 — Fix: errores de TypeScript/ESLint en archivos de Trial Reels para pasar build de Vercel
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `8413c0a` — fix(trial-reels): escapar comillas en JSX para ESLint  
+  `939d5c9` — fix(trial-reels): corregir errores de TypeScript en archivos nuevos  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** marketing/trial-reels, packages/ui, api/queue
+
+**Qué se hizo:**
+
+Cuatro errores bloqueaban el build de Vercel en los archivos de Trial Reels introducidos en el commit anterior:
+
+1. **ESLint `react/no-unescaped-entities`** (`trial-reels-panel.tsx` línea 234): Las comillas dobles en JSX literal (`"Crear Trial Reels"`) no están permitidas. Fix: `&ldquo;…&rdquo;`.
+
+2. **TypeScript `Type 'string' is not assignable to type 'null'`** (`processor.ts` línea 134): `initialVariations` era inferido como `{ error: null }[]` en vez de `ReelVariation[]`, por lo que asignar `error: msg` (string) fallaba. Fix: agregar anotación explícita `const initialVariations: ReelVariation[]` y tipar `VariantDef.type` como `ReelVariationType`.
+
+3. **TypeScript `Property 'marketing' does not exist on type`** (`reel-variation-actions.ts` líneas 204 y 462): Se usaba `paths.marketing.content` (inexistente en nivel raíz) en vez de `paths.platform.marketing.content`.
+
+4. **TypeScript implicit `any`** (`variation-card.tsx` líneas 213, 225): `onChange` handlers sin tipo. Fix: `React.ChangeEvent<HTMLTextAreaElement>`.
+
+5. **Badge `children` en React 19** (`badge.tsx`): `React.HTMLAttributes` ya no incluye `children` en React 19. Fix: declarar `children?: React.ReactNode` explícitamente en `BadgeProps`.
+
+**Por qué / finalidad:**
+Cada commit a la rama dispara un preview deployment en Vercel. Los errores en archivos nuevos (no cacheados por Turbo) fallaban el build impidiendo testear el feature completo en producción.
+
+**Decisiones de diseño relevantes:**
+- Los errores de Badge `children` son pre-existentes en muchos archivos del proyecto que ya pasan el build (se sirven desde la caché de Turbo). Solo los archivos nuevos (sin caché) se ven afectados.
+- La anotación `ReelVariation[]` en `processor.ts` es la solución mínima — no restructurar la función.
+
+**Riesgos / deuda técnica pendiente:**
+- El warning de Badge `children` es cosmético en tsc local pero no falla Vercel — hay ~15 archivos pre-existentes con el mismo error que Vercel ignora por caché de Turbo. A largo plazo, migrar todos los usos.
+- El fix de Badge en `packages/ui` es una mejora general pero la raíz del problema es que React 19 eliminó `children` de `HTMLAttributes` — todos los componentes con `extends React.HTMLAttributes` de la UI deben revisarse.
+
+---
+
+### 2026-08-10 — Feature: Trial Reels — generación automática de 5 variaciones de reels
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `1ad489d` — feat(marketing): Trial Reels — generación automática de 5 variaciones de reels  
+  `b137a0f` — fix(reel-worker): crear carpeta luts vacía para Docker build  
+  `2191cf5` — fix(reel-worker): escuchar en 0.0.0.0 para compatibilidad con Fly.io  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** marketing/content, reel-worker (nuevo servicio), supabase/migrations, types, components
+
+**Qué se hizo:**
+
+Feature completa de Trial Reels: el usuario selecciona un reel de `content_pieces` (que tenga un `drive_file_id` vinculado), OTC descarga el video desde Google Drive, lo sube a Supabase Storage y encola un job en QStash. Un worker en Fly.io procesa el video con FFmpeg generando 5 variantes automáticamente. El usuario puede previsualizar cada variante, editar el caption y hashtags, incluir/excluir variantes, y publicarlas en Zernio con delay configurable entre posts.
+
+**Archivos creados:**
+- `supabase/migrations/20260810120000_trial_reels_jobs.sql` — Tabla `reel_variation_jobs` + bucket `trial-reels` + RLS + índices + trigger
+- `apps/web/types/reel-variations.ts` — Tipos TypeScript para el módulo
+- `apps/web/app/marketing/content/reel-variation-actions.ts` — Server Actions: `createTrialReelsJobAction`, `getReelVariationJobAction`, `listReelVariationJobsForPieceAction`, `updateReelVariationAction`, `setReelVariationDelayAction`, `publishVariationsAction`, `refreshVariationPreviewUrlsAction`
+- `apps/web/app/api/queue/process-reel-variations/route.ts` — Endpoint receptor de QStash (fallback dev / Vercel)
+- `apps/web/app/api/queue/process-reel-variations/processor.ts` — Procesador FFmpeg inline (dev)
+- `apps/reel-worker/` — Worker completo para Fly.io (Node.js + FFmpeg):
+  - `src/types.ts`, `src/ffmpeg-variants.ts`, `src/captions.ts`, `src/processor.ts`, `src/index.ts`
+  - `fly.toml`, `Dockerfile`, `package.json`, `tsconfig.json`, `README.md`
+- `apps/web/components/marketing/trial-reels/trial-reels-button.tsx` — Botón CTA
+- `apps/web/components/marketing/trial-reels/variation-card.tsx` — Card por variante con video player + editor de caption
+- `apps/web/components/marketing/trial-reels/trial-reels-panel.tsx` — Panel completo con Supabase Realtime, selector de delay, y publicación
+- `apps/web/components/marketing/trial-reels/index.ts` — Barrel export
+
+**Archivos modificados:**
+- `apps/web/components/marketing/content-piece-detail.tsx` — Nueva tab "Trial Reels" + TrialReelsButton en panel izquierdo (solo para reels con Drive vinculado)
+- `apps/web/components/marketing/marketing-content-detail-page-client.tsx` — Prop `initialReelJobs`
+- `apps/web/app/(platform)/marketing/content/[id]/page.tsx` — Fetcha `reel_variation_jobs` en paralelo para SSR
+- `.env.example` — Agregada variable `REEL_WORKER_URL`
+
+**Por qué / finalidad:**
+
+Estrategia de "Trial Reels": publicar 5 variaciones de un reel que funcionó bien, cambiando velocidad, música, subtítulos y colorimetría. Usada por creadores para maximizar alcance y testear qué variante tiene mejor performance. OTC automatiza todo el proceso desde la descarga hasta la publicación.
+
+**Decisiones de diseño relevantes:**
+
+1. **Worker separado en Fly.io** (no Vercel lambda): FFmpeg procesar video tarda varios minutos, Vercel tiene límite de 300s y no tiene FFmpeg instalado. Fly.io con `performance-2x` (2 vCPU, 4 GB RAM) lo maneja sin límite.
+
+2. **El video fuente se descarga desde Next.js (no el worker)**: Para la descarga de Drive se necesita el token OAuth de Google del usuario, que está en la sesión Next.js. El servidor Next.js descarga el video en la Server Action y lo sube a Supabase Storage. El worker solo accede a Storage (con service role), sin necesitar tokens de usuario.
+
+3. **Metadatos anti-detección**: Cada variante reescribe `creation_time`, `encoder`, `make`, `model`; strip con `-map_metadata -1`; bitrate variado ±5%; crop de 1-2px. Esto rompe el fingerprint de video para que Instagram no detecte el mismo video resubido.
+
+4. **Supabase Realtime en el panel**: El estado del job se actualiza en tiempo real sin polling — el worker actualiza DB directamente y el cliente recibe las actualizaciones vía `postgres_changes`.
+
+5. **Captions con Haiku**: Se generan al momento de `preview_ready` con tonos diferentes por variante (energético para speed_up, contemplativo para speed_down, etc.). El usuario puede editarlos antes de publicar.
+
+6. **Publicación como draft en Zernio**: `createPost` con `status: 'draft'` porque Zernio necesita el video subido directamente vía su UI para Instagram reels. La URL firmada de Storage se adjunta para que el usuario la use desde Zernio si la publicación directa falla.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **Fly.io no configurado**: El worker necesita deploy en Fly.io y que `REEL_WORKER_URL` esté en las env vars de Vercel. Sin esto, QStash apunta al endpoint fallback de Next.js que en Vercel devuelve error (sin FFmpeg).
+- **LUT y música**: Sin `luts/warm.cube` y `luts/background-music.mp3`, las variantes V3 y V5 usan fallbacks (silencio y eq filter). Para producción real, incluir assets de calidad.
+- **Videos > 500 MB**: El límite actual es 500 MB. Videos muy pesados fallarán en descarga.
+- **Delay entre publicaciones**: El delay real de horas se simula con 30s max para no bloquear el servidor en la Server Action. Para delays reales, implementar con un schedule de QStash (future work).
+- **Instagram Reels vía Zernio**: La publicación directa de reels puede requerir endpoints específicos de Zernio que aún no están mapeados en el cliente. Verificar con equipo Zernio.
+- **Concurrencia**: `fly.toml` limita a 2 requests concurrent y 1 soft limit. Si hay muchos jobs simultáneos, se pondrán en cola o se rechazarán.
+
+---
+
+### 2026-08-09 — Fix MRR=0 y Nuevos clientes=0 en Panel General
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `26dcf51` — fix(dashboard): corregir MRR=0 y Nuevos clientes=0 en Panel General  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `lib/metrics/derive-dashboard-data.ts`, `components/dashboard/dashboard-page-content.tsx`
+
+**Qué se hizo:**
+
+**Bug 1 — MRR = 0 US$:**  
+`deriveDashboardData` llamaba a `deriveFinanceSummary` sin el argumento `payments`. Esto hace que `collectRevenueEvents` use el fallback `collectRevenueEventsFromClients`, que genera eventos de cobro solo a partir de `client.installments[].paidAt`. Los clientes seed con `payment_type = 'upfront_fee'` y `installments = []` no producían ningún evento → MRR = 0, aunque hubiera pagos reales en `client_payments`.
+
+**Fix:** Se agregó un parámetro opcional `payments?: ClientPayment[]` a `deriveDashboardData` y se pasa a `deriveFinanceSummary`. `DashboardPageContent` ahora extrae `clientPayments` de `useFinanceData()` (ya disponible en el provider) y lo pasa al cálculo.
+
+**Bug 2 — Nuevos clientes = 0:**  
+`new Date("2026-08-01").getMonth()` retorna `6` (julio) en entornos UTC-3 porque la cadena ISO sin hora se parsea como UTC midnight, y `getMonth()` devuelve la fecha en hora local — que en UTC-3 es `2026-07-31T21:00:00`. Este bug suprimía todo cliente cuyo `joinDate` sea el 1° del mes.
+
+**Fix:** Se reemplaza la comparación `getMonth() / getFullYear()` por comparación de string `YYYY-MM`: `c.joinDate.slice(0, 7) === nowYearMonth`. Inmune a offsets de timezone.
+
+**Por qué / finalidad:**
+Estas dos métricas aparecían en "0" en el Panel General incluso con datos seed coherentes insertados. Afectan directamente la legibilidad del dashboard para el founder.
+
+**Decisiones de diseño relevantes:**
+- Se eligió agregar `payments?` a `deriveDashboardData` (en lugar de reestructurar para recibir un `FinanceSummary` pre-computado) para mantener la función pura y testeable sin providers.
+- `clientPayments` ya estaba disponible en `FinanceDataProvider` y `FinanceDataContext` — solo faltaba consumirlo en el componente del dashboard.
+- La comparación de string `YYYY-MM` es más robusta que `parseDateOnly` (de `revenue-period.ts`) porque no requiere importar otra dependencia.
+
+**Riesgos / deuda técnica pendiente:**
+- El mismo bug de UTC-midnight podría existir en otros sitios del codebase que usen `new Date("YYYY-MM-DD")` y luego llamen a `.getMonth()` / `.getFullYear()`. Buscar en el futuro: `new Date(.*joinDate|createdAt|paidAt.*).getMonth\(` o similar.
+- Si `clientPayments` crece mucho (miles de pagos), el `useMemo` del dashboard se recalculará cada vez que varíe el array. No es un problema hoy pero a escala habría que memoizar mejor.
+
+---
+
+### 2026-08-09 — Diagnóstico de bugs de dashboards con seed data: hallazgos
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Autor:** Claude (investigación, sin cambios de código)  
+**Módulo(s) afectado(s):** análisis cross-módulo
+
+**Qué se hizo:**
+Investigación exhaustiva de tres problemas reportados tras insertar datos seed:
+
+**Prioridad 1 — "Tasa de agendamiento: 550%" y "Tasa de fantasma: 125%":**  
+No hay bug matemático. Con los datos seed: `bookingRate = 55%` (22/40 conversaciones son booked/agendado/closeado), `ghostingRate = 12.5%` (5/40). El formato "55,0%" (coma decimal española en `derive-dashboard-data.ts`) puede confundirse visualmente con "550%" en fuente pequeña. Las fórmulas en `derive-sales-metrics.ts` son correctas (siempre ≤100%).
+
+**Prioridad 3 — "Distribución de contenido publicado: VENTA 100%":**  
+No hay bug. Las 6 `content_assets` existentes son posts de Instagram del tipo "Si querés…, entrá a la waitlist" — CTA directo → correctamente etiquetados como VENTA por la IA. Los datos seed se insertaron en `content_pieces` (Zernio, tabla separada), que el gráfico de distribución no consulta. `getContentDistributionDataAction` usa `listContentAssetsAction()` que solo lee `content_assets`.
+
+**Riesgos / deuda técnica pendiente:**
+- El gráfico "Distribución de contenido publicado" no incluye `content_pieces` (Zernio). `content_pieces.analysis->>'ai_label'` usa una taxonomía diferente (texto libre: "Ventas y conversión", "Estrategia de contenido", etc.) — no se mapea directamente a AUTORIDAD/ATRACCION/NUTRICION/VENTA. Para incluir `content_pieces` en el gráfico habría que agregar una columna `content_objective TEXT` o normalizar el mapeo en la acción.
+
+---
+
+### 2026-08-09 — Seed data ficticio en Supabase para testing visual de dashboards
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** sin commit — operación directa en DB de Supabase (no hay cambios de código)  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** Supabase DB (org `46cce98c-6d4c-4e4d-94a7-7cc24ae1104d` — "Optimiza tu Control")
+
+**Qué se hizo:**
+Inserción de datos ficticios de prueba en la base de datos del proyecto Supabase (`nrzlylzbmsuowzhpdnjl`) para la org de Santiago Zurbrigk, con el objetivo de testear visualmente charts y dashboards. Todos los registros están marcados con identificadores específicos para fácil eliminación posterior.
+
+**Resumen de registros insertados:**
+
+| Tabla | Registros | Marcador de seed |
+|-------|-----------|-----------------|
+| `clients` | 25 clientes | `nickname = '_seed_otc'` |
+| `client_payments` | 48 pagos | `payment_received_from = '_seed_otc'` |
+| `closing_calls` | 38 llamadas | `notes = '_seed_otc'` |
+| `call_analyses` | 22 análisis | `fathom_call_id LIKE 'seed_%'` |
+| `conversations` | 40 conversaciones | `external_ref LIKE '_seed_otc_%'` |
+| `content_pieces` | 30 piezas | `drive_file_name = '_seed_otc'` |
+
+**Detalles de cada tabla:**
+
+- **clients**: 25 clientes ficticios (dic 2025 → ago 2026). Mezcla de `active`, `success_case`, `onboarding_done`, `pending_onboarding`. 3 productos: Mentoría 1:1 Premium ($2500), Consultoría Intensiva ($800), Membresía Comunidad Pro ($97/mes). Plataformas: mercadopago, stripe, bank_transfer. Email termina en `@seed.otc`.
+- **client_payments**: 48 pagos coherentes con cada cliente. Pagos upfront, cuotas (3 meses) y membresías mensuales. Total recaudado seed: ~$39,337. Fechas spread dic 2025 → ago 2026.
+- **closing_calls**: 38 llamadas de cierre. Statuses: 21 `closed` ($35,091 en revenue), 11 `not_closed`, 5 `no_show`, 1 `scheduled`. Con `outcome` JSONB, `form_answers`, `no_close_reason`, `amount`. Spread dic 2025 → ago 2026.
+- **call_analyses**: 22 análisis de llamadas (Fathom-style). Score promedio 86/100. 21 sold=true. Campos completos: `section_scores`, `objections`, `power_phrases`, `weak_phrases`, `filler_words_count`, `summary`, `strengths`, `improvements`.
+- **conversations**: 40 conversaciones DM. 14 `closed`, 8 `booked`, 13 `active`, 5 `ghosted`. Todos los campos IA completados: `ai_score`, `ai_label` (hot/warm/cold), `ai_funnel_stage`, `ai_detected_objections`, `ai_booking_signals`, `ai_recommended_action`, etc.
+- **content_pieces**: 30 piezas publicadas feb → jul 2026 con tendencia de crecimiento clara. Views feb: 19K total → jul: 115K total. 2 reels virales: "Storytime: el día que perdí un cliente" (28.4K views, may 2026) y "Hot take: si tu mentoría no tiene sistema" (45.2K views, jul 2026). Campos: `metrics` (JSONB flat), `analysis` (JSONB con ai_label, ai_score, strengths, improvements), `format_type`, `hook_type`, `cta_type`.
+
+**Por qué / finalidad:**
+El usuario necesitaba datos reales y coherentes para testear visualmente cómo funcionan los charts de clientes, el pipeline de ventas, el scoring de leads, los análisis de llamadas y las métricas de contenido. Los datos vacíos no permiten evaluar el diseño de los dashboards.
+
+**Script de limpieza (EJECUTAR cuando se quieran eliminar los datos seed):**
+```sql
+-- Ejecutar en este orden para respetar FK constraints
+DELETE FROM call_analyses
+  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
+  AND fathom_call_id LIKE 'seed_%';
+
+DELETE FROM client_payments
+  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
+  AND payment_received_from = '_seed_otc';
+
+DELETE FROM closing_calls
+  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
+  AND notes = '_seed_otc';
+
+DELETE FROM conversations
+  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
+  AND external_ref LIKE '_seed_otc_%';
+
+DELETE FROM content_pieces
+  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
+  AND drive_file_name = '_seed_otc';
+
+DELETE FROM clients
+  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
+  AND nickname = '_seed_otc';
+```
+
+**Decisiones de diseño relevantes:**
+- Se eligió marcar con campos existentes en lugar de agregar una columna `is_seed` para no alterar el schema.
+- `conversations.external_ref` tiene un unique constraint por `(organization_id, external_ref)`, por eso se usó `_seed_otc_001..040` en lugar del mismo valor en todos.
+- Los datos son coherentes entre sí: los clientes tienen pagos que suman su `total_amount`, las llamadas de cierre coinciden con los leads de conversaciones, los análisis de llamadas referencian las mismas llamadas.
+- Las métricas de `content_pieces` usan el formato "flat" que `resolvePostAnalytics` normaliza correctamente.
+- Las `call_analyses` no están vinculadas a `closing_calls` por FK (la tabla no tiene constraint directo) — son análisis independientes con `fathom_call_id` de tipo texto.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **Estos datos son temporales** — recordar ejecutar el script de limpieza antes de ir a producción real o antes de demos con clientes reales.
+- Los `client_payments` tienen `storage_path = '_seed_otc'` (NOT NULL) — este campo normalmente apunta a un path de Storage de Supabase. No hay archivo real asociado.
+- Los `content_pieces` tienen `drive_file_name = '_seed_otc'` pero sin `drive_file_id` real — los links de Drive no funcionarán para estos registros.
+- Los análisis de llamadas tienen `fathom_call_id` ficticios — no se pueden cargar transcripciones reales desde Fathom para estos registros.
+
+---
+
+### 2026-08-08 — Fix scrollbar vertical en modales + panel ManyChatManageSheet roto en integraciones
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `791a6fa` — fix(integrations): ocultar scrollbar vertical en modales y corregir panel de ManyChat  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `packages/ui`, `integrations`
+
+**Qué se hizo:**
+1. **`packages/ui/src/primitives/dialog.tsx` — `DialogContent`**: Agrega `[&::-webkit-scrollbar]:hidden` y `[scrollbar-width:none]` al conjunto de clases base. Oculta el track del scrollbar en WebKit (Chrome, Edge, Safari) y Firefox cuando el `DialogContent` tiene `overflow-y-auto` aplicado vía `className`. El contenido sigue siendo scrolleable; solo desaparece la barra visual.
+2. **`apps/web/components/integrations/manychat-manage-sheet.tsx`**: Mueve `shadow-xl` al estado abierto (`open = true`). Cuando el panel está cerrado (`translate-x-full`), la clase `shadow-xl` se reemplaza por `shadow-none`. Root cause: la sombra de un elemento `fixed` no está sujeta a `overflow: clip` del ancestro → sangraba ~25px hacia el interior del viewport → aparecía como una franja/panel oscuro en el borde derecho de la página de integraciones.
+3. **`apps/web/components/integrations/integration-card.tsx`**: Renderiza `ManyChatManageSheet` condicionalmente solo cuando `integration.provider === 'manychat'`. Antes se renderizaba para todas las cards de integración (N instancias de un aside fijo en el DOM), lo que multiplicaba el artefacto visual.
+
+**Por qué / finalidad:**
+- El usuario reportó que en la página de integraciones aparecía "una card a la derecha o una especie de sidebar roto que no llega a verse". Era el shadow del `ManyChatManageSheet` closed sangrando en el viewport.
+- El usuario también reportó scrollbar vertical visible en el modal de Zernio (y otros modales) tras el fix de scrollbar horizontal de la sesión anterior.
+
+**Decisiones de diseño relevantes:**
+- `scrollbar-width: none` es Firefox; `::-webkit-scrollbar { display: none }` es WebKit. Ambos se necesitan para cobertura cross-browser.
+- El render condicional del `ManyChatManageSheet` por provider es correcto: el estado `manychatManageOpen` y su handler están en `IntegrationCard` y solo se usan cuando `provider === 'manychat'`.
+- Separar shadow del transform permite que la animación de slide-in/out siga funcionando sin artefactos.
+
+**Riesgos / deuda técnica pendiente:**
+- `ManyChatManageSheet` es un aside fijo custom (no usa Radix Sheet). Podría migrarse a un Sheet de Radix para mayor accesibilidad (focus trap, escape key handling).
+
+---
+
+### 2026-08-08 — Fix "Conectá tus redes" en dashboard + scrollbars en modales
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `bef3902` — fix(dashboard+ui): mostrar métricas Zernio en dashboard y eliminar scrollbars en modales  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `dashboard`, `packages/ui`
+
+**Qué se hizo:**
+1. **`app/integrations/zernio/actions.ts` — `getZernioAnalyticsAction`**: Reemplazada la llamada a `client.getPostsAnalytics()` (→ `/analytics/posts` de Zernio) por una query a `content_pieces` en Supabase. La función ahora suma `metrics.impressions`, `metrics.likes` y `metrics.comments` de las piezas de Zernio publicadas en los últimos 30 días. `hasData` se setea `true` en cuanto existe al menos una pieza de Zernio en la DB (aunque las métricas sean 0), mostrando el ring chart en vez del empty state "Conectá tus redes". Si no hay piezas en los últimos 30 días, hace un segundo query sin filtro de fecha para verificar si hay piezas históricas.
+2. **`packages/ui/src/primitives/dialog.tsx` — `DialogContent`**: Agrega `overflow-x-hidden` al conjunto de clases base de todos los `DialogContent`. Fix global para la scrollbar horizontal que aparecía en modales con `overflow-y-auto` (especialmente visible en el modal de Zernio "Conectar Zernio").
+
+**Por qué / finalidad:**
+- El dashboard mostraba "Conectá tus redes para ver analytics / Vinculá cuentas en Zernio..." aunque Zernio estaba conectado y había contenido sincronizado. La causa: `getPostsAnalytics()` llama `/analytics/posts` de Zernio cuyo formato de respuesta (`{ posts: [...], analytics: Record<platform, metrics> }`) no matcheaba el parsing del código → todas las métricas quedaban en 0 → `hasData = false`.
+- En el modal de Zernio (y otros modales con `overflow-y-auto`) aparecían tanto una scrollbar vertical como una horizontal. La scrollbar horizontal se activa porque la vertical ocupa espacio (en Windows/sistema con scrollbars siempre visibles), lo que estrecha el contenido disponible y puede disparar overflow horizontal. `overflow-x-hidden` lo previene globalmente.
+
+**Decisiones de diseño relevantes:**
+- `content_pieces` es la fuente de verdad para métricas de Zernio (ya normalizadas por `resolvePostAnalytics`). Usarla en el dashboard evita una llamada en vivo a Zernio en cada carga del dashboard (más lento y frágil).
+- `overflow-x-hidden` en el base `DialogContent` es seguro: los diálogos tienen `max-w-lg` fijo y nunca necesitan scroll horizontal. La propiedad puede sobreescribirse pasando `overflow-x-auto` en `className` si algún caso especial lo requiriera.
+
+**Riesgos / deuda técnica pendiente:**
+- Si hay piezas de Zernio pero ninguna en los últimos 30 días, el dashboard mostrará el ring chart con métricas en 0 (con "Sin datos de engagement") en vez del empty state. Es el comportamiento correcto ya que Zernio está conectado y tiene datos históricos.
+- La función `getZernioAnalyticsAction` ahora importa `createClient` de `@/lib/supabase/server` en el archivo `zernio/actions.ts`. Verificar que no haya conflictos con el uso existente de `createAdminClient`.
+
+---
+
+### 2026-08-08 — Fix React #418 (hidratación) en detalle de contenido + sync de historias Zernio
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `d724eae` — fix(marketing): hidratación React #418 y sync de historias Zernio  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `marketing`, `lib/marketing`
+
+**Qué se hizo:**
+1. **`content-piece-detail.tsx` — React error #418**: Añadido `suppressHydrationWarning` en todos los elementos que renderizan fechas/números con `toLocaleString("es-AR")` / `toLocaleDateString("es-AR")` (elementos `<p>` y `<span>` en líneas de fecha de publicación, métricas actualizadas, funnel de atribución de ventas, fecha de variantes IA). Para el prop `subtitle` de `ChartShell` (string interpolado — no admite `suppressHydrationWarning` directamente), se reemplazó `totalInteractions.toLocaleString("es-AR")` por `fmtNum(totalInteractions)` que evita separadores de locale para valores ≥1000.
+2. **`sync-actions.ts` — `fetchExternalPostsViaSync`**: Además del `syncExternalPosts` (POST /posts/sync-external → toca Instagram /me/media, NO trae stories), ahora también llama `listPublishedPosts({ source: "external", accountId, limit: 200 })` para cada cuenta. Esto recupera todos los posts externos conocidos por Zernio, incluyendo historias si Zernio las sincroniza vía otro mecanismo. Los dos conjuntos se mergean y se deduplicam con `dedupeExternalPosts`.
+3. **`sync-actions.ts` — `externalPlatformPostId`**: Fallback para historias sin `platformPostId`: si el `_id` de Zernio es un MongoDB ObjectID (24 hex chars) y el tipo es `story`, se usa `zstory_<id>` como identificador en lugar de descartar la historia.
+4. **Logging**: Se añade logging detallado con `storyCount` y `types` en ambas llamadas a Zernio para diagnosticar qué tipos devuelve cada endpoint.
+
+**Por qué / finalidad:**
+- **Error #418**: El componente `ContentPieceDetail` es `"use client"` pero Next.js igual lo pre-renderiza en el servidor (SSR). `toLocaleString("es-AR")` produce resultados distintos entre Node.js (ICU limitada o de sistema) y el browser, causando mismatch en el texto hidratado → React error #418.
+- **Historias**: `syncExternalPosts` (POST /posts/sync-external) solo sincroniza el feed `/me/media` de Instagram, que por diseño de la API de Meta no incluye stories (están en `/me/stories`). Las historias publicadas no aparecían en el módulo de Contenido porque nunca se obtenían. El usuario publicó una historia manualmente y al hacer sync manual no la veía.
+
+**Decisiones de diseño relevantes:**
+- `suppressHydrationWarning` es preferible a envolver en `useEffect`/`useState` porque no cambia el comportamiento de la UI (la fecha se muestra igual) y no agrega re-render.
+- Para el subtitle prop de ChartShell, `fmtNum()` es locale-safe para valores ≥1000 (usa `K`/`M` con `toFixed`) y para <1000 los separadores locales son irrelevantes (no hay miles).
+- `zstory_<id>` como prefijo para IDs de historias sin platformPostId evita colisiones con IDs reales de Instagram y hace el origen obvio en la DB.
+- La llamada `listPublishedPosts({ source: "external" })` es complementaria a `syncExternalPosts`: la primera lista lo que Zernio ya conoce, la segunda fuerza un re-sync desde Instagram.
+
+**Riesgos / deuda técnica pendiente:**
+- No se sabe con certeza si Zernio incluye stories en `GET /posts?source=external`. Hay logging para diagnosticarlo. Si `storyCount` sigue siendo 0, el problema está en Zernio (no sincroniza stories de Instagram en `/me/stories`) y requeriría un endpoint separado en Zernio o un mecanismo diferente.
+- La URL de una historia en Instagram solo existe mientras la historia está activa (24hs). Si Zernio no guarda el `thumbnailUrl` de la historia, la columna `thumbnail_url` quedaría null.
+
+---
+
+### 2026-08-08 — Fix errores 403 en consola del módulo Marketing por URLs CDN de Instagram expiradas
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `c432abe` — fix(marketing): eliminar errores 403 por URLs CDN de Instagram expiradas en thumbnails  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `marketing`, `lib/marketing`
+
+**Qué se hizo:**
+1. **Nuevo `lib/marketing/cdn-utils.ts`**: utilidad pura (sin deps de servidor, importable en Client Components) con `isInstagramCdnUrl` y `safeThumbnailUrl`. Esta última devuelve null para URLs CDN efímeras.
+2. **`story-thumbnail-storage.ts`**: importa `isInstagramCdnUrl` desde `cdn-utils.ts` y lo re-exporta (evita duplicación).
+3. **`sync-actions.ts` — caso `toInsert`**: cuando `persistContentThumbnail` falla, ahora guarda `null` en lugar de la URL CDN cruda. Antes se insertaba la URL CDN que expira en ~1-2hs generando 403 en el próximo page load.
+4. **`sync-actions.ts` — `repairExpiredCdnThumbnails`**: nueva función que nulifica URLs CDN vencidas en filas existentes. Se llama en background cada vez que `maybeSyncZernioContentAction` se ejecuta (en el page load de marketing/content). Las URLs se restauran en el próximo sync de Zernio.
+5. **Componentes UI** (`content-piece-grid.tsx`, `content-piece-detail.tsx`, `marketing-overview.tsx`, `marketing-content-library.tsx`): usan `safeThumbnailUrl()` antes de renderizar `<img>` → si la URL es CDN, muestran el fallback icon directamente sin hacer el request HTTP que causaba el 403.
+
+**Por qué / finalidad:**
+Las URLs de thumbnails de Instagram/Zernio son efímeras (expiran en ~1-2hs). El sistema tiene lógica para persistirlas en Supabase Storage (`persistContentThumbnail`), pero cuando ese proceso fallaba en inserts, la URL CDN cruda quedaba guardada en la DB. Después de expirar, cada page load del módulo marketing generaba múltiples errores `GET https://scontent-gru*.cdnins... 403 (Forbidden)` en la consola del browser.
+
+**Decisiones de diseño relevantes:**
+- **Doble defensa**: fix en sync (no guardar CDN URLs) + fix en UI (no renderizar CDN URLs). Así el comportamiento correcto se mantiene aunque fallen los dos mecanismos por separado.
+- **Repair en background**: `repairExpiredCdnThumbnails` corre async sin bloquear el throttle check del sync, minimizando impacto en tiempo de carga.
+- **cdn-utils.ts separado**: necesario para que el check sea importable en Client Components (que no pueden importar `story-thumbnail-storage.ts` porque ese archivo tiene `createAdminClient` como dep de servidor).
+- El caso `toUpdate` ya era correcto (guardaba null cuando fallaba); solo el caso `toInsert` tenía el bug.
+
+**Riesgos / deuda técnica pendiente:**
+- Rows existentes con URLs CDN expiradas quedarán con `thumbnail_url = null` y sin imagen hasta el próximo sync de Zernio. En el sync, se intentará persistir la URL fresca a Supabase Storage.
+- Si el bucket `content-thumbnails` no existe o no tiene permisos públicos, las thumbnails persistidas tampoco cargarán. Verificar en Supabase Dashboard que el bucket existe y es público.
+
+---
+
 ### 2026-08-08 — Fix TypeScript build error: await faltante en apiRateLimit
 
 **Rama/branch:** `main`  

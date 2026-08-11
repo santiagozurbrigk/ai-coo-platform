@@ -12,6 +12,7 @@ import {
   segmentedNavContainerClass,
   segmentedNavItemClass,
 } from "@/components/shared/segmented-nav-styles";
+import { safeThumbnailUrl } from "@/lib/marketing/cdn-utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -172,6 +173,9 @@ function ContentPieceCard({ piece }: { piece: ContentPiece }) {
   const typeBadgeClass =
     TYPE_BADGE_COLOR[piece.type] ?? "bg-black/70 text-white";
 
+  // Filtrar URLs efímeras del CDN de Instagram (expiran ~1-2hs → generan 403 en consola)
+  const thumbnail = safeThumbnailUrl(piece.thumbnail_url);
+
   return (
     <Link
       href={paths.platform.marketing.contentDetail(piece.id)}
@@ -179,10 +183,10 @@ function ContentPieceCard({ piece }: { piece: ContentPiece }) {
     >
       {/* Thumbnail */}
       <div className="relative aspect-[9/16] overflow-hidden bg-muted">
-        {piece.thumbnail_url ? (
+        {thumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={piece.thumbnail_url}
+            src={thumbnail}
             alt={piece.title ?? "Contenido"}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />

@@ -40,6 +40,13 @@ const DialogContent = React.forwardRef<
         "origin-center data-[state=open]:animate-dialog-content-show data-[state=closed]:animate-dialog-content-hide",
         "motion-reduce:data-[state=open]:animate-dialog-content-show-reduced motion-reduce:data-[state=closed]:animate-dialog-content-hide-reduced",
         "dark:border-glass dark:bg-[#111111]/80 dark:backdrop-blur-xl dark:backdrop-saturate-[180%]",
+        // Siempre cortar overflow horizontal; el scroll vertical se habilita pasando overflow-y-auto en className.
+        // Evita que al aparecer la scrollbar vertical el contenido se expanda horizontalmente
+        // y genere una scrollbar horizontal innecesaria.
+        "overflow-x-hidden",
+        // Ocultar el track del scrollbar en WebKit y Firefox cuando se activa overflow-y-auto.
+        // El contenido sigue siendo scrolleable — solo se oculta la barra visual.
+        "[&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
         className
       )}
       {...props}

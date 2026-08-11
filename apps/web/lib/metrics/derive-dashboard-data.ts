@@ -2,7 +2,7 @@ import { formatMoney } from "@/lib/finance/format";
 import { deriveFinanceSummary } from "@/lib/metrics/derive-finance-summary";
 import { collectRevenueEvents } from "@/lib/metrics/revenue-events";
 import { METRIC_SPARKLINE_COLORS } from "@/lib/metrics/sparkline-series";
-import type { Client } from "@/types/clients";
+import type { Client, ClientPayment } from "@/types/clients";
 import type { ClosingCall } from "@/types/closing";
 import type {
   DashboardAiRecommendation,
@@ -87,13 +87,16 @@ export function deriveDashboardData(
   expenses: ExpensesSummary,
   paymentPlatforms: PaymentPlatformConfig[],
   salesMetrics: SalesMetricsData,
-  frequentObjections: FrequentObjectionSummary[] = []
+  frequentObjections: FrequentObjectionSummary[] = [],
+  payments?: ClientPayment[]
 ): DashboardData {
   const finance = deriveFinanceSummary(
     clients,
     closingCalls,
     expenses,
-    paymentPlatforms
+    paymentPlatforms,
+    undefined,
+    payments
   );
 
   const closedDeals = closingCalls.filter((c) => c.status === "closed").length;
@@ -103,12 +106,12 @@ export function deriveDashboardData(
   const activeClients = clients.filter((c) => c.status === "active").length;
   const newClientsThisMonth = clients.filter((c) => {
     if (!c.joinDate) return false;
-    const joined = new Date(c.joinDate);
+    // Comparar YYYY-MM como string evita el bug UTC-midnight de new Date("YYYY-MM-DD")
+    // que en zonas UTC-N reporta el mes anterior para fechas al inicio del mes.
+    const joinYearMonth = c.joinDate.slice(0, 7);
     const now = new Date();
-    return (
-      joined.getMonth() === now.getMonth() &&
-      joined.getFullYear() === now.getFullYear()
-    );
+    const nowYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return joinYearMonth === nowYearMonth;
   }).length;
 
   const revenueMetrics: DashboardMetric[] = [

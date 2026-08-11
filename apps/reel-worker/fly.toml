@@ -1,0 +1,35 @@
+# fly.toml — Configuración de despliegue para el reel-worker en Fly.io
+# Deploy: fly deploy --config apps/reel-worker/fly.toml
+
+app = "otc-reel-worker"
+primary_region = "gru"   # São Paulo — mismo que Vercel gru1
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 2   # FFmpeg es CPU-intensivo, limitar concurrencia
+    soft_limit = 1
+
+[[vm]]
+  size = "performance-2x"   # 2 vCPU, 4 GB RAM — suficiente para FFmpeg
+  memory = "4gb"
+
+# Secrets necesarios (configurar con: fly secrets set NOMBRE=valor)
+# SUPABASE_URL              — URL del proyecto Supabase
+# SUPABASE_SERVICE_ROLE_KEY — Service role para bypass RLS
+# ANTHROPIC_API_KEY         — Para generación de captions con Haiku
+# QSTASH_CURRENT_SIGNING_KEY — Para verificar requests de QStash
+# QSTASH_NEXT_SIGNING_KEY   — Para verificar requests de QStash

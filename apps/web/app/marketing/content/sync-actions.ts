@@ -63,7 +63,19 @@ function externalPlatformPostId(post: ZernioPost): string | null {
   if (!fallback) return null;
 
   const id = String(fallback).trim();
-  if (!id || isZernioInternalId(id)) return null;
+  if (!id) return null;
+
+  // Para posts/reels/carousels descartamos IDs internos de Zernio (MongoDB ObjectID)
+  // ya que siempre deben tener un platformPostId de Instagram/YouTube.
+  // Para historias (stories) Instagram asigna IDs numéricos que Zernio puede guardar
+  // solo en `id`/`_id`; si es MongoDB-shaped lo prefijamos para no confundirlo con
+  // IDs reales de Instagram pero aun así lo persistimos.
+  const postType = (post.postType ?? post.mediaType ?? "").toLowerCase();
+  if (postType === "story" && isZernioInternalId(id)) {
+    return `zstory_${id}`;
+  }
+
+  if (isZernioInternalId(id)) return null;
 
   return id;
 }
@@ -131,25 +143,63 @@ async function fetchExternalPostsViaSync(
 ): Promise<ZernioPost[]> {
   const client = await getZernioClientForOrganization(organizationId);
 
-  const results = await Promise.allSettled(
+  // 1) Triggerear sync desde Instagram /me/media (posts, reels, carousels)
+  const syncResults = await Promise.allSettled(
     accountIds.map(async (accountId) => {
       const { posts, synced } = await client.syncExternalPosts(accountId);
       console.info("[syncZernioContent] syncExternalPosts", {
         accountId,
         postsFound: synced?.postsFound ?? posts.length,
         postsSynced: synced?.postsSynced ?? posts.length,
+        types: posts.map((p) => p.postType ?? p.mediaType ?? "?").slice(0, 10),
       });
       return posts;
     })
   );
 
   const allPosts: ZernioPost[] = [];
-  for (const result of results) {
+  for (const result of syncResults) {
     if (result.status === "fulfilled") {
       allPosts.push(...result.value);
       continue;
     }
     console.warn("[syncZernioContent] syncExternalPosts failed for account", {
+      error:
+        result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason),
+    });
+  }
+
+  // 2) Traer TODOS los posts externos conocidos por Zernio (incluye historias si Zernio
+  //    las sincroniza por su cuenta). Esto complementa syncExternalPosts, que solo toca
+  //    /me/media de Instagram (no incluye stories nativas).
+  const listResults = await Promise.allSettled(
+    accountIds.map(async (accountId) => {
+      const { posts: listed } = await client.listPublishedPosts({
+        source: "external",
+        accountId,
+        limit: 200,
+      });
+      const safeList = listed ?? [];
+      console.info("[syncZernioContent] listPublishedPosts external", {
+        accountId,
+        total: safeList.length,
+        types: safeList.map((p) => p.postType ?? p.mediaType ?? "?").slice(0, 10),
+        storyCount: safeList.filter(
+          (p) => (p.postType ?? p.mediaType ?? "").toLowerCase() === "story"
+        ).length,
+      });
+      return safeList;
+    })
+  );
+
+  for (const result of listResults) {
+    if (result.status === "fulfilled") {
+      allPosts.push(...result.value);
+      continue;
+    }
+    console.warn("[syncZernioContent] listPublishedPosts failed for account", {
       error:
         result.reason instanceof Error
           ? result.reason.message
@@ -265,11 +315,13 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
   }
 
   if (toInsert.length > 0) {
-    // Persistir thumbnails de todos los tipos antes de insertar
+    // Persistir thumbnails de todos los tipos antes de insertar.
+    // Si la persistencia falla, guardar null en lugar de la URL efímera del CDN de
+    // Instagram (que expira en ~1-2hs y generaría errores 403 en el navegador).
     const withPersistedThumbnails = await Promise.all(
       toInsert.map(async (row) => {
         const persistedUrl = await resolveThumbnailUrl(row);
-        return persistedUrl ? { ...row, thumbnail_url: persistedUrl } : row;
+        return { ...row, thumbnail_url: persistedUrl ?? null };
       })
     );
 
@@ -322,9 +374,58 @@ export async function syncZernioContentAction(): Promise<{ synced: number }> {
   return { synced: upsertRows.length };
 }
 
+/**
+ * Limpia URLs efímeras del CDN de Instagram que quedaron almacenadas en rows existentes.
+ * Las URLs CDN de Instagram expiran en ~1-2hs, causando errores 403 en el navegador.
+ * Se nulifican en DB → el próximo sync trae URLs frescas y las persiste en Supabase Storage.
+ */
+async function repairExpiredCdnThumbnails(organizationId: string): Promise<void> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("content_pieces")
+    .select("id, thumbnail_url")
+    .eq("organization_id", organizationId)
+    .not("thumbnail_url", "is", null);
+
+  if (error) {
+    console.warn("[repairExpiredCdnThumbnails] error fetching rows", { error: error.message });
+    return;
+  }
+
+  const expiredIds = (data ?? [])
+    .filter((row) => row.thumbnail_url && isInstagramCdnUrl(row.thumbnail_url as string))
+    .map((row) => row.id as string);
+
+  if (expiredIds.length === 0) return;
+
+  const { error: updateError } = await supabase
+    .from("content_pieces")
+    .update({ thumbnail_url: null })
+    .in("id", expiredIds)
+    .eq("organization_id", organizationId);
+
+  if (updateError) {
+    console.warn("[repairExpiredCdnThumbnails] error nulling CDN URLs", { error: updateError.message });
+    return;
+  }
+
+  console.log("[repairExpiredCdnThumbnails] cleaned up expired CDN URLs", {
+    organizationId,
+    count: expiredIds.length,
+  });
+}
+
 export async function maybeSyncZernioContentAction(): Promise<void> {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
+
+  // Reparar URLs CDN efímeras vencidas en rows existentes (en background, no bloquea el throttle check)
+  void repairExpiredCdnThumbnails(organizationId).catch((err) => {
+    console.warn("[maybeSyncZernioContent] repair thumbnails failed", {
+      error: err instanceof Error ? err.message : err,
+    });
+  });
 
   const { count, error: countError } = await supabase
     .from("content_pieces")

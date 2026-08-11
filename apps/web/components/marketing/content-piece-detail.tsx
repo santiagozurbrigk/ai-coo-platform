@@ -11,6 +11,8 @@ import {
   linkDriveFileToContentAction,
   unlinkDriveFileAction,
 } from "@/app/marketing/content/drive-actions";
+import { TrialReelsButton, TrialReelsPanel } from "@/components/marketing/trial-reels";
+import type { ReelVariationJob } from "@/types/reel-variations";
 import { DriveFilePicker } from "@/components/marketing/drive-file-picker";
 import {
   AnalysisDimensionIcon,
@@ -50,6 +52,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { safeThumbnailUrl } from "@/lib/marketing/cdn-utils";
 
 // ─── Types & helpers ────────────────────────────────────────────────────────
 
@@ -57,9 +60,10 @@ type Props = {
   piece: ContentPieceWithVariants;
   variants: ContentPiece[];
   orgAvg: ContentMetrics | null;
+  initialReelJobs?: ReelVariationJob[];
 };
 
-type DetailTab = "metricas" | "analisis" | "comentarios" | "anuncios" | "variantes";
+type DetailTab = "metricas" | "analisis" | "comentarios" | "anuncios" | "variantes" | "trial_reels";
 
 function computeEngagementRate(m: ContentMetrics): number | null {
   const { likes = 0, comments = 0, shares = 0, saves = 0, reach = 0 } = m;
@@ -91,12 +95,13 @@ function fmtNum(value: number): string {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export function ContentPieceDetail({ piece, variants, orgAvg }: Props) {
+export function ContentPieceDetail({ piece, variants, orgAvg, initialReelJobs = [] }: Props) {
   const router = useRouter();
   const { push } = useToast();
   const [analyzing, setAnalyzing] = useState(false);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
   const [activeTab, setActiveTab] = useState<DetailTab>("metricas");
+  const [reelJobs, setReelJobs] = useState<ReelVariationJob[]>(initialReelJobs);
 
   const handleAnalyze = async () => {
     setAnalyzing(true);
@@ -156,6 +161,9 @@ export function ContentPieceDetail({ piece, variants, orgAvg }: Props) {
         ? "Instagram"
         : "plataforma";
 
+  // Filtrar URLs efímeras del CDN de Instagram (expiran ~1-2hs → generan 403 en consola)
+  const pieceThumbnail = safeThumbnailUrl(piece.thumbnail_url);
+
   const tabs = [
     { tab: "metricas" as const, label: "Métricas" },
     { tab: "analisis" as const, label: "Análisis", showCheck: Boolean(piece.analysis) },
@@ -164,6 +172,10 @@ export function ContentPieceDetail({ piece, variants, orgAvg }: Props) {
     {
       tab: "variantes" as const,
       label: `Variantes${variants.length > 0 ? ` (${variants.length})` : ""}`,
+    },
+    {
+      tab: "trial_reels" as const,
+      label: `Trial Reels${reelJobs.length > 0 ? ` (${reelJobs.length})` : ""}`,
     },
   ] as const;
 
@@ -181,12 +193,12 @@ export function ContentPieceDetail({ piece, variants, orgAvg }: Props) {
       <div className="flex min-h-[680px] overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
         {/* ─── Left panel ──────────────────────────────────────────── */}
         <div className="flex w-64 flex-shrink-0 flex-col gap-4 border-r border-border/60 p-4">
-          {/* Thumbnail */}
+          {/* Thumbnail — filtra URLs CDN expiradas de Instagram para evitar 403 en consola */}
           <div className="relative aspect-[9/16] overflow-hidden rounded-xl bg-muted shadow-inner">
-            {piece.thumbnail_url ? (
+            {pieceThumbnail ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={piece.thumbnail_url}
+                src={pieceThumbnail}
                 alt=""
                 className="h-full w-full object-cover"
               />
@@ -207,7 +219,7 @@ export function ContentPieceDetail({ piece, variants, orgAvg }: Props) {
               {piece.caption ?? piece.title ?? "Sin descripción"}
             </p>
             {piece.published_at ? (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground" suppressHydrationWarning>
                 {new Date(piece.published_at).toLocaleDateString("es-AR", {
                   day: "numeric",
                   month: "long",
@@ -308,6 +320,37 @@ export function ContentPieceDetail({ piece, variants, orgAvg }: Props) {
               </p>
             ) : null}
           </div>
+
+          {/* Trial Reels button */}
+          {(piece.type === "reel" || piece.type === "story") && (
+            <TrialReelsButton
+              contentPieceId={piece.id}
+              hasDriveFile={Boolean(piece.drive_file_id)}
+              onJobCreated={(jobId) => {
+                // Agregar job placeholder y cambiar a tab trial_reels
+                setReelJobs((prev) => [
+                  {
+                    id: jobId,
+                    organization_id: "",
+                    source_piece_id: piece.id,
+                    status: "pending",
+                    delay_hours: 2,
+                    variations: [],
+                    error_message: null,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                  },
+                  ...prev,
+                ]);
+                setActiveTab("trial_reels");
+              }}
+            />
+          )}
+          {(piece.type === "reel" || piece.type === "story") && !piece.drive_file_id && (
+            <p className="text-center text-[10px] text-muted-foreground">
+              Vinculá un video de Drive para Trial Reels
+            </p>
+          )}
         </div>
 
         {/* ─── Right panel ─────────────────────────────────────────── */}
@@ -346,6 +389,19 @@ export function ContentPieceDetail({ piece, variants, orgAvg }: Props) {
             {activeTab === "anuncios" ? <AnunciosTab piece={piece} /> : null}
             {activeTab === "variantes" ? (
               <VariantesTab variants={variants} />
+            ) : null}
+            {activeTab === "trial_reels" ? (
+              <div className="p-5">
+                <p className="mb-4 text-xs text-muted-foreground">
+                  Generación automática de 5 variaciones del reel con FFmpeg.
+                  Cada variante aplica una transformación diferente (velocidad, música, subtítulos, color)
+                  y reescribe los metadatos del archivo para publicación como trial reels.
+                </p>
+                <TrialReelsPanel
+                  contentPieceId={piece.id}
+                  initialJobs={reelJobs}
+                />
+              </div>
             ) : null}
           </div>
         </div>
@@ -517,7 +573,7 @@ function MetricasTab({
         {/* Donut */}
         <ChartShell
           title="Distribución de interacciones"
-          subtitle={`${totalInteractions.toLocaleString("es-AR")} interacciones totales`}
+          subtitle={`${fmtNum(totalInteractions)} interacciones totales`}
           className="min-h-[200px]"
         >
           {donutSlices.length > 0 ? (
@@ -623,7 +679,7 @@ function MetricasTab({
 
       {/* Metrics freshness */}
       {piece.metrics_updated_at ? (
-        <p className="text-[10px] text-muted-foreground text-right">
+        <p className="text-[10px] text-muted-foreground text-right" suppressHydrationWarning>
           Métricas actualizadas:{" "}
           {new Date(piece.metrics_updated_at).toLocaleString("es-AR", {
             day: "numeric",
@@ -815,7 +871,7 @@ function SalesAttributionSection({ piece }: { piece: ContentPiece }) {
                     <MetricIcon name={step.icon} size={11} />
                     {step.label}
                   </div>
-                  <p className="text-base font-bold tabular-nums">
+                  <p className="text-base font-bold tabular-nums" suppressHydrationWarning>
                     {step.isCurrency
                       ? step.value.toLocaleString("es-AR", {
                           style: "currency",
@@ -832,7 +888,7 @@ function SalesAttributionSection({ piece }: { piece: ContentPiece }) {
             ))}
           </div>
           {attribution.last_attributed_at ? (
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-[10px] text-muted-foreground" suppressHydrationWarning>
               Última atribución:{" "}
               {new Date(attribution.last_attributed_at).toLocaleString("es-AR")}
             </p>
@@ -1085,7 +1141,7 @@ function VariantesTab({ variants }: { variants: ContentPiece[] }) {
               <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                 Variante IA
               </span>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-[11px] text-muted-foreground" suppressHydrationWarning>
                 {new Date(variant.created_at).toLocaleDateString("es-AR")}
               </span>
               {variant.platform_post_id ? (

@@ -29,8 +29,11 @@ export function ManyChatManageSheet({
 
       <aside
         className={cn(
-          "fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-border/40 bg-background p-6 shadow-xl backdrop-blur-xl transition-transform duration-200 dark:border-glass dark:bg-[#111111]/80",
-          open ? "translate-x-0" : "translate-x-full"
+          "fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-border/40 bg-background p-6 backdrop-blur-xl transition-transform duration-200 dark:border-glass dark:bg-[#111111]/80",
+          // shadow-xl solo cuando está abierto; cuando está cerrado (translate-x-full) la sombra
+          // sangraba ~25px hacia el interior del viewport y aparecía como una franja oscura en el
+          // borde derecho de la página de integraciones.
+          open ? "translate-x-0 shadow-xl" : "translate-x-full shadow-none"
         )}
         aria-hidden={!open}
       >
