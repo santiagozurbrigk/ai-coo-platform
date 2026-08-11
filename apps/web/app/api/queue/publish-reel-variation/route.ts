@@ -22,6 +22,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyQueueRequest } from "@/lib/queue/verify-queue-request";
+import { sendTrialReelsDoneEmail } from "@/lib/email";
+import { getPublicAppUrl } from "@/lib/queue/qstash-client";
 import type { ReelVariation } from "@/types/reel-variations";
 import type { ZernioClient, ZernioMediaPresignResponse } from "@/lib/zernio/client";
 
@@ -97,6 +99,51 @@ async function uploadVideoToZernio(
   });
 
   return presign.fileUrl;
+}
+
+// ─── Helper: notificar al admin de la org ────────────────────────────────────
+
+/**
+ * Busca el email del admin/founder de la org y envía el email de notificación.
+ * Best-effort: si falla, solo loggea — nunca lanza.
+ */
+async function notifyOrgAdminDone(
+  admin: ReturnType<typeof createAdminClient>,
+  organizationId: string,
+  variations: ReelVariation[]
+): Promise<void> {
+  // Buscar el perfil admin de la org
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("email")
+    .eq("organization_id", organizationId)
+    .eq("role", "admin")
+    .maybeSingle();
+
+  const email = profile?.email;
+  if (!email) {
+    console.log("[PublishVariation] no admin email found, skipping notification", { organizationId });
+    return;
+  }
+
+  const included = variations.filter((v) => v.included);
+  const published = included.filter((v) => v.status === "published").length;
+  const failed = included.filter((v) => v.status === "failed").length;
+
+  let appUrl: string;
+  try {
+    appUrl = getPublicAppUrl();
+  } catch {
+    appUrl = "https://app.otc.com";
+  }
+
+  const result = await sendTrialReelsDoneEmail({ to: email, published, failed, appUrl });
+
+  if (result.ok) {
+    console.log("[PublishVariation] notification sent", { email, published, failed });
+  } else {
+    console.warn("[PublishVariation] notification failed", { email, error: result.error });
+  }
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -264,6 +311,11 @@ export async function POST(request: Request) {
 
   if (allDone) {
     console.log("[PublishVariation] all done, job marked as done", { jobId });
+
+    // Notificar al founder por email (best-effort — nunca bloquea la respuesta)
+    void notifyOrgAdminDone(admin, organizationId, updatedVariations).catch((e) =>
+      console.warn("[PublishVariation] email notification failed", e)
+    );
   }
 
   return NextResponse.json({
