@@ -41,6 +41,44 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-11 — feat: delay real entre publicaciones de Trial Reels con QStash
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `a53ce78` — feat(trial-reels): delay real entre publicaciones con QStash  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** marketing/trial-reels, api/queue, lib/queue
+
+**Qué se hizo:**
+
+- `publishVariationsAction` refactorizado: en lugar de publicar sincrónicamente con `setTimeout` falso (máx 30s), ahora encola cada variante incluida en QStash con `delay = posición * delay_hours * 3600` segundos. Retorna inmediatamente con `{ ok: true, scheduled: N }`.
+- Nuevo endpoint `POST /api/queue/publish-reel-variation/route.ts`: recibe `{ jobId, variationIndex, organizationId }`, verifica auth (WORKER_AUTH_SECRET triple-auth o firma QStash), genera URL firmada del video en Supabase Storage (TTL 1h), publica en Zernio como draft, actualiza la variante en DB (→ `published` o `failed`). Marca el job como `"done"` cuando todas las variantes incluidas terminan.
+- Nuevo estado `"scheduled"` en `ReelVariationStatus`: las variantes pasan a este estado cuando quedan encoladas, antes de que QStash las dispare.
+- `variation-card.tsx`: badge "Programada" (azul) para variantes en estado `scheduled`, con ícono `Clock`. También permite expandir preview de video en estado `scheduled`.
+- `trial-reels-panel.tsx`: toast de confirmación actualizado al nuevo return type; `includedCount` ahora cuenta también variantes `scheduled`.
+- `lib/queue/verify-queue-request.ts` (nuevo): helper de auth para endpoints de cola, triple-método consistente con el worker de Fly.io.
+- `lib/queue/qstash-client.ts`: helper `getReelVariationPublishUrl()`.
+
+**Por qué / finalidad:**
+
+El delay entre publicaciones era un `setTimeout(r, Math.min(delayMs, 30_000))` dentro de un Server Action — nunca podría respetar delays de horas sin que Vercel (30s máx en funciones serverless) cortara la conexión. Con QStash se encolan N mensajes independientes, cada uno con su `delay` en segundos; QStash los re-entrega al endpoint correcto en el momento exacto, sin mantener ninguna conexión abierta.
+
+**Decisiones de diseño relevantes:**
+
+- **Posición vs. índice para el delay**: el delay se calcula en base a la posición entre las variantes *incluidas* (no el índice absoluto). La primera incluida siempre se publica inmediatamente (delay=0), la segunda con delay_hours de lag, etc. Esto evita gaps si el usuario excluyó variantes intermedias.
+- **Idempotencia en el endpoint**: el endpoint verifica `variation.status !== "scheduled"` antes de procesar; si QStash reintenta (retries=2) y la variante ya fue procesada, responde 200 sin duplicar.
+- **Return 200 siempre en el endpoint**: aunque la publicación falle, se responde 200 para que QStash no reintente infinitamente (el error se persiste en `variation.error`).
+- **Sin Zernio → falla temprana**: si Zernio no está conectado, `publishVariationsAction` NO falla (sí lo haría el endpoint de publicación individual). Se optó por dejar que falle el endpoint individual para no bloquear el flujo de scheduling.
+
+**Riesgos / deuda técnica pendiente:**
+
+- El endpoint de publicación no adjunta el video binario a Zernio — solo envía el caption. Para que Zernio suba el video a Instagram, hace falta que la API de Zernio soporte una URL de media en el payload `createPost`. Verificar con la documentación de Zernio si el campo `mediaUrl` existe.
+- Las URLs firmadas de Supabase Storage (generadas en el endpoint) tienen TTL de 1h — si el delay configurado supera 1h, la URL expirará antes de que Zernio la procese. Solución futura: generar la URL firmada en el momento de publicar (ya está implementado así — el endpoint genera la URL en el momento en que QStash lo dispara, no antes).
+- Música personalizable por org (upload a Storage, worker descarga) pendiente.
+- Notificación al founder cuando todas las variantes terminaron pendiente.
+- Limpieza automática de Storage (trial-reels bucket) pendiente.
+
+---
+
 ### 2026-08-10 — Fix: reel-worker crasheaba en Node.js 20 por falta de soporte nativo de WebSocket
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
