@@ -46,6 +46,45 @@ Al finalizar cada sesión, también actualizar `PENDIENTES.md`:
 - Agregar nuevos pendientes que hayan surgido durante la sesión
 - Actualizar la descripción de ítems que cambiaron de scope o estado
 
+### 4. Workflow de Git — ramas, PRs y merges
+
+**Todo el desarrollo ocurre en ramas de feature. Nunca commitear directamente a `main`.**
+
+#### Flujo obligatorio
+
+```
+main (producción — Vercel auto-deploya desde acá)
+  │
+  └── rama-de-feature   ← todo el trabajo va acá
+        ↓  commits + push
+        ↓  PR a main (GitHub)
+        ↓  Squash and merge   ← tipo de merge establecido
+      main  →  deploy automático en Vercel
+```
+
+#### Reglas
+
+1. **Arrancar siempre desde `main` actualizado** antes de crear la rama:
+   ```bash
+   git fetch origin main
+   git checkout -B nombre-del-feature origin/main
+   ```
+2. **Nunca pushear a `main` directamente** — solo via PR mergeado.
+3. **Tipo de merge: siempre "Squash and merge"** — aplasta todos los commits de la rama en uno solo en `main`, manteniendo el historial limpio.
+4. **Después de un merge**: la rama anterior queda "consumida". La próxima tarea empieza en una rama nueva desde `main`.
+5. **Commits**: mensajes en español, estilo convencional — `feat(modulo): ...`, `fix(zernio): ...`.
+6. **No crear PR** a menos que el usuario lo pida explícitamente.
+7. **No pushear a `main`** a menos que el usuario lo pida explícitamente.
+
+#### Nombres de rama
+
+Usar nombres descriptivos del feature o fix:
+- `feat/trial-reels-delay-qstash`
+- `fix/marketing-console-errors`
+- `chore/update-dependencies`
+
+Claude Code usa el prefijo `claude/` asignado por el sistema — está bien, no modificar.
+
 ---
 
 **Fuentes complementarias (leer si hace falta profundizar):**
@@ -602,11 +641,18 @@ Eventos SSE: ver `lib/agent/sse.ts` (`token`, `thinking`, `tool`, `done`, `error
 
 ## 9. WORKFLOW DE DEPLOY
 
-### Deploy automático
+### Flujo completo (ver también Regla 4 en sección de Reglas Obligatorias)
 
 ```
-git push origin main  →  Vercel build (apps/web)  →  Production (gru1)
+rama-de-feature  →  PR a main  →  Squash and merge  →  Vercel build  →  Production (gru1)
 ```
+
+**Nunca** `git push origin main` directamente. El deploy a producción ocurre **solo** via PR mergeado.
+
+### Deploy automático
+
+Vercel detecta cualquier push a `main` y deploya `apps/web` automáticamente.  
+Tiempo estimado de build: ~2 minutos.
 
 ### Migraciones Supabase
 
@@ -635,7 +681,7 @@ curl -X POST "https://<NEXT_PUBLIC_APP_URL>/api/cron/<nombre>" \
 
 - Mensajes en español, estilo convencional: `feat(marketing): ...`, `fix(zernio): ...`
 - No commitear `.env.local`, `.lint-out.txt`, secrets
-- Push a `main` solo cuando el usuario lo pida explícitamente
+- **No pushear a `main` directamente** — siempre via PR + Squash and merge
 
 ---
 
@@ -674,7 +720,9 @@ curl -X POST "https://<NEXT_PUBLIC_APP_URL>/api/cron/<nombre>" \
 - ❌ Leer secrets de integraciones con `createClient()` (RLS bloqueado)
 - ❌ Hardcodear URLs de Zernio sin `ZERNIO_API_BASE`
 - ❌ Modificar `git config` o hacer force push a `main`
+- ❌ Pushear directamente a `main` — siempre via PR + Squash and merge
 - ❌ Commitear sin que el usuario lo pida
+- ❌ Crear PR sin que el usuario lo pida
 - ❌ Agregar `MarketingSubnav` — la navegación es solo sidebar
 - ❌ Pasar `profileId` JSON completo a Zernio — usar `extractProfileId()`
 
