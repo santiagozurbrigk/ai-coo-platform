@@ -41,6 +41,44 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-11 — TECH-1: Fathom deep analysis vía QStash + TECH-2: retención real YouTube Analytics
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** fathom, marketing (YouTube), queue
+
+**Qué se hizo:**
+
+**TECH-1 — Fathom async con QStash:**
+- `lib/queue/qstash-client.ts`: agrega `FathomAnalysisJobPayload`, `getFathomAnalysisQueueUrl()` y `publishFathomAnalysisJob()`.
+- `app/api/queue/process-fathom-analysis/route.ts`: nuevo endpoint worker con `maxDuration=300`, validación Zod, auth via `verifyQueueRequest`, y retorno 500 para que QStash reintente (hasta 2 veces).
+- `lib/fathom/process-call.ts`: reemplaza `void generateDeepCallAnalysis(...)` por `await publishFathomAnalysisJob(...)` + fallback inline si QStash no está configurado.
+
+**TECH-2 — Retención real YouTube Analytics:**
+- `lib/youtube/analytics.ts`: nuevo archivo con `getRetentionAtCTA(organizationId, videoId, ctaSecond, durationSeconds)`. Lee token de `youtube_integrations`, verifica scope `yt-analytics.readonly`, refresca si hace falta, llama a YouTube Analytics API v2 (`elapsedVideoTimeRatio` / `audienceWatchRatio`), interpola el punto más cercano al segundo del CTA. Fallback gracioso a `estimateRetentionAtCTA` en cualquier error.
+- `app/marketing/actions.ts`: `updateCTAMinuteAction` ahora selecciona `external_id` del asset y llama `getRetentionAtCTA` en lugar de `estimateRetentionAtCTA`. Usa el video ID real de YouTube para obtener la curva de retención real.
+
+**SEED cleanup:**
+- Ejecutados los DELETE en Supabase (prod) para la org `46cce98c-6d4c-4e4d-94a7-7cc24ae1104d`: 171 registros ficticios eliminados de `call_analyses`, `client_payments`, `closing_calls`, `conversations`, `content_pieces` y `clients`.
+
+**Por qué / finalidad:**
+
+TECH-1: `void asyncFn()` en Vercel es un anti-patrón — el proceso Node.js muere cuando la función serverless retorna, por lo que el análisis profundo de Fathom se perdía silenciosamente en producción. QStash garantiza ejecución con reintentos en un endpoint dedicado con `maxDuration=300`.
+
+TECH-2: `estimateRetentionAtCTA` era un modelo sintético (curva exponencial). Con `yt-analytics.readonly` (ya en `GOOGLE_UNIFIED_SCOPES`) se obtiene la curva real del video para calcular cuántos espectadores quedan en el segundo del CTA.
+
+**Decisiones de diseño relevantes:**
+- QStash como transporte, no BullMQ — ya estaba instalado y configurado en la plataforma.
+- Fallback inline si `QSTASH_TOKEN` no está seteado — cero regresión en entornos sin QStash.
+- `getRetentionAtCTA` es async y silenciosa — si no hay token o la API falla, devuelve la estimación; no hay error visible para el usuario.
+- Los componentes cliente (`content-platform-metrics.tsx`) siguen usando `estimateRetentionAtCTA` como display fallback, lo cual es correcto: el valor real ya viene persistido en `retention_at_cta_pct` desde el Server Action.
+
+**Riesgos / deuda técnica pendiente:**
+- Tokens de YouTube existentes sin scope `yt-analytics.readonly` seguirán usando estimación hasta que el usuario reconecte YouTube. Sin impacto en UX, solo en precisión.
+- `TRIAL-1` (reintentar variante fallida) sigue pendiente.
+
+---
+
 ### 2026-08-11 — chore: migraciones DB para FEAT-1 y FEAT-2 (solo DB, sin UI)
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  

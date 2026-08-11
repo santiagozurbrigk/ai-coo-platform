@@ -9,40 +9,7 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [SEED] Eliminar datos seed de la base de datos de Supabase
-
-**Contexto:** Se insertaron ~171 registros ficticios para testear los dashboards.  
-**Acción requerida:** Ejecutar el script SQL en Supabase Dashboard → SQL Editor:
-
-```sql
--- Ejecutar en este orden para respetar FK constraints
-DELETE FROM call_analyses
-  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
-  AND fathom_call_id LIKE 'seed_%';
-
-DELETE FROM client_payments
-  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
-  AND payment_received_from = '_seed_otc';
-
-DELETE FROM closing_calls
-  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
-  AND notes = '_seed_otc';
-
-DELETE FROM conversations
-  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
-  AND external_ref LIKE '_seed_otc_%';
-
-DELETE FROM content_pieces
-  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
-  AND drive_file_name = '_seed_otc';
-
-DELETE FROM clients
-  WHERE organization_id = '46cce98c-6d4c-4e4d-94a7-7cc24ae1104d'
-  AND nickname = '_seed_otc';
-```
-
-**Quién ejecuta:** Santiago (acción en Supabase Dashboard, no requiere código)  
-**Documentado en:** `CHANGES.md` — entrada 2026-08-09 "Seed data ficticio"
+*(Sin ítems urgentes pendientes)*
 
 ---
 
@@ -132,24 +99,9 @@ DELETE FROM clients
 
 ## 🟢 Deuda técnica — Phase 2 (baja urgencia)
 
-### [TECH-1] Fathom: análisis async con BullMQ
+*(TECH-1 y TECH-2 completados — ver tabla abajo)*
 
-**Contexto:** `lib/fathom/analyze-transcript.ts` tiene 2 TODOs hardcodeados en el código:
-- BullMQ queue `fathom-analysis` para procesar async (hoy es sincrónico en el cron)
-- Prompt caching para SOPs y contexto org
 
-**Impacto actual:** El procesamiento de transcripts largos puede timeout en el cron de 10 min. En producción con volumen alto de llamadas podría ser un problema.  
-**Archivos clave:** `lib/fathom/analyze-transcript.ts:14-15`, `lib/fathom/process-call.ts:282`
-
----
-
-### [TECH-2] YouTube: retención real de Analytics API
-
-**Contexto:** `lib/youtube/retention.ts` usa un placeholder en lugar de la API real de YouTube Analytics.  
-**Requiere:** Scope OAuth `yt-analytics.readonly` + reports de audiencia.  
-**Archivos clave:** `lib/youtube/retention.ts:5`
-
----
 
 
 ### [TECH-4] VSL Player placeholder en landing
@@ -170,6 +122,9 @@ DELETE FROM clients
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-11 | TECH-1: Fathom deep analysis vía QStash (reemplaza void pattern que se perdía en Vercel) | `claude/marketing-module-console-errors-g2py5w` |
+| 2026-08-11 | TECH-2: Retención real YouTube Analytics API (fallback gracioso a estimación) | `claude/marketing-module-console-errors-g2py5w` |
+| 2026-08-11 | SEED: Limpieza de 171 registros ficticios en Supabase prod (org `46cce98c-...`) | directo en DB |
 | 2026-08-11 | TECH-3: Mecanismo add-ons por org (DB + permisos + sidebar dinámico + super-admin toggle) | `claude/marketing-module-console-errors-g2py5w` |
 | 2026-08-11 | TRIAL-3: Música personalizable por org en Trial Reels | `claude/marketing-module-console-errors-g2py5w` |
 | 2026-08-11 | TRIAL-2: Botón "Generar con IA" para captions/hashtags por variante | `claude/marketing-module-console-errors-g2py5w` |

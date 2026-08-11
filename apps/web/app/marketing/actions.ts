@@ -32,7 +32,7 @@ import {
   resolveUtmLinkType,
 } from "@/lib/utm/build-links";
 import { slugifyCampaign } from "@/lib/utm/slugify-campaign";
-import { estimateRetentionAtCTA } from "@/lib/youtube/retention";
+import { getRetentionAtCTA } from "@/lib/youtube/analytics";
 import type {
   UTMBookingAttributionRow,
   UTMLeadCaptureRow,
@@ -289,7 +289,7 @@ export async function updateCTAMinuteAction(
 
     const { data: asset, error: fetchError } = await supabase
       .from("content_assets")
-      .select("duration_seconds, platform_metadata")
+      .select("duration_seconds, platform_metadata, external_id")
       .eq("id", assetId)
       .eq("organization_id", organizationId)
       .maybeSingle();
@@ -304,7 +304,10 @@ export async function updateCTAMinuteAction(
         ? Number(asset.duration_seconds)
         : (metadata.youtube?.duration_seconds ?? 0);
 
-    const retentionAtCtaPct = estimateRetentionAtCTA(
+    const videoId = (asset.external_id as string | null) ?? null;
+    const retentionAtCtaPct = await getRetentionAtCTA(
+      organizationId,
+      videoId,
       ctaSecond,
       durationSeconds
     );
