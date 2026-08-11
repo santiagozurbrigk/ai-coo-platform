@@ -17,6 +17,7 @@ const SUPER_ADMIN_PERMISSIONS = {
   role: "operator" as const,
   isFounder: true,
   modules: emptyPermissions(),
+  enabledAddOns: [] as import("@/lib/auth/get-current-permissions").AddOnId[],
 };
 
 export function SuperAdminLayout({ children }: { children: ReactNode }) {

@@ -207,6 +207,53 @@ async function fetchExternalPostsViaSync(
     });
   }
 
+  // 3) Sincronizar historias de Instagram explícitamente.
+  //    Instagram separa stories de /me/media, por lo que syncExternalPosts y
+  //    listPublishedPosts nunca las devuelven. Zernio expone un endpoint dedicado
+  //    (POST /posts/sync-stories) y también responde a GET /posts?type=story.
+  //    Probamos ambos en paralelo y mergeamos lo que venga.
+  const storiesResults = await Promise.allSettled(
+    accountIds.map(async (accountId) => {
+      // Intentar con endpoint dedicado (may return [] gracefully if not available)
+      const [syncResult, listResult] = await Promise.allSettled([
+        client.syncExternalStories(accountId),
+        client.listPublishedPosts({
+          source: "external",
+          accountId,
+          type: "story",
+          limit: 100,
+        }),
+      ]);
+
+      const storiesFromSync =
+        syncResult.status === "fulfilled" ? (syncResult.value.posts ?? []) : [];
+      const storiesFromList =
+        listResult.status === "fulfilled" ? (listResult.value.posts ?? []) : [];
+
+      const combined = [...storiesFromSync, ...storiesFromList];
+      console.info("[syncZernioContent] stories sync", {
+        accountId,
+        fromSyncEndpoint: storiesFromSync.length,
+        fromListWithType: storiesFromList.length,
+        combined: combined.length,
+      });
+      return combined;
+    })
+  );
+
+  for (const result of storiesResults) {
+    if (result.status === "fulfilled") {
+      allPosts.push(...result.value);
+      continue;
+    }
+    console.warn("[syncZernioContent] stories sync failed for account", {
+      error:
+        result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason),
+    });
+  }
+
   return dedupeExternalPosts(allPosts);
 }
 

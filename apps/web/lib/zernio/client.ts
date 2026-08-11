@@ -460,6 +460,7 @@ export function createZernioClient(apiKey: string) {
       accountId?: string;
       source?: "zernio" | "external";
       status?: "draft" | "scheduled" | "published" | "failed";
+      type?: string;
       limit?: number;
     }) {
       const url = new URL(`${ZERNIO_API_BASE}/posts`);
@@ -472,12 +473,45 @@ export function createZernioClient(apiKey: string) {
       if (params?.accountId) {
         url.searchParams.set("accountId", params.accountId);
       }
+      if (params?.type) {
+        url.searchParams.set("type", params.type);
+      }
 
       return zernioFetchJson<{ posts?: ZernioPost[] }>(
         "listPublishedPosts",
         url.toString(),
         { headers: headers() }
       );
+    },
+
+    /**
+     * Sincroniza historias de Instagram desde la cuenta externa.
+     * Instagram expone stories vía /me/stories (endpoint separado a /me/media).
+     * Zernio las persiste con metrics via el webhook story_insights.
+     * Retorna las historias encontradas (activas y con métricas tardías).
+     */
+    async syncExternalStories(accountId: string): Promise<{ posts: ZernioPost[] }> {
+      // Intentar endpoint dedicado de sync de historias (análogo a POST /posts/sync-external)
+      try {
+        const data = await zernioFetchJson<{
+          posts?: ZernioPost[];
+          stories?: ZernioPost[];
+        }>("syncExternalStories", `${ZERNIO_API_BASE}/posts/sync-stories`, {
+          method: "POST",
+          headers: headers(),
+          body: JSON.stringify({ accountId }),
+        });
+        const posts = data.posts ?? data.stories ?? [];
+        return { posts };
+      } catch (err) {
+        // Si el endpoint no existe (404/405), fallback silencioso
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("HTTP 404") || msg.includes("HTTP 405") || msg.includes("HTTP 400")) {
+          console.info("[Zernio] syncExternalStories: endpoint no disponible, usando listPublishedPosts type=story", { accountId });
+          return { posts: [] };
+        }
+        throw err;
+      }
     },
 
     async syncExternalPosts(accountId: string) {

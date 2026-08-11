@@ -593,7 +593,7 @@ export async function loadOrganizationDetail(
 
   const { data: org, error } = await admin
     .from("organizations")
-    .select("id, name, status, created_at, mrr_usd, timezone")
+    .select("id, name, status, created_at, mrr_usd, timezone, enabled_add_ons")
     .eq("id", orgId)
     .maybeSingle();
 
@@ -703,6 +703,8 @@ export async function loadOrganizationDetail(
   const monthTokenRows = tokenRows.filter((r) => r.created_at >= month.start);
   const aiCost = aggregateAiCostFromTokenRows(monthTokenRows);
 
+  const rawAddOns = (org.enabled_add_ons as string[] | null) ?? [];
+
   return {
     id: org.id,
     name: org.name,
@@ -711,6 +713,7 @@ export async function loadOrganizationDetail(
     timezone: (org.timezone as string | null) ?? null,
     createdAt: org.created_at,
     mrrUsd,
+    enabledAddOns: rawAddOns,
     founder: {
       id: founder?.id ?? null,
       name: founder?.full_name ?? "—",

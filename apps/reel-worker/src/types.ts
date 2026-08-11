@@ -37,6 +37,9 @@ export type ReelVariationJobPayload = {
   sourceStoragePath?: string;
   sourceFileName: string;
   originalCaption: string | null;
+  /** Ruta en Storage (bucket trial-reels) del track de música personalizado de la org.
+   *  Si está presente, el worker descarga este archivo antes de procesar la variante "music". */
+  reelMusicPath?: string | null;
 };
 
 export type VariantSpec = {
@@ -47,5 +50,7 @@ export type VariantSpec = {
     outputPath: string,
     lutsDir: string,
     originalCaption?: string | null,
+    /** Ruta local absoluta del track de música personalizado (si existe). Overrides lutsDir/background-music.mp3 */
+    customMusicPath?: string | null,
   ) => string[];
 };

@@ -103,9 +103,17 @@ export async function createTrialReelsJobAction(
       return { ok: false, errorCode: "DRIVE_META_FAILED", message: msg };
     }
 
-    // 4. Crear el job en DB
-    //    El video fuente lo descarga el worker directamente de Drive.
+    // 4. Leer reel_music_path de la org (música personalizada para la variante "music")
     const admin = createAdminClient();
+    const { data: orgRow } = await admin
+      .from("organizations")
+      .select("reel_music_path")
+      .eq("id", organizationId)
+      .maybeSingle();
+    const reelMusicPath: string | null = (orgRow?.reel_music_path as string | null | undefined) ?? null;
+
+    // 5. Crear el job en DB
+    //    El video fuente lo descarga el worker directamente de Drive.
     const jobId = crypto.randomUUID();
 
     const { error: insertError } = await admin
@@ -152,6 +160,7 @@ export async function createTrialReelsJobAction(
             driveMimeType: driveMimeType,
             sourceFileName: driveFileName,
             originalCaption: (piece as ContentPiece & { caption?: string }).caption ?? piece.title ?? null,
+            reelMusicPath,
           },
           // Pasar el secret también en headers (múltiples métodos para robustez).
           // X-Worker-Secret: nunca stripped por proxies.

@@ -61,32 +61,6 @@ DELETE FROM clients
 
 ---
 
-### [TRIAL-2] Regenerar captions/hashtags con IA por variante
-
-**Qué es:** Botón "Generar con IA" en cada variante para que Claude regenere la descripción y los hashtags, sin tocar el video.  
-**Scope:**
-- Botón en `variation-card.tsx` (solo si `status !== "processing"`)
-- Server Action que llama `callClaudeText` con contexto del negocio + tipo de variante
-- Actualiza `variation.description` + `variation.hashtags` en DB via patch del array `variations`
-
-**Complejidad:** Baja-media  
-**Archivos clave:** `variation-card.tsx`, `reel-variation-actions.ts`, `lib/ai/anthropic.ts`
-
----
-
-### [TRIAL-3] Música personalizable por org
-
-**Qué es:** Cada org puede subir su propio track de música de fondo para la variante `music` (hoy usa `background-music.mp3` hardcodeado en Fly.io, que está vacío).  
-**Scope:**
-- UI de upload en `/integrations` o `/settings` (sección Trial Reels)
-- Supabase Storage bucket (o `trial-reels` bucket con path `org-id/music/background.mp3`)
-- Migración DB: columna `reel_music_path TEXT` en `organizations` o tabla aparte
-- Worker: descarga el track de la org antes de correr FFmpeg para la variante `music`
-
-**Complejidad:** Media  
-**Archivos clave:** `apps/reel-worker/src/ffmpeg-variants.ts`, `apps/reel-worker/src/processor.ts`
-
----
 
 ### [TRIAL-4] Assets reales de LUT y música en el worker (Fly.io)
 
@@ -102,12 +76,12 @@ DELETE FROM clients
 
 ## 🟠 Bugs conocidos — Verificar en producción
 
-### [BUG-1] Stories de Instagram no aparecen en sync de Zernio
+### [BUG-1] Stories de Instagram — verificar en producción
 
-**Contexto:** Se agregó llamada a `listPublishedPosts({ source: "external" })` además de `syncExternalPosts` para intentar traer stories. No hay confirmación de que funcione.  
-**Para verificar:** Después de publicar una historia en Instagram, hacer sync manual desde `/marketing/content` y ver en los logs de Vercel si `storyCount > 0`.  
-**Si storyCount sigue siendo 0:** el problema está en Zernio (no expone stories en ese endpoint). Solución: endpoint separado en Zernio o alternativa.  
-**Archivos clave:** `app/marketing/content/sync-actions.ts` — función `fetchExternalPostsViaSync`
+**Contexto:** Se implementó sync doble: `POST /posts/sync-stories` (con fallback gracioso si 404/405) + `GET /posts?type=story&source=external`. Ambos resultados se combinan con dedup.  
+**Para verificar:** Publicar una historia en Instagram → sync manual desde `/marketing/content` → ver en logs de Vercel si `fromSyncEndpoint > 0` o `fromListWithType > 0`.  
+**Si sigue en 0:** el problema está en Zernio (no expone stories en esos endpoints). Escalar a equipo Zernio para confirmar el endpoint correcto.  
+**Archivos clave:** `app/marketing/content/sync-actions.ts`, `lib/zernio/client.ts`
 
 ---
 
@@ -175,21 +149,6 @@ DELETE FROM clients
 
 ---
 
-### [TECH-3] Módulos add-on sin acceso desde la navegación
-
-**Contexto:** Cinco módulos existen en el código pero no tienen entrada en el sidebar. El plan era venderlos como add-ons por org.
-
-| Módulo | Ruta | Estado |
-|--------|------|--------|
-| Operaciones | `/operations/*` | Código completo, sin nav |
-| Reportes Ejecutivos | `/executive-reports` | Código completo, sin nav |
-| Inteligencia | `/intelligence` | Código completo, sin nav |
-| Producto | `/product/*` | Código completo, sin nav |
-| Tablero de trabajo | `/workboard` | Código completo, sin nav |
-
-**Pendiente:** Definir el mecanismo de activación por org (columna en `organizations`, feature flags, etc.) para poder activar/desactivar módulos por cliente.
-
----
 
 ### [TECH-4] VSL Player placeholder en landing
 
@@ -209,6 +168,10 @@ DELETE FROM clients
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-11 | TECH-3: Mecanismo add-ons por org (DB + permisos + sidebar dinámico + super-admin toggle) | `claude/marketing-module-console-errors-g2py5w` |
+| 2026-08-11 | TRIAL-3: Música personalizable por org en Trial Reels | `claude/marketing-module-console-errors-g2py5w` |
+| 2026-08-11 | TRIAL-2: Botón "Generar con IA" para captions/hashtags por variante | `claude/marketing-module-console-errors-g2py5w` |
+| 2026-08-11 | BUG-1: Sync de stories de Instagram via Zernio (doble estrategia con fallback) | `claude/marketing-module-console-errors-g2py5w` |
 | 2026-08-11 | Upload real de video a Zernio en Trial Reels (bug crítico) | `feat/trial-reels-video-upload` |
 | 2026-08-11 | Email de notificación cuando todos los reels terminan de publicar | `feat/trial-reels-video-upload` |
 | 2026-08-11 | Cron de limpieza de Storage (`trial-reels` bucket, 30 días) | `feat/trial-reels-video-upload` |

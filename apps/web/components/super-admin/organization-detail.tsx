@@ -11,7 +11,9 @@ import {
   regenerateTempPasswordAction,
   setOrganizationStatusAction,
   updateOrganizationMrrAction,
+  updateOrgAddOnsAction,
 } from "@/app/super-admin/actions";
+import { ADD_ON_IDS } from "@/lib/auth/get-current-permissions";
 import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import { formatUsd, formatUsdPrecise } from "@/lib/super-admin/org-metrics";
@@ -44,6 +46,7 @@ export function OrganizationDetailView({
 }) {
   const [note, setNote] = useState("");
   const [mrrInput, setMrrInput] = useState(String(detail.mrrUsd));
+  const [activeAddOns, setActiveAddOns] = useState<string[]>(detail.enabledAddOns ?? []);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [tempCredentials, setTempCredentials] = useState<TempCredentials | null>(
@@ -207,6 +210,41 @@ export function OrganizationDetailView({
           >
             Guardar MRR
           </Button>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border/60 p-6">
+        <h3 className="text-sm font-semibold">Módulos add-on</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Activa o desactiva módulos adicionales para esta organización. Los cambios toman efecto en el próximo inicio de sesión del usuario.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          {ADD_ON_IDS.map((addOnId) => {
+            const enabled = activeAddOns.includes(addOnId);
+            return (
+              <button
+                key={addOnId}
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  const next = enabled
+                    ? activeAddOns.filter((a) => a !== addOnId)
+                    : [...activeAddOns, addOnId];
+                  setActiveAddOns(next);
+                  runAction(() => updateOrgAddOnsAction(detail.id, next));
+                }}
+                className={[
+                  "rounded-lg border px-3 py-1.5 text-sm transition-colors",
+                  enabled
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground",
+                  pending ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
+                ].join(" ")}
+              >
+                {addOnId}
+              </button>
+            );
+          })}
         </div>
       </section>
 
