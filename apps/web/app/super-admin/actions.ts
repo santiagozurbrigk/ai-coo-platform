@@ -32,7 +32,7 @@ import {
   setOrganizationStatusSchema,
   updateOrganizationMrrSchema,
 } from "@/lib/validations";
-import { ADD_ON_IDS } from "@/lib/auth/get-current-permissions";
+import { ADD_ON_IDS } from "@/lib/auth/add-on-ids";
 import { processAiBrainDocument } from "@/lib/ai-brain/process-document";
 import { resolveBrainFileMimeType, isAllowedBrainFile as validateBrainFile } from "@/lib/ai-brain/file-types";
 import type { z } from "zod";

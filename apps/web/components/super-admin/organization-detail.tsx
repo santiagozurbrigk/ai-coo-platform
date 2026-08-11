@@ -13,7 +13,7 @@ import {
   updateOrganizationMrrAction,
   updateOrgAddOnsAction,
 } from "@/app/super-admin/actions";
-import { ADD_ON_IDS } from "@/lib/auth/get-current-permissions";
+import { ADD_ON_IDS } from "@/lib/auth/add-on-ids";
 import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import { formatUsd, formatUsdPrecise } from "@/lib/super-admin/org-metrics";

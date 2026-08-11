@@ -3,15 +3,9 @@ import { permissionsFromRow } from "@/lib/team/mapper";
 import { emptyPermissions } from "@/constants/permission-modules";
 import type { PermissionModuleId } from "@/constants/permission-modules";
 import type { PermissionLevel } from "@/types/team";
-
-/** Módulos add-on disponibles por org */
-export const ADD_ON_IDS = [
-  "operaciones",
-  "producto",
-  "ejecutivo",
-  "inteligencia",
-] as const;
-export type AddOnId = (typeof ADD_ON_IDS)[number];
+import { ADD_ON_IDS, type AddOnId } from "@/lib/auth/add-on-ids";
+export { ADD_ON_IDS } from "@/lib/auth/add-on-ids";
+export type { AddOnId } from "@/lib/auth/add-on-ids";
 
 export type UserPermissions = {
   role: string;
