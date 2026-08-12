@@ -390,6 +390,53 @@ Respondé con este JSON exacto:
   return (inserted ?? []).map((row) => row.id as string);
 }
 
+// ─── Borradores de contenido ──────────────────────────────────────────────────
+
+export type ContentDraftWithParent = ContentPiece & {
+  parent_piece: Pick<ContentPiece, "id" | "title" | "type" | "caption"> | null;
+};
+
+/**
+ * Devuelve todas las variantes generadas por IA para la organización
+ * (content_pieces donde variants_of IS NOT NULL), con la pieza padre adjunta.
+ */
+export async function getContentDraftsAction(params?: {
+  limit?: number;
+}): Promise<ContentDraftWithParent[]> {
+  const organizationId = await requireProfileOrganizationId();
+  const supabase = await createClient();
+
+  const limit = params?.limit ?? 100;
+
+  const { data: variants, error } = await supabase
+    .from("content_pieces")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .not("variants_of", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+  if (!variants?.length) return [];
+
+  // Batch-fetch parent pieces
+  const parentIds = [...new Set(variants.map((v) => v.variants_of as string))];
+  const { data: parents } = await supabase
+    .from("content_pieces")
+    .select("id, title, type, caption")
+    .eq("organization_id", organizationId)
+    .in("id", parentIds);
+
+  const parentMap = Object.fromEntries(
+    (parents ?? []).map((p) => [p.id, p as Pick<ContentPiece, "id" | "title" | "type" | "caption">])
+  );
+
+  return (variants as ContentPiece[]).map((v) => ({
+    ...v,
+    parent_piece: v.variants_of ? (parentMap[v.variants_of] ?? null) : null,
+  }));
+}
+
 export type TopPerformingContentResult = {
   id: string;
   type: string;
