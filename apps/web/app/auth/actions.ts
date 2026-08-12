@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { authRateLimit, rateLimitErrorMessage } from "@/lib/rate-limit";
 import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
 import { emailSchema, firstZodError } from "@/lib/validations";
-import { getOnboardingStatusAction } from "@/app/onboarding/actions";
 import { ensureCurrentUserBootstrap, loadProfileOrganizationContext } from "@/lib/auth/bootstrap";
 import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
 import {
@@ -86,11 +85,6 @@ async function postAuthRedirect() {
 
     if (user?.email && (await isSuperAdminEmail(user.email))) {
       redirect(paths.superAdmin.organizations);
-    }
-
-    const status = await getOnboardingStatusAction();
-    if (!status.completed) {
-      redirect(status.onboardingPath);
     }
 
     if (user) {

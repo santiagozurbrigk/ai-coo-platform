@@ -41,6 +41,39 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-11 — Eliminar wizard de onboarding de founder
+
+**Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
+**Commit(s):** `acb2499` — feat(onboarding): eliminar wizard de onboarding de founder  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** onboarding, auth, platform-data-provider, middleware, routes
+
+**Qué se hizo:**
+- Eliminados 12 archivos: `app/onboarding/{page,layout,actions}.ts`, `components/onboarding/{onboarding-wizard,option-card,other-text-field}.tsx`, `components/platform/onboarding-guard.tsx`, `lib/onboarding/{steps,onboarding-storage,onboarding-status,resolve-onboarding-path}.ts`, `types/onboarding.ts`.
+- `app/auth/actions.ts`: eliminado el check `!status.completed → redirect(status.onboardingPath)` de `postAuthRedirect`. Login redirige siempre a dashboard o holding.
+- `providers/platform-data-provider.tsx`: eliminados `onboardingComplete`, `onboardingData`, `refreshOnboarding` del contexto y sus estados.
+- `lib/supabase/middleware.ts`: eliminado el bloque que redirigía super admins desde `/onboarding`.
+- `components/auth/login-screen.tsx`: eliminado el redirect condicional al wizard en modo demo.
+- `routes/paths.ts`: eliminado `paths.auth.onboarding`.
+- `components/holding/holding-onboarding-wizard.tsx`: eliminada dependencia de `fetchOnboardingStatus`; el efecto de inicialización ahora solo llama a `getHoldingOnboardingStateAction()`.
+- El onboarding de holding (`/onboarding/holding`) se mantiene intacto.
+- `lib/onboarding/welcome-storage.ts` se mantiene (usado por `WelcomeGate`).
+
+**Por qué / finalidad:**
+El wizard de onboarding de founder en `/onboarding` fue eliminado por decisión de producto. Los usuarios ahora entran directo al dashboard después del login sin pasar por el wizard.
+
+**Decisiones de diseño relevantes:**
+- Se mantuvo `welcome-storage.ts` para no romper `WelcomeGate`; la animación de bienvenida simplemente nunca se activa ya que `markWelcomePending()` era llamada solo por el wizard.
+- El onboarding de holding se preserva íntegro — es un flujo diferente para configurar negocios del portfolio.
+- TypeScript limpio (0 errores) verificado antes del push.
+
+**Riesgos / deuda técnica pendiente:**
+- Los datos en tabla `onboarding_responses` de orgs founder quedan sin uso por la plataforma. La tabla puede eliminarse en una migración futura si se confirma que no hay otros consumidores.
+- `WelcomeGate` y `welcome-storage.ts` son dead code efectivo — se pueden eliminar en una limpieza futura.
+
+---
+
+
 ### 2026-08-11 — TECH-1: Fathom deep analysis vía QStash + TECH-2: retención real YouTube Analytics
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  

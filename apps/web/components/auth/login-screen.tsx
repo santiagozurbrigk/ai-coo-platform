@@ -9,7 +9,6 @@ import {
   MOCK_CLIENT_CREDENTIALS,
   MOCK_SUPER_ADMIN_CREDENTIALS,
 } from "@/lib/auth/mock-credentials";
-import { isOnboardingComplete } from "@/lib/onboarding/onboarding-storage";
 import { paths } from "@/routes";
 
 export type LoginVariant = "client" | "superAdmin";
@@ -20,7 +19,7 @@ const COPY = {
     subtitle: "Inicia sesión en tu espacio de trabajo",
     submitLabel: "Iniciar sesión",
     redirectTo: paths.platform.dashboard,
-    hint: `Demo: ${MOCK_CLIENT_CREDENTIALS.email} / ${MOCK_CLIENT_CREDENTIALS.password}. Primer acceso: wizard de onboarding.`,
+    hint: `Demo: ${MOCK_CLIENT_CREDENTIALS.email} / ${MOCK_CLIENT_CREDENTIALS.password}`,
     validate: (email: string, password: string) =>
       email === MOCK_CLIENT_CREDENTIALS.email &&
       password === MOCK_CLIENT_CREDENTIALS.password,
@@ -66,11 +65,7 @@ export function LoginScreen({
     }
     setLoading(true);
     setTimeout(() => {
-      const target =
-        variant === "client" && !isOnboardingComplete()
-          ? paths.auth.onboarding
-          : destination;
-      router.push(target);
+      router.push(destination);
     }, 400);
   };
 

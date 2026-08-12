@@ -1,16 +1,13 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Button, Input, Label, cn } from "@ai-coo/ui";
 import {
   completeHoldingOnboardingAction,
   getHoldingOnboardingStateAction,
   saveHoldingBillingModelAction,
 } from "@/app/(platform)/onboarding/holding/actions";
-import { fetchOnboardingStatus } from "@/lib/onboarding/onboarding-status";
 import type { HoldingBillingModel } from "@/lib/holding/billing";
-import { paths } from "@/routes";
 
 type BusinessDraft = {
   id: string;
@@ -59,7 +56,6 @@ function BillingOptionCard({
 }
 
 export function HoldingOnboardingWizard() {
-  const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [billingModel, setBillingModel] = useState<HoldingBillingModel | null>(
     null
@@ -73,16 +69,6 @@ export function HoldingOnboardingWizard() {
 
   useEffect(() => {
     void (async () => {
-      const status = await fetchOnboardingStatus();
-      if (status.completed) {
-        router.replace(paths.platform.holding);
-        return;
-      }
-      if (status.accountType !== "holding") {
-        router.replace(paths.auth.onboarding);
-        return;
-      }
-
       const state = await getHoldingOnboardingStateAction();
       if (state.billingModel) {
         setBillingModel(state.billingModel);
@@ -90,7 +76,7 @@ export function HoldingOnboardingWizard() {
       }
       setLoading(false);
     })();
-  }, [router]);
+  }, []);
 
   function continueToBusinesses() {
     if (!billingModel) {
