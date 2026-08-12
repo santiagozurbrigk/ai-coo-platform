@@ -4,10 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  generateVariantCaptionAction,
-  publishVariantAsZernioDraftAction,
-} from "@/app/marketing/content/actions";
-import {
   linkDriveFileToContentAction,
   unlinkDriveFileAction,
 } from "@/app/marketing/content/drive-actions";
@@ -31,13 +27,6 @@ import {
   Badge,
   Button,
   cn,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Textarea,
 } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
 import {
@@ -1063,63 +1052,6 @@ function AnunciosTab({ piece }: { piece: ContentPiece }) {
 // ─── Variantes Tab ───────────────────────────────────────────────────────────
 
 function VariantesTab({ variants }: { variants: ContentPiece[] }) {
-  const router = useRouter();
-  const { push } = useToast();
-  const [publishVariantId, setPublishVariantId] = useState<string | null>(null);
-  const [captionDraft, setCaptionDraft] = useState("");
-  const [generatingCaption, setGeneratingCaption] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-
-  const resetPublishDialog = () => {
-    setPublishVariantId(null);
-    setCaptionDraft("");
-  };
-
-  const closePublishDialog = () => {
-    if (generatingCaption || publishing) return;
-    resetPublishDialog();
-  };
-
-  const handleOpenPublish = async (variantId: string) => {
-    setPublishVariantId(variantId);
-    setCaptionDraft("");
-    setGeneratingCaption(true);
-    try {
-      const caption = await generateVariantCaptionAction(variantId);
-      setCaptionDraft(caption);
-    } catch (err) {
-      setPublishVariantId(null);
-      push({
-        title: "No se pudo generar el caption",
-        description: err instanceof Error ? err.message : "Error desconocido",
-      });
-    } finally {
-      setGeneratingCaption(false);
-    }
-  };
-
-  const handleConfirmPublish = async () => {
-    if (!publishVariantId || !captionDraft.trim()) return;
-    setPublishing(true);
-    try {
-      await publishVariantAsZernioDraftAction(publishVariantId, captionDraft);
-      push({
-        title: "Variante enviada a Zernio",
-        description: "El draft quedó creado en Zernio.",
-        variant: "success",
-      });
-      resetPublishDialog();
-      router.refresh();
-    } catch (err) {
-      push({
-        title: "No se pudo enviar a Zernio",
-        description: err instanceof Error ? err.message : "Error desconocido",
-      });
-    } finally {
-      setPublishing(false);
-    }
-  };
-
   if (variants.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center px-6">
@@ -1133,147 +1065,86 @@ function VariantesTab({ variants }: { variants: ContentPiece[] }) {
   }
 
   return (
-    <>
-      <div className="space-y-4 p-5">
-        {variants.map((variant) => (
-          <div key={variant.id} className="rounded-xl border border-border/60 bg-muted/10 p-4">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                Variante IA
-              </span>
-              <span className="text-[11px] text-muted-foreground" suppressHydrationWarning>
-                {new Date(variant.created_at).toLocaleDateString("es-AR")}
-              </span>
-              {variant.platform_post_id ? (
-                <Badge variant="secondary" className="gap-1 text-[11px]">
-                  Enviado a Zernio
-                  {variant.platform_post_url ? (
-                    <a
-                      href={variant.platform_post_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center hover:text-primary"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ) : null}
-                </Badge>
-              ) : null}
-            </div>
+    <div className="space-y-4 p-5">
+      <p className="text-xs text-muted-foreground">
+        Las variantes también están disponibles en{" "}
+        <Link
+          href={`${paths.platform.marketing.content}?tab=borradores`}
+          className="text-primary underline underline-offset-2 hover:no-underline"
+        >
+          Borradores de contenido
+        </Link>
+        .
+      </p>
 
-            {variant.brief ? (
-              <div className="space-y-3">
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-lg bg-blue-50/80 p-2 dark:bg-blue-950/30">
-                    <p className="text-[10px] text-muted-foreground">Formato</p>
-                    <p className="text-xs font-medium">{variant.brief.formato?.name}</p>
-                  </div>
-                  <div className="rounded-lg bg-orange-50/80 p-2 dark:bg-orange-950/30">
-                    <p className="text-[10px] text-muted-foreground">Dolor</p>
-                    <p className="text-xs font-medium">{variant.brief.dolor?.name}</p>
-                  </div>
-                  <div className="rounded-lg bg-primary/5 p-2">
-                    <p className="text-[10px] text-muted-foreground">Ángulo</p>
-                    <p className="text-xs font-medium">{variant.brief.angulo?.name}</p>
-                  </div>
-                </div>
-
-                {variant.brief.structure?.map((section, index) => (
-                  <div key={index} className="rounded-xl border border-border/50 p-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-primary">
-                        {index + 1}
-                      </span>
-                      <p className="text-xs font-semibold text-primary">{section.part}</p>
-                    </div>
-                    <p className="text-sm text-foreground/80">{section.description}</p>
-                    {section.example_script ? (
-                      <p className="mt-2 rounded-lg bg-muted/60 px-3 py-2 font-mono text-xs">
-                        {section.example_script}
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
-
-                {!variant.platform_post_id ? (
-                  <Button
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => void handleOpenPublish(variant.id)}
-                    disabled={!variant.brief || generatingCaption}
+      {variants.map((variant) => (
+        <div key={variant.id} className="rounded-xl border border-border/60 bg-muted/10 p-4">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+              Variante IA
+            </span>
+            <span className="text-[11px] text-muted-foreground" suppressHydrationWarning>
+              {new Date(variant.created_at).toLocaleDateString("es-AR")}
+            </span>
+            {variant.platform_post_id ? (
+              <Badge variant="secondary" className="gap-1 text-[11px]">
+                Publicado
+                {variant.platform_post_url ? (
+                  <a
+                    href={variant.platform_post_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center hover:text-primary"
+                    onClick={(event) => event.stopPropagation()}
                   >
-                    {generatingCaption && publishVariantId === variant.id ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        Generando caption…
-                      </>
-                    ) : (
-                      "Aprobar y enviar a Zernio"
-                    )}
-                  </Button>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
                 ) : null}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Esta variante no tiene brief todavía.
-              </p>
-            )}
+              </Badge>
+            ) : null}
           </div>
-        ))}
-      </div>
 
-      <Dialog
-        open={publishVariantId !== null}
-        onOpenChange={(open) => { if (!open) closePublishDialog(); }}
-      >
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Enviar variante a Zernio</DialogTitle>
-            <DialogDescription>
-              Revisá y editá el caption antes de crear el draft en Zernio.
-            </DialogDescription>
-          </DialogHeader>
+          {variant.brief ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg bg-blue-50/80 p-2 dark:bg-blue-950/30">
+                  <p className="text-[10px] text-muted-foreground">Formato</p>
+                  <p className="text-xs font-medium">{variant.brief.formato?.name}</p>
+                </div>
+                <div className="rounded-lg bg-orange-50/80 p-2 dark:bg-orange-950/30">
+                  <p className="text-[10px] text-muted-foreground">Dolor</p>
+                  <p className="text-xs font-medium">{variant.brief.dolor?.name}</p>
+                </div>
+                <div className="rounded-lg bg-primary/5 p-2">
+                  <p className="text-[10px] text-muted-foreground">Ángulo</p>
+                  <p className="text-xs font-medium">{variant.brief.angulo?.name}</p>
+                </div>
+              </div>
 
-          {generatingCaption ? (
-            <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Generando caption con IA…
+              {variant.brief.structure?.map((section, index) => (
+                <div key={index} className="rounded-xl border border-border/50 p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-primary">
+                      {index + 1}
+                    </span>
+                    <p className="text-xs font-semibold text-primary">{section.part}</p>
+                  </div>
+                  <p className="text-sm text-foreground/80">{section.description}</p>
+                  {section.example_script ? (
+                    <p className="mt-2 rounded-lg bg-muted/60 px-3 py-2 font-mono text-xs">
+                      {section.example_script}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
             </div>
           ) : (
-            <Textarea
-              value={captionDraft}
-              onChange={(event) => setCaptionDraft(event.target.value)}
-              rows={8}
-              className="min-h-[180px] resize-y"
-              placeholder="Caption para el post…"
-            />
+            <p className="text-sm text-muted-foreground">
+              Esta variante no tiene brief todavía.
+            </p>
           )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={closePublishDialog}
-              disabled={generatingCaption || publishing}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => void handleConfirmPublish()}
-              disabled={generatingCaption || publishing || captionDraft.trim().length === 0}
-            >
-              {publishing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Enviando…
-                </>
-              ) : (
-                "Confirmar envío"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+        </div>
+      ))}
+    </div>
   );
 }
