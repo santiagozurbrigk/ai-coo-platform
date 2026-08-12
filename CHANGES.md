@@ -73,6 +73,7 @@ El wizard de onboarding de founder en `/onboarding` fue eliminado por decisión 
 
 ---
 
+
 ### 2026-08-11 — TECH-1: Fathom deep analysis vía QStash + TECH-2: retención real YouTube Analytics
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
