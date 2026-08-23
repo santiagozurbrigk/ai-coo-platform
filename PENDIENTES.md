@@ -15,18 +15,6 @@
 
 ## 🟡 Trial Reels — Feature en producción, mejoras pendientes
 
-### [TRIAL-1] Re-intentar variante fallida individualmente
-
-**Qué es:** Si una variante termina en estado `"failed"` (ej. error transitorio de Zernio o Supabase), hoy no hay forma de reintentarla sin recrear el job completo.  
-**Scope:**
-- Botón "Reintentar" en `variation-card.tsx` (solo visible si `status === "failed"`)
-- Server Action que vuelve a poner la variante en `"scheduled"` y la encola en QStash
-- Reutilizar lógica de `publishVariationsAction` para un índice específico
-
-**Complejidad:** Baja  
-**Archivos clave:** `components/marketing/trial-reels/variation-card.tsx`, `app/marketing/content/reel-variation-actions.ts`
-
----
 
 
 ### [TRIAL-4] Assets reales de LUT y música en el worker (Fly.io)
@@ -122,6 +110,7 @@
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-23 | TRIAL-1: Reintentar variante fallida — botón en variation-card.tsx + retryVariationAction (ya existía implementado) | `main` |
 | 2026-08-23 | refactor(agent/marketing): split de action files grandes — agent/actions.ts (1665→1252 líneas) + canvas-actions.ts + workboard-actions.ts; marketing/actions.ts (963→536 líneas) + utm-actions.ts | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-23 | Sentry integration (client/server/edge configs + withSentryConfig en next.config.ts) | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-23 | perf(holding): RPC get_holding_dashboard_stats — 28 queries → 2 paralelas | `claude/architecture-review-improvements-fdj4ae` |
