@@ -113,11 +113,19 @@ test.describe("Holding — navegación dentro de negocio", () => {
     // invalidando el holding.json guardado. Si eso ocurre, re-autenticamos.
     await page.goto("/holding");
 
-    // Esperar que la URL se estabilice: Next.js puede redirigir al cliente
-    // a /login si el token de Supabase quedó inválido tras los tests anteriores.
-    await page.waitForURL(/(holding|login)/, { timeout: 10_000 });
+    // Detectar redirect cliente a /login (Next.js hidrata y detecta token inválido).
+    // waitForURL(/(holding|login)/) resuelve demasiado pronto (ya estamos en /holding),
+    // así que esperamos EXPLÍCITAMENTE /login con timeout corto. Si no llega en 3s,
+    // la sesión sigue válida y el catch lo absorbe.
+    let redirectedToLogin = false;
+    try {
+      await page.waitForURL(/\/login/, { timeout: 3_000 });
+      redirectedToLogin = true;
+    } catch {
+      // Sin redirect — sesión válida
+    }
 
-    if (page.url().includes("/login")) {
+    if (redirectedToLogin) {
       const email = process.env.E2E_HOLDING_EMAIL!;
       const password = process.env.E2E_HOLDING_PASSWORD!;
       await page.getByLabel(/email/i).fill(email);
@@ -126,7 +134,8 @@ test.describe("Holding — navegación dentro de negocio", () => {
       await page.waitForURL(/(holding|dashboard)/, { timeout: 15_000 });
       if (!page.url().includes("/holding")) {
         await page.goto("/holding");
-        await page.waitForURL(/holding/, { timeout: 10_000 });
+        // Esperar /holding; si vuelve a redirigir a /login la sesión no se restauró
+        await page.waitForURL(/\/holding/, { timeout: 10_000 });
       }
     }
 
