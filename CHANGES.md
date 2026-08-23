@@ -41,6 +41,98 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-23 — Refactor: split de action files grandes (agent + marketing)
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** pendiente  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** agent, marketing
+
+**Qué se hizo:**
+
+`app/agent/actions.ts` (1665 líneas) dividido en 3 archivos:
+- **`app/agent/canvas-actions.ts`** (176 líneas): `exportCanvasAsDocxAction`, `saveCanvasToKnowledgeBaseAction` + helpers privados `extractCanvasTitle`, `chunkCanvasContent`
+- **`app/agent/workboard-actions.ts`** (288 líneas): `searchWorkboardTasksAction`, `updateWorkboardTaskAction`, `createWorkboardTasksAction`, `resolveAssigneeId` (privado), tipos exportados `WorkboardTaskInput` y `WorkboardTaskUpdates`
+- **`app/agent/actions.ts`** queda en 1252 líneas (solo streaming, knowledge, SOPs y funciones core del agente)
+
+`app/marketing/actions.ts` (963 líneas) dividido en 2 archivos:
+- **`app/marketing/utm-actions.ts`** (446 líneas): todo el bloque UTM — `getOrganizationWebsiteAction`, `getUtmBaseUrlAction`, `getUTMLinksAction`, `getUTMLeadsAction`, `getUTMFunnelAction`, `createUTMLinkAction`, `updateUTMLinkAction`, `deleteUTMLinkAction` + helpers privados
+- **`app/marketing/actions.ts`** queda en 536 líneas
+
+Importadores actualizados (estáticos y dinámicos):
+- `components/agent/canvas-panel.tsx` → importa desde `canvas-actions`
+- `components/fathom/fathom-task-proposal-modal.tsx` → importa desde `workboard-actions`
+- `lib/agent/agent-tool-handler.ts` → 3 dynamic imports `await import("@/app/agent/actions")` → `workboard-actions`; reemplaza tipo local `WorkboardTaskUpdates` con import
+- `components/marketing/utm-table.tsx` → importa desde `utm-actions`
+- `components/marketing/utm-generator.tsx` → importa `createUTMLinkAction` desde `utm-actions`
+- `app/(platform)/marketing/utms/page.tsx` → split: `listContentAssetsAction` de `actions`, UTM actions de `utm-actions`
+
+**Por qué / finalidad:**
+Reducir el tamaño de archivos de acciones grandes para mejorar legibilidad y mantenibilidad. Parte del roadmap de architecture review (P1 — breaking large action files).
+
+**Decisiones de diseño relevantes:**
+- Actualización directa de importadores en lugar de barrel re-exports (evita conflictos TypeScript entre `import X from` y `export X from` en el mismo módulo).
+- Verificación con `tsc --noEmit` tras cada paso — cero errores nuevos introducidos.
+- Los dynamic imports en `agent-tool-handler.ts` también actualizados (no visibles a grep estático).
+- `WorkboardTaskUpdates` exportado desde `workboard-actions.ts` y re-importado en `agent/actions.ts` para el handler de `sendAgentMessageAction`.
+
+**Riesgos / deuda técnica pendiente:**
+- Sin riesgos conocidos — la separación es limpia y los tipos no generan dependencias circulares.
+- `agent/actions.ts` sigue siendo grande (1252 líneas); candidato a futura subdivisión en `knowledge-actions.ts`, `sop-actions.ts` si crece.
+
+---
+
+### 2026-08-23 — Fan-out QStash para crons + tests Playwright E2E
+
+**Rama/branch:** `claude/qstash-fanout-playwright`  
+**Commit(s):** `56e5455`, `c5972da`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** crons, queue, testing
+
+**Qué se hizo:**
+
+**QStash fan-out para crons pesados:**
+- `lib/queue/qstash-client.ts`: función `publishCronFanout(workerUrl, orgIds)` genérica + 4 getters de URL de worker
+- 4 nuevos workers en `/api/queue/`:
+  - `process-cron-sync-metrics` → llama `syncContentMetricsForOrg`
+  - `process-cron-intelligence-snapshot` → llama `generateAndSaveIntelligenceSnapshot`
+  - `process-cron-executive-report` → llama `generateAndSaveWeeklyExecutiveReport`
+  - `process-cron-founder-tone` → llama `generateAndSaveFounderTone`
+- 4 crons refactorizados: si `QSTASH_TOKEN` configurado → fan-out (publica 1 job/org y retorna en ~200ms); si no → fallback secuencial (backward compatible)
+- `maxDuration` de crons: 300s → 60s. Workers individuales: 60-120s por org
+
+**Playwright E2E:**
+- `@playwright/test` instalado en `apps/web`
+- `playwright.config.ts` con setup de auth compartido y Chromium pre-instalado
+- `e2e/auth.setup.ts`: login con `E2E_HOLDING_EMAIL` / `E2E_HOLDING_PASSWORD`, guarda sesión en `e2e/.auth/holding.json`
+- `e2e/holding.spec.ts`: flujo holding completo — dashboard KPIs, dropdown scrollable, switch de negocio, badge founder, volver al holding, agente y clientes dentro del negocio
+
+**Para correr los tests:**
+```bash
+# Variables necesarias:
+E2E_HOLDING_EMAIL=email@holding.com
+E2E_HOLDING_PASSWORD=password
+E2E_BASE_URL=https://tu-app.vercel.app  # o http://localhost:3000
+
+# Correr:
+cd apps/web
+pnpm exec playwright test          # headless
+pnpm exec playwright test --ui     # con interfaz visual
+pnpm exec playwright test --headed # browser visible
+```
+
+**fix:** `hideSourceMaps` eliminado de `withSentryConfig` (no existe en esa versión de `@sentry/nextjs`)
+
+**Por qué / finalidad:**
+Con N orgs creciendo, los crons secuenciales van a tocar el límite de 300s de Vercel. El fan-out desacopla la orquestación del procesamiento: el cron termina en segundos, QStash ejecuta los workers en paralelo con retries automáticos.
+
+**Riesgos / deuda técnica pendiente:**
+- Los tests E2E requieren `E2E_HOLDING_EMAIL` / `E2E_HOLDING_PASSWORD` con una cuenta holding real — pendiente crearla junto al data setup del beta tester
+- `e2e/holding.spec.ts` usa selectores de texto que pueden romperse si cambian los labels; revisar después del data setup
+- El fan-out no aplica aún a `executive-report-monthly`, `calendly-sync`, `mercadopago-token-refresh` — son menos costosos, pueden esperar
+
+---
+
 ### 2026-08-23 — Preparación beta holding: Sentry, RPC dashboard y dropdown fix
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
