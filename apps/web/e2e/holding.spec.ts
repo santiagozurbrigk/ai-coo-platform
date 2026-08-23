@@ -108,8 +108,23 @@ test.describe("Holding — switch de negocio", () => {
 
 test.describe("Holding — navegación dentro de negocio", () => {
   test.beforeEach(async ({ page }) => {
-    // Entrar a un negocio antes de cada test de este grupo
+    // Entrar a un negocio antes de cada test de este grupo.
+    // Supabase puede rotar el token durante los tests anteriores (Server Actions),
+    // invalidando el holding.json guardado. Si eso ocurre, re-autenticamos.
     await page.goto("/holding");
+
+    if (page.url().includes("/login")) {
+      const email = process.env.E2E_HOLDING_EMAIL!;
+      const password = process.env.E2E_HOLDING_PASSWORD!;
+      await page.getByLabel(/email/i).fill(email);
+      await page.getByLabel(/contraseña|password/i).fill(password);
+      await page.getByRole("button", { name: /iniciar sesión|login|entrar/i }).click();
+      await page.waitForURL(/(holding|dashboard)/, { timeout: 15_000 });
+      if (!page.url().includes("/holding")) {
+        await page.goto("/holding");
+      }
+    }
+
     await page.getByRole("button", { name: /entrar|enter/i }).first().click();
     await page.waitForURL(/dashboard/, { timeout: 15_000 });
   });
