@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AlertTriangle, Check, Copy } from "lucide-react";
 import { Button, Input, Label, cn } from "@ai-coo/ui";
 import { paths } from "@/routes";
-import { createUTMLinkAction } from "@/app/marketing/actions";
+import { createUTMLinkAction } from "@/app/marketing/utm-actions";
 import { slugifyCampaign } from "@/lib/utm/slugify-campaign";
 import {
   buildLandingUtmUrl,

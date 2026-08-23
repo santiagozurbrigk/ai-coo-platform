@@ -41,6 +41,46 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-23 — Refactor: split de action files grandes (agent + marketing)
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** `dd7f0a5`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** agent, marketing
+
+**Qué se hizo:**
+
+`app/agent/actions.ts` (1665 líneas) dividido en 3 archivos:
+- **`app/agent/canvas-actions.ts`** (176 líneas): `exportCanvasAsDocxAction`, `saveCanvasToKnowledgeBaseAction` + helpers privados `extractCanvasTitle`, `chunkCanvasContent`
+- **`app/agent/workboard-actions.ts`** (288 líneas): `searchWorkboardTasksAction`, `updateWorkboardTaskAction`, `createWorkboardTasksAction`, `resolveAssigneeId` (privado), tipos exportados `WorkboardTaskInput` y `WorkboardTaskUpdates`
+- **`app/agent/actions.ts`** queda en 1252 líneas (solo streaming, knowledge, SOPs y funciones core del agente)
+
+`app/marketing/actions.ts` (963 líneas) dividido en 2 archivos:
+- **`app/marketing/utm-actions.ts`** (446 líneas): todo el bloque UTM — `getOrganizationWebsiteAction`, `getUtmBaseUrlAction`, `getUTMLinksAction`, `getUTMLeadsAction`, `getUTMFunnelAction`, `createUTMLinkAction`, `updateUTMLinkAction`, `deleteUTMLinkAction` + helpers privados
+- **`app/marketing/actions.ts`** queda en 536 líneas
+
+Importadores actualizados (estáticos y dinámicos):
+- `components/agent/canvas-panel.tsx` → importa desde `canvas-actions`
+- `components/fathom/fathom-task-proposal-modal.tsx` → importa desde `workboard-actions`
+- `lib/agent/agent-tool-handler.ts` → 3 dynamic imports `await import("@/app/agent/actions")` → `workboard-actions`; reemplaza tipo local `WorkboardTaskUpdates` con import
+- `components/marketing/utm-table.tsx` → importa desde `utm-actions`
+- `components/marketing/utm-generator.tsx` → importa `createUTMLinkAction` desde `utm-actions`
+- `app/(platform)/marketing/utms/page.tsx` → split: `listContentAssetsAction` de `actions`, UTM actions de `utm-actions`
+
+**Por qué / finalidad:**
+Reducir el tamaño de archivos de acciones grandes para mejorar legibilidad y mantenibilidad. Parte del roadmap de architecture review (P1 — breaking large action files).
+
+**Decisiones de diseño relevantes:**
+- Actualización directa de importadores en lugar de barrel re-exports (evita conflictos TypeScript entre `import X from` y `export X from` en el mismo módulo).
+- Verificación con `tsc --noEmit` tras cada paso — cero errores nuevos introducidos.
+- Los dynamic imports en `agent-tool-handler.ts` también actualizados (no visibles a grep estático).
+- `WorkboardTaskUpdates` exportado desde `workboard-actions.ts` y re-importado en `agent/actions.ts` para el handler de `sendAgentMessageAction`.
+
+**Riesgos / deuda técnica pendiente:**
+- Sin riesgos conocidos — la separación es limpia y los tipos no generan dependencias circulares.
+- `agent/actions.ts` sigue siendo grande (1252 líneas); candidato a futura subdivisión en `knowledge-actions.ts`, `sop-actions.ts` si crece.
+
+---
 ### 2026-08-23 — Fan-out QStash para crons + tests Playwright E2E
 
 **Rama/branch:** `claude/qstash-fanout-playwright`  
