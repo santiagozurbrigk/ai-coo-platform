@@ -37,12 +37,13 @@ test.describe("Holding — dashboard", () => {
     await page.goto("/holding");
 
     // Abrir el dropdown del switcher
-    const switcherButton = page.locator("button").filter({ hasText: /vista general|negocio/i }).first();
+    const switcherButton = page.getByTestId("business-switcher");
+    await expect(switcherButton).toBeVisible({ timeout: 10_000 });
     await switcherButton.click();
 
-    // El menú debe abrirse
+    // El menú debe abrirse (Radix DropdownMenuContent renderiza en portal con role="menu")
     const menu = page.locator("[role='menu']");
-    await expect(menu).toBeVisible({ timeout: 5_000 });
+    await expect(menu).toBeVisible({ timeout: 8_000 });
 
     // Debe haber al menos un item de negocio (además de "Vista general del holding")
     const items = menu.locator("[role='menuitem']");
@@ -88,10 +89,8 @@ test.describe("Holding — switch de negocio", () => {
     await page.waitForURL(/dashboard/, { timeout: 15_000 });
 
     // Abrir dropdown y seleccionar "Vista general del holding"
-    const switcherButton = page
-      .locator("button")
-      .filter({ hasText: /negocio activo|viendo/i })
-      .first();
+    const switcherButton = page.getByTestId("business-switcher");
+    await expect(switcherButton).toBeVisible({ timeout: 10_000 });
     await switcherButton.click();
 
     const holdingOption = page.getByRole("menuitem", {
