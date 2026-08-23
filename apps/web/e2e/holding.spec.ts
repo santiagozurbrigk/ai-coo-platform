@@ -10,8 +10,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import path from "path";
-import { HOLDING_AUTH_FILE } from "./auth.setup";
+import { HOLDING_AUTH_FILE } from "./constants";
 
 test.use({ storageState: HOLDING_AUTH_FILE });
 
