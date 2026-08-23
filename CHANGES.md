@@ -41,6 +41,50 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-23 — Preparación beta holding: Sentry, RPC dashboard y dropdown fix
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** `704b566` — feat(sentry), `8bbcf8f` — perf(holding): RPC, `dbd1674` — fix(holding): dropdown  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** holding, monitoring, infra
+
+**Qué se hizo:**
+
+1. **Sentry integration** (`704b566`):
+   - Creados `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`
+   - `next.config.ts` envuelto con `withSentryConfig` (source maps y logger opcionales vía env vars)
+   - `lib/holding/refresh-auth-session.ts`: `Sentry.captureException` cuando el refresh del JWT falla (path crítico del holding switch)
+   - `app/api/agent/send/route.ts`: `Sentry.captureException` con `organizationId` y `conversationId` en errores de streaming
+   - Filtra cookies de auth antes de enviar eventos; no envía errores de rate limit (ruido)
+
+2. **RPC `get_holding_dashboard_stats`** (`8bbcf8f`):
+   - Nueva migración `supabase/migrations/20260823023309_holding_dashboard_stats_rpc.sql`
+   - Función STABLE + SECURITY DEFINER que agrega MRR, conversaciones activas, closing calls y `has_founder` en una sola query con CTEs
+   - `getHoldingDashboardAction` refactorizada: `Promise.all` con `getHoldingBusinesses` + RPC → de 28 llamadas a 2 paralelas
+   - Fallback silencioso a métricas en cero si la RPC no existe aún (migración no aplicada)
+
+3. **Dropdown scrollable** (`dbd1674`):
+   - `HoldingBusinessSwitcher`: `DropdownMenuContent` ahora tiene `max-h-[280px] overflow-y-auto`
+   - Necesario para el beta tester con 7 negocios (sin scroll el dropdown quedaba fuera de pantalla)
+
+**Por qué / finalidad:**
+Beta tester con holding de 7 negocios entra en 2 días. Estos cambios preparan el módulo holding para soportar múltiples negocios sin degradación de performance ni UX rota.
+
+**Decisiones de diseño relevantes:**
+- RPC con CTEs en lugar de N queries en JS: más eficiente, una sola round-trip a Postgres
+- SECURITY DEFINER para evitar que la anonkey falle en la lectura de `profiles` (protegida por RLS)
+- `REVOKE ... FROM public; GRANT ... TO authenticated`: seguridad mínima, solo users autenticados
+- Sentry `sampleRate: 1.0, tracesSampleRate: 0.05` en servidor: capturar todos los errores, 5% de trazas (lambdas son muchas)
+- `beforeSend`: eliminar cookies de auth antes de enviar a Sentry (privacidad)
+
+**Riesgos / deuda técnica pendiente:**
+- **La migración SQL debe aplicarse manualmente en Supabase Dashboard antes del beta** (o con `supabase db push`)
+- Sentry requiere `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_DSN` en Vercel para activarse en producción
+- `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` son opcionales pero necesarios para subir source maps
+- TECH-5 (Badge `children` en React 19): sigue pendiente — ~15 archivos con error pre-existente, Vercel lo ignora por caché Turbo
+
+---
+
 ### 2026-08-11 — Eliminar wizard de onboarding de founder
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  
