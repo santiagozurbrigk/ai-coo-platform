@@ -27,10 +27,13 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    // Chromium pre-instalado en el entorno de CI
-    ...(process.env.PLAYWRIGHT_BROWSERS_PATH
-      ? { executablePath: "/opt/pw-browsers/chromium/chrome" }
-      : {}),
+    // Chromium pre-instalado en el entorno de CI.
+    // Especificamos la ruta exacta del binario para evitar que Playwright
+    // busque "chromium_headless_shell" con una versión diferente a la instalada.
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ??
+      (process.env.PLAYWRIGHT_BROWSERS_PATH
+        ? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+        : undefined),
   },
 
   projects: [
