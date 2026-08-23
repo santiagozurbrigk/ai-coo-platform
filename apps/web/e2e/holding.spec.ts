@@ -113,6 +113,10 @@ test.describe("Holding — navegación dentro de negocio", () => {
     // invalidando el holding.json guardado. Si eso ocurre, re-autenticamos.
     await page.goto("/holding");
 
+    // Esperar que la URL se estabilice: Next.js puede redirigir al cliente
+    // a /login si el token de Supabase quedó inválido tras los tests anteriores.
+    await page.waitForURL(/(holding|login)/, { timeout: 10_000 });
+
     if (page.url().includes("/login")) {
       const email = process.env.E2E_HOLDING_EMAIL!;
       const password = process.env.E2E_HOLDING_PASSWORD!;
@@ -122,6 +126,7 @@ test.describe("Holding — navegación dentro de negocio", () => {
       await page.waitForURL(/(holding|dashboard)/, { timeout: 15_000 });
       if (!page.url().includes("/holding")) {
         await page.goto("/holding");
+        await page.waitForURL(/holding/, { timeout: 10_000 });
       }
     }
 
