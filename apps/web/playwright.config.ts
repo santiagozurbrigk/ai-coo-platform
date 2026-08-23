@@ -28,12 +28,14 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     // Chromium pre-instalado en el entorno de CI.
-    // Especificamos la ruta exacta del binario para evitar que Playwright
-    // busque "chromium_headless_shell" con una versión diferente a la instalada.
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ??
-      (process.env.PLAYWRIGHT_BROWSERS_PATH
-        ? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
-        : undefined),
+    // executablePath va dentro de launchOptions (no es propiedad directa de UseOptions).
+    // Permite apuntar al binario correcto sin depender de la versión que Playwright espera.
+    launchOptions: {
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ??
+        (process.env.PLAYWRIGHT_BROWSERS_PATH
+          ? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+          : undefined),
+    },
   },
 
   projects: [
