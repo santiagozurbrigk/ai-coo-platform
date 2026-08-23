@@ -207,76 +207,62 @@ export async function addBusinessToMyHoldingAction(
 export async function getHoldingDashboardAction() {
   const { holdingOrgId, billingModel } = await requireHoldingProfile();
   const supabase = await createClient();
-  const businesses = await getHoldingBusinesses(holdingOrgId);
-  const thirtyDaysAgo = new Date(
-    Date.now() - 30 * 24 * 60 * 60 * 1000
-  ).toISOString();
 
-  const businessesWithMetrics = await Promise.all(
-    businesses.map(async (b) => {
-      const orgId = b.business_org?.id ?? "";
-      if (!orgId) {
-        return {
-          ...b,
-          hasFounder: false,
-          metrics: {
-            mrr: 0,
-            holdingRevenue: 0,
-            activeConversations: 0,
-            closedCalls: 0,
-          },
-        };
-      }
+  // Cargamos negocios y stats en paralelo — 2 queries en lugar de N×4.
+  const [businesses, statsResult] = await Promise.all([
+    getHoldingBusinesses(holdingOrgId),
+    supabase.rpc("get_holding_dashboard_stats", {
+      p_holding_org_id: holdingOrgId,
+    }),
+  ]);
 
-      const admin = createAdminClient();
-      const [clientsRes, conversationsRes, closingRes, founderRes] = await Promise.all([
-        supabase
-          .from("clients")
-          .select("total_amount")
-          .eq("organization_id", orgId),
-        supabase
-          .from("conversations")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", orgId)
-          .gte("created_at", thirtyDaysAgo),
-        supabase
-          .from("closing_calls")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", orgId)
-          .eq("status", "closed")
-          .gte("scheduled_at", thirtyDaysAgo),
-        admin
-          .from("profiles")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", orgId)
-          .eq("role", "founder"),
-      ]);
+  if (statsResult.error) {
+    // Fallback silencioso si la RPC no existe aún (ej. migración pendiente).
+    // En ese caso devolvemos métricas en cero en lugar de romper el dashboard.
+    console.error(
+      "[holding] Error en get_holding_dashboard_stats:",
+      statsResult.error.message
+    );
+  }
 
-      const mrr =
-        (clientsRes.data ?? []).reduce(
-          (sum, c) => sum + Number(c.total_amount ?? 0),
-          0
-        ) ?? 0;
-
-      const holdingRevenue = computeHoldingRevenue({
-        billingModel,
-        mrr,
-        revenueSharePct: b.revenue_share_pct,
-        fixedFeeAmount: b.fixed_fee_amount,
-      });
-
-      return {
-        ...b,
-        hasFounder: (founderRes.count ?? 0) > 0,
-        metrics: {
-          mrr,
-          holdingRevenue,
-          activeConversations: conversationsRes.count ?? 0,
-          closedCalls: closingRes.count ?? 0,
-        },
-      };
-    })
+  // Indexar stats por org ID para O(1) lookup al hacer el merge.
+  type StatsRow = {
+    business_org_id: string;
+    mrr: number;
+    active_convs: number;
+    closed_calls: number;
+    has_founder: boolean;
+  };
+  const statsMap = new Map<string, StatsRow>(
+    ((statsResult.data as StatsRow[] | null) ?? []).map((row) => [
+      row.business_org_id,
+      row,
+    ])
   );
+
+  const businessesWithMetrics = businesses.map((b) => {
+    const orgId = b.business_org?.id ?? "";
+    const stats = statsMap.get(orgId);
+
+    const mrr = Number(stats?.mrr ?? 0);
+    const holdingRevenue = computeHoldingRevenue({
+      billingModel,
+      mrr,
+      revenueSharePct: b.revenue_share_pct,
+      fixedFeeAmount: b.fixed_fee_amount,
+    });
+
+    return {
+      ...b,
+      hasFounder: stats?.has_founder ?? false,
+      metrics: {
+        mrr,
+        holdingRevenue,
+        activeConversations: Number(stats?.active_convs ?? 0),
+        closedCalls: Number(stats?.closed_calls ?? 0),
+      },
+    };
+  });
 
   const totalMRR = businessesWithMetrics.reduce(
     (sum, b) => sum + b.metrics.mrr,
