@@ -44,7 +44,7 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 ### 2026-08-23 — Refactor: split de action files grandes (agent + marketing)
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
-**Commit(s):** pendiente  
+**Commit(s):** `dd7f0a5`  
 **Autor:** Claude  
 **Módulo(s) afectado(s):** agent, marketing
 
@@ -81,7 +81,6 @@ Reducir el tamaño de archivos de acciones grandes para mejorar legibilidad y ma
 - `agent/actions.ts` sigue siendo grande (1252 líneas); candidato a futura subdivisión en `knowledge-actions.ts`, `sop-actions.ts` si crece.
 
 ---
-
 ### 2026-08-23 — Fan-out QStash para crons + tests Playwright E2E
 
 **Rama/branch:** `claude/qstash-fanout-playwright`  
