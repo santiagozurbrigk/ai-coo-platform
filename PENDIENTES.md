@@ -40,20 +40,6 @@
 
 ---
 
-### [BUG-2] Gráfico "Distribución de contenido publicado" no incluye contenido de Zernio
-
-**Contexto:** El gráfico usa solo `content_assets` (tabla legacy de Instagram Graph). Todo el contenido nuevo vive en `content_pieces` (Zernio) y no aparece ahí.  
-**Fix requerido:** Refactorizar `getContentDistributionDataAction` para incluir `content_pieces` con mapeo de `analysis->>'ai_label'` → AUTORIDAD / ATRACCIÓN / NUTRICIÓN / VENTA.  
-**Archivos clave:** `app/marketing/actions.ts` — `getContentDistributionDataAction`
-
----
-
-### [BUG-3] Patrón UTC-midnight en comparaciones de fecha
-
-**Contexto:** Se encontró y corrigió un bug en el dashboard donde `new Date("YYYY-MM-DD").getMonth()` devolvía un mes incorrecto en UTC-3. Puede haber otros en el código.  
-**Acción:** Buscar con `grep -rn "new Date.*getMonth\|new Date.*getFullYear" apps/web/` y revisar cada caso.
-
----
 
 ## 🟣 Nuevos Features — Implementar cuando Santiago lo indique
 
@@ -110,6 +96,8 @@
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-23 | BUG-3: Patrón UTC-midnight — isInCurrentMonth (enrich-team-compensation.ts) + periodBounds (cta-actions.ts) | `feat/trial-retry-variation` |
+| 2026-08-23 | BUG-2: Gráfico distribución ya incluye content_pieces Zernio (ya estaba implementado) | `main` |
 | 2026-08-23 | TRIAL-1: Reintentar variante fallida — botón en variation-card.tsx + retryVariationAction (ya existía implementado) | `main` |
 | 2026-08-23 | refactor(agent/marketing): split de action files grandes — agent/actions.ts (1665→1252 líneas) + canvas-actions.ts + workboard-actions.ts; marketing/actions.ts (963→536 líneas) + utm-actions.ts | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-23 | Sentry integration (client/server/edge configs + withSentryConfig en next.config.ts) | `claude/architecture-review-improvements-fdj4ae` |
