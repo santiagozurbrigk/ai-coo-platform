@@ -56,8 +56,6 @@ export default withSentryConfig(nextConfig, {
   // Tree-shaking de las integraciones que no usamos en el browser.
   disableLogger: true,
 
-  // No bloquear el build si Sentry no está configurado.
-  hideSourceMaps: true,
   sourcemaps: {
     disable: !process.env.SENTRY_AUTH_TOKEN,
   },

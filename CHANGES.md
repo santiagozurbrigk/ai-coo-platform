@@ -41,6 +41,57 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-23 — Fan-out QStash para crons + tests Playwright E2E
+
+**Rama/branch:** `claude/qstash-fanout-playwright`  
+**Commit(s):** `56e5455`, `c5972da`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** crons, queue, testing
+
+**Qué se hizo:**
+
+**QStash fan-out para crons pesados:**
+- `lib/queue/qstash-client.ts`: función `publishCronFanout(workerUrl, orgIds)` genérica + 4 getters de URL de worker
+- 4 nuevos workers en `/api/queue/`:
+  - `process-cron-sync-metrics` → llama `syncContentMetricsForOrg`
+  - `process-cron-intelligence-snapshot` → llama `generateAndSaveIntelligenceSnapshot`
+  - `process-cron-executive-report` → llama `generateAndSaveWeeklyExecutiveReport`
+  - `process-cron-founder-tone` → llama `generateAndSaveFounderTone`
+- 4 crons refactorizados: si `QSTASH_TOKEN` configurado → fan-out (publica 1 job/org y retorna en ~200ms); si no → fallback secuencial (backward compatible)
+- `maxDuration` de crons: 300s → 60s. Workers individuales: 60-120s por org
+
+**Playwright E2E:**
+- `@playwright/test` instalado en `apps/web`
+- `playwright.config.ts` con setup de auth compartido y Chromium pre-instalado
+- `e2e/auth.setup.ts`: login con `E2E_HOLDING_EMAIL` / `E2E_HOLDING_PASSWORD`, guarda sesión en `e2e/.auth/holding.json`
+- `e2e/holding.spec.ts`: flujo holding completo — dashboard KPIs, dropdown scrollable, switch de negocio, badge founder, volver al holding, agente y clientes dentro del negocio
+
+**Para correr los tests:**
+```bash
+# Variables necesarias:
+E2E_HOLDING_EMAIL=email@holding.com
+E2E_HOLDING_PASSWORD=password
+E2E_BASE_URL=https://tu-app.vercel.app  # o http://localhost:3000
+
+# Correr:
+cd apps/web
+pnpm exec playwright test          # headless
+pnpm exec playwright test --ui     # con interfaz visual
+pnpm exec playwright test --headed # browser visible
+```
+
+**fix:** `hideSourceMaps` eliminado de `withSentryConfig` (no existe en esa versión de `@sentry/nextjs`)
+
+**Por qué / finalidad:**
+Con N orgs creciendo, los crons secuenciales van a tocar el límite de 300s de Vercel. El fan-out desacopla la orquestación del procesamiento: el cron termina en segundos, QStash ejecuta los workers en paralelo con retries automáticos.
+
+**Riesgos / deuda técnica pendiente:**
+- Los tests E2E requieren `E2E_HOLDING_EMAIL` / `E2E_HOLDING_PASSWORD` con una cuenta holding real — pendiente crearla junto al data setup del beta tester
+- `e2e/holding.spec.ts` usa selectores de texto que pueden romperse si cambian los labels; revisar después del data setup
+- El fan-out no aplica aún a `executive-report-monthly`, `calendly-sync`, `mercadopago-token-refresh` — son menos costosos, pueden esperar
+
+---
+
 ### 2026-08-23 — Preparación beta holding: Sentry, RPC dashboard y dropdown fix
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
