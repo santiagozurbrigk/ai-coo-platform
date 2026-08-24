@@ -6,10 +6,12 @@ import {
   tryRequireOrganizationId,
 } from "@/lib/auth/bootstrap";
 import {
+  closingCallToInsertRow,
   patchToClosingUpdateRow,
   rowToClosingCall,
   type ClosingCallRow,
 } from "@/lib/closing/mapper";
+import type { ClosingCall } from "@/types/closing";
 import { repairClosingConversationLinks } from "@/lib/conversations/repair-links";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -18,8 +20,6 @@ import {
   updateClosingCallSchema,
   uuidSchema,
 } from "@/lib/validations";
-import type { ClosingCall } from "@/types/closing";
-
 function mapDbError(msg: string): string {
   if (isMissingTableError(msg)) {
     return "Falta la tabla closing_calls. Ejecuta supabase/migrations/20260521300000_closing_calls.sql en Supabase.";
@@ -88,4 +88,47 @@ export async function updateClosingCallAction(
   }
 
   return rowToClosingCall(data as ClosingCallRow);
+}
+
+export type ImportClosingCallsRowError = {
+  row: number;
+  message: string;
+};
+
+export type ImportClosingCallsResult = {
+  insertedCount: number;
+  errors: ImportClosingCallsRowError[];
+};
+
+export async function importClosingCallsAction(
+  calls: Omit<ClosingCall, "id">[]
+): Promise<ImportClosingCallsResult> {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase no configurado");
+  }
+
+  if (calls.length === 0) {
+    return { insertedCount: 0, errors: [] };
+  }
+
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const rows = calls.map((call) =>
+    closingCallToInsertRow(call, organizationId)
+  );
+
+  const { data, error } = await supabase
+    .from("closing_calls")
+    .insert(rows)
+    .select("id");
+
+  if (error) {
+    throw new Error(mapDbError(error.message));
+  }
+
+  return {
+    insertedCount: data?.length ?? 0,
+    errors: [],
+  };
 }

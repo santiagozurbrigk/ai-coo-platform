@@ -23,6 +23,7 @@ import type { ClosingCall, ClosingCallStatus } from "@/types/closing";
 import { CalendlyManualSyncNotice } from "@/components/integrations/calendly-manual-sync-notice";
 import { ClosingCalendar } from "./closing-calendar";
 import { ClosersRanking } from "./closers-ranking";
+import { ImportClosingCallsDialog } from "./import-closing-calls-dialog";
 import { PaymentModal } from "./payment-modal";
 import { NoCloseModal } from "./no-close-modal";
 
@@ -133,7 +134,10 @@ export function ClosingOverview() {
 
   return (
     <div className="space-y-6">
-      <PageHeader description="Calendario de llamadas de cierre, contexto Calendly y resultados" />
+      <PageHeader
+        description="Calendario de llamadas de cierre, contexto Calendly y resultados"
+        actions={<ImportClosingCallsDialog />}
+      />
 
       <CalendlyManualSyncNotice showIntegrationsLink />
 
