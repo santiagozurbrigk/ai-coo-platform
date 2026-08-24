@@ -38,15 +38,6 @@
 
 ## 🟣 Nuevos Features — Implementar cuando Santiago lo indique
 
-### [FEAT-3] Importación de llamadas de cierre (closing_calls) desde Excel
-
-**Qué es:** Extensión del sistema de importación flexible para permitir también cargar el historial de llamadas de cierre (no solo clientes). Mismo patrón que FEAT-clients ya implementado.
-**Campos a mapear:** `clientName`, `scheduledAt`, `outcome` (cerrado/no cerrado), `notes`, `fathomUrl`, `callType` (Calendly, manual, etc.)
-**Estado:** Pendiente — la infraestructura de column-mapper.ts ya está lista; solo falta:
-- Agregar aliases de llamadas a `column-mapper.ts`
-- Crear `lib/clients/parse-closing-import.ts` (similar a parse-client-import.ts)
-- Agregar botón de importación en `/sales/closing`
-
 ---
 
 ### [FEAT-1] Secuencias de historias
@@ -112,6 +103,7 @@
 | 2026-08-23 | feat(crons): fan-out QStash para sync-metrics, intelligence-snapshot, executive-report, founder-tone | `claude/qstash-fanout-playwright` |
 | 2026-08-24 | fix(zernio): rediseño sync historias Instagram — único endpoint dedicado, captura todos los errores HTTP, elimina llamadas muertas (syncExternalStories 405, listPublishedPosts?type=story) | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-24 | feat(marketing): botón "Sincronizar ahora" en contenido — bypass throttle 30min + elimina label "Sincronizado" engañoso | `claude/architecture-review-improvements-fdj4ae` |
+| 2026-08-24 | feat(closing): importación de llamadas de cierre desde Excel/CSV — parse-closing-import.ts + importClosingCallsAction + dialog en /sales/closing | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-24 | feat(clients): importación flexible Excel/CSV con mapeo automático de columnas en español (column-mapper.ts + extractRawRecords + paso de mapping manual en dialog) | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-24 | fix(e2e): clearCookies() en beforeEach para garantizar refresh token virgen (tests 6/7 holding) | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-23 | feat(testing): Playwright E2E setup + tests holding flow (pendiente ejecutar con cuenta real) | `claude/qstash-fanout-playwright` |

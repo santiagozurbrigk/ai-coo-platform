@@ -41,6 +41,33 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-24 — feat(closing): importación de llamadas de cierre desde Excel/CSV con mapeo de columnas en español
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** `575ecbd`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** lib/closing/parse-closing-import.ts (nuevo), app/closing/actions.ts, components/closing/import-closing-calls-dialog.tsx (nuevo), components/closing/closing-overview.tsx
+
+**Qué se hizo:**
+- Creado `lib/closing/parse-closing-import.ts`: tipos, diccionario de aliases (~60 variantes en español para los 8 campos de llamadas de cierre), normalizadores de estado (`Cerrado`→`closed`, `No show`→`no_show`, etc.), forma de pago e ingreso; función `mapClosingColumnHeaders` y `parseClosingImportRowsMapped`.
+- Agregado `importClosingCallsAction` en `app/closing/actions.ts`: bulk insert en `closing_calls` usando `closingCallToInsertRow` del mapper existente.
+- Creado `components/closing/import-closing-calls-dialog.tsx`: dialog de importación con el mismo flujo de 3 pasos que el de clientes (idle → mapping → preview). Reutiliza `extractRawRecords` de `lib/clients/parse-client-import.ts`.
+- Modificado `components/closing/closing-overview.tsx`: agrega el botón "Cargar llamadas" en el `PageHeader` (prop `actions`).
+
+**Por qué / finalidad:**
+FEAT-3 del backlog: usuarios con historial de llamadas de cierre en Excel pueden cargarlo sin cambiar el archivo. Usa el mismo patrón del importer de clientes que ya funcionaba. Los campos obligatorios son solo `leadName` y `scheduledAt`; el resto (ingreso, forma de pago, motivo de no cierre, link Fathom, closer) es opcional.
+
+**Decisiones de diseño relevantes:**
+- Reutiliza `extractRawRecords` de `lib/clients/parse-client-import.ts` — no duplica la lógica de parseo CSV/XLSX.
+- Campos de outcome (revenue, paymentType, noCloseReason) se agrupan en el JSONB `outcome` solo si hay al menos uno presente.
+- `scheduledAt` sin hora se completa a `T12:00:00Z` para garantizar un timestamp válido.
+- El botón vive en `PageHeader.actions` del `ClosingOverview`, que ya es Client Component.
+
+**Riesgos / deuda técnica pendiente:**
+- No valida solapamiento de fechas ni duplicados de leads al importar — inserta todo en bloque.
+
+---
+
 ### 2026-08-24 — feat(clients): importación flexible de Excel/CSV con mapeo de columnas en español
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
