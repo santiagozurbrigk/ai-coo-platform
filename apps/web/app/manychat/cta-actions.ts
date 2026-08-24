@@ -15,9 +15,21 @@ export type ManyChatCTAStats = {
 };
 
 function periodBounds(from?: string, to?: string) {
-  const end = to ? new Date(to) : new Date();
+  // Usar Date() sin string evita el bug UTC-midnight: new Date("YYYY-MM-DD") parsea
+  // en UTC y en zonas UTC-N el primer día del mes se convierte en el mes anterior local.
+  // Si llega un string de fecha (YYYY-MM-DD), extraer año/mes/día y construir local.
+  function parseDateSafe(s: string): Date {
+    // ISO con hora → parseo UTC correcto; date-only → construir local explícito
+    if (s.length === 10) {
+      const [y, m, d] = s.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    }
+    return new Date(s);
+  }
+
+  const end = to ? parseDateSafe(to) : new Date();
   const start = from
-    ? new Date(from)
+    ? parseDateSafe(from)
     : new Date(end.getFullYear(), end.getMonth(), 1);
   return { from: start.toISOString(), to: end.toISOString() };
 }

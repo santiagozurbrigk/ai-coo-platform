@@ -44,7 +44,7 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 ### 2026-08-24 — Fix E2E: clearCookies() en beforeEach para garantizar refresh token virgen
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
-**Commit(s):** pendiente  
+**Commit(s):** `0f3adb4`  
 **Autor:** Claude  
 **Módulo(s) afectado(s):** e2e, holding
 
@@ -74,6 +74,32 @@ Tests 6 y 7 ("el agente de negocio es accesible" y "el módulo de clientes carga
 
 - Los tests 5 y 6 ahora pagan el costo de un login adicional en cada beforeEach (~3-5s extra por test). Aceptable para E2E.
 - Si Supabase cambia la estructura de cookies, los demás tests (que reusan `holding.json`) también podrían verse afectados.
+
+---
+
+### 2026-08-23 — fix(BUG-3): corrección patrón UTC-midnight en comparaciones de fecha
+
+**Rama/branch:** `feat/trial-retry-variation`  
+**Commit(s):** `57f0076`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** metrics, manychat
+
+**Qué se hizo:**
+Corregidos dos bugs de UTC-midnight identificados en la auditoría [BUG-3]:
+
+- **`lib/metrics/enrich-team-compensation.ts`** — `isInCurrentMonth()`: reemplaza `new Date(iso).getMonth()` por comparación de string `YYYY-MM`. El campo `scheduledAt` viene como timestamp UTC; en zonas UTC-N un timestamp al inicio de un mes (e.g. Aug 1 00:00 UTC) aparece como día anterior del mes anterior en tiempo local → `.getMonth()` devolvía el mes equivocado → comisiones de deals de "principio de mes" no se contabilizaban.
+
+- **`app/manychat/cta-actions.ts`** — `periodBounds()`: agrega `parseDateSafe()` que construye `Date` local explícito para strings date-only (`YYYY-MM-DD`). Si `to` llegaba como `"2026-08-01"`, `new Date("2026-08-01")` parsea UTC midnight → en UTC-3 era July 31 → `end.getMonth()` devolvía 6 → `start` se calculaba como July 1 en vez de Aug 1.
+
+**Por qué / finalidad:**
+`new Date("YYYY-MM-DD")` está especificado en ECMAScript como UTC midnight, no como medianoche local. En producción (Vercel en `gru1`, Uruguay/Argentina, UTC-3) esto causaba que el primer día del mes se comparara erróneamente contra el mes anterior.
+
+**Decisiones de diseño:**
+- Para timestamps ISO completos (`scheduledAt`): comparar `iso.slice(0, 7)` con `YYYY-MM` local (igual que el patrón ya establecido en `derive-dashboard-data.ts`).
+- Para date-only strings en `periodBounds`: construir `new Date(y, m-1, d)` local explícito cuando el string tiene exactamente 10 caracteres (YYYY-MM-DD).
+
+**Riesgos / deuda pendiente:**
+TECH-5 (Badge `children` en ~15 archivos de `packages/ui/src/`) sigue pendiente como errores TS pre-existentes.
 
 ---
 
