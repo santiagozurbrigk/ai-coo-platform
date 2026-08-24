@@ -144,60 +144,44 @@ async function fetchExternalPostsViaSync(
   const client = await getZernioClientForOrganization(organizationId);
 
   // El orden de inserción en allPosts importa: dedupeExternalPosts conserva la
-  // PRIMERA ocurrencia de cada ID. Por eso los posts tipados (con postType correcto)
-  // deben entrar antes que los posts sin tipo del listado general.
-  //
-  // Zernio no siempre devuelve el campo `postType` en la respuesta de GET /posts,
-  // aunque el filtro ?type=story haya funcionado correctamente. Sin el tag explícito,
-  // mapZernioType(platform, undefined, undefined) devuelve "post" → las historias
-  // quedan guardadas como tipo "post" y el filtro "Historias" no las muestra.
+  // PRIMERA ocurrencia de cada ID. Las historias deben entrar ANTES que los posts
+  // del listado general para que sus versiones con postType="story" ganen el dedup.
   const allPosts: ZernioPost[] = [];
 
-  // 1) Sincronizar historias PRIMERO usando el endpoint dedicado de Zernio:
+  // 1) Sincronizar historias PRIMERO con el endpoint dedicado de Zernio:
   //    GET /v1/accounts/{accountId}/instagram/stories
-  //    Este endpoint (documentado en docs.zernio.com/instagram/list-instagram-stories)
-  //    devuelve las historias activas (ventana 24 h de Meta) con campos propios
-  //    (id, mediaUrl, permalink, timestamp) que el cliente mapea a ZernioPost con
-  //    postType="story" garantizado.
-  //    Al entrar primero en allPosts, sus versiones tipeadas ganan el dedup sobre
-  //    los duplicados sin tipo que puede devolver el listado general de posts.
+  //    (documentado en docs.zernio.com/instagram/list-instagram-stories)
+  //
+  //    IMPORTANTE — NO usar GET /posts?type=story como fuente de tipado:
+  //    En producción ese filtro devuelve los mismos posts/reels/carruseles del
+  //    listado general (el filtro ?type=story de Zernio no filtra correctamente).
+  //    Usarlo para etiquetar con postType="story" convertiría todos los reels
+  //    en historias. El único endpoint confiable para detectar historias reales
+  //    es el dedicado de arriba (filtrado por Meta, ventana de 24 h).
   const storiesResults = await Promise.allSettled(
     accountIds.map(async (accountId) => {
-      // Tres estrategias en paralelo, de más a menos específica:
-      // a) Endpoint dedicado GET /accounts/{id}/instagram/stories (docs oficiales)
-      // b) POST /posts/sync-stories (endpoint legacy, retorna 405 en prod → fallback a [])
-      // c) GET /posts?type=story (filtro genérico; Zernio puede no incluir postType en resp)
-      const [dedicatedResult, syncResult, listResult] = await Promise.allSettled([
+      // Dos fuentes para historias (ambas confiables):
+      // a) GET /v1/accounts/{id}/instagram/stories — endpoint oficial (24h window)
+      // b) POST /posts/sync-stories — endpoint legacy (retorna 405 en prod → [])
+      const [dedicatedResult, syncResult] = await Promise.allSettled([
         client.listInstagramStories(accountId),
         client.syncExternalStories(accountId),
-        client.listPublishedPosts({
-          source: "external",
-          accountId,
-          type: "story",
-          limit: 100,
-        }),
       ]);
 
       const storiesFromDedicated =
         dedicatedResult.status === "fulfilled" ? (dedicatedResult.value.posts ?? []) : [];
       const storiesFromSync =
         syncResult.status === "fulfilled" ? (syncResult.value.posts ?? []) : [];
-      const storiesFromList =
-        listResult.status === "fulfilled" ? (listResult.value.posts ?? []) : [];
 
-      // Combinar todas las fuentes; el dedup final eliminará duplicados.
-      // Forzar postType = "story" en las que vengan de /posts?type=story sin tipo explícito.
       const combined = [
-        ...storiesFromDedicated, // ya vienen con postType="story" del cliente
-        ...storiesFromSync,      // ya vienen con postType="story" si disponible
-        ...storiesFromList.map((p) => ({ ...p, postType: p.postType ?? "story" })),
+        ...storiesFromDedicated, // mapea con postType="story" garantizado
+        ...storiesFromSync,
       ];
 
       console.info("[syncZernioContent] stories sync", {
         accountId,
         fromDedicatedEndpoint: storiesFromDedicated.length,
-        fromSyncEndpoint: storiesFromSync.length,
-        fromListWithType: storiesFromList.length,
+        fromLegacySyncEndpoint: storiesFromSync.length,
         combined: combined.length,
       });
       return combined;
