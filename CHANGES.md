@@ -41,6 +41,37 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-24 — GHL UTM Attribution — atribución de fuente en closing calls
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `3da5bf1`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** closing/ventas, GHL integration
+
+**Qué se hizo:**
+- `lib/ghl/client.ts`: nuevo tipo `GHLContactAttributionSource` + función `getGHLContact(apiKey, contactId)` que trae el contacto individual con su campo `attributionSource` (UTMs). Devuelve `null` en caso de error para no bloquear el sync.
+- `lib/ghl/sync-appointments.ts`: al insertar/actualizar appointments, se fetchean en paralelo (concurrencia 5) los contactos asociados por `contactId` y se extraen los campos UTM (`utmSource`, `utmMedium`, `utmCampaign`, `utmContent`, `utmTerm`). También se guarda el JSON crudo de atribución en `attribution_source`.
+- `lib/ghl/sync-pipeline.ts`: pasa la `apiKey` a `syncGHLAppointmentsForOrganization` para habilitar el enriquecimiento de UTMs.
+- `supabase/migrations/20260824200000_closing_calls_utm.sql`: agrega `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`, `ghl_contact_id`, `attribution_source` a `closing_calls`. Aplicada en producción.
+- `lib/closing/mapper.ts` + `types/closing.ts`: nuevos campos UTM en `ClosingCallRow` y `ClosingCall`.
+- `components/closing/closing-overview.tsx`: columna "Fuente UTM" en tabla de lista (muestra source + medium · campaign). Panel de detalle: sección "Atribución UTM" con grid `dt/dd` visible solo si hay datos.
+
+**Por qué / finalidad:**
+El founder necesita saber de dónde viene cada agenda de cierre (qué campaña, fuente o contenido generó el lead). GHL guarda la atribución UTM en el contacto (`attributionSource`). Ahora el sync la extrae automáticamente y la muestra en la vista de closing.
+
+**Decisiones de diseño relevantes:**
+- **Pull durante sync vs. webhook**: se eligió pull (enriquecer al momento del sync) porque reutiliza la infraestructura existente, backfill automático de appointments históricos, y la atribución UTM no requiere real-time.
+- **Solo para nuevos/actualizados**: el fetch de contactos se hace solo para `toInsert` y `toUpdate`, no para todos los appointments. Minimiza requests a GHL.
+- **Concurrencia 5**: fetch paralelo con límite para no saturar la API de GHL. Un contacto fallido no bloquea el sync completo (`getGHLContact` devuelve `null` en error).
+- **`attribution_source` JSONB**: se guarda el objeto crudo completo además de los campos normalizados, para referencia futura sin necesidad de re-fetch.
+
+**Riesgos / deuda técnica pendiente:**
+- Si un contacto en GHL no tiene `attributionSource` (lead creado manualmente, sin UTMs), los campos quedan `null` — comportamiento correcto y esperado.
+- El campo `utmSource` en GHL puede ser `null` aun cuando hay datos en `medium` — el helper `buildUtmFields` hace fallback: `utmSource ?? medium`.
+- Appointments ya insertados en DB (sin UTMs) se enriquecerán en el próximo sync si su status no es `"closed"`. Los cerrados no se actualizan por diseño (no sobreescribir deals cerrados).
+
+---
+
 ### 2026-08-24 — GHL Data Loading — Fase 2 (importación de datos históricos)
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
