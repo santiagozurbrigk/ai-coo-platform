@@ -84,17 +84,16 @@
 
 ---
 
-### [FEAT-EXCEL-IMPORT] Carga de datos históricos desde Excel — Fase 2
+### [FEAT-EXCEL-IMPORT-FASE3] Mapeo de columnas personalizadas + plantilla descargable
 
-**Qué es:** Proceso estandarizado para que usuarios importen su historial de negocio (clientes, llamadas, pagos) desde archivos Excel propios.
-**Scope definido:**
-- El usuario siempre llega con su propio formato → siempre se mapea columnas (no hay plantilla descargable)
-- Flujo: subir archivo → detectar columnas → wizard de mapeo → preview → confirmar importación
-- Entidades: `clients`, `closing_calls` (con outcome), pagos
-- Validación antes de insertar (duplicados por email/nombre, fechas válidas, montos numéricos)
+**Qué es:** Fase 3 del proceso de importación. La Fase 2 implementó parsers OTC + wizard básico. Pendiente:
+- `components/integrations/excel-column-mapper.tsx` — UI de mapeo columna a columna (para archivos con formato propio)
+- `public/templates/otc-importacion.xlsx` — Generar plantilla descargable con las 3 tabs (Clientes, Llamadas, Pagos)
+- Importación de pagos (tab "Pagos") — la Fase 2 cubre clientes y llamadas, no pagos
+- Oportunidades de GHL (pipeline) → closing_calls como stretch goal
 
-**Estado:** Planeado. Sin implementación. Requiere sesión dedicada.
-**Complejidad:** Alta — wizard multi-paso, mapeo dinámico, validación, rollback parcial.
+**Estado:** Fase 2 implementada. Fase 3 pendiente para sesión futura.
+**Complejidad:** Media — la arquitectura ya está, falta la pantalla de mapeo y la plantilla.
 
 ---
 
@@ -151,6 +150,8 @@
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-24 | FEAT-GHL-PHASE2: Importación datos históricos GHL contacts + Excel clientes/llamadas — wizard 3 pasos, parsers Excel, preview GHL, server actions | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-24 | FIX-GHL-TIMESTAMPS: GHL `/calendars/events` requiere Unix ms, no ISO 8601 — fix sync que devolvía 0 citas | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-24 | FEAT-GHL-PHASE1: Integración GoHighLevel Calendar — Private Integration Token, sync horario, UI dialog multi-paso, badges de origen en closing | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-11 | TECH-1: Fathom deep analysis vía QStash (reemplaza void pattern que se perdía en Vercel) | `claude/marketing-module-console-errors-g2py5w` |
 | 2026-08-11 | TECH-2: Retención real YouTube Analytics API (fallback gracioso a estimación) | `claude/marketing-module-console-errors-g2py5w` |

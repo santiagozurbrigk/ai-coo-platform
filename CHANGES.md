@@ -41,6 +41,42 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-24 — GHL Data Loading — Fase 2 (importación de datos históricos)
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** integrations, clients, closing/ventas
+
+**Qué se hizo:**
+- **Fix timestamps GHL** (`lib/ghl/sync-pipeline.ts`): `buildSyncRange()` ahora usa Unix timestamps en ms (`getTime().toString()`) en lugar de ISO 8601 — GHL `/calendars/events` devolvía 200 + array vacío con ISO strings. Agregado log diagnóstico y fallback `data.data` en `listGHLAppointments`.
+- **GHL Contacts endpoint** (`lib/ghl/client.ts`): Nuevo tipo `GHLContact` y función `listGHLContacts()` con paginación cursor (`startAfterId`, máx 2000 contactos).
+- **Sync contactos → clients** (`lib/ghl/sync-contacts.ts`): Mapeo idempotente GHL Contacts → `clients`. Dedup por nombre normalizado (case-insensitive). No sobreescribe existentes. Email/teléfono se guardan en `ai_insights`.
+- **Import actions GHL** (`app/ghl/import-actions.ts`): `previewGHLContactsAction` (preview 10 primeros sin importar) + `importGHLContactsAction` (importación real vía admin client).
+- **Parser Excel clientes** (`lib/clients/excel-parser.ts`): Parsea `.xlsx` con plantilla OTC (tab "Clientes") o mapeo de columnas propio. Soporta fechas seriales de Excel, DD/MM/AAAA e ISO. Usa `xlsx` (SheetJS).
+- **Parser Excel llamadas** (`lib/closing/excel-parser.ts`): Idem para tab "Llamadas de cierre". Parsea fechas con hora. Status: cerrado → closed, no cerrado → not_closed, etc.
+- **Server actions Excel** (`app/clients/import-actions.ts`): `importClientsFromExcelAction` y `importClosingCallsFromExcelAction`. Reciben el archivo como base64 (serializable en Server Actions). Dedup clientes por nombre.
+- **Wizard UI** (`components/integrations/data-import-wizard.tsx`): Wizard 3 pasos — Origen (GHL/Excel), Qué importar (clientes/llamadas con preview), Confirmación + resultados.
+- **Página wizard** (`app/(platform)/integrations/import/page.tsx`): Server Component que carga estado GHL y renderiza el wizard.
+- **Integrations page** (`app/(platform)/integrations/page.tsx`): Botón "Importar datos históricos" → `/integrations/import`.
+- **Ruta** (`routes/paths.ts`): Agregado `integrationsImport`.
+
+**Por qué / finalidad:**
+Usuarios nuevos de OTC tienen sus datos históricos en GHL o Excel. Sin importación masiva, el onboarding es manual y lento. Esta fase permite cargar clientes y llamadas de cierre de una vez desde ambas fuentes.
+
+**Decisiones de diseño relevantes:**
+- Archivos Excel se envían como base64 al Server Action (Next.js 15 no serializa `File` en network calls).
+- Dedup por nombre (no por email) porque muchos usuarios no tienen email consistente en GHL.
+- Llamadas de cierre no se deduplan (se insertan todas; el usuario puede limpiar duplicados después).
+- Preview GHL carga automáticamente al seleccionar esa opción (llamada síncrona al `previewGHLContactsAction`).
+- GHL Appointments ya se sincronizan vía el calendario (Fase 1) — no se duplica en el wizard.
+
+**Riesgos / deuda técnica pendiente:**
+- Mapeo de columnas personalizado (para archivos con formato propio): la UI del wizard no tiene la pantalla de mapeo de columnas todavía — usa la plantilla OTC o las columnas detectadas automáticamente. Pendiente implementar `excel-column-mapper.tsx` para Fase 3.
+- Plantilla `.xlsx` descargable (`public/templates/otc-importacion.xlsx`) no generada todavía — el link en el wizard existe pero el archivo no.
+- Oportunidades de GHL (pipeline) → closing_calls es stretch goal Fase 3.
+
+---
+
 ### 2026-08-24 — Integración GoHighLevel (GHL) Calendar — Fase 1
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  

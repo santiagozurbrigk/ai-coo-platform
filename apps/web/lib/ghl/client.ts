@@ -22,6 +22,17 @@ export type GHLCalendar = {
   locationId: string;
 };
 
+export type GHLContact = {
+  id: string;
+  locationId: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  dateAdded: string | null;  // ISO 8601
+  tags: string[] | null;
+};
+
 export type GHLAppointmentStatus =
   | "booked"
   | "confirmed"
@@ -165,4 +176,39 @@ export async function listGHLAppointments(
   );
 
   return data.events ?? data.appointments ?? data.data ?? [];
+}
+
+/**
+ * Lista todos los contactos de la ubicación con paginación.
+ * Devuelve todos los contactos en un solo array (paginación interna).
+ * GHL V2: GET /contacts?locationId=&limit=100&startAfterId=
+ */
+export async function listGHLContacts(
+  apiKey: string,
+  locationId: string
+): Promise<GHLContact[]> {
+  const all: GHLContact[] = [];
+  let startAfterId: string | undefined;
+
+  // Máximo 2000 contactos por seguridad en importaciones manuales
+  const MAX_CONTACTS = 2000;
+
+  while (all.length < MAX_CONTACTS) {
+    const params: Record<string, string> = { locationId, limit: "100" };
+    if (startAfterId) params.startAfterId = startAfterId;
+
+    const data = await ghlFetch<{
+      contacts?: GHLContact[];
+      meta?: { startAfterId?: string; total?: number };
+    }>(apiKey, "/contacts/", params);
+
+    const page = data.contacts ?? [];
+    all.push(...page);
+
+    // Sin más páginas
+    if (page.length < 100 || !data.meta?.startAfterId) break;
+    startAfterId = data.meta.startAfterId;
+  }
+
+  return all;
 }
