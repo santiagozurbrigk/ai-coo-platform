@@ -153,68 +153,28 @@ async function fetchExternalPostsViaSync(
   // quedan guardadas como tipo "post" y el filtro "Historias" no las muestra.
   const allPosts: ZernioPost[] = [];
 
-  // 1) Sincronizar historias PRIMERO usando el endpoint dedicado de Zernio:
+  // 1) Historias activas de Instagram vía endpoint dedicado:
   //    GET /v1/accounts/{accountId}/instagram/stories
-  //    Este endpoint (documentado en docs.zernio.com/instagram/list-instagram-stories)
-  //    devuelve las historias activas (ventana 24 h de Meta) con campos propios
-  //    (id, mediaUrl, permalink, timestamp) que el cliente mapea a ZernioPost con
-  //    postType="story" garantizado.
-  //    Al entrar primero en allPosts, sus versiones tipeadas ganan el dedup sobre
-  //    los duplicados sin tipo que puede devolver el listado general de posts.
+  //    Meta solo expone historias vigentes (ventana 24 h). El cliente mapea cada item
+  //    a ZernioPost con postType="story" garantizado y nunca lanza — ver client.ts.
+  //    Entran en allPosts PRIMERO para ganar el dedup sobre los posts genéricos.
   const storiesResults = await Promise.allSettled(
     accountIds.map(async (accountId) => {
-      // Tres estrategias en paralelo, de más a menos específica:
-      // a) Endpoint dedicado GET /accounts/{id}/instagram/stories (docs oficiales)
-      // b) POST /posts/sync-stories (endpoint legacy, retorna 405 en prod → fallback a [])
-      // c) GET /posts?type=story (filtro genérico; Zernio puede no incluir postType en resp)
-      const [dedicatedResult, syncResult, listResult] = await Promise.allSettled([
-        client.listInstagramStories(accountId),
-        client.syncExternalStories(accountId),
-        client.listPublishedPosts({
-          source: "external",
-          accountId,
-          type: "story",
-          limit: 100,
-        }),
-      ]);
-
-      const storiesFromDedicated =
-        dedicatedResult.status === "fulfilled" ? (dedicatedResult.value.posts ?? []) : [];
-      const storiesFromSync =
-        syncResult.status === "fulfilled" ? (syncResult.value.posts ?? []) : [];
-      const storiesFromList =
-        listResult.status === "fulfilled" ? (listResult.value.posts ?? []) : [];
-
-      // Combinar todas las fuentes; el dedup final eliminará duplicados.
-      // Forzar postType = "story" en las que vengan de /posts?type=story sin tipo explícito.
-      const combined = [
-        ...storiesFromDedicated, // ya vienen con postType="story" del cliente
-        ...storiesFromSync,      // ya vienen con postType="story" si disponible
-        ...storiesFromList.map((p) => ({ ...p, postType: p.postType ?? "story" })),
-      ];
-
-      console.info("[syncZernioContent] stories sync", {
+      const { posts, error } = await client.listInstagramStories(accountId);
+      console.info("[syncZernioContent] stories", {
         accountId,
-        fromDedicatedEndpoint: storiesFromDedicated.length,
-        fromSyncEndpoint: storiesFromSync.length,
-        fromListWithType: storiesFromList.length,
-        combined: combined.length,
+        count: posts.length,
+        ...(error ? { error } : {}),
       });
-      return combined;
+      return posts;
     })
   );
 
   for (const result of storiesResults) {
     if (result.status === "fulfilled") {
       allPosts.push(...result.value);
-      continue;
     }
-    console.warn("[syncZernioContent] stories sync failed for account", {
-      error:
-        result.reason instanceof Error
-          ? result.reason.message
-          : String(result.reason),
-    });
+    // listInstagramStories nunca lanza, así que "rejected" no ocurre en práctica
   }
 
   // 2) Triggerear sync desde Instagram /me/media (posts, reels, carousels).

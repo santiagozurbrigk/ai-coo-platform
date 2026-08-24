@@ -503,9 +503,9 @@ export function createZernioClient(apiKey: string) {
      * Lista las historias activas de Instagram usando el endpoint dedicado.
      * GET /v1/accounts/{accountId}/instagram/stories
      * Ventana de 24 h — Meta solo expone historias vigentes.
-     * Retorna los items mapeados al formato ZernioPost para compatibilidad con el sync.
+     * Nunca lanza — siempre retorna { posts, error? } para que el caller pueda loggear.
      */
-    async listInstagramStories(accountId: string): Promise<{ posts: ZernioPost[] }> {
+    async listInstagramStories(accountId: string): Promise<{ posts: ZernioPost[]; error?: string }> {
       try {
         const data = await zernioFetchJson<{ data?: ZernioInstagramStory[] }>(
           "listInstagramStories",
@@ -513,7 +513,6 @@ export function createZernioClient(apiKey: string) {
           { headers: headers() }
         );
         const stories = data.data ?? [];
-        // Mapear al formato ZernioPost para que el sync pipeline lo procese uniformemente
         const posts: ZernioPost[] = stories.map((s) => ({
           id: s.id,
           platformPostId: s.id,
@@ -523,44 +522,13 @@ export function createZernioClient(apiKey: string) {
           thumbnailUrl: s.thumbnailUrl ?? (s.mediaType === "VIDEO" ? undefined : s.mediaUrl ?? undefined),
           publishedAt: s.timestamp,
         }));
+        console.info("[Zernio] listInstagramStories", { accountId, count: posts.length });
         return { posts };
       } catch (err) {
+        // Nunca lanzar — loggear el error completo para diagnóstico
         const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("HTTP 404") || msg.includes("HTTP 405") || msg.includes("HTTP 400")) {
-          console.info("[Zernio] listInstagramStories: endpoint no disponible", { accountId });
-          return { posts: [] };
-        }
-        throw err;
-      }
-    },
-
-    /**
-     * Sincroniza historias de Instagram desde la cuenta externa.
-     * Instagram expone stories vía /me/stories (endpoint separado a /me/media).
-     * Zernio las persiste con metrics via el webhook story_insights.
-     * Retorna las historias encontradas (activas y con métricas tardías).
-     */
-    async syncExternalStories(accountId: string): Promise<{ posts: ZernioPost[] }> {
-      // Intentar endpoint dedicado de sync de historias (análogo a POST /posts/sync-external)
-      try {
-        const data = await zernioFetchJson<{
-          posts?: ZernioPost[];
-          stories?: ZernioPost[];
-        }>("syncExternalStories", `${ZERNIO_API_BASE}/posts/sync-stories`, {
-          method: "POST",
-          headers: headers(),
-          body: JSON.stringify({ accountId }),
-        });
-        const posts = data.posts ?? data.stories ?? [];
-        return { posts };
-      } catch (err) {
-        // Si el endpoint no existe (404/405), fallback silencioso
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("HTTP 404") || msg.includes("HTTP 405") || msg.includes("HTTP 400")) {
-          console.info("[Zernio] syncExternalStories: endpoint no disponible, usando listPublishedPosts type=story", { accountId });
-          return { posts: [] };
-        }
-        throw err;
+        console.error("[Zernio] listInstagramStories: error al llamar endpoint", { accountId, error: msg });
+        return { posts: [], error: msg };
       }
     },
 
