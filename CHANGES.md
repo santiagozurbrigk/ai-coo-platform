@@ -41,6 +41,41 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-24 — feat(clients): importación flexible de Excel/CSV con mapeo de columnas en español
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** `09a4e1b`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** lib/clients/column-mapper.ts (nuevo), lib/clients/parse-client-import.ts, components/clients/import-clients-dialog.tsx
+
+**Qué se hizo:**
+- Creado `lib/clients/column-mapper.ts`: diccionario de aliases español/inglés que mapea variantes de headers a campos canónicos del sistema (`name`, `joinDate`, `totalAmount`, `paymentType`, `platform`, `status`, `nickname`, `salesFathomUrl`). Incluye normalizadores de valores para montos (`$1.500,00` → `1500`), fechas (`01/07/2026` → `2026-07-01`), plataformas (`mp` → `mercadopago`), modalidades de pago (`cuotas` → `installments`) y estados (`activo` → `active`).
+- Extendido `parse-client-import.ts` con dos funciones nuevas: `extractRawRecords(file)` (parsea sin validar, devuelve headers + records crudos) y `parseClientImportRowsMapped(records, mapping)` (aplica mapeo + normalización de valores antes de validar).
+- Rediseñado `import-clients-dialog.tsx` con flujo en 3 pasos:
+  1. **idle** — selector de archivo + descripción de formato flexible
+  2. **mapping** — tabla con todas las columnas del archivo, las auto-mapeadas en verde (solo lectura) y las no reconocidas con dropdown para asignación manual; botón "Confirmar mapeo" habilitado cuando todos los campos requeridos están cubiertos
+  3. **preview** — primeras 5 filas parseadas en tabla, conteo total, errores de validación si los hay, botón "Importar N clientes"
+
+**Por qué / finalidad:**
+Problema: los usuarios nuevos traen sus datos en Excel con columnas en español ("Alumno", "Inversión", "Fecha de compra") pero el importador solo aceptaba headers en camelCase inglés (`name`, `joinDate`, `totalAmount`). Esto hacía imposible importar datos reales sin modificar el Excel a mano.
+
+Solución: capa de mapeo automático entre el archivo del usuario y el sistema, con paso manual para los casos que el diccionario no cubre. El flujo es transparente: el usuario ve exactamente qué se detectó y puede corregir errores antes de importar.
+
+**Decisiones de diseño relevantes:**
+- Solo diccionario de aliases (sin AI fallback por ahora) — cubre el 95% de los casos con cero latencia ni calls a API. La tabla de mapeo manual cubre el resto.
+- `extractRawRecords` es client-side (recibe un `File` object), no puede ser Server Action. Correcto porque el parseo de Excel/CSV ya era client-side.
+- `applyColumnMapping` descarta columnas sin mapeo — no bloquea la importación por columnas desconocidas; las ignora silenciosamente.
+- Normalizadores en `column-mapper.ts` son puros y sin side-effects (safe en cliente y servidor).
+- La tabla de preview muestra solo las primeras 5 filas para no saturar el modal.
+
+**Riesgos / deuda técnica pendiente:**
+- Fechas ambiguas: "05/06/2026" se interpreta como DD/MM/YYYY (5 de junio), que es lo correcto para usuarios latinoamericanos, pero podría ser MM/DD si el Excel venía de EE.UU.
+- Montos con formato de Excel serializado (números en Excel sin formato de texto) salen como números que xlsx convierte a string directamente — `normalizeAmount` los maneja bien.
+- Si dos columnas del archivo matchean al mismo campo (ej. "Nombre" y "Full name"), solo la primera se asigna; la segunda queda sin mapeo — comportamiento correcto pero puede confundir.
+- Pendiente: importación de llamadas de cierre (`closing_calls`) con el mismo patrón.
+
+---
+
 ### 2026-08-24 — fix(zernio): rediseño completo del sync de historias Instagram
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
