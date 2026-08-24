@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { cn } from "@ai-coo/ui";
-import { deleteMetricSnapshotsByPeriodAction, type MetricSnapshotRow } from "@/app/metrics/actions";
+import { deleteMetricSnapshotsByPeriodAction, getMetricSnapshotsAction, type MetricSnapshotRow, type SnapshotLocation } from "@/app/metrics/actions";
 import { useToast } from "@/providers/toast-provider";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -39,10 +39,12 @@ function groupByPeriod(rows: MetricSnapshotRow[]): Map<string, MetricSnapshotRow
 function PeriodRow({
   period,
   rows,
+  location,
   onDeleted,
 }: {
   period: string;
   rows: MetricSnapshotRow[];
+  location?: SnapshotLocation;
   onDeleted: () => void;
 }) {
   const { push } = useToast();
@@ -51,7 +53,7 @@ function PeriodRow({
 
   const handleDelete = () => {
     startDelete(async () => {
-      const result = await deleteMetricSnapshotsByPeriodAction(period);
+      const result = await deleteMetricSnapshotsByPeriodAction(period, location);
       if ("error" in result && result.error) {
         push({ title: "Error al eliminar", description: result.error, variant: "default" });
       } else {
@@ -107,16 +109,17 @@ function PeriodRow({
 
 export function MetricSnapshotsSection({
   initialRows,
+  location,
   onImported,
 }: {
   initialRows: MetricSnapshotRow[];
+  location?: SnapshotLocation;
   onImported?: () => void;
 }) {
   const [rows, setRows] = useState<MetricSnapshotRow[]>(initialRows);
 
   async function refresh() {
-    const { getMetricSnapshotsAction } = await import("@/app/metrics/actions");
-    const updated = await getMetricSnapshotsAction();
+    const updated = await getMetricSnapshotsAction(location);
     setRows(updated);
     onImported?.();
   }
@@ -141,6 +144,7 @@ export function MetricSnapshotsSection({
             key={period}
             period={period}
             rows={grouped.get(period)!}
+            location={location}
             onDeleted={refresh}
           />
         ))}

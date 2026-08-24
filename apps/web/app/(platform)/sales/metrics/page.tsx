@@ -2,6 +2,7 @@ import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { getFrequentObjections, mockFrequentObjectionSummaries } from "@/lib/metrics/frequent-objections";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { SalesMetricsRedesign } from "@/components/sales/sales-metrics-redesign";
+import { getMetricSnapshotsAction } from "@/app/metrics/actions";
 import type { FrequentObjectionsResult } from "@/types/sales";
 
 async function loadFrequentObjections(): Promise<FrequentObjectionsResult> {
@@ -17,9 +18,15 @@ async function loadFrequentObjections(): Promise<FrequentObjectionsResult> {
 }
 
 export default async function SalesMetricsPage() {
-  const frequentObjections = await loadFrequentObjections();
+  const [frequentObjections, metricSnapshots] = await Promise.all([
+    loadFrequentObjections(),
+    getMetricSnapshotsAction("sales"),
+  ]);
 
   return (
-    <SalesMetricsRedesign frequentObjections={frequentObjections} />
+    <SalesMetricsRedesign
+      frequentObjections={frequentObjections}
+      metricSnapshots={metricSnapshots}
+    />
   );
 }

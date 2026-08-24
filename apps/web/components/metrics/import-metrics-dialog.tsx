@@ -11,7 +11,11 @@ import {
   DialogTitle,
 } from "@ai-coo/ui";
 import { AlertCircle, CheckCircle2, FileSpreadsheet, Upload } from "lucide-react";
-import { importMetricSnapshotsAction } from "@/app/metrics/actions";
+import {
+  importMetricSnapshotsAction,
+  SNAPSHOT_LOCATIONS,
+  type SnapshotLocation,
+} from "@/app/metrics/actions";
 import { extractRawRecords } from "@/lib/clients/parse-client-import";
 import {
   detectPeriodColumn,
@@ -24,16 +28,19 @@ import { useToast } from "@/providers/toast-provider";
 type Step = "idle" | "mapping" | "preview";
 
 interface ImportMetricsDialogProps {
+  /** Si se especifica, el selector de módulo se fija a este valor y no se muestra */
+  defaultLocation?: SnapshotLocation;
   onImported?: () => void;
 }
 
-export function ImportMetricsDialog({ onImported }: ImportMetricsDialogProps) {
+export function ImportMetricsDialog({ defaultLocation, onImported }: ImportMetricsDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { push } = useToast();
 
   const [open, setOpen] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("idle");
+  const [location, setLocation] = useState<SnapshotLocation>(defaultLocation ?? "dashboard");
 
   const [rawRecords, setRawRecords] = useState<Record<string, string>[]>([]);
   const [allHeaders, setAllHeaders] = useState<string[]>([]);
@@ -47,6 +54,7 @@ export function ImportMetricsDialog({ onImported }: ImportMetricsDialogProps) {
   const resetForm = () => {
     setStep("idle");
     setFileName(null);
+    setLocation(defaultLocation ?? "dashboard");
     setRawRecords([]);
     setAllHeaders([]);
     setPeriodColumn("");
@@ -123,7 +131,7 @@ export function ImportMetricsDialog({ onImported }: ImportMetricsDialogProps) {
     if (snapshots.length === 0) return;
     setSaving(true);
     try {
-      const result = await importMetricSnapshotsAction(snapshots);
+      const result = await importMetricSnapshotsAction(snapshots, location);
       push({
         title: `${result.upsertedCount} valores importados correctamente`,
         variant: "success",
@@ -166,6 +174,34 @@ export function ImportMetricsDialog({ onImported }: ImportMetricsDialogProps) {
                 </DialogDescription>
               </DialogHeader>
 
+              {/* Selector de módulo */}
+              {!defaultLocation && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    ¿A qué sección pertenecen estas métricas?
+                  </label>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {SNAPSHOT_LOCATIONS.map((loc) => (
+                      <button
+                        key={loc.value}
+                        type="button"
+                        onClick={() => setLocation(loc.value)}
+                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                          location === loc.value
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        }`}
+                      >
+                        {loc.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Las métricas aparecerán en esa sección y en el Panel General.
+                  </p>
+                </div>
+              )}
+
               {/* Formato esperado */}
               <div className="rounded-lg border border-border/50 bg-muted/20 p-3 space-y-1.5">
                 <p className="text-xs font-medium text-foreground/80">Formato esperado:</p>
@@ -173,7 +209,7 @@ export function ImportMetricsDialog({ onImported }: ImportMetricsDialogProps) {
                   <table className="w-full text-xs border-collapse">
                     <thead>
                       <tr className="text-muted-foreground">
-                        {["Fecha", "Revenue", "Leads", "Conversión", "Inversión Ads"].map((h) => (
+                        {["Fecha", "Leads", "Chats abiertos", "Tasa agendamiento", "Revenue"].map((h) => (
                           <th key={h} className="border border-border/40 px-2 py-1 font-medium bg-muted/30 text-left">
                             {h}
                           </th>
@@ -182,14 +218,14 @@ export function ImportMetricsDialog({ onImported }: ImportMetricsDialogProps) {
                     </thead>
                     <tbody>
                       <tr>
-                        {["01/07/2026", "15.000", "200", "4,5%", "3.000"].map((v, i) => (
+                        {["07/2026", "200", "85", "42%", "15.000"].map((v, i) => (
                           <td key={i} className="border border-border/40 px-2 py-1 text-muted-foreground">
                             {v}
                           </td>
                         ))}
                       </tr>
                       <tr>
-                        {["01/08/2026", "18.000", "250", "5,2%", "3.500"].map((v, i) => (
+                        {["08/2026", "250", "110", "48%", "18.000"].map((v, i) => (
                           <td key={i} className="border border-border/40 px-2 py-1 text-muted-foreground">
                             {v}
                           </td>
@@ -199,7 +235,7 @@ export function ImportMetricsDialog({ onImported }: ImportMetricsDialogProps) {
                   </table>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Soporta .xlsx, .xls y .csv · Podés reimportar para actualizar valores existentes.
+                  Soporta .xlsx, .xls y .csv · Reimportar actualiza los valores existentes.
                 </p>
               </div>
 

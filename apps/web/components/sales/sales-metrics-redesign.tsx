@@ -37,13 +37,18 @@ import { SummaryStrip } from "./metrics/summary-strip";
 import { useSalesMetrics } from "./metrics/use-sales-metrics";
 import type { DateRange } from "./metrics/date-range-picker";
 import type { FrequentObjectionsResult } from "@/types/sales";
+import { MetricSnapshotsSection } from "@/components/metrics/metric-snapshots-section";
+import { ImportMetricsDialog } from "@/components/metrics/import-metrics-dialog";
+import type { MetricSnapshotRow } from "@/app/metrics/actions";
 
 // ─── Componente principal ──────────────────────────────────────────────────────
 
 export function SalesMetricsRedesign({
   frequentObjections,
+  metricSnapshots = [],
 }: {
   frequentObjections?: FrequentObjectionsResult;
+  metricSnapshots?: MetricSnapshotRow[];
 }) {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
 
@@ -401,6 +406,23 @@ export function SalesMetricsRedesign({
 
       {/* ── Franja de resumen ─────────────────────────────────────────────── */}
       <SummaryStrip items={summaryItems} />
+
+      {/* ── Métricas históricas importadas ────────────────────────────────── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">Métricas de ventas importadas</p>
+            <p className="text-xs text-muted-foreground">
+              KPIs históricos cargados desde Excel (leads, tasa de agendamiento, etc.)
+            </p>
+          </div>
+          <ImportMetricsDialog defaultLocation="sales" />
+        </div>
+        <MetricSnapshotsSection
+          initialRows={metricSnapshots}
+          location="sales"
+        />
+      </div>
     </div>
   );
 }

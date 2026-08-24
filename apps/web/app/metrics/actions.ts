@@ -174,13 +174,25 @@ export async function deleteCustomMetricAction(
 
 // ─── Metric Snapshots (importación histórica desde Excel) ─────────────────────
 
+export const SNAPSHOT_LOCATIONS = [
+  { value: "dashboard",  label: "Panel General"  },
+  { value: "sales",      label: "Ventas"          },
+  { value: "closing",    label: "Closing"         },
+  { value: "clients",    label: "Clientes"        },
+  { value: "marketing",  label: "Marketing"       },
+  { value: "finance",    label: "Finanzas"        },
+] as const;
+
+export type SnapshotLocation = (typeof SNAPSHOT_LOCATIONS)[number]["value"];
+
 export type MetricSnapshotRow = {
   id: string;
   organization_id: string;
-  period: string;       // YYYY-MM-DD
+  period: string;              // YYYY-MM-DD
   metric_key: string;
   value: number;
   source: string;
+  display_location: SnapshotLocation;
   created_at: string;
 };
 
@@ -190,7 +202,8 @@ export type ImportMetricSnapshotsResult = {
 };
 
 export async function importMetricSnapshotsAction(
-  snapshots: MetricSnapshotInput[]
+  snapshots: MetricSnapshotInput[],
+  display_location: SnapshotLocation = "dashboard"
 ): Promise<ImportMetricSnapshotsResult> {
   if (!isSupabaseConfigured()) throw new Error("Supabase no configurado");
   if (snapshots.length === 0) return { upsertedCount: 0, errors: [] };
@@ -204,10 +217,11 @@ export async function importMetricSnapshotsAction(
     metric_key: s.metric_key,
     value: s.value,
     source: "import" as const,
+    display_location,
     updated_at: new Date().toISOString(),
   }));
 
-  // Upsert: si ya existe (mismo org + period + metric_key), actualiza el valor
+  // Upsert: si ya existe (mismo org + period + metric_key), actualiza el valor y la location
   const { data, error } = await supabase
     .from("metric_snapshots")
     .upsert(rows, { onConflict: "organization_id,period,metric_key" })
@@ -217,36 +231,49 @@ export async function importMetricSnapshotsAction(
   return { upsertedCount: data?.length ?? 0, errors: [] };
 }
 
-export async function getMetricSnapshotsAction(): Promise<MetricSnapshotRow[]> {
+export async function getMetricSnapshotsAction(
+  location?: SnapshotLocation
+): Promise<MetricSnapshotRow[]> {
   if (!isSupabaseConfigured()) return [];
 
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("metric_snapshots")
     .select("*")
     .eq("organization_id", organizationId)
     .order("period", { ascending: false })
     .order("metric_key", { ascending: true });
 
+  if (location) {
+    query = query.eq("display_location", location);
+  }
+
+  const { data, error } = await query;
   if (error || !data) return [];
   return data as MetricSnapshotRow[];
 }
 
 export async function deleteMetricSnapshotsByPeriodAction(
-  period: string
+  period: string,
+  location?: SnapshotLocation
 ): Promise<MutationResult<void>> {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
   return runMutation(async () => {
-    const { error } = await supabase
+    let query = supabase
       .from("metric_snapshots")
       .delete()
       .eq("organization_id", organizationId)
       .eq("period", period);
 
+    if (location) {
+      query = query.eq("display_location", location);
+    }
+
+    const { error } = await query;
     if (error) throw new Error(error.message);
   });
 }
