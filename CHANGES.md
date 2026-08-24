@@ -41,6 +41,30 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-24 — feat(marketing): botón "Sincronizar ahora" en página de contenido
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** `abce9c2`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** marketing/content
+
+**Qué se hizo:**
+
+- Nuevo componente client `ContentSyncButton` (`components/marketing/content-sync-button.tsx`) que llama `syncZernioContentAction()` directamente (sin throttle). Muestra spinner mientras sincroniza y hace `router.refresh()` al terminar.
+- El botón aparece en el header de la pestaña "Biblioteca" (esquina superior derecha).
+- Eliminado el label estático "Sincronizado HH:MM" que aparecía incluso cuando el sync era saltado por el throttle de 30 min — era información engañosa.
+
+**Por qué / finalidad:**
+
+El throttle de 30 min de `maybeSyncZernioContentAction` impedía correr el nuevo código de stories (fix BUG-1) sin esperar el intervalo completo. El botón manual permite forzar un sync real on demand.
+
+**Riesgos / deuda técnica:**
+
+- El botón llama siempre a un sync completo (posts + métricas parciales) — podría ser costoso si hay muchas cuentas. Aceptable como feature para founders.
+- No hay feedback de error visible en UI si Zernio falla (solo silencioso).
+
+---
+
 ### 2026-08-24 — fix(marketing): stories de Instagram no se mostraban en la app
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
