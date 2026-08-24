@@ -41,6 +41,35 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-24 — feat(metrics): display_location + sección historial en módulo Ventas
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** `14db782`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** supabase/migrations, app/metrics/actions.ts, components/metrics/, components/sales/sales-metrics-redesign.tsx, app/(platform)/sales/metrics/page.tsx
+
+**Qué se hizo:**
+- Migración `20260824130000_metric_snapshots_display_location.sql`: agrega columna `display_location text NOT NULL DEFAULT 'dashboard'` a `metric_snapshots` + índice compuesto `(organization_id, display_location, period DESC)`
+- `app/metrics/actions.ts`: exporta `SNAPSHOT_LOCATIONS`, `SnapshotLocation` type, `MetricSnapshotRow` con campo `display_location`; `importMetricSnapshotsAction` acepta `display_location` y lo persiste; `getMetricSnapshotsAction` y `deleteMetricSnapshotsByPeriodAction` aceptan `location?` como filtro
+- `components/metrics/import-metrics-dialog.tsx`: paso "idle" incluye selector de módulo con chips (desaparece si se pasa `defaultLocation`); pasa `location` al action de import
+- `components/metrics/metric-snapshots-section.tsx`: prop `location?` propagada a `PeriodRow` y a `getMetricSnapshotsAction` en refresh; `deleteMetricSnapshotsByPeriodAction` recibe el location
+- `components/sales/sales-metrics-redesign.tsx`: sección inferior con `ImportMetricsDialog defaultLocation="sales"` + `MetricSnapshotsSection location="sales"`
+- `app/(platform)/sales/metrics/page.tsx`: fetch paralelo de `getMetricSnapshotsAction("sales")` + pasa resultado a `SalesMetricsRedesign`
+
+**Por qué / finalidad:**
+El usuario señaló que las métricas de ventas (leads, chats abiertos, tasa de agendamiento, etc.) también deberían aparecer en el módulo de Ventas, no solo en el Panel General. La solución es etiquetar cada importación de Excel a un módulo (`display_location`), y renderizar la sección de historial importado en la página correspondiente.
+
+**Decisiones de diseño relevantes:**
+- Por-importación (no por-columna): toda una planilla se asigna a un módulo en el paso idle del dialog. Es más simple que pedir al usuario que clasifique cada métrica individualmente.
+- `defaultLocation` como prop: permite usar el mismo `ImportMetricsDialog` en cualquier página fijando la location y ocultando el picker.
+- Filtro en fetch: `getMetricSnapshotsAction("sales")` filtra en DB, no en cliente.
+
+**Riesgos / deuda técnica pendiente:**
+- La migración `display_location` debe aplicarse en producción. Los registros importados antes de esta migración tendrán `display_location = 'dashboard'` (default). No hay datos en producción aún (feature nueva).
+- Los módulos closing, marketing, clients, finance podrían tener secciones similares en el futuro (mismos 3-4 líneas de código en cada page.tsx + render del componente).
+
+---
+
 ### 2026-08-24 — feat(metrics): importación de métricas históricas desde Excel/CSV
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  

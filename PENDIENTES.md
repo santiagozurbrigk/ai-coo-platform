@@ -103,6 +103,7 @@
 | 2026-08-23 | feat(crons): fan-out QStash para sync-metrics, intelligence-snapshot, executive-report, founder-tone | `claude/qstash-fanout-playwright` |
 | 2026-08-24 | fix(zernio): rediseño sync historias Instagram — único endpoint dedicado, captura todos los errores HTTP, elimina llamadas muertas (syncExternalStories 405, listPublishedPosts?type=story) | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-24 | feat(marketing): botón "Sincronizar ahora" en contenido — bypass throttle 30min + elimina label "Sincronizado" engañoso | `claude/architecture-review-improvements-fdj4ae` |
+| 2026-08-24 | feat(metrics): display_location por importación — selector de módulo en dialog + sección historial en Ventas + filtro en actions | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-24 | feat(metrics): importación de métricas históricas desde Excel/CSV — metric_snapshots (tabla + migración) + parse-metrics-import.ts + importMetricSnapshotsAction + ImportMetricsDialog + MetricSnapshotsSection en dashboard | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-24 | feat(closing): importación de llamadas de cierre desde Excel/CSV — parse-closing-import.ts + importClosingCallsAction + dialog en /sales/closing | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-24 | feat(clients): importación flexible Excel/CSV con mapeo automático de columnas en español (column-mapper.ts + extractRawRecords + paso de mapping manual en dialog) | `claude/architecture-review-improvements-fdj4ae` |
