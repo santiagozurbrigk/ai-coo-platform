@@ -73,6 +73,7 @@ La documentación oficial de Zernio (`docs.zernio.com/instagram/list-instagram-s
 
 ---
 
+
 ### 2026-08-24 — Fix E2E: clearCookies() en beforeEach para garantizar refresh token virgen
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
