@@ -131,11 +131,10 @@ export async function listGHLCalendars(
  * startTime y endTime en ISO 8601 (ej: "2024-01-01T00:00:00Z").
  *
  * GHL V2 endpoint correcto: GET /calendars/events
- * - /calendars/appointments → 400 (GHL lo interpreta como GET /calendars/:id con id="appointments")
+ * - /calendars/appointments → 400 (GHL lo enruta como GET /calendars/:id)
  * - /calendars/{calendarId}/appointments → 404 (no existe)
- * - /calendars/events → correcto, responde con { events: [...] }
- *
- * GHL V2 limita a 20 por página; se itera hasta obtener todos.
+ * - /calendars/events → correcto, con includeAll=true devuelve todo de una sola vez
+ *   (el parámetro "page" no es válido en este endpoint → 422)
  */
 export async function listGHLAppointments(
   apiKey: string,
@@ -144,30 +143,16 @@ export async function listGHLAppointments(
   startTime: string,
   endTime: string
 ): Promise<GHLAppointment[]> {
-  const all: GHLAppointment[] = [];
-  let currentPage = 1;
+  const data = await ghlFetch<{
+    events?: GHLAppointment[];
+    appointments?: GHLAppointment[];  // fallback por si GHL cambia la key
+  }>(apiKey, "/calendars/events", {
+    locationId,
+    calendarId,
+    startTime,
+    endTime,
+    includeAll: "true",
+  });
 
-  while (true) {
-    const data = await ghlFetch<{
-      events?: GHLAppointment[];
-      appointments?: GHLAppointment[];  // fallback por si GHL cambia la key
-      meta?: { currentPage?: number; nextPage?: number | null };
-    }>(apiKey, "/calendars/events", {
-      locationId,
-      calendarId,
-      startTime,
-      endTime,
-      includeAll: "true",
-      page: String(currentPage),
-    });
-
-    const page = data.events ?? data.appointments ?? [];
-    all.push(...page);
-
-    const nextPage = data.meta?.nextPage ?? null;
-    if (!nextPage || page.length === 0) break;
-    currentPage = nextPage;
-  }
-
-  return all;
+  return data.events ?? data.appointments ?? [];
 }
