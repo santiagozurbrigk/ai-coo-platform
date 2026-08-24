@@ -8,6 +8,7 @@ import { usePlatformData } from "@/providers/platform-data-provider";
 import type { ZernioAnalyticsSummary } from "@/app/integrations/zernio/actions";
 import type { FrequentObjectionsResult } from "@/types/sales";
 import type { ComputedCustomMetric } from "@/lib/metrics/custom-metrics";
+import type { MetricSnapshotRow } from "@/app/metrics/actions";
 import { PageLoading } from "@/components/shared/page-loading";
 import { DashboardOverview } from "./dashboard-overview";
 
@@ -22,10 +23,12 @@ export function DashboardPageContent({
     hasData: false,
   },
   customMetrics = [],
+  metricSnapshots = [],
 }: {
   frequentObjections?: FrequentObjectionsResult | null;
   zernioAnalytics?: ZernioAnalyticsSummary;
   customMetrics?: ComputedCustomMetric[];
+  metricSnapshots?: MetricSnapshotRow[];
 }) {
   const {
     clients,
@@ -87,6 +90,8 @@ export function DashboardPageContent({
     <DashboardOverview
       data={data}
       zernioAnalytics={zernioAnalytics}
+      customMetrics={customMetrics}
+      metricSnapshots={metricSnapshots}
     />
   );
 }

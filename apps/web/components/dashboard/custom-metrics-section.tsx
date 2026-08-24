@@ -4,7 +4,9 @@ import { useState, useTransition } from "react";
 import { Edit2, Plus, Trash2 } from "lucide-react";
 import { cn } from "@ai-coo/ui";
 import type { ComputedCustomMetric, MetricDisplayLocation } from "@/lib/metrics/custom-metrics";
-import { deleteCustomMetricAction } from "@/app/metrics/actions";
+import { deleteCustomMetricAction, type MetricSnapshotRow } from "@/app/metrics/actions";
+import { ImportMetricsDialog } from "@/components/metrics/import-metrics-dialog";
+import { MetricSnapshotsSection } from "@/components/metrics/metric-snapshots-section";
 import { CustomMetricBuilder } from "./custom-metric-builder";
 
 // ─── Individual card ──────────────────────────────────────────────────────────
@@ -78,12 +80,15 @@ function CustomMetricCard({
 
 export function CustomMetricsSection({
   initialMetrics,
+  initialSnapshots = [],
   location = "dashboard",
 }: {
   initialMetrics: ComputedCustomMetric[];
+  initialSnapshots?: MetricSnapshotRow[];
   location?: MetricDisplayLocation;
 }) {
   const [metrics, setMetrics] = useState<ComputedCustomMetric[]>(initialMetrics);
+  const [snapshots, setSnapshots] = useState<MetricSnapshotRow[]>(initialSnapshots);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [editingMetric, setEditingMetric] = useState<ComputedCustomMetric | undefined>();
 
@@ -108,6 +113,12 @@ export function CustomMetricsSection({
     setMetrics((prev) => prev.filter((m) => m.id !== id));
   }
 
+  async function handleSnapshotsImported() {
+    const { getMetricSnapshotsAction } = await import("@/app/metrics/actions");
+    const updated = await getMetricSnapshotsAction();
+    setSnapshots(updated);
+  }
+
   const isEmpty = metrics.length === 0;
 
   return (
@@ -120,14 +131,17 @@ export function CustomMetricsSection({
             KPIs personalizados para tu negocio
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/30 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Nueva métrica
-        </button>
+        <div className="flex items-center gap-2">
+          <ImportMetricsDialog onImported={handleSnapshotsImported} />
+          <button
+            type="button"
+            onClick={openCreate}
+            className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/30 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Nueva métrica
+          </button>
+        </div>
       </div>
 
       {/* Grid */}
@@ -160,6 +174,12 @@ export function CustomMetricsSection({
           ))}
         </div>
       )}
+
+      {/* Historial importado desde Excel */}
+      <MetricSnapshotsSection
+        initialRows={snapshots}
+        onImported={handleSnapshotsImported}
+      />
 
       {/* Builder modal */}
       <CustomMetricBuilder

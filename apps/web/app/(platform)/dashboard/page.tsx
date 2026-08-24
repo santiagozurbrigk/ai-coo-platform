@@ -1,5 +1,5 @@
 import { getZernioAnalyticsAction } from "@/app/integrations/zernio/actions";
-import { getCustomMetricsAction } from "@/app/metrics/actions";
+import { getCustomMetricsAction, getMetricSnapshotsAction } from "@/app/metrics/actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { getHoldingSessionState } from "@/lib/holding/session";
 import {
@@ -30,11 +30,12 @@ export default async function DashboardPage() {
     redirect(paths.platform.holding);
   }
 
-  const [frequentObjections, zernioAnalytics, customMetrics] =
+  const [frequentObjections, zernioAnalytics, customMetrics, metricSnapshots] =
     await Promise.all([
       loadFrequentObjections(),
       getZernioAnalyticsAction(),
       isSupabaseConfigured() ? getCustomMetricsAction("dashboard") : Promise.resolve([]),
+      isSupabaseConfigured() ? getMetricSnapshotsAction() : Promise.resolve([]),
     ]);
 
   return (
@@ -42,6 +43,7 @@ export default async function DashboardPage() {
       frequentObjections={frequentObjections}
       zernioAnalytics={zernioAnalytics}
       customMetrics={customMetrics}
+      metricSnapshots={metricSnapshots}
     />
   );
 }

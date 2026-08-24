@@ -9,7 +9,10 @@ import { ZernioAnalyticsSection } from "./zernio-analytics-section";
 import { TopKpiRow } from "./top-kpi-row";
 import { SalesFunnelStrip } from "./sales-funnel-strip";
 import type { ZernioAnalyticsSummary } from "@/app/integrations/zernio/actions";
+import type { MetricSnapshotRow } from "@/app/metrics/actions";
+import type { ComputedCustomMetric } from "@/lib/metrics/custom-metrics";
 import { SalesTeamPerformanceSection } from "@/components/sales/sales-team-performance-section";
+import { CustomMetricsSection } from "./custom-metrics-section";
 
 const fade = {
   initial: { opacity: 0, y: 8 },
@@ -19,9 +22,13 @@ const fade = {
 export function DashboardOverview({
   data,
   zernioAnalytics,
+  customMetrics = [],
+  metricSnapshots = [],
 }: {
   data: DashboardData;
   zernioAnalytics?: ZernioAnalyticsSummary;
+  customMetrics?: ComputedCustomMetric[];
+  metricSnapshots?: MetricSnapshotRow[];
 }) {
   if (data.isEmpty) {
     return <DashboardEmptyState />;
@@ -75,6 +82,15 @@ export function DashboardOverview({
               hasData: false,
             }
           }
+        />
+      </motion.div>
+
+      {/* 7 — KPIs personalizados + métricas importadas desde Excel */}
+      <motion.div variants={fade}>
+        <CustomMetricsSection
+          initialMetrics={customMetrics}
+          initialSnapshots={metricSnapshots}
+          location="dashboard"
         />
       </motion.div>
     </motion.div>
