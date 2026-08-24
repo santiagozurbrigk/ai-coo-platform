@@ -31,12 +31,7 @@
 
 ## 🟠 Bugs conocidos — Verificar en producción
 
-### [BUG-1] Stories de Instagram — verificar en producción tras fix
-
-**Contexto:** Fix deployado en `claude/architecture-review-improvements-fdj4ae`. Ahora usa el endpoint correcto `GET /v1/accounts/{accountId}/instagram/stories` + fallbacks. Las historias se fuerzan a `postType='story'` antes del dedup y entran primero en `allPosts`.  
-**Para verificar:** Con una historia activa en Instagram → sync manual desde `/marketing/content` → el log `[syncZernioContent] stories sync` debe mostrar `fromDedicatedEndpoint > 0` → ir al tab "Historias" en la UI.  
-**Si sigue sin aparecer:** Revisar que el registro en DB tenga `type='story'` (puede ser que exista como `type='post'` de syncs anteriores; el próximo sync lo corrige vía UPDATE).  
-**Archivos clave:** `app/marketing/content/sync-actions.ts`, `lib/zernio/client.ts`
+*(Sin bugs conocidos pendientes)*
 
 ---
 
@@ -104,6 +99,7 @@
 | 2026-08-23 | perf(holding): RPC get_holding_dashboard_stats — 28 queries → 2 paralelas | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-23 | fix(holding): dropdown del switcher de negocios scrollable (max-h-[280px]) | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-23 | feat(crons): fan-out QStash para sync-metrics, intelligence-snapshot, executive-report, founder-tone | `claude/qstash-fanout-playwright` |
+| 2026-08-24 | fix(zernio): rediseño sync historias Instagram — único endpoint dedicado, captura todos los errores HTTP, elimina llamadas muertas (syncExternalStories 405, listPublishedPosts?type=story) | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-24 | feat(marketing): botón "Sincronizar ahora" en contenido — bypass throttle 30min + elimina label "Sincronizado" engañoso | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-24 | fix(e2e): clearCookies() en beforeEach para garantizar refresh token virgen (tests 6/7 holding) | `claude/architecture-review-improvements-fdj4ae` |
 | 2026-08-23 | feat(testing): Playwright E2E setup + tests holding flow (pendiente ejecutar con cuenta real) | `claude/qstash-fanout-playwright` |

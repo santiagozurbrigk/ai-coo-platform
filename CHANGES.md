@@ -41,6 +41,41 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-24 — fix(zernio): rediseño completo del sync de historias Instagram
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** `b1c3e39`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** lib/zernio/client.ts, app/marketing/content/sync-actions.ts
+
+**Qué se hizo:**
+
+- `client.ts` — `listInstagramStories`: reescrito para nunca lanzar excepción. Antes solo capturaba HTTP 404/405/400 silenciosamente y relanzaba cualquier otro error (401, 403, 500) que era tragado en silencio por `Promise.allSettled` del caller. Ahora captura TODO error, lo loggea con `console.error` mostrando el status/mensaje exacto, y retorna `{ posts: [], error: string }`.
+- `client.ts` — `syncExternalStories`: eliminado. Este método llamaba `POST /posts/sync-stories`, endpoint que Zernio no tiene (siempre retornaba 405). Era código muerto.
+- `sync-actions.ts` — pipeline de historias: simplificado a una única fuente: `GET /v1/accounts/{accountId}/instagram/stories` (endpoint oficial documentado por Zernio). Se eliminaron:
+  - La llamada a `syncExternalStories` (siempre 405)
+  - La llamada a `listPublishedPosts?type=story` (devolvía todos los posts sin filtrar por tipo — confirmado por logs `fromListWithType: 6` cuando hay 6 reels/carruseles)
+  - El forzado `postType: p.postType ?? "story"` sobre el resultado de esa llamada (etiquetaba incorrectamente reels/carruseles como historia)
+- Los logs ahora distinguen claramente "count: N historias encontradas" vs "error: HTTP XXX — ..."
+
+**Por qué / finalidad:**
+
+Investigación reveló que `fromDedicatedEndpoint: 0` en Vercel logs era ambiguo: podía ser respuesta vacía (historia expirada) O error silencioso (401/403 nunca loggeado). El rediseño garantiza que cualquier fallo de API queda registrado con el error exacto, lo que permite diagnóstico en producción.
+
+**Decisiones de diseño relevantes:**
+
+- La función `listInstagramStories` en el cliente tiene contrato "never throws" — esto es explícito en el JSDoc. El caller nunca necesita try/catch.
+- Se descartó mantener el fallback `listPublishedPosts?type=story` porque el filtro `?type=story` no funciona correctamente en Zernio (retorna todos los posts sin distinción de tipo).
+- `syncExternalStories` fue eliminado completamente del cliente (no solo del pipeline) ya que el endpoint POST `/posts/sync-stories` no existe en Zernio según pruebas en producción.
+
+**Riesgos / deuda técnica pendiente:**
+
+- Si el endpoint dedicado retorna 401 (token vencido), ahora el error aparece en logs pero no hay retry automático. El usuario debe reconectar Zernio desde `/integrations`.
+- Meta solo expone historias dentro de la ventana de 24 h. Si no hay historia activa en Instagram, `count: 0` es el resultado correcto — no un bug.
+- BUG-1 marcado como completado en PENDIENTES.md (el fix estaba en rama previa; este commit cierra el diagnóstico final).
+
+---
+
 ### 2026-08-24 — feat(marketing): botón "Sincronizar ahora" en página de contenido
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
