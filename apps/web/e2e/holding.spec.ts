@@ -108,36 +108,30 @@ test.describe("Holding — switch de negocio", () => {
 
 test.describe("Holding — navegación dentro de negocio", () => {
   test.beforeEach(async ({ page }) => {
-    // Entrar a un negocio antes de cada test de este grupo.
-    // Supabase puede rotar el token durante los tests anteriores (Server Actions),
-    // invalidando el holding.json guardado. Si eso ocurre, re-autenticamos.
-    await page.goto("/holding");
+    // Por qué siempre re-autenticamos (no reusamos holding.json):
+    // enterBusinessAction llama a refreshSession() para regenerar el JWT tras cambiar
+    // de negocio. Los tests 4 y 5 (enterBusiness / exitBusiness) ya consumieron el
+    // refresh token de holding.json. Si tests 6/7 intentaran reusar esa sesión,
+    // el refreshSession() fallaría ("refresh token already used"), Supabase limpiaría
+    // las cookies y el usuario quedaría deslogueado justo antes del assert.
+    // Solución: hacer login fresco → refresh token virgen → enterBusinessAction funciona.
+    const email = process.env.E2E_HOLDING_EMAIL!;
+    const password = process.env.E2E_HOLDING_PASSWORD!;
 
-    // En vez de detectar el redirect por URL (que resuelve demasiado pronto),
-    // esperamos el business-switcher: solo aparece en /holding con sesión válida.
-    // Si el token caducó, Next.js redirige a /login y el switcher nunca aparece.
-    const onHolding = await page
-      .getByTestId("business-switcher")
-      .waitFor({ state: "visible", timeout: 10_000 })
-      .then(() => true)
-      .catch(() => false);
+    await page.goto("/auth/login");
+    await page.getByLabel(/email/i).fill(email);
+    await page.getByLabel(/contraseña|password/i).fill(password);
+    await page.getByRole("button", { name: /iniciar sesión|login|entrar/i }).click();
+    await page.waitForURL(/(holding|dashboard)/, { timeout: 15_000 });
 
-    if (!onHolding) {
-      // Redirigió a /login — re-autenticar
-      const email = process.env.E2E_HOLDING_EMAIL!;
-      const password = process.env.E2E_HOLDING_PASSWORD!;
-      await page.getByLabel(/email/i).fill(email);
-      await page.getByLabel(/contraseña|password/i).fill(password);
-      await page.getByRole("button", { name: /iniciar sesión|login|entrar/i }).click();
-      await page.waitForURL(/(holding|dashboard)/, { timeout: 15_000 });
-      if (!page.url().includes("/holding")) {
-        await page.goto("/holding");
-      }
-      // Confirmar que el holding cargó con la nueva sesión
-      await page
-        .getByTestId("business-switcher")
-        .waitFor({ state: "visible", timeout: 10_000 });
+    if (!page.url().includes("/holding")) {
+      await page.goto("/holding");
     }
+
+    // Confirmar que el holding cargó correctamente antes de entrar al negocio
+    await page
+      .getByTestId("business-switcher")
+      .waitFor({ state: "visible", timeout: 10_000 });
 
     await page.getByRole("button", { name: /entrar|enter/i }).first().click();
     await page.waitForURL(/dashboard/, { timeout: 15_000 });
