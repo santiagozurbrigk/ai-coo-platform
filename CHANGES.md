@@ -41,6 +41,38 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-24 — feat(metrics): importación de métricas históricas desde Excel/CSV
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** `40bcf7a`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** supabase/migrations (nuevo), lib/metrics/parse-metrics-import.ts (nuevo), app/metrics/actions.ts, components/metrics/ (nuevo), components/dashboard/
+
+**Qué se hizo:**
+- Nueva migración `20260824120000_metric_snapshots.sql`: tabla `metric_snapshots` con `(organization_id, period DATE, metric_key TEXT, value NUMERIC)` y constraint `UNIQUE (organization_id, period, metric_key)` para upsert sin duplicados. RLS + índices por período y por métrica.
+- `lib/metrics/parse-metrics-import.ts`: parseo de formato ancho (una columna = una métrica). `detectPeriodColumn` detecta la columna de fecha por alias en español/inglés. `getMetricColumns` filtra columnas ignoradas (notas, comentarios). `parseMetricsImportRows` convierte cada fila en N `MetricSnapshotInput` (period + metric_key + value).
+- `app/metrics/actions.ts`: agregado `importMetricSnapshotsAction` (upsert con `onConflict`), `getMetricSnapshotsAction` y `deleteMetricSnapshotsByPeriodAction`.
+- `components/metrics/import-metrics-dialog.tsx`: dialog de importación en 3 pasos. Paso 1: arrastrar/seleccionar archivo. Paso 2: dropdown para elegir columna de fecha + chips para seleccionar/deseleccionar columnas de métricas. Paso 3: tabla preview de los valores a importar + botón importar.
+- `components/metrics/metric-snapshots-section.tsx`: historial agrupado por período con acordeón expandible, grid de valores y botón de eliminar por período.
+- `components/dashboard/custom-metrics-section.tsx`: agrega botón "Importar Excel" en el header y renderiza `MetricSnapshotsSection` con el historial importado.
+- `components/dashboard/dashboard-overview.tsx`: agrega sección 7 con `CustomMetricsSection` recibiendo `customMetrics` + `metricSnapshots`.
+- `app/(platform)/dashboard/page.tsx`: fetchea `getMetricSnapshotsAction` en paralelo con el resto de datos del dashboard.
+
+**Por qué / finalidad:**
+Founders tienen sus KPIs históricos en Excel (revenue, leads, conversión, inversión en ads, etc.). Esta feature permite cargarlos al sistema sin reformatear el archivo. El formato ancho es el natural para Excel (una fila = un mes, una columna = una métrica). Usa el mismo flujo de 3 pasos que los importers de clientes y llamadas de cierre.
+
+**Decisiones de diseño relevantes:**
+- Formato **ancho → largo**: a diferencia de los otros importers que tienen campos fijos, aquí los nombres de columna son dinámicos y se convierten en `metric_key`. Esto permite importar cualquier Excel sin configuración previa.
+- **Upsert** (no insert): reimportar el mismo archivo actualiza los valores en lugar de duplicar, usando el constraint UNIQUE.
+- `metric_key` se guarda como el nombre de columna crudo (trimmed) del Excel para que el usuario lo controle directamente.
+- La tabla `metric_snapshots` es independiente de `custom_metrics` (fórmulas computadas). Son dos sistemas complementarios: uno para KPIs calculados desde datos vivos, otro para valores históricos manuales.
+
+**Riesgos / deuda técnica pendiente:**
+- Los `metric_snapshots` no están conectados al sistema de fórmulas `custom_metrics` (no se pueden usar como `source_a` en un KPI compuesto). Integración futura posible.
+- El formato de valor en `metric-snapshots-section.tsx` usa heurística simple para detectar porcentajes (≤100 y decimal). Para mayor precisión habría que guardar el formato junto con el valor.
+
+---
+
 ### 2026-08-24 — feat(closing): importación de llamadas de cierre desde Excel/CSV con mapeo de columnas en español
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
