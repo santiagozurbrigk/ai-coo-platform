@@ -302,10 +302,18 @@ const PAYMENT_TYPE_MAP: Record<string, "upfront" | "installments" | "upfront_fee
   "fee + cuotas": "upfront_fee",
 };
 
+// Pre-normalizar claves (p. ej. "fee + cuotas" → "fee cuotas")
+const _statusLookup = new Map(
+  Object.entries(STATUS_MAP).map(([k, v]) => [normalizeKey(k), v] as const)
+);
+const _paymentTypeLookup = new Map(
+  Object.entries(PAYMENT_TYPE_MAP).map(([k, v]) => [normalizeKey(k), v] as const)
+);
+
 function normalizeStatus(value: string): ClosingCallStatus {
   if (!value?.trim()) return "scheduled";
   const key = normalizeKey(value);
-  return STATUS_MAP[key] ?? "scheduled";
+  return _statusLookup.get(key) ?? "scheduled";
 }
 
 function normalizePaymentType(
@@ -313,7 +321,7 @@ function normalizePaymentType(
 ): "upfront" | "installments" | "upfront_fee" | undefined {
   if (!value?.trim()) return undefined;
   const key = normalizeKey(value);
-  return PAYMENT_TYPE_MAP[key];
+  return _paymentTypeLookup.get(key);
 }
 
 // ─── Aplicar mapeo ────────────────────────────────────────────────────────────

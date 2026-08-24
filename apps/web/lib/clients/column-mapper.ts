@@ -353,19 +353,31 @@ const STATUS_MAP: Record<string, string> = {
   referente: "success_case",
 };
 
+// Pre-normalizar claves de los mapas para que normalizeKey(value) matchee correctamente
+// (p. ej. "fee + cuotas" → normalizeKey → "fee cuotas", que no matchearía la clave literal)
+const _platformLookup = new Map(
+  Object.entries(PLATFORM_MAP).map(([k, v]) => [normalizeKey(k), v])
+);
+const _paymentTypeLookup = new Map(
+  Object.entries(PAYMENT_TYPE_MAP).map(([k, v]) => [normalizeKey(k), v])
+);
+const _statusLookup = new Map(
+  Object.entries(STATUS_MAP).map(([k, v]) => [normalizeKey(k), v])
+);
+
 export function normalizePlatform(value: string): string {
   const key = normalizeKey(value);
-  return PLATFORM_MAP[key] ?? value.toLowerCase().trim();
+  return _platformLookup.get(key) ?? value.toLowerCase().trim();
 }
 
 export function normalizePaymentType(value: string): string {
   const key = normalizeKey(value);
-  return PAYMENT_TYPE_MAP[key] ?? value.toLowerCase().trim();
+  return _paymentTypeLookup.get(key) ?? value.toLowerCase().trim();
 }
 
 export function normalizeStatus(value: string): string {
   const key = normalizeKey(value);
-  return STATUS_MAP[key] ?? value.toLowerCase().trim();
+  return _statusLookup.get(key) ?? value.toLowerCase().trim();
 }
 
 /**
@@ -393,15 +405,16 @@ export function normalizeAmount(value: string): string {
 /**
  * Normaliza fechas a formato YYYY-MM-DD.
  * Soporta: "01/07/2026", "1-7-2026", "2026-07-01", "01.07.2026"
+ * También acepta datetime: "01/07/2026 10:00", "01/07/2026 10:00:00" (ignora la hora).
  * Para fechas ambiguas DD/MM vs MM/DD asume formato latinoamericano (DD/MM).
  */
 export function normalizeDate(value: string): string {
   const s = value.trim();
   if (!s) return s;
-  // Ya está en formato ISO
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  // DD/MM/YYYY, D/M/YYYY, DD-MM-YYYY, DD.MM.YYYY
-  const dmy = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  // Ya está en formato ISO (con o sin hora) — tomar solo la fecha
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+  // DD/MM/YYYY [HH:MM...] — regex sin $ para aceptar datetime con hora al final
+  const dmy = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
   if (dmy) {
     const [, d, m, y] = dmy;
     return `${y}-${m!.padStart(2, "0")}-${d!.padStart(2, "0")}`;
