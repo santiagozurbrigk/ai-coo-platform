@@ -54,6 +54,7 @@ export function HoldingBusinessSwitcher() {
             size="sm"
             className="h-8 max-w-[220px] justify-between gap-2 text-xs"
             disabled={pending}
+            data-testid="business-switcher"
           >
             <span className="truncate">{label}</span>
             <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />

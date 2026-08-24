@@ -10,8 +10,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import path from "path";
-import { HOLDING_AUTH_FILE } from "./auth.setup";
+import { HOLDING_AUTH_FILE } from "./constants";
 
 test.use({ storageState: HOLDING_AUTH_FILE });
 
@@ -38,12 +37,13 @@ test.describe("Holding — dashboard", () => {
     await page.goto("/holding");
 
     // Abrir el dropdown del switcher
-    const switcherButton = page.locator("button").filter({ hasText: /vista general|negocio/i }).first();
+    const switcherButton = page.getByTestId("business-switcher");
+    await expect(switcherButton).toBeVisible({ timeout: 10_000 });
     await switcherButton.click();
 
-    // El menú debe abrirse
+    // El menú debe abrirse (Radix DropdownMenuContent renderiza en portal con role="menu")
     const menu = page.locator("[role='menu']");
-    await expect(menu).toBeVisible({ timeout: 5_000 });
+    await expect(menu).toBeVisible({ timeout: 8_000 });
 
     // Debe haber al menos un item de negocio (además de "Vista general del holding")
     const items = menu.locator("[role='menuitem']");
@@ -89,10 +89,8 @@ test.describe("Holding — switch de negocio", () => {
     await page.waitForURL(/dashboard/, { timeout: 15_000 });
 
     // Abrir dropdown y seleccionar "Vista general del holding"
-    const switcherButton = page
-      .locator("button")
-      .filter({ hasText: /negocio activo|viendo/i })
-      .first();
+    const switcherButton = page.getByTestId("business-switcher");
+    await expect(switcherButton).toBeVisible({ timeout: 10_000 });
     await switcherButton.click();
 
     const holdingOption = page.getByRole("menuitem", {
@@ -109,9 +107,44 @@ test.describe("Holding — switch de negocio", () => {
 });
 
 test.describe("Holding — navegación dentro de negocio", () => {
-  test.beforeEach(async ({ page }) => {
-    // Entrar a un negocio antes de cada test de este grupo
-    await page.goto("/holding");
+  test.beforeEach(async ({ page, context }) => {
+    // Por qué limpiamos cookies antes de cada test:
+    //
+    // enterBusinessAction y exitBusinessAction llaman a refreshSession() para
+    // regenerar el JWT. Cada llamada rota el refresh token (R_old → R_new).
+    // Después de los tests de "switch de negocio", el browser tiene el token
+    // rotado más reciente; pero cuando la Server Action vuelve a llamar
+    // refreshSession() con ese token, Supabase puede rechazarlo si la sesión
+    // quedó en un estado inconsistente entre cliente y servidor.
+    //
+    // Solución definitiva: limpiar todas las cookies al inicio de cada beforeEach.
+    // Esto garantiza que el login posterior crea un refresh token virgen (R_fresh)
+    // que enterBusinessAction puede usar sin conflictos, sin importar cuántas
+    // rotaciones ocurrieron en los tests anteriores.
+    //
+    // Nota: clearCookies() hace que el middleware no redirija desde /auth/login,
+    // lo que evita el race condition donde goto("/auth/login") llegaba a /holding
+    // (sesión aún válida) antes de que pudiéramos llenar el formulario.
+    await context.clearCookies();
+
+    const email = process.env.E2E_HOLDING_EMAIL!;
+    const password = process.env.E2E_HOLDING_PASSWORD!;
+
+    await page.goto("/auth/login");
+    await page.getByLabel(/email/i).fill(email);
+    await page.getByLabel(/contraseña|password/i).fill(password);
+    await page.getByRole("button", { name: /iniciar sesión|login|entrar/i }).click();
+    await page.waitForURL(/(holding|dashboard)/, { timeout: 15_000 });
+
+    if (!page.url().includes("/holding")) {
+      await page.goto("/holding");
+    }
+
+    // Confirmar que el holding cargó correctamente antes de entrar al negocio
+    await page
+      .getByTestId("business-switcher")
+      .waitFor({ state: "visible", timeout: 10_000 });
+
     await page.getByRole("button", { name: /entrar|enter/i }).first().click();
     await page.waitForURL(/dashboard/, { timeout: 15_000 });
   });

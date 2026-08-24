@@ -41,6 +41,42 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-24 — Fix E2E: clearCookies() en beforeEach para garantizar refresh token virgen
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** pendiente  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** e2e, holding
+
+**Qué se hizo:**
+
+Reemplazado el mecanismo de detección de sesión en el `beforeEach` de "Holding — navegación dentro de negocio" (`apps/web/e2e/holding.spec.ts`).
+
+Versión anterior (PR #20): detectaba si el token expiró vía `business-switcher` visible. El problema: el access token sigue válido (~1h), por lo que el switcher SÍ aparece — el re-auth se saltea — y `enterBusinessAction` falla al llamar `refreshSession()` con el refresh token rotado.
+
+Nueva versión: `await context.clearCookies()` antes de cada test del grupo de "navegación". Esto:
+1. Elimina todas las cookies de sesión Supabase del browser
+2. Garantiza que `goto("/auth/login")` llegue al formulario (sin redirect del middleware)
+3. El login posterior genera un refresh token virgen (R_fresh) que `enterBusinessAction` puede rotar sin conflictos
+
+También sincronizados archivos E2E desde `main`: `constants.ts`, `auth.setup.ts`, `playwright.config.ts` y `data-testid="business-switcher"` en el componente `HoldingBusinessSwitcher`.
+
+**Por qué / finalidad:**
+
+Tests 6 y 7 ("el agente de negocio es accesible" y "el módulo de clientes carga sin errores") fallaban consistentemente porque el `beforeEach` intentaba reusar la sesión que había sufrido múltiples rotaciones de token durante los tests 3 y 4. La condición de re-auth (business-switcher invisible) nunca se cumplía porque el access token seguía siendo válido.
+
+**Decisiones de diseño relevantes:**
+
+- `clearCookies()` vs. signOut: clearCookies es más determinista y no depende de que el endpoint de signout funcione. No genera peticiones al servidor.
+- Se eligió limpiar TODAS las cookies del contexto (no solo Supabase) para evitar estado residual de cualquier integración.
+
+**Riesgos / deuda técnica pendiente:**
+
+- Los tests 5 y 6 ahora pagan el costo de un login adicional en cada beforeEach (~3-5s extra por test). Aceptable para E2E.
+- Si Supabase cambia la estructura de cookies, los demás tests (que reusan `holding.json`) también podrían verse afectados.
+
+---
+
 ### 2026-08-23 — Refactor: split de action files grandes (agent + marketing)
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  

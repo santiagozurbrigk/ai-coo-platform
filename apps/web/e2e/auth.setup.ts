@@ -10,9 +10,7 @@
  */
 
 import { test as setup, expect } from "@playwright/test";
-import path from "path";
-
-export const HOLDING_AUTH_FILE = path.join(__dirname, ".auth", "holding.json");
+import { HOLDING_AUTH_FILE } from "./constants";
 
 setup("autenticar cuenta holding", async ({ page }) => {
   const email = process.env.E2E_HOLDING_EMAIL;
