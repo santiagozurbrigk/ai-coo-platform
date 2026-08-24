@@ -195,8 +195,9 @@ export function ImportClientsDialog() {
               <div className="rounded-lg bg-muted/20 p-3">
                 <p className="font-medium">Formato flexible</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Tu archivo puede usar columnas como "Alumno", "Inversión", "Forma de pago",
-                  "Fecha de compra", etc. OTC también reconoce el formato estándar:
+                  Tu archivo puede usar columnas como &ldquo;Alumno&rdquo;, &ldquo;Inversión&rdquo;,
+                  &ldquo;Forma de pago&rdquo;, &ldquo;Fecha de compra&rdquo;, etc. OTC también
+                  reconoce el formato estándar:
                 </p>
                 <pre className="mt-3 overflow-x-auto rounded-md bg-background p-3 text-xs text-muted-foreground">
                   {CLIENT_IMPORT_TEMPLATE}
