@@ -16,6 +16,7 @@ import {
   type MetricSource,
 } from "@/lib/metrics/custom-metrics";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
+import type { SnapshotLocation } from "@/lib/metrics/snapshot-locations";
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
@@ -174,16 +175,8 @@ export async function deleteCustomMetricAction(
 
 // ─── Metric Snapshots (importación histórica desde Excel) ─────────────────────
 
-export const SNAPSHOT_LOCATIONS = [
-  { value: "dashboard",  label: "Panel General"  },
-  { value: "sales",      label: "Ventas"          },
-  { value: "closing",    label: "Closing"         },
-  { value: "clients",    label: "Clientes"        },
-  { value: "marketing",  label: "Marketing"       },
-  { value: "finance",    label: "Finanzas"        },
-] as const;
-
-export type SnapshotLocation = (typeof SNAPSHOT_LOCATIONS)[number]["value"];
+// Re-export do tipo para consumidores que já importam de actions.ts
+export type { SnapshotLocation } from "@/lib/metrics/snapshot-locations";
 
 export type MetricSnapshotRow = {
   id: string;

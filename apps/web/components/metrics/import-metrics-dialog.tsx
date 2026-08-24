@@ -11,11 +11,8 @@ import {
   DialogTitle,
 } from "@ai-coo/ui";
 import { AlertCircle, CheckCircle2, FileSpreadsheet, Upload } from "lucide-react";
-import {
-  importMetricSnapshotsAction,
-  SNAPSHOT_LOCATIONS,
-  type SnapshotLocation,
-} from "@/app/metrics/actions";
+import { importMetricSnapshotsAction } from "@/app/metrics/actions";
+import { SNAPSHOT_LOCATIONS, type SnapshotLocation } from "@/lib/metrics/snapshot-locations";
 import { extractRawRecords } from "@/lib/clients/parse-client-import";
 import {
   detectPeriodColumn,
