@@ -31,11 +31,11 @@
 
 ## 🟠 Bugs conocidos — Verificar en producción
 
-### [BUG-1] Stories de Instagram — verificar en producción
+### [BUG-1] Stories de Instagram — verificar en producción tras fix
 
-**Contexto:** Se implementó sync doble: `POST /posts/sync-stories` (con fallback gracioso si 404/405) + `GET /posts?type=story&source=external`. Ambos resultados se combinan con dedup.  
-**Para verificar:** Publicar una historia en Instagram → sync manual desde `/marketing/content` → ver en logs de Vercel si `fromSyncEndpoint > 0` o `fromListWithType > 0`.  
-**Si sigue en 0:** el problema está en Zernio (no expone stories en esos endpoints). Escalar a equipo Zernio para confirmar el endpoint correcto.  
+**Contexto:** Fix deployado en `claude/architecture-review-improvements-fdj4ae`. Ahora usa el endpoint correcto `GET /v1/accounts/{accountId}/instagram/stories` + fallbacks. Las historias se fuerzan a `postType='story'` antes del dedup y entran primero en `allPosts`.  
+**Para verificar:** Con una historia activa en Instagram → sync manual desde `/marketing/content` → el log `[syncZernioContent] stories sync` debe mostrar `fromDedicatedEndpoint > 0` → ir al tab "Historias" en la UI.  
+**Si sigue sin aparecer:** Revisar que el registro en DB tenga `type='story'` (puede ser que exista como `type='post'` de syncs anteriores; el próximo sync lo corrige vía UPDATE).  
 **Archivos clave:** `app/marketing/content/sync-actions.ts`, `lib/zernio/client.ts`
 
 ---

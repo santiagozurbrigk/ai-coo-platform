@@ -216,6 +216,21 @@ export type ZernioPostAnalytics = {
   engagementRate?: number;
 };
 
+/**
+ * Historia de Instagram activa, tal como la devuelve
+ * GET /v1/accounts/{accountId}/instagram/stories.
+ * Ventana de 24 h (Meta solo expone historias vigentes).
+ */
+export type ZernioInstagramStory = {
+  id: string;
+  mediaType?: string;        // "IMAGE" | "VIDEO" (formato Meta, no Zernio post type)
+  mediaProductType?: string; // "STORY"
+  mediaUrl?: string | null;  // puede ser null si Meta marcó copyright
+  permalink?: string;
+  thumbnailUrl?: string;
+  timestamp?: string;        // ISO 8601
+};
+
 /** Post item from GET /v1/analytics (external or late source). */
 export type ZernioAnalyticsPost = {
   postId?: string;
@@ -482,6 +497,41 @@ export function createZernioClient(apiKey: string) {
         url.toString(),
         { headers: headers() }
       );
+    },
+
+    /**
+     * Lista las historias activas de Instagram usando el endpoint dedicado.
+     * GET /v1/accounts/{accountId}/instagram/stories
+     * Ventana de 24 h — Meta solo expone historias vigentes.
+     * Retorna los items mapeados al formato ZernioPost para compatibilidad con el sync.
+     */
+    async listInstagramStories(accountId: string): Promise<{ posts: ZernioPost[] }> {
+      try {
+        const data = await zernioFetchJson<{ data?: ZernioInstagramStory[] }>(
+          "listInstagramStories",
+          `${ZERNIO_API_BASE}/accounts/${encodeURIComponent(accountId)}/instagram/stories`,
+          { headers: headers() }
+        );
+        const stories = data.data ?? [];
+        // Mapear al formato ZernioPost para que el sync pipeline lo procese uniformemente
+        const posts: ZernioPost[] = stories.map((s) => ({
+          id: s.id,
+          platformPostId: s.id,
+          platform: "instagram",
+          postType: "story",
+          platformPostUrl: s.permalink,
+          thumbnailUrl: s.thumbnailUrl ?? (s.mediaType === "VIDEO" ? undefined : s.mediaUrl ?? undefined),
+          publishedAt: s.timestamp,
+        }));
+        return { posts };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("HTTP 404") || msg.includes("HTTP 405") || msg.includes("HTTP 400")) {
+          console.info("[Zernio] listInstagramStories: endpoint no disponible", { accountId });
+          return { posts: [] };
+        }
+        throw err;
+      }
     },
 
     /**
