@@ -113,19 +113,17 @@ test.describe("Holding — navegación dentro de negocio", () => {
     // invalidando el holding.json guardado. Si eso ocurre, re-autenticamos.
     await page.goto("/holding");
 
-    // Detectar redirect cliente a /login (Next.js hidrata y detecta token inválido).
-    // waitForURL(/(holding|login)/) resuelve demasiado pronto (ya estamos en /holding),
-    // así que esperamos EXPLÍCITAMENTE /login con timeout corto. Si no llega en 3s,
-    // la sesión sigue válida y el catch lo absorbe.
-    let redirectedToLogin = false;
-    try {
-      await page.waitForURL(/\/login/, { timeout: 3_000 });
-      redirectedToLogin = true;
-    } catch {
-      // Sin redirect — sesión válida
-    }
+    // En vez de detectar el redirect por URL (que resuelve demasiado pronto),
+    // esperamos el business-switcher: solo aparece en /holding con sesión válida.
+    // Si el token caducó, Next.js redirige a /login y el switcher nunca aparece.
+    const onHolding = await page
+      .getByTestId("business-switcher")
+      .waitFor({ state: "visible", timeout: 10_000 })
+      .then(() => true)
+      .catch(() => false);
 
-    if (redirectedToLogin) {
+    if (!onHolding) {
+      // Redirigió a /login — re-autenticar
       const email = process.env.E2E_HOLDING_EMAIL!;
       const password = process.env.E2E_HOLDING_PASSWORD!;
       await page.getByLabel(/email/i).fill(email);
@@ -134,9 +132,11 @@ test.describe("Holding — navegación dentro de negocio", () => {
       await page.waitForURL(/(holding|dashboard)/, { timeout: 15_000 });
       if (!page.url().includes("/holding")) {
         await page.goto("/holding");
-        // Esperar /holding; si vuelve a redirigir a /login la sesión no se restauró
-        await page.waitForURL(/\/holding/, { timeout: 10_000 });
       }
+      // Confirmar que el holding cargó con la nueva sesión
+      await page
+        .getByTestId("business-switcher")
+        .waitFor({ state: "visible", timeout: 10_000 });
     }
 
     await page.getByRole("button", { name: /entrar|enter/i }).first().click();
