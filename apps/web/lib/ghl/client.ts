@@ -130,6 +130,9 @@ export async function listGHLCalendars(
  * Lista appointments del calendario en el rango dado.
  * startTime y endTime en ISO 8601 (ej: "2024-01-01T00:00:00Z").
  *
+ * GHL V2 endpoint: GET /calendars/{calendarId}/appointments
+ * (No /calendars/appointments — GHL lo interpreta como GET /calendars/:id con id="appointments")
+ *
  * GHL V2 limita a 20 por página; se itera hasta obtener todos.
  */
 export async function listGHLAppointments(
@@ -146,9 +149,8 @@ export async function listGHLAppointments(
     const data = await ghlFetch<{
       appointments?: GHLAppointment[];
       meta?: { currentPage?: number; nextPage?: number | null };
-    }>(apiKey, "/calendars/appointments", {
+    }>(apiKey, `/calendars/${calendarId}/appointments`, {
       locationId,
-      calendarId,
       startTime,
       endTime,
       includeAll: "true",
