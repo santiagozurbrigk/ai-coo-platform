@@ -41,6 +41,38 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-24 — fix(marketing): stories de Instagram no se mostraban en la app
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** `cf20aa3`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** marketing/content, zernio/client
+
+**Qué se hizo:**
+
+- Nuevo método `listInstagramStories(accountId)` en `ZernioClient` que llama al endpoint documentado por Zernio: `GET /v1/accounts/{accountId}/instagram/stories`. El cliente mapea la respuesta (campos `id`, `mediaUrl`, `permalink`, `timestamp`) a `ZernioPost` con `postType: "story"` garantizado. Nuevo tipo `ZernioInstagramStory` para la respuesta.
+- `fetchExternalPostsViaSync` reestructurado para recolectar historias **primero** en `allPosts`, con tres estrategias en paralelo: endpoint dedicado (principal), `POST /posts/sync-stories` (legacy, retorna 405 → vacío), `GET /posts?type=story` (fallback con forzado de `postType`).
+- Al entrar primero en `allPosts`, las versiones tipeadas de las historias ganan el dedup sobre los duplicados sin tipo del listado general (`listPublishedPosts external`).
+
+**Por qué / finalidad:**
+
+Root cause: las historias se obtenían con `GET /posts?type=story` pero Zernio no devuelve el campo `postType` en la respuesta. `mapZernioType(undefined, undefined)` devolvía `"post"` → guardadas en `content_pieces` con `type='post'`. El filtro "Historias" de la UI nunca las encontraba.
+
+La documentación oficial de Zernio (`docs.zernio.com/instagram/list-instagram-stories`) expone un endpoint dedicado completamente diferente: `GET /v1/accounts/{accountId}/instagram/stories`. Devuelve historias activas (ventana 24h de Meta).
+
+**Decisiones de diseño:**
+
+- Multi-estrategia con fallbacks para cubrir posibles gaps de la API. El endpoint dedicado es el principal; los dos fallbacks aseguran que nada se pierda.
+- El reordenamiento (historias primero en `allPosts`) es suficiente para corregir el dedup sin cambiar la lógica de deduplicación.
+- Los registros existentes en DB con `type='post'` se auto-corrigen al próximo sync (el UPDATE incluye el campo `type`).
+
+**Riesgos / deuda técnica:**
+
+- Stories tienen ventana 24h → solo aparecen mientras están activas. Una vez expiradas, ya están en DB con `type='story'` y quedan como referencia histórica.
+- Métricas de stories siguen en 0 (normal, la API de Instagram limita las métricas de stories). `syncContentMetricsForOrg` no las actualizará si Zernio no expone analytics para ese ID.
+
+---
+
 ### 2026-08-24 — Fix E2E: clearCookies() en beforeEach para garantizar refresh token virgen
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
