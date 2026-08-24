@@ -128,24 +128,27 @@ export async function listGHLCalendars(
 
 /**
  * Lista appointments del calendario en el rango dado.
- * startTime y endTime en ISO 8601 (ej: "2024-01-01T00:00:00Z").
+ * startTime y endTime: Unix timestamps en milisegundos como string (ej: "1748217600000").
+ * GHL /calendars/events rechaza ISO 8601 — devuelve 200 + array vacío silenciosamente.
  *
  * GHL V2 endpoint correcto: GET /calendars/events
  * - /calendars/appointments → 400 (GHL lo enruta como GET /calendars/:id)
  * - /calendars/{calendarId}/appointments → 404 (no existe)
- * - /calendars/events → correcto, con includeAll=true devuelve todo de una sola vez
- *   (el parámetro "page" no es válido en este endpoint → 422)
+ * - /calendars/events con page=N → 422 (page no es param válido)
+ * - /calendars/events con ISO 8601 → 200 + [] (silencioso, rango no parsea)
+ * - /calendars/events con Unix ms + includeAll=true → correcto
  */
 export async function listGHLAppointments(
   apiKey: string,
   locationId: string,
   calendarId: string,
-  startTime: string,
-  endTime: string
+  startTime: string,  // Unix ms como string
+  endTime: string     // Unix ms como string
 ): Promise<GHLAppointment[]> {
   const data = await ghlFetch<{
     events?: GHLAppointment[];
-    appointments?: GHLAppointment[];  // fallback por si GHL cambia la key
+    appointments?: GHLAppointment[];
+    data?: GHLAppointment[];           // fallback — GHL a veces usa "data"
   }>(apiKey, "/calendars/events", {
     locationId,
     calendarId,
@@ -154,5 +157,12 @@ export async function listGHLAppointments(
     includeAll: "true",
   });
 
-  return data.events ?? data.appointments ?? [];
+  // Log para diagnóstico en Vercel
+  const keys = Object.keys(data as object);
+  console.info(
+    `[ghl-client] /calendars/events keys=${keys.join(",")} ` +
+    `events=${data.events?.length ?? "-"} appointments=${data.appointments?.length ?? "-"} data=${data.data?.length ?? "-"}`
+  );
+
+  return data.events ?? data.appointments ?? data.data ?? [];
 }

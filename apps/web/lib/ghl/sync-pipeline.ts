@@ -10,6 +10,7 @@ import { decryptGHLApiKey, getGHLIntegrationForOrg } from "./integration";
 import { syncGHLAppointmentsForOrganization, type GHLSyncResult } from "./sync-appointments";
 
 // Rango: últimos 90 días + próximos 90 días
+// GHL /calendars/events requiere Unix timestamps en milisegundos (no ISO 8601)
 function buildSyncRange() {
   const now = new Date();
   const from = new Date(now);
@@ -17,8 +18,8 @@ function buildSyncRange() {
   const to = new Date(now);
   to.setDate(to.getDate() + 90);
   return {
-    startTime: from.toISOString(),
-    endTime: to.toISOString(),
+    startTime: from.getTime().toString(),
+    endTime: to.getTime().toString(),
   };
 }
 
