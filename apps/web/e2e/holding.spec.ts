@@ -107,14 +107,26 @@ test.describe("Holding — switch de negocio", () => {
 });
 
 test.describe("Holding — navegación dentro de negocio", () => {
-  test.beforeEach(async ({ page }) => {
-    // Por qué siempre re-autenticamos (no reusamos holding.json):
-    // enterBusinessAction llama a refreshSession() para regenerar el JWT tras cambiar
-    // de negocio. Los tests 4 y 5 (enterBusiness / exitBusiness) ya consumieron el
-    // refresh token de holding.json. Si tests 6/7 intentaran reusar esa sesión,
-    // el refreshSession() fallaría ("refresh token already used"), Supabase limpiaría
-    // las cookies y el usuario quedaría deslogueado justo antes del assert.
-    // Solución: hacer login fresco → refresh token virgen → enterBusinessAction funciona.
+  test.beforeEach(async ({ page, context }) => {
+    // Por qué limpiamos cookies antes de cada test:
+    //
+    // enterBusinessAction y exitBusinessAction llaman a refreshSession() para
+    // regenerar el JWT. Cada llamada rota el refresh token (R_old → R_new).
+    // Después de los tests de "switch de negocio", el browser tiene el token
+    // rotado más reciente; pero cuando la Server Action vuelve a llamar
+    // refreshSession() con ese token, Supabase puede rechazarlo si la sesión
+    // quedó en un estado inconsistente entre cliente y servidor.
+    //
+    // Solución definitiva: limpiar todas las cookies al inicio de cada beforeEach.
+    // Esto garantiza que el login posterior crea un refresh token virgen (R_fresh)
+    // que enterBusinessAction puede usar sin conflictos, sin importar cuántas
+    // rotaciones ocurrieron en los tests anteriores.
+    //
+    // Nota: clearCookies() hace que el middleware no redirija desde /auth/login,
+    // lo que evita el race condition donde goto("/auth/login") llegaba a /holding
+    // (sesión aún válida) antes de que pudiéramos llenar el formulario.
+    await context.clearCookies();
+
     const email = process.env.E2E_HOLDING_EMAIL!;
     const password = process.env.E2E_HOLDING_PASSWORD!;
 
