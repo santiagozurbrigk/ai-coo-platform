@@ -22,6 +22,23 @@ export type GHLCalendar = {
   locationId: string;
 };
 
+/** Objeto de atribución UTM que GHL adjunta al contacto (puede ser null si no hay). */
+export type GHLContactAttributionSource = {
+  url?: string | null;
+  campaign?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmContent?: string | null;
+  utmTerm?: string | null;
+  referrer?: string | null;
+  campaignId?: string | null;
+  fbclid?: string | null;
+  gclid?: string | null;
+  medium?: string | null;
+  mediumId?: string | null;
+  [key: string]: string | null | undefined;
+};
+
 export type GHLContact = {
   id: string;
   locationId: string;
@@ -31,6 +48,7 @@ export type GHLContact = {
   phone: string | null;
   dateAdded: string | null;  // ISO 8601
   tags: string[] | null;
+  attributionSource?: GHLContactAttributionSource | null;
 };
 
 export type GHLAppointmentStatus =
@@ -211,4 +229,26 @@ export async function listGHLContacts(
   }
 
   return all;
+}
+
+/**
+ * Obtiene un contacto individual por ID, incluyendo attributionSource (UTMs).
+ * GHL V2: GET /contacts/{contactId}
+ * Devuelve null si el contacto no existe o hay error de red.
+ */
+export async function getGHLContact(
+  apiKey: string,
+  contactId: string
+): Promise<GHLContact | null> {
+  try {
+    const data = await ghlFetch<{ contact?: GHLContact }>(
+      apiKey,
+      `/contacts/${contactId}`
+    );
+    return data.contact ?? null;
+  } catch (e) {
+    // No lanzar — un contacto fallido no debe bloquear el sync de appointments
+    console.warn(`[ghl-client] getGHLContact(${contactId}) falló:`, e);
+    return null;
+  }
 }

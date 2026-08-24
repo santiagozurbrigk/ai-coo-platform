@@ -197,6 +197,7 @@ export function ClosingOverview() {
                       <th className="px-4 py-3">Lead</th>
                       <th className="px-4 py-3">Fecha</th>
                       <th className="px-4 py-3">Estado</th>
+                      <th className="px-4 py-3">Fuente UTM</th>
                       <th className="px-4 py-3">Closer</th>
                       <th className="px-4 py-3">Resultado</th>
                       <th className="px-4 py-3">Ingreso</th>
@@ -235,6 +236,23 @@ export function ClosingOverview() {
                           <Badge variant={STATUS_VARIANT[call.status]}>
                             {STATUS_LABEL[call.status]}
                           </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          {call.utmSource ? (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-xs font-medium text-foreground">
+                                {call.utmSource}
+                              </span>
+                              {call.utmMedium ? (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {call.utmMedium}
+                                  {call.utmCampaign ? ` · ${call.utmCampaign}` : ""}
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {call.closedByName ?? "—"}
@@ -413,9 +431,50 @@ function CallDetailPanel({
         </Badge>
       </div>
 
+      {/* Atribución UTM — solo si hay datos (llamadas de origen GHL con UTM) */}
+      {(call.utmSource || call.utmMedium || call.utmCampaign) && (
+        <section className="rounded-lg border border-border p-3 space-y-2">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Atribución UTM
+          </h4>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+            {call.utmSource && (
+              <>
+                <dt className="text-xs text-muted-foreground">Fuente</dt>
+                <dd className="text-xs font-medium">{call.utmSource}</dd>
+              </>
+            )}
+            {call.utmMedium && (
+              <>
+                <dt className="text-xs text-muted-foreground">Medio</dt>
+                <dd className="text-xs font-medium">{call.utmMedium}</dd>
+              </>
+            )}
+            {call.utmCampaign && (
+              <>
+                <dt className="text-xs text-muted-foreground">Campaña</dt>
+                <dd className="text-xs font-medium">{call.utmCampaign}</dd>
+              </>
+            )}
+            {call.utmContent && (
+              <>
+                <dt className="text-xs text-muted-foreground">Contenido</dt>
+                <dd className="text-xs font-medium">{call.utmContent}</dd>
+              </>
+            )}
+            {call.utmTerm && (
+              <>
+                <dt className="text-xs text-muted-foreground">Término</dt>
+                <dd className="text-xs font-medium">{call.utmTerm}</dd>
+              </>
+            )}
+          </dl>
+        </section>
+      )}
+
       <section>
         <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-          Respuestas del formulario Calendly
+          Datos del formulario
         </h4>
         <dl className="space-y-3">
           {call.formAnswers.map((a, i) => (

@@ -8,7 +8,8 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { GHLAppointment, GHLAppointmentStatus } from "./client";
+import type { GHLAppointment, GHLAppointmentStatus, GHLContactAttributionSource } from "./client";
+import { getGHLContact } from "./client";
 
 // ─── Mapeo de status GHL → closing_calls ─────────────────────────────────────
 
@@ -71,10 +72,53 @@ export type GHLSyncResult = {
   fetched: number;
 };
 
+// ─── Helpers UTM ─────────────────────────────────────────────────────────────
+
+/**
+ * Obtiene la atribución UTM de un conjunto de contactIds en paralelo (con límite de concurrencia).
+ * Devuelve un mapa contactId → attributionSource.
+ */
+async function fetchContactAttributions(
+  apiKey: string,
+  contactIds: string[]
+): Promise<Map<string, GHLContactAttributionSource | null>> {
+  const result = new Map<string, GHLContactAttributionSource | null>();
+  if (!contactIds.length) return result;
+
+  // Máximo 5 requests en paralelo para no saturar la API de GHL
+  const CONCURRENCY = 5;
+  for (let i = 0; i < contactIds.length; i += CONCURRENCY) {
+    const batch = contactIds.slice(i, i + CONCURRENCY);
+    const contacts = await Promise.all(
+      batch.map((id) => getGHLContact(apiKey, id))
+    );
+    for (let j = 0; j < batch.length; j++) {
+      result.set(batch[j]!, contacts[j]?.attributionSource ?? null);
+    }
+  }
+
+  return result;
+}
+
+function buildUtmFields(attribution: GHLContactAttributionSource | null | undefined) {
+  if (!attribution) return {};
+  return {
+    utm_source:   attribution.utmSource   ?? attribution.medium   ?? null,
+    utm_medium:   attribution.utmMedium   ?? null,
+    utm_campaign: attribution.campaign    ?? null,
+    utm_content:  attribution.utmContent  ?? null,
+    utm_term:     attribution.utmTerm     ?? null,
+    attribution_source: attribution,
+  };
+}
+
+// ─── Función principal ────────────────────────────────────────────────────────
+
 export async function syncGHLAppointmentsForOrganization(
   supabase: SupabaseClient,
   organizationId: string,
-  appointments: GHLAppointment[]
+  appointments: GHLAppointment[],
+  apiKey?: string
 ): Promise<GHLSyncResult> {
   const result: GHLSyncResult = {
     inserted: 0,
@@ -120,16 +164,31 @@ export async function syncGHLAppointmentsForOrganization(
   });
   result.skippedClosed += importable.length - toInsert.length - toUpdate.length;
 
+  // ── Enriquecer con UTMs del contacto (solo para rows que cambian) ──────────
+  // Fetch paralelo (concurrencia 5) para no saturar la API de GHL
+  let attributionMap = new Map<string, GHLContactAttributionSource | null>();
+  if (apiKey) {
+    const contactIdsForAttribution = [
+      ...toInsert.map((a) => a.contactId),
+      ...toUpdate.map((a) => a.contactId),
+    ].filter(Boolean) as string[];
+
+    const uniqueContactIds = [...new Set(contactIdsForAttribution)];
+    attributionMap = await fetchContactAttributions(apiKey, uniqueContactIds);
+  }
+
   // ── INSERT ─────────────────────────────────────────────────────────────────
   if (toInsert.length > 0) {
     const rows = toInsert.map((a) => ({
-      organization_id:   organizationId,
+      organization_id:    organizationId,
       ghl_appointment_id: a.id,
-      ghl_calendar_id:   a.calendarId,
-      lead_name:         resolveLeadName(a),
-      scheduled_at:      a.startTime,
-      status:            mapGHLStatus(a.appointmentStatus)!,
-      form_answers:      buildFormAnswers(a),
+      ghl_calendar_id:    a.calendarId,
+      ghl_contact_id:     a.contactId ?? null,
+      lead_name:          resolveLeadName(a),
+      scheduled_at:       a.startTime,
+      status:             mapGHLStatus(a.appointmentStatus)!,
+      form_answers:       buildFormAnswers(a),
+      ...buildUtmFields(attributionMap.get(a.contactId)),
     }));
 
     const { error } = await supabase.from("closing_calls").insert(rows);
@@ -143,11 +202,13 @@ export async function syncGHLAppointmentsForOrganization(
     const { error } = await supabase
       .from("closing_calls")
       .update({
-        lead_name:    resolveLeadName(a),
-        scheduled_at: a.startTime,
-        status:       mapGHLStatus(a.appointmentStatus)!,
-        form_answers: buildFormAnswers(a),
-        updated_at:   new Date().toISOString(),
+        lead_name:      resolveLeadName(a),
+        scheduled_at:   a.startTime,
+        status:         mapGHLStatus(a.appointmentStatus)!,
+        form_answers:   buildFormAnswers(a),
+        ghl_contact_id: a.contactId ?? null,
+        updated_at:     new Date().toISOString(),
+        ...buildUtmFields(attributionMap.get(a.contactId)),
       })
       .eq("id", row.id)
       .eq("organization_id", organizationId);

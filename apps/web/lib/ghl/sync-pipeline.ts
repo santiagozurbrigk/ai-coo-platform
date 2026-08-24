@@ -54,7 +54,8 @@ export async function syncGHLOrganizationSafe(
     const result = await syncGHLAppointmentsForOrganization(
       admin,
       organizationId,
-      appointments
+      appointments,
+      apiKey   // pasar apiKey para enriquecer UTMs del contacto
     );
 
     // Actualizar last_sync_at

@@ -30,6 +30,12 @@ export type ClosingCall = {
   paymentReceivedFrom?: string;
   /** Origen de la llamada: Calendly, GHL o cargada manualmente */
   source?: ClosingCallSource;
+  /** Atribución UTM del contacto en GHL (disponible para llamadas de origen GHL) */
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+  utmContent?: string | null;
+  utmTerm?: string | null;
 };
 
 export type PaymentPlatform =
