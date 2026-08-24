@@ -17,6 +17,7 @@ import {
 } from "@/lib/metrics/custom-metrics";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import type { SnapshotLocation } from "@/lib/metrics/snapshot-locations";
+import { findOtcMetricByKey } from "@/lib/metrics/otc-metric-registry";
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
@@ -204,15 +205,21 @@ export async function importMetricSnapshotsAction(
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
-  const rows = snapshots.map((s) => ({
-    organization_id: organizationId,
-    period: s.period,
-    metric_key: s.metric_key,
-    value: s.value,
-    source: "import" as const,
-    display_location,
-    updated_at: new Date().toISOString(),
-  }));
+  // Para cada snapshot, si el metric_key coincide con una métrica OTC conocida,
+  // usar la display_location del registro (cada métrica "sabe" en qué módulo vive).
+  // Si no se reconoce, usar la location seleccionada por el usuario en el diálogo.
+  const rows = snapshots.map((s) => {
+    const metricDef = findOtcMetricByKey(s.metric_key);
+    return {
+      organization_id: organizationId,
+      period: s.period,
+      metric_key: s.metric_key,
+      value: s.value,
+      source: "import" as const,
+      display_location: (metricDef?.location ?? display_location) as SnapshotLocation,
+      updated_at: new Date().toISOString(),
+    };
+  });
 
   // Upsert: si ya existe (mismo org + period + metric_key), actualiza el valor y la location
   const { data, error } = await supabase
@@ -221,6 +228,49 @@ export async function importMetricSnapshotsAction(
     .select("id");
 
   if (error) throw new Error(error.message);
+
+  // Auto-crear entradas en custom_metrics para las métricas OTC reconocidas,
+  // de modo que cada módulo muestre el valor importado como card de métrica.
+  // Solo se crean las que no existen todavía (source_a = "snapshot:{key}").
+  const recognizedKeys = [...new Set(
+    snapshots
+      .map((s) => s.metric_key)
+      .filter((k) => findOtcMetricByKey(k))
+  )];
+
+  if (recognizedKeys.length > 0) {
+    // Ver cuáles ya tienen una custom_metric con ese source_a
+    const { data: existing } = await supabase
+      .from("custom_metrics")
+      .select("source_a")
+      .eq("organization_id", organizationId)
+      .in("source_a", recognizedKeys.map((k) => `snapshot:${k}`));
+
+    const existingSources = new Set((existing ?? []).map((r: { source_a: string }) => r.source_a));
+
+    const toCreate = recognizedKeys
+      .filter((k) => !existingSources.has(`snapshot:${k}`))
+      .map((k, index) => {
+        const def = findOtcMetricByKey(k)!;
+        return {
+          organization_id: organizationId,
+          name: def.label,
+          description: def.description,
+          source_a: `snapshot:${k}` as MetricSource,
+          operation: "none" as const,
+          source_b: null,
+          constant_b: null,
+          display_format: def.displayFormat,
+          display_location: def.location as MetricDisplayLocation,
+          sort_order: 200 + index, // al final para no desplazar las métricas del usuario
+        };
+      });
+
+    if (toCreate.length > 0) {
+      await supabase.from("custom_metrics").insert(toCreate);
+    }
+  }
+
   return { upsertedCount: data?.length ?? 0, errors: [] };
 }
 

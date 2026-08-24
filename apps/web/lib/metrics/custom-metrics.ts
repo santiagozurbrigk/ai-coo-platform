@@ -21,7 +21,12 @@ export const METRIC_SOURCES = [
   { value: "content_total",         label: "Piezas de contenido",     group: "Marketing" },
 ] as const;
 
-export type MetricSource = (typeof METRIC_SOURCES)[number]["value"];
+/**
+ * MetricSource puede ser:
+ *  - uno de los valores hardcodeados en METRIC_SOURCES (live desde DB)
+ *  - "snapshot:{key}" → último valor importado del registro OTC para ese key
+ */
+export type MetricSource = (typeof METRIC_SOURCES)[number]["value"] | `snapshot:${string}`;
 
 export const METRIC_DISPLAY_LOCATIONS = [
   { value: "dashboard",  label: "Panel General",  icon: "LayoutDashboard" },
@@ -81,6 +86,20 @@ export async function resolveSourceValue(
   supabase: SupabaseClient,
   organizationId: string
 ): Promise<number> {
+  // Valor importado desde Excel — busca el snapshot más reciente para ese key
+  if (source.startsWith("snapshot:")) {
+    const metric_key = source.slice(9);
+    const { data } = await supabase
+      .from("metric_snapshots")
+      .select("value")
+      .eq("organization_id", organizationId)
+      .eq("metric_key", metric_key)
+      .order("period", { ascending: false })
+      .limit(1)
+      .single();
+    return data ? Number(data.value) : 0;
+  }
+
   switch (source) {
     case "clients_total": {
       const { count } = await supabase

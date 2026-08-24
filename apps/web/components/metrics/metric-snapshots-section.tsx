@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { cn } from "@ai-coo/ui";
 import { deleteMetricSnapshotsByPeriodAction, getMetricSnapshotsAction, type MetricSnapshotRow, type SnapshotLocation } from "@/app/metrics/actions";
+import { findOtcMetricByKey } from "@/lib/metrics/otc-metric-registry";
 import { useToast } from "@/providers/toast-provider";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -91,14 +92,19 @@ function PeriodRow({
       {/* Métricas del período */}
       {expanded && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-px bg-border/30">
-          {rows.map((row) => (
-            <div key={row.id} className="bg-background px-4 py-3">
-              <p className="text-xs text-muted-foreground truncate">{row.metric_key}</p>
-              <p className="text-lg font-semibold tabular-nums tracking-tight mt-0.5">
-                {formatValue(Number(row.value))}
-              </p>
-            </div>
-          ))}
+          {rows.map((row) => {
+            const metricDef = findOtcMetricByKey(row.metric_key);
+            return (
+              <div key={row.id} className="bg-background px-4 py-3">
+                <p className="text-xs text-muted-foreground truncate">
+                  {metricDef?.label ?? row.metric_key}
+                </p>
+                <p className="text-lg font-semibold tabular-nums tracking-tight mt-0.5">
+                  {formatValue(Number(row.value))}
+                </p>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

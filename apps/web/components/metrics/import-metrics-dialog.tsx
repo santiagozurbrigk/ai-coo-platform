@@ -20,6 +20,10 @@ import {
   parseMetricsImportRows,
   type MetricSnapshotInput,
 } from "@/lib/metrics/parse-metrics-import";
+import {
+  mapColumnsToOtcMetrics,
+  type ColumnMapping,
+} from "@/lib/metrics/otc-metric-registry";
 import { useToast } from "@/providers/toast-provider";
 
 type Step = "idle" | "mapping" | "preview";
@@ -44,6 +48,9 @@ export function ImportMetricsDialog({ defaultLocation, onImported }: ImportMetri
   const [periodColumn, setPeriodColumn] = useState<string>("");
   const [metricColumns, setMetricColumns] = useState<string[]>([]);
 
+  // Mapeo automático columna → métrica OTC (para mostrar badges en el paso de mapping)
+  const [columnMappings, setColumnMappings] = useState<Map<string, ColumnMapping>>(new Map());
+
   const [snapshots, setSnapshots] = useState<MetricSnapshotInput[]>([]);
   const [parseErrors, setParseErrors] = useState<{ row: number; message: string }[]>([]);
   const [saving, setSaving] = useState(false);
@@ -56,6 +63,7 @@ export function ImportMetricsDialog({ defaultLocation, onImported }: ImportMetri
     setAllHeaders([]);
     setPeriodColumn("");
     setMetricColumns([]);
+    setColumnMappings(new Map());
     setSnapshots([]);
     setParseErrors([]);
     setSaving(false);
@@ -87,14 +95,17 @@ export function ImportMetricsDialog({ defaultLocation, onImported }: ImportMetri
 
       // Detectar columna de fecha automáticamente
       const detected = detectPeriodColumn(headers);
-      if (detected) {
-        setPeriodColumn(detected);
-        setMetricColumns(getMetricColumns(headers, detected));
-      } else {
-        // Si no se detecta, usar el primer header como fecha por defecto
-        setPeriodColumn(headers[0] ?? "");
-        setMetricColumns(headers.slice(1));
-      }
+      const periodCol = detected ?? headers[0] ?? "";
+      const metricCols = detected
+        ? getMetricColumns(headers, detected)
+        : headers.slice(1);
+
+      setPeriodColumn(periodCol);
+      setMetricColumns(metricCols);
+
+      // Mapear automáticamente columnas → métricas OTC (solo para feedback visual)
+      const mappings = mapColumnsToOtcMetrics(metricCols);
+      setColumnMappings(new Map(mappings.map((m) => [m.column, m])));
 
       setStep("mapping");
     } catch (err) {
@@ -108,7 +119,10 @@ export function ImportMetricsDialog({ defaultLocation, onImported }: ImportMetri
 
   const handlePeriodColumnChange = (newPeriod: string) => {
     setPeriodColumn(newPeriod);
-    setMetricColumns(getMetricColumns(allHeaders, newPeriod));
+    const newMetricCols = getMetricColumns(allHeaders, newPeriod);
+    setMetricColumns(newMetricCols);
+    const mappings = mapColumnsToOtcMetrics(newMetricCols);
+    setColumnMappings(new Map(mappings.map((m) => [m.column, m])));
   };
 
   const toggleMetricColumn = (col: string) => {
@@ -118,7 +132,12 @@ export function ImportMetricsDialog({ defaultLocation, onImported }: ImportMetri
   };
 
   const handleContinue = () => {
-    const result = parseMetricsImportRows(rawRecords, periodColumn, metricColumns);
+    // Construir mapa columna → key OTC para las columnas reconocidas
+    const columnToOtcKey = new Map<string, string>();
+    for (const [col, mapping] of columnMappings) {
+      if (mapping.otcKey) columnToOtcKey.set(col, mapping.otcKey);
+    }
+    const result = parseMetricsImportRows(rawRecords, periodColumn, metricColumns, columnToOtcKey);
     setSnapshots(result.snapshots);
     setParseErrors(result.errors);
     setStep("preview");
@@ -296,29 +315,53 @@ export function ImportMetricsDialog({ defaultLocation, onImported }: ImportMetri
                     Columnas de métricas a importar
                   </label>
                   <p className="text-xs text-muted-foreground mt-0.5 mb-2">
-                    Deseleccioná columnas que no sean métricas numéricas (notas, comentarios, etc.).
+                    Las columnas con{" "}
+                    <CheckCircle2 className="inline h-3 w-3 text-primary align-[-1px]" />{" "}
+                    fueron reconocidas como métricas OTC y se guardarán con su clave estándar.
+                    Deseleccioná columnas que no sean numéricas (notas, comentarios, etc.).
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {allHeaders
                       .filter((h) => h !== periodColumn)
                       .map((col) => {
                         const active = metricColumns.includes(col);
+                        const mapping = columnMappings.get(col);
+                        const isRecognized = !!mapping?.otcKey;
                         return (
                           <button
                             key={col}
                             type="button"
                             onClick={() => toggleMetricColumn(col)}
-                            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                            title={
+                              isRecognized
+                                ? `Reconocida como "${mapping!.metricDef!.label}" (${mapping!.metricDef!.location})`
+                                : "Columna no reconocida — se importará tal cual"
+                            }
+                            className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                               active
                                 ? "bg-primary text-primary-foreground"
                                 : "bg-muted text-muted-foreground hover:bg-muted/80"
                             }`}
                           >
                             {col}
+                            {isRecognized && (
+                              <CheckCircle2 className="h-3 w-3 opacity-80 flex-shrink-0" />
+                            )}
                           </button>
                         );
                       })}
                   </div>
+                  {/* Resumen de reconocimiento */}
+                  {columnMappings.size > 0 && (() => {
+                    const recognized = [...columnMappings.values()].filter(m => m.otcKey).length;
+                    const total = columnMappings.size;
+                    return recognized > 0 ? (
+                      <p className="mt-2 text-xs text-primary/80">
+                        {recognized} de {total} columnas reconocidas como métricas OTC.
+                        Se crearán automáticamente en los módulos correspondientes.
+                      </p>
+                    ) : null;
+                  })()}
                 </div>
 
                 {/* Resumen de lo que se va a importar */}

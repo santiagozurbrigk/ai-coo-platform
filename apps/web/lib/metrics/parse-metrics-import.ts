@@ -82,10 +82,16 @@ export function getMetricColumns(headers: string[], periodColumn: string): strin
 
 // ─── Parseo de filas ─────────────────────────────────────────────────────────
 
+/**
+ * @param columnToOtcKey - mapa opcional { columna original → key OTC estándar }.
+ *   Si se pasa, las columnas reconocidas se guardan con el key OTC (ej. "leads")
+ *   en lugar del nombre crudo (ej. "Leads Nuevos").
+ */
 export function parseMetricsImportRows(
   records: Record<string, string>[],
   periodColumn: string,
-  metricColumns: string[]
+  metricColumns: string[],
+  columnToOtcKey?: Map<string, string>
 ): ParsedMetricsImport {
   const snapshots: MetricSnapshotInput[] = [];
   const errors: { row: number; message: string }[] = [];
@@ -133,7 +139,7 @@ export function parseMetricsImportRows(
 
       snapshots.push({
         period: period.substring(0, 10), // solo la fecha YYYY-MM-DD
-        metric_key: col.trim(),
+        metric_key: columnToOtcKey?.get(col) ?? col.trim(),
         value,
       });
       hadAnyValue = true;
