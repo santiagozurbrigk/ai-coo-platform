@@ -8,13 +8,18 @@ import { AppTopbar } from "@/components/layout/app-topbar";
 import { PlatformDocumentTitle } from "@/components/brand";
 import { FloatingChat } from "@/components/agent";
 import { HoldingViewingBanner } from "@/components/holding/holding-viewing-banner";
+import { useHoldingSession } from "@/components/holding/holding-platform-provider";
 
 export function PlatformShell({ children }: { children: ReactNode }) {
+  const { isHolding, viewingBusiness } = useHoldingSession();
+  // En la vista holding (sin un negocio activo) el sidebar no aplica
+  const showSidebar = !isHolding || viewingBusiness;
+
   return (
     <TooltipProvider>
       <PlatformDocumentTitle />
       <ThreeColumnLayout
-        sidebar={<AppSidebar />}
+        sidebar={showSidebar ? <AppSidebar /> : undefined}
         overlay={
           <FloatingChat />
         }
