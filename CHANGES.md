@@ -41,6 +41,36 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-24 — feat(metrics): auto-mapeo de columnas Excel → métricas OTC + snapshot source en custom_metrics
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** `0e5ef56`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** lib/metrics/, app/metrics/actions.ts, components/metrics/
+
+**Qué se hizo:**
+- `lib/metrics/otc-metric-registry.ts` (nuevo): registro centralizado con 22 métricas OTC (ventas, closing, finanzas, marketing, clientes, dashboard). Cada entrada tiene `key`, `label`, `aliases[]` en español, `location` y `displayFormat`. Expone `mapColumnsToOtcMetrics(columns)` que normaliza y cruza contra el mapa de aliases para identificar columnas de Excel automáticamente.
+- `lib/metrics/custom-metrics.ts`: `MetricSource` ahora incluye el patrón `snapshot:${string}` como tipo válido. `resolveSourceValue` resuelve este origen consultando `metric_snapshots` por el key más reciente para esa org.
+- `lib/metrics/parse-metrics-import.ts`: `parseMetricsImportRows` acepta `columnToOtcKey?: Map<string, string>` opcional — cuando se pasa, las columnas reconocidas se almacenan con el key OTC estándar (ej. `"leads"`) en lugar del nombre crudo.
+- `app/metrics/actions.ts`: `importMetricSnapshotsAction` ahora usa `findOtcMetricByKey` para asignar `display_location` por métrica desde el registro (en vez de un único valor global). También auto-crea entradas en `custom_metrics` con `source_a = "snapshot:{key}"` para cada métrica OTC reconocida que no tenga card todavía.
+- `components/metrics/import-metrics-dialog.tsx`: paso "Confirmar columnas" ahora muestra ícono `CheckCircle2` en los chips de columnas reconocidas como métricas OTC, con tooltip mostrando el label y módulo OTC. Resumen de cuántas se reconocieron. Pasa `columnToOtcKey` al parser en `handleContinue`.
+- `components/metrics/metric-snapshots-section.tsx`: usa `findOtcMetricByKey(row.metric_key)?.label` para mostrar etiquetas legibles en lugar de la clave técnica.
+
+**Por qué / finalidad:**
+El usuario pidió que el software identifique automáticamente las métricas del Excel importado sin importar cómo las nombre el usuario. La solución: un registro centralizado con aliases en español para cada KPI conocido por el sistema. Al importar, el sistema mapea las columnas del Excel a los keys OTC estándar, las guarda con la ubicación correcta en `metric_snapshots`, y crea automáticamente los cards de métricas en cada módulo con `source_a = "snapshot:{key}"`. Esto "siembra" el software con los valores históricos del usuario sin necesidad de configuración manual.
+
+**Decisiones de diseño:**
+- El mapeo se hace en dos pasos: detección visual (feedback al usuario en el paso 2 del dialog con badges) + mapeo real al parsear antes del preview. Así el usuario ve exactamente qué se va a guardar.
+- Los `custom_metrics` auto-creados usan `sort_order` 200+ para no desplazar los cards creados manualmente por el usuario.
+- `resolveSourceValue` prioriza el snapshot más reciente por `period DESC`, de modo que cuando el usuario sube datos de meses anteriores Y del mes actual, el card siempre muestra el valor más reciente.
+- No se modifican los `custom_metrics` que el usuario haya creado manualmente (solo INSERT si `source_a` no existe para esa org).
+
+**Riesgos / deuda técnica:**
+- La fuente del picker de custom_metrics en el UI no muestra las fuentes `snapshot:*` como opciones seleccionables (no están en `METRIC_SOURCES`). Si el usuario quiere crear manualmente un card con fuente snapshot, no puede. Mejora futura: agregar grupo "Importados" dinámico al picker.
+- Si el usuario importa una columna no reconocida, se guarda con el nombre crudo de la columna como key. No se auto-crea un custom_metric para esa métrica. Mejora futura: permitir mapeo manual en el dialog para columnas no reconocidas.
+
+---
+
 ### 2026-08-24 — feat(metrics): display_location + sección historial en módulo Ventas
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
