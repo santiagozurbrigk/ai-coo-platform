@@ -3,7 +3,7 @@ import { maybeSyncZernioContentAction } from "@/app/marketing/content/sync-actio
 import { ContentPieceGrid } from "@/components/marketing/content-piece-grid";
 import { ContentDraftsLibrary } from "@/components/marketing/content-drafts-library";
 import { ContentTabSwitcher } from "@/components/marketing/content-tab-switcher";
-import { RefreshCw } from "lucide-react";
+import { ContentSyncButton } from "@/components/marketing/content-sync-button";
 
 export default async function MarketingContentPage({
   searchParams,
@@ -13,10 +13,8 @@ export default async function MarketingContentPage({
   const { tab } = await searchParams;
   const activeTab = tab === "borradores" ? "borradores" : "biblioteca";
 
-  let syncedAt: Date | null = null;
   try {
     await maybeSyncZernioContentAction();
-    syncedAt = new Date();
   } catch {
     // No bloquear la página si Zernio falla
   }
@@ -46,16 +44,6 @@ export default async function MarketingContentPage({
                     {analyzedCount} analizadas con IA
                   </span>
                 ) : null}
-                {syncedAt ? (
-                  <span className="inline-flex items-center gap-1 text-[11px]">
-                    <RefreshCw className="h-3 w-3" aria-hidden />
-                    Sincronizado{" "}
-                    {syncedAt.toLocaleTimeString("es-AR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                ) : null}
               </>
             ) : (
               <span>
@@ -64,6 +52,7 @@ export default async function MarketingContentPage({
             )}
           </div>
         </div>
+        {activeTab === "biblioteca" ? <ContentSyncButton /> : null}
       </div>
 
       {/* Tab switcher */}
