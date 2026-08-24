@@ -80,9 +80,9 @@ export async function validateGHLKeyAction(
   }
 
   try {
-    const { context } = await requireAuthContext();
-    const limited = await integrationConnectRateLimit(context.userId);
-    if (limited) return { success: false, error: rateLimitErrorMessage };
+    const { user } = await requireAuthContext();
+    const { allowed, resetAt } = await integrationConnectRateLimit(user.id);
+    if (!allowed) return { success: false, error: rateLimitErrorMessage(resetAt) };
 
     const calendars = await validateGHLApiKey(apiKey.trim(), locationId.trim());
     if (!calendars.length) {
