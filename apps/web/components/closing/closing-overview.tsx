@@ -19,7 +19,7 @@ import { useHashTab } from "@/lib/hooks/use-hash-tab";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import { paths } from "@/routes";
-import type { ClosingCall, ClosingCallStatus } from "@/types/closing";
+import type { ClosingCall, ClosingCallSource, ClosingCallStatus } from "@/types/closing";
 import { CalendlyManualSyncNotice } from "@/components/integrations/calendly-manual-sync-notice";
 import { ClosingCalendar } from "./closing-calendar";
 import { ClosersRanking } from "./closers-ranking";
@@ -37,6 +37,18 @@ const STATUS_LABEL: Record<ClosingCallStatus, string> = {
   closed: "Completada — Cerrada",
   not_closed: "Completada — No cerrada",
   no_show: "No show",
+};
+
+const SOURCE_LABEL: Record<ClosingCallSource, string> = {
+  calendly: "Calendly",
+  ghl: "GHL",
+  manual: "Manual",
+};
+
+const SOURCE_CLASS: Record<ClosingCallSource, string> = {
+  calendly: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  ghl: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  manual: "border-border bg-muted/40 text-muted-foreground",
 };
 
 const STATUS_VARIANT: Record<
@@ -201,7 +213,21 @@ export function ClosingOverview() {
                         )}
                         onClick={() => setSelectedId(call.id)}
                       >
-                        <td className="px-4 py-3 font-medium">{call.leadName}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-medium">{call.leadName}</span>
+                            {call.source && call.source !== "manual" ? (
+                              <span
+                                className={cn(
+                                  "inline-flex w-fit items-center rounded-full border px-1.5 py-px text-[10px] font-medium leading-none",
+                                  SOURCE_CLASS[call.source]
+                                )}
+                              >
+                                {SOURCE_LABEL[call.source]}
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {formatCallDate(call.scheduledAt)}
                         </td>

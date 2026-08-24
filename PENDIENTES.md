@@ -69,6 +69,35 @@
 
 ## 🟣 Nuevos Features — Implementar cuando Santiago lo indique
 
+### [FEAT-GHL-OAUTH] GHL OAuth / Marketplace App — migrar de Private Integration Token a OAuth
+
+**Qué es:** Cuando OTC sea aprobado como app en el GHL Marketplace, reemplazar el flujo de Private Integration Token por OAuth estándar ("Connect with GHL"). El proceso de aprobación de GHL es lento.
+**Estado actual:** Integración funcional con Private Integration Token. El usuario pega el token + Location ID manualmente.
+**Pendiente:**
+1. Registrar OTC como app en GHL Marketplace (proceso manual de Santiago)
+2. Agregar `GHL_CLIENT_ID` y `GHL_CLIENT_SECRET` a env vars
+3. Implementar `/api/integrations/ghl/oauth/start` → `/api/integrations/ghl/oauth/callback`
+4. Reemplazar StepCredentials en `ghl-connect-dialog.tsx` por botón "Conectar con GHL"
+5. Actualizar `ghl_integrations` para guardar `access_token` + `refresh_token` en lugar de `api_key_encrypted`
+
+**Decisión tomada:** Private Integration Token ahora; OAuth cuando sea posible.
+
+---
+
+### [FEAT-EXCEL-IMPORT] Carga de datos históricos desde Excel — Fase 2
+
+**Qué es:** Proceso estandarizado para que usuarios importen su historial de negocio (clientes, llamadas, pagos) desde archivos Excel propios.
+**Scope definido:**
+- El usuario siempre llega con su propio formato → siempre se mapea columnas (no hay plantilla descargable)
+- Flujo: subir archivo → detectar columnas → wizard de mapeo → preview → confirmar importación
+- Entidades: `clients`, `closing_calls` (con outcome), pagos
+- Validación antes de insertar (duplicados por email/nombre, fechas válidas, montos numéricos)
+
+**Estado:** Planeado. Sin implementación. Requiere sesión dedicada.
+**Complejidad:** Alta — wizard multi-paso, mapeo dinámico, validación, rollback parcial.
+
+---
+
 ### [FEAT-1] Secuencias de historias
 
 **Qué es:** Feature para planificar y publicar secuencias de historias de Instagram como una unidad cohesiva.  
@@ -122,6 +151,7 @@
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-24 | FEAT-GHL-PHASE1: Integración GoHighLevel Calendar — Private Integration Token, sync horario, UI dialog multi-paso, badges de origen en closing | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-11 | TECH-1: Fathom deep analysis vía QStash (reemplaza void pattern que se perdía en Vercel) | `claude/marketing-module-console-errors-g2py5w` |
 | 2026-08-11 | TECH-2: Retención real YouTube Analytics API (fallback gracioso a estimación) | `claude/marketing-module-console-errors-g2py5w` |
 | 2026-08-11 | SEED: Limpieza de 171 registros ficticios en Supabase prod (org `46cce98c-...`) | directo en DB |

@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import {
   disconnectCalendlyAction,
   disconnectFathomAction,
+  disconnectGHLIntegrationAction,
   disconnectGoogleIntegrationAction,
   disconnectInstagramAction,
   disconnectManyChatAction,
@@ -55,6 +56,7 @@ import { ZernioConnectModal } from "./zernio-connect-modal";
 import { ClickUpImportWizard } from "./clickup-import-wizard";
 import { YoutubeApiKeyDialog } from "./youtube-api-key-dialog";
 import { GoogleEcosystemConnectDialog } from "./google-ecosystem-connect-dialog";
+import { GHLConnectDialog } from "./ghl-connect-dialog";
 
 const COMING_SOON_LABEL = "Próximamente";
 
@@ -97,6 +99,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
   const [clickupImportOpen, setClickupImportOpen] = useState(false);
   const [youtubeApiKeyOpen, setYoutubeApiKeyOpen] = useState(false);
   const [googleEcosystemOpen, setGoogleEcosystemOpen] = useState(false);
+  const [ghlConnectOpen, setGhlConnectOpen] = useState(false);
   const [manychatWebhookUrl, setManychatWebhookUrl] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -205,6 +208,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       discord: disconnectDiscordIntegrationAction,
       zernio: disconnectZernioAction,
       youtube: disconnectYoutubeAction,
+      ghl: disconnectGHLIntegrationAction,
     };
 
     const unipileProvider = unipileProviderFromIntegration(integration.provider);
@@ -290,6 +294,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       setZernioConnectOpen(true);
       return;
     }
+    if (integration.provider === "ghl") {
+      setGhlConnectOpen(true);
+      return;
+    }
     if (integration.provider === "clickup") {
       setClickupImportOpen(true);
       return;
@@ -360,6 +368,11 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
 
     if (integration.provider === "zernio" && status === "connected") {
       setZernioConnectOpen(true);
+      return;
+    }
+
+    if (integration.provider === "ghl") {
+      setGhlConnectOpen(true);
       return;
     }
 
@@ -460,6 +473,10 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         setZernioConnectOpen(true);
         return;
       }
+      if (integration.provider === "ghl") {
+        setGhlConnectOpen(true);
+        return;
+      }
       if (integration.provider === "clickup") {
         setClickupImportOpen(true);
         return;
@@ -497,7 +514,8 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
       integration.provider === "typeform" ||
       integration.provider === "discord" ||
       integration.provider === "zernio" ||
-      integration.provider === "youtube");
+      integration.provider === "youtube" ||
+      integration.provider === "ghl");
 
   const description =
     integration.description ??
@@ -518,6 +536,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
             integration.provider === "fathom" ||
             integration.provider === "instagram" ||
             integration.provider === "zernio" ||
+            integration.provider === "ghl" ||
             integration.provider === "unipile_whatsapp"
           ? "Gestionar"
           : es.common.manage;
@@ -719,6 +738,16 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         onOpenChange={setYoutubeApiKeyOpen}
         onConnected={() => setStatus("connected")}
       />
+      {integration.provider === "ghl" ? (
+        <GHLConnectDialog
+          open={ghlConnectOpen}
+          onOpenChange={setGhlConnectOpen}
+          onConnected={() => {
+            setStatus("connected");
+            router.refresh();
+          }}
+        />
+      ) : null}
       <GoogleEcosystemConnectDialog
         open={googleEcosystemOpen}
         onOpenChange={setGoogleEcosystemOpen}

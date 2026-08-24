@@ -41,6 +41,46 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-24 — Integración GoHighLevel (GHL) Calendar — Fase 1
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** integrations, closing/ventas, crons
+
+**Qué se hizo:**
+- **Migración SQL** (`supabase/migrations/20260824100000_ghl_integration.sql`): crea tabla `ghl_integrations` con API key cifrada, location_id, calendarios conectados y last_sync_at. Agrega columnas `ghl_appointment_id` y `ghl_calendar_id` a `closing_calls` con índice único por org.
+- **GHL API client** (`lib/ghl/client.ts`): cliente V2 (`services.leadconnectorhq.com`), auth por Private Integration Token + Version header. Funciones: `validateGHLApiKey`, `listGHLCalendars`, `listGHLAppointments` (con paginación).
+- **Integration helpers** (`lib/ghl/integration.ts`): cifrado/descifrado AES-256-GCM de API keys, getters/setters de integración org, upsert y refresh de calendarios.
+- **Sync logic** (`lib/ghl/sync-appointments.ts`): mapeo idempotente de citas GHL a `closing_calls`. Status mapping: showed→closed, noshow→no_show, booked/confirmed→scheduled, cancelled/invalid→skip. Ventana de 90 días pasados + 90 días futuros.
+- **Sync pipeline** (`lib/ghl/sync-pipeline.ts`): funciones safe (never-throw) para cron — `syncGHLOrganizationSafe` y `syncAllGHLOrganizationsSafe`.
+- **Server Actions** (`app/ghl/actions.ts`): `getGHLIntegrationStatusAction`, `validateGHLKeyAction`, `connectGHLAction`, `updateGHLCalendarAction`, `syncGHLAppointmentsAction`.
+- **Cron endpoint** (`app/api/cron/ghl-sync/route.ts`): sync horario con soporte `?organizationId=` para org específica, protegido con `CRON_SECRET`.
+- **Dialog UI** (`components/integrations/ghl-connect-dialog.tsx`): flujo en 3 pasos — StepCredentials (token + locationId), StepSelectCalendar, ManagePanel (sync manual, cambio de calendario activo).
+- **Icono SVG** (`public/integrations/ghl.svg`): logo circular "G" en ámbar.
+- **Wiring en integrations page**: mock entry, brand colors, grupo, providers real, disconnect action, count, statusMap en `listIntegrationsAction`.
+- **Wiring en integration-card.tsx**: import del dialog, estado `ghlConnectOpen`, handlers para connect/manage/disconnect, `supportsCardDisconnect`, action label "Gestionar", render del dialog.
+- **Tipos closing**: `ClosingCallSource = "calendly" | "ghl" | "manual"`, campo `source` en `ClosingCall`.
+- **Mapper closing**: `deriveSource()` basado en presencia de `calendly_event_id` vs `ghl_appointment_id`.
+- **UI closing-overview**: badges de color por origen (azul=Calendly, ámbar=GHL, neutro=manual).
+- **vercel.json**: cron `/api/cron/ghl-sync` cada hora.
+
+**Por qué / finalidad:**
+Usuarios que usan GoHighLevel en lugar de Calendly para agendar llamadas de cierre no tenían forma de importar sus citas a OTC. Esta integración los habilita con el mismo flujo que Calendly pero usando Private Integration Tokens de GHL (sin necesidad de registrar la app en el Marketplace todavía).
+
+**Decisiones de diseño relevantes:**
+- Auth por Private Integration Token ahora; OAuth/Marketplace se implementará cuando GHL lo apruebe (proceso lento).
+- Calendly y GHL coexisten simultáneamente; el origen se distingue visualmente en la UI.
+- API key cifrada con AES-256-GCM igual que otras integraciones con secrets; sin RLS SELECT en `ghl_integrations`.
+- Citas canceladas/inválidas se omiten (no se importan); citas ya cerradas/no-cerradas en OTC se actualizan campos pero se preserva el status.
+- `source` derivado en la capa mapper (no guardado en DB) para no romper schema existente.
+
+**Riesgos / deuda técnica pendiente:**
+- Migración SQL pendiente de aplicar en producción (`supabase/migrations/20260824100000_ghl_integration.sql`).
+- Migrar a OAuth "Connect with GHL" cuando OTC sea aprobado como app en GHL Marketplace.
+- Phase 2 (carga de datos históricos desde Excel) queda para sesión futura — ver PENDIENTES.
+
+---
+
 ### 2026-08-11 — Eliminar wizard de onboarding de founder
 
 **Rama/branch:** `claude/marketing-module-console-errors-g2py5w`  

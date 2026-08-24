@@ -12,6 +12,8 @@ export type ClosingOutcome = {
   notes?: string;
 };
 
+export type ClosingCallSource = "calendly" | "ghl" | "manual";
+
 export type ClosingCall = {
   id: string;
   leadName: string;
@@ -26,6 +28,8 @@ export type ClosingCall = {
   paymentSourcePlatformId?: string;
   paymentDestinationPlatformId?: string;
   paymentReceivedFrom?: string;
+  /** Origen de la llamada: Calendly, GHL o cargada manualmente */
+  source?: ClosingCallSource;
 };
 
 export type PaymentPlatform =
