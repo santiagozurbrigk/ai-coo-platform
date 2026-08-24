@@ -1,5 +1,14 @@
 import type { ImportClientsRowError } from "@/app/clients/actions";
 import type { Client } from "@/types/clients";
+import {
+  applyColumnMapping,
+  normalizeAmount,
+  normalizeDate,
+  normalizePlatform,
+  normalizePaymentType,
+  normalizeStatus,
+  type ColumnMapping,
+} from "@/lib/clients/column-mapper";
 
 export const CLIENT_IMPORT_REQUIRED_HEADERS = [
   "name",
@@ -230,6 +239,100 @@ export function parseClientsCsv(text: string): ParsedClientImport {
   });
 
   return parseClientImportRows(records);
+}
+
+// ─── Funciones para el flujo con mapeo de columnas ────────────────────────────
+
+/** Resultado de extraer los records crudos de un archivo, sin validación */
+export type ExtractRawResult =
+  | { headers: string[]; records: Record<string, string>[] }
+  | { error: string };
+
+/**
+ * Parsea un archivo CSV o XLSX y devuelve los headers y records crudos,
+ * sin validar ni renombrar columnas.
+ */
+export async function extractRawRecords(file: File): Promise<ExtractRawResult> {
+  const lowerName = file.name.toLowerCase();
+
+  if (lowerName.endsWith(".csv") || file.type === "text/csv") {
+    const text = await file.text();
+    const lines = text
+      .replace(/^﻿/, "")
+      .split(/\r?\n/)
+      .filter((line) => line.trim().length > 0);
+
+    if (lines.length < 2) {
+      return { error: "El CSV debe incluir encabezados y al menos una fila" };
+    }
+
+    const headers = parseCsvLine(lines[0] ?? "").map(normalizeHeader);
+    const records = lines.slice(1).map((line) => {
+      const values = parseCsvLine(line);
+      return Object.fromEntries(
+        headers.map((header, i) => [header, values[i]?.trim() ?? ""])
+      );
+    });
+
+    return { headers, records };
+  }
+
+  if (
+    lowerName.endsWith(".xlsx") ||
+    lowerName.endsWith(".xls") ||
+    file.type ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    file.type === "application/vnd.ms-excel"
+  ) {
+    const { read, utils } = await import("xlsx");
+    const buffer = await file.arrayBuffer();
+    const workbook = read(buffer, { type: "array" });
+    const sheetName = workbook.SheetNames[0];
+
+    if (!sheetName) {
+      return { error: "El archivo Excel no contiene hojas" };
+    }
+
+    const records = utils.sheet_to_json<Record<string, string>>(
+      workbook.Sheets[sheetName],
+      { defval: "", raw: false }
+    );
+
+    if (records.length === 0) {
+      return { error: "La hoja está vacía o no tiene filas con datos" };
+    }
+
+    const headers = Object.keys(records[0] ?? {});
+    return { headers, records };
+  }
+
+  return { error: "Formato no soportado. Usá CSV o Excel (.xlsx)" };
+}
+
+/** Normaliza los valores de un record ya mapeado a campos canónicos */
+function normalizeClientRowValues(
+  record: Record<string, string>
+): Record<string, string> {
+  const r = { ...record };
+  if (r.totalAmount !== undefined) r.totalAmount = normalizeAmount(r.totalAmount);
+  if (r.joinDate !== undefined) r.joinDate = normalizeDate(r.joinDate);
+  if (r.platform !== undefined) r.platform = normalizePlatform(r.platform);
+  if (r.paymentType !== undefined) r.paymentType = normalizePaymentType(r.paymentType);
+  if (r.status !== undefined) r.status = normalizeStatus(r.status);
+  return r;
+}
+
+/**
+ * Aplica un mapeo de columnas a los records crudos, normaliza los valores
+ * y parsea/valida cada fila.
+ */
+export function parseClientImportRowsMapped(
+  records: Record<string, string>[],
+  mapping: ColumnMapping
+): ParsedClientImport {
+  const remapped = applyColumnMapping(records, mapping);
+  const normalized = remapped.map(normalizeClientRowValues);
+  return parseClientImportRows(normalized);
 }
 
 export async function parseClientsImportFile(file: File): Promise<ParsedClientImport> {
