@@ -11,6 +11,8 @@ import {
   type ClosingCallRow,
 } from "@/lib/closing/mapper";
 import { repairClosingConversationLinks } from "@/lib/conversations/repair-links";
+import { getGHLIntegrationForOrg } from "@/lib/ghl/integration";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import {
@@ -40,9 +42,27 @@ export async function listClosingCallsAction(): Promise<ClosingCall[]> {
 
   await repairClosingConversationLinks(supabase, organizationId);
 
+  // Obtener el calendario GHL activo para filtrar — ghl_integrations no tiene RLS SELECT
+  // por eso usamos admin solo para leer default_calendar_id.
+  let activeGHLCalendarId: string | null = null;
+  try {
+    const ghlRow = await getGHLIntegrationForOrg(organizationId);
+    activeGHLCalendarId = ghlRow?.default_calendar_id ?? null;
+  } catch {
+    // Si falla la lectura de GHL, continuamos sin filtrar por calendario
+  }
+
+  // Filtro: mostrar calls que no son de GHL (Calendly, manual),
+  // más las de GHL que pertenecen al calendario actualmente configurado.
+  // Si no hay integración GHL activa, ocultamos todas las calls de GHL.
+  const calendarFilter = activeGHLCalendarId
+    ? `ghl_appointment_id.is.null,ghl_calendar_id.eq.${activeGHLCalendarId}`
+    : "ghl_appointment_id.is.null";
+
   const { data, error } = await supabase
     .from("closing_calls")
     .select("*")
+    .or(calendarFilter)
     .order("scheduled_at", { ascending: true });
 
   if (error) {
