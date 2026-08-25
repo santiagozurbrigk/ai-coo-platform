@@ -39,9 +39,7 @@ import type { DateRange } from "./metrics/date-range-picker";
 import type { FrequentObjectionsResult } from "@/types/sales";
 import type { MetricsSnapshot } from "@/app/sales/metrics-actions";
 
-// ─── Componente principal ──────────────────────────────────────────────────────
-
-// ─── Tabla de historial importado ────────────────────────────────────────────
+// ─── Helpers de formato ───────────────────────────────────────────────────────
 
 function fmtNum(n: number | undefined): string {
   if (n == null || isNaN(n)) return "—";
@@ -56,55 +54,64 @@ function fmtMoney(n: number | undefined): string {
   return `$${n.toLocaleString("es-AR")}`;
 }
 
-const SNAPSHOT_COLS: Array<{
+// ─── Tarjeta por período importado ────────────────────────────────────────────
+
+const SNAPSHOT_ROWS: Array<{
   key: string;
   label: string;
   fmt: (n: number | undefined) => string;
 }> = [
-  { key: "leads_totales",    label: "Leads",      fmt: fmtNum },
-  { key: "agendas_totales",  label: "Agendas",    fmt: fmtNum },
-  { key: "asistencias",      label: "Show up",    fmt: fmtNum },
-  { key: "inasistencias",    label: "No show",    fmt: fmtNum },
-  { key: "cierres",          label: "Cierres",    fmt: fmtNum },
-  { key: "facturacion",      label: "Facturación",fmt: fmtMoney },
-  { key: "close_rate",       label: "Close rate", fmt: fmtPct },
-  { key: "show_rate",        label: "Show rate",  fmt: fmtPct },
+  { key: "leads_totales",    label: "Leads",        fmt: fmtNum },
+  { key: "agendas_totales",  label: "Agendas",      fmt: fmtNum },
+  { key: "asistencias",      label: "Show up",      fmt: fmtNum },
+  { key: "inasistencias",    label: "No show",      fmt: fmtNum },
+  { key: "cierres",          label: "Cierres",      fmt: fmtNum },
+  { key: "facturacion",      label: "Facturación",  fmt: fmtMoney },
+  { key: "close_rate",       label: "Close rate",   fmt: fmtPct },
+  { key: "show_rate",        label: "Show rate",    fmt: fmtPct },
 ];
+
+function SnapshotCard({ snapshot }: { snapshot: MetricsSnapshot }) {
+  const m = snapshot.metrics;
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold">{snapshot.periodLabel}</span>
+        <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
+          Importado
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+        {SNAPSHOT_ROWS.map((row) => {
+          const val = m[row.key];
+          if (val == null) return null;
+          return (
+            <div key={row.key} className="flex items-center justify-between gap-2">
+              <span className="text-[11px] text-muted-foreground">{row.label}</span>
+              <span className="text-[12px] font-semibold tabular-nums">{row.fmt(val)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function ImportedMetricsSection({ snapshots }: { snapshots: MetricsSnapshot[] }) {
   if (!snapshots.length) return null;
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-[13px] font-semibold">Historial importado</h3>
-        <span className="text-xs text-muted-foreground">{snapshots.length} períodos</span>
+      <div className="flex items-center gap-2">
+        <h3 className="text-[13px] font-semibold">Métricas importadas</h3>
+        <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-400">
+          {snapshots.length} período{snapshots.length !== 1 ? "s" : ""}
+        </span>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-muted/40 border-b border-border">
-              <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Período</th>
-              {SNAPSHOT_COLS.map(c => (
-                <th key={c.key} className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground whitespace-nowrap">
-                  {c.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {snapshots.map(s => (
-              <tr key={s.id} className="hover:bg-muted/20 transition-colors">
-                <td className="px-4 py-2.5 text-xs font-medium whitespace-nowrap">{s.periodLabel}</td>
-                {SNAPSHOT_COLS.map(c => (
-                  <td key={c.key} className="px-4 py-2.5 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">
-                    {c.fmt(s.metrics[c.key])}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {snapshots.map((s) => (
+          <SnapshotCard key={s.id} snapshot={s} />
+        ))}
       </div>
     </section>
   );
@@ -139,6 +146,29 @@ export function SalesMetricsRedesign({
 
   const totalConvs = filteredConversations.length;
 
+  // ── Fallback: usar snapshot más reciente cuando no hay datos en vivo ──────
+  // perfMetrics viene de closing_calls/conversations; si el usuario no tiene
+  // datos operativos cargados en OTC, todas las métricas son 0.
+  // En ese caso usamos el snapshot importado más reciente como fuente.
+  const latestSnapshot = importedSnapshots[0] ?? null; // ordenados desc por period_start
+  const liveDataIsEmpty =
+    !perfMetrics ||
+    (perfMetrics.closer.closeRate === 0 &&
+      perfMetrics.closer.showRate === 0 &&
+      perfMetrics.leads.leadsCount === 0 &&
+      perfMetrics.calls.cierres === 0);
+  const useSnapshotFallback = liveDataIsEmpty && !!latestSnapshot;
+
+  const effectiveCloseRate = useSnapshotFallback
+    ? (latestSnapshot!.metrics["close_rate"] ?? 0) * 100
+    : (perfMetrics?.closer.closeRate ?? 0);
+  const effectiveShowRate = useSnapshotFallback
+    ? (latestSnapshot!.metrics["show_rate"] ?? 0) * 100
+    : (perfMetrics?.closer.showRate ?? 0);
+  const effectiveFacturacion = useSnapshotFallback
+    ? (latestSnapshot!.metrics["facturacion"] ?? financeSummary.facturacion)
+    : financeSummary.facturacion;
+
   // ── Franja de resumen inferior ────────────────────────────────────────────
   const summaryItems = [
     { label: "Convs. totales", value: String(filteredMetrics.totalConversations) },
@@ -166,26 +196,37 @@ export function SalesMetricsRedesign({
       {/* ── Selector de período ─────────────────────────────────────────────── */}
       <DateRangePicker value={dateRange} onChange={setDateRange} />
 
+      {/* ── Métricas importadas (tarjetas por período) ─────────────────────── */}
+      <ImportedMetricsSection snapshots={importedSnapshots} />
+
       {/* ── 1. KPI Heroes: 4 métricas principales ──────────────────────────── */}
+      {useSnapshotFallback && (
+        <div className="flex items-center gap-2 rounded-lg border border-violet-300/40 bg-violet-500/5 px-3 py-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
+          <p className="text-xs text-muted-foreground">
+            Mostrando datos del período importado más reciente (<span className="font-medium text-foreground">{latestSnapshot!.periodLabel}</span>). Conectá tus integraciones para ver métricas en tiempo real.
+          </p>
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiHeroCard
           label="Close Rate"
-          hint="Cierres / asistencias"
-          value={isLoading ? "—" : formatPercent(perfMetrics?.closer.closeRate ?? 0)}
+          hint={useSnapshotFallback ? `Datos importados · ${latestSnapshot!.periodLabel}` : "Cierres / asistencias"}
+          value={isLoading ? "—" : formatPercent(effectiveCloseRate)}
           icon={Target}
           sparkData={bookingSparkData}
         />
         <KpiHeroCard
           label="Show Rate"
-          hint="Asistencias / agendas"
-          value={isLoading ? "—" : formatPercent(perfMetrics?.closer.showRate ?? 0)}
+          hint={useSnapshotFallback ? `Datos importados · ${latestSnapshot!.periodLabel}` : "Asistencias / agendas"}
+          value={isLoading ? "—" : formatPercent(effectiveShowRate)}
           icon={Users}
           sparkData={[...bookingSparkData].reverse()}
         />
         <KpiHeroCard
           label="Facturación"
-          hint="Total facturado este período"
-          value={isLoading ? "—" : formatMoney(financeSummary.facturacion)}
+          hint={useSnapshotFallback ? `Datos importados · ${latestSnapshot!.periodLabel}` : "Total facturado este período"}
+          value={isLoading ? "—" : formatMoney(effectiveFacturacion)}
           icon={DollarSign}
           sparkData={facturacionSparkData}
         />
@@ -475,9 +516,6 @@ export function SalesMetricsRedesign({
 
       {/* ── Franja de resumen ─────────────────────────────────────────────── */}
       <SummaryStrip items={summaryItems} />
-
-      {/* ── Historial de métricas importadas ─────────────────────────────── */}
-      <ImportedMetricsSection snapshots={importedSnapshots} />
     </div>
   );
 }
