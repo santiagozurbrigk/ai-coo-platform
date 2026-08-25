@@ -172,6 +172,12 @@ export interface GaugeProps {
   valueClassName?: string;
   /** Override class for the center label text (passed to PieCenter via PieCenterShell). */
   labelClassName?: string;
+  /**
+   * Factor multiplicado por `size` para el paddingTop del overlay central.
+   * 0.08 = default (centrado visual dentro del arco 270°).
+   * Valores menores suben el número; negativos lo pasan por encima del centro.
+   */
+  centerYFactor?: number;
 }
 
 interface GaugeInnerProps extends Omit<GaugeProps, "className" | "minWidth"> {
@@ -181,6 +187,7 @@ interface GaugeInnerProps extends Omit<GaugeProps, "className" | "minWidth"> {
 
 function GaugeInner({
   value,
+  centerYFactor = 0.08,
   totalNotches = 40,
   spacing = 25,
   notchCornerRadius = 0,
@@ -470,7 +477,7 @@ function GaugeInner({
 
       <div
         className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
-        style={{ paddingTop: size * 0.08 }}
+        style={{ paddingTop: size * centerYFactor }}
       >
         <PieCenterShell
           centerValue={centerValue}

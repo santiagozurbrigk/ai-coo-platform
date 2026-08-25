@@ -11,6 +11,7 @@ export function GaugeMetricChart({
   className,
   valueClassName,
   labelClassName,
+  centerYFactor,
 }: {
   value: number;
   max?: number;
@@ -19,6 +20,7 @@ export function GaugeMetricChart({
   className?: string;
   valueClassName?: string;
   labelClassName?: string;
+  centerYFactor?: number;
 }) {
   const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
 
@@ -35,6 +37,7 @@ export function GaugeMetricChart({
       className={cn("mx-auto w-full max-w-[240px]", className)}
       valueClassName={valueClassName}
       labelClassName={labelClassName}
+      centerYFactor={centerYFactor}
     />
   );
 }

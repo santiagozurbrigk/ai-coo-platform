@@ -36,6 +36,7 @@ export function GaugeSideCard({
           suffix={suffix}
           className="w-full max-w-[200px]"
           labelClassName="hidden"
+          centerYFactor={0.02}
         />
       </div>
     </GlassPanel>
