@@ -420,25 +420,59 @@ function SheetSelector({
   );
 }
 
-// ─── Banner de formato auto-detectado ────────────────────────────────────────
+// ─── Mapper de filas para formato transpuesto ─────────────────────────────────
 
-function TransposedBanner({
+function TransposedRowMapper({
   label,
   preview,
+  fields,
+  mapping,
+  onChange,
 }: {
   label: string;
   preview: ExcelPreview;
+  fields: RowField[];
+  mapping: Record<string, string>;
+  onChange: (m: Record<string, string>) => void;
 }) {
   const months = preview.headers.filter((h) => looksLikeMonthHeader(h));
+  const rowLabels = preview.rowLabels ?? [];
+
   return (
-    <div className="rounded-md border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 px-3 py-2.5 space-y-1">
-      <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
-        Formato tabla detectado — {label}
-      </p>
-      <p className="text-xs text-blue-600 dark:text-blue-400">
-        Se importarán automáticamente los períodos: {months.slice(0, 6).join(", ")}{months.length > 6 ? ` y ${months.length - 6} más` : ""}.
-        No es necesario mapear columnas.
-      </p>
+    <div className="space-y-3">
+      <div className="rounded-md border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 px-3 py-2.5 space-y-1">
+        <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
+          Formato tabla detectado — {label}
+        </p>
+        <p className="text-xs text-blue-600 dark:text-blue-400">
+          Períodos detectados: {months.slice(0, 6).join(", ")}{months.length > 6 ? ` y ${months.length - 6} más` : ""}.
+          Indicá qué fila del archivo corresponde a cada métrica.
+        </p>
+      </div>
+
+      {rowLabels.length === 0 ? (
+        <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded px-3 py-2">
+          No se pudieron leer las etiquetas de fila. Verificá que la columna A del archivo tenga los nombres de las métricas.
+        </p>
+      ) : (
+        <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+          {fields.map((f) => (
+            <div key={f.key} className="flex items-center gap-2">
+              <span className="text-xs text-foreground w-44 shrink-0">{f.label}</span>
+              <select
+                value={mapping[f.key] ?? ""}
+                onChange={(e) => onChange({ ...mapping, [f.key]: e.target.value })}
+                className="flex-1 h-7 rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="">— no importar —</option>
+                {rowLabels.map((l) => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -458,6 +492,10 @@ function StepMapper({
   onMapping,
   loading,
   transposedTypes,
+  transposedSalesRowMapping,
+  transposedFinanceRowMapping,
+  onTransposedSalesRowMappingChange,
+  onTransposedFinanceRowMappingChange,
   onClientsSheetChange,
   onClosingSheetChange,
   onSalesMetricsSheetChange,
@@ -479,6 +517,10 @@ function StepMapper({
   onMapping: (v: ExcelColumnMapperValue) => void;
   loading: boolean;
   transposedTypes: Set<WhatToImport>;
+  transposedSalesRowMapping: Record<string, string>;
+  transposedFinanceRowMapping: Record<string, string>;
+  onTransposedSalesRowMappingChange: (m: Record<string, string>) => void;
+  onTransposedFinanceRowMappingChange: (m: Record<string, string>) => void;
   onClientsSheetChange: (sheet: string) => void;
   onClosingSheetChange: (sheet: string) => void;
   onSalesMetricsSheetChange: (sheet: string) => void;
@@ -500,7 +542,7 @@ function StepMapper({
   const salesTransposed   = transposedTypes.has("salesMetrics");
   const financeTransposed = transposedTypes.has("financeMetrics");
 
-  // Para el ExcelColumnMapper, pasamos undefined en tipos transpuestos (no necesitan mapeo)
+  // Para el ExcelColumnMapper, pasamos undefined en tipos transpuestos (no necesitan mapeo de columnas)
   const salesHeaders   = salesTransposed   ? undefined : salesMetricsPreview?.headers;
   const financeHeaders = financeTransposed ? undefined : financeMetricsPreview?.headers;
 
@@ -511,13 +553,15 @@ function StepMapper({
     financeHeaders?.length
   );
 
+  const hasAnyTransposed = salesTransposed || financeTransposed;
+
   return (
-    <div className="space-y-3">
-      {(salesTransposed || financeTransposed) ? (
+    <div className="space-y-4">
+      {hasAnyTransposed && !needsColumnMapper ? (
         <div>
-          <p className="text-sm font-medium">Revisá los datos a importar</p>
+          <p className="text-sm font-medium">Mapeo de filas</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Se detectaron archivos en formato tabla. Las columnas de mapeo solo aparecen para archivos con formato estándar.
+            Seleccioná qué fila de tu archivo corresponde a cada métrica de OTC.
           </p>
         </div>
       ) : (
@@ -543,12 +587,24 @@ function StepMapper({
         <SheetSelector label="métricas finanzas" allSheets={financeMetricsPreview.allSheets} activeSheet={financeMetricsPreview.activeSheet} loading={financeMetricsSheetLoading} onSelect={onFinanceMetricsSheetChange} />
       )}
 
-      {/* Banners de detección automática para tipos transpuestos */}
+      {/* Mapper de filas para tipos transpuestos */}
       {salesTransposed && salesMetricsPreview && (
-        <TransposedBanner label="Métricas de ventas" preview={salesMetricsPreview} />
+        <TransposedRowMapper
+          label="Métricas de ventas"
+          preview={salesMetricsPreview}
+          fields={SALES_ROW_FIELDS}
+          mapping={transposedSalesRowMapping}
+          onChange={onTransposedSalesRowMappingChange}
+        />
       )}
       {financeTransposed && financeMetricsPreview && (
-        <TransposedBanner label="Métricas de finanzas" preview={financeMetricsPreview} />
+        <TransposedRowMapper
+          label="Métricas de finanzas"
+          preview={financeMetricsPreview}
+          fields={FINANCE_ROW_FIELDS}
+          mapping={transposedFinanceRowMapping}
+          onChange={onTransposedFinanceRowMappingChange}
+        />
       )}
 
       {clientsPreview?.headers.length === 0 && (
@@ -683,7 +739,7 @@ function StepConfirm({
         )}
       </div>
       <p className="text-xs text-muted-foreground">
-        Los registros existentes no se sobreescribirán.
+        Clientes y llamadas: si ya existen, no se sobreescriben. Métricas: si ya existe un registro para el mismo período, se actualiza con los nuevos valores.
       </p>
       <Button
         type="button"
@@ -747,6 +803,9 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   const [financeMetricsSheetLoading, setFinanceMetricsSheetLoading] = useState(false);
   // Tipos donde se detectó formato transpuesto (pivot: meses=columnas, métricas=filas)
   const [transposedTypes, setTransposedTypes] = useState<Set<WhatToImport>>(new Set());
+  // Mapeo manual de filas para formatos transpuestos: { fieldKey → "Etiqueta de fila en el Excel" }
+  const [transposedSalesRowMapping, setTransposedSalesRowMapping] = useState<Record<string, string>>({});
+  const [transposedFinanceRowMapping, setTransposedFinanceRowMapping] = useState<Record<string, string>>({});
 
   const toggleWhat = (w: WhatToImport) => {
     setWhat((prev) => {
@@ -797,6 +856,18 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
         if (fpData && isTransposedMetricsFormat(fpData.headers)) detected.add("financeMetrics");
         setTransposedTypes(detected);
 
+        // Auto-sugerir mapeo de filas usando el diccionario de sinónimos
+        if (detected.has("salesMetrics") && spData?.rowLabels?.length) {
+          setTransposedSalesRowMapping(autoMapTransposedRows("salesMetrics", spData.rowLabels));
+        } else {
+          setTransposedSalesRowMapping({});
+        }
+        if (detected.has("financeMetrics") && fpData?.rowLabels?.length) {
+          setTransposedFinanceRowMapping(autoMapTransposedRows("financeMetrics", fpData.rowLabels));
+        } else {
+          setTransposedFinanceRowMapping({});
+        }
+
         setColumnMapping({
           clientsMapping:       cp?.success ? autoMap("clients",       cp.data.headers) as Partial<ColumnMapping>            : undefined,
           closingMapping:       lp?.success ? autoMap("closing",       lp.data.headers) as Partial<ClosingColumnMapping>     : undefined,
@@ -823,10 +894,20 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   );
 
   const canAdvanceFromMapper = (
-    (!clientsPreview       || isMappingValid("clients",       columnMapping.clientsMapping)) &&
-    (!closingPreview       || isMappingValid("closing",       columnMapping.closingMapping)) &&
-    (!salesMetricsPreview  || transposedTypes.has("salesMetrics")   || isMappingValid("salesMetrics",  columnMapping.salesMetricsMapping)) &&
-    (!financeMetricsPreview|| transposedTypes.has("financeMetrics") || isMappingValid("financeMetrics",columnMapping.financeMetricsMapping))
+    (!clientsPreview || isMappingValid("clients", columnMapping.clientsMapping)) &&
+    (!closingPreview  || isMappingValid("closing", columnMapping.closingMapping)) &&
+    (
+      !salesMetricsPreview ? true :
+      transposedTypes.has("salesMetrics")
+        ? Object.values(transposedSalesRowMapping).some(Boolean)
+        : isMappingValid("salesMetrics", columnMapping.salesMetricsMapping)
+    ) &&
+    (
+      !financeMetricsPreview ? true :
+      transposedTypes.has("financeMetrics")
+        ? Object.values(transposedFinanceRowMapping).some(Boolean)
+        : isMappingValid("financeMetrics", columnMapping.financeMetricsMapping)
+    )
   );
 
   const handleClientsSheetChange = async (sheet: string) => {
@@ -876,12 +957,15 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
           if (isTransposed) next.add("salesMetrics"); else next.delete("salesMetrics");
           return next;
         });
-        setColumnMapping((prev) => ({
-          ...prev,
-          salesMetricsMapping: isTransposed
-            ? undefined
-            : autoMap("salesMetrics", result.data.headers) as Partial<SalesMetricsColumnMapping>,
-        }));
+        if (isTransposed && result.data.rowLabels?.length) {
+          setTransposedSalesRowMapping(autoMapTransposedRows("salesMetrics", result.data.rowLabels));
+        } else {
+          setTransposedSalesRowMapping({});
+          setColumnMapping((prev) => ({
+            ...prev,
+            salesMetricsMapping: autoMap("salesMetrics", result.data.headers) as Partial<SalesMetricsColumnMapping>,
+          }));
+        }
       }
     } finally {
       setSalesMetricsSheetLoading(false);
@@ -901,12 +985,15 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
           if (isTransposed) next.add("financeMetrics"); else next.delete("financeMetrics");
           return next;
         });
-        setColumnMapping((prev) => ({
-          ...prev,
-          financeMetricsMapping: isTransposed
-            ? undefined
-            : autoMap("financeMetrics", result.data.headers) as Partial<FinanceMetricsColumnMapping>,
-        }));
+        if (isTransposed && result.data.rowLabels?.length) {
+          setTransposedFinanceRowMapping(autoMapTransposedRows("financeMetrics", result.data.rowLabels));
+        } else {
+          setTransposedFinanceRowMapping({});
+          setColumnMapping((prev) => ({
+            ...prev,
+            financeMetricsMapping: autoMap("financeMetrics", result.data.headers) as Partial<FinanceMetricsColumnMapping>,
+          }));
+        }
       }
     } finally {
       setFinanceMetricsSheetLoading(false);
@@ -951,9 +1038,10 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
       // ── Métricas de ventas ──
       if (what.has("salesMetrics") && origin === "excel" && salesMetricsFile) {
         if (transposedTypes.has("salesMetrics")) {
-          // Formato pivot: métricas como filas, meses como columnas
+          // Formato pivot: métricas como filas, meses como columnas — mapeo manual del usuario
           const r = await importSalesMetricsTransposedAction(
             salesMetricsFile.base64,
+            transposedSalesRowMapping,
             salesMetricsPreview?.activeSheet
           );
           if (!r.success) throw new Error(r.error);
@@ -973,9 +1061,10 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
       // ── Métricas de finanzas ──
       if (what.has("financeMetrics") && origin === "excel" && financeMetricsFile) {
         if (transposedTypes.has("financeMetrics")) {
-          // Formato pivot: métricas como filas, meses como columnas
+          // Formato pivot: métricas como filas, meses como columnas — mapeo manual del usuario
           const r = await importFinanceMetricsTransposedAction(
             financeMetricsFile.base64,
+            transposedFinanceRowMapping,
             financeMetricsPreview?.activeSheet
           );
           if (!r.success) throw new Error(r.error);
@@ -1099,6 +1188,10 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             onMapping={setColumnMapping}
             loading={mapperLoading}
             transposedTypes={transposedTypes}
+            transposedSalesRowMapping={transposedSalesRowMapping}
+            transposedFinanceRowMapping={transposedFinanceRowMapping}
+            onTransposedSalesRowMappingChange={setTransposedSalesRowMapping}
+            onTransposedFinanceRowMappingChange={setTransposedFinanceRowMapping}
             onClientsSheetChange={handleClientsSheetChange}
             onClosingSheetChange={handleClosingSheetChange}
             onSalesMetricsSheetChange={handleSalesMetricsSheetChange}
@@ -1226,6 +1319,59 @@ function autoMap(
     const field = known[norm];
     if (field && !result[field]) {
       result[field] = h;
+    }
+  }
+  return result;
+}
+
+// ─── Campos para el mapper de filas transpuestas ──────────────────────────────
+
+type RowField = { key: string; label: string };
+
+const SALES_ROW_FIELDS: RowField[] = [
+  { key: "leadsTotales",    label: "Leads totales" },
+  { key: "agendasTotales",  label: "Agendas totales" },
+  { key: "asistencias",     label: "Asistencias / shows" },
+  { key: "inasistencias",   label: "Inasistencias / no-shows" },
+  { key: "cierres",         label: "Cierres" },
+  { key: "noCierres",       label: "No cierres" },
+  { key: "señas",           label: "Señas" },
+  { key: "facturacion",     label: "Facturación" },
+  { key: "cashCollected",   label: "Cash collected" },
+  { key: "closeRate",       label: "Close rate" },
+  { key: "showRate",        label: "Show rate" },
+  { key: "tasaAgendamiento",label: "Tasa de agendamiento" },
+  { key: "tasaFantasma",    label: "Tasa de fantasma" },
+  { key: "enNutricion",     label: "En nutrición" },
+  { key: "perdidos",        label: "Perdidos" },
+  { key: "seguimientos",    label: "Seguimientos" },
+  { key: "tiempoRespuesta", label: "Tiempo de respuesta" },
+];
+
+const FINANCE_ROW_FIELDS: RowField[] = [
+  { key: "facturacion",   label: "Facturación" },
+  { key: "cashCollected", label: "Cash collected" },
+  { key: "margen",        label: "Margen" },
+  { key: "porCobrar",     label: "Por cobrar" },
+  { key: "gastos",        label: "Gastos" },
+];
+
+/**
+ * A partir de las etiquetas de fila del archivo, sugiere un mapeo automático
+ * usando el diccionario de sinónimos. El usuario puede editarlo luego.
+ * Excluye el campo "period" (en formato pivotado, los períodos son las columnas).
+ */
+function autoMapTransposedRows(
+  type: "salesMetrics" | "financeMetrics",
+  rowLabels: string[]
+): Record<string, string> {
+  const known = type === "salesMetrics" ? SALES_METRICS_KNOWN : FINANCE_METRICS_KNOWN;
+  const result: Record<string, string> = {};
+  for (const label of rowLabels) {
+    const norm = label.toLowerCase().trim();
+    const fieldKey = known[norm];
+    if (fieldKey && fieldKey !== "period" && !result[fieldKey]) {
+      result[fieldKey] = label;
     }
   }
   return result;

@@ -11,6 +11,7 @@ import {
   parseFinanceMetricsExcel,
   parseSalesMetricsTransposed,
   parseFinanceMetricsTransposed,
+  isTransposedMetricsSheet,
   type SalesMetricsColumnMapping,
   type FinanceMetricsColumnMapping,
 } from "@/lib/metrics/excel-parser";
@@ -22,6 +23,8 @@ export type ExcelPreview = {
   rows: Record<string, string>[];
   allSheets: string[];
   activeSheet: string;
+  /** Para hojas transpuestas (meses=columnas): etiquetas de la columna A (nombres de métricas). */
+  rowLabels?: string[];
 };
 
 export async function getExcelPreviewAction(
@@ -76,7 +79,16 @@ export async function getExcelPreviewAction(
       return out;
     });
 
-    return { headers, rows, allSheets, activeSheet: targetSheet ?? allSheets[0] ?? "" };
+    // Para hojas transpuestas, devolver TODAS las etiquetas de la columna A
+    // (son los nombres de las métricas que el usuario podrá mapear manualmente)
+    let rowLabels: string[] | undefined;
+    if (isTransposedMetricsSheet(headers)) {
+      rowLabels = dataRows
+        .map((row) => String((row as unknown[])[0] ?? "").trim())
+        .filter(Boolean);
+    }
+
+    return { headers, rows, allSheets, activeSheet: targetSheet ?? allSheets[0] ?? "", rowLabels };
   });
 }
 
@@ -342,6 +354,8 @@ export async function importFinanceMetricsFromExcelAction(
 
 export async function importSalesMetricsTransposedAction(
   fileBase64: string,
+  /** Mapeo manual: { [fieldKey]: "Etiqueta de fila exacta en el Excel" } */
+  rowMapping: Record<string, string>,
   sheetName?: string
 ): Promise<MutationResult<ExcelImportResult>> {
   return runMutation(async () => {
@@ -349,7 +363,7 @@ export async function importSalesMetricsTransposedAction(
     const supabase = await createClient();
 
     const buffer = Buffer.from(fileBase64, "base64");
-    const { rows, errors } = parseSalesMetricsTransposed(buffer, sheetName);
+    const { rows, errors } = parseSalesMetricsTransposed(buffer, rowMapping, sheetName);
 
     if (!rows.length) {
       return {
@@ -386,6 +400,8 @@ export async function importSalesMetricsTransposedAction(
 
 export async function importFinanceMetricsTransposedAction(
   fileBase64: string,
+  /** Mapeo manual: { [fieldKey]: "Etiqueta de fila exacta en el Excel" } */
+  rowMapping: Record<string, string>,
   sheetName?: string
 ): Promise<MutationResult<ExcelImportResult>> {
   return runMutation(async () => {
@@ -393,7 +409,7 @@ export async function importFinanceMetricsTransposedAction(
     const supabase = await createClient();
 
     const buffer = Buffer.from(fileBase64, "base64");
-    const { rows, errors } = parseFinanceMetricsTransposed(buffer, sheetName);
+    const { rows, errors } = parseFinanceMetricsTransposed(buffer, rowMapping, sheetName);
 
     if (!rows.length) {
       return {

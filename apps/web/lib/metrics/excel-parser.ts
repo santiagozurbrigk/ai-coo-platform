@@ -418,6 +418,11 @@ function parseTransposedMetrics(
   buffer: Buffer,
   rowLabelMap: Record<string, string>,
   dbNames: Record<string, string>,
+  /**
+   * Mapeo explícito del usuario: field key → etiqueta de fila exacta del Excel.
+   * Si se provee y tiene entradas, reemplaza completamente al diccionario automático.
+   */
+  explicitRowMapping?: Record<string, string>,
   sheetName?: string
 ): { rows: MetricsSnapshotRow[]; errors: Array<{ row: number; message: string }> } {
   const wb = XLSX.read(buffer, { type: "buffer", raw: false });
@@ -469,6 +474,18 @@ function parseTransposedMetrics(
     return { rows: [], errors: [{ row: 0, message: "No se encontraron columnas de período (meses)." }] };
   }
 
+  // Construir lookup efectivo: etiqueta normalizada → field key
+  // Si el usuario proveyó un mapeo explícito, invertirlo y usarlo exclusivamente.
+  // Si no, usar el diccionario automático.
+  const effectiveLookup: Record<string, string> = {};
+  if (explicitRowMapping && Object.keys(explicitRowMapping).length > 0) {
+    for (const [fieldKey, rowLabel] of Object.entries(explicitRowMapping)) {
+      if (rowLabel) effectiveLookup[rowLabel.toLowerCase()] = fieldKey;
+    }
+  } else {
+    Object.assign(effectiveLookup, rowLabelMap);
+  }
+
   // Acumular métricas por columna
   const colMetrics = new Map<number, Record<string, number>>();
   colDates.forEach((_, ci) => colMetrics.set(ci, {}));
@@ -476,8 +493,8 @@ function parseTransposedMetrics(
   for (const row of dataRows) {
     const rowLabel = String(row[0] ?? "").trim();
     if (!rowLabel) continue;
-    const fieldKey = rowLabelMap[rowLabel.toLowerCase()];
-    if (!fieldKey) continue; // etiqueta desconocida — ignorar
+    const fieldKey = effectiveLookup[rowLabel.toLowerCase()];
+    if (!fieldKey) continue; // etiqueta no mapeada — ignorar
     const dbName = dbNames[fieldKey] ?? fieldKey;
     colDates.forEach((_, ci) => {
       const val = parseNum(String(row[ci] ?? ""));
@@ -499,10 +516,23 @@ function parseTransposedMetrics(
   return { rows, errors: [] };
 }
 
-export function parseSalesMetricsTransposed(buffer: Buffer, sheetName?: string) {
-  return parseTransposedMetrics(buffer, SALES_ROW_LABEL_MAP, SALES_DB_NAMES, sheetName);
+/**
+ * @param rowMapping  Mapeo manual del usuario: { [fieldKey]: "Etiqueta de fila exacta" }.
+ *                    Si se provee, reemplaza el diccionario automático.
+ *                    Si se omite, usa el diccionario de sinónimos como fallback.
+ */
+export function parseSalesMetricsTransposed(
+  buffer: Buffer,
+  rowMapping?: Record<string, string>,
+  sheetName?: string
+) {
+  return parseTransposedMetrics(buffer, SALES_ROW_LABEL_MAP, SALES_DB_NAMES, rowMapping, sheetName);
 }
 
-export function parseFinanceMetricsTransposed(buffer: Buffer, sheetName?: string) {
-  return parseTransposedMetrics(buffer, FINANCE_ROW_LABEL_MAP, FINANCE_DB_NAMES, sheetName);
+export function parseFinanceMetricsTransposed(
+  buffer: Buffer,
+  rowMapping?: Record<string, string>,
+  sheetName?: string
+) {
+  return parseTransposedMetrics(buffer, FINANCE_ROW_LABEL_MAP, FINANCE_DB_NAMES, rowMapping, sheetName);
 }
