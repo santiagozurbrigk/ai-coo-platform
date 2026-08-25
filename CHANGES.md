@@ -14,6 +14,46 @@
 
 ---
 
+### 2026-08-25 — FEAT-METRICS-DERIVE: Auto-derivación de métricas combinadas al importar
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit(s):** `993103b` — feat(metrics-import): auto-derivación de métricas combinadas desde primarias  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `lib/metrics/excel-parser.ts`, `components/integrations/data-import-wizard.tsx`
+
+**Qué se hizo:**
+- `apps/web/lib/metrics/excel-parser.ts`:
+  - Agrega `deriveSalesMetrics(metrics)`: calcula las métricas derivadas de ventas que no estén presentes:
+    - `inasistencias` = `agendas_totales` − `asistencias`
+    - `no_cierres` = `asistencias` − `cierres`
+    - `close_rate` = `cierres` / `asistencias`
+    - `show_rate` = `asistencias` / `agendas_totales`
+    - `tasa_agendamiento` = `agendas_totales` / `leads_totales`
+    - `tasa_fantasma` = `inasistencias` / `agendas_totales`
+  - Agrega `deriveFinanceMetrics(metrics)`: calcula métricas derivadas de finanzas:
+    - `margen` = `facturacion` − `gastos`
+    - `pct_margen` = `margen` / `facturacion`
+  - Aplica `deriveSalesMetrics` en `parseSalesMetricsTransposed` y `parseSalesMetricsExcel` (post-procesado de filas)
+  - Aplica `deriveFinanceMetrics` en `parseFinanceMetricsTransposed` y `parseFinanceMetricsExcel`
+  - Las métricas derivadas solo se calculan si no están ya presentes (el archivo puede tenerlas explícitamente y tienen prioridad)
+- `apps/web/components/integrations/data-import-wizard.tsx`:
+  - `SALES_ROW_FIELDS`: reduce de 17 a 11 campos (solo primarios). Eliminados: `closeRate`, `showRate`, `tasaAgendamiento`, `tasaFantasma`, `inasistencias`, `noCierres`
+  - `FINANCE_ROW_FIELDS`: reduce de 5 a 4 campos. Eliminado: `margen` (se calcula de `facturacion − gastos`)
+
+**Por qué / finalidad:**
+El usuario quería ingresar únicamente las métricas base y que el sistema derive automáticamente las métricas combinadas (porcentajes, tasas). Simplifica el mapper de filas y evita errores de cálculo manual.
+
+**Decisiones de diseño:**
+- Las métricas derivadas no sobreescriben valores explícitos del archivo (verificación `!("campo" in m)`)
+- Se aplica tanto al formato pivot (transpuesto) como al estándar (columnas)
+- `inasistencias` se calcula antes de `tasa_fantasma` para que esta última pueda usarla
+
+**Riesgos / deuda técnica:**
+- Los módulos de Finanzas y Métricas de ventas en el frontend aún no consumen `metrics_snapshots` (`[FEAT-EXCEL-IMPORT-FASE3-RESTANTE]`)
+- `pct_margen` es un campo nuevo en `metrics_snapshots.metrics` (JSONB) — no requiere migración, pero las consultas deben esperarlo como opcional
+
+---
+
 ### 2026-08-25 — FEAT-EXCEL-TRANSPOSED-ROW-MAPPER: Mapeo manual de filas en formato pivot
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
