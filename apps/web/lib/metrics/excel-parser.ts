@@ -111,7 +111,7 @@ type AnyMapping = SalesMetricsColumnMapping | FinanceMetricsColumnMapping;
 function parseMetricsExcel(
   buffer: Buffer,
   mapping: AnyMapping,
-  metricKeys: Exclude<keyof AnyMapping, "period">[],
+  metricKeys: string[],
   metricDbNames: Record<string, string>,
   sheetName?: string
 ): { rows: MetricsSnapshotRow[]; errors: Array<{ row: number; message: string }> } {
@@ -166,7 +166,7 @@ function parseMetricsExcel(
 
 // ─── Sales metrics ────────────────────────────────────────────────────────────
 
-const SALES_METRIC_KEYS: Exclude<keyof SalesMetricsColumnMapping, "period">[] = [
+const SALES_METRIC_KEYS: string[] = [
   "leadsTotales", "agendasTotales", "asistencias", "inasistencias",
   "cierres", "noCierres", "señas", "facturacion", "cashCollected",
   "closeRate", "showRate", "tasaAgendamiento", "tasaFantasma",
@@ -203,7 +203,7 @@ export function parseSalesMetricsExcel(
 
 // ─── Finance metrics ──────────────────────────────────────────────────────────
 
-const FINANCE_METRIC_KEYS: Exclude<keyof FinanceMetricsColumnMapping, "period">[] = [
+const FINANCE_METRIC_KEYS: string[] = [
   "facturacion", "cashCollected", "margen", "porCobrar", "gastos",
 ];
 
