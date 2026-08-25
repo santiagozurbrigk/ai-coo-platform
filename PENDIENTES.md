@@ -9,7 +9,12 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-*(Sin ítems urgentes pendientes)*
+### [DB-PLANES] Aplicar migración de tabla plans en Supabase
+
+**Qué es:** La migración `supabase/migrations/20260825100000_plans_client_plan_delete.sql` fue creada pero NO aplicada todavía.  
+**Acción:** Ejecutar el SQL en Supabase Dashboard → SQL Editor (o `supabase db push` si la CLI está vinculada).  
+**Efecto si no se aplica:** Los módulos de Planes (crear/editar/eliminar plans) y asignación de plan a clientes fallarán en producción con error de tabla inexistente.  
+**Archivo:** `supabase/migrations/20260825100000_plans_client_plan_delete.sql`
 
 ---
 
@@ -149,6 +154,8 @@
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-25 | FEAT-PLANES-CUOTAS-CLIENTES: planes con sistemas de cuotas, eliminar clientes, asignar plan, closing con cuotas manuales — migración SQL pendiente de aplicar en Supabase | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FIX-VENTAS-CASH-COLLECTED: panel de métricas de ventas usa gastosTotales del provider (no snapshot) para cash collected | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FIX-BASELINE-GAPS: Baseline fallback en Intelligence module (collect-context.ts) y monthlySeries (finance-data-provider) — cierran los dos últimos vacíos de la arquitectura baseline | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FEAT-BASELINE-ARCHITECTURE: Arquitectura baseline escalable — baseline-service.ts, finance-data-provider fallback, Dashboard, Finance metrics, agente IA, data_source column en metrics_snapshots | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FEAT-METRICS-DERIVE: Auto-derivación de métricas combinadas al importar — deriveSalesMetrics (close_rate, show_rate, tasa_agendamiento, tasa_fantasma, inasistencias, no_cierres) y deriveFinanceMetrics (margen, pct_margen); mapper de filas reducido a solo métricas primarias (11 ventas, 4 finanzas) | `claude/ghl-integration-data-loading-9cd72n` |

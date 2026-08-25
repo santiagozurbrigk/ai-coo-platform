@@ -14,6 +14,64 @@
 
 ---
 
+### 2026-08-25 — FEAT-PLANES-CUOTAS-CLIENTES: planes con sistemas de cuotas, eliminar clientes, asignar plan, closing con cuotas manuales
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `54fb73c`  
+**Módulo(s) afectado(s):** `types/plans.ts`, `types/clients.ts`, `types/closing.ts`, `app/clients/plan-actions.ts`, `app/clients/actions.ts`, `components/clients/plan-manager-dialog.tsx`, `components/clients/clients-list.tsx`, `components/closing/payment-modal.tsx`, `lib/clients/mapper.ts`, `lib/validations.ts`, `providers/platform-data-provider.tsx`, `supabase/migrations/`
+
+**Qué se hizo:**
+
+1. **Migración SQL** (`20260825100000_plans_client_plan_delete.sql`):
+   - Nueva tabla `public.plans` con: `id`, `organization_id`, `name`, `duration_days`, `installment_systems` (JSONB array), timestamps
+   - RLS policies para read/insert/update/delete por miembros de la organización
+   - Columnas nuevas en `clients`: `plan_id uuid REFERENCES plans(id) ON DELETE SET NULL`, `selected_installment_system_id text`
+   - Policy nueva para eliminar clientes: "Users delete org clients"
+
+2. **Tipos nuevos** (`types/plans.ts`): `InstallmentSystem { id, name, count, amountPerInstallment }`, `Plan { id, name, durationDays?, installmentSystems[], createdAt }`
+
+3. **Server Actions planes** (`app/clients/plan-actions.ts`): `listPlansAction`, `createPlanAction`, `updatePlanAction`, `deletePlanAction` — todos con RLS via `requireOrganizationId()`
+
+4. **Actions clientes** (`app/clients/actions.ts`): `deleteClientAction(id)`, `assignClientPlanAction(clientId, planId?, systemId?)`
+
+5. **PlanManagerDialog** (nuevo componente): reemplaza `PlanDurationsDialog`. Modo list/new/edit, formulario con nombre + duración + sistemas de cuotas dinámicos (agregar/eliminar). Cada sistema: nombre, cantidad de cuotas, monto por cuota.
+
+6. **ClientsList** (reescrito):
+   - Eliminado botón "Cargar clientes"
+   - Reemplazado "Duraciones de planes" por "Crear planes" (abre PlanManagerDialog)
+   - Icono eliminar por fila (Trash2) → confirmación → `deleteClientAction` → `refreshClients`
+   - Icono asignar plan por fila (BookOpen) → `AssignPlanDialog` → `assignClientPlanAction` → `refreshClients`
+   - Muestra nombre del plan asignado (del array `plans` si hay `planId`, si no de `planDurations` legacy)
+
+7. **PaymentModal** (reescrito):
+   - Carga planes al abrir con `listPlansAction()`
+   - Selector opcional "Plan contratado" (pre-llena offeredProduct con el nombre del plan)
+   - Para cuotas: si el plan tiene sistemas, selector de sistema → N campos individuales de monto (uno por cuota, default = `amountPerInstallment` del sistema)
+   - Sin sistema: campo uniforme `installmentAmount` existente
+   - Payload incluye `customInstallmentAmounts[]`, `planId`, `selectedInstallmentSystemId`
+
+8. **Provider** (`platform-data-provider.tsx`): `buildClientFromPayment` calcula revenue con `customInstallmentAmounts` (suma de montos individuales si están definidos), mapea `planId` y `selectedInstallmentSystemId`
+
+9. **Mapper, validaciones**: `plan_id`/`selected_installment_system_id` en `ClientRow`, `rowToClient`, `clientToInsertRow`, `patchToUpdateRow`; `planId`/`selectedInstallmentSystemId` en `clientFieldsSchema`
+
+**Por qué / finalidad:**
+- El founder necesitaba definir planes con sistemas de cuotas (ej: "2 cuotas de $1000", "3 cuotas de $700") para calcular saldo adeudado por cliente
+- El closer necesitaba poder registrar montos reales por cuota al cerrar (ej: cuota 1 → $800, cuota 2 → $1200 aunque el plan diga $1000 c/u)
+- Se eliminó el botón "Cargar clientes" como fue solicitado
+- Se añadió la capacidad de eliminar clientes (antes no existía)
+
+**Decisiones de diseño:**
+- `installment_systems` como JSONB array en `plans` (no tabla separada) — más simple, el plan es siempre leído completo
+- Montos individuales como array paralelo al contador de cuotas (`customInstallmentAmounts[i]`)
+- `assignClientPlanAction` llama al `updateClientAction` existente — no duplica lógica de update
+
+**Riesgos / deuda técnica pendiente:**
+- La migración SQL debe aplicarse en Supabase (no fue aplicada automáticamente)
+- El cálculo de "adeudado" (outstanding balance) usa los pagos registrados vs. total del plan; si el plan tiene cuotas custom, la lógica en `computeOutstandingBalance` puede necesitar revisión futura
+- `PlanDurationsDialog` eliminado del módulo de clientes; si había referencias en otras partes del código, revisar
+
+---
+
 ### 2026-08-25 — FIX-VENTAS-CASH-COLLECTED: panel de métricas de ventas usa gastos configurados para cash collected
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
