@@ -91,7 +91,7 @@
 - Oportunidades de GHL (pipeline) → closing_calls como stretch goal
 - Conectar `metrics_snapshots` a módulos de Finanzas y Métricas de ventas para visualizar los datos importados
 
-**Estado:** Column mapper implementado para 4 tipos. Formato pivot (meses=columnas) auto-detectado y soportado desde 2026-08-25. La tabla `metrics_snapshots` existe y se popula pero ningún módulo la consume aún. Texto de confirmación en wizard dice "no se sobreescribirán" pero métricas sí hacen upsert — corregir. Deuda menor: agregar botón "Cambiar a mapeo manual" en el banner de formato auto-detectado para casos de falso positivo.
+**Estado:** Column mapper implementado para 4 tipos. Formato pivot (meses=columnas) auto-detectado y soportado. Mapper de filas manual implementado 2026-08-25: dropdowns por campo OTC con auto-sugerencia desde diccionario + edición libre. Texto de confirmación corregido (upsert). La tabla `metrics_snapshots` existe y se popula pero ningún módulo la consume aún. Deuda menor: si el archivo tiene filas de totales/subtítulos en columna A, aparecen como opciones en el dropdown — sin filtrado por ahora.
 **Complejidad:** Media
 
 ---
@@ -149,6 +149,7 @@
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-25 | FEAT-EXCEL-TRANSPOSED-ROW-MAPPER: Mapeo manual de filas en formato pivot — TransposedRowMapper con dropdowns por campo OTC, auto-sugerencia desde diccionario, rowMapping pasado al parser, texto de confirm corregido (upsert) | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FEAT-EXCEL-PIVOT: Soporte formato pivot en importación de métricas — auto-detección de meses como columnas, parser transpuesto, banner "Formato tabla detectado", fix preview para archivos con título merged (resuelve __EMPTY) | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FIX-EXCEL-PREVIEW: getExcelPreviewAction ahora usa { header: 1 } y salta filas de título — fix para archivos con celdas merged/título en la primera fila | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FIX-VERCEL-BUILD x4: prefer-const, unused imports/props, SectionDef[] filter inference, keyof Union type — 4 errores de build de Vercel corregidos en serie | `claude/ghl-integration-data-loading-9cd72n` |

@@ -10,6 +10,51 @@
 
 ---
 
+## Historial de cambios
+
+---
+
+### 2026-08-25 — FEAT-EXCEL-TRANSPOSED-ROW-MAPPER: Mapeo manual de filas en formato pivot
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit(s):** `cab4ed9` — feat(importacion): mapeo manual de filas para hojas transpuestas (pivot)  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** importación de datos, wizard, métricas de ventas y finanzas
+
+**Qué se hizo:**
+- `apps/web/lib/metrics/excel-parser.ts`:
+  - `parseTransposedMetrics`: acepta nuevo parámetro `explicitRowMapping?: Record<string, string>` (field key → etiqueta de fila). Construye `effectiveLookup` invirtiendo el mapeo del usuario; si no se provee, usa el diccionario automático como fallback
+  - `parseSalesMetricsTransposed` y `parseFinanceMetricsTransposed`: firmas actualizadas con `rowMapping?: Record<string, string>` como primer argumento opcional
+- `apps/web/app/clients/import-actions.ts`:
+  - `importFinanceMetricsTransposedAction`: firma actualizada para aceptar `rowMapping: Record<string, string>` y pasarlo al parser
+  - `importSalesMetricsTransposedAction`: ya tenía `rowMapping`; ahora ambas acciones son consistentes
+- `apps/web/components/integrations/data-import-wizard.tsx`:
+  - Reemplaza `TransposedBanner` (solo texto) por `TransposedRowMapper`: UI con dropdowns por campo OTC, donde el usuario selecciona qué fila del Excel corresponde a cada métrica
+  - Agrega `RowField` tipo, `SALES_ROW_FIELDS` y `FINANCE_ROW_FIELDS`: 17 y 5 campos respectivamente, con labels en español
+  - Agrega `autoMapTransposedRows()`: sugiere un mapeo inicial usando el diccionario de sinónimos a partir de `rowLabels` del preview
+  - Agrega estado `transposedSalesRowMapping` y `transposedFinanceRowMapping`
+  - `handleAdvanceFromWhat`: llama `autoMapTransposedRows` para pre-poblar el mapper al detectar formato pivot
+  - `handleSalesMetricsSheetChange` y `handleFinanceMetricsSheetChange`: re-auto-mapean filas al cambiar de hoja
+  - `canAdvanceFromMapper`: para tipos transpuestos, válido si al menos 1 fila está mapeada
+  - `handleImport`: pasa `transposedSalesRowMapping` / `transposedFinanceRowMapping` a las acciones transpuestas
+  - `StepMapper`: nuevo props `transposedSalesRowMapping`, `transposedFinanceRowMapping`, `onTransposedSalesRowMappingChange`, `onTransposedFinanceRowMappingChange`
+  - Texto de confirmación corregido: aclara que métricas hacen upsert (no "no se sobreescribirán")
+
+**Por qué / finalidad:**
+El usuario reportó que al importar su archivo MAESTRO DE METRICAS en formato pivot, (1) el sistema auto-mapeaba solo ~4 filas (las que coincidían exactamente con el diccionario) sin mostrar el resto, (2) no había control manual sobre qué fila corresponde a qué métrica. Ahora el wizard muestra un mapper explícito con todos los campos OTC y todos los nombres de fila del archivo, pre-poblado con las sugerencias automáticas pero editable libremente.
+
+**Decisiones de diseño:**
+- El usuario tiene control total: puede ver/cambiar todos los mapeos antes de importar
+- El auto-mapeo es solo una sugerencia de punto de partida (puede haber falsos positivos o etiquetas no reconocidas)
+- `rowLabels` viene del preview del server (columna A del archivo) para evitar duplicar la lógica XLSX en el cliente
+- Si `explicitRowMapping` se provee con entradas, el parser lo usa exclusivamente; si está vacío/undefined, el diccionario automático actúa como fallback (preservando compatibilidad con formato estándar)
+
+**Riesgos / deuda técnica:**
+- Si el archivo tiene muchas filas en columna A (ej. totales, subtítulos), el dropdown puede llenarse de opciones — sin filtrado por ahora
+- Los datos importados van a `metrics_snapshots` pero ningún módulo UI los consume aún ([FEAT-EXCEL-IMPORT-FASE3-RESTANTE])
+
+---
+
 ## Formato de entrada
 
 Cada entrada debe seguir esta estructura:
