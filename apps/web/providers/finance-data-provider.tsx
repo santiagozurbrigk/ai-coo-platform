@@ -60,6 +60,9 @@ type FinanceDataContextValue = {
   removePaymentPlatform: (id: string) => Promise<string | undefined>;
   clientPayments: ClientPayment[];
   financeSummary: FinanceSummary;
+  /** Métricas históricas importadas (snapshot más reciente). Null si no hay datos importados.
+   *  Usar como fallback cuando los datos live (conversaciones, closing calls) están en cero. */
+  salesBaselineMetrics: Record<string, number> | null;
   monthlySeries: typeof mockMonthlySeries;
   fixedExpenses: FixedExpense[];
   subscriptions: Subscription[];
@@ -442,6 +445,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       updatePaymentPlatform,
       removePaymentPlatform,
       financeSummary,
+      salesBaselineMetrics,
       monthlySeries,
       fixedExpenses,
       subscriptions,
@@ -466,6 +470,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       updatePaymentPlatform,
       removePaymentPlatform,
       financeSummary,
+      salesBaselineMetrics,
       monthlySeries,
       fixedExpenses,
       subscriptions,

@@ -14,6 +14,27 @@
 
 ---
 
+### 2026-08-25 — FIX-DASHBOARD-SALES-BASELINE: Dashboard usa fallback baseline para métricas de ventas
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Módulo(s) afectado(s):** `providers/finance-data-provider.tsx`, `components/dashboard/dashboard-page-content.tsx`
+
+**Qué se hizo:**
+- `FinanceDataProvider`: se expone `salesBaselineMetrics` en el contexto (`FinanceDataContextValue`) y se agrega al deps array del `value` useMemo.
+- `DashboardPageContent`: se consume `salesBaselineMetrics` del provider; se construye `effectiveSalesMetrics` con fallback baseline cuando no hay datos live (`totalConversations === 0 && bookingRate === 0`). Se pasa `effectiveSalesMetrics` a `deriveDashboardData` en lugar de `salesMetrics`.
+
+**Por qué / finalidad:**
+El panel de métricas de ventas (`/sales/metrics`) mostraba "Tasa de agendamiento: 50%" (desde snapshot importado) pero el dashboard (`/dashboard`) mostraba 0%. La inconsistencia se debía a que ambos componentes cargaban los datos por caminos distintos: el panel de ventas recibía el snapshot como prop de Server Component, el dashboard nunca lo veía. Ahora el dashboard aplica el mismo patrón de fallback baseline-live.
+
+**Decisiones de diseño:**
+- Solo se aplica el fallback en `bookingRate` y `ghostingRate` (son tasas históricas con sentido como baseline). Las métricas de estado live (`totalConversations`, `activeConversations`, etc.) se mantienen en 0 — son estado actual, no histórico.
+- La condición de fallback es `hasLiveData = totalConversations > 0 || bookingRate > 0` — si hay conversaciones live, no se toca nada.
+- Misma lógica que `SalesMetricsRedesign` usa con `useSnapshotFallback`.
+
+**Riesgos / deuda técnica pendiente:** Ninguno relevante.
+
+---
+
 ### 2026-08-25 — FIX-FORMAT-MONEY: formatMoney cambia es-ES → es-AR para evitar confusión de separadores
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
