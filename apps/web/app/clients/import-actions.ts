@@ -248,7 +248,7 @@ export async function importSalesMetricsFromExcelAction(
 
     const BATCH = 50;
     let inserted = 0;
-    let skipped = 0;
+    const skipped = 0;
     for (let i = 0; i < rows.length; i += BATCH) {
       const batch = rows.slice(i, i + BATCH).map((row) => ({
         organization_id: organizationId,
@@ -293,7 +293,7 @@ export async function importFinanceMetricsFromExcelAction(
 
     const BATCH = 50;
     let inserted = 0;
-    let skipped = 0;
+    const skipped = 0;
     for (let i = 0; i < rows.length; i += BATCH) {
       const batch = rows.slice(i, i + BATCH).map((row) => ({
         organization_id: organizationId,
