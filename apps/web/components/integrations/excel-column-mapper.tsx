@@ -15,14 +15,12 @@ type FieldDef = {
 };
 
 const CLIENT_FIELDS: FieldDef[] = [
-  { key: "name",        label: "Nombre",          required: true },
-  { key: "email",       label: "Email",            required: false },
-  { key: "phone",       label: "Teléfono",         required: false },
-  { key: "status",      label: "Estado",           required: false, hint: "activo / onboarding / éxito" },
-  { key: "product",     label: "Producto / Plan",  required: false },
-  { key: "totalAmount", label: "Monto total",      required: false },
-  { key: "joinDate",    label: "Fecha de inicio",  required: false },
-  { key: "notes",       label: "Notas",            required: false },
+  { key: "name",        label: "Nombre completo",   required: true },
+  { key: "email",       label: "Email",             required: false },
+  { key: "phone",       label: "Teléfono",          required: false },
+  { key: "product",     label: "Producto / Plan",   required: false },
+  { key: "totalAmount", label: "Monto pagado (CC)", required: false },
+  { key: "joinDate",    label: "Fecha de inicio",   required: false },
 ];
 
 const CLOSING_FIELDS: FieldDef[] = [
@@ -34,25 +32,16 @@ const CLOSING_FIELDS: FieldDef[] = [
   { key: "notes",       label: "Notas",            required: false },
 ];
 
+// Solo métricas primarias — OTC calcula automáticamente: close rate, show rate,
+// tasa agendamiento, inasistencias (si no se proveen), no cierres, tasa fantasma.
 const SALES_METRICS_FIELDS: FieldDef[] = [
-  { key: "period",          label: "Período / Semana",   required: true,  hint: "ej. '2025-01-06' o 'Semana 1'" },
-  { key: "leadsTotales",    label: "Leads totales",       required: false },
-  { key: "agendasTotales",  label: "Agendas totales",     required: false },
-  { key: "asistencias",     label: "Asistencias",         required: false },
-  { key: "inasistencias",   label: "Inasistencias",       required: false },
-  { key: "cierres",         label: "Cierres",             required: false },
-  { key: "noCierres",       label: "No cierres",          required: false },
-  { key: "señas",           label: "Señas",               required: false },
-  { key: "facturacion",     label: "Facturación",         required: false },
-  { key: "cashCollected",   label: "Cash collected",      required: false },
-  { key: "closeRate",       label: "Close rate",          required: false, hint: "ej. 0.53 o 53%" },
-  { key: "showRate",        label: "Show rate",           required: false, hint: "ej. 0.75 o 75%" },
-  { key: "tasaAgendamiento",label: "Tasa de agendamiento",required: false, hint: "ej. 0.44 o 44%" },
-  { key: "tasaFantasma",    label: "Tasa de fantasma",    required: false, hint: "ej. 0.25 o 25%" },
-  { key: "enNutricion",     label: "En nutrición",        required: false },
-  { key: "perdidos",        label: "Perdidos",            required: false },
-  { key: "seguimientos",    label: "Seguimientos",        required: false },
-  { key: "tiempoRespuesta", label: "Tiempo de respuesta", required: false, hint: "en horas" },
+  { key: "period",         label: "Período / Semana", required: true,  hint: "ej. '2025-01-06' o 'Semana 1'" },
+  { key: "leadsTotales",   label: "Leads totales",    required: false },
+  { key: "agendasTotales", label: "Agendas totales",  required: false },
+  { key: "asistencias",    label: "Show up",          required: false },
+  { key: "inasistencias",  label: "No show up",       required: false },
+  { key: "cierres",        label: "Cierres",          required: false },
+  { key: "facturacion",    label: "Facturación",      required: false },
 ];
 
 const FINANCE_METRICS_FIELDS: FieldDef[] = [

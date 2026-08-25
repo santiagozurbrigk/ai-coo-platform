@@ -10,7 +10,6 @@ import { useToast } from "@/providers/toast-provider";
 import { previewGHLContactsAction, importGHLContactsAction } from "@/app/ghl/import-actions";
 import {
   importClientsFromExcelAction,
-  importClosingCallsFromExcelAction,
   importSalesMetricsFromExcelAction,
   importFinanceMetricsFromExcelAction,
   importSalesMetricsTransposedAction,
@@ -22,18 +21,17 @@ import {
   type FinanceMetricsColumnMapping,
 } from "@/app/clients/import-actions";
 import type { ColumnMapping } from "@/lib/clients/excel-parser";
-import type { ClosingColumnMapping } from "@/lib/closing/excel-parser";
 import {
   ExcelColumnMapper,
   isMappingValid,
   type ExcelColumnMapperValue,
 } from "@/components/integrations/excel-column-mapper";
-import { Upload, Database, FileSpreadsheet, CheckCircle, Loader2, ChevronRight, ChevronLeft, Users, Phone, TrendingUp, DollarSign } from "lucide-react";
+import { Upload, Database, FileSpreadsheet, CheckCircle, Loader2, ChevronRight, ChevronLeft, Users, TrendingUp, DollarSign } from "lucide-react";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type Origin = "ghl" | "excel" | null;
-type WhatToImport = "clients" | "closing" | "salesMetrics" | "financeMetrics";
+type WhatToImport = "clients" | "salesMetrics" | "financeMetrics";
 type Step = "origin" | "what" | "mapper" | "confirm";
 
 type GHLPreview = {
@@ -47,9 +45,8 @@ type ExcelFile = {
 };
 
 type ImportSummary = {
-  clientsResult?:      ExcelImportResult & { source: "ghl" | "excel" };
-  closingResult?:      ExcelImportResult;
-  salesMetricsResult?: ExcelImportResult;
+  clientsResult?:       ExcelImportResult & { source: "ghl" | "excel" };
+  salesMetricsResult?:  ExcelImportResult;
   financeMetricsResult?: ExcelImportResult;
 };
 
@@ -248,11 +245,9 @@ function StepWhat({
   ghlPreview,
   ghlPreviewLoading,
   clientsFile,
-  closingFile,
   salesMetricsFile,
   financeMetricsFile,
   onClientsFile,
-  onClosingFile,
   onSalesMetricsFile,
   onFinanceMetricsFile,
 }: {
@@ -262,11 +257,9 @@ function StepWhat({
   ghlPreview: GHLPreview | null;
   ghlPreviewLoading: boolean;
   clientsFile: ExcelFile | null;
-  closingFile: ExcelFile | null;
   salesMetricsFile: ExcelFile | null;
   financeMetricsFile: ExcelFile | null;
   onClientsFile: (f: ExcelFile | null) => void;
-  onClosingFile: (f: ExcelFile | null) => void;
   onSalesMetricsFile: (f: ExcelFile | null) => void;
   onFinanceMetricsFile: (f: ExcelFile | null) => void;
 }) {
@@ -313,25 +306,6 @@ function StepWhat({
         )}
       </CheckboxCard>
 
-      {/* Llamadas de cierre (solo Excel) */}
-      {origin === "excel" && (
-        <CheckboxCard
-          checked={what.has("closing")}
-          onToggle={() => onWhat("closing")}
-          icon={<Phone className="h-4 w-4" />}
-          title="Llamadas de cierre / citas"
-        >
-          <FileRow
-            label="llamadas"
-            icon={<Phone className="h-3 w-3" />}
-            file={closingFile}
-            accept=".xlsx,.xls,.csv"
-            onFile={onClosingFile}
-            uploadLabel="Subir archivo de llamadas (.xlsx)"
-          />
-        </CheckboxCard>
-      )}
-
       {/* Métricas de ventas (solo Excel) */}
       {origin === "excel" && (
         <CheckboxCard
@@ -341,7 +315,7 @@ function StepWhat({
           title="Métricas de ventas"
         >
           <p className="text-xs text-muted-foreground mb-2">
-            Close rate, show rate, facturación, cash collected, leads, agendas, cierres, etc. Soporta tablas con un período por fila o en formato pivot (meses como columnas).
+            Leads, agendas, show up, no show up, cierres, facturación. OTC calcula automáticamente close rate, show rate y más.
           </p>
           <FileRow
             label="métricas de ventas"
@@ -481,11 +455,9 @@ function TransposedRowMapper({
 
 function StepMapper({
   clientsPreview,
-  closingPreview,
   salesMetricsPreview,
   financeMetricsPreview,
   clientsFile,
-  closingFile,
   salesMetricsFile,
   financeMetricsFile,
   mapping,
@@ -497,20 +469,16 @@ function StepMapper({
   onTransposedSalesRowMappingChange,
   onTransposedFinanceRowMappingChange,
   onClientsSheetChange,
-  onClosingSheetChange,
   onSalesMetricsSheetChange,
   onFinanceMetricsSheetChange,
   clientsSheetLoading,
-  closingSheetLoading,
   salesMetricsSheetLoading,
   financeMetricsSheetLoading,
 }: {
   clientsPreview: ExcelPreview | null;
-  closingPreview: ExcelPreview | null;
   salesMetricsPreview: ExcelPreview | null;
   financeMetricsPreview: ExcelPreview | null;
   clientsFile: ExcelFile | null;
-  closingFile: ExcelFile | null;
   salesMetricsFile: ExcelFile | null;
   financeMetricsFile: ExcelFile | null;
   mapping: ExcelColumnMapperValue;
@@ -522,11 +490,9 @@ function StepMapper({
   onTransposedSalesRowMappingChange: (m: Record<string, string>) => void;
   onTransposedFinanceRowMappingChange: (m: Record<string, string>) => void;
   onClientsSheetChange: (sheet: string) => void;
-  onClosingSheetChange: (sheet: string) => void;
   onSalesMetricsSheetChange: (sheet: string) => void;
   onFinanceMetricsSheetChange: (sheet: string) => void;
   clientsSheetLoading: boolean;
-  closingSheetLoading: boolean;
   salesMetricsSheetLoading: boolean;
   financeMetricsSheetLoading: boolean;
 }) {
@@ -548,7 +514,6 @@ function StepMapper({
 
   const needsColumnMapper = !!(
     clientsPreview?.headers.length ||
-    closingPreview?.headers.length ||
     salesHeaders?.length ||
     financeHeaders?.length
   );
@@ -576,9 +541,6 @@ function StepMapper({
       {/* Selectores de hoja — siempre visibles para poder cambiar de hoja */}
       {clientsPreview && clientsFile && (
         <SheetSelector label="clientes" allSheets={clientsPreview.allSheets} activeSheet={clientsPreview.activeSheet} loading={clientsSheetLoading} onSelect={onClientsSheetChange} />
-      )}
-      {closingPreview && closingFile && (
-        <SheetSelector label="llamadas" allSheets={closingPreview.allSheets} activeSheet={closingPreview.activeSheet} loading={closingSheetLoading} onSelect={onClosingSheetChange} />
       )}
       {salesMetricsPreview && salesMetricsFile && (
         <SheetSelector label="métricas ventas" allSheets={salesMetricsPreview.allSheets} activeSheet={salesMetricsPreview.activeSheet} loading={salesMetricsSheetLoading} onSelect={onSalesMetricsSheetChange} />
@@ -617,8 +579,6 @@ function StepMapper({
         <ExcelColumnMapper
           clientsHeaders={clientsPreview?.headers}
           clientsPreviewRows={clientsPreview?.rows}
-          closingHeaders={closingPreview?.headers}
-          closingPreviewRows={closingPreview?.rows}
           salesMetricsHeaders={salesHeaders}
           salesMetricsPreviewRows={salesTransposed ? undefined : salesMetricsPreview?.rows}
           financeMetricsHeaders={financeHeaders}
@@ -638,7 +598,6 @@ function StepConfirm({
   what,
   ghlPreview,
   clientsFile,
-  closingFile,
   salesMetricsFile,
   financeMetricsFile,
   importing,
@@ -649,7 +608,6 @@ function StepConfirm({
   what: Set<WhatToImport>;
   ghlPreview: GHLPreview | null;
   clientsFile: ExcelFile | null;
-  closingFile: ExcelFile | null;
   salesMetricsFile: ExcelFile | null;
   financeMetricsFile: ExcelFile | null;
   importing: boolean;
@@ -665,9 +623,6 @@ function StepConfirm({
         </div>
         {summary.clientsResult && (
           <ResultRow label="Clientes" inserted={summary.clientsResult.inserted} skipped={summary.clientsResult.skipped} errors={summary.clientsResult.errors.length} />
-        )}
-        {summary.closingResult && (
-          <ResultRow label="Llamadas de cierre" inserted={summary.closingResult.inserted} skipped={summary.closingResult.skipped} errors={summary.closingResult.errors.length} />
         )}
         {summary.salesMetricsResult && (
           <ResultRow label="Métricas de ventas" inserted={summary.salesMetricsResult.inserted} skipped={summary.salesMetricsResult.skipped} errors={summary.salesMetricsResult.errors.length} />
@@ -693,19 +648,6 @@ function StepConfirm({
               <Badge variant="secondary">{ghlPreview.total} contactos de GHL</Badge>
             ) : clientsFile ? (
               <Badge variant="secondary">{clientsFile.name}</Badge>
-            ) : (
-              <span className="text-xs text-muted-foreground">Sin archivo</span>
-            )}
-          </div>
-        )}
-        {what.has("closing") && origin === "excel" && (
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">Llamadas de cierre</span>
-            </div>
-            {closingFile ? (
-              <Badge variant="secondary">{closingFile.name}</Badge>
             ) : (
               <span className="text-xs text-muted-foreground">Sin archivo</span>
             )}
@@ -739,7 +681,7 @@ function StepConfirm({
         )}
       </div>
       <p className="text-xs text-muted-foreground">
-        Clientes y llamadas: si ya existen, no se sobreescriben. Métricas: si ya existe un registro para el mismo período, se actualiza con los nuevos valores.
+        Clientes: si ya existen, no se sobreescriben. Métricas: si ya existe un registro para el mismo período, se actualiza con los nuevos valores.
       </p>
       <Button
         type="button"
@@ -784,7 +726,6 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   const [ghlPreview, setGhlPreview] = useState<GHLPreview | null>(null);
   const [ghlPreviewLoading, setGhlPreviewLoading] = useState(false);
   const [clientsFile, setClientsFile] = useState<ExcelFile | null>(null);
-  const [closingFile, setClosingFile] = useState<ExcelFile | null>(null);
   const [salesMetricsFile, setSalesMetricsFile] = useState<ExcelFile | null>(null);
   const [financeMetricsFile, setFinanceMetricsFile] = useState<ExcelFile | null>(null);
   const [importing, setImporting] = useState(false);
@@ -792,13 +733,11 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
 
   // ── Mapper state ──
   const [clientsPreview, setClientsPreview] = useState<ExcelPreview | null>(null);
-  const [closingPreview, setClosingPreview] = useState<ExcelPreview | null>(null);
   const [salesMetricsPreview, setSalesMetricsPreview] = useState<ExcelPreview | null>(null);
   const [financeMetricsPreview, setFinanceMetricsPreview] = useState<ExcelPreview | null>(null);
   const [columnMapping, setColumnMapping] = useState<ExcelColumnMapperValue>({});
   const [mapperLoading, setMapperLoading] = useState(false);
   const [clientsSheetLoading, setClientsSheetLoading] = useState(false);
-  const [closingSheetLoading, setClosingSheetLoading] = useState(false);
   const [salesMetricsSheetLoading, setSalesMetricsSheetLoading] = useState(false);
   const [financeMetricsSheetLoading, setFinanceMetricsSheetLoading] = useState(false);
   // Tipos donde se detectó formato transpuesto (pivot: meses=columnas, métricas=filas)
@@ -836,9 +775,8 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
       setMapperLoading(true);
       setStep("mapper");
       try {
-        const [cp, lp, sp, fp] = await Promise.all([
-          clientsFile && what.has("clients")       ? getExcelPreviewAction(clientsFile.base64)       : Promise.resolve(null),
-          closingFile && what.has("closing")        ? getExcelPreviewAction(closingFile.base64)        : Promise.resolve(null),
+        const [cp, sp, fp] = await Promise.all([
+          clientsFile && what.has("clients")             ? getExcelPreviewAction(clientsFile.base64)         : Promise.resolve(null),
           salesMetricsFile && what.has("salesMetrics")   ? getExcelPreviewAction(salesMetricsFile.base64)   : Promise.resolve(null),
           financeMetricsFile && what.has("financeMetrics") ? getExcelPreviewAction(financeMetricsFile.base64) : Promise.resolve(null),
         ]);
@@ -846,7 +784,6 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
         const fpData = fp?.success ? fp.data : null;
 
         setClientsPreview(cp?.success ? cp.data : null);
-        setClosingPreview(lp?.success ? lp.data : null);
         setSalesMetricsPreview(spData);
         setFinanceMetricsPreview(fpData);
 
@@ -869,11 +806,10 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
         }
 
         setColumnMapping({
-          clientsMapping:       cp?.success ? autoMap("clients",       cp.data.headers) as Partial<ColumnMapping>            : undefined,
-          closingMapping:       lp?.success ? autoMap("closing",       lp.data.headers) as Partial<ClosingColumnMapping>     : undefined,
+          clientsMapping:        cp?.success ? autoMap("clients", cp.data.headers) as Partial<ColumnMapping> : undefined,
           // Para tipos transpuestos no se necesita mapping; para el resto, auto-mapear
-          salesMetricsMapping:  spData && !detected.has("salesMetrics")   ? autoMap("salesMetrics",  spData.headers)  as Partial<SalesMetricsColumnMapping>  : undefined,
-          financeMetricsMapping:fpData && !detected.has("financeMetrics") ? autoMap("financeMetrics", fpData.headers) as Partial<FinanceMetricsColumnMapping> : undefined,
+          salesMetricsMapping:   spData && !detected.has("salesMetrics")   ? autoMap("salesMetrics",   spData.headers) as Partial<SalesMetricsColumnMapping>  : undefined,
+          financeMetricsMapping: fpData && !detected.has("financeMetrics") ? autoMap("financeMetrics", fpData.headers) as Partial<FinanceMetricsColumnMapping> : undefined,
         });
       } finally {
         setMapperLoading(false);
@@ -888,14 +824,12 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
     origin === "ghl"
       ? true
       : (what.has("clients")       ? !!clientsFile       : true) &&
-        (what.has("closing")        ? !!closingFile        : true) &&
         (what.has("salesMetrics")   ? !!salesMetricsFile   : true) &&
         (what.has("financeMetrics") ? !!financeMetricsFile : true)
   );
 
   const canAdvanceFromMapper = (
     (!clientsPreview || isMappingValid("clients", columnMapping.clientsMapping)) &&
-    (!closingPreview  || isMappingValid("closing", columnMapping.closingMapping)) &&
     (
       !salesMetricsPreview ? true :
       transposedTypes.has("salesMetrics")
@@ -924,23 +858,6 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
       }
     } finally {
       setClientsSheetLoading(false);
-    }
-  };
-
-  const handleClosingSheetChange = async (sheet: string) => {
-    if (!closingFile) return;
-    setClosingSheetLoading(true);
-    try {
-      const result = await getExcelPreviewAction(closingFile.base64, sheet);
-      if (result.success) {
-        setClosingPreview(result.data);
-        setColumnMapping((prev) => ({
-          ...prev,
-          closingMapping: autoMap("closing", result.data.headers) as Partial<ClosingColumnMapping>,
-        }));
-      }
-    } finally {
-      setClosingSheetLoading(false);
     }
   };
 
@@ -1025,16 +942,6 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
         }
       }
 
-      // ── Llamadas de cierre ──
-      if (what.has("closing") && origin === "excel" && closingFile) {
-        const r = await importClosingCallsFromExcelAction(
-          closingFile.base64,
-          columnMapping.closingMapping as ClosingColumnMapping | undefined
-        );
-        if (!r.success) throw new Error(r.error);
-        result.closingResult = r.data;
-      }
-
       // ── Métricas de ventas ──
       if (what.has("salesMetrics") && origin === "excel" && salesMetricsFile) {
         if (transposedTypes.has("salesMetrics")) {
@@ -1084,7 +991,6 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
       setSummary(result);
       const totalImported =
         (result.clientsResult?.inserted ?? 0) +
-        (result.closingResult?.inserted ?? 0) +
         (result.salesMetricsResult?.inserted ?? 0) +
         (result.financeMetricsResult?.inserted ?? 0);
       push({
@@ -1165,11 +1071,9 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             ghlPreview={ghlPreview}
             ghlPreviewLoading={ghlPreviewLoading}
             clientsFile={clientsFile}
-            closingFile={closingFile}
             salesMetricsFile={salesMetricsFile}
             financeMetricsFile={financeMetricsFile}
             onClientsFile={setClientsFile}
-            onClosingFile={setClosingFile}
             onSalesMetricsFile={setSalesMetricsFile}
             onFinanceMetricsFile={setFinanceMetricsFile}
           />
@@ -1177,11 +1081,9 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
         {step === "mapper" && (
           <StepMapper
             clientsPreview={clientsPreview}
-            closingPreview={closingPreview}
             salesMetricsPreview={salesMetricsPreview}
             financeMetricsPreview={financeMetricsPreview}
             clientsFile={clientsFile}
-            closingFile={closingFile}
             salesMetricsFile={salesMetricsFile}
             financeMetricsFile={financeMetricsFile}
             mapping={columnMapping}
@@ -1193,11 +1095,9 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             onTransposedSalesRowMappingChange={setTransposedSalesRowMapping}
             onTransposedFinanceRowMappingChange={setTransposedFinanceRowMapping}
             onClientsSheetChange={handleClientsSheetChange}
-            onClosingSheetChange={handleClosingSheetChange}
             onSalesMetricsSheetChange={handleSalesMetricsSheetChange}
             onFinanceMetricsSheetChange={handleFinanceMetricsSheetChange}
             clientsSheetLoading={clientsSheetLoading}
-            closingSheetLoading={closingSheetLoading}
             salesMetricsSheetLoading={salesMetricsSheetLoading}
             financeMetricsSheetLoading={financeMetricsSheetLoading}
           />
@@ -1208,7 +1108,6 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             what={what}
             ghlPreview={ghlPreview}
             clientsFile={clientsFile}
-            closingFile={closingFile}
             salesMetricsFile={salesMetricsFile}
             financeMetricsFile={financeMetricsFile}
             importing={importing}
@@ -1255,23 +1154,13 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
 // ─── Auto-mapeo por nombre de columna ─────────────────────────────────────────
 
 const CLIENT_KNOWN: Record<string, string> = {
-  nombre: "name", name: "name",
+  nombre: "name", "nombre completo": "name", name: "name",
   email: "email", correo: "email",
   teléfono: "phone", telefono: "phone", phone: "phone", tel: "phone",
-  estado: "status", status: "status",
   "producto / plan": "product", producto: "product", plan: "product",
-  "monto total": "totalAmount", monto: "totalAmount", importe: "totalAmount",
+  "monto total": "totalAmount", "monto pagado": "totalAmount", "cash collected": "totalAmount",
+  monto: "totalAmount", importe: "totalAmount",
   "fecha inicio": "joinDate", "fecha de inicio": "joinDate",
-  notas: "notes", notes: "notes",
-};
-
-const CLOSING_KNOWN: Record<string, string> = {
-  "nombre prospecto": "leadName", prospecto: "leadName", lead: "leadName", nombre: "leadName",
-  "fecha y hora": "scheduledAt", fecha: "scheduledAt", date: "scheduledAt",
-  email: "email", correo: "email",
-  estado: "status", status: "status",
-  "monto cerrado": "amountClosed", monto: "amountClosed",
-  notas: "notes", "notas / resultado": "notes", notes: "notes",
 };
 
 const SALES_METRICS_KNOWN: Record<string, string> = {
@@ -1305,13 +1194,12 @@ const FINANCE_METRICS_KNOWN: Record<string, string> = {
 };
 
 function autoMap(
-  type: "clients" | "closing" | "salesMetrics" | "financeMetrics",
+  type: "clients" | "salesMetrics" | "financeMetrics",
   headers: string[]
 ): Record<string, string> {
   const known =
-    type === "clients"        ? CLIENT_KNOWN :
-    type === "closing"        ? CLOSING_KNOWN :
-    type === "salesMetrics"   ? SALES_METRICS_KNOWN :
+    type === "clients"      ? CLIENT_KNOWN :
+    type === "salesMetrics" ? SALES_METRICS_KNOWN :
     FINANCE_METRICS_KNOWN;
   const result: Record<string, string> = {};
   for (const h of headers) {
@@ -1328,25 +1216,15 @@ function autoMap(
 
 type RowField = { key: string; label: string };
 
-// Solo métricas primarias — las derivadas se calculan automáticamente:
-// inasistencias = agendas − asistencias
-// no_cierres    = asistencias − cierres
-// close_rate    = cierres / asistencias
-// show_rate     = asistencias / agendas
-// tasa_agendamiento = agendas / leads
-// tasa_fantasma = inasistencias / agendas
+// Solo métricas primarias — OTC calcula automáticamente: close rate, show rate,
+// tasa agendamiento, no_cierres y tasa_fantasma.
 const SALES_ROW_FIELDS: RowField[] = [
-  { key: "leadsTotales",    label: "Leads totales" },
-  { key: "agendasTotales",  label: "Agendas totales" },
-  { key: "asistencias",     label: "Asistencias / shows" },
-  { key: "cierres",         label: "Cierres" },
-  { key: "señas",           label: "Señas" },
-  { key: "facturacion",     label: "Facturación" },
-  { key: "cashCollected",   label: "Cash collected" },
-  { key: "enNutricion",     label: "En nutrición" },
-  { key: "perdidos",        label: "Perdidos" },
-  { key: "seguimientos",    label: "Seguimientos" },
-  { key: "tiempoRespuesta", label: "Tiempo de respuesta" },
+  { key: "leadsTotales",   label: "Leads totales" },
+  { key: "agendasTotales", label: "Agendas totales" },
+  { key: "asistencias",    label: "Show up" },
+  { key: "inasistencias",  label: "No show up" },
+  { key: "cierres",        label: "Cierres" },
+  { key: "facturacion",    label: "Facturación" },
 ];
 
 // Solo métricas primarias — las derivadas se calculan automáticamente:
