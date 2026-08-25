@@ -398,12 +398,40 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
   const monthlySeries = useMemo(() => {
     if (!useSupabase) return mockMonthlySeries;
     const sourceClients = dataReady ? clients : [];
-    return deriveMonthlySeries(
+    const series = deriveMonthlySeries(
       sourceClients,
       expensesSummary,
       dataReady ? clientPayments : []
     );
-  }, [clients, clientPayments, expensesSummary, dataReady]);
+
+    // Fallback baseline: si la serie completa está en cero y hay métricas importadas,
+    // pintar el mes más reciente con los valores del snapshot para que los gráficos
+    // no muestren una línea plana en cero.
+    if (salesBaselineMetrics) {
+      const hasLiveData = series.some((m) => m.facturacion > 0);
+      if (!hasLiveData) {
+        const bFact = salesBaselineMetrics["facturacion"] ?? 0;
+        if (bFact > 0) {
+          const bGastos = expensesSummary.totalMonthly; // usar gastos configurados actuales
+          const bCash = Math.max(0, bFact - bGastos);
+          const bMargin = bFact > 0 ? (bCash / bFact) * 100 : 0;
+          const patched = [...series];
+          const last = patched[patched.length - 1];
+          if (last) {
+            patched[patched.length - 1] = {
+              ...last,
+              facturacion: bFact,
+              cashCollected: bCash,
+              marginPercent: bMargin,
+            };
+          }
+          return patched;
+        }
+      }
+    }
+
+    return series;
+  }, [clients, clientPayments, expensesSummary, dataReady, salesBaselineMetrics]);
 
   const value = useMemo(
     () => ({

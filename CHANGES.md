@@ -14,6 +14,31 @@
 
 ---
 
+### 2026-08-25 — FIX-BASELINE-GAPS: Baseline en módulo Intelligence y monthlySeries
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Módulo(s) afectado(s):** `lib/intelligence/collect-context.ts`, `providers/finance-data-provider.tsx`
+
+**Qué se hizo:**
+- **`lib/intelligence/collect-context.ts`**: `collectIntelligenceData()` ahora incluye la query de `metrics_snapshots` en el `Promise.all` existente. Si `finance.facturacion === 0` (usuario sin integraciones activas), aplica los valores del snapshot como fallback para `facturacion` y `margenPercent` en el bloque `finance`. Esto hace que las páginas `/intelligence/insights` y `/intelligence/context` reflejen los datos reales importados, no ceros.
+- **`providers/finance-data-provider.tsx`** — `monthlySeries`: cuando toda la serie de 6 meses tiene `facturacion === 0` (usuario nuevo sin eventos de cobro en vivo) y `salesBaselineMetrics` tiene datos, inyecta los valores del snapshot en el mes más reciente. Así los gráficos de área dual en `/finance` y los sparklines en `/sales/metrics` no muestran una línea plana en cero.
+
+**Por qué / finalidad:**
+- Cierre de los dos últimos vacíos de la arquitectura baseline: Intelligence y gráficos de serie temporal.
+- El Intelligence module alimenta snapshots, reportes y el agente — sin baseline, los análisis IA sobre negocios nuevos no tenían datos de facturación.
+- El `monthlySeries` all-zeros hacía que el gráfico de tendencia en `/finance` fuera completamente plano aunque el founder tuviera datos importados.
+
+**Decisiones de diseño:**
+- La query de baseline en `collect-context.ts` se añade al `Promise.all` existente (parallel, sin latencia extra).
+- En `monthlySeries`, sólo se parchea el mes más reciente (no los 6) para no generar datos artificiales en meses pasados que el founder no declaró.
+- Condición de parcheo: `series.every(m => m.facturacion === 0)` — si hay aunque sea un mes con datos reales, no se toca la serie.
+
+**Riesgos / deuda técnica pendiente:**
+- El snapshot inyectado en `monthlySeries` es el valor global del snapshot, no un desglose real mes a mes. Es un "hito de referencia" visual para el mes actual. Cuando el founder tenga datos live, desaparecerá naturalmente.
+- Si el founder tiene datos de varios períodos en `metrics_snapshots`, sería más rico poblar cada mes correspondiente. Queda como mejora futura.
+
+---
+
 ### 2026-08-25 — FEAT-BASELINE-ARCHITECTURE: Arquitectura de datos baseline escalable
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
@@ -40,7 +65,7 @@
 
 **Riesgos / deuda técnica pendiente:**
 - El agente invalida cache con TTL de 10 min. Si el founder importa datos y chatea inmediatamente, el agente podría no ver el baseline hasta el próximo ciclo de cache.
-- `monthlySeries` (gráfico mensual en finanzas) aún no tiene baseline fallback — sólo el resumen `financeSummary`.
+- `monthlySeries` (gráfico mensual en finanzas) ya tiene baseline fallback desde el commit FIX-BASELINE-GAPS.
 - Si en el futuro se agregan categorías distintas a "sales", `finance-data-provider` tendría que cargar el baseline de cada categoría por separado.
 
 ---

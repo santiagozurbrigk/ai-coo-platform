@@ -180,6 +180,7 @@ export async function collectIntelligenceData(
     closingCallsRes,
     callAnalysesRes,
     frequentObjections,
+    baselineSnapshotRes,
   ] = await Promise.all([
     admin
       .from("conversations")
@@ -248,6 +249,14 @@ export async function collectIntelligenceData(
       .order("created_at", { ascending: false })
       .limit(12),
     collectObjections(admin, organizationId),
+    admin
+      .from("metrics_snapshots")
+      .select("metrics")
+      .eq("organization_id", organizationId)
+      .eq("category", "sales")
+      .order("period_start", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const conversations = conversationsRes.data ?? [];
@@ -292,6 +301,15 @@ export async function collectIntelligenceData(
     paymentPlatforms,
     { preset: "custom", customFrom: periodStart, customTo: periodEnd }
   );
+
+  // Baseline fallback: si no hay datos en vivo, usar métricas históricas importadas
+  const baselineMetrics =
+    (baselineSnapshotRes.data?.metrics as Record<string, number> | null) ?? null;
+  const bFact = baselineMetrics?.["facturacion"] ?? 0;
+  const bGastos = baselineMetrics?.["gastos"] ?? 0;
+  const bMargen = bFact > 0 ? ((bFact - bGastos) / bFact) * 100 : 0;
+  const effectiveFacturacion = finance.facturacion > 0 ? finance.facturacion : bFact;
+  const effectiveMargen = finance.facturacion > 0 ? finance.margenPercent : bMargen;
 
   const callAnalyses = callAnalysesRes.data ?? [];
   const scores = callAnalyses
@@ -369,8 +387,8 @@ export async function collectIntelligenceData(
     },
     finance: {
       activeClients: clients.filter((c) => c.status === "active").length,
-      facturacion: finance.facturacion,
-      margenPercent: finance.margenPercent,
+      facturacion: effectiveFacturacion,
+      margenPercent: effectiveMargen,
       gastosMensuales: expenses.totalMonthly,
       porCobrar: finance.porCobrar,
     },
