@@ -159,15 +159,40 @@ export function SalesMetricsRedesign({
       perfMetrics.calls.cierres === 0);
   const useSnapshotFallback = liveDataIsEmpty && !!latestSnapshot;
 
+  const sm = latestSnapshot?.metrics ?? {};
   const effectiveCloseRate = useSnapshotFallback
-    ? (latestSnapshot!.metrics["close_rate"] ?? 0) * 100
+    ? (sm["close_rate"] ?? 0) * 100
     : (perfMetrics?.closer.closeRate ?? 0);
   const effectiveShowRate = useSnapshotFallback
-    ? (latestSnapshot!.metrics["show_rate"] ?? 0) * 100
+    ? (sm["show_rate"] ?? 0) * 100
     : (perfMetrics?.closer.showRate ?? 0);
   const effectiveFacturacion = useSnapshotFallback
-    ? (latestSnapshot!.metrics["facturacion"] ?? financeSummary.facturacion)
+    ? (sm["facturacion"] ?? financeSummary.facturacion)
     : financeSummary.facturacion;
+  const effectiveLeads = useSnapshotFallback
+    ? (sm["leads_totales"] ?? 0)
+    : (perfMetrics?.leads.leadsCount ?? 0);
+  const effectiveAgendas = useSnapshotFallback
+    ? (sm["agendas_totales"] ?? 0)
+    : (perfMetrics?.leads.agendasCount ?? 0);
+  const effectiveCierres = useSnapshotFallback
+    ? (sm["cierres"] ?? 0)
+    : (perfMetrics?.calls.cierres ?? 0);
+  const effectiveAsistencias = useSnapshotFallback
+    ? (sm["asistencias"] ?? 0)
+    : (perfMetrics?.calls.asistencias ?? 0);
+  const effectiveInasistencias = useSnapshotFallback
+    ? (sm["inasistencias"] ?? 0)
+    : (perfMetrics?.calls.noShows ?? 0);
+  const effectiveNoCierres = useSnapshotFallback
+    ? (sm["no_cierres"] ?? 0)
+    : (perfMetrics?.calls.noCierres ?? 0);
+  const effectiveTasaAgendamiento = useSnapshotFallback
+    ? (sm["tasa_agendamiento"] ?? 0) * 100
+    : filteredMetrics.bookingRate;
+  const effectiveTasaFantasma = useSnapshotFallback
+    ? (sm["tasa_fantasma"] ?? 0) * 100
+    : filteredMetrics.ghostingRate;
 
   // ── Franja de resumen inferior ────────────────────────────────────────────
   const summaryItems = [
@@ -251,12 +276,12 @@ export function SalesMetricsRedesign({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <StatCard
                 label="Leads totales"
-                value={isLoading ? "—" : (perfMetrics?.leads.leadsCount ?? 0)}
+                value={isLoading ? "—" : effectiveLeads}
                 icon={Users}
               />
               <StatCard
                 label="Agendas"
-                value={isLoading ? "—" : (perfMetrics?.leads.agendasCount ?? 0)}
+                value={isLoading ? "—" : effectiveAgendas}
                 icon={CalendarCheck}
               />
               <StatCard
@@ -275,8 +300,8 @@ export function SalesMetricsRedesign({
           {/* Agendas hero — sparkline violeta al borde inferior */}
           <KpiHeroCard
             label="Agendas totales"
-            hint="Tendencia semanal"
-            value={isLoading ? "—" : String(perfMetrics?.leads.agendasCount ?? 0)}
+            hint={useSnapshotFallback ? `Datos importados · ${latestSnapshot!.periodLabel}` : "Tendencia semanal"}
+            value={isLoading ? "—" : String(effectiveAgendas)}
             icon={CalendarCheck}
             sparkData={agendasSparkData}
           />
@@ -287,17 +312,17 @@ export function SalesMetricsRedesign({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <StatCard
                 label="Cierres"
-                value={isLoading ? "—" : (perfMetrics?.calls.cierres ?? 0)}
+                value={isLoading ? "—" : effectiveCierres}
                 icon={CheckCircle}
               />
               <StatCard
                 label="Asistencias"
-                value={isLoading ? "—" : (perfMetrics?.calls.asistencias ?? 0)}
+                value={isLoading ? "—" : effectiveAsistencias}
                 icon={PhoneCall}
               />
               <StatCard
                 label="Inasistencias"
-                value={isLoading ? "—" : (perfMetrics?.calls.noShows ?? 0)}
+                value={isLoading ? "—" : effectiveInasistencias}
                 icon={XCircle}
               />
               <StatCard
@@ -307,7 +332,7 @@ export function SalesMetricsRedesign({
               />
               <StatCard
                 label="No cierres"
-                value={isLoading ? "—" : (perfMetrics?.calls.noCierres ?? 0)}
+                value={isLoading ? "—" : effectiveNoCierres}
                 icon={XCircle}
               />
               <StatCard
@@ -402,13 +427,13 @@ export function SalesMetricsRedesign({
 
           <GaugeSideCard
             label="Tasa de agendamiento"
-            value={filteredMetrics.bookingRate}
+            value={effectiveTasaAgendamiento}
             target="Objetivo: 70%"
           />
 
           <GaugeSideCard
             label="Tasa de fantasma"
-            value={filteredMetrics.ghostingRate}
+            value={effectiveTasaFantasma}
             target="Objetivo: <20%"
           />
 
