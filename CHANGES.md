@@ -41,10 +41,34 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-25 — Excel multi-hoja: selector de hoja en el wizard de importación
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `831cbf4` — feat(excel-import): soporte para archivos Excel multi-hoja con selector de hoja  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** importación de datos
+
+**Qué se hizo:**
+- `app/clients/import-actions.ts`: `getExcelPreviewAction` ahora acepta `sheetName?: string` y devuelve `allSheets: string[]` + `activeSheet: string`. Nueva función `pickBestSheet()` que elige la hoja con más headers no vacíos + bonus si el nombre contiene palabras clave de datos (data, cliente, lead, crm, etc.).
+- `components/integrations/data-import-wizard.tsx`: nuevo componente `SheetSelector` (dropdown visible solo si el archivo tiene >1 hoja). Handlers `handleClientsSheetChange` y `handleClosingSheetChange` que re-fetchan el preview al cambiar de hoja y re-aplican el auto-mapeo. `StepMapper` recibe y usa todos los props de hoja.
+
+**Por qué / finalidad:**
+Archivos Excel reales de CRM suelen tener múltiples hojas (ej. `CRM_VENTAS__AA.xlsx` con 6 hojas donde la primera es un dashboard visual sin columnas útiles y los datos están en la hoja "Data"). El sistema ahora detecta automáticamente la mejor hoja y le permite al usuario cambiarla si no es la correcta.
+
+**Decisiones de diseño relevantes:**
+- La heurística `pickBestSheet` prioriza cantidad de headers + bonus por nombre. Es simple y cubre el caso real (dashboards vacíos vs hojas de datos). No hay riesgo de false positive grave porque el usuario puede corregir con el selector.
+- El selector solo aparece cuando hay >1 hoja para no agregar ruido en el caso más común.
+- Al cambiar de hoja se resetea el mapping con el auto-mapeo de la nueva hoja.
+
+**Riesgos / deuda técnica pendiente:**
+- La heurística podría fallar si todas las hojas tienen la misma cantidad de headers. Poco probable en la práctica.
+
+---
+
 ### 2026-08-25 — Excel Column Mapper UI — mapeo de columnas para archivos propios
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
-**Commit:** pendiente  
+**Commit:** `4d6d06b` (fix types) / commits previos  
 **Autor:** Claude  
 **Módulo(s) afectado(s):** importación de datos, clientes, closing
 
