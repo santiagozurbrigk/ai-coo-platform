@@ -24,7 +24,7 @@ export function GaugeSideCard({
 }: GaugeSideCardProps) {
   return (
     <GlassPanel className="overflow-hidden p-0">
-      <div className="px-4 pt-3 pb-0">
+      <div className="px-4 pt-3 pb-0 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           {label}
         </p>

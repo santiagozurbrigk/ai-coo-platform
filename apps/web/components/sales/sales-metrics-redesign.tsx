@@ -115,6 +115,9 @@ export function SalesMetricsRedesign({
   const effectiveTasaFantasma = useSnapshotFallback
     ? (sm["tasa_fantasma"] ?? 0) * 100
     : filteredMetrics.ghostingRate;
+  const effectiveCashCollected = useSnapshotFallback
+    ? (sm["facturacion"] ?? 0) - (sm["gastos"] ?? 0)
+    : financeSummary.cashCollected;
 
   // ── Franja de resumen inferior ────────────────────────────────────────────
   const summaryItems = [
@@ -176,8 +179,8 @@ export function SalesMetricsRedesign({
         />
         <KpiHeroCard
           label="Cash Collected"
-          hint="Ganancia neta cobrada"
-          value={isLoading ? "—" : formatMoney(financeSummary.cashCollected)}
+          hint={useSnapshotFallback ? `Datos importados · ${latestSnapshot!.periodLabel}` : "Facturación − Gastos"}
+          value={isLoading ? "—" : formatMoney(effectiveCashCollected)}
           icon={Wallet}
           sparkData={cashCollectedSparkData}
         />
