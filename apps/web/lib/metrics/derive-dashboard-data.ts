@@ -11,7 +11,7 @@ import type {
   DashboardWeeklyChange,
 } from "@/types/dashboard";
 import type { ExpensesSummary } from "@/types/expenses";
-import type { PaymentPlatformConfig } from "@/types/finance";
+import type { FinanceSummary, PaymentPlatformConfig } from "@/types/finance";
 import type { Conversation, FrequentObjectionSummary, SalesMetricsData } from "@/types/sales";
 
 function formatPercent(value: number): string {
@@ -88,9 +88,12 @@ export function deriveDashboardData(
   paymentPlatforms: PaymentPlatformConfig[],
   salesMetrics: SalesMetricsData,
   frequentObjections: FrequentObjectionSummary[] = [],
-  payments?: ClientPayment[]
+  payments?: ClientPayment[],
+  /** Pre-computed finance summary (con baseline ya aplicado) del provider. Si se pasa y
+   *  tiene facturación > 0, se usa directamente en lugar de recalcular desde live data. */
+  precomputedFinance?: FinanceSummary
 ): DashboardData {
-  const finance = deriveFinanceSummary(
+  const liveFiance = deriveFinanceSummary(
     clients,
     closingCalls,
     expenses,
@@ -98,6 +101,11 @@ export function deriveDashboardData(
     undefined,
     payments
   );
+  // Usar el pre-computed (con baseline) si el live no tiene datos todavía
+  const finance =
+    precomputedFinance && precomputedFinance.facturacion > 0 && liveFiance.facturacion === 0
+      ? precomputedFinance
+      : liveFiance;
 
   const closedDeals = closingCalls.filter((c) => c.status === "closed").length;
   const scheduledCalls = closingCalls.filter(

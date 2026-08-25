@@ -37,7 +37,7 @@ export function FinanceMetrics() {
     clientsLoading,
     closingCallsLoading,
   } = usePlatformData();
-  const { paymentPlatforms, expensesSummary, monthlySeries, clientPayments } =
+  const { paymentPlatforms, expensesSummary, monthlySeries, clientPayments, financeSummary: baselineFinanceSummary } =
     useFinanceData();
 
   const [revenueRange, setRevenueRange] =
@@ -46,7 +46,7 @@ export function FinanceMetrics() {
   const loading = clientsLoading || closingCallsLoading;
 
   const summary = useMemo(() => {
-    return deriveFinanceSummary(
+    const live = deriveFinanceSummary(
       clients,
       closingCalls,
       expensesSummary,
@@ -54,6 +54,21 @@ export function FinanceMetrics() {
       revenueRange,
       clientPayments
     );
+    // Si no hay datos live (cliente nuevo sin integraciones), aplicar overlay
+    // de valores numéricos desde el baseline. Preservamos revenuePeriod y
+    // metadata del live para que los labels de período sigan funcionando.
+    if (live.facturacion === 0 && baselineFinanceSummary.facturacion > 0) {
+      return {
+        ...live,
+        facturacion: baselineFinanceSummary.facturacion,
+        cashCollected: baselineFinanceSummary.cashCollected,
+        gastosTotales: baselineFinanceSummary.gastosTotales > 0
+          ? baselineFinanceSummary.gastosTotales
+          : live.gastosTotales,
+        margenPercent: baselineFinanceSummary.margenPercent,
+      };
+    }
+    return live;
   }, [
     clients,
     closingCalls,
@@ -61,6 +76,7 @@ export function FinanceMetrics() {
     paymentPlatforms,
     clientPayments,
     revenueRange,
+    baselineFinanceSummary,
   ]);
 
   const periodEvents = useMemo(() => {
