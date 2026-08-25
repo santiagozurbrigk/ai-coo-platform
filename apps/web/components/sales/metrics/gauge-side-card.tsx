@@ -16,7 +16,7 @@ interface GaugeSideCardProps {
 
 /**
  * Tarjeta de gauge para el sidebar lateral.
- * Texto arriba con label + número, gauge centrado abajo.
+ * Label arriba, gauge centrado con el número adentro, objetivo abajo.
  */
 export function GaugeSideCard({
   label,
@@ -27,24 +27,24 @@ export function GaugeSideCard({
 }: GaugeSideCardProps) {
   return (
     <GlassPanel className="overflow-hidden p-0">
-      <div className="px-4 pt-4 pb-1">
+      <div className="px-4 pt-3 pb-0">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           {label}
         </p>
-        <p className="mt-0.5 text-2xl font-bold tabular-nums">
+        <p className="mt-0.5 text-lg font-bold tabular-nums">
           {displayValue ?? `${Math.round(value)}${suffix}`}
         </p>
-        <p className="text-[11px] text-muted-foreground">{target}</p>
       </div>
-      <div className="flex justify-center px-4 pb-3">
+      <div className="flex justify-center px-4 pt-0 pb-1">
         <GaugeMetricChart
           value={value}
           max={100}
-          label={label}
+          label=""
           suffix={suffix}
-          className="w-full max-w-[180px]"
+          className="w-full max-w-[140px]"
         />
       </div>
+      <p className="pb-3 text-center text-[11px] text-muted-foreground">{target}</p>
     </GlassPanel>
   );
 }

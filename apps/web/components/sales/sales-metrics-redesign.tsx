@@ -39,84 +39,6 @@ import type { DateRange } from "./metrics/date-range-picker";
 import type { FrequentObjectionsResult } from "@/types/sales";
 import type { MetricsSnapshot } from "@/app/sales/metrics-actions";
 
-// ─── Helpers de formato ───────────────────────────────────────────────────────
-
-function fmtNum(n: number | undefined): string {
-  if (n == null || isNaN(n)) return "—";
-  return n.toLocaleString("es-AR");
-}
-function fmtPct(n: number | undefined): string {
-  if (n == null || isNaN(n)) return "—";
-  return `${(n * 100).toFixed(1)}%`;
-}
-function fmtMoney(n: number | undefined): string {
-  if (n == null || isNaN(n)) return "—";
-  return `$${n.toLocaleString("es-AR")}`;
-}
-
-// ─── Tarjeta por período importado ────────────────────────────────────────────
-
-const SNAPSHOT_ROWS: Array<{
-  key: string;
-  label: string;
-  fmt: (n: number | undefined) => string;
-}> = [
-  { key: "leads_totales",    label: "Leads",        fmt: fmtNum },
-  { key: "agendas_totales",  label: "Agendas",      fmt: fmtNum },
-  { key: "asistencias",      label: "Show up",      fmt: fmtNum },
-  { key: "inasistencias",    label: "No show",      fmt: fmtNum },
-  { key: "cierres",          label: "Cierres",      fmt: fmtNum },
-  { key: "facturacion",      label: "Facturación",  fmt: fmtMoney },
-  { key: "close_rate",       label: "Close rate",   fmt: fmtPct },
-  { key: "show_rate",        label: "Show rate",    fmt: fmtPct },
-];
-
-function SnapshotCard({ snapshot }: { snapshot: MetricsSnapshot }) {
-  const m = snapshot.metrics;
-  return (
-    <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold">{snapshot.periodLabel}</span>
-        <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
-          Importado
-        </span>
-      </div>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-        {SNAPSHOT_ROWS.map((row) => {
-          const val = m[row.key];
-          if (val == null) return null;
-          return (
-            <div key={row.key} className="flex items-center justify-between gap-2">
-              <span className="text-[11px] text-muted-foreground">{row.label}</span>
-              <span className="text-[12px] font-semibold tabular-nums">{row.fmt(val)}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function ImportedMetricsSection({ snapshots }: { snapshots: MetricsSnapshot[] }) {
-  if (!snapshots.length) return null;
-
-  return (
-    <section className="space-y-3">
-      <div className="flex items-center gap-2">
-        <h3 className="text-[13px] font-semibold">Métricas importadas</h3>
-        <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-400">
-          {snapshots.length} período{snapshots.length !== 1 ? "s" : ""}
-        </span>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {snapshots.map((s) => (
-          <SnapshotCard key={s.id} snapshot={s} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export function SalesMetricsRedesign({
@@ -220,9 +142,6 @@ export function SalesMetricsRedesign({
 
       {/* ── Selector de período ─────────────────────────────────────────────── */}
       <DateRangePicker value={dateRange} onChange={setDateRange} />
-
-      {/* ── Métricas importadas (tarjetas por período) ─────────────────────── */}
-      <ImportedMetricsSection snapshots={importedSnapshots} />
 
       {/* ── 1. KPI Heroes: 4 métricas principales ──────────────────────────── */}
       {useSnapshotFallback && (
