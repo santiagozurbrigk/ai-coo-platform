@@ -1,10 +1,45 @@
 "use server";
 
+import * as XLSX from "xlsx";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { createClient } from "@/lib/supabase/server";
 import { parseClientsExcel, type ColumnMapping, type ClientImportRow } from "@/lib/clients/excel-parser";
 import { parseClosingCallsExcel, type ClosingColumnMapping } from "@/lib/closing/excel-parser";
+
+// ─── Preview de encabezados y primeras filas ──────────────────────────────────
+
+export type ExcelPreview = {
+  headers: string[];
+  rows: Record<string, string>[];
+};
+
+export async function getExcelPreviewAction(
+  fileBase64: string
+): Promise<MutationResult<ExcelPreview>> {
+  return runMutation(async () => {
+    await requireOrganizationId();
+    const buffer = Buffer.from(fileBase64, "base64");
+    const wb = XLSX.read(buffer, { type: "buffer", raw: false });
+    const sheetName = wb.SheetNames[0];
+    if (!sheetName) throw new Error("El archivo no tiene hojas.");
+    const sheet = wb.Sheets[sheetName];
+    const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+      defval: "",
+      raw: false,
+    });
+    if (!raw.length) throw new Error("El archivo está vacío.");
+    const headers = Object.keys(raw[0]).map((h) => h.trim());
+    const rows = raw.slice(0, 5).map((r) => {
+      const out: Record<string, string> = {};
+      for (const k of Object.keys(r)) {
+        out[k.trim()] = String(r[k] ?? "").slice(0, 80);
+      }
+      return out;
+    });
+    return { headers, rows };
+  });
+}
 
 // ─── Tipos de resultado ───────────────────────────────────────────────────────
 

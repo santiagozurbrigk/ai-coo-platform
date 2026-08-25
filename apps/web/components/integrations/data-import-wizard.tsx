@@ -11,8 +11,15 @@ import { previewGHLContactsAction, importGHLContactsAction } from "@/app/ghl/imp
 import {
   importClientsFromExcelAction,
   importClosingCallsFromExcelAction,
+  getExcelPreviewAction,
   type ExcelImportResult,
+  type ExcelPreview,
 } from "@/app/clients/import-actions";
+import {
+  ExcelColumnMapper,
+  isMappingValid,
+  type ExcelColumnMapperValue,
+} from "@/components/integrations/excel-column-mapper";
 import { Upload, Database, FileSpreadsheet, CheckCircle, Loader2, ChevronRight, ChevronLeft, Users, Phone } from "lucide-react";
 import { paths } from "@/routes";
 
@@ -20,7 +27,7 @@ import { paths } from "@/routes";
 
 type Origin = "ghl" | "excel" | null;
 type WhatToImport = "clients" | "closing" | "both";
-type Step = "origin" | "what" | "confirm";
+type Step = "origin" | "what" | "mapper" | "confirm";
 
 type GHLPreview = {
   total: number;
@@ -81,7 +88,7 @@ function StepOrigin({
         <OriginCard
           icon={<FileSpreadsheet className="h-5 w-5" />}
           title="Excel / CSV"
-          description="Subí un archivo .xlsx o la plantilla OTC"
+          description="Subí un archivo .xlsx con tus datos"
           selected={selected === "excel"}
           onClick={() => onSelect("excel")}
         />
@@ -292,6 +299,50 @@ function StepWhat({
   );
 }
 
+// ─── Paso 2.5 — Mapeo de columnas ─────────────────────────────────────────────
+
+function StepMapper({
+  clientsPreview,
+  closingPreview,
+  mapping,
+  onMapping,
+  loading,
+}: {
+  clientsPreview: ExcelPreview | null;
+  closingPreview: ExcelPreview | null;
+  mapping: ExcelColumnMapperValue;
+  onMapping: (v: ExcelColumnMapperValue) => void;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-10 gap-2 text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="text-sm">Leyendo columnas del archivo…</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="text-sm font-medium">Mapeo de columnas</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Indicá qué columna de tu archivo corresponde a cada campo de OTC. Los campos marcados con <span className="text-destructive">*</span> son obligatorios.
+        </p>
+      </div>
+      <ExcelColumnMapper
+        clientsHeaders={clientsPreview?.headers}
+        clientsPreviewRows={clientsPreview?.rows}
+        closingHeaders={closingPreview?.headers}
+        closingPreviewRows={closingPreview?.rows}
+        value={mapping}
+        onChange={onMapping}
+      />
+    </div>
+  );
+}
+
 // ─── Paso 3 — Confirmación ────────────────────────────────────────────────────
 
 function StepConfirm({
@@ -423,6 +474,12 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   const [importing, setImporting] = useState(false);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
 
+  // ── Mapper state ──
+  const [clientsPreview, setClientsPreview] = useState<ExcelPreview | null>(null);
+  const [closingPreview, setClosingPreview] = useState<ExcelPreview | null>(null);
+  const [columnMapping, setColumnMapping] = useState<ExcelColumnMapperValue>({});
+  const [mapperLoading, setMapperLoading] = useState(false);
+
   const toggleWhat = (w: WhatToImport) => {
     setWhat((prev) => {
       const next = new Set(prev);
@@ -446,12 +503,47 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
     }
   };
 
+  // Transición de "what" → siguiente paso
+  const handleAdvanceFromWhat = async () => {
+    if (origin === "excel") {
+      // Cargar previews de archivos para el mapper
+      setMapperLoading(true);
+      setStep("mapper");
+      try {
+        const [cp, lp] = await Promise.all([
+          clientsFile && what.has("clients")
+            ? getExcelPreviewAction(clientsFile.base64)
+            : Promise.resolve(null),
+          closingFile && what.has("closing")
+            ? getExcelPreviewAction(closingFile.base64)
+            : Promise.resolve(null),
+        ]);
+        setClientsPreview(cp?.success ? cp.data : null);
+        setClosingPreview(lp?.success ? lp.data : null);
+        // Auto-mapeo: si el header coincide exactamente con nombres OTC, pre-seleccionar
+        setColumnMapping({
+          clientsMapping: cp?.success ? autoMap("clients", cp.data.headers) : undefined,
+          closingMapping: lp?.success ? autoMap("closing", lp.data.headers) : undefined,
+        });
+      } finally {
+        setMapperLoading(false);
+      }
+    } else {
+      setStep("confirm");
+    }
+  };
+
   const canAdvanceFromOrigin = origin !== null;
   const canAdvanceFromWhat = what.size > 0 && (
     origin === "ghl"
       ? true
       : (what.has("clients") ? !!clientsFile : true) &&
         (what.has("closing") ? !!closingFile : true)
+  );
+
+  const canAdvanceFromMapper = (
+    (!clientsPreview || isMappingValid("clients", columnMapping.clientsMapping)) &&
+    (!closingPreview || isMappingValid("closing", columnMapping.closingMapping))
   );
 
   const handleImport = async () => {
@@ -470,7 +562,10 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             source:   "ghl",
           };
         } else if (clientsFile) {
-          const r = await importClientsFromExcelAction(clientsFile.base64);
+          const r = await importClientsFromExcelAction(
+            clientsFile.base64,
+            columnMapping.clientsMapping
+          );
           if (!r.success) throw new Error(r.error);
           result.clientsResult = { ...r.data, source: "excel" };
         }
@@ -478,7 +573,10 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
 
       // ── Llamadas de cierre ──
       if (what.has("closing") && origin === "excel" && closingFile) {
-        const r = await importClosingCallsFromExcelAction(closingFile.base64);
+        const r = await importClosingCallsFromExcelAction(
+          closingFile.base64,
+          columnMapping.closingMapping
+        );
         if (!r.success) throw new Error(r.error);
         result.closingResult = r.data;
       }
@@ -506,10 +604,23 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   const steps: { key: Step; label: string }[] = [
     { key: "origin", label: "Origen" },
     { key: "what",   label: "Qué importar" },
+    ...(origin === "excel" ? [{ key: "mapper" as Step, label: "Mapeo" }] : []),
     { key: "confirm", label: "Confirmar" },
   ];
 
   const stepIndex = steps.findIndex((s) => s.key === step);
+
+  const handleBack = () => {
+    if (step === "confirm") setStep(origin === "excel" ? "mapper" : "what");
+    else if (step === "mapper") setStep("what");
+    else setStep("origin");
+  };
+
+  const handleNext = () => {
+    if (step === "origin") setStep("what");
+    else if (step === "what") void handleAdvanceFromWhat();
+    else if (step === "mapper") setStep("confirm");
+  };
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
@@ -554,6 +665,15 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             onClosingFile={setClosingFile}
           />
         )}
+        {step === "mapper" && (
+          <StepMapper
+            clientsPreview={clientsPreview}
+            closingPreview={closingPreview}
+            mapping={columnMapping}
+            onMapping={setColumnMapping}
+            loading={mapperLoading}
+          />
+        )}
         {step === "confirm" && (
           <StepConfirm
             origin={origin}
@@ -575,7 +695,7 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setStep(step === "confirm" ? "what" : "origin")}
+                onClick={handleBack}
               >
                 <ChevronLeft className="h-4 w-4 mr-1" /> Atrás
               </Button>
@@ -585,8 +705,12 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
               <Button
                 type="button"
                 size="sm"
-                disabled={step === "origin" ? !canAdvanceFromOrigin : !canAdvanceFromWhat}
-                onClick={() => setStep(step === "origin" ? "what" : "confirm")}
+                disabled={
+                  (step === "origin" && !canAdvanceFromOrigin) ||
+                  (step === "what"   && !canAdvanceFromWhat) ||
+                  (step === "mapper" && (!canAdvanceFromMapper || mapperLoading))
+                }
+                onClick={handleNext}
               >
                 Siguiente <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
@@ -594,17 +718,41 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
           </div>
         )}
       </div>
-
-      {/* Plantilla OTC */}
-      {origin === "excel" && !summary && (
-        <p className="text-xs text-muted-foreground text-center">
-          ¿No tenés el formato? Descargá la{" "}
-          <a href="/templates/otc-importacion.xlsx" download className="text-primary hover:underline">
-            plantilla OTC
-          </a>{" "}
-          con las columnas correctas.
-        </p>
-      )}
     </div>
   );
+}
+
+// ─── Auto-mapeo por nombre de columna ─────────────────────────────────────────
+
+const CLIENT_KNOWN: Record<string, string> = {
+  nombre: "name", name: "name",
+  email: "email", correo: "email",
+  teléfono: "phone", telefono: "phone", phone: "phone", tel: "phone",
+  estado: "status", status: "status",
+  "producto / plan": "product", producto: "product", plan: "product",
+  "monto total": "totalAmount", monto: "totalAmount", importe: "totalAmount",
+  "fecha inicio": "joinDate", "fecha de inicio": "joinDate",
+  notas: "notes", notes: "notes",
+};
+
+const CLOSING_KNOWN: Record<string, string> = {
+  "nombre prospecto": "leadName", prospecto: "leadName", lead: "leadName", nombre: "leadName",
+  "fecha y hora": "scheduledAt", fecha: "scheduledAt", date: "scheduledAt",
+  email: "email", correo: "email",
+  estado: "status", status: "status",
+  "monto cerrado": "amountClosed", monto: "amountClosed",
+  notas: "notes", "notas / resultado": "notes", notes: "notes",
+};
+
+function autoMap(type: "clients" | "closing", headers: string[]): Record<string, string> {
+  const known = type === "clients" ? CLIENT_KNOWN : CLOSING_KNOWN;
+  const result: Record<string, string> = {};
+  for (const h of headers) {
+    const norm = h.toLowerCase().trim();
+    const field = known[norm];
+    if (field && !result[field]) {
+      result[field] = h;
+    }
+  }
+  return result;
 }

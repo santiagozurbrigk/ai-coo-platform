@@ -41,6 +41,33 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-25 — Excel Column Mapper UI — mapeo de columnas para archivos propios
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** pendiente  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** importación de datos, clientes, closing
+
+**Qué se hizo:**
+- `app/clients/import-actions.ts`: nueva acción `getExcelPreviewAction(fileBase64)` que extrae headers y primeras 5 filas de cualquier archivo .xlsx sin parsear el schema OTC. Importa XLSX directamente en el action.
+- `components/integrations/excel-column-mapper.tsx` (nuevo): componente que muestra dropdowns para mapear cada columna del archivo del usuario a cada campo OTC (Nombre, Email, Teléfono, Estado, Producto, Monto, Fecha, Notas para clientes; Nombre prospecto, Fecha, Email, Estado, Monto cerrado, Notas para closing). Incluye auto-mapeo por nombre de columna y vista previa de filas con las columnas mapeadas.
+- `components/integrations/data-import-wizard.tsx`: se agrega un paso intermedio "mapper" entre "what" y "confirm" exclusivo del flujo Excel. Al avanzar desde "what", se fetchean los headers de los archivos subidos, se pre-mapean automáticamente si los nombres coinciden, y se muestra el `ExcelColumnMapper`. El mapping resultante se pasa a `importClientsFromExcelAction` y `importClosingCallsFromExcelAction` (que ya soportaban `columnMapping?`). El paso de confirmación navega correctamente con el nuevo paso insertado. Eliminado el link a la plantilla OTC (§2.4 descartado).
+
+**Por qué / finalidad:**
+El usuario puede tener sus datos en cualquier formato de Excel, con columnas nombradas de forma arbitraria. El mapper le permite indicar qué columna de su archivo corresponde a cada campo de OTC sin necesidad de reformatear el archivo ni usar una plantilla específica.
+
+**Decisiones de diseño relevantes:**
+- Auto-mapeo: al cargar el archivo, si algún header coincide (case-insensitive) con los nombres estándar de OTC (ej. "Nombre", "Email", "Teléfono"), se pre-selecciona automáticamente el mapping para evitar trabajo manual.
+- Vista previa toggle: la tabla de preview de filas mapeadas es opcional (toggle per-sección) para no sobrecargar la UI.
+- El mapper se salta completamente si el origen es GHL (no aplica).
+- Se valida que los campos requeridos (name para clientes; leadName + scheduledAt para closing) estén mapeados antes de permitir avanzar.
+
+**Riesgos / deuda técnica pendiente:**
+- Si el usuario sube un archivo con miles de filas, `getExcelPreviewAction` igual lee todo el workbook (solo retorna 5 filas pero parsea todo). Para archivos masivos podría optimizarse con `sheetRowsLimit`.
+- El link a la plantilla OTC fue eliminado del wizard — si se quiere recuperar en el futuro, habría que volver a agregar el CTA.
+
+---
+
 ### 2026-08-24 — GHL UTM Attribution — atribución de fuente en closing calls
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  

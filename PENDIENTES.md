@@ -84,16 +84,14 @@
 
 ---
 
-### [FEAT-EXCEL-IMPORT-FASE3] Mapeo de columnas personalizadas + plantilla descargable
+### [FEAT-EXCEL-IMPORT-FASE3-RESTANTE] Plantilla descargable + importación de pagos
 
-**Qué es:** Fase 3 del proceso de importación. La Fase 2 implementó parsers OTC + wizard básico. Pendiente:
-- `components/integrations/excel-column-mapper.tsx` — UI de mapeo columna a columna (para archivos con formato propio)
-- `public/templates/otc-importacion.xlsx` — Generar plantilla descargable con las 3 tabs (Clientes, Llamadas, Pagos)
+**Qué es:** Lo que queda de Fase 3 (§2.4 del plan original fue descartado por Santiago — sin plantilla OTC). Pendiente:
 - Importación de pagos (tab "Pagos") — la Fase 2 cubre clientes y llamadas, no pagos
 - Oportunidades de GHL (pipeline) → closing_calls como stretch goal
 
-**Estado:** Fase 2 implementada. Fase 3 pendiente para sesión futura.
-**Complejidad:** Media — la arquitectura ya está, falta la pantalla de mapeo y la plantilla.
+**Estado:** Column mapper (§2.5) implementado en esta sesión. Plantilla OTC descartada. Pagos e importación desde pipeline GHL pendientes.
+**Complejidad:** Media
 
 ---
 
@@ -150,6 +148,7 @@
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-25 | FEAT-EXCEL-COLUMN-MAPPER: UI de mapeo columna-a-columna para archivos Excel propios — paso "mapper" en wizard, auto-mapeo, vista previa, validación de campos requeridos | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-24 | FEAT-GHL-UTM: Atribución UTM en closing calls — fetch attributionSource del contacto GHL durante sync, columna + panel de detalle en UI | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-24 | FEAT-GHL-PHASE2: Importación datos históricos GHL contacts + Excel clientes/llamadas — wizard 3 pasos, parsers Excel, preview GHL, server actions | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-24 | FIX-GHL-TIMESTAMPS: GHL `/calendars/events` requiere Unix ms, no ISO 8601 — fix sync que devolvía 0 citas | `claude/ghl-integration-data-loading-9cd72n` |
