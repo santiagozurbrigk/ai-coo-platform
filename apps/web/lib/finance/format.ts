@@ -8,6 +8,7 @@ export function formatMoney(amount: number, currency = "USD") {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency,
+    minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
 }

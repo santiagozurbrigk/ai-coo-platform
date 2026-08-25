@@ -14,6 +14,31 @@
 
 ---
 
+### 2026-08-25 — FIX-ANIMATED-NUMBER-LOCALE: parseAnimatableMetricValue soporta formato numérico europeo (es-AR)
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Módulo(s) afectado(s):** `packages/ui/src/lib/parse-metric-value.ts`, `apps/web/lib/finance/format.ts`
+
+**Qué se hizo:**
+- `parseAnimatableMetricValue`: se agrega función `normalizeNumPart` que detecta formato europeo/es-AR antes de parsear el número animado:
+  - `"12.500"` (punto como miles) → `"12500"` → 12500 ✓ (antes parseaba como 12.5)
+  - `"49,6"` (coma como decimal) → `"49.6"` → 49.6 ✓ (antes stripeaba la coma → 496)
+  - `"1.234,56"` (miles + decimal europeo) → `"1234.56"` → 1234.56 ✓
+  - Formato inglés sin cambios (comma como miles, punto como decimal)
+- `formatMoney`: agrega `minimumFractionDigits: 0` junto con `maximumFractionDigits: 0` para evitar que USD fuerce 2 decimales en algunos browsers.
+
+**Por qué / finalidad:**
+El dashboard mostraba "496%" en lugar de "49,6%" para tasa de agendamiento, y "US$ 12,50" en lugar de "US$ 12.500" para MRR. El componente `MetricAnimatedValue` parsea el string pre-formateado para animar la transición numérica. La función de parseo trataba la coma (decimal en es-AR) como separador de miles (y la eliminaba), y el punto (miles en es-AR) como decimal — produciendo valores ×10 para porcentajes e ÷1000 para montos.
+
+**Decisiones de diseño:**
+- La fix vive en el parser, no en los formatters — el formato es correcto para mostrar al usuario, el problema era la interpretación interna del parser.
+- La detección de formato es por patrón regex heurístico: miles europeos = `/[0-9]{1,3}(\.[0-9]{3})+/`, decimal europeo = `/[0-9]+,[0-9]{1,2}$/`. Funciona para todos los valores actuales del sistema.
+- El fallback (formato inglés) mantiene el comportamiento anterior para valores no reconocidos.
+
+**Riesgos / deuda técnica pendiente:** Ninguno relevante. Si en el futuro se usan valores como "1,234" (inglés con miles-comma), podrían ambiguarse con "1,234" (4 dígitos después de coma), pero ese patrón no ocurre en el sistema actual.
+
+---
+
 ### 2026-08-25 — FIX-DASHBOARD-SALES-BASELINE: Dashboard usa fallback baseline para métricas de ventas
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
