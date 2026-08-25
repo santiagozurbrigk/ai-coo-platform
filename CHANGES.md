@@ -14,6 +14,37 @@
 
 ---
 
+### 2026-08-25 — FEAT-BASELINE-ARCHITECTURE: Arquitectura de datos baseline escalable
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit(s):** `6140f3d` — feat(metrics): arquitectura de baseline escalable — datos históricos + live  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `lib/metrics/baseline-service.ts` (nuevo), `providers/finance-data-provider.tsx`, `lib/ai/org-context.ts`
+
+**Qué se hizo:**
+- **Nuevo `lib/metrics/baseline-service.ts`**: servicio centralizado de lectura de `metrics_snapshots`. Exports:
+  - `getLatestOrgBaseline(orgId, category)` — snapshot más reciente de una categoría
+  - `getAllLatestBaselines(orgId)` — un snapshot por categoría (para el agente)
+  - `extractFinanceBaseline(snapshot)` — normaliza a `{facturacion, gastos, cashCollected, margenPercent}`
+- **`finance-data-provider.tsx`**: el provider ahora carga baseline de ventas al montar. Si `live.facturacion === 0` y hay baseline, hace fallback a los datos importados para `facturacion`, `cashCollected`, `gastosTotales` y `margenPercent`. Cuando el software tenga datos reales integrados (clientes/pagos), éstos toman prioridad automáticamente.
+- **`lib/ai/org-context.ts`**: el agente de IA ahora recibe la sección `MÉTRICAS HISTÓRICAS DE REFERENCIA` en su contexto. Puede analizar, comparar y dar recomendaciones usando los números reales del negocio desde el primer día de uso.
+
+**Por qué / finalidad:**
+- Resolver que los datos importados en "Métricas de ventas" sólo aparecían en el módulo de ventas, pero el resto del software (finanzas, agente) no los veía.
+- Arquitectura de dos capas: Baseline (histórico, importado) + Live (tiempo real, integraciones). Live prevalece siempre; baseline es el fallback cuando live = 0.
+
+**Decisiones de diseño:**
+- `baseline-service.ts` es server-only (usa `createAdminClient`), no un Server Action (`"use server"`), para que sea importable desde `org-context.ts` y otras utilidades de servidor.
+- El finance provider usa `getSalesMetricsSnapshotsAction` (ya existía) para cargar el baseline — reutiliza la query existente, no duplica lógica.
+- La condición de fallback es `live.facturacion === 0` — si el founder tiene aunque sea un cliente con pago, los datos reales prevalecen.
+
+**Riesgos / deuda técnica pendiente:**
+- El agente invalida cache con TTL de 10 min. Si el founder importa datos y chatea inmediatamente, el agente podría no ver el baseline hasta el próximo ciclo de cache.
+- `monthlySeries` (gráfico mensual en finanzas) aún no tiene baseline fallback — sólo el resumen `financeSummary`.
+- Si en el futuro se agregan categorías distintas a "sales", `finance-data-provider` tendría que cargar el baseline de cada categoría por separado.
+
+---
+
 ### 2026-08-25 — FEAT-IMPORT-MANUAL-FORM: Formulario manual de métricas de ventas + eliminación de finanzas
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
