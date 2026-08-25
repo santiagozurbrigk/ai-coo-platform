@@ -301,20 +301,66 @@ function StepWhat({
   );
 }
 
+// ─── Selector de hoja ─────────────────────────────────────────────────────────
+
+function SheetSelector({
+  label,
+  allSheets,
+  activeSheet,
+  loading,
+  onSelect,
+}: {
+  label: string;
+  allSheets: string[];
+  activeSheet: string;
+  loading: boolean;
+  onSelect: (sheet: string) => void;
+}) {
+  if (allSheets.length <= 1) return null;
+  return (
+    <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2">
+      <span className="text-xs text-muted-foreground shrink-0">Hoja ({label}):</span>
+      <select
+        value={activeSheet}
+        disabled={loading}
+        onChange={(e) => onSelect(e.target.value)}
+        className="flex-1 h-7 rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+      >
+        {allSheets.map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+      </select>
+      {loading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
+    </div>
+  );
+}
+
 // ─── Paso 2.5 — Mapeo de columnas ─────────────────────────────────────────────
 
 function StepMapper({
   clientsPreview,
   closingPreview,
+  clientsFile,
+  closingFile,
   mapping,
   onMapping,
   loading,
+  onClientsSheetChange,
+  onClosingSheetChange,
+  clientsSheetLoading,
+  closingSheetLoading,
 }: {
   clientsPreview: ExcelPreview | null;
   closingPreview: ExcelPreview | null;
+  clientsFile: ExcelFile | null;
+  closingFile: ExcelFile | null;
   mapping: ExcelColumnMapperValue;
   onMapping: (v: ExcelColumnMapperValue) => void;
   loading: boolean;
+  onClientsSheetChange: (sheet: string) => void;
+  onClosingSheetChange: (sheet: string) => void;
+  clientsSheetLoading: boolean;
+  closingSheetLoading: boolean;
 }) {
   if (loading) {
     return (
@@ -333,6 +379,33 @@ function StepMapper({
           Indicá qué columna de tu archivo corresponde a cada campo de OTC. Los campos marcados con <span className="text-destructive">*</span> son obligatorios.
         </p>
       </div>
+
+      {/* Selectores de hoja (solo aparecen si hay más de 1 hoja) */}
+      {clientsPreview && clientsFile && (
+        <SheetSelector
+          label="clientes"
+          allSheets={clientsPreview.allSheets}
+          activeSheet={clientsPreview.activeSheet}
+          loading={clientsSheetLoading}
+          onSelect={onClientsSheetChange}
+        />
+      )}
+      {closingPreview && closingFile && (
+        <SheetSelector
+          label="llamadas"
+          allSheets={closingPreview.allSheets}
+          activeSheet={closingPreview.activeSheet}
+          loading={closingSheetLoading}
+          onSelect={onClosingSheetChange}
+        />
+      )}
+
+      {clientsPreview?.headers.length === 0 && (
+        <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded px-3 py-2">
+          La hoja seleccionada no tiene columnas reconocibles. Elegí otra hoja en el selector de arriba.
+        </p>
+      )}
+
       <ExcelColumnMapper
         clientsHeaders={clientsPreview?.headers}
         clientsPreviewRows={clientsPreview?.rows}
@@ -481,6 +554,8 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   const [closingPreview, setClosingPreview] = useState<ExcelPreview | null>(null);
   const [columnMapping, setColumnMapping] = useState<ExcelColumnMapperValue>({});
   const [mapperLoading, setMapperLoading] = useState(false);
+  const [clientsSheetLoading, setClientsSheetLoading] = useState(false);
+  const [closingSheetLoading, setClosingSheetLoading] = useState(false);
 
   const toggleWhat = (w: WhatToImport) => {
     setWhat((prev) => {
@@ -547,6 +622,40 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
     (!clientsPreview || isMappingValid("clients", columnMapping.clientsMapping)) &&
     (!closingPreview || isMappingValid("closing", columnMapping.closingMapping))
   );
+
+  const handleClientsSheetChange = async (sheet: string) => {
+    if (!clientsFile) return;
+    setClientsSheetLoading(true);
+    try {
+      const result = await getExcelPreviewAction(clientsFile.base64, sheet);
+      if (result.success) {
+        setClientsPreview(result.data);
+        setColumnMapping((prev) => ({
+          ...prev,
+          clientsMapping: autoMap("clients", result.data.headers) as Partial<ColumnMapping>,
+        }));
+      }
+    } finally {
+      setClientsSheetLoading(false);
+    }
+  };
+
+  const handleClosingSheetChange = async (sheet: string) => {
+    if (!closingFile) return;
+    setClosingSheetLoading(true);
+    try {
+      const result = await getExcelPreviewAction(closingFile.base64, sheet);
+      if (result.success) {
+        setClosingPreview(result.data);
+        setColumnMapping((prev) => ({
+          ...prev,
+          closingMapping: autoMap("closing", result.data.headers) as Partial<ClosingColumnMapping>,
+        }));
+      }
+    } finally {
+      setClosingSheetLoading(false);
+    }
+  };
 
   const handleImport = async () => {
     setImporting(true);
@@ -671,9 +780,15 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
           <StepMapper
             clientsPreview={clientsPreview}
             closingPreview={closingPreview}
+            clientsFile={clientsFile}
+            closingFile={closingFile}
             mapping={columnMapping}
             onMapping={setColumnMapping}
             loading={mapperLoading}
+            onClientsSheetChange={handleClientsSheetChange}
+            onClosingSheetChange={handleClosingSheetChange}
+            clientsSheetLoading={clientsSheetLoading}
+            closingSheetLoading={closingSheetLoading}
           />
         )}
         {step === "confirm" && (

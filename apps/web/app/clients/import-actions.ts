@@ -12,24 +12,38 @@ import { parseClosingCallsExcel, type ClosingColumnMapping } from "@/lib/closing
 export type ExcelPreview = {
   headers: string[];
   rows: Record<string, string>[];
+  allSheets: string[];
+  activeSheet: string;
 };
 
 export async function getExcelPreviewAction(
-  fileBase64: string
+  fileBase64: string,
+  sheetName?: string
 ): Promise<MutationResult<ExcelPreview>> {
   return runMutation(async () => {
     await requireOrganizationId();
     const buffer = Buffer.from(fileBase64, "base64");
     const wb = XLSX.read(buffer, { type: "buffer", raw: false });
-    const sheetName = wb.SheetNames[0];
-    if (!sheetName) throw new Error("El archivo no tiene hojas.");
-    const sheet = wb.Sheets[sheetName];
+    const allSheets = wb.SheetNames;
+    if (!allSheets.length) throw new Error("El archivo no tiene hojas.");
+
+    // Si se pide una hoja específica la usamos; si no, elegimos la mejor heurísticamente
+    const targetSheet = sheetName
+      ? allSheets.find((n) => n === sheetName) ?? allSheets[0]
+      : pickBestSheet(wb);
+
+    const sheet = wb.Sheets[targetSheet];
     const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
       defval: "",
       raw: false,
     });
-    if (!raw.length) throw new Error("El archivo está vacío.");
-    const headers = Object.keys(raw[0]).map((h) => h.trim());
+    if (!raw.length) {
+      // Hoja seleccionada vacía — devolver headers vacíos pero no lanzar error
+      return { headers: [], rows: [], allSheets, activeSheet: targetSheet };
+    }
+    const headers = Object.keys(raw[0])
+      .map((h) => h.trim())
+      .filter(Boolean);
     const rows = raw.slice(0, 5).map((r) => {
       const out: Record<string, string> = {};
       for (const k of Object.keys(r)) {
@@ -37,8 +51,36 @@ export async function getExcelPreviewAction(
       }
       return out;
     });
-    return { headers, rows };
+    return { headers, rows, allSheets, activeSheet: targetSheet };
   });
+}
+
+/**
+ * Heurística: elige la hoja con más headers no vacíos en la primera fila.
+ * Si hay empate prefiere la primera con nombre que contenga palabras clave de datos.
+ */
+function pickBestSheet(wb: XLSX.WorkBook): string {
+  const DATA_KEYWORDS = /data|cliente|lead|contacto|venta|llamada|crm|registro|hoja/i;
+  let bestSheet = wb.SheetNames[0];
+  let bestScore = -1;
+
+  for (const name of wb.SheetNames) {
+    const sheet = wb.Sheets[name];
+    const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+      defval: "",
+      raw: false,
+    });
+    if (!raw.length) continue;
+    const headerCount = Object.keys(raw[0]).filter((k) => k.trim()).length;
+    // Bonus si el nombre de la hoja suena a datos
+    const nameBonus = DATA_KEYWORDS.test(name) ? 5 : 0;
+    const score = headerCount + nameBonus;
+    if (score > bestScore) {
+      bestScore = score;
+      bestSheet = name;
+    }
+  }
+  return bestSheet;
 }
 
 // ─── Tipos de resultado ───────────────────────────────────────────────────────
