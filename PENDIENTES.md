@@ -84,13 +84,14 @@
 
 ---
 
-### [FEAT-EXCEL-IMPORT-FASE3-RESTANTE] Plantilla descargable + importación de pagos
+### [FEAT-EXCEL-IMPORT-FASE3-RESTANTE] Importación de pagos y consumo de metrics_snapshots
 
-**Qué es:** Lo que queda de Fase 3 (§2.4 del plan original fue descartado por Santiago — sin plantilla OTC). Pendiente:
-- Importación de pagos (tab "Pagos") — la Fase 2 cubre clientes y llamadas, no pagos
+**Qué es:** Lo que queda de importación de datos:
+- Importación de pagos (tab "Pagos") — clientes y llamadas cubiertos, pagos no
 - Oportunidades de GHL (pipeline) → closing_calls como stretch goal
+- Conectar `metrics_snapshots` a módulos de Finanzas y Métricas de ventas para visualizar los datos importados
 
-**Estado:** Column mapper (§2.5) implementado en esta sesión. Plantilla OTC descartada. Pagos e importación desde pipeline GHL pendientes.
+**Estado:** Column mapper implementado para 4 tipos (clientes, llamadas, métricas ventas, métricas finanzas). La tabla `metrics_snapshots` existe y se popula pero ningún módulo la consume aún. Texto de confirmación en wizard dice "no se sobreescribirán" pero métricas sí hacen upsert — corregir en próxima sesión.
 **Complejidad:** Media
 
 ---

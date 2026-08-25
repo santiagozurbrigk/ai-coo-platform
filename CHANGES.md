@@ -41,6 +41,36 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-25 — Importación de métricas de ventas y finanzas
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `1f154a6` — feat(importacion): agregar importación de métricas de ventas y finanzas  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** importación de datos, métricas, finanzas
+
+**Qué se hizo:**
+- `supabase/migrations/20260825100000_metrics_snapshots.sql`: nueva tabla `metrics_snapshots` con columnas `organization_id`, `category` (sales/finance), `period_start` (date), `period_label`, `metrics` (JSONB). Unique constraint en `(organization_id, category, period_start)` para soportar upsert. RLS con `get_my_organization_id()`. Aplicada en Supabase.
+- `apps/web/lib/metrics/excel-parser.ts`: parser genérico para archivos Excel de métricas. `parseNum()` maneja porcentajes ("53%"→0.53), separador de miles europeo, decimales con coma. `parseDate()` soporta serial Excel, ISO, DD/MM/YYYY, y etiquetas de texto. Funciones exportadas: `parseSalesMetricsExcel()` y `parseFinanceMetricsExcel()` con sus tipos de mapping.
+- `apps/web/app/clients/import-actions.ts`: `importSalesMetricsFromExcelAction()` e `importFinanceMetricsFromExcelAction()` usando upsert con `onConflict: "organization_id,category,period_start"`.
+- `apps/web/components/integrations/excel-column-mapper.tsx`: soporte para tipos `"salesMetrics"` y `"financeMetrics"` con campos definidos (19 para ventas, 6 para finanzas). `isMappingValid` acepta los nuevos tipos (solo requiere campo `period`).
+- `apps/web/components/integrations/data-import-wizard.tsx`: wizard extendido a 4 tipos. Sub-componentes `FileRow` y `CheckboxCard` reutilizables. `StepWhat` con secciones para métricas de ventas (TrendingUp) y finanzas (DollarSign). `StepMapper` con selectores de hoja para los 4 archivos. `autoMap` extendido con diccionarios `SALES_METRICS_KNOWN` y `FINANCE_METRICS_KNOWN`. `handleImport` importa los 4 tipos en secuencia.
+
+**Por qué / finalidad:**
+El usuario necesitaba importar datos históricos de KPIs de ventas (close rate, show rate, leads, agendas, cierres, etc.) y finanzas (facturación, margen, gastos) desde sus propios archivos Excel. Cada fila del Excel representa un período con sus métricas agregadas, distinto del patrón de un registro por cliente.
+
+**Decisiones de diseño relevantes:**
+- JSONB para `metrics`: evita schema rígido y permite métricas opcionales sin columnas nulas. El campo exacto depende del mapeo del usuario.
+- Upsert en conflicto: reimportar el mismo período actualiza los valores en vez de generar error o duplicado.
+- Mismo archivo puede ser de múltiples hojas: los selectores de hoja funcionan igual que para clientes y llamadas.
+- `autoMap` extendido para pre-seleccionar columnas cuando los nombres coinciden (normalizado a lowercase).
+
+**Riesgos / deuda técnica pendiente:**
+- No hay UI para ver/editar/eliminar métricas importadas; solo se guardan.
+- La tabla `metrics_snapshots` existe pero ningún módulo la consume aún (pendiente conectar con finanzas/métricas).
+- Texto de confirmación aún dice "Los registros existentes no se sobreescribirán" — en realidad sí se actualizan por upsert.
+
+---
+
 ### 2026-08-25 — Excel multi-hoja: selector de hoja en el wizard de importación
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
