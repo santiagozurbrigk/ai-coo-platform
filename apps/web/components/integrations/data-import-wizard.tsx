@@ -4,7 +4,6 @@ import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Button,
-  Badge,
 } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
 import { previewGHLContactsAction, importGHLContactsAction } from "@/app/ghl/import-actions";
@@ -22,7 +21,20 @@ import {
   isMappingValid,
   type ExcelColumnMapperValue,
 } from "@/components/integrations/excel-column-mapper";
-import { Upload, Database, FileSpreadsheet, CheckCircle, Loader2, ChevronRight, ChevronLeft, Users, TrendingUp, Plus, Trash2 } from "lucide-react";
+import {
+  Upload,
+  Database,
+  FileSpreadsheet,
+  CheckCircle,
+  Loader2,
+  ChevronRight,
+  ChevronLeft,
+  Users,
+  TrendingUp,
+  Plus,
+  Trash2,
+  Calendar,
+} from "lucide-react";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -89,6 +101,13 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+// Calcula el período por defecto: mes anterior
+function defaultPeriod(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 // ─── Paso 1 — Origen ─────────────────────────────────────────────────────────
@@ -238,16 +257,88 @@ function FileRow({
   );
 }
 
-// ─── Formulario manual de métricas de ventas ──────────────────────────────────
+// ─── Formulario manual de métricas de ventas — cards por mes ──────────────────
 
-const SALES_FIELD_LABELS: Array<{ key: keyof Omit<ManualSalesRow, "id" | "period">; label: string; short: string }> = [
-  { key: "leadsTotales",   label: "Leads totales",   short: "Leads"    },
-  { key: "agendasTotales", label: "Agendas totales", short: "Agendas"  },
-  { key: "asistencias",    label: "Show up",         short: "Show up"  },
-  { key: "inasistencias",  label: "No show up",      short: "No show"  },
-  { key: "cierres",        label: "Cierres",         short: "Cierres"  },
-  { key: "facturacion",    label: "Facturación",     short: "Facturac."},
+const SALES_FIELD_LABELS: Array<{
+  key: keyof Omit<ManualSalesRow, "id" | "period">;
+  label: string;
+  prefix?: string;
+}> = [
+  { key: "leadsTotales",   label: "Leads totales"   },
+  { key: "agendasTotales", label: "Agendas totales" },
+  { key: "asistencias",    label: "Show up"         },
+  { key: "inasistencias",  label: "No show up"      },
+  { key: "cierres",        label: "Cierres"         },
+  { key: "facturacion",    label: "Facturación", prefix: "$" },
 ];
+
+function MonthCard({
+  row,
+  canRemove,
+  onUpdate,
+  onRemove,
+}: {
+  row: ManualSalesRow;
+  canRemove: boolean;
+  onUpdate: (field: keyof ManualSalesRow, value: string) => void;
+  onRemove: () => void;
+}) {
+  const inputCls =
+    "w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+      {/* Cabecera: selector de mes + botón eliminar */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-1">
+          <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+          <input
+            type="month"
+            value={row.period}
+            onChange={e => onUpdate("period", e.target.value)}
+            className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        {canRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="h-9 w-9 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            title="Eliminar mes"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Grid de métricas 3×2 */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {SALES_FIELD_LABELS.map(f => (
+          <div key={f.key} className="space-y-1.5">
+            <label className="block text-xs font-medium text-muted-foreground">
+              {f.label}
+            </label>
+            <div className="relative">
+              {f.prefix && (
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                  {f.prefix}
+                </span>
+              )}
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="—"
+                value={row[f.key]}
+                onChange={e => onUpdate(f.key, e.target.value)}
+                className={`${inputCls}${f.prefix ? " pl-6" : ""}`}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function ManualSalesForm({
   rows,
@@ -260,11 +351,10 @@ function ManualSalesForm({
     onChange(rows.map(r => r.id === id ? { ...r, [field]: value } : r));
   };
   const removeRow = (id: string) => {
-    if (rows.length === 1) return; // siempre al menos 1 fila
+    if (rows.length === 1) return;
     onChange(rows.filter(r => r.id !== id));
   };
   const addRow = () => {
-    // Sugiere el mes siguiente al último cargado
     const last = rows[rows.length - 1]?.period;
     let nextPeriod = "";
     if (last && /^\d{4}-\d{2}$/.test(last)) {
@@ -275,62 +365,30 @@ function ManualSalesForm({
     onChange([...rows, newRow(nextPeriod)]);
   };
 
-  const inputCls = "w-full h-7 rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring";
-
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        OTC calcula automáticamente close rate, show rate y más a partir de estos datos.
+        OTC calcula automáticamente close rate, show rate y más a partir de estos datos. Podés cargar varios meses a la vez.
       </p>
 
-      {/* Encabezado de columnas */}
-      <div className="grid gap-1 text-xs text-muted-foreground font-medium" style={{ gridTemplateColumns: "130px repeat(6, 1fr) 24px" }}>
-        <span>Período</span>
-        {SALES_FIELD_LABELS.map(f => (
-          <span key={f.key} className="text-center">{f.short}</span>
-        ))}
-        <span />
-      </div>
-
-      {/* Filas */}
-      <div className="space-y-1 max-h-60 overflow-y-auto pr-0.5">
+      <div className="space-y-3 max-h-[480px] overflow-y-auto pr-0.5">
         {rows.map(row => (
-          <div key={row.id} className="grid gap-1 items-center" style={{ gridTemplateColumns: "130px repeat(6, 1fr) 24px" }}>
-            <input
-              type="month"
-              value={row.period}
-              onChange={e => updateRow(row.id, "period", e.target.value)}
-              className={inputCls}
-            />
-            {SALES_FIELD_LABELS.map(f => (
-              <input
-                key={f.key}
-                type="text"
-                inputMode="decimal"
-                placeholder="—"
-                value={row[f.key]}
-                onChange={e => updateRow(row.id, f.key, e.target.value)}
-                className={`${inputCls} text-center`}
-              />
-            ))}
-            <button
-              type="button"
-              onClick={() => removeRow(row.id)}
-              disabled={rows.length === 1}
-              className="flex items-center justify-center h-7 w-6 rounded text-muted-foreground hover:text-destructive disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
-          </div>
+          <MonthCard
+            key={row.id}
+            row={row}
+            canRemove={rows.length > 1}
+            onUpdate={(field, value) => updateRow(row.id, field, value)}
+            onRemove={() => removeRow(row.id)}
+          />
         ))}
       </div>
 
       <button
         type="button"
         onClick={addRow}
-        className="flex items-center gap-1.5 text-xs text-primary hover:underline mt-1"
+        className="flex items-center gap-2 text-sm text-primary hover:underline"
       >
-        <Plus className="h-3 w-3" /> Agregar mes
+        <Plus className="h-4 w-4" /> Agregar mes
       </button>
     </div>
   );
@@ -346,8 +404,6 @@ function StepWhat({
   ghlPreviewLoading,
   clientsFile,
   onClientsFile,
-  manualSalesRows,
-  onManualSalesRowsChange,
 }: {
   origin: Origin;
   what: Set<WhatToImport>;
@@ -356,8 +412,6 @@ function StepWhat({
   ghlPreviewLoading: boolean;
   clientsFile: ExcelFile | null;
   onClientsFile: (f: ExcelFile | null) => void;
-  manualSalesRows: ManualSalesRow[];
-  onManualSalesRowsChange: (rows: ManualSalesRow[]) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -402,25 +456,17 @@ function StepWhat({
         )}
       </CheckboxCard>
 
-      {/* Métricas de ventas — formulario manual */}
+      {/* Métricas de ventas */}
       <CheckboxCard
         checked={what.has("salesMetrics")}
         onToggle={() => onWhat("salesMetrics")}
         icon={<TrendingUp className="h-4 w-4" />}
         title="Métricas de ventas"
       >
-        <ManualSalesForm
-          rows={manualSalesRows}
-          onChange={onManualSalesRowsChange}
-        />
-      </CheckboxCard>
-
-      {/* GHL solo importa clientes */}
-      {origin === "ghl" && (
         <p className="text-xs text-muted-foreground">
-          Las métricas de ventas se cargan en la sección Excel.
+          Cargás los datos mes a mes en el siguiente paso.
         </p>
-      )}
+      </CheckboxCard>
     </div>
   );
 }
@@ -505,6 +551,7 @@ function StepConfirm({
   ghlPreview,
   clientsFile,
   manualSalesRows,
+  onManualSalesRowsChange,
   importing,
   summary,
   onImport,
@@ -514,6 +561,7 @@ function StepConfirm({
   ghlPreview: GHLPreview | null;
   clientsFile: ExcelFile | null;
   manualSalesRows: ManualSalesRow[];
+  onManualSalesRowsChange: (rows: ManualSalesRow[]) => void;
   importing: boolean;
   summary: ImportSummary | null;
   onImport: () => void;
@@ -536,45 +584,51 @@ function StepConfirm({
   }
 
   const salesRowsWithPeriod = manualSalesRows.filter(r => r.period);
+  const canImport =
+    !what.has("salesMetrics") || salesRowsWithPeriod.length > 0;
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Revisá antes de importar:</p>
-      <div className="rounded-lg border border-border divide-y divide-border">
-        {what.has("clients") && (
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">Clientes</span>
-            </div>
-            {origin === "ghl" && ghlPreview ? (
-              <Badge>{ghlPreview.total} contactos de GHL</Badge>
-            ) : clientsFile ? (
-              <Badge>{clientsFile.name}</Badge>
-            ) : (
-              <span className="text-xs text-muted-foreground">Sin archivo</span>
-            )}
+    <div className="space-y-5">
+
+      {/* Resumen de clientes */}
+      {what.has("clients") && (
+        <div className="rounded-lg border border-border px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Clientes</span>
           </div>
-        )}
-        {what.has("salesMetrics") && (
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">Métricas de ventas</span>
-            </div>
-            <Badge>
-              {salesRowsWithPeriod.length} {salesRowsWithPeriod.length === 1 ? "período" : "períodos"}
-            </Badge>
+          <span className="text-xs text-muted-foreground">
+            {origin === "ghl" && ghlPreview
+              ? `${ghlPreview.total} contactos de GHL`
+              : clientsFile
+                ? clientsFile.name
+                : "Sin archivo"}
+          </span>
+        </div>
+      )}
+
+      {/* Formulario de métricas de ventas */}
+      {what.has("salesMetrics") && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm font-medium">Métricas de ventas</p>
           </div>
-        )}
-      </div>
+          <ManualSalesForm
+            rows={manualSalesRows}
+            onChange={onManualSalesRowsChange}
+          />
+        </div>
+      )}
+
       <p className="text-xs text-muted-foreground">
         Clientes: si ya existen, no se sobreescriben. Métricas: si ya existe un registro para el mismo período, se actualiza con los nuevos valores.
       </p>
+
       <Button
         type="button"
         onClick={onImport}
-        disabled={importing}
+        disabled={importing || !canImport}
         className="w-full"
       >
         {importing ? (
@@ -625,13 +679,6 @@ function autoMapClients(headers: string[]): Record<string, string> {
 }
 
 // ─── Wizard principal ─────────────────────────────────────────────────────────
-
-// Calcula el período por defecto: mes anterior
-function defaultPeriod(): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
 
 export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   const router = useRouter();
@@ -700,11 +747,11 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
 
   const canAdvanceFromOrigin = origin !== null;
 
+  // El paso "Qué importar" solo necesita: algo seleccionado + archivo de clientes si es excel
   const canAdvanceFromWhat = what.size > 0 && (
     origin === "ghl"
       ? true
-      : (!what.has("clients") || !!clientsFile) &&
-        (!what.has("salesMetrics") || manualSalesRows.some(r => r.period))
+      : !what.has("clients") || !!clientsFile
   );
 
   const canAdvanceFromMapper = !clientsPreview || isMappingValid("clients", columnMapping.clientsMapping);
@@ -798,7 +845,6 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
     { key: "confirm", label: "Confirmar" },
   ];
 
-  // Recalculate stepIndex each render using current `step`
   const stepIndex = steps.findIndex((s) => s.key === step);
 
   const handleBack = () => {
@@ -826,9 +872,7 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
         {steps.map((s, i) => (
           <div key={s.key} className="flex items-center gap-2">
             <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-semibold transition-colors
-              ${i < stepIndex ? "bg-primary text-primary-foreground" :
-                i === stepIndex ? "bg-primary text-primary-foreground" :
-                "bg-muted text-muted-foreground"}`}
+              ${i <= stepIndex ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
             >
               {i < stepIndex ? <CheckCircle className="h-3.5 w-3.5" /> : i + 1}
             </div>
@@ -858,8 +902,6 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             ghlPreviewLoading={ghlPreviewLoading}
             clientsFile={clientsFile}
             onClientsFile={setClientsFile}
-            manualSalesRows={manualSalesRows}
-            onManualSalesRowsChange={setManualSalesRows}
           />
         )}
         {step === "mapper" && (
@@ -880,6 +922,7 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             ghlPreview={ghlPreview}
             clientsFile={clientsFile}
             manualSalesRows={manualSalesRows}
+            onManualSalesRowsChange={setManualSalesRows}
             importing={importing}
             summary={summary}
             onImport={handleImport}

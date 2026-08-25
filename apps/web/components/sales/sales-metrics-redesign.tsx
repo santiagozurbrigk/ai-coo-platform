@@ -37,13 +37,87 @@ import { SummaryStrip } from "./metrics/summary-strip";
 import { useSalesMetrics } from "./metrics/use-sales-metrics";
 import type { DateRange } from "./metrics/date-range-picker";
 import type { FrequentObjectionsResult } from "@/types/sales";
+import type { MetricsSnapshot } from "@/app/sales/metrics-actions";
 
 // ─── Componente principal ──────────────────────────────────────────────────────
 
+// ─── Tabla de historial importado ────────────────────────────────────────────
+
+function fmtNum(n: number | undefined): string {
+  if (n == null || isNaN(n)) return "—";
+  return n.toLocaleString("es-AR");
+}
+function fmtPct(n: number | undefined): string {
+  if (n == null || isNaN(n)) return "—";
+  return `${(n * 100).toFixed(1)}%`;
+}
+function fmtMoney(n: number | undefined): string {
+  if (n == null || isNaN(n)) return "—";
+  return `$${n.toLocaleString("es-AR")}`;
+}
+
+const SNAPSHOT_COLS: Array<{
+  key: string;
+  label: string;
+  fmt: (n: number | undefined) => string;
+}> = [
+  { key: "leads_totales",    label: "Leads",      fmt: fmtNum },
+  { key: "agendas_totales",  label: "Agendas",    fmt: fmtNum },
+  { key: "asistencias",      label: "Show up",    fmt: fmtNum },
+  { key: "inasistencias",    label: "No show",    fmt: fmtNum },
+  { key: "cierres",          label: "Cierres",    fmt: fmtNum },
+  { key: "facturacion",      label: "Facturación",fmt: fmtMoney },
+  { key: "close_rate",       label: "Close rate", fmt: fmtPct },
+  { key: "show_rate",        label: "Show rate",  fmt: fmtPct },
+];
+
+function ImportedMetricsSection({ snapshots }: { snapshots: MetricsSnapshot[] }) {
+  if (!snapshots.length) return null;
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-[13px] font-semibold">Historial importado</h3>
+        <span className="text-xs text-muted-foreground">{snapshots.length} períodos</span>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-muted/40 border-b border-border">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">Período</th>
+              {SNAPSHOT_COLS.map(c => (
+                <th key={c.key} className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                  {c.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {snapshots.map(s => (
+              <tr key={s.id} className="hover:bg-muted/20 transition-colors">
+                <td className="px-4 py-2.5 text-xs font-medium whitespace-nowrap">{s.periodLabel}</td>
+                {SNAPSHOT_COLS.map(c => (
+                  <td key={c.key} className="px-4 py-2.5 text-xs text-right tabular-nums text-muted-foreground whitespace-nowrap">
+                    {c.fmt(s.metrics[c.key])}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+
 export function SalesMetricsRedesign({
   frequentObjections,
+  importedSnapshots = [],
 }: {
   frequentObjections?: FrequentObjectionsResult;
+  importedSnapshots?: MetricsSnapshot[];
 }) {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
 
@@ -401,6 +475,9 @@ export function SalesMetricsRedesign({
 
       {/* ── Franja de resumen ─────────────────────────────────────────────── */}
       <SummaryStrip items={summaryItems} />
+
+      {/* ── Historial de métricas importadas ─────────────────────────────── */}
+      <ImportedMetricsSection snapshots={importedSnapshots} />
     </div>
   );
 }
