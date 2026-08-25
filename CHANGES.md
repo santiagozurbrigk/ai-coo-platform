@@ -14,6 +14,27 @@
 
 ---
 
+### 2026-08-25 — FIX-BASELINE-GASTOS: cashCollected y margenPercent usan gastos configurados del módulo (no snapshot)
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Módulo(s) afectado(s):** `providers/finance-data-provider.tsx`, `lib/intelligence/collect-context.ts`
+
+**Qué se hizo:**
+- `finance-data-provider.tsx` (financeSummary baseline): se reemplaza `bGastos = salesBaselineMetrics["gastos"] ?? 0` (siempre 0, el snapshot de ventas no tiene campo gastos) por `effectiveGastos = live.gastosTotales > 0 ? live.gastosTotales : bGastosSnapshot`. Ahora `cashCollected` y `margenPercent` del baseline usan los gastos reales configurados en el módulo de finanzas.
+- `collect-context.ts` (inteligencia): mismo fix — `effectiveGastos` para el `bMargen` del agente IA.
+
+**Por qué / finalidad:**
+El usuario tiene gastos configurados en el módulo de finanzas (gastos fijos, suscripciones, equipo). Estos gastos producen `live.gastosTotales` correcto. Pero el baseline fallback computaba `cashCollected = facturacion - bGastos` donde `bGastos = snapshot["gastos"] = null → 0`. Resultado: `cashCollected = 12500` y `margenPercent = 100%`, ignorando totalmente los gastos reales configurados. Ahora el baseline usa los gastos configurados como fuente primaria y solo cae al snapshot si no hay config.
+
+**Decisiones de diseño:**
+- Prioridad: gastos configurados (módulo finanzas) > campo gastos del snapshot > 0
+- `monthlySeries` ya usaba `expensesSummary.totalMonthly` correctamente — ahora `financeSummary` es consistente con eso.
+- No se cambia la lógica de facturación (sigue viniendo del snapshot cuando no hay datos live).
+
+**Riesgos / deuda técnica pendiente:** Si el usuario importa un snapshot con campo `gastos` pero NO ha configurado gastos en el módulo, se usa el snapshot — comportamiento correcto. Si ambos están configurados, gana el módulo.
+
+---
+
 ### 2026-08-25 — FIX-ANIMATED-NUMBER-LOCALE: parseAnimatableMetricValue soporta formato numérico europeo (es-AR)
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  

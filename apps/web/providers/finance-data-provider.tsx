@@ -374,19 +374,23 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
     // Fallback a baseline: el usuario aún no tiene datos integrados,
     // pero sí tiene métricas históricas importadas manualmente
     const bFact = salesBaselineMetrics["facturacion"] ?? 0;
-    const bGastos = salesBaselineMetrics["gastos"] ?? 0;
+    // Preferir gastos configurados en el módulo (live.gastosTotales) sobre el snapshot,
+    // ya que el snapshot de ventas raramente incluye un campo "gastos".
+    // El snapshot es la fuente de ingresos históricos; los gastos vienen de la config del módulo.
+    const bGastosSnapshot = salesBaselineMetrics["gastos"] ?? 0;
+    const effectiveGastos = live.gastosTotales > 0 ? live.gastosTotales : bGastosSnapshot;
     const bCash =
       salesBaselineMetrics["cash_collected"] != null
         ? salesBaselineMetrics["cash_collected"]
-        : Math.max(0, bFact - bGastos);
-    const bMargen = bFact > 0 ? ((bFact - bGastos) / bFact) * 100 : 0;
+        : Math.max(0, bFact - effectiveGastos);
+    const bMargen = bFact > 0 ? ((bFact - effectiveGastos) / bFact) * 100 : 0;
 
     return {
       ...live,
       facturacion: bFact,
       cashCollected: bCash,
-      gastosTotales: live.gastosTotales > 0 ? live.gastosTotales : bGastos,
-      margenPercent: live.margenPercent !== 0 ? live.margenPercent : bMargen,
+      gastosTotales: effectiveGastos,
+      margenPercent: bMargen,
     };
   }, [
     clients,

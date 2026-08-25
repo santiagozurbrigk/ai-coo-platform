@@ -306,8 +306,10 @@ export async function collectIntelligenceData(
   const baselineMetrics =
     (baselineSnapshotRes.data?.metrics as Record<string, number> | null) ?? null;
   const bFact = baselineMetrics?.["facturacion"] ?? 0;
-  const bGastos = baselineMetrics?.["gastos"] ?? 0;
-  const bMargen = bFact > 0 ? ((bFact - bGastos) / bFact) * 100 : 0;
+  const bGastosSnapshot = baselineMetrics?.["gastos"] ?? 0;
+  // Preferir gastos configurados en el módulo (finance.gastosTotales) sobre el snapshot
+  const effectiveGastos = finance.gastosTotales > 0 ? finance.gastosTotales : bGastosSnapshot;
+  const bMargen = bFact > 0 ? ((bFact - effectiveGastos) / bFact) * 100 : 0;
   const effectiveFacturacion = finance.facturacion > 0 ? finance.facturacion : bFact;
   const effectiveMargen = finance.facturacion > 0 ? finance.margenPercent : bMargen;
 
