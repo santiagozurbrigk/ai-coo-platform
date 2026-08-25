@@ -457,6 +457,7 @@ export type ManualSalesMetricInput = {
   inasistencias?: number;
   cierres?:       number;
   facturacion?:   number;
+  gastos?:        number;
 };
 
 const MONTH_NAMES_ES = [
@@ -494,6 +495,7 @@ export async function importSalesMetricsManualAction(
       if (row.inasistencias  != null) raw["inasistencias"]   = row.inasistencias;
       if (row.cierres        != null) raw["cierres"]         = row.cierres;
       if (row.facturacion    != null) raw["facturacion"]     = row.facturacion;
+      if (row.gastos         != null) raw["gastos"]          = row.gastos;
 
       return {
         organization_id: organizationId,

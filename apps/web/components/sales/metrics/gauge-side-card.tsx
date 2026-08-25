@@ -14,12 +14,11 @@ interface GaugeSideCardProps {
 
 /**
  * Tarjeta de gauge para el sidebar lateral.
- * Número grande en el header, arco visual grande abajo sin texto interno.
+ * Label en el header, número centrado dentro del arco.
  */
 export function GaugeSideCard({
   label,
   value,
-  displayValue,
   suffix = "%",
 }: GaugeSideCardProps) {
   return (
@@ -27,9 +26,6 @@ export function GaugeSideCard({
       <div className="px-4 pt-3 pb-0 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           {label}
-        </p>
-        <p className="mt-0.5 text-2xl font-bold tabular-nums">
-          {displayValue ?? `${Math.round(value)}${suffix}`}
         </p>
       </div>
       <div className="flex justify-center px-2 pb-2">
@@ -39,7 +35,6 @@ export function GaugeSideCard({
           label=""
           suffix={suffix}
           className="w-full max-w-[200px]"
-          valueClassName="hidden"
           labelClassName="hidden"
         />
       </div>

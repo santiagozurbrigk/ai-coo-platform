@@ -66,6 +66,7 @@ type ManualSalesRow = {
   asistencias:   string;
   cierres:       string;
   facturacion:   string;
+  gastos:        string;
 };
 
 function newRow(period?: string): ManualSalesRow {
@@ -77,6 +78,7 @@ function newRow(period?: string): ManualSalesRow {
     asistencias:    "",
     cierres:        "",
     facturacion:    "",
+    gastos:         "",
   };
 }
 
@@ -267,6 +269,7 @@ const SALES_FIELD_LABELS: Array<{
   { key: "asistencias",    label: "Show up"         },
   { key: "cierres",        label: "Cierres"         },
   { key: "facturacion",    label: "Facturación", prefix: "$" },
+  { key: "gastos",         label: "Gastos",      prefix: "$" },
 ];
 
 function MonthCard({
@@ -810,6 +813,7 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
               : undefined,
             cierres:        parseNum(r.cierres),
             facturacion:    parseNum(r.facturacion),
+            gastos:         parseNum(r.gastos),
           }));
         const r = await importSalesMetricsManualAction(rows);
         if (!r.success) throw new Error(r.error);

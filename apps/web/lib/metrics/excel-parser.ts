@@ -205,6 +205,10 @@ export function deriveSalesMetrics(metrics: Record<string, number>): Record<stri
     const inasistencias = m["inasistencias"] ?? Math.max(0, agendas - asistencias);
     m["tasa_fantasma"] = inasistencias / agendas;
   }
+  // cash_collected = facturacion - gastos (cuando ambos están presentes)
+  if (!("cash_collected" in m) && "facturacion" in m && "gastos" in m) {
+    m["cash_collected"] = Math.max(0, (m["facturacion"] ?? 0) - (m["gastos"] ?? 0));
+  }
   return m;
 }
 
