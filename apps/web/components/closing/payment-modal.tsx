@@ -137,11 +137,6 @@ export function PaymentModal({
     });
   };
 
-  // Primera cuota pagada = primer monto de la lista
-  const firstInstallmentPaid =
-    paymentType === "installments" && customInstallmentAmounts.length > 0
-      ? Number(customInstallmentAmounts[0]) || 0
-      : Number(installmentAmount) || 0;
 
   useEffect(() => {
     if (open) {

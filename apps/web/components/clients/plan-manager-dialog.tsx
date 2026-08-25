@@ -132,7 +132,7 @@ function PlanForm({
 
         {form.systems.length === 0 ? (
           <p className="text-xs text-muted-foreground py-2">
-            Sin sistemas de cuotas configurados. Podés agregar uno o más (ej: "2 cuotas", "3 cuotas VIP").
+            Sin sistemas de cuotas configurados. Podés agregar uno o más (ej: &quot;2 cuotas&quot;, &quot;3 cuotas VIP&quot;).
           </p>
         ) : (
           <div className="space-y-2">
