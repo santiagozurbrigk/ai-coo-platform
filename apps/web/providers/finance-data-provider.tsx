@@ -25,6 +25,7 @@ import {
   updateTeamCompensationAction,
 } from "@/app/finance/actions";
 import { listOrganizationPaymentsAction } from "@/app/clients/payment-actions";
+import { getSalesMetricsSnapshotsAction } from "@/app/sales/metrics-actions";
 import {
   mockFinanceSummary,
   mockMonthlySeries,
@@ -102,6 +103,9 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
   const [teamCompensation, setTeamCompensation] = useState<TeamCompensation[]>([]);
   const [clientPayments, setClientPayments] = useState<ClientPayment[]>([]);
 
+  // Baseline: métricas históricas importadas por el usuario (fallback cuando no hay datos en vivo)
+  const [salesBaselineMetrics, setSalesBaselineMetrics] = useState<Record<string, number> | null>(null);
+
   const refreshClientPayments = useCallback(async () => {
     if (!useSupabase) return;
     const payments = await listOrganizationPaymentsAction();
@@ -143,6 +147,18 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       void refreshClientPayments();
     }
   }, [clients.length, clientsLoading, refreshClientPayments]);
+
+  // Cargar baseline de ventas una vez al montar (datos históricos importados)
+  useEffect(() => {
+    if (!useSupabase) return;
+    getSalesMetricsSnapshotsAction()
+      .then((snapshots) => {
+        if (snapshots.length > 0) {
+          setSalesBaselineMetrics(snapshots[0].metrics);
+        }
+      })
+      .catch((e) => console.error("[FinanceDataProvider] baseline load", e));
+  }, []);
 
   const runFinanceMutation = useCallback(
     async (result: { success: boolean; error?: string }) => {
@@ -340,7 +356,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
     if (!useSupabase) return mockFinanceSummary;
     const sourceClients = dataReady ? clients : [];
     const sourceCalls = dataReady ? closingCalls : [];
-    return deriveFinanceSummary(
+    const live = deriveFinanceSummary(
       sourceClients,
       sourceCalls,
       expensesSummary,
@@ -348,6 +364,27 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       undefined,
       dataReady ? clientPayments : []
     );
+
+    // Si hay datos en vivo (clientes con facturación real), usarlos tal cual
+    if (live.facturacion > 0 || !salesBaselineMetrics) return live;
+
+    // Fallback a baseline: el usuario aún no tiene datos integrados,
+    // pero sí tiene métricas históricas importadas manualmente
+    const bFact = salesBaselineMetrics["facturacion"] ?? 0;
+    const bGastos = salesBaselineMetrics["gastos"] ?? 0;
+    const bCash =
+      salesBaselineMetrics["cash_collected"] != null
+        ? salesBaselineMetrics["cash_collected"]
+        : Math.max(0, bFact - bGastos);
+    const bMargen = bFact > 0 ? ((bFact - bGastos) / bFact) * 100 : 0;
+
+    return {
+      ...live,
+      facturacion: bFact,
+      cashCollected: bCash,
+      gastosTotales: live.gastosTotales > 0 ? live.gastosTotales : bGastos,
+      margenPercent: live.margenPercent !== 0 ? live.margenPercent : bMargen,
+    };
   }, [
     clients,
     closingCalls,
@@ -355,6 +392,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
     paymentPlatforms,
     clientPayments,
     dataReady,
+    salesBaselineMetrics,
   ]);
 
   const monthlySeries = useMemo(() => {
