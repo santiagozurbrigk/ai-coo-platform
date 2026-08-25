@@ -6,6 +6,12 @@ import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { createClient } from "@/lib/supabase/server";
 import { parseClientsExcel, type ColumnMapping, type ClientImportRow } from "@/lib/clients/excel-parser";
 import { parseClosingCallsExcel, type ClosingColumnMapping } from "@/lib/closing/excel-parser";
+import {
+  parseSalesMetricsExcel,
+  parseFinanceMetricsExcel,
+  type SalesMetricsColumnMapping,
+  type FinanceMetricsColumnMapping,
+} from "@/lib/metrics/excel-parser";
 
 // ─── Preview de encabezados y primeras filas ──────────────────────────────────
 
@@ -217,3 +223,96 @@ function buildClosingFormAnswers(row: { email?: string; amountClosed?: number; n
   if (row.notes)       answers.push({ question: "Notas",          answer: row.notes });
   return answers;
 }
+
+// ─── Importar métricas de ventas desde Excel ──────────────────────────────────
+
+export async function importSalesMetricsFromExcelAction(
+  fileBase64: string,
+  columnMapping: SalesMetricsColumnMapping,
+  sheetName?: string
+): Promise<MutationResult<ExcelImportResult>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const buffer = Buffer.from(fileBase64, "base64");
+    const { rows, errors } = parseSalesMetricsExcel(buffer, columnMapping, sheetName);
+
+    if (!rows.length) {
+      return {
+        inserted: 0,
+        skipped: 0,
+        errors: errors.length ? errors : [{ row: 0, message: "El archivo no contiene métricas de ventas para importar." }],
+      };
+    }
+
+    const BATCH = 50;
+    let inserted = 0;
+    let skipped = 0;
+    for (let i = 0; i < rows.length; i += BATCH) {
+      const batch = rows.slice(i, i + BATCH).map((row) => ({
+        organization_id: organizationId,
+        category:        "sales" as const,
+        period_start:    row.periodStart,
+        period_label:    row.periodLabel,
+        metrics:         row.metrics,
+      }));
+      const { error, count } = await supabase
+        .from("metrics_snapshots")
+        .upsert(batch, { onConflict: "organization_id,category,period_start", count: "exact" });
+      if (error) throw new Error(error.message);
+      inserted += count ?? batch.length;
+    }
+
+    console.info(`[import-sales-metrics] org=${organizationId} inserted=${inserted} skipped=${skipped}`);
+    return { inserted, skipped, errors };
+  });
+}
+
+// ─── Importar métricas de finanzas desde Excel ────────────────────────────────
+
+export async function importFinanceMetricsFromExcelAction(
+  fileBase64: string,
+  columnMapping: FinanceMetricsColumnMapping,
+  sheetName?: string
+): Promise<MutationResult<ExcelImportResult>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const buffer = Buffer.from(fileBase64, "base64");
+    const { rows, errors } = parseFinanceMetricsExcel(buffer, columnMapping, sheetName);
+
+    if (!rows.length) {
+      return {
+        inserted: 0,
+        skipped: 0,
+        errors: errors.length ? errors : [{ row: 0, message: "El archivo no contiene métricas de finanzas para importar." }],
+      };
+    }
+
+    const BATCH = 50;
+    let inserted = 0;
+    let skipped = 0;
+    for (let i = 0; i < rows.length; i += BATCH) {
+      const batch = rows.slice(i, i + BATCH).map((row) => ({
+        organization_id: organizationId,
+        category:        "finance" as const,
+        period_start:    row.periodStart,
+        period_label:    row.periodLabel,
+        metrics:         row.metrics,
+      }));
+      const { error, count } = await supabase
+        .from("metrics_snapshots")
+        .upsert(batch, { onConflict: "organization_id,category,period_start", count: "exact" });
+      if (error) throw new Error(error.message);
+      inserted += count ?? batch.length;
+    }
+
+    console.info(`[import-finance-metrics] org=${organizationId} inserted=${inserted} skipped=${skipped}`);
+    return { inserted, skipped, errors };
+  });
+}
+
+// Re-export de tipos para el wizard
+export type { SalesMetricsColumnMapping, FinanceMetricsColumnMapping };

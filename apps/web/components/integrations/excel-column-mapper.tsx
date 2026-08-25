@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import type { ColumnMapping } from "@/lib/clients/excel-parser";
 import type { ClosingColumnMapping } from "@/lib/closing/excel-parser";
+import type { SalesMetricsColumnMapping, FinanceMetricsColumnMapping } from "@/lib/metrics/excel-parser";
 
 // ─── Definición de campos OTC ─────────────────────────────────────────────────
 
@@ -33,13 +34,49 @@ const CLOSING_FIELDS: FieldDef[] = [
   { key: "notes",       label: "Notas",            required: false },
 ];
 
+const SALES_METRICS_FIELDS: FieldDef[] = [
+  { key: "period",          label: "Período / Semana",   required: true,  hint: "ej. '2025-01-06' o 'Semana 1'" },
+  { key: "leadsTotales",    label: "Leads totales",       required: false },
+  { key: "agendasTotales",  label: "Agendas totales",     required: false },
+  { key: "asistencias",     label: "Asistencias",         required: false },
+  { key: "inasistencias",   label: "Inasistencias",       required: false },
+  { key: "cierres",         label: "Cierres",             required: false },
+  { key: "noCierres",       label: "No cierres",          required: false },
+  { key: "señas",           label: "Señas",               required: false },
+  { key: "facturacion",     label: "Facturación",         required: false },
+  { key: "cashCollected",   label: "Cash collected",      required: false },
+  { key: "closeRate",       label: "Close rate",          required: false, hint: "ej. 0.53 o 53%" },
+  { key: "showRate",        label: "Show rate",           required: false, hint: "ej. 0.75 o 75%" },
+  { key: "tasaAgendamiento",label: "Tasa de agendamiento",required: false, hint: "ej. 0.44 o 44%" },
+  { key: "tasaFantasma",    label: "Tasa de fantasma",    required: false, hint: "ej. 0.25 o 25%" },
+  { key: "enNutricion",     label: "En nutrición",        required: false },
+  { key: "perdidos",        label: "Perdidos",            required: false },
+  { key: "seguimientos",    label: "Seguimientos",        required: false },
+  { key: "tiempoRespuesta", label: "Tiempo de respuesta", required: false, hint: "en horas" },
+];
+
+const FINANCE_METRICS_FIELDS: FieldDef[] = [
+  { key: "period",        label: "Período / Mes",   required: true,  hint: "ej. '2025-01' o 'Enero 2025'" },
+  { key: "facturacion",   label: "Facturación",      required: false },
+  { key: "cashCollected", label: "Cash collected",   required: false },
+  { key: "margen",        label: "Margen",           required: false, hint: "ej. 0.35 o 35%" },
+  { key: "porCobrar",     label: "Por cobrar",       required: false },
+  { key: "gastos",        label: "Gastos",           required: false },
+];
+
 // ─── Prop types ───────────────────────────────────────────────────────────────
 
+export type MapperType = "clients" | "closing" | "salesMetrics" | "financeMetrics";
+
 // Durante la edición UI los campos requeridos pueden estar vacíos → Partial
-type MappingValue = Partial<ColumnMapping> | Partial<ClosingColumnMapping>;
+type MappingValue =
+  | Partial<ColumnMapping>
+  | Partial<ClosingColumnMapping>
+  | Partial<SalesMetricsColumnMapping>
+  | Partial<FinanceMetricsColumnMapping>;
 
 type SingleMapperProps = {
-  type: "clients" | "closing";
+  type: MapperType;
   headers: string[];
   previewRows: Record<string, string>[];
   value: MappingValue;
@@ -112,7 +149,11 @@ function ColumnSelect({
 // ─── Mapper de un tipo (clientes o closing) ───────────────────────────────────
 
 function SingleMapper({ type, headers, previewRows, value, onChange }: SingleMapperProps) {
-  const fields = type === "clients" ? CLIENT_FIELDS : CLOSING_FIELDS;
+  const fields =
+    type === "clients"       ? CLIENT_FIELDS :
+    type === "closing"       ? CLOSING_FIELDS :
+    type === "salesMetrics"  ? SALES_METRICS_FIELDS :
+    FINANCE_METRICS_FIELDS;
 
   const get = (key: string): string => {
     return (value as Record<string, string | undefined>)[key] ?? "";
@@ -147,11 +188,15 @@ function PreviewTable({
   mapping,
   previewRows,
 }: {
-  type: "clients" | "closing";
+  type: MapperType;
   mapping: MappingValue;
   previewRows: Record<string, string>[];
 }) {
-  const fields = type === "clients" ? CLIENT_FIELDS : CLOSING_FIELDS;
+  const fields =
+    type === "clients"       ? CLIENT_FIELDS :
+    type === "closing"       ? CLOSING_FIELDS :
+    type === "salesMetrics"  ? SALES_METRICS_FIELDS :
+    FINANCE_METRICS_FIELDS;
   const m = mapping as Record<string, string | undefined>;
 
   // Solo mostrar columnas que tienen un mapeo
@@ -189,8 +234,18 @@ function PreviewTable({
 // ─── Componente exportado ─────────────────────────────────────────────────────
 
 export type ExcelColumnMapperValue = {
-  clientsMapping?: Partial<ColumnMapping>;
-  closingMapping?: Partial<ClosingColumnMapping>;
+  clientsMapping?:      Partial<ColumnMapping>;
+  closingMapping?:      Partial<ClosingColumnMapping>;
+  salesMetricsMapping?: Partial<SalesMetricsColumnMapping>;
+  financeMetricsMapping?: Partial<FinanceMetricsColumnMapping>;
+};
+
+type SectionDef = {
+  key: keyof ExcelColumnMapperValue;
+  type: MapperType;
+  label: string;
+  headers?: string[];
+  previewRows?: Record<string, string>[];
 };
 
 type ExcelColumnMapperProps = {
@@ -198,6 +253,10 @@ type ExcelColumnMapperProps = {
   clientsPreviewRows?: Record<string, string>[];
   closingHeaders?: string[];
   closingPreviewRows?: Record<string, string>[];
+  salesMetricsHeaders?: string[];
+  salesMetricsPreviewRows?: Record<string, string>[];
+  financeMetricsHeaders?: string[];
+  financeMetricsPreviewRows?: Record<string, string>[];
   value: ExcelColumnMapperValue;
   onChange: (v: ExcelColumnMapperValue) => void;
 };
@@ -207,84 +266,61 @@ export function ExcelColumnMapper({
   clientsPreviewRows = [],
   closingHeaders,
   closingPreviewRows = [],
+  salesMetricsHeaders,
+  salesMetricsPreviewRows = [],
+  financeMetricsHeaders,
+  financeMetricsPreviewRows = [],
   value,
   onChange,
 }: ExcelColumnMapperProps) {
-  const [showClientsPreview, setShowClientsPreview] = useState(false);
-  const [showClosingPreview, setShowClosingPreview] = useState(false);
+  const [showPreview, setShowPreview] = useState<Record<string, boolean>>({});
 
-  const hasClients = !!clientsHeaders?.length;
-  const hasClosing = !!closingHeaders?.length;
+  const sections: SectionDef[] = [
+    { key: "clientsMapping",       type: "clients",       label: "Clientes",                   headers: clientsHeaders,       previewRows: clientsPreviewRows },
+    { key: "closingMapping",       type: "closing",       label: "Llamadas de cierre",          headers: closingHeaders,       previewRows: closingPreviewRows },
+    { key: "salesMetricsMapping",  type: "salesMetrics",  label: "Métricas de ventas",          headers: salesMetricsHeaders,  previewRows: salesMetricsPreviewRows },
+    { key: "financeMetricsMapping",type: "financeMetrics",label: "Métricas de finanzas",        headers: financeMetricsHeaders,previewRows: financeMetricsPreviewRows },
+  ].filter((s) => !!s.headers?.length);
+
+  const togglePreview = (key: string) =>
+    setShowPreview((p) => ({ ...p, [key]: !p[key] }));
 
   return (
     <div className="space-y-6">
-      {hasClients && (
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Columnas de Clientes</h3>
-            <button
-              type="button"
-              onClick={() => setShowClientsPreview((p) => !p)}
-              className="text-xs text-primary hover:underline"
-            >
-              {showClientsPreview ? "Ocultar vista previa" : "Ver vista previa"}
-            </button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Indicá qué columna de tu archivo corresponde a cada campo de OTC.
-          </p>
-          <SingleMapper
-            type="clients"
-            headers={clientsHeaders}
-            previewRows={clientsPreviewRows}
-            value={value.clientsMapping ?? {}}
-            onChange={(m) => onChange({ ...value, clientsMapping: m as Partial<ColumnMapping> })}
-          />
-          {showClientsPreview && (
-            <PreviewTable
-              type="clients"
-              mapping={value.clientsMapping ?? {}}
-              previewRows={clientsPreviewRows}
+      {sections.map((s, i) => (
+        <div key={s.key}>
+          {i > 0 && <hr className="border-border mb-6" />}
+          <section className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Columnas de {s.label}</h3>
+              <button
+                type="button"
+                onClick={() => togglePreview(s.key)}
+                className="text-xs text-primary hover:underline"
+              >
+                {showPreview[s.key] ? "Ocultar vista previa" : "Ver vista previa"}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Indicá qué columna de tu archivo corresponde a cada campo de OTC.
+            </p>
+            <SingleMapper
+              type={s.type}
+              headers={s.headers!}
+              previewRows={s.previewRows!}
+              value={(value[s.key] ?? {}) as MappingValue}
+              onChange={(m) => onChange({ ...value, [s.key]: m })}
             />
-          )}
-        </section>
-      )}
-
-      {hasClients && hasClosing && (
-        <hr className="border-border" />
-      )}
-
-      {hasClosing && (
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Columnas de Llamadas de cierre</h3>
-            <button
-              type="button"
-              onClick={() => setShowClosingPreview((p) => !p)}
-              className="text-xs text-primary hover:underline"
-            >
-              {showClosingPreview ? "Ocultar vista previa" : "Ver vista previa"}
-            </button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Indicá qué columna de tu archivo corresponde a cada campo de OTC.
-          </p>
-          <SingleMapper
-            type="closing"
-            headers={closingHeaders}
-            previewRows={closingPreviewRows}
-            value={value.closingMapping ?? {}}
-            onChange={(m) => onChange({ ...value, closingMapping: m as Partial<ClosingColumnMapping> })}
-          />
-          {showClosingPreview && (
-            <PreviewTable
-              type="closing"
-              mapping={value.closingMapping ?? {}}
-              previewRows={closingPreviewRows}
-            />
-          )}
-        </section>
-      )}
+            {showPreview[s.key] && (
+              <PreviewTable
+                type={s.type}
+                mapping={(value[s.key] ?? {}) as MappingValue}
+                previewRows={s.previewRows!}
+              />
+            )}
+          </section>
+        </div>
+      ))}
     </div>
   );
 }
@@ -292,11 +328,14 @@ export function ExcelColumnMapper({
 // ─── Utilidades de validación ─────────────────────────────────────────────────
 
 export function isMappingValid(
-  type: "clients" | "closing",
-  mapping: Partial<ColumnMapping> | Partial<ClosingColumnMapping> | undefined
+  type: MapperType,
+  mapping: MappingValue | undefined
 ): boolean {
   if (!mapping) return false;
   const m = mapping as Record<string, string | undefined>;
-  if (type === "clients") return !!m.name;
-  return !!m.leadName && !!m.scheduledAt;
+  if (type === "clients")       return !!m.name;
+  if (type === "closing")       return !!m.leadName && !!m.scheduledAt;
+  if (type === "salesMetrics")  return !!m.period;
+  if (type === "financeMetrics") return !!m.period;
+  return false;
 }

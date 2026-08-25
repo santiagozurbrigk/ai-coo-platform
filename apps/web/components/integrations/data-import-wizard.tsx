@@ -11,9 +11,13 @@ import { previewGHLContactsAction, importGHLContactsAction } from "@/app/ghl/imp
 import {
   importClientsFromExcelAction,
   importClosingCallsFromExcelAction,
+  importSalesMetricsFromExcelAction,
+  importFinanceMetricsFromExcelAction,
   getExcelPreviewAction,
   type ExcelImportResult,
   type ExcelPreview,
+  type SalesMetricsColumnMapping,
+  type FinanceMetricsColumnMapping,
 } from "@/app/clients/import-actions";
 import type { ColumnMapping } from "@/lib/clients/excel-parser";
 import type { ClosingColumnMapping } from "@/lib/closing/excel-parser";
@@ -22,13 +26,13 @@ import {
   isMappingValid,
   type ExcelColumnMapperValue,
 } from "@/components/integrations/excel-column-mapper";
-import { Upload, Database, FileSpreadsheet, CheckCircle, Loader2, ChevronRight, ChevronLeft, Users, Phone } from "lucide-react";
+import { Upload, Database, FileSpreadsheet, CheckCircle, Loader2, ChevronRight, ChevronLeft, Users, Phone, TrendingUp, DollarSign } from "lucide-react";
 import { paths } from "@/routes";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type Origin = "ghl" | "excel" | null;
-type WhatToImport = "clients" | "closing" | "both";
+type WhatToImport = "clients" | "closing" | "salesMetrics" | "financeMetrics";
 type Step = "origin" | "what" | "mapper" | "confirm";
 
 type GHLPreview = {
@@ -42,8 +46,10 @@ type ExcelFile = {
 };
 
 type ImportSummary = {
-  clientsResult?: ExcelImportResult & { source: "ghl" | "excel" };
-  closingResult?: ExcelImportResult;
+  clientsResult?:      ExcelImportResult & { source: "ghl" | "excel" };
+  closingResult?:      ExcelImportResult;
+  salesMetricsResult?: ExcelImportResult;
+  financeMetricsResult?: ExcelImportResult;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -126,6 +132,91 @@ function OriginCard({
 
 // ─── Paso 2 — Qué importar ────────────────────────────────────────────────────
 
+// ─── Sub-componente: fila de archivo por tipo ─────────────────────────────────
+
+function FileRow({
+  label,
+  icon,
+  file,
+  accept,
+  onFile,
+  uploadLabel,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  file: ExcelFile | null;
+  accept: string;
+  onFile: (f: ExcelFile | null) => void;
+  uploadLabel: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = useCallback(async (f: File) => {
+    const b64 = await fileToBase64(f);
+    onFile({ name: f.name, base64: b64 });
+  }, [onFile]);
+
+  return (
+    <div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFile(f); }}
+      />
+      {file ? (
+        <div className="flex items-center gap-2">
+          <CheckCircle className="h-4 w-4 text-green-500" />
+          <span className="text-xs truncate">{file.name}</span>
+          <button type="button" onClick={() => onFile(null)} className="text-xs text-muted-foreground hover:text-destructive">
+            Quitar
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+        >
+          <Upload className="h-3 w-3" /> {uploadLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── CheckboxCard ─────────────────────────────────────────────────────────────
+
+function CheckboxCard({
+  checked,
+  onToggle,
+  icon,
+  title,
+  children,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+  icon: React.ReactNode;
+  title: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className={`rounded-lg border p-4 space-y-3 ${checked ? "border-primary bg-primary/5" : "border-border"}`}>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onToggle}
+          className={`h-4 w-4 rounded border-2 flex-shrink-0 transition-colors ${checked ? "bg-primary border-primary" : "border-muted-foreground"}`}
+        />
+        <span className="text-muted-foreground flex-shrink-0">{icon}</span>
+        <span className="text-sm font-medium">{title}</span>
+      </div>
+      {checked && children && <div className="ml-7">{children}</div>}
+    </div>
+  );
+}
+
 function StepWhat({
   origin,
   what,
@@ -134,8 +225,12 @@ function StepWhat({
   ghlPreviewLoading,
   clientsFile,
   closingFile,
+  salesMetricsFile,
+  financeMetricsFile,
   onClientsFile,
   onClosingFile,
+  onSalesMetricsFile,
+  onFinanceMetricsFile,
 }: {
   origin: Origin;
   what: Set<WhatToImport>;
@@ -144,154 +239,120 @@ function StepWhat({
   ghlPreviewLoading: boolean;
   clientsFile: ExcelFile | null;
   closingFile: ExcelFile | null;
+  salesMetricsFile: ExcelFile | null;
+  financeMetricsFile: ExcelFile | null;
   onClientsFile: (f: ExcelFile | null) => void;
   onClosingFile: (f: ExcelFile | null) => void;
+  onSalesMetricsFile: (f: ExcelFile | null) => void;
+  onFinanceMetricsFile: (f: ExcelFile | null) => void;
 }) {
-  const clientsRef = useRef<HTMLInputElement>(null);
-  const closingRef = useRef<HTMLInputElement>(null);
-
-  const handleFile = useCallback(
-    async (file: File, type: "clients" | "closing") => {
-      const b64 = await fileToBase64(file);
-      const ef: ExcelFile = { name: file.name, base64: b64 };
-      if (type === "clients") onClientsFile(ef);
-      else onClosingFile(ef);
-    },
-    [onClientsFile, onClosingFile]
-  );
-
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">¿Qué querés importar?</p>
 
       {/* Clientes */}
-      <div className={`rounded-lg border p-4 space-y-3 ${what.has("clients") ? "border-primary bg-primary/5" : "border-border"}`}>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => onWhat("clients")}
-            className={`h-4 w-4 rounded border-2 flex-shrink-0 transition-colors ${what.has("clients") ? "bg-primary border-primary" : "border-muted-foreground"}`}
-          />
-          <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className="text-sm font-medium">Clientes activos y anteriores</span>
-        </div>
-
-        {what.has("clients") && (
-          <div className="ml-7 space-y-2">
-            {origin === "ghl" && (
-              ghlPreviewLoading ? (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Cargando preview…
-                </div>
-              ) : ghlPreview ? (
-                <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground">{ghlPreview.total} contactos en GHL</p>
-                  <div className="space-y-1 max-h-28 overflow-y-auto">
-                    {ghlPreview.preview.map((c, i) => (
-                      <div key={i} className="text-xs flex gap-2">
-                        <span className="font-medium truncate max-w-[160px]">{c.name}</span>
-                        {c.email && <span className="text-muted-foreground truncate">{c.email}</span>}
-                      </div>
-                    ))}
-                    {ghlPreview.total > 10 && (
-                      <p className="text-xs text-muted-foreground italic">… y {ghlPreview.total - 10} más</p>
-                    )}
-                  </div>
-                </div>
-              ) : null
-            )}
-
-            {origin === "excel" && (
-              <div>
-                <input
-                  ref={clientsRef}
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void handleFile(f, "clients");
-                  }}
-                />
-                {clientsFile ? (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span className="text-xs truncate">{clientsFile.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => onClientsFile(null)}
-                      className="text-xs text-muted-foreground hover:text-destructive"
-                    >
-                      Quitar
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => clientsRef.current?.click()}
-                    className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-                  >
-                    <Upload className="h-3 w-3" /> Subir archivo de clientes (.xlsx)
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Llamadas */}
-      {origin === "excel" && (
-        <div className={`rounded-lg border p-4 space-y-3 ${what.has("closing") ? "border-primary bg-primary/5" : "border-border"}`}>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => onWhat("closing")}
-              className={`h-4 w-4 rounded border-2 flex-shrink-0 transition-colors ${what.has("closing") ? "bg-primary border-primary" : "border-muted-foreground"}`}
-            />
-            <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <span className="text-sm font-medium">Llamadas de cierre / citas</span>
-          </div>
-
-          {what.has("closing") && (
-            <div className="ml-7">
-              <input
-                ref={closingRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void handleFile(f, "closing");
-                }}
-              />
-              {closingFile ? (
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span className="text-xs truncate">{closingFile.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => onClosingFile(null)}
-                    className="text-xs text-muted-foreground hover:text-destructive"
-                  >
-                    Quitar
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => closingRef.current?.click()}
-                  className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-                >
-                  <Upload className="h-3 w-3" /> Subir archivo de llamadas (.xlsx)
-                </button>
-              )}
+      <CheckboxCard
+        checked={what.has("clients")}
+        onToggle={() => onWhat("clients")}
+        icon={<Users className="h-4 w-4" />}
+        title="Clientes activos y anteriores"
+      >
+        {origin === "ghl" && (
+          ghlPreviewLoading ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Cargando preview…
             </div>
-          )}
-        </div>
+          ) : ghlPreview ? (
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">{ghlPreview.total} contactos en GHL</p>
+              <div className="space-y-1 max-h-28 overflow-y-auto">
+                {ghlPreview.preview.map((c, i) => (
+                  <div key={i} className="text-xs flex gap-2">
+                    <span className="font-medium truncate max-w-[160px]">{c.name}</span>
+                    {c.email && <span className="text-muted-foreground truncate">{c.email}</span>}
+                  </div>
+                ))}
+                {ghlPreview.total > 10 && <p className="text-xs text-muted-foreground italic">… y {ghlPreview.total - 10} más</p>}
+              </div>
+            </div>
+          ) : null
+        )}
+        {origin === "excel" && (
+          <FileRow
+            label="clientes"
+            icon={<Users className="h-3 w-3" />}
+            file={clientsFile}
+            accept=".xlsx,.xls,.csv"
+            onFile={onClientsFile}
+            uploadLabel="Subir archivo de clientes (.xlsx)"
+          />
+        )}
+      </CheckboxCard>
+
+      {/* Llamadas de cierre (solo Excel) */}
+      {origin === "excel" && (
+        <CheckboxCard
+          checked={what.has("closing")}
+          onToggle={() => onWhat("closing")}
+          icon={<Phone className="h-4 w-4" />}
+          title="Llamadas de cierre / citas"
+        >
+          <FileRow
+            label="llamadas"
+            icon={<Phone className="h-3 w-3" />}
+            file={closingFile}
+            accept=".xlsx,.xls,.csv"
+            onFile={onClosingFile}
+            uploadLabel="Subir archivo de llamadas (.xlsx)"
+          />
+        </CheckboxCard>
       )}
 
-      {/* GHL solo importa clientes (appointments ya están via sync) */}
+      {/* Métricas de ventas (solo Excel) */}
+      {origin === "excel" && (
+        <CheckboxCard
+          checked={what.has("salesMetrics")}
+          onToggle={() => onWhat("salesMetrics")}
+          icon={<TrendingUp className="h-4 w-4" />}
+          title="Métricas de ventas"
+        >
+          <p className="text-xs text-muted-foreground mb-2">
+            Close rate, show rate, facturación, cash collected, leads, agendas, cierres, etc. — un período por fila.
+          </p>
+          <FileRow
+            label="métricas de ventas"
+            icon={<TrendingUp className="h-3 w-3" />}
+            file={salesMetricsFile}
+            accept=".xlsx,.xls,.csv"
+            onFile={onSalesMetricsFile}
+            uploadLabel="Subir archivo de métricas de ventas (.xlsx)"
+          />
+        </CheckboxCard>
+      )}
+
+      {/* Métricas de finanzas (solo Excel) */}
+      {origin === "excel" && (
+        <CheckboxCard
+          checked={what.has("financeMetrics")}
+          onToggle={() => onWhat("financeMetrics")}
+          icon={<DollarSign className="h-4 w-4" />}
+          title="Métricas de finanzas"
+        >
+          <p className="text-xs text-muted-foreground mb-2">
+            Facturación, cash collected, margen, por cobrar, gastos — un período por fila.
+          </p>
+          <FileRow
+            label="métricas de finanzas"
+            icon={<DollarSign className="h-3 w-3" />}
+            file={financeMetricsFile}
+            accept=".xlsx,.xls,.csv"
+            onFile={onFinanceMetricsFile}
+            uploadLabel="Subir archivo de métricas de finanzas (.xlsx)"
+          />
+        </CheckboxCard>
+      )}
+
+      {/* GHL solo importa clientes */}
       {origin === "ghl" && (
         <p className="text-xs text-muted-foreground">
           Las citas de GHL se sincronizan automáticamente desde la integración de calendario.
@@ -340,27 +401,43 @@ function SheetSelector({
 function StepMapper({
   clientsPreview,
   closingPreview,
+  salesMetricsPreview,
+  financeMetricsPreview,
   clientsFile,
   closingFile,
+  salesMetricsFile,
+  financeMetricsFile,
   mapping,
   onMapping,
   loading,
   onClientsSheetChange,
   onClosingSheetChange,
+  onSalesMetricsSheetChange,
+  onFinanceMetricsSheetChange,
   clientsSheetLoading,
   closingSheetLoading,
+  salesMetricsSheetLoading,
+  financeMetricsSheetLoading,
 }: {
   clientsPreview: ExcelPreview | null;
   closingPreview: ExcelPreview | null;
+  salesMetricsPreview: ExcelPreview | null;
+  financeMetricsPreview: ExcelPreview | null;
   clientsFile: ExcelFile | null;
   closingFile: ExcelFile | null;
+  salesMetricsFile: ExcelFile | null;
+  financeMetricsFile: ExcelFile | null;
   mapping: ExcelColumnMapperValue;
   onMapping: (v: ExcelColumnMapperValue) => void;
   loading: boolean;
   onClientsSheetChange: (sheet: string) => void;
   onClosingSheetChange: (sheet: string) => void;
+  onSalesMetricsSheetChange: (sheet: string) => void;
+  onFinanceMetricsSheetChange: (sheet: string) => void;
   clientsSheetLoading: boolean;
   closingSheetLoading: boolean;
+  salesMetricsSheetLoading: boolean;
+  financeMetricsSheetLoading: boolean;
 }) {
   if (loading) {
     return (
@@ -380,24 +457,18 @@ function StepMapper({
         </p>
       </div>
 
-      {/* Selectores de hoja (solo aparecen si hay más de 1 hoja) */}
+      {/* Selectores de hoja */}
       {clientsPreview && clientsFile && (
-        <SheetSelector
-          label="clientes"
-          allSheets={clientsPreview.allSheets}
-          activeSheet={clientsPreview.activeSheet}
-          loading={clientsSheetLoading}
-          onSelect={onClientsSheetChange}
-        />
+        <SheetSelector label="clientes" allSheets={clientsPreview.allSheets} activeSheet={clientsPreview.activeSheet} loading={clientsSheetLoading} onSelect={onClientsSheetChange} />
       )}
       {closingPreview && closingFile && (
-        <SheetSelector
-          label="llamadas"
-          allSheets={closingPreview.allSheets}
-          activeSheet={closingPreview.activeSheet}
-          loading={closingSheetLoading}
-          onSelect={onClosingSheetChange}
-        />
+        <SheetSelector label="llamadas" allSheets={closingPreview.allSheets} activeSheet={closingPreview.activeSheet} loading={closingSheetLoading} onSelect={onClosingSheetChange} />
+      )}
+      {salesMetricsPreview && salesMetricsFile && (
+        <SheetSelector label="métricas ventas" allSheets={salesMetricsPreview.allSheets} activeSheet={salesMetricsPreview.activeSheet} loading={salesMetricsSheetLoading} onSelect={onSalesMetricsSheetChange} />
+      )}
+      {financeMetricsPreview && financeMetricsFile && (
+        <SheetSelector label="métricas finanzas" allSheets={financeMetricsPreview.allSheets} activeSheet={financeMetricsPreview.activeSheet} loading={financeMetricsSheetLoading} onSelect={onFinanceMetricsSheetChange} />
       )}
 
       {clientsPreview?.headers.length === 0 && (
@@ -411,6 +482,10 @@ function StepMapper({
         clientsPreviewRows={clientsPreview?.rows}
         closingHeaders={closingPreview?.headers}
         closingPreviewRows={closingPreview?.rows}
+        salesMetricsHeaders={salesMetricsPreview?.headers}
+        salesMetricsPreviewRows={salesMetricsPreview?.rows}
+        financeMetricsHeaders={financeMetricsPreview?.headers}
+        financeMetricsPreviewRows={financeMetricsPreview?.rows}
         value={mapping}
         onChange={onMapping}
       />
@@ -426,6 +501,8 @@ function StepConfirm({
   ghlPreview,
   clientsFile,
   closingFile,
+  salesMetricsFile,
+  financeMetricsFile,
   importing,
   summary,
   onImport,
@@ -435,6 +512,8 @@ function StepConfirm({
   ghlPreview: GHLPreview | null;
   clientsFile: ExcelFile | null;
   closingFile: ExcelFile | null;
+  salesMetricsFile: ExcelFile | null;
+  financeMetricsFile: ExcelFile | null;
   importing: boolean;
   summary: ImportSummary | null;
   onImport: () => void;
@@ -447,20 +526,16 @@ function StepConfirm({
           <span className="text-sm font-medium">Importación completada</span>
         </div>
         {summary.clientsResult && (
-          <ResultRow
-            label="Clientes"
-            inserted={summary.clientsResult.inserted}
-            skipped={summary.clientsResult.skipped}
-            errors={summary.clientsResult.errors.length}
-          />
+          <ResultRow label="Clientes" inserted={summary.clientsResult.inserted} skipped={summary.clientsResult.skipped} errors={summary.clientsResult.errors.length} />
         )}
         {summary.closingResult && (
-          <ResultRow
-            label="Llamadas de cierre"
-            inserted={summary.closingResult.inserted}
-            skipped={summary.closingResult.skipped}
-            errors={summary.closingResult.errors.length}
-          />
+          <ResultRow label="Llamadas de cierre" inserted={summary.closingResult.inserted} skipped={summary.closingResult.skipped} errors={summary.closingResult.errors.length} />
+        )}
+        {summary.salesMetricsResult && (
+          <ResultRow label="Métricas de ventas" inserted={summary.salesMetricsResult.inserted} skipped={summary.salesMetricsResult.skipped} errors={summary.salesMetricsResult.errors.length} />
+        )}
+        {summary.financeMetricsResult && (
+          <ResultRow label="Métricas de finanzas" inserted={summary.financeMetricsResult.inserted} skipped={summary.financeMetricsResult.skipped} errors={summary.financeMetricsResult.errors.length} />
         )}
       </div>
     );
@@ -493,6 +568,32 @@ function StepConfirm({
             </div>
             {closingFile ? (
               <Badge variant="secondary">{closingFile.name}</Badge>
+            ) : (
+              <span className="text-xs text-muted-foreground">Sin archivo</span>
+            )}
+          </div>
+        )}
+        {what.has("salesMetrics") && origin === "excel" && (
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">Métricas de ventas</span>
+            </div>
+            {salesMetricsFile ? (
+              <Badge variant="secondary">{salesMetricsFile.name}</Badge>
+            ) : (
+              <span className="text-xs text-muted-foreground">Sin archivo</span>
+            )}
+          </div>
+        )}
+        {what.has("financeMetrics") && origin === "excel" && (
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">Métricas de finanzas</span>
+            </div>
+            {financeMetricsFile ? (
+              <Badge variant="secondary">{financeMetricsFile.name}</Badge>
             ) : (
               <span className="text-xs text-muted-foreground">Sin archivo</span>
             )}
@@ -546,16 +647,22 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   const [ghlPreviewLoading, setGhlPreviewLoading] = useState(false);
   const [clientsFile, setClientsFile] = useState<ExcelFile | null>(null);
   const [closingFile, setClosingFile] = useState<ExcelFile | null>(null);
+  const [salesMetricsFile, setSalesMetricsFile] = useState<ExcelFile | null>(null);
+  const [financeMetricsFile, setFinanceMetricsFile] = useState<ExcelFile | null>(null);
   const [importing, setImporting] = useState(false);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
 
   // ── Mapper state ──
   const [clientsPreview, setClientsPreview] = useState<ExcelPreview | null>(null);
   const [closingPreview, setClosingPreview] = useState<ExcelPreview | null>(null);
+  const [salesMetricsPreview, setSalesMetricsPreview] = useState<ExcelPreview | null>(null);
+  const [financeMetricsPreview, setFinanceMetricsPreview] = useState<ExcelPreview | null>(null);
   const [columnMapping, setColumnMapping] = useState<ExcelColumnMapperValue>({});
   const [mapperLoading, setMapperLoading] = useState(false);
   const [clientsSheetLoading, setClientsSheetLoading] = useState(false);
   const [closingSheetLoading, setClosingSheetLoading] = useState(false);
+  const [salesMetricsSheetLoading, setSalesMetricsSheetLoading] = useState(false);
+  const [financeMetricsSheetLoading, setFinanceMetricsSheetLoading] = useState(false);
 
   const toggleWhat = (w: WhatToImport) => {
     setWhat((prev) => {
@@ -583,24 +690,24 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   // Transición de "what" → siguiente paso
   const handleAdvanceFromWhat = async () => {
     if (origin === "excel") {
-      // Cargar previews de archivos para el mapper
       setMapperLoading(true);
       setStep("mapper");
       try {
-        const [cp, lp] = await Promise.all([
-          clientsFile && what.has("clients")
-            ? getExcelPreviewAction(clientsFile.base64)
-            : Promise.resolve(null),
-          closingFile && what.has("closing")
-            ? getExcelPreviewAction(closingFile.base64)
-            : Promise.resolve(null),
+        const [cp, lp, sp, fp] = await Promise.all([
+          clientsFile && what.has("clients")       ? getExcelPreviewAction(clientsFile.base64)       : Promise.resolve(null),
+          closingFile && what.has("closing")        ? getExcelPreviewAction(closingFile.base64)        : Promise.resolve(null),
+          salesMetricsFile && what.has("salesMetrics")   ? getExcelPreviewAction(salesMetricsFile.base64)   : Promise.resolve(null),
+          financeMetricsFile && what.has("financeMetrics") ? getExcelPreviewAction(financeMetricsFile.base64) : Promise.resolve(null),
         ]);
         setClientsPreview(cp?.success ? cp.data : null);
         setClosingPreview(lp?.success ? lp.data : null);
-        // Auto-mapeo: si el header coincide exactamente con nombres OTC, pre-seleccionar
+        setSalesMetricsPreview(sp?.success ? sp.data : null);
+        setFinanceMetricsPreview(fp?.success ? fp.data : null);
         setColumnMapping({
-          clientsMapping: cp?.success ? autoMap("clients", cp.data.headers) : undefined,
-          closingMapping: lp?.success ? autoMap("closing", lp.data.headers) : undefined,
+          clientsMapping:       cp?.success ? autoMap("clients",       cp.data.headers) as Partial<ColumnMapping>            : undefined,
+          closingMapping:       lp?.success ? autoMap("closing",       lp.data.headers) as Partial<ClosingColumnMapping>     : undefined,
+          salesMetricsMapping:  sp?.success ? autoMap("salesMetrics",  sp.data.headers) as Partial<SalesMetricsColumnMapping>: undefined,
+          financeMetricsMapping:fp?.success ? autoMap("financeMetrics",fp.data.headers) as Partial<FinanceMetricsColumnMapping>: undefined,
         });
       } finally {
         setMapperLoading(false);
@@ -614,13 +721,17 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   const canAdvanceFromWhat = what.size > 0 && (
     origin === "ghl"
       ? true
-      : (what.has("clients") ? !!clientsFile : true) &&
-        (what.has("closing") ? !!closingFile : true)
+      : (what.has("clients")       ? !!clientsFile       : true) &&
+        (what.has("closing")        ? !!closingFile        : true) &&
+        (what.has("salesMetrics")   ? !!salesMetricsFile   : true) &&
+        (what.has("financeMetrics") ? !!financeMetricsFile : true)
   );
 
   const canAdvanceFromMapper = (
-    (!clientsPreview || isMappingValid("clients", columnMapping.clientsMapping)) &&
-    (!closingPreview || isMappingValid("closing", columnMapping.closingMapping))
+    (!clientsPreview       || isMappingValid("clients",       columnMapping.clientsMapping)) &&
+    (!closingPreview       || isMappingValid("closing",       columnMapping.closingMapping)) &&
+    (!salesMetricsPreview  || isMappingValid("salesMetrics",  columnMapping.salesMetricsMapping)) &&
+    (!financeMetricsPreview|| isMappingValid("financeMetrics",columnMapping.financeMetricsMapping))
   );
 
   const handleClientsSheetChange = async (sheet: string) => {
@@ -654,6 +765,40 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
       }
     } finally {
       setClosingSheetLoading(false);
+    }
+  };
+
+  const handleSalesMetricsSheetChange = async (sheet: string) => {
+    if (!salesMetricsFile) return;
+    setSalesMetricsSheetLoading(true);
+    try {
+      const result = await getExcelPreviewAction(salesMetricsFile.base64, sheet);
+      if (result.success) {
+        setSalesMetricsPreview(result.data);
+        setColumnMapping((prev) => ({
+          ...prev,
+          salesMetricsMapping: autoMap("salesMetrics", result.data.headers) as Partial<SalesMetricsColumnMapping>,
+        }));
+      }
+    } finally {
+      setSalesMetricsSheetLoading(false);
+    }
+  };
+
+  const handleFinanceMetricsSheetChange = async (sheet: string) => {
+    if (!financeMetricsFile) return;
+    setFinanceMetricsSheetLoading(true);
+    try {
+      const result = await getExcelPreviewAction(financeMetricsFile.base64, sheet);
+      if (result.success) {
+        setFinanceMetricsPreview(result.data);
+        setColumnMapping((prev) => ({
+          ...prev,
+          financeMetricsMapping: autoMap("financeMetrics", result.data.headers) as Partial<FinanceMetricsColumnMapping>,
+        }));
+      }
+    } finally {
+      setFinanceMetricsSheetLoading(false);
     }
   };
 
@@ -692,10 +837,37 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
         result.closingResult = r.data;
       }
 
+      // ── Métricas de ventas ──
+      if (what.has("salesMetrics") && origin === "excel" && salesMetricsFile && columnMapping.salesMetricsMapping?.period) {
+        const r = await importSalesMetricsFromExcelAction(
+          salesMetricsFile.base64,
+          columnMapping.salesMetricsMapping as SalesMetricsColumnMapping,
+          salesMetricsPreview?.activeSheet
+        );
+        if (!r.success) throw new Error(r.error);
+        result.salesMetricsResult = r.data;
+      }
+
+      // ── Métricas de finanzas ──
+      if (what.has("financeMetrics") && origin === "excel" && financeMetricsFile && columnMapping.financeMetricsMapping?.period) {
+        const r = await importFinanceMetricsFromExcelAction(
+          financeMetricsFile.base64,
+          columnMapping.financeMetricsMapping as FinanceMetricsColumnMapping,
+          financeMetricsPreview?.activeSheet
+        );
+        if (!r.success) throw new Error(r.error);
+        result.financeMetricsResult = r.data;
+      }
+
       setSummary(result);
+      const totalImported =
+        (result.clientsResult?.inserted ?? 0) +
+        (result.closingResult?.inserted ?? 0) +
+        (result.salesMetricsResult?.inserted ?? 0) +
+        (result.financeMetricsResult?.inserted ?? 0);
       push({
         title: "Importación completada",
-        description: `${result.clientsResult?.inserted ?? 0} clientes · ${result.closingResult?.inserted ?? 0} llamadas importadas`,
+        description: `${totalImported} registros importados`,
         variant: "success",
       });
 
@@ -772,23 +944,35 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             ghlPreviewLoading={ghlPreviewLoading}
             clientsFile={clientsFile}
             closingFile={closingFile}
+            salesMetricsFile={salesMetricsFile}
+            financeMetricsFile={financeMetricsFile}
             onClientsFile={setClientsFile}
             onClosingFile={setClosingFile}
+            onSalesMetricsFile={setSalesMetricsFile}
+            onFinanceMetricsFile={setFinanceMetricsFile}
           />
         )}
         {step === "mapper" && (
           <StepMapper
             clientsPreview={clientsPreview}
             closingPreview={closingPreview}
+            salesMetricsPreview={salesMetricsPreview}
+            financeMetricsPreview={financeMetricsPreview}
             clientsFile={clientsFile}
             closingFile={closingFile}
+            salesMetricsFile={salesMetricsFile}
+            financeMetricsFile={financeMetricsFile}
             mapping={columnMapping}
             onMapping={setColumnMapping}
             loading={mapperLoading}
             onClientsSheetChange={handleClientsSheetChange}
             onClosingSheetChange={handleClosingSheetChange}
+            onSalesMetricsSheetChange={handleSalesMetricsSheetChange}
+            onFinanceMetricsSheetChange={handleFinanceMetricsSheetChange}
             clientsSheetLoading={clientsSheetLoading}
             closingSheetLoading={closingSheetLoading}
+            salesMetricsSheetLoading={salesMetricsSheetLoading}
+            financeMetricsSheetLoading={financeMetricsSheetLoading}
           />
         )}
         {step === "confirm" && (
@@ -798,6 +982,8 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             ghlPreview={ghlPreview}
             clientsFile={clientsFile}
             closingFile={closingFile}
+            salesMetricsFile={salesMetricsFile}
+            financeMetricsFile={financeMetricsFile}
             importing={importing}
             summary={summary}
             onImport={handleImport}
@@ -861,11 +1047,45 @@ const CLOSING_KNOWN: Record<string, string> = {
   notas: "notes", "notas / resultado": "notes", notes: "notes",
 };
 
+const SALES_METRICS_KNOWN: Record<string, string> = {
+  "período": "period", periodo: "period", semana: "period", week: "period", fecha: "period", date: "period",
+  "leads totales": "leadsTotales", leads: "leadsTotales",
+  "agendas totales": "agendasTotales", agendas: "agendasTotales",
+  asistencias: "asistencias", asistencia: "asistencias",
+  inasistencias: "inasistencias", inasistencia: "inasistencias",
+  cierres: "cierres", cierre: "cierres",
+  "no cierres": "noCierres", "no cierre": "noCierres",
+  señas: "señas", seña: "señas",
+  facturación: "facturacion", facturacion: "facturacion", facturado: "facturacion",
+  "cash collected": "cashCollected", cobrado: "cashCollected",
+  "close rate": "closeRate", "tasa de cierre": "closeRate",
+  "show rate": "showRate", "tasa de show": "showRate",
+  "tasa de agendamiento": "tasaAgendamiento", "tasa agendamiento": "tasaAgendamiento",
+  "tasa de fantasma": "tasaFantasma", "tasa fantasma": "tasaFantasma",
+  "en nutrición": "enNutricion", "en nutricion": "enNutricion", nutricion: "enNutricion",
+  perdidos: "perdidos",
+  seguimientos: "seguimientos",
+  "tiempo de respuesta": "tiempoRespuesta", "tiempo respuesta": "tiempoRespuesta",
+};
+
+const FINANCE_METRICS_KNOWN: Record<string, string> = {
+  "período": "period", periodo: "period", mes: "period", month: "period", fecha: "period", date: "period",
+  facturación: "facturacion", facturacion: "facturacion", facturado: "facturacion",
+  "cash collected": "cashCollected", cobrado: "cashCollected",
+  margen: "margen", margin: "margen",
+  "por cobrar": "porCobrar", "cuentas por cobrar": "porCobrar",
+  gastos: "gastos", expenses: "gastos",
+};
+
 function autoMap(
-  type: "clients" | "closing",
+  type: "clients" | "closing" | "salesMetrics" | "financeMetrics",
   headers: string[]
-): Partial<ColumnMapping> | Partial<ClosingColumnMapping> {
-  const known = type === "clients" ? CLIENT_KNOWN : CLOSING_KNOWN;
+): Record<string, string> {
+  const known =
+    type === "clients"        ? CLIENT_KNOWN :
+    type === "closing"        ? CLOSING_KNOWN :
+    type === "salesMetrics"   ? SALES_METRICS_KNOWN :
+    FINANCE_METRICS_KNOWN;
   const result: Record<string, string> = {};
   for (const h of headers) {
     const norm = h.toLowerCase().trim();
@@ -874,6 +1094,5 @@ function autoMap(
       result[field] = h;
     }
   }
-  // El cast es seguro: las claves en result son siempre fields válidos del ColumnMapping
-  return result as Partial<ColumnMapping> | Partial<ClosingColumnMapping>;
+  return result;
 }
