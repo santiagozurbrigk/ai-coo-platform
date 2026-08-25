@@ -9,20 +9,17 @@ interface GaugeSideCardProps {
   value: number;
   /** Texto a mostrar como número (si difiere de `value%`) */
   displayValue?: string;
-  /** Texto de objetivo bajo el número */
-  target: string;
   suffix?: string;
 }
 
 /**
  * Tarjeta de gauge para el sidebar lateral.
- * Label arriba, gauge centrado con el número adentro, objetivo abajo.
+ * Número grande en el header, arco visual grande abajo sin texto interno.
  */
 export function GaugeSideCard({
   label,
   value,
   displayValue,
-  target,
   suffix = "%",
 }: GaugeSideCardProps) {
   return (
@@ -31,20 +28,21 @@ export function GaugeSideCard({
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           {label}
         </p>
-        <p className="mt-0.5 text-lg font-bold tabular-nums">
+        <p className="mt-0.5 text-2xl font-bold tabular-nums">
           {displayValue ?? `${Math.round(value)}${suffix}`}
         </p>
       </div>
-      <div className="flex justify-center px-4 pt-0 pb-1">
+      <div className="flex justify-center px-2 pb-2">
         <GaugeMetricChart
           value={value}
           max={100}
           label=""
           suffix={suffix}
-          className="w-full max-w-[140px]"
+          className="w-full max-w-[200px]"
+          valueClassName="hidden"
+          labelClassName="hidden"
         />
       </div>
-      <p className="pb-3 text-center text-[11px] text-muted-foreground">{target}</p>
     </GlassPanel>
   );
 }

@@ -168,6 +168,10 @@ export interface GaugeProps {
   enterTransition?: Transition;
   /** Scales notch stagger delays relative to default timing (1 = reference). */
   enterStaggerScale?: number;
+  /** Override class for the center value text (passed to PieCenter via PieCenterShell). */
+  valueClassName?: string;
+  /** Override class for the center label text (passed to PieCenter via PieCenterShell). */
+  labelClassName?: string;
 }
 
 interface GaugeInnerProps extends Omit<GaugeProps, "className" | "minWidth"> {
@@ -201,6 +205,8 @@ function GaugeInner({
   notchLengthPercent = 100,
   enterTransition,
   enterStaggerScale = 1,
+  valueClassName,
+  labelClassName,
 }: GaugeInnerProps) {
   const prefersReducedMotion = useReducedMotion();
   const themeActiveGradientId = `gauge-theme-active-${useId().replace(/:/g, "")}`;
@@ -474,6 +480,8 @@ function GaugeInner({
           innerRadiusPx={Math.max(size * 0.2, 52)}
           prefix={prefix}
           suffix={suffix}
+          valueClassName={valueClassName}
+          labelClassName={labelClassName}
         />
       </div>
     </div>

@@ -347,13 +347,11 @@ export function SalesMetricsRedesign({
           <GaugeSideCard
             label="Tasa de agendamiento"
             value={effectiveTasaAgendamiento}
-            target="Objetivo: 70%"
           />
 
           <GaugeSideCard
             label="Tasa de fantasma"
             value={effectiveTasaFantasma}
-            target="Objetivo: <20%"
           />
 
           {/* Tiempo de respuesta */}

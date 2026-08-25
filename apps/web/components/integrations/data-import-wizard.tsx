@@ -64,7 +64,6 @@ type ManualSalesRow = {
   leadsTotales:  string;
   agendasTotales: string;
   asistencias:   string;
-  inasistencias: string;
   cierres:       string;
   facturacion:   string;
 };
@@ -76,7 +75,6 @@ function newRow(period?: string): ManualSalesRow {
     leadsTotales:   "",
     agendasTotales: "",
     asistencias:    "",
-    inasistencias:  "",
     cierres:        "",
     facturacion:    "",
   };
@@ -267,7 +265,6 @@ const SALES_FIELD_LABELS: Array<{
   { key: "leadsTotales",   label: "Leads totales"   },
   { key: "agendasTotales", label: "Agendas totales" },
   { key: "asistencias",    label: "Show up"         },
-  { key: "inasistencias",  label: "No show up"      },
   { key: "cierres",        label: "Cierres"         },
   { key: "facturacion",    label: "Facturación", prefix: "$" },
 ];
@@ -807,7 +804,10 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             leadsTotales:   parseNum(r.leadsTotales),
             agendasTotales: parseNum(r.agendasTotales),
             asistencias:    parseNum(r.asistencias),
-            inasistencias:  parseNum(r.inasistencias),
+            // inasistencias se calcula automáticamente: agendas - show up
+            inasistencias:  (parseNum(r.agendasTotales) != null && parseNum(r.asistencias) != null)
+              ? (parseNum(r.agendasTotales)! - parseNum(r.asistencias)!)
+              : undefined,
             cierres:        parseNum(r.cierres),
             facturacion:    parseNum(r.facturacion),
           }));
