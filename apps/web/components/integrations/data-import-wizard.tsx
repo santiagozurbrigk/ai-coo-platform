@@ -1328,32 +1328,35 @@ function autoMap(
 
 type RowField = { key: string; label: string };
 
+// Solo métricas primarias — las derivadas se calculan automáticamente:
+// inasistencias = agendas − asistencias
+// no_cierres    = asistencias − cierres
+// close_rate    = cierres / asistencias
+// show_rate     = asistencias / agendas
+// tasa_agendamiento = agendas / leads
+// tasa_fantasma = inasistencias / agendas
 const SALES_ROW_FIELDS: RowField[] = [
   { key: "leadsTotales",    label: "Leads totales" },
   { key: "agendasTotales",  label: "Agendas totales" },
   { key: "asistencias",     label: "Asistencias / shows" },
-  { key: "inasistencias",   label: "Inasistencias / no-shows" },
   { key: "cierres",         label: "Cierres" },
-  { key: "noCierres",       label: "No cierres" },
   { key: "señas",           label: "Señas" },
   { key: "facturacion",     label: "Facturación" },
   { key: "cashCollected",   label: "Cash collected" },
-  { key: "closeRate",       label: "Close rate" },
-  { key: "showRate",        label: "Show rate" },
-  { key: "tasaAgendamiento",label: "Tasa de agendamiento" },
-  { key: "tasaFantasma",    label: "Tasa de fantasma" },
   { key: "enNutricion",     label: "En nutrición" },
   { key: "perdidos",        label: "Perdidos" },
   { key: "seguimientos",    label: "Seguimientos" },
   { key: "tiempoRespuesta", label: "Tiempo de respuesta" },
 ];
 
+// Solo métricas primarias — las derivadas se calculan automáticamente:
+// margen     = facturacion − gastos
+// pct_margen = margen / facturacion
 const FINANCE_ROW_FIELDS: RowField[] = [
   { key: "facturacion",   label: "Facturación" },
   { key: "cashCollected", label: "Cash collected" },
-  { key: "margen",        label: "Margen" },
-  { key: "porCobrar",     label: "Por cobrar" },
   { key: "gastos",        label: "Gastos" },
+  { key: "porCobrar",     label: "Por cobrar" },
 ];
 
 /**

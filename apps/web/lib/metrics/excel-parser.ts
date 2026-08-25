@@ -164,6 +164,74 @@ function parseMetricsExcel(
   return { rows, errors };
 }
 
+// ─── Auto-derivación de métricas calculadas ───────────────────────────────────
+
+/**
+ * A partir de métricas primarias de ventas, calcula las métricas derivadas
+ * que no estén ya presentes. Se llama automáticamente al parsear.
+ *
+ * Primarias requeridas: agendas_totales, asistencias, cierres, leads_totales
+ * Derivadas calculadas:
+ *   inasistencias    = agendas_totales − asistencias
+ *   no_cierres       = asistencias − cierres
+ *   close_rate       = cierres / asistencias
+ *   show_rate        = asistencias / agendas_totales
+ *   tasa_agendamiento= agendas_totales / leads_totales
+ *   tasa_fantasma    = inasistencias / agendas_totales
+ */
+function deriveSalesMetrics(metrics: Record<string, number>): Record<string, number> {
+  const m = { ...metrics };
+  const agendas     = m["agendas_totales"] ?? 0;
+  const asistencias = m["asistencias"]     ?? 0;
+  const cierres     = m["cierres"]         ?? 0;
+  const leads       = m["leads_totales"]   ?? 0;
+
+  if (!("inasistencias" in m) && agendas > 0) {
+    m["inasistencias"] = Math.max(0, agendas - asistencias);
+  }
+  if (!("no_cierres" in m) && asistencias > 0) {
+    m["no_cierres"] = Math.max(0, asistencias - cierres);
+  }
+  if (!("close_rate" in m) && asistencias > 0) {
+    m["close_rate"] = cierres / asistencias;
+  }
+  if (!("show_rate" in m) && agendas > 0) {
+    m["show_rate"] = asistencias / agendas;
+  }
+  if (!("tasa_agendamiento" in m) && leads > 0) {
+    m["tasa_agendamiento"] = agendas / leads;
+  }
+  if (!("tasa_fantasma" in m) && agendas > 0) {
+    const inasistencias = m["inasistencias"] ?? Math.max(0, agendas - asistencias);
+    m["tasa_fantasma"] = inasistencias / agendas;
+  }
+  return m;
+}
+
+/**
+ * A partir de métricas primarias de finanzas, calcula las métricas derivadas
+ * que no estén ya presentes. Se llama automáticamente al parsear.
+ *
+ * Primarias requeridas: facturacion, gastos
+ * Derivadas calculadas:
+ *   margen     = facturacion − gastos
+ *   pct_margen = margen / facturacion
+ */
+function deriveFinanceMetrics(metrics: Record<string, number>): Record<string, number> {
+  const m = { ...metrics };
+  const facturacion = m["facturacion"] ?? 0;
+  const gastos      = m["gastos"]      ?? 0;
+
+  if (!("margen" in m) && (facturacion > 0 || gastos > 0)) {
+    m["margen"] = facturacion - gastos;
+  }
+  const margen = m["margen"] ?? (facturacion - gastos);
+  if (!("pct_margen" in m) && facturacion > 0) {
+    m["pct_margen"] = margen / facturacion;
+  }
+  return m;
+}
+
 // ─── Sales metrics ────────────────────────────────────────────────────────────
 
 const SALES_METRIC_KEYS: string[] = [
@@ -198,7 +266,11 @@ export function parseSalesMetricsExcel(
   mapping: SalesMetricsColumnMapping,
   sheetName?: string
 ) {
-  return parseMetricsExcel(buffer, mapping, SALES_METRIC_KEYS, SALES_DB_NAMES, sheetName);
+  const result = parseMetricsExcel(buffer, mapping, SALES_METRIC_KEYS, SALES_DB_NAMES, sheetName);
+  return {
+    ...result,
+    rows: result.rows.map((row) => ({ ...row, metrics: deriveSalesMetrics(row.metrics) })),
+  };
 }
 
 // ─── Finance metrics ──────────────────────────────────────────────────────────
@@ -220,7 +292,11 @@ export function parseFinanceMetricsExcel(
   mapping: FinanceMetricsColumnMapping,
   sheetName?: string
 ) {
-  return parseMetricsExcel(buffer, mapping, FINANCE_METRIC_KEYS, FINANCE_DB_NAMES, sheetName);
+  const result = parseMetricsExcel(buffer, mapping, FINANCE_METRIC_KEYS, FINANCE_DB_NAMES, sheetName);
+  return {
+    ...result,
+    rows: result.rows.map((row) => ({ ...row, metrics: deriveFinanceMetrics(row.metrics) })),
+  };
 }
 
 // ─── Transposed / Pivot format ────────────────────────────────────────────────
@@ -526,7 +602,11 @@ export function parseSalesMetricsTransposed(
   rowMapping?: Record<string, string>,
   sheetName?: string
 ) {
-  return parseTransposedMetrics(buffer, SALES_ROW_LABEL_MAP, SALES_DB_NAMES, rowMapping, sheetName);
+  const result = parseTransposedMetrics(buffer, SALES_ROW_LABEL_MAP, SALES_DB_NAMES, rowMapping, sheetName);
+  return {
+    ...result,
+    rows: result.rows.map((row) => ({ ...row, metrics: deriveSalesMetrics(row.metrics) })),
+  };
 }
 
 export function parseFinanceMetricsTransposed(
@@ -534,5 +614,9 @@ export function parseFinanceMetricsTransposed(
   rowMapping?: Record<string, string>,
   sheetName?: string
 ) {
-  return parseTransposedMetrics(buffer, FINANCE_ROW_LABEL_MAP, FINANCE_DB_NAMES, rowMapping, sheetName);
+  const result = parseTransposedMetrics(buffer, FINANCE_ROW_LABEL_MAP, FINANCE_DB_NAMES, rowMapping, sheetName);
+  return {
+    ...result,
+    rows: result.rows.map((row) => ({ ...row, metrics: deriveFinanceMetrics(row.metrics) })),
+  };
 }
