@@ -91,7 +91,7 @@
 - Oportunidades de GHL (pipeline) → closing_calls como stretch goal
 - Conectar `metrics_snapshots` a módulos de Finanzas y Métricas de ventas para visualizar los datos importados
 
-**Estado:** Column mapper implementado para 4 tipos (clientes, llamadas, métricas ventas, métricas finanzas). La tabla `metrics_snapshots` existe y se popula pero ningún módulo la consume aún. Texto de confirmación en wizard dice "no se sobreescribirán" pero métricas sí hacen upsert — corregir en próxima sesión.
+**Estado:** Column mapper implementado para 4 tipos. Formato pivot (meses=columnas) auto-detectado y soportado desde 2026-08-25. La tabla `metrics_snapshots` existe y se popula pero ningún módulo la consume aún. Texto de confirmación en wizard dice "no se sobreescribirán" pero métricas sí hacen upsert — corregir. Deuda menor: agregar botón "Cambiar a mapeo manual" en el banner de formato auto-detectado para casos de falso positivo.
 **Complejidad:** Media
 
 ---
@@ -149,6 +149,9 @@
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-25 | FEAT-EXCEL-PIVOT: Soporte formato pivot en importación de métricas — auto-detección de meses como columnas, parser transpuesto, banner "Formato tabla detectado", fix preview para archivos con título merged (resuelve __EMPTY) | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FIX-EXCEL-PREVIEW: getExcelPreviewAction ahora usa { header: 1 } y salta filas de título — fix para archivos con celdas merged/título en la primera fila | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FIX-VERCEL-BUILD x4: prefer-const, unused imports/props, SectionDef[] filter inference, keyof Union type — 4 errores de build de Vercel corregidos en serie | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FEAT-EXCEL-MULTISHEET: Selector de hoja en wizard de importación Excel — heurística pickBestSheet, SheetSelector UI, re-fetch al cambiar hoja, re-auto-mapeo | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FEAT-EXCEL-COLUMN-MAPPER: UI de mapeo columna-a-columna para archivos Excel propios — paso "mapper" en wizard, auto-mapeo, vista previa, validación de campos requeridos | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-24 | FEAT-GHL-UTM: Atribución UTM en closing calls — fetch attributionSource del contacto GHL durante sync, columna + panel de detalle en UI | `claude/ghl-integration-data-loading-9cd72n` |

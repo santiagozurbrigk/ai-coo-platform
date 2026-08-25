@@ -41,6 +41,49 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-25 — Soporte para formato pivot en importación de Excel (métricas)
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit(s):** `1f55b9d` — feat(metrics): soporte para formato pivot en importación de Excel  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** importación de métricas, wizard de importación de datos
+
+**Qué se hizo:**
+- `apps/web/lib/metrics/excel-parser.ts`:
+  - Agrega `parseMonthLabel()`: convierte "Marzo 2025", "03/2025", "2025-03" → "YYYY-MM-01"
+  - Agrega `isTransposedMetricsSheet(headers)`: detecta si ≥2 encabezados son nombres de mes
+  - Agrega `SALES_ROW_LABEL_MAP` y `FINANCE_ROW_LABEL_MAP`: diccionarios con ~50 variantes en español de etiquetas de fila → field keys
+  - Agrega `parseTransposedMetrics()`: parser genérico para formato pivot (meses=columnas, métricas=filas). Salta filas de título merged, encuentra la fila de encabezados real, itera columnas de período, construye `MetricsSnapshotRow` por mes
+  - Agrega `parseSalesMetricsTransposed()` y `parseFinanceMetricsTransposed()` como funciones exportadas
+- `apps/web/app/clients/import-actions.ts`:
+  - Corrige `getExcelPreviewAction` para usar `{ header: 1 }` y encontrar la primera fila con ≥2 celdas no vacías como fila de encabezados real. Antes: archivos con título merged en A1 devolvían `__EMPTY`, `__EMPTY_1`, etc. Ahora devuelve los encabezados reales (ej. nombres de meses)
+  - Corrige `pickBestSheet` con el mismo enfoque
+  - Agrega `importSalesMetricsTransposedAction` e `importFinanceMetricsTransposedAction`: usan el parser transpuesto, sin necesidad de mapping manual
+- `apps/web/components/integrations/data-import-wizard.tsx`:
+  - Agrega helpers `looksLikeMonthHeader` e `isTransposedMetricsFormat` para detección client-side
+  - Agrega estado `transposedTypes: Set<WhatToImport>`
+  - En `handleAdvanceFromWhat`: detecta automáticamente el formato pivot después de cargar el preview
+  - En `handleSalesMetricsSheetChange` y `handleFinanceMetricsSheetChange`: re-detecta al cambiar de hoja
+  - Agrega `TransposedBanner`: muestra mensaje "Formato tabla detectado" con la lista de meses
+  - Actualiza `StepMapper`: para tipos transpuestos muestra el banner en lugar del column mapper; sigue mostrando el selector de hoja
+  - `canAdvanceFromMapper`: los tipos transpuestos no requieren mapeo manual
+  - `handleImport`: usa acción transpuesta cuando se detectó el formato, o la acción standard con mapping si no
+
+**Por qué / finalidad:**
+El usuario tiene un archivo "MAESTRO DE METRICAS ACADEMIA APPLE" en formato pivot (métricas como filas, meses Marzo-Noviembre como columnas). El sistema devolvía `__EMPTY` como encabezados porque la primera fila es un título merged. Ahora el wizard detecta el formato automáticamente, muestra un banner de confirmación, y permite importar sin necesidad de mapear columnas manualmente.
+
+**Decisiones de diseño:**
+- Detección automática client-side + server-side con función compartida conceptualmente (implementaciones paralelas para evitar importar código de servidor en el cliente)
+- El formato estándar (una fila por período) sigue funcionando con el mapper manual; el formato pivot se auto-detecta
+- Diccionarios de etiquetas con variantes en español para cubrir las denominaciones que usa el usuario sin depender del usuario para mapear
+- `parseNum` reutilizado: acepta porcentajes "53%", decimales con coma "1.250,50", enteros
+
+**Riesgos / deuda técnica:**
+- Los diccionarios de etiquetas (`SALES_ROW_LABEL_MAP`) cubren las métricas visibles en el screenshot; si el archivo tiene secciones adicionales (ej. "INVERSIÓN" o "RETENCIÓN") con nombres no mapeados, se ignoran silenciosamente
+- `isTransposedMetricsFormat` podría dar falso positivo si un archivo estándar tiene columnas con nombres de meses; en ese caso el usuario ve el banner en lugar del mapper. Resolver: agregar botón "Cambiar a mapeo manual" en el banner (pendiente)
+
+---
+
 ### 2026-08-25 — Importación de métricas de ventas y finanzas
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
