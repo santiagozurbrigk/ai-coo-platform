@@ -14,6 +14,21 @@
 
 ---
 
+### 2026-08-25 — FIX-FORMAT-MONEY: formatMoney cambia es-ES → es-AR para evitar confusión de separadores
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Módulo(s) afectado(s):** `lib/finance/format.ts`
+
+**Qué se hizo:**
+- `formatMoney` ahora usa `es-AR` en lugar de `es-ES` para formatear USD.
+- Resultado antes: `"12.500 US$"` — símbolo al final. El usuario argentino lee el punto como decimal y ve "12,50 US$" (doce con cincuenta).
+- Resultado ahora: `"US$ 12.500"` — símbolo al principio. Unívoco: "US$ doce mil quinientos".
+- ARS también usa `Math.round` + `toLocaleString("es-AR")` para consistencia (ya no muestra " ARS" al final).
+
+**Por qué:** El dashboard mostraba el MRR del baseline como "12,50US$" (confuso) en lugar de "US$ 12.500" (claro). El cambio de locale resuelve tanto el orden del símbolo como la legibilidad del separador de miles.
+
+---
+
 ### 2026-08-25 — FIX-BASELINE-GAPS: Baseline en módulo Intelligence y monthlySeries
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
