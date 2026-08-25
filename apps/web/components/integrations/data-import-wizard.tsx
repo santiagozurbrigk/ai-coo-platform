@@ -13,6 +13,8 @@ import {
   importClosingCallsFromExcelAction,
   importSalesMetricsFromExcelAction,
   importFinanceMetricsFromExcelAction,
+  importSalesMetricsTransposedAction,
+  importFinanceMetricsTransposedAction,
   getExcelPreviewAction,
   type ExcelImportResult,
   type ExcelPreview,
@@ -65,6 +67,28 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+// ─── Detección de formato transpuesto (client-side) ──────────────────────────
+
+const MONTH_TOKENS = new Set([
+  "enero","febrero","marzo","abril","mayo","junio",
+  "julio","agosto","septiembre","octubre","noviembre","diciembre",
+  "january","february","march","april","may","june",
+  "july","august","september","october","november","december",
+  "ene","feb","mar","abr","jun","jul","ago","sep","oct","nov","dic",
+  "jan","aug",
+]);
+
+function looksLikeMonthHeader(s: string): boolean {
+  // Acepta "Marzo", "Marzo 2025", "03/2025", "2025-03"
+  const lower = s.toLowerCase().trim();
+  if (/^\d{1,2}[\/\-]\d{4}$/.test(lower) || /^\d{4}[\/\-]\d{1,2}$/.test(lower)) return true;
+  return lower.split(/[\s\-_,]+/).some((p) => MONTH_TOKENS.has(p));
+}
+
+function isTransposedMetricsFormat(headers: string[]): boolean {
+  return headers.filter((h) => looksLikeMonthHeader(h)).length >= 2;
 }
 
 // ─── Paso 1 — Origen ─────────────────────────────────────────────────────────
@@ -317,7 +341,7 @@ function StepWhat({
           title="Métricas de ventas"
         >
           <p className="text-xs text-muted-foreground mb-2">
-            Close rate, show rate, facturación, cash collected, leads, agendas, cierres, etc. — un período por fila.
+            Close rate, show rate, facturación, cash collected, leads, agendas, cierres, etc. Soporta tablas con un período por fila o en formato pivot (meses como columnas).
           </p>
           <FileRow
             label="métricas de ventas"
@@ -339,7 +363,7 @@ function StepWhat({
           title="Métricas de finanzas"
         >
           <p className="text-xs text-muted-foreground mb-2">
-            Facturación, cash collected, margen, por cobrar, gastos — un período por fila.
+            Facturación, cash collected, margen, por cobrar, gastos. Soporta tablas con un período por fila o en formato pivot (meses como columnas).
           </p>
           <FileRow
             label="métricas de finanzas"
@@ -396,6 +420,29 @@ function SheetSelector({
   );
 }
 
+// ─── Banner de formato auto-detectado ────────────────────────────────────────
+
+function TransposedBanner({
+  label,
+  preview,
+}: {
+  label: string;
+  preview: ExcelPreview;
+}) {
+  const months = preview.headers.filter((h) => looksLikeMonthHeader(h));
+  return (
+    <div className="rounded-md border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 px-3 py-2.5 space-y-1">
+      <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
+        Formato tabla detectado — {label}
+      </p>
+      <p className="text-xs text-blue-600 dark:text-blue-400">
+        Se importarán automáticamente los períodos: {months.slice(0, 6).join(", ")}{months.length > 6 ? ` y ${months.length - 6} más` : ""}.
+        No es necesario mapear columnas.
+      </p>
+    </div>
+  );
+}
+
 // ─── Paso 2.5 — Mapeo de columnas ─────────────────────────────────────────────
 
 function StepMapper({
@@ -410,6 +457,7 @@ function StepMapper({
   mapping,
   onMapping,
   loading,
+  transposedTypes,
   onClientsSheetChange,
   onClosingSheetChange,
   onSalesMetricsSheetChange,
@@ -430,6 +478,7 @@ function StepMapper({
   mapping: ExcelColumnMapperValue;
   onMapping: (v: ExcelColumnMapperValue) => void;
   loading: boolean;
+  transposedTypes: Set<WhatToImport>;
   onClientsSheetChange: (sheet: string) => void;
   onClosingSheetChange: (sheet: string) => void;
   onSalesMetricsSheetChange: (sheet: string) => void;
@@ -448,16 +497,39 @@ function StepMapper({
     );
   }
 
+  const salesTransposed   = transposedTypes.has("salesMetrics");
+  const financeTransposed = transposedTypes.has("financeMetrics");
+
+  // Para el ExcelColumnMapper, pasamos undefined en tipos transpuestos (no necesitan mapeo)
+  const salesHeaders   = salesTransposed   ? undefined : salesMetricsPreview?.headers;
+  const financeHeaders = financeTransposed ? undefined : financeMetricsPreview?.headers;
+
+  const needsColumnMapper = !!(
+    clientsPreview?.headers.length ||
+    closingPreview?.headers.length ||
+    salesHeaders?.length ||
+    financeHeaders?.length
+  );
+
   return (
     <div className="space-y-3">
-      <div>
-        <p className="text-sm font-medium">Mapeo de columnas</p>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Indicá qué columna de tu archivo corresponde a cada campo de OTC. Los campos marcados con <span className="text-destructive">*</span> son obligatorios.
-        </p>
-      </div>
+      {(salesTransposed || financeTransposed) ? (
+        <div>
+          <p className="text-sm font-medium">Revisá los datos a importar</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Se detectaron archivos en formato tabla. Las columnas de mapeo solo aparecen para archivos con formato estándar.
+          </p>
+        </div>
+      ) : (
+        <div>
+          <p className="text-sm font-medium">Mapeo de columnas</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Indicá qué columna de tu archivo corresponde a cada campo de OTC. Los campos marcados con <span className="text-destructive">*</span> son obligatorios.
+          </p>
+        </div>
+      )}
 
-      {/* Selectores de hoja */}
+      {/* Selectores de hoja — siempre visibles para poder cambiar de hoja */}
       {clientsPreview && clientsFile && (
         <SheetSelector label="clientes" allSheets={clientsPreview.allSheets} activeSheet={clientsPreview.activeSheet} loading={clientsSheetLoading} onSelect={onClientsSheetChange} />
       )}
@@ -471,24 +543,34 @@ function StepMapper({
         <SheetSelector label="métricas finanzas" allSheets={financeMetricsPreview.allSheets} activeSheet={financeMetricsPreview.activeSheet} loading={financeMetricsSheetLoading} onSelect={onFinanceMetricsSheetChange} />
       )}
 
+      {/* Banners de detección automática para tipos transpuestos */}
+      {salesTransposed && salesMetricsPreview && (
+        <TransposedBanner label="Métricas de ventas" preview={salesMetricsPreview} />
+      )}
+      {financeTransposed && financeMetricsPreview && (
+        <TransposedBanner label="Métricas de finanzas" preview={financeMetricsPreview} />
+      )}
+
       {clientsPreview?.headers.length === 0 && (
         <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded px-3 py-2">
           La hoja seleccionada no tiene columnas reconocibles. Elegí otra hoja en el selector de arriba.
         </p>
       )}
 
-      <ExcelColumnMapper
-        clientsHeaders={clientsPreview?.headers}
-        clientsPreviewRows={clientsPreview?.rows}
-        closingHeaders={closingPreview?.headers}
-        closingPreviewRows={closingPreview?.rows}
-        salesMetricsHeaders={salesMetricsPreview?.headers}
-        salesMetricsPreviewRows={salesMetricsPreview?.rows}
-        financeMetricsHeaders={financeMetricsPreview?.headers}
-        financeMetricsPreviewRows={financeMetricsPreview?.rows}
-        value={mapping}
-        onChange={onMapping}
-      />
+      {needsColumnMapper && (
+        <ExcelColumnMapper
+          clientsHeaders={clientsPreview?.headers}
+          clientsPreviewRows={clientsPreview?.rows}
+          closingHeaders={closingPreview?.headers}
+          closingPreviewRows={closingPreview?.rows}
+          salesMetricsHeaders={salesHeaders}
+          salesMetricsPreviewRows={salesTransposed ? undefined : salesMetricsPreview?.rows}
+          financeMetricsHeaders={financeHeaders}
+          financeMetricsPreviewRows={financeTransposed ? undefined : financeMetricsPreview?.rows}
+          value={mapping}
+          onChange={onMapping}
+        />
+      )}
     </div>
   );
 }
@@ -663,6 +745,8 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   const [closingSheetLoading, setClosingSheetLoading] = useState(false);
   const [salesMetricsSheetLoading, setSalesMetricsSheetLoading] = useState(false);
   const [financeMetricsSheetLoading, setFinanceMetricsSheetLoading] = useState(false);
+  // Tipos donde se detectó formato transpuesto (pivot: meses=columnas, métricas=filas)
+  const [transposedTypes, setTransposedTypes] = useState<Set<WhatToImport>>(new Set());
 
   const toggleWhat = (w: WhatToImport) => {
     setWhat((prev) => {
@@ -699,15 +783,26 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
           salesMetricsFile && what.has("salesMetrics")   ? getExcelPreviewAction(salesMetricsFile.base64)   : Promise.resolve(null),
           financeMetricsFile && what.has("financeMetrics") ? getExcelPreviewAction(financeMetricsFile.base64) : Promise.resolve(null),
         ]);
+        const spData = sp?.success ? sp.data : null;
+        const fpData = fp?.success ? fp.data : null;
+
         setClientsPreview(cp?.success ? cp.data : null);
         setClosingPreview(lp?.success ? lp.data : null);
-        setSalesMetricsPreview(sp?.success ? sp.data : null);
-        setFinanceMetricsPreview(fp?.success ? fp.data : null);
+        setSalesMetricsPreview(spData);
+        setFinanceMetricsPreview(fpData);
+
+        // Detectar formato transpuesto (pivot) para métricas
+        const detected = new Set<WhatToImport>();
+        if (spData && isTransposedMetricsFormat(spData.headers)) detected.add("salesMetrics");
+        if (fpData && isTransposedMetricsFormat(fpData.headers)) detected.add("financeMetrics");
+        setTransposedTypes(detected);
+
         setColumnMapping({
           clientsMapping:       cp?.success ? autoMap("clients",       cp.data.headers) as Partial<ColumnMapping>            : undefined,
           closingMapping:       lp?.success ? autoMap("closing",       lp.data.headers) as Partial<ClosingColumnMapping>     : undefined,
-          salesMetricsMapping:  sp?.success ? autoMap("salesMetrics",  sp.data.headers) as Partial<SalesMetricsColumnMapping>: undefined,
-          financeMetricsMapping:fp?.success ? autoMap("financeMetrics",fp.data.headers) as Partial<FinanceMetricsColumnMapping>: undefined,
+          // Para tipos transpuestos no se necesita mapping; para el resto, auto-mapear
+          salesMetricsMapping:  spData && !detected.has("salesMetrics")   ? autoMap("salesMetrics",  spData.headers)  as Partial<SalesMetricsColumnMapping>  : undefined,
+          financeMetricsMapping:fpData && !detected.has("financeMetrics") ? autoMap("financeMetrics", fpData.headers) as Partial<FinanceMetricsColumnMapping> : undefined,
         });
       } finally {
         setMapperLoading(false);
@@ -730,8 +825,8 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   const canAdvanceFromMapper = (
     (!clientsPreview       || isMappingValid("clients",       columnMapping.clientsMapping)) &&
     (!closingPreview       || isMappingValid("closing",       columnMapping.closingMapping)) &&
-    (!salesMetricsPreview  || isMappingValid("salesMetrics",  columnMapping.salesMetricsMapping)) &&
-    (!financeMetricsPreview|| isMappingValid("financeMetrics",columnMapping.financeMetricsMapping))
+    (!salesMetricsPreview  || transposedTypes.has("salesMetrics")   || isMappingValid("salesMetrics",  columnMapping.salesMetricsMapping)) &&
+    (!financeMetricsPreview|| transposedTypes.has("financeMetrics") || isMappingValid("financeMetrics",columnMapping.financeMetricsMapping))
   );
 
   const handleClientsSheetChange = async (sheet: string) => {
@@ -775,9 +870,17 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
       const result = await getExcelPreviewAction(salesMetricsFile.base64, sheet);
       if (result.success) {
         setSalesMetricsPreview(result.data);
+        const isTransposed = isTransposedMetricsFormat(result.data.headers);
+        setTransposedTypes((prev) => {
+          const next = new Set(prev);
+          if (isTransposed) next.add("salesMetrics"); else next.delete("salesMetrics");
+          return next;
+        });
         setColumnMapping((prev) => ({
           ...prev,
-          salesMetricsMapping: autoMap("salesMetrics", result.data.headers) as Partial<SalesMetricsColumnMapping>,
+          salesMetricsMapping: isTransposed
+            ? undefined
+            : autoMap("salesMetrics", result.data.headers) as Partial<SalesMetricsColumnMapping>,
         }));
       }
     } finally {
@@ -792,9 +895,17 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
       const result = await getExcelPreviewAction(financeMetricsFile.base64, sheet);
       if (result.success) {
         setFinanceMetricsPreview(result.data);
+        const isTransposed = isTransposedMetricsFormat(result.data.headers);
+        setTransposedTypes((prev) => {
+          const next = new Set(prev);
+          if (isTransposed) next.add("financeMetrics"); else next.delete("financeMetrics");
+          return next;
+        });
         setColumnMapping((prev) => ({
           ...prev,
-          financeMetricsMapping: autoMap("financeMetrics", result.data.headers) as Partial<FinanceMetricsColumnMapping>,
+          financeMetricsMapping: isTransposed
+            ? undefined
+            : autoMap("financeMetrics", result.data.headers) as Partial<FinanceMetricsColumnMapping>,
         }));
       }
     } finally {
@@ -838,25 +949,47 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
       }
 
       // ── Métricas de ventas ──
-      if (what.has("salesMetrics") && origin === "excel" && salesMetricsFile && columnMapping.salesMetricsMapping?.period) {
-        const r = await importSalesMetricsFromExcelAction(
-          salesMetricsFile.base64,
-          columnMapping.salesMetricsMapping as SalesMetricsColumnMapping,
-          salesMetricsPreview?.activeSheet
-        );
-        if (!r.success) throw new Error(r.error);
-        result.salesMetricsResult = r.data;
+      if (what.has("salesMetrics") && origin === "excel" && salesMetricsFile) {
+        if (transposedTypes.has("salesMetrics")) {
+          // Formato pivot: métricas como filas, meses como columnas
+          const r = await importSalesMetricsTransposedAction(
+            salesMetricsFile.base64,
+            salesMetricsPreview?.activeSheet
+          );
+          if (!r.success) throw new Error(r.error);
+          result.salesMetricsResult = r.data;
+        } else if (columnMapping.salesMetricsMapping?.period) {
+          // Formato estándar: un período por fila, mapeo de columnas manual
+          const r = await importSalesMetricsFromExcelAction(
+            salesMetricsFile.base64,
+            columnMapping.salesMetricsMapping as SalesMetricsColumnMapping,
+            salesMetricsPreview?.activeSheet
+          );
+          if (!r.success) throw new Error(r.error);
+          result.salesMetricsResult = r.data;
+        }
       }
 
       // ── Métricas de finanzas ──
-      if (what.has("financeMetrics") && origin === "excel" && financeMetricsFile && columnMapping.financeMetricsMapping?.period) {
-        const r = await importFinanceMetricsFromExcelAction(
-          financeMetricsFile.base64,
-          columnMapping.financeMetricsMapping as FinanceMetricsColumnMapping,
-          financeMetricsPreview?.activeSheet
-        );
-        if (!r.success) throw new Error(r.error);
-        result.financeMetricsResult = r.data;
+      if (what.has("financeMetrics") && origin === "excel" && financeMetricsFile) {
+        if (transposedTypes.has("financeMetrics")) {
+          // Formato pivot: métricas como filas, meses como columnas
+          const r = await importFinanceMetricsTransposedAction(
+            financeMetricsFile.base64,
+            financeMetricsPreview?.activeSheet
+          );
+          if (!r.success) throw new Error(r.error);
+          result.financeMetricsResult = r.data;
+        } else if (columnMapping.financeMetricsMapping?.period) {
+          // Formato estándar: un período por fila, mapeo de columnas manual
+          const r = await importFinanceMetricsFromExcelAction(
+            financeMetricsFile.base64,
+            columnMapping.financeMetricsMapping as FinanceMetricsColumnMapping,
+            financeMetricsPreview?.activeSheet
+          );
+          if (!r.success) throw new Error(r.error);
+          result.financeMetricsResult = r.data;
+        }
       }
 
       setSummary(result);
@@ -965,6 +1098,7 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             mapping={columnMapping}
             onMapping={setColumnMapping}
             loading={mapperLoading}
+            transposedTypes={transposedTypes}
             onClientsSheetChange={handleClientsSheetChange}
             onClosingSheetChange={handleClosingSheetChange}
             onSalesMetricsSheetChange={handleSalesMetricsSheetChange}

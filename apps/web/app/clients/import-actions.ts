@@ -9,6 +9,8 @@ import { parseClosingCallsExcel, type ClosingColumnMapping } from "@/lib/closing
 import {
   parseSalesMetricsExcel,
   parseFinanceMetricsExcel,
+  parseSalesMetricsTransposed,
+  parseFinanceMetricsTransposed,
   type SalesMetricsColumnMapping,
   type FinanceMetricsColumnMapping,
 } from "@/lib/metrics/excel-parser";
@@ -38,47 +40,69 @@ export async function getExcelPreviewAction(
       ? allSheets.find((n) => n === sheetName) ?? allSheets[0]
       : pickBestSheet(wb);
 
-    const sheet = wb.Sheets[targetSheet];
-    const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    const sheet = wb.Sheets[targetSheet ?? ""];
+
+    // Leer como arrays crudos para detectar y saltar filas de título/merged.
+    // sheet_to_json con header:0 genera "__EMPTY" cuando la primera fila
+    // tiene una sola celda (título merged) — { header: 1 } evita ese problema.
+    const rawArrays = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+      header: 1,
       defval: "",
       raw: false,
     });
-    if (!raw.length) {
-      // Hoja seleccionada vacía — devolver headers vacíos pero no lanzar error
-      return { headers: [], rows: [], allSheets, activeSheet: targetSheet };
+
+    if (!rawArrays.length) {
+      return { headers: [], rows: [], allSheets, activeSheet: targetSheet ?? allSheets[0] ?? "" };
     }
-    const headers = Object.keys(raw[0])
-      .map((h) => h.trim())
-      .filter(Boolean);
-    const rows = raw.slice(0, 5).map((r) => {
+
+    // Primera fila con ≥2 celdas no vacías = fila real de encabezados
+    const headerRowIdx = rawArrays.findIndex(
+      (row) => (row as unknown[]).filter((v) => String(v ?? "").trim()).length >= 2
+    );
+    if (headerRowIdx === -1) {
+      return { headers: [], rows: [], allSheets, activeSheet: targetSheet ?? allSheets[0] ?? "" };
+    }
+
+    const headerRow = (rawArrays[headerRowIdx] as unknown[]).map((v) => String(v ?? "").trim());
+    const dataRows = rawArrays.slice(headerRowIdx + 1);
+
+    const headers = headerRow.filter(Boolean);
+    const rows = dataRows.slice(0, 5).map((row) => {
+      const arr = row as unknown[];
       const out: Record<string, string> = {};
-      for (const k of Object.keys(r)) {
-        out[k.trim()] = String(r[k] ?? "").slice(0, 80);
-      }
+      headerRow.forEach((h, i) => {
+        if (h) out[h] = String(arr[i] ?? "").slice(0, 80);
+      });
       return out;
     });
-    return { headers, rows, allSheets, activeSheet: targetSheet };
+
+    return { headers, rows, allSheets, activeSheet: targetSheet ?? allSheets[0] ?? "" };
   });
 }
 
 /**
- * Heurística: elige la hoja con más headers no vacíos en la primera fila.
+ * Heurística: elige la hoja con más encabezados no vacíos en la fila de datos.
+ * Usa { header: 1 } para encontrar la fila real de encabezados (saltea títulos merged).
  * Si hay empate prefiere la primera con nombre que contenga palabras clave de datos.
  */
 function pickBestSheet(wb: XLSX.WorkBook): string {
   const DATA_KEYWORDS = /data|cliente|lead|contacto|venta|llamada|crm|registro|hoja/i;
-  let bestSheet = wb.SheetNames[0];
+  let bestSheet = wb.SheetNames[0] ?? "";
   let bestScore = -1;
 
   for (const name of wb.SheetNames) {
     const sheet = wb.Sheets[name];
-    const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    const rawArrays = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+      header: 1,
       defval: "",
       raw: false,
     });
-    if (!raw.length) continue;
-    const headerCount = Object.keys(raw[0]).filter((k) => k.trim()).length;
-    // Bonus si el nombre de la hoja suena a datos
+    if (!rawArrays.length) continue;
+    const headerRowIdx = rawArrays.findIndex(
+      (row) => (row as unknown[]).filter((v) => String(v ?? "").trim()).length >= 2
+    );
+    if (headerRowIdx === -1) continue;
+    const headerCount = (rawArrays[headerRowIdx] as unknown[]).filter((v) => String(v ?? "").trim()).length;
     const nameBonus = DATA_KEYWORDS.test(name) ? 5 : 0;
     const score = headerCount + nameBonus;
     if (score > bestScore) {
@@ -310,6 +334,94 @@ export async function importFinanceMetricsFromExcelAction(
     }
 
     console.info(`[import-finance-metrics] org=${organizationId} inserted=${inserted} skipped=${skipped}`);
+    return { inserted, skipped, errors };
+  });
+}
+
+// ─── Importar métricas de ventas transpuestas (pivot: métricas=filas, meses=columnas) ──
+
+export async function importSalesMetricsTransposedAction(
+  fileBase64: string,
+  sheetName?: string
+): Promise<MutationResult<ExcelImportResult>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const buffer = Buffer.from(fileBase64, "base64");
+    const { rows, errors } = parseSalesMetricsTransposed(buffer, sheetName);
+
+    if (!rows.length) {
+      return {
+        inserted: 0,
+        skipped: 0,
+        errors: errors.length ? errors : [{ row: 0, message: "No se encontraron métricas de ventas en el formato transpuesto." }],
+      };
+    }
+
+    const BATCH = 50;
+    let inserted = 0;
+    const skipped = 0;
+    for (let i = 0; i < rows.length; i += BATCH) {
+      const batch = rows.slice(i, i + BATCH).map((row) => ({
+        organization_id: organizationId,
+        category:        "sales" as const,
+        period_start:    row.periodStart,
+        period_label:    row.periodLabel,
+        metrics:         row.metrics,
+      }));
+      const { error, count } = await supabase
+        .from("metrics_snapshots")
+        .upsert(batch, { onConflict: "organization_id,category,period_start", count: "exact" });
+      if (error) throw new Error(error.message);
+      inserted += count ?? batch.length;
+    }
+
+    console.info(`[import-sales-metrics-transposed] org=${organizationId} inserted=${inserted} skipped=${skipped}`);
+    return { inserted, skipped, errors };
+  });
+}
+
+// ─── Importar métricas de finanzas transpuestas ───────────────────────────────
+
+export async function importFinanceMetricsTransposedAction(
+  fileBase64: string,
+  sheetName?: string
+): Promise<MutationResult<ExcelImportResult>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const buffer = Buffer.from(fileBase64, "base64");
+    const { rows, errors } = parseFinanceMetricsTransposed(buffer, sheetName);
+
+    if (!rows.length) {
+      return {
+        inserted: 0,
+        skipped: 0,
+        errors: errors.length ? errors : [{ row: 0, message: "No se encontraron métricas de finanzas en el formato transpuesto." }],
+      };
+    }
+
+    const BATCH = 50;
+    let inserted = 0;
+    const skipped = 0;
+    for (let i = 0; i < rows.length; i += BATCH) {
+      const batch = rows.slice(i, i + BATCH).map((row) => ({
+        organization_id: organizationId,
+        category:        "finance" as const,
+        period_start:    row.periodStart,
+        period_label:    row.periodLabel,
+        metrics:         row.metrics,
+      }));
+      const { error, count } = await supabase
+        .from("metrics_snapshots")
+        .upsert(batch, { onConflict: "organization_id,category,period_start", count: "exact" });
+      if (error) throw new Error(error.message);
+      inserted += count ?? batch.length;
+    }
+
+    console.info(`[import-finance-metrics-transposed] org=${organizationId} inserted=${inserted} skipped=${skipped}`);
     return { inserted, skipped, errors };
   });
 }
