@@ -116,7 +116,13 @@ export function SalesMetricsRedesign({
     ? (sm["tasa_fantasma"] ?? 0) * 100
     : filteredMetrics.ghostingRate;
   const effectiveCashCollected = useSnapshotFallback
-    ? (sm["facturacion"] ?? 0) - (sm["gastos"] ?? 0)
+    ? Math.max(
+        0,
+        (sm["facturacion"] ?? 0) -
+          (financeSummary.gastosTotales > 0
+            ? financeSummary.gastosTotales
+            : (sm["gastos"] ?? 0))
+      )
     : financeSummary.cashCollected;
 
   // ── Franja de resumen inferior ────────────────────────────────────────────
