@@ -35,7 +35,8 @@ const CLOSING_FIELDS: FieldDef[] = [
 
 // ─── Prop types ───────────────────────────────────────────────────────────────
 
-type MappingValue = ColumnMapping | ClosingColumnMapping;
+// Durante la edición UI los campos requeridos pueden estar vacíos → Partial
+type MappingValue = Partial<ColumnMapping> | Partial<ClosingColumnMapping>;
 
 type SingleMapperProps = {
   type: "clients" | "closing";
@@ -188,8 +189,8 @@ function PreviewTable({
 // ─── Componente exportado ─────────────────────────────────────────────────────
 
 export type ExcelColumnMapperValue = {
-  clientsMapping?: ColumnMapping;
-  closingMapping?: ClosingColumnMapping;
+  clientsMapping?: Partial<ColumnMapping>;
+  closingMapping?: Partial<ClosingColumnMapping>;
 };
 
 type ExcelColumnMapperProps = {
@@ -237,7 +238,7 @@ export function ExcelColumnMapper({
             headers={clientsHeaders}
             previewRows={clientsPreviewRows}
             value={value.clientsMapping ?? {}}
-            onChange={(m) => onChange({ ...value, clientsMapping: m as ColumnMapping })}
+            onChange={(m) => onChange({ ...value, clientsMapping: m as Partial<ColumnMapping> })}
           />
           {showClientsPreview && (
             <PreviewTable
@@ -273,7 +274,7 @@ export function ExcelColumnMapper({
             headers={closingHeaders}
             previewRows={closingPreviewRows}
             value={value.closingMapping ?? {}}
-            onChange={(m) => onChange({ ...value, closingMapping: m as ClosingColumnMapping })}
+            onChange={(m) => onChange({ ...value, closingMapping: m as Partial<ClosingColumnMapping> })}
           />
           {showClosingPreview && (
             <PreviewTable
@@ -292,7 +293,7 @@ export function ExcelColumnMapper({
 
 export function isMappingValid(
   type: "clients" | "closing",
-  mapping: MappingValue | undefined
+  mapping: Partial<ColumnMapping> | Partial<ClosingColumnMapping> | undefined
 ): boolean {
   if (!mapping) return false;
   const m = mapping as Record<string, string | undefined>;

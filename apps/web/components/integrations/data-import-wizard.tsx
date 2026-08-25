@@ -15,6 +15,8 @@ import {
   type ExcelImportResult,
   type ExcelPreview,
 } from "@/app/clients/import-actions";
+import type { ColumnMapping } from "@/lib/clients/excel-parser";
+import type { ClosingColumnMapping } from "@/lib/closing/excel-parser";
 import {
   ExcelColumnMapper,
   isMappingValid,
@@ -564,7 +566,7 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
         } else if (clientsFile) {
           const r = await importClientsFromExcelAction(
             clientsFile.base64,
-            columnMapping.clientsMapping
+            columnMapping.clientsMapping as ColumnMapping | undefined
           );
           if (!r.success) throw new Error(r.error);
           result.clientsResult = { ...r.data, source: "excel" };
@@ -575,7 +577,7 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
       if (what.has("closing") && origin === "excel" && closingFile) {
         const r = await importClosingCallsFromExcelAction(
           closingFile.base64,
-          columnMapping.closingMapping
+          columnMapping.closingMapping as ClosingColumnMapping | undefined
         );
         if (!r.success) throw new Error(r.error);
         result.closingResult = r.data;
@@ -744,7 +746,10 @@ const CLOSING_KNOWN: Record<string, string> = {
   notas: "notes", "notas / resultado": "notes", notes: "notes",
 };
 
-function autoMap(type: "clients" | "closing", headers: string[]): Record<string, string> {
+function autoMap(
+  type: "clients" | "closing",
+  headers: string[]
+): Partial<ColumnMapping> | Partial<ClosingColumnMapping> {
   const known = type === "clients" ? CLIENT_KNOWN : CLOSING_KNOWN;
   const result: Record<string, string> = {};
   for (const h of headers) {
@@ -754,5 +759,6 @@ function autoMap(type: "clients" | "closing", headers: string[]): Record<string,
       result[field] = h;
     }
   }
-  return result;
+  // El cast es seguro: las claves en result son siempre fields válidos del ColumnMapping
+  return result as Partial<ColumnMapping> | Partial<ClosingColumnMapping>;
 }
