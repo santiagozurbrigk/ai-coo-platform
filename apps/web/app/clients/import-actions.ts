@@ -12,6 +12,7 @@ import {
   parseSalesMetricsTransposed,
   parseFinanceMetricsTransposed,
   isTransposedMetricsSheet,
+  deriveSalesMetrics,
   type SalesMetricsColumnMapping,
   type FinanceMetricsColumnMapping,
 } from "@/lib/metrics/excel-parser";
@@ -444,3 +445,72 @@ export async function importFinanceMetricsTransposedAction(
 
 // Re-export de tipos para el wizard
 export type { SalesMetricsColumnMapping, FinanceMetricsColumnMapping };
+
+// ─── Importar métricas de ventas manualmente (formulario inline) ──────────────
+
+/** Una fila del formulario manual. period = "YYYY-MM" */
+export type ManualSalesMetricInput = {
+  period:         string;
+  leadsTotales?:  number;
+  agendasTotales?: number;
+  asistencias?:   number;
+  inasistencias?: number;
+  cierres?:       number;
+  facturacion?:   number;
+};
+
+const MONTH_NAMES_ES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
+function periodLabel(yyyymm: string): string {
+  const [year, month] = yyyymm.split("-");
+  const name = MONTH_NAMES_ES[(parseInt(month ?? "1", 10) - 1)] ?? month;
+  return `${name} ${year}`;
+}
+
+export async function importSalesMetricsManualAction(
+  rows: ManualSalesMetricInput[]
+): Promise<MutationResult<ExcelImportResult>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const validRows = rows.filter(r => /^\d{4}-\d{2}$/.test(r.period));
+    if (!validRows.length) {
+      return {
+        inserted: 0,
+        skipped:  0,
+        errors:   [{ row: 0, message: "No hay períodos válidos para importar (formato esperado: AAAA-MM)." }],
+      };
+    }
+
+    const batch = validRows.map(row => {
+      const raw: Record<string, number> = {};
+      if (row.leadsTotales   != null) raw["leads_totales"]   = row.leadsTotales;
+      if (row.agendasTotales != null) raw["agendas_totales"] = row.agendasTotales;
+      if (row.asistencias    != null) raw["asistencias"]     = row.asistencias;
+      if (row.inasistencias  != null) raw["inasistencias"]   = row.inasistencias;
+      if (row.cierres        != null) raw["cierres"]         = row.cierres;
+      if (row.facturacion    != null) raw["facturacion"]     = row.facturacion;
+
+      return {
+        organization_id: organizationId,
+        category:        "sales" as const,
+        period_start:    `${row.period}-01`,
+        period_label:    periodLabel(row.period),
+        metrics:         deriveSalesMetrics(raw),
+      };
+    });
+
+    const { error, count } = await supabase
+      .from("metrics_snapshots")
+      .upsert(batch, { onConflict: "organization_id,category,period_start", count: "exact" });
+    if (error) throw new Error(error.message);
+
+    const inserted = count ?? batch.length;
+    console.info(`[import-sales-metrics-manual] org=${organizationId} inserted=${inserted}`);
+    return { inserted, skipped: 0, errors: [] };
+  });
+}

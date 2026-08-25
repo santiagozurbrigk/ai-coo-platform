@@ -179,7 +179,7 @@ function parseMetricsExcel(
  *   tasa_agendamiento= agendas_totales / leads_totales
  *   tasa_fantasma    = inasistencias / agendas_totales
  */
-function deriveSalesMetrics(metrics: Record<string, number>): Record<string, number> {
+export function deriveSalesMetrics(metrics: Record<string, number>): Record<string, number> {
   const m = { ...metrics };
   const agendas     = m["agendas_totales"] ?? 0;
   const asistencias = m["asistencias"]     ?? 0;

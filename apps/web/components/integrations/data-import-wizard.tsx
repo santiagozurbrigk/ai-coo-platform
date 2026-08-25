@@ -10,15 +10,11 @@ import { useToast } from "@/providers/toast-provider";
 import { previewGHLContactsAction, importGHLContactsAction } from "@/app/ghl/import-actions";
 import {
   importClientsFromExcelAction,
-  importSalesMetricsFromExcelAction,
-  importFinanceMetricsFromExcelAction,
-  importSalesMetricsTransposedAction,
-  importFinanceMetricsTransposedAction,
+  importSalesMetricsManualAction,
   getExcelPreviewAction,
   type ExcelImportResult,
   type ExcelPreview,
-  type SalesMetricsColumnMapping,
-  type FinanceMetricsColumnMapping,
+  type ManualSalesMetricInput,
 } from "@/app/clients/import-actions";
 import type { ColumnMapping } from "@/lib/clients/excel-parser";
 import {
@@ -26,12 +22,12 @@ import {
   isMappingValid,
   type ExcelColumnMapperValue,
 } from "@/components/integrations/excel-column-mapper";
-import { Upload, Database, FileSpreadsheet, CheckCircle, Loader2, ChevronRight, ChevronLeft, Users, TrendingUp, DollarSign } from "lucide-react";
+import { Upload, Database, FileSpreadsheet, CheckCircle, Loader2, ChevronRight, ChevronLeft, Users, TrendingUp, Plus, Trash2 } from "lucide-react";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type Origin = "ghl" | "excel" | null;
-type WhatToImport = "clients" | "salesMetrics" | "financeMetrics";
+type WhatToImport = "clients" | "salesMetrics";
 type Step = "origin" | "what" | "mapper" | "confirm";
 
 type GHLPreview = {
@@ -45,10 +41,40 @@ type ExcelFile = {
 };
 
 type ImportSummary = {
-  clientsResult?:       ExcelImportResult & { source: "ghl" | "excel" };
-  salesMetricsResult?:  ExcelImportResult;
-  financeMetricsResult?: ExcelImportResult;
+  clientsResult?:      ExcelImportResult & { source: "ghl" | "excel" };
+  salesMetricsResult?: ExcelImportResult;
 };
+
+// Fila del formulario manual de métricas de ventas
+type ManualSalesRow = {
+  id:            string;
+  period:        string; // YYYY-MM (formato de <input type="month">)
+  leadsTotales:  string;
+  agendasTotales: string;
+  asistencias:   string;
+  inasistencias: string;
+  cierres:       string;
+  facturacion:   string;
+};
+
+function newRow(period?: string): ManualSalesRow {
+  return {
+    id:             Math.random().toString(36).slice(2),
+    period:         period ?? "",
+    leadsTotales:   "",
+    agendasTotales: "",
+    asistencias:    "",
+    inasistencias:  "",
+    cierres:        "",
+    facturacion:    "",
+  };
+}
+
+function parseNum(s: string): number | undefined {
+  if (!s.trim()) return undefined;
+  const n = parseFloat(s.replace(",", "."));
+  return isNaN(n) ? undefined : n;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -57,35 +83,12 @@ function fileToBase64(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      // data:application/...;base64,<data>
       const b64 = result.split(",")[1];
       resolve(b64);
     };
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-}
-
-// ─── Detección de formato transpuesto (client-side) ──────────────────────────
-
-const MONTH_TOKENS = new Set([
-  "enero","febrero","marzo","abril","mayo","junio",
-  "julio","agosto","septiembre","octubre","noviembre","diciembre",
-  "january","february","march","april","may","june",
-  "july","august","september","october","november","december",
-  "ene","feb","mar","abr","jun","jul","ago","sep","oct","nov","dic",
-  "jan","aug",
-]);
-
-function looksLikeMonthHeader(s: string): boolean {
-  // Acepta "Marzo", "Marzo 2025", "03/2025", "2025-03"
-  const lower = s.toLowerCase().trim();
-  if (/^\d{1,2}[\/\-]\d{4}$/.test(lower) || /^\d{4}[\/\-]\d{1,2}$/.test(lower)) return true;
-  return lower.split(/[\s\-_,]+/).some((p) => MONTH_TOKENS.has(p));
-}
-
-function isTransposedMetricsFormat(headers: string[]): boolean {
-  return headers.filter((h) => looksLikeMonthHeader(h)).length >= 2;
 }
 
 // ─── Paso 1 — Origen ─────────────────────────────────────────────────────────
@@ -150,12 +153,40 @@ function OriginCard({
   );
 }
 
-// ─── Paso 2 — Qué importar ────────────────────────────────────────────────────
+// ─── CheckboxCard ─────────────────────────────────────────────────────────────
+
+function CheckboxCard({
+  checked,
+  onToggle,
+  icon,
+  title,
+  children,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+  icon: React.ReactNode;
+  title: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className={`rounded-lg border p-4 space-y-3 ${checked ? "border-primary bg-primary/5" : "border-border"}`}>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onToggle}
+          className={`h-4 w-4 rounded border-2 flex-shrink-0 transition-colors ${checked ? "bg-primary border-primary" : "border-muted-foreground"}`}
+        />
+        <span className="text-muted-foreground flex-shrink-0">{icon}</span>
+        <span className="text-sm font-medium">{title}</span>
+      </div>
+      {checked && children && <div className="ml-7">{children}</div>}
+    </div>
+  );
+}
 
 // ─── Sub-componente: fila de archivo por tipo ─────────────────────────────────
 
 function FileRow({
-  // label and icon kept in interface for callers but not rendered (uploadLabel is used instead)
   label: _label,
   icon: _icon,
   file,
@@ -207,36 +238,105 @@ function FileRow({
   );
 }
 
-// ─── CheckboxCard ─────────────────────────────────────────────────────────────
+// ─── Formulario manual de métricas de ventas ──────────────────────────────────
 
-function CheckboxCard({
-  checked,
-  onToggle,
-  icon,
-  title,
-  children,
+const SALES_FIELD_LABELS: Array<{ key: keyof Omit<ManualSalesRow, "id" | "period">; label: string; short: string }> = [
+  { key: "leadsTotales",   label: "Leads totales",   short: "Leads"    },
+  { key: "agendasTotales", label: "Agendas totales", short: "Agendas"  },
+  { key: "asistencias",    label: "Show up",         short: "Show up"  },
+  { key: "inasistencias",  label: "No show up",      short: "No show"  },
+  { key: "cierres",        label: "Cierres",         short: "Cierres"  },
+  { key: "facturacion",    label: "Facturación",     short: "Facturac."},
+];
+
+function ManualSalesForm({
+  rows,
+  onChange,
 }: {
-  checked: boolean;
-  onToggle: () => void;
-  icon: React.ReactNode;
-  title: string;
-  children?: React.ReactNode;
+  rows: ManualSalesRow[];
+  onChange: (rows: ManualSalesRow[]) => void;
 }) {
+  const updateRow = (id: string, field: keyof ManualSalesRow, value: string) => {
+    onChange(rows.map(r => r.id === id ? { ...r, [field]: value } : r));
+  };
+  const removeRow = (id: string) => {
+    if (rows.length === 1) return; // siempre al menos 1 fila
+    onChange(rows.filter(r => r.id !== id));
+  };
+  const addRow = () => {
+    // Sugiere el mes siguiente al último cargado
+    const last = rows[rows.length - 1]?.period;
+    let nextPeriod = "";
+    if (last && /^\d{4}-\d{2}$/.test(last)) {
+      const [y, m] = last.split("-").map(Number) as [number, number];
+      const next = m === 12 ? { y: y + 1, m: 1 } : { y, m: m + 1 };
+      nextPeriod = `${next.y}-${String(next.m).padStart(2, "0")}`;
+    }
+    onChange([...rows, newRow(nextPeriod)]);
+  };
+
+  const inputCls = "w-full h-7 rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring";
+
   return (
-    <div className={`rounded-lg border p-4 space-y-3 ${checked ? "border-primary bg-primary/5" : "border-border"}`}>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onToggle}
-          className={`h-4 w-4 rounded border-2 flex-shrink-0 transition-colors ${checked ? "bg-primary border-primary" : "border-muted-foreground"}`}
-        />
-        <span className="text-muted-foreground flex-shrink-0">{icon}</span>
-        <span className="text-sm font-medium">{title}</span>
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">
+        OTC calcula automáticamente close rate, show rate y más a partir de estos datos.
+      </p>
+
+      {/* Encabezado de columnas */}
+      <div className="grid gap-1 text-xs text-muted-foreground font-medium" style={{ gridTemplateColumns: "130px repeat(6, 1fr) 24px" }}>
+        <span>Período</span>
+        {SALES_FIELD_LABELS.map(f => (
+          <span key={f.key} className="text-center">{f.short}</span>
+        ))}
+        <span />
       </div>
-      {checked && children && <div className="ml-7">{children}</div>}
+
+      {/* Filas */}
+      <div className="space-y-1 max-h-60 overflow-y-auto pr-0.5">
+        {rows.map(row => (
+          <div key={row.id} className="grid gap-1 items-center" style={{ gridTemplateColumns: "130px repeat(6, 1fr) 24px" }}>
+            <input
+              type="month"
+              value={row.period}
+              onChange={e => updateRow(row.id, "period", e.target.value)}
+              className={inputCls}
+            />
+            {SALES_FIELD_LABELS.map(f => (
+              <input
+                key={f.key}
+                type="text"
+                inputMode="decimal"
+                placeholder="—"
+                value={row[f.key]}
+                onChange={e => updateRow(row.id, f.key, e.target.value)}
+                className={`${inputCls} text-center`}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={() => removeRow(row.id)}
+              disabled={rows.length === 1}
+              className="flex items-center justify-center h-7 w-6 rounded text-muted-foreground hover:text-destructive disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={addRow}
+        className="flex items-center gap-1.5 text-xs text-primary hover:underline mt-1"
+      >
+        <Plus className="h-3 w-3" /> Agregar mes
+      </button>
     </div>
   );
 }
+
+// ─── Paso 2 — Qué importar ────────────────────────────────────────────────────
 
 function StepWhat({
   origin,
@@ -245,11 +345,9 @@ function StepWhat({
   ghlPreview,
   ghlPreviewLoading,
   clientsFile,
-  salesMetricsFile,
-  financeMetricsFile,
   onClientsFile,
-  onSalesMetricsFile,
-  onFinanceMetricsFile,
+  manualSalesRows,
+  onManualSalesRowsChange,
 }: {
   origin: Origin;
   what: Set<WhatToImport>;
@@ -257,11 +355,9 @@ function StepWhat({
   ghlPreview: GHLPreview | null;
   ghlPreviewLoading: boolean;
   clientsFile: ExcelFile | null;
-  salesMetricsFile: ExcelFile | null;
-  financeMetricsFile: ExcelFile | null;
   onClientsFile: (f: ExcelFile | null) => void;
-  onSalesMetricsFile: (f: ExcelFile | null) => void;
-  onFinanceMetricsFile: (f: ExcelFile | null) => void;
+  manualSalesRows: ManualSalesRow[];
+  onManualSalesRowsChange: (rows: ManualSalesRow[]) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -306,195 +402,47 @@ function StepWhat({
         )}
       </CheckboxCard>
 
-      {/* Métricas de ventas (solo Excel) */}
-      {origin === "excel" && (
-        <CheckboxCard
-          checked={what.has("salesMetrics")}
-          onToggle={() => onWhat("salesMetrics")}
-          icon={<TrendingUp className="h-4 w-4" />}
-          title="Métricas de ventas"
-        >
-          <p className="text-xs text-muted-foreground mb-2">
-            Leads, agendas, show up, no show up, cierres, facturación. OTC calcula automáticamente close rate, show rate y más.
-          </p>
-          <FileRow
-            label="métricas de ventas"
-            icon={<TrendingUp className="h-3 w-3" />}
-            file={salesMetricsFile}
-            accept=".xlsx,.xls,.csv"
-            onFile={onSalesMetricsFile}
-            uploadLabel="Subir archivo de métricas de ventas (.xlsx)"
-          />
-        </CheckboxCard>
-      )}
-
-      {/* Métricas de finanzas (solo Excel) */}
-      {origin === "excel" && (
-        <CheckboxCard
-          checked={what.has("financeMetrics")}
-          onToggle={() => onWhat("financeMetrics")}
-          icon={<DollarSign className="h-4 w-4" />}
-          title="Métricas de finanzas"
-        >
-          <p className="text-xs text-muted-foreground mb-2">
-            Facturación, cash collected, margen, por cobrar, gastos. Soporta tablas con un período por fila o en formato pivot (meses como columnas).
-          </p>
-          <FileRow
-            label="métricas de finanzas"
-            icon={<DollarSign className="h-3 w-3" />}
-            file={financeMetricsFile}
-            accept=".xlsx,.xls,.csv"
-            onFile={onFinanceMetricsFile}
-            uploadLabel="Subir archivo de métricas de finanzas (.xlsx)"
-          />
-        </CheckboxCard>
-      )}
+      {/* Métricas de ventas — formulario manual */}
+      <CheckboxCard
+        checked={what.has("salesMetrics")}
+        onToggle={() => onWhat("salesMetrics")}
+        icon={<TrendingUp className="h-4 w-4" />}
+        title="Métricas de ventas"
+      >
+        <ManualSalesForm
+          rows={manualSalesRows}
+          onChange={onManualSalesRowsChange}
+        />
+      </CheckboxCard>
 
       {/* GHL solo importa clientes */}
       {origin === "ghl" && (
         <p className="text-xs text-muted-foreground">
-          Las citas de GHL se sincronizan automáticamente desde la integración de calendario.
+          Las métricas de ventas se cargan en la sección Excel.
         </p>
       )}
     </div>
   );
 }
 
-// ─── Selector de hoja ─────────────────────────────────────────────────────────
-
-function SheetSelector({
-  label,
-  allSheets,
-  activeSheet,
-  loading,
-  onSelect,
-}: {
-  label: string;
-  allSheets: string[];
-  activeSheet: string;
-  loading: boolean;
-  onSelect: (sheet: string) => void;
-}) {
-  if (allSheets.length <= 1) return null;
-  return (
-    <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2">
-      <span className="text-xs text-muted-foreground shrink-0">Hoja ({label}):</span>
-      <select
-        value={activeSheet}
-        disabled={loading}
-        onChange={(e) => onSelect(e.target.value)}
-        className="flex-1 h-7 rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-      >
-        {allSheets.map((s) => (
-          <option key={s} value={s}>{s}</option>
-        ))}
-      </select>
-      {loading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
-    </div>
-  );
-}
-
-// ─── Mapper de filas para formato transpuesto ─────────────────────────────────
-
-function TransposedRowMapper({
-  label,
-  preview,
-  fields,
-  mapping,
-  onChange,
-}: {
-  label: string;
-  preview: ExcelPreview;
-  fields: RowField[];
-  mapping: Record<string, string>;
-  onChange: (m: Record<string, string>) => void;
-}) {
-  const months = preview.headers.filter((h) => looksLikeMonthHeader(h));
-  const rowLabels = preview.rowLabels ?? [];
-
-  return (
-    <div className="space-y-3">
-      <div className="rounded-md border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 px-3 py-2.5 space-y-1">
-        <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
-          Formato tabla detectado — {label}
-        </p>
-        <p className="text-xs text-blue-600 dark:text-blue-400">
-          Períodos detectados: {months.slice(0, 6).join(", ")}{months.length > 6 ? ` y ${months.length - 6} más` : ""}.
-          Indicá qué fila del archivo corresponde a cada métrica.
-        </p>
-      </div>
-
-      {rowLabels.length === 0 ? (
-        <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded px-3 py-2">
-          No se pudieron leer las etiquetas de fila. Verificá que la columna A del archivo tenga los nombres de las métricas.
-        </p>
-      ) : (
-        <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-          {fields.map((f) => (
-            <div key={f.key} className="flex items-center gap-2">
-              <span className="text-xs text-foreground w-44 shrink-0">{f.label}</span>
-              <select
-                value={mapping[f.key] ?? ""}
-                onChange={(e) => onChange({ ...mapping, [f.key]: e.target.value })}
-                className="flex-1 h-7 rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                <option value="">— no importar —</option>
-                {rowLabels.map((l) => (
-                  <option key={l} value={l}>{l}</option>
-                ))}
-              </select>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Paso 2.5 — Mapeo de columnas ─────────────────────────────────────────────
+// ─── Paso 2.5 — Mapeo de columnas (solo para archivo de clientes) ─────────────
 
 function StepMapper({
   clientsPreview,
-  salesMetricsPreview,
-  financeMetricsPreview,
   clientsFile,
-  salesMetricsFile,
-  financeMetricsFile,
   mapping,
   onMapping,
   loading,
-  transposedTypes,
-  transposedSalesRowMapping,
-  transposedFinanceRowMapping,
-  onTransposedSalesRowMappingChange,
-  onTransposedFinanceRowMappingChange,
-  onClientsSheetChange,
-  onSalesMetricsSheetChange,
-  onFinanceMetricsSheetChange,
   clientsSheetLoading,
-  salesMetricsSheetLoading,
-  financeMetricsSheetLoading,
+  onClientsSheetChange,
 }: {
   clientsPreview: ExcelPreview | null;
-  salesMetricsPreview: ExcelPreview | null;
-  financeMetricsPreview: ExcelPreview | null;
   clientsFile: ExcelFile | null;
-  salesMetricsFile: ExcelFile | null;
-  financeMetricsFile: ExcelFile | null;
   mapping: ExcelColumnMapperValue;
   onMapping: (v: ExcelColumnMapperValue) => void;
   loading: boolean;
-  transposedTypes: Set<WhatToImport>;
-  transposedSalesRowMapping: Record<string, string>;
-  transposedFinanceRowMapping: Record<string, string>;
-  onTransposedSalesRowMappingChange: (m: Record<string, string>) => void;
-  onTransposedFinanceRowMappingChange: (m: Record<string, string>) => void;
-  onClientsSheetChange: (sheet: string) => void;
-  onSalesMetricsSheetChange: (sheet: string) => void;
-  onFinanceMetricsSheetChange: (sheet: string) => void;
   clientsSheetLoading: boolean;
-  salesMetricsSheetLoading: boolean;
-  financeMetricsSheetLoading: boolean;
+  onClientsSheetChange: (sheet: string) => void;
 }) {
   if (loading) {
     return (
@@ -505,68 +453,30 @@ function StepMapper({
     );
   }
 
-  const salesTransposed   = transposedTypes.has("salesMetrics");
-  const financeTransposed = transposedTypes.has("financeMetrics");
-
-  // Para el ExcelColumnMapper, pasamos undefined en tipos transpuestos (no necesitan mapeo de columnas)
-  const salesHeaders   = salesTransposed   ? undefined : salesMetricsPreview?.headers;
-  const financeHeaders = financeTransposed ? undefined : financeMetricsPreview?.headers;
-
-  const needsColumnMapper = !!(
-    clientsPreview?.headers.length ||
-    salesHeaders?.length ||
-    financeHeaders?.length
-  );
-
-  const hasAnyTransposed = salesTransposed || financeTransposed;
-
   return (
     <div className="space-y-4">
-      {hasAnyTransposed && !needsColumnMapper ? (
-        <div>
-          <p className="text-sm font-medium">Mapeo de filas</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Seleccioná qué fila de tu archivo corresponde a cada métrica de OTC.
-          </p>
-        </div>
-      ) : (
-        <div>
-          <p className="text-sm font-medium">Mapeo de columnas</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Indicá qué columna de tu archivo corresponde a cada campo de OTC. Los campos marcados con <span className="text-destructive">*</span> son obligatorios.
-          </p>
-        </div>
-      )}
+      <div>
+        <p className="text-sm font-medium">Mapeo de columnas — Clientes</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Indicá qué columna de tu archivo corresponde a cada campo de OTC. Los campos marcados con <span className="text-destructive">*</span> son obligatorios.
+        </p>
+      </div>
 
-      {/* Selectores de hoja — siempre visibles para poder cambiar de hoja */}
-      {clientsPreview && clientsFile && (
-        <SheetSelector label="clientes" allSheets={clientsPreview.allSheets} activeSheet={clientsPreview.activeSheet} loading={clientsSheetLoading} onSelect={onClientsSheetChange} />
-      )}
-      {salesMetricsPreview && salesMetricsFile && (
-        <SheetSelector label="métricas ventas" allSheets={salesMetricsPreview.allSheets} activeSheet={salesMetricsPreview.activeSheet} loading={salesMetricsSheetLoading} onSelect={onSalesMetricsSheetChange} />
-      )}
-      {financeMetricsPreview && financeMetricsFile && (
-        <SheetSelector label="métricas finanzas" allSheets={financeMetricsPreview.allSheets} activeSheet={financeMetricsPreview.activeSheet} loading={financeMetricsSheetLoading} onSelect={onFinanceMetricsSheetChange} />
-      )}
-
-      {/* Mapper de filas para tipos transpuestos */}
-      {salesTransposed && salesMetricsPreview && (
-        <TransposedRowMapper
-          label="Métricas de ventas"
-          preview={salesMetricsPreview}
-          fields={SALES_ROW_FIELDS}
-          mapping={transposedSalesRowMapping}
-          onChange={onTransposedSalesRowMappingChange}
-        />
-      )}
-      {financeTransposed && financeMetricsPreview && (
-        <TransposedRowMapper
-          label="Métricas de finanzas"
-          preview={financeMetricsPreview}
-          fields={FINANCE_ROW_FIELDS}
-          mapping={transposedFinanceRowMapping}
-          onChange={onTransposedFinanceRowMappingChange}
-        />
+      {clientsPreview && clientsFile && clientsPreview.allSheets.length > 1 && (
+        <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2">
+          <span className="text-xs text-muted-foreground shrink-0">Hoja (clientes):</span>
+          <select
+            value={clientsPreview.activeSheet}
+            disabled={clientsSheetLoading}
+            onChange={(e) => onClientsSheetChange(e.target.value)}
+            className="flex-1 h-7 rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            {clientsPreview.allSheets.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          {clientsSheetLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
+        </div>
       )}
 
       {clientsPreview?.headers.length === 0 && (
@@ -575,18 +485,14 @@ function StepMapper({
         </p>
       )}
 
-      {needsColumnMapper && (
+      {clientsPreview?.headers.length ? (
         <ExcelColumnMapper
-          clientsHeaders={clientsPreview?.headers}
-          clientsPreviewRows={clientsPreview?.rows}
-          salesMetricsHeaders={salesHeaders}
-          salesMetricsPreviewRows={salesTransposed ? undefined : salesMetricsPreview?.rows}
-          financeMetricsHeaders={financeHeaders}
-          financeMetricsPreviewRows={financeTransposed ? undefined : financeMetricsPreview?.rows}
+          clientsHeaders={clientsPreview.headers}
+          clientsPreviewRows={clientsPreview.rows}
           value={mapping}
           onChange={onMapping}
         />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -598,8 +504,7 @@ function StepConfirm({
   what,
   ghlPreview,
   clientsFile,
-  salesMetricsFile,
-  financeMetricsFile,
+  manualSalesRows,
   importing,
   summary,
   onImport,
@@ -608,8 +513,7 @@ function StepConfirm({
   what: Set<WhatToImport>;
   ghlPreview: GHLPreview | null;
   clientsFile: ExcelFile | null;
-  salesMetricsFile: ExcelFile | null;
-  financeMetricsFile: ExcelFile | null;
+  manualSalesRows: ManualSalesRow[];
   importing: boolean;
   summary: ImportSummary | null;
   onImport: () => void;
@@ -627,12 +531,11 @@ function StepConfirm({
         {summary.salesMetricsResult && (
           <ResultRow label="Métricas de ventas" inserted={summary.salesMetricsResult.inserted} skipped={summary.salesMetricsResult.skipped} errors={summary.salesMetricsResult.errors.length} />
         )}
-        {summary.financeMetricsResult && (
-          <ResultRow label="Métricas de finanzas" inserted={summary.financeMetricsResult.inserted} skipped={summary.financeMetricsResult.skipped} errors={summary.financeMetricsResult.errors.length} />
-        )}
       </div>
     );
   }
+
+  const salesRowsWithPeriod = manualSalesRows.filter(r => r.period);
 
   return (
     <div className="space-y-4">
@@ -645,38 +548,23 @@ function StepConfirm({
               <span className="text-sm">Clientes</span>
             </div>
             {origin === "ghl" && ghlPreview ? (
-              <Badge variant="secondary">{ghlPreview.total} contactos de GHL</Badge>
+              <Badge>{ghlPreview.total} contactos de GHL</Badge>
             ) : clientsFile ? (
-              <Badge variant="secondary">{clientsFile.name}</Badge>
+              <Badge>{clientsFile.name}</Badge>
             ) : (
               <span className="text-xs text-muted-foreground">Sin archivo</span>
             )}
           </div>
         )}
-        {what.has("salesMetrics") && origin === "excel" && (
+        {what.has("salesMetrics") && (
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm">Métricas de ventas</span>
             </div>
-            {salesMetricsFile ? (
-              <Badge variant="secondary">{salesMetricsFile.name}</Badge>
-            ) : (
-              <span className="text-xs text-muted-foreground">Sin archivo</span>
-            )}
-          </div>
-        )}
-        {what.has("financeMetrics") && origin === "excel" && (
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">Métricas de finanzas</span>
-            </div>
-            {financeMetricsFile ? (
-              <Badge variant="secondary">{financeMetricsFile.name}</Badge>
-            ) : (
-              <span className="text-xs text-muted-foreground">Sin archivo</span>
-            )}
+            <Badge>
+              {salesRowsWithPeriod.length} {salesRowsWithPeriod.length === 1 ? "período" : "períodos"}
+            </Badge>
           </div>
         )}
       </div>
@@ -714,7 +602,36 @@ function ResultRow({ label, inserted, skipped, errors }: {
   );
 }
 
+// ─── Auto-mapeo de columnas ───────────────────────────────────────────────────
+
+const CLIENT_KNOWN: Record<string, string> = {
+  nombre: "name", "nombre completo": "name", name: "name",
+  email: "email", correo: "email",
+  teléfono: "phone", telefono: "phone", phone: "phone", tel: "phone",
+  "producto / plan": "product", producto: "product", plan: "product",
+  "monto total": "totalAmount", "monto pagado": "totalAmount", "cash collected": "totalAmount",
+  monto: "totalAmount", importe: "totalAmount",
+  "fecha inicio": "joinDate", "fecha de inicio": "joinDate",
+};
+
+function autoMapClients(headers: string[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const h of headers) {
+    const norm = h.toLowerCase().trim();
+    const field = CLIENT_KNOWN[norm];
+    if (field && !result[field]) result[field] = h;
+  }
+  return result;
+}
+
 // ─── Wizard principal ─────────────────────────────────────────────────────────
+
+// Calcula el período por defecto: mes anterior
+function defaultPeriod(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   const router = useRouter();
@@ -726,25 +643,15 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   const [ghlPreview, setGhlPreview] = useState<GHLPreview | null>(null);
   const [ghlPreviewLoading, setGhlPreviewLoading] = useState(false);
   const [clientsFile, setClientsFile] = useState<ExcelFile | null>(null);
-  const [salesMetricsFile, setSalesMetricsFile] = useState<ExcelFile | null>(null);
-  const [financeMetricsFile, setFinanceMetricsFile] = useState<ExcelFile | null>(null);
+  const [manualSalesRows, setManualSalesRows] = useState<ManualSalesRow[]>([newRow(defaultPeriod())]);
   const [importing, setImporting] = useState(false);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
 
-  // ── Mapper state ──
+  // ── Mapper state (solo para clientes) ──
   const [clientsPreview, setClientsPreview] = useState<ExcelPreview | null>(null);
-  const [salesMetricsPreview, setSalesMetricsPreview] = useState<ExcelPreview | null>(null);
-  const [financeMetricsPreview, setFinanceMetricsPreview] = useState<ExcelPreview | null>(null);
   const [columnMapping, setColumnMapping] = useState<ExcelColumnMapperValue>({});
   const [mapperLoading, setMapperLoading] = useState(false);
   const [clientsSheetLoading, setClientsSheetLoading] = useState(false);
-  const [salesMetricsSheetLoading, setSalesMetricsSheetLoading] = useState(false);
-  const [financeMetricsSheetLoading, setFinanceMetricsSheetLoading] = useState(false);
-  // Tipos donde se detectó formato transpuesto (pivot: meses=columnas, métricas=filas)
-  const [transposedTypes, setTransposedTypes] = useState<Set<WhatToImport>>(new Set());
-  // Mapeo manual de filas para formatos transpuestos: { fieldKey → "Etiqueta de fila en el Excel" }
-  const [transposedSalesRowMapping, setTransposedSalesRowMapping] = useState<Record<string, string>>({});
-  const [transposedFinanceRowMapping, setTransposedFinanceRowMapping] = useState<Record<string, string>>({});
 
   const toggleWhat = (w: WhatToImport) => {
     setWhat((prev) => {
@@ -757,7 +664,6 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
 
   const handleOriginSelect = async (o: Origin) => {
     setOrigin(o);
-    // Si es GHL, cargar preview de contactos automáticamente
     if (o === "ghl" && !ghlPreview) {
       setGhlPreviewLoading(true);
       try {
@@ -769,48 +675,21 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
     }
   };
 
-  // Transición de "what" → siguiente paso
+  // ¿El paso actual necesita un mapper de columnas?
+  const needsMapper = origin === "excel" && what.has("clients") && !!clientsFile;
+
   const handleAdvanceFromWhat = async () => {
-    if (origin === "excel") {
+    if (needsMapper) {
       setMapperLoading(true);
       setStep("mapper");
       try {
-        const [cp, sp, fp] = await Promise.all([
-          clientsFile && what.has("clients")             ? getExcelPreviewAction(clientsFile.base64)         : Promise.resolve(null),
-          salesMetricsFile && what.has("salesMetrics")   ? getExcelPreviewAction(salesMetricsFile.base64)   : Promise.resolve(null),
-          financeMetricsFile && what.has("financeMetrics") ? getExcelPreviewAction(financeMetricsFile.base64) : Promise.resolve(null),
-        ]);
-        const spData = sp?.success ? sp.data : null;
-        const fpData = fp?.success ? fp.data : null;
-
-        setClientsPreview(cp?.success ? cp.data : null);
-        setSalesMetricsPreview(spData);
-        setFinanceMetricsPreview(fpData);
-
-        // Detectar formato transpuesto (pivot) para métricas
-        const detected = new Set<WhatToImport>();
-        if (spData && isTransposedMetricsFormat(spData.headers)) detected.add("salesMetrics");
-        if (fpData && isTransposedMetricsFormat(fpData.headers)) detected.add("financeMetrics");
-        setTransposedTypes(detected);
-
-        // Auto-sugerir mapeo de filas usando el diccionario de sinónimos
-        if (detected.has("salesMetrics") && spData?.rowLabels?.length) {
-          setTransposedSalesRowMapping(autoMapTransposedRows("salesMetrics", spData.rowLabels));
+        const result = clientsFile ? await getExcelPreviewAction(clientsFile.base64) : null;
+        if (result?.success) {
+          setClientsPreview(result.data);
+          setColumnMapping({ clientsMapping: autoMapClients(result.data.headers) as Partial<ColumnMapping> });
         } else {
-          setTransposedSalesRowMapping({});
+          setClientsPreview(null);
         }
-        if (detected.has("financeMetrics") && fpData?.rowLabels?.length) {
-          setTransposedFinanceRowMapping(autoMapTransposedRows("financeMetrics", fpData.rowLabels));
-        } else {
-          setTransposedFinanceRowMapping({});
-        }
-
-        setColumnMapping({
-          clientsMapping:        cp?.success ? autoMap("clients", cp.data.headers) as Partial<ColumnMapping> : undefined,
-          // Para tipos transpuestos no se necesita mapping; para el resto, auto-mapear
-          salesMetricsMapping:   spData && !detected.has("salesMetrics")   ? autoMap("salesMetrics",   spData.headers) as Partial<SalesMetricsColumnMapping>  : undefined,
-          financeMetricsMapping: fpData && !detected.has("financeMetrics") ? autoMap("financeMetrics", fpData.headers) as Partial<FinanceMetricsColumnMapping> : undefined,
-        });
       } finally {
         setMapperLoading(false);
       }
@@ -820,29 +699,15 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   };
 
   const canAdvanceFromOrigin = origin !== null;
+
   const canAdvanceFromWhat = what.size > 0 && (
     origin === "ghl"
       ? true
-      : (what.has("clients")       ? !!clientsFile       : true) &&
-        (what.has("salesMetrics")   ? !!salesMetricsFile   : true) &&
-        (what.has("financeMetrics") ? !!financeMetricsFile : true)
+      : (!what.has("clients") || !!clientsFile) &&
+        (!what.has("salesMetrics") || manualSalesRows.some(r => r.period))
   );
 
-  const canAdvanceFromMapper = (
-    (!clientsPreview || isMappingValid("clients", columnMapping.clientsMapping)) &&
-    (
-      !salesMetricsPreview ? true :
-      transposedTypes.has("salesMetrics")
-        ? Object.values(transposedSalesRowMapping).some(Boolean)
-        : isMappingValid("salesMetrics", columnMapping.salesMetricsMapping)
-    ) &&
-    (
-      !financeMetricsPreview ? true :
-      transposedTypes.has("financeMetrics")
-        ? Object.values(transposedFinanceRowMapping).some(Boolean)
-        : isMappingValid("financeMetrics", columnMapping.financeMetricsMapping)
-    )
-  );
+  const canAdvanceFromMapper = !clientsPreview || isMappingValid("clients", columnMapping.clientsMapping);
 
   const handleClientsSheetChange = async (sheet: string) => {
     if (!clientsFile) return;
@@ -853,67 +718,11 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
         setClientsPreview(result.data);
         setColumnMapping((prev) => ({
           ...prev,
-          clientsMapping: autoMap("clients", result.data.headers) as Partial<ColumnMapping>,
+          clientsMapping: autoMapClients(result.data.headers) as Partial<ColumnMapping>,
         }));
       }
     } finally {
       setClientsSheetLoading(false);
-    }
-  };
-
-  const handleSalesMetricsSheetChange = async (sheet: string) => {
-    if (!salesMetricsFile) return;
-    setSalesMetricsSheetLoading(true);
-    try {
-      const result = await getExcelPreviewAction(salesMetricsFile.base64, sheet);
-      if (result.success) {
-        setSalesMetricsPreview(result.data);
-        const isTransposed = isTransposedMetricsFormat(result.data.headers);
-        setTransposedTypes((prev) => {
-          const next = new Set(prev);
-          if (isTransposed) next.add("salesMetrics"); else next.delete("salesMetrics");
-          return next;
-        });
-        if (isTransposed && result.data.rowLabels?.length) {
-          setTransposedSalesRowMapping(autoMapTransposedRows("salesMetrics", result.data.rowLabels));
-        } else {
-          setTransposedSalesRowMapping({});
-          setColumnMapping((prev) => ({
-            ...prev,
-            salesMetricsMapping: autoMap("salesMetrics", result.data.headers) as Partial<SalesMetricsColumnMapping>,
-          }));
-        }
-      }
-    } finally {
-      setSalesMetricsSheetLoading(false);
-    }
-  };
-
-  const handleFinanceMetricsSheetChange = async (sheet: string) => {
-    if (!financeMetricsFile) return;
-    setFinanceMetricsSheetLoading(true);
-    try {
-      const result = await getExcelPreviewAction(financeMetricsFile.base64, sheet);
-      if (result.success) {
-        setFinanceMetricsPreview(result.data);
-        const isTransposed = isTransposedMetricsFormat(result.data.headers);
-        setTransposedTypes((prev) => {
-          const next = new Set(prev);
-          if (isTransposed) next.add("financeMetrics"); else next.delete("financeMetrics");
-          return next;
-        });
-        if (isTransposed && result.data.rowLabels?.length) {
-          setTransposedFinanceRowMapping(autoMapTransposedRows("financeMetrics", result.data.rowLabels));
-        } else {
-          setTransposedFinanceRowMapping({});
-          setColumnMapping((prev) => ({
-            ...prev,
-            financeMetricsMapping: autoMap("financeMetrics", result.data.headers) as Partial<FinanceMetricsColumnMapping>,
-          }));
-        }
-      }
-    } finally {
-      setFinanceMetricsSheetLoading(false);
     }
   };
 
@@ -942,64 +751,34 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
         }
       }
 
-      // ── Métricas de ventas ──
-      if (what.has("salesMetrics") && origin === "excel" && salesMetricsFile) {
-        if (transposedTypes.has("salesMetrics")) {
-          // Formato pivot: métricas como filas, meses como columnas — mapeo manual del usuario
-          const r = await importSalesMetricsTransposedAction(
-            salesMetricsFile.base64,
-            transposedSalesRowMapping,
-            salesMetricsPreview?.activeSheet
-          );
-          if (!r.success) throw new Error(r.error);
-          result.salesMetricsResult = r.data;
-        } else if (columnMapping.salesMetricsMapping?.period) {
-          // Formato estándar: un período por fila, mapeo de columnas manual
-          const r = await importSalesMetricsFromExcelAction(
-            salesMetricsFile.base64,
-            columnMapping.salesMetricsMapping as SalesMetricsColumnMapping,
-            salesMetricsPreview?.activeSheet
-          );
-          if (!r.success) throw new Error(r.error);
-          result.salesMetricsResult = r.data;
-        }
-      }
-
-      // ── Métricas de finanzas ──
-      if (what.has("financeMetrics") && origin === "excel" && financeMetricsFile) {
-        if (transposedTypes.has("financeMetrics")) {
-          // Formato pivot: métricas como filas, meses como columnas — mapeo manual del usuario
-          const r = await importFinanceMetricsTransposedAction(
-            financeMetricsFile.base64,
-            transposedFinanceRowMapping,
-            financeMetricsPreview?.activeSheet
-          );
-          if (!r.success) throw new Error(r.error);
-          result.financeMetricsResult = r.data;
-        } else if (columnMapping.financeMetricsMapping?.period) {
-          // Formato estándar: un período por fila, mapeo de columnas manual
-          const r = await importFinanceMetricsFromExcelAction(
-            financeMetricsFile.base64,
-            columnMapping.financeMetricsMapping as FinanceMetricsColumnMapping,
-            financeMetricsPreview?.activeSheet
-          );
-          if (!r.success) throw new Error(r.error);
-          result.financeMetricsResult = r.data;
-        }
+      // ── Métricas de ventas (manual) ──
+      if (what.has("salesMetrics")) {
+        const rows: ManualSalesMetricInput[] = manualSalesRows
+          .filter(r => r.period)
+          .map(r => ({
+            period:         r.period,
+            leadsTotales:   parseNum(r.leadsTotales),
+            agendasTotales: parseNum(r.agendasTotales),
+            asistencias:    parseNum(r.asistencias),
+            inasistencias:  parseNum(r.inasistencias),
+            cierres:        parseNum(r.cierres),
+            facturacion:    parseNum(r.facturacion),
+          }));
+        const r = await importSalesMetricsManualAction(rows);
+        if (!r.success) throw new Error(r.error);
+        result.salesMetricsResult = r.data;
       }
 
       setSummary(result);
       const totalImported =
         (result.clientsResult?.inserted ?? 0) +
-        (result.salesMetricsResult?.inserted ?? 0) +
-        (result.financeMetricsResult?.inserted ?? 0);
+        (result.salesMetricsResult?.inserted ?? 0);
       push({
         title: "Importación completada",
         description: `${totalImported} registros importados`,
         variant: "success",
       });
 
-      // Refresh para que el sidebar y el módulo de clientes actualicen contadores
       setTimeout(() => router.refresh(), 500);
     } catch (e) {
       push({
@@ -1013,16 +792,17 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
 
   // ── Stepper labels ──
   const steps: { key: Step; label: string }[] = [
-    { key: "origin", label: "Origen" },
-    { key: "what",   label: "Qué importar" },
-    ...(origin === "excel" ? [{ key: "mapper" as Step, label: "Mapeo" }] : []),
+    { key: "origin",  label: "Origen" },
+    { key: "what",    label: "Qué importar" },
+    ...(needsMapper ? [{ key: "mapper" as Step, label: "Mapeo" }] : []),
     { key: "confirm", label: "Confirmar" },
   ];
 
+  // Recalculate stepIndex each render using current `step`
   const stepIndex = steps.findIndex((s) => s.key === step);
 
   const handleBack = () => {
-    if (step === "confirm") setStep(origin === "excel" ? "mapper" : "what");
+    if (step === "confirm") setStep(needsMapper ? "mapper" : "what");
     else if (step === "mapper") setStep("what");
     else setStep("origin");
   };
@@ -1032,6 +812,12 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
     else if (step === "what") void handleAdvanceFromWhat();
     else if (step === "mapper") setStep("confirm");
   };
+
+  const canAdvance =
+    step === "origin"  ? canAdvanceFromOrigin  :
+    step === "what"    ? canAdvanceFromWhat    :
+    step === "mapper"  ? canAdvanceFromMapper  :
+    false;
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
@@ -1071,35 +857,20 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             ghlPreview={ghlPreview}
             ghlPreviewLoading={ghlPreviewLoading}
             clientsFile={clientsFile}
-            salesMetricsFile={salesMetricsFile}
-            financeMetricsFile={financeMetricsFile}
             onClientsFile={setClientsFile}
-            onSalesMetricsFile={setSalesMetricsFile}
-            onFinanceMetricsFile={setFinanceMetricsFile}
+            manualSalesRows={manualSalesRows}
+            onManualSalesRowsChange={setManualSalesRows}
           />
         )}
         {step === "mapper" && (
           <StepMapper
             clientsPreview={clientsPreview}
-            salesMetricsPreview={salesMetricsPreview}
-            financeMetricsPreview={financeMetricsPreview}
             clientsFile={clientsFile}
-            salesMetricsFile={salesMetricsFile}
-            financeMetricsFile={financeMetricsFile}
             mapping={columnMapping}
             onMapping={setColumnMapping}
             loading={mapperLoading}
-            transposedTypes={transposedTypes}
-            transposedSalesRowMapping={transposedSalesRowMapping}
-            transposedFinanceRowMapping={transposedFinanceRowMapping}
-            onTransposedSalesRowMappingChange={setTransposedSalesRowMapping}
-            onTransposedFinanceRowMappingChange={setTransposedFinanceRowMapping}
-            onClientsSheetChange={handleClientsSheetChange}
-            onSalesMetricsSheetChange={handleSalesMetricsSheetChange}
-            onFinanceMetricsSheetChange={handleFinanceMetricsSheetChange}
             clientsSheetLoading={clientsSheetLoading}
-            salesMetricsSheetLoading={salesMetricsSheetLoading}
-            financeMetricsSheetLoading={financeMetricsSheetLoading}
+            onClientsSheetChange={handleClientsSheetChange}
           />
         )}
         {step === "confirm" && (
@@ -1108,8 +879,7 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             what={what}
             ghlPreview={ghlPreview}
             clientsFile={clientsFile}
-            salesMetricsFile={salesMetricsFile}
-            financeMetricsFile={financeMetricsFile}
+            manualSalesRows={manualSalesRows}
             importing={importing}
             summary={summary}
             onImport={handleImport}
@@ -1125,23 +895,20 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
                 variant="ghost"
                 size="sm"
                 onClick={handleBack}
+                className="gap-1"
               >
-                <ChevronLeft className="h-4 w-4 mr-1" /> Atrás
+                <ChevronLeft className="h-4 w-4" /> Atrás
               </Button>
             ) : <div />}
-
             {step !== "confirm" && (
               <Button
                 type="button"
                 size="sm"
-                disabled={
-                  (step === "origin" && !canAdvanceFromOrigin) ||
-                  (step === "what"   && !canAdvanceFromWhat) ||
-                  (step === "mapper" && (!canAdvanceFromMapper || mapperLoading))
-                }
                 onClick={handleNext}
+                disabled={!canAdvance}
+                className="gap-1"
               >
-                Siguiente <ChevronRight className="h-4 w-4 ml-1" />
+                Siguiente <ChevronRight className="h-4 w-4" />
               </Button>
             )}
           </div>
@@ -1149,111 +916,4 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
       </div>
     </div>
   );
-}
-
-// ─── Auto-mapeo por nombre de columna ─────────────────────────────────────────
-
-const CLIENT_KNOWN: Record<string, string> = {
-  nombre: "name", "nombre completo": "name", name: "name",
-  email: "email", correo: "email",
-  teléfono: "phone", telefono: "phone", phone: "phone", tel: "phone",
-  "producto / plan": "product", producto: "product", plan: "product",
-  "monto total": "totalAmount", "monto pagado": "totalAmount", "cash collected": "totalAmount",
-  monto: "totalAmount", importe: "totalAmount",
-  "fecha inicio": "joinDate", "fecha de inicio": "joinDate",
-};
-
-const SALES_METRICS_KNOWN: Record<string, string> = {
-  "período": "period", periodo: "period", semana: "period", week: "period", fecha: "period", date: "period",
-  "leads totales": "leadsTotales", leads: "leadsTotales",
-  "agendas totales": "agendasTotales", agendas: "agendasTotales",
-  asistencias: "asistencias", asistencia: "asistencias",
-  inasistencias: "inasistencias", inasistencia: "inasistencias",
-  cierres: "cierres", cierre: "cierres",
-  "no cierres": "noCierres", "no cierre": "noCierres",
-  señas: "señas", seña: "señas",
-  facturación: "facturacion", facturacion: "facturacion", facturado: "facturacion",
-  "cash collected": "cashCollected", cobrado: "cashCollected",
-  "close rate": "closeRate", "tasa de cierre": "closeRate",
-  "show rate": "showRate", "tasa de show": "showRate",
-  "tasa de agendamiento": "tasaAgendamiento", "tasa agendamiento": "tasaAgendamiento",
-  "tasa de fantasma": "tasaFantasma", "tasa fantasma": "tasaFantasma",
-  "en nutrición": "enNutricion", "en nutricion": "enNutricion", nutricion: "enNutricion",
-  perdidos: "perdidos",
-  seguimientos: "seguimientos",
-  "tiempo de respuesta": "tiempoRespuesta", "tiempo respuesta": "tiempoRespuesta",
-};
-
-const FINANCE_METRICS_KNOWN: Record<string, string> = {
-  "período": "period", periodo: "period", mes: "period", month: "period", fecha: "period", date: "period",
-  facturación: "facturacion", facturacion: "facturacion", facturado: "facturacion",
-  "cash collected": "cashCollected", cobrado: "cashCollected",
-  margen: "margen", margin: "margen",
-  "por cobrar": "porCobrar", "cuentas por cobrar": "porCobrar",
-  gastos: "gastos", expenses: "gastos",
-};
-
-function autoMap(
-  type: "clients" | "salesMetrics" | "financeMetrics",
-  headers: string[]
-): Record<string, string> {
-  const known =
-    type === "clients"      ? CLIENT_KNOWN :
-    type === "salesMetrics" ? SALES_METRICS_KNOWN :
-    FINANCE_METRICS_KNOWN;
-  const result: Record<string, string> = {};
-  for (const h of headers) {
-    const norm = h.toLowerCase().trim();
-    const field = known[norm];
-    if (field && !result[field]) {
-      result[field] = h;
-    }
-  }
-  return result;
-}
-
-// ─── Campos para el mapper de filas transpuestas ──────────────────────────────
-
-type RowField = { key: string; label: string };
-
-// Solo métricas primarias — OTC calcula automáticamente: close rate, show rate,
-// tasa agendamiento, no_cierres y tasa_fantasma.
-const SALES_ROW_FIELDS: RowField[] = [
-  { key: "leadsTotales",   label: "Leads totales" },
-  { key: "agendasTotales", label: "Agendas totales" },
-  { key: "asistencias",    label: "Show up" },
-  { key: "inasistencias",  label: "No show up" },
-  { key: "cierres",        label: "Cierres" },
-  { key: "facturacion",    label: "Facturación" },
-];
-
-// Solo métricas primarias — las derivadas se calculan automáticamente:
-// margen     = facturacion − gastos
-// pct_margen = margen / facturacion
-const FINANCE_ROW_FIELDS: RowField[] = [
-  { key: "facturacion",   label: "Facturación" },
-  { key: "cashCollected", label: "Cash collected" },
-  { key: "gastos",        label: "Gastos" },
-  { key: "porCobrar",     label: "Por cobrar" },
-];
-
-/**
- * A partir de las etiquetas de fila del archivo, sugiere un mapeo automático
- * usando el diccionario de sinónimos. El usuario puede editarlo luego.
- * Excluye el campo "period" (en formato pivotado, los períodos son las columnas).
- */
-function autoMapTransposedRows(
-  type: "salesMetrics" | "financeMetrics",
-  rowLabels: string[]
-): Record<string, string> {
-  const known = type === "salesMetrics" ? SALES_METRICS_KNOWN : FINANCE_METRICS_KNOWN;
-  const result: Record<string, string> = {};
-  for (const label of rowLabels) {
-    const norm = label.toLowerCase().trim();
-    const fieldKey = known[norm];
-    if (fieldKey && fieldKey !== "period" && !result[fieldKey]) {
-      result[fieldKey] = label;
-    }
-  }
-  return result;
 }
