@@ -27,7 +27,6 @@ import {
   type ExcelColumnMapperValue,
 } from "@/components/integrations/excel-column-mapper";
 import { Upload, Database, FileSpreadsheet, CheckCircle, Loader2, ChevronRight, ChevronLeft, Users, Phone, TrendingUp, DollarSign } from "lucide-react";
-import { paths } from "@/routes";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -135,8 +134,9 @@ function OriginCard({
 // ─── Sub-componente: fila de archivo por tipo ─────────────────────────────────
 
 function FileRow({
-  label,
-  icon,
+  // label and icon kept in interface for callers but not rendered (uploadLabel is used instead)
+  label: _label,
+  icon: _icon,
   file,
   accept,
   onFile,
