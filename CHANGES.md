@@ -14,6 +14,40 @@
 
 ---
 
+### 2026-08-25 — FEAT-IMPORT-MANUAL-FORM: Formulario manual de métricas de ventas + eliminación de finanzas
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit(s):** `49c5e58` — feat(import): eliminar métricas de finanzas y convertir ventas a formulario manual  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `lib/metrics/excel-parser.ts`, `app/clients/import-actions.ts`, `components/integrations/data-import-wizard.tsx`
+
+**Qué se hizo:**
+- Eliminada completamente la opción "Métricas de finanzas" del wizard de importación
+- Reemplazada la carga de archivo `.xlsx` para métricas de ventas por un formulario manual inline (`ManualSalesForm`):
+  - Grid con una fila por período, `<input type="month">` para el mes y texto para cada métrica
+  - Auto-sugiere el mes anterior al inicializar; botón + para agregar filas, botón Trash para eliminar
+  - Campos: Leads totales, Agendas totales, Show up, No show up, Cierres, Facturación
+- `deriveSalesMetrics()` en `excel-parser.ts` pasó de privada a exportada para uso en la acción manual
+- Nueva Server Action `importSalesMetricsManualAction(rows: ManualSalesMetricInput[])` en `import-actions.ts`:
+  - Valida formato `YYYY-MM`; convierte a `period_start = YYYY-MM-01`; genera `period_label` en español
+  - Llama `deriveSalesMetrics()` antes del upsert a `metrics_snapshots`
+- El paso "Mapeo" solo aparece cuando se está importando un archivo Excel de clientes
+- `WhatToImport` ahora es `"clients" | "salesMetrics"` (eliminado `"financeMetrics"`)
+
+**Por qué / finalidad:**
+El usuario decidió que la forma más práctica de cargar métricas de ventas históricas es un formulario directo (datos del software propios del usuario), sin necesidad de preparar un Excel. Las métricas de finanzas se manejarán de otra forma.
+
+**Decisiones de diseño relevantes:**
+- Se mantiene el flujo Excel solo para importar contactos (clientes), donde el mapeo de columnas tiene valor
+- El formulario manual es más ergonómico: el usuario ingresa un mes y los valores directamente
+- `<input type="month">` devuelve `YYYY-MM`; se convierte a `YYYY-MM-01` al persistir en `period_start`
+
+**Riesgos / deuda técnica pendiente:**
+- Las métricas de finanzas quedan sin UI de carga por ahora (pendiente definir cómo se cargarán)
+- La tabla `metrics_snapshots` sigue teniendo soporte para `category = "finance"` en el schema
+
+---
+
 ### 2026-08-25 — FEAT-METRICS-DERIVE: Auto-derivación de métricas combinadas al importar
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
