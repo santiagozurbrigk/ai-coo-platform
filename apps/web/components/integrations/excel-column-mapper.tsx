@@ -275,12 +275,14 @@ export function ExcelColumnMapper({
 }: ExcelColumnMapperProps) {
   const [showPreview, setShowPreview] = useState<Record<string, boolean>>({});
 
-  const sections: SectionDef[] = [
-    { key: "clientsMapping",       type: "clients",       label: "Clientes",                   headers: clientsHeaders,       previewRows: clientsPreviewRows },
-    { key: "closingMapping",       type: "closing",       label: "Llamadas de cierre",          headers: closingHeaders,       previewRows: closingPreviewRows },
-    { key: "salesMetricsMapping",  type: "salesMetrics",  label: "Métricas de ventas",          headers: salesMetricsHeaders,  previewRows: salesMetricsPreviewRows },
-    { key: "financeMetricsMapping",type: "financeMetrics",label: "Métricas de finanzas",        headers: financeMetricsHeaders,previewRows: financeMetricsPreviewRows },
-  ].filter((s) => !!s.headers?.length);
+  const sections: SectionDef[] = (
+    [
+      { key: "clientsMapping",       type: "clients",       label: "Clientes",                   headers: clientsHeaders,       previewRows: clientsPreviewRows },
+      { key: "closingMapping",       type: "closing",       label: "Llamadas de cierre",          headers: closingHeaders,       previewRows: closingPreviewRows },
+      { key: "salesMetricsMapping",  type: "salesMetrics",  label: "Métricas de ventas",          headers: salesMetricsHeaders,  previewRows: salesMetricsPreviewRows },
+      { key: "financeMetricsMapping",type: "financeMetrics",label: "Métricas de finanzas",        headers: financeMetricsHeaders,previewRows: financeMetricsPreviewRows },
+    ] as SectionDef[]
+  ).filter((s) => !!s.headers?.length);
 
   const togglePreview = (key: string) =>
     setShowPreview((p) => ({ ...p, [key]: !p[key] }));
