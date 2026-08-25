@@ -86,4 +86,15 @@ export type ClosePaymentPayload = {
   /** Fecha del pago registrado (YYYY-MM-DD). */
   paymentDate: string;
   proof: PaymentProofMeta;
+  /**
+   * Si el closer overrideó los montos por cuota manualmente (aplica cuando
+   * paymentType === "installments").
+   * Longitud = installmentCount. Cuando está presente, reemplaza installmentAmount
+   * uniforme; cada posición tiene el monto real acordado para esa cuota.
+   */
+  customInstallmentAmounts?: number[];
+  /** UUID del plan seleccionado al cerrar (opcional). */
+  planId?: string;
+  /** ID del sistema de cuotas elegido dentro del plan (opcional). */
+  selectedInstallmentSystemId?: string;
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import {
   Button,
   Dialog,
@@ -20,9 +20,11 @@ import {
 } from "@/components/clients/payment-receipt-dropzone";
 import { useFinanceData } from "@/providers";
 import type { ClosePaymentPayload } from "@/types/closing";
+import type { Plan } from "@/types/plans";
 import Link from "next/link";
 import { paths } from "@/routes";
 import { getProfileAreaDataAction } from "@/app/profile/actions";
+import { listPlansAction } from "@/app/clients/plan-actions";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm";
@@ -89,27 +91,103 @@ export function PaymentModal({
   const [fathomUrl, setFathomUrl] = useState("");
   const [closerName, setCloserName] = useState("");
 
+  // ── Planes y sistemas de cuotas ──────────────────────────────────────────
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
+  const [selectedSystemId, setSelectedSystemId] = useState<string>("");
+  /** Montos manuales por cuota (un elemento por cuota del sistema seleccionado) */
+  const [customInstallmentAmounts, setCustomInstallmentAmounts] = useState<string[]>([]);
+
+  const selectedPlan = plans.find((p) => p.id === selectedPlanId);
+  const selectedSystem = selectedPlan?.installmentSystems.find(
+    (s) => s.id === selectedSystemId
+  );
+
+  // Cuando se elige un sistema, inicializar los montos con el default del sistema
+  useEffect(() => {
+    if (!selectedSystem) {
+      setCustomInstallmentAmounts([]);
+      return;
+    }
+    setInstallmentCount(String(selectedSystem.count));
+    setCustomInstallmentAmounts(
+      Array.from({ length: selectedSystem.count }, () =>
+        String(selectedSystem.amountPerInstallment || "")
+      )
+    );
+  }, [selectedSystem]);
+
+  // Cuando cambia el count manualmente (sin sistema), reinicializar custom amounts
+  const handleInstallmentCountChange = (val: string) => {
+    setInstallmentCount(val);
+    const n = Number(val) || 0;
+    if (!selectedSystem) {
+      // Sin sistema: distribuir el mismo monto manual en N cuotas
+      setCustomInstallmentAmounts(
+        Array.from({ length: n }, () => installmentAmount)
+      );
+    }
+  };
+
+  const updateCustomAmount = (index: number, value: string) => {
+    setCustomInstallmentAmounts((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  };
+
+  // Primera cuota pagada = primer monto de la lista
+  const firstInstallmentPaid =
+    paymentType === "installments" && customInstallmentAmounts.length > 0
+      ? Number(customInstallmentAmounts[0]) || 0
+      : Number(installmentAmount) || 0;
+
   useEffect(() => {
     if (open) {
       setClientName(defaultName);
       setProofFile(null);
       setError(null);
       setPaymentReceivedFrom("");
+      setSelectedPlanId("");
+      setSelectedSystemId("");
+      setCustomInstallmentAmounts([]);
       if (!paymentDestId && paymentPlatforms[0]) {
         setPaymentDestId(paymentPlatforms[0].id);
       }
       void getProfileAreaDataAction().then((data) => {
         setCloserName(data?.userName?.trim() ?? "");
       });
+      // Cargar planes
+      void listPlansAction().then(setPlans);
     }
   }, [open, defaultName, paymentPlatforms, paymentDestId]);
 
+  // Cuando se elige un plan, pre-llenar el producto ofrecido
+  useEffect(() => {
+    if (selectedPlan && !offeredProduct) {
+      setOfferedProduct(selectedPlan.name);
+    }
+  }, [selectedPlan, offeredProduct]);
+
+  // Cuando se desmarca el plan, resetear sistema
+  useEffect(() => {
+    setSelectedSystemId("");
+    setCustomInstallmentAmounts([]);
+  }, [selectedPlanId]);
+
   const handleSubmit = () => {
-    const paidAmount = paidAmountForType(paymentType, {
-      totalAmount,
-      installmentAmount,
-      upfrontAmount,
-    });
+    // Validar monto
+    let paidAmount: number;
+    if (paymentType === "installments" && customInstallmentAmounts.length > 0) {
+      paidAmount = Number(customInstallmentAmounts[0]) || 0;
+    } else {
+      paidAmount = paidAmountForType(paymentType, {
+        totalAmount,
+        installmentAmount,
+        upfrontAmount,
+      });
+    }
 
     if (paidAmount <= 0) {
       setError("Ingresá el monto pagado.");
@@ -167,13 +245,27 @@ export function PaymentModal({
         mainPain: mainPain.trim() || undefined,
         objections: objections.trim() || undefined,
         feedbackNotes: feedbackNotes.trim() || undefined,
+        planId: selectedPlanId || undefined,
+        selectedInstallmentSystemId: selectedSystemId || undefined,
       };
 
       if (paymentType === "upfront") {
         payload.totalAmount = Number(totalAmount) || 0;
       } else if (paymentType === "installments") {
-        payload.installmentCount = Number(installmentCount) || 1;
-        payload.installmentAmount = Number(installmentAmount) || 0;
+        const count = Number(installmentCount) || 1;
+        payload.installmentCount = count;
+
+        if (customInstallmentAmounts.length > 0) {
+          // Montos manuales por cuota
+          payload.customInstallmentAmounts = customInstallmentAmounts
+            .slice(0, count)
+            .map((v) => Number(v) || 0);
+          // installmentAmount = promedio (referencia)
+          const total = payload.customInstallmentAmounts.reduce((s, a) => s + a, 0);
+          payload.installmentAmount = count > 0 ? total / count : 0;
+        } else {
+          payload.installmentAmount = Number(installmentAmount) || 0;
+        }
         payload.firstInstallmentDate = firstDate;
       } else {
         payload.upfrontAmount = Number(upfrontAmount) || 0;
@@ -189,6 +281,16 @@ export function PaymentModal({
       }
     });
   };
+
+  // ── Render ───────────────────────────────────────────────────────────────
+
+  // Para cuotas con sistema seleccionado: mostrar N campos individuales
+  const showCustomInstallments =
+    paymentType === "installments" &&
+    (selectedSystem != null || customInstallmentAmounts.length > 0);
+  const installmentFieldCount = showCustomInstallments
+    ? Number(installmentCount) || 1
+    : 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -212,10 +314,30 @@ export function PaymentModal({
               <FormField label="Nombre completo del cliente">
                 <Input
                   value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setClientName(e.target.value)}
                   disabled={pending}
                 />
               </FormField>
+
+              {/* Selector de plan (opcional) */}
+              {plans.length > 0 && (
+                <FormField label="Plan contratado (opcional)">
+                  <select
+                    className={selectClass}
+                    value={selectedPlanId}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedPlanId(e.target.value)}
+                    disabled={pending}
+                  >
+                    <option value="">Sin plan específico</option>
+                    {plans.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                        {p.durationDays ? ` (${p.durationDays} días)` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+              )}
 
               {paymentPlatforms.length > 0 ? (
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -223,7 +345,7 @@ export function PaymentModal({
                     <Input
                       placeholder='Ej. "Transferencia Banco Galicia", "Wise USD"'
                       value={paymentReceivedFrom}
-                      onChange={(e) => setPaymentReceivedFrom(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentReceivedFrom(e.target.value)}
                       disabled={pending}
                     />
                   </FormField>
@@ -231,7 +353,7 @@ export function PaymentModal({
                     <select
                       className={selectClass}
                       value={paymentDestId}
-                      onChange={(e) => setPaymentDestId(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPaymentDestId(e.target.value)}
                       disabled={pending}
                     >
                       <option value="">Seleccionar destino…</option>
@@ -264,7 +386,7 @@ export function PaymentModal({
                 <select
                   className={selectClass}
                   value={paymentType}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                     setPaymentType(e.target.value as typeof paymentType)
                   }
                   disabled={pending}
@@ -281,7 +403,7 @@ export function PaymentModal({
                     <Input
                       type="number"
                       value={totalAmount}
-                      onChange={(e) => setTotalAmount(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTotalAmount(e.target.value)}
                       disabled={pending}
                     />
                   </FormField>
@@ -296,32 +418,94 @@ export function PaymentModal({
               )}
 
               {paymentType === "installments" && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField label="Número de cuotas">
-                    <Input
-                      type="number"
-                      value={installmentCount}
-                      onChange={(e) => setInstallmentCount(e.target.value)}
-                      disabled={pending}
-                    />
-                  </FormField>
-                  <FormField label="Monto por cuota">
-                    <Input
-                      type="number"
-                      value={installmentAmount}
-                      onChange={(e) => setInstallmentAmount(e.target.value)}
-                      disabled={pending}
-                    />
-                  </FormField>
-                  <FormField label="Fecha primera cuota" className="sm:col-span-2">
-                    <Input
-                      type="date"
-                      value={firstDate}
-                      onChange={(e) => setFirstDate(e.target.value)}
-                      disabled={pending}
-                    />
-                  </FormField>
-                  <FormField label="Comprobante primera cuota" className="sm:col-span-2">
+                <div className="space-y-3">
+                  {/* Si hay plan seleccionado con sistemas de cuotas, mostrar selector */}
+                  {selectedPlan && selectedPlan.installmentSystems.length > 0 && (
+                    <FormField label="Sistema de cuotas">
+                      <select
+                        className={selectClass}
+                        value={selectedSystemId}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedSystemId(e.target.value)}
+                        disabled={pending}
+                      >
+                        <option value="">Elegir sistema de cuotas…</option>
+                        {selectedPlan.installmentSystems.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name || `${s.count} cuotas`}
+                            {s.amountPerInstallment > 0
+                              ? ` — $${s.amountPerInstallment.toLocaleString("es-AR")} c/u`
+                              : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
+                  )}
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <FormField label="Número de cuotas">
+                      <Input
+                        type="number"
+                        value={installmentCount}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInstallmentCountChange(e.target.value)}
+                        disabled={pending || !!selectedSystem}
+                      />
+                    </FormField>
+                    <FormField label="Fecha primera cuota">
+                      <Input
+                        type="date"
+                        value={firstDate}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFirstDate(e.target.value)}
+                        disabled={pending}
+                      />
+                    </FormField>
+                  </div>
+
+                  {/* Montos por cuota: si hay sistema seleccionado o ya se inicializaron */}
+                  {showCustomInstallments && installmentFieldCount > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Monto acordado por cuota (podés modificar cada uno):
+                      </p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {Array.from({ length: installmentFieldCount }, (_, i) => (
+                          <FormField key={i} label={`Cuota ${i + 1}`}>
+                            <Input
+                              type="number"
+                              min={0}
+                              placeholder="0"
+                              value={customInstallmentAmounts[i] ?? ""}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateCustomAmount(i, e.target.value)}
+                              disabled={pending}
+                            />
+                          </FormField>
+                        ))}
+                      </div>
+                      {installmentFieldCount > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Total:{" "}
+                          <span className="font-medium text-foreground">
+                            $
+                            {customInstallmentAmounts
+                              .slice(0, installmentFieldCount)
+                              .reduce((s, v) => s + (Number(v) || 0), 0)
+                              .toLocaleString("es-AR")}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    // Sin sistema seleccionado: monto uniforme
+                    <FormField label="Monto por cuota">
+                      <Input
+                        type="number"
+                        value={installmentAmount}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInstallmentAmount(e.target.value)}
+                        disabled={pending}
+                      />
+                    </FormField>
+                  )}
+
+                  <FormField label="Comprobante primera cuota">
                     <PaymentReceiptDropzone
                       file={proofFile}
                       onFileChange={setProofFile}
@@ -338,7 +522,7 @@ export function PaymentModal({
                     <Input
                       type="number"
                       value={upfrontAmount}
-                      onChange={(e) => setUpfrontAmount(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUpfrontAmount(e.target.value)}
                       disabled={pending}
                     />
                   </FormField>
@@ -346,7 +530,7 @@ export function PaymentModal({
                     <Input
                       type="number"
                       value={feeAmount}
-                      onChange={(e) => setFeeAmount(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFeeAmount(e.target.value)}
                       disabled={pending}
                     />
                   </FormField>
@@ -354,7 +538,7 @@ export function PaymentModal({
                     <select
                       className={selectClass}
                       value={feeFrequency}
-                      onChange={(e) =>
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                         setFeeFrequency(e.target.value as "monthly" | "weekly")
                       }
                       disabled={pending}
@@ -377,7 +561,7 @@ export function PaymentModal({
                 <Input
                   placeholder="https://fathom.video/..."
                   value={fathomUrl}
-                  onChange={(e) => setFathomUrl(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFathomUrl(e.target.value)}
                   disabled={pending}
                 />
               </FormField>
@@ -392,7 +576,7 @@ export function PaymentModal({
                   <Input
                     placeholder="Ej. Programa High Ticket 12 semanas"
                     value={offeredProduct}
-                    onChange={(e) => setOfferedProduct(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOfferedProduct(e.target.value)}
                     disabled={pending}
                   />
                 </FormField>
@@ -400,7 +584,7 @@ export function PaymentModal({
                   <Input
                     placeholder="Ej. Coach 35–50 años, factura 20k/mes"
                     value={avatar}
-                    onChange={(e) => setAvatar(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAvatar(e.target.value)}
                     disabled={pending}
                   />
                 </FormField>
@@ -410,7 +594,7 @@ export function PaymentModal({
                   rows={3}
                   placeholder="¿Qué problema urgente quería resolver?"
                   value={mainPain}
-                  onChange={(e) => setMainPain(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMainPain(e.target.value)}
                   disabled={pending}
                 />
               </FormField>
@@ -419,7 +603,7 @@ export function PaymentModal({
                   rows={3}
                   placeholder="Precio, timing, pareja, falta de claridad…"
                   value={objections}
-                  onChange={(e) => setObjections(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setObjections(e.target.value)}
                   disabled={pending}
                 />
               </FormField>
@@ -428,7 +612,7 @@ export function PaymentModal({
                   rows={4}
                   placeholder="Resumen de la llamada, próximos pasos, acuerdos…"
                   value={feedbackNotes}
-                  onChange={(e) => setFeedbackNotes(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFeedbackNotes(e.target.value)}
                   disabled={pending}
                 />
               </FormField>

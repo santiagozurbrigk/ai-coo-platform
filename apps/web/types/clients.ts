@@ -67,4 +67,8 @@ export type Client = {
   avatar?: string;
   mainPain?: string;
   objections?: string;
+  /** UUID del plan asignado al cliente (referencia a public.plans) */
+  planId?: string;
+  /** ID del sistema de cuotas elegido dentro del plan */
+  selectedInstallmentSystemId?: string;
 };

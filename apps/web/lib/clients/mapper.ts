@@ -22,6 +22,8 @@ export type ClientRow = {
   ai_insights: string[] | null;
   linked_calls: Client["linkedCalls"] | null;
   offered_product: string | null;
+  plan_id: string | null;
+  selected_installment_system_id: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -48,6 +50,8 @@ export function rowToClient(row: ClientRow): Client {
     offeredProduct:
       row.offered_product?.trim() ||
       parseOfferedProductFromInsights(row.ai_insights ?? undefined),
+    planId: row.plan_id ?? undefined,
+    selectedInstallmentSystemId: row.selected_installment_system_id ?? undefined,
   };
 }
 
@@ -74,6 +78,8 @@ export function clientToInsertRow(
     ai_insights: client.aiInsights,
     linked_calls: client.linkedCalls,
     offered_product: client.offeredProduct ?? null,
+    plan_id: client.planId ?? null,
+    selected_installment_system_id: client.selectedInstallmentSystemId ?? null,
   };
 }
 
@@ -100,6 +106,9 @@ export function patchToUpdateRow(
   if (patch.offeredProduct !== undefined) {
     row.offered_product = patch.offeredProduct?.trim() || null;
   }
+  if (patch.planId !== undefined) row.plan_id = patch.planId ?? null;
+  if (patch.selectedInstallmentSystemId !== undefined)
+    row.selected_installment_system_id = patch.selectedInstallmentSystemId ?? null;
   row.updated_at = new Date().toISOString();
   return row;
 }

@@ -121,11 +121,15 @@ function buildClientFromPayment(
   callId: string,
   payment: ClosePaymentPayload
 ): Omit<Client, "id"> {
+  // Calcular ingresos totales:
+  // Para cuotas, si hay montos manuales por cuota, sumar esos; si no, usar monto uniforme × N
   const revenue =
     payment.paymentType === "upfront"
       ? payment.totalAmount ?? 0
       : payment.paymentType === "installments"
-        ? (payment.installmentAmount ?? 0) * (payment.installmentCount ?? 1)
+        ? payment.customInstallmentAmounts?.length
+          ? payment.customInstallmentAmounts.reduce((s, a) => s + a, 0)
+          : (payment.installmentAmount ?? 0) * (payment.installmentCount ?? 1)
         : (payment.upfrontAmount ?? 0) + (payment.feeAmount ?? 0);
 
   const installments =
@@ -136,10 +140,13 @@ function buildClientFromPayment(
               ? (payment.firstInstallmentDate ??
                 new Date().toISOString().slice(0, 10))
               : undefined;
+          // Monto: usa el override manual si está disponible, si no el uniforme
+          const amount =
+            payment.customInstallmentAmounts?.[i] ?? payment.installmentAmount ?? 0;
           return {
             id: `inst-${callId}-${i + 1}`,
             label: `Cuota ${i + 1}`,
-            amount: payment.installmentAmount ?? 0,
+            amount,
             status: (i === 0 ? "paid" : "pending") as "paid" | "pending",
             paidAt,
             dueDate: i === 0 ? payment.firstInstallmentDate : undefined,
@@ -194,6 +201,8 @@ function buildClientFromPayment(
           },
         ]
       : [],
+    planId: payment.planId,
+    selectedInstallmentSystemId: payment.selectedInstallmentSystemId,
   };
 }
 
@@ -597,8 +606,9 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
         payment.paymentType === "upfront"
           ? payment.totalAmount ?? 0
           : payment.paymentType === "installments"
-            ? (payment.installmentAmount ?? 0) *
-              (payment.installmentCount ?? 1)
+            ? payment.customInstallmentAmounts?.length
+              ? payment.customInstallmentAmounts.reduce((s, a) => s + a, 0)
+              : (payment.installmentAmount ?? 0) * (payment.installmentCount ?? 1)
             : (payment.upfrontAmount ?? 0) + (payment.feeAmount ?? 0);
 
       await updateClosingCall(callId, {

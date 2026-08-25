@@ -165,6 +165,41 @@ export async function importClientsAction(
   return { insertedCount: parsedRows.length, errors: [] };
 }
 
+export async function deleteClientAction(id: string): Promise<void> {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase no configurado");
+  }
+
+  const organizationId = await requireOrganizationId();
+
+  const idParsed = uuidSchema.safeParse(id);
+  if (!idParsed.success) {
+    throw new Error(firstZodError(idParsed.error));
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("clients")
+    .delete()
+    .eq("id", idParsed.data)
+    .eq("organization_id", organizationId);
+
+  if (error) {
+    throw new Error(error.message ?? "No se pudo eliminar el cliente");
+  }
+}
+
+export async function assignClientPlanAction(
+  clientId: string,
+  planId: string | null,
+  selectedInstallmentSystemId?: string | null
+): Promise<Client> {
+  return updateClientAction(clientId, {
+    planId: planId ?? undefined,
+    selectedInstallmentSystemId: selectedInstallmentSystemId ?? undefined,
+  });
+}
+
 export async function updateClientAction(
   id: string,
   patch: unknown
