@@ -14,6 +14,26 @@
 
 ---
 
+### 2026-08-25 — FIX-VENTAS-CASH-COLLECTED: panel de métricas de ventas usa gastos configurados para cash collected
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Módulo(s) afectado(s):** `components/sales/sales-metrics-redesign.tsx`
+
+**Qué se hizo:**
+- En la rama de snapshot fallback, `effectiveCashCollected` ahora usa `financeSummary.gastosTotales` (gastos configurados vía provider) como primera fuente en lugar de `sm["gastos"]` (que siempre es 0 en el snapshot importado).
+- Formula: `max(0, sm["facturacion"] - (financeSummary.gastosTotales > 0 ? financeSummary.gastosTotales : sm["gastos"]))`
+
+**Por qué / finalidad:**
+Panel de finanzas mostraba "Cash collected: US$ 10.000" (correcto) pero panel de métricas de ventas mostraba "US$ 12.500" (= facturación sin descontar gastos). La inconsistencia surgía porque el snapshot almacena `cash_collected = facturacion - 0` al momento del import (sin gastos). El panel de ventas leía ese valor directamente en lugar de derivarlo con los gastos reales.
+
+**Decisiones de diseño:**
+- Misma prioridad que el provider: gastos configurados en módulo > campo gastos del snapshot > 0
+- Consistente con `finance-data-provider.tsx` y `collect-context.ts` (fixes de sesión anterior)
+
+**Riesgos / deuda técnica:** Ninguno adicional — el provider ya tenía `gastosTotales` correcto.
+
+---
+
 ### 2026-08-25 — FIX-BASELINE-GASTOS: cashCollected y margenPercent usan gastos configurados del módulo (no snapshot)
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
