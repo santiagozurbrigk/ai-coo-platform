@@ -37,13 +37,16 @@ import { SummaryStrip } from "./metrics/summary-strip";
 import { useSalesMetrics } from "./metrics/use-sales-metrics";
 import type { DateRange } from "./metrics/date-range-picker";
 import type { FrequentObjectionsResult } from "@/types/sales";
+import type { MetricsSnapshot } from "@/app/sales/metrics-actions";
 
-// ─── Componente principal ──────────────────────────────────────────────────────
+// ─── Componente principal ─────────────────────────────────────────────────────
 
 export function SalesMetricsRedesign({
   frequentObjections,
+  importedSnapshots = [],
 }: {
   frequentObjections?: FrequentObjectionsResult;
+  importedSnapshots?: MetricsSnapshot[];
 }) {
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultDateRange);
 
@@ -64,6 +67,63 @@ export function SalesMetricsRedesign({
   } = useSalesMetrics(dateRange);
 
   const totalConvs = filteredConversations.length;
+
+  // ── Fallback: usar snapshot más reciente cuando no hay datos en vivo ──────
+  // perfMetrics viene de closing_calls/conversations; si el usuario no tiene
+  // datos operativos cargados en OTC, todas las métricas son 0.
+  // En ese caso usamos el snapshot importado más reciente como fuente.
+  const latestSnapshot = importedSnapshots[0] ?? null; // ordenados desc por period_start
+  const liveDataIsEmpty =
+    !perfMetrics ||
+    (perfMetrics.closer.closeRate === 0 &&
+      perfMetrics.closer.showRate === 0 &&
+      perfMetrics.leads.leadsCount === 0 &&
+      perfMetrics.calls.cierres === 0);
+  const useSnapshotFallback = liveDataIsEmpty && !!latestSnapshot;
+
+  const sm = latestSnapshot?.metrics ?? {};
+  const effectiveCloseRate = useSnapshotFallback
+    ? (sm["close_rate"] ?? 0) * 100
+    : (perfMetrics?.closer.closeRate ?? 0);
+  const effectiveShowRate = useSnapshotFallback
+    ? (sm["show_rate"] ?? 0) * 100
+    : (perfMetrics?.closer.showRate ?? 0);
+  const effectiveFacturacion = useSnapshotFallback
+    ? (sm["facturacion"] ?? financeSummary.facturacion)
+    : financeSummary.facturacion;
+  const effectiveLeads = useSnapshotFallback
+    ? (sm["leads_totales"] ?? 0)
+    : (perfMetrics?.leads.leadsCount ?? 0);
+  const effectiveAgendas = useSnapshotFallback
+    ? (sm["agendas_totales"] ?? 0)
+    : (perfMetrics?.leads.agendasCount ?? 0);
+  const effectiveCierres = useSnapshotFallback
+    ? (sm["cierres"] ?? 0)
+    : (perfMetrics?.calls.cierres ?? 0);
+  const effectiveAsistencias = useSnapshotFallback
+    ? (sm["asistencias"] ?? 0)
+    : (perfMetrics?.calls.asistencias ?? 0);
+  const effectiveInasistencias = useSnapshotFallback
+    ? (sm["inasistencias"] ?? 0)
+    : (perfMetrics?.calls.noShows ?? 0);
+  const effectiveNoCierres = useSnapshotFallback
+    ? (sm["no_cierres"] ?? 0)
+    : (perfMetrics?.calls.noCierres ?? 0);
+  const effectiveTasaAgendamiento = useSnapshotFallback
+    ? (sm["tasa_agendamiento"] ?? 0) * 100
+    : filteredMetrics.bookingRate;
+  const effectiveTasaFantasma = useSnapshotFallback
+    ? (sm["tasa_fantasma"] ?? 0) * 100
+    : filteredMetrics.ghostingRate;
+  const effectiveCashCollected = useSnapshotFallback
+    ? Math.max(
+        0,
+        (sm["facturacion"] ?? 0) -
+          (financeSummary.gastosTotales > 0
+            ? financeSummary.gastosTotales
+            : (sm["gastos"] ?? 0))
+      )
+    : financeSummary.cashCollected;
 
   // ── Franja de resumen inferior ────────────────────────────────────────────
   const summaryItems = [
@@ -93,32 +153,40 @@ export function SalesMetricsRedesign({
       <DateRangePicker value={dateRange} onChange={setDateRange} />
 
       {/* ── 1. KPI Heroes: 4 métricas principales ──────────────────────────── */}
+      {useSnapshotFallback && (
+        <div className="flex items-center gap-2 rounded-lg border border-violet-300/40 bg-violet-500/5 px-3 py-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
+          <p className="text-xs text-muted-foreground">
+            Mostrando datos del período importado más reciente (<span className="font-medium text-foreground">{latestSnapshot!.periodLabel}</span>). Conectá tus integraciones para ver métricas en tiempo real.
+          </p>
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiHeroCard
           label="Close Rate"
-          hint="Cierres / asistencias"
-          value={isLoading ? "—" : formatPercent(perfMetrics?.closer.closeRate ?? 0)}
+          hint={useSnapshotFallback ? `Datos importados · ${latestSnapshot!.periodLabel}` : "Cierres / asistencias"}
+          value={isLoading ? "—" : formatPercent(effectiveCloseRate)}
           icon={Target}
           sparkData={bookingSparkData}
         />
         <KpiHeroCard
           label="Show Rate"
-          hint="Asistencias / agendas"
-          value={isLoading ? "—" : formatPercent(perfMetrics?.closer.showRate ?? 0)}
+          hint={useSnapshotFallback ? `Datos importados · ${latestSnapshot!.periodLabel}` : "Asistencias / agendas"}
+          value={isLoading ? "—" : formatPercent(effectiveShowRate)}
           icon={Users}
           sparkData={[...bookingSparkData].reverse()}
         />
         <KpiHeroCard
           label="Facturación"
-          hint="Total facturado este período"
-          value={isLoading ? "—" : formatMoney(financeSummary.facturacion)}
+          hint={useSnapshotFallback ? `Datos importados · ${latestSnapshot!.periodLabel}` : "Total facturado este período"}
+          value={isLoading ? "—" : formatMoney(effectiveFacturacion)}
           icon={DollarSign}
           sparkData={facturacionSparkData}
         />
         <KpiHeroCard
           label="Cash Collected"
-          hint="Ganancia neta cobrada"
-          value={isLoading ? "—" : formatMoney(financeSummary.cashCollected)}
+          hint={useSnapshotFallback ? `Datos importados · ${latestSnapshot!.periodLabel}` : "Facturación − Gastos"}
+          value={isLoading ? "—" : formatMoney(effectiveCashCollected)}
           icon={Wallet}
           sparkData={cashCollectedSparkData}
         />
@@ -136,12 +204,12 @@ export function SalesMetricsRedesign({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <StatCard
                 label="Leads totales"
-                value={isLoading ? "—" : (perfMetrics?.leads.leadsCount ?? 0)}
+                value={isLoading ? "—" : effectiveLeads}
                 icon={Users}
               />
               <StatCard
                 label="Agendas"
-                value={isLoading ? "—" : (perfMetrics?.leads.agendasCount ?? 0)}
+                value={isLoading ? "—" : effectiveAgendas}
                 icon={CalendarCheck}
               />
               <StatCard
@@ -160,8 +228,8 @@ export function SalesMetricsRedesign({
           {/* Agendas hero — sparkline violeta al borde inferior */}
           <KpiHeroCard
             label="Agendas totales"
-            hint="Tendencia semanal"
-            value={isLoading ? "—" : String(perfMetrics?.leads.agendasCount ?? 0)}
+            hint={useSnapshotFallback ? `Datos importados · ${latestSnapshot!.periodLabel}` : "Tendencia semanal"}
+            value={isLoading ? "—" : String(effectiveAgendas)}
             icon={CalendarCheck}
             sparkData={agendasSparkData}
           />
@@ -172,17 +240,17 @@ export function SalesMetricsRedesign({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <StatCard
                 label="Cierres"
-                value={isLoading ? "—" : (perfMetrics?.calls.cierres ?? 0)}
+                value={isLoading ? "—" : effectiveCierres}
                 icon={CheckCircle}
               />
               <StatCard
                 label="Asistencias"
-                value={isLoading ? "—" : (perfMetrics?.calls.asistencias ?? 0)}
+                value={isLoading ? "—" : effectiveAsistencias}
                 icon={PhoneCall}
               />
               <StatCard
                 label="Inasistencias"
-                value={isLoading ? "—" : (perfMetrics?.calls.noShows ?? 0)}
+                value={isLoading ? "—" : effectiveInasistencias}
                 icon={XCircle}
               />
               <StatCard
@@ -192,7 +260,7 @@ export function SalesMetricsRedesign({
               />
               <StatCard
                 label="No cierres"
-                value={isLoading ? "—" : (perfMetrics?.calls.noCierres ?? 0)}
+                value={isLoading ? "—" : effectiveNoCierres}
                 icon={XCircle}
               />
               <StatCard
@@ -287,14 +355,12 @@ export function SalesMetricsRedesign({
 
           <GaugeSideCard
             label="Tasa de agendamiento"
-            value={filteredMetrics.bookingRate}
-            target="Objetivo: 70%"
+            value={effectiveTasaAgendamiento}
           />
 
           <GaugeSideCard
             label="Tasa de fantasma"
-            value={filteredMetrics.ghostingRate}
-            target="Objetivo: <20%"
+            value={effectiveTasaFantasma}
           />
 
           {/* Tiempo de respuesta */}

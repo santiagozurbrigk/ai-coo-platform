@@ -19,6 +19,7 @@
     "@number-flow/react": "^0.6.0",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-tooltip": "^1.2.7",
+    "@sentry/nextjs": "^10.70.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
     "@types/papaparse": "^5.5.2",
@@ -63,6 +64,7 @@
   "devDependencies": {
     "@ai-coo/config": "workspace:*",
     "@eslint/eslintrc": "^3.3.1",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/typography": "^0.5.20",
     "@types/d3-array": "^3.2.1",
     "@types/d3-shape": "^3.1.7",

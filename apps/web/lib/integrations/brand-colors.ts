@@ -30,6 +30,7 @@ export const INTEGRATION_BRAND_COLORS: Record<IntegrationProvider, IntegrationBr
   calendly:         { bg: "#006BFF" },
   miro:             { bg: "#050038" },
   clickup:          { bg: "#7B68EE" },
+  ghl:              { bg: "#E9A700" },
 };
 
 export function integrationLogoSrc(provider: IntegrationProvider): string {

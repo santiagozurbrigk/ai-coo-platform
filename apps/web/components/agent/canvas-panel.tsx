@@ -7,7 +7,7 @@ import { cn } from "@ai-coo/ui";
 import {
   exportCanvasAsDocxAction,
   saveCanvasToKnowledgeBaseAction,
-} from "@/app/agent/actions";
+} from "@/app/agent/canvas-actions";
 
 interface CanvasVersion {
   id: string;

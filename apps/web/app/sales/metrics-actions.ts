@@ -4,6 +4,36 @@ import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { createClient } from "@/lib/supabase/server";
 import type { SalesPerformanceMetrics } from "@/types/sales";
 
+// ─── Snapshots de métricas importadas ─────────────────────────────────────────
+
+export type MetricsSnapshot = {
+  id: string;
+  periodStart: string;    // "YYYY-MM-DD"
+  periodLabel: string;    // "Enero 2025"
+  metrics: Record<string, number>;
+};
+
+export async function getSalesMetricsSnapshotsAction(): Promise<MetricsSnapshot[]> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("metrics_snapshots")
+    .select("id, period_start, period_label, metrics")
+    .eq("organization_id", organizationId)
+    .eq("category", "sales")
+    .order("period_start", { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => ({
+    id:          row.id,
+    periodStart: row.period_start as string,
+    periodLabel: (row.period_label as string | null) ?? (row.period_start as string).slice(0, 7),
+    metrics:     (row.metrics as Record<string, number>) ?? {},
+  }));
+}
+
 export type SalesMetricsPeriod = "month" | "30d" | "custom";
 
 export type SalesMetricsDateRange = { from: string; to: string };

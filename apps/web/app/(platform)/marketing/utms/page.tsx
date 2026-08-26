@@ -1,10 +1,10 @@
 import { UTMPageContent } from "@/components/marketing/utm-page-content";
 import { PageHeader } from "@/components/shared/page-header";
+import { listContentAssetsAction } from "@/app/marketing/actions";
 import {
   getOrganizationWebsiteAction,
   getUTMLinksAction,
-  listContentAssetsAction,
-} from "@/app/marketing/actions";
+} from "@/app/marketing/utm-actions";
 
 export default async function MarketingUTMsPage() {
   const [links, assets, orgWebsiteUrl] = await Promise.all([

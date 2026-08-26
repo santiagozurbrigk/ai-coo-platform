@@ -12,6 +12,8 @@ export type ClosingOutcome = {
   notes?: string;
 };
 
+export type ClosingCallSource = "calendly" | "ghl" | "manual";
+
 export type ClosingCall = {
   id: string;
   leadName: string;
@@ -26,6 +28,16 @@ export type ClosingCall = {
   paymentSourcePlatformId?: string;
   paymentDestinationPlatformId?: string;
   paymentReceivedFrom?: string;
+  /** Origen de la llamada: Calendly, GHL o cargada manualmente */
+  source?: ClosingCallSource;
+  /** Atribución UTM del contacto en GHL (disponible para llamadas de origen GHL) */
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+  utmContent?: string | null;
+  utmTerm?: string | null;
+  /** ID del calendario GHL al que pertenece esta llamada (para filtrar por calendario) */
+  ghlCalendarId?: string | null;
 };
 
 export type PaymentPlatform =
@@ -76,4 +88,15 @@ export type ClosePaymentPayload = {
   /** Fecha del pago registrado (YYYY-MM-DD). */
   paymentDate: string;
   proof: PaymentProofMeta;
+  /**
+   * Si el closer overrideó los montos por cuota manualmente (aplica cuando
+   * paymentType === "installments").
+   * Longitud = installmentCount. Cuando está presente, reemplaza installmentAmount
+   * uniforme; cada posición tiene el monto real acordado para esa cuota.
+   */
+  customInstallmentAmounts?: number[];
+  /** UUID del plan seleccionado al cerrar (opcional). */
+  planId?: string;
+  /** ID del sistema de cuotas elegido dentro del plan (opcional). */
+  selectedInstallmentSystemId?: string;
 };

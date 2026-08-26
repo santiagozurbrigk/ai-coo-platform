@@ -4,9 +4,15 @@ import {
   syncContentMetricsAllOrgs,
   syncContentMetricsForOrg,
 } from "@/lib/marketing/sync-content-metrics";
+import {
+  isQStashConfigured,
+  publishCronFanout,
+  getCronSyncMetricsWorkerUrl,
+} from "@/lib/queue/qstash-client";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 60; // Fan-out: solo publica jobs, no procesa orgs
 
 export async function GET(request: Request) {
   return POST(request);
@@ -20,13 +26,51 @@ export async function POST(request: Request) {
   const organizationId = url.searchParams.get("organizationId");
 
   try {
+    // Modo org única — test manual o retry directo
     if (organizationId) {
       const result = await syncContentMetricsForOrg(organizationId);
       return NextResponse.json({ ok: true, organizationId, ...result });
     }
 
+    // Modo fan-out (QStash configurado)
+    if (isQStashConfigured()) {
+      const admin = createAdminClient();
+      const { data: integrations, error } = await admin
+        .from("zernio_integrations")
+        .select("organization_id")
+        .eq("is_active", true);
+
+      if (error) throw new Error(error.message);
+
+      const orgIds = [
+        ...new Set(
+          (integrations ?? []).map((row) => row.organization_id as string)
+        ),
+      ];
+
+      const { published, failed } = await publishCronFanout(
+        getCronSyncMetricsWorkerUrl(),
+        orgIds
+      );
+
+      console.log("[cron/sync-content-metrics] fan-out completado", {
+        total: orgIds.length,
+        published,
+        failed,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        mode: "fanout",
+        total: orgIds.length,
+        published,
+        failed,
+      });
+    }
+
+    // Fallback secuencial (QStash no configurado)
     const bulk = await syncContentMetricsAllOrgs();
-    return NextResponse.json({ ok: true, ...bulk });
+    return NextResponse.json({ ok: true, mode: "sequential", ...bulk });
   } catch (e) {
     console.error("[cron/sync-content-metrics] Error:", e);
     return NextResponse.json(

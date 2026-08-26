@@ -9,24 +9,12 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-*(Sin ítems urgentes pendientes)*
+~~### [DB-PLANES] Aplicar migración de tabla plans en Supabase~~ ✅ Completado 2026-08-26
 
 ---
 
 ## 🟡 Trial Reels — Feature en producción, mejoras pendientes
 
-### [TRIAL-1] Re-intentar variante fallida individualmente
-
-**Qué es:** Si una variante termina en estado `"failed"` (ej. error transitorio de Zernio o Supabase), hoy no hay forma de reintentarla sin recrear el job completo.  
-**Scope:**
-- Botón "Reintentar" en `variation-card.tsx` (solo visible si `status === "failed"`)
-- Server Action que vuelve a poner la variante en `"scheduled"` y la encola en QStash
-- Reutilizar lógica de `publishVariationsAction` para un índice específico
-
-**Complejidad:** Baja  
-**Archivos clave:** `components/marketing/trial-reels/variation-card.tsx`, `app/marketing/content/reel-variation-actions.ts`
-
----
 
 
 ### [TRIAL-4] Assets reales de LUT y música en el worker (Fly.io)
@@ -43,31 +31,44 @@
 
 ## 🟠 Bugs conocidos — Verificar en producción
 
-### [BUG-1] Stories de Instagram — verificar en producción
+### [BUG-1] Stories de Instagram — verificar en producción tras fix
 
-**Contexto:** Se implementó sync doble: `POST /posts/sync-stories` (con fallback gracioso si 404/405) + `GET /posts?type=story&source=external`. Ambos resultados se combinan con dedup.  
-**Para verificar:** Publicar una historia en Instagram → sync manual desde `/marketing/content` → ver en logs de Vercel si `fromSyncEndpoint > 0` o `fromListWithType > 0`.  
-**Si sigue en 0:** el problema está en Zernio (no expone stories en esos endpoints). Escalar a equipo Zernio para confirmar el endpoint correcto.  
+**Contexto:** Fix deployado en `claude/architecture-review-improvements-fdj4ae`. Ahora usa el endpoint correcto `GET /v1/accounts/{accountId}/instagram/stories` + fallbacks. Las historias se fuerzan a `postType='story'` antes del dedup y entran primero en `allPosts`.  
+**Para verificar:** Con una historia activa en Instagram → sync manual desde `/marketing/content` → el log `[syncZernioContent] stories sync` debe mostrar `fromDedicatedEndpoint > 0` → ir al tab "Historias" en la UI.  
+**Si sigue sin aparecer:** Revisar que el registro en DB tenga `type='story'` (puede ser que exista como `type='post'` de syncs anteriores; el próximo sync lo corrige vía UPDATE).  
 **Archivos clave:** `app/marketing/content/sync-actions.ts`, `lib/zernio/client.ts`
 
 ---
 
-### [BUG-2] Gráfico "Distribución de contenido publicado" no incluye contenido de Zernio
-
-**Contexto:** El gráfico usa solo `content_assets` (tabla legacy de Instagram Graph). Todo el contenido nuevo vive en `content_pieces` (Zernio) y no aparece ahí.  
-**Fix requerido:** Refactorizar `getContentDistributionDataAction` para incluir `content_pieces` con mapeo de `analysis->>'ai_label'` → AUTORIDAD / ATRACCIÓN / NUTRICIÓN / VENTA.  
-**Archivos clave:** `app/marketing/actions.ts` — `getContentDistributionDataAction`
-
----
-
-### [BUG-3] Patrón UTC-midnight en comparaciones de fecha
-
-**Contexto:** Se encontró y corrigió un bug en el dashboard donde `new Date("YYYY-MM-DD").getMonth()` devolvía un mes incorrecto en UTC-3. Puede haber otros en el código.  
-**Acción:** Buscar con `grep -rn "new Date.*getMonth\|new Date.*getFullYear" apps/web/` y revisar cada caso.
-
----
 
 ## 🟣 Nuevos Features — Implementar cuando Santiago lo indique
+
+### [FEAT-GHL-OAUTH] GHL OAuth / Marketplace App — migrar de Private Integration Token a OAuth
+
+**Qué es:** Cuando OTC sea aprobado como app en el GHL Marketplace, reemplazar el flujo de Private Integration Token por OAuth estándar ("Connect with GHL"). El proceso de aprobación de GHL es lento.
+**Estado actual:** Integración funcional con Private Integration Token. El usuario pega el token + Location ID manualmente.
+**Pendiente:**
+1. Registrar OTC como app en GHL Marketplace (proceso manual de Santiago)
+2. Agregar `GHL_CLIENT_ID` y `GHL_CLIENT_SECRET` a env vars
+3. Implementar `/api/integrations/ghl/oauth/start` → `/api/integrations/ghl/oauth/callback`
+4. Reemplazar StepCredentials en `ghl-connect-dialog.tsx` por botón "Conectar con GHL"
+5. Actualizar `ghl_integrations` para guardar `access_token` + `refresh_token` en lugar de `api_key_encrypted`
+
+**Decisión tomada:** Private Integration Token ahora; OAuth cuando sea posible.
+
+---
+
+### [FEAT-EXCEL-IMPORT-FASE3-RESTANTE] Importación de pagos y consumo de metrics_snapshots
+
+**Qué es:** Lo que queda de importación de datos:
+- Importación de pagos (tab "Pagos") — clientes y llamadas cubiertos, pagos no
+- Oportunidades de GHL (pipeline) → closing_calls como stretch goal
+- Conectar `metrics_snapshots` a módulos de Finanzas y Métricas de ventas para visualizar los datos importados
+
+**Estado:** ✅ **COMPLETADO (2026-08-25)**. Arquitectura baseline-live implementada en todos los paneles: `finance-data-provider` (financeSummary + monthlySeries), Dashboard, Finance metrics, Intelligence module, Agente de IA (org-context). Column mapper implementado. Deuda menor: si el archivo tiene filas de totales/subtítulos en columna A, aparecen como opciones en el dropdown — sin filtrado por ahora.
+**Complejidad:** Media
+
+---
 
 ### [FEAT-1] Secuencias de historias
 
@@ -122,6 +123,33 @@
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-26 | FEAT-GHL-MULTI-CALENDAR: multi-selección de calendarios GHL + filtro en closing panel | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-26 | UI-CLEANUP: Eliminación botón flotante del agente (FloatingChat) + fix layout integrations page (min-w-0) | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FEAT-PLANES-CUOTAS-CLIENTES: planes con sistemas de cuotas, eliminar clientes, asignar plan, closing con cuotas manuales — migración SQL pendiente de aplicar en Supabase | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FIX-VENTAS-CASH-COLLECTED: panel de métricas de ventas usa gastosTotales del provider (no snapshot) para cash collected | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FIX-BASELINE-GAPS: Baseline fallback en Intelligence module (collect-context.ts) y monthlySeries (finance-data-provider) — cierran los dos últimos vacíos de la arquitectura baseline | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FEAT-BASELINE-ARCHITECTURE: Arquitectura baseline escalable — baseline-service.ts, finance-data-provider fallback, Dashboard, Finance metrics, agente IA, data_source column en metrics_snapshots | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FEAT-METRICS-DERIVE: Auto-derivación de métricas combinadas al importar — deriveSalesMetrics (close_rate, show_rate, tasa_agendamiento, tasa_fantasma, inasistencias, no_cierres) y deriveFinanceMetrics (margen, pct_margen); mapper de filas reducido a solo métricas primarias (11 ventas, 4 finanzas) | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FEAT-EXCEL-TRANSPOSED-ROW-MAPPER: Mapeo manual de filas en formato pivot — TransposedRowMapper con dropdowns por campo OTC, auto-sugerencia desde diccionario, rowMapping pasado al parser, texto de confirm corregido (upsert) | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FEAT-EXCEL-PIVOT: Soporte formato pivot en importación de métricas — auto-detección de meses como columnas, parser transpuesto, banner "Formato tabla detectado", fix preview para archivos con título merged (resuelve __EMPTY) | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FIX-EXCEL-PREVIEW: getExcelPreviewAction ahora usa { header: 1 } y salta filas de título — fix para archivos con celdas merged/título en la primera fila | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FIX-VERCEL-BUILD x4: prefer-const, unused imports/props, SectionDef[] filter inference, keyof Union type — 4 errores de build de Vercel corregidos en serie | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FEAT-EXCEL-MULTISHEET: Selector de hoja en wizard de importación Excel — heurística pickBestSheet, SheetSelector UI, re-fetch al cambiar hoja, re-auto-mapeo | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FEAT-EXCEL-COLUMN-MAPPER: UI de mapeo columna-a-columna para archivos Excel propios — paso "mapper" en wizard, auto-mapeo, vista previa, validación de campos requeridos | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-24 | FEAT-GHL-UTM: Atribución UTM en closing calls — fetch attributionSource del contacto GHL durante sync, columna + panel de detalle en UI | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-24 | FEAT-GHL-PHASE2: Importación datos históricos GHL contacts + Excel clientes/llamadas — wizard 3 pasos, parsers Excel, preview GHL, server actions | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-24 | FIX-GHL-TIMESTAMPS: GHL `/calendars/events` requiere Unix ms, no ISO 8601 — fix sync que devolvía 0 citas | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-24 | FEAT-GHL-PHASE1: Integración GoHighLevel Calendar — Private Integration Token, sync horario, UI dialog multi-paso, badges de origen en closing | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-23 | BUG-3: Patrón UTC-midnight — isInCurrentMonth (enrich-team-compensation.ts) + periodBounds (cta-actions.ts) | `feat/trial-retry-variation` |
+| 2026-08-23 | BUG-2: Gráfico distribución ya incluye content_pieces Zernio (ya estaba implementado) | `main` |
+| 2026-08-23 | TRIAL-1: Reintentar variante fallida — botón en variation-card.tsx + retryVariationAction (ya existía implementado) | `main` |
+| 2026-08-23 | refactor(agent/marketing): split de action files grandes — agent/actions.ts (1665→1252 líneas) + canvas-actions.ts + workboard-actions.ts; marketing/actions.ts (963→536 líneas) + utm-actions.ts | `claude/architecture-review-improvements-fdj4ae` |
+| 2026-08-23 | Sentry integration (client/server/edge configs + withSentryConfig en next.config.ts) | `claude/architecture-review-improvements-fdj4ae` |
+| 2026-08-23 | perf(holding): RPC get_holding_dashboard_stats — 28 queries → 2 paralelas | `claude/architecture-review-improvements-fdj4ae` |
+| 2026-08-23 | fix(holding): dropdown del switcher de negocios scrollable (max-h-[280px]) | `claude/architecture-review-improvements-fdj4ae` |
+| 2026-08-23 | feat(crons): fan-out QStash para sync-metrics, intelligence-snapshot, executive-report, founder-tone | `claude/qstash-fanout-playwright` |
+| 2026-08-24 | fix(e2e): clearCookies() en beforeEach para garantizar refresh token virgen (tests 6/7 holding) | `claude/architecture-review-improvements-fdj4ae` |
+| 2026-08-23 | feat(testing): Playwright E2E setup + tests holding flow (pendiente ejecutar con cuenta real) | `claude/qstash-fanout-playwright` |
 | 2026-08-11 | TECH-1: Fathom deep analysis vía QStash (reemplaza void pattern que se perdía en Vercel) | `claude/marketing-module-console-errors-g2py5w` |
 | 2026-08-11 | TECH-2: Retención real YouTube Analytics API (fallback gracioso a estimación) | `claude/marketing-module-console-errors-g2py5w` |
 | 2026-08-11 | SEED: Limpieza de 171 registros ficticios en Supabase prod (org `46cce98c-...`) | directo en DB |

@@ -109,6 +109,7 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           label: "UTMs",
           href: paths.platform.marketing.utms,
           permissionId: "marketing",
+          hidden: true,
         },
         {
           label: "Automatizaciones",
@@ -236,7 +237,6 @@ const byHref = (href: string) =>
 /** Items base del sidebar (siempre visibles) */
 const coreRootItems: SidebarNavRootItem[] = [
   { type: "link", module: byHref(paths.platform.dashboard) },
-  { type: "parent", key: "agente" },
   { type: "link", module: byHref(paths.platform.clients.root) },
   { type: "link", module: byHref(paths.platform.team.root) },
   { type: "divider" },

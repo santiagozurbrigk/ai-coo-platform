@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import path from "path";
 import { fileURLToPath } from "url";
+import { withSentryConfig } from "@sentry/nextjs";
 import { sectionRedirects } from "./lib/navigation/redirects";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -42,4 +43,20 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // DSN se lee de NEXT_PUBLIC_SENTRY_DSN / SENTRY_DSN en runtime.
+  // Si no está seteado, Sentry queda silencioso (no rompe el build).
+  silent: true,
+
+  // Subir source maps solo si SENTRY_AUTH_TOKEN está configurado.
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // Tree-shaking de las integraciones que no usamos en el browser.
+  disableLogger: true,
+
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+});
