@@ -14,6 +14,28 @@
 
 ---
 
+### 2026-08-26 — FIX-IMPORT-SHEET-MISMATCH: wizard pasa sheetName al parser para evitar discrepancia de hoja
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `f427aa2`  
+**Módulo(s) afectado(s):** `lib/clients/excel-parser.ts`, `app/clients/import-actions.ts`, `components/integrations/data-import-wizard.tsx`
+
+**Qué se hizo:**
+- `parseClientsExcel` ahora acepta `sheetName?: string` como tercer parámetro. Si se provee, usa esa hoja (con fallback a la primera si no existe). Si no, mantiene la lógica anterior ("clientes" o primera hoja).
+- `importClientsFromExcelAction` acepta y reenvía `sheetName?` a `parseClientsExcel`.
+- `data-import-wizard.tsx` pasa `clientsPreview.activeSheet` al action de importación.
+
+**Por qué / finalidad:**
+El wizard usaba `pickBestSheet` (score-based heuristic) para la preview, pero `parseClientsExcel` usaba su propia lógica independiente (`find("clientes") ?? first`). Cuando el archivo no tenía tab llamado "Clientes", las dos funciones elegían hojas distintas → los headers del mapping no coincidían con los del parser → `nameCol = undefined` → todos los clientes fallaban con "Nombre vacío" (41 errores).
+
+**Decisiones de diseño:**
+El caller (wizard) es quien sabe qué hoja el usuario estaba viendo. Pasarlo explícitamente es más robusto que re-ejecutar heurísticas en el servidor.
+
+**Riesgos / deuda:**
+- Si `clientsPreview` es `null` (raro: solo si el usuario saltó el mapper sin preview), el import cae al fallback (`find("clientes") ?? first`). Aceptable.
+
+---
+
 ### 2026-08-26 — FIX-IMPORT-CLIENTES-FILA-TITULO: parseClientsExcel ahora salta filas de título/fusionadas
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
