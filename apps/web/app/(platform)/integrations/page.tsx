@@ -17,8 +17,8 @@ export default async function IntegrationsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-start justify-between gap-4">
-        <PageHeader description="Conecta herramientas externas para sincronizar ventas, closing y marketing" />
+      <div className="flex items-start justify-between gap-4 min-w-0">
+        <PageHeader className="min-w-0" description="Conecta herramientas externas para sincronizar ventas, closing y marketing" />
         <Button asChild variant="outline" size="sm" className="flex-shrink-0 mt-1">
           <Link href={paths.platform.integrationsImport}>
             <Upload className="h-4 w-4 mr-2" />

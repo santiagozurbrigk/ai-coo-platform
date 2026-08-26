@@ -14,6 +14,30 @@
 
 ---
 
+### 2026-08-26 — UI-CLEANUP: eliminación del botón flotante del agente y fix de layout en integraciones
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `components/layout/platform-shell.tsx`, `app/(platform)/integrations/page.tsx`
+
+**Qué se hizo:**
+- **Eliminado `FloatingChat` de `platform-shell.tsx`:** removida la importación del componente y la prop `overlay={<FloatingChat />}` del `ThreeColumnLayout`. El botón flotante de apertura del agente (bottom-right, `fixed bottom-6 right-6 z-50`) ya no se renderiza en ninguna página del platform. El `FloatingChatProvider` en `providers/index.tsx` se dejó en su lugar (inofensivo, no causa errores y evita cambios en cascada).
+- **Fix de layout en `/integrations`:** agregado `min-w-0` al contenedor `flex justify-between` del header de la página y al componente `PageHeader`, para que el flex item pueda achicarse correctamente y el botón "Importar datos históricos" no quede cortado en viewports más angostos o cuando hay contenido largo en el título.
+
+**Por qué / finalidad:**
+- El agente de negocio fue removido del sidebar en una sesión anterior, pero el botón flotante que lo abría quedó activo en todas las páginas del platform. Al no haber más acceso al agente desde el sidebar, el botón flotante quedaba huérfano y confundía.
+- El layout de integraciones mostraba un corte visual en el lado derecho por un flex overflow no contenido.
+
+**Decisiones de diseño:**
+- `FloatingChat` component (`components/agent/floating-chat.tsx`) no se eliminó del codebase — solo se dejó de renderizar. Puede reactivarse si el agente vuelve a necesitar un punto de entrada flotante.
+- `min-w-0` es la forma estándar de CSS de permitir que un flex item se encoja por debajo de su contenido intrínseco — aplica correctamente sin romper otras páginas.
+
+**Riesgos / deuda técnica pendiente:**
+- `FloatingChatProvider` permanece en `providers/index.tsx`. Si se decide eliminar el agente por completo, esa es la siguiente limpieza.
+- Si el corte visual de integraciones era causado por algo distinto al flex overflow (ej. grid col con ancho fijo), el `min-w-0` puede no resolverlo completamente — pendiente confirmación del usuario.
+
+---
+
 ### 2026-08-26 — FIX-IMPORT-SHEET-PICKER: selector de hoja explícito en wizard de importación
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
