@@ -14,6 +14,40 @@
 
 ---
 
+### 2026-08-26 — FIX-BUILD-TEXTAREA-TYPES: corregir tipo HTMLTextAreaElement en handlers de payment-modal
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `e656620`  
+**Módulo(s) afectado(s):** `components/closing/payment-modal.tsx`
+
+**Qué se hizo:**
+- Corregidos 3 handlers `onChange` en `<Textarea>` que tenían tipo `React.ChangeEvent<HTMLInputElement>` (incorrecto) → `React.ChangeEvent<HTMLTextAreaElement>` (correcto).
+- Líneas afectadas: 592 (`setMainPain`), 601 (`setObjections`), 610 (`setFeedbackNotes`).
+- El build de Vercel (`dpl_Hfs8Ct6FFrwHjMdkTeJ3Z1b8XuAi`) pasó con estado READY.
+
+**Por qué / finalidad:**
+Un sed masivo de la sesión anterior había reemplazado globalmente `onChange={(e) =>` por `onChange={(e: React.ChangeEvent<HTMLInputElement>) =>` sin distinguir entre `<Input>` y `<Textarea>`. Next.js detectó la incompatibilidad de tipos al compilar `payment-modal.tsx` y el build falló.
+
+**Riesgos / deuda técnica pendiente:**
+- La migración SQL `20260825100000_plans_client_plan_delete.sql` sigue pendiente de aplicar manualmente en Supabase Dashboard.
+
+---
+
+### 2026-08-25 — FIX-BUILD-UNESCAPED-ENTITIES: escapar comillas en JSX de plan-manager-dialog
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `8a3eea4`  
+**Módulo(s) afectado(s):** `components/clients/plan-manager-dialog.tsx`, `components/closing/payment-modal.tsx`
+
+**Qué se hizo:**
+- `plan-manager-dialog.tsx` línea 135: reemplazó comillas `"` literales en JSX por `&quot;` (ESLint `react/no-unescaped-entities` las trata como error de build).
+- `payment-modal.tsx`: eliminó variable `firstInstallmentPaid` definida pero nunca usada.
+
+**Por qué / finalidad:**
+El primer build de Vercel (`dpl_54b7QhUq86K328EDWZdKXPgvW5dL`) falló por el error `react/no-unescaped-entities`. ESLint en modo Next.js trata ese rule como error, no warning.
+
+---
+
 ### 2026-08-25 — FEAT-PLANES-CUOTAS-CLIENTES: planes con sistemas de cuotas, eliminar clientes, asignar plan, closing con cuotas manuales
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
