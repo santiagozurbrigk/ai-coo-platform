@@ -138,6 +138,10 @@ export function parseClosingCallsExcel(
   raw.forEach((r, idx) => {
     const rowNum = idx + 2;
 
+    // Ignorar filas completamente vacías (mismo patrón que excel-parser de clientes)
+    const allEmpty = Object.values(r).every((v) => !String(v ?? "").trim());
+    if (allEmpty) return;
+
     const leadName = leadNameCol ? String(r[leadNameCol] ?? "").trim() : "";
     if (!leadName) {
       errors.push({ row: rowNum, message: "Nombre vacío — fila omitida." });

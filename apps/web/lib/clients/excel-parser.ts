@@ -183,6 +183,12 @@ export function parseClientsExcel(
   raw.forEach((r, idx) => {
     const rowNum = idx + 2; // 1-indexed + header row
 
+    // Ignorar filas completamente vacías (Excel puede tener formato/estilos
+    // aplicados más allá de los datos reales, haciendo que SheetJS las incluya
+    // dentro del bounding box de la hoja con todos los valores en "").
+    const allEmpty = Object.values(r).every((v) => !String(v ?? "").trim());
+    if (allEmpty) return;
+
     const name = nameCol ? String(r[nameCol] ?? "").trim() : "";
     if (!name) {
       errors.push({ row: rowNum, message: "Nombre vacío — fila omitida." });
