@@ -598,6 +598,8 @@ const clientFieldsSchema = z.object({
   avatar: z.string().trim().max(500).optional(),
   mainPain: optionalClientTextSchema,
   objections: optionalClientTextSchema,
+  planId: uuidSchema.optional(),
+  selectedInstallmentSystemId: z.string().trim().max(200).optional(),
 });
 
 export const createClientSchema = clientFieldsSchema;

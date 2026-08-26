@@ -10,6 +10,534 @@
 
 ---
 
+## Historial de cambios
+
+---
+
+### 2026-08-26 — FEAT-GHL-MULTI-CALENDAR: soporte de múltiples calendarios en integración GHL
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `lib/ghl/integration.ts`, `lib/ghl/sync-pipeline.ts`, `app/ghl/actions.ts`, `app/closing/actions.ts`, `components/integrations/ghl-connect-dialog.tsx`, `components/closing/closing-overview.tsx`, `app/(platform)/sales/closing/page.tsx`, `types/closing.ts`, `lib/closing/mapper.ts`, `supabase/migrations/20260826130621_ghl_multi_calendar.sql`
+
+**Qué se hizo:**
+- **Migración SQL:** `selected_calendar_ids text[] NOT NULL DEFAULT '{}'::text[]` agregado a `ghl_integrations`. Backfill automático desde `default_calendar_id` en filas existentes.
+- **`StepSelectCalendar` en dialog GHL:** radio buttons → checkboxes multi-selección. Al menos 1 requerido. Muestra contador de seleccionados.
+- **`ManagePanel` en dialog GHL:** lista de calendarios con checkboxes toggle; botón "Guardar selección" aparece solo si hay cambios pendientes.
+- **`connectGHLAction`:** ahora recibe `selectedCalendarIds: string[]` (antes era un solo string). `default_calendar_id` se setea al primero (backward compat con sync legacy).
+- **`updateGHLCalendarsAction`:** reemplaza `updateGHLCalendarAction` (single string) por el nuevo (array). Actualiza `selected_calendar_ids` + `default_calendar_id`.
+- **`syncGHLOrganizationSafe`:** itera sobre todos los calendarios en `selected_calendar_ids` en paralelo, aplana y deduplica appointments por ID antes del upsert.
+- **`syncAllGHLOrganizationsSafe`:** ya no filtra por `default_calendar_id IS NOT NULL` — ahora incluye todas las orgs con integración GHL (el sync individual decide qué calendarios procesar).
+- **`listClosingCallsAction`:** usa `.in("ghl_calendar_id", selectedCalendarIds)` en vez de `.eq("ghl_calendar_id", singleId)` para mostrar todas las calls de los calendarios activos.
+- **`ClosingCall` type + mapper:** nuevo campo `ghlCalendarId` para poder filtrar client-side por calendario.
+- **`ClosingOverview`:** recibe `ghlCalendars` y `ghlSelectedCalendarIds` como props (fetched en page.tsx). Si hay 2+ calendarios activos, muestra `FilterPills` para alternar entre "Todos los calendarios" y cada calendario individual. El filtro afecta tanto la vista lista como la vista calendario.
+- **`ClosingPage`:** pasa a ser un wrapper async que fetchea el status GHL antes de renderizar `ClosingOverview`.
+
+**Por qué / finalidad:**
+El usuario necesitaba seleccionar más de un calendario GHL (ej: uno para llamadas de discovery y otro para onboarding) y poder filtrar las citas en el panel de closing por calendario específico o ver todos juntos.
+
+**Decisiones de diseño:**
+- `default_calendar_id` se mantiene para backward compat con el cron legacy y cualquier integración que lo use directamente.
+- El filtro de calendarios en closing solo aparece con 2+ calendarios seleccionados — con 1 no aporta valor.
+- El filtro es puramente client-side (los datos de todos los calendarios ya están en el payload de `closingCalls`).
+
+**Riesgos / deuda técnica pendiente:**
+- Hay que aplicar la migración `20260826130621_ghl_multi_calendar.sql` en Supabase antes de que el feature funcione en producción.
+- `syncAllGHLOrganizationsSafe` ahora lista todas las orgs con integración GHL (antes solo las que tenían `default_calendar_id` seteado); si hay orgs con integración sin calendarios, `syncGHLOrganizationSafe` las skipea silenciosamente (retorna `empty`).
+
+---
+
+### 2026-08-26 — UI-CLEANUP: eliminación del botón flotante del agente y fix de layout en integraciones
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `components/layout/platform-shell.tsx`, `app/(platform)/integrations/page.tsx`
+
+**Qué se hizo:**
+- **Eliminado `FloatingChat` de `platform-shell.tsx`:** removida la importación del componente y la prop `overlay={<FloatingChat />}` del `ThreeColumnLayout`. El botón flotante de apertura del agente (bottom-right, `fixed bottom-6 right-6 z-50`) ya no se renderiza en ninguna página del platform. El `FloatingChatProvider` en `providers/index.tsx` se dejó en su lugar (inofensivo, no causa errores y evita cambios en cascada).
+- **Fix de layout en `/integrations`:** agregado `min-w-0` al contenedor `flex justify-between` del header de la página y al componente `PageHeader`, para que el flex item pueda achicarse correctamente y el botón "Importar datos históricos" no quede cortado en viewports más angostos o cuando hay contenido largo en el título.
+
+**Por qué / finalidad:**
+- El agente de negocio fue removido del sidebar en una sesión anterior, pero el botón flotante que lo abría quedó activo en todas las páginas del platform. Al no haber más acceso al agente desde el sidebar, el botón flotante quedaba huérfano y confundía.
+- El layout de integraciones mostraba un corte visual en el lado derecho por un flex overflow no contenido.
+
+**Decisiones de diseño:**
+- `FloatingChat` component (`components/agent/floating-chat.tsx`) no se eliminó del codebase — solo se dejó de renderizar. Puede reactivarse si el agente vuelve a necesitar un punto de entrada flotante.
+- `min-w-0` es la forma estándar de CSS de permitir que un flex item se encoja por debajo de su contenido intrínseco — aplica correctamente sin romper otras páginas.
+
+**Riesgos / deuda técnica pendiente:**
+- `FloatingChatProvider` permanece en `providers/index.tsx`. Si se decide eliminar el agente por completo, esa es la siguiente limpieza.
+- Si el corte visual de integraciones era causado por algo distinto al flex overflow (ej. grid col con ancho fijo), el `min-w-0` puede no resolverlo completamente — pendiente confirmación del usuario.
+
+---
+
+### 2026-08-26 — FIX-IMPORT-SHEET-PICKER: selector de hoja explícito en wizard de importación
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `app/clients/import-actions.ts`, `components/integrations/data-import-wizard.tsx`
+
+**Qué se hizo:**
+- **Nuevo componente `SheetPicker`:** cuando el Excel tiene más de una hoja, el wizard muestra una pantalla dedicada de selección antes del mapeo de columnas — lista todas las hojas como radio buttons, muestra las columnas de la hoja activa como preview, y tiene un botón "Continuar con `<nombre hoja>`". El usuario no puede avanzar al mapeo de columnas sin confirmar explícitamente la hoja.
+- **Estado `sheetConfirmed`:** booleano que empieza en `false` al entrar al paso mapper. Se pone en `true` al confirmar la hoja (o automáticamente si el archivo tiene una sola hoja). La navegación del wizard oculta sus botones mientras SheetPicker está activo (tiene su propio botón de avance).
+- **`pickBestSheet` mejorado:** keywords de nombre de hoja ampliadas (trazabilidad, instagram, seguimiento, alumnos, miembros). Nuevo bonus por densidad de columnas CRM: cuenta cuántas columnas del header match `/^(nombre|name|apellido|email|teléfono|celular|instagram|ig|programa|plan|cc|monto|fecha)$/i` y agrega un bonus proporcional (máx 15 pts) al score total, penalizando hojas con muchas columnas irrelevantes.
+
+**Por qué / finalidad:**
+El usuario importó desde `b9d83cfe-CRM_VENTAS__AA.xlsx` que tiene 6 hojas. `pickBestSheet` elegía automáticamente "Data" (27 columnas, bonus keyword "data" → score 32) en vez de "Trazabilidad - Instagram" (15 columnas, sin keyword → score 15). La hoja "Data" contiene calls de cierre con algunos IG handles en la columna "Nombre" que se importaban como nombres de cliente. El usuario quería importar desde "Trazabilidad - Instagram" pero el selector de hoja anterior era una pequeña dropdown en el mapper que pasaba desapercibida.
+
+**Decisiones de diseño:**
+- SheetPicker es fase 1 del mapper (no un paso nuevo del wizard) — el stepper de progreso no cambia.
+- La auto-mejora de `pickBestSheet` no resuelve este caso concreto (Data aún gana por más columnas) pero reduce la probabilidad en otros archivos.
+- El selector compacto de hoja se mantiene en la fase 2 del mapper para correcciones posteriores a confirmar.
+
+**Riesgos / deuda pendiente:**
+- Si el archivo tiene una sola hoja, SheetPicker no aparece (flujo transparente).
+- `pickBestSheet` aún puede elegir mal en archivos donde la hoja de datos tiene muchas columnas — el SheetPicker es el safety net garantizado.
+
+---
+
+### 2026-08-26 — FIX-IMPORT-CACHE: revalidatePath en importClientsFromExcelAction
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `e94393e`  
+**Módulo(s) afectado(s):** `app/clients/import-actions.ts`
+
+**Qué se hizo:**
+- Agregado `import { revalidatePath } from "next/cache"` y llamadas a `revalidatePath("/clients")` + `revalidatePath("/dashboard")` al final de `importClientsFromExcelAction`, justo después del insert exitoso.
+
+**Por qué / finalidad:**
+Los 264 clientes se insertaban correctamente en Supabase (confirmado por logs: `inserted=264`), pero al navegar a `/clients` el módulo aparecía vacío. Causa: Next.js 15 App Router cachea los Server Components; sin `revalidatePath`, la página `/clients` se servía desde caché aunque la BD ya tuviera los datos. El patrón correcto ya lo usaban `payment-actions.ts` y `plan-duration-actions.ts` — se replicó aquí.
+
+**Decisiones de diseño:**
+Se invalidan dos rutas: `/clients` (lista principal) y `/dashboard` (muestra KPI de clientes). `router.refresh()` en el wizard solo refrescaba la página actual, no las rutas destino.
+
+---
+
+### 2026-08-26 — FIX-IMPORT-EMPTY-ROWS: parsers Excel ignoran filas vacías — elimina errores falsos
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `b813954`  
+**Módulo(s) afectado(s):** `lib/clients/excel-parser.ts`, `lib/closing/excel-parser.ts`
+
+**Qué se hizo:**
+- Agregado check `allEmpty` al inicio del `forEach` en ambos parsers: si todos los valores de la fila son cadena vacía (después de trim), la fila se ignora silenciosamente sin generar error.
+
+**Por qué / finalidad:**
+Un Excel con 264 clientes mostraba "512 errores" porque tenía estilos/formato aplicados hasta la fila 776. SheetJS incluye todas esas filas dentro del bounding box (`!ref`) con `defval: ""` → el parser generaba un error "Nombre vacío" por cada fila vacía. El resultado era correcto (264 importados) pero el mensaje de error era confuso y alarmante.
+
+**Decisiones de diseño:**
+Solo se omite silenciosamente si la fila está 100% vacía. Si una fila tiene algún dato (ej: teléfono o email pero sin nombre), sigue generando el error para que el usuario lo vea.
+
+---
+
+### 2026-08-26 — FIX-IMPORT-SHEET-MISMATCH: wizard pasa sheetName al parser para evitar discrepancia de hoja
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `f427aa2`  
+**Módulo(s) afectado(s):** `lib/clients/excel-parser.ts`, `app/clients/import-actions.ts`, `components/integrations/data-import-wizard.tsx`
+
+**Qué se hizo:**
+- `parseClientsExcel` ahora acepta `sheetName?: string` como tercer parámetro. Si se provee, usa esa hoja (con fallback a la primera si no existe). Si no, mantiene la lógica anterior ("clientes" o primera hoja).
+- `importClientsFromExcelAction` acepta y reenvía `sheetName?` a `parseClientsExcel`.
+- `data-import-wizard.tsx` pasa `clientsPreview.activeSheet` al action de importación.
+
+**Por qué / finalidad:**
+El wizard usaba `pickBestSheet` (score-based heuristic) para la preview, pero `parseClientsExcel` usaba su propia lógica independiente (`find("clientes") ?? first`). Cuando el archivo no tenía tab llamado "Clientes", las dos funciones elegían hojas distintas → los headers del mapping no coincidían con los del parser → `nameCol = undefined` → todos los clientes fallaban con "Nombre vacío" (41 errores).
+
+**Decisiones de diseño:**
+El caller (wizard) es quien sabe qué hoja el usuario estaba viendo. Pasarlo explícitamente es más robusto que re-ejecutar heurísticas en el servidor.
+
+**Riesgos / deuda:**
+- Si `clientsPreview` es `null` (raro: solo si el usuario saltó el mapper sin preview), el import cae al fallback (`find("clientes") ?? first`). Aceptable.
+
+---
+
+### 2026-08-26 — FIX-IMPORT-CLIENTES-FILA-TITULO: parseClientsExcel ahora salta filas de título/fusionadas
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `6104e7e`  
+**Módulo(s) afectado(s):** `lib/clients/excel-parser.ts`
+
+**Qué se hizo:**
+- Reemplazado `XLSX.utils.sheet_to_json` (sin `header: 1`) por la misma estrategia que ya usaba `getExcelPreviewAction`: `sheet_to_json({ header: 1 })` → arrays crudos, luego detectar la primera fila con ≥2 celdas no vacías como fila real de encabezados, y construir objetos keyed manualmente.
+- Esto permite saltar filas de título/fusionadas antes de los encabezados reales (Nombre, Email, Teléfono…).
+
+**Por qué / finalidad:**
+El Excel del usuario tenía una fila de título fusionada como primera fila. El parser anterior la trataba como header → todos los lookups de columnas fallaban → los 37 clientes se rechazaban ("nombre vacío").
+
+**Decisiones de diseño:**
+- Umbral de ≥2 celdas no vacías para detectar el header real (consistente con `getExcelPreviewAction`).
+- Sin cambios al contrato de tipos ni a los callers.
+
+**Riesgos / deuda técnica pendiente:** Ninguno conocido.
+
+---
+
+### 2026-08-26 — FIX-BUILD-TEXTAREA-TYPES: corregir tipo HTMLTextAreaElement en handlers de payment-modal
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `e656620`  
+**Módulo(s) afectado(s):** `components/closing/payment-modal.tsx`
+
+**Qué se hizo:**
+- Corregidos 3 handlers `onChange` en `<Textarea>` que tenían tipo `React.ChangeEvent<HTMLInputElement>` (incorrecto) → `React.ChangeEvent<HTMLTextAreaElement>` (correcto).
+- Líneas afectadas: 592 (`setMainPain`), 601 (`setObjections`), 610 (`setFeedbackNotes`).
+- El build de Vercel (`dpl_Hfs8Ct6FFrwHjMdkTeJ3Z1b8XuAi`) pasó con estado READY.
+
+**Por qué / finalidad:**
+Un sed masivo de la sesión anterior había reemplazado globalmente `onChange={(e) =>` por `onChange={(e: React.ChangeEvent<HTMLInputElement>) =>` sin distinguir entre `<Input>` y `<Textarea>`. Next.js detectó la incompatibilidad de tipos al compilar `payment-modal.tsx` y el build falló.
+
+**Riesgos / deuda técnica pendiente:**
+- La migración SQL `20260825100000_plans_client_plan_delete.sql` sigue pendiente de aplicar manualmente en Supabase Dashboard.
+
+---
+
+### 2026-08-25 — FIX-BUILD-UNESCAPED-ENTITIES: escapar comillas en JSX de plan-manager-dialog
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `8a3eea4`  
+**Módulo(s) afectado(s):** `components/clients/plan-manager-dialog.tsx`, `components/closing/payment-modal.tsx`
+
+**Qué se hizo:**
+- `plan-manager-dialog.tsx` línea 135: reemplazó comillas `"` literales en JSX por `&quot;` (ESLint `react/no-unescaped-entities` las trata como error de build).
+- `payment-modal.tsx`: eliminó variable `firstInstallmentPaid` definida pero nunca usada.
+
+**Por qué / finalidad:**
+El primer build de Vercel (`dpl_54b7QhUq86K328EDWZdKXPgvW5dL`) falló por el error `react/no-unescaped-entities`. ESLint en modo Next.js trata ese rule como error, no warning.
+
+---
+
+### 2026-08-25 — FEAT-PLANES-CUOTAS-CLIENTES: planes con sistemas de cuotas, eliminar clientes, asignar plan, closing con cuotas manuales
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `54fb73c`  
+**Módulo(s) afectado(s):** `types/plans.ts`, `types/clients.ts`, `types/closing.ts`, `app/clients/plan-actions.ts`, `app/clients/actions.ts`, `components/clients/plan-manager-dialog.tsx`, `components/clients/clients-list.tsx`, `components/closing/payment-modal.tsx`, `lib/clients/mapper.ts`, `lib/validations.ts`, `providers/platform-data-provider.tsx`, `supabase/migrations/`
+
+**Qué se hizo:**
+
+1. **Migración SQL** (`20260825100000_plans_client_plan_delete.sql`):
+   - Nueva tabla `public.plans` con: `id`, `organization_id`, `name`, `duration_days`, `installment_systems` (JSONB array), timestamps
+   - RLS policies para read/insert/update/delete por miembros de la organización
+   - Columnas nuevas en `clients`: `plan_id uuid REFERENCES plans(id) ON DELETE SET NULL`, `selected_installment_system_id text`
+   - Policy nueva para eliminar clientes: "Users delete org clients"
+
+2. **Tipos nuevos** (`types/plans.ts`): `InstallmentSystem { id, name, count, amountPerInstallment }`, `Plan { id, name, durationDays?, installmentSystems[], createdAt }`
+
+3. **Server Actions planes** (`app/clients/plan-actions.ts`): `listPlansAction`, `createPlanAction`, `updatePlanAction`, `deletePlanAction` — todos con RLS via `requireOrganizationId()`
+
+4. **Actions clientes** (`app/clients/actions.ts`): `deleteClientAction(id)`, `assignClientPlanAction(clientId, planId?, systemId?)`
+
+5. **PlanManagerDialog** (nuevo componente): reemplaza `PlanDurationsDialog`. Modo list/new/edit, formulario con nombre + duración + sistemas de cuotas dinámicos (agregar/eliminar). Cada sistema: nombre, cantidad de cuotas, monto por cuota.
+
+6. **ClientsList** (reescrito):
+   - Eliminado botón "Cargar clientes"
+   - Reemplazado "Duraciones de planes" por "Crear planes" (abre PlanManagerDialog)
+   - Icono eliminar por fila (Trash2) → confirmación → `deleteClientAction` → `refreshClients`
+   - Icono asignar plan por fila (BookOpen) → `AssignPlanDialog` → `assignClientPlanAction` → `refreshClients`
+   - Muestra nombre del plan asignado (del array `plans` si hay `planId`, si no de `planDurations` legacy)
+
+7. **PaymentModal** (reescrito):
+   - Carga planes al abrir con `listPlansAction()`
+   - Selector opcional "Plan contratado" (pre-llena offeredProduct con el nombre del plan)
+   - Para cuotas: si el plan tiene sistemas, selector de sistema → N campos individuales de monto (uno por cuota, default = `amountPerInstallment` del sistema)
+   - Sin sistema: campo uniforme `installmentAmount` existente
+   - Payload incluye `customInstallmentAmounts[]`, `planId`, `selectedInstallmentSystemId`
+
+8. **Provider** (`platform-data-provider.tsx`): `buildClientFromPayment` calcula revenue con `customInstallmentAmounts` (suma de montos individuales si están definidos), mapea `planId` y `selectedInstallmentSystemId`
+
+9. **Mapper, validaciones**: `plan_id`/`selected_installment_system_id` en `ClientRow`, `rowToClient`, `clientToInsertRow`, `patchToUpdateRow`; `planId`/`selectedInstallmentSystemId` en `clientFieldsSchema`
+
+**Por qué / finalidad:**
+- El founder necesitaba definir planes con sistemas de cuotas (ej: "2 cuotas de $1000", "3 cuotas de $700") para calcular saldo adeudado por cliente
+- El closer necesitaba poder registrar montos reales por cuota al cerrar (ej: cuota 1 → $800, cuota 2 → $1200 aunque el plan diga $1000 c/u)
+- Se eliminó el botón "Cargar clientes" como fue solicitado
+- Se añadió la capacidad de eliminar clientes (antes no existía)
+
+**Decisiones de diseño:**
+- `installment_systems` como JSONB array en `plans` (no tabla separada) — más simple, el plan es siempre leído completo
+- Montos individuales como array paralelo al contador de cuotas (`customInstallmentAmounts[i]`)
+- `assignClientPlanAction` llama al `updateClientAction` existente — no duplica lógica de update
+
+**Riesgos / deuda técnica pendiente:**
+- La migración SQL debe aplicarse en Supabase (no fue aplicada automáticamente)
+- El cálculo de "adeudado" (outstanding balance) usa los pagos registrados vs. total del plan; si el plan tiene cuotas custom, la lógica en `computeOutstandingBalance` puede necesitar revisión futura
+- `PlanDurationsDialog` eliminado del módulo de clientes; si había referencias en otras partes del código, revisar
+
+---
+
+### 2026-08-25 — FIX-VENTAS-CASH-COLLECTED: panel de métricas de ventas usa gastos configurados para cash collected
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Módulo(s) afectado(s):** `components/sales/sales-metrics-redesign.tsx`
+
+**Qué se hizo:**
+- En la rama de snapshot fallback, `effectiveCashCollected` ahora usa `financeSummary.gastosTotales` (gastos configurados vía provider) como primera fuente en lugar de `sm["gastos"]` (que siempre es 0 en el snapshot importado).
+- Formula: `max(0, sm["facturacion"] - (financeSummary.gastosTotales > 0 ? financeSummary.gastosTotales : sm["gastos"]))`
+
+**Por qué / finalidad:**
+Panel de finanzas mostraba "Cash collected: US$ 10.000" (correcto) pero panel de métricas de ventas mostraba "US$ 12.500" (= facturación sin descontar gastos). La inconsistencia surgía porque el snapshot almacena `cash_collected = facturacion - 0` al momento del import (sin gastos). El panel de ventas leía ese valor directamente en lugar de derivarlo con los gastos reales.
+
+**Decisiones de diseño:**
+- Misma prioridad que el provider: gastos configurados en módulo > campo gastos del snapshot > 0
+- Consistente con `finance-data-provider.tsx` y `collect-context.ts` (fixes de sesión anterior)
+
+**Riesgos / deuda técnica:** Ninguno adicional — el provider ya tenía `gastosTotales` correcto.
+
+---
+
+### 2026-08-25 — FIX-BASELINE-GASTOS: cashCollected y margenPercent usan gastos configurados del módulo (no snapshot)
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Módulo(s) afectado(s):** `providers/finance-data-provider.tsx`, `lib/intelligence/collect-context.ts`
+
+**Qué se hizo:**
+- `finance-data-provider.tsx` (financeSummary baseline): se reemplaza `bGastos = salesBaselineMetrics["gastos"] ?? 0` (siempre 0, el snapshot de ventas no tiene campo gastos) por `effectiveGastos = live.gastosTotales > 0 ? live.gastosTotales : bGastosSnapshot`. Ahora `cashCollected` y `margenPercent` del baseline usan los gastos reales configurados en el módulo de finanzas.
+- `collect-context.ts` (inteligencia): mismo fix — `effectiveGastos` para el `bMargen` del agente IA.
+
+**Por qué / finalidad:**
+El usuario tiene gastos configurados en el módulo de finanzas (gastos fijos, suscripciones, equipo). Estos gastos producen `live.gastosTotales` correcto. Pero el baseline fallback computaba `cashCollected = facturacion - bGastos` donde `bGastos = snapshot["gastos"] = null → 0`. Resultado: `cashCollected = 12500` y `margenPercent = 100%`, ignorando totalmente los gastos reales configurados. Ahora el baseline usa los gastos configurados como fuente primaria y solo cae al snapshot si no hay config.
+
+**Decisiones de diseño:**
+- Prioridad: gastos configurados (módulo finanzas) > campo gastos del snapshot > 0
+- `monthlySeries` ya usaba `expensesSummary.totalMonthly` correctamente — ahora `financeSummary` es consistente con eso.
+- No se cambia la lógica de facturación (sigue viniendo del snapshot cuando no hay datos live).
+
+**Riesgos / deuda técnica pendiente:** Si el usuario importa un snapshot con campo `gastos` pero NO ha configurado gastos en el módulo, se usa el snapshot — comportamiento correcto. Si ambos están configurados, gana el módulo.
+
+---
+
+### 2026-08-25 — FIX-ANIMATED-NUMBER-LOCALE: parseAnimatableMetricValue soporta formato numérico europeo (es-AR)
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Módulo(s) afectado(s):** `packages/ui/src/lib/parse-metric-value.ts`, `apps/web/lib/finance/format.ts`
+
+**Qué se hizo:**
+- `parseAnimatableMetricValue`: se agrega función `normalizeNumPart` que detecta formato europeo/es-AR antes de parsear el número animado:
+  - `"12.500"` (punto como miles) → `"12500"` → 12500 ✓ (antes parseaba como 12.5)
+  - `"49,6"` (coma como decimal) → `"49.6"` → 49.6 ✓ (antes stripeaba la coma → 496)
+  - `"1.234,56"` (miles + decimal europeo) → `"1234.56"` → 1234.56 ✓
+  - Formato inglés sin cambios (comma como miles, punto como decimal)
+- `formatMoney`: agrega `minimumFractionDigits: 0` junto con `maximumFractionDigits: 0` para evitar que USD fuerce 2 decimales en algunos browsers.
+
+**Por qué / finalidad:**
+El dashboard mostraba "496%" en lugar de "49,6%" para tasa de agendamiento, y "US$ 12,50" en lugar de "US$ 12.500" para MRR. El componente `MetricAnimatedValue` parsea el string pre-formateado para animar la transición numérica. La función de parseo trataba la coma (decimal en es-AR) como separador de miles (y la eliminaba), y el punto (miles en es-AR) como decimal — produciendo valores ×10 para porcentajes e ÷1000 para montos.
+
+**Decisiones de diseño:**
+- La fix vive en el parser, no en los formatters — el formato es correcto para mostrar al usuario, el problema era la interpretación interna del parser.
+- La detección de formato es por patrón regex heurístico: miles europeos = `/[0-9]{1,3}(\.[0-9]{3})+/`, decimal europeo = `/[0-9]+,[0-9]{1,2}$/`. Funciona para todos los valores actuales del sistema.
+- El fallback (formato inglés) mantiene el comportamiento anterior para valores no reconocidos.
+
+**Riesgos / deuda técnica pendiente:** Ninguno relevante. Si en el futuro se usan valores como "1,234" (inglés con miles-comma), podrían ambiguarse con "1,234" (4 dígitos después de coma), pero ese patrón no ocurre en el sistema actual.
+
+---
+
+### 2026-08-25 — FIX-DASHBOARD-SALES-BASELINE: Dashboard usa fallback baseline para métricas de ventas
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Módulo(s) afectado(s):** `providers/finance-data-provider.tsx`, `components/dashboard/dashboard-page-content.tsx`
+
+**Qué se hizo:**
+- `FinanceDataProvider`: se expone `salesBaselineMetrics` en el contexto (`FinanceDataContextValue`) y se agrega al deps array del `value` useMemo.
+- `DashboardPageContent`: se consume `salesBaselineMetrics` del provider; se construye `effectiveSalesMetrics` con fallback baseline cuando no hay datos live (`totalConversations === 0 && bookingRate === 0`). Se pasa `effectiveSalesMetrics` a `deriveDashboardData` en lugar de `salesMetrics`.
+
+**Por qué / finalidad:**
+El panel de métricas de ventas (`/sales/metrics`) mostraba "Tasa de agendamiento: 50%" (desde snapshot importado) pero el dashboard (`/dashboard`) mostraba 0%. La inconsistencia se debía a que ambos componentes cargaban los datos por caminos distintos: el panel de ventas recibía el snapshot como prop de Server Component, el dashboard nunca lo veía. Ahora el dashboard aplica el mismo patrón de fallback baseline-live.
+
+**Decisiones de diseño:**
+- Solo se aplica el fallback en `bookingRate` y `ghostingRate` (son tasas históricas con sentido como baseline). Las métricas de estado live (`totalConversations`, `activeConversations`, etc.) se mantienen en 0 — son estado actual, no histórico.
+- La condición de fallback es `hasLiveData = totalConversations > 0 || bookingRate > 0` — si hay conversaciones live, no se toca nada.
+- Misma lógica que `SalesMetricsRedesign` usa con `useSnapshotFallback`.
+
+**Riesgos / deuda técnica pendiente:** Ninguno relevante.
+
+---
+
+### 2026-08-25 — FIX-FORMAT-MONEY: formatMoney cambia es-ES → es-AR para evitar confusión de separadores
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Módulo(s) afectado(s):** `lib/finance/format.ts`
+
+**Qué se hizo:**
+- `formatMoney` ahora usa `es-AR` en lugar de `es-ES` para formatear USD.
+- Resultado antes: `"12.500 US$"` — símbolo al final. El usuario argentino lee el punto como decimal y ve "12,50 US$" (doce con cincuenta).
+- Resultado ahora: `"US$ 12.500"` — símbolo al principio. Unívoco: "US$ doce mil quinientos".
+- ARS también usa `Math.round` + `toLocaleString("es-AR")` para consistencia (ya no muestra " ARS" al final).
+
+**Por qué:** El dashboard mostraba el MRR del baseline como "12,50US$" (confuso) en lugar de "US$ 12.500" (claro). El cambio de locale resuelve tanto el orden del símbolo como la legibilidad del separador de miles.
+
+---
+
+### 2026-08-25 — FIX-BASELINE-GAPS: Baseline en módulo Intelligence y monthlySeries
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Módulo(s) afectado(s):** `lib/intelligence/collect-context.ts`, `providers/finance-data-provider.tsx`
+
+**Qué se hizo:**
+- **`lib/intelligence/collect-context.ts`**: `collectIntelligenceData()` ahora incluye la query de `metrics_snapshots` en el `Promise.all` existente. Si `finance.facturacion === 0` (usuario sin integraciones activas), aplica los valores del snapshot como fallback para `facturacion` y `margenPercent` en el bloque `finance`. Esto hace que las páginas `/intelligence/insights` y `/intelligence/context` reflejen los datos reales importados, no ceros.
+- **`providers/finance-data-provider.tsx`** — `monthlySeries`: cuando toda la serie de 6 meses tiene `facturacion === 0` (usuario nuevo sin eventos de cobro en vivo) y `salesBaselineMetrics` tiene datos, inyecta los valores del snapshot en el mes más reciente. Así los gráficos de área dual en `/finance` y los sparklines en `/sales/metrics` no muestran una línea plana en cero.
+
+**Por qué / finalidad:**
+- Cierre de los dos últimos vacíos de la arquitectura baseline: Intelligence y gráficos de serie temporal.
+- El Intelligence module alimenta snapshots, reportes y el agente — sin baseline, los análisis IA sobre negocios nuevos no tenían datos de facturación.
+- El `monthlySeries` all-zeros hacía que el gráfico de tendencia en `/finance` fuera completamente plano aunque el founder tuviera datos importados.
+
+**Decisiones de diseño:**
+- La query de baseline en `collect-context.ts` se añade al `Promise.all` existente (parallel, sin latencia extra).
+- En `monthlySeries`, sólo se parchea el mes más reciente (no los 6) para no generar datos artificiales en meses pasados que el founder no declaró.
+- Condición de parcheo: `series.every(m => m.facturacion === 0)` — si hay aunque sea un mes con datos reales, no se toca la serie.
+
+**Riesgos / deuda técnica pendiente:**
+- El snapshot inyectado en `monthlySeries` es el valor global del snapshot, no un desglose real mes a mes. Es un "hito de referencia" visual para el mes actual. Cuando el founder tenga datos live, desaparecerá naturalmente.
+- Si el founder tiene datos de varios períodos en `metrics_snapshots`, sería más rico poblar cada mes correspondiente. Queda como mejora futura.
+
+---
+
+### 2026-08-25 — FEAT-BASELINE-ARCHITECTURE: Arquitectura de datos baseline escalable
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit(s):** `6140f3d` — feat(metrics): arquitectura de baseline escalable — datos históricos + live  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `lib/metrics/baseline-service.ts` (nuevo), `providers/finance-data-provider.tsx`, `lib/ai/org-context.ts`
+
+**Qué se hizo:**
+- **Nuevo `lib/metrics/baseline-service.ts`**: servicio centralizado de lectura de `metrics_snapshots`. Exports:
+  - `getLatestOrgBaseline(orgId, category)` — snapshot más reciente de una categoría
+  - `getAllLatestBaselines(orgId)` — un snapshot por categoría (para el agente)
+  - `extractFinanceBaseline(snapshot)` — normaliza a `{facturacion, gastos, cashCollected, margenPercent}`
+- **`finance-data-provider.tsx`**: el provider ahora carga baseline de ventas al montar. Si `live.facturacion === 0` y hay baseline, hace fallback a los datos importados para `facturacion`, `cashCollected`, `gastosTotales` y `margenPercent`. Cuando el software tenga datos reales integrados (clientes/pagos), éstos toman prioridad automáticamente.
+- **`lib/ai/org-context.ts`**: el agente de IA ahora recibe la sección `MÉTRICAS HISTÓRICAS DE REFERENCIA` en su contexto. Puede analizar, comparar y dar recomendaciones usando los números reales del negocio desde el primer día de uso.
+
+**Por qué / finalidad:**
+- Resolver que los datos importados en "Métricas de ventas" sólo aparecían en el módulo de ventas, pero el resto del software (finanzas, agente) no los veía.
+- Arquitectura de dos capas: Baseline (histórico, importado) + Live (tiempo real, integraciones). Live prevalece siempre; baseline es el fallback cuando live = 0.
+
+**Decisiones de diseño:**
+- `baseline-service.ts` es server-only (usa `createAdminClient`), no un Server Action (`"use server"`), para que sea importable desde `org-context.ts` y otras utilidades de servidor.
+- El finance provider usa `getSalesMetricsSnapshotsAction` (ya existía) para cargar el baseline — reutiliza la query existente, no duplica lógica.
+- La condición de fallback es `live.facturacion === 0` — si el founder tiene aunque sea un cliente con pago, los datos reales prevalecen.
+
+**Riesgos / deuda técnica pendiente:**
+- El agente invalida cache con TTL de 10 min. Si el founder importa datos y chatea inmediatamente, el agente podría no ver el baseline hasta el próximo ciclo de cache.
+- `monthlySeries` (gráfico mensual en finanzas) ya tiene baseline fallback desde el commit FIX-BASELINE-GAPS.
+- Si en el futuro se agregan categorías distintas a "sales", `finance-data-provider` tendría que cargar el baseline de cada categoría por separado.
+
+---
+
+### 2026-08-25 — FEAT-IMPORT-MANUAL-FORM: Formulario manual de métricas de ventas + eliminación de finanzas
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit(s):** `49c5e58` — feat(import): eliminar métricas de finanzas y convertir ventas a formulario manual  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `lib/metrics/excel-parser.ts`, `app/clients/import-actions.ts`, `components/integrations/data-import-wizard.tsx`
+
+**Qué se hizo:**
+- Eliminada completamente la opción "Métricas de finanzas" del wizard de importación
+- Reemplazada la carga de archivo `.xlsx` para métricas de ventas por un formulario manual inline (`ManualSalesForm`):
+  - Grid con una fila por período, `<input type="month">` para el mes y texto para cada métrica
+  - Auto-sugiere el mes anterior al inicializar; botón + para agregar filas, botón Trash para eliminar
+  - Campos: Leads totales, Agendas totales, Show up, No show up, Cierres, Facturación
+- `deriveSalesMetrics()` en `excel-parser.ts` pasó de privada a exportada para uso en la acción manual
+- Nueva Server Action `importSalesMetricsManualAction(rows: ManualSalesMetricInput[])` en `import-actions.ts`:
+  - Valida formato `YYYY-MM`; convierte a `period_start = YYYY-MM-01`; genera `period_label` en español
+  - Llama `deriveSalesMetrics()` antes del upsert a `metrics_snapshots`
+- El paso "Mapeo" solo aparece cuando se está importando un archivo Excel de clientes
+- `WhatToImport` ahora es `"clients" | "salesMetrics"` (eliminado `"financeMetrics"`)
+
+**Por qué / finalidad:**
+El usuario decidió que la forma más práctica de cargar métricas de ventas históricas es un formulario directo (datos del software propios del usuario), sin necesidad de preparar un Excel. Las métricas de finanzas se manejarán de otra forma.
+
+**Decisiones de diseño relevantes:**
+- Se mantiene el flujo Excel solo para importar contactos (clientes), donde el mapeo de columnas tiene valor
+- El formulario manual es más ergonómico: el usuario ingresa un mes y los valores directamente
+- `<input type="month">` devuelve `YYYY-MM`; se convierte a `YYYY-MM-01` al persistir en `period_start`
+
+**Riesgos / deuda técnica pendiente:**
+- Las métricas de finanzas quedan sin UI de carga por ahora (pendiente definir cómo se cargarán)
+- La tabla `metrics_snapshots` sigue teniendo soporte para `category = "finance"` en el schema
+
+---
+
+### 2026-08-25 — FEAT-METRICS-DERIVE: Auto-derivación de métricas combinadas al importar
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit(s):** `993103b` — feat(metrics-import): auto-derivación de métricas combinadas desde primarias  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** `lib/metrics/excel-parser.ts`, `components/integrations/data-import-wizard.tsx`
+
+**Qué se hizo:**
+- `apps/web/lib/metrics/excel-parser.ts`:
+  - Agrega `deriveSalesMetrics(metrics)`: calcula las métricas derivadas de ventas que no estén presentes:
+    - `inasistencias` = `agendas_totales` − `asistencias`
+    - `no_cierres` = `asistencias` − `cierres`
+    - `close_rate` = `cierres` / `asistencias`
+    - `show_rate` = `asistencias` / `agendas_totales`
+    - `tasa_agendamiento` = `agendas_totales` / `leads_totales`
+    - `tasa_fantasma` = `inasistencias` / `agendas_totales`
+  - Agrega `deriveFinanceMetrics(metrics)`: calcula métricas derivadas de finanzas:
+    - `margen` = `facturacion` − `gastos`
+    - `pct_margen` = `margen` / `facturacion`
+  - Aplica `deriveSalesMetrics` en `parseSalesMetricsTransposed` y `parseSalesMetricsExcel` (post-procesado de filas)
+  - Aplica `deriveFinanceMetrics` en `parseFinanceMetricsTransposed` y `parseFinanceMetricsExcel`
+  - Las métricas derivadas solo se calculan si no están ya presentes (el archivo puede tenerlas explícitamente y tienen prioridad)
+- `apps/web/components/integrations/data-import-wizard.tsx`:
+  - `SALES_ROW_FIELDS`: reduce de 17 a 11 campos (solo primarios). Eliminados: `closeRate`, `showRate`, `tasaAgendamiento`, `tasaFantasma`, `inasistencias`, `noCierres`
+  - `FINANCE_ROW_FIELDS`: reduce de 5 a 4 campos. Eliminado: `margen` (se calcula de `facturacion − gastos`)
+
+**Por qué / finalidad:**
+El usuario quería ingresar únicamente las métricas base y que el sistema derive automáticamente las métricas combinadas (porcentajes, tasas). Simplifica el mapper de filas y evita errores de cálculo manual.
+
+**Decisiones de diseño:**
+- Las métricas derivadas no sobreescriben valores explícitos del archivo (verificación `!("campo" in m)`)
+- Se aplica tanto al formato pivot (transpuesto) como al estándar (columnas)
+- `inasistencias` se calcula antes de `tasa_fantasma` para que esta última pueda usarla
+
+**Riesgos / deuda técnica:**
+- Los módulos de Finanzas y Métricas de ventas en el frontend aún no consumen `metrics_snapshots` (`[FEAT-EXCEL-IMPORT-FASE3-RESTANTE]`)
+- `pct_margen` es un campo nuevo en `metrics_snapshots.metrics` (JSONB) — no requiere migración, pero las consultas deben esperarlo como opcional
+
+---
+
+### 2026-08-25 — FEAT-EXCEL-TRANSPOSED-ROW-MAPPER: Mapeo manual de filas en formato pivot
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit(s):** `cab4ed9` — feat(importacion): mapeo manual de filas para hojas transpuestas (pivot)  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** importación de datos, wizard, métricas de ventas y finanzas
+
+**Qué se hizo:**
+- `apps/web/lib/metrics/excel-parser.ts`:
+  - `parseTransposedMetrics`: acepta nuevo parámetro `explicitRowMapping?: Record<string, string>` (field key → etiqueta de fila). Construye `effectiveLookup` invirtiendo el mapeo del usuario; si no se provee, usa el diccionario automático como fallback
+  - `parseSalesMetricsTransposed` y `parseFinanceMetricsTransposed`: firmas actualizadas con `rowMapping?: Record<string, string>` como primer argumento opcional
+- `apps/web/app/clients/import-actions.ts`:
+  - `importFinanceMetricsTransposedAction`: firma actualizada para aceptar `rowMapping: Record<string, string>` y pasarlo al parser
+  - `importSalesMetricsTransposedAction`: ya tenía `rowMapping`; ahora ambas acciones son consistentes
+- `apps/web/components/integrations/data-import-wizard.tsx`:
+  - Reemplaza `TransposedBanner` (solo texto) por `TransposedRowMapper`: UI con dropdowns por campo OTC, donde el usuario selecciona qué fila del Excel corresponde a cada métrica
+  - Agrega `RowField` tipo, `SALES_ROW_FIELDS` y `FINANCE_ROW_FIELDS`: 17 y 5 campos respectivamente, con labels en español
+  - Agrega `autoMapTransposedRows()`: sugiere un mapeo inicial usando el diccionario de sinónimos a partir de `rowLabels` del preview
+  - Agrega estado `transposedSalesRowMapping` y `transposedFinanceRowMapping`
+  - `handleAdvanceFromWhat`: llama `autoMapTransposedRows` para pre-poblar el mapper al detectar formato pivot
+  - `handleSalesMetricsSheetChange` y `handleFinanceMetricsSheetChange`: re-auto-mapean filas al cambiar de hoja
+  - `canAdvanceFromMapper`: para tipos transpuestos, válido si al menos 1 fila está mapeada
+  - `handleImport`: pasa `transposedSalesRowMapping` / `transposedFinanceRowMapping` a las acciones transpuestas
+  - `StepMapper`: nuevo props `transposedSalesRowMapping`, `transposedFinanceRowMapping`, `onTransposedSalesRowMappingChange`, `onTransposedFinanceRowMappingChange`
+  - Texto de confirmación corregido: aclara que métricas hacen upsert (no "no se sobreescribirán")
+
+**Por qué / finalidad:**
+El usuario reportó que al importar su archivo MAESTRO DE METRICAS en formato pivot, (1) el sistema auto-mapeaba solo ~4 filas (las que coincidían exactamente con el diccionario) sin mostrar el resto, (2) no había control manual sobre qué fila corresponde a qué métrica. Ahora el wizard muestra un mapper explícito con todos los campos OTC y todos los nombres de fila del archivo, pre-poblado con las sugerencias automáticas pero editable libremente.
+
+**Decisiones de diseño:**
+- El usuario tiene control total: puede ver/cambiar todos los mapeos antes de importar
+- El auto-mapeo es solo una sugerencia de punto de partida (puede haber falsos positivos o etiquetas no reconocidas)
+- `rowLabels` viene del preview del server (columna A del archivo) para evitar duplicar la lógica XLSX en el cliente
+- Si `explicitRowMapping` se provee con entradas, el parser lo usa exclusivamente; si está vacío/undefined, el diccionario automático actúa como fallback (preservando compatibilidad con formato estándar)
+
+**Riesgos / deuda técnica:**
+- Si el archivo tiene muchas filas en columna A (ej. totales, subtítulos), el dropdown puede llenarse de opciones — sin filtrado por ahora
+- Los datos importados van a `metrics_snapshots` pero ningún módulo UI los consume aún ([FEAT-EXCEL-IMPORT-FASE3-RESTANTE])
+
+---
+
 ## Formato de entrada
 
 Cada entrada debe seguir esta estructura:
@@ -68,6 +596,234 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-25 — Soporte para formato pivot en importación de Excel (métricas)
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit(s):** `1f55b9d` — feat(metrics): soporte para formato pivot en importación de Excel  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** importación de métricas, wizard de importación de datos
+
+**Qué se hizo:**
+- `apps/web/lib/metrics/excel-parser.ts`:
+  - Agrega `parseMonthLabel()`: convierte "Marzo 2025", "03/2025", "2025-03" → "YYYY-MM-01"
+  - Agrega `isTransposedMetricsSheet(headers)`: detecta si ≥2 encabezados son nombres de mes
+  - Agrega `SALES_ROW_LABEL_MAP` y `FINANCE_ROW_LABEL_MAP`: diccionarios con ~50 variantes en español de etiquetas de fila → field keys
+  - Agrega `parseTransposedMetrics()`: parser genérico para formato pivot (meses=columnas, métricas=filas). Salta filas de título merged, encuentra la fila de encabezados real, itera columnas de período, construye `MetricsSnapshotRow` por mes
+  - Agrega `parseSalesMetricsTransposed()` y `parseFinanceMetricsTransposed()` como funciones exportadas
+- `apps/web/app/clients/import-actions.ts`:
+  - Corrige `getExcelPreviewAction` para usar `{ header: 1 }` y encontrar la primera fila con ≥2 celdas no vacías como fila de encabezados real. Antes: archivos con título merged en A1 devolvían `__EMPTY`, `__EMPTY_1`, etc. Ahora devuelve los encabezados reales (ej. nombres de meses)
+  - Corrige `pickBestSheet` con el mismo enfoque
+  - Agrega `importSalesMetricsTransposedAction` e `importFinanceMetricsTransposedAction`: usan el parser transpuesto, sin necesidad de mapping manual
+- `apps/web/components/integrations/data-import-wizard.tsx`:
+  - Agrega helpers `looksLikeMonthHeader` e `isTransposedMetricsFormat` para detección client-side
+  - Agrega estado `transposedTypes: Set<WhatToImport>`
+  - En `handleAdvanceFromWhat`: detecta automáticamente el formato pivot después de cargar el preview
+  - En `handleSalesMetricsSheetChange` y `handleFinanceMetricsSheetChange`: re-detecta al cambiar de hoja
+  - Agrega `TransposedBanner`: muestra mensaje "Formato tabla detectado" con la lista de meses
+  - Actualiza `StepMapper`: para tipos transpuestos muestra el banner en lugar del column mapper; sigue mostrando el selector de hoja
+  - `canAdvanceFromMapper`: los tipos transpuestos no requieren mapeo manual
+  - `handleImport`: usa acción transpuesta cuando se detectó el formato, o la acción standard con mapping si no
+
+**Por qué / finalidad:**
+El usuario tiene un archivo "MAESTRO DE METRICAS ACADEMIA APPLE" en formato pivot (métricas como filas, meses Marzo-Noviembre como columnas). El sistema devolvía `__EMPTY` como encabezados porque la primera fila es un título merged. Ahora el wizard detecta el formato automáticamente, muestra un banner de confirmación, y permite importar sin necesidad de mapear columnas manualmente.
+
+**Decisiones de diseño:**
+- Detección automática client-side + server-side con función compartida conceptualmente (implementaciones paralelas para evitar importar código de servidor en el cliente)
+- El formato estándar (una fila por período) sigue funcionando con el mapper manual; el formato pivot se auto-detecta
+- Diccionarios de etiquetas con variantes en español para cubrir las denominaciones que usa el usuario sin depender del usuario para mapear
+- `parseNum` reutilizado: acepta porcentajes "53%", decimales con coma "1.250,50", enteros
+
+**Riesgos / deuda técnica:**
+- Los diccionarios de etiquetas (`SALES_ROW_LABEL_MAP`) cubren las métricas visibles en el screenshot; si el archivo tiene secciones adicionales (ej. "INVERSIÓN" o "RETENCIÓN") con nombres no mapeados, se ignoran silenciosamente
+- `isTransposedMetricsFormat` podría dar falso positivo si un archivo estándar tiene columnas con nombres de meses; en ese caso el usuario ve el banner en lugar del mapper. Resolver: agregar botón "Cambiar a mapeo manual" en el banner (pendiente)
+
+---
+
+### 2026-08-25 — Importación de métricas de ventas y finanzas
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `1f154a6` — feat(importacion): agregar importación de métricas de ventas y finanzas  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** importación de datos, métricas, finanzas
+
+**Qué se hizo:**
+- `supabase/migrations/20260825100000_metrics_snapshots.sql`: nueva tabla `metrics_snapshots` con columnas `organization_id`, `category` (sales/finance), `period_start` (date), `period_label`, `metrics` (JSONB). Unique constraint en `(organization_id, category, period_start)` para soportar upsert. RLS con `get_my_organization_id()`. Aplicada en Supabase.
+- `apps/web/lib/metrics/excel-parser.ts`: parser genérico para archivos Excel de métricas. `parseNum()` maneja porcentajes ("53%"→0.53), separador de miles europeo, decimales con coma. `parseDate()` soporta serial Excel, ISO, DD/MM/YYYY, y etiquetas de texto. Funciones exportadas: `parseSalesMetricsExcel()` y `parseFinanceMetricsExcel()` con sus tipos de mapping.
+- `apps/web/app/clients/import-actions.ts`: `importSalesMetricsFromExcelAction()` e `importFinanceMetricsFromExcelAction()` usando upsert con `onConflict: "organization_id,category,period_start"`.
+- `apps/web/components/integrations/excel-column-mapper.tsx`: soporte para tipos `"salesMetrics"` y `"financeMetrics"` con campos definidos (19 para ventas, 6 para finanzas). `isMappingValid` acepta los nuevos tipos (solo requiere campo `period`).
+- `apps/web/components/integrations/data-import-wizard.tsx`: wizard extendido a 4 tipos. Sub-componentes `FileRow` y `CheckboxCard` reutilizables. `StepWhat` con secciones para métricas de ventas (TrendingUp) y finanzas (DollarSign). `StepMapper` con selectores de hoja para los 4 archivos. `autoMap` extendido con diccionarios `SALES_METRICS_KNOWN` y `FINANCE_METRICS_KNOWN`. `handleImport` importa los 4 tipos en secuencia.
+
+**Por qué / finalidad:**
+El usuario necesitaba importar datos históricos de KPIs de ventas (close rate, show rate, leads, agendas, cierres, etc.) y finanzas (facturación, margen, gastos) desde sus propios archivos Excel. Cada fila del Excel representa un período con sus métricas agregadas, distinto del patrón de un registro por cliente.
+
+**Decisiones de diseño relevantes:**
+- JSONB para `metrics`: evita schema rígido y permite métricas opcionales sin columnas nulas. El campo exacto depende del mapeo del usuario.
+- Upsert en conflicto: reimportar el mismo período actualiza los valores en vez de generar error o duplicado.
+- Mismo archivo puede ser de múltiples hojas: los selectores de hoja funcionan igual que para clientes y llamadas.
+- `autoMap` extendido para pre-seleccionar columnas cuando los nombres coinciden (normalizado a lowercase).
+
+**Riesgos / deuda técnica pendiente:**
+- No hay UI para ver/editar/eliminar métricas importadas; solo se guardan.
+- La tabla `metrics_snapshots` existe pero ningún módulo la consume aún (pendiente conectar con finanzas/métricas).
+- Texto de confirmación aún dice "Los registros existentes no se sobreescribirán" — en realidad sí se actualizan por upsert.
+
+---
+
+### 2026-08-25 — Excel multi-hoja: selector de hoja en el wizard de importación
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `831cbf4` — feat(excel-import): soporte para archivos Excel multi-hoja con selector de hoja  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** importación de datos
+
+**Qué se hizo:**
+- `app/clients/import-actions.ts`: `getExcelPreviewAction` ahora acepta `sheetName?: string` y devuelve `allSheets: string[]` + `activeSheet: string`. Nueva función `pickBestSheet()` que elige la hoja con más headers no vacíos + bonus si el nombre contiene palabras clave de datos (data, cliente, lead, crm, etc.).
+- `components/integrations/data-import-wizard.tsx`: nuevo componente `SheetSelector` (dropdown visible solo si el archivo tiene >1 hoja). Handlers `handleClientsSheetChange` y `handleClosingSheetChange` que re-fetchan el preview al cambiar de hoja y re-aplican el auto-mapeo. `StepMapper` recibe y usa todos los props de hoja.
+
+**Por qué / finalidad:**
+Archivos Excel reales de CRM suelen tener múltiples hojas (ej. `CRM_VENTAS__AA.xlsx` con 6 hojas donde la primera es un dashboard visual sin columnas útiles y los datos están en la hoja "Data"). El sistema ahora detecta automáticamente la mejor hoja y le permite al usuario cambiarla si no es la correcta.
+
+**Decisiones de diseño relevantes:**
+- La heurística `pickBestSheet` prioriza cantidad de headers + bonus por nombre. Es simple y cubre el caso real (dashboards vacíos vs hojas de datos). No hay riesgo de false positive grave porque el usuario puede corregir con el selector.
+- El selector solo aparece cuando hay >1 hoja para no agregar ruido en el caso más común.
+- Al cambiar de hoja se resetea el mapping con el auto-mapeo de la nueva hoja.
+
+**Riesgos / deuda técnica pendiente:**
+- La heurística podría fallar si todas las hojas tienen la misma cantidad de headers. Poco probable en la práctica.
+
+---
+
+### 2026-08-25 — Excel Column Mapper UI — mapeo de columnas para archivos propios
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `4d6d06b` (fix types) / commits previos  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** importación de datos, clientes, closing
+
+**Qué se hizo:**
+- `app/clients/import-actions.ts`: nueva acción `getExcelPreviewAction(fileBase64)` que extrae headers y primeras 5 filas de cualquier archivo .xlsx sin parsear el schema OTC. Importa XLSX directamente en el action.
+- `components/integrations/excel-column-mapper.tsx` (nuevo): componente que muestra dropdowns para mapear cada columna del archivo del usuario a cada campo OTC (Nombre, Email, Teléfono, Estado, Producto, Monto, Fecha, Notas para clientes; Nombre prospecto, Fecha, Email, Estado, Monto cerrado, Notas para closing). Incluye auto-mapeo por nombre de columna y vista previa de filas con las columnas mapeadas.
+- `components/integrations/data-import-wizard.tsx`: se agrega un paso intermedio "mapper" entre "what" y "confirm" exclusivo del flujo Excel. Al avanzar desde "what", se fetchean los headers de los archivos subidos, se pre-mapean automáticamente si los nombres coinciden, y se muestra el `ExcelColumnMapper`. El mapping resultante se pasa a `importClientsFromExcelAction` y `importClosingCallsFromExcelAction` (que ya soportaban `columnMapping?`). El paso de confirmación navega correctamente con el nuevo paso insertado. Eliminado el link a la plantilla OTC (§2.4 descartado).
+
+**Por qué / finalidad:**
+El usuario puede tener sus datos en cualquier formato de Excel, con columnas nombradas de forma arbitraria. El mapper le permite indicar qué columna de su archivo corresponde a cada campo de OTC sin necesidad de reformatear el archivo ni usar una plantilla específica.
+
+**Decisiones de diseño relevantes:**
+- Auto-mapeo: al cargar el archivo, si algún header coincide (case-insensitive) con los nombres estándar de OTC (ej. "Nombre", "Email", "Teléfono"), se pre-selecciona automáticamente el mapping para evitar trabajo manual.
+- Vista previa toggle: la tabla de preview de filas mapeadas es opcional (toggle per-sección) para no sobrecargar la UI.
+- El mapper se salta completamente si el origen es GHL (no aplica).
+- Se valida que los campos requeridos (name para clientes; leadName + scheduledAt para closing) estén mapeados antes de permitir avanzar.
+
+**Riesgos / deuda técnica pendiente:**
+- Si el usuario sube un archivo con miles de filas, `getExcelPreviewAction` igual lee todo el workbook (solo retorna 5 filas pero parsea todo). Para archivos masivos podría optimizarse con `sheetRowsLimit`.
+- El link a la plantilla OTC fue eliminado del wizard — si se quiere recuperar en el futuro, habría que volver a agregar el CTA.
+
+---
+
+### 2026-08-24 — GHL UTM Attribution — atribución de fuente en closing calls
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `3da5bf1`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** closing/ventas, GHL integration
+
+**Qué se hizo:**
+- `lib/ghl/client.ts`: nuevo tipo `GHLContactAttributionSource` + función `getGHLContact(apiKey, contactId)` que trae el contacto individual con su campo `attributionSource` (UTMs). Devuelve `null` en caso de error para no bloquear el sync.
+- `lib/ghl/sync-appointments.ts`: al insertar/actualizar appointments, se fetchean en paralelo (concurrencia 5) los contactos asociados por `contactId` y se extraen los campos UTM (`utmSource`, `utmMedium`, `utmCampaign`, `utmContent`, `utmTerm`). También se guarda el JSON crudo de atribución en `attribution_source`.
+- `lib/ghl/sync-pipeline.ts`: pasa la `apiKey` a `syncGHLAppointmentsForOrganization` para habilitar el enriquecimiento de UTMs.
+- `supabase/migrations/20260824200000_closing_calls_utm.sql`: agrega `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`, `ghl_contact_id`, `attribution_source` a `closing_calls`. Aplicada en producción.
+- `lib/closing/mapper.ts` + `types/closing.ts`: nuevos campos UTM en `ClosingCallRow` y `ClosingCall`.
+- `components/closing/closing-overview.tsx`: columna "Fuente UTM" en tabla de lista (muestra source + medium · campaign). Panel de detalle: sección "Atribución UTM" con grid `dt/dd` visible solo si hay datos.
+
+**Por qué / finalidad:**
+El founder necesita saber de dónde viene cada agenda de cierre (qué campaña, fuente o contenido generó el lead). GHL guarda la atribución UTM en el contacto (`attributionSource`). Ahora el sync la extrae automáticamente y la muestra en la vista de closing.
+
+**Decisiones de diseño relevantes:**
+- **Pull durante sync vs. webhook**: se eligió pull (enriquecer al momento del sync) porque reutiliza la infraestructura existente, backfill automático de appointments históricos, y la atribución UTM no requiere real-time.
+- **Solo para nuevos/actualizados**: el fetch de contactos se hace solo para `toInsert` y `toUpdate`, no para todos los appointments. Minimiza requests a GHL.
+- **Concurrencia 5**: fetch paralelo con límite para no saturar la API de GHL. Un contacto fallido no bloquea el sync completo (`getGHLContact` devuelve `null` en error).
+- **`attribution_source` JSONB**: se guarda el objeto crudo completo además de los campos normalizados, para referencia futura sin necesidad de re-fetch.
+
+**Riesgos / deuda técnica pendiente:**
+- Si un contacto en GHL no tiene `attributionSource` (lead creado manualmente, sin UTMs), los campos quedan `null` — comportamiento correcto y esperado.
+- El campo `utmSource` en GHL puede ser `null` aun cuando hay datos en `medium` — el helper `buildUtmFields` hace fallback: `utmSource ?? medium`.
+- Appointments ya insertados en DB (sin UTMs) se enriquecerán en el próximo sync si su status no es `"closed"`. Los cerrados no se actualizan por diseño (no sobreescribir deals cerrados).
+
+---
+
+### 2026-08-24 — GHL Data Loading — Fase 2 (importación de datos históricos)
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** integrations, clients, closing/ventas
+
+**Qué se hizo:**
+- **Fix timestamps GHL** (`lib/ghl/sync-pipeline.ts`): `buildSyncRange()` ahora usa Unix timestamps en ms (`getTime().toString()`) en lugar de ISO 8601 — GHL `/calendars/events` devolvía 200 + array vacío con ISO strings. Agregado log diagnóstico y fallback `data.data` en `listGHLAppointments`.
+- **GHL Contacts endpoint** (`lib/ghl/client.ts`): Nuevo tipo `GHLContact` y función `listGHLContacts()` con paginación cursor (`startAfterId`, máx 2000 contactos).
+- **Sync contactos → clients** (`lib/ghl/sync-contacts.ts`): Mapeo idempotente GHL Contacts → `clients`. Dedup por nombre normalizado (case-insensitive). No sobreescribe existentes. Email/teléfono se guardan en `ai_insights`.
+- **Import actions GHL** (`app/ghl/import-actions.ts`): `previewGHLContactsAction` (preview 10 primeros sin importar) + `importGHLContactsAction` (importación real vía admin client).
+- **Parser Excel clientes** (`lib/clients/excel-parser.ts`): Parsea `.xlsx` con plantilla OTC (tab "Clientes") o mapeo de columnas propio. Soporta fechas seriales de Excel, DD/MM/AAAA e ISO. Usa `xlsx` (SheetJS).
+- **Parser Excel llamadas** (`lib/closing/excel-parser.ts`): Idem para tab "Llamadas de cierre". Parsea fechas con hora. Status: cerrado → closed, no cerrado → not_closed, etc.
+- **Server actions Excel** (`app/clients/import-actions.ts`): `importClientsFromExcelAction` y `importClosingCallsFromExcelAction`. Reciben el archivo como base64 (serializable en Server Actions). Dedup clientes por nombre.
+- **Wizard UI** (`components/integrations/data-import-wizard.tsx`): Wizard 3 pasos — Origen (GHL/Excel), Qué importar (clientes/llamadas con preview), Confirmación + resultados.
+- **Página wizard** (`app/(platform)/integrations/import/page.tsx`): Server Component que carga estado GHL y renderiza el wizard.
+- **Integrations page** (`app/(platform)/integrations/page.tsx`): Botón "Importar datos históricos" → `/integrations/import`.
+- **Ruta** (`routes/paths.ts`): Agregado `integrationsImport`.
+
+**Por qué / finalidad:**
+Usuarios nuevos de OTC tienen sus datos históricos en GHL o Excel. Sin importación masiva, el onboarding es manual y lento. Esta fase permite cargar clientes y llamadas de cierre de una vez desde ambas fuentes.
+
+**Decisiones de diseño relevantes:**
+- Archivos Excel se envían como base64 al Server Action (Next.js 15 no serializa `File` en network calls).
+- Dedup por nombre (no por email) porque muchos usuarios no tienen email consistente en GHL.
+- Llamadas de cierre no se deduplan (se insertan todas; el usuario puede limpiar duplicados después).
+- Preview GHL carga automáticamente al seleccionar esa opción (llamada síncrona al `previewGHLContactsAction`).
+- GHL Appointments ya se sincronizan vía el calendario (Fase 1) — no se duplica en el wizard.
+
+**Riesgos / deuda técnica pendiente:**
+- Mapeo de columnas personalizado (para archivos con formato propio): la UI del wizard no tiene la pantalla de mapeo de columnas todavía — usa la plantilla OTC o las columnas detectadas automáticamente. Pendiente implementar `excel-column-mapper.tsx` para Fase 3.
+- Plantilla `.xlsx` descargable (`public/templates/otc-importacion.xlsx`) no generada todavía — el link en el wizard existe pero el archivo no.
+- Oportunidades de GHL (pipeline) → closing_calls es stretch goal Fase 3.
+
+---
+
+### 2026-08-24 — Integración GoHighLevel (GHL) Calendar — Fase 1
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** integrations, closing/ventas, crons
+
+**Qué se hizo:**
+- **Migración SQL** (`supabase/migrations/20260824100000_ghl_integration.sql`): crea tabla `ghl_integrations` con API key cifrada, location_id, calendarios conectados y last_sync_at. Agrega columnas `ghl_appointment_id` y `ghl_calendar_id` a `closing_calls` con índice único por org.
+- **GHL API client** (`lib/ghl/client.ts`): cliente V2 (`services.leadconnectorhq.com`), auth por Private Integration Token + Version header. Funciones: `validateGHLApiKey`, `listGHLCalendars`, `listGHLAppointments` (con paginación).
+- **Integration helpers** (`lib/ghl/integration.ts`): cifrado/descifrado AES-256-GCM de API keys, getters/setters de integración org, upsert y refresh de calendarios.
+- **Sync logic** (`lib/ghl/sync-appointments.ts`): mapeo idempotente de citas GHL a `closing_calls`. Status mapping: showed→closed, noshow→no_show, booked/confirmed→scheduled, cancelled/invalid→skip. Ventana de 90 días pasados + 90 días futuros.
+- **Sync pipeline** (`lib/ghl/sync-pipeline.ts`): funciones safe (never-throw) para cron — `syncGHLOrganizationSafe` y `syncAllGHLOrganizationsSafe`.
+- **Server Actions** (`app/ghl/actions.ts`): `getGHLIntegrationStatusAction`, `validateGHLKeyAction`, `connectGHLAction`, `updateGHLCalendarAction`, `syncGHLAppointmentsAction`.
+- **Cron endpoint** (`app/api/cron/ghl-sync/route.ts`): sync horario con soporte `?organizationId=` para org específica, protegido con `CRON_SECRET`.
+- **Dialog UI** (`components/integrations/ghl-connect-dialog.tsx`): flujo en 3 pasos — StepCredentials (token + locationId), StepSelectCalendar, ManagePanel (sync manual, cambio de calendario activo).
+- **Icono SVG** (`public/integrations/ghl.svg`): logo circular "G" en ámbar.
+- **Wiring en integrations page**: mock entry, brand colors, grupo, providers real, disconnect action, count, statusMap en `listIntegrationsAction`.
+- **Wiring en integration-card.tsx**: import del dialog, estado `ghlConnectOpen`, handlers para connect/manage/disconnect, `supportsCardDisconnect`, action label "Gestionar", render del dialog.
+- **Tipos closing**: `ClosingCallSource = "calendly" | "ghl" | "manual"`, campo `source` en `ClosingCall`.
+- **Mapper closing**: `deriveSource()` basado en presencia de `calendly_event_id` vs `ghl_appointment_id`.
+- **UI closing-overview**: badges de color por origen (azul=Calendly, ámbar=GHL, neutro=manual).
+- **vercel.json**: cron `/api/cron/ghl-sync` cada hora.
+
+**Por qué / finalidad:**
+Usuarios que usan GoHighLevel en lugar de Calendly para agendar llamadas de cierre no tenían forma de importar sus citas a OTC. Esta integración los habilita con el mismo flujo que Calendly pero usando Private Integration Tokens de GHL (sin necesidad de registrar la app en el Marketplace todavía).
+
+**Decisiones de diseño relevantes:**
+- Auth por Private Integration Token ahora; OAuth/Marketplace se implementará cuando GHL lo apruebe (proceso lento).
+- Calendly y GHL coexisten simultáneamente; el origen se distingue visualmente en la UI.
+- API key cifrada con AES-256-GCM igual que otras integraciones con secrets; sin RLS SELECT en `ghl_integrations`.
+- Citas canceladas/inválidas se omiten (no se importan); citas ya cerradas/no-cerradas en OTC se actualizan campos pero se preserva el status.
+- `source` derivado en la capa mapper (no guardado en DB) para no romper schema existente.
+
+**Riesgos / deuda técnica pendiente:**
+- Migración SQL pendiente de aplicar en producción (`supabase/migrations/20260824100000_ghl_integration.sql`).
+- Migrar a OAuth "Connect with GHL" cuando OTC sea aprobado como app en GHL Marketplace.
+- Phase 2 (carga de datos históricos desde Excel) queda para sesión futura — ver PENDIENTES.
 ### 2026-08-24 — fix(marketing): stories de Instagram no se mostraban en la app
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  

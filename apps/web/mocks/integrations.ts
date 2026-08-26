@@ -60,6 +60,14 @@ export const mockIntegrations: Integration[] = [
       "Conectá tu servidor para capturar conversaciones con clientes, detectar testimonios automáticamente y tener visibilidad completa de cada cliente.",
   },
   {
+    id: "int-ghl",
+    provider: "ghl",
+    name: "GoHighLevel",
+    status: "not_connected",
+    description:
+      "GoHighLevel — importa citas del calendario. Alternativa a Calendly.",
+  },
+  {
     id: "int-clickup",
     provider: "clickup",
     name: "ClickUp",

@@ -75,6 +75,10 @@
       "schedule": "0 * * * *"
     },
     {
+      "path": "/api/cron/ghl-sync",
+      "schedule": "0 * * * *"
+    },
+    {
       "path": "/api/integrations/instagram/sync",
       "schedule": "0 * * * *"
     },

@@ -2,7 +2,9 @@ import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { getFrequentObjections, mockFrequentObjectionSummaries } from "@/lib/metrics/frequent-objections";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { SalesMetricsRedesign } from "@/components/sales/sales-metrics-redesign";
+import { getSalesMetricsSnapshotsAction } from "@/app/sales/metrics-actions";
 import type { FrequentObjectionsResult } from "@/types/sales";
+import type { MetricsSnapshot } from "@/app/sales/metrics-actions";
 
 async function loadFrequentObjections(): Promise<FrequentObjectionsResult> {
   if (!isSupabaseConfigured()) {
@@ -16,10 +18,25 @@ async function loadFrequentObjections(): Promise<FrequentObjectionsResult> {
   return getFrequentObjections(organizationId);
 }
 
+async function loadSnapshots(): Promise<MetricsSnapshot[]> {
+  if (!isSupabaseConfigured()) return [];
+  try {
+    return await getSalesMetricsSnapshotsAction();
+  } catch {
+    return [];
+  }
+}
+
 export default async function SalesMetricsPage() {
-  const frequentObjections = await loadFrequentObjections();
+  const [frequentObjections, importedSnapshots] = await Promise.all([
+    loadFrequentObjections(),
+    loadSnapshots(),
+  ]);
 
   return (
-    <SalesMetricsRedesign frequentObjections={frequentObjections} />
+    <SalesMetricsRedesign
+      frequentObjections={frequentObjections}
+      importedSnapshots={importedSnapshots}
+    />
   );
 }

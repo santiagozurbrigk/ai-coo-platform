@@ -2,23 +2,26 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Badge, Button, StaggerFade, StaggerFadeItem } from "@ai-coo/ui";
-import { Settings2, Star } from "lucide-react";
+import { Badge, Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, StaggerFade, StaggerFadeItem } from "@ai-coo/ui";
+import { BookOpen, Settings2, Star, Trash2 } from "lucide-react";
+import { assignClientPlanAction, deleteClientAction } from "@/app/clients/actions";
+import { listPlansAction } from "@/app/clients/plan-actions";
 import { getClientsTableEnrichmentAction } from "@/app/clients/plan-duration-actions";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import {
   computeOutstandingBalance,
   computeRemainingProgramDays,
   distinctPlanNames,
-  findPlanDuration,
   formatRemainingDays,
   getClientPlanName,
 } from "@/lib/clients/plan-utils";
 import { paths } from "@/routes";
+import { usePlatformData } from "@/providers";
+import { useToast } from "@/providers/toast-provider";
 import type { Client, ClientStatus } from "@/types/clients";
+import type { Plan } from "@/types/plans";
 import type { PlanDuration } from "@/types/plan-durations";
-import { ImportClientsDialog } from "./import-clients-dialog";
-import { PlanDurationsDialog } from "./plan-durations-dialog";
+import { PlanManagerDialog } from "./plan-manager-dialog";
 
 const STATUS_LABEL: Record<ClientStatus, string> = {
   pending_onboarding: "Realizar onboarding",
@@ -86,21 +89,129 @@ function RemainingDaysBadge({
   );
 }
 
+// ── Diálogo de confirmación de eliminación ─────────────────────────────────
+
+function DeleteClientDialog({
+  client,
+  onConfirm,
+  onCancel,
+  pending,
+}: {
+  client: Client;
+  onConfirm: () => void;
+  onCancel: () => void;
+  pending: boolean;
+}) {
+  return (
+    <Dialog open onOpenChange={(o: boolean) => { if (!o) onCancel(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Eliminar cliente</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          ¿Estás seguro que querés eliminar a{" "}
+          <span className="font-medium text-foreground">{client.name}</span>? Esta acción no se puede deshacer.
+        </p>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel} disabled={pending}>
+            Cancelar
+          </Button>
+          <Button variant="destructive" onClick={onConfirm} disabled={pending}>
+            {pending ? "Eliminando…" : "Eliminar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Diálogo de asignación de plan ──────────────────────────────────────────
+
+function AssignPlanDialog({
+  client,
+  plans,
+  onConfirm,
+  onCancel,
+  pending,
+}: {
+  client: Client;
+  plans: Plan[];
+  onConfirm: (planId: string | null) => void;
+  onCancel: () => void;
+  pending: boolean;
+}) {
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(client.planId ?? "");
+
+  return (
+    <Dialog open onOpenChange={(o: boolean) => { if (!o) onCancel(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Asignar plan a {client.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Seleccioná el plan contratado por este cliente.
+          </p>
+          <select
+            className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            value={selectedPlanId}
+            onChange={(e) => setSelectedPlanId(e.target.value)}
+            disabled={pending}
+          >
+            <option value="">Sin plan asignado</option>
+            {plans.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+                {p.durationDays ? ` (${p.durationDays} días)` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel} disabled={pending}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={() => onConfirm(selectedPlanId || null)}
+            disabled={pending}
+          >
+            {pending ? "Guardando…" : "Guardar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Componente principal ───────────────────────────────────────────────────
+
 export function ClientsList({ clients }: { clients: Client[] }) {
+  const { refreshClients } = usePlatformData();
+  const { push } = useToast();
   const [statusFilter, setStatusFilter] = useState<ClientStatus | "all">("all");
   const [planFilter, setPlanFilter] = useState<string>("all");
   const [paidByClientId, setPaidByClientId] = useState<Record<string, number>>({});
   const [planDurations, setPlanDurations] = useState<PlanDuration[]>([]);
   const [isFounder, setIsFounder] = useState(false);
-  const [durationsOpen, setDurationsOpen] = useState(false);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [plansOpen, setPlansOpen] = useState(false);
   const [loadingEnrichment, startLoad] = useTransition();
+  const [pending, startTransition] = useTransition();
+
+  // Diálogos de acción por cliente
+  const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
+  const [assignPlanTarget, setAssignPlanTarget] = useState<Client | null>(null);
 
   useEffect(() => {
     startLoad(async () => {
-      const data = await getClientsTableEnrichmentAction();
-      setPaidByClientId(data.paidByClientId);
-      setPlanDurations(data.planDurations);
-      setIsFounder(data.isFounder);
+      const [enrichment, fetchedPlans] = await Promise.all([
+        getClientsTableEnrichmentAction(),
+        listPlansAction(),
+      ]);
+      setPaidByClientId(enrichment.paidByClientId);
+      setPlanDurations(enrichment.planDurations);
+      setIsFounder(enrichment.isFounder);
+      setPlans(fetchedPlans);
     });
   }, [clients]);
 
@@ -123,7 +234,43 @@ export function ClientsList({ clients }: { clients: Client[] }) {
     });
   }, [clients, statusFilter, planFilter]);
 
-  const allPlanNames = useMemo(() => distinctPlanNames(clients), [clients]);
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleDeleteConfirm = () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    startTransition(async () => {
+      try {
+        await deleteClientAction(target.id);
+        await refreshClients();
+        push({ title: `Cliente "${target.name}" eliminado`, variant: "success" });
+      } catch (e) {
+        push({
+          title: "No se pudo eliminar el cliente",
+          description: e instanceof Error ? e.message : undefined,
+        });
+      }
+    });
+  };
+
+  const handleAssignPlanConfirm = (planId: string | null) => {
+    if (!assignPlanTarget) return;
+    const target = assignPlanTarget;
+    setAssignPlanTarget(null);
+    startTransition(async () => {
+      try {
+        await assignClientPlanAction(target.id, planId);
+        await refreshClients();
+        push({ title: "Plan asignado", variant: "success" });
+      } catch (e) {
+        push({
+          title: "No se pudo asignar el plan",
+          description: e instanceof Error ? e.message : undefined,
+        });
+      }
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -148,21 +295,18 @@ export function ClientsList({ clients }: { clients: Client[] }) {
             </select>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {isFounder ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => setDurationsOpen(true)}
-            >
-              <Settings2 className="h-4 w-4" />
-              Duraciones de planes
-            </Button>
-          ) : null}
-          <ImportClientsDialog />
-        </div>
+        {isFounder ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => setPlansOpen(true)}
+          >
+            <Settings2 className="h-4 w-4" />
+            Crear planes
+          </Button>
+        ) : null}
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
@@ -173,7 +317,7 @@ export function ClientsList({ clients }: { clients: Client[] }) {
               <th className="px-4 py-3 font-medium">Plan</th>
               <th className="px-4 py-3 font-medium">Días restantes</th>
               <th className="px-4 py-3 font-medium">Pago</th>
-              <th className="px-4 py-3 font-medium">Adeudado en cuotas</th>
+              <th className="px-4 py-3 font-medium">Adeudado</th>
               <th className="px-4 py-3 font-medium">Monto</th>
               <th className="px-4 py-3 font-medium">Estado</th>
               <th className="px-4 py-3 font-medium" />
@@ -182,10 +326,19 @@ export function ClientsList({ clients }: { clients: Client[] }) {
           <StaggerFade as="tbody">
             {filtered.map((client) => {
               const planName = getClientPlanName(client);
-              const duration = findPlanDuration(planName, planDurations);
+              // Usar plan estructurado si está asignado, o buscar por nombre en planDurations
+              const assignedPlan = client.planId
+                ? plans.find((p) => p.id === client.planId)
+                : undefined;
+              const durationDays = assignedPlan?.durationDays ?? (() => {
+                const pd = planDurations.find(
+                  (d) => d.planName.toLowerCase() === (planName ?? "").toLowerCase()
+                );
+                return pd?.durationDays;
+              })();
               const remainingDays = computeRemainingProgramDays(
                 client.joinDate,
-                duration?.durationDays
+                durationDays
               );
               const paid = paidByClientId[client.id] ?? 0;
               const owed = computeOutstandingBalance(client, paid);
@@ -205,7 +358,22 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {planName ?? "—"}
+                    <div className="flex items-center gap-1.5">
+                      <span>{assignedPlan?.name ?? planName ?? "—"}</span>
+                      {plans.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-muted-foreground/60 hover:text-primary"
+                          title="Modificar plan"
+                          onClick={() => setAssignPlanTarget(client)}
+                          disabled={pending}
+                        >
+                          <BookOpen className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <RemainingDaysBadge
@@ -225,12 +393,25 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                     <Badge variant="secondary">{STATUS_LABEL[client.status]}</Badge>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link
-                      href={paths.platform.clients.detail(client.id)}
-                      className="text-xs font-medium text-primary hover:underline"
-                    >
-                      Ver detalle
-                    </Link>
+                    <div className="flex items-center justify-end gap-1">
+                      <Link
+                        href={paths.platform.clients.detail(client.id)}
+                        className="text-xs font-medium text-primary hover:underline"
+                      >
+                        Ver detalle
+                      </Link>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-muted-foreground/50 hover:text-destructive"
+                        title="Eliminar cliente"
+                        onClick={() => setDeleteTarget(client)}
+                        disabled={pending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </td>
                 </StaggerFadeItem>
               );
@@ -244,13 +425,34 @@ export function ClientsList({ clients }: { clients: Client[] }) {
         )}
       </div>
 
+      {/* Diálogo de gestión de planes */}
       {isFounder ? (
-        <PlanDurationsDialog
-          open={durationsOpen}
-          onOpenChange={setDurationsOpen}
-          planNames={allPlanNames}
-          durations={planDurations}
-          onUpdated={setPlanDurations}
+        <PlanManagerDialog
+          open={plansOpen}
+          onOpenChange={setPlansOpen}
+          plans={plans}
+          onUpdated={setPlans}
+        />
+      ) : null}
+
+      {/* Confirmación de eliminación */}
+      {deleteTarget ? (
+        <DeleteClientDialog
+          client={deleteTarget}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTarget(null)}
+          pending={pending}
+        />
+      ) : null}
+
+      {/* Asignar plan */}
+      {assignPlanTarget ? (
+        <AssignPlanDialog
+          client={assignPlanTarget}
+          plans={plans}
+          onConfirm={handleAssignPlanConfirm}
+          onCancel={() => setAssignPlanTarget(null)}
+          pending={pending}
         />
       ) : null}
     </div>

@@ -1,5 +1,6 @@
 import { wrapUntrustedContent } from "@/lib/ai/wrap-untrusted-content";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAllLatestBaselines, type BaselineSnapshot } from "@/lib/metrics/baseline-service";
 
 export interface OrgContext {
   orgName: string;
@@ -18,6 +19,11 @@ export interface OrgContext {
   };
   /** Estilo de comunicación del founder detectado por IA (uso interno). */
   toneDescription?: string;
+  /**
+   * Métricas históricas importadas manualmente (baseline).
+   * Un registro por categoría, el más reciente disponible.
+   */
+  baselineMetrics?: BaselineSnapshot[];
 }
 
 const orgContextCache = new Map<
@@ -35,7 +41,7 @@ export async function getOrgContext(organizationId: string): Promise<OrgContext>
 
   const supabase = createAdminClient();
 
-  const [org, sops, avatar, products, frameworks, salesScript, tone, proposition] =
+  const [org, sops, avatar, products, frameworks, salesScript, tone, proposition, baselineMetrics] =
     await Promise.all([
       supabase
         .from("organizations")
@@ -89,6 +95,8 @@ export async function getOrgContext(organizationId: string): Promise<OrgContext>
         .select("avatar_text, result_text, pain_removed_text, timeframe_text")
         .eq("organization_id", organizationId)
         .maybeSingle(),
+
+      getAllLatestBaselines(organizationId),
     ]);
 
   const toneDescription =
@@ -117,6 +125,7 @@ export async function getOrgContext(organizationId: string): Promise<OrgContext>
           timeframe: proposition.data.timeframe_text,
         }
       : undefined,
+    baselineMetrics: baselineMetrics.length > 0 ? baselineMetrics : undefined,
   };
 
   orgContextCache.set(organizationId, {
@@ -220,6 +229,30 @@ ${context.frameworks
 ${context.salesScript.slice(0, 500)}`
       )
     );
+  }
+
+  if (context.baselineMetrics?.length) {
+    const metricsBlock = context.baselineMetrics
+      .map((bm) => {
+        const lines = Object.entries(bm.metrics)
+          .filter(([, v]) => typeof v === "number" && v > 0)
+          .map(([k, v]) => `  - ${k}: ${v}`)
+          .join("\n");
+        return lines
+          ? `[${bm.category.toUpperCase()} · ${bm.periodLabel}]\n${lines}`
+          : null;
+      })
+      .filter(Boolean)
+      .join("\n\n");
+
+    if (metricsBlock) {
+      sections.push(
+        `MÉTRICAS HISTÓRICAS DE REFERENCIA (datos importados por el founder):\n` +
+          `Estos son los números reales del negocio hasta la fecha. Usarlos como ` +
+          `punto de partida para análisis, comparaciones y recomendaciones.\n\n` +
+          metricsBlock
+      );
+    }
   }
 
   sections.push(`

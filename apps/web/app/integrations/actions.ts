@@ -18,6 +18,7 @@ import {
   getUnipileIntegrationStatusAction,
 } from "@/app/unipile/actions";
 import { getZernioIntegrationStatusAction } from "@/app/integrations/zernio/actions";
+import { getGHLIntegrationStatusAction } from "@/app/ghl/actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { formatRelativeTime } from "@/lib/format";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
@@ -162,6 +163,20 @@ export async function disconnectZernioAction(): Promise<MutationResult> {
   });
 }
 
+export async function disconnectGHLIntegrationAction(): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("ghl_integrations")
+      .delete()
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+    revalidatePath(paths.platform.integrations);
+  });
+}
+
 async function countManyChatConversations(): Promise<number> {
   if (!isSupabaseConfigured()) return 0;
   const organizationId = await requireOrganizationId();
@@ -183,6 +198,18 @@ async function countCalendlyClosingCalls(): Promise<number> {
     .select("id", { count: "exact", head: true })
     .eq("organization_id", organizationId)
     .not("calendly_event_id", "is", null);
+  return count ?? 0;
+}
+
+async function countGHLAppointments(): Promise<number> {
+  if (!isSupabaseConfigured()) return 0;
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("closing_calls")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .not("ghl_appointment_id", "is", null);
   return count ?? 0;
 }
 
@@ -224,6 +251,7 @@ async function countForms(platform: string): Promise<number> {
 
 const REAL_PROVIDERS = new Set([
   "calendly",
+  "ghl",
   "manychat",
   "fathom",
   "youtube",
@@ -249,6 +277,7 @@ const HIDDEN_INTEGRATION_PROVIDERS = new Set([
 export async function listIntegrationsAction(): Promise<Integration[]> {
   const [
     calendlyStatus,
+    ghlStatus,
     manychatStatus,
     fathomStatus,
     youtubeStatus,
@@ -260,6 +289,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     zernioStatus,
   ] = await Promise.all([
     getCalendlyIntegrationStatusAction(),
+    getGHLIntegrationStatusAction(),
     getManyChatIntegrationStatusAction(),
     getFathomIntegrationStatusAction(),
     getYoutubeIntegrationStatusAction(),
@@ -273,6 +303,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
 
   const [
     calendlyRecords,
+    ghlRecords,
     manychatRecords,
     fathomRecords,
     youtubeRecords,
@@ -284,6 +315,7 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     zernioRecords,
   ] = await Promise.all([
     calendlyStatus.connected ? countCalendlyClosingCalls() : 0,
+    ghlStatus.connected ? countGHLAppointments() : 0,
     manychatStatus.connected ? countManyChatConversations() : 0,
     fathomStatus.connected ? countFathomCalls() : 0,
     youtubeStatus.connected ? countContentAssets("youtube") : 0,
@@ -307,6 +339,11 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
         connected: calendlyStatus.connected,
         lastSyncAt: calendlyStatus.lastSyncAt ?? null,
         records: calendlyRecords,
+      },
+      ghl: {
+        connected: ghlStatus.connected,
+        lastSyncAt: ghlStatus.lastSyncAt,
+        records: ghlRecords,
       },
       manychat: {
         connected: manychatStatus.connected,
