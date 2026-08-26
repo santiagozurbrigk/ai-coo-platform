@@ -41,6 +41,33 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-26 — feat(clientes): barra de progreso de pagos, registro de comprobantes y círculo indicador de días restantes
+
+**Rama/branch:** `claude/payment-progress-days-indicator-ce7wvq`  
+**Commit(s):** `6cb9065`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** clientes
+
+**Qué se hizo:**
+- `components/clients/client-payments-section.tsx`: se agrega `PaymentProgressBar`, un componente visual que muestra el avance de cobros (pagado vs. total) con colores dinámicos (rojo/ámbar/primary/verde según el porcentaje). La barra aparece automáticamente una vez que cargan los pagos. También se agrega `AddGenericPaymentDialog` para clientes de tipo `upfront` y `upfront_fee`, con campos de monto, fecha y dropzone de comprobante, que llama a `recordClientPaymentAction` directamente.
+- `components/clients/clients-list.tsx`: se agrega `RemainingDaysBadge`, un componente que renderiza un círculo de color junto al texto de días restantes. Colores: rojo (<15 días), ámbar (15–29), verde (≥30), gris (programa finalizado), sin círculo (sin datos de duración de plan).
+
+**Por qué / finalidad:**
+- El founder necesitaba una barra de progreso visual de los cobros para saber cuánto falta cobrar de cada cliente de un vistazo.
+- Los clientes upfront/upfront_fee no tenían forma de registrar comprobantes de pago (el botón existente solo aparecía para clientes de cuotas). Ahora todos los tipos de pago pueden cargar comprobantes.
+- La columna de días restantes en la tabla no tenía indicador visual — ahora el círculo de color permite identificar rápidamente clientes con el programa próximo a vencer o ya vencido.
+
+**Decisiones de diseño relevantes:**
+- La barra de progreso usa el total de `payments.reduce(sum, amount)` calculado en cliente, sin llamadas adicionales al server. Se actualiza en tiempo real al registrar un nuevo pago.
+- Para clientes `installments` no se agrega el botón genérico, para no romper el flujo de cuotas que ya maneja numeración e impacto en el campo `installments` del cliente.
+- Los umbrales del círculo de color (15/30 días) se definieron como valores razonables para alertar con anticipación; se pueden ajustar fácilmente en `RemainingDaysBadge`.
+
+**Riesgos / deuda técnica pendiente:**
+- Los umbrales de color del círculo (15/30 días) están hardcodeados; podrían hacerse configurables por organización.
+- Para clientes `installments` con todas las cuotas pagadas no hay botón para registrar pagos adicionales (por diseño, pero puede que se necesite en el futuro).
+
+---
+
 ### 2026-08-24 — fix(marketing): stories de Instagram no se mostraban en la app
 
 **Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
