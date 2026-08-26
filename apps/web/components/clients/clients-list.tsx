@@ -379,7 +379,7 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                     <RemainingDaysBadge
                       days={remainingDays}
                       loading={loadingEnrichment}
-                      hasDuration={!!duration}
+                      hasDuration={!!durationDays}
                     />
                   </td>
                   <td className="px-4 py-3">{PAYMENT_LABEL[client.paymentType]}</td>
