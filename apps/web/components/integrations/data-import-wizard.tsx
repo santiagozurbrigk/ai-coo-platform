@@ -668,13 +668,25 @@ function ResultRow({ label, inserted, skipped, errors, planMatchCount }: {
 // ─── Auto-mapeo de columnas ───────────────────────────────────────────────────
 
 const CLIENT_KNOWN: Record<string, string> = {
-  nombre: "name", "nombre completo": "name", name: "name",
-  email: "email", correo: "email",
-  teléfono: "phone", telefono: "phone", phone: "phone", tel: "phone",
-  "producto / plan": "product", producto: "product", plan: "product",
+  // Nombre
+  nombre: "name", "nombre completo": "name", name: "name", cliente: "name",
+  // Email
+  email: "email", correo: "email", "correo electronico": "email", "correo electrónico": "email",
+  // Teléfono
+  "teléfono": "phone", telefono: "phone", phone: "phone", tel: "phone", celular: "phone",
+  // Producto / Plan — "programa" es común en Excels de mentoría/cursos
+  "producto / plan": "product", producto: "product", plan: "product", programa: "product",
+  // Monto — "cc" = cash collected, abreviatura frecuente en tracking de ventas
   "monto total": "totalAmount", "monto pagado": "totalAmount", "cash collected": "totalAmount",
-  monto: "totalAmount", importe: "totalAmount",
-  "fecha inicio": "joinDate", "fecha de inicio": "joinDate",
+  monto: "totalAmount", importe: "totalAmount", cc: "totalAmount",
+  // Fecha inicio — incluye nombre del mes en español para Excels organizados por mes
+  "fecha inicio": "joinDate", "fecha de inicio": "joinDate", fecha: "joinDate",
+  enero: "joinDate", febrero: "joinDate", marzo: "joinDate", abril: "joinDate",
+  mayo: "joinDate", junio: "joinDate", julio: "joinDate", agosto: "joinDate",
+  septiembre: "joinDate", octubre: "joinDate", noviembre: "joinDate", diciembre: "joinDate",
+  // Estado y notas
+  estado: "status",
+  notas: "notes", nota: "notes", observaciones: "notes", comentarios: "notes",
 };
 
 function autoMapClients(headers: string[]): Record<string, string> {
