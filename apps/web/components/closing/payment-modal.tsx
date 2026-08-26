@@ -589,7 +589,7 @@ export function PaymentModal({
                   rows={3}
                   placeholder="¿Qué problema urgente quería resolver?"
                   value={mainPain}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMainPain(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMainPain(e.target.value)}
                   disabled={pending}
                 />
               </FormField>
@@ -598,7 +598,7 @@ export function PaymentModal({
                   rows={3}
                   placeholder="Precio, timing, pareja, falta de claridad…"
                   value={objections}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setObjections(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setObjections(e.target.value)}
                   disabled={pending}
                 />
               </FormField>
@@ -607,7 +607,7 @@ export function PaymentModal({
                   rows={4}
                   placeholder="Resumen de la llamada, próximos pasos, acuerdos…"
                   value={feedbackNotes}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFeedbackNotes(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFeedbackNotes(e.target.value)}
                   disabled={pending}
                 />
               </FormField>
