@@ -146,14 +146,15 @@ export type ExcelImportResult = {
  */
 export async function importClientsFromExcelAction(
   fileBase64: string,
-  columnMapping?: ColumnMapping
+  columnMapping?: ColumnMapping,
+  sheetName?: string
 ): Promise<MutationResult<ExcelImportResult>> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
 
     const buffer = Buffer.from(fileBase64, "base64");
-    const { rows, errors } = parseClientsExcel(buffer, columnMapping);
+    const { rows, errors } = parseClientsExcel(buffer, columnMapping, sheetName);
 
     if (!rows.length) {
       return { inserted: 0, skipped: 0, errors: errors.length ? errors : [{ row: 0, message: "El archivo no contiene clientes para importar." }] };

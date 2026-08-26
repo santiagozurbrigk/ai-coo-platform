@@ -99,20 +99,22 @@ function resolveDate(raw: unknown): string {
 
 export function parseClientsExcel(
   buffer: Buffer | ArrayBuffer,
-  columnMapping?: ColumnMapping
+  columnMapping?: ColumnMapping,
+  sheetName?: string
 ): ParseExcelResult {
   const wb = XLSX.read(buffer, { type: "buffer", cellDates: false });
 
-  // Buscar el tab correcto: "Clientes" si existe, si no la primera hoja
-  const sheetName =
-    wb.SheetNames.find((n) => n.toLowerCase().includes("clientes")) ??
-    wb.SheetNames[0];
+  // Usar la hoja indicada si viene del wizard (la misma que se previsualizó).
+  // Si no, buscar "clientes" o usar la primera hoja.
+  const resolvedSheetName = sheetName
+    ? (wb.SheetNames.find((n) => n === sheetName) ?? wb.SheetNames[0])
+    : (wb.SheetNames.find((n) => n.toLowerCase().includes("clientes")) ?? wb.SheetNames[0]);
 
-  if (!sheetName) {
+  if (!resolvedSheetName) {
     return { headers: [], rows: [], errors: [{ row: 0, message: "Archivo sin hojas." }] };
   }
 
-  const sheet = wb.Sheets[sheetName];
+  const sheet = wb.Sheets[resolvedSheetName];
 
   // Usar { header: 1 } para obtener arrays crudos y poder saltar filas de título
   // (igual que getExcelPreviewAction — evita que celdas merged en fila 1 sean tomadas como headers).

@@ -812,7 +812,8 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
         } else if (clientsFile) {
           const r = await importClientsFromExcelAction(
             clientsFile.base64,
-            columnMapping.clientsMapping as ColumnMapping | undefined
+            columnMapping.clientsMapping as ColumnMapping | undefined,
+            clientsPreview?.activeSheet
           );
           if (!r.success) throw new Error(r.error);
           result.clientsResult = { ...r.data, source: "excel" };
