@@ -2,6 +2,8 @@
  * Pipeline de sync GHL → closing_calls para una o todas las orgs.
  * Análogo a lib/calendly/sync-pipeline.ts.
  * Seguro para cron: nunca lanza, siempre devuelve resultado.
+ *
+ * Soporta multi-calendario: itera sobre selected_calendar_ids y combina resultados.
  */
 
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -37,18 +39,35 @@ export async function syncGHLOrganizationSafe(
 
   try {
     const row = await getGHLIntegrationForOrg(organizationId);
-    if (!row?.default_calendar_id) return empty;
+    if (!row) return empty;
+
+    // Resolver calendarios a sincronizar: multi-selección con fallback a legacy
+    const calendarIds =
+      row.selected_calendar_ids?.length
+        ? row.selected_calendar_ids
+        : row.default_calendar_id
+        ? [row.default_calendar_id]
+        : [];
+
+    if (!calendarIds.length) return empty;
 
     const apiKey = decryptGHLApiKey(row.api_key_encrypted);
     const { startTime, endTime } = buildSyncRange();
 
-    const appointments = await listGHLAppointments(
-      apiKey,
-      row.location_id,
-      row.default_calendar_id,
-      startTime,
-      endTime
+    // Fetch de todos los calendarios seleccionados en paralelo
+    const appointmentsByCalendar = await Promise.all(
+      calendarIds.map((calId) =>
+        listGHLAppointments(apiKey, row.location_id, calId, startTime, endTime)
+      )
     );
+
+    // Aplanar y deduplicar por appointment id
+    const seen = new Set<string>();
+    const appointments = appointmentsByCalendar.flat().filter((a) => {
+      if (seen.has(a.id)) return false;
+      seen.add(a.id);
+      return true;
+    });
 
     const admin = createAdminClient();
     const result = await syncGHLAppointmentsForOrganization(
@@ -65,7 +84,7 @@ export async function syncGHLOrganizationSafe(
       .eq("organization_id", organizationId);
 
     console.info(
-      `[ghl-sync] org=${organizationId} fetched=${result.fetched} inserted=${result.inserted} updated=${result.updated}`
+      `[ghl-sync] org=${organizationId} calendars=${calendarIds.length} fetched=${result.fetched} inserted=${result.inserted} updated=${result.updated}`
     );
 
     return { organizationId, ...result };
@@ -84,10 +103,10 @@ export async function syncAllGHLOrganizationsSafe(): Promise<{
 }> {
   const admin = createAdminClient();
 
+  // Considerar orgs con al menos un calendario seleccionado (nuevo campo) o legacy
   const { data, error } = await admin
     .from("ghl_integrations")
-    .select("organization_id")
-    .not("default_calendar_id", "is", null);
+    .select("organization_id");
 
   if (error) {
     console.error("[ghl-sync] Error listando orgs:", error);

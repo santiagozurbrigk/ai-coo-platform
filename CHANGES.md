@@ -14,6 +14,39 @@
 
 ---
 
+### 2026-08-26 — FEAT-GHL-MULTI-CALENDAR: soporte de múltiples calendarios en integración GHL
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `lib/ghl/integration.ts`, `lib/ghl/sync-pipeline.ts`, `app/ghl/actions.ts`, `app/closing/actions.ts`, `components/integrations/ghl-connect-dialog.tsx`, `components/closing/closing-overview.tsx`, `app/(platform)/sales/closing/page.tsx`, `types/closing.ts`, `lib/closing/mapper.ts`, `supabase/migrations/20260826130621_ghl_multi_calendar.sql`
+
+**Qué se hizo:**
+- **Migración SQL:** `selected_calendar_ids text[] NOT NULL DEFAULT '{}'::text[]` agregado a `ghl_integrations`. Backfill automático desde `default_calendar_id` en filas existentes.
+- **`StepSelectCalendar` en dialog GHL:** radio buttons → checkboxes multi-selección. Al menos 1 requerido. Muestra contador de seleccionados.
+- **`ManagePanel` en dialog GHL:** lista de calendarios con checkboxes toggle; botón "Guardar selección" aparece solo si hay cambios pendientes.
+- **`connectGHLAction`:** ahora recibe `selectedCalendarIds: string[]` (antes era un solo string). `default_calendar_id` se setea al primero (backward compat con sync legacy).
+- **`updateGHLCalendarsAction`:** reemplaza `updateGHLCalendarAction` (single string) por el nuevo (array). Actualiza `selected_calendar_ids` + `default_calendar_id`.
+- **`syncGHLOrganizationSafe`:** itera sobre todos los calendarios en `selected_calendar_ids` en paralelo, aplana y deduplica appointments por ID antes del upsert.
+- **`syncAllGHLOrganizationsSafe`:** ya no filtra por `default_calendar_id IS NOT NULL` — ahora incluye todas las orgs con integración GHL (el sync individual decide qué calendarios procesar).
+- **`listClosingCallsAction`:** usa `.in("ghl_calendar_id", selectedCalendarIds)` en vez de `.eq("ghl_calendar_id", singleId)` para mostrar todas las calls de los calendarios activos.
+- **`ClosingCall` type + mapper:** nuevo campo `ghlCalendarId` para poder filtrar client-side por calendario.
+- **`ClosingOverview`:** recibe `ghlCalendars` y `ghlSelectedCalendarIds` como props (fetched en page.tsx). Si hay 2+ calendarios activos, muestra `FilterPills` para alternar entre "Todos los calendarios" y cada calendario individual. El filtro afecta tanto la vista lista como la vista calendario.
+- **`ClosingPage`:** pasa a ser un wrapper async que fetchea el status GHL antes de renderizar `ClosingOverview`.
+
+**Por qué / finalidad:**
+El usuario necesitaba seleccionar más de un calendario GHL (ej: uno para llamadas de discovery y otro para onboarding) y poder filtrar las citas en el panel de closing por calendario específico o ver todos juntos.
+
+**Decisiones de diseño:**
+- `default_calendar_id` se mantiene para backward compat con el cron legacy y cualquier integración que lo use directamente.
+- El filtro de calendarios en closing solo aparece con 2+ calendarios seleccionados — con 1 no aporta valor.
+- El filtro es puramente client-side (los datos de todos los calendarios ya están en el payload de `closingCalls`).
+
+**Riesgos / deuda técnica pendiente:**
+- Hay que aplicar la migración `20260826130621_ghl_multi_calendar.sql` en Supabase antes de que el feature funcione en producción.
+- `syncAllGHLOrganizationsSafe` ahora lista todas las orgs con integración GHL (antes solo las que tenían `default_calendar_id` seteado); si hay orgs con integración sin calendarios, `syncGHLOrganizationSafe` las skipea silenciosamente (retorna `empty`).
+
+---
+
 ### 2026-08-26 — UI-CLEANUP: eliminación del botón flotante del agente y fix de layout en integraciones
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  

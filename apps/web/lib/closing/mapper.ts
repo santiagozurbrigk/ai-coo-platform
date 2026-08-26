@@ -22,6 +22,7 @@ export type ClosingCallRow = {
   payment_received_from: string | null;
   calendly_event_id?: string | null;
   ghl_appointment_id?: string | null;
+  ghl_calendar_id?: string | null;
   // Atribución UTM (de GHL attributionSource del contacto)
   utm_source?: string | null;
   utm_medium?: string | null;
@@ -53,11 +54,12 @@ export function rowToClosingCall(row: ClosingCallRow): ClosingCall {
     paymentDestinationPlatformId: row.payment_destination_platform_id ?? undefined,
     paymentReceivedFrom: row.payment_received_from ?? undefined,
     source: deriveSource(row),
-    utmSource:   row.utm_source   ?? undefined,
-    utmMedium:   row.utm_medium   ?? undefined,
-    utmCampaign: row.utm_campaign ?? undefined,
-    utmContent:  row.utm_content  ?? undefined,
-    utmTerm:     row.utm_term     ?? undefined,
+    utmSource:      row.utm_source      ?? undefined,
+    utmMedium:      row.utm_medium      ?? undefined,
+    utmCampaign:    row.utm_campaign    ?? undefined,
+    utmContent:     row.utm_content     ?? undefined,
+    utmTerm:        row.utm_term        ?? undefined,
+    ghlCalendarId:  row.ghl_calendar_id ?? undefined,
   };
 }
 

@@ -26,6 +26,8 @@ export type GHLIntegrationStatus = {
   connected: boolean;
   locationId: string | null;
   defaultCalendarId: string | null;
+  /** Calendarios actualmente seleccionados para sync */
+  selectedCalendarIds: string[];
   connectedCalendars: GHLCalendar[];
   lastSyncAt: string | null;
 };
@@ -34,6 +36,7 @@ const EMPTY_STATUS: GHLIntegrationStatus = {
   connected: false,
   locationId: null,
   defaultCalendarId: null,
+  selectedCalendarIds: [],
   connectedCalendars: [],
   lastSyncAt: null,
 };
@@ -46,10 +49,19 @@ export async function getGHLIntegrationStatusAction(): Promise<GHLIntegrationSta
     const row = await getGHLIntegrationForOrg(organizationId);
     if (!row) return EMPTY_STATUS;
 
+    // Calcular selectedCalendarIds desde el nuevo campo con fallback al legacy
+    const selectedCalendarIds =
+      row.selected_calendar_ids?.length
+        ? row.selected_calendar_ids
+        : row.default_calendar_id
+        ? [row.default_calendar_id]
+        : [];
+
     return {
       connected: true,
       locationId: row.location_id,
       defaultCalendarId: row.default_calendar_id,
+      selectedCalendarIds,
       connectedCalendars: row.connected_calendars ?? [],
       lastSyncAt: row.last_sync_at,
     };
@@ -66,7 +78,7 @@ export type GHLValidateResult =
 
 /**
  * Valida la API key + location ID y devuelve los calendarios disponibles.
- * No guarda nada en DB todavía — el usuario elige el calendario primero.
+ * No guarda nada en DB todavía — el usuario elige los calendarios primero.
  */
 export async function validateGHLKeyAction(
   apiKey: string,
@@ -103,16 +115,17 @@ export async function validateGHLKeyAction(
 }
 
 /**
- * Guarda la integración GHL con el calendario elegido por el usuario.
+ * Guarda la integración GHL con los calendarios elegidos por el usuario.
+ * selectedCalendarIds es un array de IDs — debe tener al menos uno.
  */
 export async function connectGHLAction(
   apiKey: string,
   locationId: string,
   calendars: GHLCalendar[],
-  selectedCalendarId: string
+  selectedCalendarIds: string[]
 ): Promise<MutationResult> {
   return runMutation(async () => {
-    if (!selectedCalendarId) throw new Error("Seleccioná un calendario.");
+    if (!selectedCalendarIds.length) throw new Error("Seleccioná al menos un calendario.");
 
     const organizationId = await requireOrganizationId();
     await upsertGHLIntegration(
@@ -120,25 +133,30 @@ export async function connectGHLAction(
       apiKey.trim(),
       locationId.trim(),
       calendars,
-      selectedCalendarId
+      selectedCalendarIds
     );
     revalidatePath(paths.platform.integrations);
   });
 }
 
 /**
- * Cambia el calendario activo sin re-validar la API key.
+ * Actualiza los calendarios activos sin re-validar la API key.
+ * Reemplaza selected_calendar_ids y ajusta default_calendar_id al primer seleccionado.
  */
-export async function updateGHLCalendarAction(
-  calendarId: string
+export async function updateGHLCalendarsAction(
+  calendarIds: string[]
 ): Promise<MutationResult> {
   return runMutation(async () => {
-    if (!calendarId) throw new Error("Seleccioná un calendario.");
+    if (!calendarIds.length) throw new Error("Seleccioná al menos un calendario.");
     const organizationId = await requireOrganizationId();
     const admin = createAdminClient();
     const { error } = await admin
       .from("ghl_integrations")
-      .update({ default_calendar_id: calendarId, updated_at: new Date().toISOString() })
+      .update({
+        selected_calendar_ids: calendarIds,
+        default_calendar_id: calendarIds[0]!,
+        updated_at: new Date().toISOString(),
+      })
       .eq("organization_id", organizationId);
     if (error) throw new Error(error.message);
     revalidatePath(paths.platform.integrations);

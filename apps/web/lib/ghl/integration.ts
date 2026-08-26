@@ -15,7 +15,10 @@ export type GHLIntegrationRow = {
   organization_id: string;
   api_key_encrypted: string;
   location_id: string;
+  /** Primer calendario seleccionado — se mantiene para backward compat con sync legacy. */
   default_calendar_id: string | null;
+  /** Calendarios activos para sync (multi-selección). */
+  selected_calendar_ids: string[];
   connected_calendars: GHLCalendar[];
   last_sync_at: string | null;
   created_at: string;
@@ -57,49 +60,66 @@ export async function getGHLIntegrationForOrg(
 }
 
 /**
- * Devuelve { apiKey (plano), locationId, calendarId } listos para usar.
+ * Devuelve { apiKey (plano), locationId, calendarIds } listos para usar.
+ * calendarIds contiene todos los calendarios activos (multi-selección).
  * Lanza si no hay integración configurada.
  */
 export async function getGHLCredentialsForOrg(organizationId: string): Promise<{
   apiKey: string;
   locationId: string;
+  /** @deprecated usar calendarIds */
   calendarId: string;
+  calendarIds: string[];
 }> {
   const row = await getGHLIntegrationForOrg(organizationId);
   if (!row) throw new Error("GHL no configurado para esta organización");
-  if (!row.default_calendar_id) {
+
+  // Resolver calendarios activos: preferir selected_calendar_ids, fallback a default_calendar_id
+  const calendarIds =
+    row.selected_calendar_ids?.length
+      ? row.selected_calendar_ids
+      : row.default_calendar_id
+      ? [row.default_calendar_id]
+      : [];
+
+  if (!calendarIds.length) {
     throw new Error("No hay calendario GHL seleccionado");
   }
   return {
     apiKey: decryptGHLApiKey(row.api_key_encrypted),
     locationId: row.location_id,
-    calendarId: row.default_calendar_id,
+    calendarId: calendarIds[0]!,
+    calendarIds,
   };
 }
 
 /**
  * Guarda o actualiza la integración GHL (upsert).
- * Si `calendarId` no se provee, mantiene el valor anterior.
+ * selectedCalendarIds define qué calendarios se sincronizan (multi-selección).
+ * default_calendar_id se fija en el primer seleccionado para backward compat.
  */
 export async function upsertGHLIntegration(
   organizationId: string,
   apiKey: string,
   locationId: string,
   calendars: GHLCalendar[],
-  calendarId?: string
+  selectedCalendarIds: string[]
 ): Promise<void> {
   const admin = createAdminClient();
 
-  const existing = await getGHLIntegrationForOrg(organizationId);
-  const finalCalendarId =
-    calendarId ?? existing?.default_calendar_id ?? null;
+  const finalSelectedIds = selectedCalendarIds.length
+    ? selectedCalendarIds
+    : (await getGHLIntegrationForOrg(organizationId))?.selected_calendar_ids ?? [];
+
+  const defaultCalendarId = finalSelectedIds[0] ?? null;
 
   const { error } = await admin.from("ghl_integrations").upsert(
     {
       organization_id: organizationId,
       api_key_encrypted: encryptGHLApiKey(apiKey),
       location_id: locationId,
-      default_calendar_id: finalCalendarId,
+      default_calendar_id: defaultCalendarId,
+      selected_calendar_ids: finalSelectedIds,
       connected_calendars: calendars,
       updated_at: new Date().toISOString(),
     },
@@ -116,16 +136,26 @@ export async function getGHLClientForOrg(organizationId: string): Promise<{
   apiKey: string;
   locationId: string;
   calendarId: string;
+  calendarIds: string[];
   calendars: GHLCalendar[];
 }> {
   const row = await getGHLIntegrationForOrg(organizationId);
   if (!row) throw new Error("GHL no configurado para esta organización");
-  if (!row.default_calendar_id) throw new Error("No hay calendario GHL seleccionado");
+
+  const calendarIds =
+    row.selected_calendar_ids?.length
+      ? row.selected_calendar_ids
+      : row.default_calendar_id
+      ? [row.default_calendar_id]
+      : [];
+
+  if (!calendarIds.length) throw new Error("No hay calendario GHL seleccionado");
 
   return {
     apiKey: decryptGHLApiKey(row.api_key_encrypted),
     locationId: row.location_id,
-    calendarId: row.default_calendar_id,
+    calendarId: calendarIds[0]!,
+    calendarIds,
     calendars: row.connected_calendars ?? [],
   };
 }

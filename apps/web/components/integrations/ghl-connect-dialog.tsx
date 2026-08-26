@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   connectGHLAction,
   getGHLIntegrationStatusAction,
   syncGHLAppointmentsAction,
-  updateGHLCalendarAction,
+  updateGHLCalendarsAction,
   validateGHLKeyAction,
   type GHLIntegrationStatus,
 } from "@/app/ghl/actions";
@@ -74,7 +74,7 @@ function StepCredentials({
           type="password"
           placeholder="eyJhbGc..."
           value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)}
           autoComplete="off"
         />
         <p className="text-xs text-muted-foreground">
@@ -88,7 +88,7 @@ function StepCredentials({
           id="ghl-location"
           placeholder="Ej: xxxxxxxxxxxxxxxxxxxxxxxx"
           value={locationId}
-          onChange={(e) => setLocationId(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocationId(e.target.value)}
           autoComplete="off"
         />
         <p className="text-xs text-muted-foreground">
@@ -113,41 +113,57 @@ function StepCredentials({
   );
 }
 
-// ─── Paso 2: Elegir calendario ────────────────────────────────────────────────
+// ─── Paso 2: Elegir calendarios (multi-selección) ─────────────────────────────
 
 function StepSelectCalendar({
   apiKey,
   locationId,
   calendars,
-  currentCalendarId,
+  currentSelectedIds,
   onConnected,
 }: {
   apiKey: string;
   locationId: string;
   calendars: GHLCalendar[];
-  currentCalendarId: string | null;
+  currentSelectedIds: string[];
   onConnected: () => void;
 }) {
-  const [selected, setSelected] = useState<string>(
-    currentCalendarId ?? calendars[0]?.id ?? ""
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(currentSelectedIds.length ? currentSelectedIds : calendars.slice(0, 1).map((c) => c.id))
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { push } = useToast();
 
+  const toggleCalendar = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        if (next.size === 1) return prev; // al menos 1 requerido
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   const handleSave = async () => {
-    if (!selected) return;
+    if (!selected.size) return;
     setError(null);
     setLoading(true);
     try {
-      const result = await connectGHLAction(apiKey, locationId, calendars, selected);
+      const result = await connectGHLAction(apiKey, locationId, calendars, [...selected]);
       if (!result.success) {
         setError(result.error ?? "Error al guardar");
         return;
       }
       push({
         title: "GoHighLevel conectado",
-        description: "El calendario se sincronizará automáticamente cada hora.",
+        description:
+          selected.size === 1
+            ? "El calendario se sincronizará automáticamente cada hora."
+            : `${selected.size} calendarios se sincronizarán automáticamente cada hora.`,
         variant: "success",
       });
       onConnected();
@@ -161,23 +177,36 @@ function StepSelectCalendar({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Seleccioná el calendario a sincronizar</Label>
-        <div className="space-y-1.5 max-h-48 overflow-y-auto rounded-lg border border-border p-1">
-          {calendars.map((cal) => (
-            <button
-              key={cal.id}
-              type="button"
-              onClick={() => setSelected(cal.id)}
-              className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                selected === cal.id
-                  ? "bg-primary text-primary-foreground"
-                  : "hover:bg-muted"
-              }`}
-            >
-              {cal.name}
-            </button>
-          ))}
+        <Label>
+          Seleccioná los calendarios a sincronizar
+          <span className="ml-1 text-xs text-muted-foreground">(podés elegir varios)</span>
+        </Label>
+        <div className="space-y-1.5 max-h-52 overflow-y-auto rounded-lg border border-border p-2">
+          {calendars.map((cal) => {
+            const checked = selected.has(cal.id);
+            return (
+              <label
+                key={cal.id}
+                className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleCalendar(cal.id)}
+                  className="h-4 w-4 rounded border-border accent-primary"
+                />
+                <span className={checked ? "font-medium" : ""}>{cal.name}</span>
+              </label>
+            );
+          })}
         </div>
+        <p className="text-xs text-muted-foreground">
+          {selected.size === 0
+            ? "Seleccioná al menos un calendario."
+            : selected.size === 1
+            ? "1 calendario seleccionado"
+            : `${selected.size} calendarios seleccionados`}
+        </p>
       </div>
 
       {error ? (
@@ -188,7 +217,7 @@ function StepSelectCalendar({
         <Button
           type="button"
           onClick={handleSave}
-          disabled={loading || !selected}
+          disabled={loading || selected.size === 0}
         >
           {loading ? "Guardando…" : "Conectar GHL"}
         </Button>
@@ -202,16 +231,24 @@ function StepSelectCalendar({
 function ManagePanel({
   status,
   onSynced,
-  onCalendarChanged,
+  onCalendarsChanged,
 }: {
   status: GHLIntegrationStatus;
   onSynced: () => void;
-  onCalendarChanged: () => void;
+  onCalendarsChanged: () => void;
 }) {
   const [syncing, setSyncing] = useState(false);
-  const [changingCalendar, setChangingCalendar] = useState(false);
+  const [savingCalendars, setSavingCalendars] = useState(false);
+  const [localSelected, setLocalSelected] = useState<Set<string>>(
+    () => new Set(status.selectedCalendarIds)
+  );
   const { push } = useToast();
   const { refreshClosingCalls } = usePlatformData();
+
+  // Sincronizar estado local si cambia el status externo
+  useEffect(() => {
+    setLocalSelected(new Set(status.selectedCalendarIds));
+  }, [status.selectedCalendarIds]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -239,18 +276,41 @@ function ManagePanel({
     }
   };
 
-  const handleChangeCalendar = async (calendarId: string) => {
-    const result = await updateGHLCalendarAction(calendarId);
-    if (!result.success) {
-      push({ title: "Error al cambiar calendario", description: result.error });
-      return;
-    }
-    push({ title: "Calendario actualizado", variant: "success" });
-    onCalendarChanged();
+  const toggleCalendar = (id: string) => {
+    setLocalSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        if (next.size === 1) return prev; // mínimo 1
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
-  const activeCalendar = status.connectedCalendars.find(
-    (c) => c.id === status.defaultCalendarId
+  const hasChanges = (() => {
+    if (localSelected.size !== status.selectedCalendarIds.length) return true;
+    return status.selectedCalendarIds.some((id) => !localSelected.has(id));
+  })();
+
+  const handleSaveCalendars = async () => {
+    setSavingCalendars(true);
+    try {
+      const result = await updateGHLCalendarsAction([...localSelected]);
+      if (!result.success) {
+        push({ title: "Error al actualizar calendarios", description: result.error });
+        return;
+      }
+      push({ title: "Calendarios actualizados", variant: "success" });
+      onCalendarsChanged();
+    } finally {
+      setSavingCalendars(false);
+    }
+  };
+
+  const activeCalendars = status.connectedCalendars.filter((c) =>
+    status.selectedCalendarIds.includes(c.id)
   );
 
   return (
@@ -258,9 +318,15 @@ function ManagePanel({
       {/* Estado */}
       <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
         <div>
-          <p className="text-sm font-medium">Calendario activo</p>
+          <p className="text-sm font-medium">
+            {activeCalendars.length === 1
+              ? "Calendario activo"
+              : `${activeCalendars.length} calendarios activos`}
+          </p>
           <p className="text-xs text-muted-foreground">
-            {activeCalendar?.name ?? status.defaultCalendarId ?? "Sin seleccionar"}
+            {activeCalendars.length === 0
+              ? "Sin seleccionar"
+              : activeCalendars.map((c) => c.name).join(", ")}
           </p>
         </div>
         <Badge variant="success">Conectado</Badge>
@@ -290,26 +356,42 @@ function ManagePanel({
         ) : null}
       </div>
 
-      {/* Cambiar calendario */}
+      {/* Gestión de calendarios (visible si hay más de 1 disponible) */}
       {status.connectedCalendars.length > 1 ? (
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Cambiar calendario</p>
-          <div className="space-y-1 max-h-36 overflow-y-auto rounded-lg border border-border p-1">
-            {status.connectedCalendars.map((cal) => (
-              <button
-                key={cal.id}
-                type="button"
-                onClick={() => void handleChangeCalendar(cal.id)}
-                className={`w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors ${
-                  cal.id === status.defaultCalendarId
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-muted"
-                }`}
-              >
-                {cal.name}
-              </button>
-            ))}
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">Calendarios sincronizados</p>
+          <div className="space-y-1.5 max-h-44 overflow-y-auto rounded-lg border border-border p-2">
+            {status.connectedCalendars.map((cal) => {
+              const checked = localSelected.has(cal.id);
+              return (
+                <label
+                  key={cal.id}
+                  className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleCalendar(cal.id)}
+                    className="h-4 w-4 rounded border-border accent-primary"
+                  />
+                  <span className={checked ? "font-medium" : "text-muted-foreground"}>
+                    {cal.name}
+                  </span>
+                </label>
+              );
+            })}
           </div>
+          {hasChanges ? (
+            <Button
+              type="button"
+              size="sm"
+              className="w-full"
+              onClick={handleSaveCalendars}
+              disabled={savingCalendars || localSelected.size === 0}
+            >
+              {savingCalendars ? "Guardando…" : "Guardar selección"}
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -381,8 +463,8 @@ export function GHLConnectDialog({
           <DialogTitle>GoHighLevel</DialogTitle>
           <DialogDescription>
             {isConnected
-              ? "Gestioná tu integración de calendario GHL."
-              : "Conectá tu calendario de GoHighLevel para importar citas al módulo de Closing."}
+              ? "Gestioná los calendarios sincronizados de GHL."
+              : "Conectá uno o más calendarios de GoHighLevel para importar citas al módulo de Closing."}
           </DialogDescription>
         </DialogHeader>
 
@@ -394,7 +476,7 @@ export function GHLConnectDialog({
           <ManagePanel
             status={status!}
             onSynced={() => void loadStatus()}
-            onCalendarChanged={() => void loadStatus()}
+            onCalendarsChanged={() => void loadStatus()}
           />
         ) : step === "credentials" ? (
           <StepCredentials onValidated={handleValidated} />
@@ -403,7 +485,7 @@ export function GHLConnectDialog({
             apiKey={pendingApiKey}
             locationId={pendingLocationId}
             calendars={pendingCalendars}
-            currentCalendarId={status?.defaultCalendarId ?? null}
+            currentSelectedIds={status?.selectedCalendarIds ?? []}
             onConnected={handleConnected}
           />
         )}

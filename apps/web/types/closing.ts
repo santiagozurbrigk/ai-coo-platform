@@ -36,6 +36,8 @@ export type ClosingCall = {
   utmCampaign?: string | null;
   utmContent?: string | null;
   utmTerm?: string | null;
+  /** ID del calendario GHL al que pertenece esta llamada (para filtrar por calendario) */
+  ghlCalendarId?: string | null;
 };
 
 export type PaymentPlatform =

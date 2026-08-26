@@ -21,6 +21,7 @@ import { useToast } from "@/providers/toast-provider";
 import { paths } from "@/routes";
 import type { ClosingCall, ClosingCallSource, ClosingCallStatus } from "@/types/closing";
 import { CalendlyManualSyncNotice } from "@/components/integrations/calendly-manual-sync-notice";
+import type { GHLCalendar } from "@/lib/ghl/client";
 import { ClosingCalendar } from "./closing-calendar";
 import { ClosersRanking } from "./closers-ranking";
 import { PaymentModal } from "./payment-modal";
@@ -71,7 +72,15 @@ function formatCallDate(iso: string) {
   });
 }
 
-export function ClosingOverview() {
+export function ClosingOverview({
+  ghlCalendars = [],
+  ghlSelectedCalendarIds = [],
+}: {
+  /** Calendarios disponibles en GHL (fetched server-side). Vacío si no hay integración. */
+  ghlCalendars?: GHLCalendar[];
+  /** IDs de calendarios actualmente seleccionados para sync. */
+  ghlSelectedCalendarIds?: string[];
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const deepLinkCallId = searchParams.get("call");
@@ -89,12 +98,21 @@ export function ClosingOverview() {
   const root = paths.platform.sales.closing;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [listFilter, setListFilter] = useState<ClosingCallStatus | "all">("all");
+  /** Filtro de calendario GHL — "all" o un calendarId específico */
+  const [calendarFilter, setCalendarFilter] = useState<string>("all");
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [noCloseOpen, setNoCloseOpen] = useState(false);
   const [calendarMode, setCalendarMode] = useState<"month" | "week">("month");
   const [calendarAnchor, setCalendarAnchor] = useState(() =>
     pickCalendarFocusDate(closingCalls)
   );
+
+  // Calendarios GHL activos (los que efectivamente están seleccionados para sync)
+  const activeGhlCalendars = ghlCalendars.filter((c) =>
+    ghlSelectedCalendarIds.includes(c.id)
+  );
+  // Mostrar filtro de calendario solo si hay 2+ calendarios GHL activos
+  const showCalendarFilter = activeGhlCalendars.length >= 2;
 
   useEffect(() => {
     void refreshClosingCalls();
@@ -133,10 +151,18 @@ export function ClosingOverview() {
 
   const selected = closingCalls.find((c) => c.id === selectedId);
 
+  // Aplica primero el filtro de calendario GHL, luego el de estado
+  const calendarFilteredCalls = useMemo(() => {
+    if (calendarFilter === "all" || !showCalendarFilter) return closingCalls;
+    return closingCalls.filter(
+      (c) => c.ghlCalendarId === calendarFilter
+    );
+  }, [closingCalls, calendarFilter, showCalendarFilter]);
+
   const filteredCalls = useMemo(() => {
-    if (listFilter === "all") return closingCalls;
-    return closingCalls.filter((c) => c.status === listFilter);
-  }, [closingCalls, listFilter]);
+    if (listFilter === "all") return calendarFilteredCalls;
+    return calendarFilteredCalls.filter((c) => c.status === listFilter);
+  }, [calendarFilteredCalls, listFilter]);
 
   const navTabs = TABS.map((t) => ({
     label: t.label,
@@ -148,6 +174,18 @@ export function ClosingOverview() {
       <PageHeader description="Calendario de llamadas de cierre, contexto Calendly y resultados" />
 
       <CalendlyManualSyncNotice showIntegrationsLink />
+
+      {/* Filtro de calendario GHL — solo si hay 2+ calendarios activos */}
+      {showCalendarFilter ? (
+        <FilterPills
+          options={[
+            { value: "all", label: "Todos los calendarios" },
+            ...activeGhlCalendars.map((c) => ({ value: c.id, label: c.name })),
+          ]}
+          value={calendarFilter}
+          onChange={setCalendarFilter}
+        />
+      ) : null}
 
       <ModuleSubnav
         tabs={navTabs}
@@ -301,7 +339,7 @@ export function ClosingOverview() {
                 </p>
               </div>
               <ClosingCalendar
-                calls={closingCalls}
+                calls={calendarFilteredCalls}
                 mode={calendarMode}
                 anchorDate={calendarAnchor}
                 onAnchorChange={setCalendarAnchor}
