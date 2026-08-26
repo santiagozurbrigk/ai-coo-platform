@@ -574,7 +574,13 @@ function StepConfirm({
           <span className="text-sm font-medium">Importación completada</span>
         </div>
         {summary.clientsResult && (
-          <ResultRow label="Clientes" inserted={summary.clientsResult.inserted} skipped={summary.clientsResult.skipped} errors={summary.clientsResult.errors.length} />
+          <ResultRow
+            label="Clientes"
+            inserted={summary.clientsResult.inserted}
+            skipped={summary.clientsResult.skipped}
+            errors={summary.clientsResult.errors.length}
+            planMatchCount={summary.clientsResult.planMatchCount}
+          />
         )}
         {summary.salesMetricsResult && (
           <ResultRow label="Métricas de ventas" inserted={summary.salesMetricsResult.inserted} skipped={summary.salesMetricsResult.skipped} errors={summary.salesMetricsResult.errors.length} />
@@ -641,8 +647,8 @@ function StepConfirm({
   );
 }
 
-function ResultRow({ label, inserted, skipped, errors }: {
-  label: string; inserted: number; skipped: number; errors: number;
+function ResultRow({ label, inserted, skipped, errors, planMatchCount }: {
+  label: string; inserted: number; skipped: number; errors: number; planMatchCount?: number;
 }) {
   return (
     <div className="text-sm">
@@ -651,6 +657,9 @@ function ResultRow({ label, inserted, skipped, errors }: {
         <span className="text-green-600">{inserted} importados</span>
         {skipped > 0 && <span>{skipped} ya existían</span>}
         {errors > 0 && <span className="text-destructive">{errors} errores</span>}
+        {planMatchCount != null && planMatchCount > 0 && (
+          <span className="text-violet-500">{planMatchCount} con plan asignado</span>
+        )}
       </div>
     </div>
   );

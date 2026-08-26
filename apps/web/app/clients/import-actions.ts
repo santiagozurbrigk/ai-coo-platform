@@ -5,6 +5,7 @@ import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { createClient } from "@/lib/supabase/server";
 import { parseClientsExcel, type ColumnMapping, type ClientImportRow } from "@/lib/clients/excel-parser";
+import { matchPlanByName, selectBestSystem, type PlanLike } from "@/lib/clients/plan-matcher";
 import { parseClosingCallsExcel, type ClosingColumnMapping } from "@/lib/closing/excel-parser";
 import {
   parseSalesMetricsExcel,
@@ -132,6 +133,8 @@ export type ExcelImportResult = {
   inserted: number;
   skipped: number;
   errors: Array<{ row: number; message: string }>;
+  /** Cantidad de clientes a los que se asignó un plan automáticamente por match de nombre */
+  planMatchCount?: number;
 };
 
 // ─── Importar clientes desde Excel ───────────────────────────────────────────
@@ -175,21 +178,46 @@ export async function importClientsFromExcelAction(
       return { inserted: 0, skipped, errors };
     }
 
-    const today = new Date().toISOString().split("T")[0];
-    const insertPayload = toInsert.map((row: ClientImportRow) => ({
-      organization_id: organizationId,
-      name:            row.name,
-      join_date:       row.joinDate || today,
-      payment_type:    "upfront" as const,
-      platform:        "other" as const,
-      total_amount:    row.totalAmount ?? 0,
-      status:          row.status ?? "active",
-      is_success_case: false,
-      installments:    [],
-      ai_insights:     buildClientInsights(row),
-      linked_calls:    [],
-      offered_product: row.product ?? null,
+    // Cargar planes de la org para hacer auto-match por nombre de producto
+    const { data: plansData } = await supabase
+      .from("plans")
+      .select("id, name, installment_systems")
+      .eq("organization_id", organizationId);
+
+    const plans: PlanLike[] = (plansData ?? []).map((p: {
+      id: string;
+      name: string;
+      installment_systems: Array<{ id: string }> | null;
+    }) => ({
+      id: p.id,
+      name: p.name,
+      installmentSystems: p.installment_systems ?? [],
     }));
+
+    const today = new Date().toISOString().split("T")[0];
+    const insertPayload = toInsert.map((row: ClientImportRow) => {
+      // Intentar match automático del producto con un plan existente
+      const matchedPlan = row.product ? matchPlanByName(row.product, plans) : null;
+      const planId = matchedPlan?.id ?? null;
+      const systemId = matchedPlan ? selectBestSystem(matchedPlan) : null;
+
+      return {
+        organization_id:              organizationId,
+        name:                         row.name,
+        join_date:                    row.joinDate || today,
+        payment_type:                 "upfront" as const,
+        platform:                     "other" as const,
+        total_amount:                 row.totalAmount ?? 0,
+        status:                       row.status ?? "active",
+        is_success_case:              false,
+        installments:                 [],
+        ai_insights:                  buildClientInsights(row),
+        linked_calls:                 [],
+        offered_product:              row.product ?? null,
+        plan_id:                      planId,
+        selected_installment_system_id: systemId,
+      };
+    });
 
     // Insertar en lotes de 50
     const BATCH = 50;
@@ -201,8 +229,9 @@ export async function importClientsFromExcelAction(
       inserted += batch.length;
     }
 
-    console.info(`[import-clients-excel] org=${organizationId} inserted=${inserted} skipped=${skipped}`);
-    return { inserted, skipped, errors };
+    const planMatchCount = insertPayload.filter((r) => r.plan_id).length;
+    console.info(`[import-clients-excel] org=${organizationId} inserted=${inserted} skipped=${skipped} planMatchCount=${planMatchCount}`);
+    return { inserted, skipped, errors, planMatchCount };
   });
 }
 
