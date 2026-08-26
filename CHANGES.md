@@ -14,6 +14,27 @@
 
 ---
 
+### 2026-08-26 — FIX-IMPORT-CLIENTES-FILA-TITULO: parseClientsExcel ahora salta filas de título/fusionadas
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `6104e7e`  
+**Módulo(s) afectado(s):** `lib/clients/excel-parser.ts`
+
+**Qué se hizo:**
+- Reemplazado `XLSX.utils.sheet_to_json` (sin `header: 1`) por la misma estrategia que ya usaba `getExcelPreviewAction`: `sheet_to_json({ header: 1 })` → arrays crudos, luego detectar la primera fila con ≥2 celdas no vacías como fila real de encabezados, y construir objetos keyed manualmente.
+- Esto permite saltar filas de título/fusionadas antes de los encabezados reales (Nombre, Email, Teléfono…).
+
+**Por qué / finalidad:**
+El Excel del usuario tenía una fila de título fusionada como primera fila. El parser anterior la trataba como header → todos los lookups de columnas fallaban → los 37 clientes se rechazaban ("nombre vacío").
+
+**Decisiones de diseño:**
+- Umbral de ≥2 celdas no vacías para detectar el header real (consistente con `getExcelPreviewAction`).
+- Sin cambios al contrato de tipos ni a los callers.
+
+**Riesgos / deuda técnica pendiente:** Ninguno conocido.
+
+---
+
 ### 2026-08-26 — FIX-BUILD-TEXTAREA-TYPES: corregir tipo HTMLTextAreaElement en handlers de payment-modal
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  

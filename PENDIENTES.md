@@ -9,12 +9,7 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [DB-PLANES] Aplicar migración de tabla plans en Supabase
-
-**Qué es:** La migración `supabase/migrations/20260825100000_plans_client_plan_delete.sql` fue creada pero NO aplicada todavía.  
-**Acción:** Ejecutar el SQL en Supabase Dashboard → SQL Editor (o `supabase db push` si la CLI está vinculada).  
-**Efecto si no se aplica:** Los módulos de Planes (crear/editar/eliminar plans) y asignación de plan a clientes fallarán en producción con error de tabla inexistente.  
-**Archivo:** `supabase/migrations/20260825100000_plans_client_plan_delete.sql`
+~~### [DB-PLANES] Aplicar migración de tabla plans en Supabase~~ ✅ Completado 2026-08-26
 
 ---
 
