@@ -569,6 +569,23 @@ Qué quedó sin hacer, qué puede romperse, qué hay que revisar luego.
 
 ---
 
+### 2026-08-26 — FIX-HOLDING-TEAM-ROLES: error RLS al crear rol en contexto holding
+
+**Rama/branch:** `claude/holding-role-creation-error-lueoz6`  
+**Commits:** `3dff083`, `f8d3d2c`  
+**Módulo(s) afectado(s):** `apps/web/app/team/actions.ts`
+
+**Qué se hizo:**
+Reemplazado `profile.organization_id` por `requireOrganizationId()` en cinco actions de `team/actions.ts`: `createCustomRoleAction`, `deleteCustomRoleAction`, `updateMemberRoleAction`, `deactivateMemberAction`, `inviteTeamMemberAction`.
+
+**Por qué / finalidad:**
+Un usuario holding que opera un negocio hijo veía "new row violates row-level security policy for table 'team_roles'" al crear un rol. La causa raíz: `get_my_organization_id()` (migración `20260620100000_holding_jwt_claim_hook.sql`) lee `active_business_org_id` del JWT cuando el holding opera un hijo — hace que el RLS evalúe contra `child_org_id`. Los actions usaban `profile.organization_id` (= `holding_org_id`) para el INSERT, entonces `WITH CHECK (organization_id = get_my_organization_id())` fallaba: `holding_org_id ≠ child_org_id`. Los otros tres actions tenían el mismo bug con efectos silenciosos (filtros erróneos → no-ops). `inviteTeamMemberAction` usaba admin client (bypass RLS, no crasheaba) pero creaba el miembro en la org incorrecta.
+
+**Decisiones de diseño:**
+`requireManagerProfile()` sigue usando `getCurrentProfile()` para la verificación de permisos (rol real del holding = "founder"). El org_id efectivo para operaciones en DB se resuelve con `requireOrganizationId()`, que respeta el JWT del holding.
+
+**Riesgos / deuda técnica pendiente:**
+Ninguno conocido para este fix.
 ### 2026-08-26 — feat(clientes): barra de progreso de pagos, registro de comprobantes y círculo indicador de días restantes
 
 **Rama/branch:** `claude/payment-progress-days-indicator-ce7wvq`  
