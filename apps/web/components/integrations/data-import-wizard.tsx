@@ -471,6 +471,90 @@ function StepWhat({
   );
 }
 
+// ─── Selector de hoja (fase previa al mapeo de columnas) ─────────────────────
+
+function SheetPicker({
+  allSheets,
+  activeSheet,
+  headers,
+  loading,
+  onSheetSelect,
+  onConfirm,
+}: {
+  allSheets: string[];
+  activeSheet: string;
+  headers: string[];
+  loading: boolean;
+  onSheetSelect: (sheet: string) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-medium">¿Desde qué hoja querés importar?</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Este archivo tiene {allSheets.length} hojas. Elegí cuál contiene los clientes a importar.
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
+        {allSheets.map((sheet) => {
+          const isActive = activeSheet === sheet;
+          return (
+            <button
+              key={sheet}
+              type="button"
+              onClick={() => onSheetSelect(sheet)}
+              className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40
+                ${isActive ? "bg-primary/5 border-l-[3px] border-l-primary pl-[13px]" : ""}`}
+            >
+              {/* Radio visual */}
+              <div className={`mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0
+                ${isActive ? "border-primary" : "border-muted-foreground/50"}`}>
+                {isActive && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm ${isActive ? "font-semibold" : "font-normal"} truncate`}>{sheet}</p>
+                {isActive && (
+                  loading ? (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Cargando columnas…</span>
+                    </div>
+                  ) : headers.length > 0 ? (
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      Columnas: {headers.slice(0, 6).join(", ")}{headers.length > 6 ? ` +${headers.length - 6} más` : ""}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-500 mt-0.5">Sin columnas reconocibles</p>
+                  )
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <Button
+        type="button"
+        onClick={onConfirm}
+        disabled={loading || headers.length === 0}
+        className="w-full"
+        size="sm"
+      >
+        {loading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            Cargando…
+          </>
+        ) : (
+          <>Continuar con &ldquo;{activeSheet}&rdquo;<ChevronRight className="h-4 w-4 ml-1" /></>
+        )}
+      </Button>
+    </div>
+  );
+}
+
 // ─── Paso 2.5 — Mapeo de columnas (solo para archivo de clientes) ─────────────
 
 function StepMapper({
@@ -481,6 +565,8 @@ function StepMapper({
   loading,
   clientsSheetLoading,
   onClientsSheetChange,
+  sheetConfirmed,
+  onSheetConfirm,
 }: {
   clientsPreview: ExcelPreview | null;
   clientsFile: ExcelFile | null;
@@ -489,6 +575,8 @@ function StepMapper({
   loading: boolean;
   clientsSheetLoading: boolean;
   onClientsSheetChange: (sheet: string) => void;
+  sheetConfirmed: boolean;
+  onSheetConfirm: () => void;
 }) {
   if (loading) {
     return (
@@ -499,35 +587,52 @@ function StepMapper({
     );
   }
 
+  // Fase 1: selector de hoja (solo si el archivo tiene más de una hoja y aún no se confirmó)
+  if (!sheetConfirmed && clientsPreview && clientsPreview.allSheets.length > 1) {
+    return (
+      <SheetPicker
+        allSheets={clientsPreview.allSheets}
+        activeSheet={clientsPreview.activeSheet}
+        headers={clientsPreview.headers}
+        loading={clientsSheetLoading}
+        onSheetSelect={onClientsSheetChange}
+        onConfirm={onSheetConfirm}
+      />
+    );
+  }
+
+  // Fase 2: mapeo de columnas (hoja ya confirmada)
   return (
     <div className="space-y-4">
-      <div>
-        <p className="text-sm font-medium">Mapeo de columnas — Clientes</p>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Indicá qué columna de tu archivo corresponde a cada campo de OTC. Los campos marcados con <span className="text-destructive">*</span> son obligatorios.
-        </p>
-      </div>
-
-      {clientsPreview && clientsFile && clientsPreview.allSheets.length > 1 && (
-        <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2">
-          <span className="text-xs text-muted-foreground shrink-0">Hoja (clientes):</span>
-          <select
-            value={clientsPreview.activeSheet}
-            disabled={clientsSheetLoading}
-            onChange={(e) => onClientsSheetChange(e.target.value)}
-            className="flex-1 h-7 rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          >
-            {clientsPreview.allSheets.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-          {clientsSheetLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-medium">Mapeo de columnas — Clientes</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Indicá qué columna de tu archivo corresponde a cada campo de OTC. Los campos marcados con <span className="text-destructive">*</span> son obligatorios.
+          </p>
         </div>
-      )}
+
+        {/* Selector de hoja compacto (por si quieren cambiar luego de confirmar) */}
+        {clientsPreview && clientsFile && clientsPreview.allSheets.length > 1 && (
+          <div className="flex items-center gap-1.5 shrink-0">
+            <select
+              value={clientsPreview.activeSheet}
+              disabled={clientsSheetLoading}
+              onChange={(e) => onClientsSheetChange(e.target.value)}
+              className="h-7 rounded border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring max-w-[140px]"
+            >
+              {clientsPreview.allSheets.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            {clientsSheetLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+          </div>
+        )}
+      </div>
 
       {clientsPreview?.headers.length === 0 && (
         <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded px-3 py-2">
-          La hoja seleccionada no tiene columnas reconocibles. Elegí otra hoja en el selector de arriba.
+          La hoja seleccionada no tiene columnas reconocibles. Cambiá la hoja con el selector de arriba.
         </p>
       )}
 
@@ -720,6 +825,8 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   const [columnMapping, setColumnMapping] = useState<ExcelColumnMapperValue>({});
   const [mapperLoading, setMapperLoading] = useState(false);
   const [clientsSheetLoading, setClientsSheetLoading] = useState(false);
+  // Si el archivo tiene múltiples hojas, el usuario debe confirmar cuál usar antes de ver el mapper
+  const [sheetConfirmed, setSheetConfirmed] = useState(false);
 
   const toggleWhat = (w: WhatToImport) => {
     setWhat((prev) => {
@@ -749,12 +856,17 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
   const handleAdvanceFromWhat = async () => {
     if (needsMapper) {
       setMapperLoading(true);
+      setSheetConfirmed(false); // Siempre pedir confirmación de hoja al entrar al mapper
       setStep("mapper");
       try {
         const result = clientsFile ? await getExcelPreviewAction(clientsFile.base64) : null;
         if (result?.success) {
           setClientsPreview(result.data);
           setColumnMapping({ clientsMapping: autoMapClients(result.data.headers) as Partial<ColumnMapping> });
+          // Si el archivo tiene una sola hoja, no hace falta confirmación explícita
+          if (result.data.allSheets.length <= 1) {
+            setSheetConfirmed(true);
+          }
         } else {
           setClientsPreview(null);
         }
@@ -775,7 +887,9 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
       : !what.has("clients") || !!clientsFile
   );
 
-  const canAdvanceFromMapper = !clientsPreview || isMappingValid("clients", columnMapping.clientsMapping);
+  const canAdvanceFromMapper =
+    sheetConfirmed &&
+    (!clientsPreview || isMappingValid("clients", columnMapping.clientsMapping));
 
   const handleClientsSheetChange = async (sheet: string) => {
     if (!clientsFile) return;
@@ -939,6 +1053,8 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
             loading={mapperLoading}
             clientsSheetLoading={clientsSheetLoading}
             onClientsSheetChange={handleClientsSheetChange}
+            sheetConfirmed={sheetConfirmed}
+            onSheetConfirm={() => setSheetConfirmed(true)}
           />
         )}
         {step === "confirm" && (
@@ -955,8 +1071,8 @@ export function DataImportWizard({ ghlConnected }: { ghlConnected: boolean }) {
           />
         )}
 
-        {/* Navegación */}
-        {!summary && (
+        {/* Navegación — oculta mientras el usuario elige la hoja (SheetPicker tiene su propio botón) */}
+        {!summary && !(step === "mapper" && !sheetConfirmed && clientsPreview && clientsPreview.allSheets.length > 1) && (
           <div className="flex justify-between pt-2">
             {step !== "origin" ? (
               <Button

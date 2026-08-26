@@ -101,7 +101,11 @@ export async function getExcelPreviewAction(
  * Si hay empate prefiere la primera con nombre que contenga palabras clave de datos.
  */
 function pickBestSheet(wb: XLSX.WorkBook): string {
-  const DATA_KEYWORDS = /data|cliente|lead|contacto|venta|llamada|crm|registro|hoja/i;
+  // Palabras clave en el nombre de la hoja → bonus de nombre
+  const SHEET_NAME_KEYWORDS = /data|cliente|lead|contacto|venta|llamada|crm|registro|hoja|trazabilidad|instagram|seguimiento|alumnos|miembros|members/i;
+  // Columnas típicas de un CRM de clientes → bonus de contenido
+  const CLIENT_HEADER_KEYWORDS = /^(nombre|name|apellido|cliente|email|correo|tel[eé]fono|celular|instagram|ig|programa|plan|producto|cc|monto|fecha)$/i;
+
   let bestSheet = wb.SheetNames[0] ?? "";
   let bestScore = -1;
 
@@ -117,9 +121,21 @@ function pickBestSheet(wb: XLSX.WorkBook): string {
       (row) => (row as unknown[]).filter((v) => String(v ?? "").trim()).length >= 2
     );
     if (headerRowIdx === -1) continue;
-    const headerCount = (rawArrays[headerRowIdx] as unknown[]).filter((v) => String(v ?? "").trim()).length;
-    const nameBonus = DATA_KEYWORDS.test(name) ? 5 : 0;
-    const score = headerCount + nameBonus;
+    const headerCells = (rawArrays[headerRowIdx] as unknown[]).filter((v) => String(v ?? "").trim());
+    const headerCount = headerCells.length;
+
+    // Bonus por nombre de la hoja
+    const nameBonus = SHEET_NAME_KEYWORDS.test(name) ? 5 : 0;
+
+    // Bonus por cantidad de columnas típicas de CRM de clientes presentes
+    const clientColMatches = headerCells.filter((h) =>
+      CLIENT_HEADER_KEYWORDS.test(String(h).trim())
+    ).length;
+    // Normalizar: cuántas de las columnas son "de cliente" (porcentaje × 10, máx 15)
+    const clientColRatio = headerCount > 0 ? clientColMatches / headerCount : 0;
+    const clientColBonus = Math.min(Math.round(clientColRatio * 15), 15);
+
+    const score = headerCount + nameBonus + clientColBonus;
     if (score > bestScore) {
       bestScore = score;
       bestSheet = name;

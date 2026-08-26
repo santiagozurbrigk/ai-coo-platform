@@ -14,6 +14,31 @@
 
 ---
 
+### 2026-08-26 — FIX-IMPORT-SHEET-PICKER: selector de hoja explícito en wizard de importación
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `app/clients/import-actions.ts`, `components/integrations/data-import-wizard.tsx`
+
+**Qué se hizo:**
+- **Nuevo componente `SheetPicker`:** cuando el Excel tiene más de una hoja, el wizard muestra una pantalla dedicada de selección antes del mapeo de columnas — lista todas las hojas como radio buttons, muestra las columnas de la hoja activa como preview, y tiene un botón "Continuar con `<nombre hoja>`". El usuario no puede avanzar al mapeo de columnas sin confirmar explícitamente la hoja.
+- **Estado `sheetConfirmed`:** booleano que empieza en `false` al entrar al paso mapper. Se pone en `true` al confirmar la hoja (o automáticamente si el archivo tiene una sola hoja). La navegación del wizard oculta sus botones mientras SheetPicker está activo (tiene su propio botón de avance).
+- **`pickBestSheet` mejorado:** keywords de nombre de hoja ampliadas (trazabilidad, instagram, seguimiento, alumnos, miembros). Nuevo bonus por densidad de columnas CRM: cuenta cuántas columnas del header match `/^(nombre|name|apellido|email|teléfono|celular|instagram|ig|programa|plan|cc|monto|fecha)$/i` y agrega un bonus proporcional (máx 15 pts) al score total, penalizando hojas con muchas columnas irrelevantes.
+
+**Por qué / finalidad:**
+El usuario importó desde `b9d83cfe-CRM_VENTAS__AA.xlsx` que tiene 6 hojas. `pickBestSheet` elegía automáticamente "Data" (27 columnas, bonus keyword "data" → score 32) en vez de "Trazabilidad - Instagram" (15 columnas, sin keyword → score 15). La hoja "Data" contiene calls de cierre con algunos IG handles en la columna "Nombre" que se importaban como nombres de cliente. El usuario quería importar desde "Trazabilidad - Instagram" pero el selector de hoja anterior era una pequeña dropdown en el mapper que pasaba desapercibida.
+
+**Decisiones de diseño:**
+- SheetPicker es fase 1 del mapper (no un paso nuevo del wizard) — el stepper de progreso no cambia.
+- La auto-mejora de `pickBestSheet` no resuelve este caso concreto (Data aún gana por más columnas) pero reduce la probabilidad en otros archivos.
+- El selector compacto de hoja se mantiene en la fase 2 del mapper para correcciones posteriores a confirmar.
+
+**Riesgos / deuda pendiente:**
+- Si el archivo tiene una sola hoja, SheetPicker no aparece (flujo transparente).
+- `pickBestSheet` aún puede elegir mal en archivos donde la hoja de datos tiene muchas columnas — el SheetPicker es el safety net garantizado.
+
+---
+
 ### 2026-08-26 — FIX-IMPORT-CACHE: revalidatePath en importClientsFromExcelAction
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
