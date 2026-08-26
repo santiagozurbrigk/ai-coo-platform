@@ -243,7 +243,10 @@ export async function inviteTeamMemberAction(data: {
 
   return runMutation(async () => {
     const profile = auth.profile;
-    const organizationId = profile.organization_id;
+    // requireOrganizationId() respeta el contexto JWT del holding (child_org cuando
+    // el holding opera un negocio hijo), a diferencia de profile.organization_id
+    // que siempre apunta al holding_org.
+    const organizationId = await requireOrganizationId();
     const admin = createAdminClient();
 
     const { data: existing } = await admin
