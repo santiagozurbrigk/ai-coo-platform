@@ -1,6 +1,7 @@
 import type {
   CalendlyFormAnswer,
   ClosingCall,
+  ClosingCallSource,
   ClosingCallStatus,
   ClosingOutcome,
 } from "@/types/closing";
@@ -19,9 +20,24 @@ export type ClosingCallRow = {
   payment_source_platform_id: string | null;
   payment_destination_platform_id: string | null;
   payment_received_from: string | null;
+  calendly_event_id?: string | null;
+  ghl_appointment_id?: string | null;
+  ghl_calendar_id?: string | null;
+  // Atribución UTM (de GHL attributionSource del contacto)
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_content?: string | null;
+  utm_term?: string | null;
   created_at?: string;
   updated_at?: string;
 };
+
+function deriveSource(row: ClosingCallRow): ClosingCallSource {
+  if (row.calendly_event_id) return "calendly";
+  if (row.ghl_appointment_id) return "ghl";
+  return "manual";
+}
 
 export function rowToClosingCall(row: ClosingCallRow): ClosingCall {
   return {
@@ -37,6 +53,13 @@ export function rowToClosingCall(row: ClosingCallRow): ClosingCall {
     paymentSourcePlatformId: row.payment_source_platform_id ?? undefined,
     paymentDestinationPlatformId: row.payment_destination_platform_id ?? undefined,
     paymentReceivedFrom: row.payment_received_from ?? undefined,
+    source: deriveSource(row),
+    utmSource:      row.utm_source      ?? undefined,
+    utmMedium:      row.utm_medium      ?? undefined,
+    utmCampaign:    row.utm_campaign    ?? undefined,
+    utmContent:     row.utm_content     ?? undefined,
+    utmTerm:        row.utm_term        ?? undefined,
+    ghlCalendarId:  row.ghl_calendar_id ?? undefined,
   };
 }
 

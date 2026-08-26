@@ -12,6 +12,7 @@ export const INTEGRATION_GROUPS: IntegrationGroup[] = [
       "manychat",
       "zernio",
       "calendly",
+      "ghl",
     ],
   },
   {
@@ -43,6 +44,8 @@ export const INTEGRATION_DESCRIPTIONS: Partial<
     "Conecta con tu API key. Los mensajes nuevos llegan vía External Request.",
   calendly:
     "Importa llamadas de cierre. Sin plan Standard, sincronizá manualmente.",
+  ghl:
+    "GoHighLevel — importa citas del calendario. Alternativa a Calendly.",
   instagram:
     "Visualizá el rendimiento de tu contenido y su impacto en ventas.",
   youtube: "Canal de YouTube en otra cuenta de Google. Conectá con tu API key de YouTube Data.",

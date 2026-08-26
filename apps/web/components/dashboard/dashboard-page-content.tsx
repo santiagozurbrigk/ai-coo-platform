@@ -37,7 +37,7 @@ export function DashboardPageContent({
     closingCallsLoading,
   } = usePlatformData();
 
-  const { expensesSummary, paymentPlatforms, financeConfigLoading, clientPayments } =
+  const { expensesSummary, paymentPlatforms, financeConfigLoading, clientPayments, financeSummary, salesBaselineMetrics } =
     useFinanceData();
 
   const loading =
@@ -47,6 +47,17 @@ export function DashboardPageContent({
       closingCallsLoading ||
       financeConfigLoading);
 
+  // Fallback baseline para métricas de ventas: si no hay datos live, usar snapshot
+  const effectiveSalesMetrics = useMemo(() => {
+    const hasLiveData = salesMetrics.totalConversations > 0 || salesMetrics.bookingRate > 0;
+    if (hasLiveData || !salesBaselineMetrics) return salesMetrics;
+    return {
+      ...salesMetrics,
+      bookingRate: (salesBaselineMetrics["tasa_agendamiento"] ?? 0) * 100,
+      ghostingRate: (salesBaselineMetrics["tasa_fantasma"] ?? 0) * 100,
+    };
+  }, [salesMetrics, salesBaselineMetrics]);
+
   const data = useMemo(() => {
     const derived = deriveDashboardData(
       clients,
@@ -54,9 +65,10 @@ export function DashboardPageContent({
       closingCalls,
       expensesSummary,
       paymentPlatforms,
-      salesMetrics,
+      effectiveSalesMetrics,
       frequentObjections?.objections ?? [],
-      clientPayments
+      clientPayments,
+      financeSummary  // baseline-enriched desde el provider
     );
 
     const hasNoActivity =
@@ -74,9 +86,10 @@ export function DashboardPageContent({
     closingCalls,
     expensesSummary,
     paymentPlatforms,
-    salesMetrics,
+    effectiveSalesMetrics,
     frequentObjections,
     clientPayments,
+    financeSummary,
   ]);
 
   if (loading) {

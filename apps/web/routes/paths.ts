@@ -114,6 +114,7 @@ export const paths = {
 
     integrations: `${PLATFORM}/integrations`,
     integrationsDiscord: `${PLATFORM}/integrations/discord`,
+    integrationsImport: `${PLATFORM}/integrations/import`,
     comentarios: `${PLATFORM}/comentarios`,
 
     team: {

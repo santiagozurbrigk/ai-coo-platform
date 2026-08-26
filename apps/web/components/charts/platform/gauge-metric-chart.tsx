@@ -9,12 +9,18 @@ export function GaugeMetricChart({
   label = "Progreso",
   suffix = "%",
   className,
+  valueClassName,
+  labelClassName,
+  centerYFactor,
 }: {
   value: number;
   max?: number;
   label?: string;
   suffix?: string;
   className?: string;
+  valueClassName?: string;
+  labelClassName?: string;
+  centerYFactor?: number;
 }) {
   const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
 
@@ -29,6 +35,9 @@ export function GaugeMetricChart({
       inactiveGradient={["#2a2540", "#1a1828"]}
       minWidth={0}
       className={cn("mx-auto w-full max-w-[240px]", className)}
+      valueClassName={valueClassName}
+      labelClassName={labelClassName}
+      centerYFactor={centerYFactor}
     />
   );
 }

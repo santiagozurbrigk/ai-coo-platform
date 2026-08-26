@@ -19,8 +19,9 @@ import { useHashTab } from "@/lib/hooks/use-hash-tab";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import { paths } from "@/routes";
-import type { ClosingCall, ClosingCallStatus } from "@/types/closing";
+import type { ClosingCall, ClosingCallSource, ClosingCallStatus } from "@/types/closing";
 import { CalendlyManualSyncNotice } from "@/components/integrations/calendly-manual-sync-notice";
+import type { GHLCalendar } from "@/lib/ghl/client";
 import { ClosingCalendar } from "./closing-calendar";
 import { ClosersRanking } from "./closers-ranking";
 import { PaymentModal } from "./payment-modal";
@@ -37,6 +38,18 @@ const STATUS_LABEL: Record<ClosingCallStatus, string> = {
   closed: "Completada — Cerrada",
   not_closed: "Completada — No cerrada",
   no_show: "No show",
+};
+
+const SOURCE_LABEL: Record<ClosingCallSource, string> = {
+  calendly: "Calendly",
+  ghl: "GHL",
+  manual: "Manual",
+};
+
+const SOURCE_CLASS: Record<ClosingCallSource, string> = {
+  calendly: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  ghl: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  manual: "border-border bg-muted/40 text-muted-foreground",
 };
 
 const STATUS_VARIANT: Record<
@@ -59,7 +72,15 @@ function formatCallDate(iso: string) {
   });
 }
 
-export function ClosingOverview() {
+export function ClosingOverview({
+  ghlCalendars = [],
+  ghlSelectedCalendarIds = [],
+}: {
+  /** Calendarios disponibles en GHL (fetched server-side). Vacío si no hay integración. */
+  ghlCalendars?: GHLCalendar[];
+  /** IDs de calendarios actualmente seleccionados para sync. */
+  ghlSelectedCalendarIds?: string[];
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const deepLinkCallId = searchParams.get("call");
@@ -77,12 +98,21 @@ export function ClosingOverview() {
   const root = paths.platform.sales.closing;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [listFilter, setListFilter] = useState<ClosingCallStatus | "all">("all");
+  /** Filtro de calendario GHL — "all" o un calendarId específico */
+  const [calendarFilter, setCalendarFilter] = useState<string>("all");
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [noCloseOpen, setNoCloseOpen] = useState(false);
   const [calendarMode, setCalendarMode] = useState<"month" | "week">("month");
   const [calendarAnchor, setCalendarAnchor] = useState(() =>
     pickCalendarFocusDate(closingCalls)
   );
+
+  // Calendarios GHL activos (los que efectivamente están seleccionados para sync)
+  const activeGhlCalendars = ghlCalendars.filter((c) =>
+    ghlSelectedCalendarIds.includes(c.id)
+  );
+  // Mostrar filtro de calendario solo si hay 2+ calendarios GHL activos
+  const showCalendarFilter = activeGhlCalendars.length >= 2;
 
   useEffect(() => {
     void refreshClosingCalls();
@@ -121,10 +151,18 @@ export function ClosingOverview() {
 
   const selected = closingCalls.find((c) => c.id === selectedId);
 
+  // Aplica primero el filtro de calendario GHL, luego el de estado
+  const calendarFilteredCalls = useMemo(() => {
+    if (calendarFilter === "all" || !showCalendarFilter) return closingCalls;
+    return closingCalls.filter(
+      (c) => c.ghlCalendarId === calendarFilter
+    );
+  }, [closingCalls, calendarFilter, showCalendarFilter]);
+
   const filteredCalls = useMemo(() => {
-    if (listFilter === "all") return closingCalls;
-    return closingCalls.filter((c) => c.status === listFilter);
-  }, [closingCalls, listFilter]);
+    if (listFilter === "all") return calendarFilteredCalls;
+    return calendarFilteredCalls.filter((c) => c.status === listFilter);
+  }, [calendarFilteredCalls, listFilter]);
 
   const navTabs = TABS.map((t) => ({
     label: t.label,
@@ -136,6 +174,18 @@ export function ClosingOverview() {
       <PageHeader description="Calendario de llamadas de cierre, contexto Calendly y resultados" />
 
       <CalendlyManualSyncNotice showIntegrationsLink />
+
+      {/* Filtro de calendario GHL — solo si hay 2+ calendarios activos */}
+      {showCalendarFilter ? (
+        <FilterPills
+          options={[
+            { value: "all", label: "Todos los calendarios" },
+            ...activeGhlCalendars.map((c) => ({ value: c.id, label: c.name })),
+          ]}
+          value={calendarFilter}
+          onChange={setCalendarFilter}
+        />
+      ) : null}
 
       <ModuleSubnav
         tabs={navTabs}
@@ -185,6 +235,7 @@ export function ClosingOverview() {
                       <th className="px-4 py-3">Lead</th>
                       <th className="px-4 py-3">Fecha</th>
                       <th className="px-4 py-3">Estado</th>
+                      <th className="px-4 py-3">Fuente UTM</th>
                       <th className="px-4 py-3">Closer</th>
                       <th className="px-4 py-3">Resultado</th>
                       <th className="px-4 py-3">Ingreso</th>
@@ -201,7 +252,21 @@ export function ClosingOverview() {
                         )}
                         onClick={() => setSelectedId(call.id)}
                       >
-                        <td className="px-4 py-3 font-medium">{call.leadName}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-medium">{call.leadName}</span>
+                            {call.source && call.source !== "manual" ? (
+                              <span
+                                className={cn(
+                                  "inline-flex w-fit items-center rounded-full border px-1.5 py-px text-[10px] font-medium leading-none",
+                                  SOURCE_CLASS[call.source]
+                                )}
+                              >
+                                {SOURCE_LABEL[call.source]}
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {formatCallDate(call.scheduledAt)}
                         </td>
@@ -209,6 +274,23 @@ export function ClosingOverview() {
                           <Badge variant={STATUS_VARIANT[call.status]}>
                             {STATUS_LABEL[call.status]}
                           </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          {call.utmSource ? (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-xs font-medium text-foreground">
+                                {call.utmSource}
+                              </span>
+                              {call.utmMedium ? (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {call.utmMedium}
+                                  {call.utmCampaign ? ` · ${call.utmCampaign}` : ""}
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {call.closedByName ?? "—"}
@@ -257,7 +339,7 @@ export function ClosingOverview() {
                 </p>
               </div>
               <ClosingCalendar
-                calls={closingCalls}
+                calls={calendarFilteredCalls}
                 mode={calendarMode}
                 anchorDate={calendarAnchor}
                 onAnchorChange={setCalendarAnchor}
@@ -387,9 +469,50 @@ function CallDetailPanel({
         </Badge>
       </div>
 
+      {/* Atribución UTM — solo si hay datos (llamadas de origen GHL con UTM) */}
+      {(call.utmSource || call.utmMedium || call.utmCampaign) && (
+        <section className="rounded-lg border border-border p-3 space-y-2">
+          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Atribución UTM
+          </h4>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+            {call.utmSource && (
+              <>
+                <dt className="text-xs text-muted-foreground">Fuente</dt>
+                <dd className="text-xs font-medium">{call.utmSource}</dd>
+              </>
+            )}
+            {call.utmMedium && (
+              <>
+                <dt className="text-xs text-muted-foreground">Medio</dt>
+                <dd className="text-xs font-medium">{call.utmMedium}</dd>
+              </>
+            )}
+            {call.utmCampaign && (
+              <>
+                <dt className="text-xs text-muted-foreground">Campaña</dt>
+                <dd className="text-xs font-medium">{call.utmCampaign}</dd>
+              </>
+            )}
+            {call.utmContent && (
+              <>
+                <dt className="text-xs text-muted-foreground">Contenido</dt>
+                <dd className="text-xs font-medium">{call.utmContent}</dd>
+              </>
+            )}
+            {call.utmTerm && (
+              <>
+                <dt className="text-xs text-muted-foreground">Término</dt>
+                <dd className="text-xs font-medium">{call.utmTerm}</dd>
+              </>
+            )}
+          </dl>
+        </section>
+      )}
+
       <section>
         <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-          Respuestas del formulario Calendly
+          Datos del formulario
         </h4>
         <dl className="space-y-3">
           {call.formAnswers.map((a, i) => (
