@@ -14,6 +14,23 @@
 
 ---
 
+### 2026-08-26 — FIX-IMPORT-CACHE: revalidatePath en importClientsFromExcelAction
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `e94393e`  
+**Módulo(s) afectado(s):** `app/clients/import-actions.ts`
+
+**Qué se hizo:**
+- Agregado `import { revalidatePath } from "next/cache"` y llamadas a `revalidatePath("/clients")` + `revalidatePath("/dashboard")` al final de `importClientsFromExcelAction`, justo después del insert exitoso.
+
+**Por qué / finalidad:**
+Los 264 clientes se insertaban correctamente en Supabase (confirmado por logs: `inserted=264`), pero al navegar a `/clients` el módulo aparecía vacío. Causa: Next.js 15 App Router cachea los Server Components; sin `revalidatePath`, la página `/clients` se servía desde caché aunque la BD ya tuviera los datos. El patrón correcto ya lo usaban `payment-actions.ts` y `plan-duration-actions.ts` — se replicó aquí.
+
+**Decisiones de diseño:**
+Se invalidan dos rutas: `/clients` (lista principal) y `/dashboard` (muestra KPI de clientes). `router.refresh()` en el wizard solo refrescaba la página actual, no las rutas destino.
+
+---
+
 ### 2026-08-26 — FIX-IMPORT-EMPTY-ROWS: parsers Excel ignoran filas vacías — elimina errores falsos
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
