@@ -1,6 +1,7 @@
 "use server";
 
 import * as XLSX from "xlsx";
+import { revalidatePath } from "next/cache";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { createClient } from "@/lib/supabase/server";
@@ -232,6 +233,11 @@ export async function importClientsFromExcelAction(
 
     const planMatchCount = insertPayload.filter((r) => r.plan_id).length;
     console.info(`[import-clients-excel] org=${organizationId} inserted=${inserted} skipped=${skipped} planMatchCount=${planMatchCount}`);
+
+    // Invalidar caché de Next.js para que /clients muestre los datos recién importados
+    revalidatePath("/clients");
+    revalidatePath("/dashboard");
+
     return { inserted, skipped, errors, planMatchCount };
   });
 }
