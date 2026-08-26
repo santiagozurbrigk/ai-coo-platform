@@ -324,6 +324,7 @@ export async function updateMemberRoleAction(
       throw new Error("El founder no puede cambiar su propio rol");
     }
 
+    const organizationId = await requireOrganizationId();
     const supabase = await createClient();
 
     const updates: {
@@ -346,7 +347,7 @@ export async function updateMemberRoleAction(
       .from("profiles")
       .update(updates)
       .eq("id", parsedMemberId)
-      .eq("organization_id", profile.organization_id);
+      .eq("organization_id", organizationId);
 
     if (error) throw new Error(error.message);
 
@@ -373,12 +374,13 @@ export async function deactivateMemberAction(
       throw new Error("No podés desactivarte a vos mismo");
     }
 
+    const organizationId = await requireOrganizationId();
     const supabase = await createClient();
     const { error } = await supabase
       .from("profiles")
       .update({ is_active: false })
       .eq("id", parsedMemberId)
-      .eq("organization_id", profile.organization_id);
+      .eq("organization_id", organizationId);
 
     if (error) throw new Error(error.message);
 
@@ -400,13 +402,16 @@ export async function createCustomRoleAction(data: {
   const { name, description, permissions } = auth.data;
 
   return runMutation(async () => {
-    const profile = auth.profile;
+    // Usar requireOrganizationId() en vez de profile.organization_id para respetar
+    // el contexto efectivo del holding (get_my_organization_id() lee active_business_org_id
+    // del JWT cuando el holding está operando un negocio hijo).
+    const organizationId = await requireOrganizationId();
     const supabase = await createClient();
 
     const { data: role, error } = await supabase
       .from("team_roles")
       .insert({
-        organization_id: profile.organization_id,
+        organization_id: organizationId,
         name,
         description: description ?? null,
         permissions: permissionsToRow(permissions),
@@ -435,14 +440,14 @@ export async function deleteCustomRoleAction(
   const { roleId: parsedRoleId } = auth.data;
 
   return runMutation(async () => {
-    const profile = auth.profile;
+    const organizationId = await requireOrganizationId();
     const supabase = await createClient();
 
     const { data: role, error: fetchError } = await supabase
       .from("team_roles")
       .select("is_default")
       .eq("id", parsedRoleId)
-      .eq("organization_id", profile.organization_id)
+      .eq("organization_id", organizationId)
       .maybeSingle();
 
     if (fetchError) throw new Error(fetchError.message);
@@ -453,7 +458,7 @@ export async function deleteCustomRoleAction(
       .from("team_roles")
       .delete()
       .eq("id", parsedRoleId)
-      .eq("organization_id", profile.organization_id);
+      .eq("organization_id", organizationId);
 
     if (error) throw new Error(error.message);
 
