@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { streamAgentMessage } from "@/lib/agent/stream-agent-message";
 import { createSseEmitter, formatSseEvent } from "@/lib/agent/sse";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
@@ -15,8 +16,9 @@ const SSE_HEADERS = {
 
 export async function POST(req: Request) {
   // Auth gate — must happen before the stream is created
+  let organizationId: string;
   try {
-    await requireOrganizationId();
+    organizationId = await requireOrganizationId();
   } catch {
     return new Response(formatSseEvent("error", { message: "No autenticado" }), {
       status: 401,
@@ -84,6 +86,13 @@ export async function POST(req: Request) {
           } else {
             const message =
               error instanceof Error ? error.message : "Error desconocido";
+
+            // Capturar en Sentry con contexto del agente.
+            Sentry.captureException(error, {
+              tags: { feature: "agent", route: "api/agent/send" },
+              extra: { organizationId, conversationId: body.conversationId },
+            });
+
             emitter.emit("error", { message });
           }
           controller.close();

@@ -797,6 +797,233 @@ Usuarios que usan GoHighLevel en lugar de Calendly para agendar llamadas de cier
 - Migración SQL pendiente de aplicar en producción (`supabase/migrations/20260824100000_ghl_integration.sql`).
 - Migrar a OAuth "Connect with GHL" cuando OTC sea aprobado como app en GHL Marketplace.
 - Phase 2 (carga de datos históricos desde Excel) queda para sesión futura — ver PENDIENTES.
+### 2026-08-24 — fix(marketing): stories de Instagram no se mostraban en la app
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** `cf20aa3`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** marketing/content, zernio/client
+
+**Qué se hizo:**
+
+- Nuevo método `listInstagramStories(accountId)` en `ZernioClient` que llama al endpoint documentado por Zernio: `GET /v1/accounts/{accountId}/instagram/stories`. El cliente mapea la respuesta (campos `id`, `mediaUrl`, `permalink`, `timestamp`) a `ZernioPost` con `postType: "story"` garantizado. Nuevo tipo `ZernioInstagramStory` para la respuesta.
+- `fetchExternalPostsViaSync` reestructurado para recolectar historias **primero** en `allPosts`, con tres estrategias en paralelo: endpoint dedicado (principal), `POST /posts/sync-stories` (legacy, retorna 405 → vacío), `GET /posts?type=story` (fallback con forzado de `postType`).
+- Al entrar primero en `allPosts`, las versiones tipeadas de las historias ganan el dedup sobre los duplicados sin tipo del listado general (`listPublishedPosts external`).
+
+**Por qué / finalidad:**
+
+Root cause: las historias se obtenían con `GET /posts?type=story` pero Zernio no devuelve el campo `postType` en la respuesta. `mapZernioType(undefined, undefined)` devolvía `"post"` → guardadas en `content_pieces` con `type='post'`. El filtro "Historias" de la UI nunca las encontraba.
+
+La documentación oficial de Zernio (`docs.zernio.com/instagram/list-instagram-stories`) expone un endpoint dedicado completamente diferente: `GET /v1/accounts/{accountId}/instagram/stories`. Devuelve historias activas (ventana 24h de Meta).
+
+**Decisiones de diseño:**
+
+- Multi-estrategia con fallbacks para cubrir posibles gaps de la API. El endpoint dedicado es el principal; los dos fallbacks aseguran que nada se pierda.
+- El reordenamiento (historias primero en `allPosts`) es suficiente para corregir el dedup sin cambiar la lógica de deduplicación.
+- Los registros existentes en DB con `type='post'` se auto-corrigen al próximo sync (el UPDATE incluye el campo `type`).
+
+**Riesgos / deuda técnica:**
+
+- Stories tienen ventana 24h → solo aparecen mientras están activas. Una vez expiradas, ya están en DB con `type='story'` y quedan como referencia histórica.
+- Métricas de stories siguen en 0 (normal, la API de Instagram limita las métricas de stories). `syncContentMetricsForOrg` no las actualizará si Zernio no expone analytics para ese ID.
+
+---
+
+
+### 2026-08-24 — Fix E2E: clearCookies() en beforeEach para garantizar refresh token virgen
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** `0f3adb4`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** e2e, holding
+
+**Qué se hizo:**
+
+Reemplazado el mecanismo de detección de sesión en el `beforeEach` de "Holding — navegación dentro de negocio" (`apps/web/e2e/holding.spec.ts`).
+
+Versión anterior (PR #20): detectaba si el token expiró vía `business-switcher` visible. El problema: el access token sigue válido (~1h), por lo que el switcher SÍ aparece — el re-auth se saltea — y `enterBusinessAction` falla al llamar `refreshSession()` con el refresh token rotado.
+
+Nueva versión: `await context.clearCookies()` antes de cada test del grupo de "navegación". Esto:
+1. Elimina todas las cookies de sesión Supabase del browser
+2. Garantiza que `goto("/auth/login")` llegue al formulario (sin redirect del middleware)
+3. El login posterior genera un refresh token virgen (R_fresh) que `enterBusinessAction` puede rotar sin conflictos
+
+También sincronizados archivos E2E desde `main`: `constants.ts`, `auth.setup.ts`, `playwright.config.ts` y `data-testid="business-switcher"` en el componente `HoldingBusinessSwitcher`.
+
+**Por qué / finalidad:**
+
+Tests 6 y 7 ("el agente de negocio es accesible" y "el módulo de clientes carga sin errores") fallaban consistentemente porque el `beforeEach` intentaba reusar la sesión que había sufrido múltiples rotaciones de token durante los tests 3 y 4. La condición de re-auth (business-switcher invisible) nunca se cumplía porque el access token seguía siendo válido.
+
+**Decisiones de diseño relevantes:**
+
+- `clearCookies()` vs. signOut: clearCookies es más determinista y no depende de que el endpoint de signout funcione. No genera peticiones al servidor.
+- Se eligió limpiar TODAS las cookies del contexto (no solo Supabase) para evitar estado residual de cualquier integración.
+
+**Riesgos / deuda técnica pendiente:**
+
+- Los tests 5 y 6 ahora pagan el costo de un login adicional en cada beforeEach (~3-5s extra por test). Aceptable para E2E.
+- Si Supabase cambia la estructura de cookies, los demás tests (que reusan `holding.json`) también podrían verse afectados.
+
+---
+
+### 2026-08-23 — fix(BUG-3): corrección patrón UTC-midnight en comparaciones de fecha
+
+**Rama/branch:** `feat/trial-retry-variation`  
+**Commit(s):** `57f0076`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** metrics, manychat
+
+**Qué se hizo:**
+Corregidos dos bugs de UTC-midnight identificados en la auditoría [BUG-3]:
+
+- **`lib/metrics/enrich-team-compensation.ts`** — `isInCurrentMonth()`: reemplaza `new Date(iso).getMonth()` por comparación de string `YYYY-MM`. El campo `scheduledAt` viene como timestamp UTC; en zonas UTC-N un timestamp al inicio de un mes (e.g. Aug 1 00:00 UTC) aparece como día anterior del mes anterior en tiempo local → `.getMonth()` devolvía el mes equivocado → comisiones de deals de "principio de mes" no se contabilizaban.
+
+- **`app/manychat/cta-actions.ts`** — `periodBounds()`: agrega `parseDateSafe()` que construye `Date` local explícito para strings date-only (`YYYY-MM-DD`). Si `to` llegaba como `"2026-08-01"`, `new Date("2026-08-01")` parsea UTC midnight → en UTC-3 era July 31 → `end.getMonth()` devolvía 6 → `start` se calculaba como July 1 en vez de Aug 1.
+
+**Por qué / finalidad:**
+`new Date("YYYY-MM-DD")` está especificado en ECMAScript como UTC midnight, no como medianoche local. En producción (Vercel en `gru1`, Uruguay/Argentina, UTC-3) esto causaba que el primer día del mes se comparara erróneamente contra el mes anterior.
+
+**Decisiones de diseño:**
+- Para timestamps ISO completos (`scheduledAt`): comparar `iso.slice(0, 7)` con `YYYY-MM` local (igual que el patrón ya establecido en `derive-dashboard-data.ts`).
+- Para date-only strings en `periodBounds`: construir `new Date(y, m-1, d)` local explícito cuando el string tiene exactamente 10 caracteres (YYYY-MM-DD).
+
+**Riesgos / deuda pendiente:**
+TECH-5 (Badge `children` en ~15 archivos de `packages/ui/src/`) sigue pendiente como errores TS pre-existentes.
+
+---
+
+### 2026-08-23 — Refactor: split de action files grandes (agent + marketing)
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** `dd7f0a5`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** agent, marketing
+
+**Qué se hizo:**
+
+`app/agent/actions.ts` (1665 líneas) dividido en 3 archivos:
+- **`app/agent/canvas-actions.ts`** (176 líneas): `exportCanvasAsDocxAction`, `saveCanvasToKnowledgeBaseAction` + helpers privados `extractCanvasTitle`, `chunkCanvasContent`
+- **`app/agent/workboard-actions.ts`** (288 líneas): `searchWorkboardTasksAction`, `updateWorkboardTaskAction`, `createWorkboardTasksAction`, `resolveAssigneeId` (privado), tipos exportados `WorkboardTaskInput` y `WorkboardTaskUpdates`
+- **`app/agent/actions.ts`** queda en 1252 líneas (solo streaming, knowledge, SOPs y funciones core del agente)
+
+`app/marketing/actions.ts` (963 líneas) dividido en 2 archivos:
+- **`app/marketing/utm-actions.ts`** (446 líneas): todo el bloque UTM — `getOrganizationWebsiteAction`, `getUtmBaseUrlAction`, `getUTMLinksAction`, `getUTMLeadsAction`, `getUTMFunnelAction`, `createUTMLinkAction`, `updateUTMLinkAction`, `deleteUTMLinkAction` + helpers privados
+- **`app/marketing/actions.ts`** queda en 536 líneas
+
+Importadores actualizados (estáticos y dinámicos):
+- `components/agent/canvas-panel.tsx` → importa desde `canvas-actions`
+- `components/fathom/fathom-task-proposal-modal.tsx` → importa desde `workboard-actions`
+- `lib/agent/agent-tool-handler.ts` → 3 dynamic imports `await import("@/app/agent/actions")` → `workboard-actions`; reemplaza tipo local `WorkboardTaskUpdates` con import
+- `components/marketing/utm-table.tsx` → importa desde `utm-actions`
+- `components/marketing/utm-generator.tsx` → importa `createUTMLinkAction` desde `utm-actions`
+- `app/(platform)/marketing/utms/page.tsx` → split: `listContentAssetsAction` de `actions`, UTM actions de `utm-actions`
+
+**Por qué / finalidad:**
+Reducir el tamaño de archivos de acciones grandes para mejorar legibilidad y mantenibilidad. Parte del roadmap de architecture review (P1 — breaking large action files).
+
+**Decisiones de diseño relevantes:**
+- Actualización directa de importadores en lugar de barrel re-exports (evita conflictos TypeScript entre `import X from` y `export X from` en el mismo módulo).
+- Verificación con `tsc --noEmit` tras cada paso — cero errores nuevos introducidos.
+- Los dynamic imports en `agent-tool-handler.ts` también actualizados (no visibles a grep estático).
+- `WorkboardTaskUpdates` exportado desde `workboard-actions.ts` y re-importado en `agent/actions.ts` para el handler de `sendAgentMessageAction`.
+
+**Riesgos / deuda técnica pendiente:**
+- Sin riesgos conocidos — la separación es limpia y los tipos no generan dependencias circulares.
+- `agent/actions.ts` sigue siendo grande (1252 líneas); candidato a futura subdivisión en `knowledge-actions.ts`, `sop-actions.ts` si crece.
+
+---
+### 2026-08-23 — Fan-out QStash para crons + tests Playwright E2E
+
+**Rama/branch:** `claude/qstash-fanout-playwright`  
+**Commit(s):** `56e5455`, `c5972da`  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** crons, queue, testing
+
+**Qué se hizo:**
+
+**QStash fan-out para crons pesados:**
+- `lib/queue/qstash-client.ts`: función `publishCronFanout(workerUrl, orgIds)` genérica + 4 getters de URL de worker
+- 4 nuevos workers en `/api/queue/`:
+  - `process-cron-sync-metrics` → llama `syncContentMetricsForOrg`
+  - `process-cron-intelligence-snapshot` → llama `generateAndSaveIntelligenceSnapshot`
+  - `process-cron-executive-report` → llama `generateAndSaveWeeklyExecutiveReport`
+  - `process-cron-founder-tone` → llama `generateAndSaveFounderTone`
+- 4 crons refactorizados: si `QSTASH_TOKEN` configurado → fan-out (publica 1 job/org y retorna en ~200ms); si no → fallback secuencial (backward compatible)
+- `maxDuration` de crons: 300s → 60s. Workers individuales: 60-120s por org
+
+**Playwright E2E:**
+- `@playwright/test` instalado en `apps/web`
+- `playwright.config.ts` con setup de auth compartido y Chromium pre-instalado
+- `e2e/auth.setup.ts`: login con `E2E_HOLDING_EMAIL` / `E2E_HOLDING_PASSWORD`, guarda sesión en `e2e/.auth/holding.json`
+- `e2e/holding.spec.ts`: flujo holding completo — dashboard KPIs, dropdown scrollable, switch de negocio, badge founder, volver al holding, agente y clientes dentro del negocio
+
+**Para correr los tests:**
+```bash
+# Variables necesarias:
+E2E_HOLDING_EMAIL=email@holding.com
+E2E_HOLDING_PASSWORD=password
+E2E_BASE_URL=https://tu-app.vercel.app  # o http://localhost:3000
+
+# Correr:
+cd apps/web
+pnpm exec playwright test          # headless
+pnpm exec playwright test --ui     # con interfaz visual
+pnpm exec playwright test --headed # browser visible
+```
+
+**fix:** `hideSourceMaps` eliminado de `withSentryConfig` (no existe en esa versión de `@sentry/nextjs`)
+
+**Por qué / finalidad:**
+Con N orgs creciendo, los crons secuenciales van a tocar el límite de 300s de Vercel. El fan-out desacopla la orquestación del procesamiento: el cron termina en segundos, QStash ejecuta los workers en paralelo con retries automáticos.
+
+**Riesgos / deuda técnica pendiente:**
+- Los tests E2E requieren `E2E_HOLDING_EMAIL` / `E2E_HOLDING_PASSWORD` con una cuenta holding real — pendiente crearla junto al data setup del beta tester
+- `e2e/holding.spec.ts` usa selectores de texto que pueden romperse si cambian los labels; revisar después del data setup
+- El fan-out no aplica aún a `executive-report-monthly`, `calendly-sync`, `mercadopago-token-refresh` — son menos costosos, pueden esperar
+
+---
+
+### 2026-08-23 — Preparación beta holding: Sentry, RPC dashboard y dropdown fix
+
+**Rama/branch:** `claude/architecture-review-improvements-fdj4ae`  
+**Commit(s):** `704b566` — feat(sentry), `8bbcf8f` — perf(holding): RPC, `dbd1674` — fix(holding): dropdown  
+**Autor:** Claude  
+**Módulo(s) afectado(s):** holding, monitoring, infra
+
+**Qué se hizo:**
+
+1. **Sentry integration** (`704b566`):
+   - Creados `sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`
+   - `next.config.ts` envuelto con `withSentryConfig` (source maps y logger opcionales vía env vars)
+   - `lib/holding/refresh-auth-session.ts`: `Sentry.captureException` cuando el refresh del JWT falla (path crítico del holding switch)
+   - `app/api/agent/send/route.ts`: `Sentry.captureException` con `organizationId` y `conversationId` en errores de streaming
+   - Filtra cookies de auth antes de enviar eventos; no envía errores de rate limit (ruido)
+
+2. **RPC `get_holding_dashboard_stats`** (`8bbcf8f`):
+   - Nueva migración `supabase/migrations/20260823023309_holding_dashboard_stats_rpc.sql`
+   - Función STABLE + SECURITY DEFINER que agrega MRR, conversaciones activas, closing calls y `has_founder` en una sola query con CTEs
+   - `getHoldingDashboardAction` refactorizada: `Promise.all` con `getHoldingBusinesses` + RPC → de 28 llamadas a 2 paralelas
+   - Fallback silencioso a métricas en cero si la RPC no existe aún (migración no aplicada)
+
+3. **Dropdown scrollable** (`dbd1674`):
+   - `HoldingBusinessSwitcher`: `DropdownMenuContent` ahora tiene `max-h-[280px] overflow-y-auto`
+   - Necesario para el beta tester con 7 negocios (sin scroll el dropdown quedaba fuera de pantalla)
+
+**Por qué / finalidad:**
+Beta tester con holding de 7 negocios entra en 2 días. Estos cambios preparan el módulo holding para soportar múltiples negocios sin degradación de performance ni UX rota.
+
+**Decisiones de diseño relevantes:**
+- RPC con CTEs en lugar de N queries en JS: más eficiente, una sola round-trip a Postgres
+- SECURITY DEFINER para evitar que la anonkey falle en la lectura de `profiles` (protegida por RLS)
+- `REVOKE ... FROM public; GRANT ... TO authenticated`: seguridad mínima, solo users autenticados
+- Sentry `sampleRate: 1.0, tracesSampleRate: 0.05` en servidor: capturar todos los errores, 5% de trazas (lambdas son muchas)
+- `beforeSend`: eliminar cookies de auth antes de enviar a Sentry (privacidad)
+
+**Riesgos / deuda técnica pendiente:**
+- **La migración SQL debe aplicarse manualmente en Supabase Dashboard antes del beta** (o con `supabase db push`)
+- Sentry requiere `NEXT_PUBLIC_SENTRY_DSN` + `SENTRY_DSN` en Vercel para activarse en producción
+- `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` son opcionales pero necesarios para subir source maps
+- TECH-5 (Badge `children` en React 19): sigue pendiente — ~15 archivos con error pre-existente, Vercel lo ignora por caché Turbo
 
 ---
 

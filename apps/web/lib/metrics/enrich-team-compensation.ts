@@ -6,11 +6,12 @@ function normalizeName(name: string): string {
 }
 
 function isInCurrentMonth(iso: string): boolean {
-  const d = new Date(iso);
+  // Comparar YYYY-MM como string evita el bug UTC-midnight de new Date("YYYY-MM-DD")
+  // que en zonas UTC-N reporta el mes anterior para timestamps al inicio del mes.
+  const dYearMonth = iso.slice(0, 7);
   const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
-  );
+  const nowYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return dYearMonth === nowYearMonth;
 }
 
 /** Estima comisiones del mes desde closing_calls cerradas (por nombre del closer). */

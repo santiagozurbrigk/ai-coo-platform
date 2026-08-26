@@ -7,7 +7,7 @@ import {
   deleteUTMLinkAction,
   getUTMFunnelAction,
   updateUTMLinkAction,
-} from "@/app/marketing/actions";
+} from "@/app/marketing/utm-actions";
 import type { UTMFunnelData, UTMLinkRow } from "@/types/utm";
 import { UTM_CONTENT_OPTIONS } from "@/types/utm";
 import { UTMLeadsSheet } from "./utm-leads-sheet";

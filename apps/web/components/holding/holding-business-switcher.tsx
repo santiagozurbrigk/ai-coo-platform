@@ -54,12 +54,13 @@ export function HoldingBusinessSwitcher() {
             size="sm"
             className="h-8 max-w-[220px] justify-between gap-2 text-xs"
             disabled={pending}
+            data-testid="business-switcher"
           >
             <span className="truncate">{label}</span>
             <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" className="w-56 max-h-[280px] overflow-y-auto">
           <DropdownMenuItem onClick={selectHoldingView}>
             <Building2 className="mr-2 h-3.5 w-3.5" />
             Vista general del holding

@@ -12,7 +12,7 @@ import {
   Input,
   Label,
 } from "@ai-coo/ui";
-import { createWorkboardTasksAction } from "@/app/agent/actions";
+import { createWorkboardTasksAction } from "@/app/agent/workboard-actions";
 import {
   markFathomTasksSentToBoardAction,
   updateFathomTaskProposalsAction,

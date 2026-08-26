@@ -21,17 +21,7 @@ import {
 } from "@/lib/agent/data-reader-handlers";
 import { rowToProposal, type GraphProposalRow } from "@/lib/agent/mapper";
 import type { GraphProposal } from "@/types/agent";
-
-type WorkboardTaskUpdates = {
-  title?: string;
-  description?: string;
-  status?: "todo" | "in_progress" | "review" | "done";
-  area?: "marketing" | "ventas" | "operaciones" | "finanzas" | "clientes" | "general";
-  priority?: "low" | "medium" | "high";
-  due_date?: string | null;
-  assignee_name?: string | null;
-  tags?: string[];
-};
+import type { WorkboardTaskUpdates } from "@/app/agent/workboard-actions";
 
 export type AgentToolHandlerState = {
   canvasFromDocument: string | null;
@@ -158,7 +148,7 @@ export function createAgentToolHandler(ctx: AgentToolHandlerContext) {
     }
 
     if (name === "create_workboard_tasks") {
-      const { createWorkboardTasksAction } = await import("@/app/agent/actions");
+      const { createWorkboardTasksAction } = await import("@/app/agent/workboard-actions");
       const tasks = Array.isArray(toolInput.tasks) ? toolInput.tasks : [];
       const result = await createWorkboardTasksAction({ tasks });
       return result.ok
@@ -167,7 +157,7 @@ export function createAgentToolHandler(ctx: AgentToolHandlerContext) {
     }
 
     if (name === "search_workboard_tasks") {
-      const { searchWorkboardTasksAction } = await import("@/app/agent/actions");
+      const { searchWorkboardTasksAction } = await import("@/app/agent/workboard-actions");
       const query = String(toolInput.query ?? "");
       const result = await searchWorkboardTasksAction({
         query,
@@ -201,7 +191,7 @@ export function createAgentToolHandler(ctx: AgentToolHandlerContext) {
     }
 
     if (name === "update_workboard_task") {
-      const { updateWorkboardTaskAction } = await import("@/app/agent/actions");
+      const { updateWorkboardTaskAction } = await import("@/app/agent/workboard-actions");
       const result = await updateWorkboardTaskAction({
         task_id: String(toolInput.task_id ?? ""),
         updates: (toolInput.updates ?? {}) as WorkboardTaskUpdates,

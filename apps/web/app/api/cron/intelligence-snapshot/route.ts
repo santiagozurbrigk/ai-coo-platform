@@ -3,10 +3,16 @@ import { assertCronAuthorized } from "@/lib/integrations/cron-auth";
 import {
   generateAllIntelligenceSnapshots,
   generateAndSaveIntelligenceSnapshot,
+  listActiveOrganizationIds,
 } from "@/lib/intelligence/generate-snapshot";
+import {
+  isQStashConfigured,
+  publishCronFanout,
+  getCronIntelligenceSnapshotWorkerUrl,
+} from "@/lib/queue/qstash-client";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 60; // Fan-out: solo publica jobs
 
 export async function GET(request: Request) {
   return POST(request);
@@ -20,13 +26,39 @@ export async function POST(request: Request) {
   const organizationId = url.searchParams.get("organizationId");
 
   try {
+    // Modo org única — test manual o retry directo
     if (organizationId) {
       const result = await generateAndSaveIntelligenceSnapshot(organizationId);
       return NextResponse.json({ ok: true, organizationId, result });
     }
 
+    // Modo fan-out (QStash configurado)
+    if (isQStashConfigured()) {
+      const orgIds = await listActiveOrganizationIds();
+
+      const { published, failed } = await publishCronFanout(
+        getCronIntelligenceSnapshotWorkerUrl(),
+        orgIds
+      );
+
+      console.log("[cron/intelligence-snapshot] fan-out completado", {
+        total: orgIds.length,
+        published,
+        failed,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        mode: "fanout",
+        total: orgIds.length,
+        published,
+        failed,
+      });
+    }
+
+    // Fallback secuencial
     const bulk = await generateAllIntelligenceSnapshots();
-    return NextResponse.json({ ok: true, ...bulk });
+    return NextResponse.json({ ok: true, mode: "sequential", ...bulk });
   } catch (e) {
     console.error("[cron/intelligence-snapshot] Error:", e);
     return NextResponse.json(
