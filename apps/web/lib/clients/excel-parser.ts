@@ -113,17 +113,46 @@ export function parseClientsExcel(
   }
 
   const sheet = wb.Sheets[sheetName];
-  const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+
+  // Usar { header: 1 } para obtener arrays crudos y poder saltar filas de título
+  // (igual que getExcelPreviewAction — evita que celdas merged en fila 1 sean tomadas como headers).
+  const rawArrays = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+    header: 1,
     defval: "",
     raw: true,
   });
 
-  if (!raw.length) {
+  if (!rawArrays.length) {
     return { headers: [], rows: [], errors: [{ row: 0, message: "Hoja sin datos." }] };
   }
 
+  // Primera fila con ≥2 celdas no vacías = fila real de encabezados
+  const headerRowIdx = rawArrays.findIndex(
+    (row) => (row as unknown[]).filter((v) => String(v ?? "").trim()).length >= 2
+  );
+  if (headerRowIdx === -1) {
+    return { headers: [], rows: [], errors: [{ row: 0, message: "No se encontró fila de encabezados." }] };
+  }
+
+  const headerRow = (rawArrays[headerRowIdx] as unknown[]).map((v) => String(v ?? "").trim());
+  const dataArrays = rawArrays.slice(headerRowIdx + 1);
+
+  // Convertir arrays de datos a objetos keyed por header
+  const raw: Record<string, unknown>[] = dataArrays.map((arr) => {
+    const obj: Record<string, unknown> = {};
+    (arr as unknown[]).forEach((val, i) => {
+      const h = headerRow[i];
+      if (h) obj[h] = val;
+    });
+    return obj;
+  });
+
+  if (!raw.length) {
+    return { headers: [], rows: [], errors: [{ row: 0, message: "Hoja sin filas de datos." }] };
+  }
+
   // Extraer headers reales del archivo
-  const headers = Object.keys(raw[0]).map((h) => h.trim());
+  const headers = headerRow.filter(Boolean);
 
   // Usar plantilla OTC si no hay mapping manual
   const mapping: ColumnMapping = columnMapping ?? OTC_COLUMNS;
