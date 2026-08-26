@@ -48,6 +48,47 @@ function formatCurrency(amount: number): string {
   return `$${amount.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
 }
 
+function RemainingDaysBadge({
+  days,
+  loading,
+  hasDuration,
+}: {
+  days: number | null;
+  loading: boolean;
+  hasDuration: boolean;
+}) {
+  if (loading && !hasDuration) {
+    return <span className="text-muted-foreground">…</span>;
+  }
+
+  const text = formatRemainingDays(days);
+
+  let dotClass: string | null = null;
+  if (days !== null) {
+    if (days < 0) {
+      dotClass = "bg-muted-foreground/40";
+    } else if (days < 15) {
+      dotClass = "bg-red-500";
+    } else if (days < 30) {
+      dotClass = "bg-amber-400";
+    } else {
+      dotClass = "bg-green-500";
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      {dotClass !== null ? (
+        <span
+          className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`}
+          aria-hidden
+        />
+      ) : null}
+      <span className="text-muted-foreground">{text}</span>
+    </div>
+  );
+}
+
 // ── Diálogo de confirmación de eliminación ─────────────────────────────────
 
 function DeleteClientDialog({
@@ -334,10 +375,12 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {loadingEnrichment && !durationDays
-                      ? "…"
-                      : formatRemainingDays(remainingDays)}
+                  <td className="px-4 py-3">
+                    <RemainingDaysBadge
+                      days={remainingDays}
+                      loading={loadingEnrichment}
+                      hasDuration={!!durationDays}
+                    />
                   </td>
                   <td className="px-4 py-3">{PAYMENT_LABEL[client.paymentType]}</td>
                   <td className="px-4 py-3 tabular-nums">

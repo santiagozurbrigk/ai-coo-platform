@@ -17,6 +17,7 @@ import {
   addInstallmentPaymentAction,
   getClientPaymentReceiptUrlAction,
   listClientPaymentsAction,
+  recordClientPaymentAction,
 } from "@/app/clients/payment-actions";
 import {
   PaymentReceiptDropzone,
@@ -27,7 +28,7 @@ import { useToast } from "@/providers/toast-provider";
 import type { Client, ClientPayment } from "@/types/clients";
 
 function formatMoney(amount: number) {
-  return `$${amount.toLocaleString()}`;
+  return `$${amount.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
 }
 
 function paymentLabel(payment: ClientPayment) {
@@ -37,12 +38,43 @@ function paymentLabel(payment: ClientPayment) {
   return "Pago único";
 }
 
+function PaymentProgressBar({ paid, total }: { paid: number; total: number }) {
+  if (total <= 0) return null;
+  const pct = Math.min(100, Math.round((paid / total) * 100));
+  const isComplete = pct >= 100;
+
+  let barClass = "bg-red-500";
+  if (pct >= 100) barClass = "bg-green-500";
+  else if (pct >= 60) barClass = "bg-primary";
+  else if (pct >= 30) barClass = "bg-amber-500";
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">Progreso de cobros</span>
+        <span
+          className={`font-medium tabular-nums ${isComplete ? "text-green-500" : ""}`}
+        >
+          {formatMoney(paid)} de {formatMoney(total)} ({pct}%)
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${barClass}`}
+          style={{ width: `${Math.max(pct, 0)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function ClientPaymentsSection({ client }: { client: Client }) {
   const { updateClient } = usePlatformData();
   const { push } = useToast();
   const [payments, setPayments] = useState<ClientPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
+  const [addGenericOpen, setAddGenericOpen] = useState(false);
   const [openingId, setOpeningId] = useState<string | null>(null);
 
   const nextPending = useMemo(() => {
@@ -60,6 +92,13 @@ export function ClientPaymentsSection({ client }: { client: Client }) {
       ) ?? null
     );
   }, [client, payments]);
+
+  const paidTotal = useMemo(
+    () => payments.reduce((sum, p) => sum + p.amount, 0),
+    [payments]
+  );
+
+  const showGenericButton = client.paymentType !== "installments";
 
   useEffect(() => {
     let cancelled = false;
@@ -93,18 +132,38 @@ export function ClientPaymentsSection({ client }: { client: Client }) {
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-medium">Historial de pagos</h2>
-        {nextPending ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1"
-            onClick={() => setAddOpen(true)}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Registrar cuota {nextPending.label}
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {nextPending ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1"
+              onClick={() => setAddOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Registrar cuota {nextPending.label}
+            </Button>
+          ) : null}
+          {showGenericButton ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1"
+              onClick={() => setAddGenericOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Registrar pago
+            </Button>
+          ) : null}
+        </div>
       </div>
+
+      {/* Barra de progreso de cobros */}
+      {!loading && client.totalAmount > 0 ? (
+        <GlassPanel className="p-4">
+          <PaymentProgressBar paid={paidTotal} total={client.totalAmount} />
+        </GlassPanel>
+      ) : null}
 
       <GlassPanel className="p-5 text-sm">
         {loading ? (
@@ -179,6 +238,22 @@ export function ClientPaymentsSection({ client }: { client: Client }) {
             push({
               title: "Cuota registrada",
               description: `${nextPending.label} guardada con comprobante`,
+              variant: "success",
+            });
+          }}
+        />
+      ) : null}
+
+      {showGenericButton ? (
+        <AddGenericPaymentDialog
+          open={addGenericOpen}
+          onOpenChange={setAddGenericOpen}
+          clientId={client.id}
+          onSuccess={(newPayment) => {
+            setPayments((prev) => [newPayment, ...prev]);
+            push({
+              title: "Pago registrado",
+              description: "Comprobante guardado correctamente",
               variant: "success",
             });
           }}
@@ -279,6 +354,125 @@ function AddInstallmentPaymentDialog({
             <Input
               type="number"
               value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              disabled={pending}
+            />
+          </FormField>
+          <FormField label="Fecha del pago">
+            <Input
+              type="date"
+              value={paymentDate}
+              onChange={(e) => setPaymentDate(e.target.value)}
+              disabled={pending}
+            />
+          </FormField>
+          <FormField label="Comprobante de pago">
+            <PaymentReceiptDropzone
+              file={file}
+              onFileChange={setFile}
+              disabled={pending}
+            />
+          </FormField>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit} disabled={pending || !file}>
+            {pending ? "Guardando…" : "Confirmar pago"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddGenericPaymentDialog({
+  open,
+  onOpenChange,
+  clientId,
+  onSuccess,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  clientId: string;
+  onSuccess: (payment: ClientPayment) => void;
+}) {
+  const [amount, setAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState(
+    () => new Date().toISOString().slice(0, 10)
+  );
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (open) {
+      setAmount("");
+      setPaymentDate(new Date().toISOString().slice(0, 10));
+      setFile(null);
+      setError(null);
+    }
+  }, [open]);
+
+  function handleSubmit() {
+    if (!file) {
+      setError("El comprobante es obligatorio.");
+      return;
+    }
+    const parsedAmount = Number(amount);
+    if (!parsedAmount || parsedAmount <= 0) {
+      setError("Ingresá un monto válido.");
+      return;
+    }
+    if (!paymentDate) {
+      setError("Ingresá la fecha del pago.");
+      return;
+    }
+
+    setError(null);
+    startTransition(async () => {
+      const uploaded = await uploadPaymentReceiptFile(file, clientId);
+      if (!uploaded.ok) {
+        setError(uploaded.error);
+        return;
+      }
+
+      const res = await recordClientPaymentAction({
+        clientId,
+        amount: parsedAmount,
+        paymentDate,
+        storagePath: uploaded.storagePath,
+        mimeType: uploaded.mimeType,
+      });
+
+      if (!res.success) {
+        setError(res.error);
+        return;
+      }
+
+      onSuccess(res.data);
+      onOpenChange(false);
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Registrar pago</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <FormField label="Monto pagado">
+            <Input
+              type="number"
+              value={amount}
+              placeholder="0"
               onChange={(e) => setAmount(e.target.value)}
               disabled={pending}
             />
