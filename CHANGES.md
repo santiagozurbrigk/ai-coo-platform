@@ -14,6 +14,23 @@
 
 ---
 
+### 2026-08-26 — FIX-IMPORT-EMPTY-ROWS: parsers Excel ignoran filas vacías — elimina errores falsos
+
+**Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
+**Commit:** `b813954`  
+**Módulo(s) afectado(s):** `lib/clients/excel-parser.ts`, `lib/closing/excel-parser.ts`
+
+**Qué se hizo:**
+- Agregado check `allEmpty` al inicio del `forEach` en ambos parsers: si todos los valores de la fila son cadena vacía (después de trim), la fila se ignora silenciosamente sin generar error.
+
+**Por qué / finalidad:**
+Un Excel con 264 clientes mostraba "512 errores" porque tenía estilos/formato aplicados hasta la fila 776. SheetJS incluye todas esas filas dentro del bounding box (`!ref`) con `defval: ""` → el parser generaba un error "Nombre vacío" por cada fila vacía. El resultado era correcto (264 importados) pero el mensaje de error era confuso y alarmante.
+
+**Decisiones de diseño:**
+Solo se omite silenciosamente si la fila está 100% vacía. Si una fila tiene algún dato (ej: teléfono o email pero sin nombre), sigue generando el error para que el usuario lo vea.
+
+---
+
 ### 2026-08-26 — FIX-IMPORT-SHEET-MISMATCH: wizard pasa sheetName al parser para evitar discrepancia de hoja
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  
