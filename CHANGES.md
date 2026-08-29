@@ -14,6 +14,53 @@
 
 ---
 
+### 2026-08-29 — FEAT-TESTING-VITEST + FUNNELS-CONFORMANCE: Vitest en el monorepo y tests de conformidad de embudos
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `turbo.json`, `package.json` (raíz), `apps/web/package.json`, `apps/web/vitest.config.ts` (nuevo), `apps/web/lib/funnels/__tests__/` (nuevo), `CLAUDE.md`, `docs/FUNNELS_ARCHITECTURE.md`
+
+**Qué se hizo:**
+
+**1. Vitest como runner de tests unitarios del monorepo**
+- Task `test` agregada a `turbo.json` (con `dependsOn: ["^test"]`), script `test: "turbo test"` en el `package.json` raíz.
+- `apps/web`: devDependency `vitest ^3.2.4`, scripts `test` (`vitest run`) y `test:watch`.
+- `apps/web/vitest.config.ts`: entorno `node`, alias `@` a la raíz de la app, `include` limitado a `lib/**/*.test.ts` y `lib/**/__tests__/**/*.test.ts`.
+- Convención adoptada: los tests viven junto al código que cubren, cubren **lógica pura de `lib/`**, y los flujos de UI siguen en Playwright.
+
+**2. Tests de conformidad del módulo de embudos (153 tests, 6 archivos)**
+- **`document-fixture.ts`** — transcripción **verbatim** del `Funnel Metrics Standard v1.0`: masthead, spine, las 3 tablas de embudo fila por fila, los 6 KPIs, la tabla de health bands con sus textos literales, las 8 herramientas y las 3 cadencias. No importa nada de `lib/funnels`: sólo copia el documento.
+- **`templates.conformance.test.ts`** (72 tests) — compara cada fila de cada tabla contra su step (etapa, label, metricLabel, benchmarkLabel, order), verifica encabezados y punteros, el spine disperso, la normalización de los rangos, y los denominadores explícitos.
+- **`health-bands.test.ts`** (33) — `null` vs `0`, dirección de la métrica, benchmarks sin piso, precedencia de 3 niveles y las 6 filas de la sección 04 incluyendo el comparador relativo.
+- **`validate-template.test.ts`** (16) — que las plantillas reales pasen, y 12 casos negativos que verifican que el validador atrapa cada clase de error.
+- **`kpis.test.ts`** (13), **`instrumentation.test.ts`** (12) y **`spine.test.ts`** (7).
+
+**3. Revisión del documento contra las plantillas**
+El documento que Santiago volvió a pasar es **byte-idéntico** al analizado (mismo md5: `b5ed6261f92764dc4a78c29cef76abce`). La revisión se convirtió en la suite de conformidad, que verifica cada fila automáticamente en vez de a ojo.
+
+**Verificación ejecutada:**
+- `pnpm test` desde la raíz vía turbo — **153 tests, 6 archivos, todos en verde**.
+- `tsc --noEmit` en `apps/web` (incluye los tests) — limpio.
+- `next lint --dir lib/funnels` — sin warnings ni errores.
+- **Mutation testing manual** para confirmar que la suite no es decorativa: se rompieron tres cosas a propósito y cada una fue detectada por el test correcto — un rango normalizado (25-45 a 25-40), un denominador (`attendee_to_sale` apuntando a registrantes en vez de asistentes) y un texto del documento. Archivo restaurado y verificado sin diff contra el commit.
+
+**Por qué / finalidad:**
+La Fase 0 había quedado verificada ejecutando el validador a mano, sin nada que lo volviera a correr solo. Con Vitest, la conformidad entre documento y plantillas queda garantizada en cada corrida, y cuando llegue el `Funnel Metrics Standard v1.1` los tests van a decir exactamente qué plantillas quedaron desactualizadas en vez de descubrirlo en producción.
+
+**Decisiones de diseño:**
+- **El fixture no importa nada del código que testea.** Si importara los tipos o las constantes de `lib/funnels`, un error de transcripción se propagaría a ambos lados y el test pasaría igual. Al ser una copia independiente del HTML, la única forma de que pase es que coincidan de verdad.
+- **Regla de dirección única:** si un test de conformidad falla, se arregla la plantilla, nunca el fixture. Documentado en el header del archivo y en la sección 11 de la arquitectura.
+- **`include` acotado a `lib/`** en la config de Vitest: evita que el runner intente levantar Server Components o rutas de Next, que no son el objetivo de estos tests.
+- **Casos negativos en el validador.** Un validador que nunca falla no protege nada, así que se verifican las 12 clases de error que sabe detectar.
+- **Se quitó `@vitejs/plugin-react`** que se había agregado de más: el entorno es `node` y no se testean componentes.
+
+**Riesgos / deuda técnica pendiente:**
+- Los tests corren sólo cuando alguien los invoca: no hay CI que ejecute `pnpm test` en cada push. Es el siguiente paso natural — ver `[TECH-CI]` en PENDIENTES.md.
+- La cobertura es sólo de `lib/funnels`. El resto de `lib/` (métricas, zernio, marketing, agente) sigue sin tests unitarios; ahora existe la infraestructura para sumarlos donde haga falta.
+- `packages/*` todavía no declara script `test`; la task de turbo ya está lista para cuando alguno lo necesite.
+
+---
+
 ### 2026-08-29 — FEAT-EMBUDOS-FASE0: schema del motor de embudos (definición, sin UI ni DB)
 
 **Rama/branch:** `Claude-New-Features`  

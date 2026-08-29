@@ -177,8 +177,8 @@ ai-coo-platform/
 ```
 
 - **Package manager:** pnpm 9 · **Node:** ≥20
-- **Turbo tasks:** `build`, `dev`, `lint`, `typecheck`
-- **Scripts raíz:** `pnpm dev`, `pnpm build`, `pnpm typecheck`
+- **Turbo tasks:** `build`, `dev`, `lint`, `typecheck`, `test`
+- **Scripts raíz:** `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm test`
 
 ### apps/web
 
@@ -546,6 +546,7 @@ WITH CHECK (organization_id = public.get_my_organization_id())
 5. **Page** → `app/(platform)/<ruta>/page.tsx` (Server Component que fetchea y pasa props)
 6. **Ruta** → agregar en `routes/paths.ts` + `sidebar-modules.ts` si es navegable
 7. **Typecheck** → `cd apps/web && node node_modules/typescript/bin/tsc --noEmit`
+8. **Tests** → `pnpm test` (Vitest; agregar tests si la feature tiene lógica pura en `lib/`)
 
 ### Throttle sync de contenido Zernio
 
@@ -670,6 +671,18 @@ node node_modules/typescript/bin/tsc --noEmit
 pnpm lint
 ```
 
+### Tests unitarios (Vitest)
+
+```bash
+pnpm test                       # todo el monorepo, vía turbo
+cd apps/web && pnpm test        # solo la app web
+cd apps/web && pnpm test:watch  # modo watch
+```
+
+Los tests viven junto al código que cubren, en `lib/<dominio>/__tests__/*.test.ts`.
+Entorno `node`: cubren **lógica pura de `lib/`**, no componentes. Los flujos de UI
+se cubren con Playwright (`apps/web/e2e/`).
+
 ### Testear crons manualmente
 
 ```bash
@@ -729,6 +742,7 @@ curl -X POST "https://<NEXT_PUBLIC_APP_URL>/api/cron/<nombre>" \
 ### Checklist pre-PR
 
 - [ ] `tsc --noEmit` pasa en `apps/web`
+- [ ] `pnpm test` pasa (y la lógica nueva de `lib/` tiene tests)
 - [ ] Server Actions usan `requireOrganizationId()`
 - [ ] Rutas nuevas en `paths.ts` + sidebar si aplica
 - [ ] Sin secrets en código ni logs

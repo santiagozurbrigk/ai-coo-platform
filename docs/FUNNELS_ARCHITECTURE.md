@@ -540,11 +540,45 @@ La Fase 0 es barata y elimina casi toda la ambigüedad de la §3. Se revisa ante
 
 ---
 
-## 11. Checklist de implementación
+## 11. Tests de conformidad
+
+El documento fuente y las plantillas tienen que decir lo mismo, siempre. Eso no
+se sostiene con revisiones manuales: se sostiene con tests.
+
+`lib/funnels/__tests__/document-fixture.ts` es una transcripción **verbatim** del
+documento — no importa nada de `lib/funnels`, sólo copia el HTML. Los tests de
+conformidad comparan esa transcripción contra las plantillas fila por fila.
+
+**Cuando llegue una versión nueva del documento:**
+
+1. Actualizar `document-fixture.ts` con el contenido nuevo y subir `DOC_VERSION`.
+2. Subir `SOURCE_DOC_VERSION` en `lib/funnels/types.ts`.
+3. Correr `pnpm test`. Los tests que fallan señalan exactamente qué plantillas
+   quedaron atrás.
+4. Actualizar las plantillas hasta que vuelva a estar todo en verde.
+
+Nunca al revés: si un test falla, el error está en la plantilla, no en el
+documento. No "arreglar" el fixture para que pase.
+
+Lo que cubren los tests hoy:
+
+| Archivo | Qué verifica |
+|---|---|
+| `templates.conformance.test.ts` | Cada fila de cada tabla del documento contra su step; los rangos normalizados; los denominadores explícitos (§3.4); el spine disperso (§3.1) |
+| `health-bands.test.ts` | `null` vs `0` (§9.1), dirección de la métrica, precedencia de benchmark (§3.5), la tabla cross-funnel de la sección 04 |
+| `validate-template.test.ts` | Que las plantillas reales pasen, y que el validador atrape cada clase de error |
+| `kpis.test.ts` | Las 6 tarjetas de la sección 03 y las dos ratios decisivas |
+| `instrumentation.test.ts` | Sección 05, y qué herramientas siguen bloqueando (§7) |
+| `spine.test.ts` | Las 7 etapas, su orden y sus helpers |
+
+---
+
+## 12. Checklist de implementación
 
 Antes de dar por cerrada cualquier fase:
 
 - [ ] `tsc --noEmit` pasa en `apps/web`
+- [ ] `pnpm test` pasa, y la lógica nueva tiene tests
 - [ ] Las Server Actions nuevas usan `requireOrganizationId()`
 - [ ] `ResolvedMetric.value` distingue `null` de `0` en todos los caminos (§9.1)
 - [ ] Toda métrica de tasa tiene numerador y denominador explícitos (§3.4)
@@ -553,6 +587,7 @@ Antes de dar por cerrada cualquier fase:
 - [ ] Agregar un tipo de embudo no requirió tocar ningún componente
 - [ ] Iconos Lucide, sin emojis en JSX
 - [ ] Strings de UI en español (es-AR)
+- [ ] Si el documento fuente cambió: `document-fixture.ts` actualizado primero
 - [ ] `CHANGES.md` y `PENDIENTES.md` actualizados
 
 ---

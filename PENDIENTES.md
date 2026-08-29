@@ -61,6 +61,8 @@
 
 **Deuda a resolver en el camino:** tabla propia `funnel_period_snapshots` (`metrics_snapshots` no sirve — su UNIQUE colisiona con varias instancias por org); `resolveSourceValue` necesita ventana temporal; no existe timezone de reporte por org.
 
+**Testing:** ✅ Vitest incorporado al monorepo (2026-08-29). 153 tests de conformidad verifican las plantillas contra el documento fuente. Cuando llegue una versión nueva del documento, actualizar `lib/funnels/__tests__/document-fixture.ts` primero y dejar que los tests señalen qué plantillas quedaron atrás.
+
 ---
 
 ### [FEAT-EMBUDOS-INTEGRACIONES] Track de integraciones bloqueante para Embudos
@@ -141,6 +143,15 @@
 
 
 
+
+### [TECH-CI] Workflow de CI que corra typecheck + lint + test
+
+**Qué es:** Ahora que el monorepo tiene Vitest (`pnpm test`), falta un workflow de GitHub Actions que lo ejecute en cada push junto con `pnpm typecheck` y `pnpm lint`. Hoy los tests corren sólo cuando alguien los invoca a mano, así que una regresión puede llegar a `main` sin que nadie se entere.
+
+**Acción:** crear `.github/workflows/ci.yml` con los tres pasos sobre Node 20+ y pnpm 9.  
+**Complejidad:** Baja
+
+---
 
 ### [TECH-4] VSL Player placeholder en landing
 
