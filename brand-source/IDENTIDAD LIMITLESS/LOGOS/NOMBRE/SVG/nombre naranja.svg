@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Capa_1" data-name="Capa 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2500 1500">
+  <defs>
+    <style>
+      .cls-1 {
+        letter-spacing: .04em;
+      }
+
+      .cls-1, .cls-2, .cls-3 {
+        fill: #e15d12;
+        font-family: Manrope-Light, Manrope;
+        font-size: 371.75px;
+        font-weight: 300;
+        isolation: isolate;
+      }
+
+      .cls-3 {
+        letter-spacing: -.05em;
+      }
+    </style>
+  </defs>
+  <text class="cls-2" transform="translate(330.08 870.28) scale(1.05 1)"><tspan x="0" y="0">LIM</tspan></text>
+  <text class="cls-3" transform="translate(953.91 870.28) scale(1.05 1)"><tspan x="0" y="0">I</tspan></text>
+  <text class="cls-2" transform="translate(1021.87 870.28) scale(1.05 1)"><tspan x="0" y="0">TLE</tspan></text>
+  <text class="cls-1" transform="translate(1696.46 870.28) scale(1.05 1)"><tspan x="0" y="0">S</tspan></text>
+  <text class="cls-2" transform="translate(1953.69 870.28) scale(1.05 1)"><tspan x="0" y="0">S</tspan></text>
+</svg>
