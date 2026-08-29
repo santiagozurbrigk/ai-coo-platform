@@ -29,6 +29,21 @@
 
 ---
 
+### [EMBUDOS-FUENTES] Plan de integraciones del módulo de Embudos
+
+**Qué es:** el mapa completo de las 34 medidas atómicas que pide el documento fuente, con su estado en OTC y el orden de construcción, está en **[`docs/FUNNELS_SOURCE_MAP.md`](./docs/FUNNELS_SOURCE_MAP.md)**. Leerlo antes de arrancar cualquier integración de embudos.
+
+**Estado actual:** 2 de 34 medidas disponibles (M17 y M18, calidad de aplicación). 20 parciales, 11 faltantes, 1 sin dueño en el documento.
+
+**Orden acordado — de afuera hacia adentro, no de a un embudo:**
+- **Ola 1 (extremos, sirve a los 3 embudos):** I-1 persistir métricas de ads por período · I-2 conectar pagos · I-3 poblar asistencia y cierres
+- **Ola 2 (medios, en paralelo):** I-4 GHL opportunities · I-5 webinar · I-6 hosting de VSL · I-7 landings
+- **Ola 3:** I-9 retención · I-8 Hyros · I-10 triggers de Zernio
+
+**Cuatro cosas a averiguar antes de estimar:** por qué 0 de 282 llamadas tienen resultado; qué usan los clientes para landings y VSL; si hay cuenta de Hyros; cuántos clientes hay en cada embudo.
+
+---
+
 ### [EMBUDOS-GHL-PIPELINE] Sync de oportunidades/pipelines de GHL
 
 **Qué es:** la sección 05 del documento fuente le asigna al **GHL pipeline** los "Stage counts, set/close, follow-up" — o sea, los conteos por etapa del embudo DM. La integración GHL de OTC consume `/calendars` y `/contacts`, pero no `/opportunities` ni `/pipelines`.

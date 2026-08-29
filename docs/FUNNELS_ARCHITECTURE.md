@@ -403,6 +403,10 @@ da acceso de un click— y reintroduce estado invisible.
 
 ## 7. Integraciones requeridas (decisión 3 y 7)
 
+> **Mapa completo:** [`FUNNELS_SOURCE_MAP.md`](./FUNNELS_SOURCE_MAP.md) enumera las
+> 34 medidas atómicas del documento, su estado en OTC y el orden de construcción.
+> Esta sección es el resumen; el mapa es la fuente de verdad.
+
 Las decisiones 3 ("sí o sí con integración") y 7 ("tal cual asume el doc") convierten un
 conjunto de integraciones en **prerrequisito bloqueante**, no en mejora futura. Hay que ser
 explícito sobre esto porque cambia el camino crítico.
