@@ -36,11 +36,11 @@
 **Estado actual:** 2 de 34 medidas disponibles (M17 y M18, calidad de aplicación). 20 parciales, 11 faltantes, 1 sin dueño en el documento.
 
 **Orden acordado — de afuera hacia adentro, no de a un embudo:**
-- **Ola 1 (extremos, sirve a los 3 embudos):** I-1 persistir métricas de ads por período · I-2 conectar pagos · I-3 poblar asistencia y cierres
-- **Ola 2 (medios, en paralelo):** I-4 GHL opportunities · I-5 webinar · I-6 hosting de VSL · I-7 landings
-- **Ola 3:** I-9 retención · I-8 Hyros · I-10 triggers de Zernio
+- **Ola 1 (extremos, sirve a los 3 embudos):** ~~I-1 métricas de ads por período~~ ✅ **2026-08-29** · I-2 conectar pagos · I-3 verificar asistencia y cierres
+- **Ola 2 (medios, por costo):** I-4 GHL opportunities · I-6 VTurb · I-5 webinar
+- **Ola 3:** I-9 retención · I-8 Hyros (absorbe los opt-ins de landings) · I-10 triggers de Zernio
 
-**Cuatro cosas a averiguar antes de estimar:** por qué 0 de 282 llamadas tienen resultado; qué usan los clientes para landings y VSL; si hay cuenta de Hyros; cuántos clientes hay en cada embudo.
+**Decisiones cerradas:** VSL en VTurb (tiene API pública) · todos los clientes pagan Hyros · landings en Vercel, así que los opt-ins salen de Hyros e I-7 desaparece · clientes repartidos en partes iguales entre los tres embudos. **No queda ninguna pregunta abierta en el plan.**
 
 ---
 

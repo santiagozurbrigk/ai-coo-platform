@@ -14,6 +14,48 @@
 
 ---
 
+### 2026-08-29 — FEAT-EMBUDOS-I1: captura diaria de métricas de anuncios
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `supabase/migrations/20260829180000_ad_metrics_daily.sql` (nuevo, **aplicado**), `lib/marketing/ad-metrics-snapshot.ts` (nuevo), `app/api/cron/capture-ad-metrics/route.ts` (nuevo), `lib/funnels/{sources,resolve}.ts`, `vercel.json`, `docs/FUNNELS_SOURCE_MAP.md`
+
+**Qué se hizo:**
+Primera unidad de la ola 1 del plan de integraciones (`I-1` del mapa de fuentes).
+
+- **Migración `ad_metrics_daily`** (aplicada en producción y verificada): día, plataforma, anuncio, campaña, adset y las cuatro medidas que el documento asigna a Meta Ads — spend, impressions, reach y clicks. `UNIQUE (organization_id, metric_date, platform, ad_external_id)`. RLS con política **sólo de SELECT**: la escritura es exclusiva del cron vía service role.
+- **`lib/marketing/ad-metrics-snapshot.ts`**: `mapAdToRow` (puro) normaliza un anuncio de Zernio a fila diaria, `dedupeRows` (puro) colapsa anuncios repetidos, y `captureAdMetricsForOrganization` / `...ForAllOrganizations` hacen el IO.
+- **Cron `capture-ad-metrics`** a las 05:30 UTC, captura el día anterior ya cerrado. Acepta `?organizationId=` y `?date=YYYY-MM-DD` para rellenar un día perdido.
+- **Fuente `ad_clicks`** en el catálogo de embudos, bindeada por defecto a `webinar.click` y `vsl.click`.
+- **`resolveOrgMeasures`** ahora lee `spend`, `reach` e `impressions` de `ad_metrics_daily` en vez de devolver `null` fijo.
+
+**Decisiones tomadas por Santiago que quedaron registradas en el mapa:**
+- **VSL: VTurb.** Tiene Analytics API pública con plays, views y retención filtrables por video y fecha. `I-6` baja de tamaño L a M.
+- **Todos los clientes pagan Hyros.** `I-8` es una integración directa, sin degradación por cliente.
+- **Landings en Vercel.** Como Vercel es hosting y no analítica de embudo, y el script de Hyros ya va a estar en todas esas páginas, los opt-ins (M08, M09) salen del endpoint de leads de Hyros. **`I-7` se elimina como unidad independiente y se absorbe en `I-8`.**
+- **Clientes repartidos en partes iguales entre los tres embudos**, así que la ola 2 se ordena por costo: GHL, VTurb, webinar.
+- Los datos actuales de `closing_calls` son de prueba: la conclusión anterior de que el flujo de resultados no se puebla **no era válida**. `I-3` pasa de reparar a verificar.
+
+**Verificación ejecutada:**
+- `pnpm test`: **217 tests en 10 archivos, todos en verde** (13 nuevos sobre el mapeo y la deduplicación).
+- `tsc --noEmit`: limpio.
+- Migración aplicada al proyecto `OTC` y verificada: RLS activo, 1 política de SELECT, 13 columnas.
+
+**Decisiones de diseño:**
+- **En la captura, un cero es un dato real.** Si un anuncio existe y no gastó, gastó cero — no es un hueco. La distinción `null` vs `0` de §9.1 vive en el resolver del embudo, no acá. Está documentado en el código y cubierto por un test.
+- **`dedupeRows` existe porque Zernio devuelve el mismo `_id` cuando un anuncio está en varios adsets**; sin eso el upsert choca contra sí mismo dentro del mismo batch.
+- **El cron captura el día anterior, no el actual**: un día en curso tiene métricas incompletas y quedarían congeladas mal.
+- **Sin política de INSERT/UPDATE en la tabla.** Los usuarios leen; sólo el cron escribe.
+- **`dm.trigger` sigue sin binding a propósito.** `ad_clicks` cubre sólo la parte paga de "comment / story / ad"; bindearlo ahí subcontaría los disparadores orgánicos.
+
+**Riesgos / deuda técnica pendiente:**
+- **La serie histórica arranca el día que se activa el cron.** Hacia atrás no es reconstruible: Zernio devuelve una ventana limitada y los ads no se guardaban antes.
+- **El spend es de la org entera, no por embudo.** Cuando una org corra varios embudos a la vez, atribuir el gasto a cada uno necesita `I-8` (Hyros). Hasta entonces, un cliente con dos embudos ve el mismo spend total en los dos.
+- `lib/funnels/resolve.ts` sigue sin tests ([T-6] del backlog); las funciones nuevas de IA de esta unidad tampoco.
+- El cron todavía no corrió en producción: hay que verificar la primera ejecución.
+
+---
+
 ### 2026-08-29 — DB-EMBUDOS aplicada + FEAT-EMBUDOS-FUENTES: configuración de fuentes por step
 
 **Rama/branch:** `Claude-New-Features`  

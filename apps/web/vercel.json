@@ -1,5 +1,7 @@
 {
-  "regions": ["gru1"],
+  "regions": [
+    "gru1"
+  ],
   "headers": [
     {
       "source": "/api/integrations/(.*)/callback",
@@ -117,6 +119,10 @@
     {
       "path": "/api/cron/cleanup-trial-reels",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/capture-ad-metrics",
+      "schedule": "30 5 * * *"
     }
   ]
 }

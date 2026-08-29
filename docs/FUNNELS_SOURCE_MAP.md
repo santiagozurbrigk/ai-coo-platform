@@ -54,14 +54,15 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 
 | # | Medida | Qué es | Estado | Qué falta |
 |---|---|---|---|---|
-| M01 | `spend` | Dinero invertido en el período | 🟡 | `ZernioAdMetrics.spend` ya existe. Falta **periodizar y persistir**: hoy es live-fetch y el histórico no es reconstruible |
-| M02 | `impressions` | Impresiones | 🟡 | Idem M01 |
-| M03 | `reach` | Alcance. La etapa 1 del spine es "$ deployed / reach" | 🟡 | Idem M01 |
-| M04 | `clicks` | Tráfico al embudo (etapa 2 del spine) | 🟡 | Idem M01 |
+| M01 | `spend` | Dinero invertido en el período | ✅ | Nada — `ad_metrics_daily`, capturado por el cron `capture-ad-metrics` |
+| M02 | `impressions` | Impresiones | ✅ | Idem M01 |
+| M03 | `reach` | Alcance. La etapa 1 del spine es "$ deployed / reach" | ✅ | Idem M01 |
+| M04 | `clicks` | Tráfico al embudo (etapa 2 del spine) | ✅ | Idem M01 |
 
-> Las cuatro vienen en el mismo payload de `ZernioAdMetrics`, que además ya trae
-> `ctr`, `cpc` y `cpm` calculados. **No es una integración nueva: es persistir por
-> período lo que Zernio ya devuelve.**
+> ✅ **Cerrado el 2026-08-29 (unidad I-1).** Las cuatro vienen en el mismo payload
+> de `ZernioAdMetrics`. El cron diario `capture-ad-metrics` las persiste en
+> `ad_metrics_daily`, y el resolver las lee de ahí. La serie histórica arranca el
+> día que se activó la captura: hacia atrás no es reconstruible.
 
 ### Hyros — atribución
 
@@ -259,14 +260,14 @@ Agrupado por unidad de trabajo, con lo que desbloquea cada una.
 
 | # | Trabajo | Medidas | Desbloquea | Tamaño |
 |---|---|---|---|---|
-| **I-1** | **Persistir métricas de ads por período** | M01–M04 | Etapas Spend y Click de **los 3 embudos**, CPC, CPL, EPC, ROAS blended, CAC | **S** — Zernio ya devuelve el payload; es un snapshot periódico, no una integración |
+| ~~**I-1**~~ | ~~**Persistir métricas de ads por período**~~ ✅ **Hecho 2026-08-29** | M01–M04 | Etapas Spend y Click de **los 3 embudos**, CPC, CPL, EPC, ROAS blended, CAC | — |
 | **I-2** | **Conectar pagos (Stripe / Mercado Pago)** | M26–M29, M31 | Etapa Cash de **los 3 embudos**, AOV, ROAS, CAC, EPL, cash vs contracted | **M** — el código de integración existe, están en 0 orgs; falta conectar y mapear a `client_payments` |
 | **I-3** | **Verificar asistencia y cierre de llamadas** | M20, M24 | Show rate y Close rate en VSL y DM, 2 health bands | **S** — el flujo existe; es validarlo con la primera org real y corregir si hace falta |
 | **I-4** | **Sync de oportunidades de GHL** | M21–M23, M25 | **Embudo DM entero** (4 de 6 pasos) | **M** — GHL ya integrado con auth y cliente; es agregar endpoints |
 | **I-5** | **Integración de webinar** (WebinarJam / Zoom) | M13–M16 | **Embudo Webinar entero** (4 de 7 pasos) | **L** — integración nueva desde cero |
 | **I-6** | **Integración VTurb** | M10–M12 | Etapa Engaged del **VSL** | **M** — Analytics API pública con auth por API key; plays, views y retención filtrables por video y fecha |
-| **I-7** | **Analytics de landing / opt-in** | M08, M09 | Etapa Lead del webinar, play rate del VSL | **M** — depende de qué usan los clientes para landings |
-| **I-8** | **Hyros** | M05–M07 | ROAS by-source, etiquetado `[Hyros]` | **L** — REST API con auth por API key (leads, journeys, sales, orders). El costo no es técnico: **cada cliente necesita su propia cuenta**, ver §7 |
+| ~~**I-7**~~ | ~~**Analytics de landing / opt-in**~~ — **absorbida por `I-8`**, ver §8 | M08, M09 | Etapa Lead del webinar, denominador del play rate del VSL | — |
+| **I-8** | **Hyros** | M05–M09 | ROAS by-source, etiquetado `[Hyros]`, **y los opt-ins de las landings** | **L** — REST API con auth por API key (leads, journeys, sales, orders). Todos los clientes ya lo pagan |
 | **I-9** | **Retención y compras repetidas** | M30, M32, M33 | **LTV**, y por lo tanto **LTV:CAC** | **M** — modelo de suscripciones y reembolsos |
 | **I-10** | **Periodizar triggers de Zernio** | M34 | Etapa Click del DM | **S** — `listComments` y stories ya existen |
 
@@ -288,7 +289,7 @@ Las medidas se parten en dos grupos:
 Por eso el orden no es "un embudo a la vez", es **de afuera hacia adentro**:
 
 **Ola 1 — los extremos (sirve a los 3 embudos a la vez)**
-`I-1` ads por período → `I-2` pagos → `I-3` asistencia y cierres
+~~`I-1` ads por período~~ ✅ → `I-2` pagos → `I-3` asistencia y cierres
 
 Al terminarla, los tres embudos miden Spend, Click y Cash; funcionan CAC, ROAS
 blended, AOV, EPL, CPL y **EPL vs CPL**, que es una de las dos ratios decisivas.
@@ -296,7 +297,7 @@ Es la ola de mejor relación valor/esfuerzo por lejos: las tres son **S** o **M*
 ninguna es una integración desde cero.
 
 **Ola 2 — los medios, en paralelo**
-`I-4` GHL opportunities · `I-5` webinar · `I-6` VSL · `I-7` landings
+`I-4` GHL opportunities · `I-6` VTurb · `I-5` webinar  *(`I-7` absorbida por `I-8`)*
 
 Cada una completa el centro de su embudo. Son independientes entre sí, así que el
 orden lo puede definir cuántos clientes tenés en cada embudo. `I-4` es la más
@@ -318,8 +319,7 @@ misma urgencia, así que el desempate es por **costo**, de menor a mayor:
 
 1. **I-4 GHL opportunities** — la integración ya existe con auth y cliente; es agregar endpoints
 2. **I-6 VTurb** — API pública que mapea casi 1:1 a las tres medidas que faltan
-3. **I-7 landings** — depende de qué usan los clientes, todavía sin definir
-4. **I-5 webinar** — integración nueva desde cero, la más cara de las cuatro
+3. **I-5 webinar** — integración nueva desde cero, la más cara
 
 ### Lo que queda por averiguar
 
@@ -327,8 +327,12 @@ misma urgencia, así que el desempate es por **costo**, de menor a mayor:
    diagnóstico. `I-3` pasa a ser una verificación, no una reparación.
 2. ~~¿Qué proveedor de VSL?~~ ✅ **VTurb**, con Analytics API pública.
 3. ~~¿Cuántos clientes en cada embudo?~~ ✅ Partes iguales, misma urgencia.
-4. **¿Qué usan los clientes para sus landings?** Sigue abierta — define `I-7`.
-5. **¿Los clientes van a pagar Hyros?** Ver §7: es una pregunta comercial, no técnica.
+4. ~~¿Qué usan los clientes para sus landings?~~ ✅ **Vercel**. Ver §8: los opt-ins
+   salen de Hyros, así que `I-7` se absorbe en `I-8`.
+5. ~~¿Los clientes van a pagar Hyros?~~ ✅ **Todos lo pagan.** `I-8` es directa.
+
+**No queda ninguna pregunta abierta.** El plan está listo para ejecutarse de punta
+a punta.
 
 ---
 
@@ -366,19 +370,44 @@ revenue trackeado, y **se contrata por negocio, no por agencia**. Cada org clien
 necesitaría su propia cuenta y su propia API key — el mismo patrón BYOK que OTC ya
 usa para Anthropic y Zernio.
 
-Eso abre una pregunta de producto que conviene contestar antes de construir:
+✅ **Resuelto: todos los clientes pagan Hyros.** La integración es directa y no
+hace falta degradar por cliente. Se guarda una API key por org, cifrada, con el
+mismo patrón BYOK que Anthropic y Zernio.
 
-- Si **todos** los clientes tienen o van a tener Hyros, la integración es directa.
-- Si sólo **algunos**, OTC tiene que degradar con elegancia: ROAS blended para
-  todos, by-source sólo para los que tengan cuenta, y el etiquetado `[Hyros]` /
-  `[Meta]` marcando la diferencia. **El módulo ya está preparado para esto**: el
-  resolver devuelve `null` cuando no hay fuente, y `provenance` en cada valor
-  resuelto existe justamente para esta distinción.
-- Si **ninguno**, `I-8` no se construye y se vive con ROAS blended, que el propio
-  documento llama "la verdad".
+Igual se mantiene el manejo de `null` en el resolver: una org recién creada o con
+la key vencida tiene que mostrar "sin datos" y no un cero.
 
-Tener un miembro del equipo con cuenta alcanza para probar la API y validar el
-mapeo, pero no resuelve la pregunta de arriba.
+**Consecuencia sobre las landings:** el script de Hyros ya va a estar en las
+páginas de todos los clientes, y su endpoint de leads devuelve los opt-ins con su
+fecha. Eso hace que **`I-7` deje de ser una integración aparte**: M08 y M09 salen
+de Hyros. Ver §8.
+
+---
+
+---
+
+## 8. Nota sobre las landings
+
+Los clientes despliegan sus landings en **Vercel**. Vercel es hosting, no una
+herramienta de analítica de embudo: no tiene un concepto de "opt-in" ni de
+"visitante de página de registro" que OTC pueda leer por API.
+
+Eso deja tres caminos para M08 (`landing_visitors`) y M09 (`optins`), y el
+primero es claramente el mejor:
+
+1. **Vía Hyros (recomendado).** Como todos los clientes lo pagan, su script ya
+   está en esas páginas y su endpoint de leads da los opt-ins con fecha y fuente.
+   **No hay integración nueva que construir**: M08 y M09 se resuelven junto con
+   M05–M07 en la unidad `I-8`.
+2. **Vía el tracking propio de OTC.** Ya existe `POST /api/utm/track` que escribe
+   en `utm_lead_captures`. La landing en Vercel lo llamaría al enviar el
+   formulario. Sirve como respaldo o para clientes sin Hyros, pero exige tocar el
+   código de cada landing.
+3. **Vía Vercel Web Analytics.** Da page views, no opt-ins, y sólo si el cliente
+   tiene el producto habilitado. Cubre M08 a medias y M09 nada.
+
+**Por eso `I-7` se elimina como unidad independiente** y su alcance se absorbe en
+`I-8`. La ola 2 pasa de cuatro unidades a tres.
 
 ---
 

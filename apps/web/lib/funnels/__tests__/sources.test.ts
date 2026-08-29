@@ -79,6 +79,12 @@ describe("bindings por defecto", () => {
     }
   });
 
+  it("la etapa Click del webinar y del VSL ya se alimenta con clicks de Meta", () => {
+    // I-1 desbloquea Spend y Click en los tres embudos a la vez.
+    expect(DEFAULT_BINDINGS.webinar["webinar.click"]).toBe("ad_clicks");
+    expect(DEFAULT_BINDINGS.vsl_call["vsl.click"]).toBe("ad_clicks");
+  });
+
   it("el DM cubre 5 de sus 6 pasos", () => {
     const dm = requireFunnelTemplate("dm");
     expect(Object.keys(DEFAULT_DM_BINDINGS)).toHaveLength(dm.steps.length - 1);
@@ -91,9 +97,9 @@ describe("bindings por defecto", () => {
     expect(DEFAULT_DM_BINDINGS["dm.trigger"]).toBeUndefined();
   });
 
-  it("webinar y VSL no tienen bindings: esperan sus integraciones", () => {
-    expect(DEFAULT_BINDINGS.webinar).toEqual({});
-    expect(DEFAULT_BINDINGS.vsl_call).toEqual({});
+  it("webinar y VSL sólo tienen bindeado el click: el resto espera sus integraciones", () => {
+    expect(Object.keys(DEFAULT_BINDINGS.webinar)).toEqual(["webinar.click"]);
+    expect(Object.keys(DEFAULT_BINDINGS.vsl_call)).toEqual(["vsl.click"]);
   });
 });
 
@@ -113,7 +119,8 @@ describe("compatibilidad fuente ↔ etapa (validación de setFunnelStepBindingAc
   it("toda etapa que algún step del DM ocupa tiene al menos una fuente posible", () => {
     const dm = requireFunnelTemplate("dm");
     const sinOpciones = dm.steps.filter((s) => sourcesForStage(s.stageId).length === 0);
-    // dm.trigger vive en `click`, que hoy no tiene ninguna fuente disponible.
-    expect(sinOpciones.map((s) => s.id)).toEqual(["dm.trigger"]);
+    // Desde I-1 la etapa `click` tiene fuente, así que ya no queda ningún paso
+    // del DM sin ninguna opción posible.
+    expect(sinOpciones).toEqual([]);
   });
 });

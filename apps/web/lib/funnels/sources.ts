@@ -20,6 +20,13 @@ import type { InstrumentationToolId } from "./instrumentation";
 
 export const FUNNEL_SOURCES = [
   {
+    id: "ad_clicks",
+    label: "Clicks en anuncios",
+    description: "Clicks de Meta capturados por día en el período (M04).",
+    provenance: "meta_ads",
+    suitableFor: ["click"],
+  },
+  {
     id: "conversations_opened",
     label: "Conversaciones abiertas",
     description: "Conversaciones del inbox creadas dentro del período.",
@@ -125,9 +132,15 @@ export const DEFAULT_DM_BINDINGS: Record<string, FunnelSourceId> = {
   "dm.close": "closing_calls_closed",
 };
 
-/** Bindings por defecto por plantilla. Webinar y VSL esperan sus integraciones. */
+/**
+ * Bindings por defecto por plantilla.
+ *
+ * La etapa Click de los tres embudos ya se puede alimentar con los clicks de
+ * Meta capturados por `ad_metrics_daily` (I-1 del mapa de fuentes). El resto de
+ * webinar y VSL espera sus integraciones.
+ */
 export const DEFAULT_BINDINGS: Record<string, Record<string, FunnelSourceId>> = {
   dm: DEFAULT_DM_BINDINGS,
-  webinar: {},
-  vsl_call: {},
+  webinar: { "webinar.click": "ad_clicks" },
+  vsl_call: { "vsl.click": "ad_clicks" },
 };

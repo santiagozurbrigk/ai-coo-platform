@@ -140,6 +140,29 @@ async function countNewClients(
   return error ? null : (count ?? null);
 }
 
+/**
+ * Clicks de anuncios del período (M04).
+ *
+ * Sale de `ad_metrics_daily`, que puebla el cron de I-1. Si la org no tiene
+ * ninguna fila capturada devuelve `null` y no `0`: que no se haya capturado
+ * nada no significa que no hubo clicks (§9.1).
+ */
+async function sumAdClicks(
+  supabase: SupabaseClient,
+  organizationId: string,
+  period: FunnelPeriod
+): Promise<number | null> {
+  const { data, error } = await supabase
+    .from("ad_metrics_daily")
+    .select("clicks")
+    .eq("organization_id", organizationId)
+    .gte("metric_date", period.start)
+    .lte("metric_date", period.end);
+
+  if (error || !data || data.length === 0) return null;
+  return data.reduce((sum, row) => sum + Number(row.clicks ?? 0), 0);
+}
+
 async function countClientPayments(
   supabase: SupabaseClient,
   organizationId: string,
@@ -161,6 +184,8 @@ async function resolveSource(
   period: FunnelPeriod
 ): Promise<number | null> {
   switch (sourceId) {
+    case "ad_clicks":
+      return sumAdClicks(supabase, organizationId, period);
     case "conversations_opened":
       return countConversationsOpened(supabase, organizationId, period);
     case "conversations_replied":
@@ -196,7 +221,7 @@ async function resolveOrgMeasures(
   organizationId: string,
   period: FunnelPeriod
 ): Promise<OrgMeasures> {
-  const [payments, clients] = await Promise.all([
+  const [payments, clients, ads] = await Promise.all([
     supabase
       .from("client_payments")
       .select("amount")
@@ -209,6 +234,12 @@ async function resolveOrgMeasures(
       .eq("organization_id", organizationId)
       .gte("join_date", period.start)
       .lte("join_date", period.end),
+    supabase
+      .from("ad_metrics_daily")
+      .select("spend, reach, impressions")
+      .eq("organization_id", organizationId)
+      .gte("metric_date", period.start)
+      .lte("metric_date", period.end),
   ]);
 
   const cashCollected = payments.error
@@ -222,11 +253,17 @@ async function resolveOrgMeasures(
   const customers = clients.error ? null : (clients.data ?? []).length;
   const orders = payments.error ? null : (payments.data ?? []).length;
 
+  // Sin filas capturadas, las medidas de ads quedan en `null`: no haber
+  // capturado no es lo mismo que no haber gastado (§9.1).
+  const adRows = ads.error ? null : (ads.data ?? []);
+  const hasAdData = adRows !== null && adRows.length > 0;
+  const sumAds = (field: "spend" | "reach" | "impressions") =>
+    hasAdData ? adRows.reduce((sum, row) => sum + Number(row[field] ?? 0), 0) : null;
+
   return {
-    // Sin fuente todavía: Meta Ads vía Zernio es live-fetch, no periodizable.
-    spend: null,
-    reach: null,
-    impressions: null,
+    spend: sumAds("spend"),
+    reach: sumAds("reach"),
+    impressions: sumAds("impressions"),
     purchases: null,
     retention_rate: null,
     revenue: cashCollected,
