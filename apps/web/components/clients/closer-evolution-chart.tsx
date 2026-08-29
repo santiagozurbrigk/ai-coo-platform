@@ -94,7 +94,7 @@ export function CloserEvolutionChart({
 
       <div className="flex flex-wrap gap-4 text-2xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-4 rounded bg-violet-400" />
+          <span className="inline-block h-0.5 w-4 rounded bg-brand-400" />
           {closerName}
         </span>
         <span className="flex items-center gap-1.5">

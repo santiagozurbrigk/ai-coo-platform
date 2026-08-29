@@ -23,11 +23,11 @@ export function ThinkingBlock({ thinkingContent }: ThinkingBlockProps) {
   const combinedText = entries.map((e) => e.text).join("\n\n");
 
   return (
-    <div className="mb-2 rounded-xl border border-violet-500/20 bg-violet-500/5">
+    <div className="mb-2 rounded-xl border border-brand-500/20 bg-brand-500/5">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-violet-400 transition-colors hover:text-violet-300"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-brand-400 transition-colors hover:text-brand-300"
         aria-expanded={expanded}
       >
         <BrainCog className="h-3.5 w-3.5 shrink-0" />
@@ -40,10 +40,10 @@ export function ThinkingBlock({ thinkingContent }: ThinkingBlockProps) {
       </button>
 
       {expanded && (
-        <div className="border-t border-violet-500/20 px-3 py-2">
+        <div className="border-t border-brand-500/20 px-3 py-2">
           <p
             className={cn(
-              "whitespace-pre-wrap text-xs leading-relaxed text-violet-300/70 font-mono"
+              "whitespace-pre-wrap text-xs leading-relaxed text-brand-300/70 font-mono"
             )}
           >
             {combinedText}

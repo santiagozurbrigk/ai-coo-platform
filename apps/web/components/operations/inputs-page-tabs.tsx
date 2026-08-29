@@ -17,14 +17,14 @@ export function InputsPageTabs({
       <TabsList className="h-auto gap-1 bg-transparent p-0">
         <TabsTrigger
           value="weekly"
-          className="gap-2 rounded-lg border data-[state=active]:border-violet-500/50 data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 dark:data-[state=active]:text-violet-400"
+          className="gap-2 rounded-lg border data-[state=active]:border-brand-500/50 data-[state=active]:bg-brand-500/10 data-[state=active]:text-brand-600 dark:data-[state=active]:text-brand-400"
         >
           <ClipboardList className="h-3.5 w-3.5" />
           Por departamento
         </TabsTrigger>
         <TabsTrigger
           value="team"
-          className="gap-2 rounded-lg border data-[state=active]:border-violet-500/50 data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 dark:data-[state=active]:text-violet-400"
+          className="gap-2 rounded-lg border data-[state=active]:border-brand-500/50 data-[state=active]:bg-brand-500/10 data-[state=active]:text-brand-600 dark:data-[state=active]:text-brand-400"
         >
           <MessageSquarePlus className="h-3.5 w-3.5" />
           Input rápido

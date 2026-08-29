@@ -213,7 +213,7 @@ export function ContentPatternReport({
             <RankingCard
               title="Formatos"
               items={report.top_formats.filter((i) => i.count >= minCount)}
-              colorClass="bg-violet-500/20 text-violet-400"
+              colorClass="bg-brand-500/20 text-brand-400"
             />
             <RankingCard
               title="Hooks"

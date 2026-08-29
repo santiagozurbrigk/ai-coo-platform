@@ -473,7 +473,7 @@ const PromptInputAction: React.FC<PromptInputActionProps> = ({
 const CustomDivider: React.FC = () => (
   <div className="relative mx-1 h-6 w-[1.5px]">
     <div
-      className="absolute inset-0 rounded-full bg-gradient-to-t from-transparent via-[#9b87f5]/70 to-transparent"
+      className="absolute inset-0 rounded-full bg-gradient-to-t from-transparent via-[#f9a97b]/70 to-transparent"
       style={{
         clipPath:
           "polygon(0% 0%, 100% 0%, 100% 40%, 140% 50%, 100% 60%, 100% 100%, 0% 100%, 0% 60%, -40% 50%, 0% 40%)",
@@ -733,7 +733,7 @@ export const PromptInputBox = React.forwardRef(
           className={cn(
             "prompt-input-box w-full border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-[0_8px_30px_rgba(0,0,0,0.24)] transition-all duration-300 ease-in-out",
             isRecording && "border-red-500/70",
-            isTranscribing && "border-violet-500/70",
+            isTranscribing && "border-brand-500/70",
             className,
           )}
           disabled={formDisabled}
@@ -819,11 +819,11 @@ export const PromptInputBox = React.forwardRef(
           )}
 
           {isTranscribing && !isRecording && (
-            <div className="flex items-center gap-2 py-2 text-xs text-violet-400">
+            <div className="flex items-center gap-2 py-2 text-xs text-brand-400">
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="h-3 w-3 rounded-full border border-violet-400 border-t-transparent"
+                className="h-3 w-3 rounded-full border border-brand-400 border-t-transparent"
               />
               <span>Transcribiendo…</span>
             </div>
@@ -922,7 +922,7 @@ export const PromptInputBox = React.forwardRef(
                   className={cn(
                     "flex h-8 items-center gap-1 rounded-full border px-2 py-1 transition-all",
                     showThink
-                      ? "border-[#8B5CF6] bg-[#8B5CF6]/15 text-[#8B5CF6]"
+                      ? "border-[#F16E22] bg-[#F16E22]/15 text-[#F16E22]"
                       : "border-transparent bg-transparent text-[#9CA3AF] hover:text-[#D1D5DB]",
                   )}
                 >
@@ -950,7 +950,7 @@ export const PromptInputBox = React.forwardRef(
                       <BrainCog
                         className={cn(
                           "h-4 w-4",
-                          showThink ? "text-[#8B5CF6]" : "text-inherit",
+                          showThink ? "text-[#F16E22]" : "text-inherit",
                         )}
                       />
                     </motion.div>
@@ -962,7 +962,7 @@ export const PromptInputBox = React.forwardRef(
                         animate={{ width: "auto", opacity: 1 }}
                         exit={{ width: 0, opacity: 0 }}
                         transition={{ duration: 0.2 }}
-                        className="flex-shrink-0 overflow-hidden whitespace-nowrap text-[#8B5CF6] text-xs"
+                        className="flex-shrink-0 overflow-hidden whitespace-nowrap text-[#F16E22] text-xs"
                       >
                         Think
                       </motion.span>

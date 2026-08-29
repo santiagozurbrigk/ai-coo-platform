@@ -71,14 +71,14 @@ export function FloatingChat() {
             aria-label="Abrir agente de negocio"
             className={cn(
               "glass-liquid-border fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center",
-              "rounded-full bg-[#0A0A0A] shadow-lg shadow-violet-500/20",
+              "rounded-full bg-[#0A0A0A] shadow-lg shadow-brand-500/20",
               "transition-colors duration-150 hover:bg-glass-hover"
             )}
           >
             <MessageSquare className="relative z-10 h-5 w-5 text-white" />
             {hasNewMessage ? (
               <span
-                className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-background bg-violet-400"
+                className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-background bg-brand-400"
                 aria-hidden
               />
             ) : null}
@@ -97,14 +97,14 @@ export function FloatingChat() {
             aria-label="Restaurar chat del agente"
             className={cn(
               "glass-liquid-border fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center",
-              "rounded-full bg-[#0A0A0A] shadow-lg shadow-violet-500/20",
+              "rounded-full bg-[#0A0A0A] shadow-lg shadow-brand-500/20",
               "transition-colors duration-150 hover:bg-glass-hover"
             )}
           >
             <MessageSquare className="relative z-10 h-5 w-5 text-white" />
             {inputValue.trim() ? (
               <span
-                className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-background bg-violet-400"
+                className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-background bg-brand-400"
                 aria-hidden
               />
             ) : null}
@@ -133,8 +133,8 @@ export function FloatingChat() {
             >
               <div className="floating-chat-header flex items-center justify-between rounded-t-2xl border border-b-0 px-4 py-2.5">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full border border-violet-500/30 bg-violet-600/20">
-                    <Sparkles className="h-2.5 w-2.5 text-violet-400" />
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full border border-brand-500/30 bg-brand-600/20">
+                    <Sparkles className="h-2.5 w-2.5 text-brand-400" />
                   </div>
                   <span className="text-xs font-medium text-muted-foreground">
                     Agente de negocio

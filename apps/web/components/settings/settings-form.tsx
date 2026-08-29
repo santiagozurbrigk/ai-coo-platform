@@ -409,7 +409,7 @@ export function SettingsForm({
                 <img
                   src={avatarPreviewUrl ?? avatarUrl ?? ""}
                   alt=""
-                  className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-violet-500/20"
+                  className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-brand-500/20"
                 />
               ) : (
                 <div

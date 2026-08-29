@@ -76,7 +76,7 @@ export function MetricStat({
     subtitle ?? (trendValue ? `vs período anterior  ${trendValue}` : undefined);
   const barClassName =
     progressVariant === "violet"
-      ? "from-violet-600 to-violet-400"
+      ? "from-brand-600 to-brand-400"
       : cfg.bar;
 
   return (

@@ -43,7 +43,7 @@ export function CloserPerformancePanel({
                 </div>
                 <div className="h-2 rounded-full bg-muted/40 overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-primary to-primary-light shadow-[0_0_12px_rgba(124,58,237,0.5)]"
+                    className="h-full rounded-full bg-gradient-to-r from-primary to-primary-light shadow-[0_0_12px_rgba(225,93,18,0.5)]"
                     style={{ width: `${pct}%` }}
                   />
                 </div>

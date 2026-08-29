@@ -77,7 +77,7 @@ export function CinematicWelcome({
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={brandAssets.logo}
+          src={brandAssets.logoDark}
           alt=""
           className="h-auto w-[min(280px,72vw)] max-w-[320px] object-contain"
           draggable={false}

@@ -25,13 +25,23 @@ export const brand = {
   domain: "optimizatucontrol.com",
 } as const;
 
-/** Rutas públicas del logo — archivos en apps/web/public/brand/ */
+/**
+ * Rutas públicas del logo — archivos en apps/web/public/brand/
+ *
+ * El manual presenta el logotipo en monocromo: negro sobre fondos claros,
+ * blanco sobre oscuros. Por eso cada marca tiene par light/dark y los
+ * componentes de `components/brand/` eligen según el tema.
+ */
 export const brandAssets = {
-  /** Logo horizontal (sidebar expandida, landing, móvil) */
-  logo: "/brand/logo.png",
-  /** Isotipo — mismo archivo hasta tener logo-icon.png */
-  logoIcon: "/brand/logo.png",
-  favicon: "/favicon.ico",
+  /** Lockup horizontal (isotipo + wordmark) para fondos claros */
+  logoLight: "/brand/logo-light.png",
+  /** Lockup horizontal para fondos oscuros */
+  logoDark: "/brand/logo-dark.png",
+  /** Isotipo solo — sidebar colapsada, avatares */
+  logoIconLight: "/brand/isotipo-light.svg",
+  logoIconDark: "/brand/isotipo-dark.svg",
+  /** Isotipo en naranja de marca — sobre fondos neutros */
+  logoIconAccent: "/brand/isotipo-naranja.svg",
 } as const;
 
 /**
@@ -44,14 +54,18 @@ export const brandAssets = {
  * Mantener sincronizado con packages/ui/src/styles/tokens.css.
  */
 export const brandColors = {
-  /** --primary */
-  primary: "#7C3AED",
-  /** --primary-light */
-  primaryLight: "#A78BFA",
-  /** Un paso más claro que --primary-light */
-  primaryLighter: "#C4B5FD",
+  /** Naranja Vibrant — acento único de la marca. --primary / hsl(22 85% 48%) */
+  primary: "#E15D12",
+  /** --primary-light — naranja claro, legible sobre negro */
+  primaryLight: "#F58747",
+  /** Un paso más claro aún, para series de charts */
+  primaryLighter: "#F9AE81",
   /** --primary-hover — estados hover/pressed */
-  primaryHover: "#6D28D9",
-  /** Violeta profundo para series de charts */
-  primaryDeep: "#5B21B6",
+  primaryHover: "#BD4F0F",
+  /** Naranja profundo para series de charts */
+  primaryDeep: "#8F3B0B",
+  /** Negro de marca */
+  black: "#000000",
+  /** Blanco de marca */
+  white: "#FFFFFF",
 } as const;

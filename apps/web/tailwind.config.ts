@@ -34,15 +34,15 @@ const config: Config = {
         "btn-press": {
           "0%": {
             transform: "scale(1)",
-            boxShadow: "0 0 0 0 rgba(124, 58, 237, 0)",
+            boxShadow: "0 0 0 0 rgba(225, 93, 18, 0)",
           },
           "40%": {
             transform: "scale(0.96)",
-            boxShadow: "0 0 0 4px rgba(124, 58, 237, 0.2)",
+            boxShadow: "0 0 0 4px rgba(225, 93, 18, 0.2)",
           },
           "100%": {
             transform: "scale(1)",
-            boxShadow: "0 0 0 0 rgba(124, 58, 237, 0)",
+            boxShadow: "0 0 0 0 rgba(225, 93, 18, 0)",
           },
         },
         "btn-press-ghost": {

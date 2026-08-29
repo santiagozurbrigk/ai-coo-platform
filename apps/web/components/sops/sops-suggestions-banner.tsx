@@ -16,10 +16,10 @@ export function SopsSuggestionsBanner({
   const root = paths.platform.operations.sops;
 
   return (
-    <div className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4 dark:border-violet-500/20">
+    <div className="rounded-xl border border-brand-500/25 bg-brand-500/5 p-4 dark:border-brand-500/20">
       <div className="mb-3 flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-violet-500/30 bg-violet-500/10">
-          <Lightbulb className="h-4 w-4 text-violet-400" />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-brand-500/30 bg-brand-500/10">
+          <Lightbulb className="h-4 w-4 text-brand-400" />
         </div>
         <div>
           <p className="text-sm font-medium">

@@ -283,7 +283,7 @@ export function UTMGenerator({
             <span className="text-[11px] font-medium text-foreground">
               Link de landing
             </span>
-            <span className="rounded-full border border-violet-500/20 bg-violet-900/20 px-2 py-0.5 text-[10px] text-violet-400">
+            <span className="rounded-full border border-brand-500/20 bg-brand-900/20 px-2 py-0.5 text-[10px] text-brand-400">
               Para leads que van a tu sitio
             </span>
           </div>

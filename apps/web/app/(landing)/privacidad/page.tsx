@@ -47,7 +47,7 @@ export default function PrivacyPolicyPage() {
             Ante cualquier consulta sobre privacidad podés escribirnos a{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="text-violet-400 hover:text-violet-300"
+              className="text-brand-400 hover:text-brand-300"
             >
               {CONTACT_EMAIL}
             </a>
@@ -126,7 +126,7 @@ export default function PrivacyPolicyPage() {
               <p className="font-medium text-white/90">Google Drive</p>
               <p className="mt-1">
                 Scope:{" "}
-                <code className="rounded bg-white/10 px-1 text-xs text-violet-300">
+                <code className="rounded bg-white/10 px-1 text-xs text-brand-300">
                   drive.readonly
                 </code>
               </p>
@@ -142,10 +142,10 @@ export default function PrivacyPolicyPage() {
               <p className="font-medium text-white/90">Google Forms</p>
               <p className="mt-1">
                 Scopes:{" "}
-                <code className="rounded bg-white/10 px-1 text-xs text-violet-300">
+                <code className="rounded bg-white/10 px-1 text-xs text-brand-300">
                   forms.body.readonly
                 </code>{" "}
-                <code className="rounded bg-white/10 px-1 text-xs text-violet-300">
+                <code className="rounded bg-white/10 px-1 text-xs text-brand-300">
                   forms.responses.readonly
                 </code>
               </p>
@@ -167,7 +167,7 @@ export default function PrivacyPolicyPage() {
                 ].map((s) => (
                   <code
                     key={s}
-                    className="rounded bg-white/10 px-1 text-xs text-violet-300"
+                    className="rounded bg-white/10 px-1 text-xs text-brand-300"
                   >
                     {s}
                   </code>
@@ -203,7 +203,7 @@ export default function PrivacyPolicyPage() {
               href="https://developers.google.com/terms/api-services-user-data-policy"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-violet-400 hover:text-violet-300"
+              className="text-brand-400 hover:text-brand-300"
             >
               Política de datos de usuario de los servicios de API de Google
             </a>
@@ -247,7 +247,7 @@ export default function PrivacyPolicyPage() {
             escribiendo a{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="text-violet-400 hover:text-violet-300"
+              className="text-brand-400 hover:text-brand-300"
             >
               {CONTACT_EMAIL}
             </a>
@@ -306,7 +306,7 @@ export default function PrivacyPolicyPage() {
                 href="https://myaccount.google.com/permissions"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-violet-400 hover:text-violet-300"
+                className="text-brand-400 hover:text-brand-300"
               >
                 myaccount.google.com/permissions
               </a>
@@ -318,7 +318,7 @@ export default function PrivacyPolicyPage() {
             Para ejercer cualquiera de estos derechos, escribinos a{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="text-violet-400 hover:text-violet-300"
+              className="text-brand-400 hover:text-brand-300"
             >
               {CONTACT_EMAIL}
             </a>
@@ -365,7 +365,7 @@ export default function PrivacyPolicyPage() {
             tratamiento de tus datos, escribinos a{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="text-violet-400 hover:text-violet-300"
+              className="text-brand-400 hover:text-brand-300"
             >
               {CONTACT_EMAIL}
             </a>

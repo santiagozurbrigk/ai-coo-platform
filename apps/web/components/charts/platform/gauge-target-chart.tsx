@@ -31,7 +31,7 @@ function accentGradients(isDark: boolean): {
   if (isDark) {
     return {
       active: [brandColors.primary, brandColors.primaryLight],
-      inactive: ["#2a2540", "#1a1828"],
+      inactive: ["#2a2119", "#1a1613"],
     };
   }
   return {

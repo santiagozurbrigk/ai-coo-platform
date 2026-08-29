@@ -23,7 +23,7 @@ export function ThemeSelector() {
             className={cn(
               "rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors",
               active
-                ? "border-violet-500 bg-violet-500/[0.08] text-foreground dark:border-violet-500 dark:bg-violet-500/[0.08]"
+                ? "border-brand-500 bg-brand-500/[0.08] text-foreground dark:border-brand-500 dark:bg-brand-500/[0.08]"
                 : "border-border text-muted-foreground hover:text-foreground dark:border-white/10"
             )}
           >

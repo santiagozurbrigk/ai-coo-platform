@@ -78,7 +78,7 @@ export function TeamInviteModal({
       <Button
         type="button"
         size="sm"
-        className="bg-violet-600 hover:bg-violet-700"
+        className="bg-brand-600 hover:bg-brand-700"
         onClick={() => setOpen(true)}
       >
         Invitar miembro

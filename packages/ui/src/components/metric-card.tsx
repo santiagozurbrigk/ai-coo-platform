@@ -124,7 +124,7 @@ export function MetricCard({
   const hasDataSparkline = Boolean(sparklineData?.length);
   const barClassName =
     progressVariant === "violet"
-      ? "from-violet-600 to-violet-400"
+      ? "from-brand-600 to-brand-400"
       : cfg.bar;
 
   return (

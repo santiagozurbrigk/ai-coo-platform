@@ -33,7 +33,7 @@ export function VslPlayer() {
   }
 
   return (
-    <div className="mx-auto w-full overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-violet-950/80 via-[#1a0a2e] to-[#0A0A0A]">
+    <div className="mx-auto w-full overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-brand-950/80 via-[#2a1206] to-[#0A0A0A]">
       <div className="relative flex aspect-video flex-col items-center justify-center">
         <button
           type="button"

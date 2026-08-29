@@ -107,7 +107,7 @@ function InviteForm({
             type="button"
             disabled={pending}
             onClick={handleCompleteExisting}
-            className="bg-violet-600 hover:bg-violet-700"
+            className="bg-brand-600 hover:bg-brand-700"
           >
             {pending ? "Uniendo…" : "Unirme al equipo"}
           </Button>
@@ -151,7 +151,7 @@ function InviteForm({
         type="button"
         disabled={pending || !fullName.trim() || password.length < 8}
         onClick={handleSignup}
-        className="w-full bg-violet-600 hover:bg-violet-700"
+        className="w-full bg-brand-600 hover:bg-brand-700"
       >
         {pending ? "Creando cuenta…" : "Unirme al equipo"}
       </Button>
@@ -159,7 +159,7 @@ function InviteForm({
         ¿Ya tenés cuenta?{" "}
         <Link
           href={`${paths.auth.login}?next=${encodeURIComponent(`/invite?token=${token}`)}`}
-          className="text-violet-600 dark:text-violet-400 hover:underline"
+          className="text-brand-600 dark:text-brand-400 hover:underline"
         >
           Iniciá sesión
         </Link>

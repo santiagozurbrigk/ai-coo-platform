@@ -17,7 +17,7 @@ export function FinalCtaSection() {
 
         <a
           href="#agendar"
-          className="mt-10 inline-block rounded-full bg-primary px-10 py-4 text-base font-semibold text-white transition-colors hover:bg-primary-hover"
+          className="mt-10 inline-block rounded-full bg-primary px-10 py-4 text-base font-semibold text-primary-foreground transition-colors hover:bg-primary-hover"
         >
           Agendá tu sesión gratis
         </a>
@@ -26,7 +26,7 @@ export function FinalCtaSection() {
           {["Sin tarjeta de crédito", "Onboarding 1:1 incluido", "3 días de acceso completo"].map(
             (item) => (
               <span key={item} className="flex items-center gap-1.5 text-sm text-white/40">
-                <span className="h-1 w-1 rounded-full bg-violet-400" />
+                <span className="h-1 w-1 rounded-full bg-brand-400" />
                 {item}
               </span>
             )

@@ -1,30 +1,44 @@
 # Assets de marca — Limitless
 
-Next.js sirve estos archivos desde la raíz del sitio. Las rutas se consumen
-desde `apps/web/lib/brand.ts` (`brandAssets`) — no hardcodear rutas en JSX.
+Next.js sirve estos archivos desde la raíz del sitio. Las rutas salen de
+`apps/web/lib/brand.ts` (`brandAssets`) — **no hardcodear rutas en JSX**.
 
-## Archivos esperados
+## Archivos
 
-| Archivo | Uso | Recomendado |
-|---------|-----|-------------|
-| `logo.png` | Sidebar, landing, login, menú móvil (logo completo) | PNG con fondo transparente |
-| `logo-icon.png` | Isotipo — sidebar colapsada, favicon compacto | Cuadrado, 64×64 px o más |
-| `favicon.ico` | Pestaña del navegador (en `public/`, no acá) | 32×32 o multi-size |
+| Archivo | Uso |
+|---------|-----|
+| `logo-light.png` | Lockup horizontal negro — fondos claros |
+| `logo-dark.png` | Lockup horizontal blanco — fondos oscuros |
+| `isotipo-light.svg` | Isotipo negro — fondos claros |
+| `isotipo-dark.svg` | Isotipo blanco — fondos oscuros |
+| `isotipo-naranja.svg` | Isotipo en Naranja Vibrant `#E15D12` |
 
-## Rutas en la app
+El favicon vive en `apps/web/app/icon.svg` (cuadrado naranja + marca blanca).
 
-- Logo completo: `/brand/logo.png` → `brandAssets.logo`
-- Isotipo: `/brand/logo-icon.png` → `brandAssets.logoIcon`
-- Favicon: `/favicon.ico` → `brandAssets.favicon`
+## Por qué hay par light/dark
 
-## Pendiente de reemplazo
+El manual presenta el logotipo en monocromo: negro sobre fondos claros, blanco
+sobre oscuros. `AppLogo` y `AppBrandHeader` renderizan las dos versiones y las
+alternan con `dark:hidden` / `hidden dark:block`. El script de tema en
+`layout.tsx` fija la clase `.dark` antes del primer paint, así que no parpadea.
 
-Los archivos actuales son de la identidad anterior (OTC):
+## Por qué el lockup es PNG y el isotipo SVG
 
-- `logo.png` — 1.3 MB, conviene optimizar al reemplazar
-- `ISOTIPO OTC BLANCO.png` / `ISOTIPO OTC NEGRO.png` — sin usar en código
-- `apps/web/app/icon.svg` — favicon SVG dibujado a mano, con el violeta legado
+Los SVG originales del lockup (`PRINCIPAL`, `SECUNDARIO`, `NOMBRE`) traen el
+wordmark como `<text>` vivo con `font-family: Manrope-Light` — **no está
+vectorizado**. En un navegador sin Manrope cargada renderiza con otra fuente y el
+logo sale mal. Por eso el lockup se sirve como PNG recortado (1764×210, ~14 KB) y
+solo el isotipo, que sí es path puro, va en SVG.
 
-Al cargar los assets de Limitless: reemplazar `logo.png`, agregar
-`logo-icon.png` y apuntar `brandAssets.logoIcon` a él en `lib/brand.ts`
-(hoy apunta a `logo.png` como fallback).
+Si en algún momento hace falta el lockup en vectorial, hay que convertir el texto
+a curvas en el archivo original antes de usarlo.
+
+## Proporciones
+
+El lockup es muy apaisado (≈8.4:1). Limitarlo **por ancho**, nunca por alto, o
+desborda su contenedor. Los presets de `AppLogo` ya lo contemplan.
+
+## Fuente original
+
+El material completo de identidad (incluido el manual de marca en PDF) está en la
+rama `brand-source`, fuera de `main` para no cargar el historial con 58 MB.

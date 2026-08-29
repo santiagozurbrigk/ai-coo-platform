@@ -23,7 +23,7 @@ export default async function SopDetailPage({
         <h2 className="text-xl font-semibold">{sop.title}</h2>
         <SopStatusBadge status={sop.status} />
         {sop.generatedByAI ? (
-          <Badge variant="outline" className="gap-1 text-xs text-violet-700 dark:text-violet-300">
+          <Badge variant="outline" className="gap-1 text-xs text-brand-700 dark:text-brand-300">
             <Sparkles className="h-3 w-3" />
             IA
           </Badge>

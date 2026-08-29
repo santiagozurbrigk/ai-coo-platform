@@ -27,7 +27,7 @@ export function HowItWorksSection() {
     <section className="border-t border-white/[0.04] px-4 py-28 sm:px-6 md:py-40">
       <div className="mx-auto max-w-6xl">
         <div className="mb-16 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-violet-400">
+          <div className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-brand-400">
             CÓMO FUNCIONA LA PRUEBA
           </div>
           <h2 className="mt-6 text-4xl font-black leading-[1] tracking-[-0.03em] md:text-6xl">
@@ -47,10 +47,10 @@ export function HowItWorksSection() {
               key={number}
               className="rounded-3xl border border-white/[0.06] bg-white/[0.02] p-8 pt-10"
             >
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-950/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-violet-400">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-brand-500/20 bg-brand-950/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-brand-400">
                 {label}
               </div>
-              <div className="mt-2 text-8xl font-black leading-none text-violet-500/15">
+              <div className="mt-2 text-8xl font-black leading-none text-brand-500/15">
                 {number}
               </div>
               <h3 className="mb-3 mt-2 text-xl font-black">{title}</h3>
@@ -62,7 +62,7 @@ export function HowItWorksSection() {
         <div className="mt-10 text-center">
           <a
             href="#agendar"
-            className="inline-block rounded-full bg-primary px-8 py-4 text-base font-semibold text-white transition-colors hover:bg-primary-hover"
+            className="inline-block rounded-full bg-primary px-8 py-4 text-base font-semibold text-primary-foreground transition-colors hover:bg-primary-hover"
           >
             Agendá tu sesión gratis
           </a>

@@ -111,7 +111,7 @@ export function ClaudeApiKeySettings({
           href="https://console.anthropic.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium text-violet-600 underline underline-offset-2 hover:text-violet-500 dark:text-violet-400"
+          className="font-medium text-brand-600 underline underline-offset-2 hover:text-brand-500 dark:text-brand-400"
         >
           console.anthropic.com
         </Link>
@@ -208,7 +208,7 @@ export function ClaudeApiKeySettings({
               href="https://console.anthropic.com/settings/keys"
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-2 inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400 hover:underline"
+              className="mt-2 inline-flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 hover:underline"
             >
               Obtener API key en console.anthropic.com
               <ExternalLink className="h-3 w-3" />
@@ -239,7 +239,7 @@ export function ClaudeApiKeySettings({
 
           <Button
             type="button"
-            className="bg-violet-600 hover:bg-violet-700"
+            className="bg-brand-600 hover:bg-brand-700"
             disabled={!apiKey.trim() || connecting}
             onClick={handleConnect}
           >

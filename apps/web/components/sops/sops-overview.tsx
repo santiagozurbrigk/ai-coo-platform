@@ -59,7 +59,7 @@ export function SopsOverview({
           <PageHeader
             description="Sistemas operativos vivos de tu negocio"
             actions={
-              <Button asChild size="sm" className="bg-violet-600 hover:bg-violet-700">
+              <Button asChild size="sm" className="bg-brand-600 hover:bg-brand-700">
                 <HashTabLink href={`${root}#crear`}>Crear SOP</HashTabLink>
               </Button>
             }

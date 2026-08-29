@@ -39,7 +39,7 @@ function OptionGroup({
         {options.map((option) => (
           <label
             key={option}
-            className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm text-white/70 transition-colors hover:border-violet-500/30 has-[:checked]:border-violet-500/40 has-[:checked]:bg-violet-950/20"
+            className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm text-white/70 transition-colors hover:border-brand-500/30 has-[:checked]:border-brand-500/40 has-[:checked]:bg-brand-950/20"
           >
             <input
               type="radio"
@@ -306,7 +306,7 @@ export function WaitlistForm({
           <Button
             type="submit"
             disabled={state === "loading" || !expanded}
-            className="h-11 w-full rounded-full bg-primary px-6 text-sm font-medium text-white transition-colors hover:bg-primary-hover active:scale-95 disabled:opacity-60 sm:w-auto"
+            className="h-11 w-full rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover active:scale-95 disabled:opacity-60 sm:w-auto"
           >
             {state === "loading" ? "Enviando…" : submitLabel}
           </Button>

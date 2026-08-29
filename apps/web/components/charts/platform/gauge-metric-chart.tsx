@@ -33,7 +33,7 @@ export function GaugeMetricChart({
       suffix={suffix}
       useGradient
       activeGradient={[brandColors.primary, brandColors.primaryLight]}
-      inactiveGradient={["#2a2540", "#1a1828"]}
+      inactiveGradient={["#2a2119", "#1a1613"]}
       minWidth={0}
       className={cn("mx-auto w-full max-w-[240px]", className)}
       valueClassName={valueClassName}

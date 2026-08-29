@@ -40,8 +40,8 @@ function ProfileAvatar({
         <div
           className={cn(
             "avatar-fallback flex items-center justify-center rounded-full",
-            "border border-violet-500/30 bg-violet-600/20 text-xs font-semibold text-violet-600",
-            "dark:text-violet-400"
+            "border border-brand-500/30 bg-brand-600/20 text-xs font-semibold text-brand-600",
+            "dark:text-brand-400"
           )}
           style={{ width: size, height: size }}
           aria-hidden

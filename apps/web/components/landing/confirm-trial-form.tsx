@@ -87,8 +87,8 @@ export function ConfirmTrialForm() {
           Ya tenés tu lugar asegurado. Te llega un email con el link de la sesión.
           Nos vemos ahí.
         </p>
-        <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-950/30 px-5 py-2.5 text-sm text-violet-300">
-          <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
+        <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-950/30 px-5 py-2.5 text-sm text-brand-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-brand-400" />
           Revisá tu email para el link de la videollamada
         </div>
       </div>
@@ -168,7 +168,7 @@ export function ConfirmTrialForm() {
         <Button
           type="submit"
           disabled={state === "loading"}
-          className="mt-2 h-12 w-full rounded-full bg-primary text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
+          className="mt-2 h-12 w-full rounded-full bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-60"
         >
           {state === "loading" ? "Confirmando…" : "Confirmar mi prueba gratis"}
         </Button>

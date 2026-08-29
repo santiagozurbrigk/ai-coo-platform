@@ -48,12 +48,12 @@ export function OperationsBottlenecksSection({
                 impact: item.description,
                 frequency: IMPACT_LABELS[item.impact],
               })}
-              className="flex h-full flex-col gap-2 rounded-xl border border-border/60 bg-muted/20 p-4 transition-colors hover:border-violet-500/25 hover:bg-muted/35 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover"
+              className="flex h-full flex-col gap-2 rounded-xl border border-border/60 bg-muted/20 p-4 transition-colors hover:border-brand-500/25 hover:bg-muted/35 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/40 bg-background">
-                    <GitBranch className="h-3.5 w-3.5 text-violet-400" />
+                    <GitBranch className="h-3.5 w-3.5 text-brand-400" />
                   </div>
                   <span className="rounded-full border border-border/40 bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                     {AREA_LABELS[item.department]}

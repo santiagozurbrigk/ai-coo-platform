@@ -16,8 +16,8 @@ export function AgentEmptyState({
 
   return (
     <div className="empty-state flex h-full flex-col items-center justify-center gap-8 py-12">
-      <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full border border-violet-500/30 bg-violet-600/15">
-        <Sparkles className="h-7 w-7 text-violet-500/70 dark:text-violet-400/80" />
+      <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full border border-brand-500/30 bg-brand-600/15">
+        <Sparkles className="h-7 w-7 text-brand-500/70 dark:text-brand-400/80" />
       </div>
       <div className="space-y-2 text-center">
         <h2 className="text-xl font-semibold text-foreground">

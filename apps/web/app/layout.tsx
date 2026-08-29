@@ -4,6 +4,14 @@ import { ThemeProvider } from "@/providers/theme-provider";
 import "./globals.css";
 import { brand } from "@/lib/brand";
 
+/**
+ * Tipografía de marca (manual Limitless, sección 07):
+ *   - Neue Haas Grotesk — títulos. Licencia comercial (Monotype), no disponible
+ *     todavía: `--font-display` cae en Inter hasta que se compre. Para cambiarla,
+ *     cargarla con `next/font/local` y asignarla a `--font-display`; ningún
+ *     componente necesita tocarse.
+ *   - Inter — texto corrido. Es la que ya usaba la app.
+ */
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",

@@ -56,7 +56,7 @@ export function TrialBookingSection() {
     >
       <div className="mx-auto max-w-4xl">
         <div className="mb-12 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-violet-400">
+          <div className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-brand-400">
             PRUEBA GRATUITA
           </div>
           <h2 className="mt-6 text-4xl font-black leading-[1] tracking-[-0.03em] md:text-6xl">
@@ -75,7 +75,7 @@ export function TrialBookingSection() {
                 key={item}
                 className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-1.5 text-xs text-white/60"
               >
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-400" />
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-400" />
                 {item}
               </span>
             ))}

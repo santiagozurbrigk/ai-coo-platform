@@ -8,7 +8,14 @@
 ## Reglas explícitas
 
 1. **Acento primario único:** definido por el token `--primary` en `packages/ui/src/styles/tokens.css`. **No hardcodear hex de marca** — usar las clases de Tailwind de la escala `primary` (`bg-primary`, `text-primary-light`, `bg-primary-hover`, `border-primary`) o, cuando el contexto no puede leer CSS vars (props de charts, estilos inline, HTML de emails), `brandColors` de `apps/web/lib/brand.ts`.
-   > ⚠️ **Rebranding Limitless en curso.** Los valores violeta documentados abajo (`#7C3AED` y derivados) son de la identidad anterior (OTC) y siguen activos como placeholder. Al aplicar la paleta de Limitless se cambian **solo** en `tokens.css` y `lib/brand.ts` (`brandColors`), y se actualiza esta tabla. Ningún componente necesita tocarse.
+   > **Paleta de marca (manual Limitless, sección 06) — son tres colores y nada más:**
+   > Negro `#000000` · Blanco `#FFFFFF` · Naranja Vibrant `#E15D12` = `hsl(22 85% 48%)`.
+   > El naranja es el único acento. Para escalonarlo existe la escala `brand-50…950`
+   > del preset de Tailwind, anclada en `brand-600 = #E15D12`.
+   >
+   > **Texto sobre naranja va en negro** (`--primary-foreground: 0 0% 0%`): da 5.78:1.
+   > Blanco sobre naranja da 3.64:1 y no alcanza AA para texto normal — usarlo solo
+   > en piezas grandes (logotipo).
 2. **No inventar chrome inexistente:** la app no tiene breadcrumbs globales, buscador universal en topbar, ni navegación que no esté en el sidebar actual.
 3. **Modo oscuro por defecto:** el script en `layout.tsx` aplica `.dark` salvo `localStorage.theme === 'light'`.
 4. **Superficies glass:** en dark mode usan `backdrop-blur` + bordes `white/8%`; en light son cards sólidas blancas.
@@ -48,27 +55,27 @@
 | `--muted-foreground` | `0 0% 40%` | `#666666` | Texto secundario |
 | `--accent` | `210 40% 96%` | `#F1F5F9` | Accent (Tailwind accent ≠ marca) |
 | `--accent-foreground` | `222 47% 11%` | `#111827` | Texto accent |
-| `--primary` | `258 84% 58%` | `#7C3AED` | **Acento marca** |
+| `--primary` | `22 85% 48%` | `#E15D12` | **Acento marca — Naranja Vibrant** |
 | `--primary-foreground` | `0 0% 100%` | `#FFFFFF` | Texto sobre primary |
-| `--primary-light` | `258 91% 76%` | `#C4B5FD` | Highlights violeta |
+| `--primary-light` | `22 90% 62%` | `#F58747` | Highlights naranja |
 | `--primary-subtle` | `250 100% 97%` | `#F5F3FF` | Fondos acento suaves |
-| `--primary-glow` | `258 60% 45%` | `#5B21B6` | Glow / sombras violeta |
-| `--primary-border` | `258 45% 75%` | `#A78BFA` | Borde con tinte violeta |
+| `--primary-glow` | `22 85% 38%` | `#B44B0E` | Glow / sombras naranja |
+| `--primary-border` | `22 75% 72%` | `#F0A87C` | Borde con tinte naranja |
 | `--success` | `142 76% 36%` | `#16A34A` | Positivo |
 | `--warning` | `32 95% 44%` | `#D97706` | Alerta |
 | `--destructive` | `0 72% 51%` | `#DC2626` | Error |
 | `--info` | `199 89% 48%` | `#0EA5E9` | Informativo |
 | `--border` | `214 32% 91%` | `#E2E8F0` | Bordes |
 | `--input` | `214 32% 91%` | `#E2E8F0` | Borde inputs |
-| `--ring` | `258 84% 58%` | `#7C3AED` | Focus ring |
+| `--ring` | `22 85% 48%` | `#E15D12` | Focus ring |
 | `--sidebar` | `0 0% 100%` | `#FFFFFF` | Fondo sidebar |
 | `--sidebar-foreground` | `215 16% 47%` | `#64748B` | Texto nav |
-| `--sidebar-foreground-active` | `263 70% 50%` | `#7C3AED` | Nav activo |
+| `--sidebar-foreground-active` | `22 85% 42%` | `#C75410` | Nav activo |
 | `--sidebar-accent` | `250 100% 97%` | `#F5F3FF` | Hover nav item |
 | `--sidebar-border` | `214 32% 91%` | `#E2E8F0` | Borde sidebar |
-| `--ai` | `258 84% 58%` | `#7C3AED` | Elementos IA |
-| `--ai-muted` | `258 40% 55%` | `#7C5CC7` | IA secundario |
-| `--ai-glow` | `258 91% 76%` | `#C4B5FD` | Glow IA |
+| `--ai` | `22 85% 48%` | `#E15D12` | Elementos IA |
+| `--ai-muted` | `22 45% 50%` | `#B96B46` | IA secundario |
+| `--ai-glow` | `22 90% 62%` | `#F58747` | Glow IA |
 
 **Body light:** `background: rgb(241 245 249)` (`#F1F5F9`).  
 **Glass light:** sin blur (blur=0px). Cards sólidas blancas, borde `#E2E8F0`.
@@ -87,25 +94,25 @@
 | `--muted-foreground` | `0 0% 48%` | `#7A7A7A` | Texto secundario |
 | `--accent` | `0 0% 10%` | `#1A1A1A` | Accent (hover items) |
 | `--accent-foreground` | `0 0% 98%` | `#FAFAFA` | Texto accent |
-| `--primary` | `258 84% 58%` | `#7C3AED` | **Acento marca** (idéntico) |
+| `--primary` | `22 85% 48%` | `#E15D12` | **Acento marca** (idéntico en ambos temas) |
 | `--primary-foreground` | `0 0% 100%` | `#FFFFFF` | Texto sobre primary |
-| `--primary-light` | `258 91% 76%` | `#C4B5FD` | Highlights violeta |
-| `--primary-subtle` | `258 50% 18%` | `#2D1B6E` | Fondos acento dark |
-| `--primary-border` | `258 45% 35%` | `#4C2F8A` | Borde acento dark |
+| `--primary-light` | `22 90% 62%` | `#F58747` | Highlights naranja |
+| `--primary-subtle` | `22 60% 14%` | `#3A1D09` | Fondos acento dark |
+| `--primary-border` | `22 55% 32%` | `#7E3D19` | Borde acento dark |
 | `--success` | `160 84% 39%` | `#10B981` | Positivo (más saturado en dark) |
 | `--warning` | `43 96% 56%` | `#F59E0B` | Alerta |
 | `--destructive` | `0 84% 60%` | `#EF4444` | Error |
 | `--border` | `0 0% 11%` | `#1C1C1C` | Bordes ultra-sutiles |
 | `--input` | `0 0% 11%` | `#1C1C1C` | Borde inputs |
-| `--ring` | `258 84% 58%` | `#7C3AED` | Focus ring |
+| `--ring` | `22 85% 48%` | `#E15D12` | Focus ring |
 | `--sidebar` | `0 0% 0%` | `#000000` | Fondo sidebar |
 | `--sidebar-foreground` | `0 0% 36%` | `#5C5C5C` | Texto nav inactivo |
-| `--sidebar-foreground-active` | `258 91% 76%` | `#C4B5FD` | Nav activo |
-| `--sidebar-accent` | `258 50% 20%` | `#2D1B6E` | Hover nav item |
+| `--sidebar-foreground-active` | `22 90% 62%` | `#F58747` | Nav activo |
+| `--sidebar-accent` | `22 55% 16%` | `#40200B` | Hover nav item |
 | `--sidebar-border` | `0 0% 11%` | `#1C1C1C` | Borde sidebar |
-| `--ai` | `258 84% 58%` | `#7C3AED` | Elementos IA |
-| `--ai-muted` | `258 40% 35%` | `#3D2472` | IA secundario dark |
-| `--ai-glow` | `258 91% 76%` | `#C4B5FD` | Glow IA |
+| `--ai` | `22 85% 48%` | `#E15D12` | Elementos IA |
+| `--ai-muted` | `22 45% 32%` | `#76452C` | IA secundario dark |
+| `--ai-glow` | `22 90% 62%` | `#F58747` | Glow IA |
 
 **Body dark:** `background: #000000` (negro puro).
 
@@ -121,10 +128,10 @@ Estos tokens son en formato RGB raw (sin `hsl()`), usados con `rgb(var(--color-*
 | `--color-surface-4` | `248 250 252` | `22 22 22` | `#F8FAFC` | `#161616` |
 | `--color-border` | `0 0 0` | `255 255 255` | — | — |
 | `--color-border-strong` | `0 0 0` | `255 255 255` | — | — |
-| `--color-accent` | `124 58 237` | `124 58 237` | `#7C3AED` | `#7C3AED` |
-| `--color-accent-light` | `109 40 217` | `167 139 250` | `#6D28D9` | `#A78BFA` |
+| `--color-accent` | `225 93 18` | `225 93 18` | `#E15D12` | `#E15D12` |
+| `--color-accent-light` | `189 79 15` | `245 135 71` | `#BD4F0F` | `#F58747` |
 | `--color-chart-primary` | `10 10 10` | `255 255 255` | `#0A0A0A` | `#FFFFFF` |
-| `--color-chart-accent` | `124 58 237` | `124 58 237` | `#7C3AED` | `#7C3AED` |
+| `--color-chart-accent` | `225 93 18` | `225 93 18` | `#E15D12` | `#E15D12` |
 
 **Uso:** `rgba(var(--color-surface-2) / 0.5)` o `rgb(var(--color-accent))`
 
@@ -151,13 +158,13 @@ Dos contextos: light y dark. Los valores cambian radicalmente — **líneas en n
 | `--chart-3` | `rgba(10,10,10,0.2)` | `rgba(255,255,255,0.2)` | Terciaria / fill |
 | `--chart-4` | `rgba(10,10,10,0.32)` | `rgba(255,255,255,0.32)` | Cuaternaria |
 | `--chart-5` | `rgba(10,10,10,0.24)` | `rgba(255,255,255,0.24)` | Quinaria |
-| `--chart-accent` | `#7c3aed` | `#7c3aed` | Acento violeta (siempre igual) |
+| `--chart-accent` | `#e15d12` | `#e15d12` | Acento naranja (igual en ambos temas) |
 | `--chart-background` | `transparent` | `transparent` | Fondo chart |
 | `--chart-foreground` | `#0a0a0a` | `#ffffff` | Texto/labels |
 | `--chart-foreground-muted` | `rgba(10,10,10,0.35)` | `rgba(255,255,255,0.35)` | Labels secundarios |
 | `--chart-line-primary` | `var(--chart-1)` | `var(--chart-1)` | Alias línea principal |
 | `--chart-line-secondary` | `var(--chart-2)` | `var(--chart-2)` | Alias línea secundaria |
-| `--chart-crosshair` | `var(--chart-accent)` | `var(--chart-accent)` | Cursor violeta |
+| `--chart-crosshair` | `var(--chart-accent)` | `var(--chart-accent)` | Cursor naranja |
 | `--chart-grid` | `rgba(0,0,0,0.06)` | `rgba(255,255,255,0.06)` | Grilla sutil |
 | `--chart-tooltip-background` | `#ffffff` | `#0a0a0a` | Tooltip |
 | `--chart-tooltip-foreground` | `#0a0a0a` | `#ffffff` | Texto tooltip |
@@ -168,9 +175,9 @@ Dos contextos: light y dark. Los valores cambian radicalmente — **líneas en n
 
 | Token | Valor | Hex aprox. |
 |-------|-------|------------|
-| `--chart-secondary` | `258 91% 76%` | `#C4B5FD` |
+| `--chart-secondary` | `22 90% 62%` | `#F58747` |
 | `--chart-tertiary` | `280 70% 60%` | `#A855F7` |
-| `--chart-lavender` | `258 45% 72%` | `#A78BFA` |
+| `--chart-quaternary` | `22 30% 55%` | `#A87E6A` |
 | `--chart-pink` | `330 70% 65%` | `#F472B6` |
 | `--chart-bar-mono` | light: `rgba(0,0,0,0.8)` · dark: `rgba(255,255,255,0.85)` | Barras monocromo |
 
@@ -182,10 +189,34 @@ Dos contextos: light y dark. Los valores cambian radicalmente — **líneas en n
 
 | Rol | Fuente | Variable CSS |
 |-----|--------|--------------|
-| Sans | **Inter** (Google Fonts) | `--font-sans` |
+| Sans (texto) | **Inter** (Google Fonts) | `--font-sans` |
+| Display (títulos) | **Neue Haas Grotesk** — *pendiente de licencia*, hoy resuelve a Inter | `--font-display` |
 | Mono | **JetBrains Mono** | `--font-mono` |
 
 Fallback: `system-ui, sans-serif` / `monospace`.
+
+El manual (sección 07) pide **Neue Haas Grotesk** para títulos e **Inter** para
+texto corrido. Neue Haas Grotesk es de licencia comercial (Monotype) y todavía no
+se compró, así que `--font-display` apunta a `--font-sans`. Al conseguirla:
+cargarla con `next/font/local` y apuntar `--font-display` a su variable en
+`tokens.css` — ningún componente necesita cambios; la utilidad `font-display` de
+Tailwind ya existe.
+
+> El wordmark del logotipo está tipografiado en **Manrope Light**, no en Neue Haas
+> Grotesk. No hace falta cargar Manrope: el lockup se sirve como imagen.
+
+### Logotipo y assets (`apps/web/lib/brand.ts`)
+
+| Asset | Archivo | Uso |
+|-------|---------|-----|
+| Lockup horizontal | `/brand/logo-{light,dark}.png` | Login, sidebar, landing (≈8.4:1 — limitar por ancho) |
+| Isotipo | `/brand/isotipo-{light,dark}.svg` | Sidebar colapsada, header, avatares |
+| Isotipo naranja | `/brand/isotipo-naranja.svg` | Sobre fondos neutros |
+| Favicon | `app/icon.svg` | Cuadrado naranja + marca blanca |
+
+El manual presenta el logotipo en monocromo — negro sobre claro, blanco sobre
+oscuro. `AppLogo` renderiza las dos versiones y las alterna con `dark:hidden` /
+`hidden dark:block`. **No hardcodear rutas de logo**: usar `brandAssets`.
 
 ### Escala tipográfica (`tokens.css` + `preset.ts`)
 
@@ -302,15 +333,15 @@ Fallback: `system-ui, sans-serif` / `monospace`.
 | `.surface-glass` | `rounded-xl` | igual a `.glass` | `-translate-y-px` + `shadow-float` |
 | `.surface-card` | `rounded-xl` | borde `white/8%` + `shadow-card` | `shadow-float` |
 
-**Hover neutral en cards genéricos** (`.glass`, `.surface-glass`): `shadow-float` + borde `white/12%`. **Sin glow violeta** — el violeta es solo para IA.  
-**Hover AI** (`.ai-card`): mantiene `shadow-glow` violeta. Intencional: indica elemento IA.
+**Hover neutral en cards genéricos** (`.glass`, `.surface-glass`): `shadow-float` + borde `white/12%`. **Sin glow de marca** — el naranja es solo para IA.  
+**Hover AI** (`.ai-card`): mantiene `shadow-glow` naranja. Intencional: indica elemento IA.
 
 #### Animaciones glass (solo decorativas)
 
 | Clase | Animación | Duración | Uso |
 |-------|-----------|----------|-----|
-| `.glass-liquid` | Conic-gradient rotatorio violeta (borde externo) | `8s linear infinite` | Elementos IA destacados |
-| `.glass-liquid-subtle` | Radial gradients violeta (shimmer suave) | `6s ease-in-out alternate infinite` | `AiCard` |
+| `.glass-liquid` | Conic-gradient rotatorio naranja (borde externo) | `8s linear infinite` | Elementos IA destacados |
+| `.glass-liquid-subtle` | Radial gradients naranja (shimmer suave) | `6s ease-in-out alternate infinite` | `AiCard` |
 | `.glass-liquid-border` | Borde conic rotatorio | `4s linear infinite` | Alternativa glass-liquid |
 
 Todas desactivadas con `prefers-reduced-motion`.
@@ -340,7 +371,7 @@ Todas desactivadas con `prefers-reduced-motion`.
 | `fade-in` | `animate-fade-in` | opacity 0→1, translateY 8px→0 | `0.3s cubic-bezier(0.16,1,0.3,1)` |
 | `shimmer` | `animate-shimmer` | background-position sweep | `2s linear infinite` |
 | `pulse-glow` | `animate-pulse-glow` | opacity 0.4↔0.8 | `2.5s ease-in-out infinite` |
-| `btn-press` | — (`:active` en `.btn-primary`) | scale 0.97 + ring violeta | `0.3s ease-out` |
+| `btn-press` | — (`:active` en `.btn-primary`) | scale 0.97 + ring naranja | `0.3s ease-out` |
 | `btn-press-ghost` | — (`:active` en ghost/outline) | scale 0.97 + ring blanco | `0.3s ease-out` |
 | `dialog-overlay-show` | `animate-dialog-overlay-show` | opacity 0→1 | `200ms ease-out` |
 | `dialog-overlay-hide` | `animate-dialog-overlay-hide` | opacity 1→0 | `150ms ease-out` |
@@ -384,7 +415,7 @@ import { GlassPanel } from "@ai-coo/ui";
 | Prop | Tipo | Default | Descripción |
 |------|------|---------|-------------|
 | `variant` | `"default" \| "strong" \| "nested"` | `"default"` | Nivel de elevación glass |
-| `glow` | `boolean` | `false` | Añade `glow-primary` (sombra violeta) — **solo para elementos IA** |
+| `glow` | `boolean` | `false` | Añade `glow-primary` (sombra naranja) — **solo para elementos IA** |
 
 Aplica: `"default"` → `.glass`, `"strong"` → `.glass-strong`, `"nested"` → `.glass-nested`. Siempre `hover:-translate-y-px`.
 
@@ -500,8 +531,8 @@ import { AiCard } from "@ai-coo/ui";
 | `source` | `string` | — |
 
 - `variant="insight"` y `"recommendation"`: activan `<Spotlight>` sutil
-- Siempre usa `.glass-liquid-subtle` (gradientes violeta animados)
-- Ícono: `<Sparkles>` violeta (`text-primary dark:text-[#A78BFA]`)
+- Siempre usa `.glass-liquid-subtle` (gradientes naranja animados)
+- Ícono: `<Sparkles>` naranja (`text-primary dark:text-brand-400`)
 - Badge: `<Badge variant="ai">`
 
 ---
@@ -645,8 +676,8 @@ animate-dialog-overlay-show / animate-dialog-overlay-hide
   <TrendingUp className="h-3 w-3" /> +12%
 </span>
 
-// Primario/violeta
-<span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-[3px] text-micro font-medium text-primary dark:text-[#A78BFA]">
+// Primario/naranja
+<span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-[3px] text-micro font-medium text-primary dark:text-brand-400">
   Nuevo
 </span>
 ```
@@ -658,7 +689,7 @@ animate-dialog-overlay-show / animate-dialog-overlay-hide
 
 ### Focus-visible estándar
 ```tsx
-// El ring usa --ring = #7C3AED
+// El ring usa --ring = #E15D12
 // Tailwind: focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
 ```
 

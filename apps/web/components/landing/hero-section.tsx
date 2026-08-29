@@ -9,7 +9,7 @@ export function HeroSection() {
       {/* Text content — constrained */}
       <div className="relative z-10 mx-auto w-full max-w-3xl px-2 text-center sm:px-4">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]">
+        <div className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-white shadow-[0_0_20px_rgba(225,93,18,0.4)]">
           <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
           Prueba gratuita · 3 días · Sin tarjeta
         </div>
@@ -34,7 +34,7 @@ export function HeroSection() {
         <div className="mt-8">
           <a
             href="#agendar"
-            className="inline-block w-full max-w-[240px] rounded-full bg-primary px-8 py-4 text-base font-semibold text-white shadow-[0_0_30px_rgba(124,58,237,0.35)] transition-colors hover:bg-primary-hover sm:w-auto"
+            className="inline-block w-full max-w-[240px] rounded-full bg-primary px-8 py-4 text-base font-semibold text-primary-foreground shadow-[0_0_30px_rgba(225,93,18,0.35)] transition-colors hover:bg-primary-hover sm:w-auto"
           >
             Empezá gratis ahora
           </a>

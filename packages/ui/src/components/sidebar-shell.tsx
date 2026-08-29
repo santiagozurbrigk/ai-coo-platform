@@ -26,7 +26,7 @@ function navLinkClassName(active?: boolean) {
   return cn(
     "flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm transition-all duration-150 ease-out",
     active
-      ? "border border-[rgba(124,58,237,0.25)] bg-[rgba(124,58,237,0.15)] font-medium text-primary-light shadow-[0_0_12px_rgba(124,58,237,0.15)] [&_svg]:text-primary-light"
+      ? "border border-[rgba(225,93,18,0.25)] bg-[rgba(225,93,18,0.15)] font-medium text-primary-light shadow-[0_0_12px_rgba(225,93,18,0.15)] [&_svg]:text-primary-light"
       : "border border-transparent text-white/38 hover:bg-white/[0.05] hover:text-white/65"
   );
 }
@@ -71,7 +71,7 @@ export function SidebarShell({
       {logo && (
         <div className="relative flex min-h-[88px] shrink-0 items-center justify-center px-3 pt-6 pb-4">
           <div
-            className="pointer-events-none absolute inset-x-4 top-4 h-16 rounded-full bg-[rgba(124,58,237,0.12)] blur-2xl"
+            className="pointer-events-none absolute inset-x-4 top-4 h-16 rounded-full bg-[rgba(225,93,18,0.12)] blur-2xl"
             aria-hidden
           />
           <div className="relative">{logo}</div>

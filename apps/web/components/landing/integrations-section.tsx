@@ -88,7 +88,7 @@ export function IntegrationsSection() {
     <section className="border-t border-white/[0.04] px-4 py-28 sm:px-6 md:py-40">
       <div className="mx-auto max-w-6xl">
         <div className="mb-16 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-violet-400">
+          <div className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-brand-400">
             INTEGRACIONES
           </div>
           <h2 className="mt-6 text-4xl font-black leading-[1] tracking-[-0.03em] md:text-6xl">
@@ -116,13 +116,13 @@ export function IntegrationsSection() {
           ))}
         </div>
 
-        <div className="mt-10 rounded-3xl border border-violet-500/20 bg-violet-950/40 p-8 text-center">
-          <p className="text-base font-medium text-violet-100 md:text-lg">
+        <div className="mt-10 rounded-3xl border border-brand-500/20 bg-brand-950/40 p-8 text-center">
+          <p className="text-base font-medium text-brand-100 md:text-lg">
             ¿Tu herramienta no está? La conectamos en el onboarding.
           </p>
           <a
             href="#waitlist"
-            className="mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
+            className="mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover"
           >
             Quiero mi lugar
           </a>

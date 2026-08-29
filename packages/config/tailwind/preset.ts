@@ -63,6 +63,25 @@ const preset: Partial<Config> = {
           muted: "hsl(var(--ai-muted))",
           glow: "hsl(var(--ai-glow))",
         },
+        /**
+         * Escala de marca derivada del Naranja Vibrant #E15D12 (= brand-600).
+         * Reemplaza a la escala violeta de Tailwind que usaba la identidad
+         * anterior. Los pasos 400/600/700 coinciden con los tokens
+         * --primary-light / --primary / --primary-hover.
+         */
+        brand: {
+          50: "hsl(22 100% 96%)",
+          100: "hsl(22 96% 92%)",
+          200: "hsl(22 94% 84%)",
+          300: "hsl(22 92% 73%)",
+          400: "hsl(22 90% 62%)",
+          500: "hsl(22 88% 54%)",
+          600: "hsl(22 85% 48%)",
+          700: "hsl(22 85% 40%)",
+          800: "hsl(22 82% 32%)",
+          900: "hsl(22 78% 24%)",
+          950: "hsl(22 75% 14%)",
+        },
         surface: {
           1: "#111111",
           2: "#1A1A1A",
@@ -81,6 +100,7 @@ const preset: Partial<Config> = {
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "monospace"],
       },
       fontSize: {

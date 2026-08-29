@@ -98,66 +98,62 @@
 
 ---
 
-## 🔵 Rebranding Limitless — Fase 2 (identidad visual)
+## 🔵 Rebranding Limitless — cerrado, con 5 pendientes acotados
 
-> La fase 1 (renombre + centralización) está hecha — ver `CHANGES.md` 2026-08-29.
-> La app ya dice "Limitless" en todos lados, pero **sigue mostrando el logo y la paleta de OTC**.
-> Todo lo de abajo se resuelve tocando **solo** `apps/web/lib/brand.ts`,
-> `packages/ui/src/styles/tokens.css`, `apps/web/app/layout.tsx` y los archivos de `public/brand/`.
-> Ningún componente necesita cambios.
+> Fases 1 y 2 completas — ver `CHANGES.md` 2026-08-29. La app usa el naranja
+> `#E15D12`, el logotipo real y el favicon nuevo, en tema claro y oscuro.
+> Lo que queda abajo son decisiones, no trabajo mecánico.
 
-### [BRAND-1] Conseguir el manual de marca en formato legible
+### [BRAND-A] Paletas categóricas que todavía usan violeta
 
-**Qué es:** el manual vive en Drive (`IDENTIDAD LIMITLESS / MANUAL DE MARCA / Manual de marca LIMITLESS (1).pdf`)
-pero son 61 MB sin capa de texto — el entorno de Claude Code no puede leerlo ni descargarlo.
+**Qué es:** 5 archivos conservan 53 clases violeta a propósito, porque ahí el violeta
+es **una categoría dentro de una paleta** y el mismo archivo ya usa naranja para otra
+categoría. Convertirlas colapsaría dos categorías en el mismo color.
 
-**Acción:** exportar las páginas de paleta y tipografía como PNG/JPG a una carpeta del mismo Drive
-(Claude sí puede leer imágenes), o pegar directamente los hex y los nombres de las tipografías.
-**Bloquea:** BRAND-2, BRAND-3.
+- `components/product/graph-nodes.tsx` (36) — tipos de nodo del grafo de producto
+- `lib/workboard/styles.ts` (6) — colores de etiqueta/prioridad
+- `constants/conversation-tags.ts` (1) — color de tag de conversación
+- `components/agent/proposal-card.tsx` (1) — tipo de propuesta
+- `components/sales/zernio-side-panel.tsx` (2) — bloque de panel lateral
+
+**Acción:** definir una paleta categórica que conviva con un acento naranja
+(el naranja de marca queda reservado para "lo primario"; las categorías deberían ir
+a hues fríos o a neutros diferenciados por luminancia). Es trabajo de diseño.
+**Quién:** Santiago + diseño.
+
+### [BRAND-B] Licenciar Neue Haas Grotesk
+
+**Qué es:** el manual (sección 07) pide Neue Haas Grotesk para títulos. Es de licencia
+comercial (Monotype) y no está comprada, así que `--font-display` resuelve a Inter.
+Los títulos no coinciden con el manual.
+
+**Acción:** comprar la licencia web, poner los archivos en `apps/web/app/fonts/`,
+cargarla con `next/font/local` y apuntar `--font-display` a su variable en
+`packages/ui/src/styles/tokens.css`. Ningún componente necesita cambios — la utilidad
+`font-display` de Tailwind ya existe.
+**Quién:** Santiago (licencia) + Claude (implementación).
+
+### [BRAND-C] Validar el texto negro sobre los botones naranjas
+
+**Qué es:** `--primary-foreground` pasó de blanco a negro. Blanco sobre `#E15D12` da
+3.64:1, por debajo de AA para texto normal; negro da 5.78:1. Cambia el aspecto de
+todos los botones primarios de la app.
+
+**Acción:** que el equipo mire los botones y confirme. Si se prefiere blanco pese al
+contraste, es una línea en `tokens.css` (`--primary-foreground: 0 0% 100%`).
 **Quién:** Santiago.
 
-### [BRAND-2] Aplicar la paleta de Limitless
+### [BRAND-D] Limpieza — borrar la rama `brand-source`
 
-**Qué es:** los violetas actuales (`#7C3AED` y derivados) son placeholder de la identidad anterior.
+**Qué es:** el material de identidad (incluido el manual en PDF de 58 MB) se subió a la
+rama `brand-source`, deliberadamente fuera de `main` para no cargar el historial.
 
-**Acción:**
-1. `packages/ui/src/styles/tokens.css` — reemplazar `--primary`, `--primary-light`, `--primary-hover`,
-   `--primary-subtle`, `--primary-glow`, `--primary-border`, `--ring`, `--ai*` y `--sidebar-foreground-active`
-   en los bloques `:root` **y** `.dark`.
-2. `apps/web/lib/brand.ts` — actualizar `brandColors` con los mismos valores en hex
-   (lo usan charts, estilos inline y emails, que no pueden leer CSS vars).
-3. `apps/web/app/globals.css` — revisar los tokens `--color-accent*` y `--chart-*`.
-4. `DESIGN.md` — reescribir las tablas de paleta y sacar el aviso de "rebranding en curso".
+**Acción:** una vez que el equipo tenga el material guardado en otro lado, borrar la
+rama en GitHub. **No mergearla a `main`.**
 
-**Depende de:** BRAND-1.
+### [BRAND-E] Dominio — fuera del alcance (decisión de Santiago)
 
-### [BRAND-3] Reemplazar los assets visuales
-
-**Qué es:** `public/brand/` todavía tiene el logo y los isotipos de OTC.
-
-**Acción:**
-- `public/brand/logo.png` — logo horizontal de Limitless (el actual pesa 1.3 MB, optimizar)
-- `public/brand/logo-icon.png` — isotipo cuadrado; después apuntar `brandAssets.logoIcon` ahí
-  (hoy cae de fallback en `logo.png`)
-- Borrar `ISOTIPO OTC BLANCO.png` / `ISOTIPO OTC NEGRO.png` (no se usan en código)
-- `apps/web/app/icon.svg` — favicon dibujado a mano (rect violeta + letra "M"); rehacer con el isotipo real
-- `public/favicon.ico`
-
-**Depende de:** BRAND-1.
-
-### [BRAND-4] Tipografía
-
-**Qué es:** sigue Inter + JetBrains Mono, cargadas con `next/font/google` en `app/layout.tsx`.
-
-**Acción:** si el manual define otras, cambiarlas ahí. Si no están en Google Fonts, usar `next/font/local`
-con los archivos en `apps/web/app/fonts/`. Los tokens `--font-sans` / `--font-mono` ya están conectados
-al preset de Tailwind, así que no hay que tocar componentes.
-
-**Depende de:** BRAND-1.
-
-### [BRAND-5] Dominio — fuera del alcance de la fase 1 (decisión de Santiago)
-
-**Qué es:** `optimizatucontrol.com` sigue en pie. Está centralizado en `brand.domain`, pero hay
+`optimizatucontrol.com` sigue en pie. Está centralizado en `brand.domain`, pero hay
 referencias sueltas fuera de ese campo:
 
 - `lib/utm/build-links.ts`, `components/marketing/utm-generator.tsx`, `components/settings/settings-form.tsx`
@@ -167,7 +163,8 @@ referencias sueltas fuera de ese campo:
 - `app/api/queue/publish-reel-variation/route.ts` — fallback `https://app.otc.com`
 - `components/super-admin/infrastructure-page.tsx` — hostname de Vercel
 
-**Acción:** cuando se defina el dominio de Limitless, migrar DNS y actualizar estas referencias + `brand.domain`.
+**Acción:** al definir el dominio de Limitless, migrar DNS y actualizar estas
+referencias + `brand.domain`.
 
 ---
 

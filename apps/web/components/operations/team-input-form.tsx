@@ -66,7 +66,7 @@ export function TeamInputForm() {
               className={cn(
                 "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                 department === d.value
-                  ? "border-violet-500/50 bg-violet-500/10 text-violet-600 dark:text-violet-400"
+                  ? "border-brand-500/50 bg-brand-500/10 text-brand-600 dark:text-brand-400"
                   : "border-border text-muted-foreground hover:border-border/80 hover:text-foreground"
               )}
             >
@@ -88,7 +88,7 @@ export function TeamInputForm() {
       <Button
         onClick={() => void handleSubmit()}
         disabled={submitting || !text.trim()}
-        className="w-full bg-violet-600 hover:bg-violet-700"
+        className="w-full bg-brand-600 hover:bg-brand-700"
       >
         {submitting ? (
           <>

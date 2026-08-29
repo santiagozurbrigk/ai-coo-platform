@@ -764,7 +764,7 @@ function ResultRow({ label, inserted, skipped, errors, planMatchCount }: {
         {skipped > 0 && <span>{skipped} ya existían</span>}
         {errors > 0 && <span className="text-destructive">{errors} errores</span>}
         {planMatchCount != null && planMatchCount > 0 && (
-          <span className="text-violet-500">{planMatchCount} con plan asignado</span>
+          <span className="text-brand-500">{planMatchCount} con plan asignado</span>
         )}
       </div>
     </div>

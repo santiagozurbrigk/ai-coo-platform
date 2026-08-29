@@ -7,7 +7,7 @@ const PERMISSION_OPTIONS: {
   key: PermissionLevel;
   activeClass: string;
 }[] = [
-  { key: "none", activeClass: "bg-violet-600 border-violet-600" },
+  { key: "none", activeClass: "bg-brand-600 border-brand-600" },
   { key: "view", activeClass: "bg-emerald-700 border-emerald-700" },
   { key: "full", activeClass: "bg-blue-600 border-blue-600" },
 ];

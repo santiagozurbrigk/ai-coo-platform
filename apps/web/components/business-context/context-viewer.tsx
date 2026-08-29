@@ -44,7 +44,7 @@ const proseClassName =
   "prose-p:text-foreground prose-p:leading-relaxed prose-p:my-2 " +
   "prose-li:text-foreground prose-li:my-0.5 " +
   "prose-strong:text-foreground " +
-  "prose-a:text-violet-600 dark:prose-a:text-violet-400 " +
+  "prose-a:text-brand-600 dark:prose-a:text-brand-400 " +
   "prose-ul:my-2 prose-ol:my-2 " +
   "prose-table:text-sm prose-th:text-foreground prose-td:text-foreground " +
   "prose-code:text-foreground prose-pre:my-3 " +

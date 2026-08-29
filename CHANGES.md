@@ -14,6 +14,49 @@
 
 ---
 
+### 2026-08-29 — REBRAND-LIMITLESS (fase 2): identidad visual — paleta, logotipo y tipografía
+
+**Rama/branch:** `Claude-Design`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `packages/ui/src/styles/tokens.css`, `packages/config/tailwind/preset.ts`, `apps/web/app/globals.css`, `apps/web/lib/brand.ts`, `apps/web/components/brand/*`, `apps/web/public/brand/*`, `apps/web/app/icon.svg`, `DESIGN.md`, + 127 archivos con color de marca
+
+**Qué se hizo:**
+
+- **Paleta aplicada.** Del manual de marca (sección 06), que define exactamente tres colores: Negro `#000000`, Blanco `#FFFFFF` y **Naranja Vibrant `#E15D12`** = `hsl(22 85% 48%)`. Se reemplazó el violeta `#7C3AED` en `tokens.css` (bloques `:root` y `.dark`), `globals.css` y `brandColors`.
+- **Escala `brand-50…950` en el preset de Tailwind**, anclada en `brand-600 = #E15D12`, con los pasos 400/600/700 coincidiendo con `--primary-light` / `--primary` / `--primary-hover`. Reemplaza a la escala violeta de Tailwind que usaba la identidad anterior.
+- **520 clases de color migradas** en 127 archivos: 462 clases `violet-*`/`purple-*`/`indigo-*` → `brand-*`, más 58 hex y `rgba()` sueltos (`#8B5CF6`, `#A78BFA`, `#6D28D9`, `rgba(124,58,237)`, `rgba(99,102,241)`, `rgba(168,85,247)`…). La auditoría de la fase 1 solo había buscado hex, por eso no las vio.
+- **Contraste corregido.** Blanco sobre `#E15D12` da 3.64:1, por debajo de AA para texto normal; negro da 5.78:1. Se cambió `--primary-foreground` a `0 0% 0%` y se migraron 10 botones que tenían `text-white` sobre `bg-primary` sólido, incluido el `variant="default"` del `Button` de `@ai-coo/ui`.
+- **Assets reales instalados.** `logo-{light,dark}.png` (lockup horizontal recortado, 1764×210, ~14 KB c/u) e `isotipo-{light,dark,naranja}.svg`. Se borraron `logo.png` (1.3 MB, OTC) y los dos isotipos OTC.
+- **`AppLogo` y `AppBrandHeader` ahora siguen el tema:** renderizan la versión negra y la blanca y las alternan con `dark:hidden` / `hidden dark:block`, como pide el manual (logotipo monocromo). `AppBrandHeader` pasó a usar el isotipo — su slot es cuadrado de 32×32 y antes metía ahí el lockup apaisado.
+- **Presets de tamaño de `AppLogo` recalibrados.** El lockup nuevo es ≈8.4:1 contra 1.4:1 del anterior: limitando por alto se desbordaba de la tarjeta de login. Ahora `login`, `sidebar` y `hero` limitan por ancho.
+- **Favicon rehecho** (`app/icon.svg`): cuadrado naranja con el isotipo en blanco, generado desde el path del SVG oficial. Antes era un rect violeta con una letra "M" dibujada a mano.
+- **`--font-display`** agregado como token y como utilidad `font-display` de Tailwind.
+
+**Por qué / finalidad:**
+
+Completar el rebranding con la identidad visual real, que en la fase 1 no estaba disponible. El material llegó por la rama `brand-source` (ver más abajo).
+
+**Decisiones de diseño relevantes:**
+
+- **Texto negro sobre naranja, no blanco.** Es la decisión con más impacto visual de esta fase. La alternativa era mantener blanco por consistencia con cómo se ve el logotipo sobre naranja en el manual, pero 3.64:1 no alcanza AA para un label de botón de 14px. El negro además es on-brand: la paleta es literalmente negro/blanco/naranja. Se revierte en una línea (`--primary-foreground` en `tokens.css`).
+- **Escala `brand-*` propia en vez del `orange-*` de Tailwind.** El `orange-600` de Tailwind (`#EA580C`) está a ojo de `#E15D12`, pero una escala propia hace que todo el color de marca trace de vuelta al manual y evita que convivan dos naranjas casi iguales.
+- **Lockup en PNG, isotipo en SVG.** Los SVG del lockup traen el wordmark como `<text>` vivo con `font-family: Manrope-Light`, sin vectorizar: en un navegador sin Manrope el logo renderiza con otra fuente. El isotipo sí es path puro.
+- **Paletas categóricas sin tocar.** En 5 archivos el violeta no es acento de marca sino una categoría dentro de una paleta que ya incluye naranja (ver riesgos).
+- **Colores de integraciones sin tocar.** `lib/integrations/brand-colors.ts` tiene los colores de marca de terceros (Discord `#5865F2`, Instagram, Miro `#050038`, Zernio `#6366F1`). Son violáceos pero no son nuestros.
+
+**Verificación:**
+
+`tsc --noEmit` y `pnpm lint` limpios en los 4 paquetes; `next build` genera las 125 páginas. Se levantó la app y se revisaron capturas de la landing y del login en tema claro y oscuro: el logotipo cambia correctamente con el tema y no quedó violeta en pantalla.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **5 archivos conservan violeta a propósito** — `product/graph-nodes.tsx`, `lib/workboard/styles.ts`, `constants/conversation-tags.ts`, `agent/proposal-card.tsx`, `sales/zernio-side-panel.tsx` (53 clases). Ahí el violeta es **una categoría entre varias** y el archivo ya usa naranja para otra: convertirlo colapsaría dos categorías en el mismo color. Necesitan una paleta categórica diseñada para convivir con un acento naranja — es una decisión de diseño, no un find-replace.
+- **Neue Haas Grotesk sin licencia.** El manual la pide para títulos; es comercial (Monotype). `--font-display` resuelve a Inter mientras tanto. Los títulos no van a coincidir con el manual hasta comprarla.
+- **`--primary-foreground` negro** cambia el aspecto de todos los botones primarios. Es intencional y accesible, pero es un cambio visible que conviene que el equipo valide.
+- La rama `brand-source` tiene el manual en PDF (58 MB). No mergear a `main`: se puede borrar una vez que el equipo tenga el material en otro lado.
+
+---
+
 ### 2026-08-29 — REBRAND-LIMITLESS (fase 1): centralización de marca y renombre OTC → Limitless
 
 **Rama/branch:** `Claude-Design`  
