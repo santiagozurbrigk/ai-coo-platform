@@ -44,7 +44,7 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 | Typeform / application | Qualified rate, booking | **Typeform + Google Forms** |
 | Calendly | Booked calls, show rate | Calendly + GHL |
 | GHL pipeline | Stage counts, set/close, follow-up | GHL (sólo calendarios y contactos) |
-| Whop / Fanbasis | AOV, cash collected, refunds | **Stripe + Mercado Pago** |
+| Whop / Fanbasis | AOV, cash collected, refunds | **Whop + Fanbasis**, tal cual el documento |
 
 ---
 
@@ -149,18 +149,29 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 
 | # | Medida | Qué es | Estado | Qué falta |
 |---|---|---|---|---|
-| M26 | `orders` | Órdenes | 🟡 | `client_payments` existe pero **Stripe y Mercado Pago están conectados en 0 orgs**; 1 sola fila en toda la base |
+| M26 | `orders` | Órdenes | 🟡 | Modelo y webhooks listos; falta **conectar la primera cuenta real** y verificar el mapeo |
 | M27 | `revenue` | Ingresos | 🟡 | Idem M26 |
 | M28 | `cash_collected` | Efectivo cobrado | 🟡 | Idem M26 |
-| M29 | `contracted_value` | Valor contratado | 🟡 | `clients.total_amount`, hoy carga manual o importación |
-| M30 | `refunds` | Reembolsos | 🔴 | No hay modelo de reembolsos |
-| M31 | `new_customers` | Clientes nuevos | 🟡 | `clients.join_date`, carga manual |
+| M29 | `contracted_value` | Valor contratado | 🟡 | Idem M26 — `payment_orders.contract_value` |
+| M30 | `refunds` | Reembolsos | 🟡 | Idem M26 — `payment_transactions.kind = 'refund'` |
+| M31 | `new_customers` | Clientes nuevos | 🟡 | Idem M26 — compradores distintos con orden en el período |
 | M32 | `purchases_per_customer` | Compras por cliente | 🔴 | Necesario para LTV |
 | M33 | `retention_rate` | Retención | 🔴 | Necesario para LTV |
 
-> **El hueco más grande y el menos visible.** Los tres embudos terminan en Cash, y
-> de acá salen CAC, ROAS, AOV, LTV y las dos ratios que el documento llama
-> decisivas. Hoy no hay ninguna org con pagos conectados.
+> **Unidad I-2 construida el 2026-08-29, pendiente de verificación.** Se
+> implementó con **Whop y Fanbasis**, que es lo que el documento asigna a esta
+> etapa — Stripe y Mercado Pago quedan para el módulo de Finanzas y la
+> importación manual, pero ya no son la fuente de la etapa Cash.
+>
+> El modelo separa lo contratado de lo cobrado, como pide el documento:
+> `payment_orders` guarda la promesa y `payment_transactions` el dinero real.
+>
+> ⚠️ **El mapeo de campos de los webhooks no está verificado.** Los sitios de
+> documentación de ambos proveedores no son alcanzables desde el entorno de
+> desarrollo. Por eso cada webhook se persiste crudo en `payment_webhook_events`
+> ANTES de interpretarlo: el primer evento real de cada proveedor es la fuente de
+> verdad para corregir `lib/payments/normalize.ts`. Un evento que no se sabe leer
+> queda en estado `unmapped` y se puede reprocesar; nunca se inventa un número.
 
 ### Sin dueño explícito en el documento
 
@@ -261,7 +272,7 @@ Agrupado por unidad de trabajo, con lo que desbloquea cada una.
 | # | Trabajo | Medidas | Desbloquea | Tamaño |
 |---|---|---|---|---|
 | ~~**I-1**~~ | ~~**Persistir métricas de ads por período**~~ ✅ **Hecho 2026-08-29** | M01–M04 | Etapas Spend y Click de **los 3 embudos**, CPC, CPL, EPC, ROAS blended, CAC | — |
-| **I-2** | **Conectar pagos (Stripe / Mercado Pago)** | M26–M29, M31 | Etapa Cash de **los 3 embudos**, AOV, ROAS, CAC, EPL, cash vs contracted | **M** — el código de integración existe, están en 0 orgs; falta conectar y mapear a `client_payments` |
+| **I-2** | **Pagos con Whop y Fanbasis** 🔨 **Construido 2026-08-29, sin verificar** | M26–M31 | Etapa Cash de **los 3 embudos**, AOV, ROAS, CAC, EPL, cash vs contracted, refunds | Falta conectar la primera cuenta real y confirmar el mapeo con un webhook de verdad |
 | **I-3** | **Verificar asistencia y cierre de llamadas** | M20, M24 | Show rate y Close rate en VSL y DM, 2 health bands | **S** — el flujo existe; es validarlo con la primera org real y corregir si hace falta |
 | **I-4** | **Sync de oportunidades de GHL** | M21–M23, M25 | **Embudo DM entero** (4 de 6 pasos) | **M** — GHL ya integrado con auth y cliente; es agregar endpoints |
 | **I-5** | **Integración de webinar** (WebinarJam / Zoom) | M13–M16 | **Embudo Webinar entero** (4 de 7 pasos) | **L** — integración nueva desde cero |
@@ -289,7 +300,7 @@ Las medidas se parten en dos grupos:
 Por eso el orden no es "un embudo a la vez", es **de afuera hacia adentro**:
 
 **Ola 1 — los extremos (sirve a los 3 embudos a la vez)**
-~~`I-1` ads por período~~ ✅ → `I-2` pagos → `I-3` asistencia y cierres
+~~`I-1` ads por período~~ ✅ → `I-2` pagos 🔨 (falta verificar con cuenta real) → `I-3` asistencia y cierres
 
 Al terminarla, los tres embudos miden Spend, Click y Cash; funcionan CAC, ROAS
 blended, AOV, EPL, CPL y **EPL vs CPL**, que es una de las dos ratios decisivas.

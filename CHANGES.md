@@ -14,6 +14,48 @@
 
 ---
 
+### 2026-08-29 — FEAT-EMBUDOS-I2: capa de pagos con Whop y Fanbasis
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `supabase/migrations/20260829200000_payments_whop_fanbasis.sql` (nuevo, **aplicado**), `lib/payments/` (módulo nuevo), `app/api/webhooks/{whop,fanbasis}/route.ts` (nuevos), `lib/funnels/resolve.ts`, `docs/FUNNELS_SOURCE_MAP.md`
+
+**Qué se hizo:**
+Segunda unidad de la ola 1 (`I-2`). Santiago indicó que Stripe y Mercado Pago no sirven para lo que el documento plantea sobre pagos, así que se implementó con **Whop y Fanbasis**, que son los que la sección 05 asigna a la etapa Cash.
+
+- **Migración con 4 tablas:** `payment_integrations` (credenciales cifradas por org, sin RLS de lectura porque guarda secretos), `payment_orders` (el compromiso: `contract_value`), `payment_transactions` (el dinero real: `kind` payment/refund, monto siempre positivo) y `payment_webhook_events` (el payload crudo).
+- **`lib/payments/types.ts`** — modelo normalizado independiente del proveedor, con la separación orden/transacción que exige el documento.
+- **`lib/payments/normalize.ts`** — traduce webhooks al modelo normalizado. Extractores tolerantes a varios nombres de campo, conversión de centavos, y fechas en ISO o epoch.
+- **`lib/payments/aggregate.ts`** — capa pura que calcula M26–M31 desde las filas.
+- **`lib/payments/verify-signature.ts`** — Standard Webhooks para Whop (con ventana de tolerancia contra replay) y HMAC-SHA256 para Fanbasis.
+- **`lib/payments/ingest.ts`** — guarda el evento crudo **antes** de interpretarlo, deduplica reentregas y marca el estado del procesamiento.
+- **Rutas de webhook** para ambos proveedores, con verificación de firma obligatoria.
+- **`resolveOrgMeasures`** ahora saca revenue, cash collected, contracted value, orders y customers de las tablas nuevas en vez de `client_payments` y `clients`.
+
+**Verificación ejecutada:**
+- `pnpm test`: **270 tests en 13 archivos, todos en verde** (53 nuevos: 14 de agregación, 15 de firmas, 24 de normalización).
+- `tsc --noEmit` y lint: limpios.
+- Migración aplicada al proyecto `OTC` y verificada: 4 tablas, RLS activo en todas, política de SELECT sólo en `payment_orders` y `payment_transactions`.
+
+**Decisiones de diseño:**
+- **El evento crudo se persiste ANTES de interpretarlo.** Es lo que hace tolerable no tener acceso a la documentación de los proveedores: el primer webhook real de cada uno es la fuente de verdad para corregir el mapeo, y ningún evento se pierde mientras tanto.
+- **Un evento que no se sabe leer queda `unmapped`, nunca vale cero.** Un cobro cuyo monto no se entiende no es un cobro de cero.
+- **El monto en `payment_transactions` es siempre positivo**; el signo lo da `kind`. Un reembolso guardado en negativo con `kind='refund'` se restaría dos veces — hay un test que lo fija.
+- **Cash collected es neto de reembolsos.** El documento pide lo que queda en la cuenta.
+- **Una compra sin id ni email no cuenta como cliente nuevo.** Contarla inflaría el CAC hacia abajo, que es el error más caro posible en este módulo.
+- **La ventana de tolerancia del timestamp** en Standard Webhooks evita que un evento capturado se reinyecte indefinidamente.
+- **El `organizationId` va en la URL del webhook pero no autentica nada**: sólo dice contra qué secreto verificar. Lo que prueba la legitimidad es la firma.
+- **Stripe y Mercado Pago no se eliminaron.** Siguen sirviendo al módulo de Finanzas y a la importación manual; lo que cambió es que ya no son la fuente de la etapa Cash del embudo.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **El mapeo de campos de los webhooks NO está verificado.** `docs.whop.com` y `apidocs.fan` están bloqueados por la política de red del entorno, así que los nombres de campo en `normalize.ts` son una lectura razonable de los modelos publicados, no una transcripción de sus specs. **Hay que conectar una cuenta real de cada proveedor y revisar `payment_webhook_events` para corregirlos.** El archivo lleva la advertencia en el header.
+- ⚠️ **El esquema de firma de Fanbasis tampoco está verificado**: se asume HMAC-SHA256 sobre el cuerpo crudo, que es lo más habitual. La ruta prueba varias cabeceras candidatas.
+- **Falta la UI de conexión.** Hoy las credenciales de `payment_integrations` se cargan a mano. Falta el diálogo en `/integrations` para pegar API key y webhook secret.
+- **`purchases_per_customer` y `retention_rate` siguen sin fuente** (M32, M33): son la unidad I-9 y hacen falta para LTV.
+- Ninguna org tiene todavía una cuenta conectada, así que la etapa Cash sigue resolviendo `null` hasta que se conecte la primera.
+
+---
+
 ### 2026-08-29 — FEAT-EMBUDOS-I1: captura diaria de métricas de anuncios
 
 **Rama/branch:** `Claude-New-Features`  

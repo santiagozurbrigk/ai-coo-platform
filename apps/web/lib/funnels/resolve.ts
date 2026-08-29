@@ -16,6 +16,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { computeFunnel, type OrgMeasures, type StepCounts } from "./compute";
 import { getFunnelSource, type FunnelSourceId } from "./sources";
 import { periodBounds, type FunnelPeriod } from "./period";
+import {
+  aggregatePayments,
+  type OrderRow,
+  type TransactionRow,
+} from "@/lib/payments/aggregate";
 import { requireFunnelTemplate } from "./templates";
 import type { FunnelTemplate } from "./types";
 import type { InstrumentationToolId } from "./instrumentation";
@@ -212,28 +217,31 @@ async function resolveSource(
 /**
  * Medidas que no cuelgan de un step: dinero, clientes, alcance.
  *
- * Varias quedan en `null` a propósito porque OTC todavía no tiene la fuente:
- * el spend de Meta llega vía Zernio como live-fetch y no es periodizable hacia
- * atrás (§9.3), y reach / impressions dependen de la misma integración.
+ * El dinero sale de Whop y Fanbasis (`payment_orders` y `payment_transactions`),
+ * que es lo que el documento fuente asigna a la etapa Cash. Los ads salen de
+ * `ad_metrics_daily`. `purchases` y `retention_rate` siguen sin fuente: son la
+ * unidad I-9 del plan y hacen falta para LTV.
  */
 async function resolveOrgMeasures(
   supabase: SupabaseClient,
   organizationId: string,
   period: FunnelPeriod
 ): Promise<OrgMeasures> {
-  const [payments, clients, ads] = await Promise.all([
+  const { fromIso, toIso } = periodBounds(period);
+
+  const [orderRows, transactionRows, ads] = await Promise.all([
     supabase
-      .from("client_payments")
-      .select("amount")
+      .from("payment_orders")
+      .select("external_id, customer_external_id, customer_email, contract_value, ordered_at")
       .eq("organization_id", organizationId)
-      .gte("payment_date", period.start)
-      .lte("payment_date", period.end),
+      .gte("ordered_at", fromIso)
+      .lt("ordered_at", toIso),
     supabase
-      .from("clients")
-      .select("total_amount")
+      .from("payment_transactions")
+      .select("external_id, customer_external_id, customer_email, kind, amount, occurred_at")
       .eq("organization_id", organizationId)
-      .gte("join_date", period.start)
-      .lte("join_date", period.end),
+      .gte("occurred_at", fromIso)
+      .lt("occurred_at", toIso),
     supabase
       .from("ad_metrics_daily")
       .select("spend, reach, impressions")
@@ -242,16 +250,16 @@ async function resolveOrgMeasures(
       .lte("metric_date", period.end),
   ]);
 
-  const cashCollected = payments.error
-    ? null
-    : (payments.data ?? []).reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
-
-  const contractedValue = clients.error
-    ? null
-    : (clients.data ?? []).reduce((sum, row) => sum + Number(row.total_amount ?? 0), 0);
-
-  const customers = clients.error ? null : (clients.data ?? []).length;
-  const orders = payments.error ? null : (payments.data ?? []).length;
+  // Whop y Fanbasis son los que el documento asigna a la etapa Cash (§05).
+  // Si la consulta falla, todo queda en `null`: no se puede afirmar que se
+  // cobró cero.
+  const money =
+    orderRows.error || transactionRows.error
+      ? null
+      : aggregatePayments(
+          (orderRows.data ?? []) as OrderRow[],
+          (transactionRows.data ?? []) as TransactionRow[]
+        );
 
   // Sin filas capturadas, las medidas de ads quedan en `null`: no haber
   // capturado no es lo mismo que no haber gastado (§9.1).
@@ -266,11 +274,11 @@ async function resolveOrgMeasures(
     impressions: sumAds("impressions"),
     purchases: null,
     retention_rate: null,
-    revenue: cashCollected,
-    cash_collected: cashCollected,
-    contracted_value: contractedValue,
-    customers,
-    orders,
+    revenue: money?.revenue ?? null,
+    cash_collected: money?.cashCollected ?? null,
+    contracted_value: money?.contractedValue ?? null,
+    customers: money?.newCustomers ?? null,
+    orders: money?.orders ?? null,
   };
 }
 
