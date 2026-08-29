@@ -8,6 +8,7 @@ export type PermissionModuleId =
   | "expenses"
   | "sales_inbox"
   | "sales_metrics"
+  | "funnels"
   | "marketing"
   | "marketing_content"
   | "marketing_sales"
@@ -34,6 +35,7 @@ export const PERMISSION_MODULES: {
   { id: "expenses", label: "Gastos" },
   { id: "sales_inbox", label: "Ventas → Bandeja", group: "Ventas" },
   { id: "sales_metrics", label: "Ventas → Métricas", group: "Ventas" },
+  { id: "funnels", label: "Embudos" },
   { id: "marketing", label: "Marketing → Overview" },
   { id: "marketing_content", label: "Marketing → Contenido" },
   { id: "marketing_sales", label: "Marketing → Conexión Ventas" },

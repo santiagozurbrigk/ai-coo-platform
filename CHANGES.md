@@ -14,6 +14,57 @@
 
 ---
 
+### 2026-08-29 — FEAT-EMBUDOS-FASE1 + CI-TESTS + TESTING-BACKLOG
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `.github/workflows/ci.yml`, `supabase/migrations/20260829120000_funnels_phase1.sql` (nuevo), `lib/funnels/{sources,period,compute,resolve}.ts` (nuevos), `app/funnels/actions.ts` (nuevo), `app/(platform)/funnels/` (nuevo), `components/funnels/` (nuevo), `routes/paths.ts`, `constants/permission-modules.ts`, `lib/auth/add-on-ids.ts`, `lib/navigation/sidebar-modules.ts`, `components/navigation/nav-icons.tsx`, `docs/TESTING_BACKLOG.md` (nuevo)
+
+**Qué se hizo:**
+
+**1. CI — paso de tests**
+El workflow `.github/workflows/ci.yml` **ya existía** con `pnpm typecheck` y `pnpm lint`; le faltaba `pnpm test`. Se agregó el paso y se ampliaron los triggers de push para cubrir ramas de feature (`Claude-*`, `claude/**`, `feat/**`, `fix/**`, `chore/**`), que antes sólo corrían CI al abrir PR.
+
+**2. Fase 1 del módulo de Embudos**
+- **Migración `20260829120000_funnels_phase1.sql`:** `funnel_instances` (plantilla + oferta + price_point + currency + reporting_timezone), `funnel_step_bindings` (step → fuente), `funnel_benchmarks` (overrides de nivel 2 y 3) y `funnel_period_snapshots` (serie histórica). RLS por `get_my_organization_id()` en las cuatro.
+- **`lib/funnels/sources.ts`:** catálogo de 8 fuentes respaldadas por tablas reales de OTC, cada una con su procedencia. `DEFAULT_BINDINGS` con los 5 bindings del DM.
+- **`lib/funnels/period.ts`:** ventanas de 7/30/90 días con límites inclusivo/exclusivo correctos.
+- **`lib/funnels/compute.ts`:** capa PURA — estados de etapa, cálculo de métricas con resolución recursiva de referencias, transiciones entre etapas ocupadas, y KPIs universales.
+- **`lib/funnels/resolve.ts`:** capa de IO contra Supabase. No se re-exporta desde el barrel para que ningún Client Component arrastre el cliente de base de datos.
+- **`app/funnels/actions.ts`:** listar, resolver y crear instancias, todas con `requireOrganizationId()`.
+- **Páginas:** `/funnels` (índice real, no redirect) y `/funnels/[funnelId]` (detalle genérico, sirve cualquier plantilla).
+- **Componentes:** `funnel-spine-strip` (7 etapas con sus 3 estados diferenciados), `funnel-steps-table` (misma estructura que la tabla del documento + valor y origen), `funnel-create-form`, `funnel-format`.
+- **Registro:** ruta en `paths.ts`, permiso `funnels`, add-on `embudos`, entrada de sidebar e icono `filter` en `nav-icons.tsx`.
+
+**3. `docs/TESTING_BACKLOG.md`**
+Backlog de 24 ítems de testing pendientes, priorizados y con ubicación exacta, pensado para que un agente tester de Claude los tome en el futuro. Incluye convenciones del repo, las tres reglas que hacen que un test valga algo, qué NO testear, y el procedimiento de cierre de cada ítem.
+
+**Verificación ejecutada:**
+- `pnpm test`: **199 tests en 9 archivos, todos en verde** (46 nuevos sobre `compute`, `period` y `sources`).
+- `tsc --noEmit` en `apps/web`: limpio.
+- `next lint` sobre `lib/funnels`, `components/funnels` y `app/funnels`: sin warnings ni errores.
+- `pnpm typecheck` y `pnpm lint` desde la raíz (los tres pasos que corre el CI): verdes.
+
+**Decisiones de diseño:**
+- **Separación compute / resolve.** Toda la matemática vive en `compute.ts`, que es puro y no importa Supabase; `resolve.ts` sólo trae números. Es lo que permite testear el cálculo sin base de datos, y explica que los 46 tests nuevos no necesiten mocks.
+- **`dm.trigger` queda deliberadamente sin fuente.** OTC no tiene hoy de dónde sacar disparadores (comentarios / historias / ads que inician conversación). Inventarle un origen habría sido peor: el step se muestra como "Sin fuente" y la página avisa qué integraciones faltan. Es la demostración práctica de la regla §9.1.
+- **`spend`, `reach` e `impressions` resuelven a `null`.** El spend de Meta llega vía Zernio como live-fetch y no es periodizable hacia atrás. Cualquier métrica de costo que dependa de spend da `null`, y eso es correcto.
+- **Dividir por cero da `null`, no 0%.** Una tasa sobre cero es indefinida; mostrarla como 0% sería exactamente el error que el diseño quiere evitar.
+- **El conteo de una etapa es el de su primer step.** En el webinar, `engaged` tiene dos steps y el conteo de la etapa son los asistentes (la entrada), no los que se quedaron al pitch.
+- **`/funnels` es un índice real, no un redirect al último usado.** Un redirect hace que el mismo click lleve a lugares distintos según el día.
+- **`resolve.ts` fuera del barrel `index.ts`**, para no filtrar el cliente de Supabase a componentes de cliente.
+- **Sin `server-only`:** el paquete no está instalado ni se usa en el repo; se documentó la restricción en el header del archivo en vez de sumar una dependencia.
+
+**Riesgos / deuda técnica pendiente:**
+- **La migración `20260829120000_funnels_phase1.sql` está sin aplicar en Supabase.** Hasta que se aplique, `/funnels` va a fallar al consultar tablas que no existen.
+- **Sin health bands en la UI todavía.** Fase 1 muestra valores, conteos, transiciones y procedencia; el color de estado y el diagnóstico de la primera transición rota son Fase 2, tal como estaba planeado.
+- **El switcher entre embudos es Fase 3.** Hoy se navega por el índice. El sidebar muestra una entrada única "Embudos", no una por instancia.
+- **`lib/funnels/resolve.ts` no tiene tests** — es el ítem `[T-6]` del nuevo backlog, y el primero que conviene tomar porque obliga a construir el helper de mock de Supabase que después reusa todo el resto.
+- **`conversations_replied` trae todas las filas y filtra en memoria** porque `jsonb_array_length` no se expresa bien en el query builder. Con volúmenes grandes conviene moverlo a una RPC.
+- El add-on `embudos` tiene que activarse por org desde super-admin para que el módulo aparezca en el sidebar.
+
+---
+
 ### 2026-08-29 — FEAT-TESTING-VITEST + FUNNELS-CONFORMANCE: Vitest en el monorepo y tests de conformidad de embudos
 
 **Rama/branch:** `Claude-New-Features`  

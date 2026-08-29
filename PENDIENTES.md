@@ -9,6 +9,16 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [DB-EMBUDOS] Aplicar migración de embudos en Supabase
+
+**Qué es:** `supabase/migrations/20260829120000_funnels_phase1.sql` crea `funnel_instances`, `funnel_step_bindings`, `funnel_benchmarks` y `funnel_period_snapshots` con sus RLS.
+
+**Efecto si no se aplica:** `/funnels` falla al consultar tablas inexistentes.
+
+**Acción:** `supabase db push`, o pegar el SQL en el Dashboard → SQL Editor. Después, activar el add-on `embudos` para la org desde super-admin para que el módulo aparezca en el sidebar.
+
+---
+
 ~~### [DB-PLANES] Aplicar migración de tabla plans en Supabase~~ ✅ Completado 2026-08-26
 
 ---
@@ -51,7 +61,7 @@
 
 **Fases:**
 1. ~~**Fase 0** — Normalizar el documento a schema~~ ✅ **Completada 2026-08-29.** `lib/funnels/` con spine, tipos, las 3 plantillas, KPIs universales, health bands, instrumentación y validador. Typecheck + lint limpios, validador con 0 problemas. **Pendiente: revisión de Santiago del schema antes de arrancar la Fase 1.**
-2. **Fase 1** — Instancias + resolver + página genérica `/funnels/[id]` con el embudo **DM** end-to-end (el único construible con las fuentes actuales).
+2. ~~**Fase 1** — Instancias + resolver + página genérica~~ ✅ **Completada 2026-08-29.** Migración, catálogo de fuentes, capa pura de cálculo, resolver contra Supabase, Server Actions, índice y detalle genérico. **Pendiente: aplicar la migración `20260829120000_funnels_phase1.sql` en Supabase y activar el add-on `embudos` en la org.**
 3. **Fase 2** — Health bands con precedencia de 3 niveles + `diagnoseFunnel()` (primera transición rota). **Es el diferencial del módulo.**
 4. **Fase 3** — Switcher + segunda y tercera instancia. **Bloqueada por el track de integraciones.**
 5. **Fase 4** — KPIs universales + `/funnels/comparar` con agrupación por price point.
@@ -61,7 +71,7 @@
 
 **Deuda a resolver en el camino:** tabla propia `funnel_period_snapshots` (`metrics_snapshots` no sirve — su UNIQUE colisiona con varias instancias por org); `resolveSourceValue` necesita ventana temporal; no existe timezone de reporte por org.
 
-**Testing:** ✅ Vitest incorporado al monorepo (2026-08-29). 153 tests de conformidad verifican las plantillas contra el documento fuente. Cuando llegue una versión nueva del documento, actualizar `lib/funnels/__tests__/document-fixture.ts` primero y dejar que los tests señalen qué plantillas quedaron atrás.
+**Testing:** ✅ Vitest incorporado al monorepo (2026-08-29) y CI corriendo `pnpm test` en cada push. El backlog completo de tests pendientes del repo está en [`docs/TESTING_BACKLOG.md`](./docs/TESTING_BACKLOG.md) — 24 ítems priorizados, pensados para que los tome un agente tester. 153 tests de conformidad verifican las plantillas contra el documento fuente. Cuando llegue una versión nueva del documento, actualizar `lib/funnels/__tests__/document-fixture.ts` primero y dejar que los tests señalen qué plantillas quedaron atrás.
 
 ---
 
@@ -143,15 +153,6 @@
 
 
 
-
-### [TECH-CI] Workflow de CI que corra typecheck + lint + test
-
-**Qué es:** Ahora que el monorepo tiene Vitest (`pnpm test`), falta un workflow de GitHub Actions que lo ejecute en cada push junto con `pnpm typecheck` y `pnpm lint`. Hoy los tests corren sólo cuando alguien los invoca a mano, así que una regresión puede llegar a `main` sin que nadie se entere.
-
-**Acción:** crear `.github/workflows/ci.yml` con los tres pasos sobre Node 20+ y pnpm 9.  
-**Complejidad:** Baja
-
----
 
 ### [TECH-4] VSL Player placeholder en landing
 
