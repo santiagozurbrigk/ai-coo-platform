@@ -14,6 +14,42 @@
 
 ---
 
+### 2026-08-29 — DOC-FUNNELS-ARCHITECTURE: análisis y arquitectura de embudos intercambiables
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `docs/FUNNELS_ARCHITECTURE.md` (nuevo) — sin cambios de código
+
+**Qué se hizo:**
+- Análisis a fondo del documento fuente `Funnel Metrics Standard v1.0` (HTML aportado por Santiago) y creación de `docs/FUNNELS_ARCHITECTURE.md` como referencia de implementación del futuro módulo de Embudos.
+- **Lectura estructural del documento:** se identificó que no es material de lectura sino un schema con datos semilla — los tres embudos (Webinar, VSL book-a-call, DM) son instancias de un mismo tipo colapsables a las mismas 7 etapas del "spine".
+- **Normalización del modelo:** se documentaron las ambigüedades que el HTML esconde y su resolución — spine disperso (el VSL no tiene etapa Lead; ninguno tiene fila de Spend), relación step→stage N:1 ordenada, la columna "Healthy range" no es legible por máquina (5 formatos distintos), el denominador es parte de la identidad de la métrica (2–6% sobre asistentes vs 1–3% sobre registrantes es el mismo evento), y precedencia de benchmark de 3 niveles (plantilla → override por oferta → baseline propio a 30 días).
+- **Arquitectura de 5 capas:** definición (plantillas en TS), instancia (DB por org), resolver, evaluación, presentación. Se definieron los tipos núcleo (`SPINE_STAGES`, `FunnelTemplate`, `FunnelStep`, `MetricDefinition`, `Benchmark`, `FunnelInstance`, `ResolvedMetric`).
+- **Mapeo del spine a fuentes reales de OTC:** 5 de 7 etapas están cubiertas hoy; los huecos son la etapa Engaged de Webinar (show-up/stick rate) y de VSL (play rate/watch %).
+- **Resolución del switcher de vistas** (§6): segmento dinámico `/funnels/[funnelId]` como única fuente de verdad, sin cookie de estado, con índice real en `/funnels`, sidebar dinámico por instancia, switcher con indicador de salud y período persistente entre embudos.
+- **Registro de las 7 decisiones cerradas** por Santiago en §1, y del track de integraciones bloqueante en §7.
+
+**Por qué / finalidad:**
+Santiago va a aportar más documentos, uno por tipo de embudo, y necesita que el software permita al usuario intercambiar entre "vistas" de embudos según su conveniencia, cada una con su estructura propia. El análisis previo evita construir N módulos acoplados: la conclusión central es un motor genérico + N definiciones declarativas, donde agregar un tipo de embudo es agregar un archivo de plantilla sin migración ni componentes nuevos.
+
+**Decisiones de diseño relevantes:**
+- **Plantillas en código, no en DB.** Agregar un embudo = archivo nuevo + typecheck, con historial de git y revisión por PR. La DB guarda solo lo específico de cada org (instancias, bindings, overrides, series). Mismo patrón que `METRIC_SOURCES` y `ADD_ON_IDS`.
+- **Embudos como capa de medición, no contenedor** (Lectura A). Marketing/Ventas/Finanzas siguen operativos; el embudo los cruza, no los contiene. El resolver igual lleva `funnelInstanceId` desde el día uno para que un futuro contexto global sea extensión y no reescritura.
+- **Switcher por URL y no por cookie.** La cookie del holding es correcta ahí porque la org activa sí es contexto global; el embudo activo no lo es. URL habilita deep-linking desde el diagnóstico, cache RSC granular y `revalidatePath` por instancia.
+- **Varias instancias por oferta**, porque el documento prohíbe explícitamente comparar una oferta de $27 con una de $5k — `price_point` y `currency` son parte de la identidad de la instancia.
+- **Fidelidad total al documento** en atribución (Hyros), timezone de reporte (EST) y etiquetado de procedencia (`[Meta]` / `[Hyros]`).
+
+**Riesgos / deuda técnica pendiente:**
+- **Riesgo principal — `null` vs `0`:** si el resolver devuelve 0 por ausencia de datos, el diagnóstico señala como "roturas" lo que son huecos de instrumentación, y el founder pierde confianza en el módulo. `ResolvedMetric.value` es `number | null` y la UI distingue 3 estados (etapa salteada / sin datos / bajo el piso).
+- **Integraciones bloqueantes:** Hyros, WebinarJam/Zoom y hosting de VSL con analytics no existen en OTC. Sin ellas, 2 de los 3 embudos del documento nacen con su etapa central vacía. El track corre en paralelo y debe aterrizar antes de la Fase 3. Queda abierta la decisión de qué proveedor de video se soporta para el VSL.
+- **`metrics_snapshots` no sirve tal cual:** su `CHECK (category IN ('sales','finance'))` no contempla embudos y su `UNIQUE (organization_id, category, period_start)` colisiona con varias instancias por org en el mismo período. Se necesita tabla propia `funnel_period_snapshots`.
+- **Sin snapshot no hay historia de Spend:** los ads de Zernio son live fetch por convención del repo, así que el Spend histórico no es reconstruible. La tabla de snapshots tiene que existir desde la Fase 1 aunque el job llegue en la Fase 5.
+- **`custom_metrics` no tiene noción de período** — `resolveSourceValue` cuenta sobre toda la historia de la org; hay que extender la firma, no duplicar.
+- No existe timezone de reporte por org en OTC.
+- Deriva plantilla/documento: cada `FunnelTemplate` lleva `sourceDocVersion` para detectar cuando el documento fuente avanza y la plantilla no.
+
+---
+
 ### 2026-08-26 — FEAT-GHL-MULTI-CALENDAR: soporte de múltiples calendarios en integración GHL
 
 **Rama/branch:** `claude/ghl-integration-data-loading-9cd72n`  

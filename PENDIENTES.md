@@ -43,6 +43,43 @@
 
 ## 🟣 Nuevos Features — Implementar cuando Santiago lo indique
 
+### [FEAT-EMBUDOS] Módulo de Embudos — motor genérico + plantillas por tipo de funnel
+
+**Qué es:** Módulo de medición que permite al usuario intercambiar entre "vistas" de embudos (Webinar, VSL book-a-call, DM, y los que vengan), cada uno con su estructura, sobre un spine universal de 7 etapas. Análisis completo y decisiones cerradas en **[`docs/FUNNELS_ARCHITECTURE.md`](./docs/FUNNELS_ARCHITECTURE.md)** — leer antes de implementar.
+
+**Principio no negociable:** un tipo de embudo es un dato, no un módulo. Agregar un embudo nuevo = agregar un archivo de plantilla en TS. Si hace falta escribir un componente, la arquitectura falló.
+
+**Fases:**
+1. **Fase 0** — Normalizar el documento a schema: `lib/funnels/spine.ts`, `types.ts`, las 3 plantillas, `kpis.ts`, `health-bands.ts`. Sin UI, sin DB. *(Barata, elimina casi toda la ambigüedad — revisar con Santiago antes de tocar DB.)*
+2. **Fase 1** — Instancias + resolver + página genérica `/funnels/[id]` con el embudo **DM** end-to-end (el único construible con las fuentes actuales).
+3. **Fase 2** — Health bands con precedencia de 3 niveles + `diagnoseFunnel()` (primera transición rota). **Es el diferencial del módulo.**
+4. **Fase 3** — Switcher + segunda y tercera instancia. **Bloqueada por el track de integraciones.**
+5. **Fase 4** — KPIs universales + `/funnels/comparar` con agrupación por price point.
+6. **Fase 5** — Snapshots periódicos + pulso diario.
+
+**Riesgo principal:** el resolver nunca debe devolver `0` por ausencia de datos. Si lo hace, el diagnóstico marca huecos de instrumentación como roturas de negocio y el founder pierde confianza en el módulo. `ResolvedMetric.value` es `number | null` y la UI distingue etapa salteada / sin datos / bajo el piso.
+
+**Deuda a resolver en el camino:** tabla propia `funnel_period_snapshots` (`metrics_snapshots` no sirve — su UNIQUE colisiona con varias instancias por org); `resolveSourceValue` necesita ventana temporal; no existe timezone de reporte por org.
+
+---
+
+### [FEAT-EMBUDOS-INTEGRACIONES] Track de integraciones bloqueante para Embudos
+
+**Qué es:** Santiago definió que las etapas de Webinar y VSL se llenan **sí o sí con integración** (sin input manual como salida) y que la atribución sigue tal cual asume el documento fuente. Eso convierte estas integraciones en prerrequisito de la Fase 3 de `[FEAT-EMBUDOS]`, no en mejora futura.
+
+| Integración | Alimenta | Bloquea |
+|---|---|---|
+| **Hyros** | Atribución real, ROAS by-source, EPL, journeys | Etiquetado `[Hyros]`, KPIs universales |
+| **WebinarJam / Zoom** | Show-up rate, stick rate, CTA clicks | Embudo Webinar entero (etapa Engaged) |
+| **Hosting de VSL con analytics** | Play rate, avg watch % | Embudo VSL (etapa Engaged) |
+| Scoring de calificación | Qualified rate de aplicaciones | Etapa Intent del VSL |
+
+**Decisión abierta:** qué proveedor de hosting de video se soporta para el VSL (Wistia, Vimeo, YouTube, player propio). Cada uno tiene un modelo de analytics distinto — hay que resolverlo antes de escribir el binding de la etapa Engaged.
+
+**Nota:** Whop / Fanbasis del documento quedan cubiertos por los equivalentes que OTC ya tiene (Stripe + Mercado Pago). No bloquean.
+
+---
+
 ### [FEAT-GHL-OAUTH] GHL OAuth / Marketplace App — migrar de Private Integration Token a OAuth
 
 **Qué es:** Cuando OTC sea aprobado como app en el GHL Marketplace, reemplazar el flujo de Private Integration Token por OAuth estándar ("Connect with GHL"). El proceso de aprobación de GHL es lento.
