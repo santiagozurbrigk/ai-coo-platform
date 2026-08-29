@@ -30,7 +30,7 @@ export function trialReelsDoneEmailTemplate(params: TrialReelsDoneEmailParams): 
           <!-- Header -->
           <tr>
             <td style="background:${brandColors.primary};padding:28px 32px;">
-              <p style="margin:0;color:#ffffff;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;opacity:0.8;">${brand.wordmark} · Trial Reels</p>
+              <p style="margin:0;color:#000000;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;opacity:0.75;">${brand.wordmark} · Trial Reels</p>
               <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;line-height:1.3;">
                 ${allOk ? "Tus reels están en Zernio" : "Publicación completada"}
               </h1>
@@ -72,7 +72,7 @@ export function trialReelsDoneEmailTemplate(params: TrialReelsDoneEmailParams): 
                 <tr>
                   <td align="center">
                     <a href="${appUrl}/marketing/content"
-                       style="display:inline-block;background:${brandColors.primary};color:#ffffff;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;text-decoration:none;">
+                       style="display:inline-block;background:${brandColors.primary};color:#000000;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;text-decoration:none;">
                       Ver en ${brand.name}
                     </a>
                   </td>
