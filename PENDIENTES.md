@@ -1,4 +1,4 @@
-# PENDIENTES.md — Backlog de trabajo pendiente en OTC
+# PENDIENTES.md — Backlog de trabajo pendiente en Limitless
 
 > **Para Claude Code y cualquier asistente IA:**  
 > Leer este archivo junto con `CHANGES.md` al inicio de cada sesión.  
@@ -95,6 +95,79 @@
 - ¿Dónde vive en el producto? (¿tab en Marketing? ¿módulo separado?)
 - ¿La IA genera un reporte periódico o es on-demand?
 - ¿Cuántos competidores por org?
+
+---
+
+## 🔵 Rebranding Limitless — Fase 2 (identidad visual)
+
+> La fase 1 (renombre + centralización) está hecha — ver `CHANGES.md` 2026-08-29.
+> La app ya dice "Limitless" en todos lados, pero **sigue mostrando el logo y la paleta de OTC**.
+> Todo lo de abajo se resuelve tocando **solo** `apps/web/lib/brand.ts`,
+> `packages/ui/src/styles/tokens.css`, `apps/web/app/layout.tsx` y los archivos de `public/brand/`.
+> Ningún componente necesita cambios.
+
+### [BRAND-1] Conseguir el manual de marca en formato legible
+
+**Qué es:** el manual vive en Drive (`IDENTIDAD LIMITLESS / MANUAL DE MARCA / Manual de marca LIMITLESS (1).pdf`)
+pero son 61 MB sin capa de texto — el entorno de Claude Code no puede leerlo ni descargarlo.
+
+**Acción:** exportar las páginas de paleta y tipografía como PNG/JPG a una carpeta del mismo Drive
+(Claude sí puede leer imágenes), o pegar directamente los hex y los nombres de las tipografías.
+**Bloquea:** BRAND-2, BRAND-3.
+**Quién:** Santiago.
+
+### [BRAND-2] Aplicar la paleta de Limitless
+
+**Qué es:** los violetas actuales (`#7C3AED` y derivados) son placeholder de la identidad anterior.
+
+**Acción:**
+1. `packages/ui/src/styles/tokens.css` — reemplazar `--primary`, `--primary-light`, `--primary-hover`,
+   `--primary-subtle`, `--primary-glow`, `--primary-border`, `--ring`, `--ai*` y `--sidebar-foreground-active`
+   en los bloques `:root` **y** `.dark`.
+2. `apps/web/lib/brand.ts` — actualizar `brandColors` con los mismos valores en hex
+   (lo usan charts, estilos inline y emails, que no pueden leer CSS vars).
+3. `apps/web/app/globals.css` — revisar los tokens `--color-accent*` y `--chart-*`.
+4. `DESIGN.md` — reescribir las tablas de paleta y sacar el aviso de "rebranding en curso".
+
+**Depende de:** BRAND-1.
+
+### [BRAND-3] Reemplazar los assets visuales
+
+**Qué es:** `public/brand/` todavía tiene el logo y los isotipos de OTC.
+
+**Acción:**
+- `public/brand/logo.png` — logo horizontal de Limitless (el actual pesa 1.3 MB, optimizar)
+- `public/brand/logo-icon.png` — isotipo cuadrado; después apuntar `brandAssets.logoIcon` ahí
+  (hoy cae de fallback en `logo.png`)
+- Borrar `ISOTIPO OTC BLANCO.png` / `ISOTIPO OTC NEGRO.png` (no se usan en código)
+- `apps/web/app/icon.svg` — favicon dibujado a mano (rect violeta + letra "M"); rehacer con el isotipo real
+- `public/favicon.ico`
+
+**Depende de:** BRAND-1.
+
+### [BRAND-4] Tipografía
+
+**Qué es:** sigue Inter + JetBrains Mono, cargadas con `next/font/google` en `app/layout.tsx`.
+
+**Acción:** si el manual define otras, cambiarlas ahí. Si no están en Google Fonts, usar `next/font/local`
+con los archivos en `apps/web/app/fonts/`. Los tokens `--font-sans` / `--font-mono` ya están conectados
+al preset de Tailwind, así que no hay que tocar componentes.
+
+**Depende de:** BRAND-1.
+
+### [BRAND-5] Dominio — fuera del alcance de la fase 1 (decisión de Santiago)
+
+**Qué es:** `optimizatucontrol.com` sigue en pie. Está centralizado en `brand.domain`, pero hay
+referencias sueltas fuera de ese campo:
+
+- `lib/utm/build-links.ts`, `components/marketing/utm-generator.tsx`, `components/settings/settings-form.tsx`
+- `app/(landing)/privacidad/page.tsx` — `CONTACT_EMAIL` y `APP_URL`
+- `mocks/utm-links.ts`
+- `lib/email/welcome-email.ts` — fallback `https://otc-plaform.vercel.app` (con el typo del original)
+- `app/api/queue/publish-reel-variation/route.ts` — fallback `https://app.otc.com`
+- `components/super-admin/infrastructure-page.tsx` — hostname de Vercel
+
+**Acción:** cuando se defina el dominio de Limitless, migrar DNS y actualizar estas referencias + `brand.domain`.
 
 ---
 

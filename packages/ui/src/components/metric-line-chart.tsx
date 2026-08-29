@@ -16,7 +16,7 @@ export interface MetricLineChartProps {
   startLabel?: string;
   /** Etiqueta derecha (fecha fin). Default "Hoy" */
   endLabel?: string;
-  /** Color línea principal. Default: violeta primario OTC */
+  /** Color línea principal. Default: violeta primario de marca */
   color?: string;
   className?: string;
 }

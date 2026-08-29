@@ -194,7 +194,7 @@ export const mockProductData: ProductData = {
           title: "Sistema de reportes del equipo",
           description: "Visibilidad operacional total",
         },
-        { title: "Acceso a software OTC", description: "6 meses incluidos" },
+        { title: "Acceso a software Limitless", description: "6 meses incluidos" },
       ],
       stats: {
         monthlyRevenue: "$12.000",

@@ -17,6 +17,7 @@ import {
   Label,
 } from "@ai-coo/ui";
 import { es } from "@/lib/locale/es";
+import { brand } from "@/lib/brand";
 
 const initialState: FathomConnectState = {};
 
@@ -41,7 +42,7 @@ const STEPS = [
     personal e interno)
   </>,
   <>
-    Poné el nombre <strong className="text-foreground/80">OTC Platform</strong> y
+    Poné el nombre <strong className="text-foreground/80">{brand.name} Platform</strong> y
     generá la key
   </>,
   <>Copiar la API key y pegarla abajo</>,

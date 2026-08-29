@@ -36,6 +36,7 @@ import { SignOutButton } from "./sign-out-button";
 import { PaymentPlatformsSettingsSection } from "./payment-platforms-settings-section";
 import { CloserCalendlySettings } from "./closer-calendly-settings";
 import { ThemeSelector } from "./theme-selector";
+import { brandColors } from "@/lib/brand";
 
 function getInitials(name: string): string {
   return name
@@ -413,7 +414,7 @@ export function SettingsForm({
               ) : (
                 <div
                   className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-base font-semibold text-white"
-                  style={{ backgroundColor: "#7C3AED" }}
+                  style={{ backgroundColor: brandColors.primary }}
                 >
                   {getInitials(displayName)}
                 </div>

@@ -4,6 +4,7 @@ import {
   integrationLogoSrc,
 } from "@/lib/integrations/brand-colors";
 import type { IntegrationProvider } from "@/constants/integrations";
+import { brand } from "@/lib/brand";
 
 const MAIN_INTEGRATIONS: { name: string; slug: IntegrationProvider }[] = [
   { name: "Calendly", slug: "calendly" },
@@ -91,7 +92,7 @@ export function IntegrationsSection() {
             INTEGRACIONES
           </div>
           <h2 className="mt-6 text-4xl font-black leading-[1] tracking-[-0.03em] md:text-6xl">
-            OTC funciona donde ya trabajás
+            {brand.name} funciona donde ya trabajás
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-base font-normal leading-relaxed text-white/60 md:text-lg">
             Conectamos las herramientas que ya usás para que tu negocio hable en
@@ -121,7 +122,7 @@ export function IntegrationsSection() {
           </p>
           <a
             href="#waitlist"
-            className="mt-6 inline-block rounded-full bg-[#7C3AED] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#6D28D9]"
+            className="mt-6 inline-block rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
           >
             Quiero mi lugar
           </a>

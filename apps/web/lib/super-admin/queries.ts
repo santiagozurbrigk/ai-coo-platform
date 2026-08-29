@@ -281,7 +281,7 @@ export async function loadAICostsSummary(): Promise<AICostsSummary> {
         orgName: orgNames.get(row.organizationId) ?? row.organizationId,
         aiKeySource: byokOrgIds.has(row.organizationId)
           ? ("byok" as const)
-          : ("otc" as const),
+          : ("platform" as const),
       }))
       .sort((a, b) => b.totalCost - a.totalCost),
     byModel: [...modelMap.values()].sort((a, b) => b.totalCost - a.totalCost),
@@ -363,7 +363,7 @@ export async function loadAiCostDashboard(): Promise<AdminAiCostDashboard> {
       marginUsd: row.estimatedMarginUsd,
       marginPercent:
         row.mrrUsd > 0 ? (row.estimatedMarginUsd / row.mrrUsd) * 100 : 0,
-      aiKeySource: aiCostRow?.aiKeySource ?? ("otc" as const),
+      aiKeySource: aiCostRow?.aiKeySource ?? ("platform" as const),
     };
   });
 

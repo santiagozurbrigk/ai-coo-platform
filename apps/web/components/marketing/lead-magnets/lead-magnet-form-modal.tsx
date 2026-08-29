@@ -13,6 +13,7 @@ import {
 } from "@/app/marketing/lead-magnets-actions";
 import { listAutomationFlowsAction } from "@/app/marketing/automations-actions";
 import { useToast } from "@/providers/toast-provider";
+import { brand } from "@/lib/brand";
 
 const TYPES: { value: LeadMagnetType; label: string }[] = [
   { value: "documento", label: "Documento / PDF" },
@@ -24,7 +25,7 @@ const TYPES: { value: LeadMagnetType; label: string }[] = [
 
 const CHANNELS: { value: LeadMagnetChannel; label: string; description: string }[] = [
   { value: "manychat", label: "ManyChat", description: "El LM se entrega por un flujo de ManyChat" },
-  { value: "instagram_dm", label: "DM Instagram", description: "Se envía por DM manualmente (OTC lo detecta automáticamente)" },
+  { value: "instagram_dm", label: "DM Instagram", description: `Se envía por DM manualmente (${brand.name} lo detecta automáticamente)` },
   { value: "typeform", label: "Typeform", description: "Se entrega al completar un formulario Typeform" },
   { value: "google_forms", label: "Google Forms", description: "Se entrega al completar un Google Form" },
   { value: "landing", label: "Landing page", description: "El LM es o está en una landing page" },
@@ -260,7 +261,7 @@ export function LeadMagnetFormModal({
                   {channel === "instagram_dm" && (
                     <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 mb-2">
                       <p className="text-xs text-primary/90 leading-relaxed">
-                        OTC detecta automáticamente cuando enviás este link en tus DMs de Instagram y registra al lead.
+                        {brand.name} detecta automáticamente cuando enviás este link en tus DMs de Instagram y registra al lead.
                       </p>
                     </div>
                   )}

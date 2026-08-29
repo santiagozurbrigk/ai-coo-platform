@@ -17,6 +17,7 @@ import type {
   DiscordPendingLink,
   MonitoredChannel,
 } from "@/types/discord";
+import { brand } from "@/lib/brand";
 
 type Props = {
   integration: DiscordIntegration;
@@ -121,7 +122,7 @@ export function DiscordSettings({
   clients,
 }: Props) {
   const { push } = useToast();
-  const [botName, setBotName] = useState(integration.bot_name ?? "Asistente OTC");
+  const [botName, setBotName] = useState(integration.bot_name ?? `Asistente ${brand.name}`);
   const [autoPattern, setAutoPattern] = useState(
     integration.auto_monitor_pattern ?? "cliente-"
   );
@@ -183,7 +184,7 @@ export function DiscordSettings({
           <input
             value={botName}
             onChange={(e) => setBotName(e.target.value)}
-            placeholder="Asistente OTC"
+            placeholder={`Asistente ${brand.name}`}
             className="h-9 flex-1 rounded-lg border border-border/60 bg-muted/20 px-3 text-sm"
           />
           <Button size="sm" disabled={saving} onClick={saveBotName}>

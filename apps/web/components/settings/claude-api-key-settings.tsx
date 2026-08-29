@@ -12,6 +12,7 @@ import {
 import { FieldLabel } from "./field-label";
 import { SectionHeader } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
+import { brand } from "@/lib/brand";
 
 export function ClaudeApiKeySettings({
   initialStatus,
@@ -62,7 +63,7 @@ export function ClaudeApiKeySettings({
   const handleRemove = () => {
     if (
       !window.confirm(
-        "¿Eliminar tu API key? OTC volverá a usar la key global para IA."
+        `¿Eliminar tu API key? ${brand.name} volverá a usar la key global para IA.`
       )
     ) {
       return;
@@ -85,7 +86,7 @@ export function ClaudeApiKeySettings({
       });
       push({
         title: "API key eliminada",
-        description: "Volviste a usar la key de OTC para IA.",
+        description: `Volviste a usar la key de ${brand.name} para IA.`,
         variant: "success",
       });
     });
@@ -200,7 +201,7 @@ export function ClaudeApiKeySettings({
               Conectá tu API key de Claude
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Las funciones de IA de OTC usan tu cuenta de Anthropic. Creá una
+              Las funciones de IA de {brand.name} usan tu cuenta de Anthropic. Creá una
               key en la consola y pegala acá.
             </p>
             <Link

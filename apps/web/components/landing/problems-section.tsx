@@ -1,3 +1,6 @@
+import { brand } from "@/lib/brand";
+
+
 const PAINS = [
   {
     title: "No sabés qué está pasando en tu negocio",
@@ -40,7 +43,7 @@ export function ProblemsSection() {
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/60 md:text-lg">
             Cada área de tu negocio corriendo sola, sin datos claros, sin visión
-            unificada. OTC las conecta todas.
+            unificada. {brand.name} las conecta todas.
           </p>
         </div>
 
@@ -60,7 +63,7 @@ export function ProblemsSection() {
         <div className="mt-8 text-center">
           <a
             href="#agendar"
-            className="inline-block rounded-full bg-[#7C3AED] px-8 py-4 text-base font-semibold text-white transition-colors hover:bg-[#6D28D9]"
+            className="inline-block rounded-full bg-primary px-8 py-4 text-base font-semibold text-white transition-colors hover:bg-primary-hover"
           >
             Empezá gratis ahora
           </a>

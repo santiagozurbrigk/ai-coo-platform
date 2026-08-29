@@ -7,6 +7,7 @@ import { Panel } from "@/components/shared/panel";
 import { paths } from "@/routes";
 import type { ZernioAnalyticsSummary } from "@/app/integrations/zernio/actions";
 import { RingDistributionChart } from "@/components/charts/platform/ring-distribution-chart";
+import { brandColors } from "@/lib/brand";
 
 export function ZernioAnalyticsSection({
   analytics,
@@ -46,7 +47,7 @@ export function ZernioAnalyticsSection({
       : "0.0";
 
   const slices = [
-    { label: "Impresiones", value: totalImpressions, color: "#7C3AED" },
+    { label: "Impresiones", value: totalImpressions, color: brandColors.primary },
     { label: "Likes", value: totalLikes, color: "#E11D48" },
     { label: "Comentarios", value: totalComments, color: "#0F6E56" },
   ].filter((s) => s.value > 0);
@@ -71,7 +72,7 @@ export function ZernioAnalyticsSection({
         {/* Detalle por métrica */}
         <div className="space-y-3">
           {[
-            { label: "Impresiones", value: totalImpressions, color: "#7C3AED" },
+            { label: "Impresiones", value: totalImpressions, color: brandColors.primary },
             { label: "Likes", value: totalLikes, color: "#E11D48" },
             { label: "Comentarios", value: totalComments, color: "#0F6E56" },
           ].map(({ label, value, color }) => {

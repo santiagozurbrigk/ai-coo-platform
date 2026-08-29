@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { cn } from "@ai-coo/ui";
-import { brandAssets } from "@/lib/brand";
+import { brand, brandAssets } from "@/lib/brand";
 import { paths } from "@/routes";
 
 type AppLogoDisplay = "default" | "sidebar" | "hero" | "compact" | "login";
@@ -58,7 +58,7 @@ export function AppLogo({
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
-      alt="OTC"
+      alt={brand.name}
       className={cn(preset.img, className)}
       style={
         useFixedHeight

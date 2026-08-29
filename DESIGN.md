@@ -1,4 +1,4 @@
-# OTC — Design System Reference
+# Limitless — Design System Reference
 
 > **Fuente de verdad para agentes de IA, diseño y desarrollo UI.**  
 > Extraído de `packages/ui/src/styles/tokens.css`, `packages/config/tailwind/preset.ts`, `apps/web/app/layout.tsx` y `apps/web/app/globals.css`. No inventar valores fuera de este documento.
@@ -7,7 +7,8 @@
 
 ## Reglas explícitas
 
-1. **Acento primario único:** `hsl(258 84% 58%)` / `#7C3AED` — no usar azules genéricos de shadcn, verdes como primario, ni paletas “startup template”.
+1. **Acento primario único:** definido por el token `--primary` en `packages/ui/src/styles/tokens.css`. **No hardcodear hex de marca** — usar las clases de Tailwind de la escala `primary` (`bg-primary`, `text-primary-light`, `bg-primary-hover`, `border-primary`) o, cuando el contexto no puede leer CSS vars (props de charts, estilos inline, HTML de emails), `brandColors` de `apps/web/lib/brand.ts`.
+   > ⚠️ **Rebranding Limitless en curso.** Los valores violeta documentados abajo (`#7C3AED` y derivados) son de la identidad anterior (OTC) y siguen activos como placeholder. Al aplicar la paleta de Limitless se cambian **solo** en `tokens.css` y `lib/brand.ts` (`brandColors`), y se actualiza esta tabla. Ningún componente necesita tocarse.
 2. **No inventar chrome inexistente:** la app no tiene breadcrumbs globales, buscador universal en topbar, ni navegación que no esté en el sidebar actual.
 3. **Modo oscuro por defecto:** el script en `layout.tsx` aplica `.dark` salvo `localStorage.theme === 'light'`.
 4. **Superficies glass:** en dark mode usan `backdrop-blur` + bordes `white/8%`; en light son cards sólidas blancas.

@@ -6,6 +6,7 @@ import { Grid } from "@/components/charts/grid";
 import { XAxis } from "@/components/charts/x-axis";
 import { ChartTooltip } from "@/components/charts/tooltip";
 import { ChartWrapper, CHART_MIN_HEIGHT } from "@/components/charts/platform/chart-wrapper";
+import { brandColors } from "@/lib/brand";
 
 const WEEK_LABELS = Array.from({ length: 8 }, (_, i) => `Sem ${i + 1}`);
 
@@ -81,7 +82,7 @@ export function CloserEvolutionChart({
           />
           <Line
             dataKey="closer"
-            stroke="#a78bfa"
+            stroke={brandColors.primaryLight}
             strokeWidth={2.5}
             showMarkers
             showHighlight

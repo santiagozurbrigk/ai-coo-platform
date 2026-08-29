@@ -1,4 +1,5 @@
 import { Play } from "lucide-react";
+import { brand } from "@/lib/brand";
 
 const VSL_URL = process.env.NEXT_PUBLIC_VSL_URL?.trim();
 
@@ -21,7 +22,7 @@ export function VslPlayer() {
         <div className="relative aspect-video w-full">
           <iframe
             src={embedUrl(VSL_URL)}
-            title="Cómo funciona Optimiza Tu Control"
+            title={`Cómo funciona ${brand.name}`}
             className="absolute inset-0 h-full w-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen

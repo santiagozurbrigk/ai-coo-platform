@@ -7,7 +7,7 @@ import { getStoredUtmData } from "@/components/landing/utm-capture";
 type State = "idle" | "loading" | "success" | "error";
 
 const inputClass =
-  "landing-glass-input h-12 w-full rounded-xl text-white placeholder:text-white/30 focus-visible:ring-[#7C3AED]";
+  "landing-glass-input h-12 w-full rounded-xl text-white placeholder:text-white/30 focus-visible:ring-primary";
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -168,7 +168,7 @@ export function ConfirmTrialForm() {
         <Button
           type="submit"
           disabled={state === "loading"}
-          className="mt-2 h-12 w-full rounded-full bg-[#7C3AED] text-sm font-semibold text-white transition-colors hover:bg-[#6D28D9] disabled:opacity-60"
+          className="mt-2 h-12 w-full rounded-full bg-primary text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-60"
         >
           {state === "loading" ? "Confirmando…" : "Confirmar mi prueba gratis"}
         </Button>

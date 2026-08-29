@@ -21,6 +21,7 @@
   --primary-light: 258 91% 76%;
   --primary-subtle: 250 100% 97%;
   --primary-glow: 258 60% 45%;
+  --primary-hover: 263 70% 50%;
   --primary-border: 258 45% 75%;
 
   --success: 142 76% 36%;
@@ -161,6 +162,7 @@
   --primary-light: 258 91% 76%;
   --primary-subtle: 258 50% 18%;
   --primary-glow: 258 60% 45%;
+  --primary-hover: 263 70% 50%;
   --primary-border: 258 45% 35%;
 
   --success: 160 84% 39%;

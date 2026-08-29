@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { cn } from "@ai-coo/ui";
-import { brandAssets } from "@/lib/brand";
+import { brand, brandAssets } from "@/lib/brand";
 import { getPageMeta } from "@/lib/navigation/page-meta";
 
 export function AppBrandHeader({ className }: { className?: string }) {
@@ -14,13 +14,13 @@ export function AppBrandHeader({ className }: { className?: string }) {
       {/* eslint-disable-next-line @next/next/no-img-element -- logo estático en /public */}
       <img
         src={brandAssets.logo}
-        alt="OTC"
+        alt={brand.name}
         width={32}
         height={32}
         className="h-8 w-8 shrink-0 rounded-lg object-contain"
       />
       <p className="min-w-0 truncate text-sm font-medium leading-none text-foreground">
-        <span className="font-semibold tracking-tight">OTC</span>
+        <span className="font-semibold tracking-tight">{brand.name}</span>
         <span className="mx-1.5 text-muted-foreground">|</span>
         <span className="font-normal text-foreground/90">{title}</span>
       </p>

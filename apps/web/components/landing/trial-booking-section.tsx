@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Image from "next/image";
+import { brand } from "@/lib/brand";
 
 function CalendlyWidget() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -61,11 +62,11 @@ export function TrialBookingSection() {
           <h2 className="mt-6 text-4xl font-black leading-[1] tracking-[-0.03em] md:text-6xl">
             Agendá tu sesión
             <br />
-            <span className="text-[#7C3AED]">de onboarding gratis</span>
+            <span className="text-primary">de onboarding gratis</span>
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/60 md:text-lg">
             Es una videollamada de 30 minutos. Conectamos tus herramientas en vivo
-            y te dejamos 3 días de acceso completo a OTC, sin tarjeta de crédito.
+            y te dejamos 3 días de acceso completo a {brand.name}, sin tarjeta de crédito.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-4">

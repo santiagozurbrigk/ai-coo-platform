@@ -10,6 +10,7 @@ import { TrendLineChart } from "@/components/charts/platform";
 import { ChartShell } from "@/components/charts/platform/chart-shell";
 import type { FrequentObjectionsResult } from "@/types/sales";
 import { cn } from "@/lib/utils";
+import { brandColors } from "@/lib/brand";
 
 type RangeOption = "7d" | "30d" | "90d" | "todo";
 
@@ -67,7 +68,7 @@ export function SalesMetricsPageContent({
     const ghosted = convs.filter((c) => c.status === "ghosted").length;
     const closed = convs.filter((c) => c.status === "closed").length;
     return [
-      { label: "Activas", value: active, color: "#7C3AED" },
+      { label: "Activas", value: active, color: brandColors.primary },
       { label: "Agendadas", value: booked, color: "#10b981" },
       { label: "Ghosted", value: ghosted, color: "#f59e0b" },
       { label: "Cerradas", value: closed, color: "#64748b" },

@@ -16,6 +16,7 @@ import {
 import type { ContentAssetView } from "@/app/marketing/actions";
 import { UTM_CONTENT_OPTIONS } from "@/types/utm";
 import type { UTMLinkRow } from "@/types/utm";
+import { brand } from "@/lib/brand";
 
 const SELECT_CLASS =
   "flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm dark:border-white/[0.08] dark:bg-[#1A1A1A]";
@@ -346,7 +347,7 @@ export function UTMGenerator({
             </div>
             <p className="text-[11px] text-muted-foreground">
               Cuando el lead clickea este link, se abre tu DM de Instagram
-              directamente. OTC detecta automáticamente que vino de este video.
+              directamente. {brand.name} detecta automáticamente que vino de este video.
             </p>
           </div>
         ) : null}

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { brandAssets } from "@/lib/brand";
+import { brand, brandAssets } from "@/lib/brand";
 
 const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1];
 const EASE_IN_OUT: [number, number, number, number] = [0.4, 0, 0.2, 1];
@@ -95,7 +95,7 @@ export function CinematicWelcome({
             ease: EASE_OUT,
           }}
         >
-          Optimiza Tu Control
+          {brand.name}
         </motion.p>
       </motion.div>
     </motion.div>

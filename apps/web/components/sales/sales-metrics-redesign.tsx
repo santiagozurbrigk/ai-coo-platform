@@ -70,7 +70,7 @@ export function SalesMetricsRedesign({
 
   // ── Fallback: usar snapshot más reciente cuando no hay datos en vivo ──────
   // perfMetrics viene de closing_calls/conversations; si el usuario no tiene
-  // datos operativos cargados en OTC, todas las métricas son 0.
+  // datos operativos cargados en Limitless, todas las métricas son 0.
   // En ese caso usamos el snapshot importado más reciente como fuente.
   const latestSnapshot = importedSnapshots[0] ?? null; // ordenados desc por period_start
   const liveDataIsEmpty =

@@ -1,3 +1,6 @@
+import { brand } from "@/lib/brand";
+
+
 const STEPS = [
   {
     number: "1",
@@ -9,12 +12,12 @@ const STEPS = [
     number: "2",
     label: "EN LA SESIÓN",
     title: "Conectamos todo juntos",
-    desc: "En la videollamada conectamos tus integraciones: Calendly, Instagram vía Zernio, gastos y tu equipo. En 30 min tenés OTC funcionando con datos reales de tu negocio.",
+    desc: `En la videollamada conectamos tus integraciones: Calendly, Instagram vía Zernio, gastos y tu equipo. En 30 min tenés ${brand.name} funcionando con datos reales de tu negocio.`,
   },
   {
     number: "3",
     label: "3 DÍAS COMPLETOS",
-    title: "Usás OTC con acceso total",
+    title: `Usás ${brand.name} con acceso total`,
     desc: "Desde el momento del onboarding tenés 3 días de acceso completo. Ventas, clientes, marketing, finanzas, agente IA. Todo desbloqueado, sin tarjeta.",
   },
 ] as const;
@@ -30,7 +33,7 @@ export function HowItWorksSection() {
           <h2 className="mt-6 text-4xl font-black leading-[1] tracking-[-0.03em] md:text-6xl">
             De cero a operativo
             <br />
-            <span className="text-[#7C3AED]">en 30 minutos</span>
+            <span className="text-primary">en 30 minutos</span>
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-white/60 md:text-lg">
             No hay setup manual, no hay semana de integración. El onboarding es
@@ -59,7 +62,7 @@ export function HowItWorksSection() {
         <div className="mt-10 text-center">
           <a
             href="#agendar"
-            className="inline-block rounded-full bg-[#7C3AED] px-8 py-4 text-base font-semibold text-white transition-colors hover:bg-[#6D28D9]"
+            className="inline-block rounded-full bg-primary px-8 py-4 text-base font-semibold text-white transition-colors hover:bg-primary-hover"
           >
             Agendá tu sesión gratis
           </a>

@@ -1,3 +1,6 @@
+import { brand } from "@/lib/brand";
+
+
 const MODULES = [
   {
     icon: "◈",
@@ -78,11 +81,11 @@ export function WhatsIncludedSection() {
           <h2 className="mt-6 text-4xl font-black leading-[1] tracking-[-0.03em] md:text-6xl">
             Todo desbloqueado
             <br />
-            <span className="text-[#7C3AED]">desde el día 1</span>
+            <span className="text-primary">desde el día 1</span>
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-white/60 md:text-lg">
             No es un demo recortado. Los 3 días de prueba incluyen acceso completo a
-            todos los módulos de OTC.
+            todos los módulos de {brand.name}.
           </p>
         </div>
 

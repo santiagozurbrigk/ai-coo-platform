@@ -149,7 +149,7 @@ export type OrgAiCostRow = {
   totalMonthUsd: number;
   marginUsd: number;
   marginPercent: number;
-  aiKeySource: "byok" | "otc";
+  aiKeySource: "byok" | "platform";
 };
 
 export type ModelUsageRow = {
@@ -214,7 +214,7 @@ export type AICostsSummary = {
     outputTokens: number;
     cacheReadTokens: number;
     requests: number;
-    aiKeySource: "byok" | "otc";
+    aiKeySource: "byok" | "platform";
   }[];
   byModel: {
     model: string;

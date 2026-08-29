@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/providers/theme-provider";
 import "./globals.css";
+import { brand } from "@/lib/brand";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -33,11 +34,10 @@ const themeInitScript = `
 
 export const metadata: Metadata = {
   title: {
-    template: "OTC | %s",
-    default: "OTC",
+    template: `${brand.name} | %s`,
+    default: brand.name,
   },
-  description:
-    "El sistema operativo con IA para negocios de infoproductos.",
+  description: brand.tagline,
   icons: {
     icon: "/brand/logo.png",
     apple: "/brand/logo.png",

@@ -73,6 +73,6 @@ export const mockIntegrations: Integration[] = [
     name: "ClickUp",
     status: "not_connected",
     description:
-      "Importá tus clientes desde ClickUp a OTC con mapeo inteligente de campos personalizados.",
+      "Importá tus clientes desde ClickUp a Limitless con mapeo inteligente de campos personalizados.",
   },
 ];

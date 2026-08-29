@@ -4,6 +4,7 @@ import type { ElementType, ReactNode } from "react";
 import { cn, GlassPanel } from "@ai-coo/ui";
 import { SparklineChart } from "@/components/charts/platform";
 import { DeltaBadge } from "./delta-badge";
+import { brandColors } from "@/lib/brand";
 
 interface KpiHeroCardProps {
   label: string;
@@ -94,7 +95,7 @@ export function KpiHeroCard({
         <div className="mt-auto h-14 w-full overflow-hidden">
           <SparklineChart
             data={sparkData}
-            color="#7C3AED"
+            color={brandColors.primary}
             aspectRatio="none"
             className="h-14 w-full"
           />

@@ -26,6 +26,11 @@ const preset: Partial<Config> = {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          light: "hsl(var(--primary-light))",
+          hover: "hsl(var(--primary-hover))",
+          subtle: "hsl(var(--primary-subtle))",
+          glow: "hsl(var(--primary-glow))",
+          border: "hsl(var(--primary-border))",
         },
         success: {
           DEFAULT: "hsl(var(--success))",

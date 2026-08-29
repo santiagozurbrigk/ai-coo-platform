@@ -1,4 +1,4 @@
-# CHANGES.md — Registro de cambios del monorepo OTC
+# CHANGES.md — Registro de cambios del monorepo Limitless
 
 > **Para Claude Code y cualquier asistente IA que trabaje en este repo:**
 >
@@ -13,6 +13,52 @@
 ## Historial de cambios
 
 ---
+
+### 2026-08-29 — REBRAND-LIMITLESS (fase 1): centralización de marca y renombre OTC → Limitless
+
+**Rama/branch:** `Claude-Design`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `lib/brand.ts`, `components/brand/*`, `app/layout.tsx`, `components/landing/*`, `components/welcome/`, `app/(landing)/privacidad/`, `lib/email/*`, `lib/agent/prompt.ts`, `lib/sops/utm-setup-sop.ts`, `packages/ui/src/styles/tokens.css`, `packages/config/tailwind/preset.ts`, `DESIGN.md`
+
+**Qué se hizo:**
+
+- **`lib/brand.ts` pasa a ser la fuente única de verdad de la identidad.** Antes solo exportaba `brandAssets` (rutas de logo). Ahora exporta además:
+  - `brand` — `name` ("Limitless"), `wordmark` ("LIMITLESS"), `legalName`, `tagline`, `domain`.
+  - `brandColors` — paleta hex para los contextos que **no** pueden leer CSS vars: props de color de charts (Visx), estilos inline y HTML de emails.
+- **Renombre completo OTC / "Optimiza Tu Control" → Limitless** en las 87 ocurrencias detectadas. Los strings de UI ahora referencian `brand.*` en lugar de literales; los comentarios, mocks y config se renombraron a texto plano.
+  - Metadata de Next (`layout.tsx` template `"Limitless | %s"`, landing, prueba, privacidad, redesign-preview)
+  - Landing completa (9 secciones + footer) y `cinematic-welcome`
+  - Emails Resend: waitlist, welcome, trial-reels (subjects, HTML y texto plano)
+  - System prompt del agente (`lib/agent/prompt.ts`) — antes decía "OTC (Operations & Technology Center)"
+  - Política de privacidad — 17 menciones
+  - Default del bot de Discord: "Asistente OTC" → "Asistente Limitless", sincronizado entre `apps/web` y `apps/discord-bot`
+- **Migración de color hardcodeado a tokens.** Había 73 hex de marca sueltos en 36 archivos:
+  - 40 clases Tailwind con valor arbitrario (`bg-[#7C3AED]`, `text-[#A78BFA]`, `bg-[#6D28D9]`…) → clases de la escala `primary`.
+  - 28 literales en JS (charts, estilos inline, emails) → `brandColors`.
+  - `packages/ui/src/components/bar-chart.tsx`: fallback `var(--chart-1, #7C3AED)` → `var(--chart-1, hsl(var(--primary)))` (packages/ui no puede importar de apps/web).
+- **Token nuevo `--primary-hover`** (`263 70% 50%` = `#6D28D9`) en light y dark: el violeta de hover/pressed no tenía token y se usaba hardcodeado en 7 lugares.
+- **Escala `primary` completa expuesta en el preset de Tailwind** (`light`, `hover`, `subtle`, `glow`, `border`). Antes solo había `DEFAULT` y `foreground`, y por eso el resto se escribía como valor arbitrario.
+
+**Por qué / finalidad:**
+
+Rebranding del software a la identidad Limitless. Esta fase cubre todo lo que **no** depende de la paleta ni de los assets visuales, que todavía no están disponibles (el manual de marca es un PDF de 61 MB sin capa de texto y el entorno no puede descargarlo). El objetivo es que la fase 2 —aplicar la identidad visual real— sea un cambio de dos archivos en lugar de un barrido por 36.
+
+**Decisiones de diseño relevantes:**
+
+- **Sin cambio visual en esta fase, a propósito.** Cada hex migrado se mapeó al token cuyo valor computado es idéntico (`#7C3AED` → `--primary`, `#A78BFA` → `--primary-light`, `#6D28D9` → `--primary-hover`). El render es byte a byte el mismo; lo único que cambió es de dónde sale el color.
+- **`brand.*` en lugar de literales, incluso para strings estáticos.** Agrega un import en ~30 archivos, pero un cambio de nombre o de casing pasa a ser una línea. Es el punto del ejercicio.
+- **Comentarios, mocks y config se renombraron a texto plano**, sin import: no son user-facing y no justifican la dependencia.
+- **Namespace del monorepo intacto.** `@ai-coo/*` y `ai-coo-platform` no se tocaron — decisión explícita del usuario. No es visible para el usuario final y renombrarlo implica ~200 imports y el lockfile.
+- **Dominio `optimizatucontrol.com` fuera de alcance**, también por decisión del usuario. Queda expuesto como `brand.domain` para que la migración futura sea un solo campo.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **Assets visuales sin reemplazar.** `public/brand/logo.png` (1.3 MB), los dos isotipos OTC y `app/icon.svg` (favicon SVG dibujado a mano, rect violeta + letra "M") siguen siendo de la identidad anterior. La app dice "Limitless" pero muestra el logo de OTC.
+- **Paleta sin definir.** Los valores violeta en `tokens.css` y `brandColors` son placeholder hasta tener el manual de marca.
+- **Tipografía sin definir.** Sigue Inter + JetBrains Mono en `layout.tsx`.
+- **Cambio de comportamiento menor:** el default del nombre del bot de Discord cambió. Las orgs que nunca lo personalizaron (`bot_name` en null) van a ver "Asistente Limitless" en lugar de "Asistente OTC".
+- **`lib/email/welcome-email.ts`** tiene un fallback hardcodeado `https://otc-plaform.vercel.app` (con el typo original). Es un dominio, queda fuera de alcance, pero conviene revisarlo.
+- La tabla de colores de `DESIGN.md` sigue documentando la paleta violeta; se marcó con un aviso de rebranding en curso pero hay que reescribirla en la fase 2.
 
 ### 2026-08-26 — FEAT-GHL-MULTI-CALENDAR: soporte de múltiples calendarios en integración GHL
 

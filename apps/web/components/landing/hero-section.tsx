@@ -1,6 +1,7 @@
 "use client";
 
 import { VslPlayer } from "./vsl-player";
+import { brand } from "@/lib/brand";
 
 export function HeroSection() {
   return (
@@ -18,7 +19,7 @@ export function HeroSection() {
           El sistema operativo para
           <br />
           tu{" "}
-          <em className="text-[#7C3AED] not-italic">
+          <em className="text-primary not-italic">
             infoproducto
           </em>
         </h1>
@@ -33,7 +34,7 @@ export function HeroSection() {
         <div className="mt-8">
           <a
             href="#agendar"
-            className="inline-block w-full max-w-[240px] rounded-full bg-[#7C3AED] px-8 py-4 text-base font-semibold text-white shadow-[0_0_30px_rgba(124,58,237,0.35)] transition-colors hover:bg-[#6D28D9] sm:w-auto"
+            className="inline-block w-full max-w-[240px] rounded-full bg-primary px-8 py-4 text-base font-semibold text-white shadow-[0_0_30px_rgba(124,58,237,0.35)] transition-colors hover:bg-primary-hover sm:w-auto"
           >
             Empezá gratis ahora
           </a>
@@ -42,7 +43,7 @@ export function HeroSection() {
         {/* Social proof */}
         <p className="mt-5 flex items-center justify-center gap-2 text-sm text-white/45">
           <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]" />
-          Más founders conectan OTC cada semana
+          Más founders conectan {brand.name} cada semana
         </p>
       </div>
 

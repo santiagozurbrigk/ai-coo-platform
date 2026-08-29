@@ -12,6 +12,7 @@ import {
   trialReelsDoneEmailText,
   type TrialReelsDoneEmailParams,
 } from "@/lib/email/trial-reels-email";
+import { brand } from "@/lib/brand";
 
 export type WelcomeEmailParams = {
   to: string;
@@ -93,7 +94,7 @@ export async function sendWelcomeEmail(
     const { error } = await resend.emails.send({
       from,
       to: params.to,
-      subject: "Tu acceso a Optimiza Tu Control está listo",
+      subject: `Tu acceso a ${brand.name} está listo`,
       html: welcomeEmailTemplate(params),
       text: welcomeEmailPlainText(params),
     });

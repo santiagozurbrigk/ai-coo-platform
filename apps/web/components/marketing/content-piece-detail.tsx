@@ -42,6 +42,7 @@ import {
   X,
 } from "lucide-react";
 import { safeThumbnailUrl } from "@/lib/marketing/cdn-utils";
+import { brandColors } from "@/lib/brand";
 
 // ─── Types & helpers ────────────────────────────────────────────────────────
 
@@ -453,10 +454,10 @@ function MetricasTab({
   const totalInteractions =
     (m.likes ?? 0) + (m.comments ?? 0) + (m.shares ?? 0) + (m.saves ?? 0);
   const donutSlices = [
-    { label: "Likes", value: m.likes ?? 0, color: "#7C3AED" },
-    { label: "Comentarios", value: m.comments ?? 0, color: "#A78BFA" },
-    { label: "Compartidos", value: m.shares ?? 0, color: "#C4B5FD" },
-    { label: "Guardados", value: m.saves ?? 0, color: "#5B21B6" },
+    { label: "Likes", value: m.likes ?? 0, color: brandColors.primary },
+    { label: "Comentarios", value: m.comments ?? 0, color: brandColors.primaryLight },
+    { label: "Compartidos", value: m.shares ?? 0, color: brandColors.primaryLighter },
+    { label: "Guardados", value: m.saves ?? 0, color: brandColors.primaryDeep },
   ].filter((s) => s.value > 0);
 
   // Radar: esta pieza vs promedio org

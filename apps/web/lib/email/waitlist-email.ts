@@ -3,6 +3,7 @@ import {
   friendlyResendApiError,
   validateResendFromAddress,
 } from "@/lib/email/resend-from";
+import { brand } from "@/lib/brand";
 
 function getResend() {
   const key = process.env.RESEND_API_KEY?.trim();
@@ -24,14 +25,14 @@ export async function sendWaitlistConfirmationEmail(
     const { error } = await resend.emails.send({
       from,
       to,
-      subject: "Estás en la lista — Optimiza Tu Control",
+      subject: `Estás en la lista — ${brand.name}`,
       html: `
         <p>Hola,</p>
-        <p>Gracias por unirte a la waitlist de <strong>Optimiza Tu Control</strong>.</p>
+        <p>Gracias por unirte a la waitlist de <strong>${brand.name}</strong>.</p>
         <p>Te avisamos cuando abramos los 20 cupos del primer lanzamiento.</p>
-        <p>— El equipo de Optimiza Tu Control</p>
+        <p>— El equipo de ${brand.name}</p>
       `,
-      text: `Gracias por unirte a la waitlist de Optimiza Tu Control. Te avisamos cuando abramos los 20 cupos del primer lanzamiento.`,
+      text: `Gracias por unirte a la waitlist de ${brand.name}. Te avisamos cuando abramos los 20 cupos del primer lanzamiento.`,
     });
     if (error) {
       console.error("[waitlist] resend:", friendlyResendApiError(error.message));

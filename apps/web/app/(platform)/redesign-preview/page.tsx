@@ -19,7 +19,7 @@ import {
 } from "@ai-coo/ui";
 
 export const metadata = {
-  title: "Redesign preview · OTC",
+  title: "Redesign preview",
   robots: { index: false, follow: false },
 };
 

@@ -11,7 +11,7 @@ import {
 type FormState = "idle" | "loading" | "success" | "error";
 
 const inputClassName =
-  "landing-glass-input h-11 w-full text-white placeholder:text-white/40 focus-visible:ring-[#7C3AED]";
+  "landing-glass-input h-11 w-full text-white placeholder:text-white/40 focus-visible:ring-primary";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -48,7 +48,7 @@ function OptionGroup({
               checked={value === option}
               onChange={() => onChange(option)}
               disabled={disabled}
-              className="mt-0.5 accent-[#7C3AED]"
+              className="mt-0.5 accent-primary"
             />
             <span>{option}</span>
           </label>
@@ -282,7 +282,7 @@ export function WaitlistForm({
               disabled={state === "loading"}
               required={expanded}
               rows={4}
-              className="landing-glass-input min-h-[100px] w-full resize-y text-white placeholder:text-white/40 focus-visible:ring-[#7C3AED]"
+              className="landing-glass-input min-h-[100px] w-full resize-y text-white placeholder:text-white/40 focus-visible:ring-primary"
             />
           </div>
 
@@ -299,14 +299,14 @@ export function WaitlistForm({
               disabled={state === "loading"}
               required={expanded}
               rows={3}
-              className="landing-glass-input min-h-[80px] w-full resize-y text-white placeholder:text-white/40 focus-visible:ring-[#7C3AED]"
+              className="landing-glass-input min-h-[80px] w-full resize-y text-white placeholder:text-white/40 focus-visible:ring-primary"
             />
           </div>
 
           <Button
             type="submit"
             disabled={state === "loading" || !expanded}
-            className="h-11 w-full rounded-full bg-[#7C3AED] px-6 text-sm font-medium text-white transition-colors hover:bg-[#6D28D9] active:scale-95 disabled:opacity-60 sm:w-auto"
+            className="h-11 w-full rounded-full bg-primary px-6 text-sm font-medium text-white transition-colors hover:bg-primary-hover active:scale-95 disabled:opacity-60 sm:w-auto"
           >
             {state === "loading" ? "Enviando…" : submitLabel}
           </Button>

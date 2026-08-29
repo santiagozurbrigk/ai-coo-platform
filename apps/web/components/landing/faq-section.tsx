@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { brand } from "@/lib/brand";
 
 const FAQ_ITEMS = [
   {
     question: "¿La prueba gratis es realmente gratis?",
     answer:
-      "Sí. No pedimos tarjeta de crédito. 3 días de acceso completo a OTC, sin costo y sin compromiso. Si querés continuar, te contamos los planes después del onboarding.",
+      `Sí. No pedimos tarjeta de crédito. 3 días de acceso completo a ${brand.name}, sin costo y sin compromiso. Si querés continuar, te contamos los planes después del onboarding.`,
   },
   {
     question: "¿Qué pasa en la sesión de onboarding?",
     answer:
-      "Es una videollamada de 30 minutos donde conectamos tus integraciones en vivo: Calendly, Instagram, Zernio, gastos y equipo. Salís de la llamada con OTC funcionando con datos reales de tu negocio.",
+      `Es una videollamada de 30 minutos donde conectamos tus integraciones en vivo: Calendly, Instagram, Zernio, gastos y equipo. Salís de la llamada con ${brand.name} funcionando con datos reales de tu negocio.`,
   },
   {
     question: "¿Necesito saber de tecnología?",
