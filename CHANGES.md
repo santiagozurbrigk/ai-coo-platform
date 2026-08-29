@@ -14,6 +14,53 @@
 
 ---
 
+### 2026-08-29 — FEAT-EMBUDOS-FASE0: schema del motor de embudos (definición, sin UI ni DB)
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `lib/funnels/` (nuevo módulo completo)
+
+**Qué se hizo:**
+Fase 0 del plan de `docs/FUNNELS_ARCHITECTURE.md` §10: normalizar el documento fuente `Funnel Metrics Standard v1.0` a un schema tipado. Sin UI, sin DB, sin resolver.
+
+- **`lib/funnels/spine.ts`** — las 7 etapas del spine universal como `as const` inmutable (`spend → click → lead → engaged → intent → sales_conv → cash`), con helpers `getSpineStage`, `spineStageOrder`, `isSpineStageId`.
+- **`lib/funnels/types.ts`** — tipos núcleo: `MetricRef` (unión de referencias medibles: step, stage, metric, reported, spend, revenue, cash_collected, contracted_value, reach, impressions, orders, customers, purchases, retention_rate), `MetricDefinition` (con `direction` y numerador/denominador explícitos), `Benchmark` (range | floor | ceiling | context_set), `FunnelStep`, `MetricPointer`, `FunnelTemplate`, `StageState` y `ResolvedMetric`.
+- **`lib/funnels/templates/{webinar,vsl-call,dm}.ts`** — las 3 plantillas transcritas del documento, con los textos originales de las columnas "Funnel step", "Metric" y "Healthy range" conservados para trazabilidad.
+- **`lib/funnels/templates/index.ts`** — registry + `FUNNEL_TEMPLATE_IDS` + lookups.
+- **`lib/funnels/kpis.ts`** — sección 03: CAC, ROAS blended/by-source, EPL, EPC, CPL, AOV, LTV (compuesta), Cash collected vs contracted, y las dos ratios decisivas (`ltv_cac_ratio`, `epl_cpl_ratio`).
+- **`lib/funnels/health-bands.ts`** — sección 04: la tabla cross-funnel con sus 6 filas y umbrales literales, precedencia de benchmark en 3 niveles (`resolveBenchmark`), y los evaluadores `applyHealthBand` / `applyCrossFunnelBand`.
+- **`lib/funnels/instrumentation.ts`** — sección 05: dueño de cada etapa (8 herramientas) con `otcStatus` (`available` | `equivalent` | `missing`), cadencia de reporte diaria/semanal/mensual, y las constantes de gobernanza (`DEFAULT_REPORTING_TIMEZONE = "America/New_York"`, `ATTRIBUTION_STACK`).
+- **`lib/funnels/validate-template.ts`** — validador de integridad: IDs únicos, orden 1..n consecutivo, monotonía respecto del spine, referencias resolubles, benchmarks que corresponden a métricas del mismo step, punteros resolubles.
+
+**Verificación ejecutada:**
+- `tsc --noEmit` en `apps/web` — limpio.
+- `next lint --dir lib/funnels` — sin warnings ni errores.
+- Validador ejecutado contra las 3 plantillas — **0 problemas**. Confirma el spine disperso: webinar y DM saltean `Spend`, el VSL saltea `Spend` y `Lead`.
+- Evaluador probado en los casos límite: `null → no_data` (no `below`), `0 → below`, dirección invertida para métricas de costo (`$2` de costo/registrante da `good`, la misma cifra como tasa daría `below`), y la banda relativa de `Lead → Intent` con tolerancia del 20%.
+
+**Por qué / finalidad:**
+El documento fuente es un schema con datos semilla, no material de lectura. Normalizarlo primero elimina las ambigüedades de §3 de la arquitectura (rangos no legibles por máquina, denominadores implícitos, spine disperso) antes de escribir una sola migración, y deja probado el principio central: agregar un tipo de embudo es agregar un archivo.
+
+**Decisiones de diseño:**
+- **`MetricRef` como unión discriminada**, con `step` para conteos de plantilla y `stage` para agregados del spine. Los KPIs universales usan `stage` porque tienen que valer para cualquier embudo: EPL es `revenue ÷ leads` y "leads" es la etapa, no un step de una plantilla concreta.
+- **`direction` en cada métrica.** Sin ella el evaluador marcaría como falla un costo por registrante por debajo del rango, que en realidad es lo mejor que puede pasar.
+- **`benchmarkLabel` con el texto original del documento** además del benchmark normalizado. Permite mostrar el texto tal cual en la UI y diffear contra una versión futura sin depender de que la normalización haya sido correcta.
+- **`BENCHMARK_TOLERANCE = 0.2` no es un número inventado:** sale de la fila "Lead → Intent" de la sección 04, donde el documento define "watch" como "−20% of bench" y lo presenta como la regla genérica para conversiones de etapa.
+- **`MetricPointer` conserva la etiqueta literal** además del ID resoluble, porque no siempre coinciden: el DM declara "Reply / set rate" como leading indicator y eso no es el nombre exacto de ninguna de sus métricas.
+- **`funnelMetrics` a nivel plantilla** porque el webinar declara "Cost per Sale" como north-star y esa métrica no aparece en ninguna fila de su tabla. El VSL apunta su north-star al KPI universal `cac`.
+- **`otcStatus` en las herramientas de instrumentación** hace legible por máquina el track de integraciones de §7, para que la UI pueda decir "esta etapa necesita WebinarJam y no está conectado" en vez de mostrar un cero.
+- **Tokens del design system en `accentToken`, no hex.** Los colores ámbar/azul/magenta del documento no existen en la paleta de OTC; se mapean a `--chart-accent`, `--chart-secondary` y `--chart-pink`. El validador rechaza un hex.
+
+**Errata del documento fuente encontrada:**
+La fila "Lead → Intent" de la sección 04 imprime `> −20%` en la columna "Below floor". Por contexto es un error de tipeo: "below floor" es estar *más* de 20% por debajo del benchmark. Se codificó la intención, no la errata, con un comentario en `health-bands.ts` que lo deja explícito.
+
+**Riesgos / deuda técnica pendiente:**
+- No hay unit test runner en el repo (sólo Playwright E2E), así que la verificación del validador y del evaluador se hizo ejecutándolos a mano contra las plantillas. Si el módulo crece, conviene sumar Vitest — hoy sería la única dependencia de testing unitario del monorepo, así que queda como decisión abierta.
+- `lib/funnels/` todavía no lo consume nadie. Queda como código muerto hasta la Fase 1, que es cuando entra el resolver y la página `/funnels/[id]` con el embudo DM.
+- El validador corre sólo si se lo invoca; no hay hook que lo ejecute en CI. Cuando exista el módulo en producción conviene atarlo al build.
+
+---
+
 ### 2026-08-29 — DOC-FUNNELS-ARCHITECTURE: análisis y arquitectura de embudos intercambiables
 
 **Rama/branch:** `Claude-New-Features`  

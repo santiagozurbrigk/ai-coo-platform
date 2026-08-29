@@ -50,7 +50,7 @@
 **Principio no negociable:** un tipo de embudo es un dato, no un módulo. Agregar un embudo nuevo = agregar un archivo de plantilla en TS. Si hace falta escribir un componente, la arquitectura falló.
 
 **Fases:**
-1. **Fase 0** — Normalizar el documento a schema: `lib/funnels/spine.ts`, `types.ts`, las 3 plantillas, `kpis.ts`, `health-bands.ts`. Sin UI, sin DB. *(Barata, elimina casi toda la ambigüedad — revisar con Santiago antes de tocar DB.)*
+1. ~~**Fase 0** — Normalizar el documento a schema~~ ✅ **Completada 2026-08-29.** `lib/funnels/` con spine, tipos, las 3 plantillas, KPIs universales, health bands, instrumentación y validador. Typecheck + lint limpios, validador con 0 problemas. **Pendiente: revisión de Santiago del schema antes de arrancar la Fase 1.**
 2. **Fase 1** — Instancias + resolver + página genérica `/funnels/[id]` con el embudo **DM** end-to-end (el único construible con las fuentes actuales).
 3. **Fase 2** — Health bands con precedencia de 3 niveles + `diagnoseFunnel()` (primera transición rota). **Es el diferencial del módulo.**
 4. **Fase 3** — Switcher + segunda y tercera instancia. **Bloqueada por el track de integraciones.**
