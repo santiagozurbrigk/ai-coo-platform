@@ -82,13 +82,15 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 |---|---|---|---|---|
 | M08 | `landing_visitors` | Visitantes de la página | 🔴 | Analytics de página. Aproximable con M04, pero clicks ≠ visitantes |
 | M09 | `optins` | Opt-ins capturados (Lead del webinar) | 🔴 | Analytics de página, o webhook del proveedor de landing |
-| M10 | `vsl_plays` | Reproducciones del VSL | 🔴 | Hosting de video con analytics |
-| M11 | `vsl_avg_watch_pct` | % promedio visto | 🔴 | Idem M10 |
-| M12 | `vsl_reached_cta` | Llegaron al CTA del video | 🔴 | Idem M10 |
+| M10 | `vsl_plays` | Reproducciones del VSL | 🔴 | Integración con **VTurb** |
+| M11 | `vsl_avg_watch_pct` | % promedio visto (retención) | 🔴 | Idem M10 |
+| M12 | `vsl_reached_cta` | Llegaron al CTA del video | 🔴 | Idem M10 — se deriva de la curva de retención en el segundo del CTA |
 
-> **Decisión abierta:** qué proveedor de video se soporta (Wistia, Vimeo, YouTube,
-> player propio). Cada uno tiene un modelo de analytics distinto y hay que
-> resolverlo antes de escribir nada.
+> **Decidido: VTurb.** Tiene [Analytics API pública](https://vturb.gitbook.io/analytics-api)
+> con auth por API key y endpoints de plays, views y retención, filtrables por
+> video, rango de fechas y fuente de tráfico. Eso cubre M10, M11 y M12 casi 1:1,
+> así que esta unidad baja de tamaño **L a M**: no hay que inventar el modelo de
+> datos ni decidir proveedor.
 >
 > Ojo con un falso amigo: `ZernioAdMetrics` trae `videoP25/50/75/95/100WatchedActions`,
 > pero son del **video del anuncio**, no del VSL de la landing. No sirven para M10-M12.
@@ -120,11 +122,13 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 | # | Medida | Qué es | Estado | Qué falta |
 |---|---|---|---|---|
 | M19 | `calls_booked` | Llamadas agendadas | ✅ | Nada — `closing_calls`, 282 filas en 4 orgs |
-| M20 | `calls_showed` | Asistieron a la llamada | 🟡 | La columna existe pero **no se puebla**: 0 de 282 llamadas en `closed`/`not_closed`, 0 con `outcome`, 0 con `closed_by_name` |
+| M20 | `calls_showed` | Asistieron a la llamada | 🟡 | La columna existe y el flujo de carga también, pero **no está validado con datos reales** |
 
-> M20 es un caso distinto a todos los demás: **no falta integración, falta que el
-> dato se cargue**. O el sync no escribe el resultado, o el equipo no lo registra.
-> Hay que averiguar cuál de las dos antes de construir nada.
+> Los datos que hay hoy en `closing_calls` son de prueba, cargados sueltos para
+> testear otras cosas, así que **no se puede concluir nada de ellos**. M20 y M24
+> no están rotos: están sin verificar. La primera org real que registre resultados
+> de llamadas confirma o desmiente si el flujo funciona — no hay que construir nada
+> hasta entonces.
 
 ### GHL pipeline — conteos por etapa
 
@@ -133,7 +137,7 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 | M21 | `dm_conversations_opened` | Conversaciones abiertas | 🔴 | Sync de oportunidades de GHL |
 | M22 | `dm_conversations_replied` | Respondieron al calificador | 🔴 | Idem M21 |
 | M23 | `dm_offers_or_calls_set` | Oferta enviada o llamada agendada | 🔴 | Idem M21 |
-| M24 | `deals_closed` | Cierres | 🟡 | Mismo problema que M20: la columna existe y no se puebla |
+| M24 | `deals_closed` | Cierres | 🟡 | Igual que M20: existe y está sin verificar con datos reales |
 | M25 | `follow_ups` | Seguimientos | 🔴 | Idem M21. El doc la declara en §05 pero ninguna de sus métricas la usa |
 
 > La integración GHL de OTC consume `/calendars` y `/contacts`. **No toca
@@ -257,12 +261,12 @@ Agrupado por unidad de trabajo, con lo que desbloquea cada una.
 |---|---|---|---|---|
 | **I-1** | **Persistir métricas de ads por período** | M01–M04 | Etapas Spend y Click de **los 3 embudos**, CPC, CPL, EPC, ROAS blended, CAC | **S** — Zernio ya devuelve el payload; es un snapshot periódico, no una integración |
 | **I-2** | **Conectar pagos (Stripe / Mercado Pago)** | M26–M29, M31 | Etapa Cash de **los 3 embudos**, AOV, ROAS, CAC, EPL, cash vs contracted | **M** — el código de integración existe, están en 0 orgs; falta conectar y mapear a `client_payments` |
-| **I-3** | **Poblar asistencia y cierre de llamadas** | M20, M24 | Show rate y Close rate en VSL y DM, 2 health bands | **S–M** — primero hay que averiguar por qué 0 de 282 llamadas tienen resultado |
+| **I-3** | **Verificar asistencia y cierre de llamadas** | M20, M24 | Show rate y Close rate en VSL y DM, 2 health bands | **S** — el flujo existe; es validarlo con la primera org real y corregir si hace falta |
 | **I-4** | **Sync de oportunidades de GHL** | M21–M23, M25 | **Embudo DM entero** (4 de 6 pasos) | **M** — GHL ya integrado con auth y cliente; es agregar endpoints |
 | **I-5** | **Integración de webinar** (WebinarJam / Zoom) | M13–M16 | **Embudo Webinar entero** (4 de 7 pasos) | **L** — integración nueva desde cero |
-| **I-6** | **Hosting de VSL con analytics** | M10–M12 | Etapa Engaged del **VSL** | **L** — decisión de proveedor pendiente + integración nueva |
+| **I-6** | **Integración VTurb** | M10–M12 | Etapa Engaged del **VSL** | **M** — Analytics API pública con auth por API key; plays, views y retención filtrables por video y fecha |
 | **I-7** | **Analytics de landing / opt-in** | M08, M09 | Etapa Lead del webinar, play rate del VSL | **M** — depende de qué usan los clientes para landings |
-| **I-8** | **Hyros** | M05–M07 | ROAS by-source, etiquetado `[Hyros]` | **L** — requiere cuenta y contrato |
+| **I-8** | **Hyros** | M05–M07 | ROAS by-source, etiquetado `[Hyros]` | **L** — REST API con auth por API key (leads, journeys, sales, orders). El costo no es técnico: **cada cliente necesita su propia cuenta**, ver §7 |
 | **I-9** | **Retención y compras repetidas** | M30, M32, M33 | **LTV**, y por lo tanto **LTV:CAC** | **M** — modelo de suscripciones y reembolsos |
 | **I-10** | **Periodizar triggers de Zernio** | M34 | Etapa Click del DM | **S** — `listComments` y stories ya existen |
 
@@ -307,13 +311,74 @@ lo que aporta —atribución by-source— es un refinamiento sobre números que 
 funcionan sin ella. El documento mismo lo dice: *"Blended is the truth; by-source
 is the steering wheel."* El volante sirve cuando el auto ya anda.
 
-### Lo que hay que averiguar antes de estimar
+### Orden dentro de la ola 2
 
-1. **¿Por qué 0 de 282 llamadas tienen resultado?** Si es que el equipo no lo
-   carga, `I-3` es un problema de proceso y no de software.
-2. **¿Qué usan los clientes para landings y para hostear el VSL?** Define `I-6` y `I-7`.
-3. **¿Hay cuenta de Hyros, o habría que contratarla?** Define si `I-8` es viable.
-4. **¿Cuántos clientes en cada embudo?** Ordena la ola 2.
+Los clientes están repartidos en partes iguales entre los tres embudos y con la
+misma urgencia, así que el desempate es por **costo**, de menor a mayor:
+
+1. **I-4 GHL opportunities** — la integración ya existe con auth y cliente; es agregar endpoints
+2. **I-6 VTurb** — API pública que mapea casi 1:1 a las tres medidas que faltan
+3. **I-7 landings** — depende de qué usan los clientes, todavía sin definir
+4. **I-5 webinar** — integración nueva desde cero, la más cara de las cuatro
+
+### Lo que queda por averiguar
+
+1. ~~¿Por qué 0 de 282 llamadas tienen resultado?~~ ✅ Datos de prueba, sin valor
+   diagnóstico. `I-3` pasa a ser una verificación, no una reparación.
+2. ~~¿Qué proveedor de VSL?~~ ✅ **VTurb**, con Analytics API pública.
+3. ~~¿Cuántos clientes en cada embudo?~~ ✅ Partes iguales, misma urgencia.
+4. **¿Qué usan los clientes para sus landings?** Sigue abierta — define `I-7`.
+5. **¿Los clientes van a pagar Hyros?** Ver §7: es una pregunta comercial, no técnica.
+
+---
+
+---
+
+## 7. Nota sobre Hyros
+
+**Qué es:** software de tracking y atribución publicitaria. Instala un script en
+las páginas y se integra con las plataformas de ads y el checkout. Construye la
+identidad del lead (por email) y cose todos sus touchpoints —anuncio, opt-in,
+email, llamada, compra— en un solo recorrido, para poder decir qué anuncio causó
+realmente cada venta.
+
+**Qué problema resuelve:** Meta y Google reportan lo que *ellos* creen haber
+causado, y sobre-atribuyen. Además pierden el rastro entre dispositivos y a lo
+largo del tiempo. En embudos high-ticket con una llamada en el medio y planes de
+pago, entre el click y el cash pasan semanas: es justo donde el píxel de la
+plataforma es menos confiable. Por eso el documento lo pone como dueño de la
+atribución.
+
+**Qué le pide el documento:**
+> *"Report both blended (all revenue ÷ all spend) and by-source from Hyros.
+> Blended is the truth; by-source is the steering wheel."*
+
+Y la regla de etiquetado, que declara no negociable:
+> *"label each figure with its source — [Meta] for platform-reported, [Hyros] for
+> attributed. The two never match exactly, and a report that mixes them without
+> labels is how bad decisions get made."*
+
+**Lo técnico está resuelto:** tiene REST API con auth por API key. Los endpoints
+de leads (con sus journeys), sales y orders cubren M05, M06 y M07.
+
+**Lo comercial no:** Hyros es un SaaS pago, con precio por volumen de ad spend o
+revenue trackeado, y **se contrata por negocio, no por agencia**. Cada org cliente
+necesitaría su propia cuenta y su propia API key — el mismo patrón BYOK que OTC ya
+usa para Anthropic y Zernio.
+
+Eso abre una pregunta de producto que conviene contestar antes de construir:
+
+- Si **todos** los clientes tienen o van a tener Hyros, la integración es directa.
+- Si sólo **algunos**, OTC tiene que degradar con elegancia: ROAS blended para
+  todos, by-source sólo para los que tengan cuenta, y el etiquetado `[Hyros]` /
+  `[Meta]` marcando la diferencia. **El módulo ya está preparado para esto**: el
+  resolver devuelve `null` cuando no hay fuente, y `provenance` en cada valor
+  resuelto existe justamente para esta distinción.
+- Si **ninguno**, `I-8` no se construye y se vive con ROAS blended, que el propio
+  documento llama "la verdad".
+
+Tener un miembro del equipo con cuenta alcanza para probar la API y validar el
+mapeo, pero no resuelve la pregunta de arriba.
 
 ---
 
