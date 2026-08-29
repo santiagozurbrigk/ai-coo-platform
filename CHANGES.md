@@ -14,6 +14,58 @@
 
 ---
 
+### 2026-08-29 — DB-EMBUDOS aplicada + FEAT-EMBUDOS-FUENTES: configuración de fuentes por step
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** Supabase (migración aplicada), `lib/funnels/{instrumentation,sources}.ts`, `app/funnels/actions.ts`, `app/(platform)/funnels/[funnelId]/configurar/`, `components/funnels/funnel-bindings-form.tsx`, `routes/paths.ts`
+
+**Qué se hizo:**
+
+**1. Migración aplicada en producción**
+`20260829120000_funnels_phase1.sql` aplicada al proyecto Supabase `OTC` (`nrzlylzbmsuowzhpdnjl`). Verificado antes de escribir: 6/6 tablas esperadas presentes, helper `get_my_organization_id` existente, 0 tablas `funnel_*` previas. Verificado después: las 4 tablas creadas, RLS activo y 1 política en cada una. El advisor de seguridad no reporta ningún hallazgo sobre las tablas nuevas.
+
+**2. Hallazgo: los bindings del embudo DM de la Fase 1 estaban mal**
+Al verificar el resolver contra datos reales aparecieron dos problemas:
+- **`conversations` tiene 0 filas.** Es la tabla del inbox legacy; el inbox vivo es Zernio (live-fetch). Los tres primeros pasos del DM estaban bindeados ahí.
+- **`closing_calls` tiene 282 filas pero 0 en estado `closed` o `not_closed`** (258 `scheduled` + 24 `no_show`), y 0 con `outcome` o `closed_by_name`. Los pasos de `sales_conv` y `cash` también resolvían a cero.
+
+Resultado: el embudo DM habría renderizado todo en cero, que el diseño lee como catástrofe de negocio. Es el modo de falla de §9.1 entrando por una puerta que no estaba cerrada: se contempló "sin binding → null" pero no "bindeado a una tabla que nunca se puebla → 0".
+
+**3. Lectura del documento sobre la fuente del embudo DM**
+La sección 05 del documento fuente asigna explícitamente **"GHL pipeline — Stage counts, set/close, follow-up"**. El estándar NO mide el embudo DM desde una tabla de mensajes: modela cada conversación como una oportunidad que avanza por etapas del CRM. La integración GHL de OTC consume `/calendars` y `/contacts`, pero **no `/opportunities` ni `/pipelines`** (`lib/ghl/sync-pipeline.ts` es el pipeline de sincronización de OTC, no los pipelines de GHL).
+
+En consecuencia, `crm_pipeline` pasó de `otcStatus: "available"` a un nuevo estado **`partial`**, y `blockingTools()` ahora incluye las herramientas parcialmente cubiertas. **El embudo DM no era "el único construible end-to-end"** — esa afirmación de la Fase 1 era incorrecta.
+
+**4. Configuración de fuentes por step (lo elegido para esta tanda de Fase 2)**
+- `getFunnelBindingsAction` y `setFunnelStepBindingAction` en `app/funnels/actions.ts`.
+- Ruta `/funnels/[funnelId]/configurar` con `FunnelBindingsForm`: un select por paso con las fuentes compatibles con su etapa, más la opción explícita "Sin fuente — no se mide".
+- Cada fila muestra qué herramienta le asigna **el documento** a ese paso, para que se vea cuándo lo conectado no es lo que el estándar pide.
+- La action valida compatibilidad fuente ↔ etapa antes de escribir: bindear conteos de llamadas a la etapa Lead da error.
+- El panel inferior lista las herramientas pendientes con su nota de cobertura.
+
+**5. Corrección de modelado detectada por un test**
+`conversations_opened` declaraba `suitableFor: ["lead", "click"]`. Una conversación abierta no es un disparador: en el documento la etapa Click del DM es el "Trigger (comment / story / ad)", que ocurre **antes** de que el hilo exista. Se corrigió a `["lead"]`. El test que lo detectó se dejó como está — el error estaba en la fuente, no en el test.
+
+**Verificación ejecutada:**
+- `pnpm test`: **203 tests en 9 archivos, todos en verde**.
+- `pnpm typecheck` y `pnpm lint` desde la raíz: verdes.
+- Consultas del resolver replicadas en SQL contra la base real para confirmar el hallazgo del punto 2.
+
+**Decisiones de diseño:**
+- **Nuevo estado `partial` en `ToolAvailability`.** "Existe la integración" y "cubre lo que el documento le asigna" son cosas distintas, y confundirlas es lo que hizo que la Fase 1 diera por construible un embudo que no lo era.
+- **Dejar un paso sin fuente es una opción explícita en la UI**, no un olvido: aparece como primera opción del select y se marca en ámbar.
+- **La validación fuente ↔ etapa vive en la Server Action**, no sólo en la UI: el select ya filtra, pero la action igual verifica.
+
+**Riesgos / deuda técnica pendiente:**
+- **Los bindings por defecto del DM siguen apuntando a `conversations` (0 filas).** No se tocaron porque la decisión sobre cómo resolverlo quedó abierta con Santiago. Hoy se pueden corregir desde `/funnels/[id]/configurar`, pero el default sigue siendo engañoso.
+- **Falta cerrar el agujero "fuente bindeada pero nunca poblada → 0".** El detector de fuente vacía (chequear si la fuente tiene datos históricos para la org y devolver `null` si nunca tuvo) sigue sin implementarse.
+- **Para seguir el documento al pie de la letra, el embudo DM necesita sync de oportunidades/pipelines de GHL**, que no existe. Es un ítem nuevo del track de integraciones.
+- `resolve.ts` sigue sin tests ([T-6] del backlog).
+- El estado de salud (good/watch/below) sigue sin implementarse por pedido explícito de Santiago.
+
+---
+
 ### 2026-08-29 — FEAT-EMBUDOS-FASE1 + CI-TESTS + TESTING-BACKLOG
 
 **Rama/branch:** `Claude-New-Features`  

@@ -12,8 +12,13 @@
 
 /** Estado de la herramienta dentro de OTC. */
 export type ToolAvailability =
-  /** Existe una integración nativa. */
+  /** Existe una integración nativa que cubre lo que el documento le asigna. */
   | "available"
+  /**
+   * La integración existe pero NO cubre todo lo que el documento le asigna.
+   * Las partes no cubiertas se comportan como `missing`.
+   */
+  | "partial"
   /** No existe, pero otra integración de OTC cubre la misma función. */
   | "equivalent"
   /** No existe. Bloquea las etapas que alimenta. */
@@ -68,8 +73,10 @@ export const INSTRUMENTATION_TOOLS = [
     id: "crm_pipeline",
     label: "GHL pipeline",
     owns: "Stage counts, set/close, follow-up",
-    otcStatus: "available",
-    otcNote: "Integración GHL con multi-calendario. Cubre closing_calls.",
+    otcStatus: "partial",
+    otcNote:
+      "La integración GHL de OTC consume /calendars y /contacts, pero NO /opportunities ni /pipelines. " +
+      "Los conteos por etapa y el set/close que el documento le asigna todavía no se sincronizan: es lo que necesita el embudo DM.",
   },
   {
     id: "checkout",
@@ -95,9 +102,14 @@ export function getInstrumentationTool(id: InstrumentationToolId): Instrumentati
   return tool;
 }
 
-/** Herramientas que bloquean etapas por no existir todavía en OTC. */
+/**
+ * Herramientas que bloquean etapas: las que no existen y las que existen pero no
+ * cubren lo que el documento les asigna.
+ */
 export function blockingTools(): InstrumentationTool[] {
-  return INSTRUMENTATION_TOOLS.filter((t) => t.otcStatus === "missing");
+  return INSTRUMENTATION_TOOLS.filter(
+    (t) => t.otcStatus === "missing" || t.otcStatus === "partial"
+  );
 }
 
 // ─── Cadencia de reporte ──────────────────────────────────────────────────────

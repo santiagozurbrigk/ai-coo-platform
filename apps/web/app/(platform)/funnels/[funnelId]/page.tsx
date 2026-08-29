@@ -65,7 +65,14 @@ export default async function FunnelDetailPage({
         title={instance.name}
         description={`${template.label} · ${template.badge}`}
         actions={
-          <div className="flex gap-1">
+          <div className="flex items-center gap-3">
+            <Link
+              href={paths.platform.funnels.configure(funnelId)}
+              className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Configurar fuentes
+            </Link>
+            <div className="flex gap-1">
             {FUNNEL_PERIOD_PRESETS.map((preset) => (
               <Link
                 key={preset.id}
@@ -80,6 +87,7 @@ export default async function FunnelDetailPage({
                 {preset.label}
               </Link>
             ))}
+            </div>
           </div>
         }
       />

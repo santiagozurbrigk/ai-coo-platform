@@ -96,3 +96,24 @@ describe("bindings por defecto", () => {
     expect(DEFAULT_BINDINGS.vsl_call).toEqual({});
   });
 });
+
+describe("compatibilidad fuente ↔ etapa (validación de setFunnelStepBindingAction)", () => {
+  it("una fuente de llamadas no aplica a la etapa Lead", () => {
+    // Bindear conteos de llamadas a Lead daría un número sin sentido. La action
+    // valida esto antes de escribir.
+    const source = getFunnelSource("closing_calls_attended")!;
+    expect(source.suitableFor).not.toContain("lead");
+  });
+
+  it("una fuente de conversaciones no aplica a la etapa Cash", () => {
+    const source = getFunnelSource("conversations_opened")!;
+    expect(source.suitableFor).not.toContain("cash");
+  });
+
+  it("toda etapa que algún step del DM ocupa tiene al menos una fuente posible", () => {
+    const dm = requireFunnelTemplate("dm");
+    const sinOpciones = dm.steps.filter((s) => sourcesForStage(s.stageId).length === 0);
+    // dm.trigger vive en `click`, que hoy no tiene ninguna fuente disponible.
+    expect(sinOpciones.map((s) => s.id)).toEqual(["dm.trigger"]);
+  });
+});

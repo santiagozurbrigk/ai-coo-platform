@@ -24,7 +24,10 @@ export const FUNNEL_SOURCES = [
     label: "Conversaciones abiertas",
     description: "Conversaciones del inbox creadas dentro del período.",
     provenance: "crm_pipeline",
-    suitableFor: ["lead", "click"],
+    // Sólo `lead`. Una conversación abierta NO es un disparador: en el documento
+    // la etapa Click del DM es el "Trigger (comment / story / ad)", que es lo que
+    // ocurre ANTES de que el hilo exista.
+    suitableFor: ["lead"],
   },
   {
     id: "conversations_replied",

@@ -7,9 +7,14 @@ import { paths } from "@/routes/paths";
 import {
   DEFAULT_BINDINGS,
   FUNNEL_TEMPLATES,
+  getFunnelSource,
+  getInstrumentationTool,
+  getSpineStage,
+  isFunnelSourceId,
   isFunnelTemplateId,
   requireFunnelTemplate,
   resolvePeriod,
+  sourcesForStage,
   type FunnelPeriodPresetId,
 } from "@/lib/funnels";
 import {
@@ -147,4 +152,144 @@ export async function listFunnelTemplatesAction() {
     badge: t.badge,
     stepCount: t.steps.length,
   }));
+}
+
+// ─── Configuración de fuentes por step ────────────────────────────────────────
+
+export type StepBindingOption = {
+  sourceId: string;
+  label: string;
+  description: string;
+};
+
+export type StepBindingRowView = {
+  stepId: string;
+  stepLabel: string;
+  stageId: string;
+  stageLabel: string;
+  metricLabel: string;
+  /** Fuente configurada hoy, o `null` si el paso no tiene ninguna. */
+  currentSourceId: string | null;
+  /** Fuentes que tienen sentido para la etapa de este paso. */
+  options: StepBindingOption[];
+  /** Herramienta que el documento fuente le asigna a este paso. */
+  documentTool: string;
+};
+
+/** Devuelve el estado de configuración de fuentes de un embudo. */
+export async function getFunnelBindingsAction(
+  funnelId: string
+): Promise<{ instanceName: string; templateLabel: string; rows: StepBindingRowView[] } | null> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { data: instance } = await supabase
+    .from("funnel_instances")
+    .select("id, name, template_id")
+    .eq("organization_id", organizationId)
+    .eq("id", funnelId)
+    .maybeSingle();
+
+  if (!instance || !isFunnelTemplateId(instance.template_id)) return null;
+
+  const template = requireFunnelTemplate(instance.template_id);
+
+  const { data: bindings } = await supabase
+    .from("funnel_step_bindings")
+    .select("step_id, source_id")
+    .eq("organization_id", organizationId)
+    .eq("funnel_instance_id", funnelId);
+
+  const byStep = new Map((bindings ?? []).map((b) => [b.step_id, b.source_id]));
+
+  return {
+    instanceName: instance.name,
+    templateLabel: template.label,
+    rows: template.steps.map((step) => ({
+      stepId: step.id,
+      stepLabel: step.label,
+      stageId: step.stageId,
+      stageLabel: getSpineStage(step.stageId).label,
+      metricLabel: step.metricLabel,
+      currentSourceId: byStep.get(step.id) ?? null,
+      options: sourcesForStage(step.stageId).map((source) => ({
+        sourceId: source.id,
+        label: source.label,
+        description: source.description,
+      })),
+      documentTool: getInstrumentationTool(step.sourceHint).label,
+    })),
+  };
+}
+
+/**
+ * Fija o borra la fuente de un paso.
+ *
+ * Pasar `sourceId: null` desconecta el paso: vuelve a resolver como "sin datos",
+ * que es distinto de cero. Es una operación legítima, no un error.
+ */
+export async function setFunnelStepBindingAction(
+  funnelId: string,
+  stepId: string,
+  sourceId: string | null
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { data: instance } = await supabase
+    .from("funnel_instances")
+    .select("id, template_id")
+    .eq("organization_id", organizationId)
+    .eq("id", funnelId)
+    .maybeSingle();
+
+  if (!instance || !isFunnelTemplateId(instance.template_id)) {
+    return { ok: false, error: "Embudo no encontrado" };
+  }
+
+  const template = requireFunnelTemplate(instance.template_id);
+  const step = template.steps.find((s) => s.id === stepId);
+  if (!step) return { ok: false, error: "Paso desconocido para este embudo" };
+
+  if (sourceId === null) {
+    const { error } = await supabase
+      .from("funnel_step_bindings")
+      .delete()
+      .eq("organization_id", organizationId)
+      .eq("funnel_instance_id", funnelId)
+      .eq("step_id", stepId);
+    if (error) return { ok: false, error: error.message };
+    revalidatePath(paths.platform.funnels.detail(funnelId));
+    return { ok: true };
+  }
+
+  if (!isFunnelSourceId(sourceId)) {
+    return { ok: false, error: "Fuente desconocida" };
+  }
+
+  // Una fuente sólo puede alimentar una etapa para la que fue pensada: bindear
+  // conteos de llamadas a la etapa Lead daría un número sin sentido.
+  const source = getFunnelSource(sourceId)!;
+  if (!(source.suitableFor as readonly string[]).includes(step.stageId)) {
+    return {
+      ok: false,
+      error: `"${source.label}" no aplica a la etapa ${getSpineStage(step.stageId).label}`,
+    };
+  }
+
+  const { error } = await supabase.from("funnel_step_bindings").upsert(
+    {
+      organization_id: organizationId,
+      funnel_instance_id: funnelId,
+      step_id: stepId,
+      source_id: sourceId,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "funnel_instance_id,step_id" }
+  );
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(paths.platform.funnels.detail(funnelId));
+  return { ok: true };
 }

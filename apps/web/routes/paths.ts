@@ -36,6 +36,7 @@ export const paths = {
     funnels: {
       root: `${PLATFORM}/funnels`,
       detail: (id: string) => `${PLATFORM}/funnels/${id}`,
+      configure: (id: string) => `${PLATFORM}/funnels/${id}/configurar`,
       comparar: `${PLATFORM}/funnels/comparar`,
     },
 

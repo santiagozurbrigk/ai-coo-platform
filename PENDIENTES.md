@@ -9,13 +9,33 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [DB-EMBUDOS] Aplicar migración de embudos en Supabase
+### [ADDON-EMBUDOS] Activar el add-on `embudos` en la org
 
-**Qué es:** `supabase/migrations/20260829120000_funnels_phase1.sql` crea `funnel_instances`, `funnel_step_bindings`, `funnel_benchmarks` y `funnel_period_snapshots` con sus RLS.
+**Qué es:** la migración ya está aplicada, pero el módulo no aparece en el sidebar hasta que la org tenga `embudos` en `enabled_add_ons`.
 
-**Efecto si no se aplica:** `/funnels` falla al consultar tablas inexistentes.
+**Acción:** activarlo desde super-admin para la org que vaya a usarlo.
 
-**Acción:** `supabase db push`, o pegar el SQL en el Dashboard → SQL Editor. Después, activar el add-on `embudos` para la org desde super-admin para que el módulo aparezca en el sidebar.
+---
+
+### [EMBUDOS-FUENTE-VACIA] Cerrar el agujero "fuente bindeada pero nunca poblada"
+
+**Qué es:** el resolver distingue "sin binding → null" de "hay datos → número", pero no contempla el caso intermedio: una fuente bindeada a una tabla que existe y nunca se pobló devuelve `0`, que el sistema lee como rotura de negocio.
+
+**Caso real que lo destapó:** los bindings por defecto del embudo DM apuntan a `conversations`, que tiene 0 filas porque es el inbox legacy — el inbox vivo es Zernio.
+
+**Acción propuesta:** que el resolver chequee si la fuente tiene datos históricos para la org; si nunca tuvo, devolver `null` en vez de `0`. Es una protección general, sirve para cualquier fuente futura.
+
+**Pendiente de decisión de Santiago** — quedó abierto junto con la pregunta de rebindear el DM.
+
+---
+
+### [EMBUDOS-GHL-PIPELINE] Sync de oportunidades/pipelines de GHL
+
+**Qué es:** la sección 05 del documento fuente le asigna al **GHL pipeline** los "Stage counts, set/close, follow-up" — o sea, los conteos por etapa del embudo DM. La integración GHL de OTC consume `/calendars` y `/contacts`, pero no `/opportunities` ni `/pipelines`.
+
+**Efecto:** el embudo DM no se puede medir según el estándar hasta que exista. Contra lo que se asumió en la Fase 1, el DM **no** era construible end-to-end.
+
+**Acción:** extender `lib/ghl/` con sync de oportunidades y sus etapas, y agregar las fuentes correspondientes a `lib/funnels/sources.ts`.
 
 ---
 
@@ -62,7 +82,7 @@
 **Fases:**
 1. ~~**Fase 0** — Normalizar el documento a schema~~ ✅ **Completada 2026-08-29.** `lib/funnels/` con spine, tipos, las 3 plantillas, KPIs universales, health bands, instrumentación y validador. Typecheck + lint limpios, validador con 0 problemas. **Pendiente: revisión de Santiago del schema antes de arrancar la Fase 1.**
 2. ~~**Fase 1** — Instancias + resolver + página genérica~~ ✅ **Completada 2026-08-29.** Migración, catálogo de fuentes, capa pura de cálculo, resolver contra Supabase, Server Actions, índice y detalle genérico. **Pendiente: aplicar la migración `20260829120000_funnels_phase1.sql` en Supabase y activar el add-on `embudos` en la org.**
-3. **Fase 2** — Health bands con precedencia de 3 niveles + `diagnoseFunnel()` (primera transición rota). **Es el diferencial del módulo.**
+3. **Fase 2** — Parcial. ✅ Configuración de fuentes por step (2026-08-29). ⏸️ Health bands y `diagnoseFunnel()` **en pausa por pedido de Santiago** hasta nuevo aviso.
 4. **Fase 3** — Switcher + segunda y tercera instancia. **Bloqueada por el track de integraciones.**
 5. **Fase 4** — KPIs universales + `/funnels/comparar` con agrupación por price point.
 6. **Fase 5** — Snapshots periódicos + pulso diario.

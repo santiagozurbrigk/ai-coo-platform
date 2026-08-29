@@ -36,33 +36,43 @@ describe("dueño de cada etapa", () => {
 });
 
 describe("track de integraciones bloqueante (§7)", () => {
-  it("Hyros, el webinar y el hosting de VSL siguen sin existir en OTC", () => {
+  it("bloquean las que no existen y las que cubren sólo una parte", () => {
     expect(blockingTools().map((t) => t.id).sort()).toEqual([
+      "crm_pipeline",
       "hyros",
       "landing_page",
       "webinar_platform",
     ]);
   });
 
+  it("GHL está parcialmente cubierto: OTC sincroniza calendarios, no pipelines", () => {
+    // El documento le asigna "Stage counts, set/close, follow-up", que es lo que
+    // necesita el embudo DM. La integración de OTC consume /calendars y
+    // /contacts, pero no /opportunities.
+    expect(getInstrumentationTool("crm_pipeline").otcStatus).toBe("partial");
+  });
+
   it("el checkout está cubierto por un equivalente, así que no bloquea", () => {
     expect(getInstrumentationTool("checkout").otcStatus).toBe("equivalent");
   });
 
-  it("el embudo DM no depende de ninguna herramienta faltante", () => {
-    // Por eso es el que se implementa primero en la Fase 1.
-    const dm = FUNNEL_TEMPLATES.find((t) => t.id === "dm")!;
+  it("los tres embudos dependen de alguna herramienta pendiente", () => {
+    // El DM también, contra lo que se asumió en la Fase 1: el documento le
+    // asigna sus conteos por etapa al pipeline de GHL, que OTC no sincroniza.
     const blocking = new Set(blockingTools().map((t) => t.id));
-    for (const step of dm.steps) {
-      expect(blocking.has(step.sourceHint)).toBe(false);
+    for (const template of FUNNEL_TEMPLATES) {
+      expect(template.steps.some((s) => blocking.has(s.sourceHint))).toBe(true);
     }
   });
 
-  it("el webinar y el VSL sí dependen de herramientas faltantes", () => {
-    const blocking = new Set(blockingTools().map((t) => t.id));
-    for (const id of ["webinar", "vsl_call"]) {
-      const template = FUNNEL_TEMPLATES.find((t) => t.id === id)!;
-      expect(template.steps.some((s) => blocking.has(s.sourceHint))).toBe(true);
-    }
+  it("el DM depende de GHL en cuatro de sus seis pasos", () => {
+    const dm = FUNNEL_TEMPLATES.find((t) => t.id === "dm")!;
+    const conGhl = dm.steps.filter((s) => s.sourceHint === "crm_pipeline");
+    expect(conGhl.map((s) => s.id)).toEqual([
+      "dm.conversation",
+      "dm.replied",
+      "dm.set",
+    ]);
   });
 });
 
