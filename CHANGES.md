@@ -14,6 +14,37 @@
 
 ---
 
+### 2026-08-29 — REBRAND-LIMITLESS (fase 3): preview social y metadata
+
+**Rama/branch:** `Claude-Design`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `apps/web/app/opengraph-image.tsx`, `apps/web/app/layout.tsx`, `apps/web/app/apple-icon.png`, `apps/web/lib/email/trial-reels-email.ts`
+
+**Qué se hizo:**
+
+- **`app/opengraph-image.tsx`** — preview social 1200×630 generada con `next/og`, prerenderizada en build. Composición según el manual: fondo negro, barra de acento naranja, lockup blanco, tagline y dominio. El lockup se embebe como data URI porque Satori no resuelve rutas de `/public`.
+- **`metadataBase`** en `layout.tsx`, resuelto desde `NEXT_PUBLIC_APP_URL` con fallback a `VERCEL_URL`. **Sin esto la imagen no servía para nada**: Next resolvía `og:image` contra `http://localhost:3000` y el preview no cargaba al compartir el link.
+- **Bloques `openGraph` y `twitter`** en la metadata raíz (type, siteName, locale `es_AR`, card `summary_large_image`).
+- **`app/apple-icon.png`** (180×180) generado desde el mismo `icon.svg`, porque Apple no acepta SVG para el touch icon.
+- **Bug corregido:** `metadata.icons` seguía apuntando a `/brand/logo.png`, archivo borrado en la fase 2. Se eliminó el bloque — `app/icon.svg` y `app/apple-icon.png` ya los toma Next por convención de archivos.
+- **Contraste en emails:** el email de trial-reels quedó con blanco sobre `#E15D12` (3.64:1) en la fase 2. Ahora usa negro, igual que los botones de la app.
+
+**Por qué / finalidad:**
+
+La app no tenía preview social — al compartir el link no aparecía imagen. Con la identidad nueva era el momento de armarla.
+
+**Decisiones de diseño relevantes:**
+
+- **Texto en la tipografía por defecto del renderer.** Satori no soporta WOFF2 y `next/font` sirve Inter en ese formato, así que cargar la fuente real implicaba traer un TTF aparte. La carga de marca la aporta el logotipo, que ya trae el wordmark tipografiado.
+- **Sin `twitter-image` propia:** Twitter cae a `og:image` cuando no existe, y la composición sirve para ambos.
+
+**Riesgos / deuda técnica pendiente:**
+
+- `metadataBase` depende de `NEXT_PUBLIC_APP_URL` en Vercel. Si falta, cae a `VERCEL_URL` (la URL única del deploy, no el dominio de producción) y el preview apunta a un host que cambia en cada deploy. **Verificar que `NEXT_PUBLIC_APP_URL` esté seteada en producción.**
+- La tagline de la imagen sale de `brand.tagline` y todavía menciona "infoproductos" — si el posicionamiento de Limitless es más amplio (el manual habla de holdings y consultoría), conviene reescribirla.
+
+---
+
 ### 2026-08-29 — REBRAND-LIMITLESS (fase 2): identidad visual — paleta, logotipo y tipografía
 
 **Rama/branch:** `Claude-Design`  

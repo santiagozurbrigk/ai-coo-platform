@@ -40,15 +40,34 @@ const themeInitScript = `
 })();
 `;
 
+/**
+ * Base para resolver las URLs absolutas de las imágenes sociales. Sin esto
+ * Next las resuelve contra http://localhost:3000 y el preview no carga al
+ * compartir el link.
+ */
+const appUrl =
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+
 export const metadata: Metadata = {
+  ...(appUrl ? { metadataBase: new URL(appUrl) } : {}),
   title: {
     template: `${brand.name} | %s`,
     default: brand.name,
   },
   description: brand.tagline,
-  icons: {
-    icon: "/brand/logo.png",
-    apple: "/brand/logo.png",
+  // El favicon sale de app/icon.svg y app/apple-icon.png (convención de Next).
+  openGraph: {
+    type: "website",
+    siteName: brand.name,
+    title: brand.name,
+    description: brand.tagline,
+    locale: "es_AR",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: brand.name,
+    description: brand.tagline,
   },
 };
 
