@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { listIntegrationsAction } from "@/app/integrations/actions";
+import { getPaymentIntegrationsStatusAction } from "@/app/payments/actions";
 import { getReelMusicPathAction } from "@/app/marketing/content/reel-music-actions";
 import { IntegrationGrid } from "@/components/integrations";
+import { PaymentsConnectPanel } from "@/components/integrations/payments-connect-panel";
 import { ReelMusicUpload } from "@/components/marketing/trial-reels/reel-music-upload";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@ai-coo/ui";
@@ -10,9 +12,10 @@ import { Upload } from "lucide-react";
 import { paths } from "@/routes";
 
 export default async function IntegrationsPage() {
-  const [integrations, reelMusicPath] = await Promise.all([
+  const [integrations, reelMusicPath, paymentIntegrations] = await Promise.all([
     listIntegrationsAction(),
     getReelMusicPathAction(),
+    getPaymentIntegrationsStatusAction(),
   ]);
 
   return (
@@ -30,6 +33,8 @@ export default async function IntegrationsPage() {
       <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando…</p>}>
         <IntegrationGrid integrations={integrations} />
       </Suspense>
+
+      <PaymentsConnectPanel integrations={paymentIntegrations} />
 
       {/* Trial Reels — configuración de assets */}
       <section className="space-y-3">

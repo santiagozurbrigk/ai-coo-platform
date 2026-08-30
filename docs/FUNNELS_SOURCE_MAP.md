@@ -123,13 +123,17 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 | # | Medida | Qué es | Estado | Qué falta |
 |---|---|---|---|---|
 | M19 | `calls_booked` | Llamadas agendadas | ✅ | Nada — `closing_calls`, 282 filas en 4 orgs |
-| M20 | `calls_showed` | Asistieron a la llamada | 🟡 | La columna existe y el flujo de carga también, pero **no está validado con datos reales** |
+| M20 | `calls_showed` | Asistieron a la llamada | ✅ | Nada — el flujo existe y el resolver distingue "nadie asistió" de "nadie cargó el resultado" |
 
-> Los datos que hay hoy en `closing_calls` son de prueba, cargados sueltos para
-> testear otras cosas, así que **no se puede concluir nada de ellos**. M20 y M24
-> no están rotos: están sin verificar. La primera org real que registre resultados
-> de llamadas confirma o desmiente si el flujo funciona — no hay que construir nada
-> hasta entonces.
+> ✅ **Cerrado el 2026-08-30 (unidad I-3).** El flujo de carga ya existía
+> (`updateClosingCallAction`, y los syncs nunca pisan un `closed`), así que I-3
+> resultó ser una verificación y no una reparación.
+>
+> Lo que sí faltaba, y se construyó, es la **detección de fuente vacía**: si TODAS
+> las llamadas de un período siguen en `scheduled`, el resolver devuelve `null` y
+> no `0`. Reportar cero diría que nadie asistió a ninguna llamada, cuando la verdad
+> es que nadie cargó el resultado. Un `no_show` sí cuenta como resultado cargado:
+> alguien miró la llamada y registró que el lead no vino.
 
 ### GHL pipeline — conteos por etapa
 
@@ -138,7 +142,7 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 | M21 | `dm_conversations_opened` | Conversaciones abiertas | 🔴 | Sync de oportunidades de GHL |
 | M22 | `dm_conversations_replied` | Respondieron al calificador | 🔴 | Idem M21 |
 | M23 | `dm_offers_or_calls_set` | Oferta enviada o llamada agendada | 🔴 | Idem M21 |
-| M24 | `deals_closed` | Cierres | 🟡 | Igual que M20: existe y está sin verificar con datos reales |
+| M24 | `deals_closed` | Cierres | ✅ | Idem M20 |
 | M25 | `follow_ups` | Seguimientos | 🔴 | Idem M21. El doc la declara en §05 pero ninguna de sus métricas la usa |
 
 > La integración GHL de OTC consume `/calendars` y `/contacts`. **No toca
@@ -273,7 +277,7 @@ Agrupado por unidad de trabajo, con lo que desbloquea cada una.
 |---|---|---|---|---|
 | ~~**I-1**~~ | ~~**Persistir métricas de ads por período**~~ ✅ **Hecho 2026-08-29** | M01–M04 | Etapas Spend y Click de **los 3 embudos**, CPC, CPL, EPC, ROAS blended, CAC | — |
 | **I-2** | **Pagos con Whop y Fanbasis** 🔨 **Construido 2026-08-29, sin verificar** | M26–M31 | Etapa Cash de **los 3 embudos**, AOV, ROAS, CAC, EPL, cash vs contracted, refunds | Falta conectar la primera cuenta real y confirmar el mapeo con un webhook de verdad |
-| **I-3** | **Verificar asistencia y cierre de llamadas** | M20, M24 | Show rate y Close rate en VSL y DM, 2 health bands | **S** — el flujo existe; es validarlo con la primera org real y corregir si hace falta |
+| ~~**I-3**~~ | ~~**Verificar asistencia y cierre de llamadas**~~ ✅ **Hecho 2026-08-30** | M20, M24 | Show rate y Close rate en VSL y DM, 2 health bands | — |
 | **I-4** | **Sync de oportunidades de GHL** | M21–M23, M25 | **Embudo DM entero** (4 de 6 pasos) | **M** — GHL ya integrado con auth y cliente; es agregar endpoints |
 | **I-5** | **Integración de webinar** (WebinarJam / Zoom) | M13–M16 | **Embudo Webinar entero** (4 de 7 pasos) | **L** — integración nueva desde cero |
 | **I-6** | **Integración VTurb** | M10–M12 | Etapa Engaged del **VSL** | **M** — Analytics API pública con auth por API key; plays, views y retención filtrables por video y fecha |
@@ -300,7 +304,9 @@ Las medidas se parten en dos grupos:
 Por eso el orden no es "un embudo a la vez", es **de afuera hacia adentro**:
 
 **Ola 1 — los extremos (sirve a los 3 embudos a la vez)**
-~~`I-1` ads por período~~ ✅ → `I-2` pagos 🔨 (falta verificar con cuenta real) → `I-3` asistencia y cierres
+~~`I-1` ads por período~~ ✅ → `I-2` pagos 🔨 (falta conectar una cuenta real) → ~~`I-3` asistencia y cierres~~ ✅
+    
+**Ola 1 completa.** Queda pendiente sólo la verificación del mapeo de pagos con una cuenta real de Whop o Fanbasis.
 
 Al terminarla, los tres embudos miden Spend, Click y Cash; funcionan CAC, ROAS
 blended, AOV, EPL, CPL y **EPL vs CPL**, que es una de las dos ratios decisivas.

@@ -17,18 +17,6 @@
 
 ---
 
-### [EMBUDOS-FUENTE-VACIA] Cerrar el agujero "fuente bindeada pero nunca poblada"
-
-**Qué es:** el resolver distingue "sin binding → null" de "hay datos → número", pero no contempla el caso intermedio: una fuente bindeada a una tabla que existe y nunca se pobló devuelve `0`, que el sistema lee como rotura de negocio.
-
-**Caso real que lo destapó:** los bindings por defecto del embudo DM apuntan a `conversations`, que tiene 0 filas porque es el inbox legacy — el inbox vivo es Zernio.
-
-**Acción propuesta:** que el resolver chequee si la fuente tiene datos históricos para la org; si nunca tuvo, devolver `null` en vez de `0`. Es una protección general, sirve para cualquier fuente futura.
-
-**Pendiente de decisión de Santiago** — quedó abierto junto con la pregunta de rebindear el DM.
-
----
-
 ### [EMBUDOS-FUENTES] Plan de integraciones del módulo de Embudos
 
 **Qué es:** el mapa completo de las 34 medidas atómicas que pide el documento fuente, con su estado en OTC y el orden de construcción, está en **[`docs/FUNNELS_SOURCE_MAP.md`](./docs/FUNNELS_SOURCE_MAP.md)**. Leerlo antes de arrancar cualquier integración de embudos.
@@ -36,7 +24,7 @@
 **Estado actual:** 2 de 34 medidas disponibles (M17 y M18, calidad de aplicación). 20 parciales, 11 faltantes, 1 sin dueño en el documento.
 
 **Orden acordado — de afuera hacia adentro, no de a un embudo:**
-- **Ola 1 (extremos, sirve a los 3 embudos):** ~~I-1 métricas de ads por período~~ ✅ **2026-08-29** · I-2 pagos con Whop y Fanbasis 🔨 **construido 2026-08-29, falta verificar el mapeo con una cuenta real** · I-3 verificar asistencia y cierres
+- **Ola 1 (extremos, sirve a los 3 embudos):** ✅ **Completa.** ~~I-1 métricas de ads~~ · ~~I-2 pagos con Whop y Fanbasis~~ 🔨 *(falta conectar una cuenta real y verificar el mapeo)* · ~~I-3 asistencia y cierres + detección de fuente vacía~~
 - **Ola 2 (medios, por costo):** I-4 GHL opportunities · I-6 VTurb · I-5 webinar
 - **Ola 3:** I-9 retención · I-8 Hyros (absorbe los opt-ins de landings) · I-10 triggers de Zernio
 

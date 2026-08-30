@@ -17,6 +17,12 @@ import { computeFunnel, type OrgMeasures, type StepCounts } from "./compute";
 import { getFunnelSource, type FunnelSourceId } from "./sources";
 import { periodBounds, type FunnelPeriod } from "./period";
 import {
+  countAllTimeRows,
+  resolveCallOutcomes,
+  resolveWithSignal,
+  type CallStatus,
+} from "./source-signal";
+import {
   aggregatePayments,
   type OrderRow,
   type TransactionRow,
@@ -75,7 +81,13 @@ async function countConversationsOpened(
     .eq("organization_id", organizationId)
     .gte("created_at", fromIso)
     .lt("created_at", toIso);
-  return error ? null : (count ?? null);
+
+  if (error) return null;
+
+  // Cero conversaciones puede ser un cero real o una tabla que la org no usa.
+  return resolveWithSignal(count ?? 0, () =>
+    countAllTimeRows(supabase, "conversations", organizationId)
+  );
 }
 
 async function countConversationsReplied(
@@ -113,22 +125,41 @@ async function countConversationsBooked(
   ).length;
 }
 
-async function countClosingCalls(
+/**
+ * Llamadas del período con sus estados.
+ *
+ * Trae los estados en vez de contar en la base porque hace falta saber si
+ * ALGUNA llamada tiene resultado cargado — ver `resolveCallOutcomes`.
+ */
+async function loadCallStatuses(
   supabase: SupabaseClient,
   organizationId: string,
-  period: FunnelPeriod,
-  statuses: string[] | null
-): Promise<number | null> {
+  period: FunnelPeriod
+): Promise<CallStatus[] | null> {
   const { fromIso, toIso } = periodBounds(period);
-  let query = supabase
+  const { data, error } = await supabase
     .from("closing_calls")
-    .select("id", { count: "exact", head: true })
+    .select("status")
     .eq("organization_id", organizationId)
     .gte("scheduled_at", fromIso)
     .lt("scheduled_at", toIso);
-  if (statuses) query = query.in("status", statuses);
-  const { count, error } = await query;
-  return error ? null : (count ?? null);
+
+  if (error || !data) return null;
+  return data.map((row) => row.status as CallStatus);
+}
+
+/** Total de llamadas agendadas del período, sin importar el resultado. */
+async function countCallsScheduled(
+  supabase: SupabaseClient,
+  organizationId: string,
+  period: FunnelPeriod
+): Promise<number | null> {
+  const statuses = await loadCallStatuses(supabase, organizationId, period);
+  if (statuses === null) return null;
+
+  return resolveWithSignal(statuses.length, () =>
+    countAllTimeRows(supabase, "closing_calls", organizationId)
+  );
 }
 
 async function countNewClients(
@@ -142,7 +173,11 @@ async function countNewClients(
     .eq("organization_id", organizationId)
     .gte("join_date", period.start)
     .lte("join_date", period.end);
-  return error ? null : (count ?? null);
+
+  if (error) return null;
+  return resolveWithSignal(count ?? 0, () =>
+    countAllTimeRows(supabase, "clients", organizationId)
+  );
 }
 
 /**
@@ -198,11 +233,15 @@ async function resolveSource(
     case "conversations_booked":
       return countConversationsBooked(supabase, organizationId, period);
     case "closing_calls_scheduled":
-      return countClosingCalls(supabase, organizationId, period, null);
-    case "closing_calls_attended":
-      return countClosingCalls(supabase, organizationId, period, ["closed", "not_closed"]);
-    case "closing_calls_closed":
-      return countClosingCalls(supabase, organizationId, period, ["closed"]);
+      return countCallsScheduled(supabase, organizationId, period);
+    case "closing_calls_attended": {
+      const statuses = await loadCallStatuses(supabase, organizationId, period);
+      return statuses === null ? null : resolveCallOutcomes(statuses).attended;
+    }
+    case "closing_calls_closed": {
+      const statuses = await loadCallStatuses(supabase, organizationId, period);
+      return statuses === null ? null : resolveCallOutcomes(statuses).closed;
+    }
     case "clients_new":
       return countNewClients(supabase, organizationId, period);
     case "client_payments_count":

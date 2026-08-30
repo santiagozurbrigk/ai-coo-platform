@@ -37,7 +37,21 @@ Read /home/user/ai-coo-platform/PENDIENTES.md
 
 Agregar la entrada **al principio del historial** (orden cronológico inverso — más reciente arriba).
 
-### 3. Nunca saltear la actualización de CHANGES.md y PENDIENTES.md
+### 3. Registrar toda API implementada sin documentación
+
+Si implementás contra una API externa y **no podés leer su documentación oficial**
+(el entorno remoto bloquea los dominios de documentación), agregá una entrada en
+**[`docs/API_DOCS_PENDIENTES.md`](./docs/API_DOCS_PENDIENTES.md)** con qué asumiste,
+con qué nivel de confianza y qué necesitás verificar.
+
+Además, en ese caso:
+- Persistí el payload crudo **antes** de interpretarlo, para que el primer dato real
+  sea la fuente de verdad.
+- **Nunca inventes un valor.** Lo que no se entiende queda marcado como no mapeado,
+  con su motivo. Un cobro cuyo monto no se lee no es un cobro de cero.
+- Aislá el mapeo en un solo archivo por proveedor, con la advertencia en el header.
+
+### 4. Nunca saltear la actualización de CHANGES.md y PENDIENTES.md
 
 Aunque el cambio parezca pequeño (un bugfix de una línea, un tweak de UI), documentarlo en `CHANGES.md`. La continuidad de contexto entre sesiones depende de este registro.
 
@@ -46,7 +60,7 @@ Al finalizar cada sesión, también actualizar `PENDIENTES.md`:
 - Agregar nuevos pendientes que hayan surgido durante la sesión
 - Actualizar la descripción de ítems que cambiaron de scope o estado
 
-### 4. Workflow de Git — ramas, PRs y merges
+### 5. Workflow de Git — ramas, PRs y merges
 
 **Todo el desarrollo ocurre en ramas de feature. Nunca commitear directamente a `main`.**
 
@@ -89,6 +103,7 @@ Claude Code usa el prefijo `claude/` asignado por el sistema — está bien, no 
 
 **Fuentes complementarias (leer si hace falta profundizar):**
 - `CHANGES.md` — **historial de cambios con contexto** (leer siempre al inicio)
+- `docs/API_DOCS_PENDIENTES.md` — **APIs implementadas sin documentación**, pendientes de verificar
 - `PENDIENTES.md` — **backlog de pendientes** (leer siempre al inicio, actualizar al terminar)
 - `OTC_OPERATIONAL_NOTES.md` — operaciones, integraciones, crons, env vars en detalle
 - `DESIGN.md` — design system OTC
@@ -642,7 +657,7 @@ Eventos SSE: ver `lib/agent/sse.ts` (`token`, `thinking`, `tool`, `done`, `error
 
 ## 9. WORKFLOW DE DEPLOY
 
-### Flujo completo (ver también Regla 4 en sección de Reglas Obligatorias)
+### Flujo completo (ver también Regla 5 en sección de Reglas Obligatorias)
 
 ```
 rama-de-feature  →  PR a main  →  Squash and merge  →  Vercel build  →  Production (gru1)

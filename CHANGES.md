@@ -14,6 +14,54 @@
 
 ---
 
+### 2026-08-30 — UI de conexión de pagos, I-3 y registro de APIs sin documentar
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `docs/API_DOCS_PENDIENTES.md` (nuevo), `CLAUDE.md`, `app/payments/actions.ts` (nuevo), `components/integrations/payments-connect-panel.tsx` (nuevo), `app/(platform)/integrations/page.tsx`, `lib/funnels/source-signal.ts` (nuevo), `lib/funnels/resolve.ts`
+
+**Qué se hizo:**
+
+**1. `docs/API_DOCS_PENDIENTES.md` + regla permanente en `CLAUDE.md`**
+Santiago pidió que quede registrado en algún lado qué documentaciones de API faltan verificar, para pasarlas todas juntas al final de las olas y corregir de una.
+
+Se verificó que **los nueve dominios de documentación probados están bloqueados** por la política de red del entorno: `docs.whop.com`, `apidocs.fan`, `vturb.gitbook.io`, `api-docs.hyros.com`, `docs.hyros.com`, `highlevel.stoplight.io`, `marketplace.gohighlevel.com`, `developers.zoom.us` y `help.webinarjam.com`. No es específico de un proveedor: **va a pasar en todas las integraciones que quedan.**
+
+El documento lista, por proveedor: qué se asumió, con qué nivel de confianza, cómo se verifica y qué se necesita exactamente de la documentación. Cubre Whop y Fanbasis (construidos) y deja preparadas las secciones de GHL, VTurb, WebinarJam/Zoom y Hyros.
+
+Se agregó como **Regla 3** de `CLAUDE.md`, con el patrón obligatorio: persistir el payload crudo antes de interpretarlo, nunca inventar un valor, aislar el mapeo en un archivo con advertencia en el header, y dejar la entrada en el registro.
+
+**2. UI de conexión de pagos**
+- `app/payments/actions.ts`: estado, conexión y desconexión de Whop y Fanbasis. El secreto del webhook es obligatorio; la API key es opcional y hoy no se usa (va a hacer falta para el backfill).
+- `components/integrations/payments-connect-panel.tsx`: una tarjeta por proveedor con estado, formulario de conexión, **la URL del webhook con botón de copiar**, fecha del último evento y un aviso cuando hay eventos sin interpretar.
+- Montado en `/integrations`.
+
+**3. Unidad I-3 — asistencia y cierres**
+Resultó ser una verificación y no una reparación: `updateClosingCallAction` ya permite cargar el resultado y los syncs de Calendly y GHL nunca pisan un `closed`.
+
+Lo que sí faltaba, y se construyó, es **`lib/funnels/source-signal.ts`**, que cierra el agujero abierto desde la Fase 1: una fuente bindeada a una tabla que nunca se pobló devolvía `0`.
+- `resolveCallOutcomes`: si TODAS las llamadas del período siguen en `scheduled`, devuelve `null`. Un `no_show` sí cuenta como resultado cargado.
+- `resolveWithSignal`: ante un cero en el período, consulta si la org tuvo filas alguna vez. Si nunca tuvo, `null`. La consulta extra corre **sólo cuando el conteo dio cero**.
+- Aplicado a `conversations`, `closing_calls` y `clients`.
+
+**Verificación ejecutada:**
+- `pnpm test`: **284 tests en 14 archivos, todos en verde** (14 nuevos sobre la detección de fuente vacía).
+- `tsc --noEmit` y lint: limpios.
+
+**Decisiones de diseño:**
+- **Un `no_show` cuenta como señal.** Alguien miró la llamada y registró que el lead no vino: el cero de asistencia que sale de ahí es real, no un hueco.
+- **La consulta de histórico corre sólo si el período dio cero**, así que en el caso normal no cuesta nada.
+- **Desconectar un proveedor de pagos no borra órdenes ni transacciones.** Son historia del negocio, no de la conexión; borrarlas alteraría métricas de períodos pasados.
+- **La URL del webhook se muestra con botón de copiar después de conectar.** El flujo tiene dos lados y sin el segundo no llega ningún evento; la UI lo dice explícitamente.
+- **El panel avisa cuántos eventos quedaron sin interpretar**, con el texto de que no se perdió nada y se reprocesan al ajustar el mapeo.
+
+**Riesgos / deuda técnica pendiente:**
+- El mapeo de webhooks de Whop y Fanbasis sigue sin verificar — ver `docs/API_DOCS_PENDIENTES.md`.
+- La API key que se guarda en la UI todavía no se usa: falta el backfill histórico.
+- La detección de fuente vacía usa "¿la org tuvo alguna fila alguna vez?", que es una heurística: una org que borró toda su historia se leería como sin instrumentar. Es un caso raro y el costo de equivocarse es mostrar "sin datos" en vez de un cero, que es el lado seguro.
+
+---
+
 ### 2026-08-29 — FEAT-EMBUDOS-I2: capa de pagos con Whop y Fanbasis
 
 **Rama/branch:** `Claude-New-Features`  
