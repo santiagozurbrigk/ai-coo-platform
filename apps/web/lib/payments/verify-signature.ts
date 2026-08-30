@@ -3,10 +3,16 @@
  *
  * Verificación de firma de los webhooks de pagos.
  *
- * Whop declara usar la especificación [Standard Webhooks](https://www.standardwebhooks.com/),
- * que es pública y está implementada acá. Fanbasis no documenta públicamente su
- * esquema, así que usa el HMAC-SHA256 simple sobre el cuerpo crudo, que es el
- * más habitual — **queda por verificar contra un webhook real**.
+ * VERIFICADO el 2026-08-30 contra la documentación local:
+ *   - Whop: [Standard Webhooks](https://www.standardwebhooks.com/). Firma
+ *     `{webhook-id}.{webhook-timestamp}.{raw body}` con HMAC-SHA256 en base64,
+ *     cabecera `webhook-signature` con formato `v1,<firma>`, tolerancia de 5
+ *     minutos. **La clave es el secreto `ws_...` tal cual**: la doc es explícita
+ *     en no quitarle el prefijo ni decodificarlo desde base64.
+ *   - Commas (ex Fanbasis): HMAC-SHA256 **en hex** sobre el cuerpo crudo, con el
+ *     secreto `whsk_...` sin transformar, en la cabecera `x-webhook-signature`.
+ *     **No tiene timestamp**, así que no hay protección de replay del lado del
+ *     proveedor: la deduplicación por id de evento es la única defensa.
  *
  * Un webhook sin firma válida se rechaza. Estos endpoints reciben eventos de
  * dinero desde internet abierta: aceptar sin verificar dejaría a cualquiera
@@ -56,6 +62,9 @@ export function verifyStandardWebhook(
     return { ok: false, reason: "Timestamp fuera de la ventana de tolerancia" };
   }
 
+  // Whop entrega el secreto como `ws_...` y pide usarlo literalmente. La rama
+  // `whsec_` queda por compatibilidad con proveedores que sí usan esa
+  // convención de Standard Webhooks, pero Whop nunca la manda.
   const key = secret.startsWith("whsec_")
     ? Buffer.from(secret.slice("whsec_".length), "base64")
     : Buffer.from(secret);
@@ -74,10 +83,10 @@ export function verifyStandardWebhook(
 }
 
 /**
- * HMAC-SHA256 simple sobre el cuerpo crudo (Fanbasis).
+ * HMAC-SHA256 sobre el cuerpo crudo (Commas, ex Fanbasis).
  *
- * ⚠️ Sin verificar contra la documentación del proveedor. Acepta la firma en
- * hex o base64, con o sin prefijo `sha256=`.
+ * La documentación especifica **hex**; se acepta base64 también por tolerancia,
+ * sin costo. El prefijo `sha256=` se descarta si viene.
  */
 export function verifyHmacWebhook(
   rawBody: string,

@@ -13,15 +13,21 @@ export const runtime = "nodejs";
  * URL a registrar en Fanbasis:
  *   https://<app>/api/webhooks/fanbasis?organizationId=<uuid>
  *
- * ⚠️ El esquema de firma NO está verificado contra la documentación de Fanbasis,
- * que no es alcanzable desde el entorno de desarrollo. Se asume HMAC-SHA256 sobre
- * el cuerpo crudo, que es lo más habitual. Al conectar la primera cuenta real,
- * confirmar el nombre de la cabecera y el formato de la firma.
+ * Fanbasis pasó a llamarse **Commas**, pero su API se sigue sirviendo desde
+ * `fanbasis.com`, así que el id de proveedor no cambia.
+ *
+ * VERIFICADO el 2026-08-30: la cabecera de firma es `x-webhook-signature` y el
+ * algoritmo HMAC-SHA256 en hex sobre el cuerpo crudo.
+ *
+ * ⚠️ **La entrega es at-most-once: un envío fallido se registra y NUNCA se
+ * reintenta.** Por eso esta ruta responde 200 ante cualquier evento con firma
+ * válida, incluso si no se supo interpretar — devolver un error perdería el
+ * evento para siempre. El crudo ya quedó guardado y se puede reprocesar.
  */
 const SIGNATURE_HEADERS = [
+  "x-webhook-signature",
   "x-fanbasis-signature",
   "x-signature",
-  "x-webhook-signature",
   "signature",
 ];
 

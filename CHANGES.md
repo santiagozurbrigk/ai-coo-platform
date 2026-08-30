@@ -14,6 +14,54 @@
 
 ---
 
+### 2026-08-30 — FIX-EMBUDOS-I2: corrección del mapeo de pagos con la documentación real
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `lib/payments/{normalize,verify-signature}.ts`, `app/api/webhooks/{whop,fanbasis}/route.ts`, `lib/payments/__tests__/normalize.test.ts`, `docs/API_DOCS_PENDIENTES.md`, `docs/PLAN_VERIFICACION.md`
+
+**Qué se hizo:**
+Santiago capturó la documentación completa de los seis proveedores en `docs/external-apis/` (5.8 MB, con un `RESUMEN-OTC.md` por proveedor que responde las preguntas abiertas). Eso permitió **corregir el mapeo de pagos que se había construido a ciegas** y responder las preguntas de diseño de las unidades que faltan.
+
+**Bugs reales encontrados y corregidos en I-2:**
+
+1. **El monto de Whop estaba mal.** `KEYS.amount` no incluía `settlement_amount`. De las claves que buscaba, en el payload real de Whop sólo existen `total` y `subtotal`, que la doc define como *"para mostrarle al creador, excluyendo los fees del comprador"* — **no es lo que se le cobró al cliente**. El cash collected habría quedado sistemáticamente por debajo del real.
+2. **La conversión de centavos se infería del sufijo `_cents`.** Whop manda **decimales** (10.43 = $10.43) y Commas manda **centavos** (2900 = $29). Convenciones opuestas entre los dos proveedores de la misma unidad. Ahora la unidad se declara por proveedor en `PROVIDER_CONFIG`.
+3. **Los tipos de evento se detectaban por regex.** `membership.created` no existe en Whop; el alta es `membership.activated`. Reemplazado por listas literales.
+4. **La identidad del comprador se buscaba sólo en la raíz.** Commas la anida bajo `buyer`, Whop bajo `user` / `member`.
+5. **El valor contratado tomaba el monto del evento como si fuera el total.** En Commas es `amount_cents × auto_expire_after_x_periods`; si la suscripción es indefinida **no existe** un total contratado y ahora queda `unmapped` en vez de guardar la cuota como si fuera la promesa completa.
+
+**Firmas — confirmadas, con un matiz:**
+- Whop usa Standard Webhooks, como se había asumido. **La clave es el secreto `ws_...` literal**, no `whsec_` con base64: el código caía en la rama correcta por accidente y ahora está documentado.
+- Commas firma con HMAC-SHA256 **hex** sobre el cuerpo crudo en `x-webhook-signature`. La cabecera ya estaba entre las candidatas; ahora es la primera.
+
+**Diferencia operativa que se documentó en las rutas:**
+Whop entrega *at least once* y reintenta ~3 días; **Commas entrega *at most once* y nunca reintenta**. Por eso la ruta de Commas responde 200 ante cualquier evento con firma válida: devolver un error perdería el evento para siempre.
+
+**Respuestas a las preguntas de diseño que quedaban abiertas:**
+- **GHL:** no hay endpoint de historial de etapas, pero **sí existe el webhook `OpportunityStageUpdate`**. I-4 tiene que persistir las transiciones en tabla propia. Ojo: `dateAdded` es la fecha de creación de la oportunidad, **no** el momento del cambio de etapa — hay que guardar la hora de recepción.
+- **VTurb:** la retención viene como promedio y como curva por segundo, y además **VTurb tiene `pitch_time` nativo**: `total_over_pitch` da M12 ya calculado. I-6 baja a tamaño S y cubre también M08.
+- **WebinarJam:** `/registrants` con `attended_live=4` + `attended_live_timestamp` devuelve directamente los que se quedaron pasado el segundo del pitch, o sea **M15 sin post-procesar**. Distingue vivo de replay en columnas separadas. **M16 (clicks al CTA) no está expuesto** — lo más cercano es `purchased_live`, que es conversión y no intención; no hay que presentarlo como si fuera lo mismo. La API key **requiere aprobación previa**.
+- **Hyros:** `GET /api/v1.0/attribution` con `level` y `fields` da M05; `/leads/journey` con `includeEvents=true` da M07. ⚠️ Casi todos sus endpoints **ignoran en silencio los parámetros mal escritos** y devuelven 200 con datos distintos a los pedidos.
+
+**Hallazgo de identidad:** **Fanbasis se llama Commas.** El rebranding cambió marca y documentación, no los hosts — el API se sigue sirviendo desde `www.fanbasis.com`, así que el id de proveedor en la base (`fanbasis`) no cambia y no hace falta migración.
+
+**Verificación ejecutada:**
+- `pnpm test`: **293 tests en 14 archivos, todos en verde** (33 de normalización reescritos con los payloads reales de la documentación).
+- `tsc --noEmit` y lint: limpios.
+
+**Decisiones de diseño:**
+- **La configuración es por proveedor y no por heurística.** Adivinar la unidad por el sufijo del campo funcionaba de casualidad; un campo nuevo sin `_cents` se habría colado como si fuera unidad.
+- **Los tests usan payloads copiados de la documentación**, no inventados, y varios existen sólo para fijar que el mapeo no vuelva a tomar el campo equivocado.
+- **Una suscripción indefinida no tiene valor contratado.** Estimarlo sería inventar una promesa que el cliente nunca hizo.
+
+**Riesgos / deuda técnica pendiente:**
+- Sigue sin conectarse ninguna cuenta real — es lo que Santiago decidió dejar para el final. Los pasos están en `docs/PLAN_VERIFICACION.md` §3, ahora con las expectativas correctas.
+- El backfill histórico no está construido: los dos proveedores exponen endpoints REST para traerlo (`GET /payments` en Whop, `/public-api/checkout-sessions/transactions` en Commas) y la API key ya se guarda en la UI, pero no se usa todavía.
+- Whop desactiva endpoints que fallan 72 h seguidas y **no reenvía lo perdido**: si eso pasa hay que reconstruir por REST.
+
+---
+
 ### 2026-08-30 — DOC-EXTERNAL-APIS-2: Whop, Commas, Hyros y WebinarJam bajados al repo
 
 **Rama/branch:** `Claude-New-Features`  

@@ -62,73 +62,50 @@ que se escribió a ciegas, y verificar contra cuentas reales.
 
 ---
 
-## 1. Whop — unidad I-2 — ✅ **documentación capturada**, queda corregir el código
+## 1. Whop y Commas — unidad I-2 · ✅ CORREGIDO 2026-08-30
 
-**Documentación:** https://docs.whop.com — **capturada el 2026-08-30** en
-[`docs/external-apis/whop/`](./external-apis/whop/): 897 páginas y los **3 specs
-OpenAPI oficiales** que Whop publica.
+Detalle completo en [`whop/RESUMEN-OTC.md`](./external-apis/whop/RESUMEN-OTC.md) y
+[`commas/RESUMEN-OTC.md`](./external-apis/commas/RESUMEN-OTC.md).
 
-**Leer antes de tocar el código:**
-[`external-apis/whop/RESUMEN-OTC.md`](./external-apis/whop/RESUMEN-OTC.md).
+**Fanbasis se llama Commas.** El rebranding cambió la marca y la documentación, no
+los hosts: el API se sigue sirviendo desde `www.fanbasis.com`, así que el id de
+proveedor en la base de datos (`fanbasis`) no cambia.
 
-### Las cinco preguntas, respondidas
+### Lo que estaba mal y se corrigió
 
-| # | Pregunta | Respuesta |
+| Bug | Qué pasaba | Corrección |
 |---|---|---|
-| 1 | Lista de eventos de webhook | ~60 eventos en 25 recursos. Los de pagos: `payment.succeeded/.failed/.created/.pending/.authorized/.canceled`, `refund.created/.updated`, `membership.activated/.deactivated/.trial_ending_soon/.cancel_at_period_end_changed`, `invoice.*`, `dispute.*` |
-| 2 | Payload exacto | Envelope `{ id, type, api_version, api_version_date, timestamp, account_id, data }`. El objeto va bajo **`data`**. Con pin anterior a `2026-08-14` el campo de cuenta es `company_id`, no `account_id` |
-| 3 | Esquema de firma | **Standard Webhooks**, como se asumió: headers `webhook-id` / `webhook-timestamp` / `webhook-signature` (`v1,<base64>`), HMAC-SHA256 de `{id}.{timestamp}.{body}`, ventana de 5 minutos. **El prefijo del secreto es `ws_`, no `whsec_`, y se usa como clave literal** |
-| 4 | Centavos o unidades | **Unidades, decimales.** El spec: *"the refunded amount as a decimal in the specified currency, such as 10.43 for $10.43 USD"* |
-| 5 | Backfill histórico | Sí: `GET /payments`, `/refunds`, `/memberships`, `/members`, `/invoices` |
+| **Monto de Whop** | `KEYS.amount` no incluía `settlement_amount`. De las claves que buscaba, en el payload real sólo existen `total` y `subtotal`, que la doc define como *"para mostrarle al creador, sin los fees del comprador"* — **no es lo que se le cobró al cliente** | `settlement_amount` primero, con test que fija que no tome `total` ni `subtotal` |
+| **Centavos por sufijo** | La conversión se infería del sufijo `_cents`. Whop manda **decimales** y Commas **centavos**: convenciones opuestas | La unidad se declara **por proveedor** en `PROVIDER_CONFIG` |
+| **Eventos por regex** | `membership.created` no existe en Whop; el alta es `membership.activated` | Listas literales de eventos por proveedor |
+| **Identidad del comprador** | Se buscaba sólo en la raíz | Se busca en `buyer` (Commas) y `user`/`member` (Whop) |
+| **Valor contratado** | Se tomaba el monto del evento como si fuera el total | En Commas es `amount_cents × auto_expire_after_x_periods`; si la suscripción es indefinida **no hay total contratado** y queda `unmapped` |
 
-### 🔧 Lo que hay que corregir en `lib/payments/normalize.ts`
+### Firmas — confirmadas
 
-1. **El campo de monto no existe.** `KEYS.amount` busca `settled_amount`, que no
-   existe; el campo real es **`settlement_amount`** (*"the total amount charged to the
-   customer, including taxes and after any discounts"*). `total` y `subtotal` sí
-   existen pero son *"to show to the creator (excluding buyer fees)"* — otra cosa.
-   Hay que agregar `settlement_amount` y decidir explícitamente qué medida usa cuál.
-2. **`membership.created` no existe.** El evento de alta es `membership.activated`.
-   Conviene reemplazar los regex de detección por la lista literal de eventos.
-3. **La deduplicación va por `webhook-id`.** Whop entrega *at least once* y reintenta
-   12 veces durante ~71 horas, con el mismo id. El orden no está garantizado.
+- **Whop**: Standard Webhooks. `{webhook-id}.{webhook-timestamp}.{raw body}`,
+  HMAC-SHA256 base64, header `v1,<firma>`, tolerancia 5 min. **La clave es el
+  secreto `ws_...` literal** — no se le quita el prefijo ni se decodifica.
+- **Commas**: HMAC-SHA256 **hex** sobre el cuerpo crudo, header
+  `x-webhook-signature`, secreto `whsk_...` sin transformar. **Sin timestamp**, así
+  que no hay protección de replay del proveedor.
 
----
+### Diferencia operativa que importa
 
-## 2. Commas (ex Fanbasis) — unidad I-2 — ✅ **documentación capturada**
-
-> **Fanbasis se llama Commas.** `apidocs.fan` no es la documentación vigente:
-> es **`commasdocs.com`**. El API sigue en `www.fanbasis.com`.
-
-**Documentación:** https://commasdocs.com — **capturada el 2026-08-30** en
-[`docs/external-apis/commas/`](./external-apis/commas/).
-
-**Leer antes de tocar el código:**
-[`external-apis/commas/RESUMEN-OTC.md`](./external-apis/commas/RESUMEN-OTC.md).
-
-### Las cuatro preguntas, respondidas
-
-| # | Pregunta | Respuesta |
+| | Whop | Commas |
 |---|---|---|
-| 1 | **Esquema de firma y cabecera** | Cabecera **`x-webhook-signature`**. HMAC-SHA256 sobre el **body crudo**, codificado en **hex**, con el secreto **tal cual** (sin prefijo ni base64). Sin timestamp: no hay protección de replay del proveedor |
-| 2 | Eventos y payloads | `payment.succeeded/.failed/.canceled/.expired`, `refund.created`, `product.purchased`, `subscription.created/.renewed/.canceled/.completed/.past_due/.recovered`, `dispute.created/.updated` |
-| 3 | REST para backfill | Sí: `/public-api/transactions/:id`, `/checkout-sessions/transactions`, `/subscribers`, `/customers`, `/products` y sus variantes por producto y por sesión |
-| 4 | **Valor contratado total** | `amount_cents` × `subscription.auto_expire_after_x_periods`. Si ese campo es `null`, la suscripción es indefinida y **no hay valor contratado** — queda `unmapped`, no cero |
+| Entrega | at **least** once, reintenta ~3 días | at **most** once, **nunca reintenta** |
+| Consecuencia | deduplicar por `webhook-id` | **nunca devolver error en un evento procesable**: se pierde para siempre |
 
-### 🔧 Lo que hay que tener en cuenta
+Whop además **desactiva endpoints que fallan** (72 h y 10+ fallos), y al reactivarlos
+no reenvía lo perdido.
 
-- **Commas manda centavos (`amount_cents`), Whop manda unidades decimales.** Los dos
-  proveedores de la misma unidad usan convenciones opuestas: la regla tiene que ser
-  por proveedor, no una heurística de sufijo.
-- **Siempre `https://www.fanbasis.com`**, nunca el apex: el `301` descarta los bodies
-  de `POST`.
-- **El `429` usa otro envelope** (`{"success": false}` en vez de
-  `{"status": "error"}`).
-- **Ids mezclados**: hashids cortos para productos/sesiones/transacciones, enteros
-  planos para customers/subscriptions. El filtro `customer_id` de `/subscribers` pide
-  el entero, y el hashid que ese mismo endpoint devuelve **no matchea**.
+### Backfill — los dos lo permiten
 
----
+Whop: `GET /payments`, `/refunds`, `/memberships`.
+Commas: `GET /public-api/checkout-sessions/transactions`, `/subscribers`, `/customers`.
+
+Queda sin construir: la API key ya se guarda en la UI de conexión pero todavía no se usa.
 
 ## 3. GHL — oportunidades y pipelines (unidad I-4)
 

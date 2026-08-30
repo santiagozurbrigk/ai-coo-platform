@@ -16,6 +16,13 @@ export const runtime = "nodejs";
  *
  * El `organizationId` de la URL NO autentica nada — sólo dice contra qué secreto
  * verificar. Lo que prueba que el evento es legítimo es la firma.
+ *
+ * VERIFICADO el 2026-08-30: Standard Webhooks con el secreto `ws_...` usado
+ * literalmente como clave HMAC.
+ *
+ * La entrega de Whop es at-least-once y reintenta ~3 días, así que un mismo
+ * evento puede llegar varias veces con el mismo `webhook-id`. La deduplicación
+ * vive en `payment_webhook_events`.
  */
 export async function POST(request: Request) {
   const url = new URL(request.url);

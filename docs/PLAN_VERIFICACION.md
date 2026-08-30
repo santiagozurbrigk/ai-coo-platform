@@ -135,8 +135,11 @@ Es lo más importante de verificar, porque es la regla que sostiene todo el mód
 
 ## 3. I-2 — Pagos con Whop y Fanbasis ⚠️
 
-🔑 **Es el bloque con más probabilidad de fallar**, porque el mapeo de campos se
-construyó sin poder leer las documentaciones. Ver `docs/API_DOCS_PENDIENTES.md`.
+🔑 **Corregido el 2026-08-30 contra la documentación real** (`docs/external-apis/`).
+El riesgo bajó mucho, pero quedan cosas que sólo se confirman con una cuenta viva.
+
+> **Fanbasis se llama Commas.** El API se sigue sirviendo desde `www.fanbasis.com`,
+> así que el proveedor en OTC sigue siendo `fanbasis`.
 
 ### 3.1 Conectar
 
@@ -165,8 +168,11 @@ construyó sin poder leer las documentaciones. Ver `docs/API_DOCS_PENDIENTES.md`
 | Paso | Resultado esperado |
 |---|---|
 | Consultar `payment_transactions` | Una fila con `kind='payment'` y el monto correcto |
-| ⚠️ Comparar el monto contra el dashboard de Whop | Si difiere ×100, es centavos |
-| Consultar `payment_orders` | ⭐ `contract_value` es el **total contratado**, no la cuota pagada |
+| ⭐ Comparar el monto contra el dashboard de Whop | Debe coincidir con **`settlement_amount`** (lo cobrado al cliente), no con `total` ni `subtotal`, que excluyen los fees del comprador |
+| Verificar que Whop **no** venga en centavos | La doc dice decimales (10.43 = $10.43). Si difiere ×100, revisar |
+| Verificar que Commas **sí** venga en centavos | `amount_cents: 2900` debe guardarse como `29` |
+| Consultar `payment_orders` tras una suscripción **con** `auto_expire_after_x_periods` | ⭐ `contract_value` = cuota × ciclos. Una suscripción de $500 × 6 debe dar **3000**, no 500 |
+| Crear una suscripción **indefinida** (sin `auto_expire_after_x_periods`) | ⭐ Debe quedar `unmapped`, **no** guardar la cuota como si fuera el total |
 | Hacer un **reembolso de prueba** | Fila con `kind='refund'` y monto **positivo** |
 | Verificar el neto en el embudo | Cash collected = pagos − reembolsos |
 
@@ -177,7 +183,9 @@ construyó sin poder leer las documentaciones. Ver `docs/API_DOCS_PENDIENTES.md`
 | `curl -X POST "$APP_URL/api/webhooks/whop?organizationId=<uuid>" -d '{}'` sin firma | **401** |
 | Enviar con una firma inventada | **401** |
 | Enviar sin `organizationId` | **400** |
-| ⚠️ Repetir todo con Fanbasis | Su esquema de firma es el menos confiable de todo lo construido: si rechaza un webhook legítimo, revisar el nombre de la cabecera |
+| Repetir con Commas | Cabecera `x-webhook-signature`, HMAC-SHA256 **hex** sobre el cuerpo crudo |
+| ⭐ Whop: verificar que el secreto `ws_...` funcione **sin transformar** | La doc pide usarlo literal, sin quitar prefijo ni decodificar base64 |
+| ⭐ Commas: enviar un evento que no se sepa interpretar | Debe responder **200**, no error. Su entrega es at-most-once: un error pierde el evento para siempre |
 
 ### 3.5 Desconectar
 
@@ -208,11 +216,22 @@ Es la regla que evita que el módulo confunda "no pasó nada" con "nadie lo carg
 
 Se completa a medida que se construyen.
 
-- [ ] **I-4** — GHL opportunities *(pendiente de la documentación: ¿hay historial de cambios de etapa?)*
-- [ ] **I-6** — VTurb *(pendiente de la documentación: ¿la retención es promedio o curva?)*
-- [ ] **I-5** — WebinarJam / Zoom
+Todas tienen ya su documentación verificada en `docs/external-apis/`. Lo que sigue
+son las verificaciones contra cuentas reales, que se suman a medida que se construyen.
+
+- [ ] **I-4** — GHL opportunities. Verificar que el webhook `OpportunityStageUpdate`
+      llegue en cada cambio, y ⭐ que el momento de la transición se guarde con la hora
+      de recepción y **no** con `dateAdded`, que es la fecha de creación de la
+      oportunidad.
+- [ ] **I-6** — VTurb. Verificar que `total_over_pitch` coincida con el dashboard, y
+      que el `pitch_time` configurado en VTurb sea el segundo del CTA real.
+- [ ] **I-5** — WebinarJam / EverWebinar. 🔑 **La API key requiere aprobación previa
+      de WebinarJam: pedirla antes de empezar.** Verificar en qué unidad viene
+      `time_live` (la doc lo declara `string` sin aclarar si es segundos o `mm:ss`).
 - [ ] **I-9** — Retención y compras repetidas
-- [ ] **I-8** — Hyros *(incluye los opt-ins de landings)*
+- [ ] **I-8** — Hyros. ⭐ Verificar que un parámetro mal escrito **no** pase
+      desapercibido: la doc avisa que casi todos los endpoints ignoran parámetros
+      desconocidos y devuelven `200` con datos distintos a los pedidos.
 - [ ] **I-10** — Triggers de Zernio
 
 ---

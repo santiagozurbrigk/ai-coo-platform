@@ -3,22 +3,23 @@
  *
  * Traduce los webhooks de Whop y Fanbasis al modelo normalizado.
  *
- * ⚠️ EL MAPEO DE CAMPOS NO ESTÁ VERIFICADO CONTRA LAS APIS REALES.
+ * VERIFICADO el 2026-08-30 contra la documentación local:
+ *   - docs/external-apis/whop/RESUMEN-OTC.md
+ *   - docs/external-apis/commas/RESUMEN-OTC.md
  *
- * Los sitios de documentación de ambos proveedores no son alcanzables desde el
- * entorno de desarrollo, así que los nombres de campo de acá abajo son una
- * lectura razonable de sus modelos publicados, no una transcripción de sus
- * specs. Por eso:
+ * Los dos proveedores usan convenciones OPUESTAS en casi todo, así que el mapeo
+ * es por proveedor y no por heurística global:
  *
- *  1. Cada extractor acepta varios nombres plausibles para el mismo dato.
- *  2. Lo que no se entiende devuelve `unmapped` con un motivo, nunca un número
- *     inventado ni un cero.
- *  3. El webhook crudo se persiste SIEMPRE en `payment_webhook_events` antes de
- *     pasar por acá, así que el primer evento real de cada proveedor es la
- *     fuente de verdad para corregir este archivo.
+ * | | Whop | Commas (ex Fanbasis) |
+ * |---|---|---|
+ * | Montos | decimales en la moneda (10.43 = $10.43) | **enteros en centavos** |
+ * | Monto cobrado | `settlement_amount` | `amount_cents` |
+ * | Entrega | at least once, con reintentos | **at most once, sin reintentos** |
+ * | Firma | Standard Webhooks | HMAC-SHA256 hex simple |
  *
- * Al corregirlo con payloads reales, borrar los nombres de campo que sobren y
- * quitar esta advertencia.
+ * Lo que no se entiende devuelve `unmapped` con su motivo, nunca un número
+ * inventado ni un cero. El webhook crudo se persiste igual en
+ * `payment_webhook_events` antes de pasar por acá.
  *
  * Todo lo de este archivo es puro: se testea sin red ni base de datos.
  */
@@ -66,11 +67,16 @@ function pickBoolean(source: Json, keys: string[]): boolean {
  * Devuelve `null` si no se puede leer un número — nunca 0. Un cobro cuyo monto
  * no se entiende NO es un cobro de cero.
  *
- * Muchas plataformas de pago envían el monto en centavos. Las claves que
- * terminan en `_cents` o `_in_cents` se dividen por 100; el resto se toma tal
- * cual.
+ * La conversión de centavos NO se infiere del nombre del campo: se decide por
+ * proveedor. Whop manda decimales en la moneda ("10.43 for $10.43 USD") y Commas
+ * manda enteros en centavos ("2999 = $29.99"). Adivinar por sufijo haría que un
+ * campo nuevo sin `_cents` se colara como si fuera unidad.
  */
-export function pickAmount(source: Json, keys: string[]): number | null {
+export function pickAmount(
+  source: Json,
+  keys: string[],
+  unit: AmountUnit = "decimal"
+): number | null {
   for (const key of keys) {
     const raw = source[key];
     if (raw === undefined || raw === null || raw === "") continue;
@@ -78,8 +84,7 @@ export function pickAmount(source: Json, keys: string[]): number | null {
     const parsed = typeof raw === "string" ? Number(raw) : raw;
     if (typeof parsed !== "number" || !Number.isFinite(parsed)) continue;
 
-    const isCents = /_?(cents|in_cents)$/i.test(key);
-    return isCents ? parsed / 100 : parsed;
+    return unit === "cents" ? parsed / 100 : parsed;
   }
   return null;
 }
@@ -112,47 +117,65 @@ export function pickTimestamp(source: Json, keys: string[]): string | null {
   return null;
 }
 
-// ─── Claves candidatas ────────────────────────────────────────────────────────
+// ─── Configuración por proveedor ──────────────────────────────────────────────
+
+/** Cómo expresa los montos cada proveedor. */
+export type AmountUnit = "decimal" | "cents";
+
+type ProviderConfig = {
+  amountUnit: AmountUnit;
+  /** Claves de monto, en orden de preferencia. La primera que exista gana. */
+  amountKeys: string[];
+  /** Claves del valor contratado total. */
+  contractKeys: string[];
+  /** Tipos de evento literales. Sin regex: los nombres reales están documentados. */
+  paymentEvents: string[];
+  refundEvents: string[];
+  orderEvents: string[];
+};
+
+const PROVIDER_CONFIG: Record<PaymentProvider, ProviderConfig> = {
+  whop: {
+    // "The refunded amount as a decimal in the specified currency, such as
+    //  10.43 for $10.43 USD".
+    amountUnit: "decimal",
+    // `settlement_amount` es "the total amount charged to the customer", que es
+    // lo que el documento fuente llama cash collected. `total` y `subtotal` son
+    // "to show to the creator (excluding buyer fees)": otra cosa.
+    amountKeys: ["settlement_amount", "amount", "usd_total", "total", "subtotal"],
+    contractKeys: ["total", "usd_total", "settlement_amount"],
+    paymentEvents: ["payment.succeeded"],
+    refundEvents: ["refund.created", "refund.updated"],
+    // `membership.created` NO existe en Whop; el alta es `membership.activated`.
+    orderEvents: ["membership.activated", "invoice.paid"],
+  },
+  fanbasis: {
+    // "Price in cents (e.g., 2999 = $29.99)".
+    amountUnit: "cents",
+    amountKeys: ["amount_cents", "amount", "total_price", "unit_price"],
+    contractKeys: ["amount_cents", "amount"],
+    paymentEvents: ["payment.succeeded", "product.purchased", "subscription.renewed"],
+    refundEvents: ["refund.created"],
+    orderEvents: ["subscription.created"],
+  },
+};
 
 const KEYS = {
   eventId: ["id", "event_id", "eventId"],
   eventType: ["type", "event", "event_type", "eventType", "action"],
-  externalId: ["id", "transaction_id", "transactionId", "payment_id", "paymentId"],
-  orderId: ["order_id", "orderId", "membership_id", "membershipId", "checkout_id", "checkoutId"],
-  customerId: ["user_id", "userId", "customer_id", "customerId", "client_id", "clientId"],
-  email: ["email", "customer_email", "customerEmail", "user_email", "userEmail"],
-  amount: [
-    "amount",
-    "amount_cents",
-    "final_amount",
-    "total",
-    "total_amount",
-    "subtotal",
-    "settled_amount",
-    "value",
-  ],
-  contractValue: [
-    "contract_value",
-    "total_contract_value",
-    "plan_total",
-    "total_amount",
-    "initial_price",
-    "price",
-    "amount",
-  ],
-  currency: ["currency", "currency_code", "iso_currency_code"],
-  productName: ["product_name", "productName", "plan_name", "planName", "product", "title"],
-  recurring: ["is_recurring", "recurring", "isRecurring", "is_subscription"],
+  externalId: ["payment_id", "id", "transaction_id", "transactionId"],
+  orderId: ["subscription_id", "order_id", "membership_id", "checkout_id", "transaction_history_id"],
+  customerId: ["user_id", "customer_id", "client_id"],
+  email: ["email", "customer_email", "user_email"],
+  currency: ["currency", "currency_code"],
+  productName: ["product_name", "plan_name", "title", "product"],
+  recurring: ["is_recurring", "recurring", "is_subscription"],
   status: ["status", "state"],
-  occurredAt: ["created_at", "createdAt", "paid_at", "paidAt", "timestamp", "occurred_at", "date"],
+  occurredAt: ["created_at", "paid_at", "timestamp", "occurred_at", "date"],
 } as const;
 
-/** Tipos de evento que cuentan como cobro, por proveedor. */
-const PAYMENT_EVENTS = /payment.*(succe|complet|paid|success)|charge.*(succe|complet)|transaction.*(succe|complet|paid)/i;
-/** Tipos de evento que cuentan como reembolso. */
-const REFUND_EVENTS = /refund|chargeback|dispute.*(won|lost)|reversal/i;
-/** Tipos de evento que crean o actualizan una orden. */
-const ORDER_EVENTS = /membership.*(went_valid|created|activat)|order.*(creat|complet)|subscription.*(creat|activat)|checkout.*(complet)/i;
+/** Campos anidados que traen la identidad del comprador. */
+const BUYER_CONTAINERS = ["buyer", "customer", "user", "member"];
 
 // ─── Normalizador ─────────────────────────────────────────────────────────────
 
@@ -182,10 +205,32 @@ export function extractData(body: Json): Json {
   return body;
 }
 
+/**
+ * Identidad del comprador.
+ *
+ * Commas la anida bajo `buyer`; Whop bajo `user` o `member`. Se busca en los
+ * contenedores conocidos y se cae a la raíz.
+ */
+function pickBuyer(data: Json): { id: string | null; email: string | null } {
+  for (const key of BUYER_CONTAINERS) {
+    const nested = asRecord(data[key]);
+    if (nested) {
+      const id = pickString(nested, ["id", ...KEYS.customerId]);
+      const email = pickString(nested, [...KEYS.email]);
+      if (id || email) return { id, email };
+    }
+  }
+  return {
+    id: pickString(data, [...KEYS.customerId]),
+    email: pickString(data, [...KEYS.email]),
+  };
+}
+
 export function normalizeWebhook(
   provider: PaymentProvider,
   body: Json
 ): NormalizedEvent {
+  const config = PROVIDER_CONFIG[provider];
   const eventType = extractEventType(body) ?? "";
   const data = extractData(body);
 
@@ -195,46 +240,44 @@ export function normalizeWebhook(
   }
 
   const currency = (pickString(data, [...KEYS.currency]) ?? "USD").toUpperCase();
-  const customerExternalId = pickString(data, [...KEYS.customerId]);
-  const customerEmail = pickString(data, [...KEYS.email]);
+  const buyer = pickBuyer(data);
+  const base = {
+    externalId,
+    currency,
+    customerExternalId: buyer.id,
+    customerEmail: buyer.email,
+  };
 
-  if (REFUND_EVENTS.test(eventType)) {
-    return buildTransaction("refund", data, {
-      externalId,
-      currency,
-      customerExternalId,
-      customerEmail,
-    });
+  if (config.refundEvents.includes(eventType)) {
+    return buildTransaction("refund", data, config, base);
   }
 
-  if (PAYMENT_EVENTS.test(eventType)) {
-    return buildTransaction("payment", data, {
-      externalId,
-      currency,
-      customerExternalId,
-      customerEmail,
-    });
+  if (config.paymentEvents.includes(eventType)) {
+    return buildTransaction("payment", data, config, base);
   }
 
-  if (ORDER_EVENTS.test(eventType)) {
-    const contractValue = pickAmount(data, [...KEYS.contractValue]);
-    const orderedAt = pickTimestamp(data, [...KEYS.occurredAt]);
-
+  if (config.orderEvents.includes(eventType)) {
+    const contractValue = resolveContractValue(data, config);
     if (contractValue === null) {
-      return { kind: "unmapped", reason: `Orden "${eventType}" sin valor contratado legible` };
+      return {
+        kind: "unmapped",
+        reason: `Orden "${eventType}" sin valor contratado calculable`,
+      };
     }
+
+    const orderedAt = pickTimestamp(data, [...KEYS.occurredAt]);
     if (!orderedAt) {
       return { kind: "unmapped", reason: `Orden "${eventType}" sin fecha legible` };
     }
 
     const order: NormalizedOrder = {
       externalId,
-      customerExternalId,
-      customerEmail,
+      customerExternalId: buyer.id,
+      customerEmail: buyer.email,
       contractValue,
       currency,
       productName: pickString(data, [...KEYS.productName]),
-      isRecurring: pickBoolean(data, [...KEYS.recurring]),
+      isRecurring: pickBoolean(data, [...KEYS.recurring]) || Boolean(data.subscription),
       status: pickString(data, [...KEYS.status]),
       orderedAt,
     };
@@ -249,9 +292,40 @@ export function normalizeWebhook(
   };
 }
 
+/**
+ * Valor contratado total — M29 del mapa de fuentes.
+ *
+ * Es la medida que el documento fuente separa del dinero cobrado: "Contracted
+ * revenue is a promise; cash collected pays the ad account."
+ *
+ * En Commas una suscripción sólo tiene valor contratado conocido si declara
+ * `auto_expire_after_x_periods`: ahí es `importe por ciclo × cantidad de ciclos`.
+ * Si es `null`, la suscripción es indefinida y **no existe** un valor contratado
+ * total. No se estima: devuelve `null` y el evento queda `unmapped`.
+ */
+export function resolveContractValue(
+  data: Json,
+  config: ProviderConfig
+): number | null {
+  const perCharge = pickAmount(data, config.contractKeys, config.amountUnit);
+  if (perCharge === null) return null;
+
+  const subscription = asRecord(data.subscription);
+  if (!subscription) return perCharge;
+
+  const periods = subscription.auto_expire_after_x_periods;
+  if (typeof periods === "number" && Number.isFinite(periods) && periods > 0) {
+    return perCharge * periods;
+  }
+
+  // Suscripción indefinida: no hay total contratado que afirmar.
+  return null;
+}
+
 function buildTransaction(
   kind: "payment" | "refund",
   data: Json,
+  config: ProviderConfig,
   base: {
     externalId: string;
     currency: string;
@@ -259,7 +333,7 @@ function buildTransaction(
     customerEmail: string | null;
   }
 ): NormalizedEvent {
-  const amount = pickAmount(data, [...KEYS.amount]);
+  const amount = pickAmount(data, config.amountKeys, config.amountUnit);
   if (amount === null) {
     return { kind: "unmapped", reason: `Movimiento "${kind}" sin monto legible` };
   }
@@ -271,7 +345,7 @@ function buildTransaction(
 
   const transaction: NormalizedTransaction = {
     externalId: base.externalId,
-    orderExternalId: pickString(data, [...KEYS.orderId]),
+    orderExternalId: pickOrderId(data),
     customerExternalId: base.customerExternalId,
     customerEmail: base.customerEmail,
     kind,
@@ -281,4 +355,14 @@ function buildTransaction(
     occurredAt,
   };
   return { kind: "transaction", transaction };
+}
+
+/** El id de la orden puede venir plano o anidado bajo `subscription` / `membership`. */
+function pickOrderId(data: Json): string | null {
+  for (const key of ["subscription", "membership", "plan"]) {
+    const nested = asRecord(data[key]);
+    const id = nested ? pickString(nested, ["id"]) : null;
+    if (id) return id;
+  }
+  return pickString(data, [...KEYS.orderId]);
 }
