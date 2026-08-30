@@ -1,0 +1,4534 @@
+openapi: 3.1.0
+info:
+  title: Hyros API
+  version: "1.40"
+  description: |
+    ## Status Codes
+
+    | Code | Meaning |
+    |------|---------|
+    | `200 OK` | Response to a successful GET, PUT, POST or DELETE |
+    | `400 Bad Request` | Malformed request; form validation errors |
+    | `401 Unauthorized` | Wrong Api-Key or not provided |
+    | `403 Forbidden` | Api-Key is valid but lacks a role the endpoint requires (`Missing role <ROLE>`), or the Accessible-Account-Id header targets an account that is not one of the caller's connected client accounts |
+    | `429 Too Many Requests` | Number of API requests per second exceeded |
+
+    ## Unrecognized parameters and fields
+
+    On the endpoints listed below, requests must contain only documented query parameters and body fields. An unknown query parameter, an unknown top-level body field, or a query parameter repeated more than once, is rejected with `400 Bad Request` naming the offender instead of being ignored. The error body lists the offenders as `Unknown parameter: <name>`, `Duplicate parameter: <name>` or `Unknown field: <name>`. For example, `GET /api/v1.0/products?bogus=1` returns `400` with `Unknown parameter: bogus`.
+
+    Endpoints that enforce this:
+
+    - `GET /api/v1.0/products`, `PUT /api/v1.0/products/{id}`, `DELETE /api/v1.0/products/{id}`
+    - `GET /api/v1.0/carts`
+    - `GET /api/v1.0/custom-costs`, `PUT /api/v1.0/custom-costs/{id}`, `DELETE /api/v1.0/custom-costs/{id}`
+    - `PUT /api/v1.0/sources/{tag}`, `DELETE /api/v1.0/sources/{tag}`
+    - `GET /api/v1.0/tags/count`
+    - `GET /api/v1.0/attribution/roas`
+    - `GET /api/v1.0/requests/{request_id}`
+
+    On every other endpoint, unknown query parameters and unknown body fields are ignored, and a repeated query parameter takes its first value. The request succeeds and the unrecognized input has no effect, so a typo silently changes what you get back: `GET /api/v1.0/leads?email=someone@example.com` is not a filter on `emails`, it returns the unfiltered lead list. Keep your own input validation in place for those endpoints.
+
+    ## Rate Limiting
+
+    | Limit Type | Requests | Window |
+    |------------|----------|--------|
+    | Per Second | 30 | 1 second |
+    | Per Minute | 1000 | 60 seconds |
+
+    | Header | Description | Example |
+    |--------|-------------|---------|
+    | `X-RateLimit-Limit` | Rate limit policy (`capacity;w=window_seconds`) | `30;w=1, 1000;w=60` |
+    | `X-RateLimit-Remaining` | Requests remaining in the most restrictive window | `25` |
+    | `X-RateLimit-Reset` | Unix timestamp when the rate limit resets | `1707235200` |
+    | `Retry-After` | Seconds to wait before retrying | `1` |
+
+    ## Asynchronous Processing
+
+    Write operations (creates, updates and deletes) are processed **asynchronously**. A `200` response means the request was received and validated; the change is applied afterwards and may not be visible on an immediate read-back. Creates are typically visible within ~10 seconds. Updates and deletes typically take ~5 minutes, and can take longer under heavy load. Read (`GET`) operations are synchronous and return current data. Asynchronous operations are flagged with an **Asynchronous** note.
+
+    ## Agency Access to Client Accounts
+
+    Agencies can act on a connected client account, identified by its external id, on both API surfaces. The rule is the same everywhere: the caller must have an approved connected-account relation with the target account, the request then runs against that account instead of the caller's own, and any other target is rejected with an authorization error (`Not authorized: account <id> is not one of your connected client accounts.`). When no account id is sent, the request operates on the caller's own account. Rate limits always apply to the caller.
+
+    * **REST API**: send the optional `Accessible-Account-Id` header on any `/api/v1.0` request. Unauthorized targets are rejected with `403 Forbidden` and the standard error body (`result: ERROR`).
+    * **MCP tools**: pass the optional `accessible_account_id` tool argument. It is advertised in `tools/list` only to agency accounts but validated on every call; unauthorized targets produce a tool error. Tools that are not tied to an account's data (docs search, integration types) and admin tools (which take a `productId` argument instead) do not accept it.
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: Leads
+  - name: Sales
+  - name: Orders
+  - name: Calls
+  - name: Attribution
+  - name: Ad Accounts
+  - name: Products
+  - name: Tags
+  - name: Sources
+  - name: Custom Costs
+  - name: Clicks
+  - name: Carts
+  - name: User Info
+  - name: Keywords
+  - name: Subscriptions
+  - name: Tracking Script
+  - name: Domains
+  - name: Stages
+  - name: Webhook Subscriptions
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: API-Key
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        request_id:
+          type: string
+        result:
+          type: string
+          example: OK
+
+    ErrorResponse:
+      type: object
+      properties:
+        result:
+          type: string
+          example: ERROR
+        message:
+          type: array
+          items:
+            type: string
+
+    WebhookSubscription:
+      type: object
+      properties:
+        externalId:
+          type: string
+          description: Opaque identifier of the subscription.
+          example: sub-2a475f6baf8f416bac9ff60e1a0fabb5
+        name:
+          type: string
+          example: My CRM sync
+        targetUrl:
+          type: string
+          description: Public `http`/`https` URL where the event payloads are sent via POST.
+          example: https://example.com/hooks/hyros
+        eventTypes:
+          type: array
+          items:
+            type: string
+            enum:
+              - sale.attributed
+              - sale.refunded
+              - call.attributed
+              - lead.opted.in
+              - lead.opted.in.first.time
+              - lead.origin.assigned
+              - lead.stage.changed
+              - lead.tag.added
+              - lead.tag.removed
+              - subscription.created
+              - subscription.status.changed
+          example: ['sale.attributed', 'lead.opted.in']
+        state:
+          type: string
+          enum: [ACTIVE, DELETED, AUTOMATIC_PAUSED, MANUALLY_PAUSED]
+          example: ACTIVE
+        secretKey:
+          type: string
+          description: Secret used to validate the HMAC signature of delivered events. Returned once, in the create (`POST`) response; it is not included in the list (`GET`) response. It can also be found in the Hyros app under Settings → Integrations → Hyros Webhook Subscription.
+          example: ssk-244e8d359f67456cb9efac27913283fb
+        creationDate:
+          type: string
+          description: Creation date, in UTC.
+          example: '2026-07-09T14:28:15Z'
+        lastDeliveryDate:
+          type: string
+          nullable: true
+          description: Date of the last event delivery, in UTC. `null` if no event has been delivered yet.
+          example: '2026-07-09T15:13:20Z'
+
+    AdspendType:
+      type: string
+      enum: [FACEBOOK, GOOGLE, GOOGLE_V2, TIKTOK, SNAPCHAT, LINKEDIN, TWITTER, PINTEREST, BING, REDDIT, APPLOVIN, WHOP_ADS]
+
+    AdspendSubType:
+      type: string
+      enum: [DISPLAY, VIDEO]
+
+    SubscriptionStatus:
+      type: string
+      enum: [ACTIVE, TRIALING, CANCELED, PAST_DUE, INCOMPLETE, INCOMPLETE_EXPIRED, UNPAID, COMPLETED, PAUSED]
+
+    CallState:
+      type: string
+      enum: [QUALIFIED, UNQUALIFIED, CANCELLED, NO_SHOW]
+
+    AdOptimizationConsent:
+      type: string
+      enum: [GRANTED, DENIED, UNSPECIFIED]
+
+    Item:
+      type: object
+      required: [name, price]
+      properties:
+        name:
+          type: string
+          description: Name of the product.
+        price:
+          type: number
+          description: Product price per unit (costOfGoods included).
+        externalId:
+          type: string
+          description: Unique identifier from the external integration.
+        quantity:
+          type: number
+          description: Number of copies purchased. Defaults to 1.
+          default: 1
+        sku:
+          type: string
+          description: Unique product reference code.
+        costOfGoods:
+          type: number
+          description: Cost per unit of manufacture. Must be included in the price. Defaults to 0.
+          default: 0
+        taxes:
+          type: number
+          description: Taxes applied to the item per unit. Defaults to 0.
+          default: 0
+        itemDiscount:
+          type: number
+          description: Discount applied to this specific line item.
+        packages:
+          type: array
+          items:
+            type: string
+          description: Product packages this item belongs to (used for recurring sales attribution).
+        isRebill:
+          type: boolean
+          description: If true, the sale is marked as recurring even if it's the first one.
+        tag:
+          type: string
+          description: Tag to create for the sale item.
+        categoryName:
+          type: string
+          description: Links the sale to a product category.
+
+    CartItem:
+      type: object
+      required: [name, price]
+      properties:
+        name:
+          type: string
+        price:
+          type: number
+        externalId:
+          type: string
+        quantity:
+          type: number
+          default: 1
+        sku:
+          type: string
+          description: Unique product reference code.
+        isRebill:
+          type: boolean
+          description: If true, the sale is marked as recurring even if it's the first one.
+
+    Provider:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID of lead in external platform.
+        integration:
+          type: object
+          properties:
+            name:
+              type: string
+            type:
+              type: string
+            id:
+              type: string
+              description: Account ID of the integration.
+
+    AdSource:
+      type: object
+      properties:
+        adSourceId:
+          type: string
+        adAccountId:
+          type: string
+        platform:
+          $ref: '#/components/schemas/AdspendType'
+
+    TrafficSource:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    Goal:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    SourceLinkAd:
+      type: object
+      properties:
+        name:
+          type: string
+        adSourceId:
+          type: string
+
+    Attribution:
+      type: object
+      properties:
+        sourceLinkId:
+          type: string
+        name:
+          type: string
+        tag:
+          type: string
+        disregarded:
+          type: boolean
+        organic:
+          type: boolean
+        clickDate:
+          type: string
+        clickId:
+          type: string
+        adSource:
+          $ref: '#/components/schemas/AdSource'
+        sourceLinkAd:
+          $ref: '#/components/schemas/SourceLinkAd'
+        trafficSource:
+          $ref: '#/components/schemas/TrafficSource'
+        goal:
+          $ref: '#/components/schemas/Goal'
+        category:
+          $ref: '#/components/schemas/Category'
+        gclId:
+          type: string
+          description: Only for Google.
+        gbraId:
+          type: string
+          description: Only for Google.
+        wbraId:
+          type: string
+          description: Only for Google.
+
+    Price:
+      type: object
+      properties:
+        currency:
+          type: string
+        price:
+          type: number
+        discount:
+          type: number
+        hardCost:
+          type: number
+        refunded:
+          type: number
+
+    Lead:
+      type: object
+      properties:
+        email:
+          type: string
+        id:
+          type: string
+        creationDate:
+          type: string
+          description: ISO 8601 date. When the lead is embedded in `/sales`, `/calls`, or `/subscriptions`, it is returned in the legacy `EEE MMM dd HH:mm:ss zzz yyyy` format for backward compatibility. 
+          example: '2023-01-04T04:36:41-05:00'
+        lastUpdatedDate:
+          type: string
+          example: '2023-06-10T09:12:00-05:00'
+        tags:
+          type: array
+          items:
+            type: string
+        ips:
+          type: array
+          items:
+            type: string
+        phoneNumbers:
+          type: array
+          items:
+            type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        provider:
+          $ref: '#/components/schemas/Provider'
+        firstSource:
+          $ref: '#/components/schemas/Attribution'
+          description: First attributed source of the lead. Omitted when unknown.
+        lastSource:
+          $ref: '#/components/schemas/Attribution'
+          description: Last attributed source of the lead. Omitted when unknown.
+        originLead:
+          $ref: '#/components/schemas/Lead'
+          description: The origin lead this lead was merged into, when applicable. Omitted otherwise.
+        isOriginLead:
+          type: boolean
+          description: Present on the leads journey (`GET /leads/journey`) and on the nested `originLead`; indicates the lead is an origin lead.
+
+    LeadStage:
+      type: object
+      description: Current (most recent) stage of the lead.
+      properties:
+        name:
+          type: string
+          description: Name of the stage.
+        date:
+          type: string
+          description: Date the stage was applied (ISO-8601 with timezone offset). Omitted when unavailable.
+
+    LeadWithConsent:
+      allOf:
+        - $ref: '#/components/schemas/Lead'
+        - type: object
+          properties:
+            adOptimizationConsent:
+              $ref: '#/components/schemas/AdOptimizationConsent'
+
+    LeadWithStage:
+      allOf:
+        - $ref: '#/components/schemas/LeadWithConsent'
+        - type: object
+          properties:
+            currentStage:
+              $ref: '#/components/schemas/LeadStage'
+              description: Present only when the lead has a stage applied.
+
+    SaleProduct:
+      type: object
+      description: Product information as it appears attached to a sale or call.
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        tag:
+          type: string
+        sku:
+          type: string
+        category:
+          $ref: '#/components/schemas/Category'
+        provider:
+          $ref: '#/components/schemas/Provider'
+
+    Product:
+      type: object
+      description: A product returned by the products listing endpoint.
+      properties:
+        id:
+          type: string
+          description: Product id (its tracking pixel).
+        name:
+          type: string
+        tag:
+          type: string
+        sku:
+          type: string
+        price:
+          type: number
+        customCost:
+          type: number
+          description: Cost of goods of the product, used in profit and ROAS reporting.
+        recurring:
+          type: boolean
+        callProduct:
+          type: boolean
+        category:
+          type: string
+          description: Category name.
+
+    Sale:
+      type: object
+      properties:
+        id:
+          type: string
+        orderId:
+          type: string
+        creationDate:
+          type: string
+          description: Returned in the legacy `EEE MMM dd HH:mm:ss zzz yyyy` format instead of ISO 8601.
+          example: 'Thu Jul 02 01:10:33 UTC 2026'
+        refundDate:
+          type: string
+          description: Returned in the legacy `EEE MMM dd HH:mm:ss zzz yyyy` format instead of ISO 8601. Present only when the sale was refunded.
+          example: 'Thu Jul 02 01:10:33 UTC 2026'
+        qualified:
+          type: boolean
+        score:
+          type: number
+        recurring:
+          type: boolean
+        quantity:
+          type: number
+        lead:
+          $ref: '#/components/schemas/Lead'
+        firstSource:
+          $ref: '#/components/schemas/Attribution'
+        lastSource:
+          $ref: '#/components/schemas/Attribution'
+        price:
+          $ref: '#/components/schemas/Price'
+        product:
+          $ref: '#/components/schemas/SaleProduct'
+        provider:
+          $ref: '#/components/schemas/Provider'
+
+    CustomCost:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        cost:
+          type: number
+        frequency:
+          type: string
+          enum: [DAILY, ONE_TIME, MONTHLY]
+        startDate:
+          type: string
+          description: Returned in the legacy `EEE MMM dd HH:mm:ss zzz yyyy` format instead of ISO 8601.
+          example: 'Thu Nov 17 10:51:54 ART 2022'
+        endDate:
+          type: string
+          nullable: true
+          description: Returned in the legacy `EEE MMM dd HH:mm:ss zzz yyyy` format instead of ISO 8601.
+          example: 'Thu Nov 17 10:51:54 ART 2022'
+        tags:
+          type: array
+          items:
+            type: string
+
+    Call:
+      type: object
+      properties:
+        id:
+          type: string
+        tag:
+          type: string
+        qualified:
+          type: boolean
+        name:
+          type: string
+        externalId:
+          type: string
+        score:
+          type: number
+        creationDate:
+          type: string
+          description: Returned in the legacy `EEE MMM dd HH:mm:ss zzz yyyy` format instead of ISO 8601.
+          example: 'Thu Nov 17 10:51:54 ART 2022'
+        state:
+          $ref: '#/components/schemas/CallState'
+        qualification:
+          type: object
+          properties:
+            name:
+              type: string
+            oldName:
+              type: string
+        lead:
+          $ref: '#/components/schemas/Lead'
+        firstSource:
+          $ref: '#/components/schemas/Attribution'
+        lastSource:
+          $ref: '#/components/schemas/Attribution'
+
+    Source:
+      type: object
+      properties:
+        name:
+          type: string
+        tag:
+          type: string
+        disregarded:
+          type: boolean
+        organic:
+          type: boolean
+        adSource:
+          $ref: '#/components/schemas/AdSource'
+        trafficSource:
+          $ref: '#/components/schemas/TrafficSource'
+        goal:
+          $ref: '#/components/schemas/Goal'
+        category:
+          $ref: '#/components/schemas/Category'
+        creationDate:
+          type: integer
+          description: Returned as epoch milliseconds (a number) instead of ISO 8601.
+          example: 1677151375000
+
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: string
+        startDate:
+          type: string
+          description: Returned in the legacy `EEE MMM dd HH:mm:ss zzz yyyy` format instead of ISO 8601.
+          example: 'Thu Nov 17 10:51:54 ART 2022'
+        endDate:
+          type: string
+          description: Returned in the legacy `EEE MMM dd HH:mm:ss zzz yyyy` format instead of ISO 8601.
+          example: 'Thu Nov 17 10:51:54 ART 2022'
+        cancelAtDate:
+          type: string
+          description: Returned in the legacy `EEE MMM dd HH:mm:ss zzz yyyy` format instead of ISO 8601.
+          example: 'Thu Nov 17 10:51:54 ART 2022'
+        trialStartDate:
+          type: string
+          description: Returned in the legacy `EEE MMM dd HH:mm:ss zzz yyyy` format instead of ISO 8601.
+          example: 'Thu Nov 17 10:51:54 ART 2022'
+        trialEndDate:
+          type: string
+          description: Returned in the legacy `EEE MMM dd HH:mm:ss zzz yyyy` format instead of ISO 8601.
+          example: 'Thu Nov 17 10:51:54 ART 2022'
+        price:
+          type: number
+        status:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        periodicity:
+          type: string
+        planId:
+          type: string
+        tag:
+          type: string
+        name:
+          type: string
+        lead:
+          $ref: '#/components/schemas/Lead'
+        firstSource:
+          $ref: '#/components/schemas/Attribution'
+        lastSource:
+          $ref: '#/components/schemas/Attribution'
+        category:
+          $ref: '#/components/schemas/Category'
+          description: >-
+            Category of the first paid sale item attributed to the subscription. Set once when the
+            first payment is attributed and not updated if the plan changes later. Null when no
+            paid sale has been attributed yet, for example a subscription still in its trial period.
+        provider:
+          $ref: '#/components/schemas/Provider'
+
+    Cart:
+      type: object
+      properties:
+        id:
+          type: string
+        orderId:
+          type: string
+          description: Only present if cart was purchased.
+        creationDate:
+          type: string
+          description: Cart creation date, in UTC.
+          example: '2022-11-17T13:51:54Z'
+        events:
+          type: integer
+        lead:
+          $ref: '#/components/schemas/LeadWithConsent'
+        provider:
+          $ref: '#/components/schemas/Provider'
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+        firstSource:
+          $ref: '#/components/schemas/Attribution'
+        lastSource:
+          $ref: '#/components/schemas/Attribution'
+
+    LeadJourney:
+      type: object
+      properties:
+        lead:
+          $ref: '#/components/schemas/LeadWithStage'
+        sales:
+          type: array
+          items:
+            $ref: '#/components/schemas/Sale'
+        calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/Call'
+        carts:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              orderId:
+                type: string
+                description: Only present if cart was purchased.
+              creationDate:
+                type: string
+                description: Returned in the legacy `EEE MMM dd HH:mm:ss zzz yyyy` format instead of ISO 8601, unlike the `creationDate` of `/carts`.
+                example: 'Thu Nov 17 10:51:54 ART 2022'
+              events:
+                type: integer
+              provider:
+                $ref: '#/components/schemas/Provider'
+              products:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SaleProduct'
+              firstSource:
+                $ref: '#/components/schemas/Attribution'
+              lastSource:
+                $ref: '#/components/schemas/Attribution'
+        subscriptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subscription'
+        linkedLeads:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeadWithStage'
+        journey:
+          type: array
+          description: Chronological journey events for the lead. Only present when `includeEvents=true`.
+          items:
+            $ref: '#/components/schemas/JourneyEvent'
+
+    JourneyEvent:
+      type: object
+      description: A single event in a lead's journey (e.g. a sale, call, email, click or page view). Which fields are present depends on the event `type`.
+      properties:
+        type:
+          type: string
+          description: Event type. Examples include `sale`, `call`, `subscription-started`, `subscription-ended`, `email`, `email-open`, and tracking events such as clicks and page views.
+        id:
+          type: string
+          description: Identifier of the underlying record. Present only for events backed by an external entity (`sale`, `call`, `subscription-started`, `subscription-ended`, `email`, `email-open`).
+        date:
+          type: string
+          description: ISO 8601 timestamp (in the account timezone) when the event occurred.
+        extra:
+          type: string
+          description: Additional context for the event.
+        tag:
+          type: string
+        name:
+          type: string
+        keyword:
+          type: string
+        integrationProvider:
+          type: string
+          description: Source integration/provider associated with the event, when applicable.
+        currencySymbol:
+          type: string
+          description: Currency symbol for monetary events (e.g. sales).
+        emailSource:
+          type: boolean
+          description: Whether the event originated from an email source.
+        subNames:
+          type: array
+          items:
+            type: string
+          description: Sub-element names, e.g. the individual products of a grouped cart event.
+
+paths:
+  /api/v1.0/leads:
+    get:
+      tags: [Leads]
+      summary: Retrieve Leads
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Leads
+
+        Search and retrieve leads by their join date, last updated date, email, phone number or id.
+      parameters:
+        - name: ids
+          in: query
+          description: Array of lead ids. At most 50 can be provided.
+          schema:
+            type: string
+          example: '"id1","id2","id3"'
+        - name: emails
+          in: query
+          description: Array of emails or email prefixes. At most 50 can be provided.
+          schema:
+            type: string
+          example: '"email1","email2"'
+        - name: phones
+          in: query
+          description: Array of phone numbers. At most 50 can be provided.
+          schema:
+            type: string
+          example: '"+1 202-555-0184","2025550139"'
+        - name: tags
+          in: query
+          description: Array of tag names. Leads matching any of the provided tags will be retrieved. Tags are matched exactly, including any prefix (e.g. `!Tag1`). At most 50 can be provided.
+          schema:
+            type: string
+          example: '"!Tag1","!Tag2"'
+        - name: stage
+          in: query
+          description: Array of stage names. Leads matching any of the provided stages will be retrieved. Stage names are matched case-insensitively. At most 50 can be provided.
+          schema:
+            type: string
+          example: '"stage1","stage2"'
+        - name: fromDate
+          in: query
+          description: ISO 8601 date. Only leads whose join date is more recent than this will be retrieved.
+          schema:
+            type: string
+          example: '2021-04-16T20:35:00-05:00'
+        - name: toDate
+          in: query
+          description: ISO 8601 date. Only leads whose join date is older than this will be retrieved.
+          schema:
+            type: string
+          example: '2021-04-16T20:35:00-05:00'
+        - name: updatedFromDate
+          in: query
+          description: ISO 8601 date. Only leads updated on or after this date will be retrieved. Use it to fetch just the leads that changed since your last request.
+          schema:
+            type: string
+          example: '2021-04-16T20:35:00-05:00'
+        - name: updatedToDate
+          in: query
+          description: ISO 8601 date. Only leads updated on or before this date will be retrieved.
+          schema:
+            type: string
+          example: '2021-04-16T20:35:00-05:00'
+        - name: pageSize
+          in: query
+          description: Maximum number of leads per page. Range 1-250.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+        - name: pageId
+          in: query
+          description: ID of the next page, taken from the `nextPageId` of a previous response. Omit it to fetch the first page. An invalid or expired pagination cursor is rejected with `400 Bad Request`.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LeadWithStage'
+                  nextPageId:
+                    type: string
+                  request_id:
+                    type: string
+              example:
+                result:
+                  - email: lead1@email.com
+                    id: 40b5af5444756c2b5e666fcb658affd2a4b455bce3711c43f88763147381e368
+                    creationDate: '2023-01-04T04:36:41-05:00'
+                    lastUpdatedDate: '2023-06-10T09:12:00-05:00'
+                    tags: ['$ettst']
+                    adOptimizationConsent: GRANTED
+                    currentStage:
+                      name: stage1
+                      date: '2023-01-06T09:12:00-05:00'
+                    firstSource:
+                      sourceLinkId: 7bc217f372eab0efa188bb5b05be87460976e68e03b801d53c39bb4ed54c9750
+                      name: Facebook Adset
+                      tag: '@facebook-adset'
+                      clickDate: '2023-01-03T22:14:07-05:00'
+                    lastSource:
+                      sourceLinkId: 12cc9f521ba37e33d624927ea7088d91a6b2e39bf1466c281120cde22a4bee84
+                      name: Facebook Adset 2
+                      tag: '@facebook-adset-2'
+                      clickDate: '2023-01-04T01:02:59-05:00'
+                    originLead:
+                      email: originlead@email.com
+                      id: 9c1e5b0a4f7d2c8e6b3a1f0d9e8c7b6a5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a
+                      creationDate: '2022-12-30T09:12:00-05:00'
+                      isOriginLead: true
+                      tags: ['$origin']
+                  - email: lead2@email.com
+                    id: b5981e8ce87d08773a4ggre985d2d9949153c6fb55cb5075291941d9f23f4282
+                    creationDate: '2023-01-04T02:37:45-05:00'
+                    ips: ['1.2.3.4']
+                    phoneNumbers: ['202-555-0184']
+                    adOptimizationConsent: UNSPECIFIED
+                nextPageId: 568fd86587125f55117505312dc72bb8b71e9647a25e5b142d3f28bccd228360
+                request_id: e47941e7104gtrgtrgtr24d0884c6df09407e76fd
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Leads]
+      summary: Create Lead
+      description: |
+        > [!NOTE]
+        > **Required role** — Create Leads
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~10 seconds.
+
+        Create or Update leads and their tags. If the applied Tag matches with that of a Product,
+        a sale will be generated for said lead, only if it didn't already have the tag.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: Email of the lead. Required if no phone number is provided. If only a phone number is provided, a placeholder email `<phone>@hyrosapi.com` is generated and returned as the lead's email.
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: Tags to apply to the lead.
+                tagsDate:
+                  type: string
+                  description: Optional ISO-8601 date (`2023-05-01T10:00:00-03:00`) applied as the assignment date of **every** tag in `tags`, to backdate historical tags during imports, migrations or CRM syncs. Defaults to the current time when omitted. Cannot be in the future. To assign tags with different dates, send one request per date. If a tag generates a sale or a source attribution, those are backdated too.
+                leadIps:
+                  type: array
+                  items:
+                    type: string
+                  description: IPs of the lead for ad attribution.
+                phoneNumbers:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items:
+                        type: string
+                  description: Phone numbers of the lead. Required if no email is provided.
+                stage:
+                  type: string
+                  description: Stage to apply to the lead. On create the stage is a plain string; on update (`PUT /leads`) it is set via the `leadStage` object (`{name, date}`) instead.
+                adOptimizationConsent:
+                  $ref: '#/components/schemas/AdOptimizationConsent'
+            example:
+              email: John@doe.com
+              firstName: John
+              lastName: Doe
+              tags: ['!Tag1']
+              tagsDate: '2023-05-01T10:00:00-03:00'
+              leadIps: ['172.8.105.28']
+              phoneNumbers: ['1105385366']
+              stage: MQL
+              adOptimizationConsent: GRANTED
+      responses:
+        '200':
+          description: Lead created/updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Leads]
+      summary: Update Lead
+      description: |
+        > [!NOTE]
+        > **Required role** — Update Leads
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~5 minutes.
+
+        Update leads and their tags.
+
+        Tag assignments can be backdated with the optional `tagsDate` field (ISO-8601). It applies as the assignment date of **every** tag in `tags`, so historical tags keep an accurate timeline during imports, migrations or CRM syncs; it defaults to the current time when omitted and cannot be in the future. To assign tags with different dates, send one request per date. Tags the lead already has are ignored (their existing date is not changed). If a tag generates a sale or a source attribution, those are backdated too.
+      parameters:
+        - name: email
+          in: query
+          description: Email used to search for the lead to update.
+          schema:
+            type: string
+        - name: id
+          in: query
+          description: ID used to search for the lead to update.
+          schema:
+            type: string
+        - name: phone
+          in: query
+          description: Phone used to search for the lead to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: New email.
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                tags:
+                  type: array
+                  description: Tags to add to the lead.
+                  items:
+                    type: string
+                tagsDate:
+                  type: string
+                  description: Optional ISO-8601 date applied as the assignment date of every tag in `tags` (defaults to now, cannot be in the future). Tags the lead already has are ignored, not re-dated. For tags with different dates, send one request per date.
+                removeTags:
+                  type: array
+                  description: Tags to remove from the lead.
+                  items:
+                    type: string
+                leadIps:
+                  type: array
+                  items:
+                    type: string
+                phoneNumbers:
+                  type: array
+                  items:
+                    type: string
+                adOptimizationConsent:
+                  $ref: '#/components/schemas/AdOptimizationConsent'
+                leadStage:
+                  type: object
+                  description: Stage to apply to the lead on update. Create (`POST /leads`) uses a plain `stage` string instead.
+                  properties:
+                    name:
+                      type: string
+                    date:
+                      type: string
+            example:
+              email: John@doe.com
+              firstName: John
+              lastName: Doe
+              tags: ['!Tag1']
+              tagsDate: '2023-05-01T10:00:00-03:00'
+              removeTags: ['!Tag2']
+              leadIps: ['172.8.105.28']
+              phoneNumbers: ['1105385366']
+              adOptimizationConsent: GRANTED
+              leadStage:
+                name: leadStageNameCINCO
+                date: '2025-11-13T14:00:00-03:00'
+      responses:
+        '200':
+          description: Lead updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Leads]
+      summary: Delete Lead
+      description: |
+        > [!NOTE]
+        > **Required role** — Delete Leads
+        >
+        > **Asynchronous** — the erasure applies immediately, but the lead typically takes ~5 minutes to disappear from `GET /leads`.
+
+        Permanently delete a lead and its personal data. Provide one of email or id to identify the lead. Personal data is redacted, and phone numbers, sales and tracking data are deleted while subscriptions are cancelled.
+
+        The lead's email address and phone numbers are also **blacklisted**, so later events carrying them are discarded instead of re-creating the lead. This cannot be undone through the API.
+      parameters:
+        - name: email
+          in: query
+          description: Email used to search for the lead to delete.
+          schema:
+            type: string
+        - name: id
+          in: query
+          description: ID used to search for the lead to delete.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lead deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/leads/journey:
+    get:
+      tags: [Leads]
+      summary: Retrieve Leads Journey
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Lead Journey
+
+        Retrieve the details about leads journeys using lead ids and/or emails. At least one of `ids` or `emails`
+        must be provided. Emails are matched exactly (case-insensitive); an email may resolve to more than one
+        lead, in which case one journey is returned per matched lead. Each journey includes the lead's sales,
+        calls, carts, subscriptions and linked leads. Set `includeEvents=true` to additionally return a
+        chronological `journey` array of events (sales, calls, emails, clicks, page views, etc.).
+      parameters:
+        - name: ids
+          in: query
+          description: Array of lead ids. At most 50 can be provided.
+          schema:
+            type: string
+          example: '"id1","id2","id3"'
+        - name: emails
+          in: query
+          description: Array of lead emails, matched exactly (case-insensitive). At most 50 can be provided.
+          schema:
+            type: string
+          example: '"lead1@email.com","lead2@email.com"'
+        - name: includeEvents
+          in: query
+          description: When `true`, each returned journey includes a `journey` array of chronological events (sales, calls, emails, clicks, page views, etc.). Defaults to `false`.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LeadJourney'
+                  request_id:
+                    type: string
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/leads/clicks:
+    get:
+      tags: [Leads]
+      summary: Retrieve Lead Clicks
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Lead Clicks
+
+        Retrieve clicks belonging to a lead. Either `leadId` or `email` must be provided.
+      parameters:
+        - name: leadId
+          in: query
+          description: The lead id.
+          schema:
+            type: string
+        - name: email
+          in: query
+          description: The lead email.
+          schema:
+            type: string
+        - name: pageSize
+          in: query
+          description: Maximum number of clicks per page. Between 1 and 250.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+        - name: pageId
+          in: query
+          description: ID of the next page.
+          schema:
+            type: string
+        - name: fromDate
+          in: query
+          description: ISO 8601 date. Only clicks dated after this will be retrieved.
+          schema:
+            type: string
+          example: '2025-04-16T20:35:00-05:00'
+        - name: toDate
+          in: query
+          description: ISO 8601 date. Only clicks dated before this will be retrieved.
+          schema:
+            type: string
+          example: '2025-04-16T20:35:00-05:00'
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        date:
+                          type: string
+                          description: Returned in the legacy `EEE MMM dd HH:mm:ss zzz yyyy` format instead of ISO 8601.
+                          example: 'Thu Nov 17 10:51:54 ART 2022'
+                        trackedUrl:
+                          type: string
+                        page:
+                          type: string
+                        previousUrl:
+                          type: string
+                        adspendType:
+                          $ref: '#/components/schemas/AdspendType'
+                        sourceLinkName:
+                          type: string
+                        ip:
+                          type: string
+                        agent:
+                          type: string
+                        cartId:
+                          type: string
+                        deduplicationParams:
+                          type: object
+                          additionalProperties: true
+                        adSpendId:
+                          type: integer
+                        parsedParameters:
+                          type: object
+                          additionalProperties: true
+                  nextPageId:
+                    type: string
+                  request_id:
+                    type: string
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/sales:
+    get:
+      tags: [Sales]
+      summary: Retrieve Sales
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Sales
+
+        Search and retrieve sales by date, email, lead id, product tag, id, recurring status, and refund status.
+
+        Filtering by `orderId` is **not** supported — the supported filters are the query parameters listed below; `orderId` is present only in the response body. Response `creationDate`/`refundDate` are returned in `EEE MMM dd HH:mm:ss zzz yyyy` format, not ISO 8601.
+      parameters:
+        - name: ids
+          in: query
+          description: Array of sales ids. At most 50 can be provided.
+          schema:
+            type: string
+        - name: emails
+          in: query
+          description: Array of emails or prefixes. At most 50 can be provided.
+          schema:
+            type: string
+        - name: leadIds
+          in: query
+          description: Array of leadIds. At most 50 can be provided.
+          schema:
+            type: string
+        - name: productTags
+          in: query
+          description: Array of product tags. At most 20 can be provided.
+          schema:
+            type: string
+        - name: isRecurringSale
+          in: query
+          description: Filter by recurring status.
+          schema:
+            type: string
+            enum: [RECURRING, NON_RECURRING, ALL]
+            default: ALL
+        - name: saleRefundedState
+          in: query
+          description: Filter by refund status.
+          schema:
+            type: string
+            enum: [REFUNDED, NON_REFUNDED, ALL]
+            default: ALL
+        - name: fromDate
+          in: query
+          description: ISO 8601 date. Only sales after this date will be retrieved.
+          schema:
+            type: string
+          example: '2021-04-16T20:35:00-05:00'
+        - name: toDate
+          in: query
+          description: ISO 8601 date. Only sales before this date will be retrieved.
+          schema:
+            type: string
+          example: '2021-04-16T20:35:00-05:00'
+        - name: pageSize
+          in: query
+          description: Maximum number of sales per page. Range 1-250.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+        - name: pageId
+          in: query
+          description: ID of the next page, taken from the `nextPageId` of a previous response. Omit it to fetch the first page. An invalid or expired pagination cursor is rejected with `400 Bad Request`.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Sale'
+                  nextPageId:
+                    type: string
+                  request_id:
+                    type: string
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Sales]
+      summary: Update Sales
+      description: |
+        > [!NOTE]
+        > **Required role** — Update Sales
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~5 minutes.
+
+        Update sales by their ids.
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          description: Array of sales ids. At most 50 can be provided.
+          schema:
+            type: string
+        - name: isRecurringSale
+          in: query
+          description: Indicates if the sales will be recurring or not.
+          schema:
+            type: boolean
+        - name: isRefunded
+          in: query
+          description: Indicates if the sales will be refunded or not.
+          schema:
+            type: boolean
+        - name: refundedDate
+          in: query
+          description: ISO 8601 date. Optional even when `isRefunded` is true; if omitted, the refunded date is set to the present date.
+          schema:
+            type: string
+          example: '2021-04-16T20:35:00-05:00'
+        - name: refundedAmount
+          in: query
+          description: Amount to be refunded.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sales updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/sales/{id}:
+    delete:
+      tags: [Sales]
+      summary: Delete Sale
+      description: |
+        > [!NOTE]
+        > **Required role** — Delete Sales
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~5 minutes.
+
+        Delete a sale by its id.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Sale id to be deleted.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sale deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/orders:
+    post:
+      tags: [Orders]
+      summary: Create Order
+      description: |
+        > [!NOTE]
+        > **Required role** — Create Orders
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~10 seconds.
+
+        Create an order with all necessary information. Additionally, creates the lead if not already present.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                email:
+                  type: string
+                  description: Email associated with the lead. Required if no phone number is provided.
+                parentEmail:
+                  type: string
+                  description: Email of the origin lead. If present, the sale will be attributed to the origin lead.
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                leadIps:
+                  type: array
+                  items:
+                    type: string
+                stage:
+                  type: string
+                phoneNumbers:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items:
+                        type: string
+                  description: Required if no email is provided.
+                orderId:
+                  type: string
+                  description: Identifier by which sales will be grouped. Only letters, numbers, underscores, hyphens, periods, and colons. No spaces.
+                externalSubscriptionId:
+                  type: string
+                cartId:
+                  type: string
+                date:
+                  type: string
+                  description: ISO 8601 date when the transaction was processed. Defaults to current date.
+                  example: '2021-04-16T20:35:00'
+                shippingCost:
+                  type: number
+                  description: Shipping cost distributed across items. Default is 0.
+                taxes:
+                  type: number
+                  description: Order taxes distributed across items. Default is 0.
+                orderDiscount:
+                  type: number
+                  description: Discount applied to the complete order, distributed evenly across all line items.
+                priceFormat:
+                  type: string
+                  enum: [DECIMAL, INTEGER]
+                  default: DECIMAL
+                currency:
+                  type: string
+                  description: Currency code (e.g. EUR). Defaults to Hyros account setup.
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Item'
+                  minItems: 1
+            example:
+              email: john@doe.com
+              parentEmail: jane@doe.com
+              firstName: John
+              lastName: Doe
+              leadIps: ['172.8.105.28']
+              stage: Customer
+              phoneNumbers: ['1105385366']
+              orderId: '56354354588'
+              cartId: d49b708b3df50505869ca54f026e7c97a4959b587605f14f91c7e289de9f80bd
+              date: '2021-04-16T20:35:00'
+              priceFormat: DECIMAL
+              currency: USD
+              taxes: 98.6
+              shippingCost: 10
+              orderDiscount: 3.5
+              items:
+                - name: T-Shirt - Blue
+                  price: 15.50
+                  costOfGoods: 2.25
+                  externalId: '18294892740'
+                  quantity: 2
+                  sku: DEPOR-XYZ-BLN-41
+                  taxes: 2.5
+                  itemDiscount: 2.5
+                  packages: ['Package 1', 'Package 2']
+                  isRebill: false
+                  tag: $premiun-t-shirt-blue
+                  categoryName: premium store
+      responses:
+        '200':
+          description: Order created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/orders/{id}:
+    put:
+      tags: [Orders]
+      summary: Update Order
+      description: |
+        > [!NOTE]
+        > **Required role** — Update Orders
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~5 minutes.
+
+        Update an order by replacing its items list and optionally updating order-level fields.
+        The existing sales of the order are soft-deleted and recreated according to the provided items.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: |
+            Identifier of the order to update. By default this is the order id used during creation.
+            When `integrationType` is provided in the body, this value is matched against the `externalId`
+            of any item belonging to the order; the whole order is then resolved through that item.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                integrationType:
+                  type: string
+                  description: External integration the order belongs to (e.g. STRIPE, SHOPIFY, KONNEKTIVE, API). When present, the path id is matched against an item externalId for that integration.
+                  example: STRIPE
+                stage:
+                  type: string
+                  description: Stage to apply to the customer's lead.
+                externalSubscriptionId:
+                  type: string
+                cartId:
+                  type: string
+                shippingCost:
+                  type: number
+                  description: Shipping cost distributed across items. Default is 0.
+                  example: 10.5
+                taxes:
+                  type: number
+                  description: Order taxes distributed across items. Default is 0.
+                  example: 9.8
+                orderDiscount:
+                  type: number
+                  description: Discount applied to the complete order, distributed evenly across all line items.
+                  example: 1.2
+                priceFormat:
+                  type: string
+                  enum: [DECIMAL, INTEGER]
+                  default: DECIMAL
+                currency:
+                  type: string
+                  description: Currency code (e.g. EUR). Defaults to Hyros account setup.
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Item'
+                  minItems: 1
+                  description: New items list. The existing items of the order will be replaced by this list.
+            example:
+              stage: Repeat Customer
+              cartId: d49b708b3df50505869ca54f026e7c97a4959b587605f14f91c7e289de9f80bd
+              priceFormat: DECIMAL
+              currency: USD
+              taxes: 98.6
+              shippingCost: 10
+              orderDiscount: 3.5
+              items:
+                - name: T-Shirt - Blue
+                  price: 15.50
+                  costOfGoods: 2.25
+                  externalId: '18294892740'
+                  quantity: 2
+                  sku: DEPOR-XYZ-BLN-41
+                  taxes: 2.5
+                  itemDiscount: 2.5
+                  isRebill: false
+                  tag: $premiun-t-shirt-blue
+                  categoryName: premium store
+      responses:
+        '200':
+          description: Order updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Orders]
+      summary: Refund Order
+      description: |
+        > [!NOTE]
+        > **Required role** — Delete Orders
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~5 minutes.
+
+        Refund an order by order id and update the income of the lead.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Order id to be refunded.
+          schema:
+            type: string
+        - name: refundedAmount
+          in: query
+          description: Amount to be refunded.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order refunded successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/calls:
+    get:
+      tags: [Calls]
+      summary: Retrieve Calls
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Calls
+
+        Search and retrieve calls by date, email, lead id, product tag or id.
+      parameters:
+        - name: ids
+          in: query
+          description: Array of call ids. At most 50 can be provided.
+          schema:
+            type: string
+        - name: emails
+          in: query
+          description: Array of emails or prefixes. At most 50 can be provided.
+          schema:
+            type: string
+        - name: leadIds
+          in: query
+          description: Array of leadIds. At most 50 can be provided.
+          schema:
+            type: string
+        - name: productTags
+          in: query
+          description: Array of product tags. At most 20 can be provided.
+          schema:
+            type: string
+        - name: fromDate
+          in: query
+          description: ISO 8601 date. Only calls after this date will be retrieved.
+          schema:
+            type: string
+          example: '2021-04-16T20:35:00-05:00'
+        - name: toDate
+          in: query
+          description: ISO 8601 date. Only calls before this date will be retrieved.
+          schema:
+            type: string
+          example: '2021-04-16T20:35:00-05:00'
+        - name: pageSize
+          in: query
+          description: Maximum number of calls per page. Range 1-250.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+        - name: pageId
+          in: query
+          description: ID of the next page, taken from the `nextPageId` of a previous response. Omit it to fetch the first page. An invalid or expired pagination cursor is rejected with `400 Bad Request`.
+          schema:
+            type: string
+        - name: qualified
+          in: query
+          description: Filter by qualified status.
+          schema:
+            type: boolean
+        - name: qualificationStages
+          in: query
+          description: Array of qualification stage names. At most 50 can be provided.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Call'
+                  nextPageId:
+                    type: string
+                  request_id:
+                    type: string
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Calls]
+      summary: Create Call
+      description: |
+        > [!NOTE]
+        > **Required role** — Create Calls
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~10 seconds.
+
+        Create a call with all necessary information. Additionally, creates the lead if not already present.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email]
+              properties:
+                name:
+                  type: string
+                  description: Name of the call.
+                email:
+                  type: string
+                  description: Email associated with the lead.
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                leadIps:
+                  type: array
+                  items:
+                    type: string
+                stage:
+                  type: string
+                phoneNumbers:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items:
+                        type: string
+                externalId:
+                  type: string
+                  description: Unique identifier from the external integration. If a call with the same externalId exists, it will be updated.
+                id:
+                  type: string
+                  description: "DEPRECATED: Use externalId instead."
+                date:
+                  type: string
+                  description: ISO 8601 date when the call was processed.
+                  example: '2021-04-16T20:35:00'
+                qualified:
+                  type: boolean
+                  description: "DEPRECATED: Use state instead."
+                qualification:
+                  type: string
+                  description: Custom name of the qualification to apply to the call.
+                state:
+                  $ref: '#/components/schemas/CallState'
+            example:
+              name: Call 1
+              email: john@doe.com
+              firstName: John
+              lastName: Doe
+              leadIps: []
+              stage: SQL
+              phoneNumbers: []
+              date: '2021-04-16T20:35:00'
+              qualification: Qualified
+              state: QUALIFIED
+      responses:
+        '200':
+          description: Call created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Calls]
+      summary: Update Calls
+      description: |
+        > [!NOTE]
+        > **Required role** — Update Calls
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~5 minutes.
+
+        Update calls by their ids.
+      parameters:
+        - name: ids
+          in: query
+          description: Array of call ids. At most 50 can be provided.
+          schema:
+            type: string
+        - name: externalIds
+          in: query
+          description: Array of call externalIds. At most 50 can be provided.
+          schema:
+            type: string
+        - name: name
+          in: query
+          required: true
+          description: Call name to assign.
+          schema:
+            type: string
+        - name: qualification
+          in: query
+          description: Call qualification to assign.
+          schema:
+            type: string
+        - name: state
+          in: query
+          description: Call state to assign.
+          schema:
+            $ref: '#/components/schemas/CallState'
+        - name: qualified
+          in: query
+          description: "DEPRECATED: Use state instead."
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Calls updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/calls/{id}:
+    delete:
+      tags: [Calls]
+      summary: Delete Call
+      description: |
+        > [!NOTE]
+        > **Required role** — Delete Calls
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~5 minutes.
+
+        Delete a call by its id.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Call id to be deleted.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Call deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/attribution:
+    get:
+      tags: [Attribution]
+      summary: Get Ads Attribution Report
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Attribution
+
+        Retrieves Facebook AdSet or Google Campaign attribution information.
+
+        **Notes:**
+        - When `isAdAccountId` is `true` and `timeGroupingOption` is `day`, `week`, `month`, or `year`, the request will fail.
+        - When `status` is `active` or `paused` and `timeGroupingOption` is not `source_link`, the request will fail.
+      parameters:
+        - name: attributionModel
+          in: query
+          required: true
+          description: Attribution model.
+          schema:
+            type: string
+            enum: [last_click, scientific, first_click]
+        - name: startDate
+          in: query
+          required: true
+          description: ISO 8601 starting date.
+          schema:
+            type: string
+          example: '2020-05-12T10:00:00'
+        - name: endDate
+          in: query
+          required: true
+          description: ISO 8601 ending date.
+          schema:
+            type: string
+          example: '2021-04-13T10:00:00'
+        - name: level
+          in: query
+          required: true
+          description: Attribution level for the report.
+          schema:
+            type: string
+            enum:
+              - google_campaign
+              - google_v2_adgroup
+              - google_ad
+              - google_v2_keyword
+              - facebook_adset
+              - facebook_campaign
+              - tiktok_adgroup
+              - snapchat_adsquad
+              - pinterest_adgroup
+              - twitter_adgroup
+              - bing_adgroup
+              - linkedin_campaign
+              - facebook_ad
+              - tiktok_ad
+              - snapchat_ad
+              - pinterest_ad
+              - bing_ad
+        - name: fields
+          in: query
+          required: true
+          description: |
+            Comma-separated fields to include in the report. Available values:
+            `sales`, `revenue`, `calls`, `total_revenue`, `recurring_revenue`, `refund`, `unique_sales`,
+            `leads`, `new_leads`, `cost`, `profit`, `roi`, `roas`, `refund_count`, `refund_sales_percentage`,
+            `refund_revenue_percentage`, `cost_per_call`, `cost_per_lead`, `cost_per_sale`, `cost_per_new_lead`,
+            `cost_per_unique_sale`, `unique_customers`, `unique_customers_revenue`, `cost_per_unique_customer`,
+            `net_profit`, `hard_costs`, `qualified_calls`, `unqualified_calls`, `cost_per_qualified_call`,
+            `time_of_sale_attribution`, `time_of_call_attribution`, `clicks`, `new_visits`, `cost_per_new_visit`,
+            `cost_per_click`, `reported`, `reported_result`, `shop_reported_result`, `reported_vs_revenue`,
+            `new_customers_percentage`, `recurring_customers`, `total_customers`, `customers`, `ctr`, `cpm`,
+            `cvr`, `impressions`, `gross_margins`, `partial_video_views`, `unique_calls`, `canceled_calls`,
+            `cost_per_unique_call`, `net_profit_percentage`, `taxes`, `cost_of_goods`, `shipping_value`,
+            `30_days_ltv`, `60_days_ltv`, `90_days_ltv`, `6_months_ltv`, `1_year_ltv`,
+            `30_days_ltv_forecast`, `60_days_ltv_forecast`, `90_days_ltv_forecast`, `6_months_ltv_forecast`,
+            `1_year_ltv_forecast`, `churn_rate`, `one_time_sales`, `subscription_30_days_forecast`,
+            `subscription_60_days_forecast`, `subscription_90_days_forecast`, `subscription_6_months_forecast`,
+            `subscription_1_year_forecast`, `cac`, `aov`, `new_subscriptions`, `canceled_subscriptions`,
+            `direct_subscriptions`, `new_mrr`, `new_trials`, `converted_trials`, `canceled_trials`,
+            `cost_per_new_subscriptions`, `cost_per_new_trials`, `carts`, `atc_events`, `purchased_carts`,
+            `atc_cvr`, `atc_rate`, `cost_per_atc`, `name`, `parent_name`
+          schema:
+            type: string
+          example: 'sales,revenue,calls,cost,roi,roas'
+        - name: ids
+          in: query
+          required: true
+          description: Comma-separated ids based on the `level`. Can be an ad account id when `isAdAccountId` is true (only one allowed).
+          schema:
+            type: string
+          example: '205044496234,205044496235'
+        - name: keywordsIds
+          in: query
+          description: Map of ad group ids and keywords. Only for `google_v2_keyword` level.
+          schema:
+            type: string
+          example: '66457534290:[391764277422,10000010]'
+        - name: currency
+          in: query
+          schema:
+            type: string
+            enum: [usd, user_currency]
+            default: user_currency
+        - name: dayOfAttribution
+          in: query
+          description: If true, filters by click date instead of sale date.
+          schema:
+            type: boolean
+            default: false
+        - name: scientificDaysRange
+          in: query
+          description: Day range (1-30) for first ad attribution. Used with scientific model.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 30
+            default: 30
+        - name: sourceConfiguration
+          in: query
+          schema:
+            type: string
+            enum: [all_sources, only_organic, only_paid, prioritize_organic, prioritize_paid]
+        - name: ignoreRecurringSales
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: isAdAccountId
+          in: query
+          description: If true, the id in `ids` is an ad account ID. All sources of that account will be paginated.
+          schema:
+            type: boolean
+            default: false
+        - name: forecastingOption
+          in: query
+          schema:
+            type: string
+            enum: [first_sale, total_sales]
+            default: first_sale
+        - name: windowAttributionDaysRange
+          in: query
+          description: Days range for discard attribution (0-365).
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 365
+            default: 0
+        - name: newCustomerConfiguration
+          in: query
+          schema:
+            type: string
+            enum: [all_customers, only_returning_customers, only_unique_customers]
+        - name: status
+          in: query
+          description: Filter ad spend by status. Only supported when `timeGroupingOption` is `source_link`.
+          schema:
+            type: string
+            enum: [active, paused]
+        - name: timeGroupingOption
+          in: query
+          schema:
+            type: string
+            enum: [source_link, day, week, month, year]
+            default: source_link
+        - name: lead_stage
+          in: query
+          description: Filters the report to sources with leads in any of the given account lead stages, by stage name (case-insensitive), comma-separated (e.g. `mql,sql,customer`). An unknown stage name returns a 400.
+          schema:
+            type: string
+        - name: pageSize
+          in: query
+          description: Maximum number of sources per page. Range 1-250.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+        - name: pageId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id:
+                    type: string
+                  result:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+              example:
+                request_id: d3d80491c48140b89a23071d19c0f88f
+                result:
+                  - id: '205044496234'
+                    revenue: 997.00
+                    sales: 10
+                    calls: 5
+                    campaign_id: '23843648123456789'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/attribution/roas:
+    get:
+      tags: [Attribution]
+      summary: Get ROAS
+      description: |
+        > [!NOTE]
+        > **Required role** — Get ROAS
+
+        Retrieves the cash actually collected by the entity a single `id` identifies at the given `level`, against its ad spend.
+
+        A narrow preset over `GET /api/v1.0/attribution`: the reporting level is resolved from the id and the requested level, so the
+        platform never has to be supplied and the caller does not need to know which reporting level each platform's ads, ad sets or
+        campaigns report at. The metric set, attribution model and row grouping are fixed. Rebills are already counted inside
+        `total_revenue`, and sales are credited to the click that drove them however long they took to land. `roas` is revenue over
+        spend, so break-even is `1.0` rather than `0`.
+
+        **Attribution model.** This endpoint always measures under `last_click`, and the model is not selectable. That matters for
+        reading the number: under `last_click` a sale is credited to the entity whose click came *last* before the purchase, so the
+        same entity over the same range would report a different `roas` under a first-click model.
+
+        Use `GET /api/v1.0/attribution` instead to choose the attribution model, to pick reporting levels or metrics, to group results
+        by date, or to report on several entities at once.
+
+        **Notes:**
+        - `id` and `level` are both required, and the id must belong to the level given.
+        - Campaign-level reporting is available on Meta, Google and LinkedIn. The remaining platforms have no campaign level, so report those at the `ad` or `source_link` level.
+        - An id that does not belong to the account returns a `400` rather than a report of zeros.
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Id of the entity to report on, as the ad platform issues it. It must belong to the given `level`.
+          schema:
+            type: string
+          example: '23851234567890123'
+        - name: level
+          in: query
+          required: true
+          description: |
+            Granularity the id refers to.
+            - `ad`: a single ad.
+            - `source_link`: an ad set on Meta, an ad group elsewhere. The level most tracked data sits at.
+            - `campaign`: a campaign, whose contained ads are resolved and aggregated.
+            - `account`: a whole ad account.
+          schema:
+            type: string
+            enum: [ad, source_link, campaign, account]
+          example: source_link
+        - name: startDate
+          in: query
+          required: true
+          description: ISO 8601 starting date.
+          schema:
+            type: string
+          example: '2020-05-12'
+        - name: endDate
+          in: query
+          required: true
+          description: ISO 8601 ending date.
+          schema:
+            type: string
+          example: '2020-05-19'
+        - name: basis
+          in: query
+          description: |
+            Which date the range filters on.
+            - `click_date`: credits the clicks made inside the range, however long their sales took to land afterwards. Since the
+              endpoint measures under `last_click`, the click it dates a sale by is the *last* one before the purchase.
+            - `sale_date`: counts only the revenue collected inside the range.
+          schema:
+            type: string
+            enum: [click_date, sale_date]
+            default: click_date
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id:
+                    type: string
+                  result:
+                    type: object
+                    additionalProperties: true
+                    description: The single entity reported on. Absent when it has no row for the range.
+              example:
+                request_id: cb0e1b0e5a7f4c0b9f0e1b0e5a7f4c0b
+                result:
+                  id: '23851234567890123'
+                  roas: 3.42
+                  new_customers_roas: 2.81
+                  revenue: 8200.00
+                  recurring_revenue: 1350.00
+                  total_revenue: 9550.00
+                  cost: 2792.40
+                  unique_sales: 74
+                  unique_customers: 61
+                  reported_result: 88
+                  reported_vs_revenue: 1120.00
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/attribution/marginal-cac-curve:
+    get:
+      tags: [Attribution]
+      summary: Get Marginal CAC Curve
+      description: |
+        Computes, from the account's own daily spend history, what happens to the cost of acquiring the next customer at every observed
+        daily spend level for the entity a single `id` identifies at the given `level` — and past which spend level the next dollar is
+        wasted.
+
+        Days in the range are grouped into equal-count buckets by ascending daily spend; each bucket carries its average CAC and the
+        marginal CAC versus the previous cheaper bucket (the incremental spend per incremental customer). The saturation point is the
+        first spend level from which every remaining level is wasteful — its marginal CAC exceeds the ceiling, or the extra spend
+        produced no extra customers. Degraded data returns a partial curve explained through `notes` rather than an error.
+
+        **Attribution model.** This endpoint always measures on the click date and with rebills included, and defaults to `first_click`:
+        a customer is credited to the first ad that touched them, so each daily point relates a spend level to the acquisitions it
+        caused and recurring revenue rolls up to the acquiring ad — a cost-of-acquisition curve. Passing `attributionModel=last_click`
+        credits the customer to the click that immediately preceded the purchase instead, turning the result into a
+        cost-of-*closing* curve: what it costs the entity to close the next customer. Use it for retargeting and bottom-of-funnel
+        entities, whose real contribution first-click hands over to whichever ad acquired the customer earlier. Read a prospecting
+        entity that way and the curve distorts, since most of the customers it acquired were closed elsewhere.
+
+        **The ceiling.** Defaults to the entity's realized LTV for the requested window — break-even, with no margin — and
+        `ceilingBasis` states which rule produced it. Note the realized LTV groups customers by what they bought, not by how they
+        retain, so two traffic sources whose customers buy the same products report the same LTV even if their rebill behavior differs.
+        At the `account` level no LTV is available, so the ceiling is the caller's `cacCeiling` or none.
+
+        **Notes:**
+        - `id` and `level` are both required, and the id must belong to the level given.
+        - Campaign-level reporting is available on Meta, Google and LinkedIn. The remaining platforms have no campaign level, so report those at the `ad` or `source_link` level.
+        - An id that does not belong to the account returns a `400` rather than a curve of zeros.
+        - Customers are attributed to their click date, so the most recent days may undercount customers whose conversions have not happened yet.
+      parameters:
+        - name: id
+          in: query
+          required: true
+          description: Id of the entity to report on, as the ad platform issues it. It must belong to the given `level`.
+          schema:
+            type: string
+          example: '23851234567890123'
+        - name: level
+          in: query
+          required: true
+          description: |
+            Granularity the id refers to.
+            - `ad`: a single ad.
+            - `source_link`: an ad set on Meta, an ad group elsewhere. The level most tracked data sits at.
+            - `campaign`: a campaign, whose contained ads are resolved and aggregated.
+            - `account`: a whole ad account. Day-grouped ranges are capped at 90 days on this level.
+          schema:
+            type: string
+            enum: [ad, source_link, campaign, account]
+          example: source_link
+        - name: startDate
+          in: query
+          description: ISO 8601 starting date of the history. Defaults to 90 days before `endDate`.
+          schema:
+            type: string
+          example: '2020-05-12'
+        - name: endDate
+          in: query
+          description: ISO 8601 ending date of the history. Defaults to today.
+          schema:
+            type: string
+          example: '2020-08-10'
+        - name: ltvWindow
+          in: query
+          description: |
+            Realized LTV window used as the break-even ceiling when `cacCeiling` is absent. Rejected at the `account` level, which
+            carries no LTV — provide `cacCeiling` there instead.
+          schema:
+            type: string
+            enum: ['30_days', '60_days', '90_days', '6_months', '1_year']
+            default: '90_days'
+        - name: cacCeiling
+          in: query
+          description: |
+            Maximum acceptable cost to acquire one customer, chosen by the caller (e.g. a fraction of LTV that preserves margin).
+            Overrides the LTV break-even ceiling. Must be zero or positive.
+          schema:
+            type: number
+          example: 52
+        - name: attributionModel
+          in: query
+          description: |
+            Which model credits a customer to the entity.
+            - `first_click`: the customer belongs to the first ad that touched them — a cost-of-acquisition curve, and the way to read prospecting entities.
+            - `last_click`: the customer belongs to the click that immediately preceded the purchase — a cost-of-closing curve, and the way to read retargeting and bottom-of-funnel entities.
+          schema:
+            type: string
+            enum: [first_click, last_click]
+            default: first_click
+      responses:
+        '200':
+          description: |
+            Successful response. `curve` is ordered by ascending daily spend level; `saturationPoint` is null when saturation was not
+            reached in the observed range. `notes` explains a partial curve: `NO_SPEND_DATA`, `NO_CUSTOMERS`, `INSUFFICIENT_DATA`,
+            `LTV_CEILING_UNAVAILABLE`.
+
+            `ceilingBasis` is `CALLER_PROVIDED` or `LTV_BREAKEVEN`, and `ltvWindow` is null unless the ceiling came from the LTV
+            break-even rule. `name` is null at the `account` level, whose rows are date ranges rather than a named entity.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id:
+                    type: string
+                  result:
+                    type: object
+                    additionalProperties: true
+                    description: The curve computed for the entity reported on.
+              example:
+                request_id: cb0e1b0e5a7f4c0b9f0e1b0e5a7f4c0b
+                result:
+                  id: '23851234567890123'
+                  level: SOURCE_LINK
+                  name: YT-LongForm-Founder
+                  startDate: '2020-05-12'
+                  endDate: '2020-08-10'
+                  attributionModel: FIRST_CLICK
+                  daysSampled: 84
+                  cacCeiling: 52.00
+                  ceilingBasis: CALLER_PROVIDED
+                  ltvWindow: null
+                  curve:
+                    - spendPerDay: 812.40
+                      days: 28
+                      newCustomers: 594
+                      avgCac: 38.29
+                      marginalCac: null
+                    - spendPerDay: 1490.10
+                      days: 28
+                      newCustomers: 941
+                      avgCac: 44.33
+                      marginalCac: 54.68
+                    - spendPerDay: 2274.75
+                      days: 28
+                      newCustomers: 1088
+                      avgCac: 58.54
+                      marginalCac: 149.46
+                  saturationPoint:
+                    efficientSpendPerDay: 1490.10
+                    saturatedSpendPerDay: 2274.75
+                    reason: MARGINAL_CAC_ABOVE_CEILING
+                  notes: []
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/attribution/ad-account:
+    get:
+      tags: [Attribution]
+      summary: Get Ad Accounts Attribution Report
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Ad Account Attribution
+
+        Retrieves Ad account attribution information.
+      parameters:
+        - name: attributionModel
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [last_click, scientific, first_click]
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+          example: '2020-05-12T10:00:00'
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+          example: '2021-04-13T10:00:00'
+        - name: fields
+          in: query
+          required: true
+          description: Comma-separated fields to include in the report (same set as Ad Attribution endpoint).
+          schema:
+            type: string
+        - name: ids
+          in: query
+          required: true
+          description: The Ad Account id. Only 1 id is permitted.
+          schema:
+            type: string
+          example: '205044496234'
+        - name: currency
+          in: query
+          schema:
+            type: string
+            enum: [usd, user_currency]
+            default: user_currency
+        - name: dayOfAttribution
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: scientificDaysRange
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 30
+            default: 30
+        - name: sourceConfiguration
+          in: query
+          schema:
+            type: string
+            enum: [all_sources, only_organic, only_paid, prioritize_organic, prioritize_paid]
+        - name: adLevelDateGroupingOption
+          in: query
+          schema:
+            type: string
+            enum: [ad_account, day, week, month, year]
+            default: ad_account
+        - name: ignoreRecurringSales
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: forecastingOption
+          in: query
+          schema:
+            type: string
+            enum: [first_sale, total_sales]
+            default: first_sale
+        - name: windowAttributionDaysRange
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 365
+            default: 0
+        - name: newCustomerConfiguration
+          in: query
+          schema:
+            type: string
+            enum: [all_customers, only_returning_customers, only_unique_customers]
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  request_id:
+                    type: string
+              example:
+                result:
+                  - id: '205044496234'
+                    sales: 64
+                    leads: 0
+                    total_revenue: 9283.41
+                    cost: 9172.25
+                    cost_per_sale: 143.32
+                    start_date: '2020-05-12T10:00:00'
+                    end_date: '2021-04-13T10:00:00'
+                request_id: d9031a3780c14ecdb8ca3af5cd26bc91
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/ad-accounts:
+    get:
+      tags: [Ad Accounts]
+      summary: List Ad Accounts
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Ad Accounts
+
+        List the ad accounts connected to your account. Use the returned `id`
+        values as the ad account id for the Ad Attribution endpoint (with
+        `isAdAccountId=true`) and the Ad Account Attribution endpoint.
+        Results are paginated: each response includes a `nextPageId`; pass it
+        back as `pageId` to retrieve the following page. The last page has a
+        `null` `nextPageId`.
+      parameters:
+        - name: ids
+          in: query
+          required: false
+          description: Comma-separated ad account ids to filter by. If omitted, all connected ad accounts are returned. A maximum of 50 ids may be provided.
+          schema:
+            type: string
+          example: '205044496234,118822334455'
+        - name: fields
+          in: query
+          required: false
+          description: Comma-separated fields to include in each result. If omitted, all fields are returned.
+          schema:
+            type: string
+            enum: [name, type]
+          example: 'name,type'
+        - name: pageSize
+          in: query
+          required: false
+          description: The maximum number of ad accounts to return in a single page. Defaults to 50.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+            default: 50
+        - name: pageId
+          in: query
+          required: false
+          description: The id of the next page to retrieve, taken from the `nextPageId` of a previous response. Any change to the other parameters resets pagination.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id:
+                    type: string
+                  nextPageId:
+                    type: string
+                    nullable: true
+                    description: Cursor for the next page, or null on the last page.
+                  result:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        type:
+                          type: string
+              example:
+                request_id: 43573923369e40bbafd46925a5c15ff5
+                nextPageId: b8f1c2d3e4a5
+                result:
+                  - id: '205044496234'
+                    name: Acme - Meta Ads
+                    type: FACEBOOK
+                  - id: '118822334455'
+                    name: Acme - Google Ads
+                    type: GOOGLE
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/products:
+    post:
+      tags: [Products]
+      summary: Create Product
+      description: |
+        > [!NOTE]
+        > **Required role** — Create Products
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~10 seconds.
+
+        Create a product with name, price and category. The tag is created from the product's name.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, price]
+              properties:
+                name:
+                  type: string
+                  description: Name of the product. Must have at least 3 characters.
+                price:
+                  type: number
+                  description: 'Plain number only: up to 8 digits before the decimal point and up to 2 after (max 99999999.99). Currency symbols and separators are not accepted.'
+                category:
+                  type: string
+                packages:
+                  type: array
+                  items:
+                    type: string
+                  description: Product packages (used for recurring sales attribution).
+            example:
+              name: Product 1
+              price: 5.66
+              category: Category 1
+              packages: ['Package 1', 'Package 2']
+      responses:
+        '200':
+          description: Product created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags: [Products]
+      summary: Retrieve Products
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Products
+
+        Search and retrieve products by name, tag, category and recurrence. Results are paginated.
+      parameters:
+        - name: name
+          in: query
+          description: Filter products whose name equals this value (exact match).
+          schema:
+            type: string
+        - name: tag
+          in: query
+          description: Filter products whose tag equals this value (exact match). The sale prefix "$" is added automatically when omitted.
+          schema:
+            type: string
+        - name: category
+          in: query
+          description: Filter products by the name of their category.
+          schema:
+            type: string
+        - name: isRecurringSale
+          in: query
+          description: Filter by recurring status.
+          schema:
+            type: string
+            enum: [RECURRING, NON_RECURRING, ALL]
+            default: ALL
+        - name: pageSize
+          in: query
+          description: Maximum number of products per page. Range 1-250.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+            default: 50
+        - name: pageId
+          in: query
+          description: ID of the next page. Returned in `nextPageId` of each response.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+                  nextPageId:
+                    type: string
+                  request_id:
+                    type: string
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/products/{id}:
+    put:
+      tags: [Products]
+      summary: Update Product
+      description: |
+        > [!NOTE]
+        > **Required role** — Update Products
+
+        Update a product's fields. Only the fields included in the request are modified; any field left out is kept unchanged.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Product id (its tracking pixel, as returned by the products listing).
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the product. Must have at least 3 characters.
+                price:
+                  type: number
+                  description: 'Plain number only: up to 8 digits before the decimal point and up to 2 after (max 99999999.99). Currency symbols and separators are not accepted.'
+                customCost:
+                  type: number
+                  description: Cost of goods of the product, used in profit and ROAS reporting.
+                tag:
+                  type: string
+                sku:
+                  type: string
+                category:
+                  type: string
+                isRecurringSale:
+                  type: boolean
+                  description: Whether the product is a recurring sale. A product cannot be both a recurring sale and a call product.
+                callProduct:
+                  type: boolean
+                  description: Whether the product is a call product. A product cannot be both a recurring sale and a call product.
+                packages:
+                  type: array
+                  items:
+                    type: string
+                  description: Product packages (used for recurring sales attribution). Omit to keep the current packages unchanged; send an empty array to remove the product from all packages.
+                updateHistoricalSales:
+                  type: boolean
+                  description: When true, a cost change is propagated to the product's existing sales, updating their profit and ROAS.
+                  default: false
+            example:
+              price: 7.99
+              customCost: 3.00
+              updateHistoricalSales: true
+      responses:
+        '200':
+          description: Product updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Products]
+      summary: Delete Product
+      description: |
+        > [!NOTE]
+        > **Required role** — Delete Products
+
+        Delete a product by its id.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Product id (its tracking pixel, as returned by the products listing) to be deleted.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/tags:
+    get:
+      tags: [Tags]
+      summary: List all Tags
+      deprecated: true
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Tags
+
+        Deprecated: to be replaced by GET /api/v1.0/tags/count. List all of your created tags.
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id:
+                    type: string
+                  result:
+                    type: array
+                    items:
+                      type: string
+              example:
+                request_id: 43573923369e40bbafd46925a5c15ff5
+                result: ['!tag1', '!tag2', '$sale1']
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/tags/count:
+    get:
+      tags: [Tags]
+      summary: List tags with lead counts
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Tags
+
+        List your created tags along with the count of leads that have each tag. A lead that has several of your tags is counted once for each of those tags.
+      parameters:
+        - name: name
+          in: query
+          description: Exact tag name to filter by.
+          schema:
+            type: string
+        - name: pageSize
+          in: query
+          description: Range 1-250.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+        - name: pageId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        amount:
+                          type: integer
+                  nextPageId:
+                    type: string
+                  request_id:
+                    type: string
+              example:
+                result:
+                  - name: '!tag1'
+                    amount: 12
+                  - name: '!tag2'
+                    amount: 0
+                  - name: '$sale1'
+                    amount: 3
+                nextPageId: 1073e129b360b78db3508bea584d1f295c7851c3d9b290308ac57528b6e38a21
+                request_id: 43573923369e40bbafd46925a5c15ff5
+        '401':
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/sources:
+    get:
+      tags: [Sources]
+      summary: List all Sources
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Sources
+
+        Search and retrieve sources by organic/disregarded status and by adSpendType/adSpendId.
+      parameters:
+        - name: adSourceIds
+          in: query
+          description: Array of ad source ids to retrieve.
+          schema:
+            type: string
+        - name: includeOrganic
+          in: query
+          schema:
+            type: boolean
+        - name: includeDisregarded
+          in: query
+          schema:
+            type: boolean
+        - name: integrationType
+          in: query
+          schema:
+            $ref: '#/components/schemas/AdspendType'
+        - name: pageSize
+          in: query
+          description: Between 1 and 250.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+        - name: pageId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Source'
+                  nextPageId:
+                    type: string
+                  request_id:
+                    type: string
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Sources]
+      summary: Create Source
+      description: |
+        > [!NOTE]
+        > **Required role** — Create Sources
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~10 seconds.
+
+        Create a source. Can be organic, non-organic, or from ad platforms (Google/Facebook/etc).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                category:
+                  type: string
+                goal:
+                  type: string
+                trafficSource:
+                  type: string
+                isDisregard:
+                  type: boolean
+                isOrganic:
+                  type: boolean
+                integrationType:
+                  type: string
+                  enum: [GOOGLE, FACEBOOK, TIKTOK, SNAPCHAT, LINKEDIN]
+                  description: Subset of `AdspendType` accepted when creating a source.
+                adSourceId:
+                  type: string
+                  description: |
+                    Id of the ad. Required if `integrationType` is present.
+                    - Facebook: adset id
+                    - Google: campaign id
+                    - TikTok: ad group id
+                    - Snapchat: ad squad id
+                    - LinkedIn: campaign id
+                accountId:
+                  type: string
+                  description: Id of the ad account. Required if `integrationType` is present.
+                adspendSubType:
+                  $ref: '#/components/schemas/AdspendSubType'
+                  description: Required when `integrationType` is GOOGLE.
+                campaignId:
+                  type: string
+                  description: Required when `integrationType` is FACEBOOK.
+            examples:
+              organic:
+                summary: Organic ad
+                value:
+                  name: Organic ad 1
+                  category: Instagram posts
+                  goal: opt ins
+                  trafficSource: organic
+                  isOrganic: true
+              facebook:
+                summary: Facebook ad
+                value:
+                  name: Facebook adset 1
+                  integrationType: FACEBOOK
+                  adSourceId: '238xxxxxxxx300546'
+                  accountId: '32xxxxxxxx93135'
+                  campaignId: '238xxxxxxxx300546'
+      responses:
+        '200':
+          description: Source created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/sources/{tag}:
+    put:
+      tags: [Sources]
+      summary: Update Source
+      description: |
+        > [!NOTE]
+        > **Required role** — Update Sources
+        >
+        > **Asynchronous** — effect is not immediate (see note below).
+
+        Edit an existing source, identified by its `tag`. Every field is optional: only the fields present in
+        the request are changed, the rest are left untouched. Editing a source re-attributes its associated
+        sales in the background.
+        
+        Note: the update is applied asynchronously. A `200` response means the request was accepted; the changes (and the re-attribution of associated sales) may take a few minutes to be reflected in `GET /api/v1.0/sources` and in reports.
+      parameters:
+        - name: tag
+          in: path
+          required: true
+          description: The `tag` of the source to update, as returned by `GET /api/v1.0/sources`.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: New name of the source.
+                tag:
+                  type: string
+                  description: 'New tag to be assigned to the source (a new tag, or an existing one not used by another source). Must be a source tag: include the `@` prefix, e.g. `@my-source` (a value with no prefix is automatically prefixed with `@`). A tag with a non-source prefix (`$`, `!`, `#`) is rejected with `Invalid tag`.'
+                category:
+                  type: string
+                  description: Name of the source category. Created if it does not exist.
+                goal:
+                  type: string
+                  description: Name of the goal. Created if it does not exist.
+                trafficSource:
+                  type: string
+                  description: Name of the traffic source. Created if it does not exist.
+                isDisregard:
+                  type: boolean
+                  description: Whether the source is disregarded when attributing a sale.
+                isOrganic:
+                  type: boolean
+                  description: Whether the source is marked as an organic source.
+            example:
+              name: Organic ad 1 (renamed)
+              tag: '@organic-ad-1'
+              category: Instagram posts
+              isDisregard: true
+      responses:
+        '200':
+          description: Source updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Sources]
+      summary: Delete Source
+      description: |
+        > [!NOTE]
+        > **Required role** — Delete Sources
+
+        Delete an existing source, identified by its `tag`. The source is soft deleted and no longer appears in attribution.
+      parameters:
+        - name: tag
+          in: path
+          required: true
+          description: The `tag` of the source to delete, as returned by `GET /api/v1.0/sources`.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Source deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/ads:
+    get:
+      tags: [Sources]
+      summary: List all Ads
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Ads
+
+        Search and retrieve ads by adSpendType/adSpendId.
+      parameters:
+        - name: integrationType
+          in: query
+          schema:
+            $ref: '#/components/schemas/AdspendType'
+        - name: adSourceIds
+          in: query
+          schema:
+            type: string
+        - name: pageSize
+          in: query
+          description: Between 1 and 250.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+        - name: pageId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        adSource:
+                          $ref: '#/components/schemas/AdSource'
+                        source:
+                          $ref: '#/components/schemas/Source'
+                        creationDate:
+                          type: integer
+                          description: Returned as epoch milliseconds (a number) instead of ISO 8601.
+                          example: 1677151375000
+                  nextPageId:
+                    type: string
+                  request_id:
+                    type: string
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/custom-costs:
+    get:
+      tags: [Custom Costs]
+      summary: Retrieve Custom Costs
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Custom Costs
+
+        Retrieve custom costs. A cost matches the date window when its active range (from startDate to endDate, or
+        open-ended when no endDate is set) overlaps the fromDate/toDate window. Use the returned id to update or delete a cost.
+      parameters:
+        - name: ids
+          in: query
+          description: Array of custom cost ids. At most 50 can be provided.
+          schema:
+            type: string
+        - name: fromDate
+          in: query
+          description: ISO 8601 date. Only costs active on or after this date will be retrieved.
+          schema:
+            type: string
+          example: '2021-04-16T20:35:00-05:00'
+        - name: toDate
+          in: query
+          description: ISO 8601 date. Only costs active on or before this date will be retrieved.
+          schema:
+            type: string
+          example: '2021-04-16T20:35:00-05:00'
+        - name: pageSize
+          in: query
+          description: Maximum number of custom costs per page. Range 1-250. Defaults to 50.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+        - name: pageId
+          in: query
+          description: ID of the next page.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CustomCost'
+                  nextPageId:
+                    type: string
+                  request_id:
+                    type: string
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Custom Costs]
+      summary: Create Custom Cost
+      description: |
+        > [!NOTE]
+        > **Required role** — Create Custom Costs
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~10 seconds.
+
+        Create a custom cost with all necessary information.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [startDate, frequency, cost, tags]
+              properties:
+                name:
+                  type: string
+                  description: Descriptive label for the cost.
+                startDate:
+                  type: string
+                  description: ISO 8601 start date.
+                endDate:
+                  type: string
+                  description: ISO 8601 end date.
+                frequency:
+                  type: string
+                  enum: [DAILY, ONE_TIME]
+                cost:
+                  type: number
+                  description: Must be greater than zero. Currency matches Hyros account settings.
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: Source tags to assign the costs to. Maximum 10.
+                  maxItems: 10
+            example:
+              name: Monthly Agency Fee
+              startDate: '2024-12-25T00:00:00.000Z'
+              endDate: '2024-12-20T00:00:00.000Z'
+              frequency: DAILY
+              tags: ['@instagram', '@facebook']
+              cost: 999.50
+      responses:
+        '200':
+          description: Custom cost created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/custom-costs/{id}:
+    put:
+      tags: [Custom Costs]
+      summary: Update Custom Cost
+      description: |
+        > [!NOTE]
+        > **Required role** — Update Custom Costs
+
+        Update a custom cost by its id. This is a full replacement: every field must be provided, and any omitted optional
+        field is cleared. Costs created from the Hyros UI with a MONTHLY frequency are returned by the retrieve endpoint,
+        but the API only accepts DAILY or ONE_TIME, so a MONTHLY cost cannot be edited through this endpoint without
+        changing its frequency.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Id of the custom cost to update.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [startDate, frequency, cost, tags]
+              properties:
+                name:
+                  type: string
+                  description: Descriptive label for the cost.
+                startDate:
+                  type: string
+                  description: ISO 8601 start date.
+                endDate:
+                  type: string
+                  description: ISO 8601 end date.
+                frequency:
+                  type: string
+                  enum: [DAILY, ONE_TIME]
+                cost:
+                  type: number
+                  description: Must be greater than zero. Currency matches Hyros account settings.
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: Source tags to assign the costs to. Maximum 10.
+                  maxItems: 10
+            example:
+              name: Monthly Agency Fee
+              startDate: '2024-12-25T00:00:00.000Z'
+              endDate: '2025-01-25T00:00:00.000Z'
+              frequency: DAILY
+              tags: ['@instagram', '@facebook']
+              cost: 1299.50
+      responses:
+        '200':
+          description: Custom cost updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Custom Costs]
+      summary: Delete Custom Cost
+      description: |
+        > [!NOTE]
+        > **Required role** — Delete Custom Costs
+
+        Delete a custom cost by its id.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Custom cost id to be deleted.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Custom cost deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/clicks:
+    post:
+      tags: [Clicks]
+      summary: Create Click
+      description: |
+        > [!NOTE]
+        > **Required role** — Create Clicks
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~10 seconds.
+
+        Creates a click with the URL the user clicked on and a session id representing the potential lead session.
+        Optionally includes an email to create a lead, and ad data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [referrerUrl]
+              properties:
+                referrerUrl:
+                  type: string
+                  description: The URL for the click.
+                sessionId:
+                  type: string
+                  description: Unique string representing the lead session.
+                previousUrl:
+                  type: string
+                userAgent:
+                  type: string
+                ip:
+                  type: string
+                sourceLinkTag:
+                  type: string
+                  description: A `@tag` representing the ad. Must start with `@`.
+                isOrganic:
+                  type: boolean
+                integrationType:
+                  type: string
+                  enum: [GOOGLE, GOOGLE_V2, FACEBOOK, TIKTOK, SNAPCHAT, LINKEDIN, TWITTER, PINTEREST, BING]
+                  description: Subset of `AdspendType` accepted when creating a click.
+                adSourceId:
+                  type: string
+                  description: |
+                    Id of the group of ads. Required if `integrationType` is present.
+                    - Facebook: adset id · Google: campaign id · TikTok: ad group id · Snapchat: ad squad id · LinkedIn: campaign id
+                adspendAdId:
+                  type: string
+                  description: Id of the ad. Only for Facebook and Google.
+                adSourceClickId:
+                  type: string
+                  description: Click id in the ad platform. Used for offline conversions (Facebook, Google, TikTok, Snapchat).
+                email:
+                  type: string
+                phones:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items:
+                        type: string
+                tag:
+                  type: string
+                  description: Tag to apply to the lead.
+                date:
+                  type: string
+                  description: |
+                    Date when the click was made. Allowed formats:
+                    `yyyy-MM-ddTHH:mm:ssZ`, `yyyy-MM-ddTHH:mmZ`, `yyyy-MM-ddTHH:mm:ss+HH:mm`,
+                    `yyyy-MM-ddTHH:mm+HH:mm`, `yyyy-MM-ddTHH:mm:ss`, `yyyy-MM-ddTHH:mm`, `yyyy-MM-dd`
+            examples:
+              organic:
+                summary: Click for an organic ad
+                value:
+                  sessionId: RWp7VmL3nlAi6zdG0KKQ
+                  referrerUrl: landing.page.com
+                  previousUrl: previous.url
+                  userAgent: Mozilla/5.0 (X11; Linux x86_64)
+                  ip: 0.0.0.0
+                  sourceLinkTag: '@facebook-post'
+                  isOrganic: true
+              platform:
+                summary: Click for a platform ad
+                value:
+                  sessionId: RWp7VmL3nlAi6zdG0KKQ
+                  referrerUrl: landing.page.com
+                  ip: 0.0.0.0
+                  integrationType: GOOGLE
+                  adSourceId: '6500000028'
+                  adspendAdId: '4800000004652'
+                  adSourceClickId: Cj0KxxxxxxKQBhCNARIsACUEW_bnG48
+              leadClick:
+                summary: Click for a platform ad linked to a lead
+                value:
+                  sessionId: RWp7VmL3nlAi6zdG0KKQ
+                  referrerUrl: landing.page.com
+                  ip: 0.0.0.0
+                  integrationType: GOOGLE
+                  adSourceId: '6500000028'
+                  adSourceClickId: Cj0KxxxxxxKQBhCNARIsACUEW_bnG48
+                  email: new.lead@mail.com
+                  phones: ['202-555-0139']
+      responses:
+        '200':
+          description: Click created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/carts:
+    get:
+      tags: [Carts]
+      summary: Retrieve Carts
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Carts
+
+        Search and retrieve carts by creation date, purchased state (whether the cart has an
+        associated order or not), email and lead id.
+      parameters:
+        - name: emails
+          in: query
+          description: Array of emails or prefixes. At most 50 can be provided.
+          schema:
+            type: string
+        - name: leadIds
+          in: query
+          description: Array of leadIds. At most 50 can be provided.
+          schema:
+            type: string
+        - name: purchased
+          in: query
+          description: Filter by purchased state. `true` returns only purchased carts (with orderId); `false` returns carts without orderId.
+          schema:
+            type: boolean
+        - name: fromDate
+          in: query
+          description: ISO 8601 date. Only carts whose creation date is more recent than this will be retrieved.
+          schema:
+            type: string
+          example: '2023-08-24T00:00:00-03:00'
+        - name: toDate
+          in: query
+          description: ISO 8601 date. Only carts whose creation date is older than this will be retrieved.
+          schema:
+            type: string
+          example: '2023-08-24T00:00:00-03:00'
+        - name: pageSize
+          in: query
+          description: Maximum number of carts per page. Range 1-250.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+        - name: pageId
+          in: query
+          description: ID of the next page, taken from the `nextPageId` of a previous response. Omit it to fetch the first page. An invalid or expired pagination cursor is rejected with `400 Bad Request`.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Cart'
+                  nextPageId:
+                    type: string
+                  request_id:
+                    type: string
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Carts]
+      summary: Create Cart
+      description: |
+        > [!NOTE]
+        > **Required role** — Create Carts
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~10 seconds.
+
+        Create a cart. Additionally, creates the lead if not already present.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                cartId:
+                  type: string
+                  description: ID of the cart. A default one will be created if not included.
+                email:
+                  type: string
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                leadIps:
+                  type: array
+                  items:
+                    type: string
+                phoneNumbers:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items:
+                        type: string
+                date:
+                  type: string
+                  description: ISO 8601 date. Timezone recommended.
+                  example: '2021-04-16T20:35:00-06:00'
+                priceFormat:
+                  type: string
+                  enum: [DECIMAL, INTEGER]
+                  default: DECIMAL
+                currency:
+                  type: string
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CartItem'
+                  minItems: 1
+            example:
+              cartId: d49b708b3df50505869ca54f026e7c97a4959b587605f14f91c7e289de9f80bd
+              email: john@doe.com
+              firstName: John
+              lastName: Doe
+              date: '2021-09-06T12:00:12Z'
+              currency: USD
+              items:
+                - name: T-shirt-blue
+                  price: 9.5
+                  externalId: '23456798'
+                  quantity: 3
+                  sku: DEPOR-XYZ-BLN-41
+                  isRebill: false
+              priceFormat: DECIMAL
+              phoneNumbers: ['2345678901']
+              leadIps: ['70.107.190.180']
+      responses:
+        '200':
+          description: Cart created successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  request_id:
+                    type: string
+                  result:
+                    type: string
+                  message:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Carts]
+      summary: Update Cart
+      description: |
+        > [!NOTE]
+        > **Required role** — Update Carts
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~5 minutes.
+
+        Update a cart and its corresponding Lead.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cartId, items]
+              properties:
+                cartId:
+                  type: string
+                  description: ID of the cart to update.
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CartItem'
+                  minItems: 1
+                email:
+                  type: string
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                leadIps:
+                  type: array
+                  items:
+                    type: string
+                phoneNumbers:
+                  type: array
+                  items:
+                    type: string
+                date:
+                  type: string
+                priceFormat:
+                  type: string
+                  enum: [DECIMAL, INTEGER]
+                  default: DECIMAL
+                currency:
+                  type: string
+            example:
+              cartId: d49b708b3df50505869ca54f026e7c97a4959b587605f14f91c7e289de9f80bd
+              email: john@doe.com
+              date: '2021-09-06T12:00:12Z'
+              currency: USD
+              items:
+                - name: T-shirt-red
+                  price: 9.5
+                  externalId: '23456333'
+                  quantity: 1
+                  sku: DEPOR-XYZ-RED-41
+                  isRebill: false
+              priceFormat: DECIMAL
+      responses:
+        '200':
+          description: Cart updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/user-info:
+    get:
+      tags: [User Info]
+      summary: Retrieve User Information
+      description: |
+        > [!NOTE]
+        > **Required role** — Get User Information
+
+        Retrieve user profile, connected accounts, and true tracking configuration.
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      userProfile:
+                        type: object
+                        properties:
+                          email:
+                            type: string
+                          firstName:
+                            type: string
+                          lastName:
+                            type: string
+                          phoneNumber:
+                            type: integer
+                          companyName:
+                            type: string
+                          profilePicture:
+                            type: string
+                          vat:
+                            type: string
+                          helpNotes:
+                            type: boolean
+                          notificationsEnabled:
+                            type: string
+                          timezone:
+                            type: string
+                          userAddress:
+                            type: object
+                            properties:
+                              street:
+                                type: string
+                              city:
+                                type: string
+                              state:
+                                type: string
+                              zipCode:
+                                type: string
+                      allowedAccounts:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            firstName:
+                              type: string
+                            lastName:
+                              type: string
+                            companyName:
+                              type: string
+                            email:
+                              type: string
+                            pictureUrl:
+                              type: string
+                            status:
+                              type: string
+                      accessibleAccounts:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            accountId:
+                              type: string
+                              description: Opaque, stable identifier of the account. Use it to identify that account on other operations.
+                              example: 3fbcb1563c51a0e0c7698680a9c3d51161f48c60db57699e3636885eb72c64b4
+                            firstName:
+                              type: string
+                            lastName:
+                              type: string
+                            companyName:
+                              type: string
+                            email:
+                              type: string
+                            pictureUrl:
+                              type: string
+                            status:
+                              type: string
+                      trueTrackingData:
+                        type: object
+                        additionalProperties:
+                          type: string
+                  request_id:
+                    type: string
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/keywords:
+    get:
+      tags: [Keywords]
+      summary: Retrieve Keywords
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Attribution
+
+        List all keywords, or those associated with a specific Google Ad Group Id.
+      parameters:
+        - name: adgroupId
+          in: query
+          description: The ad group id.
+          schema:
+            type: string
+        - name: pageSize
+          in: query
+          description: Between 1 and 250.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+        - name: pageId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        adGroupId:
+                          type: string
+                        adGroupName:
+                          type: string
+                  nextPageId:
+                    type: string
+                  request_id:
+                    type: string
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/subscriptions:
+    get:
+      tags: [Subscriptions]
+      summary: Retrieve Subscriptions
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Subscriptions
+
+        Search and retrieve subscriptions by start/end date, email, lead id, product tag, id, and states.
+      parameters:
+        - name: ids
+          in: query
+          description: Array of subscription ids. At most 50.
+          schema:
+            type: string
+        - name: emails
+          in: query
+          description: Array of emails or prefixes. At most 50.
+          schema:
+            type: string
+        - name: leadIds
+          in: query
+          description: Array of leadIds. At most 50.
+          schema:
+            type: string
+        - name: productTags
+          in: query
+          description: Array of product tags. At most 20.
+          schema:
+            type: string
+        - name: subscriptionStates
+          in: query
+          description: Filter by subscription status. Defaults to all states.
+          schema:
+            type: string
+        - name: fromDate
+          in: query
+          schema:
+            type: string
+          example: '2021-04-16T20:35:00-05:00'
+        - name: toDate
+          in: query
+          schema:
+            type: string
+          example: '2021-04-16T20:35:00-05:00'
+        - name: pageSize
+          in: query
+          description: Range 1-250.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+        - name: pageId
+          in: query
+          description: ID of the next page, taken from the `nextPageId` of a previous response. Omit it to fetch the first page. An invalid or expired pagination cursor is rejected with `400 Bad Request`.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Subscription'
+                  nextPageId:
+                    type: string
+                  request_id:
+                    type: string
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Subscriptions]
+      summary: Create Subscription
+      description: |
+        > [!NOTE]
+        > **Required role** — Create Subscriptions
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~10 seconds.
+
+        Create a subscription. Additionally, creates the lead if not already present.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status, startDate, price, periodicity]
+              properties:
+                email:
+                  type: string
+                  description: Required if no phone number is provided.
+                parentEmail:
+                  type: string
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                leadIps:
+                  type: array
+                  items:
+                    type: string
+                stage:
+                  type: string
+                phoneNumbers:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items:
+                        type: string
+                  description: Required if no email is provided.
+                subscriptionId:
+                  type: string
+                name:
+                  type: string
+                status:
+                  $ref: '#/components/schemas/SubscriptionStatus'
+                startDate:
+                  type: string
+                  example: '2021-04-16T20:35:00'
+                endDate:
+                  type: string
+                cancelAtDate:
+                  type: string
+                trialStartDate:
+                  type: string
+                trialEndDate:
+                  type: string
+                planId:
+                  type: string
+                price:
+                  type: number
+                periodicity:
+                  type: string
+                  enum: [DAY, WEEK, MONTH, QUARTER, YEAR]
+            example:
+              email: john@doe.com
+              parentEmail: jane@doe.com
+              firstName: John
+              lastName: Doe
+              leadIps: ['172.8.105.28']
+              stage: Customer
+              phoneNumbers: ['1105385366']
+              endDate: '2025-03-16T20:35:00'
+              subscriptionId: '18294892740'
+              startDate: '2025-01-16T20:35:00'
+              trialStartDate: '2025-02-16T20:35:00'
+              planId: IOJNF0293IRD9023JF0D
+              price: 8.9
+              periodicity: MONTH
+              status: ACTIVE
+              name: Monthly Subscription Active
+      responses:
+        '200':
+          description: Subscription created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Subscriptions]
+      summary: Update Subscription
+      description: |
+        > [!NOTE]
+        > **Required role** — Update Subscriptions
+        >
+        > **Asynchronous** — effect is not immediate; changes typically appear within ~5 minutes.
+
+        Update a subscription.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of subscription ids. At most 50.
+                  maxItems: 50
+                name:
+                  type: string
+                status:
+                  $ref: '#/components/schemas/SubscriptionStatus'
+                startDate:
+                  type: string
+                endDate:
+                  type: string
+                cancelAtDate:
+                  type: string
+                trialStartDate:
+                  type: string
+                trialEndDate:
+                  type: string
+                price:
+                  type: number
+            example:
+              ids: ['subscriptionId']
+              status: CANCELED
+              name: Monthly Subscription Active
+              startDate: '2025-01-16T20:35:00'
+              endDate: '2025-03-16T20:35:00'
+              trialStartDate: '2025-02-16T20:35:00'
+              trialEndDate: '2025-03-16T20:35:00'
+              cancelAtDate: '2025-03-16T20:35:00'
+      responses:
+        '200':
+          description: Subscription updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/tracking-script:
+    get:
+      tags: [Tracking Script]
+      summary: Get Tracking Script
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Lead Clicks
+
+        Retrieves the tracking script for a given domain. If no domain is provided, returns the default tracking script.
+        The script can be customized with optional parameters to enable SPA tracking, ignore previous URLs, embed on iframes, or hide tracking parameters.
+      parameters:
+        - name: domain
+          in: query
+          description: Domain for which to retrieve the tracking script.
+          schema:
+            type: string
+        - name: spa
+          in: query
+          description: Enables tracking of clicks and emails on URL change for Single Page Applications (SPA). Defaults to false.
+          schema:
+            type: boolean
+            default: false
+        - name: ignorePrevUrl
+          in: query
+          description: When true, ignores sources from the previous URL during attribution. Defaults to false.
+          schema:
+            type: boolean
+            default: false
+        - name: embed
+          in: query
+          description: When true, embeds the Universal script on iframes. Defaults to false.
+          schema:
+            type: boolean
+            default: false
+        - name: deleteTrackingScriptParams
+          in: query
+          description: When true, the Universal Script will automatically hide the tracking parameters in the URL after use. This setting is persisted as user metadata.
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Tracking script HTML.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                <script>
+                    var head = document.head;
+                    var script = document.createElement('script');
+                    script.type = 'text/javascript';
+                    script.src = "https://api.hyros.com/v1/lst/universal-script?ph=a48210e63e83136228b90e18c16461c07ba3c7bee05ba64615ecae4edcf9d130&tag=!clicked&ref_url=" + encodeURIComponent(document.URL);
+                    head.appendChild(script);
+                </script>
+        '400':
+          description: Invalid domain.
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /api/v1/domains:
+    get:
+      tags: [Domains]
+      summary: Get Domains
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Lead Clicks
+
+        Retrieves a list of verified domains associated with the product. This endpoint is served under `/api/v1/` (not `/api/v1.0/` like the other endpoints).
+      responses:
+        '200':
+          description: List of verified domains.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+              example: ['domain1.example.com', 'domain2.example.com']
+        '401':
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/stages:
+    get:
+      tags: [Stages]
+      summary: Retrieve Lead Stages
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Leads
+
+        Retrieves all lead stages for the account, along with the count of leads in each stage.
+      parameters:
+        - name: name
+          in: query
+          description: Name to search stages by.
+          schema:
+            type: string
+        - name: pageSize
+          in: query
+          description: Range 1-250.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+        - name: pageId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        amount:
+                          type: integer
+                  nextPageId:
+                    type: string
+                  request_id:
+                    type: string
+              example:
+                result:
+                  - name: SQL
+                    amount: 1
+                  - name: MQL
+                    amount: 5
+                nextPageId: 1073e129b360b78db3508bea584d1f295c7851c3d9b290308ac57528b6e38a21
+                request_id: 5696f9a3524e42318f3cdf40176e70e3
+        '401':
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/webhook-subscriptions:
+    post:
+      tags: [Webhook Subscriptions]
+      summary: Create Webhook Subscription
+      description: |
+        > [!NOTE]
+        > **Required role** — Create Webhook Subscriptions
+
+        Create a webhook subscription. The subscription tells Hyros which event types to send,
+        via **POST**, to the provided `targetUrl`. The response includes the generated
+        `externalId` and the `secretKey` used to validate the HMAC signature of delivered events.
+        The `secretKey` is returned only in this create response — store it, as it is not
+        returned by the list endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, targetUrl, eventTypes]
+              properties:
+                name:
+                  type: string
+                  description: Name of the subscription.
+                targetUrl:
+                  type: string
+                  description: |
+                    URL where the event payloads are sent. Must be a public `http`/`https` URL and cannot contain template placeholders like `{{placeholder}}`.
+                    Non-HTTP schemes and internal/private hosts (loopback, link-local, private RFC-1918 ranges, wildcard, multicast, and cloud-metadata addresses) are rejected.
+                eventTypes:
+                  type: array
+                  description: Event types to subscribe to. Must contain at least one known event type.
+                  items:
+                    type: string
+                    enum:
+                      - sale.attributed
+                      - sale.refunded
+                      - call.attributed
+                      - lead.opted.in
+                      - lead.opted.in.first.time
+                      - lead.origin.assigned
+                      - lead.stage.changed
+                      - lead.tag.added
+                      - lead.tag.removed
+                      - subscription.created
+                      - subscription.status.changed
+            example:
+              name: My CRM sync
+              targetUrl: https://example.com/hooks/hyros
+              eventTypes: ['sale.attributed', 'lead.opted.in']
+      responses:
+        '200':
+          description: Subscription created successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    $ref: '#/components/schemas/WebhookSubscription'
+                  request_id:
+                    type: string
+              example:
+                result:
+                  externalId: sub-2a475f6baf8f416bac9ff60e1a0fabb5
+                  name: My CRM sync
+                  targetUrl: https://example.com/hooks/hyros
+                  eventTypes: ['sale.attributed', 'lead.opted.in']
+                  state: ACTIVE
+                  secretKey: ssk-244e8d359f67456cb9efac27913283fb
+                  creationDate: '2026-07-09T14:28:15Z'
+                  lastDeliveryDate: null
+                request_id: 143d65f8d2654e16a9dab64b20176f9c
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags: [Webhook Subscriptions]
+      summary: Retrieve Webhook Subscriptions
+      description: |
+        > [!NOTE]
+        > **Required role** — Get Webhook Subscriptions
+
+        Retrieve all non-deleted webhook subscriptions for the account.
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WebhookSubscription'
+                  request_id:
+                    type: string
+              example:
+                result:
+                  - externalId: sub-2a475f6baf8f416bac9ff60e1a0fabb5
+                    name: My CRM sync
+                    targetUrl: https://example.com/hooks/hyros
+                    eventTypes: ['sale.attributed', 'lead.opted.in']
+                    state: ACTIVE
+                    creationDate: '2026-07-09T14:28:15Z'
+                    lastDeliveryDate: '2026-07-09T15:13:20Z'
+                request_id: c9e86849464545d9b6b24d8039fa38d8
+        '401':
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1.0/webhook-subscriptions/{externalId}:
+    delete:
+      tags: [Webhook Subscriptions]
+      summary: Delete Webhook Subscription
+      description: |
+        > [!NOTE]
+        > **Required role** — Delete Webhook Subscriptions
+
+        Delete a webhook subscription by its `externalId`.
+      parameters:
+        - name: externalId
+          in: path
+          required: true
+          description: Opaque identifier of the subscription to delete.
+          schema:
+            type: string
+          example: sub-2a475f6baf8f416bac9ff60e1a0fabb5
+      responses:
+        '200':
+          description: Subscription deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request. Returned when the `externalId` does not exist for this account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

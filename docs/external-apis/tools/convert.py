@@ -8,6 +8,7 @@ SKIP_CLASSES = {
     "openapi-skeleton", "hash-link", "buttonGroup_M5ko", "copyButtonIcons_IEyt",
     "copyButtonIcon_TrPX", "copyButtonSuccessIcon_cVMy", "hr-pgroup__caret",
     "hr-dd__chevron", "theme-doc-version-badge", "openapi-tabs__mime-container",
+    "anchor-link", "endpoint-copy-btn", "copy-btn",
     "openapi-tabs__schema-tabs-container", "pagination-nav", "theme-doc-toc-mobile",
     "theme-doc-footer", "tocCollapsible_ETCw",
     "openapi-right-panel__container", "theme-doc-version-banner", "clean-btn",
@@ -125,6 +126,13 @@ class Renderer:
                 method.get_text(strip=True) if method else "",
                 path.get_text(strip=True) if path else ""))
             return
+        if "endpoint-badge" in c:
+            meth = node.select_one(".method")
+            path = node.select_one(".endpoint-url")
+            if meth and path:
+                self.emit("```http\n%s %s\n```" % (meth.get_text(strip=True),
+                                                    path.get_text(strip=True)))
+                return
         if "hr-pgroup" in c:
             title = node.select_one(".hr-pgroup__title")
             meta = []

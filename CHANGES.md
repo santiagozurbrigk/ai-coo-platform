@@ -14,6 +14,88 @@
 
 ---
 
+### 2026-08-30 — DOC-EXTERNAL-APIS-2: Whop, Commas, Hyros y WebinarJam bajados al repo
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `docs/external-apis/` (4 proveedores nuevos), `docs/API_DOCS_PENDIENTES.md`, `CLAUDE.md`, `PENDIENTES.md`
+
+**Qué se hizo:**
+Segunda tanda de captura, después de GoHighLevel y VTurb. Santiago pasó las URLs de las
+cuatro documentaciones que faltaban. **Las cuatro eran alcanzables**, así que el bloqueo
+de red que motivó `API_DOCS_PENDIENTES.md` ya no existe para ningún proveedor.
+
+- **`whop/`** — 897 páginas de `docs.whop.com` más los **3 specs OpenAPI oficiales**
+  que Whop publica en `/openapi/*` (native 246 operaciones, stable/legacy 202, wallet
+  stats 2). Referencia legible generada desde los specs.
+- **`commas/`** — 42 secciones de `commasdocs.com`. **Fanbasis se rebrandeó a Commas**;
+  `apidocs.fan` ya no es su documentación, aunque el API sigue en `www.fanbasis.com`.
+- **`hyros/`** — los **3 specs OpenAPI 3.1** vigentes de `api-docs.hyros.com/ai-context/`
+  (REST v1.40, webhooks, MCP), el documento viejo de Apiary (v1.37) y **482 guías** de
+  `docs.hyros.com`.
+- **`webinarjam/`** — los 17 artículos de API del centro de ayuda, con los links
+  internos reescritos al slug real.
+- **Un `RESUMEN-OTC.md` por proveedor**, que responde una por una las preguntas de
+  `API_DOCS_PENDIENTES.md` §1, §2, §5 y §6.
+- **`tools/`**: se sumaron `render.py` (Chromium), `crawl_hyros.py`, `openapi_md.py`
+  (OpenAPI 3.x → markdown, reutilizable), y un build por proveedor. `regenerar.sh` ahora
+  toma proveedores como argumento.
+
+**Por qué / finalidad:**
+Las tres olas de integración quedan con documentación local. Dos de las unidades ya
+construidas (Whop y Commas, la capa de pagos) se pueden corregir contra los specs reales
+en vez de esperar a que llegue el primer webhook.
+
+**Los hallazgos que cambian código o diseño:**
+- **Whop no manda centavos: manda decimales en la unidad de la moneda.** El spec lo dice
+  textual (*"10.43 for $10.43 USD"*). Y **ninguna de las claves de monto que busca
+  `normalize.ts` existe en su payload**: busca `settled_amount`, el campo es
+  `settlement_amount`. `total` y `subtotal` sí existen pero son otra cosa (*"to show to
+  the creator, excluding buyer fees"*).
+- **Commas sí manda centavos (`amount_cents`).** Los dos proveedores de la misma unidad
+  usan convenciones opuestas: la regla no puede ser una heurística de sufijo.
+- **La firma de Commas quedó confirmada**: `x-webhook-signature`, HMAC-SHA256 hex sobre
+  el body crudo, secreto sin transformar. Era la pregunta que bloqueaba toda la ruta.
+- **La firma de Whop también**, con un detalle: el prefijo del secreto es `ws_`, no
+  `whsec_`, y se usa como clave literal.
+- **`membership.created` no existe en Whop.** El evento de alta es `membership.activated`.
+- **WebinarJam resuelve M15 del lado del servidor**: el filtro `attended_live=4` +
+  `attended_live_timestamp=<segundo>` devuelve los que se quedaron más allá del pitch.
+  En cambio **M16 (clicks al CTA) no existe** — sólo hay `purchased_live`.
+- **Hyros confirma que `I-7` no hace falta**: M08 y M09 salen de `/leads` y del reporte
+  de atribución. Y `fields=cost` cubre M01, así que tampoco hace falta cruzar la API de
+  cada plataforma de ads.
+
+**Decisiones de diseño:**
+- **Cuando el proveedor publica un spec, el spec es la fuente.** Whop y Hyros lo
+  publican; VTurb lo embebe. Se guardan los specs y la referencia se genera de ahí, en
+  vez de raspar la página de cada endpoint. En Whop eso además evita duplicar 18 MB: cada
+  página de `api-reference` re-embebe el spec entero, 548 veces.
+- **`openapi_md.py` es un conversor genérico**, no uno por proveedor: resuelve `$ref`,
+  `oneOf`/`anyOf`/`allOf`, enums, y la sección `webhooks:` de OpenAPI 3.1.
+- **Commas y Hyros se renderizan con Chromium** porque son SPAs que no sirven HTML.
+  Chromium necesita `--proxy-server` y `--ssl-version-max=tls1.2` para atravesar el proxy
+  del entorno; sin eso el handshake se corta. **No se desactiva la verificación TLS.**
+- **Los links entre guías de Hyros se reconstruyen por título**, porque las tarjetas
+  "View guide" son botones de React sin `href`. Lo que no matchea queda como texto: no se
+  inventa un destino.
+- **Hyros se crawlea hasta converger.** El bundle sólo declara 283 rutas; siguiendo las
+  tarjetas aparecen 482 páginas reales.
+
+**Riesgos / deuda técnica pendiente:**
+- **La capa de pagos sigue sin corregir.** Este cambio documenta qué está mal, no lo
+  arregla: `normalize.ts` sigue sin `settlement_amount` y con el regex de
+  `membership.created`. Queda como `[EMBUDOS-PAGOS-CORREGIR]` en `PENDIENTES.md`.
+- La copia pesa ~27 MB, casi todo Whop. El README explica qué se puede podar si molesta.
+- **La API key de WebinarJam requiere aprobación previa** — conviene pedirla ya, es el
+  camino crítico de I-5.
+- Hyros tiene dos referencias con versiones distintas (spec v1.40 vs Apiary v1.37). Si
+  difieren, manda el spec; está anotado en su INDEX.
+- De GoHighLevel y WebinarJam siguen faltando cosas que la fuente no publica (schemas de
+  respuesta sin expandir, unidades de `time_live`). Están en cada `RESUMEN-OTC.md`.
+
+---
+
 ### 2026-08-30 — DOC-EXTERNAL-APIS: documentación de GoHighLevel y VTurb bajada al repo
 
 **Rama/branch:** `Claude-New-Features`  

@@ -18,13 +18,20 @@ desarrollo remoto: la política de red los bloqueaba a todos. Verificado el
 `marketplace.gohighlevel.com`, `developers.zoom.us` y `help.webinarjam.com` —
 **los nueve bloqueados**.
 
-> **2026-08-30 — el bloqueo no es total.** `vturb.gitbook.io` y
-> `marketplace.gohighlevel.com` sí son alcanzables. Se bajó la documentación completa
-> de las dos y quedó commiteada en **[`docs/external-apis/`](./external-apis/)**, con
-> el proceso reproducible (`docs/external-apis/tools/regenerar.sh`). Eso cierra las
-> secciones §3 (GHL) y §4 (VTurb) de este archivo. Los otros siete dominios siguen sin
-> probarse desde entonces: **antes de construir contra cualquiera de ellos, probar la
-> URL — puede que también esté disponible.**
+> **2026-08-30 — el bloqueo ya no existe.** Se volvieron a probar todos los dominios y
+> **los seis proveedores son alcanzables**. La documentación completa de los seis está
+> commiteada en **[`docs/external-apis/`](./external-apis/)**, con el proceso
+> reproducible (`docs/external-apis/tools/regenerar.sh`). Eso cierra **todas** las
+> secciones de este archivo.
+>
+> Dos aclaraciones sobre los dominios que figuraban como bloqueados:
+> - **`apidocs.fan` ya no es la documentación de Fanbasis.** Fanbasis se llama
+>   **Commas** y su doc vive en `commasdocs.com`. El API sigue en `www.fanbasis.com`.
+> - **`api-docs.hyros.com` y `hyros.docs.apiary.io` responden los dos**, con contenido
+>   distinto: el primero publica los specs OpenAPI vigentes (v1.40), el segundo el
+>   documento de Apiary viejo (v1.37).
+>
+> **Antes de dar por bloqueado cualquier dominio, probarlo.**
 
 Eso no impide construir, pero cambia **cómo** hay que construir. El patrón que se
 sigue en todas estas integraciones:
@@ -41,63 +48,85 @@ sigue en todas estas integraciones:
 
 ## Estado
 
-| Proveedor | Unidad | Estado del código | Qué falta verificar |
-|---|---|---|---|
-| **Whop** | I-2 | Construido | Eventos, payloads, firma |
-| **Fanbasis** | I-2 | Construido | Eventos, payloads, **esquema de firma** |
-| **GHL opportunities** | I-4 | Sin empezar | ✅ **Documentación capturada** — ver [`external-apis/gohighlevel/RESUMEN-OTC.md`](./external-apis/gohighlevel/RESUMEN-OTC.md) |
-| **VTurb** | I-6 | Sin empezar | ✅ **Documentación capturada** — ver [`external-apis/vturb/RESUMEN-OTC.md`](./external-apis/vturb/RESUMEN-OTC.md) |
-| **WebinarJam / Zoom** | I-5 | Sin empezar | Todo |
-| **Hyros** | I-8 | Sin empezar | Endpoints, atribución, rate limits |
+Toda la documentación está capturada. Lo que queda es **corregir el mapeo de pagos**,
+que se escribió a ciegas, y verificar contra cuentas reales.
+
+| Proveedor | Unidad | Estado del código | Documentación | Qué falta |
+|---|---|---|---|---|
+| **Whop** | I-2 | Construido a ciegas | ✅ [resumen](./external-apis/whop/RESUMEN-OTC.md) | 🔧 **Corregir el campo de monto** — ver §1 |
+| **Commas** (ex Fanbasis) | I-2 | Construido a ciegas | ✅ [resumen](./external-apis/commas/RESUMEN-OTC.md) | 🔧 Confirmar firma y payloads — ver §2 |
+| **GHL opportunities** | I-4 | Sin empezar | ✅ [resumen](./external-apis/gohighlevel/RESUMEN-OTC.md) | Construir, sabiendo que **no hay historial de etapas** |
+| **VTurb** | I-6 | Sin empezar | ✅ [resumen](./external-apis/vturb/RESUMEN-OTC.md) | Construir |
+| **WebinarJam / EverWebinar** | I-5 | Sin empezar | ✅ [resumen](./external-apis/webinarjam/RESUMEN-OTC.md) | **Pedir la API key** (requiere aprobación) y construir |
+| **Hyros** | I-8 | Sin empezar | ✅ [resumen](./external-apis/hyros/RESUMEN-OTC.md) | Construir |
 
 ---
 
-## 1. Whop — unidad I-2
+## 1. Whop — unidad I-2 — ✅ **documentación capturada**, queda corregir el código
 
-**Documentación:** https://docs.whop.com/ · https://api-docs.hyros.com/ (bloqueadas)  
-**Archivos a corregir:** `apps/web/lib/payments/normalize.ts`, `apps/web/lib/payments/verify-signature.ts`, `apps/web/app/api/webhooks/whop/route.ts`
+**Documentación:** https://docs.whop.com — **capturada el 2026-08-30** en
+[`docs/external-apis/whop/`](./external-apis/whop/): 897 páginas y los **3 specs
+OpenAPI oficiales** que Whop publica.
 
-### Qué se asumió
+**Leer antes de tocar el código:**
+[`external-apis/whop/RESUMEN-OTC.md`](./external-apis/whop/RESUMEN-OTC.md).
 
-| Asunción | Confianza | Cómo se verifica |
+### Las cinco preguntas, respondidas
+
+| # | Pregunta | Respuesta |
 |---|---|---|
-| Firma con [Standard Webhooks](https://www.standardwebhooks.com/): cabeceras `webhook-id`, `webhook-timestamp`, `webhook-signature`, HMAC-SHA256 base64 de `{id}.{timestamp}.{body}` | **Alta** — es una spec pública y la documentación de Whop declara usarla | Un webhook real que pase la verificación |
-| El secreto puede venir con prefijo `whsec_` y base64 | Media | Idem |
-| Los eventos de cobro matchean `/payment.*(succe\|complet\|paid)/i` | **Baja** | Ver `event_type` en `payment_webhook_events` |
-| Los eventos de orden matchean `/membership.*(went_valid\|created\|activat)/i` | **Baja** | Idem |
-| El payload viene anidado bajo `data` u `object` | Media | Ver el payload crudo |
-| Nombres de campo: `amount`, `currency`, `user_id`, `email`, `membership_id`, `created_at` | **Baja** | Ver el payload crudo |
-| Los montos podrían venir en centavos (claves `*_cents`) | Media | Comparar un cobro real contra el dashboard de Whop |
+| 1 | Lista de eventos de webhook | ~60 eventos en 25 recursos. Los de pagos: `payment.succeeded/.failed/.created/.pending/.authorized/.canceled`, `refund.created/.updated`, `membership.activated/.deactivated/.trial_ending_soon/.cancel_at_period_end_changed`, `invoice.*`, `dispute.*` |
+| 2 | Payload exacto | Envelope `{ id, type, api_version, api_version_date, timestamp, account_id, data }`. El objeto va bajo **`data`**. Con pin anterior a `2026-08-14` el campo de cuenta es `company_id`, no `account_id` |
+| 3 | Esquema de firma | **Standard Webhooks**, como se asumió: headers `webhook-id` / `webhook-timestamp` / `webhook-signature` (`v1,<base64>`), HMAC-SHA256 de `{id}.{timestamp}.{body}`, ventana de 5 minutos. **El prefijo del secreto es `ws_`, no `whsec_`, y se usa como clave literal** |
+| 4 | Centavos o unidades | **Unidades, decimales.** El spec: *"the refunded amount as a decimal in the specified currency, such as 10.43 for $10.43 USD"* |
+| 5 | Backfill histórico | Sí: `GET /payments`, `/refunds`, `/memberships`, `/members`, `/invoices` |
 
-### Qué necesito de la documentación
+### 🔧 Lo que hay que corregir en `lib/payments/normalize.ts`
 
-1. Lista completa de tipos de evento de webhook.
-2. Payload exacto de: cobro exitoso, reembolso, y creación/activación de membresía.
-3. Confirmación del esquema de firma y del formato del secreto.
-4. Si los montos vienen en centavos o en unidades, y en qué campo.
-5. Endpoints REST para hacer *backfill* histórico (hoy sólo se reciben webhooks, así que no hay historia previa a la conexión).
+1. **El campo de monto no existe.** `KEYS.amount` busca `settled_amount`, que no
+   existe; el campo real es **`settlement_amount`** (*"the total amount charged to the
+   customer, including taxes and after any discounts"*). `total` y `subtotal` sí
+   existen pero son *"to show to the creator (excluding buyer fees)"* — otra cosa.
+   Hay que agregar `settlement_amount` y decidir explícitamente qué medida usa cuál.
+2. **`membership.created` no existe.** El evento de alta es `membership.activated`.
+   Conviene reemplazar los regex de detección por la lista literal de eventos.
+3. **La deduplicación va por `webhook-id`.** Whop entrega *at least once* y reintenta
+   12 veces durante ~71 horas, con el mismo id. El orden no está garantizado.
 
 ---
 
-## 2. Fanbasis — unidad I-2
+## 2. Commas (ex Fanbasis) — unidad I-2 — ✅ **documentación capturada**
 
-**Documentación:** https://apidocs.fan/ (bloqueada)  
-**Archivos a corregir:** los mismos que Whop.
+> **Fanbasis se llama Commas.** `apidocs.fan` no es la documentación vigente:
+> es **`commasdocs.com`**. El API sigue en `www.fanbasis.com`.
 
-### Qué se asumió
+**Documentación:** https://commasdocs.com — **capturada el 2026-08-30** en
+[`docs/external-apis/commas/`](./external-apis/commas/).
 
-| Asunción | Confianza | Cómo se verifica |
+**Leer antes de tocar el código:**
+[`external-apis/commas/RESUMEN-OTC.md`](./external-apis/commas/RESUMEN-OTC.md).
+
+### Las cuatro preguntas, respondidas
+
+| # | Pregunta | Respuesta |
 |---|---|---|
-| Firma HMAC-SHA256 sobre el cuerpo crudo, en hex o base64 | **Baja** | Un webhook real |
-| La cabecera de firma es una de `x-fanbasis-signature`, `x-signature`, `x-webhook-signature`, `signature` | **Baja** | Ver las cabeceras de un webhook real |
-| Mismos nombres de campo y tipos de evento que Whop | **Muy baja** | Ver el payload crudo |
+| 1 | **Esquema de firma y cabecera** | Cabecera **`x-webhook-signature`**. HMAC-SHA256 sobre el **body crudo**, codificado en **hex**, con el secreto **tal cual** (sin prefijo ni base64). Sin timestamp: no hay protección de replay del proveedor |
+| 2 | Eventos y payloads | `payment.succeeded/.failed/.canceled/.expired`, `refund.created`, `product.purchased`, `subscription.created/.renewed/.canceled/.completed/.past_due/.recovered`, `dispute.created/.updated` |
+| 3 | REST para backfill | Sí: `/public-api/transactions/:id`, `/checkout-sessions/transactions`, `/subscribers`, `/customers`, `/products` y sus variantes por producto y por sesión |
+| 4 | **Valor contratado total** | `amount_cents` × `subscription.auto_expire_after_x_periods`. Si ese campo es `null`, la suscripción es indefinida y **no hay valor contratado** — queda `unmapped`, no cero |
 
-### Qué necesito de la documentación
+### 🔧 Lo que hay que tener en cuenta
 
-1. **El esquema de firma y el nombre exacto de la cabecera.** Es lo más importante: sin esto la ruta rechaza todo.
-2. Lista de eventos de webhook y sus payloads.
-3. Endpoints REST de transacciones y suscripciones, para backfill.
-4. Cómo modela el plan de pagos: hace falta el **valor contratado total**, no sólo cada cuota.
+- **Commas manda centavos (`amount_cents`), Whop manda unidades decimales.** Los dos
+  proveedores de la misma unidad usan convenciones opuestas: la regla tiene que ser
+  por proveedor, no una heurística de sufijo.
+- **Siempre `https://www.fanbasis.com`**, nunca el apex: el `301` descarta los bodies
+  de `POST`.
+- **El `429` usa otro envelope** (`{"success": false}` en vez de
+  `{"status": "error"}`).
+- **Ids mezclados**: hashids cortos para productos/sesiones/transacciones, enteros
+  planos para customers/subscriptions. El filtro `customer_id` de `/subscribers` pide
+  el entero, y el hashid que ese mismo endpoint devuelve **no matchea**.
 
 ---
 
@@ -187,46 +216,85 @@ configurarlo a mano en OTC.
 
 ---
 
-## 5. WebinarJam / Zoom (unidad I-5)
+## 5. WebinarJam / EverWebinar (unidad I-5) — ✅ **resuelta**
 
-**Documentación:** https://help.webinarjam.com/ · https://developers.zoom.us/docs/api/ (bloqueadas)
+**Documentación:** el centro de ayuda de WebinarJam — **capturada el 2026-08-30** en
+[`docs/external-apis/webinarjam/`](./external-apis/webinarjam/) (17 artículos).
 
-### Qué necesito
+**Leer antes de arrancar I-5:**
+[`external-apis/webinarjam/RESUMEN-OTC.md`](./external-apis/webinarjam/RESUMEN-OTC.md).
 
-1. **Cuál de los dos usan los clientes** — puede que ni haga falta la otra.
-2. Endpoints de registrantes y asistentes por webinar.
-3. Si se distingue **asistencia en vivo de replay**: el documento dice explícitamente "Showed up (live + replay)".
-4. Si hay dato de **hasta qué minuto se quedó cada asistente** — es lo único con lo que se puede calcular el stick rate (M15).
-5. Si se registran los **clicks al CTA** durante el webinar (M16).
-6. Autenticación y rate limits.
+### Las seis preguntas, respondidas
+
+| # | Pregunta | Respuesta |
+|---|---|---|
+| 1 | ¿Cuál de los dos usan? | **No hace falta elegir.** Son la misma API con dos prefijos: `/webinarjam/*` y `/everwebinar/*`. Los endpoints y payloads son idénticos. Se construye una vez y el prefijo es configuración |
+| 2 | Registrantes y asistentes | `POST /registrants`, con filtros por asistencia, compra, rango de fechas y búsqueda |
+| 3 | ¿Vivo vs replay? | **Sí, separado**: `attended_live`/`attended_replay`, `date_*`, `time_*`, `purchased_*`, `revenue_*` |
+| 4 | **¿Hasta qué minuto se quedó?** | **Sí.** `time_live`/`time_replay` por registrante, **y** el filtro `attended_live=4` + `attended_live_timestamp=<segundo>` devuelve directamente los que se quedaron más allá de ese segundo. **M15 sale del servidor** |
+| 5 | ¿Clicks al CTA? | **No.** M16 no se puede leer. Lo más cercano es `purchased_live`/`revenue_live`, que es conversión, no intención — no presentarlo como si fuera M16 |
+| 6 | Auth y rate limits | `api_key` de 64 caracteres **en el body del POST** (no header), TLS obligatorio, máximo **20 llamadas por segundo**. **La key requiere aprobación previa de WebinarJam** |
+
+**Bonus:** `/registrants` devuelve los **UTMs completos** de cada registrante
+(`utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`), así que el
+registro se puede atar a la fuente sin depender de Hyros para ese paso.
+
+**Trampa de modelado:** un `schedule_id` puede referirse a una **serie entera** de
+webinars. Para apuntar a una sesión concreta hace falta `webinar_id` + `schedule_id` +
+la fecha.
+
+> **Zoom queda descartado de la pregunta**: WebinarJam y EverWebinar comparten API, así
+> que si el cliente usa cualquiera de los dos, la integración es la misma. Zoom sólo
+> haría falta si algún cliente usa Zoom Webinars, que es un producto distinto.
 
 ---
 
-## 6. Hyros (unidad I-8)
+## 6. Hyros (unidad I-8) — ✅ **resuelta**
 
-**Documentación:** https://api-docs.hyros.com/ · https://docs.hyros.com/ · https://hyros.docs.apiary.io/ (bloqueadas)
+**Documentación:** **capturada el 2026-08-30** en
+[`docs/external-apis/hyros/`](./external-apis/hyros/): los **3 specs OpenAPI 3.1**
+vigentes (REST v1.40, webhooks, MCP), el documento viejo de Apiary (v1.37) y las
+**482 guías** de docs.hyros.com.
 
-**Lo que se sabe por búsqueda:** REST API con auth por API key. Endpoints de
-leads (con journeys), sales, orders y subscriptions.
+**Leer antes de arrancar I-8:**
+[`external-apis/hyros/RESUMEN-OTC.md`](./external-apis/hyros/RESUMEN-OTC.md).
 
-### Qué necesito
+### Las seis preguntas, respondidas
 
-1. URL base y autenticación.
-2. Endpoint de leads con filtro por fecha, y qué trae el **journey** de un lead.
-3. Cómo se pide el **revenue atribuido por fuente** (M05) — que es el punto de toda la integración.
-4. Qué identifica una "fuente": ¿campaña, anuncio, keyword?
-5. Si los opt-ins de landing se pueden leer desde acá (M08 y M09 dependen de esto — ver §8 del mapa de fuentes).
-6. Rate limits y si hay webhooks además de la API REST.
+| # | Pregunta | Respuesta |
+|---|---|---|
+| 1 | URL base y auth | `https://api.hyros.com/api/v1.0/` con header **`API-Key`** |
+| 2 | Leads y journey | `GET /leads` con `fromDate`/`toDate` y **`updatedFromDate`** para sync incremental. `GET /leads/journey` (máx. 50 por request) trae ventas, llamadas, carritos, suscripciones y leads vinculados; con `includeEvents=true` agrega el array cronológico de eventos → **M07** |
+| 3 | **Revenue por fuente (M05)** | `GET /attribution` con `attributionModel` (`last_click`/`first_click`/`scientific`), `level` (campaña, adset, ad, keyword…), `fields` (más de 70 métricas: `revenue`, `sales`, `leads`, `cost`, `roas`, `cac`, LTV…) y rango de fechas. **También da `cost` → M01 sale de acá y no hace falta cruzar cada plataforma** |
+| 4 | Qué identifica una fuente | Un objeto `Source` con `tag` (identificador estable), `name`, `organic`, `disregarded`, más `adSource` (id, ad account y plataforma), `trafficSource`, `goal` y `category`. No es sólo una campaña |
+| 5 | **Opt-ins de landing (M08, M09)** | **Sí.** M09 = leads nuevos por `GET /leads` con rango de fechas, o el webhook `lead.opted.in`. M08 ≈ `new_visits` del reporte de atribución (no `clicks`). **Confirma que `I-7` no hace falta como integración aparte** |
+| 6 | Rate limits y webhooks | 30 req/s y 1000 req/min, con headers `X-RateLimit-*` y `Retry-After`. **Sí hay webhooks**: 10 eventos, firmados con `X-Hyros-Signature` (`t=<epoch>,v1=<hmac-sha256 hex de t.body>`) |
+
+### Dos trampas que la doc marca y conviene no comerse
+
+- **Las escrituras son asíncronas.** Un `200` en `POST`/`PUT`/`DELETE` significa
+  *recibido*, no *aplicado*: las creaciones tardan ~10 s y las actualizaciones ~5 min.
+  Releer para confirmar devuelve datos viejos.
+- **Los parámetros desconocidos se ignoran en silencio** en casi todos los endpoints.
+  La propia doc da el ejemplo: `GET /leads?email=...` (el parámetro es `emails`)
+  devuelve `200` con **la lista completa sin filtrar**. OTC tiene que validar su
+  propio input.
 
 ---
 
 ## Regla permanente para Claude Code
 
-> **Antes que nada: probá la URL.** El bloqueo de red no es parejo — el 2026-08-30 se
-> comprobó que `vturb.gitbook.io` y `marketplace.gohighlevel.com` sí responden. Si la
-> documentación es alcanzable, **bajala a [`docs/external-apis/`](./external-apis/)**
-> con `docs/external-apis/tools/regenerar.sh` como modelo, en vez de construir a
-> ciegas. Una copia commiteada le sirve a todas las sesiones que vengan después.
+> **Antes que nada: probá la URL, y fijate si el proveedor publica un spec.** El
+> bloqueo de red que motivó este archivo resultó no existir: el 2026-08-30 los seis
+> proveedores respondieron. Si la documentación es alcanzable, **bajala a
+> [`docs/external-apis/`](./external-apis/)** con
+> `docs/external-apis/tools/regenerar.sh` como modelo, en vez de construir a ciegas.
+> Una copia commiteada le sirve a todas las sesiones que vengan después.
+>
+> Y antes de raspar HTML, buscá el spec: **cuatro de los seis proveedores publican
+> OpenAPI** (Whop en `/openapi/*`, Hyros en `/ai-context/*.txt`, VTurb embebido en su
+> página de Analytics, y GitBook/Mintlify sirven markdown agregando `.md` a la URL).
+> Un spec no se interpreta: se lee.
 >
 > Recién si de verdad no podés leerla, cada vez que implementes contra una API externa
 > **cuya documentación oficial no puedas leer**:
@@ -241,7 +309,8 @@ leads (con journeys), sales, orders y subscriptions.
 
 ---
 
-*Creado 2026-08-29. Actualizado 2026-08-30: §3 (GHL) y §4 (VTurb) resueltas con la
-documentación capturada en `docs/external-apis/`. Actualizar con cada integración
-construida a ciegas; borrar la sección cuando la documentación se haya verificado y el
-mapeo corregido.*
+*Creado 2026-08-29. Actualizado 2026-08-30: **las seis secciones resueltas** con la
+documentación capturada en `docs/external-apis/`. Lo que queda no es documentación, es
+trabajo: corregir el mapeo de pagos (§1 y §2) y construir I-4, I-5, I-6 e I-8.
+Actualizar con cada integración construida a ciegas; borrar la sección cuando la
+documentación se haya verificado y el mapeo corregido.*

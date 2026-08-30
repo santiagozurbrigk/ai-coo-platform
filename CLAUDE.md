@@ -41,9 +41,13 @@ Agregar la entrada **al principio del historial** (orden cronológico inverso �
 
 **Primero fijate si la documentación ya está bajada.**
 [`docs/external-apis/`](./docs/external-apis/) tiene copias locales completas y
-navegables de las APIs externas que sí se pudieron capturar (hoy: GoHighLevel y
-VTurb). Leer de ahí, no de memoria. Si la API que necesitás no está pero su dominio
-responde, bajala con `docs/external-apis/tools/regenerar.sh` como modelo y commiteala.
+navegables de las APIs externas: **GoHighLevel, VTurb, Whop, Commas (ex Fanbasis),
+Hyros y WebinarJam**. Leer de ahí, no de memoria ni de una búsqueda web. Cada carpeta
+tiene un `RESUMEN-OTC.md` con lo que OTC necesita de ese proveedor.
+
+Si la API que necesitás no está, **probá su URL antes de darla por bloqueada** y fijate
+si publica un spec OpenAPI (cuatro de los seis lo hacen). Bajala con
+`docs/external-apis/tools/regenerar.sh` como modelo y commiteala.
 
 Si implementás contra una API externa y **no podés leer su documentación oficial**
 (el entorno remoto bloquea varios dominios de documentación), agregá una entrada en
@@ -117,7 +121,7 @@ Claude Code usa el prefijo `claude/` asignado por el sistema — está bien, no 
 
 **Fuentes complementarias (leer si hace falta profundizar):**
 - `CHANGES.md` — **historial de cambios con contexto** (leer siempre al inicio)
-- `docs/external-apis/` — **copia local de la documentación de las APIs externas** (GoHighLevel, VTurb)
+- `docs/external-apis/` — **copia local de la documentación de las APIs externas** (GoHighLevel, VTurb, Whop, Commas, Hyros, WebinarJam)
 - `docs/API_DOCS_PENDIENTES.md` — **APIs implementadas sin documentación**, pendientes de verificar
 - `docs/PLAN_VERIFICACION.md` — **qué probar a mano** cuando haya cuentas reales conectadas
 - `PENDIENTES.md` — **backlog de pendientes** (leer siempre al inicio, actualizar al terminar)

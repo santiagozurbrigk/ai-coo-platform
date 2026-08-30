@@ -25,24 +25,36 @@
 
 **Orden acordado — de afuera hacia adentro, no de a un embudo:**
 - **Ola 1 (extremos, sirve a los 3 embudos):** ✅ **Completa.** ~~I-1 métricas de ads~~ · ~~I-2 pagos con Whop y Fanbasis~~ 🔨 *(falta conectar una cuenta real y verificar el mapeo)* · ~~I-3 asistencia y cierres + detección de fuente vacía~~
-- **Ola 2 (medios, por costo):** I-4 GHL opportunities · I-6 VTurb · I-5 webinar — 📗 **la documentación de GHL y VTurb ya está bajada al repo**, ver [`docs/external-apis/`](./docs/external-apis/). Leer el `RESUMEN-OTC.md` de cada una antes de arrancar: hay dos hallazgos que cambian el diseño (GHL **no** tiene historial de cambios de etapa; VTurb **sí** da la curva de retención y ya modela el segundo del CTA).
-- **Ola 3:** I-9 retención · I-8 Hyros (absorbe los opt-ins de landings) · I-10 triggers de Zernio
+- **Ola 2 (medios, por costo):** I-4 GHL opportunities · I-6 VTurb · I-5 webinar — 📗 documentación capturada. Hallazgos que cambian el diseño: GHL **no** tiene historial de cambios de etapa (hay que construirlo desde webhooks); VTurb **sí** da la curva de retención y ya modela el segundo del CTA; WebinarJam resuelve el stick rate del lado del servidor pero **no expone clicks al CTA**, y su API key **requiere aprobación previa** — pedirla ya.
+- **Ola 3:** I-9 retención · I-8 Hyros · I-10 triggers de Zernio — 📗 Hyros capturado. Confirma que **`I-7` no hace falta** (M08 y M09 salen de `/leads` y del reporte de atribución) y que `fields=cost` cubre M01, así que tampoco hace falta cruzar la API de cada plataforma de ads.
 
 **Verificación:** nada se prueba contra cuentas reales hasta terminar todas las olas — ver [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md).
 
-**Documentación de las APIs:** [`docs/external-apis/`](./docs/external-apis/) tiene la copia local de GoHighLevel (948 páginas, 634 endpoints, 77 webhooks) y VTurb (28 endpoints, con `openapi.json`). Se refresca con `docs/external-apis/tools/regenerar.sh`. Las de Whop, Fanbasis, Hyros, Zoom y WebinarJam **todavía no se probaron desde que se comprobó que el bloqueo de red no es parejo** — vale la pena intentarlo antes de construir contra ellas.
+**Documentación de las APIs:** ✅ **los seis proveedores están capturados** en [`docs/external-apis/`](./docs/external-apis/) — GoHighLevel, VTurb, Whop, Commas (ex Fanbasis), Hyros y WebinarJam. Cada uno tiene un `RESUMEN-OTC.md` que responde las preguntas que estaban abiertas en `docs/API_DOCS_PENDIENTES.md`. Se refresca con `docs/external-apis/tools/regenerar.sh`. **Leer el resumen del proveedor antes de construir o corregir su unidad.**
 
 **Decisiones cerradas:** VSL en VTurb (tiene API pública) · todos los clientes pagan Hyros · landings en Vercel, así que los opt-ins salen de Hyros e I-7 desaparece · clientes repartidos en partes iguales entre los tres embudos. **No queda ninguna pregunta abierta en el plan.**
 
 ---
 
-### [DOCS-APIS-RESTANTES] Intentar bajar la documentación de los proveedores que faltan
+### [EMBUDOS-PAGOS-CORREGIR] Corregir el mapeo de Whop contra su spec real
 
-**Qué es:** el 2026-08-29 se dieron por bloqueados nueve dominios de documentación. El 2026-08-30 se comprobó que **dos de ellos sí responden** (`vturb.gitbook.io` y `marketplace.gohighlevel.com`) y se bajaron a `docs/external-apis/`. Los otros siete no se volvieron a probar.
+**Qué es:** con la documentación de Whop ya capturada, quedaron a la vista tres errores concretos en `apps/web/lib/payments/normalize.ts`, que se escribió a ciegas:
 
-**Acción:** probar `docs.whop.com`, `apidocs.fan`, `api-docs.hyros.com`, `docs.hyros.com`, `highlevel.stoplight.io`, `developers.zoom.us` y `help.webinarjam.com`. Los que respondan, bajarlos con `docs/external-apis/tools/regenerar.sh` como modelo.
+1. **El campo de monto no existe.** `KEYS.amount` busca `settled_amount`; el campo real es **`settlement_amount`**. `total` y `subtotal` sí existen pero son *"to show to the creator (excluding buyer fees)"* — no es lo que se cobró.
+2. **Whop manda decimales, no centavos** (*"10.43 for $10.43 USD"*), mientras que **Commas sí manda `amount_cents`**. La regla tiene que ser por proveedor, no una heurística de sufijo `_cents`.
+3. **`membership.created` no existe.** El evento de alta es `membership.activated`. Conviene reemplazar los regex de detección de evento por la lista literal, que ahora se conoce entera.
 
-**Por qué importa:** Whop y Fanbasis (I-2) ya están construidos a ciegas y su mapeo sigue sin verificar; Hyros (I-8) y el webinar (I-5) están por construirse igual. Cada documentación que se pueda leer es una integración que deja de ser una apuesta.
+**Además:** la deduplicación de Whop va por `webhook-id` (entrega *at least once*, 12 reintentos en ~71 h, sin orden garantizado), y el prefijo del secreto de firma es `ws_`, no `whsec_`.
+
+**Dónde está el detalle:** [`docs/external-apis/whop/RESUMEN-OTC.md`](./docs/external-apis/whop/RESUMEN-OTC.md) y [`docs/external-apis/commas/RESUMEN-OTC.md`](./docs/external-apis/commas/RESUMEN-OTC.md).
+
+---
+
+### [WEBINARJAM-API-KEY] Pedir la API key de WebinarJam
+
+**Qué es:** la API de WebinarJam/EverWebinar **requiere aprobación previa** — no alcanza con tener cuenta. Es el camino crítico de la unidad I-5.
+
+**Acción:** seguir [el artículo de solicitud](./docs/external-apis/webinarjam/15370143-apply-for-an-api-key-for-webinarjam-or-everwebinar.md) para la cuenta del cliente que vaya a usarse, y confirmar si usa WebinarJam, EverWebinar o los dos.
 
 ---
 
@@ -223,6 +235,7 @@
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-30 | DOC-EXTERNAL-APIS-2: Whop (897 páginas + 3 specs OpenAPI), Commas ex Fanbasis (42 secciones), Hyros (482 guías + 3 specs) y WebinarJam (17 artículos) bajados a `docs/external-apis/`, con un `RESUMEN-OTC.md` por proveedor. Cierra las seis secciones de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |
 | 2026-08-30 | DOC-EXTERNAL-APIS: documentación completa de GoHighLevel (948 páginas) y VTurb (28 endpoints + `openapi.json`) bajada a `docs/external-apis/`, con scripts de regeneración y dos `RESUMEN-OTC.md` que cierran §3 y §4 de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |
 | 2026-08-26 | FEAT-GHL-MULTI-CALENDAR: multi-selección de calendarios GHL + filtro en closing panel | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-26 | UI-CLEANUP: Eliminación botón flotante del agente (FloatingChat) + fix layout integrations page (min-w-0) | `claude/ghl-integration-data-loading-9cd72n` |
