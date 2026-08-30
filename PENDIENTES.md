@@ -98,27 +98,35 @@
 
 ---
 
-## 🟪 Experimento notch nav — validar y decidir
+## 🟪 Notch nav — adoptada, con validación pendiente
 
-> Implementado 2026-08-30 detrás de `NEXT_PUBLIC_NAV_STYLE=notch` (ver CHANGES.md).
-> El sidebar sigue siendo el default; nada cambia hasta setear la variable.
+> El 2026-08-30 la notch nav reemplazó al sidebar de plataforma (ver `CHANGES.md`).
+> El flag `NEXT_PUBLIC_NAV_STYLE` ya no existe: es la única navegación.
 
-### [NAV-1] Activar y validar en vivo
+### [NAV-1] Validar con sesión real
 
-**Acción:** agregar `NEXT_PUBLIC_NAV_STYLE=notch` en Vercel (Preview primero) y recorrer
-la plataforma con sesión real: pill activo, dropdowns, holding switcher, mobile.
+**Qué es:** el entorno de desarrollo no renderiza las páginas autenticadas (faltan
+env de Supabase), así que la barra sólo se verificó con providers mockeados.
+
+**Acción:** recorrer la plataforma en el preview de Vercel y confirmar: pill activo
+al navegar, dropdowns de módulo, switcher de holding, badge de clientes con el número
+real, menú de perfil (nombre y organización correctos) y cierre de sesión. En mobile,
+el drawer.
 **Quién:** Santiago.
 
-### [NAV-2] Paridad pendiente con el sidebar
+### [NAV-2] Limpieza opcional: renombrar `sidebar-modules.ts`
 
-- Badge de llamadas Fathom pendientes en "Clientes" (el sidebar lo muestra; la notch no).
-- Botón de notificaciones del topbar (deshabilitado, "próximamente") — decidir si va en la isla derecha.
+Ya no hay sidebar de plataforma, pero el config sigue llamándose así. Renombrarlo a
+`lib/navigation/platform-modules.ts` toca ~15 imports sin cambiar comportamiento.
+Cosmético, hacer sólo si molesta.
 
-### [NAV-3] Decisión final
+> **Ojo:** `components/navigation/sidebar-*` que quedan **no son restos**: los usan el
+> sidebar de super-admin y el drawer mobile. No borrarlos.
 
-Si convence: borrar `PlatformSidebarShell` + `AppSidebar` y hacer del notch el único shell.
-Si no: borrar `components/navigation/notch-nav/` + `platform-notch-shell.tsx` + la env.
-No mantener las dos navegaciones indefinidamente.
+### [NAV-3] Etiqueta "Fase 1 · Beta"
+
+La mostraba el footer del sidebar y se perdió. Decidir si va a algún lado de la notch
+(p. ej. el menú de perfil) o si ya no hace falta.
 
 ---
 

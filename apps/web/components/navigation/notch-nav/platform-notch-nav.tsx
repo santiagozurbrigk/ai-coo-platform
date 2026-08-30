@@ -11,12 +11,16 @@ import {
   DropdownMenuTrigger,
 } from "@ai-coo/ui";
 import Link from "next/link";
+import { paths } from "@/routes";
 import { AppLogo } from "@/components/brand";
 import { NavIcon } from "@/components/navigation/nav-icons";
 import { ThemeToggle } from "@/components/navigation/theme-toggle";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { HoldingBusinessSwitcher } from "@/components/holding/holding-business-switcher";
+import { useHoldingSession } from "@/components/holding/holding-platform-provider";
+import { usePlatformData } from "@/providers";
 import { useCommandPalette } from "@/providers/command-palette-provider";
+import { NotchProfileMenu } from "./notch-profile-menu";
 import {
   buildPlatformSidebarNav,
   isSidebarDirectActive,
@@ -49,6 +53,8 @@ export function PlatformNotchNav({ showItems = true }: { showItems?: boolean }) 
   const enabledAddOns = useEnabledAddOns();
   const { isFounder, modules } = usePermissions();
   const { setOpen } = useCommandPalette();
+  const { isHolding } = useHoldingSession();
+  const { clients } = usePlatformData();
 
   const checkAccess = (moduleId: PermissionModuleId) =>
     isFounder || (modules[moduleId] ?? "none") !== "none";
@@ -62,6 +68,18 @@ export function PlatformNotchNav({ showItems = true }: { showItems?: boolean }) 
   const items: NotchNavItem[] = useMemo(() => {
     if (!showItems) return [];
     const result: NotchNavItem[] = [];
+
+    // Cuenta holding: acceso al portfolio, como en el sidebar
+    if (isHolding) {
+      result.push({
+        type: "link",
+        id: paths.platform.holding,
+        label: "Mi Holding",
+        icon: <NavIcon name="layers" className="h-4 w-4" />,
+        href: paths.platform.holding,
+        active: isSidebarDirectActive(paths.platform.holding, pathname),
+      });
+    }
 
     for (const item of config.rootItems) {
       if (item.type === "divider") continue;
@@ -77,6 +95,8 @@ export function PlatformNotchNav({ showItems = true }: { showItems?: boolean }) 
           icon: <NavIcon name={m.icon} className="h-4 w-4" />,
           href: m.href,
           active: isSidebarDirectActive(m.href, pathname),
+          badge:
+            m.href === paths.platform.clients.root ? clients.length : undefined,
         });
         continue;
       }
@@ -107,7 +127,7 @@ export function PlatformNotchNav({ showItems = true }: { showItems?: boolean }) 
 
     return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, pathname, activeParent, isFounder, modules, showItems]);
+  }, [config, pathname, activeParent, isFounder, modules, showItems, isHolding, clients.length]);
 
   const configModule = config.modulesWithChildren.configuracion;
   const configChildren = (configModule?.children ?? []).filter(
@@ -150,6 +170,7 @@ export function PlatformNotchNav({ showItems = true }: { showItems?: boolean }) 
         </DropdownMenu>
       )}
       <ThemeToggle />
+      <NotchProfileMenu />
     </>
   );
 
