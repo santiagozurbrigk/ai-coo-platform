@@ -155,7 +155,7 @@ describe("missingSourceConfig", () => {
       for (const field of fields ?? []) {
         expect(field.key.length).toBeGreaterThan(0);
         expect(field.label.length).toBeGreaterThan(0);
-        expect(["ghl_stage", "ghl_pipeline"]).toContain(field.kind);
+        expect(["ghl_stage", "ghl_pipeline", "vturb_player"]).toContain(field.kind);
       }
     }
   });

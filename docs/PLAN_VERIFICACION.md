@@ -286,15 +286,77 @@ Es la razón de ser de la unidad: GHL no tiene historial y OTC construye el suyo
 
 ---
 
-## 6. Unidades pendientes
+## 6. I-6 — VTurb ⚠️⭐
+
+🔑 Necesita una cuenta de VTurb con al menos un VSL que haya tenido tráfico.
+
+Es la unidad con más asunciones de **semántica**: el spec de VTurb lista los
+campos de `Stats` con su tipo y **sin una sola descripción**.
+
+### 6.1 Conectar y sincronizar
+
+| Paso | Resultado esperado |
+|---|---|
+| Pegar la API key de Analytics (app.vturb.com → Settings → Analytics API) | Conecta y sincroniza los videos en el mismo paso |
+| ⚠️ Si devuelve `401` | Puede ser la key **o** el header `X-Api-Version`: la doc de autenticación dice `v1`, el spec declara `v3`. Probar el otro valor antes de descartar la key |
+| Con la cuenta conectada | El panel muestra la cantidad de videos y **cuántos no tienen pitch time** |
+| ⚠️ Mirar `vturb_players.raw` del primer response | Confirmar `id`, `name`, `duration` y `pitch_time` |
+
+### 6.2 La semántica de los campos ⚠️
+
+**Es la verificación que decide si los números del embudo VSL son confiables.**
+Tomar un período cerrado y comparar contra el dashboard de VTurb:
+
+| Campo | Se está leyendo como | Qué confirmar |
+|---|---|---|
+| `total_viewed` | M08 — visitantes de la página | Que sea gente que **cargó la página**, no que reprodujo |
+| `total_started` | M10 — reproducciones | Que sea "le dio play" |
+| `engagement_rate` | M11 — % promedio visto | Que coincida con el "retención promedio" del dashboard |
+| `total_over_pitch` | M12 — llegaron al CTA | Ver 6.3 |
+
+También hay que ver **qué deduplican los sufijos `_device_uniq` y
+`_session_uniq`**: si el dashboard muestra el valor único y OTC el bruto, los
+números no van a coincidir y hay que cambiar de campo.
+
+### 6.3 El pitch time ⭐
+
+Es la regla propia de esta unidad.
+
+| Paso | Resultado esperado |
+|---|---|
+| Un video **con** pitch time en VTurb, bindeado a "Llegaron al CTA del VSL" | Muestra un número |
+| ⭐ Un video **sin** pitch time (`pitch_time = 0`) | El paso dice **"sin datos"**, no un número. Sin saber en qué segundo está la oferta, `total_over_pitch` cuenta a casi todos los que abrieron el video, y presentarlo como "llegaron al CTA" sería un número inflado que parece correcto |
+| Cruzar `total_over_pitch` contra la curva | Pedir `/times/user_engagement` del mismo player y período, y buscar el `total_users` en el segundo `pitch_time`. **Deberían coincidir.** Si no, manda la curva y hay que cambiar el camino de cálculo |
+
+### 6.4 El caché y las cuotas
+
+| Paso | Resultado esperado |
+|---|---|
+| Abrir el mismo embudo dos veces seguidas | La segunda **no** llama a VTurb: sale de `vturb_stats_cache` |
+| Un embudo con tres pasos apuntando al mismo video | **Una sola** llamada por endpoint, no tres |
+| Un período que ya terminó | `is_final = true`, y no se vuelve a pedir nunca |
+| Un período que incluye hoy | Se refresca a los 30 minutos |
+| ⚠️ Si aparece un `429` | El mensaje guardado en `vturb_stats_cache.error_message` debería incluir el `resets_at` que manda VTurb |
+| Comparar `GET /quota/usage` antes y después de abrir un embudo | Ver cuántas *queries* consume de verdad: la doc avisa que **una llamada HTTP puede contar como más de una** |
+
+### 6.5 Que un error no se vuelva un cero ⭐
+
+| Paso | Resultado esperado |
+|---|---|
+| Desconectar VTurb y abrir el embudo | Los pasos de VTurb dicen "sin datos", no `0%` de play rate |
+| Bindear una fuente de VTurb sin elegir el video | **"Falta elegir el video"** |
+| Elegir un video que no está en el catálogo (borrado en VTurb) | "Sin datos", con el error registrado |
+| Un video sin `duration` en el catálogo | M11 queda "sin datos" — el endpoint de retención pide `video_duration` y sin él no se puede consultar |
+
+---
+
+## 7. Unidades pendientes
 
 Se completa a medida que se construyen.
 
 Todas tienen ya su documentación verificada en `docs/external-apis/`. Lo que sigue
 son las verificaciones contra cuentas reales, que se suman a medida que se construyen.
 
-- [ ] **I-6** — VTurb. Verificar que `total_over_pitch` coincida con el dashboard, y
-      que el `pitch_time` configurado en VTurb sea el segundo del CTA real.
 - [ ] **I-5** — WebinarJam / EverWebinar. 🔑 **La API key requiere aprobación previa
       de WebinarJam: pedirla antes de empezar.** Verificar en qué unidad viene
       `time_live` (la doc lo declara `string` sin aclarar si es segundos o `mm:ss`).
@@ -306,7 +368,7 @@ son las verificaciones contra cuentas reales, que se suman a medida que se const
 
 ---
 
-## 7. Verificación final, con todo conectado
+## 8. Verificación final, con todo conectado
 
 Cuando estén todas las unidades y todas las cuentas conectadas:
 

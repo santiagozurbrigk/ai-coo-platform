@@ -7,6 +7,7 @@ import { cn } from "@ai-coo/ui";
 import { setFunnelStepBindingAction } from "@/app/funnels/actions";
 import type { StepBindingRowView } from "@/app/funnels/actions";
 import type { GHLStageOption } from "@/app/ghl/opportunity-actions";
+import type { VTurbPlayerOption } from "@/app/vturb/actions";
 import { useToast } from "@/providers/toast-provider";
 
 const UNBOUND = "__sin_fuente__";
@@ -26,6 +27,7 @@ export function FunnelBindingsForm({
   funnelId,
   rows,
   ghlStages = [],
+  vturbPlayers = [],
 }: {
   funnelId: string;
   rows: StepBindingRowView[];
@@ -34,6 +36,8 @@ export function FunnelBindingsForm({
    * que la org no sincronizó sus pipelines todavía.
    */
   ghlStages?: GHLStageOption[];
+  /** Videos de VTurb disponibles. Vacío = falta conectar o sincronizar VTurb. */
+  vturbPlayers?: VTurbPlayerOption[];
 }) {
   const router = useRouter();
   const { push } = useToast();
@@ -42,23 +46,31 @@ export function FunnelBindingsForm({
     Object.fromEntries(rows.map((r) => [r.stepId, r.currentSourceId ?? UNBOUND]))
   );
   const [savedStep, setSavedStep] = useState<string | null>(null);
-  const [stageIds, setStageIds] = useState<Record<string, string>>(
+  // Cada fuente configurable pide un solo parámetro (la etapa de GHL o el video
+  // de VTurb), así que alcanza con guardar un valor por paso más su clave.
+  const [configValues, setConfigValues] = useState<Record<string, string>>(
     Object.fromEntries(
-      rows.map((r) => [
-        r.stepId,
-        typeof r.currentConfig.stageId === "string" ? r.currentConfig.stageId : "",
-      ])
+      rows.map((r) => {
+        const value = r.currentConfig.stageId ?? r.currentConfig.playerId;
+        return [r.stepId, typeof value === "string" ? value : ""];
+      })
     )
   );
 
-  function save(stepId: string, sourceId: string, stageId: string, rollback: () => void) {
+  function save(
+    stepId: string,
+    sourceId: string,
+    configKey: string | null,
+    configValue: string,
+    rollback: () => void
+  ) {
     setSavedStep(null);
     startTransition(async () => {
       const result = await setFunnelStepBindingAction(
         funnelId,
         stepId,
         sourceId === UNBOUND ? null : sourceId,
-        stageId ? { stageId } : {}
+        configKey && configValue ? { [configKey]: configValue } : {}
       );
 
       if (!result.ok) {
@@ -75,21 +87,26 @@ export function FunnelBindingsForm({
   function handleChange(stepId: string, value: string) {
     const previous = values[stepId] ?? UNBOUND;
     setValues((prev) => ({ ...prev, [stepId]: value }));
-    // Cambiar de fuente descarta la etapa elegida para la anterior: una etapa
-    // de GHL no significa nada para una fuente que no la usa.
-    setStageIds((prev) => ({ ...prev, [stepId]: "" }));
+    // Cambiar de fuente descarta el parámetro elegido para la anterior: una
+    // etapa de GHL no significa nada para una fuente de VTurb, ni al revés.
+    setConfigValues((prev) => ({ ...prev, [stepId]: "" }));
 
-    save(stepId, value, "", () => {
+    save(stepId, value, null, "", () => {
       setValues((prev) => ({ ...prev, [stepId]: previous }));
-      setStageIds((prev) => ({ ...prev, [stepId]: "" }));
+      setConfigValues((prev) => ({ ...prev, [stepId]: "" }));
     });
   }
 
-  function handleStageChange(stepId: string, sourceId: string, stageId: string) {
-    const previous = stageIds[stepId] ?? "";
-    setStageIds((prev) => ({ ...prev, [stepId]: stageId }));
-    save(stepId, sourceId, stageId, () =>
-      setStageIds((prev) => ({ ...prev, [stepId]: previous }))
+  function handleConfigChange(
+    stepId: string,
+    sourceId: string,
+    configKey: string,
+    configValue: string
+  ) {
+    const previous = configValues[stepId] ?? "";
+    setConfigValues((prev) => ({ ...prev, [stepId]: configValue }));
+    save(stepId, sourceId, configKey, configValue, () =>
+      setConfigValues((prev) => ({ ...prev, [stepId]: previous }))
     );
   }
 
@@ -117,11 +134,7 @@ export function FunnelBindingsForm({
             const value = values[row.stepId] ?? UNBOUND;
             const unbound = value === UNBOUND;
             const noOptions = row.options.length === 0;
-            const needsStage = Boolean(
-              row.options
-                .find((o) => o.sourceId === value)
-                ?.configFields.some((f) => f.kind === "ghl_stage")
-            );
+            const configField = row.options.find((o) => o.sourceId === value)?.configFields[0];
 
             return (
               <tr key={row.stepId} className="border-b border-border/60 last:border-b-0">
@@ -159,36 +172,17 @@ export function FunnelBindingsForm({
                       No hay ninguna fuente disponible para esta etapa todavía.
                     </p>
                   ) : null}
-                  {needsStage ? (
-                    <div className="mt-2">
-                      {ghlStages.length === 0 ? (
-                        <p className="text-xs text-amber-600 dark:text-amber-400">
-                          Sincronizá los pipelines de GoHighLevel en Integraciones para poder
-                          elegir la etapa.
-                        </p>
-                      ) : (
-                        <select
-                          value={stageIds[row.stepId] ?? ""}
-                          disabled={isPending}
-                          onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                            handleStageChange(row.stepId, value, e.target.value)
-                          }
-                          className={cn(
-                            "w-full max-w-[280px] rounded-lg border bg-background px-3 py-1.5 text-sm",
-                            stageIds[row.stepId]
-                              ? "border-border"
-                              : "border-amber-500/40 text-muted-foreground"
-                          )}
-                        >
-                          <option value="">Elegí la etapa del pipeline</option>
-                          {ghlStages.map((stage) => (
-                            <option key={stage.stageId} value={stage.stageId}>
-                              {stage.pipelineName ?? "Pipeline"} · {stage.stageName ?? stage.stageId}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
+                  {configField ? (
+                    <ConfigPicker
+                      field={configField}
+                      value={configValues[row.stepId] ?? ""}
+                      disabled={isPending}
+                      ghlStages={ghlStages}
+                      vturbPlayers={vturbPlayers}
+                      onChange={(next) =>
+                        handleConfigChange(row.stepId, value, configField.key, next)
+                      }
+                    />
                   ) : null}
                 </td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -205,5 +199,72 @@ export function FunnelBindingsForm({
         </tbody>
       </table>
     </div>
+  );
+}
+
+/**
+ * Selector del parámetro que pide una fuente.
+ *
+ * Vive acá y no en cada fila porque el patrón es el mismo para las dos fuentes
+ * configurables: sin elegir, el paso resuelve a "sin datos"; sin catálogo
+ * sincronizado, lo que corresponde es decirlo, no mostrar un selector vacío.
+ */
+function ConfigPicker({
+  field,
+  value,
+  disabled,
+  ghlStages,
+  vturbPlayers,
+  onChange,
+}: {
+  field: { key: string; label: string; kind: string };
+  value: string;
+  disabled: boolean;
+  ghlStages: GHLStageOption[];
+  vturbPlayers: VTurbPlayerOption[];
+  onChange: (next: string) => void;
+}) {
+  const empty =
+    field.kind === "vturb_player"
+      ? "Conectá VTurb en Integraciones y sincronizá los videos para poder elegir uno."
+      : "Sincronizá los pipelines de GoHighLevel en Integraciones para poder elegir la etapa.";
+
+  const options =
+    field.kind === "vturb_player"
+      ? vturbPlayers.map((player) => ({
+          value: player.playerId,
+          label: player.name ?? player.playerId,
+          // Sin pitch time no se puede medir "llegaron al CTA": conviene verlo
+          // antes de elegir, no después de que el embudo diga "sin datos".
+          hint: player.pitchTime ? null : "sin pitch time",
+        }))
+      : ghlStages.map((stage) => ({
+          value: stage.stageId,
+          label: `${stage.pipelineName ?? "Pipeline"} · ${stage.stageName ?? stage.stageId}`,
+          hint: null,
+        }));
+
+  if (options.length === 0) {
+    return <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">{empty}</p>;
+  }
+
+  return (
+    <select
+      value={value}
+      disabled={disabled}
+      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onChange(e.target.value)}
+      className={cn(
+        "mt-2 w-full max-w-[280px] rounded-lg border bg-background px-3 py-1.5 text-sm",
+        value ? "border-border" : "border-amber-500/40 text-muted-foreground"
+      )}
+    >
+      <option value="">{`Elegí ${field.label.toLowerCase()}`}</option>
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+          {option.hint ? ` (${option.hint})` : ""}
+        </option>
+      ))}
+    </select>
   );
 }

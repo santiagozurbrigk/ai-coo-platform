@@ -81,11 +81,11 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 
 | # | Medida | Qué es | Estado | Qué falta |
 |---|---|---|---|---|
-| M08 | `landing_visitors` | Visitantes de la página | 🔴 | Sale de VTurb (`total_viewed`) para las páginas con VSL, y de Hyros para el resto |
+| M08 | `landing_visitors` | Visitantes de la página | 🟡 | VTurb construido (`total_viewed`); para páginas sin VSL sigue faltando Hyros |
 | M09 | `optins` | Opt-ins capturados (Lead del webinar) | 🔴 | Analytics de página, o webhook del proveedor de landing |
-| M10 | `vsl_plays` | Reproducciones del VSL | 🔴 | Integración con **VTurb** → `total_started` |
-| M11 | `vsl_avg_watch_pct` | % promedio visto (retención) | 🔴 | Idem M10 → `engagement_rate` |
-| M12 | `vsl_reached_cta` | Llegaron al CTA del video | 🔴 | Idem M10 → **`total_over_pitch`**, sale directo |
+| M10 | `vsl_plays` | Reproducciones del VSL | 🟡 | Construido; falta conectar una cuenta real |
+| M11 | `vsl_avg_watch_pct` | % promedio visto (retención) | 🟡 | Construido — sale de `/times/user_engagement`, que es el que documenta su fórmula |
+| M12 | `vsl_reached_cta` | Llegaron al CTA del video | 🟡 | Construido, **pero sólo mide si el player tiene `pitch_time` configurado en VTurb** |
 
 > ✅ **Documentación verificada el 2026-08-30** (`docs/external-apis/vturb/`).
 > Base `https://analytics.vturb.net`, auth por header `X-Api-Token`, un
@@ -249,8 +249,8 @@ Qué medidas consume cada paso, y si ese paso se puede medir hoy.
 | Etapa | Paso | Medidas | ¿Medible hoy? |
 |---|---|---|---|
 | Click | Ad → VSL page | M02, M04, M01 | 🟡 Al periodizar Meta |
-| Engaged | Watched the VSL | M08, M10, M11, M12 | 🔴 Falta hosting de video |
-| Intent | Booked / applied | M08, M19, M01 | 🟡 M19 ✅, falta M08 |
+| Engaged | Watched the VSL | M08, M10, M11, M12 | 🟡 Al conectar la cuenta de VTurb |
+| Intent | Booked / applied | M08, M19, M01 | 🟡 M19 ✅, M08 al conectar VTurb |
 | Intent | Application quality | M17, M18 | ✅ **Ya medible** |
 | Sales Conv. | Showed to the call | M19, M20 | 🟡 Al poblar asistencia |
 | Sales Conv. | Call taken → closed | M20, M24 | 🟡 Al poblar cierres |
@@ -320,7 +320,7 @@ Agrupado por unidad de trabajo, con lo que desbloquea cada una.
 | ~~**I-3**~~ | ~~**Verificar asistencia y cierre de llamadas**~~ ✅ **Hecho 2026-08-30** | M20, M24 | Show rate y Close rate en VSL y DM, 2 health bands | — |
 | **I-4** | **Sync de oportunidades de GHL** 🔨 **Construido 2026-08-30, sin verificar** | M21–M23, M25 | **Embudo DM entero** (4 de 6 pasos) | Falta recibir el primer webhook real y confirmar que la vía de Workflow entregue `pipelineStageId` |
 | **I-5** | **Integración de webinar** (WebinarJam / Zoom) | M13–M16 | **Embudo Webinar entero** (4 de 7 pasos) | **L** — integración nueva desde cero |
-| **I-6** | **Integración VTurb** | M08, M10–M12 | Etapa Engaged del **VSL** + visitantes de página | **S** — un solo endpoint (`/sessions/stats`) devuelve las cuatro medidas ya calculadas |
+| **I-6** | **Integración VTurb** 🔨 **Construido 2026-08-30, sin verificar** | M08, M10–M12 | Etapa Engaged del **VSL** + visitantes de página | Falta conectar una cuenta y confirmar la semántica de los campos de `Stats`, que el spec no describe |
 | ~~**I-7**~~ | ~~**Analytics de landing / opt-in**~~ — **absorbida por `I-8`**, ver §8 | M08, M09 | Etapa Lead del webinar, denominador del play rate del VSL | — |
 | **I-8** | **Hyros** | M05–M09 | ROAS by-source, etiquetado `[Hyros]`, **y los opt-ins de las landings** | **L** — REST API con auth por API key (leads, journeys, sales, orders). Todos los clientes ya lo pagan |
 | **I-9** | **Retención y compras repetidas** | M30, M32, M33 | **LTV**, y por lo tanto **LTV:CAC** | **M** — modelo de suscripciones y reembolsos |

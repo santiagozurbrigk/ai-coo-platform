@@ -19,7 +19,7 @@ import type { SpineStageId } from "./spine";
 import type { InstrumentationToolId } from "./instrumentation";
 
 /** Tipo de dato que pide un parámetro de fuente, para que la UI sepa qué mostrar. */
-export type FunnelSourceConfigKind = "ghl_stage" | "ghl_pipeline";
+export type FunnelSourceConfigKind = "ghl_stage" | "ghl_pipeline" | "vturb_player";
 
 export type FunnelSourceConfigField = {
   key: string;
@@ -116,6 +116,38 @@ export const FUNNEL_SOURCES = [
     suitableFor: ["lead", "engaged", "intent", "sales_conv", "cash"],
     configFields: [
       { key: "stageId", label: "Etapa del pipeline", kind: "ghl_stage", required: true },
+    ],
+  },
+  {
+    id: "vturb_page_views",
+    label: "Visitantes de la página del VSL (VTurb)",
+    description:
+      "Sesiones que cargaron la página donde está el video, en el período (M08).",
+    provenance: "landing_page",
+    suitableFor: ["click"],
+    configFields: [
+      { key: "playerId", label: "Video de VTurb", kind: "vturb_player", required: true },
+    ],
+  },
+  {
+    id: "vturb_plays",
+    label: "Reproducciones del VSL (VTurb)",
+    description: "Sesiones que le dieron play al video en el período (M10).",
+    provenance: "landing_page",
+    suitableFor: ["engaged"],
+    configFields: [
+      { key: "playerId", label: "Video de VTurb", kind: "vturb_player", required: true },
+    ],
+  },
+  {
+    id: "vturb_reached_cta",
+    label: "Llegaron al CTA del VSL (VTurb)",
+    description:
+      "Sesiones que vieron el video pasado el segundo de la oferta (M12). Necesita que el player tenga configurado su pitch time en VTurb.",
+    provenance: "landing_page",
+    suitableFor: ["engaged", "intent"],
+    configFields: [
+      { key: "playerId", label: "Video de VTurb", kind: "vturb_player", required: true },
     ],
   },
   {

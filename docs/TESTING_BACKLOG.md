@@ -174,6 +174,29 @@ los conteos del embudo DM ya están mal, y no se puede reconstruir hacia atrás.
 - `resolveOrganizationByLocation` devuelve `null` para un `locationId` desconocido, y la
   ruta responde `404` sin guardar nada.
 
+### [T-6c] `lib/vturb/stats.ts` — caché de períodos (agregado 2026-08-30)
+
+**Por qué:** decide cuándo se le pega a VTurb, que tiene cuotas ajustadas, y es
+donde un error de red se puede volver un cero si algo sale mal.
+
+**Cómo:** mockear `createAdminClient()` y las funciones del cliente. La
+normalización ya está cubierta en `resolve-stats.test.ts`.
+
+**Qué verificar:**
+- Un período **cerrado** cacheado no se vuelve a pedir nunca (`is_final`).
+- Un período **abierto** se refresca pasados los 30 minutos, y no antes.
+- ⭐ Un `pitch_time` distinto al cacheado **invalida la caché**: cambia el
+  significado de `total_over_pitch`, así que la fila vieja ya no responde la
+  pregunta.
+- Si `/sessions/stats` falla pero `/times/user_engagement` responde, se guarda lo
+  que llegó y M11 sigue disponible.
+- Un player que no está en `vturb_players` devuelve todo `null` **sin llamar a la
+  API**.
+- Una org sin integración devuelve todo `null`.
+- Un `VTurbApiError` con `resets_at` deja ese dato en `error_message`.
+- El memo de `resolveFunnel`: tres steps apuntando al mismo player hacen **una**
+  llamada, no tres.
+
 ### [T-7] `app/funnels/actions.ts` — Server Actions
 
 **Qué verificar:**

@@ -17,6 +17,7 @@ import { computeFunnel, type OrgMeasures, type StepCounts } from "./compute";
 import { getFunnelSource, missingSourceConfig, type FunnelSourceId } from "./sources";
 import { getGHLStageHistorySince } from "@/lib/ghl/integration";
 import { isPeriodCovered } from "@/lib/ghl/stage-transition";
+import { getVTurbPeriodMeasures, type VTurbPeriodResult } from "@/lib/vturb/stats";
 import { periodBounds, type FunnelPeriod } from "./period";
 import {
   countAllTimeRows,
@@ -270,12 +271,49 @@ const GHL_HISTORY_SOURCES: readonly FunnelSourceId[] = [
   "ghl_opportunities_won",
 ];
 
+// ─── VTurb: el video de la landing ────────────────────────────────────────────
+
+/** Fuentes que salen de VTurb. Todas piden un `playerId` en la config. */
+const VTURB_SOURCES: readonly FunnelSourceId[] = [
+  "vturb_page_views",
+  "vturb_plays",
+  "vturb_reached_cta",
+];
+
+/**
+ * Medidas de VTurb para un player, memoizadas por `resolveFunnel`.
+ *
+ * Tres steps del embudo VSL pueden apuntar al mismo video, y cada consulta a
+ * VTurb cuesta cuota — la doc avisa que una sola llamada HTTP puede contar como
+ * más de una query. Con esto se pide una vez por player, no una por step.
+ */
+type VTurbLoader = (playerId: string) => Promise<VTurbPeriodResult>;
+
+function createVTurbLoader(organizationId: string, period: FunnelPeriod): VTurbLoader {
+  const inFlight = new Map<string, Promise<VTurbPeriodResult>>();
+
+  return (playerId: string) => {
+    const existing = inFlight.get(playerId);
+    if (existing) return existing;
+
+    const promise = getVTurbPeriodMeasures(
+      organizationId,
+      playerId,
+      period.start,
+      period.end
+    );
+    inFlight.set(playerId, promise);
+    return promise;
+  };
+}
+
 async function resolveSource(
   sourceId: FunnelSourceId,
   supabase: SupabaseClient,
   organizationId: string,
   period: FunnelPeriod,
-  config: Record<string, unknown> | null | undefined
+  config: Record<string, unknown> | null | undefined,
+  loadVTurb: VTurbLoader
 ): Promise<number | null> {
   switch (sourceId) {
     case "ad_clicks":
@@ -320,6 +358,18 @@ async function resolveSource(
         column: "status",
         value: "won",
       });
+    case "vturb_page_views":
+    case "vturb_plays":
+    case "vturb_reached_cta": {
+      const playerId = config?.playerId;
+      if (typeof playerId !== "string" || !playerId.trim()) return null;
+      const measures = await loadVTurb(playerId);
+      if (sourceId === "vturb_page_views") return measures.pageViews;
+      if (sourceId === "vturb_plays") return measures.plays;
+      // `reachedCta` ya viene en `null` cuando el player no tiene pitch time:
+      // `total_over_pitch` sin un segundo de pitch válido cuenta a casi todos.
+      return measures.reachedCta;
+    }
     default:
       return null;
   }
@@ -397,6 +447,22 @@ async function resolveOrgMeasures(
 
 // ─── Entrada principal ────────────────────────────────────────────────────────
 
+/**
+ * Player de VTurb configurado en el embudo, si hay alguno.
+ *
+ * Si hubiera más de uno, gana el primero: el `avg_watch_pct` del embudo es el de
+ * su VSL, y promediar dos videos distintos daría un número que no describe a
+ * ninguno de los dos.
+ */
+function findVTurbPlayerId(bindings: StepBindingRow[]): string | null {
+  for (const binding of bindings) {
+    if (!VTURB_SOURCES.includes(binding.source_id as FunnelSourceId)) continue;
+    const playerId = binding.config?.playerId;
+    if (typeof playerId === "string" && playerId.trim()) return playerId;
+  }
+  return null;
+}
+
 export async function resolveFunnel(
   supabase: SupabaseClient,
   instance: FunnelInstanceRow,
@@ -421,6 +487,8 @@ export async function resolveFunnel(
     ? await getGHLStageHistorySince(instance.organization_id).catch(() => null)
     : null;
   const { fromIso: periodStartIso } = periodBounds(period);
+
+  const loadVTurb = createVTurbLoader(instance.organization_id, period);
 
   const resolved = await Promise.all(
     template.steps.map(async (step) => {
@@ -477,7 +545,8 @@ export async function resolveFunnel(
         supabase,
         instance.organization_id,
         period,
-        binding?.config
+        binding?.config,
+        loadVTurb
       );
 
       return { stepId: step.id, count, entry };
@@ -490,6 +559,16 @@ export async function resolveFunnel(
   }
 
   const measures = await resolveOrgMeasures(supabase, instance.organization_id, period);
+
+  // ⭐ `avg_watch_pct` (M11) no es un conteo de step: es un promedio que reporta
+  // el player, y el documento lo modela como métrica sin denominador
+  // (`{ kind: "reported" }`). Se toma del mismo player que ya alimenta los steps
+  // del embudo, así que no cuesta una consulta extra.
+  const vturbPlayerId = findVTurbPlayerId(bindings);
+  if (vturbPlayerId) {
+    const vturb = await loadVTurb(vturbPlayerId);
+    measures.reported = { ...measures.reported, avg_watch_pct: vturb.avgWatchPct };
+  }
 
   return {
     instance,

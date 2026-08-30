@@ -245,6 +245,31 @@ VTurb y la API devuelve el conteo hecho.
 **Endpoints extra que pueden servir después:** `/traffic_origin/stats` (métricas por
 UTM), `/comparison_groups/stats` (tests A/B de VSL), `/conversions/stats_by_day`.
 
+### 🔴 Lo que quedó SIN documentación al construir I-6 (2026-08-30)
+
+**a) Ningún campo de `Stats` tiene descripción en el spec.** `total_viewed`,
+`total_started`, `total_over_pitch` y los sufijos `_device_uniq` / `_session_uniq`
+aparecen listados con su tipo y nada más. Lo que se asumió:
+
+| Campo | Se leyó como | Confianza |
+|---|---|---|
+| `total_viewed` | M08 — visitantes de la página con el video | Media |
+| `total_started` | M10 — le dieron play | Alta (el nombre es inequívoco) |
+| `total_over_pitch` | M12 — llegaron al segundo del CTA | Alta, **pero sólo con `pitch_time > 0`** |
+| `engagement_rate` de `/times/user_engagement` | M11 — % promedio visto | Alta (la fórmula sí está documentada) |
+
+Se prefiere el `engagement_rate` del endpoint de retención sobre el de
+`/sessions/stats` porque el primero declara su fórmula
+(`average_watched_time / video_duration * 100`) y el segundo no.
+
+**b) `X-Api-Version`: `v1` o `v3`.** La página de autenticación dice `v1`; el spec
+declara `info.version: "v3"`. Se manda `v1`. Si la primera llamada real devuelve
+401, es esto.
+
+**c) La forma exacta de la respuesta de `/players/list` y `/quota/usage`.** El spec
+declara arrays pelados; el cliente acepta también un envelope (`{ players: [] }`,
+`{ usage: [] }`) por tolerancia, sin costo.
+
 ## 5. WebinarJam / EverWebinar (unidad I-5) — ✅ **resuelta**
 
 **Documentación:** el centro de ayuda de WebinarJam — **capturada el 2026-08-30** en

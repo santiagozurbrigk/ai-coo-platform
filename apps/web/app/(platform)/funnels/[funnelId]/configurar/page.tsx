@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { FunnelBindingsForm } from "@/components/funnels/funnel-bindings-form";
 import { getFunnelBindingsAction } from "@/app/funnels/actions";
 import { listGHLStageOptionsAction } from "@/app/ghl/opportunity-actions";
+import { listVTurbPlayerOptionsAction } from "@/app/vturb/actions";
 import { blockingTools } from "@/lib/funnels";
 import { paths } from "@/routes/paths";
 
@@ -17,10 +18,13 @@ export default async function FunnelConfigurePage({
   const data = await getFunnelBindingsAction(funnelId);
   if (!data) notFound();
 
-  // Las fuentes de GHL piden elegir a qué etapa del pipeline corresponde el
-  // paso. Si la org no sincronizó sus pipelines, la lista viene vacía y el
-  // formulario lo dice en vez de ofrecer un selector sin opciones.
-  const ghlStages = await listGHLStageOptionsAction();
+  // Dos fuentes piden un parámetro: las de GHL, la etapa del pipeline; las de
+  // VTurb, el video. Si la org no sincronizó su catálogo, la lista viene vacía y
+  // el formulario lo dice en vez de ofrecer un selector sin opciones.
+  const [ghlStages, vturbPlayers] = await Promise.all([
+    listGHLStageOptionsAction(),
+    listVTurbPlayerOptionsAction(),
+  ]);
 
   const pendientes = blockingTools();
 
@@ -39,7 +43,12 @@ export default async function FunnelConfigurePage({
         description={`${data.templateLabel} · elegí de dónde sale el número de cada paso. Un paso sin fuente queda sin datos, que no es lo mismo que cero.`}
       />
 
-      <FunnelBindingsForm funnelId={funnelId} rows={data.rows} ghlStages={ghlStages} />
+      <FunnelBindingsForm
+        funnelId={funnelId}
+        rows={data.rows}
+        ghlStages={ghlStages}
+        vturbPlayers={vturbPlayers}
+      />
 
       {pendientes.length > 0 ? (
         <div className="rounded-2xl border border-border bg-card p-5 dark:border-glass dark:bg-glass">

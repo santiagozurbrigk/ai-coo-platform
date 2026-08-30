@@ -14,6 +14,40 @@
 
 ---
 
+### 2026-08-30 — I-6: VTurb, el video de la landing
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260830170000_vturb.sql`, `lib/vturb/*`, `app/vturb/actions.ts`, `lib/funnels/{sources,resolve,instrumentation}.ts`, `components/integrations/vturb-connect-panel.tsx`, `components/funnels/funnel-bindings-form.tsx`, docs
+
+**Qué se hizo:**
+La unidad I-6: M08 (visitantes de la página), M10 (reproducciones), M11 (% promedio visto) y M12 (llegaron al CTA). Cubre la etapa Engaged del embudo VSL, que hasta ahora no tenía ninguna fuente posible.
+
+**La decisión de arquitectura que define la unidad: caché por período, no métricas diarias.** `ad_metrics_daily` guarda una fila por día y el resolver suma. Con VTurb eso da un número sin significado, porque **`engagement_rate` es un promedio** y el promedio de los promedios diarios no es el promedio del período — cada día pesa distinto según cuántas sesiones tuvo. Así que se le pide a VTurb el período exacto y se cachea la respuesta cruda por `(player, start_date, end_date)`. Un período que ya terminó se marca `is_final` y no se vuelve a pedir nunca; uno que incluye hoy se refresca cada 30 minutos. Eso además respeta las cuotas de VTurb, que son ajustadas (60-800 requests por minuto según el plan, y una sola llamada HTTP puede contar como más de una query).
+
+**La regla propia de esta integración: `pitch_time = 0` no es un pitch time.** VTurb devuelve `total_over_pitch`, que es exactamente M12 —cuántos vieron el video pasado el segundo de la oferta— y además publica el `pitch_time` configurado de cada player, así que no hay que configurarlo a mano. Pero para los players que no lo tienen puesto, VTurb devuelve `pitch_time = 0`, y entonces `total_over_pitch` cuenta a **los que vieron más de 0 segundos**: casi todo el mundo. Es un número que parece M12 y no lo es, y mostrarlo sería peor que no mostrar nada. `isUsablePitchTime` lo rechaza, la medida resuelve a `null` con el motivo `no_pitch_time`, y el panel de integraciones avisa cuántos videos están en esa situación, porque se arregla en VTurb y no en OTC.
+
+**Verificación ejecutada:**
+- `pnpm test`: **351 tests en 19 archivos, todos en verde** (20 nuevos de VTurb).
+- `tsc --noEmit` limpio, `pnpm lint` sin errores.
+- Migración **aplicada** al proyecto Supabase de OTC.
+
+**Decisiones de diseño:**
+- **`engagement_rate` se toma de `/times/user_engagement`, no de `/sessions/stats`.** Los dos endpoints lo devuelven, pero sólo el primero documenta su fórmula (`average_watched_time / video_duration * 100`). El segundo queda como respaldo.
+- **Camino de respaldo para M12 por la curva de retención.** Si `total_over_pitch` no viene, se busca en `grouped_timed` el último punto en o antes del segundo del pitch. La curva no viene segundo a segundo, así que ese punto es la última cantidad conocida de gente que seguía mirando.
+- **`end_date` se manda siempre, explícito.** Las release notes de VTurb documentan un bug —vivo hasta 2026-05-07— donde tres endpoints lo ignoraban y devolvían datos hasta "ahora", inflando cualquier ventana histórica corta.
+- **Una llamada por player, no por step.** Tres pasos del embudo VSL pueden apuntar al mismo video; `resolveFunnel` memoiza la consulta.
+- **`avg_watch_pct` va en `measures.reported`,** no como conteo de step: el documento lo modela como métrica sin denominador y es un promedio que reporta el player, no un cociente entre etapas.
+- **El selector de parámetros del formulario de fuentes se generalizó.** Antes era un selector de etapa de GHL; ahora es un componente que sirve para cualquier fuente configurable, y cambiar de fuente descarta el parámetro anterior — una etapa de GHL no significa nada para una fuente de VTurb.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **El spec de VTurb no describe ni un solo campo de `Stats`.** Se asumió `total_viewed` = visitantes de página y `total_started` = reproducciones. Falta confirmar contra el dashboard, y sobre todo **qué deduplican los sufijos `_device_uniq` y `_session_uniq`**: si el dashboard muestra el valor único y OTC el bruto, los números no van a coincidir. Anotado en `docs/API_DOCS_PENDIENTES.md` §4 y `docs/PLAN_VERIFICACION.md` §6.2.
+- ⚠️ **`X-Api-Version` sin resolver.** La página de autenticación dice `v1`, el spec declara `v3`. Se manda `v1`; si la primera llamada devuelve 401, es esto.
+- `lib/vturb/stats.ts` no tiene tests de orquestación (caché, TTL, invalidación por `pitch_time`) — quedó como `[T-6c]` en `docs/TESTING_BACKLOG.md`.
+- M09 (opt-ins de landing) sigue sin fuente: sale de Hyros en I-8, no de VTurb.
+
+---
+
 ### 2026-08-30 — I-4: oportunidades de GoHighLevel y el historial de etapas que GHL no tiene
 
 **Rama/branch:** `Claude-New-Features`

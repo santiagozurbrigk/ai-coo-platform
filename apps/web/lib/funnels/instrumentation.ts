@@ -43,9 +43,9 @@ export const INSTRUMENTATION_TOOLS = [
     id: "landing_page",
     label: "Landing / VSL page",
     owns: "Opt-in %, play rate, watch %",
-    otcStatus: "missing",
+    otcStatus: "partial",
     otcNote:
-      "Requiere hosting de video con analytics. Proveedor sin definir (Wistia / Vimeo / YouTube / player propio).",
+      "VTurb conectado (I-6): da visitantes, reproducciones, % promedio visto y llegadas al CTA. Los opt-ins de landing todavía no — salen de Hyros (I-8).",
   },
   {
     id: "webinar_platform",

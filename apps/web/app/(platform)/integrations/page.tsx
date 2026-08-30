@@ -7,6 +7,8 @@ import { IntegrationGrid } from "@/components/integrations";
 import { PaymentsConnectPanel } from "@/components/integrations/payments-connect-panel";
 import { GHLOpportunitiesPanel } from "@/components/integrations/ghl-opportunities-panel";
 import { getGHLOpportunitiesStatusAction } from "@/app/ghl/opportunity-actions";
+import { VTurbConnectPanel } from "@/components/integrations/vturb-connect-panel";
+import { getVTurbStatusAction } from "@/app/vturb/actions";
 import { ReelMusicUpload } from "@/components/marketing/trial-reels/reel-music-upload";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@ai-coo/ui";
@@ -14,12 +16,13 @@ import { Upload } from "lucide-react";
 import { paths } from "@/routes";
 
 export default async function IntegrationsPage() {
-  const [integrations, reelMusicPath, paymentIntegrations, ghlOpportunities] =
+  const [integrations, reelMusicPath, paymentIntegrations, ghlOpportunities, vturb] =
     await Promise.all([
       listIntegrationsAction(),
       getReelMusicPathAction(),
       getPaymentIntegrationsStatusAction(),
       getGHLOpportunitiesStatusAction(),
+      getVTurbStatusAction(),
     ]);
 
   return (
@@ -41,6 +44,8 @@ export default async function IntegrationsPage() {
       <PaymentsConnectPanel integrations={paymentIntegrations} />
 
       <GHLOpportunitiesPanel status={ghlOpportunities} />
+
+      <VTurbConnectPanel status={vturb} />
 
       {/* Trial Reels — configuración de assets */}
       <section className="space-y-3">
