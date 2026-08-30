@@ -51,7 +51,15 @@ Además, en ese caso:
   con su motivo. Un cobro cuyo monto no se lee no es un cobro de cero.
 - Aislá el mapeo en un solo archivo por proveedor, con la advertencia en el header.
 
-### 4. Nunca saltear la actualización de CHANGES.md y PENDIENTES.md
+### 4. Documentar lo que queda sin verificar
+
+Si construís algo que **no podés probar en el momento** —falta una cuenta, una
+credencial o la documentación— sumá su bloque de verificación a
+**[`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md)** con pasos concretos y
+resultado esperado, marcando lo que tiene alta probabilidad de fallar, lo que
+verifica seguridad y lo que verifica una regla de diseño central.
+
+### 5. Nunca saltear la actualización de CHANGES.md y PENDIENTES.md
 
 Aunque el cambio parezca pequeño (un bugfix de una línea, un tweak de UI), documentarlo en `CHANGES.md`. La continuidad de contexto entre sesiones depende de este registro.
 
@@ -60,7 +68,7 @@ Al finalizar cada sesión, también actualizar `PENDIENTES.md`:
 - Agregar nuevos pendientes que hayan surgido durante la sesión
 - Actualizar la descripción de ítems que cambiaron de scope o estado
 
-### 5. Workflow de Git — ramas, PRs y merges
+### 6. Workflow de Git — ramas, PRs y merges
 
 **Todo el desarrollo ocurre en ramas de feature. Nunca commitear directamente a `main`.**
 
@@ -104,6 +112,7 @@ Claude Code usa el prefijo `claude/` asignado por el sistema — está bien, no 
 **Fuentes complementarias (leer si hace falta profundizar):**
 - `CHANGES.md` — **historial de cambios con contexto** (leer siempre al inicio)
 - `docs/API_DOCS_PENDIENTES.md` — **APIs implementadas sin documentación**, pendientes de verificar
+- `docs/PLAN_VERIFICACION.md` — **qué probar a mano** cuando haya cuentas reales conectadas
 - `PENDIENTES.md` — **backlog de pendientes** (leer siempre al inicio, actualizar al terminar)
 - `OTC_OPERATIONAL_NOTES.md` — operaciones, integraciones, crons, env vars en detalle
 - `DESIGN.md` — design system OTC
@@ -657,7 +666,7 @@ Eventos SSE: ver `lib/agent/sse.ts` (`token`, `thinking`, `tool`, `done`, `error
 
 ## 9. WORKFLOW DE DEPLOY
 
-### Flujo completo (ver también Regla 5 en sección de Reglas Obligatorias)
+### Flujo completo (ver también Regla 6 en sección de Reglas Obligatorias)
 
 ```
 rama-de-feature  →  PR a main  →  Squash and merge  →  Vercel build  →  Production (gru1)

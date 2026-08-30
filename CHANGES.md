@@ -14,6 +14,33 @@
 
 ---
 
+### 2026-08-30 — DOC-PLAN-VERIFICACION: registro de lo que queda sin probar
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `docs/PLAN_VERIFICACION.md` (nuevo), `CLAUDE.md`, `PENDIENTES.md`
+
+**Qué se hizo:**
+Santiago decidió **no conectar ninguna cuenta real hasta terminar todas las olas de integración**, y hacer una única prueba de punta a punta paso por paso. Pidió que se vaya documentando qué hay que testear.
+
+- **`docs/PLAN_VERIFICACION.md`**: runbook ordenado por dependencia, con **qué hacer**, **qué tendría que pasar** y **qué significa si falla** en cada paso. Cubre prerrequisitos, el comportamiento base del módulo, y las tres unidades de la ola 1. Tiene marcas de ⚠️ (falla probable por haberse construido a ciegas), 🔒 (verifica seguridad) y ⭐ (verifica una regla de diseño central, no sólo que ande).
+- **Regla 4 de `CLAUDE.md`**: toda unidad que no se pueda verificar en el momento suma su bloque a ese documento.
+- El ítem `[EMBUDOS-PAGOS-VERIFICAR]` de `PENDIENTES.md` ahora apunta al plan en vez de repetir los pasos.
+
+**Por qué / finalidad:**
+El módulo se está construyendo sin acceso a cuentas ni a documentaciones de API. Sin un registro acumulado, al llegar al final habría que reconstruir de memoria qué se asumió en cada unidad y qué falta comprobar. Con el plan, la pasada final es mecánica.
+
+**Decisiones de diseño:**
+- **El plan se ordena por dependencia, no por unidad.** El bloque 0 son los prerrequisitos y el 1 el comportamiento base del módulo, que no necesita ninguna cuenta externa: se puede hacer hoy mismo y ya valida las reglas centrales.
+- **Las marcas distinguen tipos de riesgo.** Un paso ⚠️ probablemente falle y se arregla mirando el dato crudo; uno 🔒 que falle es un problema de seguridad; uno ⭐ que falle significa que una regla de diseño no se sostuvo.
+- **Los pasos de aislamiento entre organizaciones y de rechazo de firma están explícitos.** Son las verificaciones que nadie hace por costumbre y las que más caro salen si fallan.
+
+**Riesgos / deuda técnica pendiente:**
+- Las preguntas abiertas sobre GHL (¿hay historial de cambios de etapa?) y VTurb (¿la retención es promedio o curva?) siguen sin respuesta hasta que lleguen las documentaciones. Ambas pueden cambiar el diseño de su unidad, no sólo el mapeo — están registradas en `docs/API_DOCS_PENDIENTES.md`.
+- El plan cubre hasta la ola 1. Las unidades de las olas 2 y 3 suman su bloque a medida que se construyan.
+
+---
+
 ### 2026-08-30 — UI de conexión de pagos, I-3 y registro de APIs sin documentar
 
 **Rama/branch:** `Claude-New-Features`  

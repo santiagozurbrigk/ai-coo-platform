@@ -28,6 +28,8 @@
 - **Ola 2 (medios, por costo):** I-4 GHL opportunities · I-6 VTurb · I-5 webinar
 - **Ola 3:** I-9 retención · I-8 Hyros (absorbe los opt-ins de landings) · I-10 triggers de Zernio
 
+**Verificación:** nada se prueba contra cuentas reales hasta terminar todas las olas — ver [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md).
+
 **Decisiones cerradas:** VSL en VTurb (tiene API pública) · todos los clientes pagan Hyros · landings en Vercel, así que los opt-ins salen de Hyros e I-7 desaparece · clientes repartidos en partes iguales entre los tres embudos. **No queda ninguna pregunta abierta en el plan.**
 
 ---
@@ -38,14 +40,11 @@
 
 **Por qué no bloquea:** cada webhook se persiste crudo en `payment_webhook_events` antes de interpretarse. Un evento que no se sabe leer queda en estado `unmapped` con su motivo y se puede reprocesar; nunca se inventa un número.
 
-**Acción:**
-1. Conectar una cuenta real de Whop y otra de Fanbasis (cargar API key y webhook secret cifrados en `payment_integrations`).
-2. Registrar la URL del webhook con `?organizationId=<uuid>`.
-3. Disparar un cobro y un reembolso de prueba.
-4. Mirar `payment_webhook_events` y corregir `normalize.ts` con los nombres de campo reales; actualizar los tests de `lib/payments/__tests__/normalize.test.ts` con payloads ciertos.
-5. Confirmar el nombre de la cabecera de firma de Fanbasis y quitar las candidatas que sobren.
+**Cuándo:** decisión de Santiago (2026-08-30) — **no se conecta nada hasta que esté todo construido**, y ahí se hace una sola pasada de prueba de punta a punta.
 
-**También falta:** la UI de conexión en `/integrations` — hoy las credenciales se cargan a mano.
+**Los pasos exactos están en [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md) §3**, junto con el resto de las verificaciones pendientes de todas las unidades.
+
+**La UI de conexión ya está hecha** (2026-08-30): `/integrations` → sección "Pagos".
 
 ---
 
