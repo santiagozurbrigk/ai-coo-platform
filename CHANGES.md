@@ -17,7 +17,7 @@
 ### 2026-08-30 — DOC-EXTERNAL-APIS-2: Whop, Commas, Hyros y WebinarJam bajados al repo
 
 **Rama/branch:** `Claude-New-Features`  
-**Commits:** pendiente push  
+**Commits:** `c70b578`  
 **Módulo(s) afectado(s):** `docs/external-apis/` (4 proveedores nuevos), `docs/API_DOCS_PENDIENTES.md`, `CLAUDE.md`, `PENDIENTES.md`
 
 **Qué se hizo:**
