@@ -528,19 +528,27 @@ vigente.
 
 ## 10. Plan de fases
 
-| Fase | Alcance | Entregable | Bloqueado por |
+| Fase | Alcance | Entregable | Estado |
 |---|---|---|---|
-| **0** | Normalizar el documento a schema | `spine.ts`, `types.ts`, las 3 plantillas, `kpis.ts`, `health-bands.ts`. Sin UI, sin DB. | — |
-| **1** | Instancias + resolver + página genérica | `/funnels/[id]` con el embudo **DM** end-to-end | Fase 0 |
-| **2** | Evaluación + diagnóstico | Health bands con precedencia de 3 niveles + `diagnoseFunnel()` — el diferencial | Fase 1 |
-| **3** | Switcher + segunda y tercera instancia | Prueba de que agregar un embudo es agregar un archivo | Fase 2 + **track de integraciones** |
-| **4** | KPIs universales + vista comparativa | `/funnels/comparar` con agrupación por price point | Fase 3 |
-| **5** | Snapshots periódicos + pulso diario | Historia y las 3 cadencias del doc | Fase 4 |
+| **0** | Normalizar el documento a schema | `spine.ts`, `types.ts`, las 3 plantillas, `kpis.ts`, `health-bands.ts`. Sin UI, sin DB. | ✅ 2026-08-29 |
+| **1** | Instancias + resolver + página genérica | `/funnels/[id]` con el embudo **DM** end-to-end | ✅ 2026-08-29 |
+| **2** | Evaluación + diagnóstico | Health bands con precedencia de 3 niveles + `diagnoseFunnel()` | ⏸️ **En pausa por decisión del usuario.** El código existe y está testeado; falta la orden de mostrarlo |
+| **3** | Switcher + configuración de fuentes | Cambiar de embudo sin perder el período; binding por paso con sus parámetros | ✅ 2026-08-30 |
+| **4** | KPIs universales en la UI | Sección 03 completa, con las dos ratios decisivas destacadas y las etiquetas `[Meta]` / `[Hyros]` | ✅ 2026-08-30 |
+| **5** | Snapshots periódicos + pulso diario | Historia y las 3 cadencias del doc | Pendiente |
 
-**Track de integraciones (en paralelo, aterriza antes de Fase 3):** Hyros → WebinarJam/Zoom →
-hosting de VSL → scoring de calificación. Ver §7.
+**Track de integraciones:** ✅ **las diez unidades construidas** entre el 2026-08-29 y el
+2026-08-30. Ver `docs/FUNNELS_SOURCE_MAP.md` §5 y el estado de verificación en
+`docs/PLAN_VERIFICACION.md` §11.
 
-La Fase 0 es barata y elimina casi toda la ambigüedad de la §3. Se revisa antes de tocar DB.
+> ⚠️ **La Fase 4 destapó un hueco de la Fase 0/1:** `computeFunnel` calculaba los
+> KPIs universales pero **no los devolvía** — sólo se usaban de rebote cuando una
+> plantilla los referenciaba como north-star. Se agregó `kpis` a `ComputedFunnel`,
+> separado de `metrics` para no hacerlos parecer propiedad de un embudo.
+>
+> La vista comparativa (`/funnels/comparar`, con agrupación por price point) no se
+> construyó: con un solo embudo instanciado no tiene qué comparar. Vuelve cuando
+> haya varias instancias con datos reales.
 
 ---
 

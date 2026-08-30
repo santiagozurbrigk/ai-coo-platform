@@ -9,6 +9,16 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [EMBUDOS-SALUD] Habilitar el estado de salud (bandas de la §04) ⏸️
+
+**Qué es:** el documento define bandas de salud por métrica —qué valor es sano, cuál está en el piso y cuál está roto— y OTC tiene el código construido y testeado en `lib/funnels/health-bands.ts`, con la precedencia de tres niveles (plantilla → override de oferta → baseline de la org).
+
+**Está en pausa por decisión tuya**, desde que arrancamos la Fase 2. La UI no pinta ningún número en verde ni en rojo: mostrar un semáforo es hacer una afirmación sobre el negocio, y esa afirmación todavía no se habilitó.
+
+**Cuando lo habilites**, lo que falta es la capa de presentación: el semáforo en la tabla de pasos, en los KPIs y `diagnoseFunnel()` para decir dónde está el cuello de botella. El motor ya está.
+
+---
+
 ### [EMBUDOS-CUENTAS-REALES] Conectar las cuentas y correr la verificación 🔴
 
 **Qué es:** las diez unidades del plan de integraciones están construidas y **ninguna está verificada contra datos reales**, que es lo que Santiago decidió dejar para el final. Los pasos están en [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md), sección por sección.
@@ -307,6 +317,7 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-30 | EMBUDOS-UI: interfaz del módulo — switcher que conserva el período, KPIs universales con las dos ratios decisivas, etiquetas [Meta]/[Hyros], spine con conectores, índice con estado de configuración. Destapó que computeFunnel no devolvía los KPIs universales. 414 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I8: integración Hyros — atribución por fuente, y corrección del ROAS by-source, que usaba las mismas medidas que el blended y por lo tanto mostraba el mismo número. **Cierra las 10 unidades del plan.** 408 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I9-I10: retención y compras por cliente (desbloquea LTV:CAC) + triggers de Zernio. Sin integraciones nuevas ni migraciones. 395 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-HUECOS: fuente de clicks al CTA de VTurb (M16) y fuentes de formulario (M13, M17, M18), que estaban marcadas como medibles pero desconectadas del módulo. Debate WebinarJam vs VTurb cerrado y documentado. 372 tests en verde | `Claude-New-Features` |

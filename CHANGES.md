@@ -14,6 +14,47 @@
 
 ---
 
+### 2026-08-30 — UI del módulo de Embudos, y los KPIs universales que no se mostraban
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `app/(platform)/funnels/*`, `components/funnels/*`, `app/funnels/actions.ts`, `lib/funnels/compute.ts`
+
+**Qué se hizo:**
+La interfaz del módulo, sobre el motor que ya existía.
+
+**⭐ El hueco de motor que apareció al armar la UI.** `computeFunnel` calculaba los KPIs universales —la sección 03 entera del documento, incluidas las dos ratios que declara decisivas— pero **nunca los devolvía**: sólo se usaban de rebote cuando una plantilla los referenciaba como north-star. No había nada que mostrar porque no había nada que leer. Se agregó `kpis` a `ComputedFunnel`, **separado de `metrics`**: mezclarlos haría parecer que CAC o LTV son propiedad de ese embudo, cuando el documento los pone explícitamente por encima de cualquiera.
+
+**⭐ El orden de la página es la jerarquía del documento, no una lista.** De arriba abajo: los tres punteros de la plantilla → los KPIs universales, con EPL vs CPL y LTV:CAC arriba y más grandes → el spine → la tabla paso a paso. Es literal:
+
+> *"the stage-by-stage tables tell you WHERE a funnel is broken; these two ratios tell you WHETHER it is."*
+
+Primero si funciona, después dónde falla.
+
+**El switcher de embudos, que era el pedido original.** Se puede cambiar de embudo sin volver al índice, y **el período se conserva** al cambiar: mirar la misma ventana en embudos distintos, uno detrás del otro, es el trabajo real del usuario. Volver al índice y entrar de nuevo lo perdía.
+
+**Las etiquetas `[Meta]` / `[Hyros]`, que el documento declara no negociables.** Cada cifra de la tabla de pasos lleva su fuente entre corchetes —forma literal del documento, conservada como convención de lectura y no traducida a un badge de color— y cada KPI lleva la suya, compuesta cuando cruza herramientas: el ROAS blended es `[Checkout + Meta]`, no `[Meta]` a secas.
+
+**Verificación ejecutada:**
+- `pnpm test`: **414 tests en 23 archivos, todos en verde** (6 nuevos sobre la salida de KPIs).
+- `tsc --noEmit` limpio, `pnpm lint` sin errores, `pnpm build` completo.
+
+**Decisiones de diseño:**
+- **La tabla de pasos tiene dos columnas de origen, no una:** de dónde sale el número hoy y qué herramienta le asigna el estándar. Cuando no coinciden, la segunda se pinta en ámbar — el número es legítimo pero viene de otro lado, y eso hay que poder verlo.
+- **Los huecos se separan por cómo se arreglan.** "Sin fuente configurada" se arregla en la pantalla de fuentes; "con fuente pero sin número" se arregla eligiendo un parámetro o esperando a que se acumule historial. Meterlos en el mismo aviso mandaría al usuario al lugar equivocado.
+- **La conversión entre etapas se muestra en el conector, no dentro de la tarjeta:** pertenece al paso entre dos etapas, no a ninguna de las dos.
+- **Una etapa salteada no lleva alerta.** El VSL no tiene Lead porque no hay opt-in: marcarlo como problema entrenaría al usuario a ignorar las alertas de verdad.
+- **El índice muestra cuántos pasos tienen fuente, no un número de negocio.** Resolver cada embudo entero —con todas sus integraciones— para pintar una grilla de tarjetas sería caro y no ayuda a decidir a cuál entrar.
+- **El índice lista la cobertura de las herramientas del estándar** con lo que cada una cubre hoy, para que el estado del módulo sea legible sin entrar a ningún embudo.
+
+**Riesgos / deuda técnica pendiente:**
+- ⏸️ **No hay semáforo de salud, a propósito.** Las bandas de la §04 siguen en pausa por decisión de Santiago. Pintar un número en verde o rojo es una afirmación sobre el negocio, y esa afirmación todavía no se habilitó. El código de `health-bands.ts` existe y está testeado; falta la orden de mostrarlo.
+- No hay serie histórica ni sparklines: `funnel_period_snapshots` existe desde la Fase 1 pero el job que la puebla es de la Fase 5.
+- La UI no tiene cobertura de Playwright — sigue como `[T-8]` en `docs/TESTING_BACKLOG.md`.
+- El switcher es un menú propio y no el `DropdownMenu` de `@ai-coo/ui`: hace falta revisar si conviene unificarlo cuando se toque el design system.
+
+---
+
 ### 2026-08-30 — Ola 3 (2/2): I-8 Hyros, y el ROAS by-source que no era by-source
 
 **Rama/branch:** `Claude-New-Features`

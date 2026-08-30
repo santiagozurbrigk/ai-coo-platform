@@ -14,7 +14,7 @@
  */
 
 import { SPINE_STAGES, spineStageOrder, type SpineStageId } from "./spine";
-import { getUniversalKpi } from "./kpis";
+import { getUniversalKpi, UNIVERSAL_KPIS } from "./kpis";
 import type {
   FunnelTemplate,
   MetricDefinition,
@@ -77,7 +77,17 @@ export type ComputedTransition = {
 
 export type ComputedFunnel = {
   stages: ComputedStage[];
+  /** Métricas propias de la plantilla: las de sus steps y las del embudo. */
   metrics: ComputedMetric[];
+  /**
+   * KPIs universales de la sección 03 del documento.
+   *
+   * Van aparte de `metrics` porque son de otra naturaleza: **están por encima de
+   * cualquier embudo y son la forma en que los embudos se comparan entre sí**.
+   * Mezclarlos con las métricas de la plantilla los haría parecer propiedad de
+   * ese embudo, que es justo lo que el documento no quiere.
+   */
+  kpis: ComputedMetric[];
   transitions: ComputedTransition[];
 };
 
@@ -265,7 +275,15 @@ export function computeFunnel(
     value: computeMetricValue(metric, ctx),
   }));
 
-  return { stages, metrics, transitions: computeTransitions(stages) };
+  const kpis = UNIVERSAL_KPIS.map((kpi) => ({
+    metricId: kpi.id,
+    label: kpi.label,
+    unit: kpi.unit,
+    direction: kpi.direction,
+    value: computeMetricValue(kpi, ctx),
+  }));
+
+  return { stages, metrics, kpis, transitions: computeTransitions(stages) };
 }
 
 /** Valor de un KPI universal para el período, fuera de cualquier plantilla. */

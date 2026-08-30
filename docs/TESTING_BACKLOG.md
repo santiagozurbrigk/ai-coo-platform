@@ -255,7 +255,20 @@ La lógica pura ya está cubierta (`retention.test.ts`, `triggers.test.ts`,
 
 ### [T-8] Cobertura de UI del módulo (Playwright)
 
-Ver sección 4.
+Ver sección 4. **Ampliado el 2026-08-30 al construir la UI:**
+
+- ⭐ El switcher **conserva el período** al cambiar de embudo. Es la razón de ser
+  del módulo y lo más fácil de romper con un refactor de rutas.
+- Un embudo con pasos sin fuente muestra el aviso de "sin fuente configurada" y su
+  link lleva a la pantalla de fuentes.
+- Un paso con fuente pero sin parámetro muestra "Falta configurar la fuente", que
+  es un aviso **distinto** del anterior y se arregla en otro lado.
+- ⭐ Ningún `—` de la pantalla se renderiza como `0`, `0%` ni `$0`. Un snapshot de
+  una org sin datos que verifique esto de punta a punta.
+- Las dos tarjetas de ROAS muestran números distintos cuando Hyros y la pasarela
+  reportan distinto, y la atribuida dice "sin datos" cuando Hyros no está
+  conectado aunque la general tenga número.
+- Una etapa salteada (Lead en el VSL) se ve gris y **sin icono de alerta**.
 
 ---
 

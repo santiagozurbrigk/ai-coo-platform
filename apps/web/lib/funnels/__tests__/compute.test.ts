@@ -15,6 +15,7 @@ import {
   type StepCounts,
 } from "../compute";
 import { requireFunnelTemplate } from "../templates";
+import { DECISIVE_RATIOS, UNIVERSAL_KPIS } from "../kpis";
 
 const dm = requireFunnelTemplate("dm");
 const vsl = requireFunnelTemplate("vsl_call");
@@ -216,5 +217,55 @@ describe("embudo completo", () => {
     expect(result.stages.filter((s) => s.state === "measured")).toHaveLength(6);
     expect(result.transitions).toHaveLength(5);
     expect(result.metrics.some((m) => m.value !== null)).toBe(true);
+  });
+});
+
+describe("KPIs universales en la salida (agregado con la UI, 2026-08-30)", () => {
+  const template = dm;
+
+  it("devuelve los KPIs universales aparte de las métricas de la plantilla", () => {
+    // Van separados porque son de otra naturaleza: el documento los pone por
+    // encima de cualquier embudo, como la forma de compararlos entre sí.
+    const result = computeFunnel(template, {}, {});
+    expect(result.kpis.length).toBe(UNIVERSAL_KPIS.length);
+    expect(result.metrics.every((m) => !result.kpis.some((k) => k.metricId === m.metricId))).toBe(
+      true
+    );
+  });
+
+  it("incluye las dos ratios decisivas", () => {
+    const result = computeFunnel(template, {}, {});
+    for (const id of DECISIVE_RATIOS) {
+      expect(result.kpis.some((k) => k.metricId === id)).toBe(true);
+    }
+  });
+
+  it("⭐ sin medidas, todos los KPIs valen null y ninguno cero", () => {
+    const result = computeFunnel(template, {}, {});
+    expect(result.kpis.every((k) => k.value === null)).toBe(true);
+  });
+
+  it("calcula el ROAS blended con las medidas de la pasarela y de Meta", () => {
+    const result = computeFunnel(template, {}, { revenue: 1000, spend: 250 });
+    expect(result.kpis.find((k) => k.metricId === "roas_blended")!.value).toBe(4);
+  });
+
+  it("⭐ el ROAS by-source usa las medidas atribuidas y da distinto", () => {
+    // Es la razón por la que existen dos tarjetas. Si compartieran medidas,
+    // mostrarían el mismo número y la etiqueta [Hyros] no significaría nada.
+    const result = computeFunnel(
+      template,
+      {},
+      { revenue: 1000, spend: 250, attributed_revenue: 800, attributed_spend: 250 }
+    );
+    expect(result.kpis.find((k) => k.metricId === "roas_blended")!.value).toBe(4);
+    expect(result.kpis.find((k) => k.metricId === "roas_by_source")!.value).toBe(3.2);
+  });
+
+  it("el by-source es null aunque el blended se pueda calcular", () => {
+    // Sin Hyros conectado, la tarjeta atribuida dice "sin datos" en vez de
+    // repetir el número del blended.
+    const result = computeFunnel(template, {}, { revenue: 1000, spend: 250 });
+    expect(result.kpis.find((k) => k.metricId === "roas_by_source")!.value).toBeNull();
   });
 });

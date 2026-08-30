@@ -359,3 +359,68 @@ export async function listFunnelFormOptionsAction(): Promise<FunnelFormOption[]>
     totalResponses: (row.total_responses as number | null) ?? 0,
   }));
 }
+
+// ─── Índice de embudos ────────────────────────────────────────────────────────
+
+export type FunnelIndexItem = {
+  id: string;
+  name: string;
+  templateId: string;
+  templateLabel: string;
+  badge: string;
+  currency: string;
+  pricePoint: number;
+  /** Pasos de la plantilla y cuántos tienen fuente configurada. */
+  stepCount: number;
+  boundSteps: number;
+};
+
+/**
+ * Los embudos de la org con su estado de configuración.
+ *
+ * El índice muestra **cuántos pasos tienen fuente** y no un número de negocio a
+ * propósito: resolver cada embudo entero para pintar una tarjeta dispararía las
+ * consultas de todas las integraciones por cada uno. Lo que el usuario necesita
+ * decidir acá es a cuál entrar, y para eso alcanza con saber cuál está completo.
+ */
+export async function listFunnelIndexAction(): Promise<FunnelIndexItem[]> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { data: instances, error } = await supabase
+    .from("funnel_instances")
+    .select(INSTANCE_COLUMNS)
+    .eq("organization_id", organizationId)
+    .eq("is_active", true)
+    .order("created_at", { ascending: true });
+
+  if (error || !instances?.length) return [];
+
+  const { data: bindings } = await supabase
+    .from("funnel_step_bindings")
+    .select("funnel_instance_id, step_id")
+    .eq("organization_id", organizationId);
+
+  const boundByInstance = new Map<string, number>();
+  for (const binding of bindings ?? []) {
+    const key = binding.funnel_instance_id as string;
+    boundByInstance.set(key, (boundByInstance.get(key) ?? 0) + 1);
+  }
+
+  return instances
+    .filter((row) => isFunnelTemplateId(row.template_id))
+    .map((row) => {
+      const template = requireFunnelTemplate(row.template_id);
+      return {
+        id: row.id as string,
+        name: row.name as string,
+        templateId: template.id,
+        templateLabel: template.label,
+        badge: template.badge,
+        currency: row.currency as string,
+        pricePoint: Number(row.price_point ?? 0),
+        stepCount: template.steps.length,
+        boundSteps: Math.min(boundByInstance.get(row.id as string) ?? 0, template.steps.length),
+      };
+    });
+}

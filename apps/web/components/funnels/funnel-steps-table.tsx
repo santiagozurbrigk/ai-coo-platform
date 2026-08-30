@@ -8,6 +8,7 @@ import {
 } from "@/lib/funnels";
 import type { StepProvenance } from "@/lib/funnels/resolve";
 import { formatCount, formatFunnelValue } from "./funnel-format";
+import { SourceTag } from "./source-tag";
 
 /**
  * Tabla de steps, con la misma estructura que la tabla del documento fuente:
@@ -58,7 +59,10 @@ export function FunnelStepsTable({
               Rango sano
             </th>
             <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Origen
+              Origen del dato
+            </th>
+            <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Según el estándar
             </th>
           </tr>
         </thead>
@@ -66,7 +70,6 @@ export function FunnelStepsTable({
           {template.steps.map((step) => {
             const prov = provenanceByStep.get(step.id);
             const unbound = prov?.unbound ?? true;
-            const tool = prov?.provenance ? getInstrumentationTool(prov.provenance) : null;
 
             return (
               <tr key={step.id} className="border-b border-border/60 last:border-b-0 align-top">
@@ -113,7 +116,7 @@ export function FunnelStepsTable({
                 <td className="px-4 py-3 text-xs">
                   {unbound ? (
                     <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                      <AlertTriangle className="h-3.5 w-3.5" />
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                       Sin fuente
                     </span>
                   ) : prov?.nullReason ? (
@@ -123,12 +126,34 @@ export function FunnelStepsTable({
                     <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
                       <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                       {prov.nullReason === "missing_config"
-                        ? "Falta elegir la etapa"
+                        ? "Falta configurar la fuente"
                         : "Fuera del historial registrado"}
                     </span>
+                  ) : prov?.provenance ? (
+                    // La etiqueta entre corchetes es literal del documento, que
+                    // la declara no negociable.
+                    <SourceTag tool={prov.provenance} />
                   ) : (
-                    <span className="text-muted-foreground">{tool?.label ?? "—"}</span>
+                    <span className="text-muted-foreground">—</span>
                   )}
+                </td>
+                <td className="px-4 py-3 text-xs">
+                  {/*
+                    Qué herramienta le asigna el documento a este paso. Cuando no
+                    coincide con la de la izquierda, el número es legítimo pero
+                    sale de otro lado — y eso hay que poder verlo.
+                  */}
+                  <span
+                    className={cn(
+                      "text-muted-foreground",
+                      !unbound &&
+                        prov?.provenance &&
+                        prov.provenance !== step.sourceHint &&
+                        "text-amber-600 dark:text-amber-400"
+                    )}
+                  >
+                    {getInstrumentationTool(step.sourceHint).label}
+                  </span>
                 </td>
               </tr>
             );
