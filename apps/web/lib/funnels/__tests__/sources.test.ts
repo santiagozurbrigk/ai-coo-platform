@@ -5,6 +5,7 @@ import {
   DEFAULT_DM_BINDINGS,
   getFunnelSource,
   isFunnelSourceId,
+  missingSourceConfig,
   sourcesForStage,
 } from "../sources";
 import { requireFunnelTemplate, FUNNEL_TEMPLATES } from "../templates";
@@ -122,5 +123,40 @@ describe("compatibilidad fuente ↔ etapa (validación de setFunnelStepBindingAc
     // Desde I-1 la etapa `click` tiene fuente, así que ya no queda ningún paso
     // del DM sin ninguna opción posible.
     expect(sinOpciones).toEqual([]);
+  });
+});
+
+describe("missingSourceConfig", () => {
+  it("una fuente sin parámetros nunca falta configuración", () => {
+    const source = getFunnelSource("conversations_opened")!;
+    expect(missingSourceConfig(source, null)).toEqual([]);
+    expect(missingSourceConfig(source, {})).toEqual([]);
+  });
+
+  it("ghl_stage_entered pide la etapa", () => {
+    // Sin saber a qué etapa se refiere, contar "entradas a la etapa" sería
+    // contar todas: una respuesta a una pregunta que nadie hizo.
+    const source = getFunnelSource("ghl_stage_entered")!;
+    expect(missingSourceConfig(source, null)).toEqual(["stageId"]);
+    expect(missingSourceConfig(source, {})).toEqual(["stageId"]);
+    expect(missingSourceConfig(source, { stageId: "   " })).toEqual(["stageId"]);
+    expect(missingSourceConfig(source, { stageId: 42 })).toEqual(["stageId"]);
+  });
+
+  it("con la etapa elegida no falta nada", () => {
+    const source = getFunnelSource("ghl_stage_entered")!;
+    expect(missingSourceConfig(source, { stageId: "stage_2" })).toEqual([]);
+  });
+
+  it("toda fuente con parámetros requeridos los declara con kind y label", () => {
+    for (const source of FUNNEL_SOURCES) {
+      const fields = (source as { configFields?: readonly { key: string; label: string; kind: string }[] })
+        .configFields;
+      for (const field of fields ?? []) {
+        expect(field.key.length).toBeGreaterThan(0);
+        expect(field.label.length).toBeGreaterThan(0);
+        expect(["ghl_stage", "ghl_pipeline"]).toContain(field.kind);
+      }
+    }
   });
 });

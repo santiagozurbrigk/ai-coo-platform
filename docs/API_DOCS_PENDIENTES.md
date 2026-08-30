@@ -163,6 +163,46 @@ hora de recepción del webhook, así que hay que guardarla.
 **Limitación asumida:** la historia de etapas arranca el día que se conecten los
 webhooks. Hacia atrás sólo se puede reconstruir el estado actual.
 
+### 🔴 Lo que quedó SIN documentación al construir I-4 (2026-08-30)
+
+Tres huecos. El primero es el que puede cambiar código; los otros dos son
+nombres de campo que el primer response real resuelve.
+
+**a) El payload del webhook entregado por un Workflow de GHL.**
+
+El problema de fondo: **los webhooks de plataforma se configuran dentro de una app
+del Marketplace**, que OTC todavía no tiene aprobada (`[FEAT-GHL-OAUTH]`). La vía
+que funciona hoy sin esa app es que el cliente agregue una acción "Webhook" en un
+Workflow de su sub-cuenta apuntando a OTC.
+
+Esa vía **no está documentada**: el payload lo arma quien configura el workflow, y
+la guía de webhooks del Marketplace no la cubre. Lo que se asumió:
+
+- El evento trae `type` con uno de los nombres de la familia `Opportunity*`.
+- El id de la oportunidad puede venir como `opportunityId` o `id`, en la raíz o
+  anidado bajo `data`, `opportunity` o `customData`. **`opportunityId` gana sobre
+  `id`** porque en un workflow `id` puede ser el contacto.
+- Esos eventos **no llevan firma de plataforma**, así que se autentican con un
+  secreto compartido por organización en la URL.
+
+Confianza: **baja**. Hay que fijarlo con el primer payload real. Mientras tanto el
+evento crudo se persiste en `ghl_webhook_events` antes de interpretarse, y lo que
+no se entiende queda `unmapped` con su motivo — nunca se inventa un id ni una
+etapa.
+
+**Qué falta saber:** si un Workflow de GHL puede mandar `pipelineStageId` en el
+cuerpo, o si hay que armarlo con custom values. Si no pudiera, la vía de workflow
+sólo serviría para altas y la unidad quedaría atada a la app del Marketplace.
+
+**b) La forma del objeto `pipeline` y de sus etapas.** La doc dice literalmente
+`pipelines: object[]`, sin expandir. Se asumió `id` (o `_id`), `name`, `stages[]`
+y dentro de cada etapa `id` (o `_id`), `name`, `position`. El orden del array es
+el respaldo de `position`. Se guarda `raw` completo.
+
+**c) La forma del objeto `opportunity` de las respuestas REST.** Igual: la doc
+devuelve `opportunity: object`. Se asumieron los campos que el payload de los
+webhooks sí documenta. Puede traer más.
+
 ## 4. VTurb (unidad I-6)
 
 ✅ **VERIFICADO 2026-08-30** contra `docs/external-apis/vturb/openapi.json`.

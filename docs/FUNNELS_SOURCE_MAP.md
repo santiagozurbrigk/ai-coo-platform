@@ -145,11 +145,11 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 
 | # | Medida | Qué es | Estado | Qué falta |
 |---|---|---|---|---|
-| M21 | `dm_conversations_opened` | Conversaciones abiertas | 🔴 | Webhook `OpportunityStageUpdate` + tabla propia de transiciones |
-| M22 | `dm_conversations_replied` | Respondieron al calificador | 🔴 | Idem M21 |
-| M23 | `dm_offers_or_calls_set` | Oferta enviada o llamada agendada | 🔴 | Idem M21 |
+| M21 | `dm_conversations_opened` | Conversaciones abiertas | 🟡 | Modelo, webhook y tabla de transiciones construidos; falta **recibir el primer evento real** |
+| M22 | `dm_conversations_replied` | Respondieron al calificador | 🟡 | Idem M21 — se configura eligiendo la etapa del pipeline |
+| M23 | `dm_offers_or_calls_set` | Oferta enviada o llamada agendada | 🟡 | Idem M22 |
 | M24 | `deals_closed` | Cierres | ✅ | Idem M20 |
-| M25 | `follow_ups` | Seguimientos | 🔴 | Idem M21. El doc la declara en §05 pero ninguna de sus métricas la usa |
+| M25 | `follow_ups` | Seguimientos | 🟡 | Idem M22. El doc la declara en §05 pero ninguna de sus métricas la usa |
 
 > ✅ **Documentación verificada el 2026-08-30** (`docs/external-apis/gohighlevel/`).
 > La integración GHL de OTC consume `/calendars` y `/contacts`; falta
@@ -164,6 +164,30 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 > necesita **persistir las transiciones** en una tabla propia. Con sólo el REST, una
 > oportunidad que pasó por tres etapas dentro del período se contaría una sola vez.
 > La historia arranca el día que se conecten los webhooks.
+
+> 🔨 **Construido el 2026-08-30.** `ghl_stage_transitions` guarda cada transición
+> derivada contra la última etapa conocida en `ghl_opportunities`, porque el webhook
+> no trae la etapa anterior. Tres fuentes nuevas —`ghl_opportunities_created`,
+> `ghl_stage_entered` (con la etapa elegida por el usuario) y
+> `ghl_opportunities_won`— cuentan **oportunidades distintas** cuya transición cae
+> en el período.
+>
+> ⭐ **El período ciego se muestra, no se disimula.**
+> `ghl_integrations.stage_history_since` marca el momento de la primera transición
+> observada. Cualquier período que empiece antes resuelve a `null` con el motivo
+> `outside_history`, y la UI dice "Fuera del historial registrado". Un cero ahí
+> diría "no pasó nada" cuando la verdad es "no lo estábamos mirando" — el mismo
+> error de §9.1, entrando por la puerta del tiempo. Un período que **cruza** el
+> borde también resuelve a `null`: un conteo parcial presentado como completo es
+> peor que un hueco visible.
+>
+> ⚠️ **Lo que falta no es código, es una decisión de entrega.** Los webhooks de
+> plataforma se configuran dentro de una app del Marketplace que OTC no tiene
+> aprobada. Por eso el endpoint acepta **dos vías de autenticación**: la firma
+> Ed25519 de la plataforma (para cuando exista la app) y un secreto compartido por
+> organización (para eventos entregados por un Workflow de la sub-cuenta, que
+> funciona hoy). El payload de esa segunda vía no está documentado — ver
+> `docs/API_DOCS_PENDIENTES.md` §3.
 
 ### Whop / Fanbasis — dinero
 
@@ -237,11 +261,11 @@ Qué medidas consume cada paso, y si ese paso se puede medir hoy.
 | Etapa | Paso | Medidas | ¿Medible hoy? |
 |---|---|---|---|
 | Click | Trigger (comment / story / ad) | M34, M03, M01 | 🟡 Al periodizar Meta y Zernio |
-| Lead | Conversation opened | M34, M21, M01 | 🔴 Falta GHL opportunities |
-| Engaged | Two-way, replied to qualifier | M21, M22 | 🔴 Falta GHL opportunities |
-| Intent | Offer sent or call set | M21, M23 | 🔴 Falta GHL opportunities |
+| Lead | Conversation opened | M34, M21, M01 | 🟡 Al recibir el primer webhook de GHL |
+| Engaged | Two-way, replied to qualifier | M21, M22 | 🟡 Al recibir el primer webhook de GHL |
+| Intent | Offer sent or call set | M21, M23 | 🟡 Al recibir el primer webhook de GHL |
 | Sales Conv. | Showed / offer opened | M23, M20 | 🟡 Al poblar asistencia |
-| Cash | Closed in thread or on call | M21, M24, M28 | 🔴 Falta GHL opportunities |
+| Cash | Closed in thread or on call | M21, M24, M28 | 🟡 Al recibir el primer webhook de GHL |
 
 ---
 
@@ -294,7 +318,7 @@ Agrupado por unidad de trabajo, con lo que desbloquea cada una.
 | ~~**I-1**~~ | ~~**Persistir métricas de ads por período**~~ ✅ **Hecho 2026-08-29** | M01–M04 | Etapas Spend y Click de **los 3 embudos**, CPC, CPL, EPC, ROAS blended, CAC | — |
 | **I-2** | **Pagos con Whop y Fanbasis** 🔨 **Construido 2026-08-29, sin verificar** | M26–M31 | Etapa Cash de **los 3 embudos**, AOV, ROAS, CAC, EPL, cash vs contracted, refunds | Falta conectar la primera cuenta real y confirmar el mapeo con un webhook de verdad |
 | ~~**I-3**~~ | ~~**Verificar asistencia y cierre de llamadas**~~ ✅ **Hecho 2026-08-30** | M20, M24 | Show rate y Close rate en VSL y DM, 2 health bands | — |
-| **I-4** | **Sync de oportunidades de GHL** | M21–M23, M25 | **Embudo DM entero** (4 de 6 pasos) | **M** — auth y cliente ya existen; suma endpoints REST **+ webhooks + tabla de transiciones de etapa** |
+| **I-4** | **Sync de oportunidades de GHL** 🔨 **Construido 2026-08-30, sin verificar** | M21–M23, M25 | **Embudo DM entero** (4 de 6 pasos) | Falta recibir el primer webhook real y confirmar que la vía de Workflow entregue `pipelineStageId` |
 | **I-5** | **Integración de webinar** (WebinarJam / Zoom) | M13–M16 | **Embudo Webinar entero** (4 de 7 pasos) | **L** — integración nueva desde cero |
 | **I-6** | **Integración VTurb** | M08, M10–M12 | Etapa Engaged del **VSL** + visitantes de página | **S** — un solo endpoint (`/sessions/stats`) devuelve las cuatro medidas ya calculadas |
 | ~~**I-7**~~ | ~~**Analytics de landing / opt-in**~~ — **absorbida por `I-8`**, ver §8 | M08, M09 | Etapa Lead del webinar, denominador del play rate del VSL | — |

@@ -18,6 +18,16 @@
 import type { SpineStageId } from "./spine";
 import type { InstrumentationToolId } from "./instrumentation";
 
+/** Tipo de dato que pide un parámetro de fuente, para que la UI sepa qué mostrar. */
+export type FunnelSourceConfigKind = "ghl_stage" | "ghl_pipeline";
+
+export type FunnelSourceConfigField = {
+  key: string;
+  label: string;
+  kind: FunnelSourceConfigKind;
+  required: boolean;
+};
+
 export const FUNNEL_SOURCES = [
   {
     id: "ad_clicks",
@@ -85,12 +95,52 @@ export const FUNNEL_SOURCES = [
     provenance: "checkout",
     suitableFor: ["cash"],
   },
+  {
+    id: "ghl_opportunities_created",
+    label: "Oportunidades abiertas (GHL)",
+    description:
+      "Oportunidades que OTC vio nacer dentro del período, según el historial propio de transiciones (M21).",
+    provenance: "crm_pipeline",
+    suitableFor: ["lead"],
+    configFields: [],
+  },
+  {
+    id: "ghl_stage_entered",
+    label: "Entraron a una etapa del pipeline (GHL)",
+    description:
+      "Oportunidades distintas que entraron a la etapa elegida durante el período (M22, M23, M25). Cuenta el paso por la etapa, no quiénes están hoy en ella.",
+    provenance: "crm_pipeline",
+    // Sirve para cualquier etapa del spine porque la etapa concreta de GHL la
+    // elige el usuario: el mismo mecanismo alimenta "respondió", "oferta
+    // enviada" y "seguimiento".
+    suitableFor: ["lead", "engaged", "intent", "sales_conv", "cash"],
+    configFields: [
+      { key: "stageId", label: "Etapa del pipeline", kind: "ghl_stage", required: true },
+    ],
+  },
+  {
+    id: "ghl_opportunities_won",
+    label: "Oportunidades ganadas (GHL)",
+    description:
+      'Oportunidades que pasaron a estado "won" durante el período.',
+    provenance: "crm_pipeline",
+    suitableFor: ["cash"],
+    configFields: [],
+  },
 ] as const satisfies readonly {
   id: string;
   label: string;
   description: string;
   provenance: InstrumentationToolId;
   suitableFor: readonly SpineStageId[];
+  /**
+   * Parámetros que el usuario tiene que elegir para que la fuente signifique
+   * algo. Se guardan en `funnel_step_bindings.config`.
+   *
+   * Una fuente con campos requeridos y sin configurar resuelve a `null`: no se
+   * puede contar "entradas a una etapa" sin saber a cuál (§9.1).
+   */
+  configFields?: readonly FunnelSourceConfigField[];
 }[];
 
 export type FunnelSource = (typeof FUNNEL_SOURCES)[number];
@@ -106,6 +156,29 @@ export function isFunnelSourceId(value: string): value is FunnelSourceId {
   return SOURCE_BY_ID.has(value as FunnelSourceId);
 }
 
+/**
+ * Parámetros requeridos que faltan en la config de un binding.
+ *
+ * Devuelve la lista de claves faltantes; vacía significa que la fuente está
+ * lista para resolver. Un `ghl_stage_entered` sin `stageId` no puede contar
+ * nada, y contar "todas las etapas" sería inventar una respuesta a una pregunta
+ * que el usuario no hizo.
+ */
+export function missingSourceConfig(
+  source: FunnelSource,
+  config: Record<string, unknown> | null | undefined
+): string[] {
+  const fields = (source as { configFields?: readonly FunnelSourceConfigField[] }).configFields;
+  if (!fields?.length) return [];
+  return fields
+    .filter((field) => {
+      if (!field.required) return false;
+      const value = config?.[field.key];
+      return typeof value !== "string" || !value.trim();
+    })
+    .map((field) => field.key);
+}
+
 /** Fuentes que tienen sentido para una etapa dada, para la UI de configuración. */
 export function sourcesForStage(stageId: SpineStageId): FunnelSource[] {
   return FUNNEL_SOURCES.filter((s) =>
@@ -116,8 +189,10 @@ export function sourcesForStage(stageId: SpineStageId): FunnelSource[] {
 /**
  * Bindings por defecto del embudo DM.
  *
- * Es el único de los tres embudos construible end-to-end con las fuentes que OTC
- * ya tiene, y por eso es el primero que se implementa.
+ * Apuntan al inbox de OTC, que es lo que funciona sin configurar nada. Las
+ * fuentes de GHL (`ghl_*`) son la alternativa fiel al documento —§05 asigna los
+ * conteos del DM al pipeline del CRM— pero necesitan que el usuario elija a qué
+ * etapa corresponde cada paso, así que no se pueden poner por defecto.
  *
  * `dm.trigger` queda deliberadamente SIN binding: OTC no tiene hoy una fuente de
  * disparadores (comentarios / historias / anuncios que inician una conversación).

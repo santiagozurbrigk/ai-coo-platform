@@ -12,10 +12,12 @@ import {
   getSpineStage,
   isFunnelSourceId,
   isFunnelTemplateId,
+  missingSourceConfig,
   requireFunnelTemplate,
   resolvePeriod,
   sourcesForStage,
   type FunnelPeriodPresetId,
+  type FunnelSourceConfigField,
 } from "@/lib/funnels";
 import {
   resolveFunnel,
@@ -67,7 +69,7 @@ export async function getFunnelAction(
 
   const { data: bindings } = await supabase
     .from("funnel_step_bindings")
-    .select("step_id, source_id")
+    .select("step_id, source_id, config")
     .eq("organization_id", organizationId)
     .eq("funnel_instance_id", funnelId);
 
@@ -160,6 +162,8 @@ export type StepBindingOption = {
   sourceId: string;
   label: string;
   description: string;
+  /** Parámetros que hay que elegir para esta fuente (hoy, la etapa de GHL). */
+  configFields: FunnelSourceConfigField[];
 };
 
 export type StepBindingRowView = {
@@ -170,6 +174,13 @@ export type StepBindingRowView = {
   metricLabel: string;
   /** Fuente configurada hoy, o `null` si el paso no tiene ninguna. */
   currentSourceId: string | null;
+  /** Config guardada del binding, p. ej. `{ stageId }`. */
+  currentConfig: Record<string, unknown>;
+  /**
+   * Parámetros requeridos que faltan. Con algo acá, el paso resuelve a "sin
+   * datos" aunque tenga fuente: es un hueco de configuración, no de negocio.
+   */
+  missingConfig: string[];
   /** Fuentes que tienen sentido para la etapa de este paso. */
   options: StepBindingOption[];
   /** Herramienta que el documento fuente le asigna a este paso. */
@@ -196,11 +207,19 @@ export async function getFunnelBindingsAction(
 
   const { data: bindings } = await supabase
     .from("funnel_step_bindings")
-    .select("step_id, source_id")
+    .select("step_id, source_id, config")
     .eq("organization_id", organizationId)
     .eq("funnel_instance_id", funnelId);
 
-  const byStep = new Map((bindings ?? []).map((b) => [b.step_id, b.source_id]));
+  const byStep = new Map(
+    (bindings ?? []).map((b) => [
+      b.step_id,
+      {
+        sourceId: b.source_id as string,
+        config: (b.config ?? {}) as Record<string, unknown>,
+      },
+    ])
+  );
 
   return {
     instanceName: instance.name,
@@ -211,11 +230,20 @@ export async function getFunnelBindingsAction(
       stageId: step.stageId,
       stageLabel: getSpineStage(step.stageId).label,
       metricLabel: step.metricLabel,
-      currentSourceId: byStep.get(step.id) ?? null,
+      currentSourceId: byStep.get(step.id)?.sourceId ?? null,
+      currentConfig: byStep.get(step.id)?.config ?? {},
+      missingConfig: (() => {
+        const bound = byStep.get(step.id);
+        const source = bound ? getFunnelSource(bound.sourceId) : undefined;
+        return source ? missingSourceConfig(source, bound?.config) : [];
+      })(),
       options: sourcesForStage(step.stageId).map((source) => ({
         sourceId: source.id,
         label: source.label,
         description: source.description,
+        configFields: [
+          ...((source as { configFields?: readonly FunnelSourceConfigField[] }).configFields ?? []),
+        ],
       })),
       documentTool: getInstrumentationTool(step.sourceHint).label,
     })),
@@ -231,7 +259,8 @@ export async function getFunnelBindingsAction(
 export async function setFunnelStepBindingAction(
   funnelId: string,
   stepId: string,
-  sourceId: string | null
+  sourceId: string | null,
+  config: Record<string, unknown> = {}
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
@@ -283,6 +312,7 @@ export async function setFunnelStepBindingAction(
       funnel_instance_id: funnelId,
       step_id: stepId,
       source_id: sourceId,
+      config,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "funnel_instance_id,step_id" }

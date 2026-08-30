@@ -14,7 +14,9 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { computeFunnel, type OrgMeasures, type StepCounts } from "./compute";
-import { getFunnelSource, type FunnelSourceId } from "./sources";
+import { getFunnelSource, missingSourceConfig, type FunnelSourceId } from "./sources";
+import { getGHLStageHistorySince } from "@/lib/ghl/integration";
+import { isPeriodCovered } from "@/lib/ghl/stage-transition";
 import { periodBounds, type FunnelPeriod } from "./period";
 import {
   countAllTimeRows,
@@ -46,6 +48,8 @@ export type FunnelInstanceRow = {
 export type StepBindingRow = {
   step_id: string;
   source_id: string;
+  /** Parámetros de la fuente, p. ej. `{ stageId }` para `ghl_stage_entered`. */
+  config?: Record<string, unknown> | null;
 };
 
 /** Procedencia de cada step resuelto, para etiquetar las figuras en la UI. */
@@ -55,6 +59,14 @@ export type StepProvenance = {
   provenance: InstrumentationToolId | null;
   /** `true` cuando el step no tiene fuente configurada. */
   unbound: boolean;
+  /**
+   * Por qué el step no tiene número, cuando la fuente sí está bindeada.
+   *
+   * Distingue los tres motivos que la UI necesita separar: falta configurar un
+   * parámetro, el período cae antes de que OTC tuviera historial, o la consulta
+   * no devolvió señal. Los tres dan `null`, pero se arreglan distinto.
+   */
+  nullReason: "missing_config" | "outside_history" | null;
 };
 
 export type ResolvedFunnelData = {
@@ -217,11 +229,53 @@ async function countClientPayments(
   return error ? null : (count ?? null);
 }
 
+// ─── GHL: conteos por etapa desde el historial propio ─────────────────────────
+//
+// ⭐ Estos tres resolvers NO leen `ghl_opportunities` (el estado de hoy) sino
+// `ghl_stage_transitions` (lo que pasó durante el período). Es la diferencia que
+// justifica toda la unidad I-4: la API de GHL sólo sabe dónde está cada
+// oportunidad ahora, y el documento fuente pregunta por cuántas pasaron.
+
+/**
+ * Oportunidades distintas cuya transición cae en el período.
+ *
+ * Cuenta oportunidades y no filas: si una volvió a entrar a la misma etapa dos
+ * veces en el período, es una sola oportunidad que llegó ahí.
+ */
+async function countDistinctTransitions(
+  supabase: SupabaseClient,
+  organizationId: string,
+  period: FunnelPeriod,
+  filter: { column: string; value: string }
+): Promise<number | null> {
+  const { fromIso, toIso } = periodBounds(period);
+
+  const { data, error } = await supabase
+    .from("ghl_stage_transitions")
+    .select("opportunity_external_id")
+    .eq("organization_id", organizationId)
+    .eq(filter.column, filter.value)
+    .gte("occurred_at", fromIso)
+    .lt("occurred_at", toIso);
+
+  if (error || !data) return null;
+
+  return new Set(data.map((row) => row.opportunity_external_id as string)).size;
+}
+
+/** Fuentes que dependen del historial propio de GHL y de su período ciego. */
+const GHL_HISTORY_SOURCES: readonly FunnelSourceId[] = [
+  "ghl_opportunities_created",
+  "ghl_stage_entered",
+  "ghl_opportunities_won",
+];
+
 async function resolveSource(
   sourceId: FunnelSourceId,
   supabase: SupabaseClient,
   organizationId: string,
-  period: FunnelPeriod
+  period: FunnelPeriod,
+  config: Record<string, unknown> | null | undefined
 ): Promise<number | null> {
   switch (sourceId) {
     case "ad_clicks":
@@ -246,6 +300,26 @@ async function resolveSource(
       return countNewClients(supabase, organizationId, period);
     case "client_payments_count":
       return countClientPayments(supabase, organizationId, period);
+    case "ghl_opportunities_created":
+      return countDistinctTransitions(supabase, organizationId, period, {
+        column: "kind",
+        value: "created",
+      });
+    case "ghl_stage_entered": {
+      // La cobertura del período y la config ya se validaron antes de llegar
+      // acá; el guard queda igual porque un `stageId` vacío contaría todo.
+      const stageId = config?.stageId;
+      if (typeof stageId !== "string" || !stageId.trim()) return null;
+      return countDistinctTransitions(supabase, organizationId, period, {
+        column: "to_stage_external_id",
+        value: stageId,
+      });
+    }
+    case "ghl_opportunities_won":
+      return countDistinctTransitions(supabase, organizationId, period, {
+        column: "status",
+        value: "won",
+      });
     default:
       return null;
   }
@@ -330,15 +404,28 @@ export async function resolveFunnel(
   period: FunnelPeriod
 ): Promise<ResolvedFunnelData> {
   const template = requireFunnelTemplate(instance.template_id);
-  const bindingByStep = new Map(bindings.map((b) => [b.step_id, b.source_id]));
+  const bindingByStep = new Map(
+    bindings.map((b) => [b.step_id, { sourceId: b.source_id, config: b.config ?? null }])
+  );
 
   const stepCounts: StepCounts = {};
   const provenance: StepProvenance[] = [];
 
+  // El borde del período ciego de GHL se lee una sola vez y sólo si hace falta:
+  // la mayoría de los embudos no usa fuentes de historial de etapas.
+  const usesGHLHistory = template.steps.some((step) => {
+    const sourceId = bindingByStep.get(step.id)?.sourceId;
+    return sourceId ? GHL_HISTORY_SOURCES.includes(sourceId as FunnelSourceId) : false;
+  });
+  const ghlHistorySince = usesGHLHistory
+    ? await getGHLStageHistorySince(instance.organization_id).catch(() => null)
+    : null;
+  const { fromIso: periodStartIso } = periodBounds(period);
+
   const resolved = await Promise.all(
     template.steps.map(async (step) => {
-      const sourceId = bindingByStep.get(step.id);
-      const source = sourceId ? getFunnelSource(sourceId) : undefined;
+      const binding = bindingByStep.get(step.id);
+      const source = binding ? getFunnelSource(binding.sourceId) : undefined;
 
       if (!source) {
         return {
@@ -349,7 +436,39 @@ export async function resolveFunnel(
             sourceId: null,
             provenance: null,
             unbound: true,
+            nullReason: null,
           } satisfies StepProvenance,
+        };
+      }
+
+      const entry = {
+        stepId: step.id,
+        sourceId: source.id,
+        provenance: source.provenance,
+        unbound: false,
+        nullReason: null,
+      } satisfies StepProvenance;
+
+      // Falta elegir la etapa de GHL: sin eso la fuente no significa nada.
+      if (missingSourceConfig(source, binding?.config).length > 0) {
+        return {
+          stepId: step.id,
+          count: null,
+          entry: { ...entry, nullReason: "missing_config" } satisfies StepProvenance,
+        };
+      }
+
+      // ⭐ Período ciego: el historial de etapas arranca con el primer webhook.
+      // Antes de esa fecha OTC no estaba mirando, y las cero transiciones que
+      // devolvería la consulta significan "no lo sabemos", no "no pasó nada".
+      if (
+        GHL_HISTORY_SOURCES.includes(source.id) &&
+        !isPeriodCovered(ghlHistorySince, periodStartIso)
+      ) {
+        return {
+          stepId: step.id,
+          count: null,
+          entry: { ...entry, nullReason: "outside_history" } satisfies StepProvenance,
         };
       }
 
@@ -357,19 +476,11 @@ export async function resolveFunnel(
         source.id,
         supabase,
         instance.organization_id,
-        period
+        period,
+        binding?.config
       );
 
-      return {
-        stepId: step.id,
-        count,
-        entry: {
-          stepId: step.id,
-          sourceId: source.id,
-          provenance: source.provenance,
-          unbound: false,
-        } satisfies StepProvenance,
-      };
+      return { stepId: step.id, count, entry };
     })
   );
 

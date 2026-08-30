@@ -14,6 +14,51 @@
 
 ---
 
+### 2026-08-30 — I-4: oportunidades de GoHighLevel y el historial de etapas que GHL no tiene
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260830140000_ghl_opportunities.sql`, `lib/ghl/{client,integration,opportunity-event,stage-transition,verify-webhook,ingest-opportunity-event,sync-pipelines}.ts`, `app/api/webhooks/ghl/route.ts`, `app/ghl/opportunity-actions.ts`, `lib/funnels/{sources,resolve}.ts`, `app/funnels/actions.ts`, `components/funnels/{funnel-bindings-form,funnel-steps-table}.tsx`, docs
+
+**Qué se hizo:**
+La unidad I-4 del mapa de fuentes: M21, M22, M23 y M25, que son 4 de los 6 pasos del embudo DM.
+
+**El problema que resuelve, y por qué no era un sync más.** La documentación verificada confirmó que **la API v3 de GHL no expone historial de cambios de etapa**: no hay endpoint de historial, la búsqueda no filtra por transición, y `OpportunityStageUpdate` trae la etapa nueva pero no la anterior ni el momento del cambio. El documento fuente, en cambio, pide conteos por etapa **durante un período**. Con sólo el REST, una oportunidad que pasó por Lead → Engaged → Intent dentro del período se contaría una sola vez, en la etapa donde quedó.
+
+Así que OTC construye su propio historial. `ghl_stage_transitions` guarda cada transición derivada contra la última etapa conocida en `ghl_opportunities`, que existe justamente para eso: el webhook no trae la etapa de origen, hay que recordarla.
+
+**El período ciego, que es la parte que más importa.** Ese historial arranca con el primer webhook. Antes de esa fecha OTC no sabe nada, y las cero transiciones que devolvería la consulta significan "no lo estábamos mirando", no "no pasó nada". `ghl_integrations.stage_history_since` marca el borde; cualquier período que empiece antes resuelve a `null` con motivo `outside_history` y la UI dice "Fuera del historial registrado". Es la regla del `null` vs `0` (§9.1) aplicada al tiempo. Un período que **cruza** el borde también resuelve a `null`: un conteo parcial presentado como completo es peor que un hueco visible.
+
+**El bloqueo de entrega, y cómo se resolvió sin esperar a GHL.** Los webhooks de plataforma se configuran **dentro de una app del Marketplace**, que OTC no tiene aprobada (`[FEAT-GHL-OAUTH]`). El endpoint acepta por eso **dos vías de autenticación**:
+- **Firma Ed25519** (`X-GHL-Signature`) con la clave pública de GHL, más la RSA legacy por el período de transición. Es lo que va a usar la app del Marketplace cuando exista, y resuelve la org por el `locationId` del payload.
+- **Secreto compartido por organización**, para eventos que el cliente entregue desde una acción "Webhook" de un Workflow de su sub-cuenta. Es la vía que funciona **hoy**.
+
+Una firma inválida **no** cae al secreto compartido: si cayera, quien conociera el secreto podría hacer pasar eventos por firmados por la plataforma.
+
+**Configuración por paso.** `ghl_stage_entered` no significa nada sin saber a qué etapa se refiere, así que el binding guarda `{ stageId }` en `funnel_step_bindings.config` y el usuario la elige de un selector poblado por `syncGHLPipelinesForOrg`. Sin elegirla, el paso resuelve a `null` con motivo `missing_config` y la UI dice "Falta elegir la etapa" — un hueco de configuración es distinto de un hueco de historial y de un cero, y los tres se arreglan distinto.
+
+**Verificación ejecutada:**
+- `pnpm test`: **331 tests en 17 archivos, todos en verde** (34 nuevos entre `opportunity-event`, `stage-transition`, `verify-webhook` y `missingSourceConfig`).
+- `tsc --noEmit` limpio, `pnpm lint` sin errores.
+- Migración **aplicada** al proyecto Supabase de OTC.
+
+**Decisiones de diseño:**
+- **`occurred_at` es la hora de recepción, no `dateAdded`.** `dateAdded` es la fecha de creación de la oportunidad y no cambia con las transiciones: usarla pondría las tres transiciones de una misma oportunidad en la fecha de su alta, y el conteo por período sería falso. Hay un test que fija esto.
+- **La etapa de origen de la primera transición queda en `NULL`.** Una oportunidad que apareció por primera vez en la etapa 5 pudo haber pasado por las anteriores sin que OTC lo viera; decir que vino de la 1 sería afirmar un recorrido que nadie observó.
+- **Las fuentes cuentan oportunidades distintas, no filas.** Si una vuelve a entrar a la misma etapa dos veces en el período, es una sola oportunidad que llegó ahí.
+- **Una baja no es una transición.** Marca `status = 'deleted'` y no toca el historial: las transiciones que ya ocurrieron siguen siendo ciertas y siguen contando en su período.
+- **Un `OpportunityUpdate` que sólo cambió el nombre no registra nada.** Sumar ahí inflaría los conteos de etapa con ediciones administrativas.
+- **Los eventos que no son `Opportunity*` se descartan sin guardar.** No aportan al embudo y traen datos personales del contacto que no hace falta almacenar.
+- **`Version: v3` sólo para opportunities.** El resto del cliente sigue con `2021-04-15`; se agregó un override por llamada en vez de migrar todo.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **El payload de la vía de Workflow no está documentado** — lo arma quien configura el workflow. El normalizador lo busca en varias capas y el evento crudo se persiste antes de interpretarse, pero la pregunta que decide la unidad sigue abierta: **si un Workflow de GHL puede mandar `pipelineStageId`**. Si no pudiera, esa vía sólo serviría para altas y I-4 quedaría atada a la aprobación del Marketplace. Anotado en `docs/API_DOCS_PENDIENTES.md` §3 y en `docs/PLAN_VERIFICACION.md` §5.2.
+- ⚠️ **La doc no expande el objeto `pipeline` ni el `opportunity`.** Se guarda `raw` completo de los dos para poder corregir el mapeo con el primer response real sin volver a llamar a la API.
+- No hay backfill: `searchGHLOpportunities` está construido pero sólo puede traer el estado actual, no el historial. Sirve para poblar la última etapa conocida de oportunidades preexistentes, y todavía no se usa.
+- `lib/ghl/ingest-opportunity-event.ts` no tiene tests de orquestación — quedó como `[T-6b]` en `docs/TESTING_BACKLOG.md`.
+
+---
+
 ### 2026-08-30 — FIX-EMBUDOS-I2: corrección del mapeo de pagos con la documentación real
 
 **Rama/branch:** `Claude-New-Features`  

@@ -25,7 +25,7 @@
 
 **Orden acordado — de afuera hacia adentro, no de a un embudo:**
 - **Ola 1 (extremos, sirve a los 3 embudos):** ✅ **Completa.** ~~I-1 métricas de ads~~ · ~~I-2 pagos con Whop y Fanbasis~~ 🔨 *(falta conectar una cuenta real y verificar el mapeo)* · ~~I-3 asistencia y cierres + detección de fuente vacía~~
-- **Ola 2 (medios, por costo):** I-4 GHL opportunities · I-6 VTurb · I-5 webinar — 📗 documentación capturada. Hallazgos que cambian el diseño: GHL **no** tiene historial de cambios de etapa (hay que construirlo desde webhooks); VTurb **sí** da la curva de retención y ya modela el segundo del CTA; WebinarJam resuelve el stick rate del lado del servidor pero **no expone clicks al CTA**, y su API key **requiere aprobación previa** — pedirla ya.
+- **Ola 2 (medios, por costo):** ~~I-4 GHL opportunities~~ 🔨 *(construido 2026-08-30; falta recibir el primer webhook real — ver `[EMBUDOS-GHL-ENTREGA]`)* · I-6 VTurb · I-5 webinar — 📗 documentación capturada. Hallazgos que cambian el diseño: GHL **no** tiene historial de cambios de etapa (hay que construirlo desde webhooks); VTurb **sí** da la curva de retención y ya modela el segundo del CTA; WebinarJam resuelve el stick rate del lado del servidor pero **no expone clicks al CTA**, y su API key **requiere aprobación previa** — pedirla ya.
 - **Ola 3:** I-9 retención · I-8 Hyros · I-10 triggers de Zernio — 📗 Hyros capturado. Confirma que **`I-7` no hace falta** (M08 y M09 salen de `/leads` y del reporte de atribución) y que `fields=cost` cubre M01, así que tampoco hace falta cruzar la API de cada plataforma de ads.
 
 **Verificación:** nada se prueba contra cuentas reales hasta terminar todas las olas — ver [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md).
@@ -47,6 +47,28 @@
 **Además:** la deduplicación de Whop va por `webhook-id` (entrega *at least once*, 12 reintentos en ~71 h, sin orden garantizado), y el prefijo del secreto de firma es `ws_`, no `whsec_`.
 
 **Dónde está el detalle:** [`docs/external-apis/whop/RESUMEN-OTC.md`](./docs/external-apis/whop/RESUMEN-OTC.md) y [`docs/external-apis/commas/RESUMEN-OTC.md`](./docs/external-apis/commas/RESUMEN-OTC.md).
+
+---
+
+### [EMBUDOS-GHL-ENTREGA] Cerrar cómo llegan los webhooks de oportunidades de GHL
+
+**Qué es:** I-4 está construido, pero la pregunta que decide si funciona sigue abierta. Los webhooks de plataforma de GHL **se configuran dentro de una app del Marketplace**, que OTC no tiene aprobada (`[FEAT-GHL-OAUTH]`). El endpoint acepta por eso dos vías: la firma Ed25519 de la plataforma, y un **secreto compartido por organización** para eventos entregados desde una acción "Webhook" de un Workflow de la sub-cuenta.
+
+**Lo que hay que verificar, y es lo único que importa:** que un Workflow de GHL pueda mandar **`pipelineStageId`** en el cuerpo del webhook. Si no pudiera, esa vía sólo serviría para altas (M21) y M22, M23 y M25 quedarían atadas a la aprobación del Marketplace.
+
+**Cómo probarlo:** los pasos están en [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md) §5.2. Generar el secreto desde Integraciones, armar el Workflow apuntando a la URL, mover una oportunidad de etapa y **mirar el payload crudo** en `ghl_webhook_events`.
+
+**Consecuencia si sale mal:** hay que priorizar `[FEAT-GHL-OAUTH]`, que es lento porque depende de la aprobación de GHL.
+
+---
+
+### [EMBUDOS-GHL-BACKFILL] Poblar la última etapa conocida de las oportunidades preexistentes
+
+**Qué es:** el historial de etapas arranca con el primer webhook y **no se puede reconstruir hacia atrás** — GHL no lo expone. Lo que sí se puede es traer el **estado actual** de las oportunidades que ya existen, para que la primera transición que llegue se derive contra una etapa conocida en vez de registrarse como alta.
+
+`searchGHLOpportunities` ya está construido en `lib/ghl/client.ts` y no se usa todavía.
+
+**Ojo:** poblar el estado inicial **no** debe generar filas en `ghl_stage_transitions` — sería inventar transiciones que nadie observó. Sólo escribe `ghl_opportunities`.
 
 ---
 
@@ -251,6 +273,7 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-30 | EMBUDOS-I4: oportunidades de GHL — historial propio de transiciones de etapa (GHL no lo expone), período ciego explícito, webhook con dos vías de autenticación, tres fuentes de embudo con etapa configurable. 331 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | DOC-EXTERNAL-APIS-2: Whop (897 páginas + 3 specs OpenAPI), Commas ex Fanbasis (42 secciones), Hyros (482 guías + 3 specs) y WebinarJam (17 artículos) bajados a `docs/external-apis/`, con un `RESUMEN-OTC.md` por proveedor. Cierra las seis secciones de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |
 | 2026-08-30 | DOC-EXTERNAL-APIS: documentación completa de GoHighLevel (948 páginas) y VTurb (28 endpoints + `openapi.json`) bajada a `docs/external-apis/`, con scripts de regeneración y dos `RESUMEN-OTC.md` que cierran §3 y §4 de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |
 | 2026-08-26 | FEAT-GHL-MULTI-CALENDAR: multi-selección de calendarios GHL + filtro en closing panel | `claude/ghl-integration-data-loading-9cd72n` |

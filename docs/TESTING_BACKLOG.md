@@ -141,6 +141,38 @@ No hace falta base de datos.
   todavía) y suma correctamente `cash_collected`.
 - `resolveFunnel` con una `template_id` que no existe en código → debe lanzar, no
   devolver un embudo vacío.
+- **Fuentes de GHL (agregado 2026-08-30 con I-4):**
+  - `ghl_stage_entered` **sin `stageId` en la config** → `null` con
+    `nullReason: "missing_config"`, y **la consulta no se ejecuta**. Si se ejecutara sin
+    filtro contaría todas las etapas.
+  - Período que empieza antes de `stage_history_since` → `null` con
+    `nullReason: "outside_history"`, sin consultar.
+  - `stage_history_since` en `null` (nunca llegó un webhook) → `null` para las tres
+    fuentes `ghl_*`.
+  - Las fuentes `ghl_*` cuentan **oportunidades distintas**: dos transiciones de la
+    misma oportunidad a la misma etapa dentro del período suman 1, no 2.
+  - `getGHLStageHistorySince` se llama **una sola vez** por `resolveFunnel`, y **cero
+    veces** si el embudo no usa fuentes `ghl_*`.
+
+### [T-6b] `lib/ghl/ingest-opportunity-event.ts` — ingesta de webhooks (agregado 2026-08-30)
+
+**Por qué:** es donde el historial propio se escribe. Un error acá no se nota hasta que
+los conteos del embudo DM ya están mal, y no se puede reconstruir hacia atrás.
+
+**Cómo:** mockear `createAdminClient()`. La lógica pura ya está cubierta
+(`stage-transition.test.ts`, `opportunity-event.test.ts`); esto cubre la orquestación.
+
+**Qué verificar:**
+- **El evento crudo se guarda ANTES de interpretarse**, incluso si el mapeo falla.
+- Un evento que no se puede interpretar queda `unmapped` con su motivo, no `error`.
+- Un evento con `webhookId` repetido devuelve `duplicate` y **no** escribe transición.
+- Una transición duplicada (código `23505` al insertar) **no** aborta el upsert de la
+  oportunidad ni marca el evento como error.
+- `stage_history_since` se escribe **una sola vez** y nunca se mueve hacia adelante: el
+  `update` lleva `.is("stage_history_since", null)`.
+- Un `OpportunityDelete` marca `status = 'deleted'` y **no** inserta transición.
+- `resolveOrganizationByLocation` devuelve `null` para un `locationId` desconocido, y la
+  ruta responde `404` sin guardar nada.
 
 ### [T-7] `app/funnels/actions.ts` — Server Actions
 

@@ -212,17 +212,87 @@ Es la regla que evita que el módulo confunda "no pasó nada" con "nadie lo carg
 
 ---
 
-## 5. Unidades pendientes
+## 5. I-4 — Oportunidades de GHL ⚠️⭐
+
+🔑 Necesita una sub-cuenta de GHL real, con pipeline y oportunidades.
+
+Es la unidad con más asunciones sin verificar del plan: la doc de GHL **no expande
+el objeto pipeline ni el objeto opportunity**, y la vía de entrega por Workflow no
+está documentada en ningún lado.
+
+### 5.1 Catálogo de pipelines
+
+| Paso | Resultado esperado |
+|---|---|
+| Con GHL conectado, correr "Sincronizar pipelines" | Devuelve la cantidad de pipelines y etapas de la sub-cuenta |
+| ⚠️ Mirar `ghl_pipelines.raw` del primer response | **Verificar que el id venga en `id` o `_id`** y el nombre en `name`. Si usa otros nombres, corregir `ghlEntityId` y `syncGHLPipelinesForOrg` |
+| ⚠️ Mirar `ghl_pipeline_stages.raw` | Verificar `position`. Si no viene, el orden del array es el respaldo — comprobar que coincida con el orden del pipeline en la UI de GHL |
+| `skipped > 0` en el resultado | Hay pipelines o etapas sin id reconocible: mirar `raw` antes de seguir |
+
+### 5.2 Entrega del webhook — la decisión que hay que cerrar ⚠️
+
+Hay dos vías y **hoy sólo una es viable**, porque OTC no tiene app del Marketplace
+aprobada.
+
+| Paso | Resultado esperado |
+|---|---|
+| En Integraciones, generar el secreto de webhook | Devuelve la URL completa **una sola vez**. Guardarla: no se puede volver a leer |
+| Crear un Workflow en GHL con trigger "Opportunity Stage Changed" y acción "Webhook" a esa URL | El workflow se guarda |
+| Mover una oportunidad de etapa en GHL | Llega una fila a `ghl_webhook_events` |
+| ⚠️ **Mirar el payload crudo de esa fila** | **Es la verificación que decide la unidad.** Confirmar que trae el id de la oportunidad y, sobre todo, **`pipelineStageId`**. Si no lo trae, la vía de workflow sólo sirve para altas y I-4 queda atada a la app del Marketplace |
+| `status` de esa fila | `processed`. Si dice `unmapped`, el motivo está en `error_message` |
+| Cuando exista la app del Marketplace: mandar un evento firmado | `auth_path = 'platform_ed25519'`, sin secreto en la URL |
+
+### 5.3 El historial de transiciones ⭐
+
+Es la razón de ser de la unidad: GHL no tiene historial y OTC construye el suyo.
+
+| Paso | Resultado esperado |
+|---|---|
+| Mover una oportunidad Lead → Engaged → Intent, tres eventos | Tres filas en `ghl_stage_transitions`, con `from_stage_external_id` encadenado |
+| ⭐ Mirar `occurred_at` de esas filas | Es la **hora de recepción**, no `dateAdded`. Si fuera `dateAdded`, las tres transiciones caerían en la fecha de creación de la oportunidad y el conteo por período sería falso |
+| La primera transición de una oportunidad que ya existía en GHL | `from_stage_external_id` en `NULL`, no la primera etapa del pipeline |
+| Reenviar el mismo evento (con el mismo `webhookId`) | No aparece una transición de más: se descarta como duplicado |
+| Cambiar el nombre de una oportunidad sin moverla | **No** aparece transición nueva |
+| Borrar una oportunidad | `ghl_opportunities.status = 'deleted'` y **ninguna transición nueva**; las anteriores siguen contando en su período |
+
+### 5.4 El período ciego ⭐
+
+| Paso | Resultado esperado |
+|---|---|
+| Antes del primer webhook, bindear un paso a una fuente `ghl_*` | El paso dice **"Fuera del historial registrado"**, no `0` |
+| Después del primer webhook, pedir un período **anterior** a esa fecha | Sigue diciendo "fuera del historial" |
+| Pedir un período que **empieza antes** del borde y termina después | También "fuera del historial": un conteo parcial presentado como completo es peor que un hueco visible |
+| Pedir un período que empieza **en o después** del borde | Muestra el conteo real |
+
+### 5.5 Configuración de la etapa ⭐
+
+| Paso | Resultado esperado |
+|---|---|
+| Bindear un paso a "Entraron a una etapa del pipeline (GHL)" sin elegir etapa | El paso dice **"Falta elegir la etapa"** y resuelve a "sin datos" |
+| Elegir la etapa | Aparece el número |
+| Cambiar la fuente de ese paso a otra | La etapa elegida se descarta: no significa nada para otra fuente |
+| Sin pipelines sincronizados | El formulario dice que hay que sincronizar, no ofrece un selector vacío |
+
+### 5.6 Seguridad del webhook 🔒
+
+| Paso | Resultado esperado |
+|---|---|
+| `POST` sin firma y sin secreto | `401` |
+| `POST` con un secreto incorrecto | `401` |
+| `POST` con `X-GHL-Signature` inventada **y** el secreto correcto | `401` — una firma inválida **no** cae al secreto compartido |
+| `POST` con el `organizationId` de otra org y su secreto | Los datos entran en **esa** org, no en la del atacante: el id de la URL no autoriza nada |
+| `POST` de un evento que no es `Opportunity*` | `200` con `ignored`, **sin guardar el payload** — trae datos personales que no hacen falta |
+
+---
+
+## 6. Unidades pendientes
 
 Se completa a medida que se construyen.
 
 Todas tienen ya su documentación verificada en `docs/external-apis/`. Lo que sigue
 son las verificaciones contra cuentas reales, que se suman a medida que se construyen.
 
-- [ ] **I-4** — GHL opportunities. Verificar que el webhook `OpportunityStageUpdate`
-      llegue en cada cambio, y ⭐ que el momento de la transición se guarde con la hora
-      de recepción y **no** con `dateAdded`, que es la fecha de creación de la
-      oportunidad.
 - [ ] **I-6** — VTurb. Verificar que `total_over_pitch` coincida con el dashboard, y
       que el `pitch_time` configurado en VTurb sea el segundo del CTA real.
 - [ ] **I-5** — WebinarJam / EverWebinar. 🔑 **La API key requiere aprobación previa
@@ -236,7 +306,7 @@ son las verificaciones contra cuentas reales, que se suman a medida que se const
 
 ---
 
-## 6. Verificación final, con todo conectado
+## 7. Verificación final, con todo conectado
 
 Cuando estén todas las unidades y todas las cuentas conectadas:
 

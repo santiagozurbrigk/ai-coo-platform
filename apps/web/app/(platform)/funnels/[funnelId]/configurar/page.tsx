@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { FunnelBindingsForm } from "@/components/funnels/funnel-bindings-form";
 import { getFunnelBindingsAction } from "@/app/funnels/actions";
+import { listGHLStageOptionsAction } from "@/app/ghl/opportunity-actions";
 import { blockingTools } from "@/lib/funnels";
 import { paths } from "@/routes/paths";
 
@@ -15,6 +16,11 @@ export default async function FunnelConfigurePage({
   const { funnelId } = await params;
   const data = await getFunnelBindingsAction(funnelId);
   if (!data) notFound();
+
+  // Las fuentes de GHL piden elegir a qué etapa del pipeline corresponde el
+  // paso. Si la org no sincronizó sus pipelines, la lista viene vacía y el
+  // formulario lo dice en vez de ofrecer un selector sin opciones.
+  const ghlStages = await listGHLStageOptionsAction();
 
   const pendientes = blockingTools();
 
@@ -33,7 +39,7 @@ export default async function FunnelConfigurePage({
         description={`${data.templateLabel} · elegí de dónde sale el número de cada paso. Un paso sin fuente queda sin datos, que no es lo mismo que cero.`}
       />
 
-      <FunnelBindingsForm funnelId={funnelId} rows={data.rows} />
+      <FunnelBindingsForm funnelId={funnelId} rows={data.rows} ghlStages={ghlStages} />
 
       {pendientes.length > 0 ? (
         <div className="rounded-2xl border border-border bg-card p-5 dark:border-glass dark:bg-glass">

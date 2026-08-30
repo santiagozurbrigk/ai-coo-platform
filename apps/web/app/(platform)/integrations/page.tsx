@@ -5,6 +5,8 @@ import { getPaymentIntegrationsStatusAction } from "@/app/payments/actions";
 import { getReelMusicPathAction } from "@/app/marketing/content/reel-music-actions";
 import { IntegrationGrid } from "@/components/integrations";
 import { PaymentsConnectPanel } from "@/components/integrations/payments-connect-panel";
+import { GHLOpportunitiesPanel } from "@/components/integrations/ghl-opportunities-panel";
+import { getGHLOpportunitiesStatusAction } from "@/app/ghl/opportunity-actions";
 import { ReelMusicUpload } from "@/components/marketing/trial-reels/reel-music-upload";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@ai-coo/ui";
@@ -12,11 +14,13 @@ import { Upload } from "lucide-react";
 import { paths } from "@/routes";
 
 export default async function IntegrationsPage() {
-  const [integrations, reelMusicPath, paymentIntegrations] = await Promise.all([
-    listIntegrationsAction(),
-    getReelMusicPathAction(),
-    getPaymentIntegrationsStatusAction(),
-  ]);
+  const [integrations, reelMusicPath, paymentIntegrations, ghlOpportunities] =
+    await Promise.all([
+      listIntegrationsAction(),
+      getReelMusicPathAction(),
+      getPaymentIntegrationsStatusAction(),
+      getGHLOpportunitiesStatusAction(),
+    ]);
 
   return (
     <div className="space-y-8">
@@ -35,6 +39,8 @@ export default async function IntegrationsPage() {
       </Suspense>
 
       <PaymentsConnectPanel integrations={paymentIntegrations} />
+
+      <GHLOpportunitiesPanel status={ghlOpportunities} />
 
       {/* Trial Reels — configuración de assets */}
       <section className="space-y-3">

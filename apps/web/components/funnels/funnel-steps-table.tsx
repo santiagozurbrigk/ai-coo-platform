@@ -116,6 +116,16 @@ export function FunnelStepsTable({
                       <AlertTriangle className="h-3.5 w-3.5" />
                       Sin fuente
                     </span>
+                  ) : prov?.nullReason ? (
+                    // La fuente está conectada pero igual no hay número. El
+                    // motivo importa: uno se arregla eligiendo una etapa, el
+                    // otro sólo esperando a que se acumule historial.
+                    <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      {prov.nullReason === "missing_config"
+                        ? "Falta elegir la etapa"
+                        : "Fuera del historial registrado"}
+                    </span>
                   ) : (
                     <span className="text-muted-foreground">{tool?.label ?? "—"}</span>
                   )}
