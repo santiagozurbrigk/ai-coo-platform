@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "Claude-*", "claude/**", "feat/**", "fix/**", "chore/**"]
   pull_request:
 
 concurrency:
@@ -29,3 +29,5 @@ jobs:
       - run: pnpm typecheck
 
       - run: pnpm lint
+
+      - run: pnpm test

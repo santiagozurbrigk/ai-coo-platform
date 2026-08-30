@@ -55,6 +55,921 @@ Decisión de Santiago tras ver la barra funcionando. Cierra `[NAV-3]` de PENDIEN
 - **No validado con sesión real.** El entorno de desarrollo no puede renderizar las páginas autenticadas (faltan las env de Supabase), así que el pill activo, el switcher de holding y el badge con datos reales quedan por confirmar en el preview de Vercel.
 - Se perdió la etiqueta "Fase 1 · Beta" que mostraba el footer del sidebar (`secondaryNavigation` estaba vacío, así que no se perdió ningún link).
 - Ya no hay sidebar como alternativa: revertir es `git revert` del commit.
+### 2026-08-30 — Traer `main` a la rama de embudos para poder probar todo junto
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** merge de `origin/main` (`fcafaff`)
+**Módulo(s) afectado(s):** todo el rebranding Limitless + notch nav que ya estaba en producción
+
+**Qué se hizo:**
+La rama de embudos estaba **26 commits adelante de `main` pero 1 atrás**: le faltaba el rebranding a Limitless y la notch nav, que ya están mergeados y deployados en producción. El preview de la rama mostraba la identidad vieja (violeta OTC), así que probar "el flujo entero" ahí habría sido probar contra algo que ya no existe.
+
+**Por qué el merge fue barato:** un solo conflicto, en `CHANGES.md`, y puramente aditivo — dos bloques de entradas de changelog que no se pisan. Se conservaron los dos.
+
+**Por qué la UI de embudos no necesitó tocarse:** está escrita **sólo con tokens del design system** (`primary`, `border`, `muted-foreground`) y colores semánticos de estado (`amber` para huecos de instrumentación). El rebranding migró 462 clases `violet`/`purple`/`indigo` hardcodeadas; la UI de embudos no tenía ninguna, así que hereda el naranja Limitless automáticamente.
+
+**Verificación ejecutada tras el merge:**
+- `pnpm test`: **414 tests, todos en verde**.
+- `tsc --noEmit` limpio, `pnpm lint` sin errores, `pnpm build` completo.
+
+**Riesgo que queda:** la notch nav viene detrás del flag `NEXT_PUBLIC_NAV_STYLE=notch`. Sin la variable, el preview usa el sidebar clásico — que es donde vive el link a Embudos, y ese link **sólo aparece si la org tiene el add-on `embudos` activo**.
+
+---
+
+### 2026-08-30 — UI del módulo de Embudos, y los KPIs universales que no se mostraban
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `app/(platform)/funnels/*`, `components/funnels/*`, `app/funnels/actions.ts`, `lib/funnels/compute.ts`
+
+**Qué se hizo:**
+La interfaz del módulo, sobre el motor que ya existía.
+
+**⭐ El hueco de motor que apareció al armar la UI.** `computeFunnel` calculaba los KPIs universales —la sección 03 entera del documento, incluidas las dos ratios que declara decisivas— pero **nunca los devolvía**: sólo se usaban de rebote cuando una plantilla los referenciaba como north-star. No había nada que mostrar porque no había nada que leer. Se agregó `kpis` a `ComputedFunnel`, **separado de `metrics`**: mezclarlos haría parecer que CAC o LTV son propiedad de ese embudo, cuando el documento los pone explícitamente por encima de cualquiera.
+
+**⭐ El orden de la página es la jerarquía del documento, no una lista.** De arriba abajo: los tres punteros de la plantilla → los KPIs universales, con EPL vs CPL y LTV:CAC arriba y más grandes → el spine → la tabla paso a paso. Es literal:
+
+> *"the stage-by-stage tables tell you WHERE a funnel is broken; these two ratios tell you WHETHER it is."*
+
+Primero si funciona, después dónde falla.
+
+**El switcher de embudos, que era el pedido original.** Se puede cambiar de embudo sin volver al índice, y **el período se conserva** al cambiar: mirar la misma ventana en embudos distintos, uno detrás del otro, es el trabajo real del usuario. Volver al índice y entrar de nuevo lo perdía.
+
+**Las etiquetas `[Meta]` / `[Hyros]`, que el documento declara no negociables.** Cada cifra de la tabla de pasos lleva su fuente entre corchetes —forma literal del documento, conservada como convención de lectura y no traducida a un badge de color— y cada KPI lleva la suya, compuesta cuando cruza herramientas: el ROAS blended es `[Checkout + Meta]`, no `[Meta]` a secas.
+
+**Verificación ejecutada:**
+- `pnpm test`: **414 tests en 23 archivos, todos en verde** (6 nuevos sobre la salida de KPIs).
+- `tsc --noEmit` limpio, `pnpm lint` sin errores, `pnpm build` completo.
+
+**Decisiones de diseño:**
+- **La tabla de pasos tiene dos columnas de origen, no una:** de dónde sale el número hoy y qué herramienta le asigna el estándar. Cuando no coinciden, la segunda se pinta en ámbar — el número es legítimo pero viene de otro lado, y eso hay que poder verlo.
+- **Los huecos se separan por cómo se arreglan.** "Sin fuente configurada" se arregla en la pantalla de fuentes; "con fuente pero sin número" se arregla eligiendo un parámetro o esperando a que se acumule historial. Meterlos en el mismo aviso mandaría al usuario al lugar equivocado.
+- **La conversión entre etapas se muestra en el conector, no dentro de la tarjeta:** pertenece al paso entre dos etapas, no a ninguna de las dos.
+- **Una etapa salteada no lleva alerta.** El VSL no tiene Lead porque no hay opt-in: marcarlo como problema entrenaría al usuario a ignorar las alertas de verdad.
+- **El índice muestra cuántos pasos tienen fuente, no un número de negocio.** Resolver cada embudo entero —con todas sus integraciones— para pintar una grilla de tarjetas sería caro y no ayuda a decidir a cuál entrar.
+- **El índice lista la cobertura de las herramientas del estándar** con lo que cada una cubre hoy, para que el estado del módulo sea legible sin entrar a ningún embudo.
+
+**Riesgos / deuda técnica pendiente:**
+- ⏸️ **No hay semáforo de salud, a propósito.** Las bandas de la §04 siguen en pausa por decisión de Santiago. Pintar un número en verde o rojo es una afirmación sobre el negocio, y esa afirmación todavía no se habilitó. El código de `health-bands.ts` existe y está testeado; falta la orden de mostrarlo.
+- No hay serie histórica ni sparklines: `funnel_period_snapshots` existe desde la Fase 1 pero el job que la puebla es de la Fase 5.
+- La UI no tiene cobertura de Playwright — sigue como `[T-8]` en `docs/TESTING_BACKLOG.md`.
+- El switcher es un menú propio y no el `DropdownMenu` de `@ai-coo/ui`: hace falta revisar si conviene unificarlo cuando se toque el design system.
+
+---
+
+### 2026-08-30 — Ola 3 (2/2): I-8 Hyros, y el ROAS by-source que no era by-source
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260830210000_hyros.sql`, `lib/hyros/*`, `app/hyros/actions.ts`, `lib/funnels/{types,compute,kpis,sources,resolve,instrumentation}.ts`, `components/integrations/hyros-connect-panel.tsx`, docs
+
+**Qué se hizo:**
+La última unidad del plan. Hyros es el dueño de la atribución según el documento: M05 (revenue atribuido), M06 (leads atribuidos), M07 (journeys), M08 (visitantes de landing) y M09 (opt-ins). **Con esto las diez unidades quedan construidas.**
+
+**⭐ El hallazgo: el ROAS by-source no era by-source.** El KPI `roas_by_source` venía de la Fase 1 definido con `revenue ÷ spend` — **exactamente las mismas medidas que el blended**. Las dos tarjetas mostraban el mismo número y la etiqueta `[Hyros]` no significaba nada, justo lo que el documento declara no negociable:
+
+> *"label each figure with its source — [Meta] for platform-reported, [Hyros] for attributed. The two never match exactly, and a report that mixes them without labels is how bad decisions get made."*
+
+Se agregaron dos medidas nuevas al motor, `attributed_revenue` y `attributed_spend`, que salen las dos de Hyros. El texto de la fórmula **no se tocó**: el documento usa las mismas palabras para las dos ROAS, y una prueba de conformidad lo verifica. Lo que las distingue son las medidas, no el texto.
+
+**Un bug que encontró un test.** El parser de importes limpiaba símbolos con `replace(/[^0-9.-]/g, "")`, y `"n/a"` quedaba como cadena vacía: `Number("")` es `0`. Un texto sin sentido se convertía en un cero real, que es precisamente lo que §9.1 prohíbe. Se agregó una guarda que exige al menos un dígito. **El test se escribió primero y falló; se corrigió la fuente, no el test.**
+
+**Verificación ejecutada:**
+- `pnpm test`: **408 tests en 23 archivos, todos en verde** (13 nuevos).
+- `tsc --noEmit` limpio, `pnpm lint` sin errores.
+- Migración **aplicada** al proyecto Supabase de OTC.
+
+**Decisiones de diseño:**
+- **Se usa `/attribution/ad-account` y no `/attribution`.** El segundo exige `ids` a nivel campaña o adset: habría que enumerar cada campaña antes de poder preguntar nada. El primero toma la cuenta entera.
+- **El modelo de atribución forma parte de la llave de caché.** `last_click`, `first_click` y `scientific` responden preguntas distintas sobre el mismo período: compartir caché mostraría el número de un modelo bajo la etiqueta de otro.
+- **`new_visits` y no `clicks` para M08.** Un mismo visitante puede clickear varias veces.
+- **Un campo que ninguna cuenta reporta es `null`, no `0`.** Si al menos una lo reporta, las que no cuentan como cero: ahí sí hay señal de que el campo existe.
+- **Una cuenta que falla no invalida a las demás**, pero el total pasa a ser parcial: el error se registra, se muestra, y la respuesta **no** se marca como definitiva.
+- **`is_active` por cuenta publicitaria no se pisa en el sync.** Es una decisión del usuario sobre qué entra en los totales, no un dato de la API.
+
+**Efecto colateral que vale registrar:** con Hyros en `partial`, **ninguna herramienta del documento quedó en estado `missing`**. `blockingTools()` comparaba contra ese literal y TypeScript marcó la comparación como imposible — una señal, no un error. Se reescribió con el tipo ancho para que siga encontrando herramientas nuevas sin integrar.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **La documentación no dice qué plan de Hyros incluye la API.** Un `401`/`403` al conectar puede ser la key o el plan, y no se puede distinguir desde la respuesta.
+- ⚠️ **Casi todos los endpoints de Hyros ignoran en silencio los parámetros mal escritos** y devuelven `200` con datos distintos a los pedidos. Un `fromDate` mal escrito devolvería la lista completa de leads, que se leería como un pico de opt-ins que nunca ocurrió. Por eso los nombres de parámetro se construyen en un solo lugar.
+- La verificación que decide la unidad es **comparar el revenue atribuido contra el dashboard de Hyros**, y comprobar que el by-source y el blended den **distinto** — `docs/PLAN_VERIFICACION.md` §10.2.
+- Los webhooks de Hyros (`sale.attributed`, `lead.opted.in`, firma `X-Hyros-Signature`) no están implementados: hoy todo es pull. Sería la vía de tiempo real.
+
+---
+
+### 2026-08-30 — Ola 3 (1/2): I-9 retención y I-10 triggers de Zernio
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/payments/{retention,aggregate}.ts`, `lib/zernio/triggers.ts`, `lib/funnels/{sources,resolve}.ts`, docs
+
+**Qué se hizo:**
+Dos unidades de la Ola 3. Ninguna necesitó integración nueva ni migración: las dos son cálculo sobre datos que ya existen.
+
+**I-9 — retención y compras repetidas (M32, M33).** Son las dos medidas que faltaban para **LTV**, y por lo tanto para **LTV:CAC**, una de las dos ratios que el documento llama decisivas. Salen de `payment_orders` y `payment_transactions`, que I-2 ya puebla.
+
+⭐ **M32 no se puede medir dentro del período del embudo.** En una ventana de 7 días casi todo cliente tiene exactamente una compra, así que "compras por cliente" daría ~1.0 y el LTV colapsaría al AOV. Se mide sobre una ventana de **365 días** hacia atrás desde el fin del período: cuántas veces compra un cliente es una propiedad lenta del negocio, no una métrica semanal.
+
+⭐ **M33 devuelve `null` en dos casos, y ninguno es cero.** Si la org no tiene ninguna orden recurrente, la retención no aplica a un negocio de pago único — devolver `0` sería catastrófico, porque el LTV multiplica por este factor y quedaría en cero, diciendo que el negocio no vale nada; devolver `1` inventaría una retención perfecta que nadie midió. Y si hay órdenes recurrentes pero todas empezaron dentro del período, no hay cohorte: es demasiado pronto para preguntarse si siguieron pagando.
+
+**I-10 — triggers de Zernio (M34).** La etapa Click del embudo DM, o sea lo que ocurre *antes* de que exista la conversación. El documento no le asigna herramienta y es la única fila con benchmark `context-set`.
+
+⭐ **`listComments` es un inbox, no un historial.** No acepta filtro de fecha ni cursor: devuelve una ventana reciente de tamaño desconocido. Contar lo que cae dentro del período y presentarlo como el total sería reportar un número incompleto como completo. La única evidencia de que la ventana cubre el período es **haber visto un comentario más viejo que su inicio**; si no, el resolver devuelve `null`. Es el período ciego de GHL entrando por otra puerta.
+
+⛔ **Las historias no se pueden contar en un período, y no es un límite de OTC.** Meta sólo expone las historias **vigentes**, o sea 24 horas. Para cualquier período que no sea "hoy" el dato no existe del lado de Meta. M34 queda cubierta por ads (Meta) + comentarios (Zernio), y la parte de historias se documenta como imposible en vez de quedar como un pendiente que nunca se va a cerrar.
+
+**Verificación ejecutada:**
+- `pnpm test`: **395 tests en 22 archivos, todos en verde** (23 nuevos).
+- `tsc --noEmit` limpio, `pnpm lint` sin errores.
+- Sin migraciones: las dos unidades leen tablas que ya existían.
+
+**Decisiones de diseño:**
+- **`customerKey` se exportó de `aggregate.ts` en vez de duplicarse.** La identidad del comprador tiene que resolverse igual en las dos medidas o los conjuntos no cruzan.
+- **En M32, las órdenes anónimas se excluyen del numerador Y del denominador.** Contarlas arriba y no abajo inflaría el promedio; contarlas abajo como clientes distintos lo hundiría. Sin identidad, la orden no participa.
+- **Un reembolso no cuenta como pago para la retención.**
+- **El borde de la ventana de comentarios se trata de forma estricta:** si el más antiguo cae justo en el inicio del período, también devuelve `null`. Erramos hacia "sin datos" antes que afirmar un cero que no se puede sostener.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **Las definiciones de M32 y M33 son una interpretación, no una cita.** El documento escribe `LTV = AOV × purchases × retention` y no define ninguno de los dos últimos factores. La verificación que decide la unidad es **comparar el LTV que muestra OTC contra el que el cliente ya usa** — está en `docs/PLAN_VERIFICACION.md` §8.
+- Observación sobre la fórmula del documento: `AOV × purchases` ya da "revenue por cliente", y multiplicar eso por una retención < 1 lo **reduce**, cuando lo habitual es que la retención extienda el lifetime. Se implementó **fiel al documento**; si al contrastar contra el número del cliente no cierra, es acá donde hay que mirar.
+- La nota del documento sobre LTV proyectado para suscripciones y planes de pago no está implementada.
+
+---
+
+### 2026-08-30 — Debate WebinarJam vs VTurb, y los dos huecos que dejó al descubierto
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/funnels/{sources,resolve}.ts`, `lib/vturb/{resolve-stats,stats}.ts`, `app/funnels/actions.ts`, `components/funnels/funnel-bindings-form.tsx`, `docs/FUNNELS_SOURCE_MAP.md`
+
+**Qué se hizo:**
+Santiago propuso quedarse sólo con VTurb y borrar I-5, razonando que las dos plataformas hacen lo mismo y que así se evitaba el trámite de la API key de WebinarJam. El debate cerró en que **no se puede**, y de paso dejó a la vista dos huecos reales.
+
+**La decisión y su razón.** Las tres métricas del webinar (asistió / se quedó / clickeó) miden efectivamente lo mismo que las tres del VSL, así que la intuición era razonable. Pero la diferencia que el documento encoda no es el reproductor: es que **el embudo Webinar es "Registration-led" y tiene etapa Lead ("Registration opt-in"), y el VSL no la tiene**. VTurb es un reproductor de un archivo grabado; WebinarJam es una plataforma de eventos. Con la respuesta de Santiago —**los clientes corren sus webinars en vivo, a una hora fija**— queda cerrado: en un webinar en vivo no hay archivo que reproducir, así que no hay nada que VTurb pueda medir. I-5 se queda y la aprobación de su API key es el camino crítico real del embudo Webinar.
+
+**Corrección de algo que yo mismo había argumentado.** Presenté "recuperar M16 con VTurb" como un punto a favor de la propuesta. Aplica sólo al caso evergreen: **con webinars en vivo M16 sigue sin fuente posible**. La fuente se agregó igual, pero no resuelve lo que yo había dicho que resolvía.
+
+**Hueco 1 — M16 (`vturb_cta_clicks`).** VTurb expone `total_clicked` y un endpoint de clicks por segundo del video. Es la medida que WebinarJam no da. Se agregó como fuente sólo para la etapa Intent: un click al CTA es intención declarada, y bindearlo a Sales Conv. contaría clicks como si fueran ventas.
+
+**Hueco 2 — las fuentes de formulario.** M17 y M18 figuraban en el mapa como ✅ "ya medibles" desde antes del módulo de embudos, pero **nunca se creó la fuente**: los datos existían en `form_responses` y el módulo no los podía usar. Es la única fila del documento que OTC cubría entera y estaba desconectada. Se agregaron `form_submissions` y `form_qualified`.
+
+**Verificación ejecutada:**
+- `pnpm test`: **372 tests en 20 archivos, todos en verde** (8 nuevos).
+- `tsc --noEmit` limpio, `pnpm lint` sin errores.
+- Sin migración: las tablas ya existían.
+
+**Decisiones de diseño:**
+- **`form_submissions` sirve para dos etapas.** El documento le da dos roles al mismo formulario: opt-in de registro en el webinar (Lead, M13) y aplicación en el VSL (Intent, M17). Es la primera fuente del catálogo con esa doble lectura, y es fiel al documento, no una comodidad.
+- **Sólo cuentan las respuestas completas.** Una respuesta a medias no es una aplicación enviada.
+- **⭐ M18 resuelve a `null` si ninguna respuesta del período tiene calificación de la IA.** Cero calificadas diría que ninguna aplicación servía; la verdad sería que nadie las evaluó. Mismo criterio que las llamadas de cierre sin resultado cargado.
+- **Los clicks al CTA no dependen del pitch time.** Son un evento propio, así que siguen disponibles en un player que no tiene configurado el segundo de la oferta — a diferencia de M12.
+- **Se dejó constancia del debate en el mapa de fuentes**, con la tabla comparativa y la condición bajo la cual la decisión cambiaría (si un cliente pasa a evergreen, ese embudo se arma sin WebinarJam y las fuentes ya existen).
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **`total_clicked` no tiene descripción en el spec de VTurb**, como ninguno de sus campos. Se asume "clicks en el botón del reproductor". Falta confirmarlo contra el dashboard.
+- M09 (opt-ins de landing) sigue sin fuente: no es lo mismo que M13. Sale de Hyros en I-8.
+- 🔑 La API key de WebinarJam pasa de "trámite pendiente" a **bloqueo del embudo Webinar**: sin ella, tres de sus siete pasos no tienen datos.
+
+---
+
+### 2026-08-30 — I-5: WebinarJam / EverWebinar, y una medida que la API no da
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260830190000_webinarjam.sql`, `lib/webinarjam/*`, `app/webinarjam/actions.ts`, `lib/funnels/{sources,resolve,instrumentation}.ts`, `components/integrations/webinarjam-connect-panel.tsx`, `components/funnels/funnel-bindings-form.tsx`, docs
+
+**Qué se hizo:**
+La unidad I-5, que cierra la Ola 2: M13 (registrados), M14 (asistieron, vivo + replay) y M15 (se quedaron hasta la oferta).
+
+**Se persisten las personas, no los totales.** `/registrants` **no acepta un rango de fechas arbitrario**: su filtro `date_range` es una lista de presets (hoy, esta semana, últimos 30 días). El módulo de embudos pregunta por períodos arbitrarios, así que la única forma de responder es traer las filas y recortarlas del lado de OTC por `signup_date` y por las fechas de asistencia, que sí vienen por registrante. De ahí `webinarjam_registrants`, una fila por persona y sesión.
+
+**M15 se pide filtrada al servidor, no se deriva.** `attended_live=4` con `attended_live_timestamp = <segundo de la oferta>` devuelve exactamente los que asistieron y se fueron después de ese segundo — WebinarJam lo calcula de su lado. Eso evita depender de `time_live`, que la doc declara `string` sin decir si son segundos, `mm:ss` o `hh:mm:ss`. El segundo de la oferta lo carga el usuario en el panel de Integraciones porque **la API no lo publica**, a diferencia de VTurb que sí expone el `pitch_time` de cada player.
+
+**⛔ M16 (clicks al CTA durante el webinar) no se puede medir, y eso se dice.** La API no lo expone por ninguna vía. Lo más cercano que da es `purchased_live` —compró en la sala—, que es **conversión y no intención**: presentarlo como clicks al CTA sería inventar la medida. El paso `webinar.cta` del embudo se queda sin fuente a propósito, ninguna fuente de WebinarJam se ofrece para él, y el panel explica por qué.
+
+**No hay que elegir entre WebinarJam y EverWebinar.** Son la misma API con dos prefijos: mismos endpoints, mismos parámetros, mismos campos. El sync consulta los dos y guarda de dónde vino cada webinar, así que la pregunta "cuál usa este cliente" desaparece.
+
+**Verificación ejecutada:**
+- `pnpm test`: **364 tests en 20 archivos, todos en verde** (13 nuevos de normalización de registrantes).
+- `tsc --noEmit` limpio, `pnpm lint` sin errores.
+- Migración **aplicada** al proyecto Supabase de OTC.
+
+**Decisiones de diseño:**
+- **Los `schedule` id sólo salen del detalle.** `/webinars` devuelve los horarios como texto ("Every day, 01:00 PM"); `/registrants` necesita el id, que está en `/webinar`. Por eso el sync pide el detalle de cada webinar. Además la doc avisa que **el id de la API no coincide con el que se ve en la pestaña Schedules del panel** — queda anotado en el código.
+- **Los tres campos de asistencia son nullable.** `NULL` significa "la API no lo dijo"; `false` afirma que la persona no asistió. Contar como ausente a alguien de quien no se sabe nada hundiría el show rate sin motivo.
+- **Las fechas se parsean por magnitud.** La doc declara `signup_date` como `integer` sin la unidad; se decide segundos vs milisegundos por el valor, y lo que no se entiende queda en `NULL` en vez de caer en 1970.
+- **El sync de webinars no pisa `pitch_second`.** Es configuración del usuario, no dato de la API.
+- **M13 se cuenta por fecha de registro y M14 por fecha de asistencia.** Son dos preguntas distintas y el documento las separa en dos filas.
+
+**Riesgos / deuda técnica pendiente:**
+- 🔑 **Nada de esto se puede probar sin la API key, que requiere aprobación previa de WebinarJam.** Es el bloqueo de la unidad y conviene pedirla ya — `[WEBINARJAM-API-KEY]` en `PENDIENTES.md`.
+- ⚠️ **El ejemplo de `/registrants` en la doc es una captura de pantalla**, así que no se sabe bajo qué clave viene el array. El cliente acepta `registrants`, `users` y `data`; con el primer response real hay que dejar sólo la correcta.
+- ⚠️ **La tabla de valores de `attended_live` como campo de respuesta no está publicada** — la doc sólo documenta la del parámetro de filtro. Se asumió `0` = no, positivo = sí.
+- `lib/webinarjam/sync.ts` no tiene tests de orquestación — quedó como `[T-6d]` en `docs/TESTING_BACKLOG.md`.
+
+---
+
+### 2026-08-30 — I-6: VTurb, el video de la landing
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260830170000_vturb.sql`, `lib/vturb/*`, `app/vturb/actions.ts`, `lib/funnels/{sources,resolve,instrumentation}.ts`, `components/integrations/vturb-connect-panel.tsx`, `components/funnels/funnel-bindings-form.tsx`, docs
+
+**Qué se hizo:**
+La unidad I-6: M08 (visitantes de la página), M10 (reproducciones), M11 (% promedio visto) y M12 (llegaron al CTA). Cubre la etapa Engaged del embudo VSL, que hasta ahora no tenía ninguna fuente posible.
+
+**La decisión de arquitectura que define la unidad: caché por período, no métricas diarias.** `ad_metrics_daily` guarda una fila por día y el resolver suma. Con VTurb eso da un número sin significado, porque **`engagement_rate` es un promedio** y el promedio de los promedios diarios no es el promedio del período — cada día pesa distinto según cuántas sesiones tuvo. Así que se le pide a VTurb el período exacto y se cachea la respuesta cruda por `(player, start_date, end_date)`. Un período que ya terminó se marca `is_final` y no se vuelve a pedir nunca; uno que incluye hoy se refresca cada 30 minutos. Eso además respeta las cuotas de VTurb, que son ajustadas (60-800 requests por minuto según el plan, y una sola llamada HTTP puede contar como más de una query).
+
+**La regla propia de esta integración: `pitch_time = 0` no es un pitch time.** VTurb devuelve `total_over_pitch`, que es exactamente M12 —cuántos vieron el video pasado el segundo de la oferta— y además publica el `pitch_time` configurado de cada player, así que no hay que configurarlo a mano. Pero para los players que no lo tienen puesto, VTurb devuelve `pitch_time = 0`, y entonces `total_over_pitch` cuenta a **los que vieron más de 0 segundos**: casi todo el mundo. Es un número que parece M12 y no lo es, y mostrarlo sería peor que no mostrar nada. `isUsablePitchTime` lo rechaza, la medida resuelve a `null` con el motivo `no_pitch_time`, y el panel de integraciones avisa cuántos videos están en esa situación, porque se arregla en VTurb y no en OTC.
+
+**Verificación ejecutada:**
+- `pnpm test`: **351 tests en 19 archivos, todos en verde** (20 nuevos de VTurb).
+- `tsc --noEmit` limpio, `pnpm lint` sin errores.
+- Migración **aplicada** al proyecto Supabase de OTC.
+
+**Decisiones de diseño:**
+- **`engagement_rate` se toma de `/times/user_engagement`, no de `/sessions/stats`.** Los dos endpoints lo devuelven, pero sólo el primero documenta su fórmula (`average_watched_time / video_duration * 100`). El segundo queda como respaldo.
+- **Camino de respaldo para M12 por la curva de retención.** Si `total_over_pitch` no viene, se busca en `grouped_timed` el último punto en o antes del segundo del pitch. La curva no viene segundo a segundo, así que ese punto es la última cantidad conocida de gente que seguía mirando.
+- **`end_date` se manda siempre, explícito.** Las release notes de VTurb documentan un bug —vivo hasta 2026-05-07— donde tres endpoints lo ignoraban y devolvían datos hasta "ahora", inflando cualquier ventana histórica corta.
+- **Una llamada por player, no por step.** Tres pasos del embudo VSL pueden apuntar al mismo video; `resolveFunnel` memoiza la consulta.
+- **`avg_watch_pct` va en `measures.reported`,** no como conteo de step: el documento lo modela como métrica sin denominador y es un promedio que reporta el player, no un cociente entre etapas.
+- **El selector de parámetros del formulario de fuentes se generalizó.** Antes era un selector de etapa de GHL; ahora es un componente que sirve para cualquier fuente configurable, y cambiar de fuente descarta el parámetro anterior — una etapa de GHL no significa nada para una fuente de VTurb.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **El spec de VTurb no describe ni un solo campo de `Stats`.** Se asumió `total_viewed` = visitantes de página y `total_started` = reproducciones. Falta confirmar contra el dashboard, y sobre todo **qué deduplican los sufijos `_device_uniq` y `_session_uniq`**: si el dashboard muestra el valor único y OTC el bruto, los números no van a coincidir. Anotado en `docs/API_DOCS_PENDIENTES.md` §4 y `docs/PLAN_VERIFICACION.md` §6.2.
+- ⚠️ **`X-Api-Version` sin resolver.** La página de autenticación dice `v1`, el spec declara `v3`. Se manda `v1`; si la primera llamada devuelve 401, es esto.
+- `lib/vturb/stats.ts` no tiene tests de orquestación (caché, TTL, invalidación por `pitch_time`) — quedó como `[T-6c]` en `docs/TESTING_BACKLOG.md`.
+- M09 (opt-ins de landing) sigue sin fuente: sale de Hyros en I-8, no de VTurb.
+
+---
+
+### 2026-08-30 — I-4: oportunidades de GoHighLevel y el historial de etapas que GHL no tiene
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260830140000_ghl_opportunities.sql`, `lib/ghl/{client,integration,opportunity-event,stage-transition,verify-webhook,ingest-opportunity-event,sync-pipelines}.ts`, `app/api/webhooks/ghl/route.ts`, `app/ghl/opportunity-actions.ts`, `lib/funnels/{sources,resolve}.ts`, `app/funnels/actions.ts`, `components/funnels/{funnel-bindings-form,funnel-steps-table}.tsx`, docs
+
+**Qué se hizo:**
+La unidad I-4 del mapa de fuentes: M21, M22, M23 y M25, que son 4 de los 6 pasos del embudo DM.
+
+**El problema que resuelve, y por qué no era un sync más.** La documentación verificada confirmó que **la API v3 de GHL no expone historial de cambios de etapa**: no hay endpoint de historial, la búsqueda no filtra por transición, y `OpportunityStageUpdate` trae la etapa nueva pero no la anterior ni el momento del cambio. El documento fuente, en cambio, pide conteos por etapa **durante un período**. Con sólo el REST, una oportunidad que pasó por Lead → Engaged → Intent dentro del período se contaría una sola vez, en la etapa donde quedó.
+
+Así que OTC construye su propio historial. `ghl_stage_transitions` guarda cada transición derivada contra la última etapa conocida en `ghl_opportunities`, que existe justamente para eso: el webhook no trae la etapa de origen, hay que recordarla.
+
+**El período ciego, que es la parte que más importa.** Ese historial arranca con el primer webhook. Antes de esa fecha OTC no sabe nada, y las cero transiciones que devolvería la consulta significan "no lo estábamos mirando", no "no pasó nada". `ghl_integrations.stage_history_since` marca el borde; cualquier período que empiece antes resuelve a `null` con motivo `outside_history` y la UI dice "Fuera del historial registrado". Es la regla del `null` vs `0` (§9.1) aplicada al tiempo. Un período que **cruza** el borde también resuelve a `null`: un conteo parcial presentado como completo es peor que un hueco visible.
+
+**El bloqueo de entrega, y cómo se resolvió sin esperar a GHL.** Los webhooks de plataforma se configuran **dentro de una app del Marketplace**, que OTC no tiene aprobada (`[FEAT-GHL-OAUTH]`). El endpoint acepta por eso **dos vías de autenticación**:
+- **Firma Ed25519** (`X-GHL-Signature`) con la clave pública de GHL, más la RSA legacy por el período de transición. Es lo que va a usar la app del Marketplace cuando exista, y resuelve la org por el `locationId` del payload.
+- **Secreto compartido por organización**, para eventos que el cliente entregue desde una acción "Webhook" de un Workflow de su sub-cuenta. Es la vía que funciona **hoy**.
+
+Una firma inválida **no** cae al secreto compartido: si cayera, quien conociera el secreto podría hacer pasar eventos por firmados por la plataforma.
+
+**Configuración por paso.** `ghl_stage_entered` no significa nada sin saber a qué etapa se refiere, así que el binding guarda `{ stageId }` en `funnel_step_bindings.config` y el usuario la elige de un selector poblado por `syncGHLPipelinesForOrg`. Sin elegirla, el paso resuelve a `null` con motivo `missing_config` y la UI dice "Falta elegir la etapa" — un hueco de configuración es distinto de un hueco de historial y de un cero, y los tres se arreglan distinto.
+
+**Verificación ejecutada:**
+- `pnpm test`: **331 tests en 17 archivos, todos en verde** (34 nuevos entre `opportunity-event`, `stage-transition`, `verify-webhook` y `missingSourceConfig`).
+- `tsc --noEmit` limpio, `pnpm lint` sin errores.
+- Migración **aplicada** al proyecto Supabase de OTC.
+
+**Decisiones de diseño:**
+- **`occurred_at` es la hora de recepción, no `dateAdded`.** `dateAdded` es la fecha de creación de la oportunidad y no cambia con las transiciones: usarla pondría las tres transiciones de una misma oportunidad en la fecha de su alta, y el conteo por período sería falso. Hay un test que fija esto.
+- **La etapa de origen de la primera transición queda en `NULL`.** Una oportunidad que apareció por primera vez en la etapa 5 pudo haber pasado por las anteriores sin que OTC lo viera; decir que vino de la 1 sería afirmar un recorrido que nadie observó.
+- **Las fuentes cuentan oportunidades distintas, no filas.** Si una vuelve a entrar a la misma etapa dos veces en el período, es una sola oportunidad que llegó ahí.
+- **Una baja no es una transición.** Marca `status = 'deleted'` y no toca el historial: las transiciones que ya ocurrieron siguen siendo ciertas y siguen contando en su período.
+- **Un `OpportunityUpdate` que sólo cambió el nombre no registra nada.** Sumar ahí inflaría los conteos de etapa con ediciones administrativas.
+- **Los eventos que no son `Opportunity*` se descartan sin guardar.** No aportan al embudo y traen datos personales del contacto que no hace falta almacenar.
+- **`Version: v3` sólo para opportunities.** El resto del cliente sigue con `2021-04-15`; se agregó un override por llamada en vez de migrar todo.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **El payload de la vía de Workflow no está documentado** — lo arma quien configura el workflow. El normalizador lo busca en varias capas y el evento crudo se persiste antes de interpretarse, pero la pregunta que decide la unidad sigue abierta: **si un Workflow de GHL puede mandar `pipelineStageId`**. Si no pudiera, esa vía sólo serviría para altas y I-4 quedaría atada a la aprobación del Marketplace. Anotado en `docs/API_DOCS_PENDIENTES.md` §3 y en `docs/PLAN_VERIFICACION.md` §5.2.
+- ⚠️ **La doc no expande el objeto `pipeline` ni el `opportunity`.** Se guarda `raw` completo de los dos para poder corregir el mapeo con el primer response real sin volver a llamar a la API.
+- No hay backfill: `searchGHLOpportunities` está construido pero sólo puede traer el estado actual, no el historial. Sirve para poblar la última etapa conocida de oportunidades preexistentes, y todavía no se usa.
+- `lib/ghl/ingest-opportunity-event.ts` no tiene tests de orquestación — quedó como `[T-6b]` en `docs/TESTING_BACKLOG.md`.
+
+---
+
+### 2026-08-30 — FIX-EMBUDOS-I2: corrección del mapeo de pagos con la documentación real
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `lib/payments/{normalize,verify-signature}.ts`, `app/api/webhooks/{whop,fanbasis}/route.ts`, `lib/payments/__tests__/normalize.test.ts`, `docs/API_DOCS_PENDIENTES.md`, `docs/PLAN_VERIFICACION.md`
+
+**Qué se hizo:**
+Santiago capturó la documentación completa de los seis proveedores en `docs/external-apis/` (5.8 MB, con un `RESUMEN-OTC.md` por proveedor que responde las preguntas abiertas). Eso permitió **corregir el mapeo de pagos que se había construido a ciegas** y responder las preguntas de diseño de las unidades que faltan.
+
+**Bugs reales encontrados y corregidos en I-2:**
+
+1. **El monto de Whop estaba mal.** `KEYS.amount` no incluía `settlement_amount`. De las claves que buscaba, en el payload real de Whop sólo existen `total` y `subtotal`, que la doc define como *"para mostrarle al creador, excluyendo los fees del comprador"* — **no es lo que se le cobró al cliente**. El cash collected habría quedado sistemáticamente por debajo del real.
+2. **La conversión de centavos se infería del sufijo `_cents`.** Whop manda **decimales** (10.43 = $10.43) y Commas manda **centavos** (2900 = $29). Convenciones opuestas entre los dos proveedores de la misma unidad. Ahora la unidad se declara por proveedor en `PROVIDER_CONFIG`.
+3. **Los tipos de evento se detectaban por regex.** `membership.created` no existe en Whop; el alta es `membership.activated`. Reemplazado por listas literales.
+4. **La identidad del comprador se buscaba sólo en la raíz.** Commas la anida bajo `buyer`, Whop bajo `user` / `member`.
+5. **El valor contratado tomaba el monto del evento como si fuera el total.** En Commas es `amount_cents × auto_expire_after_x_periods`; si la suscripción es indefinida **no existe** un total contratado y ahora queda `unmapped` en vez de guardar la cuota como si fuera la promesa completa.
+
+**Firmas — confirmadas, con un matiz:**
+- Whop usa Standard Webhooks, como se había asumido. **La clave es el secreto `ws_...` literal**, no `whsec_` con base64: el código caía en la rama correcta por accidente y ahora está documentado.
+- Commas firma con HMAC-SHA256 **hex** sobre el cuerpo crudo en `x-webhook-signature`. La cabecera ya estaba entre las candidatas; ahora es la primera.
+
+**Diferencia operativa que se documentó en las rutas:**
+Whop entrega *at least once* y reintenta ~3 días; **Commas entrega *at most once* y nunca reintenta**. Por eso la ruta de Commas responde 200 ante cualquier evento con firma válida: devolver un error perdería el evento para siempre.
+
+**Respuestas a las preguntas de diseño que quedaban abiertas:**
+- **GHL:** no hay endpoint de historial de etapas, pero **sí existe el webhook `OpportunityStageUpdate`**. I-4 tiene que persistir las transiciones en tabla propia. Ojo: `dateAdded` es la fecha de creación de la oportunidad, **no** el momento del cambio de etapa — hay que guardar la hora de recepción.
+- **VTurb:** la retención viene como promedio y como curva por segundo, y además **VTurb tiene `pitch_time` nativo**: `total_over_pitch` da M12 ya calculado. I-6 baja a tamaño S y cubre también M08.
+- **WebinarJam:** `/registrants` con `attended_live=4` + `attended_live_timestamp` devuelve directamente los que se quedaron pasado el segundo del pitch, o sea **M15 sin post-procesar**. Distingue vivo de replay en columnas separadas. **M16 (clicks al CTA) no está expuesto** — lo más cercano es `purchased_live`, que es conversión y no intención; no hay que presentarlo como si fuera lo mismo. La API key **requiere aprobación previa**.
+- **Hyros:** `GET /api/v1.0/attribution` con `level` y `fields` da M05; `/leads/journey` con `includeEvents=true` da M07. ⚠️ Casi todos sus endpoints **ignoran en silencio los parámetros mal escritos** y devuelven 200 con datos distintos a los pedidos.
+
+**Hallazgo de identidad:** **Fanbasis se llama Commas.** El rebranding cambió marca y documentación, no los hosts — el API se sigue sirviendo desde `www.fanbasis.com`, así que el id de proveedor en la base (`fanbasis`) no cambia y no hace falta migración.
+
+**Verificación ejecutada:**
+- `pnpm test`: **293 tests en 14 archivos, todos en verde** (33 de normalización reescritos con los payloads reales de la documentación).
+- `tsc --noEmit` y lint: limpios.
+
+**Decisiones de diseño:**
+- **La configuración es por proveedor y no por heurística.** Adivinar la unidad por el sufijo del campo funcionaba de casualidad; un campo nuevo sin `_cents` se habría colado como si fuera unidad.
+- **Los tests usan payloads copiados de la documentación**, no inventados, y varios existen sólo para fijar que el mapeo no vuelva a tomar el campo equivocado.
+- **Una suscripción indefinida no tiene valor contratado.** Estimarlo sería inventar una promesa que el cliente nunca hizo.
+
+**Riesgos / deuda técnica pendiente:**
+- Sigue sin conectarse ninguna cuenta real — es lo que Santiago decidió dejar para el final. Los pasos están en `docs/PLAN_VERIFICACION.md` §3, ahora con las expectativas correctas.
+- El backfill histórico no está construido: los dos proveedores exponen endpoints REST para traerlo (`GET /payments` en Whop, `/public-api/checkout-sessions/transactions` en Commas) y la API key ya se guarda en la UI, pero no se usa todavía.
+- Whop desactiva endpoints que fallan 72 h seguidas y **no reenvía lo perdido**: si eso pasa hay que reconstruir por REST.
+
+---
+
+### 2026-08-30 — DOC-EXTERNAL-APIS-2: Whop, Commas, Hyros y WebinarJam bajados al repo
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** `c70b578`  
+**Módulo(s) afectado(s):** `docs/external-apis/` (4 proveedores nuevos), `docs/API_DOCS_PENDIENTES.md`, `CLAUDE.md`, `PENDIENTES.md`
+
+**Qué se hizo:**
+Segunda tanda de captura, después de GoHighLevel y VTurb. Santiago pasó las URLs de las
+cuatro documentaciones que faltaban. **Las cuatro eran alcanzables**, así que el bloqueo
+de red que motivó `API_DOCS_PENDIENTES.md` ya no existe para ningún proveedor.
+
+- **`whop/`** — 897 páginas de `docs.whop.com` más los **3 specs OpenAPI oficiales**
+  que Whop publica en `/openapi/*` (native 246 operaciones, stable/legacy 202, wallet
+  stats 2). Referencia legible generada desde los specs.
+- **`commas/`** — 42 secciones de `commasdocs.com`. **Fanbasis se rebrandeó a Commas**;
+  `apidocs.fan` ya no es su documentación, aunque el API sigue en `www.fanbasis.com`.
+- **`hyros/`** — los **3 specs OpenAPI 3.1** vigentes de `api-docs.hyros.com/ai-context/`
+  (REST v1.40, webhooks, MCP), el documento viejo de Apiary (v1.37) y **482 guías** de
+  `docs.hyros.com`.
+- **`webinarjam/`** — los 17 artículos de API del centro de ayuda, con los links
+  internos reescritos al slug real.
+- **Un `RESUMEN-OTC.md` por proveedor**, que responde una por una las preguntas de
+  `API_DOCS_PENDIENTES.md` §1, §2, §5 y §6.
+- **`tools/`**: se sumaron `render.py` (Chromium), `crawl_hyros.py`, `openapi_md.py`
+  (OpenAPI 3.x → markdown, reutilizable), y un build por proveedor. `regenerar.sh` ahora
+  toma proveedores como argumento.
+
+**Por qué / finalidad:**
+Las tres olas de integración quedan con documentación local. Dos de las unidades ya
+construidas (Whop y Commas, la capa de pagos) se pueden corregir contra los specs reales
+en vez de esperar a que llegue el primer webhook.
+
+**Los hallazgos que cambian código o diseño:**
+- **Whop no manda centavos: manda decimales en la unidad de la moneda.** El spec lo dice
+  textual (*"10.43 for $10.43 USD"*). Y **ninguna de las claves de monto que busca
+  `normalize.ts` existe en su payload**: busca `settled_amount`, el campo es
+  `settlement_amount`. `total` y `subtotal` sí existen pero son otra cosa (*"to show to
+  the creator, excluding buyer fees"*).
+- **Commas sí manda centavos (`amount_cents`).** Los dos proveedores de la misma unidad
+  usan convenciones opuestas: la regla no puede ser una heurística de sufijo.
+- **La firma de Commas quedó confirmada**: `x-webhook-signature`, HMAC-SHA256 hex sobre
+  el body crudo, secreto sin transformar. Era la pregunta que bloqueaba toda la ruta.
+- **La firma de Whop también**, con un detalle: el prefijo del secreto es `ws_`, no
+  `whsec_`, y se usa como clave literal.
+- **`membership.created` no existe en Whop.** El evento de alta es `membership.activated`.
+- **WebinarJam resuelve M15 del lado del servidor**: el filtro `attended_live=4` +
+  `attended_live_timestamp=<segundo>` devuelve los que se quedaron más allá del pitch.
+  En cambio **M16 (clicks al CTA) no existe** — sólo hay `purchased_live`.
+- **Hyros confirma que `I-7` no hace falta**: M08 y M09 salen de `/leads` y del reporte
+  de atribución. Y `fields=cost` cubre M01, así que tampoco hace falta cruzar la API de
+  cada plataforma de ads.
+
+**Decisiones de diseño:**
+- **Cuando el proveedor publica un spec, el spec es la fuente.** Whop y Hyros lo
+  publican; VTurb lo embebe. Se guardan los specs y la referencia se genera de ahí, en
+  vez de raspar la página de cada endpoint. En Whop eso además evita duplicar 18 MB: cada
+  página de `api-reference` re-embebe el spec entero, 548 veces.
+- **`openapi_md.py` es un conversor genérico**, no uno por proveedor: resuelve `$ref`,
+  `oneOf`/`anyOf`/`allOf`, enums, y la sección `webhooks:` de OpenAPI 3.1.
+- **Commas y Hyros se renderizan con Chromium** porque son SPAs que no sirven HTML.
+  Chromium necesita `--proxy-server` y `--ssl-version-max=tls1.2` para atravesar el proxy
+  del entorno; sin eso el handshake se corta. **No se desactiva la verificación TLS.**
+- **Los links entre guías de Hyros se reconstruyen por título**, porque las tarjetas
+  "View guide" son botones de React sin `href`. Lo que no matchea queda como texto: no se
+  inventa un destino.
+- **Hyros se crawlea hasta converger.** El bundle sólo declara 283 rutas; siguiendo las
+  tarjetas aparecen 482 páginas reales.
+
+**Riesgos / deuda técnica pendiente:**
+- **La capa de pagos sigue sin corregir.** Este cambio documenta qué está mal, no lo
+  arregla: `normalize.ts` sigue sin `settlement_amount` y con el regex de
+  `membership.created`. Queda como `[EMBUDOS-PAGOS-CORREGIR]` en `PENDIENTES.md`.
+- La copia pesa ~27 MB, casi todo Whop. El README explica qué se puede podar si molesta.
+- **La API key de WebinarJam requiere aprobación previa** — conviene pedirla ya, es el
+  camino crítico de I-5.
+- Hyros tiene dos referencias con versiones distintas (spec v1.40 vs Apiary v1.37). Si
+  difieren, manda el spec; está anotado en su INDEX.
+- De GoHighLevel y WebinarJam siguen faltando cosas que la fuente no publica (schemas de
+  respuesta sin expandir, unidades de `time_live`). Están en cada `RESUMEN-OTC.md`.
+
+---
+
+### 2026-08-30 — Relevamiento de 4 componentes de 21st.dev
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `docs/COMPONENTES_21ST.md` (nuevo), `PENDIENTES.md`
+
+**Qué se hizo:**
+Santiago pasó cuatro URLs de componentes de 21st.dev y pidió bajarlos a un documento markdown: uso, prompts y todo lo necesario para integrarlos, investigando primero cómo funciona 21st.dev y qué hay que conectar.
+
+- **`docs/COMPONENTES_21ST.md`**: cómo funciona 21st.dev (CLI `@21st-dev/cli` v1.16.1, registry shadcn, MCP, autenticación con key `21st_sk_…`, modelo de cobro), el estado del repo frente a lo que piden los componentes, una ficha por componente con su comando de instalación, dependencias npm y de registry, código de uso real, API y ajustes concretos para OTC, cinco prompts listos para pegar en una sesión de agente, checklist de integración y un resumen ejecutivo con la recomendación para cada uno.
+- Los cuatro componentes son: `arunachalam/adaptive-notch-navigation-bar`, `ruixen.ui/dropdown-range-date-picker`, `sean0205/statistics-card-1` y `sean0205/tabs` (variante `button`).
+- **`PENDIENTES.md`**: ítem `[UI-21ST]` con las cuatro decisiones abiertas.
+
+**Por qué / finalidad:**
+Bajar componentes de un marketplace a un monorepo que ya tiene design system propio no es copiar y pegar: el CLI resuelve dependencias de registry y escribe primitivas ajenas en `apps/web/components/ui/`, que es exactamente donde no queremos que vivan. El documento existe para que la decisión de qué instalar y qué portar esté tomada antes de correr el primer comando.
+
+**Decisiones de diseño:**
+- **El documento dice explícitamente qué no se pudo leer.** El registry de 21st.dev devuelve 403 sin credenciales, así que el código interno de los componentes no está en el documento — solo los demos, que sí son públicos y están extraídos verbatim del HTML servido. Las props documentadas se marcan como "las que usa el demo", no como una API completa. Nada se rellenó con una suposición.
+- **La recomendación difiere por componente en vez de ser una sola.** Dos de los cuatro (tabs y statistics card) son cosas que ya tenemos con otro look: instalarlos duplicaría `Tabs`, `Card`, `Badge` y `DropdownMenu`. Para esos la recomendación es portar la variante o el detalle que aportan a `packages/ui/src/primitives/`, no instalarlos. Los otros dos sí llenan huecos reales.
+- **Los prompts están escritos para que el agente respete `CLAUDE.md`.** Cada uno incluye el paso de `add --print` antes de escribir archivos, la traducción de imports a `@ai-coo/ui`, el arreglo de clases de Tailwind v4 y la actualización de `CHANGES.md`.
+- **Se documentó el desfase de Tailwind.** El repo está en v3.4 y los componentes publicados en 2026 asumen v4: `shadow-xs` y `h-8.5` no generan CSS y fallan en silencio, sin romper el build. Es el error más probable de la integración y por eso está en el checklist.
+
+**Riesgos / deuda técnica pendiente:**
+- **El date picker de Ruixen UI no declara licencia** (`license: ""` en la metadata del registry). Los otros tres son MIT. Hay que resolverlo antes de que ese componente entre a producción.
+- No hay sesión de 21st.dev en este entorno, así que nada de esto está probado de punta a punta: la sección 7 del documento lista qué queda por verificar y con qué comando.
+- El Notch Nav choca con la regla de `CLAUDE.md` de que la navegación es solo sidebar. El documento propone montarlo en landing/founder, pero es una decisión de producto que Santiago tiene que confirmar.
+### 2026-08-30 — DOC-EXTERNAL-APIS: documentación de GoHighLevel y VTurb bajada al repo
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** `9dc02ca`  
+**Módulo(s) afectado(s):** `docs/external-apis/` (nuevo), `docs/API_DOCS_PENDIENTES.md`, `CLAUDE.md`, `PENDIENTES.md`
+
+**Qué se hizo:**
+Santiago pidió bajar a tierra la documentación de las dos APIs que faltan para la ola 2
+(VTurb para I-6 y GoHighLevel para I-4) y guardarla en el repo. Ambos dominios, que el
+2026-08-29 figuraban como bloqueados, resultaron alcanzables.
+
+- **`docs/external-apis/gohighlevel/`** — 948 páginas de
+  `marketplace.gohighlevel.com/docs` convertidas a markdown: 634 endpoints REST y 77
+  eventos de webhook. Cada archivo lleva front-matter con su URL de origen, sección,
+  versión de API y —en los endpoints— método y path. Más `INDEX.md` (por recurso) y
+  `ENDPOINTS.md` (tabla plana por path).
+- **`docs/external-apis/vturb/`** — las 8 páginas (pt + en) de `vturb.gitbook.io`, y un
+  **`openapi.json`** con los 28 endpoints, reconstruido uniendo los documentos OpenAPI
+  3.0.2 que la propia doc embebe uno por endpoint. De ese spec se genera `ENDPOINTS.md`.
+- **Dos `RESUMEN-OTC.md`** que responden una por una las preguntas que
+  `API_DOCS_PENDIENTES.md` §3 y §4 dejaron abiertas, y dicen qué cambia en el diseño de
+  cada unidad.
+- **`docs/external-apis/tools/`** — los scripts que generan todo, con `regenerar.sh`
+  como único punto de entrada. Probado de punta a punta.
+- `API_DOCS_PENDIENTES.md`: §3 y §4 pasan a resueltas; la regla permanente ahora
+  arranca con "probá la URL antes de asumir que está bloqueada". `CLAUDE.md` regla 3
+  apunta a la copia local.
+
+**Por qué / finalidad:**
+Las dos unidades de la ola 2 se iban a construir a ciegas, como se construyó la capa de
+pagos. Teniendo la documentación adentro del repo, se construyen leyendo. Y la copia
+sirve a todas las sesiones que vengan, sin depender de que la red del entorno remoto
+coopere ese día.
+
+**Los dos hallazgos que cambian diseño:**
+- **GHL no expone historial de cambios de etapa.** No hay endpoint, no hay filtro por
+  transición, y el webhook `OpportunityStageUpdate` trae la etapa nueva pero no la
+  anterior ni el timestamp. Los conteos por etapa en un período (M21–M23, M25) **no se
+  pueden leer de la API**: I-4 tiene que construir su propio historial desde los
+  webhooks y mostrar explícitamente el período ciego anterior a la suscripción.
+- **VTurb da la curva de retención, no sólo el promedio** — y además ya modela el CTA.
+  `/times/user_engagement` devuelve `grouped_timed[]` (segundo → usuarios) junto con
+  `average_watched_time` y `engagement_rate`; `/sessions/stats` devuelve
+  `total_over_pitch` y `/players/list` el `pitch_time` de cada player. M12 sale directo
+  en vez de haber que derivarlo, y el segundo del CTA no hay que configurarlo a mano.
+
+**Decisiones de diseño:**
+- **De GHL se capturó sólo la versión *current* (v3).** El sitemap expone además
+  `2021-04-15`, `2021-07-28` y `2023-02-21`; se verificó comparando páginas que las tres
+  son idénticas a la current salvo por el valor permitido del header `Version`. Bajar
+  las cuatro cuadruplicaba el peso sin agregar información.
+- **El conversor entiende el DOM del plugin OpenAPI de Docusaurus**, no es un
+  html→texto genérico: grupos de parámetros, árboles de schema anidados, enums, tabs de
+  ejemplo y code blocks de Prism salen como markdown estructurado. Lo que la fuente deja
+  sin expandir (`opportunity: object`) queda sin expandir — no se completa por
+  inferencia.
+- **De VTurb la fuente de verdad es el `openapi.json`, no el markdown.** Es
+  machine-readable y sirve para generar tipos o un cliente cuando se construya I-6.
+- **Los scripts se commitean.** Sin ellos la copia envejece y nadie sabe cómo
+  refrescarla; con ellos, actualizar es correr un comando y mirar el diff.
+
+**Riesgos / deuda técnica pendiente:**
+- La copia es un snapshot del 2026-08-30. Antes de construir I-4 o I-6 conviene correr
+  `regenerar.sh` y ver si hay diff.
+- **No se capturaron los code samples de GHL** (curl/Node/Python del panel derecho): los
+  arma JavaScript y no existen en el HTML servido. Sí están el request, el schema de
+  respuesta y el ejemplo JSON.
+- **GHL no expande muchos objetos de respuesta.** Los campos de `opportunity` y de
+  `pipeline` hay que leerlos del primer payload real.
+- **VTurb declara `v1` en el header y `v3` en el spec**, los campos de `Stats` no tienen
+  descripción, y las release notes mencionan `/smart_autoplays/stats_by_player`, que no
+  está en la referencia. Los cuatro puntos quedaron listados en su `RESUMEN-OTC.md`.
+- Los otros siete dominios de documentación (Whop, Fanbasis, Hyros, Zoom, WebinarJam)
+  **no se volvieron a probar**. Puede que alguno también esté disponible.
+
+---
+
+### 2026-08-30 — DOC-PLAN-VERIFICACION: registro de lo que queda sin probar
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `docs/PLAN_VERIFICACION.md` (nuevo), `CLAUDE.md`, `PENDIENTES.md`
+
+**Qué se hizo:**
+Santiago decidió **no conectar ninguna cuenta real hasta terminar todas las olas de integración**, y hacer una única prueba de punta a punta paso por paso. Pidió que se vaya documentando qué hay que testear.
+
+- **`docs/PLAN_VERIFICACION.md`**: runbook ordenado por dependencia, con **qué hacer**, **qué tendría que pasar** y **qué significa si falla** en cada paso. Cubre prerrequisitos, el comportamiento base del módulo, y las tres unidades de la ola 1. Tiene marcas de ⚠️ (falla probable por haberse construido a ciegas), 🔒 (verifica seguridad) y ⭐ (verifica una regla de diseño central, no sólo que ande).
+- **Regla 4 de `CLAUDE.md`**: toda unidad que no se pueda verificar en el momento suma su bloque a ese documento.
+- El ítem `[EMBUDOS-PAGOS-VERIFICAR]` de `PENDIENTES.md` ahora apunta al plan en vez de repetir los pasos.
+
+**Por qué / finalidad:**
+El módulo se está construyendo sin acceso a cuentas ni a documentaciones de API. Sin un registro acumulado, al llegar al final habría que reconstruir de memoria qué se asumió en cada unidad y qué falta comprobar. Con el plan, la pasada final es mecánica.
+
+**Decisiones de diseño:**
+- **El plan se ordena por dependencia, no por unidad.** El bloque 0 son los prerrequisitos y el 1 el comportamiento base del módulo, que no necesita ninguna cuenta externa: se puede hacer hoy mismo y ya valida las reglas centrales.
+- **Las marcas distinguen tipos de riesgo.** Un paso ⚠️ probablemente falle y se arregla mirando el dato crudo; uno 🔒 que falle es un problema de seguridad; uno ⭐ que falle significa que una regla de diseño no se sostuvo.
+- **Los pasos de aislamiento entre organizaciones y de rechazo de firma están explícitos.** Son las verificaciones que nadie hace por costumbre y las que más caro salen si fallan.
+
+**Riesgos / deuda técnica pendiente:**
+- Las preguntas abiertas sobre GHL (¿hay historial de cambios de etapa?) y VTurb (¿la retención es promedio o curva?) siguen sin respuesta hasta que lleguen las documentaciones. Ambas pueden cambiar el diseño de su unidad, no sólo el mapeo — están registradas en `docs/API_DOCS_PENDIENTES.md`.
+- El plan cubre hasta la ola 1. Las unidades de las olas 2 y 3 suman su bloque a medida que se construyan.
+
+---
+
+### 2026-08-30 — UI de conexión de pagos, I-3 y registro de APIs sin documentar
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `docs/API_DOCS_PENDIENTES.md` (nuevo), `CLAUDE.md`, `app/payments/actions.ts` (nuevo), `components/integrations/payments-connect-panel.tsx` (nuevo), `app/(platform)/integrations/page.tsx`, `lib/funnels/source-signal.ts` (nuevo), `lib/funnels/resolve.ts`
+
+**Qué se hizo:**
+
+**1. `docs/API_DOCS_PENDIENTES.md` + regla permanente en `CLAUDE.md`**
+Santiago pidió que quede registrado en algún lado qué documentaciones de API faltan verificar, para pasarlas todas juntas al final de las olas y corregir de una.
+
+Se verificó que **los nueve dominios de documentación probados están bloqueados** por la política de red del entorno: `docs.whop.com`, `apidocs.fan`, `vturb.gitbook.io`, `api-docs.hyros.com`, `docs.hyros.com`, `highlevel.stoplight.io`, `marketplace.gohighlevel.com`, `developers.zoom.us` y `help.webinarjam.com`. No es específico de un proveedor: **va a pasar en todas las integraciones que quedan.**
+
+El documento lista, por proveedor: qué se asumió, con qué nivel de confianza, cómo se verifica y qué se necesita exactamente de la documentación. Cubre Whop y Fanbasis (construidos) y deja preparadas las secciones de GHL, VTurb, WebinarJam/Zoom y Hyros.
+
+Se agregó como **Regla 3** de `CLAUDE.md`, con el patrón obligatorio: persistir el payload crudo antes de interpretarlo, nunca inventar un valor, aislar el mapeo en un archivo con advertencia en el header, y dejar la entrada en el registro.
+
+**2. UI de conexión de pagos**
+- `app/payments/actions.ts`: estado, conexión y desconexión de Whop y Fanbasis. El secreto del webhook es obligatorio; la API key es opcional y hoy no se usa (va a hacer falta para el backfill).
+- `components/integrations/payments-connect-panel.tsx`: una tarjeta por proveedor con estado, formulario de conexión, **la URL del webhook con botón de copiar**, fecha del último evento y un aviso cuando hay eventos sin interpretar.
+- Montado en `/integrations`.
+
+**3. Unidad I-3 — asistencia y cierres**
+Resultó ser una verificación y no una reparación: `updateClosingCallAction` ya permite cargar el resultado y los syncs de Calendly y GHL nunca pisan un `closed`.
+
+Lo que sí faltaba, y se construyó, es **`lib/funnels/source-signal.ts`**, que cierra el agujero abierto desde la Fase 1: una fuente bindeada a una tabla que nunca se pobló devolvía `0`.
+- `resolveCallOutcomes`: si TODAS las llamadas del período siguen en `scheduled`, devuelve `null`. Un `no_show` sí cuenta como resultado cargado.
+- `resolveWithSignal`: ante un cero en el período, consulta si la org tuvo filas alguna vez. Si nunca tuvo, `null`. La consulta extra corre **sólo cuando el conteo dio cero**.
+- Aplicado a `conversations`, `closing_calls` y `clients`.
+
+**Verificación ejecutada:**
+- `pnpm test`: **284 tests en 14 archivos, todos en verde** (14 nuevos sobre la detección de fuente vacía).
+- `tsc --noEmit` y lint: limpios.
+
+**Decisiones de diseño:**
+- **Un `no_show` cuenta como señal.** Alguien miró la llamada y registró que el lead no vino: el cero de asistencia que sale de ahí es real, no un hueco.
+- **La consulta de histórico corre sólo si el período dio cero**, así que en el caso normal no cuesta nada.
+- **Desconectar un proveedor de pagos no borra órdenes ni transacciones.** Son historia del negocio, no de la conexión; borrarlas alteraría métricas de períodos pasados.
+- **La URL del webhook se muestra con botón de copiar después de conectar.** El flujo tiene dos lados y sin el segundo no llega ningún evento; la UI lo dice explícitamente.
+- **El panel avisa cuántos eventos quedaron sin interpretar**, con el texto de que no se perdió nada y se reprocesan al ajustar el mapeo.
+
+**Riesgos / deuda técnica pendiente:**
+- El mapeo de webhooks de Whop y Fanbasis sigue sin verificar — ver `docs/API_DOCS_PENDIENTES.md`.
+- La API key que se guarda en la UI todavía no se usa: falta el backfill histórico.
+- La detección de fuente vacía usa "¿la org tuvo alguna fila alguna vez?", que es una heurística: una org que borró toda su historia se leería como sin instrumentar. Es un caso raro y el costo de equivocarse es mostrar "sin datos" en vez de un cero, que es el lado seguro.
+
+---
+
+### 2026-08-29 — FEAT-EMBUDOS-I2: capa de pagos con Whop y Fanbasis
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `supabase/migrations/20260829200000_payments_whop_fanbasis.sql` (nuevo, **aplicado**), `lib/payments/` (módulo nuevo), `app/api/webhooks/{whop,fanbasis}/route.ts` (nuevos), `lib/funnels/resolve.ts`, `docs/FUNNELS_SOURCE_MAP.md`
+
+**Qué se hizo:**
+Segunda unidad de la ola 1 (`I-2`). Santiago indicó que Stripe y Mercado Pago no sirven para lo que el documento plantea sobre pagos, así que se implementó con **Whop y Fanbasis**, que son los que la sección 05 asigna a la etapa Cash.
+
+- **Migración con 4 tablas:** `payment_integrations` (credenciales cifradas por org, sin RLS de lectura porque guarda secretos), `payment_orders` (el compromiso: `contract_value`), `payment_transactions` (el dinero real: `kind` payment/refund, monto siempre positivo) y `payment_webhook_events` (el payload crudo).
+- **`lib/payments/types.ts`** — modelo normalizado independiente del proveedor, con la separación orden/transacción que exige el documento.
+- **`lib/payments/normalize.ts`** — traduce webhooks al modelo normalizado. Extractores tolerantes a varios nombres de campo, conversión de centavos, y fechas en ISO o epoch.
+- **`lib/payments/aggregate.ts`** — capa pura que calcula M26–M31 desde las filas.
+- **`lib/payments/verify-signature.ts`** — Standard Webhooks para Whop (con ventana de tolerancia contra replay) y HMAC-SHA256 para Fanbasis.
+- **`lib/payments/ingest.ts`** — guarda el evento crudo **antes** de interpretarlo, deduplica reentregas y marca el estado del procesamiento.
+- **Rutas de webhook** para ambos proveedores, con verificación de firma obligatoria.
+- **`resolveOrgMeasures`** ahora saca revenue, cash collected, contracted value, orders y customers de las tablas nuevas en vez de `client_payments` y `clients`.
+
+**Verificación ejecutada:**
+- `pnpm test`: **270 tests en 13 archivos, todos en verde** (53 nuevos: 14 de agregación, 15 de firmas, 24 de normalización).
+- `tsc --noEmit` y lint: limpios.
+- Migración aplicada al proyecto `OTC` y verificada: 4 tablas, RLS activo en todas, política de SELECT sólo en `payment_orders` y `payment_transactions`.
+
+**Decisiones de diseño:**
+- **El evento crudo se persiste ANTES de interpretarlo.** Es lo que hace tolerable no tener acceso a la documentación de los proveedores: el primer webhook real de cada uno es la fuente de verdad para corregir el mapeo, y ningún evento se pierde mientras tanto.
+- **Un evento que no se sabe leer queda `unmapped`, nunca vale cero.** Un cobro cuyo monto no se entiende no es un cobro de cero.
+- **El monto en `payment_transactions` es siempre positivo**; el signo lo da `kind`. Un reembolso guardado en negativo con `kind='refund'` se restaría dos veces — hay un test que lo fija.
+- **Cash collected es neto de reembolsos.** El documento pide lo que queda en la cuenta.
+- **Una compra sin id ni email no cuenta como cliente nuevo.** Contarla inflaría el CAC hacia abajo, que es el error más caro posible en este módulo.
+- **La ventana de tolerancia del timestamp** en Standard Webhooks evita que un evento capturado se reinyecte indefinidamente.
+- **El `organizationId` va en la URL del webhook pero no autentica nada**: sólo dice contra qué secreto verificar. Lo que prueba la legitimidad es la firma.
+- **Stripe y Mercado Pago no se eliminaron.** Siguen sirviendo al módulo de Finanzas y a la importación manual; lo que cambió es que ya no son la fuente de la etapa Cash del embudo.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **El mapeo de campos de los webhooks NO está verificado.** `docs.whop.com` y `apidocs.fan` están bloqueados por la política de red del entorno, así que los nombres de campo en `normalize.ts` son una lectura razonable de los modelos publicados, no una transcripción de sus specs. **Hay que conectar una cuenta real de cada proveedor y revisar `payment_webhook_events` para corregirlos.** El archivo lleva la advertencia en el header.
+- ⚠️ **El esquema de firma de Fanbasis tampoco está verificado**: se asume HMAC-SHA256 sobre el cuerpo crudo, que es lo más habitual. La ruta prueba varias cabeceras candidatas.
+- **Falta la UI de conexión.** Hoy las credenciales de `payment_integrations` se cargan a mano. Falta el diálogo en `/integrations` para pegar API key y webhook secret.
+- **`purchases_per_customer` y `retention_rate` siguen sin fuente** (M32, M33): son la unidad I-9 y hacen falta para LTV.
+- Ninguna org tiene todavía una cuenta conectada, así que la etapa Cash sigue resolviendo `null` hasta que se conecte la primera.
+
+---
+
+### 2026-08-29 — FEAT-EMBUDOS-I1: captura diaria de métricas de anuncios
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `supabase/migrations/20260829180000_ad_metrics_daily.sql` (nuevo, **aplicado**), `lib/marketing/ad-metrics-snapshot.ts` (nuevo), `app/api/cron/capture-ad-metrics/route.ts` (nuevo), `lib/funnels/{sources,resolve}.ts`, `vercel.json`, `docs/FUNNELS_SOURCE_MAP.md`
+
+**Qué se hizo:**
+Primera unidad de la ola 1 del plan de integraciones (`I-1` del mapa de fuentes).
+
+- **Migración `ad_metrics_daily`** (aplicada en producción y verificada): día, plataforma, anuncio, campaña, adset y las cuatro medidas que el documento asigna a Meta Ads — spend, impressions, reach y clicks. `UNIQUE (organization_id, metric_date, platform, ad_external_id)`. RLS con política **sólo de SELECT**: la escritura es exclusiva del cron vía service role.
+- **`lib/marketing/ad-metrics-snapshot.ts`**: `mapAdToRow` (puro) normaliza un anuncio de Zernio a fila diaria, `dedupeRows` (puro) colapsa anuncios repetidos, y `captureAdMetricsForOrganization` / `...ForAllOrganizations` hacen el IO.
+- **Cron `capture-ad-metrics`** a las 05:30 UTC, captura el día anterior ya cerrado. Acepta `?organizationId=` y `?date=YYYY-MM-DD` para rellenar un día perdido.
+- **Fuente `ad_clicks`** en el catálogo de embudos, bindeada por defecto a `webinar.click` y `vsl.click`.
+- **`resolveOrgMeasures`** ahora lee `spend`, `reach` e `impressions` de `ad_metrics_daily` en vez de devolver `null` fijo.
+
+**Decisiones tomadas por Santiago que quedaron registradas en el mapa:**
+- **VSL: VTurb.** Tiene Analytics API pública con plays, views y retención filtrables por video y fecha. `I-6` baja de tamaño L a M.
+- **Todos los clientes pagan Hyros.** `I-8` es una integración directa, sin degradación por cliente.
+- **Landings en Vercel.** Como Vercel es hosting y no analítica de embudo, y el script de Hyros ya va a estar en todas esas páginas, los opt-ins (M08, M09) salen del endpoint de leads de Hyros. **`I-7` se elimina como unidad independiente y se absorbe en `I-8`.**
+- **Clientes repartidos en partes iguales entre los tres embudos**, así que la ola 2 se ordena por costo: GHL, VTurb, webinar.
+- Los datos actuales de `closing_calls` son de prueba: la conclusión anterior de que el flujo de resultados no se puebla **no era válida**. `I-3` pasa de reparar a verificar.
+
+**Verificación ejecutada:**
+- `pnpm test`: **217 tests en 10 archivos, todos en verde** (13 nuevos sobre el mapeo y la deduplicación).
+- `tsc --noEmit`: limpio.
+- Migración aplicada al proyecto `OTC` y verificada: RLS activo, 1 política de SELECT, 13 columnas.
+
+**Decisiones de diseño:**
+- **En la captura, un cero es un dato real.** Si un anuncio existe y no gastó, gastó cero — no es un hueco. La distinción `null` vs `0` de §9.1 vive en el resolver del embudo, no acá. Está documentado en el código y cubierto por un test.
+- **`dedupeRows` existe porque Zernio devuelve el mismo `_id` cuando un anuncio está en varios adsets**; sin eso el upsert choca contra sí mismo dentro del mismo batch.
+- **El cron captura el día anterior, no el actual**: un día en curso tiene métricas incompletas y quedarían congeladas mal.
+- **Sin política de INSERT/UPDATE en la tabla.** Los usuarios leen; sólo el cron escribe.
+- **`dm.trigger` sigue sin binding a propósito.** `ad_clicks` cubre sólo la parte paga de "comment / story / ad"; bindearlo ahí subcontaría los disparadores orgánicos.
+
+**Riesgos / deuda técnica pendiente:**
+- **La serie histórica arranca el día que se activa el cron.** Hacia atrás no es reconstruible: Zernio devuelve una ventana limitada y los ads no se guardaban antes.
+- **El spend es de la org entera, no por embudo.** Cuando una org corra varios embudos a la vez, atribuir el gasto a cada uno necesita `I-8` (Hyros). Hasta entonces, un cliente con dos embudos ve el mismo spend total en los dos.
+- `lib/funnels/resolve.ts` sigue sin tests ([T-6] del backlog); las funciones nuevas de IA de esta unidad tampoco.
+- El cron todavía no corrió en producción: hay que verificar la primera ejecución.
+
+---
+
+### 2026-08-29 — DB-EMBUDOS aplicada + FEAT-EMBUDOS-FUENTES: configuración de fuentes por step
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** Supabase (migración aplicada), `lib/funnels/{instrumentation,sources}.ts`, `app/funnels/actions.ts`, `app/(platform)/funnels/[funnelId]/configurar/`, `components/funnels/funnel-bindings-form.tsx`, `routes/paths.ts`
+
+**Qué se hizo:**
+
+**1. Migración aplicada en producción**
+`20260829120000_funnels_phase1.sql` aplicada al proyecto Supabase `OTC` (`nrzlylzbmsuowzhpdnjl`). Verificado antes de escribir: 6/6 tablas esperadas presentes, helper `get_my_organization_id` existente, 0 tablas `funnel_*` previas. Verificado después: las 4 tablas creadas, RLS activo y 1 política en cada una. El advisor de seguridad no reporta ningún hallazgo sobre las tablas nuevas.
+
+**2. Hallazgo: los bindings del embudo DM de la Fase 1 estaban mal**
+Al verificar el resolver contra datos reales aparecieron dos problemas:
+- **`conversations` tiene 0 filas.** Es la tabla del inbox legacy; el inbox vivo es Zernio (live-fetch). Los tres primeros pasos del DM estaban bindeados ahí.
+- **`closing_calls` tiene 282 filas pero 0 en estado `closed` o `not_closed`** (258 `scheduled` + 24 `no_show`), y 0 con `outcome` o `closed_by_name`. Los pasos de `sales_conv` y `cash` también resolvían a cero.
+
+Resultado: el embudo DM habría renderizado todo en cero, que el diseño lee como catástrofe de negocio. Es el modo de falla de §9.1 entrando por una puerta que no estaba cerrada: se contempló "sin binding → null" pero no "bindeado a una tabla que nunca se puebla → 0".
+
+**3. Lectura del documento sobre la fuente del embudo DM**
+La sección 05 del documento fuente asigna explícitamente **"GHL pipeline — Stage counts, set/close, follow-up"**. El estándar NO mide el embudo DM desde una tabla de mensajes: modela cada conversación como una oportunidad que avanza por etapas del CRM. La integración GHL de OTC consume `/calendars` y `/contacts`, pero **no `/opportunities` ni `/pipelines`** (`lib/ghl/sync-pipeline.ts` es el pipeline de sincronización de OTC, no los pipelines de GHL).
+
+En consecuencia, `crm_pipeline` pasó de `otcStatus: "available"` a un nuevo estado **`partial`**, y `blockingTools()` ahora incluye las herramientas parcialmente cubiertas. **El embudo DM no era "el único construible end-to-end"** — esa afirmación de la Fase 1 era incorrecta.
+
+**4. Configuración de fuentes por step (lo elegido para esta tanda de Fase 2)**
+- `getFunnelBindingsAction` y `setFunnelStepBindingAction` en `app/funnels/actions.ts`.
+- Ruta `/funnels/[funnelId]/configurar` con `FunnelBindingsForm`: un select por paso con las fuentes compatibles con su etapa, más la opción explícita "Sin fuente — no se mide".
+- Cada fila muestra qué herramienta le asigna **el documento** a ese paso, para que se vea cuándo lo conectado no es lo que el estándar pide.
+- La action valida compatibilidad fuente ↔ etapa antes de escribir: bindear conteos de llamadas a la etapa Lead da error.
+- El panel inferior lista las herramientas pendientes con su nota de cobertura.
+
+**5. Corrección de modelado detectada por un test**
+`conversations_opened` declaraba `suitableFor: ["lead", "click"]`. Una conversación abierta no es un disparador: en el documento la etapa Click del DM es el "Trigger (comment / story / ad)", que ocurre **antes** de que el hilo exista. Se corrigió a `["lead"]`. El test que lo detectó se dejó como está — el error estaba en la fuente, no en el test.
+
+**Verificación ejecutada:**
+- `pnpm test`: **203 tests en 9 archivos, todos en verde**.
+- `pnpm typecheck` y `pnpm lint` desde la raíz: verdes.
+- Consultas del resolver replicadas en SQL contra la base real para confirmar el hallazgo del punto 2.
+
+**Decisiones de diseño:**
+- **Nuevo estado `partial` en `ToolAvailability`.** "Existe la integración" y "cubre lo que el documento le asigna" son cosas distintas, y confundirlas es lo que hizo que la Fase 1 diera por construible un embudo que no lo era.
+- **Dejar un paso sin fuente es una opción explícita en la UI**, no un olvido: aparece como primera opción del select y se marca en ámbar.
+- **La validación fuente ↔ etapa vive en la Server Action**, no sólo en la UI: el select ya filtra, pero la action igual verifica.
+
+**Riesgos / deuda técnica pendiente:**
+- **Los bindings por defecto del DM siguen apuntando a `conversations` (0 filas).** No se tocaron porque la decisión sobre cómo resolverlo quedó abierta con Santiago. Hoy se pueden corregir desde `/funnels/[id]/configurar`, pero el default sigue siendo engañoso.
+- **Falta cerrar el agujero "fuente bindeada pero nunca poblada → 0".** El detector de fuente vacía (chequear si la fuente tiene datos históricos para la org y devolver `null` si nunca tuvo) sigue sin implementarse.
+- **Para seguir el documento al pie de la letra, el embudo DM necesita sync de oportunidades/pipelines de GHL**, que no existe. Es un ítem nuevo del track de integraciones.
+- `resolve.ts` sigue sin tests ([T-6] del backlog).
+- El estado de salud (good/watch/below) sigue sin implementarse por pedido explícito de Santiago.
+
+---
+
+### 2026-08-29 — FEAT-EMBUDOS-FASE1 + CI-TESTS + TESTING-BACKLOG
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `.github/workflows/ci.yml`, `supabase/migrations/20260829120000_funnels_phase1.sql` (nuevo), `lib/funnels/{sources,period,compute,resolve}.ts` (nuevos), `app/funnels/actions.ts` (nuevo), `app/(platform)/funnels/` (nuevo), `components/funnels/` (nuevo), `routes/paths.ts`, `constants/permission-modules.ts`, `lib/auth/add-on-ids.ts`, `lib/navigation/sidebar-modules.ts`, `components/navigation/nav-icons.tsx`, `docs/TESTING_BACKLOG.md` (nuevo)
+
+**Qué se hizo:**
+
+**1. CI — paso de tests**
+El workflow `.github/workflows/ci.yml` **ya existía** con `pnpm typecheck` y `pnpm lint`; le faltaba `pnpm test`. Se agregó el paso y se ampliaron los triggers de push para cubrir ramas de feature (`Claude-*`, `claude/**`, `feat/**`, `fix/**`, `chore/**`), que antes sólo corrían CI al abrir PR.
+
+**2. Fase 1 del módulo de Embudos**
+- **Migración `20260829120000_funnels_phase1.sql`:** `funnel_instances` (plantilla + oferta + price_point + currency + reporting_timezone), `funnel_step_bindings` (step → fuente), `funnel_benchmarks` (overrides de nivel 2 y 3) y `funnel_period_snapshots` (serie histórica). RLS por `get_my_organization_id()` en las cuatro.
+- **`lib/funnels/sources.ts`:** catálogo de 8 fuentes respaldadas por tablas reales de OTC, cada una con su procedencia. `DEFAULT_BINDINGS` con los 5 bindings del DM.
+- **`lib/funnels/period.ts`:** ventanas de 7/30/90 días con límites inclusivo/exclusivo correctos.
+- **`lib/funnels/compute.ts`:** capa PURA — estados de etapa, cálculo de métricas con resolución recursiva de referencias, transiciones entre etapas ocupadas, y KPIs universales.
+- **`lib/funnels/resolve.ts`:** capa de IO contra Supabase. No se re-exporta desde el barrel para que ningún Client Component arrastre el cliente de base de datos.
+- **`app/funnels/actions.ts`:** listar, resolver y crear instancias, todas con `requireOrganizationId()`.
+- **Páginas:** `/funnels` (índice real, no redirect) y `/funnels/[funnelId]` (detalle genérico, sirve cualquier plantilla).
+- **Componentes:** `funnel-spine-strip` (7 etapas con sus 3 estados diferenciados), `funnel-steps-table` (misma estructura que la tabla del documento + valor y origen), `funnel-create-form`, `funnel-format`.
+- **Registro:** ruta en `paths.ts`, permiso `funnels`, add-on `embudos`, entrada de sidebar e icono `filter` en `nav-icons.tsx`.
+
+**3. `docs/TESTING_BACKLOG.md`**
+Backlog de 24 ítems de testing pendientes, priorizados y con ubicación exacta, pensado para que un agente tester de Claude los tome en el futuro. Incluye convenciones del repo, las tres reglas que hacen que un test valga algo, qué NO testear, y el procedimiento de cierre de cada ítem.
+
+**Verificación ejecutada:**
+- `pnpm test`: **199 tests en 9 archivos, todos en verde** (46 nuevos sobre `compute`, `period` y `sources`).
+- `tsc --noEmit` en `apps/web`: limpio.
+- `next lint` sobre `lib/funnels`, `components/funnels` y `app/funnels`: sin warnings ni errores.
+- `pnpm typecheck` y `pnpm lint` desde la raíz (los tres pasos que corre el CI): verdes.
+
+**Decisiones de diseño:**
+- **Separación compute / resolve.** Toda la matemática vive en `compute.ts`, que es puro y no importa Supabase; `resolve.ts` sólo trae números. Es lo que permite testear el cálculo sin base de datos, y explica que los 46 tests nuevos no necesiten mocks.
+- **`dm.trigger` queda deliberadamente sin fuente.** OTC no tiene hoy de dónde sacar disparadores (comentarios / historias / ads que inician conversación). Inventarle un origen habría sido peor: el step se muestra como "Sin fuente" y la página avisa qué integraciones faltan. Es la demostración práctica de la regla §9.1.
+- **`spend`, `reach` e `impressions` resuelven a `null`.** El spend de Meta llega vía Zernio como live-fetch y no es periodizable hacia atrás. Cualquier métrica de costo que dependa de spend da `null`, y eso es correcto.
+- **Dividir por cero da `null`, no 0%.** Una tasa sobre cero es indefinida; mostrarla como 0% sería exactamente el error que el diseño quiere evitar.
+- **El conteo de una etapa es el de su primer step.** En el webinar, `engaged` tiene dos steps y el conteo de la etapa son los asistentes (la entrada), no los que se quedaron al pitch.
+- **`/funnels` es un índice real, no un redirect al último usado.** Un redirect hace que el mismo click lleve a lugares distintos según el día.
+- **`resolve.ts` fuera del barrel `index.ts`**, para no filtrar el cliente de Supabase a componentes de cliente.
+- **Sin `server-only`:** el paquete no está instalado ni se usa en el repo; se documentó la restricción en el header del archivo en vez de sumar una dependencia.
+
+**Riesgos / deuda técnica pendiente:**
+- **La migración `20260829120000_funnels_phase1.sql` está sin aplicar en Supabase.** Hasta que se aplique, `/funnels` va a fallar al consultar tablas que no existen.
+- **Sin health bands en la UI todavía.** Fase 1 muestra valores, conteos, transiciones y procedencia; el color de estado y el diagnóstico de la primera transición rota son Fase 2, tal como estaba planeado.
+- **El switcher entre embudos es Fase 3.** Hoy se navega por el índice. El sidebar muestra una entrada única "Embudos", no una por instancia.
+- **`lib/funnels/resolve.ts` no tiene tests** — es el ítem `[T-6]` del nuevo backlog, y el primero que conviene tomar porque obliga a construir el helper de mock de Supabase que después reusa todo el resto.
+- **`conversations_replied` trae todas las filas y filtra en memoria** porque `jsonb_array_length` no se expresa bien en el query builder. Con volúmenes grandes conviene moverlo a una RPC.
+- El add-on `embudos` tiene que activarse por org desde super-admin para que el módulo aparezca en el sidebar.
+
+---
+
+### 2026-08-29 — FEAT-TESTING-VITEST + FUNNELS-CONFORMANCE: Vitest en el monorepo y tests de conformidad de embudos
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `turbo.json`, `package.json` (raíz), `apps/web/package.json`, `apps/web/vitest.config.ts` (nuevo), `apps/web/lib/funnels/__tests__/` (nuevo), `CLAUDE.md`, `docs/FUNNELS_ARCHITECTURE.md`
+
+**Qué se hizo:**
+
+**1. Vitest como runner de tests unitarios del monorepo**
+- Task `test` agregada a `turbo.json` (con `dependsOn: ["^test"]`), script `test: "turbo test"` en el `package.json` raíz.
+- `apps/web`: devDependency `vitest ^3.2.4`, scripts `test` (`vitest run`) y `test:watch`.
+- `apps/web/vitest.config.ts`: entorno `node`, alias `@` a la raíz de la app, `include` limitado a `lib/**/*.test.ts` y `lib/**/__tests__/**/*.test.ts`.
+- Convención adoptada: los tests viven junto al código que cubren, cubren **lógica pura de `lib/`**, y los flujos de UI siguen en Playwright.
+
+**2. Tests de conformidad del módulo de embudos (153 tests, 6 archivos)**
+- **`document-fixture.ts`** — transcripción **verbatim** del `Funnel Metrics Standard v1.0`: masthead, spine, las 3 tablas de embudo fila por fila, los 6 KPIs, la tabla de health bands con sus textos literales, las 8 herramientas y las 3 cadencias. No importa nada de `lib/funnels`: sólo copia el documento.
+- **`templates.conformance.test.ts`** (72 tests) — compara cada fila de cada tabla contra su step (etapa, label, metricLabel, benchmarkLabel, order), verifica encabezados y punteros, el spine disperso, la normalización de los rangos, y los denominadores explícitos.
+- **`health-bands.test.ts`** (33) — `null` vs `0`, dirección de la métrica, benchmarks sin piso, precedencia de 3 niveles y las 6 filas de la sección 04 incluyendo el comparador relativo.
+- **`validate-template.test.ts`** (16) — que las plantillas reales pasen, y 12 casos negativos que verifican que el validador atrapa cada clase de error.
+- **`kpis.test.ts`** (13), **`instrumentation.test.ts`** (12) y **`spine.test.ts`** (7).
+
+**3. Revisión del documento contra las plantillas**
+El documento que Santiago volvió a pasar es **byte-idéntico** al analizado (mismo md5: `b5ed6261f92764dc4a78c29cef76abce`). La revisión se convirtió en la suite de conformidad, que verifica cada fila automáticamente en vez de a ojo.
+
+**Verificación ejecutada:**
+- `pnpm test` desde la raíz vía turbo — **153 tests, 6 archivos, todos en verde**.
+- `tsc --noEmit` en `apps/web` (incluye los tests) — limpio.
+- `next lint --dir lib/funnels` — sin warnings ni errores.
+- **Mutation testing manual** para confirmar que la suite no es decorativa: se rompieron tres cosas a propósito y cada una fue detectada por el test correcto — un rango normalizado (25-45 a 25-40), un denominador (`attendee_to_sale` apuntando a registrantes en vez de asistentes) y un texto del documento. Archivo restaurado y verificado sin diff contra el commit.
+
+**Por qué / finalidad:**
+La Fase 0 había quedado verificada ejecutando el validador a mano, sin nada que lo volviera a correr solo. Con Vitest, la conformidad entre documento y plantillas queda garantizada en cada corrida, y cuando llegue el `Funnel Metrics Standard v1.1` los tests van a decir exactamente qué plantillas quedaron desactualizadas en vez de descubrirlo en producción.
+
+**Decisiones de diseño:**
+- **El fixture no importa nada del código que testea.** Si importara los tipos o las constantes de `lib/funnels`, un error de transcripción se propagaría a ambos lados y el test pasaría igual. Al ser una copia independiente del HTML, la única forma de que pase es que coincidan de verdad.
+- **Regla de dirección única:** si un test de conformidad falla, se arregla la plantilla, nunca el fixture. Documentado en el header del archivo y en la sección 11 de la arquitectura.
+- **`include` acotado a `lib/`** en la config de Vitest: evita que el runner intente levantar Server Components o rutas de Next, que no son el objetivo de estos tests.
+- **Casos negativos en el validador.** Un validador que nunca falla no protege nada, así que se verifican las 12 clases de error que sabe detectar.
+- **Se quitó `@vitejs/plugin-react`** que se había agregado de más: el entorno es `node` y no se testean componentes.
+
+**Riesgos / deuda técnica pendiente:**
+- Los tests corren sólo cuando alguien los invoca: no hay CI que ejecute `pnpm test` en cada push. Es el siguiente paso natural — ver `[TECH-CI]` en PENDIENTES.md.
+- La cobertura es sólo de `lib/funnels`. El resto de `lib/` (métricas, zernio, marketing, agente) sigue sin tests unitarios; ahora existe la infraestructura para sumarlos donde haga falta.
+- `packages/*` todavía no declara script `test`; la task de turbo ya está lista para cuando alguno lo necesite.
+
+---
+
+### 2026-08-29 — FEAT-EMBUDOS-FASE0: schema del motor de embudos (definición, sin UI ni DB)
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `lib/funnels/` (nuevo módulo completo)
+
+**Qué se hizo:**
+Fase 0 del plan de `docs/FUNNELS_ARCHITECTURE.md` §10: normalizar el documento fuente `Funnel Metrics Standard v1.0` a un schema tipado. Sin UI, sin DB, sin resolver.
+
+- **`lib/funnels/spine.ts`** — las 7 etapas del spine universal como `as const` inmutable (`spend → click → lead → engaged → intent → sales_conv → cash`), con helpers `getSpineStage`, `spineStageOrder`, `isSpineStageId`.
+- **`lib/funnels/types.ts`** — tipos núcleo: `MetricRef` (unión de referencias medibles: step, stage, metric, reported, spend, revenue, cash_collected, contracted_value, reach, impressions, orders, customers, purchases, retention_rate), `MetricDefinition` (con `direction` y numerador/denominador explícitos), `Benchmark` (range | floor | ceiling | context_set), `FunnelStep`, `MetricPointer`, `FunnelTemplate`, `StageState` y `ResolvedMetric`.
+- **`lib/funnels/templates/{webinar,vsl-call,dm}.ts`** — las 3 plantillas transcritas del documento, con los textos originales de las columnas "Funnel step", "Metric" y "Healthy range" conservados para trazabilidad.
+- **`lib/funnels/templates/index.ts`** — registry + `FUNNEL_TEMPLATE_IDS` + lookups.
+- **`lib/funnels/kpis.ts`** — sección 03: CAC, ROAS blended/by-source, EPL, EPC, CPL, AOV, LTV (compuesta), Cash collected vs contracted, y las dos ratios decisivas (`ltv_cac_ratio`, `epl_cpl_ratio`).
+- **`lib/funnels/health-bands.ts`** — sección 04: la tabla cross-funnel con sus 6 filas y umbrales literales, precedencia de benchmark en 3 niveles (`resolveBenchmark`), y los evaluadores `applyHealthBand` / `applyCrossFunnelBand`.
+- **`lib/funnels/instrumentation.ts`** — sección 05: dueño de cada etapa (8 herramientas) con `otcStatus` (`available` | `equivalent` | `missing`), cadencia de reporte diaria/semanal/mensual, y las constantes de gobernanza (`DEFAULT_REPORTING_TIMEZONE = "America/New_York"`, `ATTRIBUTION_STACK`).
+- **`lib/funnels/validate-template.ts`** — validador de integridad: IDs únicos, orden 1..n consecutivo, monotonía respecto del spine, referencias resolubles, benchmarks que corresponden a métricas del mismo step, punteros resolubles.
+
+**Verificación ejecutada:**
+- `tsc --noEmit` en `apps/web` — limpio.
+- `next lint --dir lib/funnels` — sin warnings ni errores.
+- Validador ejecutado contra las 3 plantillas — **0 problemas**. Confirma el spine disperso: webinar y DM saltean `Spend`, el VSL saltea `Spend` y `Lead`.
+- Evaluador probado en los casos límite: `null → no_data` (no `below`), `0 → below`, dirección invertida para métricas de costo (`$2` de costo/registrante da `good`, la misma cifra como tasa daría `below`), y la banda relativa de `Lead → Intent` con tolerancia del 20%.
+
+**Por qué / finalidad:**
+El documento fuente es un schema con datos semilla, no material de lectura. Normalizarlo primero elimina las ambigüedades de §3 de la arquitectura (rangos no legibles por máquina, denominadores implícitos, spine disperso) antes de escribir una sola migración, y deja probado el principio central: agregar un tipo de embudo es agregar un archivo.
+
+**Decisiones de diseño:**
+- **`MetricRef` como unión discriminada**, con `step` para conteos de plantilla y `stage` para agregados del spine. Los KPIs universales usan `stage` porque tienen que valer para cualquier embudo: EPL es `revenue ÷ leads` y "leads" es la etapa, no un step de una plantilla concreta.
+- **`direction` en cada métrica.** Sin ella el evaluador marcaría como falla un costo por registrante por debajo del rango, que en realidad es lo mejor que puede pasar.
+- **`benchmarkLabel` con el texto original del documento** además del benchmark normalizado. Permite mostrar el texto tal cual en la UI y diffear contra una versión futura sin depender de que la normalización haya sido correcta.
+- **`BENCHMARK_TOLERANCE = 0.2` no es un número inventado:** sale de la fila "Lead → Intent" de la sección 04, donde el documento define "watch" como "−20% of bench" y lo presenta como la regla genérica para conversiones de etapa.
+- **`MetricPointer` conserva la etiqueta literal** además del ID resoluble, porque no siempre coinciden: el DM declara "Reply / set rate" como leading indicator y eso no es el nombre exacto de ninguna de sus métricas.
+- **`funnelMetrics` a nivel plantilla** porque el webinar declara "Cost per Sale" como north-star y esa métrica no aparece en ninguna fila de su tabla. El VSL apunta su north-star al KPI universal `cac`.
+- **`otcStatus` en las herramientas de instrumentación** hace legible por máquina el track de integraciones de §7, para que la UI pueda decir "esta etapa necesita WebinarJam y no está conectado" en vez de mostrar un cero.
+- **Tokens del design system en `accentToken`, no hex.** Los colores ámbar/azul/magenta del documento no existen en la paleta de OTC; se mapean a `--chart-accent`, `--chart-secondary` y `--chart-pink`. El validador rechaza un hex.
+
+**Errata del documento fuente encontrada:**
+La fila "Lead → Intent" de la sección 04 imprime `> −20%` en la columna "Below floor". Por contexto es un error de tipeo: "below floor" es estar *más* de 20% por debajo del benchmark. Se codificó la intención, no la errata, con un comentario en `health-bands.ts` que lo deja explícito.
+
+**Riesgos / deuda técnica pendiente:**
+- No hay unit test runner en el repo (sólo Playwright E2E), así que la verificación del validador y del evaluador se hizo ejecutándolos a mano contra las plantillas. Si el módulo crece, conviene sumar Vitest — hoy sería la única dependencia de testing unitario del monorepo, así que queda como decisión abierta.
+- `lib/funnels/` todavía no lo consume nadie. Queda como código muerto hasta la Fase 1, que es cuando entra el resolver y la página `/funnels/[id]` con el embudo DM.
+- El validador corre sólo si se lo invoca; no hay hook que lo ejecute en CI. Cuando exista el módulo en producción conviene atarlo al build.
+
+---
+
+### 2026-08-29 — DOC-FUNNELS-ARCHITECTURE: análisis y arquitectura de embudos intercambiables
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `docs/FUNNELS_ARCHITECTURE.md` (nuevo) — sin cambios de código
+
+**Qué se hizo:**
+- Análisis a fondo del documento fuente `Funnel Metrics Standard v1.0` (HTML aportado por Santiago) y creación de `docs/FUNNELS_ARCHITECTURE.md` como referencia de implementación del futuro módulo de Embudos.
+- **Lectura estructural del documento:** se identificó que no es material de lectura sino un schema con datos semilla — los tres embudos (Webinar, VSL book-a-call, DM) son instancias de un mismo tipo colapsables a las mismas 7 etapas del "spine".
+- **Normalización del modelo:** se documentaron las ambigüedades que el HTML esconde y su resolución — spine disperso (el VSL no tiene etapa Lead; ninguno tiene fila de Spend), relación step→stage N:1 ordenada, la columna "Healthy range" no es legible por máquina (5 formatos distintos), el denominador es parte de la identidad de la métrica (2–6% sobre asistentes vs 1–3% sobre registrantes es el mismo evento), y precedencia de benchmark de 3 niveles (plantilla → override por oferta → baseline propio a 30 días).
+- **Arquitectura de 5 capas:** definición (plantillas en TS), instancia (DB por org), resolver, evaluación, presentación. Se definieron los tipos núcleo (`SPINE_STAGES`, `FunnelTemplate`, `FunnelStep`, `MetricDefinition`, `Benchmark`, `FunnelInstance`, `ResolvedMetric`).
+- **Mapeo del spine a fuentes reales de OTC:** 5 de 7 etapas están cubiertas hoy; los huecos son la etapa Engaged de Webinar (show-up/stick rate) y de VSL (play rate/watch %).
+- **Resolución del switcher de vistas** (§6): segmento dinámico `/funnels/[funnelId]` como única fuente de verdad, sin cookie de estado, con índice real en `/funnels`, sidebar dinámico por instancia, switcher con indicador de salud y período persistente entre embudos.
+- **Registro de las 7 decisiones cerradas** por Santiago en §1, y del track de integraciones bloqueante en §7.
+
+**Por qué / finalidad:**
+Santiago va a aportar más documentos, uno por tipo de embudo, y necesita que el software permita al usuario intercambiar entre "vistas" de embudos según su conveniencia, cada una con su estructura propia. El análisis previo evita construir N módulos acoplados: la conclusión central es un motor genérico + N definiciones declarativas, donde agregar un tipo de embudo es agregar un archivo de plantilla sin migración ni componentes nuevos.
+
+**Decisiones de diseño relevantes:**
+- **Plantillas en código, no en DB.** Agregar un embudo = archivo nuevo + typecheck, con historial de git y revisión por PR. La DB guarda solo lo específico de cada org (instancias, bindings, overrides, series). Mismo patrón que `METRIC_SOURCES` y `ADD_ON_IDS`.
+- **Embudos como capa de medición, no contenedor** (Lectura A). Marketing/Ventas/Finanzas siguen operativos; el embudo los cruza, no los contiene. El resolver igual lleva `funnelInstanceId` desde el día uno para que un futuro contexto global sea extensión y no reescritura.
+- **Switcher por URL y no por cookie.** La cookie del holding es correcta ahí porque la org activa sí es contexto global; el embudo activo no lo es. URL habilita deep-linking desde el diagnóstico, cache RSC granular y `revalidatePath` por instancia.
+- **Varias instancias por oferta**, porque el documento prohíbe explícitamente comparar una oferta de $27 con una de $5k — `price_point` y `currency` son parte de la identidad de la instancia.
+- **Fidelidad total al documento** en atribución (Hyros), timezone de reporte (EST) y etiquetado de procedencia (`[Meta]` / `[Hyros]`).
+
+**Riesgos / deuda técnica pendiente:**
+- **Riesgo principal — `null` vs `0`:** si el resolver devuelve 0 por ausencia de datos, el diagnóstico señala como "roturas" lo que son huecos de instrumentación, y el founder pierde confianza en el módulo. `ResolvedMetric.value` es `number | null` y la UI distingue 3 estados (etapa salteada / sin datos / bajo el piso).
+- **Integraciones bloqueantes:** Hyros, WebinarJam/Zoom y hosting de VSL con analytics no existen en OTC. Sin ellas, 2 de los 3 embudos del documento nacen con su etapa central vacía. El track corre en paralelo y debe aterrizar antes de la Fase 3. Queda abierta la decisión de qué proveedor de video se soporta para el VSL.
+- **`metrics_snapshots` no sirve tal cual:** su `CHECK (category IN ('sales','finance'))` no contempla embudos y su `UNIQUE (organization_id, category, period_start)` colisiona con varias instancias por org en el mismo período. Se necesita tabla propia `funnel_period_snapshots`.
+- **Sin snapshot no hay historia de Spend:** los ads de Zernio son live fetch por convención del repo, así que el Spend histórico no es reconstruible. La tabla de snapshots tiene que existir desde la Fase 1 aunque el job llegue en la Fase 5.
+- **`custom_metrics` no tiene noción de período** — `resolveSourceValue` cuenta sobre toda la historia de la org; hay que extender la firma, no duplicar.
+- No existe timezone de reporte por org en OTC.
+- Deriva plantilla/documento: cada `FunnelTemplate` lleva `sourceDocVersion` para detectar cuando el documento fuente avanza y la plantilla no.
 
 ---
 

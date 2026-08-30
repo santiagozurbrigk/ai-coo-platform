@@ -1,8 +1,21 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { listIntegrationsAction } from "@/app/integrations/actions";
+import { getPaymentIntegrationsStatusAction } from "@/app/payments/actions";
 import { getReelMusicPathAction } from "@/app/marketing/content/reel-music-actions";
 import { IntegrationGrid } from "@/components/integrations";
+import { PaymentsConnectPanel } from "@/components/integrations/payments-connect-panel";
+import { GHLOpportunitiesPanel } from "@/components/integrations/ghl-opportunities-panel";
+import { getGHLOpportunitiesStatusAction } from "@/app/ghl/opportunity-actions";
+import { VTurbConnectPanel } from "@/components/integrations/vturb-connect-panel";
+import { getVTurbStatusAction } from "@/app/vturb/actions";
+import { WebinarJamConnectPanel } from "@/components/integrations/webinarjam-connect-panel";
+import {
+  getWebinarJamStatusAction,
+  listWebinarJamWebinarOptionsAction,
+} from "@/app/webinarjam/actions";
+import { HyrosConnectPanel } from "@/components/integrations/hyros-connect-panel";
+import { getHyrosStatusAction } from "@/app/hyros/actions";
 import { ReelMusicUpload } from "@/components/marketing/trial-reels/reel-music-upload";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@ai-coo/ui";
@@ -10,9 +23,24 @@ import { Upload } from "lucide-react";
 import { paths } from "@/routes";
 
 export default async function IntegrationsPage() {
-  const [integrations, reelMusicPath] = await Promise.all([
+  const [
+    integrations,
+    reelMusicPath,
+    paymentIntegrations,
+    ghlOpportunities,
+    vturb,
+    webinarJam,
+    webinarJamWebinars,
+    hyros,
+  ] = await Promise.all([
     listIntegrationsAction(),
     getReelMusicPathAction(),
+    getPaymentIntegrationsStatusAction(),
+    getGHLOpportunitiesStatusAction(),
+    getVTurbStatusAction(),
+    getWebinarJamStatusAction(),
+    listWebinarJamWebinarOptionsAction(),
+    getHyrosStatusAction(),
   ]);
 
   return (
@@ -30,6 +58,16 @@ export default async function IntegrationsPage() {
       <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando…</p>}>
         <IntegrationGrid integrations={integrations} />
       </Suspense>
+
+      <PaymentsConnectPanel integrations={paymentIntegrations} />
+
+      <GHLOpportunitiesPanel status={ghlOpportunities} />
+
+      <VTurbConnectPanel status={vturb} />
+
+      <WebinarJamConnectPanel status={webinarJam} webinars={webinarJamWebinars} />
+
+      <HyrosConnectPanel status={hyros} />
 
       {/* Trial Reels — configuración de assets */}
       <section className="space-y-3">

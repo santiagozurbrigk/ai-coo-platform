@@ -1,0 +1,86 @@
+---
+title: "webhook"
+source: "https://marketplace.gohighlevel.com/docs/category/webhook"
+seccion: "category/webhook.md"
+api_version: "-"
+capturado: "2026-08-30"
+---
+
+- [AppInstall](https://marketplace.gohighlevel.com/docs/webhook/AppInstall) — Called whenever an app is installed
+- [AppointmentCreate](https://marketplace.gohighlevel.com/docs/webhook/AppointmentCreate) — Called whenever an appointment is created
+- [AppointmentDelete](https://marketplace.gohighlevel.com/docs/webhook/AppointmentDelete) — Called whenever an appointment is deleted
+- [AppointmentUpdate](https://marketplace.gohighlevel.com/docs/webhook/AppointmentUpdate) — Called whenever an appointment is updated
+- [AppUninstall](https://marketplace.gohighlevel.com/docs/webhook/AppUninstall) — Called whenever an app is uninstalled
+- [AppPaymentStatus](https://marketplace.gohighlevel.com/docs/webhook/AppPaymentStatus) — Called whenever the payment status of a paid app subscription changes — for example when a recurring payment fails during dunning, or when a previously failed payment is successfully recovered.
+- [AppUpdate](https://marketplace.gohighlevel.com/docs/webhook/AppUpdate) — Called whenever an app is updated to a new version
+- [AssociationCreate](https://marketplace.gohighlevel.com/docs/webhook/AssociationCreate) — Overview
+- [AssociationDelete](https://marketplace.gohighlevel.com/docs/webhook/AssociationDelete) — Overview
+- [AssociationUpdate](https://marketplace.gohighlevel.com/docs/webhook/AssociationUpdate) — Overview
+- [CampaignStatusUpdate](https://marketplace.gohighlevel.com/docs/webhook/CampaignStatusUpdate) — Called whenever a campaign status is updated
+- [ContactCreate](https://marketplace.gohighlevel.com/docs/webhook/ContactCreate) — Called whenever a contact is created
+- [ContactUpdate](https://marketplace.gohighlevel.com/docs/webhook/ContactUpdate) — Called whenever the specific fields in contact is updated
+- [ContactDelete](https://marketplace.gohighlevel.com/docs/webhook/ContactDelete) — Called whenever a contact is deleted
+- [ContactUpdate](https://marketplace.gohighlevel.com/docs/webhook/ContactUpdate) — Called whenever the specific fields in contact is updated
+- [ContactDndUpdate](https://marketplace.gohighlevel.com/docs/webhook/ContactDndUpdate) — Called whenever a contact's dnd field is updated
+- [ContactTagUpdate](https://marketplace.gohighlevel.com/docs/webhook/ContactTagUpdate) — Called whenever a contact's tag field is updated
+- [ConversationUnreadWebhook](https://marketplace.gohighlevel.com/docs/webhook/ConversationUnreadWebhook) — Called whenever a conversations unread status is updated
+- [ConversationUpdate](https://marketplace.gohighlevel.com/docs/webhook/ConversationUpdate) — Called whenever a live chat conversation is merged into another conversation due to contact identification (e.g. a visitor provides their email or phone number matching an existing contact).
+- [ExternalAuthConnected](https://marketplace.gohighlevel.com/docs/webhook/ExternalAuthConnected) — Called whenever external authentication (OAuth2 or Basic) is connected successfully for an app/location/company.
+- [SupportTicketCreate](https://marketplace.gohighlevel.com/docs/webhook/SupportTicketCreate) — Called whenever a new support ticket is created for an app.
+- [SupportTicketUpdate](https://marketplace.gohighlevel.com/docs/webhook/SupportTicketUpdate) — Called whenever a support ticket is updated — for example when its status changes, a reply is added to the conversation, or its details are edited.
+- [SupportTicketDelete](https://marketplace.gohighlevel.com/docs/webhook/SupportTicketDelete) — Called whenever a support ticket is deleted.
+- [InboundMessage](https://marketplace.gohighlevel.com/docs/webhook/InboundMessage) — Called whenever a contact sends a message to the user.
+- [InvoiceCreate](https://marketplace.gohighlevel.com/docs/webhook/InvoiceCreate) — Called whenever an invoice is created
+- [InvoiceDelete](https://marketplace.gohighlevel.com/docs/webhook/InvoiceDelete) — Called whenever an invoice is deleted
+- [InvoicePaid](https://marketplace.gohighlevel.com/docs/webhook/InvoicePaid) — Called whenever an invoice is paid
+- [InvoicePartiallyPaid](https://marketplace.gohighlevel.com/docs/webhook/InvoicePartiallyPaid) — Called whenever an invoice is partially paid
+- [InvoiceSent](https://marketplace.gohighlevel.com/docs/webhook/InvoiceSent) — Called whenever an invoice is sent
+- [InvoiceUpdate](https://marketplace.gohighlevel.com/docs/webhook/InvoiceUpdate) — Called whenever an invoice is updated
+- [InvoiceVoid](https://marketplace.gohighlevel.com/docs/webhook/InvoiceVoid) — Called whenever an invoice is marked as void
+- [KnowledgeBaseCreate](https://marketplace.gohighlevel.com/docs/webhook/KnowledgeBaseCreate) — Called whenever a knowledge base is created
+- [KnowledgeBaseUpdate](https://marketplace.gohighlevel.com/docs/webhook/KnowledgeBaseUpdate) — Called whenever a knowledge base name/description is updated
+- [KnowledgeBaseDelete](https://marketplace.gohighlevel.com/docs/webhook/KnowledgeBaseDelete) — Called whenever a knowledge base is deleted
+- [KnowledgeBaseFileChange](https://marketplace.gohighlevel.com/docs/webhook/KnowledgeBaseFileChange) — Called whenever a knowledge base file asset is created, updated or deleted
+- [KnowledgeBaseFaqChange](https://marketplace.gohighlevel.com/docs/webhook/KnowledgeBaseFaqChange) — Called whenever a knowledge base FAQ asset is created, updated or deleted
+- [KnowledgeBaseRichTextChange](https://marketplace.gohighlevel.com/docs/webhook/KnowledgeBaseRichTextChange) — Called whenever a knowledge base rich text asset is created, updated or deleted
+- [KnowledgeBaseTableFileChange](https://marketplace.gohighlevel.com/docs/webhook/KnowledgeBaseTableFileChange) — Called whenever a knowledge base table file asset is created, updated or deleted
+- [KnowledgeBaseTrainedUrlChange](https://marketplace.gohighlevel.com/docs/webhook/KnowledgeBaseTrainedUrlChange) — Called whenever a knowledge base trained URL asset is created, updated or deleted
+- [LCEmailStats](https://marketplace.gohighlevel.com/docs/webhook/LCEmailStats) — Called whenever an email is sent, gives the statistics of the said email.
+- [LocationCreate](https://marketplace.gohighlevel.com/docs/webhook/LocationCreate) — Called whenever a location is created.
+- [LocationUpdate](https://marketplace.gohighlevel.com/docs/webhook/LocationUpdate) — Called whenever a location is updated.
+- [NoteCreate](https://marketplace.gohighlevel.com/docs/webhook/NoteCreate) — Called whenever a note is created
+- [NoteDelete](https://marketplace.gohighlevel.com/docs/webhook/NoteDelete) — Called whenever a note is deleted
+- [NoteUpdate](https://marketplace.gohighlevel.com/docs/webhook/NoteUpdate) — Called whenever a note is updated
+- [ObjectSchemaCreate](https://marketplace.gohighlevel.com/docs/webhook/ObjectSchemaCreate) — Overview
+- [ObjectSchemaUpdate](https://marketplace.gohighlevel.com/docs/webhook/ObjectSchemaUpdate) — Overview
+- [OpportunityAssignedToUpdate](https://marketplace.gohighlevel.com/docs/webhook/OpportunityAssignedToUpdate) — Called whenever an opportunity's AssignedTo field is updated
+- [OpportunityCreate](https://marketplace.gohighlevel.com/docs/webhook/OpportunityCreate) — Called whenever an opportunity is created
+- [OpportunityDelete](https://marketplace.gohighlevel.com/docs/webhook/OpportunityDelete) — Called whenever an opportunity is deleted
+- [OpportunityMonetaryValueUpdate](https://marketplace.gohighlevel.com/docs/webhook/OpportunityMonetaryValueUpdate) — Called whenever an opportunity's monetary value field is updated
+- [OpportunityStageUpdate](https://marketplace.gohighlevel.com/docs/webhook/OpportunityStageUpdate) — Called whenever an opportunity's stage field is updated
+- [OpportunityStatusUpdate](https://marketplace.gohighlevel.com/docs/webhook/OpportunityStatusUpdate) — Called whenever an opportunity's status field is updated
+- [OpportunityUpdate](https://marketplace.gohighlevel.com/docs/webhook/OpportunityUpdate) — Called whenever an opportunity is updated
+- [OrderCreate](https://marketplace.gohighlevel.com/docs/webhook/OrderCreate) — Called whenever an order is created
+- [OrderStatusUpdate](https://marketplace.gohighlevel.com/docs/webhook/OrderStatusUpdate) — Called whenever an order's status field updated
+- [OutboundMessage](https://marketplace.gohighlevel.com/docs/webhook/OutboundMessage) — Called whenever a user sends a message to a contact.
+- [PlanChange](https://marketplace.gohighlevel.com/docs/webhook/PlanChange) — Called whenever user changes the plan for a paid app.
+- [PriceCreate](https://marketplace.gohighlevel.com/docs/webhook/PriceCreate) — Called whenever a price is created
+- [PriceDelete](https://marketplace.gohighlevel.com/docs/webhook/PriceDelete) — Called whenever a price is deleted
+- [PriceUpdate](https://marketplace.gohighlevel.com/docs/webhook/PriceUpdate) — Called whenever a price is updated
+- [ProductCreate](https://marketplace.gohighlevel.com/docs/webhook/ProductCreate) — Called whenever a product is created
+- [ProductDelete](https://marketplace.gohighlevel.com/docs/webhook/ProductDelete) — Called whenever a product is deleted
+- [ProductUpdate](https://marketplace.gohighlevel.com/docs/webhook/ProductUpdate) — Called whenever a product is updated
+- [ProviderOutboundMessage](https://marketplace.gohighlevel.com/docs/webhook/ProviderOutboundMessage) — Called whenever a user sends a message to a contact and has a custom provider as the default channel in the settings.
+- [RecordCreate](https://marketplace.gohighlevel.com/docs/webhook/RecordCreate) — Overview
+- [RecordDelete](https://marketplace.gohighlevel.com/docs/webhook/RecordDelete) — Overview
+- [RecordUpdate](https://marketplace.gohighlevel.com/docs/webhook/RecordUpdate) — Overview
+- [RelationCreate](https://marketplace.gohighlevel.com/docs/webhook/RelationCreate) — Overview
+- [RelationDelete](https://marketplace.gohighlevel.com/docs/webhook/RelationDelete) — Overview
+- [SaaSPlanCreate](https://marketplace.gohighlevel.com/docs/webhook/SaaSPlanCreate) — Overview
+- [TaskComplete](https://marketplace.gohighlevel.com/docs/webhook/TaskComplete) — Called whenever a task is completed
+- [TaskCreate](https://marketplace.gohighlevel.com/docs/webhook/TaskCreate) — Called whenever a task is created
+- [TaskDelete](https://marketplace.gohighlevel.com/docs/webhook/TaskDelete) — Called whenever a task is deleted
+- [UserCreate](https://marketplace.gohighlevel.com/docs/webhook/UserCreate) — Called whenever a user is created
+- [VoiceAiCallEnd](https://marketplace.gohighlevel.com/docs/webhook/VoiceAiCallEnd) — Called whenever a Voice AI call ends for a sub-account.
+- [UserDelete](https://marketplace.gohighlevel.com/docs/webhook/UserDelete) — Called whenever a user is deleted
+- [UserUpdate](https://marketplace.gohighlevel.com/docs/webhook/UserUpdate) — Called whenever a user is updated

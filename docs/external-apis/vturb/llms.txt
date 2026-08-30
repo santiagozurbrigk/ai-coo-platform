@@ -1,0 +1,15 @@
+# VTurb Analytics API
+
+## 🇺🇸 Analytics API
+
+- [Welcome to VTurb Analytics API](https://vturb.gitbook.io/analytics-api/welcome-to-vturb-analytics-api.md)
+- [API Authentication](https://vturb.gitbook.io/analytics-api/api-authentication.md)
+- [Analytics](https://vturb.gitbook.io/analytics-api/analytics.md)
+- [Release Notes](https://vturb.gitbook.io/analytics-api/release-notes.md)
+
+## 🇧🇷 API do Analytics
+
+- [Bem Vindo a API do Analytics do VTurb](https://vturb.gitbook.io/analytics-api/pt/bem-vindo-a-api-do-analytics-do-vturb.md)
+- [Autenticação da API](https://vturb.gitbook.io/analytics-api/pt/autenticacao-da-api.md)
+- [Analytics](https://vturb.gitbook.io/analytics-api/pt/analytics.md)
+- [Release Notes](https://vturb.gitbook.io/analytics-api/pt/release-notes.md)

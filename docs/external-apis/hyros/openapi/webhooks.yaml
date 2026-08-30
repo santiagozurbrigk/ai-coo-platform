@@ -1,0 +1,1210 @@
+openapi: 3.1.0
+info:
+  title: Hyros Webhooks API
+  version: "1.1"
+  description: |
+    The Hyros Webhooks system allows you to subscribe to different events that occur on the platform
+    and receive data associated with those events at a target URL configured in your subscriptions.
+
+    ## Failure Handling
+
+    When an increase in errors is detected while sending events, a notification will be sent to your
+    Hyros account. If the problem is not addressed, the subscription will be automatically disabled.
+    You can re-enable it once the issue is resolved.
+
+    ## Events
+
+    | Event | Description |
+    |-------|-------------|
+    | `sale.attributed` | A sale is attributed to a lead |
+    | `sale.refunded` | A sale is refunded |
+    | `lead.opted.in` | A lead opts in |
+    | `lead.origin.assigned` | A lead is assigned as the origin of another lead |
+    | `lead.stage.changed` | A lead's current stage changes |
+    | `lead.tag.added` | One or more tags are added to a lead |
+    | `lead.tag.removed` | One or more tags are removed from a lead |
+    | `call.attributed` | A call is attributed to a lead |
+    | `subscription.created` | A subscription is created (first indexed) |
+    | `subscription.status.changed` | A subscription's status changes |
+
+    ## Deduplication
+
+    Each event includes an `eventId` field that can be used for deduplication on your end.
+
+    ## Verifying Webhook Signatures
+
+    Every webhook request is signed so your endpoint can verify that the payload actually came from Hyros.
+
+    Each **POST** request includes two signature headers, both computed with your subscription's `secretKey`:
+
+    | Header | Description |
+    |--------|-------------|
+    | `X-Hyros-Signature` | **Recommended.** Format `t=<timestamp>,v1=<signature>`, where `<timestamp>` is the Unix epoch time (in seconds) at which the request was sent, and `<signature>` is the lowercase hex-encoded HMAC-SHA256 of the string `<timestamp>.<payload>` (the timestamp, a dot, and the full raw request body). |
+    | `X-Hyros-Hmac-Sha1` | **Deprecated**, use `X-Hyros-Signature` instead. Lowercase hex-encoded HMAC-SHA1 of the raw JSON value of the event's `body` field only. Still sent on every request so existing integrations keep working. |
+
+    The `secretKey` is returned **once**, in the response of the create subscription request —
+    store it securely. You can also find it in the Hyros app under
+    **Settings → Integrations → Hyros Webhook Subscription**; it is never returned again by the API.
+
+    To verify a request with `X-Hyros-Signature`:
+
+    1. Split the header on `,` and extract the `t=` and `v1=` values.
+    2. Concatenate the `t` value, a `.` character, and the raw request body, exactly as received
+       (do not re-serialize or pretty-print it).
+    3. Compute the HMAC-SHA256 of that string using your subscription's `secretKey` as the key.
+    4. Hex-encode the result (lowercase) and compare it to the `v1` value using a constant-time comparison.
+    5. Optionally, reject the request if `t` is too far from the current time (for example, more than
+       5 minutes) to protect against replay attacks. Retried deliveries are re-signed, so each attempt
+       carries a fresh timestamp.
+
+    Example (Node.js):
+
+    ```javascript
+    const crypto = require("crypto");
+
+    function verifyHyrosSignature(rawRequestBody, signatureHeader, secretKey, toleranceSeconds = 300) {
+        const match = /^t=(\d+),v1=([0-9a-f]{64})$/.exec(signatureHeader || "");
+        if (!match) return false;
+        const [, timestamp, signature] = match;
+
+        if (Math.abs(Date.now() / 1000 - Number(timestamp)) > toleranceSeconds) return false;
+
+        const expected = crypto.createHmac("sha256", secretKey)
+            .update(`${timestamp}.${rawRequestBody}`)
+            .digest("hex");
+
+        const received = Buffer.from(signature, "utf8");
+        const computed = Buffer.from(expected, "utf8");
+        return received.length === computed.length && crypto.timingSafeEqual(received, computed);
+    }
+    ```
+
+    If your integration still verifies the deprecated `X-Hyros-Hmac-Sha1` header: extract the raw JSON
+    value of the `body` field from the request payload exactly as received (`body` is the last field of
+    the payload — do not re-serialize it), compute the HMAC-SHA1 of that string with your `secretKey`,
+    hex-encode it (lowercase) and compare it to the header value using a constant-time comparison.
+    Plan to migrate to `X-Hyros-Signature`.
+
+    If the signature does not match, discard the request.
+
+webhooks:
+  sale.attributed:
+    post:
+      summary: Sale Attributed
+      description: |
+        Triggered when a sale is attributed to a lead.
+        The payload is sent via **POST** to your configured subscription URL.
+      parameters:
+        - $ref: '#/components/parameters/HmacSignatureHeader'
+        - $ref: '#/components/parameters/HmacSha1Header'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaleAttributedEvent'
+            example:
+              subscriptionId: sub-cee5ee3f380c4d8fb1286bac9e91fc1c
+              eventId: evt-d7ef9cb559654632af736c9992cdc17a
+              type: sale.attributed
+              timestamp: '2022-09-28T15:38:48-03:00'
+              body:
+                id: sle-6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b
+                type: SALE
+                date: '2022-09-28T15:38:24-03:00'
+                UTCDate: '2022-09-28T15:38:24-03:00'
+                qualified: true
+                score: 1.0
+                orderId: a659f6a6ad024164851b0bfbf363c436
+                recurring: false
+                attribution:
+                  - sourceLinkId: b1f47517c3cae033d98c7cdc34709f743dbdf622bab9137ae3d12f723ae9faba
+                    name: Sl1
+                    tag: '@sl1'
+                    clickDate: '2022-09-28T15:38:24-03:00'
+                    disregarded: false
+                    organic: false
+                    trafficSource:
+                      id: cat-5b8d6c9793ffa110725a9c9093514668
+                      name: automatic
+                    goal:
+                      id: cat-290631a916115729cd9fe08cee0efc84
+                      name: all
+                    category:
+                      id: cat-b6faae8ed01c3ca86e0d31b4b1292e40
+                      name: automatic
+                lead:
+                  email: lead2@gmail.com
+                  joinDate: '2022-09-28T14:55:25-03:00'
+                  UTCJoinDate: '2022-09-28T14:55:25-03:00'
+                  firstName: Jhon
+                  lastName: Doe
+                  ips: ['0.0.0.0']
+                  tags: ['!clicked', '@sl1', '$product1']
+                  phoneNumbers: ['15712253066']
+                product:
+                  id: pdt-2499a46c7806509b9c843ad8248bdfd2
+                  quantity: 1
+                  name: product1
+                  tag: '$product1'
+                  category:
+                    id: cat-ac78d25c92950a16199b5fc86ad86737
+                    name: No Category
+                  price:
+                    price: 150.0
+                    discount: 0
+                    hardCost: 0
+                    refunded: 0.0
+                    currency: USD
+                  USDPrice:
+                    price: 150.0
+                    discount: 0
+                    hardCost: 0
+                    refunded: 0.0
+                    currency: USD
+      responses:
+        '200':
+          description: Event received successfully.
+
+  sale.refunded:
+    post:
+      summary: Sale Refunded
+      description: |
+        Triggered when a sale is refunded.
+        Carries the same sale body as `sale.attributed`, plus `refundedDate`; the refunded
+        amount is available in `product.price.refunded` (and `product.USDPrice.refunded`).
+        The payload is sent via **POST** to your configured subscription URL.
+      parameters:
+        - $ref: '#/components/parameters/HmacSignatureHeader'
+        - $ref: '#/components/parameters/HmacSha1Header'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaleRefundedEvent'
+            example:
+              subscriptionId: sub-cee5ee3f380c4d8fb1286bac9e91fc1c
+              eventId: evt-d7ef9cb559654632af736c9992cdc17a
+              type: sale.refunded
+              timestamp: '2022-09-29T10:12:05-03:00'
+              body:
+                id: sle-6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b
+                type: SALE
+                date: '2022-09-28T15:38:24-03:00'
+                UTCDate: '2022-09-28T15:38:24-03:00'
+                qualified: true
+                score: 1.0
+                orderId: a659f6a6ad024164851b0bfbf363c436
+                recurring: false
+                refundedDate: '2022-09-29T10:12:05-03:00'
+                attribution:
+                  - sourceLinkId: b1f47517c3cae033d98c7cdc34709f743dbdf622bab9137ae3d12f723ae9faba
+                    name: Sl1
+                    tag: '@sl1'
+                    clickDate: '2022-09-28T15:38:24-03:00'
+                    disregarded: false
+                    organic: false
+                    trafficSource:
+                      id: cat-5b8d6c9793ffa110725a9c9093514668
+                      name: automatic
+                    goal:
+                      id: cat-290631a916115729cd9fe08cee0efc84
+                      name: all
+                    category:
+                      id: cat-b6faae8ed01c3ca86e0d31b4b1292e40
+                      name: automatic
+                lead:
+                  email: lead2@gmail.com
+                  joinDate: '2022-09-28T14:55:25-03:00'
+                  UTCJoinDate: '2022-09-28T14:55:25-03:00'
+                  firstName: Jhon
+                  lastName: Doe
+                  ips: ['0.0.0.0']
+                  tags: ['!clicked', '@sl1', '$product1']
+                  phoneNumbers: ['15712253066']
+                product:
+                  id: pdt-2499a46c7806509b9c843ad8248bdfd2
+                  quantity: 1
+                  name: product1
+                  tag: '$product1'
+                  category:
+                    id: cat-ac78d25c92950a16199b5fc86ad86737
+                    name: No Category
+                  price:
+                    price: 150.0
+                    discount: 0
+                    hardCost: 0
+                    refunded: 150.0
+                    currency: USD
+                  USDPrice:
+                    price: 150.0
+                    discount: 0
+                    hardCost: 0
+                    refunded: 150.0
+                    currency: USD
+      responses:
+        '200':
+          description: Event received successfully.
+
+  lead.opted.in:
+    post:
+      summary: Lead Opted In
+      description: |
+        Triggered when a lead opts in.
+        The payload is sent via **POST** to your configured subscription URL.
+      parameters:
+        - $ref: '#/components/parameters/HmacSignatureHeader'
+        - $ref: '#/components/parameters/HmacSha1Header'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeadOptInEvent'
+            example:
+              subscriptionId: sub-cee5ee3f380c4d8fb1286bac9e91fc1c
+              eventId: evt-18f9e0bd173047d7ac393e311d86b101
+              type: lead.opted.in
+              timestamp: '2022-09-29T13:27:25-03:00'
+              body:
+                id: opt-671e1e19dc96e091ffdf676a71131b48bebec097116223e46544739bb63150cc
+                firstOptin: true
+                date: '2022-09-29T13:26:55-03:00'
+                UTCDate: '2022-09-29T13:26:55-03:00'
+                referrerUrl: 'https://ui-test.hyros.com/public/playground?h=HR3fShIOaMpcalsj&fbc_id=23843648148170185&h_ad_id=23843735552790185'
+                lead:
+                  email: optin@gmail.com
+                  joinDate: '2022-09-29T13:26:55-03:00'
+                  UTCJoinDate: '2022-09-29T13:26:55-03:00'
+                  firstName: Jhon
+                  lastName: Doe
+                  ips: ['0.0.0.0']
+                  tags: ['!clicked', '@testing']
+                  phoneNumbers: ['15712253066']
+                attribution:
+                  - sourceLinkId: slk-9b932b463322959108d6d7b946d4d7032c141f24e9f153b2086ec25edeffa277
+                    name: testing
+                    tag: '@testing'
+                    disregarded: false
+                    organic: false
+                    clickDate: '2022-09-29T13:26:50-03:00'
+                    UTCClickDate: '2022-09-29T13:26:50-03:00'
+                    trafficSource:
+                      id: cat-506268bd2cd2f3b1b9761626c9453e73
+                      name: facebook
+                    goal:
+                      id: cat-290631a916115729cd9fe08cee0efc84
+                      name: all
+                    category:
+                      id: cat-d4edaa633d955a45ab6368de5a0ad7a1
+                      name: market hero test campaign edited 2
+                    adSource:
+                      adSourceId: '23843648148170185'
+                      adAccountId: '887874684917521'
+                      platform: FACEBOOK
+                    sourceLinkAd:
+                      name: Facebook Attribution Test
+                      adSourceId: '23843735552790185'
+                firstSource:
+                  sourceLinkId: slk-9b932b463322959108d6d7b946d4d7032c141f24e9f153b2086ec25edeffa277
+                  name: firstSource
+                  tag: '@firstSource'
+                  disregarded: false
+                  organic: false
+                lastSource:
+                  sourceLinkId: slk-9b932b463322959108d6d7b946d4d7032c141f24e9f153b2086ec25edeffa277
+                  name: lastSource
+                  tag: '@lastSource'
+                  disregarded: false
+                  organic: false
+      responses:
+        '200':
+          description: Event received successfully.
+
+  lead.origin.assigned:
+    post:
+      summary: Lead Origin Assigned
+      description: |
+        Triggered when a lead is assigned as the origin of another lead.
+        The payload is sent via **POST** to your configured subscription URL.
+      parameters:
+        - $ref: '#/components/parameters/HmacSignatureHeader'
+        - $ref: '#/components/parameters/HmacSha1Header'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeadOriginAssignedEvent'
+            example:
+              subscriptionId: sub-cee5ee3f380c4d8fb1286bac9e91fc1c
+              eventId: evt-39ff6b3f9a694d619d0d8dd9193823f9
+              type: lead.origin.assigned
+              timestamp: '2022-09-29T15:19:24-03:00'
+              body:
+                mechanism: SESSION_ID
+                lead:
+                  email: optinchild@gmail.com
+                  firstName: Jhon
+                  lastName: Doe
+                  joinDate: '2022-09-29T15:19:23-03:00'
+                  UTCJoinDate: '2022-09-29T15:19:23-03:00'
+                originLead:
+                  email: optin@gmail.com
+                  joinDate: '2022-09-29T13:26:55-03:00'
+                  UTCJoinDate: '2022-09-29T13:26:55-03:00'
+                  ips: ['0.0.0.0']
+                  tags: ['!clicked', '@testing']
+                  phoneNumbers: ['15712253066']
+                date: '2022-09-29T15:19:23-03:00'
+                UTCDate: '2022-09-29T15:19:23-03:00'
+                matchingValues:
+                  - HB-ET_cddf7af17ac0ea753d474bba20af5bb3485a0ee938cdf9d3f55a62d5f1b84f16
+      responses:
+        '200':
+          description: Event received successfully.
+
+  call.attributed:
+    post:
+      summary: Call Attributed
+      description: |
+        Triggered when a call is attributed to a lead.
+        The payload is sent via **POST** to your configured subscription URL.
+      parameters:
+        - $ref: '#/components/parameters/HmacSignatureHeader'
+        - $ref: '#/components/parameters/HmacSha1Header'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallAttributedEvent'
+            example:
+              subscriptionId: sub-cee5ee3f380c4d8fb1286bac9e91fc1c
+              eventId: evt-f254e3ec91df4aa2a9845b709bf33885
+              type: call.attributed
+              timestamp: '2022-09-28T15:41:56-03:00'
+              body:
+                id: cll-d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35
+                type: CALL
+                date: '2022-09-28T15:41:33-03:00'
+                UTCDate: '2022-09-28T15:41:33-03:00'
+                qualified: true
+                score: 1.0
+                tag: '$call'
+                attribution:
+                  - sourceLinkId: b1f47517c3cae033d98c7cdc34709f743dbdf622bab9137ae3d12f723ae9faba
+                    name: Sl1
+                    tag: '@sl1'
+                    disregarded: false
+                    organic: false
+                    trafficSource:
+                      id: cat-5b8d6c9793ffa110725a9c9093514668
+                      name: automatic
+                    goal:
+                      id: cat-290631a916115729cd9fe08cee0efc84
+                      name: all
+                    category:
+                      id: cat-b6faae8ed01c3ca86e0d31b4b1292e40
+                      name: automatic
+                lead:
+                  email: lead2@gmail.com
+                  joinDate: '2022-09-28T14:55:25-03:00'
+                  UTCJoinDate: '2022-09-28T14:55:25-03:00'
+                  firstName: Jhon
+                  lastName: Doe
+                  ips: ['0.0.0.0']
+                  tags: ['!clicked', '@sl1', '$product1', '$call']
+                  phoneNumbers: ['15712253066']
+      responses:
+        '200':
+          description: Event received successfully.
+
+  subscription.created:
+    post:
+      summary: Subscription Created
+      description: |
+        Triggered the first time a subscription is indexed.
+        The payload is sent via **POST** to your configured subscription URL.
+      parameters:
+        - $ref: '#/components/parameters/HmacSignatureHeader'
+        - $ref: '#/components/parameters/HmacSha1Header'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionCreatedEvent'
+            example:
+              subscriptionId: sub-cee5ee3f380c4d8fb1286bac9e91fc1c
+              eventId: evt-a1b2c3d4e5f6470897a1b2c3d4e5f608
+              type: subscription.created
+              timestamp: '2024-11-17T10:51:54-03:00'
+              body:
+                id: '7016953413'
+                status: ACTIVE
+                name: Pro Plan
+                tag: '$pro-plan'
+                planId: plan_pro
+                price: 49.99
+                periodicity: MONTH
+                startDate: Thu Nov 17 10:51:54 ART 2024
+                endDate: null
+                cancelAtDate: null
+                trialStartDate: null
+                trialEndDate: null
+                lead:
+                  id: ld-7d793037a0760186574b0282f2f435e7
+                  email: john@doe.com
+                  creationDate: Thu Nov 17 10:51:11 ART 2024
+                  ips: ['201.220.21.77']
+                  tags: ['@testing', '$pro-plan']
+                firstSource: null
+                lastSource: null
+                provider:
+                  id: '7016953413'
+                  integration:
+                    id: int-2499a46c7806509b9c843ad8248bdfd2
+                    name: Stripe
+                    type: STRIPE
+                category: null
+      responses:
+        '200':
+          description: Event received successfully.
+
+  subscription.status.changed:
+    post:
+      summary: Subscription Status Changed
+      description: |
+        Triggered when the status of an indexed subscription changes.
+        The payload is sent via **POST** to your configured subscription URL.
+      parameters:
+        - $ref: '#/components/parameters/HmacSignatureHeader'
+        - $ref: '#/components/parameters/HmacSha1Header'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionStatusChangedEvent'
+            example:
+              subscriptionId: sub-cee5ee3f380c4d8fb1286bac9e91fc1c
+              eventId: evt-b2c3d4e5f6a7481908b2c3d4e5f6a719
+              type: subscription.status.changed
+              timestamp: '2025-01-17T10:51:54-03:00'
+              body:
+                id: '7016953413'
+                status: CANCELED
+                name: Pro Plan
+                tag: '$pro-plan'
+                planId: plan_pro
+                price: 49.99
+                periodicity: MONTH
+                startDate: Thu Nov 17 10:51:54 ART 2024
+                endDate: Fri Jan 17 10:51:54 ART 2025
+                cancelAtDate: Fri Jan 17 10:51:54 ART 2025
+                trialStartDate: null
+                trialEndDate: null
+                lead:
+                  id: ld-7d793037a0760186574b0282f2f435e7
+                  email: john@doe.com
+                  creationDate: Thu Nov 17 10:51:11 ART 2024
+                  ips: ['201.220.21.77']
+                  tags: ['@testing', '$pro-plan']
+                firstSource: null
+                lastSource: null
+                provider:
+                  id: '7016953413'
+                  integration:
+                    id: int-2499a46c7806509b9c843ad8248bdfd2
+                    name: Stripe
+                    type: STRIPE
+                category: null
+      responses:
+        '200':
+          description: Event received successfully.
+
+  lead.stage.changed:
+    post:
+      summary: Lead Stage Changed
+      description: |
+        Triggered when a lead's **current** stage changes (for example moving from `MQL` to `SQL`).
+        The event is only emitted when the applied stage becomes the lead's current stage — a stage
+        applied with a date older than the lead's current stage (e.g. imports or backfilled orders)
+        does not trigger it. `fromStage` is omitted when it is the first stage ever applied to the lead.
+        The payload is sent via **POST** to your configured subscription URL.
+      parameters:
+        - $ref: '#/components/parameters/HmacSignatureHeader'
+        - $ref: '#/components/parameters/HmacSha1Header'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeadStageChangedEvent'
+            example:
+              subscriptionId: sub-cee5ee3f380c4d8fb1286bac9e91fc1c
+              eventId: evt-39ff6b3f9a694d619d0d8dd9193823f9
+              type: lead.stage.changed
+              timestamp: '2022-09-29T15:19:24-03:00'
+              body:
+                lead:
+                  email: example@domain.com
+                  firstName: Jerry
+                  lastName: Howe
+                  joinDate: '2022-09-29T15:19:23-03:00'
+                  UTCJoinDate: '2022-09-29T15:19:23-03:00'
+                  tags: ['vip', 'newsletter']
+                fromStage: MQL
+                toStage: SQL
+                date: '2022-09-29T15:19:23-03:00'
+                UTCDate: '2022-09-29T18:19:23-00:00'
+      responses:
+        '200':
+          description: Event received successfully.
+
+  lead.tag.added:
+    post:
+      summary: Lead Tag Added
+      description: |
+        Triggered when one or more tags are added to a lead.
+        `body.tags` contains only the tags that were added; `body.lead.tags` is the lead's full
+        tag list after the change. The payload is sent via **POST** to your configured subscription URL.
+      parameters:
+        - $ref: '#/components/parameters/HmacSignatureHeader'
+        - $ref: '#/components/parameters/HmacSha1Header'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeadTagAddedEvent'
+            example:
+              subscriptionId: sub-cee5ee3f380c4d8fb1286bac9e91fc1c
+              eventId: evt-39ff6b3f9a694d619d0d8dd9193823f9
+              type: lead.tag.added
+              timestamp: '2022-09-29T15:19:24-03:00'
+              body:
+                lead:
+                  email: example@domain.com
+                  firstName: Jerry
+                  lastName: Howe
+                  joinDate: '2022-09-29T15:19:23-03:00'
+                  UTCJoinDate: '2022-09-29T15:19:23-03:00'
+                  tags: ['vip', 'newsletter']
+                tags: ['vip']
+                action: ADDED
+                date: '2022-09-29T15:19:23-03:00'
+                UTCDate: '2022-09-29T15:19:23-03:00'
+      responses:
+        '200':
+          description: Event received successfully.
+
+  lead.tag.removed:
+    post:
+      summary: Lead Tag Removed
+      description: |
+        Triggered when one or more tags are removed from a lead.
+        `body.tags` contains only the tags that were removed; `body.lead.tags` is the lead's full
+        tag list after the change (with the removed tags already excluded). The payload is sent via
+        **POST** to your configured subscription URL.
+      parameters:
+        - $ref: '#/components/parameters/HmacSignatureHeader'
+        - $ref: '#/components/parameters/HmacSha1Header'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeadTagRemovedEvent'
+            example:
+              subscriptionId: sub-cee5ee3f380c4d8fb1286bac9e91fc1c
+              eventId: evt-39ff6b3f9a694d619d0d8dd9193823f9
+              type: lead.tag.removed
+              timestamp: '2022-09-29T15:19:24-03:00'
+              body:
+                lead:
+                  email: example@domain.com
+                  firstName: Jerry
+                  lastName: Howe
+                  joinDate: '2022-09-29T15:19:23-03:00'
+                  UTCJoinDate: '2022-09-29T15:19:23-03:00'
+                  tags: ['newsletter']
+                tags: ['vip']
+                action: REMOVED
+                date: '2022-09-29T15:19:23-03:00'
+                UTCDate: '2022-09-29T15:19:23-03:00'
+      responses:
+        '200':
+          description: Event received successfully.
+
+components:
+  parameters:
+    HmacSignatureHeader:
+      name: X-Hyros-Signature
+      in: header
+      required: true
+      description: >-
+        Recommended verification header. Format `t=<unix epoch seconds>,v1=<signature>`, where the
+        signature is the lowercase hex-encoded HMAC-SHA256 of `<t>.<raw request body>`, computed with
+        your subscription's `secretKey`. Verifying `t` against the current time protects against
+        replayed requests. See "Verifying Webhook Signatures".
+      schema:
+        type: string
+        example: t=1784730000,v1=4a7c1e2b9d8f6a5c3e0b1d2f4a6c8e0b1d3f5a7c9e0b2d4f6a8c0e1b3d5f7a9c
+    HmacSha1Header:
+      name: X-Hyros-Hmac-Sha1
+      in: header
+      required: true
+      deprecated: true
+      description: >-
+        Deprecated — use `X-Hyros-Signature` instead. Lowercase hex-encoded HMAC-SHA1 signature of the
+        raw JSON value of the event's `body` field, computed with your subscription's `secretKey`.
+        Still sent on every request so existing integrations keep working.
+        See "Verifying Webhook Signatures".
+      schema:
+        type: string
+        example: 5f3a2b1c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a
+
+  schemas:
+    TrafficSource:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    Goal:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+
+    AdSource:
+      type: object
+      properties:
+        adSourceId:
+          type: string
+          description: ID of the adset/campaign/adgroup in the Ads Manager.
+        adAccountId:
+          type: string
+          description: ID of the ad account.
+        platform:
+          type: string
+          enum: [GOOGLE, FACEBOOK, TIKTOK, SNAPCHAT, LINKEDIN, TWITTER, PINTEREST]
+
+    SourceLinkAd:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the ad.
+        adSourceId:
+          type: string
+          description: ID of the ad in the Ads Manager.
+
+    Attribution:
+      type: object
+      properties:
+        sourceLinkId:
+          type: string
+        name:
+          type: string
+        tag:
+          type: string
+        disregarded:
+          type: boolean
+          description: Indicates whether the source is disregarded.
+        organic:
+          type: boolean
+          description: Indicates whether the source is organic.
+        trafficSource:
+          $ref: '#/components/schemas/TrafficSource'
+        goal:
+          $ref: '#/components/schemas/Goal'
+        category:
+          $ref: '#/components/schemas/Category'
+        clickDate:
+          type: string
+          description: Date of the first tracked click.
+        UTCClickDate:
+          type: string
+          description: Date of the first tracked click in UTC.
+        adSource:
+          $ref: '#/components/schemas/AdSource'
+        sourceLinkAd:
+          $ref: '#/components/schemas/SourceLinkAd'
+
+    LeadChild:
+      type: object
+      properties:
+        email:
+          type: string
+        joinDate:
+          type: string
+        UTCJoinDate:
+          type: string
+
+    Lead:
+      allOf:
+        - $ref: '#/components/schemas/LeadChild'
+        - type: object
+          properties:
+            ips:
+              type: array
+              items:
+                type: string
+            tags:
+              type: array
+              items:
+                type: string
+            phoneNumbers:
+              type: array
+              items:
+                type: string
+            firstName:
+              type: string
+            lastName:
+              type: string
+
+    Price:
+      type: object
+      properties:
+        price:
+          type: number
+        discount:
+          type: number
+        hardCost:
+          type: number
+        refunded:
+          type: number
+        currency:
+          type: string
+          description: Outbound currency configured in Hyros (default USD).
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        quantity:
+          type: number
+        name:
+          type: string
+        tag:
+          type: string
+        category:
+          $ref: '#/components/schemas/Category'
+        price:
+          $ref: '#/components/schemas/Price'
+          description: Price in the outbound currency configured in Hyros.
+        USDPrice:
+          $ref: '#/components/schemas/Price'
+          description: Price in USD.
+
+    EventBase:
+      type: object
+      required: [subscriptionId, eventId, type, timestamp]
+      properties:
+        subscriptionId:
+          type: string
+          description: ID of the subscription.
+        eventId:
+          type: string
+          description: ID of the event. Can be used for deduplication.
+        type:
+          type: string
+          description: Type of the event.
+        timestamp:
+          type: string
+          description: Timestamp when the event was sent.
+          example: '2022-09-28T15:38:48-03:00'
+
+    SaleEntity:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [SALE]
+        date:
+          type: string
+          description: Date of the sale in the user's timezone.
+        UTCDate:
+          type: string
+          description: Date of the sale in UTC.
+        qualified:
+          type: boolean
+          description: True if the sale score is 1.
+        score:
+          type: number
+        orderId:
+          type: string
+        recurring:
+          type: boolean
+        attribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attribution'
+        lead:
+          $ref: '#/components/schemas/Lead'
+        product:
+          $ref: '#/components/schemas/Product'
+
+    SaleAttributedEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [sale.attributed]
+            body:
+              $ref: '#/components/schemas/SaleEntity'
+
+    SaleRefundedEntity:
+      allOf:
+        - $ref: '#/components/schemas/SaleEntity'
+        - type: object
+          properties:
+            refundedDate:
+              type: string
+              description: >-
+                Date the sale was refunded. The refunded amount is available in
+                `product.price.refunded` (and `product.USDPrice.refunded`).
+
+    SaleRefundedEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [sale.refunded]
+            body:
+              $ref: '#/components/schemas/SaleRefundedEntity'
+
+    LeadOptInEntity:
+      type: object
+      properties:
+        id:
+          type: string
+        firstOptin:
+          type: boolean
+          description: Identifies whether it is the first opt-in for that lead.
+        date:
+          type: string
+          description: Date the lead opted in (user timezone).
+        UTCDate:
+          type: string
+          description: Date the lead opted in (UTC).
+        referrerUrl:
+          type: string
+          description: Referrer URL from which the lead opted in.
+        lead:
+          $ref: '#/components/schemas/Lead'
+        attribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attribution'
+          description: All attributions the lead has.
+        firstSource:
+          $ref: '#/components/schemas/Attribution'
+        lastSource:
+          $ref: '#/components/schemas/Attribution'
+
+    LeadOptInEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [lead.opted.in]
+            body:
+              $ref: '#/components/schemas/LeadOptInEntity'
+
+    LeadOriginAssignedEntity:
+      type: object
+      properties:
+        mechanism:
+          type: string
+          enum: [SESSION_ID, PHONE_NUMBER, IP, MANUAL]
+          description: Mechanism by which the lead was assigned as origin.
+        lead:
+          $ref: '#/components/schemas/LeadChild'
+          description: Information of the lead assigned as a child.
+        originLead:
+          $ref: '#/components/schemas/Lead'
+          description: Information of the lead assigned as origin.
+        date:
+          type: string
+          description: Time of the origin lead assignment (user timezone).
+        UTCDate:
+          type: string
+          description: Time of the origin lead assignment (UTC).
+        matchingValues:
+          type: array
+          items:
+            type: string
+          description: Values for which the two leads were matched.
+
+    LeadOriginAssignedEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [lead.origin.assigned]
+            body:
+              $ref: '#/components/schemas/LeadOriginAssignedEntity'
+
+    CallEntity:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [CALL]
+        date:
+          type: string
+          description: Date of the call (user timezone).
+        UTCDate:
+          type: string
+          description: Date of the call (UTC).
+        qualified:
+          type: boolean
+        score:
+          type: number
+        tag:
+          type: string
+        attribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attribution'
+        lead:
+          $ref: '#/components/schemas/Lead'
+
+    CallAttributedEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [call.attributed]
+            body:
+              $ref: '#/components/schemas/CallEntity'
+
+    SubscriptionStatus:
+      type: string
+      enum: [ACTIVE, TRIALING, CANCELED, PAST_DUE, INCOMPLETE, INCOMPLETE_EXPIRED, UNPAID, COMPLETED, PAUSED, UNKNOWN]
+
+    BillingPeriodType:
+      type: string
+      enum: [DAY, WEEK, MONTH, QUARTER, YEAR]
+
+    Integration:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          description: Name of the external integration type (e.g. `STRIPE`, `PAYPAL`, `SHOPIFY`).
+
+    Provider:
+      type: object
+      properties:
+        id:
+          type: string
+        integration:
+          $ref: '#/components/schemas/Integration'
+
+    SubscriptionLead:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        creationDate:
+          type: string
+          description: Date the lead was created.
+        firstName:
+          type: string
+        lastName:
+          type: string
+        ips:
+          type: array
+          items:
+            type: string
+        phoneNumbers:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        provider:
+          $ref: '#/components/schemas/Provider'
+
+    SubscriptionEntity:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID of the subscription.
+        status:
+          $ref: '#/components/schemas/SubscriptionStatus'
+        name:
+          type: string
+        tag:
+          type: string
+        planId:
+          type: string
+        price:
+          type: number
+        periodicity:
+          $ref: '#/components/schemas/BillingPeriodType'
+        startDate:
+          type: string
+          nullable: true
+          description: Start date of the subscription. May be `null`.
+        endDate:
+          type: string
+          nullable: true
+        cancelAtDate:
+          type: string
+          nullable: true
+        trialStartDate:
+          type: string
+          nullable: true
+        trialEndDate:
+          type: string
+          nullable: true
+        lead:
+          $ref: '#/components/schemas/SubscriptionLead'
+          description: Lead associated with the subscription. May be `null`.
+        firstSource:
+          $ref: '#/components/schemas/Attribution'
+        lastSource:
+          $ref: '#/components/schemas/Attribution'
+        provider:
+          $ref: '#/components/schemas/Provider'
+        category:
+          $ref: '#/components/schemas/Category'
+
+    SubscriptionCreatedEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [subscription.created]
+            body:
+              $ref: '#/components/schemas/SubscriptionEntity'
+
+    SubscriptionStatusChangedEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [subscription.status.changed]
+            body:
+              $ref: '#/components/schemas/SubscriptionEntity'
+
+    LeadStageChangeEntity:
+      type: object
+      properties:
+        lead:
+          $ref: '#/components/schemas/Lead'
+          description: Information of the lead whose stage changed.
+        fromStage:
+          type: string
+          description: Name of the lead's previous stage. Omitted when this is the first stage ever applied to the lead.
+        toStage:
+          type: string
+          description: Name of the lead's new current stage.
+        date:
+          type: string
+          description: Time at which the stage was applied, in the account's time zone.
+        UTCDate:
+          type: string
+          description: Time at which the stage was applied, in UTC.
+
+    LeadTagChangeEntity:
+      type: object
+      properties:
+        lead:
+          $ref: '#/components/schemas/Lead'
+          description: Full lead snapshot after the change.
+        tags:
+          type: array
+          items:
+            type: string
+          description: Only the tag names that changed (added or removed, depending on the event). Capped at the last 30 tags.
+        action:
+          type: string
+          enum: [ADDED, REMOVED]
+          description: Whether the tags were added or removed.
+        date:
+          type: string
+          description: Time of the change in the account's time zone.
+        UTCDate:
+          type: string
+          description: Time of the change in UTC.
+
+    LeadStageChangedEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [lead.stage.changed]
+            body:
+              $ref: '#/components/schemas/LeadStageChangeEntity'
+
+    LeadTagAddedEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [lead.tag.added]
+            body:
+              $ref: '#/components/schemas/LeadTagChangeEntity'
+
+    LeadTagRemovedEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventBase'
+        - type: object
+          properties:
+            type:
+              type: string
+              enum: [lead.tag.removed]
+            body:
+              $ref: '#/components/schemas/LeadTagChangeEntity'

@@ -180,3 +180,67 @@ export async function refreshGHLCalendars(
 
   return calendars;
 }
+
+// ─── Webhook de oportunidades (I-4) ───────────────────────────────────────────
+
+/**
+ * Secreto compartido de la vía de Workflow.
+ *
+ * Sólo se usa cuando el evento NO trae firma de plataforma. Ver
+ * `lib/ghl/verify-webhook.ts` para por qué existen las dos vías.
+ *
+ * Devuelve `null` si la org no tiene uno configurado: en ese caso los eventos
+ * sin firma se rechazan, que es lo correcto.
+ */
+export async function getGHLWebhookSecret(
+  organizationId: string
+): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("ghl_integrations")
+    .select("webhook_secret_encrypted")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (error || !data?.webhook_secret_encrypted) return null;
+  return decryptGHLApiKey(data.webhook_secret_encrypted as string);
+}
+
+/** Guarda (o borra, con `null`) el secreto compartido de la vía de Workflow. */
+export async function setGHLWebhookSecret(
+  organizationId: string,
+  secret: string | null
+): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("ghl_integrations")
+    .update({
+      webhook_secret_encrypted: secret ? encryptGHLApiKey(secret) : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("organization_id", organizationId);
+
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Borde del período ciego: desde cuándo OTC tiene historial de etapas.
+ *
+ * `null` significa que todavía no llegó ningún webhook de oportunidad. El
+ * resolver del embudo lo usa para devolver `null` en vez de `0` para cualquier
+ * período anterior — un cero ahí diría "no pasó nada" cuando la verdad es "no
+ * lo estábamos mirando".
+ */
+export async function getGHLStageHistorySince(
+  organizationId: string
+): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("ghl_integrations")
+    .select("stage_history_since")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return (data.stage_history_since as string | null) ?? null;
+}
