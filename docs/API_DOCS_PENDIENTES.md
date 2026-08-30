@@ -101,91 +101,103 @@ sigue en todas estas integraciones:
 
 ---
 
-## 3. GHL — oportunidades y pipelines (unidad I-4) — ✅ **resuelta**
+## 3. GHL — oportunidades y pipelines (unidad I-4)
 
-**Documentación:** https://marketplace.gohighlevel.com/docs/ — **capturada el
-2026-08-30** en [`docs/external-apis/gohighlevel/`](./external-apis/gohighlevel/)
-(948 páginas, 634 endpoints, 77 webhooks).
+✅ **VERIFICADO 2026-08-30** contra `docs/external-apis/gohighlevel/`.
 
-**Leer antes de arrancar I-4:**
-[`external-apis/gohighlevel/RESUMEN-OTC.md`](./external-apis/gohighlevel/RESUMEN-OTC.md).
+### Lo confirmado
 
-### Las cinco preguntas, respondidas
+| Dato | Valor |
+|---|---|
+| Base URL | `https://services.leadconnectorhq.com` |
+| Auth | `Authorization: Bearer <token>` — el Private Integration Token que OTC ya usa |
+| Header obligatorio | `Version: 2021-07-28` (los endpoints de opportunities documentan `Version: v3`) |
+| Scopes | `opportunities.readonly`, `opportunities.write` |
 
-| # | Pregunta | Respuesta |
+**Endpoints:**
+
+| Método | Path | Para qué |
 |---|---|---|
-| 1 | Endpoint de pipelines y etapas | `GET /opportunities/pipelines?locationId=` |
-| 2 | Listar oportunidades con filtro por fecha y etapa | `GET /opportunities/search` (filtros simples) y `POST /opportunities/search` (avanzada, con `stageAggregations`) |
-| 3 | Nombres de campo de una oportunidad | `id`, `locationId`, `contactId`, `pipelineId`, `pipelineStageId`, `status`, `monetaryValue`, `name`, `assignedTo`, `source`, `dateAdded`, `forecastExpectedCloseDate`, `forecastProbability`, `customFields` |
-| 4 | **¿Hay historial de cambios de etapa?** | **No.** No existe endpoint de historial, ni filtro por transición, y el webhook `OpportunityStageUpdate` trae la etapa nueva pero no la anterior ni el timestamp del cambio |
-| 5 | Paginación y rate limits | Cursor (`startAfter`/`searchAfter`) o `page`+`limit`≤100 · 100 req/10 s y 200.000/día por app y por sub-account, con headers `X-RateLimit-*` |
+| `GET` | `/opportunities/pipelines?locationId=` | Pipelines de la location y sus etapas |
+| `GET` | `/opportunities/search` | Oportunidades, con filtros `pipelineId`, `pipelineStageId`, `status`, `date`, `endDate`, `contactId`; paginación por `page` + `limit` (máx 100) o cursor `startAfter` / `startAfterId` |
+| `POST` | `/opportunities/search` | Búsqueda avanzada. Devuelve `stageAggregations` — **totales por etapa** cuando hay filtro de pipeline |
 
-### Lo que cambia el diseño de I-4
+### ⭐ La respuesta a la pregunta que decidía el diseño
 
-La respuesta a la pregunta 4 es la que importa: **los conteos por etapa durante un
-período (M21, M22, M23, M25) no se pueden leer de la API**, ni con backfill. GHL sólo
-sabe en qué etapa está una oportunidad hoy.
+**No existe ningún endpoint de historial de cambios de etapa.** El REST sólo da el
+estado **actual** de cada oportunidad y su `dateAdded`.
 
-La única fuente de transiciones son los webhooks (`OpportunityCreate`,
-`OpportunityStageUpdate`, `OpportunityStatusUpdate`, …), en tiempo real y sin
-historia previa. Entonces I-4 tiene que **construir su propio historial** en OTC a
-partir de esos eventos, derivando la etapa anterior contra la última conocida, y
-**mostrar explícitamente el período ciego** anterior a la suscripción. Un cero antes
-de esa fecha no es un cero: es "no lo sabemos".
+**Pero existe el webhook `OpportunityStageUpdate`**, que dispara en cada cambio de
+etapa con este payload:
 
-### Lo que queda sin verificar
+```json
+{
+  "type": "OpportunityStageUpdate",
+  "locationId": "...", "id": "...", "contactId": "...",
+  "assignedTo": "...", "monetaryValue": 40, "name": "...",
+  "pipelineId": "...", "pipelineStageId": "...",
+  "source": "...", "status": "open",
+  "dateAdded": "2021-11-26T12:41:02.193Z"
+}
+```
 
-La doc de GHL **no expande los objetos de respuesta**: `GET /opportunities/:id`
-devuelve `opportunity: object` y `GET /opportunities/pipelines` devuelve
-`pipelines: object[]`, sin detallar campos. Esto no es una pérdida de la captura, es
-así en el original. Persistir el payload crudo del primer response real y mapear
-desde ahí. Detalle en el `RESUMEN-OTC.md`.
+Hay además `OpportunityCreate`, `OpportunityStatusUpdate`, `OpportunityMonetaryValueUpdate`,
+`OpportunityUpdate` y `OpportunityDelete`.
 
----
+**Consecuencia para I-4:** el documento fuente pide conteos por etapa **en un
+período**, así que OTC tiene que **persistir los eventos de cambio de etapa** en
+una tabla propia y armar la serie desde ahí. Con sólo el REST, una oportunidad que
+pasó por Lead → Engaged → Intent dentro del período se contaría una sola vez, en la
+etapa donde quedó.
 
-## 4. VTurb (unidad I-6) — ✅ **resuelta**
+**Ojo con un detalle del payload:** `dateAdded` es la fecha de creación de la
+oportunidad, **no** el momento del cambio de etapa. El momento del cambio es la
+hora de recepción del webhook, así que hay que guardarla.
 
-**Documentación:** https://vturb.gitbook.io/analytics-api — **capturada el
-2026-08-30** en [`docs/external-apis/vturb/`](./external-apis/vturb/), incluido un
-[`openapi.json`](./external-apis/vturb/openapi.json) con los 28 endpoints,
-reconstruido desde los documentos OpenAPI que la propia doc embebe.
+**Limitación asumida:** la historia de etapas arranca el día que se conecten los
+webhooks. Hacia atrás sólo se puede reconstruir el estado actual.
 
-**Leer antes de arrancar I-6:**
-[`external-apis/vturb/RESUMEN-OTC.md`](./external-apis/vturb/RESUMEN-OTC.md).
+## 4. VTurb (unidad I-6)
 
-### Las cinco preguntas, respondidas
+✅ **VERIFICADO 2026-08-30** contra `docs/external-apis/vturb/openapi.json`.
 
-| # | Pregunta | Respuesta |
-|---|---|---|
-| 1 | URL base y autenticación | `https://analytics.vturb.net` · headers `X-Api-Token` y `X-Api-Version: v1` |
-| 2 | Endpoints y nombres de métricas | 28 endpoints — ver [`ENDPOINTS.md`](./external-apis/vturb/ENDPOINTS.md) |
-| 3 | **¿La retención es promedio o curva?** | **Las dos.** `POST /times/user_engagement` devuelve `average_watched_time`, `engagement_rate` (con fórmula documentada) **y `grouped_timed[]`**, la curva `{ segundo, usuarios }` |
-| 4 | Cómo se identifica un video | Por `player_id`. `GET /players/list` los lista con `duration`, `pitch_time` y filtro por nombre |
-| 5 | Rate limits | 60/120/300/800 req/min según plan, más tope diario. `GET /quota/usage` devuelve el consumo en vivo y el `resets_at` del `429` |
+### Lo confirmado
 
-### Lo que cambia el diseño de I-6 — para mejor
+| Dato | Valor |
+|---|---|
+| Base URL | `https://analytics.vturb.net` |
+| Auth | Header `X-Api-Token` |
+| Identificador de video | `player_id` — `GET /players/list` devuelve `id`, `name`, `duration` y `pitch_time` |
+| Cuota | `GET /quota/usage` da el uso vivo de la cuota de API |
 
-M12 (`vsl_reached_cta`) iba a haber que derivarlo de la curva. Resulta que **VTurb ya
-modela el concepto**: `/sessions/stats` devuelve `total_over_pitch`,
-`total_under_pitch` y `over_pitch_rate`, y `/players/list` devuelve el `pitch_time`
-configurado de cada player. O sea que el segundo del CTA tampoco hay que
-configurarlo a mano en OTC.
+**Endpoint principal:** `POST /sessions/stats` con `player_id`, `start_date`,
+`end_date`, `video_duration` opcional, `timezone` y `pitch_time`.
 
-- **M10** `vsl_plays` → `total_started` (y `play_rate` ya viene calculado)
-- **M11** `vsl_avg_watch_pct` → `engagement_rate`
-- **M12** `vsl_reached_cta` → `total_over_pitch`, con la curva como verificación cruzada
+### ⭐ La respuesta a la pregunta que decidía el diseño
 
-### Lo que queda sin verificar
+**La retención viene de las dos formas, y además VTurb tiene un concepto nativo de
+"llegó al pitch".** M12 no sólo es derivable: sale directo.
 
-1. La discrepancia de versión: la doc de auth dice `v1`, el spec declara `v3`.
-2. Los campos del objeto `Stats` **no tienen descripción** en el spec — hay que
-   confirmar la semántica de `viewed` vs `started` y de los sufijos `_device_uniq` /
-   `_session_uniq` contra el dashboard.
-3. Que `total_over_pitch` sea efectivamente "llegó al CTA".
-4. `/smart_autoplays/stats_by_player` aparece en las release notes pero no en la
-   referencia.
+Mapeo a las medidas del documento:
 
----
+| Medida | Campo de VTurb |
+|---|---|
+| M08 `landing_visitors` | `total_viewed` / `total_viewed_device_uniq` |
+| M10 `vsl_plays` | `total_started` (y `play_rate` ya calculado) |
+| M11 `vsl_avg_watch_pct` | `engagement_rate`, o `average_watched_time` de `/times/user_engagement` |
+| **M12 `vsl_reached_cta`** | **`total_over_pitch` y `over_pitch_rate`** |
+| Extra | `total_clicked` (clicks al CTA), `total_finished`, `total_conversions` |
+
+Y `POST /times/user_engagement` devuelve `grouped_timed`: un array de
+`{ timed: segundo, total_users }` — **la curva de retención por segundo**. Sirve si
+alguna vez hace falta el CTA en un segundo distinto al `pitch_time` configurado.
+
+**Consecuencia para I-6:** la unidad baja de tamaño otra vez. No hay que derivar
+nada de una curva ni inventar un umbral: el `pitch_time` lo configura el cliente en
+VTurb y la API devuelve el conteo hecho.
+
+**Endpoints extra que pueden servir después:** `/traffic_origin/stats` (métricas por
+UTM), `/comparison_groups/stats` (tests A/B de VSL), `/conversions/stats_by_day`.
 
 ## 5. WebinarJam / Zoom (unidad I-5)
 

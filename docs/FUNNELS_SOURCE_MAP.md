@@ -81,17 +81,23 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 
 | # | Medida | Qué es | Estado | Qué falta |
 |---|---|---|---|---|
-| M08 | `landing_visitors` | Visitantes de la página | 🔴 | Analytics de página. Aproximable con M04, pero clicks ≠ visitantes |
+| M08 | `landing_visitors` | Visitantes de la página | 🔴 | Sale de VTurb (`total_viewed`) para las páginas con VSL, y de Hyros para el resto |
 | M09 | `optins` | Opt-ins capturados (Lead del webinar) | 🔴 | Analytics de página, o webhook del proveedor de landing |
-| M10 | `vsl_plays` | Reproducciones del VSL | 🔴 | Integración con **VTurb** |
-| M11 | `vsl_avg_watch_pct` | % promedio visto (retención) | 🔴 | Idem M10 |
-| M12 | `vsl_reached_cta` | Llegaron al CTA del video | 🔴 | Idem M10 — se deriva de la curva de retención en el segundo del CTA |
+| M10 | `vsl_plays` | Reproducciones del VSL | 🔴 | Integración con **VTurb** → `total_started` |
+| M11 | `vsl_avg_watch_pct` | % promedio visto (retención) | 🔴 | Idem M10 → `engagement_rate` |
+| M12 | `vsl_reached_cta` | Llegaron al CTA del video | 🔴 | Idem M10 → **`total_over_pitch`**, sale directo |
 
-> **Decidido: VTurb.** Tiene [Analytics API pública](https://vturb.gitbook.io/analytics-api)
-> con auth por API key y endpoints de plays, views y retención, filtrables por
-> video, rango de fechas y fuente de tráfico. Eso cubre M10, M11 y M12 casi 1:1,
-> así que esta unidad baja de tamaño **L a M**: no hay que inventar el modelo de
-> datos ni decidir proveedor.
+> ✅ **Documentación verificada el 2026-08-30** (`docs/external-apis/vturb/`).
+> Base `https://analytics.vturb.net`, auth por header `X-Api-Token`, un
+> `POST /sessions/stats` por `player_id` y rango de fechas.
+>
+> **VTurb tiene un concepto nativo de `pitch_time`**, o sea el segundo del video a
+> partir del cual se considera que el espectador llegó al pitch. La API devuelve
+> `total_over_pitch` y `over_pitch_rate` ya calculados, así que **M12 no hay que
+> derivarlo de ninguna curva: sale directo**. La unidad baja de **M a S**.
+>
+> Igual existe la curva por segundo (`POST /times/user_engagement` →
+> `grouped_timed`), por si alguna vez el CTA está en otro segundo.
 >
 > Ojo con un falso amigo: `ZernioAdMetrics` trae `videoP25/50/75/95/100WatchedActions`,
 > pero son del **video del anuncio**, no del VSL de la landing. No sirven para M10-M12.
@@ -139,15 +145,25 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 
 | # | Medida | Qué es | Estado | Qué falta |
 |---|---|---|---|---|
-| M21 | `dm_conversations_opened` | Conversaciones abiertas | 🔴 | Sync de oportunidades de GHL |
+| M21 | `dm_conversations_opened` | Conversaciones abiertas | 🔴 | Webhook `OpportunityStageUpdate` + tabla propia de transiciones |
 | M22 | `dm_conversations_replied` | Respondieron al calificador | 🔴 | Idem M21 |
 | M23 | `dm_offers_or_calls_set` | Oferta enviada o llamada agendada | 🔴 | Idem M21 |
 | M24 | `deals_closed` | Cierres | ✅ | Idem M20 |
 | M25 | `follow_ups` | Seguimientos | 🔴 | Idem M21. El doc la declara en §05 pero ninguna de sus métricas la usa |
 
-> La integración GHL de OTC consume `/calendars` y `/contacts`. **No toca
-> `/opportunities` ni `/pipelines`**, que es donde el documento pone los conteos
-> por etapa del embudo DM.
+> ✅ **Documentación verificada el 2026-08-30** (`docs/external-apis/gohighlevel/`).
+> La integración GHL de OTC consume `/calendars` y `/contacts`; falta
+> `/opportunities/pipelines` y `/opportunities/search`, con el mismo Private
+> Integration Token que ya usa y el header `Version: 2021-07-28`.
+>
+> ⭐ **No existe endpoint de historial de cambios de etapa.** El REST da sólo el
+> estado actual. Pero **sí existe el webhook `OpportunityStageUpdate`**, que
+> dispara en cada transición.
+>
+> **Consecuencia:** como el documento pide conteos por etapa **en un período**, I-4
+> necesita **persistir las transiciones** en una tabla propia. Con sólo el REST, una
+> oportunidad que pasó por tres etapas dentro del período se contaría una sola vez.
+> La historia arranca el día que se conecten los webhooks.
 
 ### Whop / Fanbasis — dinero
 
@@ -278,9 +294,9 @@ Agrupado por unidad de trabajo, con lo que desbloquea cada una.
 | ~~**I-1**~~ | ~~**Persistir métricas de ads por período**~~ ✅ **Hecho 2026-08-29** | M01–M04 | Etapas Spend y Click de **los 3 embudos**, CPC, CPL, EPC, ROAS blended, CAC | — |
 | **I-2** | **Pagos con Whop y Fanbasis** 🔨 **Construido 2026-08-29, sin verificar** | M26–M31 | Etapa Cash de **los 3 embudos**, AOV, ROAS, CAC, EPL, cash vs contracted, refunds | Falta conectar la primera cuenta real y confirmar el mapeo con un webhook de verdad |
 | ~~**I-3**~~ | ~~**Verificar asistencia y cierre de llamadas**~~ ✅ **Hecho 2026-08-30** | M20, M24 | Show rate y Close rate en VSL y DM, 2 health bands | — |
-| **I-4** | **Sync de oportunidades de GHL** | M21–M23, M25 | **Embudo DM entero** (4 de 6 pasos) | **M** — GHL ya integrado con auth y cliente; es agregar endpoints |
+| **I-4** | **Sync de oportunidades de GHL** | M21–M23, M25 | **Embudo DM entero** (4 de 6 pasos) | **M** — auth y cliente ya existen; suma endpoints REST **+ webhooks + tabla de transiciones de etapa** |
 | **I-5** | **Integración de webinar** (WebinarJam / Zoom) | M13–M16 | **Embudo Webinar entero** (4 de 7 pasos) | **L** — integración nueva desde cero |
-| **I-6** | **Integración VTurb** | M10–M12 | Etapa Engaged del **VSL** | **M** — Analytics API pública con auth por API key; plays, views y retención filtrables por video y fecha |
+| **I-6** | **Integración VTurb** | M08, M10–M12 | Etapa Engaged del **VSL** + visitantes de página | **S** — un solo endpoint (`/sessions/stats`) devuelve las cuatro medidas ya calculadas |
 | ~~**I-7**~~ | ~~**Analytics de landing / opt-in**~~ — **absorbida por `I-8`**, ver §8 | M08, M09 | Etapa Lead del webinar, denominador del play rate del VSL | — |
 | **I-8** | **Hyros** | M05–M09 | ROAS by-source, etiquetado `[Hyros]`, **y los opt-ins de las landings** | **L** — REST API con auth por API key (leads, journeys, sales, orders). Todos los clientes ya lo pagan |
 | **I-9** | **Retención y compras repetidas** | M30, M32, M33 | **LTV**, y por lo tanto **LTV:CAC** | **M** — modelo de suscripciones y reembolsos |
