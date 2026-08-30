@@ -14,6 +14,83 @@
 
 ---
 
+### 2026-08-30 — DOC-EXTERNAL-APIS: documentación de GoHighLevel y VTurb bajada al repo
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `docs/external-apis/` (nuevo), `docs/API_DOCS_PENDIENTES.md`, `CLAUDE.md`, `PENDIENTES.md`
+
+**Qué se hizo:**
+Santiago pidió bajar a tierra la documentación de las dos APIs que faltan para la ola 2
+(VTurb para I-6 y GoHighLevel para I-4) y guardarla en el repo. Ambos dominios, que el
+2026-08-29 figuraban como bloqueados, resultaron alcanzables.
+
+- **`docs/external-apis/gohighlevel/`** — 948 páginas de
+  `marketplace.gohighlevel.com/docs` convertidas a markdown: 634 endpoints REST y 77
+  eventos de webhook. Cada archivo lleva front-matter con su URL de origen, sección,
+  versión de API y —en los endpoints— método y path. Más `INDEX.md` (por recurso) y
+  `ENDPOINTS.md` (tabla plana por path).
+- **`docs/external-apis/vturb/`** — las 8 páginas (pt + en) de `vturb.gitbook.io`, y un
+  **`openapi.json`** con los 28 endpoints, reconstruido uniendo los documentos OpenAPI
+  3.0.2 que la propia doc embebe uno por endpoint. De ese spec se genera `ENDPOINTS.md`.
+- **Dos `RESUMEN-OTC.md`** que responden una por una las preguntas que
+  `API_DOCS_PENDIENTES.md` §3 y §4 dejaron abiertas, y dicen qué cambia en el diseño de
+  cada unidad.
+- **`docs/external-apis/tools/`** — los scripts que generan todo, con `regenerar.sh`
+  como único punto de entrada. Probado de punta a punta.
+- `API_DOCS_PENDIENTES.md`: §3 y §4 pasan a resueltas; la regla permanente ahora
+  arranca con "probá la URL antes de asumir que está bloqueada". `CLAUDE.md` regla 3
+  apunta a la copia local.
+
+**Por qué / finalidad:**
+Las dos unidades de la ola 2 se iban a construir a ciegas, como se construyó la capa de
+pagos. Teniendo la documentación adentro del repo, se construyen leyendo. Y la copia
+sirve a todas las sesiones que vengan, sin depender de que la red del entorno remoto
+coopere ese día.
+
+**Los dos hallazgos que cambian diseño:**
+- **GHL no expone historial de cambios de etapa.** No hay endpoint, no hay filtro por
+  transición, y el webhook `OpportunityStageUpdate` trae la etapa nueva pero no la
+  anterior ni el timestamp. Los conteos por etapa en un período (M21–M23, M25) **no se
+  pueden leer de la API**: I-4 tiene que construir su propio historial desde los
+  webhooks y mostrar explícitamente el período ciego anterior a la suscripción.
+- **VTurb da la curva de retención, no sólo el promedio** — y además ya modela el CTA.
+  `/times/user_engagement` devuelve `grouped_timed[]` (segundo → usuarios) junto con
+  `average_watched_time` y `engagement_rate`; `/sessions/stats` devuelve
+  `total_over_pitch` y `/players/list` el `pitch_time` de cada player. M12 sale directo
+  en vez de haber que derivarlo, y el segundo del CTA no hay que configurarlo a mano.
+
+**Decisiones de diseño:**
+- **De GHL se capturó sólo la versión *current* (v3).** El sitemap expone además
+  `2021-04-15`, `2021-07-28` y `2023-02-21`; se verificó comparando páginas que las tres
+  son idénticas a la current salvo por el valor permitido del header `Version`. Bajar
+  las cuatro cuadruplicaba el peso sin agregar información.
+- **El conversor entiende el DOM del plugin OpenAPI de Docusaurus**, no es un
+  html→texto genérico: grupos de parámetros, árboles de schema anidados, enums, tabs de
+  ejemplo y code blocks de Prism salen como markdown estructurado. Lo que la fuente deja
+  sin expandir (`opportunity: object`) queda sin expandir — no se completa por
+  inferencia.
+- **De VTurb la fuente de verdad es el `openapi.json`, no el markdown.** Es
+  machine-readable y sirve para generar tipos o un cliente cuando se construya I-6.
+- **Los scripts se commitean.** Sin ellos la copia envejece y nadie sabe cómo
+  refrescarla; con ellos, actualizar es correr un comando y mirar el diff.
+
+**Riesgos / deuda técnica pendiente:**
+- La copia es un snapshot del 2026-08-30. Antes de construir I-4 o I-6 conviene correr
+  `regenerar.sh` y ver si hay diff.
+- **No se capturaron los code samples de GHL** (curl/Node/Python del panel derecho): los
+  arma JavaScript y no existen en el HTML servido. Sí están el request, el schema de
+  respuesta y el ejemplo JSON.
+- **GHL no expande muchos objetos de respuesta.** Los campos de `opportunity` y de
+  `pipeline` hay que leerlos del primer payload real.
+- **VTurb declara `v1` en el header y `v3` en el spec**, los campos de `Stats` no tienen
+  descripción, y las release notes mencionan `/smart_autoplays/stats_by_player`, que no
+  está en la referencia. Los cuatro puntos quedaron listados en su `RESUMEN-OTC.md`.
+- Los otros siete dominios de documentación (Whop, Fanbasis, Hyros, Zoom, WebinarJam)
+  **no se volvieron a probar**. Puede que alguno también esté disponible.
+
+---
+
 ### 2026-08-30 — DOC-PLAN-VERIFICACION: registro de lo que queda sin probar
 
 **Rama/branch:** `Claude-New-Features`  

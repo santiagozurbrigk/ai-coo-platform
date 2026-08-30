@@ -11,12 +11,20 @@
 
 ## Por qué existe este archivo
 
-Ningún dominio de documentación de API es alcanzable desde el entorno de
-desarrollo remoto: la política de red los bloquea a todos. Verificado el
+Ningún dominio de documentación de API era alcanzable desde el entorno de
+desarrollo remoto: la política de red los bloqueaba a todos. Verificado el
 2026-08-29 contra `docs.whop.com`, `apidocs.fan`, `vturb.gitbook.io`,
 `api-docs.hyros.com`, `docs.hyros.com`, `highlevel.stoplight.io`,
 `marketplace.gohighlevel.com`, `developers.zoom.us` y `help.webinarjam.com` —
 **los nueve bloqueados**.
+
+> **2026-08-30 — el bloqueo no es total.** `vturb.gitbook.io` y
+> `marketplace.gohighlevel.com` sí son alcanzables. Se bajó la documentación completa
+> de las dos y quedó commiteada en **[`docs/external-apis/`](./external-apis/)**, con
+> el proceso reproducible (`docs/external-apis/tools/regenerar.sh`). Eso cierra las
+> secciones §3 (GHL) y §4 (VTurb) de este archivo. Los otros siete dominios siguen sin
+> probarse desde entonces: **antes de construir contra cualquiera de ellos, probar la
+> URL — puede que también esté disponible.**
 
 Eso no impide construir, pero cambia **cómo** hay que construir. El patrón que se
 sigue en todas estas integraciones:
@@ -37,8 +45,8 @@ sigue en todas estas integraciones:
 |---|---|---|---|
 | **Whop** | I-2 | Construido | Eventos, payloads, firma |
 | **Fanbasis** | I-2 | Construido | Eventos, payloads, **esquema de firma** |
-| **GHL opportunities** | I-4 | Sin empezar | Endpoints de pipelines y oportunidades |
-| **VTurb** | I-6 | Sin empezar | Endpoints de analytics, nombres de métricas |
+| **GHL opportunities** | I-4 | Sin empezar | ✅ **Documentación capturada** — ver [`external-apis/gohighlevel/RESUMEN-OTC.md`](./external-apis/gohighlevel/RESUMEN-OTC.md) |
+| **VTurb** | I-6 | Sin empezar | ✅ **Documentación capturada** — ver [`external-apis/vturb/RESUMEN-OTC.md`](./external-apis/vturb/RESUMEN-OTC.md) |
 | **WebinarJam / Zoom** | I-5 | Sin empezar | Todo |
 | **Hyros** | I-8 | Sin empezar | Endpoints, atribución, rate limits |
 
@@ -93,40 +101,89 @@ sigue en todas estas integraciones:
 
 ---
 
-## 3. GHL — oportunidades y pipelines (unidad I-4, la siguiente)
+## 3. GHL — oportunidades y pipelines (unidad I-4) — ✅ **resuelta**
 
-**Documentación:** https://highlevel.stoplight.io/ · https://marketplace.gohighlevel.com/ (bloqueadas)
+**Documentación:** https://marketplace.gohighlevel.com/docs/ — **capturada el
+2026-08-30** en [`docs/external-apis/gohighlevel/`](./external-apis/gohighlevel/)
+(948 páginas, 634 endpoints, 77 webhooks).
 
-**Contexto:** la integración GHL de OTC ya existe y consume `/calendars` y
-`/contacts` (`apps/web/lib/ghl/client.ts`), así que la autenticación con Private
-Integration Token ya está resuelta y verificada en producción. Lo que falta son
-los endpoints de oportunidades.
+**Leer antes de arrancar I-4:**
+[`external-apis/gohighlevel/RESUMEN-OTC.md`](./external-apis/gohighlevel/RESUMEN-OTC.md).
 
-### Qué necesito
+### Las cinco preguntas, respondidas
 
-1. Endpoint para listar **pipelines** de una location y sus **etapas**.
-2. Endpoint para listar **oportunidades**, con filtro por rango de fechas y por etapa.
-3. Nombres de campo de una oportunidad: id, contacto, pipeline, etapa, valor monetario, fechas de creación y de cambio de etapa.
-4. Si existe **historial de cambios de etapa**. Es clave: el documento pide conteos por etapa en un período, y sin historial sólo se puede saber en qué etapa está una oportunidad **hoy**, no cuántas pasaron por cada etapa durante el período.
-5. Paginación y rate limits.
+| # | Pregunta | Respuesta |
+|---|---|---|
+| 1 | Endpoint de pipelines y etapas | `GET /opportunities/pipelines?locationId=` |
+| 2 | Listar oportunidades con filtro por fecha y etapa | `GET /opportunities/search` (filtros simples) y `POST /opportunities/search` (avanzada, con `stageAggregations`) |
+| 3 | Nombres de campo de una oportunidad | `id`, `locationId`, `contactId`, `pipelineId`, `pipelineStageId`, `status`, `monetaryValue`, `name`, `assignedTo`, `source`, `dateAdded`, `forecastExpectedCloseDate`, `forecastProbability`, `customFields` |
+| 4 | **¿Hay historial de cambios de etapa?** | **No.** No existe endpoint de historial, ni filtro por transición, y el webhook `OpportunityStageUpdate` trae la etapa nueva pero no la anterior ni el timestamp del cambio |
+| 5 | Paginación y rate limits | Cursor (`startAfter`/`searchAfter`) o `page`+`limit`≤100 · 100 req/10 s y 200.000/día por app y por sub-account, con headers `X-RateLimit-*` |
+
+### Lo que cambia el diseño de I-4
+
+La respuesta a la pregunta 4 es la que importa: **los conteos por etapa durante un
+período (M21, M22, M23, M25) no se pueden leer de la API**, ni con backfill. GHL sólo
+sabe en qué etapa está una oportunidad hoy.
+
+La única fuente de transiciones son los webhooks (`OpportunityCreate`,
+`OpportunityStageUpdate`, `OpportunityStatusUpdate`, …), en tiempo real y sin
+historia previa. Entonces I-4 tiene que **construir su propio historial** en OTC a
+partir de esos eventos, derivando la etapa anterior contra la última conocida, y
+**mostrar explícitamente el período ciego** anterior a la suscripción. Un cero antes
+de esa fecha no es un cero: es "no lo sabemos".
+
+### Lo que queda sin verificar
+
+La doc de GHL **no expande los objetos de respuesta**: `GET /opportunities/:id`
+devuelve `opportunity: object` y `GET /opportunities/pipelines` devuelve
+`pipelines: object[]`, sin detallar campos. Esto no es una pérdida de la captura, es
+así en el original. Persistir el payload crudo del primer response real y mapear
+desde ahí. Detalle en el `RESUMEN-OTC.md`.
 
 ---
 
-## 4. VTurb (unidad I-6)
+## 4. VTurb (unidad I-6) — ✅ **resuelta**
 
-**Documentación:** https://vturb.gitbook.io/analytics-api · https://help.vturb.com/ (bloqueadas)
+**Documentación:** https://vturb.gitbook.io/analytics-api — **capturada el
+2026-08-30** en [`docs/external-apis/vturb/`](./external-apis/vturb/), incluido un
+[`openapi.json`](./external-apis/vturb/openapi.json) con los 28 endpoints,
+reconstruido desde los documentos OpenAPI que la propia doc embebe.
 
-**Lo que se sabe por búsqueda:** hay una Analytics API pública con autenticación
-por API key, con endpoints de plays, views y retención, filtrables por video,
-rango de fechas y fuente de tráfico.
+**Leer antes de arrancar I-6:**
+[`external-apis/vturb/RESUMEN-OTC.md`](./external-apis/vturb/RESUMEN-OTC.md).
 
-### Qué necesito
+### Las cinco preguntas, respondidas
 
-1. URL base y formato exacto de la autenticación.
-2. Endpoints y nombres de las métricas.
-3. **Cómo se expresa la retención**: ¿un promedio, o una curva por segundo? El documento pide `avg watch %` (M11) y "llegaron al CTA" (M12); M12 sólo se puede derivar si hay curva y se sabe en qué segundo está el CTA.
-4. Cómo se identifica un video, para poder atarlo a una instancia de embudo.
-5. Rate limits.
+| # | Pregunta | Respuesta |
+|---|---|---|
+| 1 | URL base y autenticación | `https://analytics.vturb.net` · headers `X-Api-Token` y `X-Api-Version: v1` |
+| 2 | Endpoints y nombres de métricas | 28 endpoints — ver [`ENDPOINTS.md`](./external-apis/vturb/ENDPOINTS.md) |
+| 3 | **¿La retención es promedio o curva?** | **Las dos.** `POST /times/user_engagement` devuelve `average_watched_time`, `engagement_rate` (con fórmula documentada) **y `grouped_timed[]`**, la curva `{ segundo, usuarios }` |
+| 4 | Cómo se identifica un video | Por `player_id`. `GET /players/list` los lista con `duration`, `pitch_time` y filtro por nombre |
+| 5 | Rate limits | 60/120/300/800 req/min según plan, más tope diario. `GET /quota/usage` devuelve el consumo en vivo y el `resets_at` del `429` |
+
+### Lo que cambia el diseño de I-6 — para mejor
+
+M12 (`vsl_reached_cta`) iba a haber que derivarlo de la curva. Resulta que **VTurb ya
+modela el concepto**: `/sessions/stats` devuelve `total_over_pitch`,
+`total_under_pitch` y `over_pitch_rate`, y `/players/list` devuelve el `pitch_time`
+configurado de cada player. O sea que el segundo del CTA tampoco hay que
+configurarlo a mano en OTC.
+
+- **M10** `vsl_plays` → `total_started` (y `play_rate` ya viene calculado)
+- **M11** `vsl_avg_watch_pct` → `engagement_rate`
+- **M12** `vsl_reached_cta` → `total_over_pitch`, con la curva como verificación cruzada
+
+### Lo que queda sin verificar
+
+1. La discrepancia de versión: la doc de auth dice `v1`, el spec declara `v3`.
+2. Los campos del objeto `Stats` **no tienen descripción** en el spec — hay que
+   confirmar la semántica de `viewed` vs `started` y de los sufijos `_device_uniq` /
+   `_session_uniq` contra el dashboard.
+3. Que `total_over_pitch` sea efectivamente "llegó al CTA".
+4. `/smart_autoplays/stats_by_player` aparece en las release notes pero no en la
+   referencia.
 
 ---
 
@@ -165,8 +222,14 @@ leads (con journeys), sales, orders y subscriptions.
 
 ## Regla permanente para Claude Code
 
-> Cada vez que implementes contra una API externa **cuya documentación oficial no
-> puedas leer**:
+> **Antes que nada: probá la URL.** El bloqueo de red no es parejo — el 2026-08-30 se
+> comprobó que `vturb.gitbook.io` y `marketplace.gohighlevel.com` sí responden. Si la
+> documentación es alcanzable, **bajala a [`docs/external-apis/`](./external-apis/)**
+> con `docs/external-apis/tools/regenerar.sh` como modelo, en vez de construir a
+> ciegas. Una copia commiteada le sirve a todas las sesiones que vengan después.
+>
+> Recién si de verdad no podés leerla, cada vez que implementes contra una API externa
+> **cuya documentación oficial no puedas leer**:
 >
 > 1. Agregá o actualizá su sección en este archivo, con **qué asumiste**, con qué
 >    confianza, y **qué necesitás de la documentación**.
@@ -178,5 +241,7 @@ leads (con journeys), sales, orders y subscriptions.
 
 ---
 
-*Creado 2026-08-29. Actualizar con cada integración construida a ciegas; borrar la
-sección cuando la documentación se haya verificado y el mapeo corregido.*
+*Creado 2026-08-29. Actualizado 2026-08-30: §3 (GHL) y §4 (VTurb) resueltas con la
+documentación capturada en `docs/external-apis/`. Actualizar con cada integración
+construida a ciegas; borrar la sección cuando la documentación se haya verificado y el
+mapeo corregido.*

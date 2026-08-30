@@ -1,0 +1,4669 @@
+---
+title: "Analytics (endpoint reference)"
+source: "https://vturb.gitbook.io/analytics-api/analytics"
+idioma: "en"
+capturado: "2026-08-30"
+---
+
+# Analytics
+
+Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.
+
+## Returns the active platforms for a company
+
+> Returns a list with the company active platforms.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "ConversionsActivePlatforms": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "paths": {
+    "/conversions/active_platforms": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns the active platforms for a company",
+        "description": "Returns a list with the company active platforms.\n",
+        "operationId": "activePlatforms",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "start_date"
+                ],
+                "properties": {
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionsActivePlatforms"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns the totals of conversions for each day in a company and player
+
+> Returns a list with the company conversions grouped by day in a given period.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "EventGroup": {
+        "type": "object",
+        "properties": {
+          "events_by_day": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventByDay"
+            }
+          },
+          "total_events": {
+            "type": "integer"
+          },
+          "total_uniq_device_events": {
+            "type": "integer"
+          },
+          "total_uniq_session_events": {
+            "type": "integer"
+          }
+        }
+      },
+      "EventByDay": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "total_uniq_device": {
+            "type": "integer"
+          },
+          "total_uniq_session": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/conversions/stats_by_day": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns the totals of conversions for each day in a company and player",
+        "description": "Returns a list with the company conversions grouped by day in a given period.\n",
+        "operationId": "statsByDay",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "player_id",
+                  "start_date",
+                  "end_date"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventGroup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns the conversions grouped by timed for a company and player
+
+> Returns a list with the company conversions grouped by timed in a given period.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "ConversionsVideoTimed": {
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "player_id": {
+            "type": "string"
+          },
+          "grouped_timed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversionsGroupedTimed"
+            }
+          }
+        }
+      },
+      "ConversionsGroupedTimed": {
+        "type": "object",
+        "properties": {
+          "timed": {
+            "type": "integer",
+            "description": "The second of the video that the user reached\n"
+          },
+          "timed_conversions": {
+            "type": "integer",
+            "description": "The number of conversions of the timed\n"
+          },
+          "total_conversions": {
+            "type": "integer",
+            "description": "The total of conversions that reached the timed\n"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/conversions/video_timed": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns the conversions grouped by timed for a company and player",
+        "description": "Returns a list with the company conversions grouped by timed in a given period.\n",
+        "operationId": "videoTimed",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "player_id",
+                  "start_date",
+                  "end_date"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionsVideoTimed"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns the number of times the events happened as well as the count considering unique device and sessions
+
+> Returns a list with the companies and events with the number of times the event happened in a given period.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "TotalEventsByCompanies": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "event": {
+              "type": "string"
+            },
+            "total": {
+              "type": "integer"
+            },
+            "total_uniq_sessions": {
+              "type": "integer"
+            },
+            "total_uniq_device": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/events/total_by_company": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns the number of times the events happened as well as the count considering unique device and sessions",
+        "description": "Returns a list with the companies and events with the number of times the event happened in a given period.\n",
+        "operationId": "totalEventsByCompanies",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "events"
+                ],
+                "properties": {
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Names of the events to filter by. Can be ['started', 'finished', 'viewed']"
+                  },
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to filter the results by."
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotalEventsByCompanies"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns the totals of the events for each player in a company
+
+> Returns a list with the companies grouped by its players and the number of times each event happened for each one in a given period.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "TotalEventsByCompanyPlayers": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "player_id": {
+              "type": "string"
+            },
+            "event": {
+              "type": "string"
+            },
+            "total": {
+              "type": "integer"
+            },
+            "total_uniq_sessions": {
+              "type": "integer"
+            },
+            "total_uniq_device": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/events/total_by_company_players": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns the totals of the events for each player in a company",
+        "description": "Returns a list with the companies grouped by its players and the number of times each event happened for each one in a given period.\n",
+        "operationId": "totalEventsByCompaniesPlayers",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "events"
+                ],
+                "properties": {
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Names of the events to filter by. Can be ['started', 'finished', 'viewed']"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "players_start_date": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "player_id": {
+                          "type": "string",
+                          "description": "The ID of the player"
+                        },
+                        "start_date": {
+                          "type": "string",
+                          "format": "date",
+                          "description": "The start date for the player like \"2024-01-01\""
+                        },
+                        "end_date": {
+                          "type": "string",
+                          "format": "date",
+                          "description": "The end date to filter for the player like \"2024-01-01, if none is passed this defaults to tomorrow UTC\""
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotalEventsByCompanyPlayers"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns the totals of the events for each day in a company
+
+> Returns a list with the companies grouped by day and the number of times each event happened for each day in a given period.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "TotalEventsByCompanyDay": {
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "player_id": {
+            "type": "string"
+          },
+          "started": {
+            "$ref": "#/components/schemas/EventGroup"
+          },
+          "viewed": {
+            "$ref": "#/components/schemas/EventGroup"
+          },
+          "finished": {
+            "$ref": "#/components/schemas/EventGroup"
+          }
+        }
+      },
+      "EventGroup": {
+        "type": "object",
+        "properties": {
+          "events_by_day": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventByDay"
+            }
+          },
+          "total_events": {
+            "type": "integer"
+          },
+          "total_uniq_device_events": {
+            "type": "integer"
+          },
+          "total_uniq_session_events": {
+            "type": "integer"
+          }
+        }
+      },
+      "EventByDay": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "total_uniq_device": {
+            "type": "integer"
+          },
+          "total_uniq_session": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/events/total_by_company_day": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns the totals of the events for each day in a company",
+        "description": "Returns a list with the companies grouped by day and the number of times each event happened for each day in a given period.\n",
+        "operationId": "totalEventsByCompanyDay",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "events",
+                  "player_id"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Names of the events to filter by. Can be ['started', 'finished', 'viewed']"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotalEventsByCompanyDay"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns player leaderboards based on video engagement metrics
+
+> Provides leaderboard rankings of players based on their video engagement metrics (views, plays, pauses, etc...) within specified time periods. Multiple leaderboards with different player limits can be requested in a single call.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "EventsLeaderboard": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "leaderboard_name": {
+              "type": "string",
+              "description": "Name of the leaderboard (includes the limit)"
+            },
+            "event": {
+              "type": "string",
+              "description": "Event type that was used to rank the leaderboard"
+            },
+            "leaderboards": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "Unique identifier for the player"
+                  },
+                  "total_plays": {
+                    "type": "integer",
+                    "description": "Total number of video plays for this player"
+                  },
+                  "uniq_plays": {
+                    "type": "integer",
+                    "description": "Number of unique plays (by session) for this player"
+                  },
+                  "uniq_device_plays": {
+                    "type": "integer",
+                    "description": "Number of unique device plays for this player"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/events/leaderboard": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns player leaderboards based on video engagement metrics",
+        "description": "Provides leaderboard rankings of players based on their video engagement metrics (views, plays, pauses, etc...) within specified time periods. Multiple leaderboards with different player limits can be requested in a single call.\n",
+        "operationId": "eventsLeaderboard",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "company_id",
+                  "leaderboards"
+                ],
+                "properties": {
+                  "company_id": {
+                    "type": "string",
+                    "description": "The ID of the company to search for"
+                  },
+                  "leaderboards": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "leaderboard_limit",
+                        "start_date"
+                      ],
+                      "properties": {
+                        "leaderboard_limit": {
+                          "type": "integer",
+                          "description": "Maximum number of players to include in the leaderboard",
+                          "minimum": 1
+                        },
+                        "start_date": {
+                          "type": "string",
+                          "format": "date",
+                          "description": "Start date of the period for leaderboard data. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                        },
+                        "end_date": {
+                          "type": "string",
+                          "format": "date",
+                          "description": "End date of the period for leaderboard data. This will be used as <=. If not provided, will include data up to the current date. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                        },
+                        "event": {
+                          "type": "string",
+                          "description": "Event type to be used in the leaderboard ranking",
+                          "enum": [
+                            "started",
+                            "finished",
+                            "viewed",
+                            "clicked",
+                            "paused"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for date calculations (defaults to 'Etc/UCT' if not provided)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventsLeaderboard"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns the total of users that reached a certain second of the video entire duration
+
+> Returns an object containing the overall engagement of the users in a given period for the specified player.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "UserEngagement": {
+        "type": "object",
+        "properties": {
+          "average_watched_time": {
+            "type": "integer",
+            "description": "The average time watched by the users in seconds\n"
+          },
+          "engagement_rate": {
+            "type": "integer",
+            "description": "The engagement rate of the users in percentage, its calculated by the average_watched_time / video_duration * 100\n"
+          },
+          "grouped_timed": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupedTimed"
+            }
+          }
+        }
+      },
+      "GroupedTimed": {
+        "type": "object",
+        "properties": {
+          "timed": {
+            "type": "integer",
+            "description": "The second of the video that the user reached\n"
+          },
+          "total_users": {
+            "type": "integer",
+            "description": "The total of users that reached the timed\n"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/times/user_engagement": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns the total of users that reached a certain second of the video entire duration",
+        "description": "Returns an object containing the overall engagement of the users in a given period for the specified player.\n",
+        "operationId": "userEngagement",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "player_id",
+                  "video_duration"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "video_duration": {
+                    "type": "integer",
+                    "description": "The total duration of the video in seconds"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\"\n"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserEngagement"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns an array with the engagement rate per day
+
+> Returns an array containing the overall engagement of the users in a given period for the specified player per day.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "UserEngagementByDay": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "date": {
+              "type": "string",
+              "description": "The date for the engagement rate\n"
+            },
+            "engagement_rate": {
+              "type": "integer",
+              "description": "The engagement rate for the day\n"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/times/user_engagement_by_day": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns an array with the engagement rate per day",
+        "description": "Returns an array containing the overall engagement of the users in a given period for the specified player per day.\n",
+        "operationId": "userEngagementByDay",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "player_id",
+                  "video_duration",
+                  "start_date",
+                  "end_date"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "video_duration": {
+                    "type": "integer",
+                    "description": "The total duration of the video in seconds"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\"\n"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserEngagementByDay"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns an array with the engagement grouped by a field
+
+> Returns an array containing the overall engagement of the users in a given period for the specified player per day.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "GroupedEngagementRateByField": {
+        "type": "object",
+        "properties": {
+          "group_key": {
+            "type": "string",
+            "description": "The key for the group\n"
+          },
+          "group_values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupedTimed"
+            }
+          }
+        }
+      },
+      "GroupedTimed": {
+        "type": "object",
+        "properties": {
+          "timed": {
+            "type": "integer",
+            "description": "The second of the video that the user reached\n"
+          },
+          "total_users": {
+            "type": "integer",
+            "description": "The total of users that reached the timed\n"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/times/user_engagement_by_field": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns an array with the engagement grouped by a field",
+        "description": "Returns an array containing the overall engagement of the users in a given period for the specified player per day.\n",
+        "operationId": "userEngagementByField",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "player_id",
+                  "field",
+                  "values",
+                  "start_date",
+                  "end_date"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "field": {
+                    "type": "string",
+                    "description": "The field to group the engagement by, possible values are 'country', 'browser', 'device_type', 'utm_campain', 'utm_source', 'utm_medium', 'utm_content', 'utm_term'\nIf 'no_attribution' is passed, all values that have been set to null or that are empty strings will be returned.\n"
+                  },
+                  "values": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "The values to filter the field by, for example ['Brazil', 'Romenia'] or ['Chrome', 'Firefox']"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\"\n"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GroupedEngagementRateByField"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns an array with the engagement grouped by a field
+
+> Returns an array containing the overall engagement of the users in a given period for the specified player per day.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "UserEngagementByField": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupedEngagementRateByField"
+            }
+          }
+        }
+      },
+      "GroupedEngagementRateByField": {
+        "type": "object",
+        "properties": {
+          "group_key": {
+            "type": "string",
+            "description": "The key for the group\n"
+          },
+          "group_values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupedTimed"
+            }
+          }
+        }
+      },
+      "GroupedTimed": {
+        "type": "object",
+        "properties": {
+          "timed": {
+            "type": "integer",
+            "description": "The second of the video that the user reached\n"
+          },
+          "total_users": {
+            "type": "integer",
+            "description": "The total of users that reached the timed\n"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/times/user_engagement_by_traffic_origin": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns an array with the engagement grouped by a field",
+        "description": "Returns an array containing the overall engagement of the users in a given period for the specified player per day.\n",
+        "operationId": "userEngagementByTrafficOrigin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "required": [
+                  "player_id",
+                  "query_key",
+                  "values",
+                  "start_date",
+                  "end_date"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "query_key": {
+                    "type": "string",
+                    "description": "The query param key to group the engagement by, possible values example: 'utm_campain', 'utm_source', 'utm_medium', 'utm_content', 'utm_term'\n"
+                  },
+                  "values": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "The values to filter the query key parameter by, for example ['Facebook', 'Google', 'Campaign 1', 'Campaign 2']"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserEngagementByField"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns the total of user clicks at a time in seconds related to the video
+
+> Returns an object containing the all the clicks grouped by the time in seconds it happened related to the video.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "GroupedTimed": {
+        "type": "object",
+        "properties": {
+          "timed": {
+            "type": "integer",
+            "description": "The second of the video that the user reached\n"
+          },
+          "total_users": {
+            "type": "integer",
+            "description": "The total of users that reached the timed\n"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/clicks/total_by_company_timed": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns the total of user clicks at a time in seconds related to the video",
+        "description": "Returns an object containing the all the clicks grouped by the time in seconds it happened related to the video.\n",
+        "operationId": "totalByCompanyTimed",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "player_id",
+                  "start_date",
+                  "end_date"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\"\n"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GroupedTimed"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns the totals of clicks for each day in a company and player
+
+> Returns a list with the company clicks grouped by day in a given period.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "EventGroup": {
+        "type": "object",
+        "properties": {
+          "events_by_day": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventByDay"
+            }
+          },
+          "total_events": {
+            "type": "integer"
+          },
+          "total_uniq_device_events": {
+            "type": "integer"
+          },
+          "total_uniq_session_events": {
+            "type": "integer"
+          }
+        }
+      },
+      "EventByDay": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "total_uniq_device": {
+            "type": "integer"
+          },
+          "total_uniq_session": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/clicks/total_by_company_day": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns the totals of clicks for each day in a company and player",
+        "description": "Returns a list with the company clicks grouped by day in a given period.\n",
+        "operationId": "totalClicksByCompanyDay",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "player_id",
+                  "start_date",
+                  "end_date"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventGroup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Statistics used by the headlines dashboard
+
+> Returns several statistics used by the headlines dashboard. Engagement, views and play rate are among these metrics
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "HeadlinesStatsByPlayer": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "engagement": {
+              "type": "number",
+              "description": "The engagement rate of the users in percentage, its calculated by the average_watched_time / video_duration * 100\n"
+            },
+            "number": {
+              "type": "integer",
+              "description": "The headline number\n"
+            },
+            "play_over_engagement": {
+              "type": "number",
+              "description": "The play over engagement rate of the users in percentage, its calculated by the play_rate / engagement * 100\n"
+            },
+            "play_rate": {
+              "type": "number",
+              "description": "The play rate of the users in percentage, its calculated by the views / number * 100\n"
+            },
+            "views": {
+              "type": "integer",
+              "description": "The total of views\n"
+            },
+            "pitch": {
+              "type": "number",
+              "description": "Number of people that went above the pitch time\n"
+            },
+            "clicks": {
+              "type": "integer",
+              "description": "Number of clicks\n"
+            },
+            "plays": {
+              "type": "integer",
+              "description": "Number of plays\n"
+            },
+            "conversions": {
+              "type": "integer",
+              "description": "Number of conversions\n"
+            },
+            "amount_brl": {
+              "type": "integer",
+              "description": "Number of conversions in BRL\n"
+            },
+            "amount_usd": {
+              "type": "integer",
+              "description": "Number of conversions in USD\n"
+            },
+            "amount_eur": {
+              "type": "integer",
+              "description": "Number of conversions in EUR\n"
+            },
+            "conversion_rate": {
+              "type": "number",
+              "description": "The conversion rate of the headline\n"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/headlines/stats_by_player": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Statistics used by the headlines dashboard",
+        "description": "Returns several statistics used by the headlines dashboard. Engagement, views and play rate are among these metrics",
+        "operationId": "HeadlinesStatsByPlayer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "start_date",
+                  "player_id",
+                  "video_duration"
+                ],
+                "properties": {
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying."
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. Optional — when omitted, the response is unbounded at the upper end. When provided, inclusive at the end of the minute (e.g. `23:59:59` captures the full minute)."
+                  },
+                  "player_id": {
+                    "type": "string",
+                    "description": "The player being analysed."
+                  },
+                  "video_duration": {
+                    "type": "integer",
+                    "description": "The duration of the video"
+                  },
+                  "pitch_time": {
+                    "type": "integer",
+                    "description": "The time in seconds that the video must be watched to be considered a pitch"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeadlinesStatsByPlayer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "If a 400 error occurs, it means parameters were incorrectly passed, and the response body will contain an explanation."
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns statistics of all sessions of a player
+
+> Returns statistics of sessions for a player given a date range<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "Stats": {
+        "type": "object",
+        "properties": {
+          "total_viewed": {
+            "type": "integer"
+          },
+          "total_viewed_device_uniq": {
+            "type": "integer"
+          },
+          "total_started": {
+            "type": "integer"
+          },
+          "total_started_session_uniq": {
+            "type": "integer"
+          },
+          "total_started_device_uniq": {
+            "type": "integer"
+          },
+          "total_finished": {
+            "type": "integer"
+          },
+          "total_finished_session_uniq": {
+            "type": "integer"
+          },
+          "total_finished_device_uniq": {
+            "type": "integer"
+          },
+          "engagement_rate": {
+            "type": "number"
+          },
+          "total_clicked": {
+            "type": "integer"
+          },
+          "total_clicked_device_uniq": {
+            "type": "integer"
+          },
+          "total_clicked_session_uniq": {
+            "type": "integer"
+          },
+          "total_viewed_session_uniq": {
+            "type": "integer"
+          },
+          "total_over_pitch": {
+            "type": "integer"
+          },
+          "total_under_pitch": {
+            "type": "integer"
+          },
+          "over_pitch_rate": {
+            "type": "integer"
+          },
+          "total_conversions": {
+            "type": "integer"
+          },
+          "overall_conversion_rate": {
+            "type": "number"
+          },
+          "total_amount_usd": {
+            "type": "integer"
+          },
+          "total_amount_brl": {
+            "type": "integer"
+          },
+          "total_amount_eur": {
+            "type": "integer"
+          },
+          "play_rate": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/sessions/stats": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns statistics of all sessions of a player",
+        "description": "Returns statistics of sessions for a player given a date range\n",
+        "operationId": "sessionStats",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "player_id",
+                  "start_date",
+                  "end_date"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "video_duration": {
+                    "type": "integer",
+                    "description": "The total duration of the video in seconds, if not provided we will use the duration of the video based on our database"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  },
+                  "pitch_time": {
+                    "type": "integer",
+                    "description": "The time in seconds that the video must be watched to be considered a pitch, if not provided we will use the pitch time of the video based on our database"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stats"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns statistics of all sessions of a player by day
+
+> Returns statistics of sessions for a player given a date range by day<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "SessionStatsByDay": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "date_key": {
+              "type": "string",
+              "format": "date"
+            },
+            "total_viewed": {
+              "type": "integer"
+            },
+            "total_viewed_device_uniq": {
+              "type": "integer"
+            },
+            "total_started": {
+              "type": "integer"
+            },
+            "total_started_session_uniq": {
+              "type": "integer"
+            },
+            "total_started_device_uniq": {
+              "type": "integer"
+            },
+            "total_finished": {
+              "type": "integer"
+            },
+            "total_finished_session_uniq": {
+              "type": "integer"
+            },
+            "total_finished_device_uniq": {
+              "type": "integer"
+            },
+            "engagement_rate": {
+              "type": "number"
+            },
+            "total_clicked": {
+              "type": "integer"
+            },
+            "total_clicked_device_uniq": {
+              "type": "integer"
+            },
+            "total_clicked_session_uniq": {
+              "type": "integer"
+            },
+            "total_viewed_session_uniq": {
+              "type": "integer"
+            },
+            "total_over_pitch": {
+              "type": "integer"
+            },
+            "total_under_pitch": {
+              "type": "integer"
+            },
+            "over_pitch_rate": {
+              "type": "integer"
+            },
+            "total_conversions": {
+              "type": "integer"
+            },
+            "overall_conversion_rate": {
+              "type": "number"
+            },
+            "total_amount_usd": {
+              "type": "integer"
+            },
+            "total_amount_brl": {
+              "type": "integer"
+            },
+            "total_amount_eur": {
+              "type": "integer"
+            },
+            "play_rate": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/sessions/stats_by_day": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns statistics of all sessions of a player by day",
+        "description": "Returns statistics of sessions for a player given a date range by day\n",
+        "operationId": "sessionStatsByDay",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "player_id",
+                  "start_date",
+                  "end_date"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "video_duration": {
+                    "type": "integer",
+                    "description": "The total duration of the video in seconds, if not provided we will use the duration of the video based on our database"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  },
+                  "pitch_time": {
+                    "type": "integer",
+                    "description": "The time in seconds that the video must be watched to be considered a pitch, if not provided we will use the pitch time of the video based on our database"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionStatsByDay"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns statistics grouped by a specified field
+
+> Returns statistics for sessions grouped by a specified field for a given company and player within a date range.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "StatsByField": {
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "player_id": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "video_duration": {
+            "type": "integer"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "pitch_time": {
+            "type": "integer"
+          },
+          "total_viewed": {
+            "type": "integer"
+          },
+          "total_viewed_device_uniq": {
+            "type": "integer"
+          },
+          "total_started": {
+            "type": "integer"
+          },
+          "total_started_session_uniq": {
+            "type": "integer"
+          },
+          "total_started_device_uniq": {
+            "type": "integer"
+          },
+          "total_finished": {
+            "type": "integer"
+          },
+          "total_finished_session_uniq": {
+            "type": "integer"
+          },
+          "total_finished_device_uniq": {
+            "type": "integer"
+          },
+          "engagement_rate": {
+            "type": "number"
+          },
+          "total_clicked": {
+            "type": "integer"
+          },
+          "total_clicked_device_uniq": {
+            "type": "integer"
+          },
+          "total_clicked_session_uniq": {
+            "type": "integer"
+          },
+          "total_viewed_session_uniq": {
+            "type": "integer"
+          },
+          "grouped_field": {
+            "type": "string"
+          },
+          "total_over_pitch": {
+            "type": "integer"
+          },
+          "total_under_pitch": {
+            "type": "integer"
+          },
+          "over_pitch_rate": {
+            "type": "integer"
+          },
+          "total_conversions": {
+            "type": "integer"
+          },
+          "overall_conversion_rate": {
+            "type": "number"
+          },
+          "total_amount_usd": {
+            "type": "integer"
+          },
+          "total_amount_brl": {
+            "type": "integer"
+          },
+          "total_amount_eur": {
+            "type": "integer"
+          },
+          "play_rate": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/sessions/stats_by_field": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns statistics grouped by a specified field",
+        "description": "Returns statistics for sessions grouped by a specified field for a given company and player within a date range.\n",
+        "operationId": "statsByField",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "player_id",
+                  "start_date",
+                  "end_date",
+                  "field",
+                  "video_duration"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "field": {
+                    "type": "string",
+                    "description": "The field to group the statistics by"
+                  },
+                  "video_duration": {
+                    "type": "integer",
+                    "description": "The total duration of the video in seconds"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  },
+                  "pitch_time": {
+                    "type": "integer",
+                    "description": "The time in seconds that the video must be watched to be considered a pitch"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsByField"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns statistics grouped by a specified field broke by day
+
+> Returns statistics for sessions grouped by a specified field for a given company and player within a date range and broke by day.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "StatsByFieldByDay": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "date_key": {
+              "type": "string",
+              "format": "date"
+            },
+            "field": {
+              "type": "string"
+            },
+            "video_duration": {
+              "type": "integer"
+            },
+            "timezone": {
+              "type": "string"
+            },
+            "pitch_time": {
+              "type": "integer"
+            },
+            "total_viewed": {
+              "type": "integer"
+            },
+            "total_viewed_device_uniq": {
+              "type": "integer"
+            },
+            "total_started": {
+              "type": "integer"
+            },
+            "total_started_session_uniq": {
+              "type": "integer"
+            },
+            "total_started_device_uniq": {
+              "type": "integer"
+            },
+            "total_finished": {
+              "type": "integer"
+            },
+            "total_finished_session_uniq": {
+              "type": "integer"
+            },
+            "total_finished_device_uniq": {
+              "type": "integer"
+            },
+            "engagement_rate": {
+              "type": "number"
+            },
+            "total_clicked": {
+              "type": "integer"
+            },
+            "total_clicked_device_uniq": {
+              "type": "integer"
+            },
+            "total_clicked_session_uniq": {
+              "type": "integer"
+            },
+            "total_viewed_session_uniq": {
+              "type": "integer"
+            },
+            "grouped_field": {
+              "type": "string"
+            },
+            "total_over_pitch": {
+              "type": "integer"
+            },
+            "total_under_pitch": {
+              "type": "integer"
+            },
+            "over_pitch_rate": {
+              "type": "integer"
+            },
+            "total_conversions": {
+              "type": "integer"
+            },
+            "overall_conversion_rate": {
+              "type": "number"
+            },
+            "total_amount_usd": {
+              "type": "integer"
+            },
+            "total_amount_brl": {
+              "type": "integer"
+            },
+            "total_amount_eur": {
+              "type": "integer"
+            },
+            "play_rate": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/sessions/stats_by_field_by_day": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns statistics grouped by a specified field broke by day",
+        "description": "Returns statistics for sessions grouped by a specified field for a given company and player within a date range and broke by day.\n",
+        "operationId": "statsByFieldByDay",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "player_id",
+                  "start_date",
+                  "end_date",
+                  "field",
+                  "video_duration"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "field": {
+                    "type": "string",
+                    "description": "The field to group the statistics by"
+                  },
+                  "video_duration": {
+                    "type": "integer",
+                    "description": "The total duration of the video in seconds"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  },
+                  "pitch_time": {
+                    "type": "integer",
+                    "description": "The time in seconds that the video must be watched to be considered a pitch"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsByFieldByDay"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns the number of live users for a player
+
+> Returns the number of live users for a player that entered the website in the last X minutes. Disclaimer, this doesn't mean the user is still on the website, it means the user entered the website in the last X minutes.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": []
+    },
+    {
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      },
+      "apiVersion": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Version",
+        "description": "The API version to use. Currently supported versions are:\n- v1: The current stable version"
+      }
+    }
+  },
+  "paths": {
+    "/sessions/live_users": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns the number of live users for a player",
+        "description": "Returns the number of live users for a player that entered the website in the last X minutes. Disclaimer, this doesn't mean the user is still on the website, it means the user entered the website in the last X minutes.\n",
+        "operationId": "liveUsers",
+        "parameters": [
+          {
+            "name": "player_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The ID of the player to search for\n"
+          },
+          {
+            "name": "minutes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The number of minutes to search for live users, defaults to 60 minutes\n"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "domain": {
+                        "type": "string",
+                        "description": "The domain of the player"
+                      },
+                      "live_users": {
+                        "type": "integer",
+                        "description": "The number of live users for the player"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns statistics grouped by a specified field
+
+> Returns statistics for traffic origin grouped by a specified query key for a given company and player within a date range.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "StatsByField": {
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "player_id": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "video_duration": {
+            "type": "integer"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "pitch_time": {
+            "type": "integer"
+          },
+          "total_viewed": {
+            "type": "integer"
+          },
+          "total_viewed_device_uniq": {
+            "type": "integer"
+          },
+          "total_started": {
+            "type": "integer"
+          },
+          "total_started_session_uniq": {
+            "type": "integer"
+          },
+          "total_started_device_uniq": {
+            "type": "integer"
+          },
+          "total_finished": {
+            "type": "integer"
+          },
+          "total_finished_session_uniq": {
+            "type": "integer"
+          },
+          "total_finished_device_uniq": {
+            "type": "integer"
+          },
+          "engagement_rate": {
+            "type": "number"
+          },
+          "total_clicked": {
+            "type": "integer"
+          },
+          "total_clicked_device_uniq": {
+            "type": "integer"
+          },
+          "total_clicked_session_uniq": {
+            "type": "integer"
+          },
+          "total_viewed_session_uniq": {
+            "type": "integer"
+          },
+          "grouped_field": {
+            "type": "string"
+          },
+          "total_over_pitch": {
+            "type": "integer"
+          },
+          "total_under_pitch": {
+            "type": "integer"
+          },
+          "over_pitch_rate": {
+            "type": "integer"
+          },
+          "total_conversions": {
+            "type": "integer"
+          },
+          "overall_conversion_rate": {
+            "type": "number"
+          },
+          "total_amount_usd": {
+            "type": "integer"
+          },
+          "total_amount_brl": {
+            "type": "integer"
+          },
+          "total_amount_eur": {
+            "type": "integer"
+          },
+          "play_rate": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/traffic_origin/stats": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns statistics grouped by a specified field",
+        "description": "Returns statistics for traffic origin grouped by a specified query key for a given company and player within a date range.\n",
+        "operationId": "stats",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "required": [
+                  "player_id",
+                  "start_date",
+                  "end_date",
+                  "query_key",
+                  "video_duration"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "query_key": {
+                    "type": "string",
+                    "description": "The query key to group the statistics by"
+                  },
+                  "video_duration": {
+                    "type": "integer",
+                    "description": "The total duration of the video in seconds"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  },
+                  "pitch_time": {
+                    "type": "integer",
+                    "description": "The time in seconds that the video must be watched to be considered a pitch"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsByField"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns statistics grouped by a specified field and day
+
+> Returns statistics for traffic origin grouped by a specified query key for a given company and player within a date range and grouped by day.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "StatsByDay": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "date_key": {
+              "type": "string",
+              "format": "date"
+            },
+            "query_key": {
+              "type": "string"
+            },
+            "grouped_field": {
+              "type": "string"
+            },
+            "total_viewed": {
+              "type": "integer"
+            },
+            "total_viewed_session_uniq": {
+              "type": "integer"
+            },
+            "total_viewed_device_uniq": {
+              "type": "integer"
+            },
+            "total_started": {
+              "type": "integer"
+            },
+            "total_started_session_uniq": {
+              "type": "integer"
+            },
+            "total_started_device_uniq": {
+              "type": "integer"
+            },
+            "total_finished": {
+              "type": "integer"
+            },
+            "total_finished_session_uniq": {
+              "type": "integer"
+            },
+            "total_finished_device_uniq": {
+              "type": "integer"
+            },
+            "total_clicked": {
+              "type": "integer"
+            },
+            "total_clicked_session_uniq": {
+              "type": "integer"
+            },
+            "total_clicked_device_uniq": {
+              "type": "integer"
+            },
+            "engagement_rate": {
+              "type": "integer"
+            },
+            "total_over_pitch": {
+              "type": "integer"
+            },
+            "total_under_pitch": {
+              "type": "integer"
+            },
+            "over_pitch_rate": {
+              "type": "number"
+            },
+            "total_conversions": {
+              "type": "integer"
+            },
+            "overall_conversion_rate": {
+              "type": "number"
+            },
+            "total_amount_usd": {
+              "type": "integer"
+            },
+            "total_amount_brl": {
+              "type": "integer"
+            },
+            "total_amount_eur": {
+              "type": "integer"
+            },
+            "play_rate": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/traffic_origin/stats_by_day": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns statistics grouped by a specified field and day",
+        "description": "Returns statistics for traffic origin grouped by a specified query key for a given company and player within a date range and grouped by day.\n",
+        "operationId": "statsByDay",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "required": [
+                  "player_id",
+                  "start_date",
+                  "end_date",
+                  "video_duration"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The ID of the player to search for"
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\" or \"2023-10-26\"\n"
+                  },
+                  "query_keys": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "The query keys to group the statistics by"
+                  },
+                  "video_duration": {
+                    "type": "integer",
+                    "description": "The total duration of the video in seconds"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering"
+                  },
+                  "pitch_time": {
+                    "type": "integer",
+                    "description": "The time in seconds that the video must be watched to be considered a pitch"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsByDay"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Counts the utms of the given player
+
+> Counts the utms of the given player. The values are src, sck, utm\_source, utm\_medium, utm\_campaign, utm\_term, utm\_content, among any other valid query parameter<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "ValidUtms": {
+        "type": "object",
+        "properties": {
+          "any_valid_query_key_param1": {
+            "type": "integer"
+          },
+          "any_valid_query_key_param2": {
+            "type": "integer"
+          },
+          "any_valid_query_key_paramN": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/traffic_origin/valid_utms": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Counts the utms of the given player",
+        "description": "Counts the utms of the given player. The values are src, sck, utm_source, utm_medium, utm_campaign, utm_term, utm_content, among any other valid query parameter\n",
+        "operationId": "ValidUtms",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "player_id",
+                  "start_date"
+                ],
+                "properties": {
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying."
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying."
+                  },
+                  "player_id": {
+                    "type": "string",
+                    "description": "The player being analysed."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidUtms"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "If a 400 error occurs, it means parameters were incorrectly passed, and the response body will contain an explanation."
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Statistics used by the turbo dashboard
+
+> Returns several statistics used by the turbo dashboard.\
+> Speed, engagement, views, pitch and clicks are among these metrics<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "TurboStatsByPlayer": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "engagement": {
+              "type": "number",
+              "description": "The engagement rate of the users in percentage, its calculated by the average_watched_time / (video_duration * number_of_sessions)\n"
+            },
+            "speed": {
+              "type": "number",
+              "description": "The turbo speed\n"
+            },
+            "views": {
+              "type": "integer",
+              "description": "The total of views\n"
+            },
+            "pitch": {
+              "type": "number",
+              "description": "Percentage of people that went above the pitch time\n"
+            },
+            "click": {
+              "type": "number",
+              "description": "Percentage of people that clicked on buttons of the page\n"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/turbo/stats_by_player": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Statistics used by the turbo dashboard",
+        "description": "Returns several statistics used by the turbo dashboard.\nSpeed, engagement, views, pitch and clicks are among these metrics\n",
+        "operationId": "TurboStatsByPlayer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "start_date",
+                  "player_id",
+                  "video_duration",
+                  "pitch_time"
+                ],
+                "properties": {
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Start date of the period for event querying."
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "End date of the period for event querying. Optional — when omitted, the response is unbounded at the upper end. When provided, inclusive at the end of the minute (e.g. `23:59:59` captures the full minute)."
+                  },
+                  "player_id": {
+                    "type": "string",
+                    "description": "The player being analysed."
+                  },
+                  "video_duration": {
+                    "type": "integer",
+                    "description": "The duration of the video"
+                  },
+                  "pitch_time": {
+                    "type": "integer",
+                    "description": "The time in seconds that the video must be watched to be considered a pitch"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurboStatsByPlayer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "If a 400 error occurs, it means parameters were incorrectly passed, and the response body will contain an explanation."
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## List all players
+
+> Returns a list of all players belonging to the authenticated user's company
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": []
+    },
+    {
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      },
+      "apiVersion": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Version",
+        "description": "The API version to use. Currently supported versions are:\n- v1: The current stable version"
+      }
+    }
+  },
+  "paths": {
+    "/players/list": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "List all players",
+        "description": "Returns a list of all players belonging to the authenticated user's company",
+        "operationId": "listPlayers",
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Start date of the period for player filtering. This will be used as >=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\"\n"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "End date of the period for player filtering. This will be used as <=. Format examples \"2023-10-26T18:24:05.000+00:00\" or \"2023-10-26 18:24:05 UTC\"\n"
+          },
+          {
+            "name": "timezone",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The timezone to use for the date filtering"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 128
+            },
+            "description": "Filter players by name. Search is case-insensitive (including non-ASCII characters such as `É`/`é`). Special characters `%`, `_`, `\\`, and brackets are matched literally — for example `name=[campaign_1]` returns only players whose names contain that exact tag. Surrounding whitespace is trimmed before matching; the trimmed value must be between 3 and 128 characters.\n"
+          },
+          {
+            "name": "name_match",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "contains",
+                "starts_with",
+                "ends_with",
+                "exact"
+              ],
+              "default": "contains"
+            },
+            "description": "How `name` is matched. `contains` (default) matches anywhere in the name; `starts_with` and `ends_with` anchor to the beginning or end; `exact` requires a full case-insensitive match. Sending `name_match` without `name` returns 400.\n"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "description": "The unique identifier of the player"
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "The name of the player"
+                      },
+                      "pitch_time": {
+                        "type": "integer",
+                        "description": "The pitch time configured for the player, if the player doesn't have a pitch time, the value is 0"
+                      },
+                      "duration": {
+                        "type": "integer",
+                        "description": "The duration of the video in seconds"
+                      },
+                      "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "The date and time when the player was created"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was bad formatted and some of the arguments were missing or wrong, look at the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## List all custom metrics of a player
+
+> Returns a list of all custom metrics of a player and the calculated engagement rate for them
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    }
+  },
+  "paths": {
+    "/custom_metrics/list": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "List all custom metrics of a player",
+        "description": "Returns a list of all custom metrics of a player and the calculated engagement rate for them",
+        "operationId": "listCustomMetrics",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "player_id"
+                ],
+                "properties": {
+                  "player_id": {
+                    "type": "string",
+                    "description": "The player being analysed."
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Start date of the period for event querying."
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "End date of the period for event querying."
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "The timezone to use for the date filtering, if not provided UTC will be used"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "description": "The unique identifier of the custom metric"
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "The name of the custom metric"
+                      },
+                      "time": {
+                        "type": "integer",
+                        "description": "The time in seconds that the custom metric was set"
+                      },
+                      "sequential_number": {
+                        "type": "integer",
+                        "description": "The sequential number of the custom metric that ensures ordering"
+                      },
+                      "engagement_rate": {
+                        "type": "number",
+                        "description": "The engagement rate (%) of the custom metric"
+                      },
+                      "total_users": {
+                        "type": "integer",
+                        "description": "The total number of users that watched the video"
+                      },
+                      "users_above": {
+                        "type": "integer",
+                        "description": "The number of users that watched the video above the pitch time"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "If a 400 error occurs, it means parameters were incorrectly passed, and the response body will contain an explanation."
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## List the AB tests (comparison groups) registered for the authenticated company
+
+> Returns every AB test registered for the company, with the players enrolled in each test (including their traffic percentages) and the test start/finish timestamps. Results are ordered by creation date (newest first). Use the optional \`start\_date\`/\`end\_date\` filters to narrow results by the comparison group \`created\_at\`.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "ComparisonGroupsList": {
+        "type": "array",
+        "description": "A list of AB tests (comparison groups) registered for the authenticated company.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The comparison group id."
+            },
+            "name": {
+              "type": "string",
+              "description": "The name of the comparison group."
+            },
+            "player_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "All player ids enrolled in this comparison group."
+            },
+            "players": {
+              "type": "array",
+              "description": "Per-player traffic distribution for this comparison group.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "player_id": {
+                    "type": "string"
+                  },
+                  "traffic_percentage": {
+                    "type": "number",
+                    "description": "The percentage of traffic routed to this player."
+                  },
+                  "started_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true,
+                    "description": "The date/time when traffic started to route to this player. `null` if it hasn't started yet."
+                  },
+                  "locked": {
+                    "type": "boolean",
+                    "description": "Whether the player's traffic percentage is locked (won't be auto-adjusted)."
+                  }
+                }
+              }
+            },
+            "started_at": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true,
+              "description": "The date/time the comparison group test started. `null` if it hasn't started yet."
+            },
+            "finished_at": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true,
+              "description": "The date/time the comparison group test finished. `null` if it is still running."
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time",
+              "description": "The date/time when the comparison group was created."
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/comparison_groups/list": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "List the AB tests (comparison groups) registered for the authenticated company",
+        "description": "Returns every AB test registered for the company, with the players enrolled in each test (including their traffic percentages) and the test start/finish timestamps. Results are ordered by creation date (newest first). Use the optional `start_date`/`end_date` filters to narrow results by the comparison group `created_at`.\n",
+        "operationId": "listComparisonGroups",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "start_date": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Lower bound applied to the comparison group `created_at`. Format `YYYY-MM-DD HH:MM:SS`. Optional.\n"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Upper bound applied to the comparison group `created_at`. Format `YYYY-MM-DD HH:MM:SS`. Optional — when omitted, no upper bound is applied.\n"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "Timezone used to interpret `start_date`/`end_date`. Defaults to `Etc/UTC`."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonGroupsList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request: the request was malformed and some arguments were missing or invalid; see the response body for more information.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns the full analytics metrics for up to 2 players of an AB test
+
+> Returns, in a single response, the full set of analytics metrics for up to 2 players of an AB test: views, plays, finishes, clicks, conversions with revenue in USD/BRL/EUR, engagement, pitch audience and pitch retention, as well as the derived play rate, conversion rate and revenue per visitor (RPV). Each item's \`start\_date\` is optional — when omitted, it falls back to the player's own \`started\_at\` (from the comparison group's \`players\` list) and, if that is not set, to the comparison group's \`started\_at\`. When \`end\_date\` is omitted, results run through the current time.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": [],
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      }
+    },
+    "schemas": {
+      "ComparisonGroupsStats": {
+        "type": "object",
+        "description": "Full analytics metrics for the requested players of an AB test.",
+        "properties": {
+          "comparison_group": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "player_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Every player id registered in the AB test, even when stats are requested for only a subset."
+              },
+              "started_at": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              },
+              "finished_at": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              }
+            }
+          },
+          "stats": {
+            "type": "array",
+            "description": "One entry per requested (and valid) player.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "player_id": {
+                  "type": "string"
+                },
+                "pitch_time": {
+                  "type": "integer",
+                  "description": "Pitch time configured for the player, in seconds."
+                },
+                "video_duration": {
+                  "type": "integer",
+                  "description": "Duration of the player's video, in seconds."
+                },
+                "views": {
+                  "$ref": "#/components/schemas/ComparisonGroupsEventTotals"
+                },
+                "plays": {
+                  "$ref": "#/components/schemas/ComparisonGroupsEventTotals"
+                },
+                "finishes": {
+                  "$ref": "#/components/schemas/ComparisonGroupsEventTotals"
+                },
+                "clicks": {
+                  "$ref": "#/components/schemas/ComparisonGroupsEventTotals"
+                },
+                "conversions": {
+                  "type": "object",
+                  "description": "Conversion totals and revenue in USD, BRL and EUR (major currency units, e.g. `3740.0` = USD $3,740.00).",
+                  "properties": {
+                    "total": {
+                      "type": "integer"
+                    },
+                    "total_uniq_sessions": {
+                      "type": "integer"
+                    },
+                    "total_uniq_device": {
+                      "type": "integer"
+                    },
+                    "total_amount_usd": {
+                      "type": "number",
+                      "description": "Revenue in US dollars."
+                    },
+                    "total_amount_brl": {
+                      "type": "number",
+                      "description": "Revenue in Brazilian reais."
+                    },
+                    "total_amount_eur": {
+                      "type": "number",
+                      "description": "Revenue in euros."
+                    }
+                  }
+                },
+                "engagement": {
+                  "type": "object",
+                  "properties": {
+                    "average_watched_time": {
+                      "type": "number",
+                      "description": "Average watched time in seconds."
+                    },
+                    "engagement_rate": {
+                      "type": "number",
+                      "description": "Percentage of the video that was watched on average (`average_watched_time / video_duration * 100`)."
+                    },
+                    "grouped_timed": {
+                      "type": "array",
+                      "description": "User distribution across watched-time buckets used to derive retention metrics.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "timed": {
+                            "type": "integer",
+                            "description": "Watched time in seconds."
+                          },
+                          "total_users": {
+                            "type": "integer",
+                            "description": "Unique users that reached this watched time."
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "pitch_audience": {
+                  "type": "integer",
+                  "description": "Number of users that watched the video up to (or past) the configured pitch time."
+                },
+                "pitch_retention_rate": {
+                  "type": "number",
+                  "description": "Percentage of users that reached the pitch time (`pitch_audience / total_users * 100`)."
+                },
+                "play_rate": {
+                  "type": "number",
+                  "description": "Percentage of viewers that started playing (`plays.total_uniq_device / views.total_uniq_device * 100`)."
+                },
+                "conversion_rate": {
+                  "type": "number",
+                  "description": "Percentage of unique plays that converted (`conversions.total_uniq_sessions / plays.total_uniq_device * 100`)."
+                },
+                "rpv_usd": {
+                  "type": "number",
+                  "description": "Revenue per unique play in USD (`conversions.total_amount_usd / plays.total_uniq_device`)."
+                },
+                "rpv_brl": {
+                  "type": "number",
+                  "description": "Revenue per unique play in BRL."
+                },
+                "rpv_eur": {
+                  "type": "number",
+                  "description": "Revenue per unique play in EUR."
+                }
+              }
+            }
+          }
+        }
+      },
+      "ComparisonGroupsEventTotals": {
+        "type": "object",
+        "description": "Event totals bucketed by total, unique sessions, and unique devices.",
+        "properties": {
+          "total": {
+            "type": "integer"
+          },
+          "total_uniq_sessions": {
+            "type": "integer"
+          },
+          "total_uniq_device": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/comparison_groups/stats": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns the full analytics metrics for up to 2 players of an AB test",
+        "description": "Returns, in a single response, the full set of analytics metrics for up to 2 players of an AB test: views, plays, finishes, clicks, conversions with revenue in USD/BRL/EUR, engagement, pitch audience and pitch retention, as well as the derived play rate, conversion rate and revenue per visitor (RPV). Each item's `start_date` is optional — when omitted, it falls back to the player's own `started_at` (from the comparison group's `players` list) and, if that is not set, to the comparison group's `started_at`. When `end_date` is omitted, results run through the current time.\n",
+        "operationId": "comparisonGroupsStats",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "comparison_group_id",
+                  "items"
+                ],
+                "properties": {
+                  "comparison_group_id": {
+                    "type": "string",
+                    "description": "The AB test (comparison group) id."
+                  },
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 2,
+                    "description": "Up to 2 players to return stats for. Players not enrolled in the AB test are silently ignored.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "player_id"
+                      ],
+                      "properties": {
+                        "player_id": {
+                          "type": "string",
+                          "description": "The player id."
+                        },
+                        "start_date": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Inclusive lower bound for the metrics of this player. Format `YYYY-MM-DD HH:MM:SS`. Optional — when omitted, falls back to the player's `started_at` on the comparison group, and finally to the comparison group's own `started_at`.\n"
+                        },
+                        "end_date": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Inclusive upper bound for the metrics of this player. Format `YYYY-MM-DD HH:MM:SS`. Optional — when omitted, results run through the current time.\n"
+                        }
+                      }
+                    }
+                  },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Event names for the `views`/`plays`/`finishes` aggregates. Defaults to `[\"started\", \"viewed\", \"finished\"]`."
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "description": "Timezone used by ClickHouse to interpret every `start_date` / `end_date` string in this request (both caller-provided and the defaults resolved from the comparison group). Defaults to `Etc/UTC`.\n"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonGroupsStats"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — malformed parameters or validation errors (e.g. too many items or a malformed `start_date`). The response body carries the details.\n"
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          },
+          "404": {
+            "description": "The `comparison_group_id` does not belong to the authenticated company."
+          },
+          "422": {
+            "description": "None of the items referenced a player enrolled in the comparison group."
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Returns the live API quota usage for the authenticated company
+
+> Returns the current usage and limits for your API key — one entry per quota window (typically a per-minute and a per-day bucket). Use this endpoint to self-rate-limit before issuing expensive analytics requests.\
+> \
+> Notes:\
+> \- When a metric has no cap, the response returns \`limit: null\` and\
+> &#x20; \`remaining: null\` so you don't divide by zero.\
+> \
+> \- A single API request may count as more than one query against\
+> &#x20; \`max\_queries\_per\_minute\`, so the \`queries\` counter can climb faster\
+> &#x20; than your request rate. The response includes \`queries.note\` to flag\
+> &#x20; this when a hard limit applies. \`read\_bytes\` reflects the actual\
+> &#x20; data scanned and is the more reliable signal for sizing usage.\
+> \
+> \- This endpoint itself counts as 1 query against \`max\_queries\_per\_minute\`.<br>
+
+```json
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Public Analytics Ruby API",
+    "version": "v3"
+  },
+  "tags": [
+    {
+      "name": "analytics",
+      "description": "Namespace for all routes that are used broadly across vturb, this ultimately delivers the data to the front-end for our clients.\n"
+    }
+  ],
+  "servers": [
+    {
+      "description": "Production Server",
+      "url": "https://analytics.vturb.net"
+    }
+  ],
+  "security": [
+    {
+      "apiToken": []
+    },
+    {
+      "apiVersion": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Token",
+        "description": "Access the application and copy your api token, then, just set the header `X-Api-Token` with it."
+      },
+      "apiVersion": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Api-Version",
+        "description": "The API version to use. Currently supported versions are:\n- v1: The current stable version"
+      }
+    },
+    "schemas": {
+      "QuotaUsage": {
+        "type": "object",
+        "properties": {
+          "quotas": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "interval_seconds": {
+                  "type": "integer",
+                  "description": "Length of this quota window in seconds (e.g. 60 for per-minute, 86400 for per-day)."
+                },
+                "interval_starts_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "ISO-8601 UTC timestamp marking the start of the current window."
+                },
+                "interval_ends_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "ISO-8601 UTC timestamp marking when the current window resets."
+                },
+                "queries": {
+                  "$ref": "#/components/schemas/QuotaMetric"
+                },
+                "read_bytes": {
+                  "$ref": "#/components/schemas/QuotaMetric"
+                }
+              }
+            }
+          }
+        }
+      },
+      "QuotaMetric": {
+        "type": "object",
+        "description": "One metric within a quota window — used / limit / remaining.",
+        "properties": {
+          "used": {
+            "type": "integer",
+            "description": "Amount consumed within the current window."
+          },
+          "limit": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Hard cap for this metric in this window. `null` means no cap."
+          },
+          "remaining": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Budget left (`limit - used`, clamped at 0). `null` when `limit` is `null`."
+          },
+          "note": {
+            "type": "string",
+            "description": "Optional explanatory note. Currently set on `queries` when a hard limit applies, to clarify that a single API request may count as more than one query against the limit.\n"
+          }
+        }
+      },
+      "QuotaExceeded": {
+        "type": "object",
+        "description": "429 body returned when a request exhausts a quota.",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message (stable text, safe to display)."
+          },
+          "code": {
+            "type": "integer",
+            "description": "Upstream error code. `201` indicates quota exceeded."
+          },
+          "details": {
+            "type": "object",
+            "nullable": true,
+            "description": "Structured fields parsed from the upstream message. Omitted when parsing fails.",
+            "properties": {
+              "limit_kind": {
+                "type": "string",
+                "description": "Which metric caused the throttle (e.g. `queries`, `read_bytes`)."
+              },
+              "used": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "remaining": {
+                "type": "integer"
+              },
+              "interval_seconds": {
+                "type": "integer",
+                "description": "Length of the throttling window in seconds."
+              },
+              "resets_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO-8601 UTC timestamp when the window rolls over and the budget resets."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/quota/usage": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Returns the live API quota usage for the authenticated company",
+        "description": "Returns the current usage and limits for your API key — one entry per quota window (typically a per-minute and a per-day bucket). Use this endpoint to self-rate-limit before issuing expensive analytics requests.\n\nNotes:\n- When a metric has no cap, the response returns `limit: null` and\n  `remaining: null` so you don't divide by zero.\n\n- A single API request may count as more than one query against\n  `max_queries_per_minute`, so the `queries` counter can climb faster\n  than your request rate. The response includes `queries.note` to flag\n  this when a hard limit applies. `read_bytes` reflects the actual\n  data scanned and is the more reliable signal for sizing usage.\n\n- This endpoint itself counts as 1 query against `max_queries_per_minute`.\n",
+        "operationId": "quotaUsage",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuotaUsage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized, missing proper X-Api-Token or X-Api-Version"
+          },
+          "429": {
+            "description": "Quota exceeded. The body carries a stable `error` message, the upstream `code`, and (when parseable) a structured `details` object with the limit kind, remaining budget, and reset timestamp. Other endpoints under this API also use this shape when they hit `code: 201`.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuotaExceeded"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
