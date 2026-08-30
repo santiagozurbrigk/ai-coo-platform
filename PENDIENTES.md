@@ -37,15 +37,6 @@
 
 ---
 
-### [ADDON-EMBUDOS] Activar el add-on `embudos` en la org 🔴
-
-**Qué es:** todas las migraciones están aplicadas y la UI está construida, pero **el módulo no aparece en el sidebar hasta que la org tenga `embudos` en `enabled_add_ons`** (`lib/navigation/sidebar-modules.ts`).
-
-**Es el primer bloqueo para probar el flujo.** Sin esto, el preview de Vercel no muestra ningún link a Embudos — aunque las páginas responden si se entra por URL directa a `/funnels`.
-
-**Acción:** activarlo desde super-admin para la org que vayas a usar de prueba.
-
----
 
 ### [EMBUDOS-FUENTES] Plan de integraciones del módulo de Embudos
 
@@ -413,6 +404,7 @@ referencias + `brand.domain`.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-30 | ADDON-EMBUDOS: add-on `embudos` activado en la org "Optimiza tu Control" (`46cce98c`). El módulo ya aparece en el sidebar; no depende de ninguna integración | — (cambio de datos) |
 | 2026-08-30 | EMBUDOS-UI: interfaz del módulo — switcher que conserva el período, KPIs universales con las dos ratios decisivas, etiquetas [Meta]/[Hyros], spine con conectores, índice con estado de configuración. Destapó que computeFunnel no devolvía los KPIs universales. 414 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I8: integración Hyros — atribución por fuente, y corrección del ROAS by-source, que usaba las mismas medidas que el blended y por lo tanto mostraba el mismo número. **Cierra las 10 unidades del plan.** 408 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I9-I10: retención y compras por cliente (desbloquea LTV:CAC) + triggers de Zernio. Sin integraciones nuevas ni migraciones. 395 tests en verde | `Claude-New-Features` |
