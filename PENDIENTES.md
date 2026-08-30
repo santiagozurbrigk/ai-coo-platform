@@ -104,6 +104,20 @@
 
 ## 🟣 Nuevos Features — Implementar cuando Santiago lo indique
 
+### [UI-21ST] Cuatro componentes de 21st.dev relevados — decidir cuáles entran
+
+**Qué es:** el relevamiento completo (instalación, dependencias, código de uso, prompts y checklist) está en **[`docs/COMPONENTES_21ST.md`](./docs/COMPONENTES_21ST.md)**. Leerlo antes de correr cualquier `21st add`.
+
+**Decisiones abiertas:**
+- **Dropdown Range Date Picker** (`ruixen.ui`) — el de mayor valor: filtro de rango de fechas para `/marketing/anuncios`, `/finance/*`, `/executive-reports` y `/sales/closing`. **Bloqueado por dos cosas:** no declara licencia, y hay que verificar que exponga `value`/`onChange` (si el rango se queda adentro del componente, no sirve para filtrar).
+- **Adaptive Notch Navigation Bar** (`arunachalam`) — técnicamente el más limpio (cero dependencias de registry), pero es navegación horizontal y `CLAUDE.md` dice que la navegación es solo sidebar. Decisión de producto: ¿va en `(landing)` / `(founder)`, o no va?
+- **Tabs variante `button`** (`sean0205`/ReUI) — **no instalar.** Portar la variante a `packages/ui/src/primitives/tabs.tsx` con `cva`, dejando `default` igual que hoy.
+- **Statistics Card 1** (`sean0205`/ReUI) — **no instalar.** Ya tenemos `MetricCard`, `MetricStat` y `MetricBand`. Lo único que aporta es el menú `⋯` por tarjeta; portarlo a `MetricCard` como prop `actions`.
+
+**Prerrequisito para cualquiera de los dos primeros:** sesión de 21st.dev (`npx @21st-dev/cli@latest login`). Sin credenciales el registry devuelve 403.
+
+---
+
 ### [FEAT-EMBUDOS] Módulo de Embudos — motor genérico + plantillas por tipo de funnel
 
 **Qué es:** Módulo de medición que permite al usuario intercambiar entre "vistas" de embudos (Webinar, VSL book-a-call, DM, y los que vengan), cada uno con su estructura, sobre un spine universal de 7 etapas. Análisis completo y decisiones cerradas en **[`docs/FUNNELS_ARCHITECTURE.md`](./docs/FUNNELS_ARCHITECTURE.md)** — leer antes de implementar.

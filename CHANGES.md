@@ -14,6 +14,32 @@
 
 ---
 
+### 2026-08-30 — Relevamiento de 4 componentes de 21st.dev
+
+**Rama/branch:** `Claude-New-Features`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `docs/COMPONENTES_21ST.md` (nuevo), `PENDIENTES.md`
+
+**Qué se hizo:**
+Santiago pasó cuatro URLs de componentes de 21st.dev y pidió bajarlos a un documento markdown: uso, prompts y todo lo necesario para integrarlos, investigando primero cómo funciona 21st.dev y qué hay que conectar.
+
+- **`docs/COMPONENTES_21ST.md`**: cómo funciona 21st.dev (CLI `@21st-dev/cli` v1.16.1, registry shadcn, MCP, autenticación con key `21st_sk_…`, modelo de cobro), el estado del repo frente a lo que piden los componentes, una ficha por componente con su comando de instalación, dependencias npm y de registry, código de uso real, API y ajustes concretos para OTC, cinco prompts listos para pegar en una sesión de agente, checklist de integración y un resumen ejecutivo con la recomendación para cada uno.
+- Los cuatro componentes son: `arunachalam/adaptive-notch-navigation-bar`, `ruixen.ui/dropdown-range-date-picker`, `sean0205/statistics-card-1` y `sean0205/tabs` (variante `button`).
+- **`PENDIENTES.md`**: ítem `[UI-21ST]` con las cuatro decisiones abiertas.
+
+**Por qué / finalidad:**
+Bajar componentes de un marketplace a un monorepo que ya tiene design system propio no es copiar y pegar: el CLI resuelve dependencias de registry y escribe primitivas ajenas en `apps/web/components/ui/`, que es exactamente donde no queremos que vivan. El documento existe para que la decisión de qué instalar y qué portar esté tomada antes de correr el primer comando.
+
+**Decisiones de diseño:**
+- **El documento dice explícitamente qué no se pudo leer.** El registry de 21st.dev devuelve 403 sin credenciales, así que el código interno de los componentes no está en el documento — solo los demos, que sí son públicos y están extraídos verbatim del HTML servido. Las props documentadas se marcan como "las que usa el demo", no como una API completa. Nada se rellenó con una suposición.
+- **La recomendación difiere por componente en vez de ser una sola.** Dos de los cuatro (tabs y statistics card) son cosas que ya tenemos con otro look: instalarlos duplicaría `Tabs`, `Card`, `Badge` y `DropdownMenu`. Para esos la recomendación es portar la variante o el detalle que aportan a `packages/ui/src/primitives/`, no instalarlos. Los otros dos sí llenan huecos reales.
+- **Los prompts están escritos para que el agente respete `CLAUDE.md`.** Cada uno incluye el paso de `add --print` antes de escribir archivos, la traducción de imports a `@ai-coo/ui`, el arreglo de clases de Tailwind v4 y la actualización de `CHANGES.md`.
+- **Se documentó el desfase de Tailwind.** El repo está en v3.4 y los componentes publicados en 2026 asumen v4: `shadow-xs` y `h-8.5` no generan CSS y fallan en silencio, sin romper el build. Es el error más probable de la integración y por eso está en el checklist.
+
+**Riesgos / deuda técnica pendiente:**
+- **El date picker de Ruixen UI no declara licencia** (`license: ""` en la metadata del registry). Los otros tres son MIT. Hay que resolverlo antes de que ese componente entre a producción.
+- No hay sesión de 21st.dev en este entorno, así que nada de esto está probado de punta a punta: la sección 7 del documento lista qué queda por verificar y con qué comando.
+- El Notch Nav choca con la regla de `CLAUDE.md` de que la navegación es solo sidebar. El documento propone montarlo en landing/founder, pero es una decisión de producto que Santiago tiene que confirmar.
 ### 2026-08-30 — DOC-EXTERNAL-APIS: documentación de GoHighLevel y VTurb bajada al repo
 
 **Rama/branch:** `Claude-New-Features`  
