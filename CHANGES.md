@@ -14,6 +14,45 @@
 
 ---
 
+### 2026-08-30 — NAV-NOTCH: navegación superior de islas (notch nav) detrás de flag
+
+**Rama/branch:** `Claude-Design`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `components/navigation/notch-nav/*` (nuevo), `components/layout/platform-notch-shell.tsx` (nuevo), `lib/navigation/nav-style.ts` (nuevo), `lib/navigation/full-bleed.ts` (nuevo), `components/layout/platform-shell.tsx`, `layouts/platform-layout.tsx`, `.env.example`, `CLAUDE.md`, `DESIGN.md`
+
+**Qué se hizo:**
+
+- **Navegación alternativa de barra superior** con el patrón "notch nav" de tres islas (logo · items · acciones) relevado en `docs/COMPONENTES_21ST.md` §3.1 (rama `Claude-New-Features`), **reimplementado desde cero** sobre framer-motion, Lucide y los tokens del design system. No se bajó el componente de 21st.dev: su código fuente está detrás de autenticación (403 sin credenciales, `21st login` es interactivo) y de todos modos había que reescribirle clases Tailwind v4, colores zinc hardcodeados y el routing.
+- **Activación por flag:** `NEXT_PUBLIC_NAV_STYLE=notch`. Sin la variable (o con otro valor) la plataforma usa el sidebar clásico, que quedó **intacto** — `PlatformShell` solo hace el branch. Revertir = borrar la env en Vercel y redeployar; también se puede borrar entero `platform-notch-shell.tsx` + `notch-nav/` sin tocar nada más.
+- **Una sola fuente de verdad:** el adaptador `platform-notch-nav.tsx` deriva items, permisos, add-ons y estado activo de `buildPlatformSidebarNav()` — el mismo config del sidebar. Los módulos con hijos (Marketing, Ventas, Finanzas, Operaciones) se abren como dropdown; Configuración migra a la isla derecha como engranaje para no ensanchar la barra; la isla derecha suma búsqueda (command palette), switcher de holding y toggle de tema.
+- **Shell propio** (`PlatformNotchShell`): barra arriba, franja de título de página (reemplaza al topbar clásico, que ponía el título), `MainContainerPanel` para mantener el look de panel flotante, y mobile con el `MobileNav` existente (hamburguesa + drawer). Vista holding sin negocio activo: sin items, como el sidebar.
+- **`lib/navigation/full-bleed.ts`:** las rutas full-bleed (agente, inbox, producto) estaban hardcodeadas en `platform-layout.tsx`; ahora ambos shells comparten el helper.
+- `CLAUDE.md` y `DESIGN.md` actualizados: la regla "la navegación es solo sidebar" ahora documenta la excepción controlada por flag, para que los docs no contradigan al código.
+
+**Por qué / finalidad:**
+
+Santiago quiere probar este estilo de navegación como innovación de producto, con vuelta atrás garantizada si no convence.
+
+**Decisiones de diseño relevantes:**
+
+- **Flag por env y no por preferencia de usuario:** la vuelta atrás es una decisión de producto, no per-user. Env = un solo estado para toda la org, sin flash de hidratación ni estados mixtos entre usuarios. Contra: cambiarla requiere redeploy (~2 min).
+- **Labels solo en `xl+`:** el sidebar tiene ~10 entradas raíz; con labels siempre visibles la barra no entra en 1280px. Debajo de `xl` los items quedan como iconos con `title`.
+- **Filetes de muesca** dibujados con un path SVG por lado (curva invertida `text-card`), no con imágenes.
+- Las páginas **no** tienen h1 propio (lo ponía el topbar) — por eso el shell nuevo trae la franja de título; sin ella todas las pantallas quedaban sin encabezado.
+
+**Verificación:**
+
+`tsc`, lint y `next build` con y sin flag (128 páginas). Verificación visual con una página de preview temporal (borrada antes del commit) montando el shell con providers mockeados: islas, dropdowns de módulo, tema claro y oscuro. **No verificado en vivo:** el estado activo del pill (el preview corría en una ruta fuera del nav) y las páginas reales de plataforma, que en este entorno devuelven 500 por falta de env de Supabase — el modo demo no cubre el layout de plataforma.
+
+**Riesgos / deuda técnica pendiente:**
+
+- El badge de llamadas Fathom pendientes (sidebar lo muestra en Clientes vía `mapDirectModules`) no está en la notch nav.
+- El botón de notificaciones ("próximamente", deshabilitado) del topbar clásico no se migró — decidir si va en la isla derecha.
+- El pill activo y el comportamiento con datos reales quedan por validar en producción/preview con sesión real.
+- Si el experimento se adopta como definitivo, borrar el shell del sidebar (o viceversa) para no mantener dos navegaciones para siempre.
+
+---
+
 ### 2026-08-29 — REBRAND-LIMITLESS (fase 3): preview social y metadata
 
 **Rama/branch:** `Claude-Design`  

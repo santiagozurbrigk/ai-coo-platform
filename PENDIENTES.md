@@ -98,6 +98,30 @@
 
 ---
 
+## 🟪 Experimento notch nav — validar y decidir
+
+> Implementado 2026-08-30 detrás de `NEXT_PUBLIC_NAV_STYLE=notch` (ver CHANGES.md).
+> El sidebar sigue siendo el default; nada cambia hasta setear la variable.
+
+### [NAV-1] Activar y validar en vivo
+
+**Acción:** agregar `NEXT_PUBLIC_NAV_STYLE=notch` en Vercel (Preview primero) y recorrer
+la plataforma con sesión real: pill activo, dropdowns, holding switcher, mobile.
+**Quién:** Santiago.
+
+### [NAV-2] Paridad pendiente con el sidebar
+
+- Badge de llamadas Fathom pendientes en "Clientes" (el sidebar lo muestra; la notch no).
+- Botón de notificaciones del topbar (deshabilitado, "próximamente") — decidir si va en la isla derecha.
+
+### [NAV-3] Decisión final
+
+Si convence: borrar `PlatformSidebarShell` + `AppSidebar` y hacer del notch el único shell.
+Si no: borrar `components/navigation/notch-nav/` + `platform-notch-shell.tsx` + la env.
+No mantener las dos navegaciones indefinidamente.
+
+---
+
 ## 🔵 Rebranding Limitless — cerrado, con 5 pendientes acotados
 
 > Fases 1 y 2 completas — ver `CHANGES.md` 2026-08-29. La app usa el naranja

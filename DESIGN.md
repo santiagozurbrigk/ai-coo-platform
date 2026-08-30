@@ -16,7 +16,7 @@
    > **Texto sobre naranja va en negro** (`--primary-foreground: 0 0% 0%`): da 5.78:1.
    > Blanco sobre naranja da 3.64:1 y no alcanza AA para texto normal — usarlo solo
    > en piezas grandes (logotipo).
-2. **No inventar chrome inexistente:** la app no tiene breadcrumbs globales, buscador universal en topbar, ni navegación que no esté en el sidebar actual.
+2. **No inventar chrome inexistente:** la app no tiene breadcrumbs globales ni buscador universal en topbar. La navegación canónica es el sidebar; existe un modo alternativo de barra superior (notch nav, `NEXT_PUBLIC_NAV_STYLE=notch`) que consume el mismo config de `lib/navigation/sidebar-modules.ts` — nunca crear una tercera navegación.
 3. **Modo oscuro por defecto:** el script en `layout.tsx` aplica `.dark` salvo `localStorage.theme === 'light'`.
 4. **Superficies glass:** en dark mode usan `backdrop-blur` + bordes `white/8%`; en light son cards sólidas blancas.
 5. **Performance:** animaciones con CSS / Framer Motion liviano. Sin WebGL en la app productiva. Respetar `prefers-reduced-motion`.
