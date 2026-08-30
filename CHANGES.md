@@ -17,7 +17,7 @@
 ### 2026-08-30 — DOC-EXTERNAL-APIS: documentación de GoHighLevel y VTurb bajada al repo
 
 **Rama/branch:** `Claude-New-Features`  
-**Commits:** pendiente push  
+**Commits:** `9dc02ca`  
 **Módulo(s) afectado(s):** `docs/external-apis/` (nuevo), `docs/API_DOCS_PENDIENTES.md`, `CLAUDE.md`, `PENDIENTES.md`
 
 **Qué se hizo:**
