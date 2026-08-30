@@ -99,6 +99,7 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           label: "Conexión con Ventas",
           href: paths.platform.marketing.salesConnection,
           permissionId: "marketing_sales",
+          hidden: true,
         },
         {
           label: "Formularios",

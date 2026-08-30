@@ -40,9 +40,15 @@ Decisión de Santiago tras ver la barra funcionando. Cierra `[NAV-3]` de PENDIEN
 - **Sign out en el menú de perfil:** el submit se dispara por `ref` sobre un `<form>` oculto, porque Radix cierra el menú al seleccionar y un `<button type="submit">` dentro del item puede perder el submit.
 - **`gap-2` sólo en los items del perfil**, no en la primitiva `DropdownMenuItem`: tocarla afectaría todos los dropdowns de la app.
 
+**Ajustes de la isla derecha (pedido de Santiago tras revisar el preview):**
+
+- **Fuera el botón de búsqueda.** La paleta se sigue abriendo con **⌘K / Ctrl+K**; se pierde el acceso visible, no el acceso.
+- **El engranaje pasa a ser Integraciones** (icono `plug`) y navega directo a `/integrations`, sin dropdown. Ajustes ya se llega desde el menú de perfil, así que el dropdown de Configuración sobraba.
+- **"Conexión con Ventas" sale de la navegación de Marketing** con `hidden: true`, el mismo patrón que ya usaban "Administrar" y "UTMs". La ruta sigue existiendo y accesible por URL: se saca del menú, no se borra la pantalla.
+
 **Verificación:**
 
-`tsc`, lint y `next build` limpios (127 páginas). Verificación visual con una página de preview temporal (borrada antes del commit): barra completa, dropdown de módulo, menú de perfil con nombre/organización/cerrar sesión y badge de clientes.
+`tsc`, lint y `next build` limpios (127 páginas). Verificación visual con una página de preview temporal (borrada antes del commit): barra completa, dropdown de módulo, menú de perfil con nombre/organización/cerrar sesión y badge de clientes. Los tres ajustes se comprobaron por aserción además de por captura — cero iconos de lupa en el header y el dropdown de Marketing devolviendo Overview · Contenido · Anuncios · Formularios · Automatizaciones · Lead Magnets.
 
 **Riesgos / deuda técnica pendiente:**
 
