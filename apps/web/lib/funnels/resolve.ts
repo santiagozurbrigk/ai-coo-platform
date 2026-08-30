@@ -18,6 +18,8 @@ import { getFunnelSource, missingSourceConfig, type FunnelSourceId } from "./sou
 import { getGHLStageHistorySince } from "@/lib/ghl/integration";
 import { isPeriodCovered } from "@/lib/ghl/stage-transition";
 import { getVTurbPeriodMeasures, type VTurbPeriodResult } from "@/lib/vturb/stats";
+import { countCommentTriggers } from "@/lib/zernio/triggers";
+import { getZernioClientForOrganization } from "@/lib/zernio/integration";
 import { periodBounds, type FunnelPeriod } from "./period";
 import {
   countAllTimeRows,
@@ -30,6 +32,12 @@ import {
   type OrderRow,
   type TransactionRow,
 } from "@/lib/payments/aggregate";
+import {
+  computeRetentionMeasures,
+  retentionLookbackStart,
+  type RetentionOrderRow,
+  type RetentionTransactionRow,
+} from "@/lib/payments/retention";
 import { requireFunnelTemplate } from "./templates";
 import type { FunnelTemplate } from "./types";
 import type { InstrumentationToolId } from "./instrumentation";
@@ -262,6 +270,29 @@ async function countDistinctTransitions(
   if (error || !data) return null;
 
   return new Set(data.map((row) => row.opportunity_external_id as string)).size;
+}
+
+/**
+ * Comentarios de Zernio como disparadores del DM (M34).
+ *
+ * ⚠️ Es un **fetch en vivo**: `listComments` es un inbox, no un historial, y no
+ * acepta filtro de fecha. `countCommentTriggers` decide si la ventana alcanza
+ * para responder por el período o si hay que devolver `null`.
+ */
+async function countZernioTriggers(
+  organizationId: string,
+  period: FunnelPeriod
+): Promise<number | null> {
+  const { fromIso, toIso } = periodBounds(period);
+  try {
+    const client = await getZernioClientForOrganization(organizationId);
+    if (!client) return null;
+    const { comments } = await client.listComments();
+    return countCommentTriggers(comments ?? [], fromIso, toIso).value;
+  } catch {
+    // Zernio sin conectar o caído: "no sabemos", no "no hubo comentarios".
+    return null;
+  }
 }
 
 /** Fuentes que dependen del historial propio de GHL y de su período ciego. */
@@ -504,6 +535,8 @@ async function resolveSource(
   loadVTurb: VTurbLoader
 ): Promise<number | null> {
   switch (sourceId) {
+    case "zernio_comment_triggers":
+      return countZernioTriggers(organizationId, period);
     case "ad_clicks":
       return sumAdClicks(supabase, organizationId, period);
     case "conversations_opened":
@@ -603,7 +636,12 @@ async function resolveOrgMeasures(
 ): Promise<OrgMeasures> {
   const { fromIso, toIso } = periodBounds(period);
 
-  const [orderRows, transactionRows, ads] = await Promise.all([
+  // La ventana de retención es más ancha que el período a propósito: "cuántas
+  // veces compra un cliente" no se puede medir en 7 días — ver
+  // lib/payments/retention.ts.
+  const lookbackFromIso = retentionLookbackStart(toIso);
+
+  const [orderRows, transactionRows, ads, lookbackOrderRows] = await Promise.all([
     supabase
       .from("payment_orders")
       .select("external_id, customer_external_id, customer_email, contract_value, ordered_at")
@@ -622,6 +660,12 @@ async function resolveOrgMeasures(
       .eq("organization_id", organizationId)
       .gte("metric_date", period.start)
       .lte("metric_date", period.end),
+    supabase
+      .from("payment_orders")
+      .select("customer_external_id, customer_email, is_recurring, ordered_at")
+      .eq("organization_id", organizationId)
+      .gte("ordered_at", lookbackFromIso)
+      .lt("ordered_at", toIso),
   ]);
 
   // Whop y Fanbasis son los que el documento asigna a la etapa Cash (§05).
@@ -642,12 +686,24 @@ async function resolveOrgMeasures(
   const sumAds = (field: "spend" | "reach" | "impressions") =>
     hasAdData ? adRows.reduce((sum, row) => sum + Number(row[field] ?? 0), 0) : null;
 
+  // M32 y M33 (unidad I-9). Sin órdenes en la ventana, las dos quedan en `null`
+  // con su motivo, y el LTV no se calcula — que es lo correcto: un LTV apoyado
+  // en una retención inventada es peor que no tener LTV.
+  const retention =
+    lookbackOrderRows.error || transactionRows.error
+      ? null
+      : computeRetentionMeasures(
+          (lookbackOrderRows.data ?? []) as RetentionOrderRow[],
+          (transactionRows.data ?? []) as RetentionTransactionRow[],
+          fromIso
+        );
+
   return {
     spend: sumAds("spend"),
     reach: sumAds("reach"),
     impressions: sumAds("impressions"),
-    purchases: null,
-    retention_rate: null,
+    purchases: retention?.purchasesPerCustomer ?? null,
+    retention_rate: retention?.retentionRate ?? null,
     revenue: money?.revenue ?? null,
     cash_collected: money?.cashCollected ?? null,
     contracted_value: money?.contractedValue ?? null,

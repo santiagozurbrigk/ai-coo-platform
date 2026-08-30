@@ -14,6 +14,45 @@
 
 ---
 
+### 2026-08-30 — Ola 3 (1/2): I-9 retención y I-10 triggers de Zernio
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/payments/{retention,aggregate}.ts`, `lib/zernio/triggers.ts`, `lib/funnels/{sources,resolve}.ts`, docs
+
+**Qué se hizo:**
+Dos unidades de la Ola 3. Ninguna necesitó integración nueva ni migración: las dos son cálculo sobre datos que ya existen.
+
+**I-9 — retención y compras repetidas (M32, M33).** Son las dos medidas que faltaban para **LTV**, y por lo tanto para **LTV:CAC**, una de las dos ratios que el documento llama decisivas. Salen de `payment_orders` y `payment_transactions`, que I-2 ya puebla.
+
+⭐ **M32 no se puede medir dentro del período del embudo.** En una ventana de 7 días casi todo cliente tiene exactamente una compra, así que "compras por cliente" daría ~1.0 y el LTV colapsaría al AOV. Se mide sobre una ventana de **365 días** hacia atrás desde el fin del período: cuántas veces compra un cliente es una propiedad lenta del negocio, no una métrica semanal.
+
+⭐ **M33 devuelve `null` en dos casos, y ninguno es cero.** Si la org no tiene ninguna orden recurrente, la retención no aplica a un negocio de pago único — devolver `0` sería catastrófico, porque el LTV multiplica por este factor y quedaría en cero, diciendo que el negocio no vale nada; devolver `1` inventaría una retención perfecta que nadie midió. Y si hay órdenes recurrentes pero todas empezaron dentro del período, no hay cohorte: es demasiado pronto para preguntarse si siguieron pagando.
+
+**I-10 — triggers de Zernio (M34).** La etapa Click del embudo DM, o sea lo que ocurre *antes* de que exista la conversación. El documento no le asigna herramienta y es la única fila con benchmark `context-set`.
+
+⭐ **`listComments` es un inbox, no un historial.** No acepta filtro de fecha ni cursor: devuelve una ventana reciente de tamaño desconocido. Contar lo que cae dentro del período y presentarlo como el total sería reportar un número incompleto como completo. La única evidencia de que la ventana cubre el período es **haber visto un comentario más viejo que su inicio**; si no, el resolver devuelve `null`. Es el período ciego de GHL entrando por otra puerta.
+
+⛔ **Las historias no se pueden contar en un período, y no es un límite de OTC.** Meta sólo expone las historias **vigentes**, o sea 24 horas. Para cualquier período que no sea "hoy" el dato no existe del lado de Meta. M34 queda cubierta por ads (Meta) + comentarios (Zernio), y la parte de historias se documenta como imposible en vez de quedar como un pendiente que nunca se va a cerrar.
+
+**Verificación ejecutada:**
+- `pnpm test`: **395 tests en 22 archivos, todos en verde** (23 nuevos).
+- `tsc --noEmit` limpio, `pnpm lint` sin errores.
+- Sin migraciones: las dos unidades leen tablas que ya existían.
+
+**Decisiones de diseño:**
+- **`customerKey` se exportó de `aggregate.ts` en vez de duplicarse.** La identidad del comprador tiene que resolverse igual en las dos medidas o los conjuntos no cruzan.
+- **En M32, las órdenes anónimas se excluyen del numerador Y del denominador.** Contarlas arriba y no abajo inflaría el promedio; contarlas abajo como clientes distintos lo hundiría. Sin identidad, la orden no participa.
+- **Un reembolso no cuenta como pago para la retención.**
+- **El borde de la ventana de comentarios se trata de forma estricta:** si el más antiguo cae justo en el inicio del período, también devuelve `null`. Erramos hacia "sin datos" antes que afirmar un cero que no se puede sostener.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **Las definiciones de M32 y M33 son una interpretación, no una cita.** El documento escribe `LTV = AOV × purchases × retention` y no define ninguno de los dos últimos factores. La verificación que decide la unidad es **comparar el LTV que muestra OTC contra el que el cliente ya usa** — está en `docs/PLAN_VERIFICACION.md` §8.
+- Observación sobre la fórmula del documento: `AOV × purchases` ya da "revenue por cliente", y multiplicar eso por una retención < 1 lo **reduce**, cuando lo habitual es que la retención extienda el lifetime. Se implementó **fiel al documento**; si al contrastar contra el número del cliente no cierra, es acá donde hay que mirar.
+- La nota del documento sobre LTV proyectado para suscripciones y planes de pago no está implementada.
+
+---
+
 ### 2026-08-30 — Debate WebinarJam vs VTurb, y los dos huecos que dejó al descubierto
 
 **Rama/branch:** `Claude-New-Features`

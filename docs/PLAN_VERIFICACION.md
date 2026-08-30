@@ -402,22 +402,58 @@ primer paso y el más lento — ver `[WEBINARJAM-API-KEY]` en `PENDIENTES.md`.
 
 ---
 
-## 8. Unidades pendientes
+## 8. I-9 — Retención y compras repetidas ⚠️⭐
+
+🔑 Necesita una cuenta de pagos conectada con **historial**, no sólo con webhooks
+del último mes.
+
+Es la unidad que desbloquea **LTV:CAC**, una de las dos ratios que el documento
+llama decisivas. También es la que tiene la definición más discutible del plan:
+el documento escribe `LTV = AOV × purchases × retention` y **no define ninguno de
+los dos últimos factores**. Lo que hay que verificar no es el código, es la
+interpretación.
+
+| Paso | Resultado esperado |
+|---|---|
+| ⚠️ **Comparar el LTV que muestra OTC contra el que el cliente ya usa** | Es la verificación que decide la unidad. Si difieren mucho, la definición de M32 o M33 está mal elegida — no el cálculo |
+| M32 sobre una org con historial de un año | Un número > 1 en un negocio con recompra. Si da exactamente 1.0, la ventana quedó corta o no hay recompra |
+| ⭐ Cambiar el período del embudo | M32 **casi no debería moverse**: se mide sobre una ventana de 365 días, no sobre el período. "Cuántas veces compra un cliente" es una propiedad lenta del negocio |
+| M33 en una org **sin** planes de cuotas ni suscripciones | Dice "sin datos", **no 0%**. Un cero acá dejaría el LTV en cero y diría que el negocio no vale nada |
+| M33 en una org cuyas suscripciones empezaron todas dentro del período | "Sin datos" — todavía no se puede saber si siguen pagando |
+| M33 con una cohorte real | Un porcentaje. Contrastar contra cuántos planes de cuotas siguen al día |
+| Un reembolso dentro del período | **No** cuenta como pago para la retención |
+| Órdenes sin comprador identificable | Se excluyen de M32 **arriba y abajo**: no inflan ni hunden el promedio |
+
+---
+
+## 9. I-10 — Triggers de Zernio ⭐
+
+🔑 Necesita una cuenta de Zernio con comentarios reales.
+
+| Paso | Resultado esperado |
+|---|---|
+| Bindear el paso "Trigger" del embudo DM a los comentarios de Zernio | Muestra un número si la ventana del inbox alcanza |
+| ⭐ Pedir un período viejo (hace 6 meses) | Dice **"sin datos"**, no `0`. `listComments` es un inbox de tamaño desconocido: si el comentario más viejo que devolvió ya está dentro del período, no se puede saber si faltan más |
+| Pedir el período actual en una cuenta con comentarios viejos | Muestra el conteo real |
+| Zernio desconectado | "Sin datos", no `0` |
+| ⛔ Buscar las historias | **No hay fuente y no la va a haber.** Meta sólo expone las historias vigentes (24 h): para cualquier período que no sea hoy, el dato no existe de su lado |
+
+---
+
+## 10. Unidades pendientes
 
 Se completa a medida que se construyen.
 
 Todas tienen ya su documentación verificada en `docs/external-apis/`. Lo que sigue
 son las verificaciones contra cuentas reales, que se suman a medida que se construyen.
 
-- [ ] **I-9** — Retención y compras repetidas
 - [ ] **I-8** — Hyros. ⭐ Verificar que un parámetro mal escrito **no** pase
       desapercibido: la doc avisa que casi todos los endpoints ignoran parámetros
       desconocidos y devuelven `200` con datos distintos a los pedidos.
-- [ ] **I-10** — Triggers de Zernio
 
 ---
 
-## 9. Verificación final, con todo conectado
+## 11. Verificación final, con todo conectado
 
 Cuando estén todas las unidades y todas las cuentas conectadas:
 

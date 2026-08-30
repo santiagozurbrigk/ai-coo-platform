@@ -42,6 +42,15 @@ export const FUNNEL_SOURCES = [
     suitableFor: ["click"],
   },
   {
+    id: "zernio_comment_triggers",
+    label: "Comentarios que disparan un DM (Zernio)",
+    description:
+      "Comentarios recibidos en el período, como disparador de conversación (M34). Las historias no se pueden contar: Meta sólo expone las vigentes de las últimas 24 h.",
+    provenance: "crm_pipeline",
+    // Etapa Click: el trigger ocurre ANTES de que exista la conversación.
+    suitableFor: ["click"],
+  },
+  {
     id: "conversations_opened",
     label: "Conversaciones abiertas",
     description: "Conversaciones del inbox creadas dentro del período.",

@@ -255,8 +255,8 @@ nada.
 | M29 | `contracted_value` | Valor contratado | 🟡 | Idem M26 — `payment_orders.contract_value` |
 | M30 | `refunds` | Reembolsos | 🟡 | Idem M26 — `payment_transactions.kind = 'refund'` |
 | M31 | `new_customers` | Clientes nuevos | 🟡 | Idem M26 — compradores distintos con orden en el período |
-| M32 | `purchases_per_customer` | Compras por cliente | 🔴 | Necesario para LTV |
-| M33 | `retention_rate` | Retención | 🔴 | Necesario para LTV |
+| M32 | `purchases_per_customer` | Compras por cliente | 🟡 | Construido (I-9). Falta contrastar la definición contra el número que usa el cliente |
+| M33 | `retention_rate` | Retención | 🟡 | Idem M32 |
 
 > **Unidad I-2 construida el 2026-08-29, pendiente de verificación.** Se
 > implementó con **Whop y Fanbasis**, que es lo que el documento asigna a esta
@@ -277,10 +277,24 @@ nada.
 
 | # | Medida | Qué es | Estado | Nota |
 |---|---|---|---|---|
-| M34 | `dm_triggers` | Comentarios, historias o ads que disparan un DM | ⚪ 🟡 | La §05 no le asigna herramienta. La parte paga la cubre Meta (M04); comentarios e historias los tiene Zernio (`listComments`, stories) pero sin periodizar |
+| M34 | `dm_triggers` | Comentarios, historias o ads que disparan un DM | 🟡 | Ads vía Meta (M04) y comentarios vía Zernio, construidos. **Las historias son imposibles de periodizar** |
 
 > Es también la única fila del documento con benchmark `context-set`, o sea que el
 > propio estándar reconoce que no tiene piso universal.
+>
+> 🔨 **Construido el 2026-08-30 (I-10).** Dos de las tres partes del trigger ya
+> tienen fuente: `ad_clicks` para los ads y `zernio_comment_triggers` para los
+> comentarios.
+>
+> ⛔ **Las historias no se pueden contar en un período, y no es un límite de OTC.**
+> Meta sólo expone las historias **vigentes**, o sea una ventana de 24 horas. Para
+> cualquier período que no sea "hoy" el dato no existe del lado de Meta.
+>
+> ⭐ **`listComments` es un inbox, no un historial.** No acepta filtro de fecha ni
+> cursor: devuelve una ventana reciente de tamaño desconocido. La única evidencia
+> de que esa ventana cubre el período es **haber visto un comentario más viejo que
+> su inicio**; si no, el resolver devuelve `null`. Es el período ciego de GHL
+> entrando por otra puerta, y se trata igual.
 
 ---
 
@@ -316,7 +330,7 @@ Qué medidas consume cada paso, y si ese paso se puede medir hoy.
 
 | Etapa | Paso | Medidas | ¿Medible hoy? |
 |---|---|---|---|
-| Click | Trigger (comment / story / ad) | M34, M03, M01 | 🟡 Al periodizar Meta y Zernio |
+| Click | Trigger (comment / story / ad) | M34, M03, M01 | 🟡 Ads y comentarios construidos; historias imposibles |
 | Lead | Conversation opened | M34, M21, M01 | 🟡 Al recibir el primer webhook de GHL |
 | Engaged | Two-way, replied to qualifier | M21, M22 | 🟡 Al recibir el primer webhook de GHL |
 | Intent | Offer sent or call set | M21, M23 | 🟡 Al recibir el primer webhook de GHL |
@@ -338,9 +352,9 @@ Se comparan entre embudos, así que **cualquier hueco acá afecta a los tres a l
 | EPC | revenue ÷ clicks | M27, M04 | 🟡 |
 | CPL | spend ÷ leads | M01, etapa Lead | 🟡 |
 | AOV | revenue ÷ orders | M27, M26 | 🟡 |
-| LTV | AOV × purchases × retention | AOV, M32, M33 | 🔴 Faltan M32 y M33 |
+| LTV | AOV × purchases × retention | AOV, M32, M33 | 🟡 M32 y M33 construidas; falta validar la definición |
 | Cash collected vs contracted | cash in ÷ total contract value | M28, M29 | 🟡 |
-| **LTV : CAC** | LTV ÷ CAC | Todo lo anterior | 🔴 |
+| **LTV : CAC** | LTV ÷ CAC | Todo lo anterior | 🟡 Desbloqueada por I-9 |
 | **EPL vs CPL** | EPL ÷ CPL | M27, M01, etapa Lead | 🟡 |
 
 > Las dos últimas son las que el documento llama decisivas: *"EPL vs CPL to know
@@ -353,7 +367,7 @@ Se comparan entre embudos, así que **cualquier hueco acá afecta a los tres a l
 
 | Métrica cross-funnel | Medidas | Estado |
 |---|---|---|
-| LTV : CAC | M01, M31, M26, M27, M32, M33 | 🔴 |
+| LTV : CAC | M01, M31, M26, M27, M32, M33 | 🟡 |
 | EPL vs CPL | M01, M27, etapa Lead | 🟡 |
 | Blended ROAS | M27, M01 | 🟡 |
 | Lead → Intent | Conteos de etapa, por embudo | 🟡 |
@@ -379,8 +393,8 @@ Agrupado por unidad de trabajo, con lo que desbloquea cada una.
 | **I-6** | **Integración VTurb** 🔨 **Construido 2026-08-30, sin verificar** | M08, M10–M12 | Etapa Engaged del **VSL** + visitantes de página | Falta conectar una cuenta y confirmar la semántica de los campos de `Stats`, que el spec no describe |
 | ~~**I-7**~~ | ~~**Analytics de landing / opt-in**~~ — **absorbida por `I-8`**, ver §8 | M08, M09 | Etapa Lead del webinar, denominador del play rate del VSL | — |
 | **I-8** | **Hyros** | M05–M09 | ROAS by-source, etiquetado `[Hyros]`, **y los opt-ins de las landings** | **L** — REST API con auth por API key (leads, journeys, sales, orders). Todos los clientes ya lo pagan |
-| **I-9** | **Retención y compras repetidas** | M30, M32, M33 | **LTV**, y por lo tanto **LTV:CAC** | **M** — modelo de suscripciones y reembolsos |
-| **I-10** | **Periodizar triggers de Zernio** | M34 | Etapa Click del DM | **S** — `listComments` y stories ya existen |
+| ~~**I-9**~~ | **Retención y compras repetidas** 🔨 **Construido 2026-08-30** | M30, M32, M33 | **LTV**, y por lo tanto **LTV:CAC** | Sin integración nueva: sale de `payment_orders` y `payment_transactions`. Falta contrastar las definiciones contra el número del cliente |
+| ~~**I-10**~~ | **Periodizar triggers de Zernio** 🔨 **Construido 2026-08-30** | M34 | Etapa Click del DM | Comentarios sí; **historias imposible** (Meta sólo expone las de 24 h) |
 
 ---
 

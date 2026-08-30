@@ -55,7 +55,7 @@ function numeric(value: number | string): number {
  * `newCustomers` — contar cada compra anónima como un cliente nuevo inflaría el
  * CAC hacia abajo, que es el error más caro posible acá.
  */
-function customerKey(row: {
+export function customerKey(row: {
   customer_external_id: string | null;
   customer_email: string | null;
 }): string | null {
