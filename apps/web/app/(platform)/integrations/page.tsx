@@ -14,6 +14,8 @@ import {
   getWebinarJamStatusAction,
   listWebinarJamWebinarOptionsAction,
 } from "@/app/webinarjam/actions";
+import { HyrosConnectPanel } from "@/components/integrations/hyros-connect-panel";
+import { getHyrosStatusAction } from "@/app/hyros/actions";
 import { ReelMusicUpload } from "@/components/marketing/trial-reels/reel-music-upload";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@ai-coo/ui";
@@ -29,6 +31,7 @@ export default async function IntegrationsPage() {
     vturb,
     webinarJam,
     webinarJamWebinars,
+    hyros,
   ] = await Promise.all([
     listIntegrationsAction(),
     getReelMusicPathAction(),
@@ -37,6 +40,7 @@ export default async function IntegrationsPage() {
     getVTurbStatusAction(),
     getWebinarJamStatusAction(),
     listWebinarJamWebinarOptionsAction(),
+    getHyrosStatusAction(),
   ]);
 
   return (
@@ -62,6 +66,8 @@ export default async function IntegrationsPage() {
       <VTurbConnectPanel status={vturb} />
 
       <WebinarJamConnectPanel status={webinarJam} webinars={webinarJamWebinars} />
+
+      <HyrosConnectPanel status={hyros} />
 
       {/* Trial Reels — configuración de assets */}
       <section className="space-y-3">

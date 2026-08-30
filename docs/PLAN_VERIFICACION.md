@@ -440,20 +440,85 @@ interpretación.
 
 ---
 
-## 10. Unidades pendientes
+## 10. I-8 — Hyros ⚠️⭐
 
-Se completa a medida que se construyen.
+🔑 Necesita la cuenta de Hyros de un cliente, con su plan habilitando la API.
 
-Todas tienen ya su documentación verificada en `docs/external-apis/`. Lo que sigue
-son las verificaciones contra cuentas reales, que se suman a medida que se construyen.
+Es la unidad de la que dependen las decisiones de escala: el ROAS por fuente es
+lo que el documento llama *"the steering wheel"*.
 
-- [ ] **I-8** — Hyros. ⭐ Verificar que un parámetro mal escrito **no** pase
-      desapercibido: la doc avisa que casi todos los endpoints ignoran parámetros
-      desconocidos y devuelven `200` con datos distintos a los pedidos.
+### 10.1 Conectar
+
+| Paso | Resultado esperado |
+|---|---|
+| Pegar la API key | Conecta y trae las cuentas publicitarias |
+| ⚠️ Si devuelve `401` o `403` | **Puede ser que el plan del cliente no incluya la API.** La doc no dice qué tier la habilita: hay que confirmarlo con Hyros antes de dar la key por inválida |
+| Con una key de agencia | Cargar el `Accessible-Account-Id` de la cuenta cliente. El rate limit se cuenta igual contra el dueño de la key |
+| Sin cuentas publicitarias sincronizadas | El panel lo dice y el embudo muestra "sin datos": el reporte **exige** nombrar las cuentas |
+
+### 10.2 Que los números sean los correctos ⚠️⭐
+
+**Es la verificación que decide la unidad.** Tomar un período cerrado y abrir el
+dashboard de Hyros al lado.
+
+| Paso | Resultado esperado |
+|---|---|
+| ⚠️ Comparar el **revenue atribuido** de OTC contra el del dashboard, mismo período y mismo modelo | Tienen que coincidir. Si no, revisar `fields` y `currency` |
+| ⚠️ Verificar qué campo corresponde a "visitantes" | OTC usa **`new_visits`**, no `clicks`: un mismo visitante puede clickear varias veces. Confirmar que es lo que el cliente entiende por visitantes |
+| ⭐ Comparar el **ROAS by-source** contra el **blended** | **Tienen que dar distinto.** Si dieran exactamente igual, algo está leyendo las mismas medidas para los dos, que es el bug que se corrigió al construir esta unidad |
+| Cambiar el modelo de atribución | Los números cambian. Si no cambian, la caché no se está invalidando por modelo |
+| ⚠️ Escribir mal un parámetro a propósito (p. ej. `fromDate` como `from_date`) | **Hyros devuelve `200` con datos distintos, sin avisar.** Es su comportamiento documentado: casi todos sus endpoints ignoran en silencio los parámetros desconocidos. Sirve para entender por qué el cliente construye los nombres en un solo lugar |
+
+### 10.3 Los opt-ins y la landing
+
+| Paso | Resultado esperado |
+|---|---|
+| Bindear la etapa Lead a "Opt-ins atribuidos (Hyros)" | Muestra los leads atribuidos del período |
+| Comparar contra `form_submissions` del mismo período | **No tienen por qué coincidir**: uno cuenta lo atribuido a fuentes pagas y el otro todas las respuestas del formulario. Si el usuario espera que coincidan, hay que explicarlo, no "arreglarlo" |
+| Bindear la etapa Click a "Visitantes de la página (Hyros)" en una landing sin VSL | Muestra un número donde antes no había fuente posible |
+
+### 10.4 Que un error no se vuelva un cero ⭐
+
+| Paso | Resultado esperado |
+|---|---|
+| Desconectar Hyros y abrir el embudo | ROAS by-source dice "sin datos". **No 0×** |
+| Desactivar todas las cuentas publicitarias | "Sin datos", con el motivo en el panel |
+| Una cuenta que falla y otra que responde | Se muestran los números de la que respondió **y** el error de la otra: el total es parcial y se dice |
+| Un `429` | El mensaje guardado incluye el `Retry-After` que manda Hyros |
 
 ---
 
-## 11. Verificación final, con todo conectado
+## 11. Estado de las unidades — ✅ **las diez están construidas**
+
+Al 2026-08-30 no queda ninguna unidad del plan sin construir. Lo que falta no es
+código: son **cuentas reales**.
+
+| Unidad | Construida | Qué bloquea su verificación |
+|---|---|---|
+| I-1 métricas de ads | ✅ | — |
+| I-2 pagos (Whop / Fanbasis) | ✅ | Conectar una cuenta |
+| I-3 asistencia y cierres | ✅ | — |
+| I-4 oportunidades de GHL | ✅ | ⚠️ Confirmar que un Workflow entregue `pipelineStageId` (§5.2) |
+| I-5 WebinarJam | ✅ | 🔑 **La API key requiere aprobación previa** |
+| I-6 VTurb | ✅ | Conectar una cuenta y cargar el pitch time |
+| ~~I-7~~ | — | Absorbida por I-8 |
+| I-8 Hyros | ✅ | Conectar una cuenta; confirmar que el plan incluya la API |
+| I-9 retención | ✅ | ⚠️ Validar la definición contra el LTV que usa el cliente |
+| I-10 triggers de Zernio | ✅ | — |
+
+**Las tres cosas que hay que conseguir antes de poder verificar nada:**
+
+1. 🔑 **La API key de WebinarJam** — requiere aprobación de su equipo y es lo más
+   lento. Sin ella, tres de los siete pasos del embudo Webinar no tienen datos.
+2. 🔑 **Una cuenta de Hyros con la API habilitada** — la documentación no dice qué
+   plan la incluye.
+3. 🔑 **Una sub-cuenta de GHL para probar el webhook** — 10 minutos, y define si
+   I-4 funciona ya o espera la aprobación del Marketplace.
+
+
+---
+
+## 12. Verificación final, con todo conectado
 
 Cuando estén todas las unidades y todas las cuentas conectadas:
 

@@ -51,6 +51,22 @@ export const FUNNEL_SOURCES = [
     suitableFor: ["click"],
   },
   {
+    id: "hyros_landing_visitors",
+    label: "Visitantes de la página (Hyros)",
+    description:
+      "Visitantes nuevos atribuidos por Hyros en el período (M08). Sirve para landings sin VSL, donde VTurb no llega.",
+    provenance: "hyros",
+    suitableFor: ["click"],
+  },
+  {
+    id: "hyros_optins",
+    label: "Opt-ins atribuidos (Hyros)",
+    description:
+      "Leads atribuidos a las fuentes pagas en el período (M06 y M09). Es el número [Hyros], que no tiene por qué coincidir con el de la plataforma.",
+    provenance: "hyros",
+    suitableFor: ["lead"],
+  },
+  {
     id: "conversations_opened",
     label: "Conversaciones abiertas",
     description: "Conversaciones del inbox creadas dentro del período.",

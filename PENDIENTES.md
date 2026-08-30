@@ -9,6 +9,24 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [EMBUDOS-CUENTAS-REALES] Conectar las cuentas y correr la verificación 🔴
+
+**Qué es:** las diez unidades del plan de integraciones están construidas y **ninguna está verificada contra datos reales**, que es lo que Santiago decidió dejar para el final. Los pasos están en [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md), sección por sección.
+
+**Las tres cosas que hay que conseguir primero:**
+
+1. 🔑 **API key de WebinarJam** — requiere aprobación de su equipo, es lo más lento y bloquea tres pasos del embudo Webinar. Ver `[WEBINARJAM-API-KEY]`.
+2. 🔑 **Cuenta de Hyros con la API habilitada** — la documentación no dice qué plan la incluye.
+3. 🔑 **Una sub-cuenta de GHL para probar el webhook** — 10 minutos, y define si I-4 funciona ya o espera la aprobación del Marketplace. Ver `[EMBUDOS-GHL-ENTREGA]`.
+
+**Las tres verificaciones que más pueden cambiar el código:**
+
+- ⚠️ El payload del Workflow de GHL (`PLAN_VERIFICACION.md` §5.2).
+- ⚠️ La semántica de los campos de VTurb, que su spec no describe (§6.2).
+- ⚠️ Que el LTV de OTC coincida con el que el cliente ya usa (§8) — si no, la definición de M32 o M33 está mal elegida.
+
+---
+
 ### [ADDON-EMBUDOS] Activar el add-on `embudos` en la org
 
 **Qué es:** la migración ya está aplicada, pero el módulo no aparece en el sidebar hasta que la org tenga `embudos` en `enabled_add_ons`.
@@ -21,12 +39,12 @@
 
 **Qué es:** el mapa completo de las 34 medidas atómicas que pide el documento fuente, con su estado en OTC y el orden de construcción, está en **[`docs/FUNNELS_SOURCE_MAP.md`](./docs/FUNNELS_SOURCE_MAP.md)**. Leerlo antes de arrancar cualquier integración de embudos.
 
-**Estado actual:** 2 de 34 medidas disponibles (M17 y M18, calidad de aplicación). 20 parciales, 11 faltantes, 1 sin dueño en el documento.
+**Estado actual (2026-08-30):** ✅ **las diez unidades están construidas.** Lo que falta no es código, son **cuentas reales** — ver `docs/PLAN_VERIFICACION.md` §11. La única medida del documento que quedó como imposible es **M16** (clicks al CTA durante un webinar en vivo): la API de WebinarJam no la expone.
 
 **Orden acordado — de afuera hacia adentro, no de a un embudo:**
 - **Ola 1 (extremos, sirve a los 3 embudos):** ✅ **Completa.** ~~I-1 métricas de ads~~ · ~~I-2 pagos con Whop y Fanbasis~~ 🔨 *(falta conectar una cuenta real y verificar el mapeo)* · ~~I-3 asistencia y cierres + detección de fuente vacía~~
 - **Ola 2 (medios, por costo):** ~~I-4 GHL opportunities~~ 🔨 *(construido 2026-08-30; falta recibir el primer webhook real — ver `[EMBUDOS-GHL-ENTREGA]`)* · ~~I-6 VTurb~~ 🔨 *(construido 2026-08-30; falta conectar una cuenta real)* · ~~I-5 webinar~~ 🔨 *(construido 2026-08-30; bloqueado por la aprobación de la API key)* — 📗 documentación capturada. **Ola 2 completa.** Hallazgos que cambian el diseño: GHL **no** tiene historial de cambios de etapa (hay que construirlo desde webhooks); VTurb **sí** da la curva de retención y ya modela el segundo del CTA; WebinarJam resuelve el stick rate del lado del servidor pero **no expone clicks al CTA**, y su API key **requiere aprobación previa** — pedirla ya.
-- **Ola 3:** ~~I-9 retención~~ 🔨 *(construido 2026-08-30)* · I-8 Hyros · ~~I-10 triggers de Zernio~~ 🔨 *(construido 2026-08-30; las historias son imposibles de periodizar — Meta sólo expone las de 24 h)* — 📗 Hyros capturado. Confirma que **`I-7` no hace falta** (M08 y M09 salen de `/leads` y del reporte de atribución) y que `fields=cost` cubre M01, así que tampoco hace falta cruzar la API de cada plataforma de ads.
+- **Ola 3:** ~~I-9 retención~~ 🔨 *(construido 2026-08-30)* · ~~I-8 Hyros~~ 🔨 *(construido 2026-08-30)* · ~~I-10 triggers de Zernio~~ 🔨 *(construido 2026-08-30; las historias son imposibles de periodizar — Meta sólo expone las de 24 h)* — 📗 Hyros capturado. Confirma que **`I-7` no hace falta** (M08 y M09 salen de `/leads` y del reporte de atribución) y que `fields=cost` cubre M01, así que tampoco hace falta cruzar la API de cada plataforma de ads.
 
 **Verificación:** nada se prueba contra cuentas reales hasta terminar todas las olas — ver [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md).
 
@@ -289,6 +307,7 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-30 | EMBUDOS-I8: integración Hyros — atribución por fuente, y corrección del ROAS by-source, que usaba las mismas medidas que el blended y por lo tanto mostraba el mismo número. **Cierra las 10 unidades del plan.** 408 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I9-I10: retención y compras por cliente (desbloquea LTV:CAC) + triggers de Zernio. Sin integraciones nuevas ni migraciones. 395 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-HUECOS: fuente de clicks al CTA de VTurb (M16) y fuentes de formulario (M13, M17, M18), que estaban marcadas como medibles pero desconectadas del módulo. Debate WebinarJam vs VTurb cerrado y documentado. 372 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I5: integración WebinarJam / EverWebinar — registrantes persistidos por fila (la API no acepta rangos de fecha arbitrarios), stick rate pedido filtrado al servidor, segundo de la oferta configurable. M16 documentado como no medible. 364 tests en verde | `Claude-New-Features` |

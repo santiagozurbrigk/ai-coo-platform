@@ -14,6 +14,46 @@
 
 ---
 
+### 2026-08-30 — Ola 3 (2/2): I-8 Hyros, y el ROAS by-source que no era by-source
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260830210000_hyros.sql`, `lib/hyros/*`, `app/hyros/actions.ts`, `lib/funnels/{types,compute,kpis,sources,resolve,instrumentation}.ts`, `components/integrations/hyros-connect-panel.tsx`, docs
+
+**Qué se hizo:**
+La última unidad del plan. Hyros es el dueño de la atribución según el documento: M05 (revenue atribuido), M06 (leads atribuidos), M07 (journeys), M08 (visitantes de landing) y M09 (opt-ins). **Con esto las diez unidades quedan construidas.**
+
+**⭐ El hallazgo: el ROAS by-source no era by-source.** El KPI `roas_by_source` venía de la Fase 1 definido con `revenue ÷ spend` — **exactamente las mismas medidas que el blended**. Las dos tarjetas mostraban el mismo número y la etiqueta `[Hyros]` no significaba nada, justo lo que el documento declara no negociable:
+
+> *"label each figure with its source — [Meta] for platform-reported, [Hyros] for attributed. The two never match exactly, and a report that mixes them without labels is how bad decisions get made."*
+
+Se agregaron dos medidas nuevas al motor, `attributed_revenue` y `attributed_spend`, que salen las dos de Hyros. El texto de la fórmula **no se tocó**: el documento usa las mismas palabras para las dos ROAS, y una prueba de conformidad lo verifica. Lo que las distingue son las medidas, no el texto.
+
+**Un bug que encontró un test.** El parser de importes limpiaba símbolos con `replace(/[^0-9.-]/g, "")`, y `"n/a"` quedaba como cadena vacía: `Number("")` es `0`. Un texto sin sentido se convertía en un cero real, que es precisamente lo que §9.1 prohíbe. Se agregó una guarda que exige al menos un dígito. **El test se escribió primero y falló; se corrigió la fuente, no el test.**
+
+**Verificación ejecutada:**
+- `pnpm test`: **408 tests en 23 archivos, todos en verde** (13 nuevos).
+- `tsc --noEmit` limpio, `pnpm lint` sin errores.
+- Migración **aplicada** al proyecto Supabase de OTC.
+
+**Decisiones de diseño:**
+- **Se usa `/attribution/ad-account` y no `/attribution`.** El segundo exige `ids` a nivel campaña o adset: habría que enumerar cada campaña antes de poder preguntar nada. El primero toma la cuenta entera.
+- **El modelo de atribución forma parte de la llave de caché.** `last_click`, `first_click` y `scientific` responden preguntas distintas sobre el mismo período: compartir caché mostraría el número de un modelo bajo la etiqueta de otro.
+- **`new_visits` y no `clicks` para M08.** Un mismo visitante puede clickear varias veces.
+- **Un campo que ninguna cuenta reporta es `null`, no `0`.** Si al menos una lo reporta, las que no cuentan como cero: ahí sí hay señal de que el campo existe.
+- **Una cuenta que falla no invalida a las demás**, pero el total pasa a ser parcial: el error se registra, se muestra, y la respuesta **no** se marca como definitiva.
+- **`is_active` por cuenta publicitaria no se pisa en el sync.** Es una decisión del usuario sobre qué entra en los totales, no un dato de la API.
+
+**Efecto colateral que vale registrar:** con Hyros en `partial`, **ninguna herramienta del documento quedó en estado `missing`**. `blockingTools()` comparaba contra ese literal y TypeScript marcó la comparación como imposible — una señal, no un error. Se reescribió con el tipo ancho para que siga encontrando herramientas nuevas sin integrar.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **La documentación no dice qué plan de Hyros incluye la API.** Un `401`/`403` al conectar puede ser la key o el plan, y no se puede distinguir desde la respuesta.
+- ⚠️ **Casi todos los endpoints de Hyros ignoran en silencio los parámetros mal escritos** y devuelven `200` con datos distintos a los pedidos. Un `fromDate` mal escrito devolvería la lista completa de leads, que se leería como un pico de opt-ins que nunca ocurrió. Por eso los nombres de parámetro se construyen en un solo lugar.
+- La verificación que decide la unidad es **comparar el revenue atribuido contra el dashboard de Hyros**, y comprobar que el by-source y el blended den **distinto** — `docs/PLAN_VERIFICACION.md` §10.2.
+- Los webhooks de Hyros (`sale.attributed`, `lead.opted.in`, firma `X-Hyros-Signature`) no están implementados: hoy todo es pull. Sería la vía de tiempo real.
+
+---
+
 ### 2026-08-30 — Ola 3 (1/2): I-9 retención y I-10 triggers de Zernio
 
 **Rama/branch:** `Claude-New-Features`

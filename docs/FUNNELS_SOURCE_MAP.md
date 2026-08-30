@@ -68,21 +68,42 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 
 | # | Medida | Qué es | Estado | Qué falta |
 |---|---|---|---|---|
-| M05 | `attributed_revenue_by_source` | Revenue atribuido por fuente | 🔴 | Integración completa |
-| M06 | `attributed_leads_by_source` | Leads atribuidos por fuente | 🔴 | Integración completa |
-| M07 | `journey_touchpoints` | Recorrido del lead entre touchpoints | 🔴 | Integración completa |
+| M05 | `attributed_revenue_by_source` | Revenue atribuido por fuente | 🟡 | Construido (I-8); falta conectar una cuenta real |
+| M06 | `attributed_leads_by_source` | Leads atribuidos por fuente | 🟡 | Idem M05 |
+| M07 | `journey_touchpoints` | Recorrido del lead entre touchpoints | 🟡 | Idem M05 — consulta en vivo, máx. 50 leads por llamada |
 
 > El documento es explícito: *"Report both blended (all revenue ÷ all spend) and
 > by-source from Hyros. Blended is the truth; by-source is the steering wheel."*
 > Sin Hyros hay ROAS blended pero no by-source, y el etiquetado `[Hyros]` que el
 > doc declara no negociable no existe.
+>
+> 🔨 **Construido el 2026-08-30.**
+>
+> ⭐ **Se corrigió un problema de fidelidad que venía de la Fase 1.** El KPI
+> `roas_by_source` estaba definido con `revenue ÷ spend`, **las mismas medidas
+> que el blended**: las dos tarjetas mostraban el mismo número y la etiqueta
+> `[Hyros]` no significaba nada. Ahora el by-source usa `attributed_revenue` y
+> `attributed_spend`, que salen los dos de Hyros. El texto de la fórmula sigue
+> siendo el del documento —usa las mismas palabras para las dos— pero las
+> medidas son distintas, que es lo que el documento pide:
+>
+> > *"the two never match exactly, and a report that mixes them without labels is
+> > how bad decisions get made."*
+>
+> ⚠️ **El reporte de atribución exige nombrar las cuentas publicitarias.** No se
+> puede pedir "todo": el parámetro `ids` es requerido. Por eso hay un catálogo
+> (`hyros_ad_accounts`) y el usuario elige cuáles entran en los totales.
+>
+> ⚠️ **El modelo de atribución forma parte de la llave de caché.** `last_click`,
+> `first_click` y `scientific` dan números distintos para el mismo período:
+> compartir caché mostraría el número de un modelo bajo la etiqueta de otro.
 
 ### Landing / VSL page — opt-in y consumo de video
 
 | # | Medida | Qué es | Estado | Qué falta |
 |---|---|---|---|---|
-| M08 | `landing_visitors` | Visitantes de la página | 🟡 | VTurb construido (`total_viewed`); para páginas sin VSL sigue faltando Hyros |
-| M09 | `optins` | Opt-ins capturados (Lead del webinar) | 🔴 | Analytics de página, o webhook del proveedor de landing |
+| M08 | `landing_visitors` | Visitantes de la página | 🟡 | Dos fuentes construidas: VTurb (`total_viewed`) para páginas con VSL y Hyros (`new_visits`) para el resto |
+| M09 | `optins` | Opt-ins capturados (Lead del webinar) | 🟡 | Construido vía Hyros (I-8); también sirve `form_submissions` cuando el opt-in es un formulario |
 | M10 | `vsl_plays` | Reproducciones del VSL | 🟡 | Construido; falta conectar una cuenta real |
 | M11 | `vsl_avg_watch_pct` | % promedio visto (retención) | 🟡 | Construido — sale de `/times/user_engagement`, que es el que documenta su fórmula |
 | M12 | `vsl_reached_cta` | Llegaron al CTA del video | 🟡 | Construido, **pero sólo mide si el player tiene `pitch_time` configurado en VTurb** |
@@ -347,7 +368,7 @@ Se comparan entre embudos, así que **cualquier hueco acá afecta a los tres a l
 |---|---|---|---|
 | CAC | total spend ÷ new customers | M01, M31 | 🟡 |
 | ROAS blended | revenue ÷ ad spend | M27, M01 | 🟡 |
-| ROAS by-source | revenue ÷ ad spend, atribuido | M05, M01 | 🔴 Falta Hyros |
+| ROAS by-source | revenue ÷ ad spend, atribuido | M05, M01 | 🟡 Construido; numerador y denominador salen los dos de Hyros |
 | EPL | revenue ÷ leads | M27, etapa Lead | 🟡 |
 | EPC | revenue ÷ clicks | M27, M04 | 🟡 |
 | CPL | spend ÷ leads | M01, etapa Lead | 🟡 |
@@ -392,7 +413,7 @@ Agrupado por unidad de trabajo, con lo que desbloquea cada una.
 | **I-5** | **Integración de webinar** (WebinarJam / EverWebinar) 🔨 **Construido 2026-08-30, sin verificar** | M13–M15 (**M16 no se puede medir**) | 3 de los 4 pasos propios del embudo Webinar | Falta la API key, que **requiere aprobación previa de WebinarJam** |
 | **I-6** | **Integración VTurb** 🔨 **Construido 2026-08-30, sin verificar** | M08, M10–M12 | Etapa Engaged del **VSL** + visitantes de página | Falta conectar una cuenta y confirmar la semántica de los campos de `Stats`, que el spec no describe |
 | ~~**I-7**~~ | ~~**Analytics de landing / opt-in**~~ — **absorbida por `I-8`**, ver §8 | M08, M09 | Etapa Lead del webinar, denominador del play rate del VSL | — |
-| **I-8** | **Hyros** | M05–M09 | ROAS by-source, etiquetado `[Hyros]`, **y los opt-ins de las landings** | **L** — REST API con auth por API key (leads, journeys, sales, orders). Todos los clientes ya lo pagan |
+| ~~**I-8**~~ | **Hyros** 🔨 **Construido 2026-08-30** | M05–M09 | ROAS by-source, etiquetado `[Hyros]`, **y los opt-ins de las landings** | Falta conectar una cuenta real y contrastar los números contra el dashboard de Hyros |
 | ~~**I-9**~~ | **Retención y compras repetidas** 🔨 **Construido 2026-08-30** | M30, M32, M33 | **LTV**, y por lo tanto **LTV:CAC** | Sin integración nueva: sale de `payment_orders` y `payment_transactions`. Falta contrastar las definiciones contra el número del cliente |
 | ~~**I-10**~~ | **Periodizar triggers de Zernio** 🔨 **Construido 2026-08-30** | M34 | Etapa Click del DM | Comentarios sí; **historias imposible** (Meta sólo expone las de 24 h) |
 

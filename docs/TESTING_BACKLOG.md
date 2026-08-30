@@ -219,6 +219,29 @@ la oferta. Un error acá mueve el show rate y el stick rate del embudo Webinar.
 - `webinar_stayed_to_pitch` devuelve `null` si **todas** las filas tienen
   `stayed_past_pitch` en `NULL`.
 
+### [T-6e] Ola 3 — retención, triggers y atribución (agregado 2026-08-30)
+
+La lógica pura ya está cubierta (`retention.test.ts`, `triggers.test.ts`,
+`resolve-attribution.test.ts`). Falta la orquestación.
+
+**`lib/hyros/attribution.ts`:**
+- ⭐ Cambiar el modelo de atribución **invalida la caché**: el modelo es parte de
+  la llave, y un número de `last_click` bajo la etiqueta `first_click` sería una
+  mentira silenciosa.
+- Una cuenta publicitaria que falla y otra que responde: se devuelven los números
+  de la que respondió **y** el error de la otra, y `is_final` queda en `false`
+  porque el total es parcial.
+- Sin cuentas activas, no se llama a la API y todo queda en `null`.
+- Un período cerrado y exitoso se marca `is_final` y no se vuelve a pedir.
+
+**`lib/funnels/resolve.ts` con las fuentes nuevas:**
+- El memo de Hyros: varias fuentes más el ROAS by-source hacen **una** llamada.
+- ⭐ `roas_by_source` y `roas_blended` dan números distintos cuando Hyros y la
+  pasarela reportan distinto. Un test que los fuerce a diferir y verifique que no
+  se pisan.
+- M32 no se recalcula por período: la ventana es de 365 días.
+- `zernio_comment_triggers` devuelve `null` si Zernio lanza, no `0`.
+
 ### [T-7] `app/funnels/actions.ts` — Server Actions
 
 **Qué verificar:**

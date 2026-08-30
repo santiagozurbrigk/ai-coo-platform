@@ -45,10 +45,16 @@ export const UNIVERSAL_KPIS: MetricDefinition[] = [
     label: "Return on Ad Spend (by-source)",
     unit: "ratio",
     direction: "higher_is_better",
-    numerator: { kind: "revenue" },
-    denominator: { kind: "spend" },
+    // ⭐ Numerador y denominador salen los DOS de Hyros. Antes usaba las mismas
+    // medidas que el blended, así que las dos tarjetas mostraban el mismo
+    // número y la etiqueta [Hyros] no significaba nada. El documento declara la
+    // separación no negociable: "the two never match exactly".
+    numerator: { kind: "attributed_revenue" },
+    denominator: { kind: "attributed_spend" },
+    // El texto de la fórmula es transcripción literal del documento, que usa las
+    // mismas palabras para las dos ROAS. Lo que las distingue son las medidas.
     formula: "revenue ÷ ad spend",
-    note: "Atribuido por fuente vía Hyros. El documento lo llama el volante.",
+    note: "Atribuido por fuente vía Hyros: revenue y spend salen los dos de Hyros, no de la pasarela ni de Meta. El documento lo llama el volante; el blended es la verdad.",
   },
   {
     id: "epl",

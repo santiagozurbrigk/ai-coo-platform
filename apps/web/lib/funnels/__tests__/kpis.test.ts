@@ -121,3 +121,26 @@ describe("integridad del catálogo", () => {
     expect(getUniversalKpi("roas_blended")!.direction).toBe("higher_is_better");
   });
 });
+
+describe("ROAS by-source vs blended (corregido 2026-08-30 con I-8)", () => {
+  it("⭐ las dos ROAS NO usan las mismas medidas", () => {
+    // El documento declara la separación no negociable: "the two never match
+    // exactly, and a report that mixes them without labels is how bad decisions
+    // get made". Si las dos leyeran revenue/spend, mostrarían el mismo número y
+    // la etiqueta [Hyros] no significaría nada.
+    const blended = getUniversalKpi("roas_blended")!;
+    const bySource = getUniversalKpi("roas_by_source")!;
+
+    expect(blended.numerator).toEqual({ kind: "revenue" });
+    expect(blended.denominator).toEqual({ kind: "spend" });
+    expect(bySource.numerator).toEqual({ kind: "attributed_revenue" });
+    expect(bySource.denominator).toEqual({ kind: "attributed_spend" });
+  });
+
+  it("las dos conservan el texto de fórmula del documento", () => {
+    // El documento usa las mismas palabras para las dos: lo que las distingue
+    // son las medidas, no el texto.
+    expect(getUniversalKpi("roas_blended")!.formula).toBe("revenue ÷ ad spend");
+    expect(getUniversalKpi("roas_by_source")!.formula).toBe("revenue ÷ ad spend");
+  });
+});

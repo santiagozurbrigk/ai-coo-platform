@@ -68,7 +68,17 @@ export type MetricRef =
   | { kind: "orders" }
   | { kind: "customers" }
   | { kind: "purchases" }
-  | { kind: "retention_rate" };
+  | { kind: "retention_rate" }
+  /**
+   * Revenue y spend **atribuidos por Hyros**, distintos del revenue de la
+   * pasarela y del spend de Meta.
+   *
+   * El documento declara la separación no negociable: *"the two never match
+   * exactly, and a report that mixes them without labels is how bad decisions
+   * get made"*. Por eso son medidas propias y no un respaldo de las otras.
+   */
+  | { kind: "attributed_revenue" }
+  | { kind: "attributed_spend" };
 
 // ─── Métricas ─────────────────────────────────────────────────────────────────
 

@@ -19,6 +19,7 @@ import { getGHLStageHistorySince } from "@/lib/ghl/integration";
 import { isPeriodCovered } from "@/lib/ghl/stage-transition";
 import { getVTurbPeriodMeasures, type VTurbPeriodResult } from "@/lib/vturb/stats";
 import { countCommentTriggers } from "@/lib/zernio/triggers";
+import { getHyrosPeriodMeasures } from "@/lib/hyros/attribution";
 import { getZernioClientForOrganization } from "@/lib/zernio/integration";
 import { periodBounds, type FunnelPeriod } from "./period";
 import {
@@ -270,6 +271,23 @@ async function countDistinctTransitions(
   if (error || !data) return null;
 
   return new Set(data.map((row) => row.opportunity_external_id as string)).size;
+}
+
+/**
+ * Medidas de Hyros del período, memoizadas por `resolveFunnel`.
+ *
+ * Varias fuentes y el ROAS by-source leen del mismo reporte; pedirlo una vez por
+ * consumidor gastaría cuota de Hyros sin necesidad (30 req/s, 1000 por minuto,
+ * y cada reporte recorre todas las fuentes de una cuenta publicitaria).
+ */
+type HyrosLoader = () => Promise<Awaited<ReturnType<typeof getHyrosPeriodMeasures>>>;
+
+function createHyrosLoader(organizationId: string, period: FunnelPeriod): HyrosLoader {
+  let inFlight: ReturnType<typeof getHyrosPeriodMeasures> | null = null;
+  return () => {
+    inFlight ??= getHyrosPeriodMeasures(organizationId, period.start, period.end);
+    return inFlight;
+  };
 }
 
 /**
@@ -532,11 +550,16 @@ async function resolveSource(
   organizationId: string,
   period: FunnelPeriod,
   config: Record<string, unknown> | null | undefined,
-  loadVTurb: VTurbLoader
+  loadVTurb: VTurbLoader,
+  loadHyros: HyrosLoader
 ): Promise<number | null> {
   switch (sourceId) {
     case "zernio_comment_triggers":
       return countZernioTriggers(organizationId, period);
+    case "hyros_optins":
+      return (await loadHyros()).attributedLeads;
+    case "hyros_landing_visitors":
+      return (await loadHyros()).landingVisitors;
     case "ad_clicks":
       return sumAdClicks(supabase, organizationId, period);
     case "conversations_opened":
@@ -632,7 +655,8 @@ async function resolveSource(
 async function resolveOrgMeasures(
   supabase: SupabaseClient,
   organizationId: string,
-  period: FunnelPeriod
+  period: FunnelPeriod,
+  loadHyros: HyrosLoader
 ): Promise<OrgMeasures> {
   const { fromIso, toIso } = periodBounds(period);
 
@@ -698,10 +722,17 @@ async function resolveOrgMeasures(
           fromIso
         );
 
+  // ⭐ Atribución de Hyros: medidas propias, no un respaldo de las de arriba.
+  // El ROAS blended se calcula con el revenue de la pasarela y el spend de Meta;
+  // el by-source, con estas dos. Que den distinto es el punto.
+  const hyros = await loadHyros().catch(() => null);
+
   return {
     spend: sumAds("spend"),
     reach: sumAds("reach"),
     impressions: sumAds("impressions"),
+    attributed_revenue: hyros?.attributedRevenue ?? null,
+    attributed_spend: hyros?.attributedSpend ?? null,
     purchases: retention?.purchasesPerCustomer ?? null,
     retention_rate: retention?.retentionRate ?? null,
     revenue: money?.revenue ?? null,
@@ -756,6 +787,7 @@ export async function resolveFunnel(
   const { fromIso: periodStartIso } = periodBounds(period);
 
   const loadVTurb = createVTurbLoader(instance.organization_id, period);
+  const loadHyros = createHyrosLoader(instance.organization_id, period);
 
   const resolved = await Promise.all(
     template.steps.map(async (step) => {
@@ -813,7 +845,8 @@ export async function resolveFunnel(
         instance.organization_id,
         period,
         binding?.config,
-        loadVTurb
+        loadVTurb,
+        loadHyros
       );
 
       return { stepId: step.id, count, entry };
@@ -825,7 +858,12 @@ export async function resolveFunnel(
     provenance.push(item.entry);
   }
 
-  const measures = await resolveOrgMeasures(supabase, instance.organization_id, period);
+  const measures = await resolveOrgMeasures(
+    supabase,
+    instance.organization_id,
+    period,
+    loadHyros
+  );
 
   // ⭐ `avg_watch_pct` (M11) no es un conteo de step: es un promedio que reporta
   // el player, y el documento lo modela como métrica sin denominador

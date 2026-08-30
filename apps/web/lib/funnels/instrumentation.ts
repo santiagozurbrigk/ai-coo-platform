@@ -36,8 +36,9 @@ export const INSTRUMENTATION_TOOLS = [
     id: "hyros",
     label: "Hyros",
     owns: "True attribution, ROAS, EPL, journeys",
-    otcStatus: "missing",
-    otcNote: "Integración pendiente. Bloquea el etiquetado [Hyros] y los KPIs universales.",
+    otcStatus: "partial",
+    otcNote:
+      "Conectado (I-8): revenue y spend atribuidos, leads, visitantes de landing y journeys. Falta conectar una cuenta real y contrastar los números contra el dashboard de Hyros.",
   },
   {
     id: "landing_page",
@@ -104,13 +105,22 @@ export function getInstrumentationTool(id: InstrumentationToolId): Instrumentati
 }
 
 /**
+ * Estados que hacen que una herramienta bloquee las etapas que alimenta.
+ *
+ * Se declara con el tipo ancho a propósito: desde el 2026-08-30 **ninguna
+ * herramienta del documento está en `missing`** —todas tienen al menos una
+ * integración parcial— y comparar contra el literal haría que TypeScript
+ * marcara la comparación como imposible. El día que se sume una herramienta
+ * nueva sin integrar, esta función tiene que seguir encontrándola.
+ */
+const BLOCKING_STATUSES: readonly ToolAvailability[] = ["missing", "partial"];
+
+/**
  * Herramientas que bloquean etapas: las que no existen y las que existen pero no
  * cubren lo que el documento les asigna.
  */
 export function blockingTools(): InstrumentationTool[] {
-  return INSTRUMENTATION_TOOLS.filter(
-    (t) => t.otcStatus === "missing" || t.otcStatus === "partial"
-  );
+  return INSTRUMENTATION_TOOLS.filter((t) => BLOCKING_STATUSES.includes(t.otcStatus));
 }
 
 // ─── Cadencia de reporte ──────────────────────────────────────────────────────

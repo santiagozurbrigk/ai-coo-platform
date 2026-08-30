@@ -39,6 +39,10 @@ export type OrgMeasures = {
   customers?: number | null;
   purchases?: number | null;
   retention_rate?: number | null;
+  /** Revenue atribuido por Hyros. NO es el revenue de la pasarela. */
+  attributed_revenue?: number | null;
+  /** Spend según Hyros. NO es el spend de Meta. */
+  attributed_spend?: number | null;
   /** Medidas reportadas directamente por una fuente, ej. "avg_watch_pct". */
   reported?: Record<string, number | null>;
 };

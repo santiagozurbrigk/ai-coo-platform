@@ -356,6 +356,34 @@ vigentes (REST v1.40, webhooks, MCP), el documento viejo de Apiary (v1.37) y las
 
 ---
 
+### 🔴 Lo que quedó SIN documentación al construir I-8 (2026-08-30)
+
+Poco, porque el spec de Hyros es el mejor de los seis. Lo que queda:
+
+**a) Qué plan incluye la API.** La documentación no lo dice. Un `401`/`403` al
+conectar puede ser una key mal escrita **o** un plan que no la habilita, y no hay
+forma de distinguirlo desde la respuesta.
+
+**b) La forma exacta de las filas del reporte de atribución.** El spec declara
+`result: object[]` con "claves libres": las claves dependen de `fields`. Se
+asumió que cada campo pedido vuelve con su mismo nombre (`revenue`, `cost`,
+`leads`, `new_visits`), que es lo que muestra el ejemplo. Confianza alta, pero es
+una asunción.
+
+**c) Si los importes pueden venir como texto.** Se declara `number` en el
+ejemplo, pero el parámetro `currency` acepta `user_currency`, así que el
+normalizador tolera texto con símbolo. **Con una guarda:** un texto sin dígitos
+(`"n/a"`) devuelve `null` y no `0` — sin ella, `Number("")` daría un cero real.
+
+> ⚠️ **La trampa operativa que sí está documentada y hay que respetar:** casi
+> todos los endpoints de Hyros **ignoran en silencio los parámetros desconocidos**
+> y devuelven `200` con datos distintos a los pedidos. Un `fromDate` mal escrito
+> no da error: devuelve la lista completa de leads, que se leería como un pico de
+> opt-ins que nunca ocurrió. Por eso el cliente construye los nombres de parámetro
+> en un solo lugar y no los arma dinámicamente en ningún lado.
+
+---
+
 ## Regla permanente para Claude Code
 
 > **Antes que nada: probá la URL, y fijate si el proveedor publica un spec.** El
