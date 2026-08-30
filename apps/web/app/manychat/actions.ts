@@ -7,8 +7,6 @@ import {
 } from "@/lib/auth/bootstrap";
 import { requireAuthContext } from "@/lib/auth/require-auth";
 import {
-  integrationConnectRateLimit,
-  rateLimitErrorMessage,
 } from "@/lib/rate-limit";
 import { apiKeySchema, firstZodError } from "@/lib/validations";
 import {
@@ -103,11 +101,6 @@ export async function connectManyChatAction(
 
   try {
     const { user, orgId: organizationId } = await requireAuthContext();
-
-    const { allowed, resetAt } = await integrationConnectRateLimit(user.id);
-    if (!allowed) {
-      return { error: rateLimitErrorMessage(resetAt) };
-    }
 
     const page = await fetchManyChatPageInfo(apiToken);
     const webhookToken = crypto.randomBytes(24).toString("hex");

@@ -14,6 +14,36 @@
 
 ---
 
+### 2026-08-30 — Quitar el rate limit de conexión de integraciones
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/rate-limit.ts`, `app/ghl/actions.ts`, `app/integrations/zernio/actions.ts`, `app/manychat/actions.ts`, `app/fathom/actions.ts`, `app/api/integrations/fathom/connect/route.ts`
+
+**Qué se hizo:**
+Santiago quedó bloqueado 20 minutos intentando conectar GoHighLevel. `integrationConnectRateLimit` permitía **5 intentos por hora, por usuario**, y se aplicaba a las cinco pantallas de conexión de integraciones: GHL, Zernio, ManyChat y Fathom (server action y ruta API).
+
+**Por qué estaba mal calibrado.** El límite estaba tuneado como una defensa de fuerza bruta de login —ventana de una hora, 5 intentos— pero se aplicaba a un **formulario de setup**. Equivocarse cinco veces seguidas ahí es lo normal: los tokens son largos, el Location ID hay que ir a buscarlo a otra pantalla de GHL, y cada error de tipeo consume un intento. El resultado es quedar bloqueado justo en la mitad de la configuración, que es el peor momento posible.
+
+**Por qué sacarlo no pierde protección real:**
+- La acción **ya exige sesión iniciada** y la clave del contador es el `user.id`. No hay fuerza bruta que prevenir: quien llega acá ya está autenticado.
+- Ningún humano tipeando puede acercarse a las cuotas de los proveedores. GHL admite 100 requests cada 10 segundos; el límite de OTC era 5 por hora, unas 700 veces más restrictivo que el del proveedor que decía proteger.
+
+**Se quitó también la definición**, no sólo los usos, y en su lugar quedó un comentario explicando por qué no existe y qué forma debería tener si alguna vez hace falta volver a ponerlo: ventanas de minutos con decenas de intentos, no de horas con cinco.
+
+**Lo que NO se tocó:** `integrationRateLimit` (30 por minuto), que cubre el **sync manual** de Fathom. Ese sí protege algo real —un botón que dispara llamadas a una API externa y se puede apretar repetidamente— y su ventana es sana.
+
+**Verificación ejecutada:**
+- `pnpm test`: **418 tests, todos en verde**.
+- `tsc --noEmit` y `pnpm lint` limpios.
+- Sin referencias colgadas: `grep integrationConnectRateLimit` no devuelve nada en todo el monorepo.
+
+**Riesgos / deuda técnica pendiente:**
+- Las filas viejas en la tabla `rate_limits` con la clave de este límite quedan inertes: ya nadie las consulta. No hace falta borrarlas.
+- Los otros límites del archivo (`aiRateLimit`, `authRateLimit`, `apiRateLimit`, los de webhooks) siguen intactos y no se revisaron. Vale la pena mirar si alguno más está calibrado con el mismo criterio equivocado.
+
+---
+
 ### 2026-08-30 — FIX: el permiso de Embudos no se podía conceder desde la UI
 
 **Rama/branch:** `Claude-New-Features`

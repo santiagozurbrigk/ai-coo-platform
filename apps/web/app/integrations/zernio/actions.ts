@@ -4,8 +4,6 @@ import { revalidatePath } from "next/cache";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { requireAuthContext } from "@/lib/auth/require-auth";
 import {
-  integrationConnectRateLimit,
-  rateLimitErrorMessage,
 } from "@/lib/rate-limit";
 import { apiKeySchema, firstZodError } from "@/lib/validations";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -128,11 +126,6 @@ export async function connectZernioAction(
 
   try {
     const { user, orgId: organizationId } = await requireAuthContext();
-    const { allowed, resetAt } = await integrationConnectRateLimit(user.id);
-    if (!allowed) {
-      return { error: rateLimitErrorMessage(resetAt) };
-    }
-
     const client = createZernioClient(parsed.data);
 
     let accounts: Awaited<ReturnType<typeof client.listAccounts>>["accounts"];
