@@ -19,6 +19,7 @@ import {
 } from "@/app/sales/closer-actions";
 import { useToast } from "@/providers/toast-provider";
 import { RadarPerformanceChart } from "@/components/charts/platform/radar-performance-chart";
+import { brandColors } from "@/lib/brand";
 
 function MetricChip({
   label,
@@ -311,11 +312,11 @@ export function ClosersRanking() {
           { key: "calls", label: "Volumen" },
         ];
 
-        const RADAR_COLORS = ["#7C3AED", "#0F6E56", "#185FA5", "#D97706", "#E11D48"];
+        const RADAR_COLORS = [brandColors.primary, "#0F6E56", "#185FA5", "#D97706", "#E11D48"];
 
         const series = metrics.slice(0, 5).map((m, i) => ({
           label: (m.closerName ?? "Closer").split(" ")[0] ?? "Closer",
-          color: RADAR_COLORS[i] ?? "#7C3AED",
+          color: RADAR_COLORS[i] ?? brandColors.primary,
           values: {
             conversion: maxConv > 0 ? (m.conversionPct / maxConv) * 100 : 0,
             score: maxScore > 0 ? ((m.avgScore ?? 0) / maxScore) * 100 : 0,

@@ -16,11 +16,11 @@ export function LaunchCard({ launch }: { launch: LaunchSummary }) {
   return (
     <Link
       href={paths.platform.lanzamientosDetail(launch.id)}
-      className="group block rounded-xl border border-border/60 bg-card/40 p-5 transition-all hover:border-violet-500/30 hover:bg-card/60 dark:border-white/[0.08]"
+      className="group block rounded-xl border border-border/60 bg-card/40 p-5 transition-all hover:border-brand-500/30 hover:bg-card/60 dark:border-white/[0.08]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="truncate text-base font-semibold group-hover:text-violet-600 dark:group-hover:text-violet-300">
+          <h3 className="truncate text-base font-semibold group-hover:text-brand-600 dark:group-hover:text-brand-300">
             {launch.name}
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -43,7 +43,7 @@ export function LaunchCard({ launch }: { launch: LaunchSummary }) {
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-muted/40">
             <div
-              className="h-full rounded-full bg-violet-500 transition-all"
+              className="h-full rounded-full bg-brand-500 transition-all"
               style={{ width: `${revenuePct ?? (launch.actualRevenue > 0 ? 100 : 0)}%` }}
             />
           </div>

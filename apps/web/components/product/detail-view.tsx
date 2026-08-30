@@ -64,7 +64,7 @@ export function ProductDetailView({
             <Button
               type="button"
               size="sm"
-              className="bg-violet-600 hover:bg-violet-700"
+              className="bg-brand-600 hover:bg-brand-700"
               onClick={() => {
                 setEditingOfferId(null);
                 setOfferOpen(true);
@@ -90,7 +90,7 @@ export function ProductDetailView({
                     Producto
                   </Badge>
                 </div>
-                <p className="mt-1 text-sm text-violet-600 dark:text-violet-400">
+                <p className="mt-1 text-sm text-brand-600 dark:text-brand-400">
                   ${offer.price.toLocaleString()} · {offer.timeframe}
                 </p>
                 <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">

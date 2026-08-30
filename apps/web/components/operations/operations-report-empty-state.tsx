@@ -42,7 +42,7 @@ export function OperationsReportEmptyState({
                 <span className={cn(
                   "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
                   i === 0
-                    ? "bg-violet-500/15 text-violet-600 dark:text-violet-400"
+                    ? "bg-brand-500/15 text-brand-600 dark:text-brand-400"
                     : "bg-muted text-muted-foreground"
                 )}>
                   {i + 1}
@@ -57,7 +57,7 @@ export function OperationsReportEmptyState({
         </ol>
 
         <div className="flex flex-wrap gap-2">
-          <Button asChild className="bg-violet-600 hover:bg-violet-700">
+          <Button asChild className="bg-brand-600 hover:bg-brand-700">
             <Link href={paths.platform.operations.weeklyInputs}>
               Ir a inputs semanales
               <ArrowRight className="ml-2 h-4 w-4" />

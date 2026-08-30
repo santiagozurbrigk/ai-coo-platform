@@ -266,7 +266,7 @@ export function ProductRagSuggestButton({
         type="button"
         variant="outline"
         size="sm"
-        className="gap-2 border-violet-500/30 text-violet-700 hover:bg-violet-500/10 dark:text-violet-300"
+        className="gap-2 border-brand-500/30 text-brand-700 hover:bg-brand-500/10 dark:text-brand-300"
         disabled={loading || pending}
         onClick={handleExtract}
       >
@@ -740,7 +740,7 @@ export function ProductRagSuggestButton({
             </Button>
             <Button
               type="button"
-              className="bg-violet-600 hover:bg-violet-700"
+              className="bg-brand-600 hover:bg-brand-700"
               disabled={pending || !hasDraft}
               onClick={handleConfirm}
             >

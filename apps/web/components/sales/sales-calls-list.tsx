@@ -77,7 +77,7 @@ function ScoreBadge({ score }: { score: number | null }) {
 
 function StatusPill({ sold, booked, qualified }: { sold: boolean; booked: boolean; qualified: boolean | null }) {
   if (sold) return <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">Cerrada</span>;
-  if (booked) return <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-300 border border-violet-500/30">Agendada</span>;
+  if (booked) return <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-xs font-medium text-brand-700 dark:text-brand-300 border border-brand-500/30">Agendada</span>;
   if (qualified === false) return <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground border border-border">No calificada</span>;
   return null;
 }

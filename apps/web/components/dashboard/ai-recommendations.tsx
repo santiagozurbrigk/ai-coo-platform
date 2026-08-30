@@ -25,10 +25,10 @@ export function AiRecommendations({
               title: rec.category,
               action: rec.text,
             })}
-            className="group flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 transition-colors hover:border-violet-500/30 hover:bg-muted/35 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover"
+            className="group flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 transition-colors hover:border-brand-500/30 hover:bg-muted/35 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover"
           >
             <div className="flex items-center justify-between gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-violet-500/25 bg-violet-500/10 text-violet-400">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-brand-500/25 bg-brand-500/10 text-brand-400">
                 <Sparkles className="h-4 w-4" />
               </div>
               <Badge variant="outline" className="text-[10px]">

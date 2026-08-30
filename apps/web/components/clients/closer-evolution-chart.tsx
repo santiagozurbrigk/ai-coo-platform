@@ -6,6 +6,7 @@ import { Grid } from "@/components/charts/grid";
 import { XAxis } from "@/components/charts/x-axis";
 import { ChartTooltip } from "@/components/charts/tooltip";
 import { ChartWrapper, CHART_MIN_HEIGHT } from "@/components/charts/platform/chart-wrapper";
+import { brandColors } from "@/lib/brand";
 
 const WEEK_LABELS = Array.from({ length: 8 }, (_, i) => `Sem ${i + 1}`);
 
@@ -81,7 +82,7 @@ export function CloserEvolutionChart({
           />
           <Line
             dataKey="closer"
-            stroke="#a78bfa"
+            stroke={brandColors.primaryLight}
             strokeWidth={2.5}
             showMarkers
             showHighlight
@@ -93,7 +94,7 @@ export function CloserEvolutionChart({
 
       <div className="flex flex-wrap gap-4 text-2xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-0.5 w-4 rounded bg-violet-400" />
+          <span className="inline-block h-0.5 w-4 rounded bg-brand-400" />
           {closerName}
         </span>
         <span className="flex items-center gap-1.5">

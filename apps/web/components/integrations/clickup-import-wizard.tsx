@@ -24,6 +24,7 @@ import type { ClickUpWorkspace, ClickUpList } from "@/lib/clickup/client";
 import { OTC_FIELDS, type FieldMapping, type OtcClientField } from "@/lib/clickup/field-mapper";
 import { useToast } from "@/providers/toast-provider";
 import { usePlatformData } from "@/providers";
+import { brand } from "@/lib/brand";
 
 type Step = "key" | "list" | "mapping" | "result";
 
@@ -170,7 +171,7 @@ export function ClickUpImportWizard({ open, onOpenChange }: ClickUpImportWizardP
           <DialogDescription>
             {step === "key" && "Ingresá tu API key personal de ClickUp para comenzar."}
             {step === "list" && "Elegí el workspace y la lista que contiene tus clientes."}
-            {step === "mapping" && `Mapeá los campos de ClickUp a OTC. ${totalTasks} tareas encontradas.`}
+            {step === "mapping" && `Mapeá los campos de ClickUp a ${brand.name}. ${totalTasks} tareas encontradas.`}
             {step === "result" && "Importación completada."}
           </DialogDescription>
         </DialogHeader>

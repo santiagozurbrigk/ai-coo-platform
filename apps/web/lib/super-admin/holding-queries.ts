@@ -2,6 +2,7 @@ import { requireSuperAdmin } from "@/lib/auth/require-super-admin";
 import { isMissingTableError } from "@/lib/auth/bootstrap";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { countByOrg } from "@/lib/super-admin/org-metrics";
+import { brand } from "@/lib/brand";
 
 export type HoldingHealthStatus = "healthy" | "warning" | "critical";
 
@@ -66,11 +67,11 @@ async function loadDefaultHoldingName(
     .maybeSingle();
 
   if (error) {
-    if (isMissingTableError(error.message)) return "OTC Portfolio";
+    if (isMissingTableError(error.message)) return `${brand.name} Portfolio`;
     throw new Error(error.message);
   }
 
-  return data?.name ?? "OTC Portfolio";
+  return data?.name ?? `${brand.name} Portfolio`;
 }
 
 export async function getHoldingPortfolio(): Promise<{

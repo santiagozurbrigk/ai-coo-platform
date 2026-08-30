@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { brand } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Política de Privacidad — OTC (Optimiza Tu Control)",
+  title: "Política de Privacidad",
   description:
-    "Conocé cómo OTC recopila, usa y protege tu información personal.",
+    `Conocé cómo ${brand.name} recopila, usa y protege tu información personal.`,
 };
 
 const LAST_UPDATED = "14 de julio de 2026";
@@ -37,7 +38,7 @@ export default function PrivacyPolicyPage() {
             1. Quiénes somos
           </h2>
           <p>
-            OTC (Optimiza Tu Control) es una plataforma de gestión operativa con
+            {brand.legalName} es una plataforma de gestión operativa con
             inteligencia artificial para negocios de infoproductos. Operamos en{" "}
             <span className="text-white/90">{APP_URL}</span> y en{" "}
             <span className="text-white/90">www.optimizatucontrol.com</span>.
@@ -46,7 +47,7 @@ export default function PrivacyPolicyPage() {
             Ante cualquier consulta sobre privacidad podés escribirnos a{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="text-violet-400 hover:text-violet-300"
+              className="text-brand-400 hover:text-brand-300"
             >
               {CONTACT_EMAIL}
             </a>
@@ -92,7 +93,7 @@ export default function PrivacyPolicyPage() {
             <li>Proveer y mejorar las funcionalidades de la plataforma.</li>
             <li>
               Procesar los datos de tu negocio con inteligencia artificial para
-              generar análisis, reportes y recomendaciones dentro de OTC.
+              generar análisis, reportes y recomendaciones dentro de {brand.name}.
             </li>
             <li>
               Enviarte notificaciones relacionadas con tu cuenta o el servicio
@@ -115,7 +116,7 @@ export default function PrivacyPolicyPage() {
             4. Integraciones con Google
           </h2>
           <p className="mb-3">
-            OTC permite conectar tu cuenta de Google para sincronizar datos de
+            {brand.name} permite conectar tu cuenta de Google para sincronizar datos de
             las siguientes APIs. El acceso es de{" "}
             <span className="text-white/90">solo lectura</span> salvo que se
             indique lo contrario:
@@ -125,15 +126,15 @@ export default function PrivacyPolicyPage() {
               <p className="font-medium text-white/90">Google Drive</p>
               <p className="mt-1">
                 Scope:{" "}
-                <code className="rounded bg-white/10 px-1 text-xs text-violet-300">
+                <code className="rounded bg-white/10 px-1 text-xs text-brand-300">
                   drive.readonly
                 </code>
               </p>
               <p className="mt-1">
                 Usamos este permiso para que puedas vincular archivos de tu
-                Drive (videos, documentos) a tus piezas de contenido en OTC.
+                Drive (videos, documentos) a tus piezas de contenido en {brand.name}.
                 La IA puede analizar el archivo vinculado para brindarte
-                insights sobre ese contenido. OTC no modifica, mueve ni elimina
+                insights sobre ese contenido. {brand.name} no modifica, mueve ni elimina
                 ningún archivo de tu Drive.
               </p>
             </div>
@@ -141,17 +142,17 @@ export default function PrivacyPolicyPage() {
               <p className="font-medium text-white/90">Google Forms</p>
               <p className="mt-1">
                 Scopes:{" "}
-                <code className="rounded bg-white/10 px-1 text-xs text-violet-300">
+                <code className="rounded bg-white/10 px-1 text-xs text-brand-300">
                   forms.body.readonly
                 </code>{" "}
-                <code className="rounded bg-white/10 px-1 text-xs text-violet-300">
+                <code className="rounded bg-white/10 px-1 text-xs text-brand-300">
                   forms.responses.readonly
                 </code>
               </p>
               <p className="mt-1">
                 Sincronizamos la estructura y las respuestas de tus formularios
-                de Google para que puedas visualizarlos dentro de OTC y usarlos
-                como fuente de datos para el análisis de leads. OTC no crea ni
+                de Google para que puedas visualizarlos dentro de {brand.name} y usarlos
+                como fuente de datos para el análisis de leads. {brand.name} no crea ni
                 modifica formularios.
               </p>
             </div>
@@ -166,7 +167,7 @@ export default function PrivacyPolicyPage() {
                 ].map((s) => (
                   <code
                     key={s}
-                    className="rounded bg-white/10 px-1 text-xs text-violet-300"
+                    className="rounded bg-white/10 px-1 text-xs text-brand-300"
                   >
                     {s}
                   </code>
@@ -175,34 +176,34 @@ export default function PrivacyPolicyPage() {
               <p className="mt-2">
                 <span className="text-white/90">youtube.readonly:</span>{" "}
                 sincronizamos tu canal, videos y estadísticas básicas con el
-                módulo de contenido de OTC.
+                módulo de contenido de {brand.name}.
               </p>
               <p className="mt-1">
                 <span className="text-white/90">yt-analytics.readonly y yt-analytics-monetary.readonly:</span>{" "}
                 accedemos a métricas avanzadas de tus videos (retención de
                 audiencia, fuentes de tráfico, demografía e ingresos del canal)
-                para enriquecer el análisis de contenido dentro de OTC.
+                para enriquecer el análisis de contenido dentro de {brand.name}.
               </p>
               <p className="mt-1">
                 <span className="text-white/90">youtube.upload:</span>{" "}
-                permite subir videos a tu canal directamente desde OTC cuando
+                permite subir videos a tu canal directamente desde {brand.name} cuando
                 uses la función de publicación de contenido.
               </p>
               <p className="mt-1">
-                OTC no elimina videos, no modifica títulos ni descripciones sin
+                {brand.name} no elimina videos, no modifica títulos ni descripciones sin
                 tu acción explícita, y no accede a configuraciones de monetización
                 más allá de las métricas de lectura autorizadas.
               </p>
             </div>
           </div>
           <p className="mt-4">
-            El uso que OTC hace de la información recibida de las APIs de Google
+            El uso que {brand.name} hace de la información recibida de las APIs de Google
             cumple con la{" "}
             <a
               href="https://developers.google.com/terms/api-services-user-data-policy"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-violet-400 hover:text-violet-300"
+              className="text-brand-400 hover:text-brand-300"
             >
               Política de datos de usuario de los servicios de API de Google
             </a>
@@ -246,7 +247,7 @@ export default function PrivacyPolicyPage() {
             escribiendo a{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="text-violet-400 hover:text-violet-300"
+              className="text-brand-400 hover:text-brand-300"
             >
               {CONTACT_EMAIL}
             </a>
@@ -261,7 +262,7 @@ export default function PrivacyPolicyPage() {
           </h2>
           <p className="mb-3">
             Trabajamos con los siguientes proveedores que pueden procesar datos
-            en nombre de OTC:
+            en nombre de {brand.name}:
           </p>
           <ul className="list-disc space-y-1 pl-5">
             <li>
@@ -298,14 +299,14 @@ export default function PrivacyPolicyPage() {
             <li>Corregir información inexacta.</li>
             <li>Solicitar la eliminación de tus datos.</li>
             <li>
-              Revocar el acceso de OTC a tus cuentas de Google, YouTube o Drive
+              Revocar el acceso de {brand.name} a tus cuentas de Google, YouTube o Drive
               en cualquier momento desde la configuración de tu cuenta de Google
               (
               <a
                 href="https://myaccount.google.com/permissions"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-violet-400 hover:text-violet-300"
+                className="text-brand-400 hover:text-brand-300"
               >
                 myaccount.google.com/permissions
               </a>
@@ -317,7 +318,7 @@ export default function PrivacyPolicyPage() {
             Para ejercer cualquiera de estos derechos, escribinos a{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="text-violet-400 hover:text-violet-300"
+              className="text-brand-400 hover:text-brand-300"
             >
               {CONTACT_EMAIL}
             </a>
@@ -331,7 +332,7 @@ export default function PrivacyPolicyPage() {
             9. Cookies y rastreo
           </h2>
           <p>
-            OTC utiliza cookies de sesión estrictamente necesarias para mantener
+            {brand.name} utiliza cookies de sesión estrictamente necesarias para mantener
             tu inicio de sesión. No utilizamos cookies de rastreo de terceros ni
             publicidad comportamental.
           </p>
@@ -364,7 +365,7 @@ export default function PrivacyPolicyPage() {
             tratamiento de tus datos, escribinos a{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="text-violet-400 hover:text-violet-300"
+              className="text-brand-400 hover:text-brand-300"
             >
               {CONTACT_EMAIL}
             </a>

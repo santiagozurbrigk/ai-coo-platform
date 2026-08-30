@@ -29,18 +29,18 @@ export function BusinessNode({
       <div
         className={cn(
           "relative flex w-36 flex-col items-center gap-3 rounded-2xl border p-5 shadow-sm",
-          "border-violet-200 bg-violet-50/95",
-          "dark:border-violet-500/40 dark:bg-violet-950/50 dark:shadow-none"
+          "border-brand-200 bg-brand-50/95",
+          "dark:border-brand-500/40 dark:bg-brand-950/50 dark:shadow-none"
         )}
       >
         <div
           className={cn(
             "flex h-10 w-10 items-center justify-center rounded-xl border",
-            "border-violet-300 bg-violet-100",
-            "dark:border-violet-500/50 dark:bg-violet-600/30"
+            "border-brand-300 bg-brand-100",
+            "dark:border-brand-500/50 dark:bg-brand-600/30"
           )}
         >
-          <Building2 className="h-5 w-5 text-violet-600 dark:text-violet-300" />
+          <Building2 className="h-5 w-5 text-brand-600 dark:text-brand-300" />
         </div>
         <div className="text-center">
           <p className="text-xs font-semibold text-slate-900 dark:text-white/90">

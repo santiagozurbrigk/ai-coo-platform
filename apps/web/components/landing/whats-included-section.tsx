@@ -1,3 +1,6 @@
+import { brand } from "@/lib/brand";
+
+
 const MODULES = [
   {
     icon: "◈",
@@ -72,17 +75,17 @@ export function WhatsIncludedSection() {
     <section className="border-t border-white/[0.04] px-4 py-28 sm:px-6 md:py-40">
       <div className="mx-auto max-w-6xl">
         <div className="mb-16 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-violet-400">
+          <div className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-brand-400">
             QUÉ INCLUYE LA PRUEBA
           </div>
           <h2 className="mt-6 text-4xl font-black leading-[1] tracking-[-0.03em] md:text-6xl">
             Todo desbloqueado
             <br />
-            <span className="text-[#7C3AED]">desde el día 1</span>
+            <span className="text-primary">desde el día 1</span>
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-white/60 md:text-lg">
             No es un demo recortado. Los 3 días de prueba incluyen acceso completo a
-            todos los módulos de OTC.
+            todos los módulos de {brand.name}.
           </p>
         </div>
 
@@ -92,7 +95,7 @@ export function WhatsIncludedSection() {
               key={label}
               className="rounded-3xl border border-white/[0.06] bg-white/[0.02] p-8"
             >
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-950/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-violet-400">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-950/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-brand-400">
                 {label}
               </div>
               <h3 className="mt-4 text-lg font-black leading-tight">{title}</h3>
@@ -102,7 +105,7 @@ export function WhatsIncludedSection() {
                     key={item}
                     className="flex items-start gap-2.5 text-sm leading-relaxed text-white/55"
                   >
-                    <span className="mt-0.5 shrink-0 text-violet-400">✓</span>
+                    <span className="mt-0.5 shrink-0 text-brand-400">✓</span>
                     <span>{item}</span>
                   </li>
                 ))}

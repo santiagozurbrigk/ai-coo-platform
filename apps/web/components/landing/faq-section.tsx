@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { brand } from "@/lib/brand";
 
 const FAQ_ITEMS = [
   {
     question: "¿La prueba gratis es realmente gratis?",
     answer:
-      "Sí. No pedimos tarjeta de crédito. 3 días de acceso completo a OTC, sin costo y sin compromiso. Si querés continuar, te contamos los planes después del onboarding.",
+      `Sí. No pedimos tarjeta de crédito. 3 días de acceso completo a ${brand.name}, sin costo y sin compromiso. Si querés continuar, te contamos los planes después del onboarding.`,
   },
   {
     question: "¿Qué pasa en la sesión de onboarding?",
     answer:
-      "Es una videollamada de 30 minutos donde conectamos tus integraciones en vivo: Calendly, Instagram, Zernio, gastos y equipo. Salís de la llamada con OTC funcionando con datos reales de tu negocio.",
+      `Es una videollamada de 30 minutos donde conectamos tus integraciones en vivo: Calendly, Instagram, Zernio, gastos y equipo. Salís de la llamada con ${brand.name} funcionando con datos reales de tu negocio.`,
   },
   {
     question: "¿Necesito saber de tecnología?",
@@ -42,7 +43,7 @@ export function FaqSection() {
     <section className="border-t border-white/[0.04] px-4 py-28 sm:px-6 md:py-40">
       <div className="mx-auto max-w-3xl">
         <div className="mb-16 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-violet-400">
+          <div className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-brand-400">
             PREGUNTAS FRECUENTES
           </div>
           <h2 className="mt-6 text-4xl font-black leading-[1] tracking-[-0.03em] md:text-6xl">
@@ -64,7 +65,7 @@ export function FaqSection() {
                   <span className="pr-4 text-base font-semibold text-white">
                     {question}
                   </span>
-                  <span className="shrink-0 text-xl text-violet-400">
+                  <span className="shrink-0 text-xl text-brand-400">
                     {isOpen ? "−" : "+"}
                   </span>
                 </button>

@@ -35,7 +35,7 @@ export function MarketingStatCard({
       <div className="flex items-start justify-between gap-2">
         <p className="text-[11px] leading-tight text-muted-foreground">{label}</p>
         {Icon && (
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-violet-500/15 text-violet-500">
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-brand-500/15 text-brand-500">
             <Icon size={12} />
           </div>
         )}

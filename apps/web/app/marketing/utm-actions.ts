@@ -138,7 +138,7 @@ export async function getOrganizationWebsiteAction(): Promise<string | null> {
   return (data?.website_url as string | null) ?? null;
 }
 
-/** URL base para previews de UTM (org o fallback OTC). */
+/** URL base para previews de UTM (org o fallback Limitless). */
 export async function getUtmBaseUrlAction(): Promise<string> {
   const websiteUrl = await getOrganizationWebsiteAction();
   return resolveUtmBaseUrl(websiteUrl);

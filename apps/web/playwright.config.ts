@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Playwright E2E — OTC Web
+ * Playwright E2E — Limitless Web
  *
  * Corre contra la app local en http://localhost:3000.
  * Para correr: pnpm exec playwright test

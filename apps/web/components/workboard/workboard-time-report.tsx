@@ -154,7 +154,7 @@ function MemberTimeCard({ report }: { report: MemberTimeReport }) {
                     ) : null}
                   </div>
                 </div>
-                <span className="shrink-0 text-sm font-semibold tabular-nums text-violet-700 dark:text-violet-300">
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-brand-700 dark:text-brand-300">
                   {task.hours}h
                 </span>
               </li>
@@ -240,7 +240,7 @@ export function WorkboardTimeReport() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm dark:border-white/[0.08]">
-        <Clock className="h-4 w-4 text-violet-400" />
+        <Clock className="h-4 w-4 text-brand-400" />
         <span className="text-muted-foreground">Tiempo registrado:</span>
         <span className="font-semibold tabular-nums">{totalHours} h</span>
         <span className="text-muted-foreground">·</span>

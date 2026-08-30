@@ -33,7 +33,7 @@ export async function processVideoForAnalysis(
 ): Promise<VideoProcessResult> {
   const ffmpegLib = await loadFfmpeg();
 
-  const workDir = join(tmpdir(), `otc-content-${randomUUID()}`);
+  const workDir = join(tmpdir(), `limitless-content-${randomUUID()}`);
   await mkdir(workDir, { recursive: true });
 
   const ext = mimeType.includes("mp4")

@@ -48,11 +48,11 @@ export function OperationsRecommendationsSection({
                   title: rec.title,
                   action: rec.description,
                 })}
-                className="flex h-full flex-col gap-2 rounded-xl border border-border/60 bg-muted/20 p-4 transition-colors hover:border-violet-500/25 hover:bg-muted/35 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover"
+                className="flex h-full flex-col gap-2 rounded-xl border border-border/60 bg-muted/20 p-4 transition-colors hover:border-brand-500/25 hover:bg-muted/35 dark:border-glass dark:bg-glass dark:backdrop-blur-md hover:dark:border-glass-strong hover:dark:bg-glass-hover"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-violet-500/25 bg-violet-500/10">
-                    <Lightbulb className="h-3.5 w-3.5 text-violet-400" />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-brand-500/25 bg-brand-500/10">
+                    <Lightbulb className="h-3.5 w-3.5 text-brand-400" />
                   </div>
                   <span
                     className={cn(

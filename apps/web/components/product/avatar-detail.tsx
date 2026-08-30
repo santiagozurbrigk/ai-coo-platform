@@ -153,10 +153,10 @@ export function AvatarDetail({
           </p>
           <p className="text-xs text-foreground/80">{avatar.buyTrigger}</p>
         </div>
-        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
+        <div className="rounded-xl border border-brand-500/20 bg-brand-500/5 p-3">
           <div className="mb-3 flex items-center gap-2">
-            <Sparkles className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
-            <p className="text-xs font-medium text-violet-600 dark:text-violet-400">
+            <Sparkles className="h-3.5 w-3.5 text-brand-500 dark:text-brand-400" />
+            <p className="text-xs font-medium text-brand-600 dark:text-brand-400">
               Detectado en ventas
             </p>
             <MockPhaseBadge hasRealData={hasRealData} className="ml-auto" />

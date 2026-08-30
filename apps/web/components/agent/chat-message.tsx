@@ -16,7 +16,7 @@ import { DocumentCard } from "./document-card";
 import { ProposalCard } from "./proposal-card";
 
 const assistantProseClassName =
-  "prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-headings:font-medium prose-p:text-foreground/90 prose-p:my-2 prose-li:text-foreground/90 prose-strong:text-foreground prose-h1:text-base prose-h1:mt-3 prose-h1:mb-2 prose-h2:text-base prose-h2:mt-3 prose-h2:mb-1.5 prose-h3:text-sm prose-h3:mt-2 prose-h3:mb-1 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-code:text-foreground prose-a:text-violet-600 dark:prose-a:text-violet-400 first:prose-headings:mt-0 first:prose-p:mt-0";
+  "prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-headings:font-medium prose-p:text-foreground/90 prose-p:my-2 prose-li:text-foreground/90 prose-strong:text-foreground prose-h1:text-base prose-h1:mt-3 prose-h1:mb-2 prose-h2:text-base prose-h2:mt-3 prose-h2:mb-1.5 prose-h3:text-sm prose-h3:mt-2 prose-h3:mb-1 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-pre:my-2 prose-code:text-foreground prose-a:text-brand-600 dark:prose-a:text-brand-400 first:prose-headings:mt-0 first:prose-p:mt-0";
 
 export function ChatMessage({
   role,
@@ -97,12 +97,12 @@ export function ChatMessage({
         className={cn(
           "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
           role === "assistant"
-            ? "border border-violet-500/30 bg-violet-600/20"
+            ? "border border-brand-500/30 bg-brand-600/20"
             : "chat-message-user-avatar border border-border bg-muted"
         )}
       >
         {role === "assistant" ? (
-          <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+          <Sparkles className="h-3.5 w-3.5 text-brand-400" />
         ) : (
           <User className="h-3.5 w-3.5 text-muted-foreground" />
         )}
@@ -116,14 +116,14 @@ export function ChatMessage({
             "rounded-2xl px-4 py-3 text-sm leading-relaxed",
             role === "assistant"
               ? "chat-message-assistant border text-foreground"
-              : "bg-violet-600 text-white"
+              : "bg-brand-600 text-white"
           )}
         >
           {role === "assistant" ? (
             <div className={assistantProseClassName}>
               <ReactMarkdown>{visibleContent}</ReactMarkdown>
               {isStreaming ? (
-                <span className="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-violet-400 align-middle" />
+                <span className="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-brand-400 align-middle" />
               ) : null}
             </div>
           ) : (

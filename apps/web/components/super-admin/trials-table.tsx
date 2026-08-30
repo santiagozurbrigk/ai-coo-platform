@@ -27,7 +27,7 @@ function CalendlyLink({ url }: { url: string | null }) {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-violet-500 underline-offset-4 hover:underline"
+      className="inline-flex items-center gap-1 text-brand-500 underline-offset-4 hover:underline"
     >
       Ver agenda
       <ExternalLink className="h-3 w-3" />

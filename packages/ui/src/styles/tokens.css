@@ -1,7 +1,15 @@
 /**
- * AI COO Design Tokens
- * :root = light · .dark = modo oscuro (VisionOS / spatial glass)
- * Brand: #7C3AED
+ * Limitless — Design Tokens
+ * :root = light · .dark = modo oscuro
+ *
+ * Paleta de marca (manual de marca Limitless, sección 06):
+ *   Negro           #000000
+ *   Blanco          #FFFFFF
+ *   Naranja Vibrant #E15D12  ->  hsl(22 85% 48%)
+ *
+ * El naranja es el ÚNICO acento de la marca. La escala --primary-* deriva de él.
+ * Texto sobre naranja va en negro (5.78:1); blanco sobre naranja da 3.64:1 y no
+ * alcanza AA para texto normal.
  */
 
 :root {
@@ -16,12 +24,13 @@
   --accent: 210 40% 96%;
   --accent-foreground: 222 47% 11%;
 
-  --primary: 258 84% 58%;
-  --primary-foreground: 0 0% 100%;
-  --primary-light: 258 91% 76%;
-  --primary-subtle: 250 100% 97%;
-  --primary-glow: 258 60% 45%;
-  --primary-border: 258 45% 75%;
+  --primary: 22 85% 48%;
+  --primary-foreground: 0 0% 0%;
+  --primary-light: 22 90% 62%;
+  --primary-subtle: 24 100% 96%;
+  --primary-glow: 22 85% 38%;
+  --primary-hover: 22 85% 40%;
+  --primary-border: 22 75% 72%;
 
   --success: 142 76% 36%;
   --success-foreground: 0 0% 100%;
@@ -34,20 +43,28 @@
 
   --border: 214 32% 91%;
   --input: 214 32% 91%;
-  --ring: 258 84% 58%;
+  --ring: 22 85% 48%;
 
   --sidebar: 0 0% 100%;
   --sidebar-foreground: 215 16% 47%;
-  --sidebar-foreground-active: 263 70% 50%;
-  --sidebar-accent: 250 100% 97%;
+  --sidebar-foreground-active: 22 85% 42%;
+  --sidebar-accent: 24 100% 96%;
   --sidebar-border: 214 32% 91%;
 
   --glass: 0 0% 100%;
   --glass-border: 214 32% 91%;
 
-  --ai: 258 84% 58%;
-  --ai-muted: 258 40% 55%;
-  --ai-glow: 258 91% 76%;
+  --ai: 22 85% 48%;
+  --ai-muted: 22 45% 50%;
+  --ai-glow: 22 90% 62%;
+
+  /**
+   * Tipografía de títulos (manual Limitless, sección 07: Neue Haas Grotesk).
+   * Licencia comercial pendiente — hasta entonces resuelve a la familia de
+   * texto. Al comprarla, cargarla con `next/font/local` y apuntar esta
+   * variable a la suya: ningún componente necesita cambios.
+   */
+  --font-display: var(--font-sans), system-ui, sans-serif;
 
   /* A — Radios recalibrados (sistema proporcional Whop-style) */
   --radius: 0.75rem;
@@ -108,7 +125,7 @@
   --step-alert-tab-width: 180px;
   --step-alert-step-height: 12px;
 
-  --shadow-glow: 0 0 32px -8px rgba(124, 58, 237, 0.2);
+  --shadow-glow: 0 0 32px -8px rgba(225, 93, 18, 0.2);
   /* C — Sombras multi-capa neutrales (estilo Whop, sin glow violeta en cards) */
   --shadow-card:
     0 0 0 1px rgba(0, 0, 0, 0.04),
@@ -136,10 +153,11 @@
   --glass-blur: 0px;
   --glass-blur-md: 0px;
 
-  --chart-secondary: 258 91% 76%;
-  --chart-tertiary: 280 70% 60%;
-  --chart-lavender: 258 45% 72%;
-  --chart-pink: 330 70% 65%;
+  /* Serie categórica anclada al naranja de marca + neutros cálidos */
+  --chart-secondary: 22 90% 62%;
+  --chart-tertiary: 32 80% 55%;
+  --chart-quaternary: 22 30% 55%;
+  --chart-quinary: 0 0% 45%;
   --chart-bar-mono: rgba(0, 0, 0, 0.8);
 }
 
@@ -156,12 +174,13 @@
   --accent: 0 0% 10%;
   --accent-foreground: 0 0% 98%;
 
-  --primary: 258 84% 58%;
-  --primary-foreground: 0 0% 100%;
-  --primary-light: 258 91% 76%;
-  --primary-subtle: 258 50% 18%;
-  --primary-glow: 258 60% 45%;
-  --primary-border: 258 45% 35%;
+  --primary: 22 85% 48%;
+  --primary-foreground: 0 0% 0%;
+  --primary-light: 22 90% 62%;
+  --primary-subtle: 22 60% 14%;
+  --primary-glow: 22 85% 38%;
+  --primary-hover: 22 85% 40%;
+  --primary-border: 22 55% 32%;
 
   --success: 160 84% 39%;
   --success-foreground: 0 0% 100%;
@@ -175,22 +194,22 @@
   /* Bordes ultra-sutiles en dark — Vercel style: barely-visible seams */
   --border: 0 0% 11%;
   --input: 0 0% 11%;
-  --ring: 258 84% 58%;
+  --ring: 22 85% 48%;
 
   --sidebar: 0 0% 0%;
   --sidebar-foreground: 0 0% 36%;
-  --sidebar-foreground-active: 258 91% 76%;
-  --sidebar-accent: 258 50% 20%;
+  --sidebar-foreground-active: 22 90% 62%;
+  --sidebar-accent: 22 55% 16%;
   --sidebar-border: 0 0% 11%;
 
   --glass: 0 0% 10%;
   --glass-border: 0 0% 100% / 0.1;
 
-  --ai: 258 84% 58%;
-  --ai-muted: 258 40% 35%;
-  --ai-glow: 258 91% 76%;
+  --ai: 22 85% 48%;
+  --ai-muted: 22 45% 32%;
+  --ai-glow: 22 90% 62%;
 
-  --shadow-glow: 0 0 48px -8px rgba(124, 58, 237, 0.35);
+  --shadow-glow: 0 0 48px -8px rgba(225, 93, 18, 0.35);
   /* C — Sombras dark neutrales multi-capa */
   --shadow-card:
     0 0 0 1px rgba(255, 255, 255, 0.06),
@@ -219,9 +238,10 @@
   --glass-blur: 20px;
   --glass-blur-md: 12px;
 
-  --chart-secondary: 258 91% 76%;
-  --chart-tertiary: 280 70% 60%;
-  --chart-lavender: 258 45% 72%;
-  --chart-pink: 330 70% 65%;
+  /* Serie categórica anclada al naranja de marca + neutros cálidos */
+  --chart-secondary: 22 90% 62%;
+  --chart-tertiary: 32 80% 60%;
+  --chart-quaternary: 22 30% 62%;
+  --chart-quinary: 0 0% 62%;
   --chart-bar-mono: rgba(255, 255, 255, 0.85);
 }

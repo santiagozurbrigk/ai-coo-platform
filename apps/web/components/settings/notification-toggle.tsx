@@ -29,7 +29,7 @@ export function NotificationToggle({
         onClick={() => onChange(!checked)}
         className={cn(
           "relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50",
-          checked ? "bg-violet-500" : "bg-muted"
+          checked ? "bg-brand-500" : "bg-muted"
         )}
       >
         <span

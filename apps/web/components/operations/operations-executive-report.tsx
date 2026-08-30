@@ -38,7 +38,7 @@ export function OperationsExecutiveReport({
           label="Ver reporte completo"
         />
         <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+          <Sparkles className="h-3.5 w-3.5 text-brand-400" />
           {generatedLabel}
         </span>
       </div>

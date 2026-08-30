@@ -4,6 +4,7 @@ import { MetricBand, MetricStat } from "@ai-coo/ui";
 import { CategoryBarChart } from "@/components/charts/platform";
 import { formatUsdPrecise } from "@/lib/super-admin/org-metrics";
 import type { AdminAiCostDashboard } from "@/types/super-admin";
+import { brand } from "@/lib/brand";
 
 const PLAN_LABEL: Record<string, string> = {
   starter: "Starter",
@@ -133,7 +134,7 @@ export function AiCostDashboardContent({
                       </span>
                     ) : (
                       <span className="text-xs text-muted-foreground">
-                        OTC Key
+                        {brand.name} Key
                       </span>
                     )}
                   </td>

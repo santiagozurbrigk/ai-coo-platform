@@ -66,7 +66,7 @@ export function SidebarItem({
       )}
       {!collapsed ? <span className="sidebar-item-label">{label}</span> : null}
       {!collapsed && comingSoonLabel ? (
-        <span className="ml-auto rounded-full bg-violet-500/15 px-1.5 py-0.5 text-2xs font-medium text-violet-700 dark:text-violet-300">
+        <span className="ml-auto rounded-full bg-brand-500/15 px-1.5 py-0.5 text-2xs font-medium text-brand-700 dark:text-brand-300">
           {comingSoonLabel}
         </span>
       ) : null}
@@ -82,7 +82,7 @@ export function SidebarItem({
     "sidebar-item",
     collapsed && "sidebar-item-collapsed",
     isActive && !disabled && "active",
-    disabled && "cursor-not-allowed text-violet-700/80 hover:bg-violet-500/10 dark:text-violet-300/80"
+    disabled && "cursor-not-allowed text-brand-700/80 hover:bg-brand-500/10 dark:text-brand-300/80"
   );
 
   const link = disabled ? (

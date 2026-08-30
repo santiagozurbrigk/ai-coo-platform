@@ -298,8 +298,8 @@ export function buildSpatialNodes(data: ProductData): SpatialProductNode[] {
       badge: index === 0 ? "Oferta entrada" : "Oferta core",
       badgeColor:
         index === 0
-          ? "bg-violet-500/15 text-violet-400"
-          : "bg-violet-500/20 text-violet-300",
+          ? "bg-brand-500/15 text-brand-400"
+          : "bg-brand-500/20 text-brand-300",
       position: { x: index === 0 ? "16%" : "84%", y: "62%" },
       href: paths.platform.product.offer(offer.id),
     });

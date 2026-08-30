@@ -4,7 +4,7 @@
  * Auth: Private Integration Token (generado en GHL → Settings → Integraciones Privadas)
  * Header obligatorio: Version: 2021-04-15
  *
- * Cuando OTC sea aprobado en el GHL Marketplace, se migrará a OAuth 2.0
+ * Cuando Limitless sea aprobado en el GHL Marketplace, se migrará a OAuth 2.0
  * y este cliente recibirá access_token con el mismo formato de llamadas.
  */
 

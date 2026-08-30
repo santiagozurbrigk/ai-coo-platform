@@ -58,12 +58,12 @@ export function GraphCanvasPanel({
       {/* Header */}
       <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <GitFork className="h-4 w-4 text-violet-500" />
+          <GitFork className="h-4 w-4 text-brand-500" />
           <span className="text-sm font-medium text-foreground">
             Grafo — vista previa
           </span>
           {pendingProposals.length > 0 && (
-            <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-300">
+            <span className="rounded-full bg-brand-500/15 px-2 py-0.5 text-xs font-medium text-brand-600 dark:text-brand-300">
               {pendingProposals.length} pendiente{pendingProposals.length > 1 ? "s" : ""}
             </span>
           )}

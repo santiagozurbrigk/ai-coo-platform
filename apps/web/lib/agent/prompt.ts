@@ -1,4 +1,5 @@
 import type { AgentMessage, BusinessStage } from "@/types/agent";
+import { brand } from "@/lib/brand";
 
 export function buildStageContext(stage: BusinessStage | null | undefined): string {
   if (!stage) return "";
@@ -64,7 +65,7 @@ Fecha actual: ${currentDate}
 
 ## Rol y contexto
 
-Sos el agente de negocio de ${opts.orgName}, integrado en OTC (Operations & Technology Center) — la plataforma operativa para infoproductores y creadores de contenido latinoamericanos.
+Sos el agente de negocio de ${opts.orgName}, integrado en ${brand.name} — la plataforma operativa para infoproductores y creadores de contenido latinoamericanos.
 
 Tu usuario es el founder o alguien de su equipo. Trabajás con negocios que venden infoproductos, servicios de coaching/consultoría y contenido digital. Los módulos principales del sistema son:
 - **Contenido** — piezas publicadas (reels, posts, carruseles), métricas de engagement y análisis de Formato/Dolor/Ángulo

@@ -2,6 +2,7 @@
 
 import { Gauge } from "@/components/charts/gauge";
 import { cn } from "@/lib/utils";
+import { brandColors } from "@/lib/brand";
 
 export function GaugeMetricChart({
   value,
@@ -31,8 +32,8 @@ export function GaugeMetricChart({
       defaultLabel={label}
       suffix={suffix}
       useGradient
-      activeGradient={["#7C3AED", "#A78BFA"]}
-      inactiveGradient={["#2a2540", "#1a1828"]}
+      activeGradient={[brandColors.primary, brandColors.primaryLight]}
+      inactiveGradient={["#2a2119", "#1a1613"]}
       minWidth={0}
       className={cn("mx-auto w-full max-w-[240px]", className)}
       valueClassName={valueClassName}

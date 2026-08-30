@@ -45,8 +45,8 @@ const STEP_CONFIG: Record<
   },
   dm: {
     icon: MessageCircle,
-    className: "text-violet-600 dark:text-violet-400 bg-violet-500/10 border-violet-500/25",
-    dotClass: "bg-violet-500/70",
+    className: "text-brand-600 dark:text-brand-400 bg-brand-500/10 border-brand-500/25",
+    dotClass: "bg-brand-500/70",
   },
   booking: {
     icon: Calendar,

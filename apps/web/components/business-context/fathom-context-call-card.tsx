@@ -13,8 +13,8 @@ export function FathomContextCallCard({ call }: { call: FathomKnowledgeCall }) {
     <div className="rounded-xl border border-white/08 bg-white/03 p-4 transition-colors hover:bg-white/05">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-violet-500/20 bg-violet-500/15">
-            <Video className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-brand-500/20 bg-brand-500/15">
+            <Video className="h-4 w-4 text-brand-600 dark:text-brand-400" />
           </div>
           <div>
             <p className="text-sm font-medium text-foreground">{call.title}</p>
@@ -32,7 +32,7 @@ export function FathomContextCallCard({ call }: { call: FathomKnowledgeCall }) {
             href={call.fathom_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-shrink-0 items-center gap-1 text-xs text-violet-600 transition-colors hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
+            className="flex flex-shrink-0 items-center gap-1 text-xs text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
           >
             Ver en Fathom
             <ExternalLink className="h-3 w-3" />

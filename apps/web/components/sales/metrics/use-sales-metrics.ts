@@ -9,6 +9,7 @@ import {
 } from "@/app/sales/metrics-actions";
 import type { SalesPerformanceMetrics } from "@/types/sales";
 import type { DateRange } from "./date-range-picker";
+import { brandColors } from "@/lib/brand";
 
 /** Hook central de métricas de ventas. Encapsula fetching, filtrado y memoization. */
 export function useSalesMetrics(dateRange: DateRange) {
@@ -124,7 +125,7 @@ export function useSalesMetrics(dateRange: DateRange) {
       whatsapp: "#25D366",
       manychat: "#0084FF",
       manual: "#64748b",
-      web: "#7C3AED",
+      web: brandColors.primary,
     };
     const LABEL: Record<string, string> = {
       instagram: "Instagram",
@@ -155,7 +156,7 @@ export function useSalesMetrics(dateRange: DateRange) {
     const ghosted = filteredConversations.filter((c) => c.status === "ghosted").length;
     const closed = filteredConversations.filter((c) => c.status === "closed").length;
     return [
-      { label: "Activas", value: active, color: "#7C3AED" },
+      { label: "Activas", value: active, color: brandColors.primary },
       { label: "Agendadas", value: booked, color: "#10b981" },
       { label: "Ghosted", value: ghosted, color: "#f59e0b" },
       { label: "Cerradas", value: closed, color: "#64748b" },
