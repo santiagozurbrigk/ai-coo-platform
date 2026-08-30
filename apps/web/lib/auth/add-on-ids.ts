@@ -4,6 +4,7 @@ export const ADD_ON_IDS = [
   "producto",
   "ejecutivo",
   "inteligencia",
+  "embudos",
 ] as const;
 
 export type AddOnId = (typeof ADD_ON_IDS)[number];

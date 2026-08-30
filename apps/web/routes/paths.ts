@@ -33,6 +33,13 @@ export const paths = {
       proposition: `${PLATFORM}/product/proposition`,
     },
 
+    funnels: {
+      root: `${PLATFORM}/funnels`,
+      detail: (id: string) => `${PLATFORM}/funnels/${id}`,
+      configure: (id: string) => `${PLATFORM}/funnels/${id}/configurar`,
+      comparar: `${PLATFORM}/funnels/comparar`,
+    },
+
     lanzamientos: `${PLATFORM}/lanzamientos`,
     lanzamientosDetail: (id: string) => `${PLATFORM}/lanzamientos/${id}`,
 

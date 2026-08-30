@@ -37,7 +37,39 @@ Read /home/user/ai-coo-platform/PENDIENTES.md
 
 Agregar la entrada **al principio del historial** (orden cronológico inverso — más reciente arriba).
 
-### 3. Nunca saltear la actualización de CHANGES.md y PENDIENTES.md
+### 3. Registrar toda API implementada sin documentación
+
+**Primero fijate si la documentación ya está bajada.**
+[`docs/external-apis/`](./docs/external-apis/) tiene copias locales completas y
+navegables de las APIs externas: **GoHighLevel, VTurb, Whop, Commas (ex Fanbasis),
+Hyros y WebinarJam**. Leer de ahí, no de memoria ni de una búsqueda web. Cada carpeta
+tiene un `RESUMEN-OTC.md` con lo que OTC necesita de ese proveedor.
+
+Si la API que necesitás no está, **probá su URL antes de darla por bloqueada** y fijate
+si publica un spec OpenAPI (cuatro de los seis lo hacen). Bajala con
+`docs/external-apis/tools/regenerar.sh` como modelo y commiteala.
+
+Si implementás contra una API externa y **no podés leer su documentación oficial**
+(el entorno remoto bloquea varios dominios de documentación), agregá una entrada en
+**[`docs/API_DOCS_PENDIENTES.md`](./docs/API_DOCS_PENDIENTES.md)** con qué asumiste,
+con qué nivel de confianza y qué necesitás verificar.
+
+Además, en ese caso:
+- Persistí el payload crudo **antes** de interpretarlo, para que el primer dato real
+  sea la fuente de verdad.
+- **Nunca inventes un valor.** Lo que no se entiende queda marcado como no mapeado,
+  con su motivo. Un cobro cuyo monto no se lee no es un cobro de cero.
+- Aislá el mapeo en un solo archivo por proveedor, con la advertencia en el header.
+
+### 4. Documentar lo que queda sin verificar
+
+Si construís algo que **no podés probar en el momento** —falta una cuenta, una
+credencial o la documentación— sumá su bloque de verificación a
+**[`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md)** con pasos concretos y
+resultado esperado, marcando lo que tiene alta probabilidad de fallar, lo que
+verifica seguridad y lo que verifica una regla de diseño central.
+
+### 5. Nunca saltear la actualización de CHANGES.md y PENDIENTES.md
 
 Aunque el cambio parezca pequeño (un bugfix de una línea, un tweak de UI), documentarlo en `CHANGES.md`. La continuidad de contexto entre sesiones depende de este registro.
 
@@ -46,7 +78,7 @@ Al finalizar cada sesión, también actualizar `PENDIENTES.md`:
 - Agregar nuevos pendientes que hayan surgido durante la sesión
 - Actualizar la descripción de ítems que cambiaron de scope o estado
 
-### 4. Workflow de Git — ramas, PRs y merges
+### 6. Workflow de Git — ramas, PRs y merges
 
 **Todo el desarrollo ocurre en ramas de feature. Nunca commitear directamente a `main`.**
 
@@ -89,6 +121,9 @@ Claude Code usa el prefijo `claude/` asignado por el sistema — está bien, no 
 
 **Fuentes complementarias (leer si hace falta profundizar):**
 - `CHANGES.md` — **historial de cambios con contexto** (leer siempre al inicio)
+- `docs/external-apis/` — **copia local de la documentación de las APIs externas** (GoHighLevel, VTurb, Whop, Commas, Hyros, WebinarJam)
+- `docs/API_DOCS_PENDIENTES.md` — **APIs implementadas sin documentación**, pendientes de verificar
+- `docs/PLAN_VERIFICACION.md` — **qué probar a mano** cuando haya cuentas reales conectadas
 - `PENDIENTES.md` — **backlog de pendientes** (leer siempre al inicio, actualizar al terminar)
 - `OTC_OPERATIONAL_NOTES.md` — operaciones, integraciones, crons, env vars en detalle
 - `DESIGN.md` — design system OTC
@@ -177,8 +212,8 @@ ai-coo-platform/
 ```
 
 - **Package manager:** pnpm 9 · **Node:** ≥20
-- **Turbo tasks:** `build`, `dev`, `lint`, `typecheck`
-- **Scripts raíz:** `pnpm dev`, `pnpm build`, `pnpm typecheck`
+- **Turbo tasks:** `build`, `dev`, `lint`, `typecheck`, `test`
+- **Scripts raíz:** `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm test`
 
 ### apps/web
 
@@ -546,6 +581,7 @@ WITH CHECK (organization_id = public.get_my_organization_id())
 5. **Page** → `app/(platform)/<ruta>/page.tsx` (Server Component que fetchea y pasa props)
 6. **Ruta** → agregar en `routes/paths.ts` + `sidebar-modules.ts` si es navegable
 7. **Typecheck** → `cd apps/web && node node_modules/typescript/bin/tsc --noEmit`
+8. **Tests** → `pnpm test` (Vitest; agregar tests si la feature tiene lógica pura en `lib/`)
 
 ### Throttle sync de contenido Zernio
 
@@ -641,7 +677,7 @@ Eventos SSE: ver `lib/agent/sse.ts` (`token`, `thinking`, `tool`, `done`, `error
 
 ## 9. WORKFLOW DE DEPLOY
 
-### Flujo completo (ver también Regla 4 en sección de Reglas Obligatorias)
+### Flujo completo (ver también Regla 6 en sección de Reglas Obligatorias)
 
 ```
 rama-de-feature  →  PR a main  →  Squash and merge  →  Vercel build  →  Production (gru1)
@@ -669,6 +705,18 @@ cd apps/web
 node node_modules/typescript/bin/tsc --noEmit
 pnpm lint
 ```
+
+### Tests unitarios (Vitest)
+
+```bash
+pnpm test                       # todo el monorepo, vía turbo
+cd apps/web && pnpm test        # solo la app web
+cd apps/web && pnpm test:watch  # modo watch
+```
+
+Los tests viven junto al código que cubren, en `lib/<dominio>/__tests__/*.test.ts`.
+Entorno `node`: cubren **lógica pura de `lib/`**, no componentes. Los flujos de UI
+se cubren con Playwright (`apps/web/e2e/`).
 
 ### Testear crons manualmente
 
@@ -729,6 +777,7 @@ curl -X POST "https://<NEXT_PUBLIC_APP_URL>/api/cron/<nombre>" \
 ### Checklist pre-PR
 
 - [ ] `tsc --noEmit` pasa en `apps/web`
+- [ ] `pnpm test` pasa (y la lógica nueva de `lib/` tiene tests)
 - [ ] Server Actions usan `requireOrganizationId()`
 - [ ] Rutas nuevas en `paths.ts` + sidebar si aplica
 - [ ] Sin secrets en código ni logs

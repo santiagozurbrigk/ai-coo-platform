@@ -13,6 +13,14 @@ const GHL_API_BASE =
 
 const GHL_API_VERSION = "2021-04-15";
 
+/**
+ * Los endpoints de oportunidades exigen `Version: v3` — no aceptan la fecha que
+ * usa el resto del cliente. Verificado el 2026-08-30 en
+ * docs/external-apis/gohighlevel/ghl/opportunities/: "Version — required,
+ * available options: v3".
+ */
+const GHL_OPPORTUNITIES_VERSION = "v3";
+
 // ─── Tipos de respuesta GHL ───────────────────────────────────────────────────
 
 export type GHLCalendar = {
@@ -95,7 +103,8 @@ export class GHLApiError extends Error {
 async function ghlFetch<T>(
   apiKey: string,
   path: string,
-  params?: Record<string, string>
+  params?: Record<string, string>,
+  version: string = GHL_API_VERSION
 ): Promise<T> {
   const url = new URL(`${GHL_API_BASE}${path}`);
   if (params) {
@@ -107,7 +116,7 @@ async function ghlFetch<T>(
   const resp = await fetch(url.toString(), {
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      Version: GHL_API_VERSION,
+      Version: version,
       Accept: "application/json",
     },
     cache: "no-store",
@@ -251,4 +260,136 @@ export async function getGHLContact(
     console.warn(`[ghl-client] getGHLContact(${contactId}) falló:`, e);
     return null;
   }
+}
+
+// ─── Oportunidades (I-4) ──────────────────────────────────────────────────────
+//
+// Verificado el 2026-08-30 contra docs/external-apis/gohighlevel/.
+//
+// ⚠️ La documentación oficial NO expande el objeto `pipeline` ni el objeto
+// `opportunity`: declara `pipelines: object[]` y `opportunity: object` a secas.
+// Por eso los tipos de abajo marcan todo como opcional y se guarda siempre el
+// objeto crudo. Regla 3 de CLAUDE.md: el primer response real manda.
+
+/** Etapa de un pipeline. Nombres de campo inferidos, no documentados. */
+export type GHLPipelineStage = {
+  id?: string;
+  _id?: string;
+  name?: string;
+  position?: number;
+  [key: string]: unknown;
+};
+
+/** Pipeline de oportunidades. Nombres de campo inferidos, no documentados. */
+export type GHLPipeline = {
+  id?: string;
+  _id?: string;
+  name?: string;
+  locationId?: string;
+  stages?: GHLPipelineStage[];
+  [key: string]: unknown;
+};
+
+/**
+ * Oportunidad. Los campos son los que el payload de los webhooks sí documenta
+ * (webhook/OpportunityCreate.md); la respuesta REST puede traer más.
+ */
+export type GHLOpportunity = {
+  id?: string;
+  _id?: string;
+  name?: string;
+  locationId?: string;
+  contactId?: string;
+  pipelineId?: string;
+  pipelineStageId?: string;
+  status?: string;
+  source?: string;
+  monetaryValue?: number;
+  dateAdded?: string;
+  [key: string]: unknown;
+};
+
+/** Id de una entidad de GHL, que llega como `id` o como `_id` según el endpoint. */
+export function ghlEntityId(entity: { id?: string; _id?: string }): string | null {
+  return entity.id ?? entity._id ?? null;
+}
+
+/**
+ * Lista los pipelines de la sub-cuenta con sus etapas.
+ * GET /opportunities/pipelines?locationId= · header Version: v3
+ */
+export async function listGHLPipelines(
+  apiKey: string,
+  locationId: string
+): Promise<GHLPipeline[]> {
+  const data = await ghlFetch<{ pipelines?: GHLPipeline[] }>(
+    apiKey,
+    "/opportunities/pipelines",
+    { locationId },
+    GHL_OPPORTUNITIES_VERSION
+  );
+  return data.pipelines ?? [];
+}
+
+export type SearchOpportunitiesOptions = {
+  pipelineId?: string;
+  pipelineStageId?: string;
+  /** `open` · `won` · `lost` · `abandoned` · `all` */
+  status?: string;
+  /** Fecha desde, en el formato que acepta GHL. */
+  date?: string;
+  endDate?: string;
+  /** Tope de filas a traer en total. Protege de un recorrido sin fin. */
+  maxRows?: number;
+};
+
+/**
+ * Busca oportunidades paginando con cursor.
+ *
+ * Usa `startAfter` + `startAfterId` y no `page`: el paginado por número se
+ * degrada y saltea filas si el dataset cambia mientras se recorre, que es
+ * exactamente lo que pasa en un pipeline activo. `limit` tope 100.
+ *
+ * ⚠️ Esto devuelve el **estado actual**, no el historial. Para contar cuántas
+ * oportunidades pasaron por una etapa durante un período hace falta
+ * `ghl_stage_transitions` — ver lib/ghl/stage-transition.ts.
+ */
+export async function searchGHLOpportunities(
+  apiKey: string,
+  locationId: string,
+  options: SearchOpportunitiesOptions = {}
+): Promise<GHLOpportunity[]> {
+  const maxRows = options.maxRows ?? 2000;
+  const all: GHLOpportunity[] = [];
+  let startAfter: string | undefined;
+  let startAfterId: string | undefined;
+
+  while (all.length < maxRows) {
+    const params: Record<string, string> = {
+      locationId,
+      limit: "100",
+      order: "added_asc",
+    };
+    if (options.pipelineId) params.pipelineId = options.pipelineId;
+    if (options.pipelineStageId) params.pipelineStageId = options.pipelineStageId;
+    if (options.status) params.status = options.status;
+    if (options.date) params.date = options.date;
+    if (options.endDate) params.endDate = options.endDate;
+    if (startAfter) params.startAfter = startAfter;
+    if (startAfterId) params.startAfterId = startAfterId;
+
+    const data = await ghlFetch<{
+      opportunities?: GHLOpportunity[];
+      meta?: { startAfter?: number | string; startAfterId?: string };
+    }>(apiKey, "/opportunities/search", params, GHL_OPPORTUNITIES_VERSION);
+
+    const page = data.opportunities ?? [];
+    all.push(...page);
+
+    if (page.length < 100 || !data.meta?.startAfterId) break;
+    startAfter = data.meta.startAfter !== undefined ? String(data.meta.startAfter) : undefined;
+    startAfterId = data.meta.startAfterId;
+  }
+
+  return all;
 }

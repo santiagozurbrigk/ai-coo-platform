@@ -184,6 +184,13 @@ export const productDirectModule: SidebarDirectModule = {
   icon: "layers",
 };
 
+export const embudosDirectModule: SidebarDirectModule = {
+  label: "Embudos",
+  href: paths.platform.funnels.root,
+  icon: "filter",
+  permissionId: "funnels",
+};
+
 export const lanzamientosDirectModule: SidebarDirectModule = {
   label: "Lanzamientos",
   href: paths.platform.lanzamientos,
@@ -267,6 +274,9 @@ export function buildPlatformRootItems(enabledAddOns: AddOnId[]): SidebarNavRoot
       }
       if (enabledAddOns.includes("producto")) {
         items.push({ type: "link", module: productDirectModule });
+      }
+      if (enabledAddOns.includes("embudos")) {
+        items.push({ type: "link", module: embudosDirectModule });
       }
     }
   }
