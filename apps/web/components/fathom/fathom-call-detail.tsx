@@ -40,9 +40,9 @@ export function FathomCallDetail({ call, onTasksSent }: FathomCallDetailProps) {
           </span>
         </div>
       ) : (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-violet-500/25 bg-violet-500/10 px-3 py-2.5">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-500/25 bg-brand-500/10 px-3 py-2.5">
           <div className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+            <ClipboardList className="h-4 w-4 text-brand-600 dark:text-brand-400" />
             <span className="text-xs font-medium text-foreground">
               {proposals.length} tarea{proposals.length === 1 ? "" : "s"} detectada
               {proposals.length === 1 ? "" : "s"} en esta reunión
@@ -52,7 +52,7 @@ export function FathomCallDetail({ call, onTasksSent }: FathomCallDetailProps) {
             type="button"
             size="sm"
             variant="outline"
-            className="border-violet-500/30 text-violet-700 hover:bg-violet-500/10 dark:text-violet-300"
+            className="border-brand-500/30 text-brand-700 hover:bg-brand-500/10 dark:text-brand-300"
             onClick={() => setModalOpen(true)}
           >
             Revisar y agregar al tablero

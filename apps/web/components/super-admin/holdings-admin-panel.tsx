@@ -20,6 +20,7 @@ import type { AdminHoldingRow } from "@/lib/super-admin/holdings-admin";
 import { createHoldingOrgAction } from "@/app/super-admin/actions";
 import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
+import { brand } from "@/lib/brand";
 
 function CreateHoldingDialog() {
   const [open, setOpen] = useState(false);
@@ -113,7 +114,7 @@ export function HoldingsAdminPanel({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
           Creá el usuario del dueño del holding. Él agrega y gestiona sus
-          negocios desde su cuenta en OTC.
+          negocios desde su cuenta en {brand.name}.
         </p>
         <CreateHoldingDialog />
       </div>

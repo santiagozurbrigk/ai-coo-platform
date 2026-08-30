@@ -9,7 +9,7 @@ export type GoogleDriveContentFile = {
   modifiedTime?: string;
   /** Descripción editable en Google Drive (puede estar vacía). */
   description?: string;
-  /** URL de miniatura (requiere auth — usar proxy OTC para <img>). */
+  /** URL de miniatura (requiere auth — usar proxy Limitless para <img>). */
   thumbnailLink?: string;
 };
 

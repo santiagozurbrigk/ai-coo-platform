@@ -19,7 +19,7 @@ export function UTMSetupGuide({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-violet-500/20 bg-violet-900/10 p-4 backdrop-blur-md dark:border-violet-500/20",
+        "rounded-xl border border-brand-500/20 bg-brand-900/10 p-4 backdrop-blur-md dark:border-brand-500/20",
         className
       )}
     >
@@ -62,7 +62,7 @@ export function UTMSetupGuide({ className }: { className?: string }) {
         <ol className="mt-4 space-y-3">
           {UTM_SETUP_SOP.steps.map((item) => (
             <li key={item.step} className="flex gap-3 text-sm">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-500/15 text-xs font-medium text-violet-700 dark:text-violet-400">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-xs font-medium text-brand-700 dark:text-brand-400">
                 {item.step}
               </span>
               <div>

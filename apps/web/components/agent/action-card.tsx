@@ -36,7 +36,7 @@ export function ActionCard({
       </div>
       <Link
         href={config.link}
-        className="text-violet-600 transition-colors hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
+        className="text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
       >
         {config.linkLabel}
       </Link>

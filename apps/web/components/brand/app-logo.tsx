@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { cn } from "@ai-coo/ui";
-import { brandAssets } from "@/lib/brand";
+import { brand, brandAssets } from "@/lib/brand";
 import { paths } from "@/routes";
 
 type AppLogoDisplay = "default" | "sidebar" | "hero" | "compact" | "login";
@@ -21,21 +21,23 @@ const displayStyles: Record<
 > = {
   sidebar: {
     link: "flex w-full justify-center",
-    img: "h-auto w-full max-w-[212px] object-contain object-center",
-    style: { maxHeight: 72 },
+    img: "h-auto w-full max-w-[180px] object-contain object-center",
+    style: { maxHeight: 40 },
   },
   hero: {
     link: "flex w-full justify-center",
     img: "h-auto w-full max-w-[min(320px,90vw)] object-contain object-center",
-    style: { maxHeight: 96 },
+    style: { maxHeight: 48 },
   },
   compact: {
     link: "inline-flex items-center",
     img: "h-8 w-auto max-w-[200px] object-contain object-left",
   },
   login: {
+    /* El lockup es muy apaisado (≈8.4:1): se limita por ancho para que no
+       desborde la tarjeta de login. */
     link: "flex w-full justify-center",
-    img: "h-24 w-auto max-w-[600px] object-contain object-center",
+    img: "h-auto w-full max-w-[260px] object-contain object-center",
   },
   default: {
     link: "inline-flex items-center",
@@ -43,6 +45,12 @@ const displayStyles: Record<
   },
 };
 
+/**
+ * El manual de marca presenta el logotipo en monocromo: negro sobre fondos
+ * claros, blanco sobre oscuros. Se renderizan las dos versiones y el tema
+ * decide cuál se ve — el script de `layout.tsx` fija la clase `.dark` antes
+ * del primer paint, así que no hay parpadeo.
+ */
 export function AppLogo({
   variant = "full",
   display = "default",
@@ -50,26 +58,39 @@ export function AppLogo({
   className,
   height = variant === "icon" ? 28 : 32,
 }: AppLogoProps) {
-  const src = variant === "icon" ? brandAssets.logoIcon : brandAssets.logo;
+  const [lightSrc, darkSrc] =
+    variant === "icon"
+      ? [brandAssets.logoIconLight, brandAssets.logoIconDark]
+      : [brandAssets.logoLight, brandAssets.logoDark];
+
   const preset = displayStyles[display];
   const useFixedHeight = display === "default" || display === "compact";
+  const style: CSSProperties | undefined = useFixedHeight
+    ? {
+        height,
+        width: "auto",
+        maxWidth: display === "compact" ? 200 : 180,
+      }
+    : preset.style;
 
   const image = (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt="OTC"
-      className={cn(preset.img, className)}
-      style={
-        useFixedHeight
-          ? {
-              height,
-              width: "auto",
-              maxWidth: display === "compact" ? 200 : 180,
-            }
-          : preset.style
-      }
-    />
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element -- logo estático en /public */}
+      <img
+        src={lightSrc}
+        alt={brand.name}
+        className={cn(preset.img, "dark:hidden", className)}
+        style={style}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element -- logo estático en /public */}
+      <img
+        src={darkSrc}
+        alt=""
+        aria-hidden
+        className={cn(preset.img, "hidden dark:block", className)}
+        style={style}
+      />
+    </>
   );
 
   if (!href) {

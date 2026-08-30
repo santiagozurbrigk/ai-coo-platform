@@ -15,9 +15,10 @@ import {
   mockMarketingOverview,
 } from "@/mocks/marketing";
 import { RateBar } from "./rate-bar";
+import { brandColors } from "@/lib/brand";
 
 const ACCENT = {
-  reach: "#7C3AED",
+  reach: brandColors.primary,
   engagement: "#0F6E56",
   conversion: "#185FA5",
 } as const;

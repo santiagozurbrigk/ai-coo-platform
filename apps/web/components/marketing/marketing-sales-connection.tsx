@@ -111,7 +111,7 @@ export function MarketingSalesConnection() {
                     </p>
                     <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden max-w-md">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-primary to-violet-500"
+                        className="h-full rounded-full bg-gradient-to-r from-primary to-brand-500"
                         style={{ width: `${pct}%` }}
                       />
                     </div>

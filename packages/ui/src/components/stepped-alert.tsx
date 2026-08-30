@@ -22,8 +22,8 @@ const variantStyles: Record<
     step: "bg-destructive/[0.06] border-destructive/20 dark:bg-destructive/[0.08]",
   },
   info: {
-    header: "bg-primary/10 text-primary dark:bg-primary/15 dark:text-[#A78BFA]",
-    icon: "text-primary dark:text-[#A78BFA]",
+    header: "bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary-light",
+    icon: "text-primary dark:text-primary-light",
     body: "bg-primary/[0.05] dark:bg-primary/[0.08]",
     step: "bg-primary/[0.05] border-primary/20 dark:bg-primary/[0.08]",
   },

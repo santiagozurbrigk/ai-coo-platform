@@ -8,8 +8,20 @@ import { AppTopbar } from "@/components/layout/app-topbar";
 import { PlatformDocumentTitle } from "@/components/brand";
 import { HoldingViewingBanner } from "@/components/holding/holding-viewing-banner";
 import { useHoldingSession } from "@/components/holding/holding-platform-provider";
+import { NAV_STYLE } from "@/lib/navigation/nav-style";
+import { PlatformNotchShell } from "@/components/layout/platform-notch-shell";
 
 export function PlatformShell({ children }: { children: ReactNode }) {
+  // Experimento de navegación: NEXT_PUBLIC_NAV_STYLE=notch reemplaza el
+  // sidebar por la barra de islas. Sin la variable, todo sigue como estaba.
+  if (NAV_STYLE === "notch") {
+    return <PlatformNotchShell>{children}</PlatformNotchShell>;
+  }
+
+  return <PlatformSidebarShell>{children}</PlatformSidebarShell>;
+}
+
+function PlatformSidebarShell({ children }: { children: ReactNode }) {
   const { isHolding, viewingBusiness } = useHoldingSession();
   // En la vista holding (sin un negocio activo) el sidebar no aplica
   const showSidebar = !isHolding || viewingBusiness;

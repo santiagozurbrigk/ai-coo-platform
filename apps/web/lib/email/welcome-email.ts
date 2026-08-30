@@ -1,3 +1,6 @@
+import { brand } from "@/lib/brand";
+
+
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
   "https://otc-plaform.vercel.app";
@@ -23,7 +26,7 @@ export function welcomeEmailTemplate({
   <strong>Contraseña temporal:</strong> ${escapeHtml(password)}</p>
   <p>Te recomendamos cambiar tu contraseña en el primer acceso desde Configuración → Seguridad.</p>
   <p>Si tenés alguna duda, respondé este email o escribinos directamente.</p>
-  <p>El equipo de Optimiza Tu Control</p>
+  <p>El equipo de ${brand.name}</p>
 </body>
 </html>`;
 }
@@ -49,7 +52,7 @@ Contraseña temporal: ${password}
 
 Te recomendamos cambiar tu contraseña en el primer acceso desde Configuración → Seguridad.
 
-El equipo de Optimiza Tu Control`;
+El equipo de ${brand.name}`;
 }
 
 function escapeHtml(value: string): string {

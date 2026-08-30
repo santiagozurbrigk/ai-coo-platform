@@ -4,7 +4,7 @@ import { LandingPage } from "@/components/landing/landing-page";
 import { UTMCapture } from "@/components/landing/utm-capture";
 
 export const metadata: Metadata = {
-  title: "OTC — Probalo gratis 3 días. Sin tarjeta de crédito.",
+  title: "Probalo gratis 3 días. Sin tarjeta de crédito.",
   description:
     "El sistema operativo para infoproductores. Ventas, clientes, marketing, finanzas y operaciones en un solo lugar. Onboarding personalizado incluido.",
 };

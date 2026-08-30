@@ -28,7 +28,7 @@ export function YoutubeVideoPerformance({
       subtitle="YouTube — retención hasta el CTA y atribución UTM"
     >
       {insight ? (
-        <p className="mb-4 rounded-lg border border-violet-500/20 bg-violet-500/10 px-3 py-2 text-xs text-violet-100">
+        <p className="mb-4 rounded-lg border border-brand-500/20 bg-brand-500/10 px-3 py-2 text-xs text-brand-100">
           {insight}
         </p>
       ) : null}
@@ -54,7 +54,7 @@ export function YoutubeVideoPerformance({
                 <td className="max-w-[200px] truncate px-2 py-2">
                   <Link
                     href={paths.platform.marketing.contentDetail(row.assetId)}
-                    className="font-medium hover:text-violet-400"
+                    className="font-medium hover:text-brand-400"
                   >
                     {row.title}
                   </Link>

@@ -29,15 +29,15 @@ export function SopGeneratedPreview({
   return (
     <div className="space-y-5">
       <div className="flex items-start gap-3 border-b border-border/40 pb-4 dark:border-white/[0.08]">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-violet-500/25 bg-violet-500/10">
-          <Sparkles className="h-4 w-4 text-violet-400" />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-brand-500/25 bg-brand-500/10">
+          <Sparkles className="h-4 w-4 text-brand-400" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Generado con IA
             </p>
-            <Badge variant="outline" className="text-[10px] text-violet-700 dark:text-violet-300">
+            <Badge variant="outline" className="text-[10px] text-brand-700 dark:text-brand-300">
               Claude Sonnet
             </Badge>
           </div>
@@ -107,7 +107,7 @@ export function SopGeneratedPreview({
               {section.items.map((item, index) => (
                 <li
                   key={index}
-                  className="text-sm leading-relaxed text-muted-foreground before:mr-2 before:text-violet-400 before:content-['•']"
+                  className="text-sm leading-relaxed text-muted-foreground before:mr-2 before:text-brand-400 before:content-['•']"
                 >
                   {item}
                 </li>

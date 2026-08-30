@@ -234,7 +234,7 @@ export function WeeklyInputForm({
                 value={dept.value}
                 className={cn(
                   "flex-1 gap-1.5 rounded-lg border text-xs sm:text-sm",
-                  "data-[state=active]:border-violet-500/50 data-[state=active]:bg-violet-500/10 data-[state=active]:text-violet-600 dark:data-[state=active]:text-violet-400",
+                  "data-[state=active]:border-brand-500/50 data-[state=active]:bg-brand-500/10 data-[state=active]:text-brand-600 dark:data-[state=active]:text-brand-400",
                   done && "border-emerald-500/30 bg-emerald-500/5"
                 )}
               >
@@ -298,7 +298,7 @@ export function WeeklyInputForm({
 
                 <Button
                   type="button"
-                  className="bg-violet-600 hover:bg-violet-700"
+                  className="bg-brand-600 hover:bg-brand-700"
                   disabled={!tabHasContent || submitting}
                   onClick={() => void handleSubmitTab(dept.value)}
                 >

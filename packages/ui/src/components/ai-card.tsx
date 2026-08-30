@@ -43,7 +43,7 @@ export function AiCard({
       {showSpotlight ? <Spotlight size={220} /> : null}
       <div className="relative flex items-start gap-3">
         <div className="ai-card-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-border bg-muted text-foreground dark:border-white/10 dark:bg-white/[0.06]">
-          <Sparkles className="h-4 w-4 text-primary dark:text-[#A78BFA]" />
+          <Sparkles className="h-4 w-4 text-primary dark:text-primary-light" />
         </div>
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">

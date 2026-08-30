@@ -26,7 +26,7 @@ export function RisksList({ risks }: { risks: DashboardRisk[] }) {
                 <p className="text-xs leading-relaxed text-muted-foreground">
                   {risk.description}
                 </p>
-                <p className="text-xs font-medium text-violet-600 dark:text-violet-400">
+                <p className="text-xs font-medium text-brand-600 dark:text-brand-400">
                   → {risk.suggestedAction}
                 </p>
                 <p className="text-2xs text-muted-foreground">{risk.department}</p>

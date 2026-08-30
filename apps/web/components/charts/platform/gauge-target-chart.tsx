@@ -4,6 +4,7 @@ import { Gauge } from "@/components/charts/gauge";
 import { useTheme } from "@/providers/theme-provider";
 import { cn } from "@/lib/utils";
 import { ChartWrapper, CHART_MIN_HEIGHT } from "./chart-wrapper";
+import { brandColors } from "@/lib/brand";
 
 export type GaugeVariant = "default" | "inverted" | "margin" | "booking";
 
@@ -29,12 +30,12 @@ function accentGradients(isDark: boolean): {
 } {
   if (isDark) {
     return {
-      active: ["#7C3AED", "#A78BFA"],
-      inactive: ["#2a2540", "#1a1828"],
+      active: [brandColors.primary, brandColors.primaryLight],
+      inactive: ["#2a2119", "#1a1613"],
     };
   }
   return {
-    active: ["#7C3AED", "#6D28D9"],
+    active: [brandColors.primary, brandColors.primaryHover],
     inactive: ["#ede9fe", "#e9e5ff"],
   };
 }

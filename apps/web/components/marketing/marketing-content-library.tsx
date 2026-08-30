@@ -530,7 +530,7 @@ function ContentGridCard({
                   asset.multiplier >= 3
                     ? "border-green-500/30 bg-green-500/20 text-green-400"
                     : asset.multiplier >= 2
-                      ? "border-violet-500/30 bg-violet-500/20 text-violet-400"
+                      ? "border-brand-500/30 bg-brand-500/20 text-brand-400"
                       : "border-white/15 bg-white/10 text-white/60"
                 )}
               >

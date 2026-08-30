@@ -30,6 +30,7 @@ import { LeadMagnetFormModal } from "./lead-magnet-form-modal";
 import { LeadMagnetDetailPanel } from "./lead-magnet-detail-panel";
 import { FunnelChartPanel } from "@/components/charts/platform/funnel-chart-panel";
 import { RingDistributionChart } from "@/components/charts/platform/ring-distribution-chart";
+import { brand, brandColors } from "@/lib/brand";
 
 // ─── Helpers visuales ─────────────────────────────────────────────────────────
 
@@ -265,7 +266,7 @@ export function LeadMagnetsOverview({
                 return acc;
               }, {});
               const channelColors: Record<string, string> = {
-                manychat: "#7C3AED",
+                manychat: brandColors.primary,
                 typeform: "#0F6E56",
                 google_forms: "#185FA5",
                 landing: "#D97706",
@@ -345,17 +346,17 @@ export function LeadMagnetsOverview({
               <ComingSoonCard
                 icon={Sparkles}
                 title="Crear LM con IA"
-                description="Generá landing pages, formularios y entregas automáticas desde OTC, sin salir de la plataforma."
+                description={`Generá landing pages, formularios y entregas automáticas desde ${brand.name}, sin salir de la plataforma.`}
               />
               <ComingSoonCard
                 icon={Zap}
                 title="Automatización de entrega"
-                description="Configurá flows de ManyChat y respuestas automáticas de WhatsApp directamente desde OTC."
+                description={`Configurá flows de ManyChat y respuestas automáticas de WhatsApp directamente desde ${brand.name}.`}
               />
               <ComingSoonCard
                 icon={ExternalLink}
                 title="Links de seguimiento propios"
-                description="OTC genera un link de redirección para cada LM que trackea cada apertura y click en tiempo real."
+                description={`${brand.name} genera un link de redirección para cada LM que trackea cada apertura y click en tiempo real.`}
               />
             </div>
           </div>

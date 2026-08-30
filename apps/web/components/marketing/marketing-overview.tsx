@@ -98,7 +98,7 @@ function TopContentCard({ ranked }: { ranked: TopConvertingItem[] }) {
   return (
     <GlassPanel className="flex flex-col gap-4 p-4">
       <div className="flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/15 text-violet-500">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500/15 text-brand-500">
           <Trophy size={13} />
         </div>
         <div>
@@ -115,7 +115,7 @@ function TopContentCard({ ranked }: { ranked: TopConvertingItem[] }) {
                 href={paths.platform.marketing.contentDetail(item.contentId)}
                 className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3 transition-colors hover:bg-muted/60"
               >
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-xs font-semibold text-violet-500">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-brand-500/10 text-xs font-semibold text-brand-500">
                   {i + 1}
                 </span>
                 <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted/50">
@@ -135,7 +135,7 @@ function TopContentCard({ ranked }: { ranked: TopConvertingItem[] }) {
                 <div className="hidden w-24 shrink-0 flex-col gap-1 sm:flex">
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-violet-500 to-violet-400"
+                      className="h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-400"
                       style={{ width: `${widthPct}%` }}
                     />
                   </div>
@@ -279,7 +279,7 @@ function CompactHeatmap({ cells }: { cells: HeatmapCell[] }) {
   return (
     <GlassPanel className="flex flex-col gap-3 p-4">
       <div className="flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/15 text-violet-500">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500/15 text-brand-500">
           <CalendarClock size={13} />
         </div>
         <div>
@@ -394,7 +394,7 @@ function PerformanceRadarCard({ types }: { types: ContentTypePerformance[] }) {
   return (
     <GlassPanel className="flex flex-col gap-3 p-4">
       <div className="flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/15 text-violet-500">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500/15 text-brand-500">
           <Activity size={13} />
         </div>
         <div>
@@ -550,7 +550,7 @@ export function MarketingOverview({
             return (
               <GlassPanel key={kpi.label} className="flex items-center justify-between gap-4 px-4 py-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-500">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-500/15 text-brand-500">
                     <Icon size={13} />
                   </div>
                   <div className="min-w-0">

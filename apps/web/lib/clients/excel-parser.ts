@@ -1,7 +1,7 @@
 /**
  * Parser de Excel para importación de clientes.
  * Soporta:
- *   - Plantilla OTC (tab "Clientes" con columnas fijas)
+ *   - Plantilla Limitless (tab "Clientes" con columnas fijas)
  *   - Archivo propio del usuario (cualquier columna, mapeo manual)
  *
  * Dependencia: xlsx (SheetJS) — ya instalado en apps/web.
@@ -39,7 +39,7 @@ export type ParseExcelResult = {
   errors: Array<{ row: number; message: string }>;
 };
 
-// ─── Columnas de la plantilla OTC ────────────────────────────────────────────
+// ─── Columnas de la plantilla Limitless ────────────────────────────────────────────
 
 const OTC_COLUMNS: ColumnMapping = {
   name:        "Nombre",
@@ -156,7 +156,7 @@ export function parseClientsExcel(
   // Extraer headers reales del archivo
   const headers = headerRow.filter(Boolean);
 
-  // Usar plantilla OTC si no hay mapping manual
+  // Usar plantilla Limitless si no hay mapping manual
   const mapping: ColumnMapping = columnMapping ?? OTC_COLUMNS;
 
   // Construir mapa header normalizado → key de mapping

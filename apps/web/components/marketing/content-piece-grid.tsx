@@ -33,7 +33,7 @@ const TYPE_BADGE_COLOR: Record<string, string> = {
   carousel: "bg-blue-600/80 text-white",
   story: "bg-pink-500/80 text-white",
   post: "bg-black/70 text-white",
-  brief: "bg-violet-700/80 text-white",
+  brief: "bg-brand-700/80 text-white",
 };
 
 const FILTER_OPTIONS = [

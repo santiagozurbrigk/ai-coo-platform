@@ -17,7 +17,7 @@ export function PageLoading({
       role="status"
       aria-live="polite"
     >
-      <Loader2 className="h-6 w-6 animate-spin text-violet-400" aria-hidden />
+      <Loader2 className="h-6 w-6 animate-spin text-brand-400" aria-hidden />
       <span>{label}</span>
     </div>
   );

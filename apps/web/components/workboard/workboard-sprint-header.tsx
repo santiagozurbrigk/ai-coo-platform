@@ -24,7 +24,7 @@ function formatSprintDates(start: string, end: string): string {
 
 const AREA_FOCUS_BADGE: Record<string, string> = {
   ventas: "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30",
-  marketing: "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30",
+  marketing: "bg-brand-500/15 text-brand-700 dark:text-brand-300 border-brand-500/30",
   operaciones: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
   delivery: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
   producto: "bg-pink-500/15 text-pink-700 dark:text-pink-300 border-pink-500/30",
@@ -234,7 +234,7 @@ export function WorkboardSprintHeader({
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full bg-violet-500 transition-all"
+              className="h-full bg-brand-500 transition-all"
               style={{ width: `${progressPct}%` }}
             />
           </div>

@@ -1,3 +1,6 @@
+import { brand, brandColors } from "@/lib/brand";
+
+
 /** Email de notificación: Trial Reels terminados de publicar */
 
 export type TrialReelsDoneEmailParams = {
@@ -26,8 +29,8 @@ export function trialReelsDoneEmailTemplate(params: TrialReelsDoneEmailParams): 
         <table width="100%" style="max-width:520px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
           <!-- Header -->
           <tr>
-            <td style="background:#7C3AED;padding:28px 32px;">
-              <p style="margin:0;color:#ffffff;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;opacity:0.8;">OTC · Trial Reels</p>
+            <td style="background:${brandColors.primary};padding:28px 32px;">
+              <p style="margin:0;color:#000000;font-size:13px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;opacity:0.75;">${brand.wordmark} · Trial Reels</p>
               <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;line-height:1.3;">
                 ${allOk ? "Tus reels están en Zernio" : "Publicación completada"}
               </h1>
@@ -69,8 +72,8 @@ export function trialReelsDoneEmailTemplate(params: TrialReelsDoneEmailParams): 
                 <tr>
                   <td align="center">
                     <a href="${appUrl}/marketing/content"
-                       style="display:inline-block;background:#7C3AED;color:#ffffff;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;text-decoration:none;">
-                      Ver en OTC
+                       style="display:inline-block;background:${brandColors.primary};color:#000000;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;text-decoration:none;">
+                      Ver en ${brand.name}
                     </a>
                   </td>
                 </tr>
@@ -82,7 +85,7 @@ export function trialReelsDoneEmailTemplate(params: TrialReelsDoneEmailParams): 
           <tr>
             <td style="padding:16px 32px;border-top:1px solid #f3f4f6;">
               <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">
-                OTC · Optimiza Tu Control · Este email fue generado automáticamente.
+                ${brand.wordmark} · ${brand.legalName} · Este email fue generado automáticamente.
               </p>
             </td>
           </tr>
@@ -97,7 +100,7 @@ export function trialReelsDoneEmailTemplate(params: TrialReelsDoneEmailParams): 
 export function trialReelsDoneEmailText(params: TrialReelsDoneEmailParams): string {
   const { published, failed, appUrl } = params;
   const lines = [
-    "OTC · Trial Reels",
+    `${brand.wordmark} · Trial Reels`,
     "",
     `Publicación completada: ${published} publicada${published === 1 ? "" : "s"}${failed > 0 ? `, ${failed} con error` : ""}.`,
     "",

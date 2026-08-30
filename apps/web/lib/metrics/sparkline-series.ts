@@ -1,12 +1,13 @@
 import type { DashboardMetric } from "@/types/dashboard";
+import { brandColors } from "@/lib/brand";
 
 /** Colores por id de métrica del dashboard (solo cuando hay serie real). */
 export const METRIC_SPARKLINE_COLORS: Record<string, string> = {
   m1: "#34D399",
   m2: "#34D399",
   m3: "#34D399",
-  "s-booking": "#7C3AED",
-  s2: "#7C3AED",
+  "s-booking": brandColors.primary,
+  s2: brandColors.primary,
   "s-active": "#60A5FA",
   s5: "#60A5FA",
   "s-ghost": "#F87171",
@@ -49,7 +50,7 @@ export function metricSparklineProps(
   return {
     sparklineData: [...metric.sparklineData],
     sparklineColor:
-      metric.sparklineColor ?? METRIC_SPARKLINE_COLORS[metric.id] ?? "#7C3AED",
+      metric.sparklineColor ?? METRIC_SPARKLINE_COLORS[metric.id] ?? brandColors.primary,
     sparklineAnimationDelay: animationDelay,
   };
 }

@@ -76,7 +76,7 @@ export function MetricStat({
     subtitle ?? (trendValue ? `vs período anterior  ${trendValue}` : undefined);
   const barClassName =
     progressVariant === "violet"
-      ? "from-violet-600 to-violet-400"
+      ? "from-brand-600 to-brand-400"
       : cfg.bar;
 
   return (
@@ -162,7 +162,7 @@ export function MetricStat({
             <span className="text-caption text-muted-foreground">{comparison}</span>
           ) : null}
           {badge ? (
-            <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-[3px] text-micro font-medium text-primary dark:text-[#A78BFA]">
+            <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-[3px] text-micro font-medium text-primary dark:text-primary-light">
               {badge}
             </span>
           ) : null}

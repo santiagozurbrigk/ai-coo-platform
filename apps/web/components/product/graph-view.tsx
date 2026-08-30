@@ -23,13 +23,13 @@ import { GRAPH_NODE_TYPES } from "./graph-nodes";
 
 const DEFAULT_EDGE_OPTIONS = {
   type: "smoothstep",
-  style: { stroke: "rgba(124,58,237,0.25)", strokeWidth: 1.5 },
+  style: { stroke: "rgba(225,93,18,0.25)", strokeWidth: 1.5 },
   animated: false,
 };
 
 const PENDING_EDGE_OPTIONS = {
   type: "smoothstep",
-  style: { stroke: "rgba(124,58,237,0.4)", strokeWidth: 1.5, strokeDasharray: "6 3" },
+  style: { stroke: "rgba(225,93,18,0.4)", strokeWidth: 1.5, strokeDasharray: "6 3" },
   animated: true,
 };
 
@@ -120,7 +120,7 @@ export function ProductGraphView({
           variant={BackgroundVariant.Dots}
           gap={20}
           size={1}
-          color="rgba(124,58,237,0.10)"
+          color="rgba(225,93,18,0.10)"
         />
         <Controls
           showInteractive={false}
@@ -130,11 +130,11 @@ export function ProductGraphView({
           nodeColor={(node) => {
             switch (node.type) {
               case "root":
-                return "rgba(124,58,237,0.5)";
+                return "rgba(225,93,18,0.5)";
               case "avatar":
                 return "rgba(59,130,246,0.5)";
               case "product":
-                return "rgba(139,92,246,0.5)";
+                return "rgba(241,110,34,0.5)";
               case "ladder-step":
                 return "rgba(16,185,129,0.5)";
               case "framework":

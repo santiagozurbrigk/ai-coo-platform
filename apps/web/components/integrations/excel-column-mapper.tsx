@@ -4,8 +4,9 @@ import { useState, useMemo } from "react";
 import type { ColumnMapping } from "@/lib/clients/excel-parser";
 import type { ClosingColumnMapping } from "@/lib/closing/excel-parser";
 import type { SalesMetricsColumnMapping, FinanceMetricsColumnMapping } from "@/lib/metrics/excel-parser";
+import { brand } from "@/lib/brand";
 
-// ─── Definición de campos OTC ─────────────────────────────────────────────────
+// ─── Definición de campos Limitless ─────────────────────────────────────────────────
 
 type FieldDef = {
   key: string;
@@ -32,7 +33,7 @@ const CLOSING_FIELDS: FieldDef[] = [
   { key: "notes",       label: "Notas",            required: false },
 ];
 
-// Solo métricas primarias — OTC calcula automáticamente: close rate, show rate,
+// Solo métricas primarias — Limitless calcula automáticamente: close rate, show rate,
 // tasa agendamiento, inasistencias (si no se proveen), no cierres, tasa fantasma.
 const SALES_METRICS_FIELDS: FieldDef[] = [
   { key: "period",         label: "Período / Semana", required: true,  hint: "ej. '2025-01-06' o 'Semana 1'" },
@@ -102,7 +103,7 @@ function ColumnSelect({
 
   return (
     <div className="flex items-start gap-3 py-2.5 border-b border-border last:border-0">
-      {/* Campo OTC */}
+      {/* Campo Limitless */}
       <div className="w-36 shrink-0 pt-0.5">
         <span className="text-sm font-medium">
           {fieldLabel}
@@ -293,7 +294,7 @@ export function ExcelColumnMapper({
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Indicá qué columna de tu archivo corresponde a cada campo de OTC.
+              Indicá qué columna de tu archivo corresponde a cada campo de {brand.name}.
             </p>
             <SingleMapper
               type={s.type}

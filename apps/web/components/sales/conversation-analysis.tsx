@@ -263,8 +263,8 @@ export function ConversationAnalysisPanel({
           ) : null}
 
           {conversation.aiRecommendedAction ? (
-            <div className="rounded-md border border-violet-500/20 bg-violet-500/5 p-3">
-              <p className="text-caption font-medium text-violet-700 dark:text-violet-300">
+            <div className="rounded-md border border-brand-500/20 bg-brand-500/5 p-3">
+              <p className="text-caption font-medium text-brand-700 dark:text-brand-300">
                 Próximo paso recomendado
               </p>
               <p className="mt-1 text-body">{conversation.aiRecommendedAction}</p>

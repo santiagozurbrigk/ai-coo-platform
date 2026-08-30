@@ -111,7 +111,7 @@ export function ProductSpatialView({
                 y1={conn.y1}
                 x2={conn.x2}
                 y2={conn.y2}
-                stroke="rgba(124,58,237,0.15)"
+                stroke="rgba(225,93,18,0.15)"
                 strokeWidth="1"
                 strokeDasharray="6 6"
               />
@@ -120,7 +120,7 @@ export function ProductSpatialView({
                 y1={conn.y1}
                 x2={conn.x2}
                 y2={conn.y2}
-                stroke="rgba(167,139,250,0.08)"
+                stroke="rgba(245,135,71,0.08)"
                 strokeWidth="2"
               />
             </g>

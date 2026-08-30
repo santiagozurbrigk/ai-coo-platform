@@ -97,7 +97,7 @@ export function WeeklyInputsPageContent({
         <div className="flex flex-col gap-2 sm:items-end">
           <Button
             type="button"
-            className="bg-violet-600 hover:bg-violet-700"
+            className="bg-brand-600 hover:bg-brand-700"
             disabled={!canGenerateReport || generating || !useSupabase}
             onClick={handleGenerateReport}
           >
@@ -141,8 +141,8 @@ export function WeeklyInputsPageContent({
               completed.length === totalDepartments
                 ? "bg-emerald-500"
                 : progressPct >= 40
-                ? "bg-violet-500"
-                : "bg-violet-400"
+                ? "bg-brand-500"
+                : "bg-brand-400"
             )}
             style={{ width: `${progressPct}%` }}
           />

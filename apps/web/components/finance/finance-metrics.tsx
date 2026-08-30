@@ -166,7 +166,7 @@ export function FinanceMetrics() {
       <div className="mb-4 flex justify-end">
         <Link
           href={paths.platform.settingsTab("pagos")}
-          className="inline-flex items-center gap-1 text-xs font-medium text-violet-600 hover:text-violet-500 dark:text-violet-400 dark:hover:text-violet-300"
+          className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300"
         >
           Gestionar plataformas de cobro
           <ArrowUpRight className="h-3.5 w-3.5" />

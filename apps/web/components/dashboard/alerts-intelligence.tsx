@@ -21,7 +21,7 @@ function RiskItem({ risk }: { risk: DashboardRisk }) {
           <SeverityBadge severity={risk.severity} />
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">{risk.description}</p>
-        <p className="text-xs font-medium text-violet-600 dark:text-violet-400">
+        <p className="text-xs font-medium text-brand-600 dark:text-brand-400">
           → {risk.suggestedAction}
         </p>
       </div>

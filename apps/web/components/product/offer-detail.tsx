@@ -17,7 +17,7 @@ export function OfferDetail({
         <div>
           <div className="mb-3 flex flex-wrap items-center gap-3">
             <h2 className="text-xl font-bold text-foreground">{offer.name}</h2>
-            <span className="text-lg font-semibold text-violet-600 dark:text-violet-400">
+            <span className="text-lg font-semibold text-brand-600 dark:text-brand-400">
               ${offer.price.toLocaleString()}
             </span>
           </div>
@@ -54,8 +54,8 @@ export function OfferDetail({
                 key={item.title}
                 className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/10 px-3 py-2.5 dark:border-white/6 dark:bg-white/2"
               >
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-violet-500/15">
-                  <Check className="h-3 w-3 text-violet-500 dark:text-violet-400" />
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-brand-500/15">
+                  <Check className="h-3 w-3 text-brand-500 dark:text-brand-400" />
                 </div>
                 <div>
                   <p className="text-xs font-medium text-foreground/80">{item.title}</p>
@@ -98,11 +98,11 @@ export function OfferDetail({
           )}
         </div>
 
-        <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+        <div className="rounded-xl border border-brand-500/20 bg-brand-500/5 p-4">
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
-              <p className="text-xs font-medium text-violet-600 dark:text-violet-400">
+              <Sparkles className="h-3.5 w-3.5 text-brand-500 dark:text-brand-400" />
+              <p className="text-xs font-medium text-brand-600 dark:text-brand-400">
                 Datos reales
               </p>
             </div>
@@ -136,8 +136,8 @@ export function OfferDetail({
 
         <div className="rounded-xl border border-border bg-muted/10 p-4 dark:border-white/6 dark:bg-white/2">
           <div className="mb-2 flex items-center gap-2">
-            <Sparkles className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
-            <p className="text-xs text-violet-600 dark:text-violet-400">Insight detectado</p>
+            <Sparkles className="h-3.5 w-3.5 text-brand-500 dark:text-brand-400" />
+            <p className="text-xs text-brand-600 dark:text-brand-400">Insight detectado</p>
             <MockPhaseBadge hasRealData={hasRealData} className="ml-auto" />
           </div>
           <p className="text-[11px] leading-relaxed text-muted-foreground">

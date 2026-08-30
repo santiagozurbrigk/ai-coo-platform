@@ -1,4 +1,5 @@
 import type { MemberTimeReport } from "@/types/workboard";
+import { brandColors } from "@/lib/brand";
 
 /** Mock — reporte semanal de tiempo por persona (Phase 2: tracking real) */
 export const mockMemberTimeReports: MemberTimeReport[] = [
@@ -6,7 +7,7 @@ export const mockMemberTimeReports: MemberTimeReport[] = [
     memberId: "m1",
     name: "Valentina Ruiz",
     initials: "VR",
-    avatarColor: "#7C3AED",
+    avatarColor: brandColors.primary,
     totalHours: 38,
     strategicPercent: 62,
     operationalPercent: 38,

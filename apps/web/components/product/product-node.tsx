@@ -9,7 +9,7 @@ const NODE_SURFACE: Record<SpatialProductNode["type"], string> = {
   avatar:
     "border-blue-200 bg-blue-50/95 dark:border-blue-500/30 dark:bg-blue-950/60",
   offer:
-    "border-violet-200 bg-violet-50/95 dark:border-violet-500/30 dark:bg-violet-950/60",
+    "border-brand-200 bg-brand-50/95 dark:border-brand-500/30 dark:bg-brand-950/60",
   "value-ladder":
     "border-green-200 bg-green-50/95 dark:border-green-500/30 dark:bg-green-950/60",
   proposition:
@@ -18,7 +18,7 @@ const NODE_SURFACE: Record<SpatialProductNode["type"], string> = {
 
 const BADGE_SURFACE: Record<SpatialProductNode["type"], string> = {
   avatar: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400",
-  offer: "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-400",
+  offer: "bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400",
   "value-ladder":
     "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400",
   proposition:
@@ -74,8 +74,8 @@ export function ProductNode({
         </p>
         {node.aiInsight ? (
           <div className="mt-3 flex items-start gap-1.5 border-t border-slate-200/80 pt-3 dark:border-white/8">
-            <Sparkles className="mt-0.5 h-2.5 w-2.5 shrink-0 text-violet-600 dark:text-violet-400" />
-            <p className="text-[10px] leading-tight text-violet-700 dark:text-violet-400/80">
+            <Sparkles className="mt-0.5 h-2.5 w-2.5 shrink-0 text-brand-600 dark:text-brand-400" />
+            <p className="text-[10px] leading-tight text-brand-700 dark:text-brand-400/80">
               {node.aiInsight}
             </p>
           </div>

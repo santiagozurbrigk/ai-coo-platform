@@ -743,7 +743,7 @@ function GoogleImportFlow({
                         className={cn(
                           "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
                           isSelected
-                            ? "border-primary bg-primary text-white"
+                            ? "border-primary bg-primary text-primary-foreground"
                             : "border-border/60"
                         )}
                         aria-hidden

@@ -129,7 +129,7 @@ export function FrequentObjectionsPanel({
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted/40">
                     <div
-                      className="h-full rounded-full bg-violet-500 transition-all"
+                      className="h-full rounded-full bg-brand-500 transition-all"
                       style={{ width: `${objection.resolutionRate}%` }}
                     />
                   </div>

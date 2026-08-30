@@ -1,6 +1,6 @@
 /**
  * Parser de Excel para importación de llamadas de cierre.
- * Soporta plantilla OTC (tab "Llamadas de cierre") y archivos propios.
+ * Soporta plantilla Limitless (tab "Llamadas de cierre") y archivos propios.
  */
 
 import * as XLSX from "xlsx";
@@ -31,7 +31,7 @@ export type ParseClosingResult = {
   errors: Array<{ row: number; message: string }>;
 };
 
-// ─── Columnas plantilla OTC ───────────────────────────────────────────────────
+// ─── Columnas plantilla Limitless ───────────────────────────────────────────────────
 
 const OTC_CLOSING_COLUMNS: ClosingColumnMapping = {
   leadName:    "Nombre prospecto",

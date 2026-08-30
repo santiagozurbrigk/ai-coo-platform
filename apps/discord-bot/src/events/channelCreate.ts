@@ -41,7 +41,7 @@ export async function handleChannelCreate(channel: Channel) {
     const matchesClients = fuzzyMatchClients(extractedName, clients);
 
     const botName =
-      (fullIntegration?.bot_name as string | undefined) || "Asistente OTC";
+      (fullIntegration?.bot_name as string | undefined) || "Asistente Limitless";
 
     await new Promise((resolve) => setTimeout(resolve, 3000));
 

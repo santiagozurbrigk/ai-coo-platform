@@ -1,4 +1,4 @@
-# PENDIENTES.md — Backlog de trabajo pendiente en OTC
+# PENDIENTES.md — Backlog de trabajo pendiente en Limitless
 
 > **Para Claude Code y cualquier asistente IA:**  
 > Leer este archivo junto con `CHANGES.md` al inicio de cada sesión.  
@@ -37,11 +37,13 @@
 
 ---
 
-### [ADDON-EMBUDOS] Activar el add-on `embudos` en la org
+### [ADDON-EMBUDOS] Activar el add-on `embudos` en la org 🔴
 
-**Qué es:** la migración ya está aplicada, pero el módulo no aparece en el sidebar hasta que la org tenga `embudos` en `enabled_add_ons`.
+**Qué es:** todas las migraciones están aplicadas y la UI está construida, pero **el módulo no aparece en el sidebar hasta que la org tenga `embudos` en `enabled_add_ons`** (`lib/navigation/sidebar-modules.ts`).
 
-**Acción:** activarlo desde super-admin para la org que vaya a usarlo.
+**Es el primer bloqueo para probar el flujo.** Sin esto, el preview de Vercel no muestra ningún link a Embudos — aunque las páginas responden si se entra por URL directa a `/funnels`.
+
+**Acción:** activarlo desde super-admin para la org que vayas a usar de prueba.
 
 ---
 
@@ -289,6 +291,100 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 - ¿Dónde vive en el producto? (¿tab en Marketing? ¿módulo separado?)
 - ¿La IA genera un reporte periódico o es on-demand?
 - ¿Cuántos competidores por org?
+
+---
+
+## 🟪 Experimento notch nav — validar y decidir
+
+> Implementado 2026-08-30 detrás de `NEXT_PUBLIC_NAV_STYLE=notch` (ver CHANGES.md).
+> El sidebar sigue siendo el default; nada cambia hasta setear la variable.
+
+### [NAV-1] Activar y validar en vivo
+
+**Acción:** agregar `NEXT_PUBLIC_NAV_STYLE=notch` en Vercel (Preview primero) y recorrer
+la plataforma con sesión real: pill activo, dropdowns, holding switcher, mobile.
+**Quién:** Santiago.
+
+### [NAV-2] Paridad pendiente con el sidebar
+
+- Badge de llamadas Fathom pendientes en "Clientes" (el sidebar lo muestra; la notch no).
+- Botón de notificaciones del topbar (deshabilitado, "próximamente") — decidir si va en la isla derecha.
+
+### [NAV-3] Decisión final
+
+Si convence: borrar `PlatformSidebarShell` + `AppSidebar` y hacer del notch el único shell.
+Si no: borrar `components/navigation/notch-nav/` + `platform-notch-shell.tsx` + la env.
+No mantener las dos navegaciones indefinidamente.
+
+---
+
+## 🔵 Rebranding Limitless — cerrado, con 5 pendientes acotados
+
+> Fases 1 y 2 completas — ver `CHANGES.md` 2026-08-29. La app usa el naranja
+> `#E15D12`, el logotipo real y el favicon nuevo, en tema claro y oscuro.
+> Lo que queda abajo son decisiones, no trabajo mecánico.
+
+### [BRAND-A] Paletas categóricas que todavía usan violeta
+
+**Qué es:** 5 archivos conservan 53 clases violeta a propósito, porque ahí el violeta
+es **una categoría dentro de una paleta** y el mismo archivo ya usa naranja para otra
+categoría. Convertirlas colapsaría dos categorías en el mismo color.
+
+- `components/product/graph-nodes.tsx` (36) — tipos de nodo del grafo de producto
+- `lib/workboard/styles.ts` (6) — colores de etiqueta/prioridad
+- `constants/conversation-tags.ts` (1) — color de tag de conversación
+- `components/agent/proposal-card.tsx` (1) — tipo de propuesta
+- `components/sales/zernio-side-panel.tsx` (2) — bloque de panel lateral
+
+**Acción:** definir una paleta categórica que conviva con un acento naranja
+(el naranja de marca queda reservado para "lo primario"; las categorías deberían ir
+a hues fríos o a neutros diferenciados por luminancia). Es trabajo de diseño.
+**Quién:** Santiago + diseño.
+
+### [BRAND-B] Licenciar Neue Haas Grotesk
+
+**Qué es:** el manual (sección 07) pide Neue Haas Grotesk para títulos. Es de licencia
+comercial (Monotype) y no está comprada, así que `--font-display` resuelve a Inter.
+Los títulos no coinciden con el manual.
+
+**Acción:** comprar la licencia web, poner los archivos en `apps/web/app/fonts/`,
+cargarla con `next/font/local` y apuntar `--font-display` a su variable en
+`packages/ui/src/styles/tokens.css`. Ningún componente necesita cambios — la utilidad
+`font-display` de Tailwind ya existe.
+**Quién:** Santiago (licencia) + Claude (implementación).
+
+### [BRAND-C] Validar el texto negro sobre los botones naranjas
+
+**Qué es:** `--primary-foreground` pasó de blanco a negro. Blanco sobre `#E15D12` da
+3.64:1, por debajo de AA para texto normal; negro da 5.78:1. Cambia el aspecto de
+todos los botones primarios de la app.
+
+**Acción:** que el equipo mire los botones y confirme. Si se prefiere blanco pese al
+contraste, es una línea en `tokens.css` (`--primary-foreground: 0 0% 100%`).
+**Quién:** Santiago.
+
+### [BRAND-D] Limpieza — borrar la rama `brand-source`
+
+**Qué es:** el material de identidad (incluido el manual en PDF de 58 MB) se subió a la
+rama `brand-source`, deliberadamente fuera de `main` para no cargar el historial.
+
+**Acción:** una vez que el equipo tenga el material guardado en otro lado, borrar la
+rama en GitHub. **No mergearla a `main`.**
+
+### [BRAND-E] Dominio — fuera del alcance (decisión de Santiago)
+
+`optimizatucontrol.com` sigue en pie. Está centralizado en `brand.domain`, pero hay
+referencias sueltas fuera de ese campo:
+
+- `lib/utm/build-links.ts`, `components/marketing/utm-generator.tsx`, `components/settings/settings-form.tsx`
+- `app/(landing)/privacidad/page.tsx` — `CONTACT_EMAIL` y `APP_URL`
+- `mocks/utm-links.ts`
+- `lib/email/welcome-email.ts` — fallback `https://otc-plaform.vercel.app` (con el typo del original)
+- `app/api/queue/publish-reel-variation/route.ts` — fallback `https://app.otc.com`
+- `components/super-admin/infrastructure-page.tsx` — hostname de Vercel
+
+**Acción:** al definir el dominio de Limitless, migrar DNS y actualizar estas
+referencias + `brand.domain`.
 
 ---
 

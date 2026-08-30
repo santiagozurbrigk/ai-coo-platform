@@ -191,7 +191,7 @@ export function FathomTaskProposalModal({
                 <div
                   key={`${item.title}-${realIdx}`}
                   className={cn(
-                    "rounded-xl border border-violet-500/20 bg-violet-500/5 p-4 dark:bg-violet-500/10",
+                    "rounded-xl border border-brand-500/20 bg-brand-500/5 p-4 dark:bg-brand-500/10",
                     !item.selected && "opacity-60"
                   )}
                 >
@@ -204,7 +204,7 @@ export function FathomTaskProposalModal({
                         onChange={(e) =>
                           updateItem(realIdx, { selected: e.target.checked })
                         }
-                        className="h-4 w-4 rounded border-violet-400 text-violet-600 focus:ring-violet-500"
+                        className="h-4 w-4 rounded border-brand-400 text-brand-600 focus:ring-brand-500"
                       />
                       <span className="text-xs font-medium text-muted-foreground">
                         Incluir esta tarea

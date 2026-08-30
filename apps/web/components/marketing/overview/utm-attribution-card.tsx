@@ -20,7 +20,7 @@ export function UtmAttributionCard({ summary, hasData }: UtmAttributionCardProps
     return (
       <GlassPanel className="flex flex-col gap-3 p-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/15 text-violet-500">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500/15 text-brand-500">
             <Link2 size={13} />
           </div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -40,7 +40,7 @@ export function UtmAttributionCard({ summary, hasData }: UtmAttributionCardProps
   return (
     <GlassPanel className="space-y-3 p-4">
       <div className="flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/15 text-violet-500">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-500/15 text-brand-500">
           <Link2 size={13} />
         </div>
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

@@ -133,7 +133,7 @@ export function ValueLadderSection({
                 className={cn(
                   "flex w-52 shrink-0 flex-col rounded-t-xl border transition-all duration-200",
                   step.isCore
-                    ? "border-violet-500/40 bg-violet-500/8"
+                    ? "border-brand-500/40 bg-brand-500/8"
                     : "border-border bg-muted/20 dark:border-white/8 dark:bg-white/3"
                 )}
                 style={{ height: `${140 + i * 40}px` }}
@@ -174,7 +174,7 @@ export function ValueLadderSection({
                               className={cn(
                                 "rounded p-0.5",
                                 step.isCore
-                                  ? "text-violet-500"
+                                  ? "text-brand-500"
                                   : "text-muted-foreground hover:bg-muted"
                               )}
                               title="Marcar como core offer"
@@ -206,7 +206,7 @@ export function ValueLadderSection({
 
                   <div>
                     {step.isCore ? (
-                      <span className="mb-2 inline-block rounded-full bg-violet-500/20 px-2 py-0.5 text-[9px] text-violet-600 dark:text-violet-400">
+                      <span className="mb-2 inline-block rounded-full bg-brand-500/20 px-2 py-0.5 text-[9px] text-brand-600 dark:text-brand-400">
                         Core offer
                       </span>
                     ) : null}

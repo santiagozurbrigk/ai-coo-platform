@@ -187,7 +187,7 @@ export const mockMarketingContentAssets: ContentAssetView[] = [
   {
     id: "c6",
     platform: "youtube",
-    title: "VSL — Sistema OTC completo",
+    title: "VSL — Sistema Limitless completo",
     caption: "",
     thumbnailUrl: null,
     contentType: "vsl",

@@ -1,3 +1,6 @@
+import { brand } from "@/lib/brand";
+
+
 const PAINS = [
   {
     title: "No sabés qué está pasando en tu negocio",
@@ -30,7 +33,7 @@ export function ProblemsSection() {
     <section className="border-t border-white/[0.04] px-4 py-28 sm:px-6 md:py-40">
       <div className="mx-auto max-w-6xl">
         <div className="mb-16 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-violet-400">
+          <div className="inline-flex items-center gap-2 rounded-full border border-brand-500/30 bg-brand-950/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-brand-400">
             ¿TE PASA ESTO?
           </div>
           <h2 className="mt-6 text-4xl font-black leading-[1] tracking-[-0.03em] md:text-6xl">
@@ -40,7 +43,7 @@ export function ProblemsSection() {
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/60 md:text-lg">
             Cada área de tu negocio corriendo sola, sin datos claros, sin visión
-            unificada. OTC las conecta todas.
+            unificada. {brand.name} las conecta todas.
           </p>
         </div>
 
@@ -50,7 +53,7 @@ export function ProblemsSection() {
               key={title}
               className="rounded-3xl border border-white/[0.06] bg-white/[0.02] p-8"
             >
-              <div className="mb-2 h-1 w-8 rounded-full bg-violet-500/40" />
+              <div className="mb-2 h-1 w-8 rounded-full bg-brand-500/40" />
               <h3 className="mt-4 text-lg font-black leading-snug">{title}</h3>
               <p className="mt-3 text-sm leading-relaxed text-white/55">{desc}</p>
             </div>
@@ -60,7 +63,7 @@ export function ProblemsSection() {
         <div className="mt-8 text-center">
           <a
             href="#agendar"
-            className="inline-block rounded-full bg-[#7C3AED] px-8 py-4 text-base font-semibold text-white transition-colors hover:bg-[#6D28D9]"
+            className="inline-block rounded-full bg-primary px-8 py-4 text-base font-semibold text-primary-foreground transition-colors hover:bg-primary-hover"
           >
             Empezá gratis ahora
           </a>

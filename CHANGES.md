@@ -1,4 +1,4 @@
-# CHANGES.md — Registro de cambios del monorepo OTC
+# CHANGES.md — Registro de cambios del monorepo Limitless
 
 > **Para Claude Code y cualquier asistente IA que trabaje en este repo:**
 >
@@ -11,6 +11,27 @@
 ---
 
 ## Historial de cambios
+
+---
+
+### 2026-08-30 — Traer `main` a la rama de embudos para poder probar todo junto
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** merge de `origin/main` (`fcafaff`)
+**Módulo(s) afectado(s):** todo el rebranding Limitless + notch nav que ya estaba en producción
+
+**Qué se hizo:**
+La rama de embudos estaba **26 commits adelante de `main` pero 1 atrás**: le faltaba el rebranding a Limitless y la notch nav, que ya están mergeados y deployados en producción. El preview de la rama mostraba la identidad vieja (violeta OTC), así que probar "el flujo entero" ahí habría sido probar contra algo que ya no existe.
+
+**Por qué el merge fue barato:** un solo conflicto, en `CHANGES.md`, y puramente aditivo — dos bloques de entradas de changelog que no se pisan. Se conservaron los dos.
+
+**Por qué la UI de embudos no necesitó tocarse:** está escrita **sólo con tokens del design system** (`primary`, `border`, `muted-foreground`) y colores semánticos de estado (`amber` para huecos de instrumentación). El rebranding migró 462 clases `violet`/`purple`/`indigo` hardcodeadas; la UI de embudos no tenía ninguna, así que hereda el naranja Limitless automáticamente.
+
+**Verificación ejecutada tras el merge:**
+- `pnpm test`: **414 tests, todos en verde**.
+- `tsc --noEmit` limpio, `pnpm lint` sin errores, `pnpm build` completo.
+
+**Riesgo que queda:** la notch nav viene detrás del flag `NEXT_PUBLIC_NAV_STYLE=notch`. Sin la variable, el preview usa el sidebar clásico — que es donde vive el link a Embudos, y ese link **sólo aparece si la org tiene el add-on `embudos` activo**.
 
 ---
 
@@ -910,6 +931,165 @@ Santiago va a aportar más documentos, uno por tipo de embudo, y necesita que el
 - Deriva plantilla/documento: cada `FunnelTemplate` lleva `sourceDocVersion` para detectar cuando el documento fuente avanza y la plantilla no.
 
 ---
+
+### 2026-08-30 — NAV-NOTCH: navegación superior de islas (notch nav) detrás de flag
+
+**Rama/branch:** `Claude-Design`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `components/navigation/notch-nav/*` (nuevo), `components/layout/platform-notch-shell.tsx` (nuevo), `lib/navigation/nav-style.ts` (nuevo), `lib/navigation/full-bleed.ts` (nuevo), `components/layout/platform-shell.tsx`, `layouts/platform-layout.tsx`, `.env.example`, `CLAUDE.md`, `DESIGN.md`
+
+**Qué se hizo:**
+
+- **Navegación alternativa de barra superior** con el patrón "notch nav" de tres islas (logo · items · acciones) relevado en `docs/COMPONENTES_21ST.md` §3.1 (rama `Claude-New-Features`), **reimplementado desde cero** sobre framer-motion, Lucide y los tokens del design system. No se bajó el componente de 21st.dev: su código fuente está detrás de autenticación (403 sin credenciales, `21st login` es interactivo) y de todos modos había que reescribirle clases Tailwind v4, colores zinc hardcodeados y el routing.
+- **Activación por flag:** `NEXT_PUBLIC_NAV_STYLE=notch`. Sin la variable (o con otro valor) la plataforma usa el sidebar clásico, que quedó **intacto** — `PlatformShell` solo hace el branch. Revertir = borrar la env en Vercel y redeployar; también se puede borrar entero `platform-notch-shell.tsx` + `notch-nav/` sin tocar nada más.
+- **Una sola fuente de verdad:** el adaptador `platform-notch-nav.tsx` deriva items, permisos, add-ons y estado activo de `buildPlatformSidebarNav()` — el mismo config del sidebar. Los módulos con hijos (Marketing, Ventas, Finanzas, Operaciones) se abren como dropdown; Configuración migra a la isla derecha como engranaje para no ensanchar la barra; la isla derecha suma búsqueda (command palette), switcher de holding y toggle de tema.
+- **Shell propio** (`PlatformNotchShell`): barra arriba, franja de título de página (reemplaza al topbar clásico, que ponía el título), `MainContainerPanel` para mantener el look de panel flotante, y mobile con el `MobileNav` existente (hamburguesa + drawer). Vista holding sin negocio activo: sin items, como el sidebar.
+- **`lib/navigation/full-bleed.ts`:** las rutas full-bleed (agente, inbox, producto) estaban hardcodeadas en `platform-layout.tsx`; ahora ambos shells comparten el helper.
+- `CLAUDE.md` y `DESIGN.md` actualizados: la regla "la navegación es solo sidebar" ahora documenta la excepción controlada por flag, para que los docs no contradigan al código.
+
+**Por qué / finalidad:**
+
+Santiago quiere probar este estilo de navegación como innovación de producto, con vuelta atrás garantizada si no convence.
+
+**Decisiones de diseño relevantes:**
+
+- **Flag por env y no por preferencia de usuario:** la vuelta atrás es una decisión de producto, no per-user. Env = un solo estado para toda la org, sin flash de hidratación ni estados mixtos entre usuarios. Contra: cambiarla requiere redeploy (~2 min).
+- **Labels solo en `xl+`:** el sidebar tiene ~10 entradas raíz; con labels siempre visibles la barra no entra en 1280px. Debajo de `xl` los items quedan como iconos con `title`.
+- **Filetes de muesca** dibujados con un path SVG por lado (curva invertida `text-card`), no con imágenes.
+- Las páginas **no** tienen h1 propio (lo ponía el topbar) — por eso el shell nuevo trae la franja de título; sin ella todas las pantallas quedaban sin encabezado.
+
+**Verificación:**
+
+`tsc`, lint y `next build` con y sin flag (128 páginas). Verificación visual con una página de preview temporal (borrada antes del commit) montando el shell con providers mockeados: islas, dropdowns de módulo, tema claro y oscuro. **No verificado en vivo:** el estado activo del pill (el preview corría en una ruta fuera del nav) y las páginas reales de plataforma, que en este entorno devuelven 500 por falta de env de Supabase — el modo demo no cubre el layout de plataforma.
+
+**Riesgos / deuda técnica pendiente:**
+
+- El badge de llamadas Fathom pendientes (sidebar lo muestra en Clientes vía `mapDirectModules`) no está en la notch nav.
+- El botón de notificaciones ("próximamente", deshabilitado) del topbar clásico no se migró — decidir si va en la isla derecha.
+- El pill activo y el comportamiento con datos reales quedan por validar en producción/preview con sesión real.
+- Si el experimento se adopta como definitivo, borrar el shell del sidebar (o viceversa) para no mantener dos navegaciones para siempre.
+
+---
+
+### 2026-08-29 — REBRAND-LIMITLESS (fase 3): preview social y metadata
+
+**Rama/branch:** `Claude-Design`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `apps/web/app/opengraph-image.tsx`, `apps/web/app/layout.tsx`, `apps/web/app/apple-icon.png`, `apps/web/lib/email/trial-reels-email.ts`
+
+**Qué se hizo:**
+
+- **`app/opengraph-image.tsx`** — preview social 1200×630 generada con `next/og`, prerenderizada en build. Composición según el manual: fondo negro, barra de acento naranja, lockup blanco, tagline y dominio. El lockup se embebe como data URI porque Satori no resuelve rutas de `/public`.
+- **`metadataBase`** en `layout.tsx`, resuelto desde `NEXT_PUBLIC_APP_URL` con fallback a `VERCEL_URL`. **Sin esto la imagen no servía para nada**: Next resolvía `og:image` contra `http://localhost:3000` y el preview no cargaba al compartir el link.
+- **Bloques `openGraph` y `twitter`** en la metadata raíz (type, siteName, locale `es_AR`, card `summary_large_image`).
+- **`app/apple-icon.png`** (180×180) generado desde el mismo `icon.svg`, porque Apple no acepta SVG para el touch icon.
+- **Bug corregido:** `metadata.icons` seguía apuntando a `/brand/logo.png`, archivo borrado en la fase 2. Se eliminó el bloque — `app/icon.svg` y `app/apple-icon.png` ya los toma Next por convención de archivos.
+- **Contraste en emails:** el email de trial-reels quedó con blanco sobre `#E15D12` (3.64:1) en la fase 2. Ahora usa negro, igual que los botones de la app.
+
+**Por qué / finalidad:**
+
+La app no tenía preview social — al compartir el link no aparecía imagen. Con la identidad nueva era el momento de armarla.
+
+**Decisiones de diseño relevantes:**
+
+- **Texto en la tipografía por defecto del renderer.** Satori no soporta WOFF2 y `next/font` sirve Inter en ese formato, así que cargar la fuente real implicaba traer un TTF aparte. La carga de marca la aporta el logotipo, que ya trae el wordmark tipografiado.
+- **Sin `twitter-image` propia:** Twitter cae a `og:image` cuando no existe, y la composición sirve para ambos.
+
+**Riesgos / deuda técnica pendiente:**
+
+- `metadataBase` depende de `NEXT_PUBLIC_APP_URL` en Vercel. Si falta, cae a `VERCEL_URL` (la URL única del deploy, no el dominio de producción) y el preview apunta a un host que cambia en cada deploy. **Verificar que `NEXT_PUBLIC_APP_URL` esté seteada en producción.**
+- La tagline de la imagen sale de `brand.tagline` y todavía menciona "infoproductos" — si el posicionamiento de Limitless es más amplio (el manual habla de holdings y consultoría), conviene reescribirla.
+
+---
+
+### 2026-08-29 — REBRAND-LIMITLESS (fase 2): identidad visual — paleta, logotipo y tipografía
+
+**Rama/branch:** `Claude-Design`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `packages/ui/src/styles/tokens.css`, `packages/config/tailwind/preset.ts`, `apps/web/app/globals.css`, `apps/web/lib/brand.ts`, `apps/web/components/brand/*`, `apps/web/public/brand/*`, `apps/web/app/icon.svg`, `DESIGN.md`, + 127 archivos con color de marca
+
+**Qué se hizo:**
+
+- **Paleta aplicada.** Del manual de marca (sección 06), que define exactamente tres colores: Negro `#000000`, Blanco `#FFFFFF` y **Naranja Vibrant `#E15D12`** = `hsl(22 85% 48%)`. Se reemplazó el violeta `#7C3AED` en `tokens.css` (bloques `:root` y `.dark`), `globals.css` y `brandColors`.
+- **Escala `brand-50…950` en el preset de Tailwind**, anclada en `brand-600 = #E15D12`, con los pasos 400/600/700 coincidiendo con `--primary-light` / `--primary` / `--primary-hover`. Reemplaza a la escala violeta de Tailwind que usaba la identidad anterior.
+- **520 clases de color migradas** en 127 archivos: 462 clases `violet-*`/`purple-*`/`indigo-*` → `brand-*`, más 58 hex y `rgba()` sueltos (`#8B5CF6`, `#A78BFA`, `#6D28D9`, `rgba(124,58,237)`, `rgba(99,102,241)`, `rgba(168,85,247)`…). La auditoría de la fase 1 solo había buscado hex, por eso no las vio.
+- **Contraste corregido.** Blanco sobre `#E15D12` da 3.64:1, por debajo de AA para texto normal; negro da 5.78:1. Se cambió `--primary-foreground` a `0 0% 0%` y se migraron 10 botones que tenían `text-white` sobre `bg-primary` sólido, incluido el `variant="default"` del `Button` de `@ai-coo/ui`.
+- **Assets reales instalados.** `logo-{light,dark}.png` (lockup horizontal recortado, 1764×210, ~14 KB c/u) e `isotipo-{light,dark,naranja}.svg`. Se borraron `logo.png` (1.3 MB, OTC) y los dos isotipos OTC.
+- **`AppLogo` y `AppBrandHeader` ahora siguen el tema:** renderizan la versión negra y la blanca y las alternan con `dark:hidden` / `hidden dark:block`, como pide el manual (logotipo monocromo). `AppBrandHeader` pasó a usar el isotipo — su slot es cuadrado de 32×32 y antes metía ahí el lockup apaisado.
+- **Presets de tamaño de `AppLogo` recalibrados.** El lockup nuevo es ≈8.4:1 contra 1.4:1 del anterior: limitando por alto se desbordaba de la tarjeta de login. Ahora `login`, `sidebar` y `hero` limitan por ancho.
+- **Favicon rehecho** (`app/icon.svg`): cuadrado naranja con el isotipo en blanco, generado desde el path del SVG oficial. Antes era un rect violeta con una letra "M" dibujada a mano.
+- **`--font-display`** agregado como token y como utilidad `font-display` de Tailwind.
+
+**Por qué / finalidad:**
+
+Completar el rebranding con la identidad visual real, que en la fase 1 no estaba disponible. El material llegó por la rama `brand-source` (ver más abajo).
+
+**Decisiones de diseño relevantes:**
+
+- **Texto negro sobre naranja, no blanco.** Es la decisión con más impacto visual de esta fase. La alternativa era mantener blanco por consistencia con cómo se ve el logotipo sobre naranja en el manual, pero 3.64:1 no alcanza AA para un label de botón de 14px. El negro además es on-brand: la paleta es literalmente negro/blanco/naranja. Se revierte en una línea (`--primary-foreground` en `tokens.css`).
+- **Escala `brand-*` propia en vez del `orange-*` de Tailwind.** El `orange-600` de Tailwind (`#EA580C`) está a ojo de `#E15D12`, pero una escala propia hace que todo el color de marca trace de vuelta al manual y evita que convivan dos naranjas casi iguales.
+- **Lockup en PNG, isotipo en SVG.** Los SVG del lockup traen el wordmark como `<text>` vivo con `font-family: Manrope-Light`, sin vectorizar: en un navegador sin Manrope el logo renderiza con otra fuente. El isotipo sí es path puro.
+- **Paletas categóricas sin tocar.** En 5 archivos el violeta no es acento de marca sino una categoría dentro de una paleta que ya incluye naranja (ver riesgos).
+- **Colores de integraciones sin tocar.** `lib/integrations/brand-colors.ts` tiene los colores de marca de terceros (Discord `#5865F2`, Instagram, Miro `#050038`, Zernio `#6366F1`). Son violáceos pero no son nuestros.
+
+**Verificación:**
+
+`tsc --noEmit` y `pnpm lint` limpios en los 4 paquetes; `next build` genera las 125 páginas. Se levantó la app y se revisaron capturas de la landing y del login en tema claro y oscuro: el logotipo cambia correctamente con el tema y no quedó violeta en pantalla.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **5 archivos conservan violeta a propósito** — `product/graph-nodes.tsx`, `lib/workboard/styles.ts`, `constants/conversation-tags.ts`, `agent/proposal-card.tsx`, `sales/zernio-side-panel.tsx` (53 clases). Ahí el violeta es **una categoría entre varias** y el archivo ya usa naranja para otra: convertirlo colapsaría dos categorías en el mismo color. Necesitan una paleta categórica diseñada para convivir con un acento naranja — es una decisión de diseño, no un find-replace.
+- **Neue Haas Grotesk sin licencia.** El manual la pide para títulos; es comercial (Monotype). `--font-display` resuelve a Inter mientras tanto. Los títulos no van a coincidir con el manual hasta comprarla.
+- **`--primary-foreground` negro** cambia el aspecto de todos los botones primarios. Es intencional y accesible, pero es un cambio visible que conviene que el equipo valide.
+- La rama `brand-source` tiene el manual en PDF (58 MB). No mergear a `main`: se puede borrar una vez que el equipo tenga el material en otro lado.
+
+---
+
+### 2026-08-29 — REBRAND-LIMITLESS (fase 1): centralización de marca y renombre OTC → Limitless
+
+**Rama/branch:** `Claude-Design`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `lib/brand.ts`, `components/brand/*`, `app/layout.tsx`, `components/landing/*`, `components/welcome/`, `app/(landing)/privacidad/`, `lib/email/*`, `lib/agent/prompt.ts`, `lib/sops/utm-setup-sop.ts`, `packages/ui/src/styles/tokens.css`, `packages/config/tailwind/preset.ts`, `DESIGN.md`
+
+**Qué se hizo:**
+
+- **`lib/brand.ts` pasa a ser la fuente única de verdad de la identidad.** Antes solo exportaba `brandAssets` (rutas de logo). Ahora exporta además:
+  - `brand` — `name` ("Limitless"), `wordmark` ("LIMITLESS"), `legalName`, `tagline`, `domain`.
+  - `brandColors` — paleta hex para los contextos que **no** pueden leer CSS vars: props de color de charts (Visx), estilos inline y HTML de emails.
+- **Renombre completo OTC / "Optimiza Tu Control" → Limitless** en las 87 ocurrencias detectadas. Los strings de UI ahora referencian `brand.*` en lugar de literales; los comentarios, mocks y config se renombraron a texto plano.
+  - Metadata de Next (`layout.tsx` template `"Limitless | %s"`, landing, prueba, privacidad, redesign-preview)
+  - Landing completa (9 secciones + footer) y `cinematic-welcome`
+  - Emails Resend: waitlist, welcome, trial-reels (subjects, HTML y texto plano)
+  - System prompt del agente (`lib/agent/prompt.ts`) — antes decía "OTC (Operations & Technology Center)"
+  - Política de privacidad — 17 menciones
+  - Default del bot de Discord: "Asistente OTC" → "Asistente Limitless", sincronizado entre `apps/web` y `apps/discord-bot`
+- **Migración de color hardcodeado a tokens.** Había 73 hex de marca sueltos en 36 archivos:
+  - 40 clases Tailwind con valor arbitrario (`bg-[#7C3AED]`, `text-[#A78BFA]`, `bg-[#6D28D9]`…) → clases de la escala `primary`.
+  - 28 literales en JS (charts, estilos inline, emails) → `brandColors`.
+  - `packages/ui/src/components/bar-chart.tsx`: fallback `var(--chart-1, #7C3AED)` → `var(--chart-1, hsl(var(--primary)))` (packages/ui no puede importar de apps/web).
+- **Token nuevo `--primary-hover`** (`263 70% 50%` = `#6D28D9`) en light y dark: el violeta de hover/pressed no tenía token y se usaba hardcodeado en 7 lugares.
+- **Escala `primary` completa expuesta en el preset de Tailwind** (`light`, `hover`, `subtle`, `glow`, `border`). Antes solo había `DEFAULT` y `foreground`, y por eso el resto se escribía como valor arbitrario.
+
+**Por qué / finalidad:**
+
+Rebranding del software a la identidad Limitless. Esta fase cubre todo lo que **no** depende de la paleta ni de los assets visuales, que todavía no están disponibles (el manual de marca es un PDF de 61 MB sin capa de texto y el entorno no puede descargarlo). El objetivo es que la fase 2 —aplicar la identidad visual real— sea un cambio de dos archivos en lugar de un barrido por 36.
+
+**Decisiones de diseño relevantes:**
+
+- **Sin cambio visual en esta fase, a propósito.** Cada hex migrado se mapeó al token cuyo valor computado es idéntico (`#7C3AED` → `--primary`, `#A78BFA` → `--primary-light`, `#6D28D9` → `--primary-hover`). El render es byte a byte el mismo; lo único que cambió es de dónde sale el color.
+- **`brand.*` en lugar de literales, incluso para strings estáticos.** Agrega un import en ~30 archivos, pero un cambio de nombre o de casing pasa a ser una línea. Es el punto del ejercicio.
+- **Comentarios, mocks y config se renombraron a texto plano**, sin import: no son user-facing y no justifican la dependencia.
+- **Namespace del monorepo intacto.** `@ai-coo/*` y `ai-coo-platform` no se tocaron — decisión explícita del usuario. No es visible para el usuario final y renombrarlo implica ~200 imports y el lockfile.
+- **Dominio `optimizatucontrol.com` fuera de alcance**, también por decisión del usuario. Queda expuesto como `brand.domain` para que la migración futura sea un solo campo.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **Assets visuales sin reemplazar.** `public/brand/logo.png` (1.3 MB), los dos isotipos OTC y `app/icon.svg` (favicon SVG dibujado a mano, rect violeta + letra "M") siguen siendo de la identidad anterior. La app dice "Limitless" pero muestra el logo de OTC.
+- **Paleta sin definir.** Los valores violeta en `tokens.css` y `brandColors` son placeholder hasta tener el manual de marca.
+- **Tipografía sin definir.** Sigue Inter + JetBrains Mono en `layout.tsx`.
+- **Cambio de comportamiento menor:** el default del nombre del bot de Discord cambió. Las orgs que nunca lo personalizaron (`bot_name` en null) van a ver "Asistente Limitless" en lugar de "Asistente OTC".
+- **`lib/email/welcome-email.ts`** tiene un fallback hardcodeado `https://otc-plaform.vercel.app` (con el typo original). Es un dominio, queda fuera de alcance, pero conviene revisarlo.
+- La tabla de colores de `DESIGN.md` sigue documentando la paleta violeta; se marcó con un aviso de rebranding en curso pero hay que reescribirla en la fase 2.
 
 ### 2026-08-26 — FEAT-GHL-MULTI-CALENDAR: soporte de múltiples calendarios en integración GHL
 

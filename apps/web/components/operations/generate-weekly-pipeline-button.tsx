@@ -71,7 +71,7 @@ export function GenerateWeeklyPipelineButton({
     <Button
       type="button"
       size={size}
-      className={className ?? "bg-violet-600 hover:bg-violet-700"}
+      className={className ?? "bg-brand-600 hover:bg-brand-700"}
       disabled={pending}
       onClick={handleGenerate}
     >

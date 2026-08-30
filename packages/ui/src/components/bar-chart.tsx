@@ -51,7 +51,7 @@ function LineTrend({
     range: [pad.top + innerH, pad.top],
   });
 
-  const stroke = "var(--chart-1, #7C3AED)";
+  const stroke = "var(--chart-1, hsl(var(--primary)))";
 
   return (
     <svg width={width} height={height} role="img" aria-label="Gráfico de tendencia">
@@ -130,7 +130,7 @@ function VerticalBars({
             y={y}
             width={w}
             height={h}
-            fill={d.color ?? "var(--chart-1, #7C3AED)"}
+            fill={d.color ?? "var(--chart-1, hsl(var(--primary)))"}
             rx={4}
           />
         );

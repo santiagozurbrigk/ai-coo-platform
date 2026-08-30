@@ -1,10 +1,11 @@
 import { initialsFromName } from "@/lib/workboard/mapper";
 import type { MemberTimeReport, TaskTimeKind, TaskArea } from "@/types/workboard";
+import { brandColors } from "@/lib/brand";
 
 const STRATEGIC_AREAS = new Set<TaskArea>(["marketing", "ventas"]);
 
 const AVATAR_COLORS = [
-  "#7C3AED",
+  brandColors.primary,
   "#2563EB",
   "#059669",
   "#D97706",

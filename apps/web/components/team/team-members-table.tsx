@@ -33,7 +33,7 @@ function MemberAvatar({ member }: { member: TeamMember }) {
   }
 
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500/15 text-[11px] font-medium text-violet-700 dark:text-violet-300">
+    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500/15 text-[11px] font-medium text-brand-700 dark:text-brand-300">
       {initials}
     </div>
   );

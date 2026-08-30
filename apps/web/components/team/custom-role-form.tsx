@@ -69,7 +69,7 @@ export function CustomRoleForm({ onCreated }: { onCreated?: () => void }) {
           type="submit"
           size="sm"
           disabled={!name.trim() || pending}
-          className="gap-1.5 bg-violet-600 text-white hover:bg-violet-700"
+          className="gap-1.5 bg-brand-600 text-white hover:bg-brand-700"
         >
           <Check className="h-3.5 w-3.5" />
           {pending ? "Guardando…" : "Guardar rol"}

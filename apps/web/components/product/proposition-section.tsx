@@ -13,7 +13,7 @@ const FIELDS: {
   colorClass: string;
   borderClass: string;
 }[] = [
-  { label: "Avatar", key: "avatar", colorClass: "text-violet-600 dark:text-violet-400", borderClass: "border-violet-500/40" },
+  { label: "Avatar", key: "avatar", colorClass: "text-brand-600 dark:text-brand-400", borderClass: "border-brand-500/40" },
   { label: "Resultado", key: "result", colorClass: "text-green-600 dark:text-green-400", borderClass: "border-green-500/40" },
   { label: "Sin esto...", key: "painRemoved", colorClass: "text-red-600 dark:text-red-400", borderClass: "border-red-500/40" },
   { label: "En cuánto tiempo", key: "timeframe", colorClass: "text-amber-600 dark:text-amber-400", borderClass: "border-amber-500/40" },
@@ -59,7 +59,7 @@ export function PropositionSection({
           <Button
             type="button"
             size="sm"
-            className="bg-violet-600 hover:bg-violet-700"
+            className="bg-brand-600 hover:bg-brand-700"
             disabled={pending}
             onClick={handleSave}
           >
@@ -108,17 +108,17 @@ export function PropositionSection({
                     }));
                     setDirty(true);
                   }}
-                  className="w-full rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground transition-colors focus:border-violet-500/40 focus:outline-none disabled:opacity-60 dark:border-white/8 dark:bg-white/4"
+                  className="w-full rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground transition-colors focus:border-brand-500/40 focus:outline-none disabled:opacity-60 dark:border-white/8 dark:bg-white/4"
                 />
               </div>
             ))}
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl border border-violet-500/15 bg-violet-500/5 p-4">
+        <div className="mt-4 rounded-xl border border-brand-500/15 bg-brand-500/5 p-4">
           <div className="mb-2 flex items-center gap-2">
-            <Sparkles className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" />
-            <p className="text-xs text-violet-600 dark:text-violet-400">
+            <Sparkles className="h-3.5 w-3.5 text-brand-500 dark:text-brand-400" />
+            <p className="text-xs text-brand-600 dark:text-brand-400">
               Cómo el Agente usa esta información
             </p>
           </div>

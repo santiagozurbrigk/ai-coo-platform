@@ -302,7 +302,7 @@ export function SopCreatorForm() {
 
           <Button
             type="button"
-            className="w-full gap-2 bg-violet-600 hover:bg-violet-700 sm:w-auto"
+            className="w-full gap-2 bg-brand-600 hover:bg-brand-700 sm:w-auto"
             disabled={!canGenerate || generating || saving}
             onClick={runGenerate}
           >
@@ -340,7 +340,7 @@ export function SopCreatorForm() {
           </div>
         ) : generating ? (
           <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-violet-400" />
+            <Loader2 className="h-8 w-8 animate-spin text-brand-400" />
             <p className="text-sm font-medium">Generando SOP con IA…</p>
             <p className="max-w-xs text-xs text-muted-foreground">
               Puede tardar 10–20 segundos. Estructurando pasos y criterios según tu
@@ -381,7 +381,7 @@ export function SopCreatorForm() {
               <Button
                 type="button"
                 size="sm"
-                className="bg-violet-600 hover:bg-violet-700"
+                className="bg-brand-600 hover:bg-brand-700"
                 disabled={saving}
                 onClick={() => handleSave("active")}
               >

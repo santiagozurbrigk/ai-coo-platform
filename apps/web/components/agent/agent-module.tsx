@@ -112,8 +112,8 @@ export function AgentModule() {
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center justify-between border-b border-border bg-transparent px-6 py-4">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-violet-500/30 bg-violet-600/15">
-              <Sparkles className="h-4 w-4 text-violet-500 dark:text-violet-400" />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-brand-500/30 bg-brand-600/15">
+              <Sparkles className="h-4 w-4 text-brand-500 dark:text-brand-400" />
             </div>
             {currentStage ? (
               <div className="flex items-center gap-1.5">

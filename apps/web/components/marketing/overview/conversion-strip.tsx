@@ -52,7 +52,7 @@ export function ConversionStrip({ metrics }: ConversionStripProps) {
             {step.pct !== null && (
               <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-muted">
                 <div
-                  className="h-full rounded-full bg-violet-500"
+                  className="h-full rounded-full bg-brand-500"
                   style={{ width: `${step.pct}%` }}
                 />
               </div>

@@ -35,6 +35,7 @@ import {
   Trash2,
   Calendar,
 } from "lucide-react";
+import { brand } from "@/lib/brand";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -368,7 +369,7 @@ function ManualSalesForm({
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        OTC calcula automáticamente close rate, show rate y más a partir de estos datos. Podés cargar varios meses a la vez.
+        {brand.name} calcula automáticamente close rate, show rate y más a partir de estos datos. Podés cargar varios meses a la vez.
       </p>
 
       <div className="space-y-3 max-h-[480px] overflow-y-auto pr-0.5">
@@ -608,7 +609,7 @@ function StepMapper({
         <div>
           <p className="text-sm font-medium">Mapeo de columnas — Clientes</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Indicá qué columna de tu archivo corresponde a cada campo de OTC. Los campos marcados con <span className="text-destructive">*</span> son obligatorios.
+            Indicá qué columna de tu archivo corresponde a cada campo de {brand.name}. Los campos marcados con <span className="text-destructive">*</span> son obligatorios.
           </p>
         </div>
 
@@ -763,7 +764,7 @@ function ResultRow({ label, inserted, skipped, errors, planMatchCount }: {
         {skipped > 0 && <span>{skipped} ya existían</span>}
         {errors > 0 && <span className="text-destructive">{errors} errores</span>}
         {planMatchCount != null && planMatchCount > 0 && (
-          <span className="text-violet-500">{planMatchCount} con plan asignado</span>
+          <span className="text-brand-500">{planMatchCount} con plan asignado</span>
         )}
       </div>
     </div>

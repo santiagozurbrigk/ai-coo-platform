@@ -70,7 +70,7 @@ export function SalesMetricsRedesign({
 
   // ── Fallback: usar snapshot más reciente cuando no hay datos en vivo ──────
   // perfMetrics viene de closing_calls/conversations; si el usuario no tiene
-  // datos operativos cargados en OTC, todas las métricas son 0.
+  // datos operativos cargados en Limitless, todas las métricas son 0.
   // En ese caso usamos el snapshot importado más reciente como fuente.
   const latestSnapshot = importedSnapshots[0] ?? null; // ordenados desc por period_start
   const liveDataIsEmpty =
@@ -154,8 +154,8 @@ export function SalesMetricsRedesign({
 
       {/* ── 1. KPI Heroes: 4 métricas principales ──────────────────────────── */}
       {useSnapshotFallback && (
-        <div className="flex items-center gap-2 rounded-lg border border-violet-300/40 bg-violet-500/5 px-3 py-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
+        <div className="flex items-center gap-2 rounded-lg border border-brand-300/40 bg-brand-500/5 px-3 py-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-brand-500 shrink-0" />
           <p className="text-xs text-muted-foreground">
             Mostrando datos del período importado más reciente (<span className="font-medium text-foreground">{latestSnapshot!.periodLabel}</span>). Conectá tus integraciones para ver métricas en tiempo real.
           </p>
@@ -365,7 +365,7 @@ export function SalesMetricsRedesign({
 
           {/* Tiempo de respuesta */}
           <GlassPanel className="flex items-center gap-4 p-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-500">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/15 text-brand-500">
               <Clock size={18} />
             </div>
             <div>

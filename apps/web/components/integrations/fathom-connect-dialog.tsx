@@ -17,6 +17,7 @@ import {
   Label,
 } from "@ai-coo/ui";
 import { es } from "@/lib/locale/es";
+import { brand } from "@/lib/brand";
 
 const initialState: FathomConnectState = {};
 
@@ -27,7 +28,7 @@ const STEPS = [
       href="https://fathom.video/api_settings/new"
       target="_blank"
       rel="noreferrer"
-      className="text-violet-600 underline underline-offset-2 dark:text-violet-400"
+      className="text-brand-600 underline underline-offset-2 dark:text-brand-400"
     >
       fathom.video/api_settings/new
     </a>
@@ -41,7 +42,7 @@ const STEPS = [
     personal e interno)
   </>,
   <>
-    Poné el nombre <strong className="text-foreground/80">OTC Platform</strong> y
+    Poné el nombre <strong className="text-foreground/80">{brand.name} Platform</strong> y
     generá la key
   </>,
   <>Copiar la API key y pegarla abajo</>,
@@ -49,7 +50,7 @@ const STEPS = [
 
 function StepNumber({ n }: { n: number }) {
   return (
-    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-[10px] font-bold text-violet-600 dark:text-violet-400">
+    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-brand-500/20 text-[10px] font-bold text-brand-600 dark:text-brand-400">
       {n}
     </span>
   );

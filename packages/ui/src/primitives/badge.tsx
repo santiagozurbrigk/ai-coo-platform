@@ -19,7 +19,7 @@ const badgeVariants = cva(
           "border-red-200 bg-red-50 text-red-700 backdrop-blur-sm dark:border-red-400/25 dark:bg-red-500/10 dark:text-red-400",
         outline:
           "border-border bg-transparent text-muted-foreground backdrop-blur-sm dark:border-white/[0.08] dark:text-white/70",
-        ai: "border-violet-500/20 bg-violet-900/20 text-violet-400 backdrop-blur-sm dark:border-violet-500/20 dark:bg-violet-900/20 dark:text-violet-400",
+        ai: "border-brand-500/20 bg-brand-900/20 text-brand-400 backdrop-blur-sm dark:border-brand-500/20 dark:bg-brand-900/20 dark:text-brand-400",
       },
     },
     defaultVariants: {

@@ -102,7 +102,7 @@ export function DocumentViewerSidebar({
           <Button
             asChild
             size="sm"
-            className="justify-start gap-2 bg-violet-600 hover:bg-violet-700"
+            className="justify-start gap-2 bg-brand-600 hover:bg-brand-700"
           >
             <Link href={`${paths.platform.operations.sops}#crear`}>
               <FilePlus className="h-4 w-4" />

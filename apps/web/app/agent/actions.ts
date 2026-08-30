@@ -1,5 +1,8 @@
 "use server";
 
+import { brand } from "@/lib/brand";
+
+
 import { revalidatePath } from "next/cache";
 import {
   isMissingTableError,
@@ -142,7 +145,7 @@ const GENERATE_DOCUMENT_TOOL: Anthropic.Tool = {
 const CREATE_WORKBOARD_TASKS_TOOL: Anthropic.Tool = {
   name: "create_workboard_tasks",
   description:
-    "Crea una o más tareas directamente en el Tablero de Trabajo de OTC. SIEMPRE usar esta herramienta (en lugar de listar tareas en texto) cuando el usuario pida agregar tareas al tablero, board, kanban o tablero de trabajo. Las fechas deben estar en formato YYYY-MM-DD usando el año actual.",
+    `Crea una o más tareas directamente en el Tablero de Trabajo de ${brand.name}. SIEMPRE usar esta herramienta (en lugar de listar tareas en texto) cuando el usuario pida agregar tareas al tablero, board, kanban o tablero de trabajo. Las fechas deben estar en formato YYYY-MM-DD usando el año actual.`,
   input_schema: {
     type: "object" as const,
     required: ["tasks"],
