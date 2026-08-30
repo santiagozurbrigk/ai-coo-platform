@@ -58,9 +58,11 @@
 
 ---
 
-### [EMBUDOS-PAGOS-VERIFICAR] Verificar el mapeo de webhooks de Whop y Fanbasis
+### [EMBUDOS-PAGOS-VERIFICAR] Verificar el mapeo de webhooks de Whop y Commas contra eventos reales
 
-**Qué es:** la capa de pagos (I-2) está construida, pero **el mapeo de campos de los webhooks no está verificado** contra las APIs reales: `docs.whop.com` y `apidocs.fan` están bloqueados por la política de red del entorno de desarrollo, así que los nombres de campo en `lib/payments/normalize.ts` son una lectura razonable de los modelos publicados y no una transcripción de sus specs. El esquema de firma de Fanbasis tampoco está confirmado.
+**Qué es:** la capa de pagos (I-2) está construida y su mapeo se escribió a ciegas. **Desde el 2026-08-30 la documentación de los dos proveedores está capturada** en [`docs/external-apis/whop/`](./docs/external-apis/whop/) y [`docs/external-apis/commas/`](./docs/external-apis/commas/), así que buena parte de lo que había que "verificar" ya se puede **corregir leyendo** — ver `[EMBUDOS-PAGOS-CORREGIR]` más arriba.
+
+Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un payload real de cada proveedor** y confirmar que el mapeo corregido lo lee bien. La firma de los dos ya está documentada (Whop: Standard Webhooks con secreto `ws_`; Commas: `x-webhook-signature`, HMAC-SHA256 hex sobre el body crudo), pero ninguna de las dos se probó contra un evento real.
 
 **Por qué no bloquea:** cada webhook se persiste crudo en `payment_webhook_events` antes de interpretarse. Un evento que no se sabe leer queda en estado `unmapped` con su motivo y se puede reprocesar; nunca se inventa un número.
 
@@ -115,6 +117,20 @@
 
 
 ## 🟣 Nuevos Features — Implementar cuando Santiago lo indique
+
+### [UI-21ST] Cuatro componentes de 21st.dev relevados — decidir cuáles entran
+
+**Qué es:** el relevamiento completo (instalación, dependencias, código de uso, prompts y checklist) está en **[`docs/COMPONENTES_21ST.md`](./docs/COMPONENTES_21ST.md)**. Leerlo antes de correr cualquier `21st add`.
+
+**Decisiones abiertas:**
+- **Dropdown Range Date Picker** (`ruixen.ui`) — el de mayor valor: filtro de rango de fechas para `/marketing/anuncios`, `/finance/*`, `/executive-reports` y `/sales/closing`. **Bloqueado por dos cosas:** no declara licencia, y hay que verificar que exponga `value`/`onChange` (si el rango se queda adentro del componente, no sirve para filtrar).
+- **Adaptive Notch Navigation Bar** (`arunachalam`) — técnicamente el más limpio (cero dependencias de registry), pero es navegación horizontal y `CLAUDE.md` dice que la navegación es solo sidebar. Decisión de producto: ¿va en `(landing)` / `(founder)`, o no va?
+- **Tabs variante `button`** (`sean0205`/ReUI) — **no instalar.** Portar la variante a `packages/ui/src/primitives/tabs.tsx` con `cva`, dejando `default` igual que hoy.
+- **Statistics Card 1** (`sean0205`/ReUI) — **no instalar.** Ya tenemos `MetricCard`, `MetricStat` y `MetricBand`. Lo único que aporta es el menú `⋯` por tarjeta; portarlo a `MetricCard` como prop `actions`.
+
+**Prerrequisito para cualquiera de los dos primeros:** sesión de 21st.dev (`npx @21st-dev/cli@latest login`). Sin credenciales el registry devuelve 403.
+
+---
 
 ### [FEAT-EMBUDOS] Módulo de Embudos — motor genérico + plantillas por tipo de funnel
 
