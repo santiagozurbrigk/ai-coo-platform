@@ -32,6 +32,8 @@ export type NotchNavLink = {
   icon?: ReactNode;
   href: string;
   active: boolean;
+  /** Contador opcional (p. ej. cantidad de clientes). 0 no se muestra. */
+  badge?: number;
 };
 
 export type NotchNavMenu = {
@@ -91,11 +93,13 @@ function ItemChrome({
   label,
   icon,
   chevron,
+  badge,
 }: {
   active: boolean;
   label: string;
   icon?: ReactNode;
   chevron?: boolean;
+  badge?: number;
 }) {
   return (
     <>
@@ -116,6 +120,11 @@ function ItemChrome({
       >
         {icon}
         <span className="hidden xl:inline">{label}</span>
+        {badge ? (
+          <span className="rounded-full bg-muted px-1.5 text-[10px] font-semibold leading-4 text-muted-foreground">
+            {badge}
+          </span>
+        ) : null}
         {chevron && <ChevronDown className="h-3 w-3 opacity-60" />}
       </span>
     </>
@@ -152,7 +161,12 @@ export function NotchNav({
                     aria-current={item.active ? "page" : undefined}
                     className={cn(itemBaseClass, "group")}
                   >
-                    <ItemChrome active={item.active} label={item.label} icon={item.icon} />
+                    <ItemChrome
+                      active={item.active}
+                      label={item.label}
+                      icon={item.icon}
+                      badge={item.badge}
+                    />
                   </Link>
                 ) : (
                   <DropdownMenu key={item.id}>
