@@ -14,6 +14,33 @@
 
 ---
 
+### 2026-08-30 — FIX: el permiso de Embudos no se podía conceder desde la UI
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `constants/permission-modules.ts`, `constants/__tests__/permission-modules.test.ts` (nuevo), `vitest.config.ts`
+
+**Qué se hizo:**
+Santiago preguntó cómo darle acceso al panel de Embudos a una cuenta, y ahí apareció el bug: **no se podía**.
+
+**El bug.** `funnels` estaba declarado como módulo de permisos (`PermissionModuleId` y `PERMISSION_MODULES`) y el módulo del sidebar lo referenciaba con `permissionId: "funnels"`, pero **nunca se agregó a `MODULE_GROUPS`**. El formulario de roles personalizados itera los grupos, no la lista de módulos, así que "Embudos" no se renderizaba nunca y el permiso no se podía conceder. El módulo quedaba visible **sólo para founders**, que se saltean los permisos por completo.
+
+De los 21 módulos declarados, era **el único** sin grupo — así que no era un patrón, era un olvido.
+
+**Es un modo de falla silencioso:** nada rompe, nada avisa. Sólo se nota cuando alguien intenta darle acceso a otra persona y el módulo no está en la lista.
+
+**Un segundo hueco del mismo tipo.** Al escribir el test de regresión resultó que **no habría corrido**: el `include` de Vitest era `lib/**`, así que cualquier test fuera de esa carpeta se ignoraba en silencio — se ve verde porque no se ejecutó. Se amplió a toda la app, con `exclude` explícito para `node_modules`, `.next`, `dist` y `e2e` (que son de Playwright).
+
+**Verificación ejecutada:**
+- `pnpm test`: **418 tests en 24 archivos, todos en verde** (4 nuevos; el archivo de constants ahora sí se ejecuta).
+- `tsc --noEmit` y `pnpm lint` limpios.
+
+**Decisiones de diseño:**
+- **Embudos va en el grupo "General" y no en "Ventas".** Atraviesa módulos: mide desde el gasto en anuncios hasta el cobro. Agruparlo bajo Ventas sugeriría que sólo cubre esa parte.
+- **El test de regresión verifica la relación, no el caso.** Comprueba que *todo* módulo declarado esté en algún grupo, que ningún grupo referencie un módulo inexistente y que ninguno esté duplicado. El caso puntual de `funnels` es sólo el cuarto test.
+
+---
+
 ### 2026-08-30 — Traer `main` a la rama de embudos para poder probar todo junto
 
 **Rama/branch:** `Claude-New-Features`
