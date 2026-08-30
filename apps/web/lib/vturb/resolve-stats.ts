@@ -22,6 +22,8 @@ export type VTurbFunnelMeasures = {
   plays: number | null;
   /** M11 — porcentaje promedio visto. */
   avgWatchPct: number | null;
+  /** M16 — clicks en el botón del reproductor. Es intención, no compra. */
+  ctaClicks: number | null;
   /** M12 — llegaron al segundo del CTA. */
   reachedCta: number | null;
   /**
@@ -106,6 +108,9 @@ export function resolveVTurbMeasures(input: ResolveVTurbInput): VTurbFunnelMeasu
 
   const pageViews = readNumber(stats, "total_viewed");
   const plays = readNumber(stats, "total_started");
+  // M16. VTurb sí lo expone; WebinarJam no, y por eso en el embudo Webinar en
+  // vivo esta medida sigue sin fuente posible.
+  const ctaClicks = readNumber(stats, "total_clicked");
 
   // `engagement_rate` viene en los dos endpoints. Se prefiere el de
   // `/times/user_engagement`, que es el que tiene la fórmula documentada
@@ -120,6 +125,7 @@ export function resolveVTurbMeasures(input: ResolveVTurbInput): VTurbFunnelMeasu
       pageViews,
       plays,
       avgWatchPct,
+      ctaClicks,
       reachedCta: null,
       reachedCtaReason: "no_pitch_time",
     };
@@ -127,7 +133,14 @@ export function resolveVTurbMeasures(input: ResolveVTurbInput): VTurbFunnelMeasu
 
   const overPitch = readNumber(stats, "total_over_pitch");
   if (overPitch !== null) {
-    return { pageViews, plays, avgWatchPct, reachedCta: overPitch, reachedCtaReason: null };
+    return {
+      pageViews,
+      plays,
+      avgWatchPct,
+      ctaClicks,
+      reachedCta: overPitch,
+      reachedCtaReason: null,
+    };
   }
 
   // Camino de respaldo: derivarlo de la curva en el segundo del pitch.
@@ -136,6 +149,7 @@ export function resolveVTurbMeasures(input: ResolveVTurbInput): VTurbFunnelMeasu
     pageViews,
     plays,
     avgWatchPct,
+    ctaClicks,
     reachedCta: fromCurve,
     reachedCtaReason: fromCurve === null ? "no_data" : null,
   };

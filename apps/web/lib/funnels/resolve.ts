@@ -277,6 +277,7 @@ const GHL_HISTORY_SOURCES: readonly FunnelSourceId[] = [
 const VTURB_SOURCES: readonly FunnelSourceId[] = [
   "vturb_page_views",
   "vturb_plays",
+  "vturb_cta_clicks",
   "vturb_reached_cta",
 ];
 
@@ -428,6 +429,72 @@ async function countWebinarStayedToPitch(
   return stayed.size;
 }
 
+// ─── Formularios: aplicaciones enviadas y calificadas ─────────────────────────
+//
+// `form_responses` ya se puebla con las integraciones de Typeform y Google
+// Forms. Es la única fila del documento que OTC cubría entera desde antes del
+// módulo de embudos, pero no tenía fuente: estas dos la conectan.
+
+async function countFormSubmissions(
+  supabase: SupabaseClient,
+  organizationId: string,
+  period: FunnelPeriod,
+  formId: string
+): Promise<number | null> {
+  const { fromIso, toIso } = periodBounds(period);
+  const { count, error } = await supabase
+    .from("form_responses")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .eq("form_id", formId)
+    // Una respuesta a medias no es una aplicación enviada.
+    .eq("is_complete", true)
+    .gte("submitted_at", fromIso)
+    .lt("submitted_at", toIso);
+
+  if (error) return null;
+  return resolveWithSignal(count ?? 0, () =>
+    countAllTimeRows(supabase, "form_responses", organizationId)
+  );
+}
+
+/**
+ * Aplicaciones calificadas (M18).
+ *
+ * ⭐ La calificación la pone la IA y puede no haber corrido todavía. Si NINGUNA
+ * respuesta del período tiene `ai_lead_qualification`, la medida es `null`: cero
+ * calificadas diría que ninguna aplicación servía, cuando la verdad es que nadie
+ * las evaluó. Es el mismo caso que las llamadas sin resultado cargado.
+ */
+async function countFormQualified(
+  supabase: SupabaseClient,
+  organizationId: string,
+  period: FunnelPeriod,
+  formId: string
+): Promise<number | null> {
+  const { fromIso, toIso } = periodBounds(period);
+  const { data, error } = await supabase
+    .from("form_responses")
+    .select("ai_lead_qualification")
+    .eq("organization_id", organizationId)
+    .eq("form_id", formId)
+    .eq("is_complete", true)
+    .gte("submitted_at", fromIso)
+    .lt("submitted_at", toIso);
+
+  if (error || !data) return null;
+  if (data.length === 0) return null;
+
+  const scored = data.filter((row) => row.ai_lead_qualification !== null);
+  if (scored.length === 0) return null;
+
+  return scored.filter(
+    (row) =>
+      row.ai_lead_qualification === "qualified" ||
+      row.ai_lead_qualification === "highly_qualified"
+  ).length;
+}
+
 async function resolveSource(
   sourceId: FunnelSourceId,
   supabase: SupabaseClient,
@@ -494,15 +561,25 @@ async function resolveSource(
     }
     case "vturb_page_views":
     case "vturb_plays":
+    case "vturb_cta_clicks":
     case "vturb_reached_cta": {
       const playerId = config?.playerId;
       if (typeof playerId !== "string" || !playerId.trim()) return null;
       const measures = await loadVTurb(playerId);
       if (sourceId === "vturb_page_views") return measures.pageViews;
       if (sourceId === "vturb_plays") return measures.plays;
+      if (sourceId === "vturb_cta_clicks") return measures.ctaClicks;
       // `reachedCta` ya viene en `null` cuando el player no tiene pitch time:
       // `total_over_pitch` sin un segundo de pitch válido cuenta a casi todos.
       return measures.reachedCta;
+    }
+    case "form_submissions":
+    case "form_qualified": {
+      const formId = config?.formId;
+      if (typeof formId !== "string" || !formId.trim()) return null;
+      return sourceId === "form_submissions"
+        ? countFormSubmissions(supabase, organizationId, period, formId)
+        : countFormQualified(supabase, organizationId, period, formId);
     }
     default:
       return null;

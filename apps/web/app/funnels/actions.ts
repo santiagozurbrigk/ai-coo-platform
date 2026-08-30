@@ -323,3 +323,39 @@ export async function setFunnelStepBindingAction(
   revalidatePath(paths.platform.funnels.detail(funnelId));
   return { ok: true };
 }
+
+// ─── Catálogo de formularios para los bindings ────────────────────────────────
+
+export type FunnelFormOption = {
+  formId: string;
+  title: string;
+  platform: string | null;
+  totalResponses: number;
+};
+
+/**
+ * Formularios disponibles para las fuentes `form_submissions` y
+ * `form_qualified`.
+ *
+ * Vive acá y no en `app/forms/actions.ts` porque aquel hace una consulta por
+ * formulario para calcular scores promedio, y para un selector alcanza con la
+ * lista.
+ */
+export async function listFunnelFormOptionsAction(): Promise<FunnelFormOption[]> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("forms")
+    .select("id, title, platform, total_responses")
+    .eq("organization_id", organizationId)
+    .eq("is_active", true)
+    .order("title", { ascending: true });
+
+  return (data ?? []).map((row) => ({
+    formId: row.id as string,
+    title: (row.title as string | null) ?? "Formulario sin título",
+    platform: (row.platform as string | null) ?? null,
+    totalResponses: (row.total_responses as number | null) ?? 0,
+  }));
+}

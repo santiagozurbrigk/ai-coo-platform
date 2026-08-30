@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { FunnelBindingsForm } from "@/components/funnels/funnel-bindings-form";
-import { getFunnelBindingsAction } from "@/app/funnels/actions";
+import {
+  getFunnelBindingsAction,
+  listFunnelFormOptionsAction,
+} from "@/app/funnels/actions";
 import { listGHLStageOptionsAction } from "@/app/ghl/opportunity-actions";
 import { listVTurbPlayerOptionsAction } from "@/app/vturb/actions";
 import { listWebinarJamWebinarOptionsAction } from "@/app/webinarjam/actions";
@@ -22,10 +25,11 @@ export default async function FunnelConfigurePage({
   // Dos fuentes piden un parámetro: las de GHL, la etapa del pipeline; las de
   // VTurb, el video. Si la org no sincronizó su catálogo, la lista viene vacía y
   // el formulario lo dice en vez de ofrecer un selector sin opciones.
-  const [ghlStages, vturbPlayers, webinarJamWebinars] = await Promise.all([
+  const [ghlStages, vturbPlayers, webinarJamWebinars, forms] = await Promise.all([
     listGHLStageOptionsAction(),
     listVTurbPlayerOptionsAction(),
     listWebinarJamWebinarOptionsAction(),
+    listFunnelFormOptionsAction(),
   ]);
 
   const pendientes = blockingTools();
@@ -51,6 +55,7 @@ export default async function FunnelConfigurePage({
         ghlStages={ghlStages}
         vturbPlayers={vturbPlayers}
         webinarJamWebinars={webinarJamWebinars}
+        forms={forms}
       />
 
       {pendientes.length > 0 ? (

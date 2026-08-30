@@ -8,6 +8,7 @@ import {
 /** Respuesta de `/sessions/stats` con los campos que el spec declara. */
 const STATS = {
   total_viewed: 1000,
+  total_clicked: 95,
   total_started: 620,
   total_over_pitch: 180,
   total_under_pitch: 440,
@@ -164,5 +165,26 @@ describe("resolveVTurbMeasures", () => {
     expect(result.pageViews).toBe(0);
     expect(result.plays).toBe(0);
     expect(result.reachedCta).toBe(0);
+  });
+});
+
+describe("clicks al CTA (M16)", () => {
+  it("lee total_clicked", () => {
+    // Es la medida que WebinarJam NO expone: con webinars en vivo sigue sin
+    // fuente, pero en un VSL de VTurb sí se puede medir.
+    const result = resolveVTurbMeasures({ stats: STATS, engagement: null, pitchTime: 600 });
+    expect(result.ctaClicks).toBe(95);
+  });
+
+  it("sigue disponible aunque el player no tenga pitch time", () => {
+    // Los clicks no dependen del segundo de la oferta: son un evento propio.
+    const result = resolveVTurbMeasures({ stats: STATS, engagement: null, pitchTime: 0 });
+    expect(result.ctaClicks).toBe(95);
+    expect(result.reachedCta).toBeNull();
+  });
+
+  it("es null si el campo no vino", () => {
+    const result = resolveVTurbMeasures({ stats: {}, engagement: null, pitchTime: 600 });
+    expect(result.ctaClicks).toBeNull();
   });
 });

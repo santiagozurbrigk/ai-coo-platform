@@ -59,6 +59,7 @@ function emptyResult(playerId: string, error: string | null): VTurbPeriodResult 
     pageViews: null,
     plays: null,
     avgWatchPct: null,
+    ctaClicks: null,
     reachedCta: null,
     reachedCtaReason: null,
     fromCache: false,

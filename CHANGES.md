@@ -14,6 +14,42 @@
 
 ---
 
+### 2026-08-30 — Debate WebinarJam vs VTurb, y los dos huecos que dejó al descubierto
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/funnels/{sources,resolve}.ts`, `lib/vturb/{resolve-stats,stats}.ts`, `app/funnels/actions.ts`, `components/funnels/funnel-bindings-form.tsx`, `docs/FUNNELS_SOURCE_MAP.md`
+
+**Qué se hizo:**
+Santiago propuso quedarse sólo con VTurb y borrar I-5, razonando que las dos plataformas hacen lo mismo y que así se evitaba el trámite de la API key de WebinarJam. El debate cerró en que **no se puede**, y de paso dejó a la vista dos huecos reales.
+
+**La decisión y su razón.** Las tres métricas del webinar (asistió / se quedó / clickeó) miden efectivamente lo mismo que las tres del VSL, así que la intuición era razonable. Pero la diferencia que el documento encoda no es el reproductor: es que **el embudo Webinar es "Registration-led" y tiene etapa Lead ("Registration opt-in"), y el VSL no la tiene**. VTurb es un reproductor de un archivo grabado; WebinarJam es una plataforma de eventos. Con la respuesta de Santiago —**los clientes corren sus webinars en vivo, a una hora fija**— queda cerrado: en un webinar en vivo no hay archivo que reproducir, así que no hay nada que VTurb pueda medir. I-5 se queda y la aprobación de su API key es el camino crítico real del embudo Webinar.
+
+**Corrección de algo que yo mismo había argumentado.** Presenté "recuperar M16 con VTurb" como un punto a favor de la propuesta. Aplica sólo al caso evergreen: **con webinars en vivo M16 sigue sin fuente posible**. La fuente se agregó igual, pero no resuelve lo que yo había dicho que resolvía.
+
+**Hueco 1 — M16 (`vturb_cta_clicks`).** VTurb expone `total_clicked` y un endpoint de clicks por segundo del video. Es la medida que WebinarJam no da. Se agregó como fuente sólo para la etapa Intent: un click al CTA es intención declarada, y bindearlo a Sales Conv. contaría clicks como si fueran ventas.
+
+**Hueco 2 — las fuentes de formulario.** M17 y M18 figuraban en el mapa como ✅ "ya medibles" desde antes del módulo de embudos, pero **nunca se creó la fuente**: los datos existían en `form_responses` y el módulo no los podía usar. Es la única fila del documento que OTC cubría entera y estaba desconectada. Se agregaron `form_submissions` y `form_qualified`.
+
+**Verificación ejecutada:**
+- `pnpm test`: **372 tests en 20 archivos, todos en verde** (8 nuevos).
+- `tsc --noEmit` limpio, `pnpm lint` sin errores.
+- Sin migración: las tablas ya existían.
+
+**Decisiones de diseño:**
+- **`form_submissions` sirve para dos etapas.** El documento le da dos roles al mismo formulario: opt-in de registro en el webinar (Lead, M13) y aplicación en el VSL (Intent, M17). Es la primera fuente del catálogo con esa doble lectura, y es fiel al documento, no una comodidad.
+- **Sólo cuentan las respuestas completas.** Una respuesta a medias no es una aplicación enviada.
+- **⭐ M18 resuelve a `null` si ninguna respuesta del período tiene calificación de la IA.** Cero calificadas diría que ninguna aplicación servía; la verdad sería que nadie las evaluó. Mismo criterio que las llamadas de cierre sin resultado cargado.
+- **Los clicks al CTA no dependen del pitch time.** Son un evento propio, así que siguen disponibles en un player que no tiene configurado el segundo de la oferta — a diferencia de M12.
+- **Se dejó constancia del debate en el mapa de fuentes**, con la tabla comparativa y la condición bajo la cual la decisión cambiaría (si un cliente pasa a evergreen, ese embudo se arma sin WebinarJam y las fuentes ya existen).
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **`total_clicked` no tiene descripción en el spec de VTurb**, como ninguno de sus campos. Se asume "clicks en el botón del reproductor". Falta confirmarlo contra el dashboard.
+- M09 (opt-ins de landing) sigue sin fuente: no es lo mismo que M13. Sale de Hyros en I-8.
+- 🔑 La API key de WebinarJam pasa de "trámite pendiente" a **bloqueo del embudo Webinar**: sin ella, tres de sus siete pasos no tienen datos.
+
+---
+
 ### 2026-08-30 — I-5: WebinarJam / EverWebinar, y una medida que la API no da
 
 **Rama/branch:** `Claude-New-Features`

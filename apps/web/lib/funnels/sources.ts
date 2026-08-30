@@ -23,7 +23,8 @@ export type FunnelSourceConfigKind =
   | "ghl_stage"
   | "ghl_pipeline"
   | "vturb_player"
-  | "webinarjam_webinar";
+  | "webinarjam_webinar"
+  | "form";
 
 export type FunnelSourceConfigField = {
   key: string;
@@ -144,6 +145,19 @@ export const FUNNEL_SOURCES = [
     ],
   },
   {
+    id: "vturb_cta_clicks",
+    label: "Clicks al CTA del video (VTurb)",
+    description:
+      "Clicks en el botón del reproductor durante el período (M16). Es intención, no compra: no confundir con una reserva ni con un pago.",
+    provenance: "landing_page",
+    // Sólo `intent`: un click al CTA es exactamente eso, la intención declarada.
+    // No sirve para `sales_conv` — un click no es una venta.
+    suitableFor: ["intent"],
+    configFields: [
+      { key: "playerId", label: "Video de VTurb", kind: "vturb_player", required: true },
+    ],
+  },
+  {
     id: "vturb_reached_cta",
     label: "Llegaron al CTA del VSL (VTurb)",
     description:
@@ -152,6 +166,30 @@ export const FUNNEL_SOURCES = [
     suitableFor: ["engaged", "intent"],
     configFields: [
       { key: "playerId", label: "Video de VTurb", kind: "vturb_player", required: true },
+    ],
+  },
+  {
+    id: "form_submissions",
+    label: "Aplicaciones enviadas (formulario)",
+    description:
+      "Respuestas completas del formulario elegido, por fecha de envío (M17). Sirve también como opt-in de registro cuando el formulario es la puerta de entrada (M13).",
+    provenance: "application_form",
+    // `lead` para el opt-in de registro del webinar; `intent` para la aplicación
+    // del VSL. El documento le da los dos roles al mismo formulario.
+    suitableFor: ["lead", "intent"],
+    configFields: [
+      { key: "formId", label: "Formulario", kind: "form", required: true },
+    ],
+  },
+  {
+    id: "form_qualified",
+    label: "Aplicaciones calificadas (formulario)",
+    description:
+      'Respuestas que la IA marcó como "qualified" o "highly_qualified" (M18).',
+    provenance: "application_form",
+    suitableFor: ["intent"],
+    configFields: [
+      { key: "formId", label: "Formulario", kind: "form", required: true },
     ],
   },
   {

@@ -101,6 +101,11 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 >
 > Ojo con un falso amigo: `ZernioAdMetrics` trae `videoP25/50/75/95/100WatchedActions`,
 > pero son del **video del anuncio**, no del VSL de la landing. No sirven para M10-M12.
+>
+> 🔨 **Agregado el 2026-08-30:** `total_clicked` de VTurb da los **clicks al CTA
+> del reproductor**, o sea M16 — la medida que WebinarJam no expone. No cambia el
+> embudo Webinar de este cliente, que se corre **en vivo** (ver más abajo), pero
+> queda disponible para el VSL y para cualquier webinar evergreen futuro.
 
 ### WebinarJam / Zoom — asistencia
 
@@ -109,7 +114,7 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 | M13 | `webinar_registrants` | Registrados | 🟡 | Construido; falta la API key, que **requiere aprobación previa** de WebinarJam |
 | M14 | `webinar_attendees` | Asistieron, vivo + replay | 🟡 | Idem M13 |
 | M15 | `webinar_stayed_to_pitch` | Se quedaron hasta la oferta | 🟡 | Idem M13, **y configurar el segundo de la oferta**, que la API no publica |
-| M16 | `webinar_cta_clicks` | Clicks al CTA durante el webinar | ⛔ | **No se puede medir.** La API no lo expone |
+| M16 | `webinar_cta_clicks` | Clicks al CTA durante el webinar | ⛔ | **No se puede medir en un webinar en vivo.** WebinarJam no lo expone. En un webinar evergreen hosteado en VTurb sí (`total_clicked`) |
 
 > 🔨 **Construido el 2026-08-30.** Los registrantes se **persisten como filas**
 > (`webinarjam_registrants`) en vez de guardarse agregados, porque `/registrants`
@@ -127,15 +132,53 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 > Mostrarlo como "clicks al CTA" sería inventar la medida. El paso
 > `webinar.cta` del embudo se queda en "sin datos" y la UI dice por qué.
 
+#### ⭐ Por qué WebinarJam no se puede reemplazar con VTurb
+
+Se debatió el 2026-08-30 y quedó cerrado: **los clientes corren sus webinars en
+vivo, a una hora fija.**
+
+La tentación era razonable —las tres métricas del webinar (asistió / se quedó /
+clickeó) miden lo mismo que las tres del VSL, y VTurb es más fácil de configurar
+y encima **sí** expone los clicks al CTA— pero se apoya en una confusión:
+
+| | VTurb | WebinarJam |
+|---|---|---|
+| Qué es | un **reproductor** de un archivo grabado | una **plataforma de eventos** |
+| Cuándo se ve | cuando el visitante quiera | a una hora fija, en una sala |
+| Registro previo | no existe | es la etapa Lead del embudo |
+| Qué devuelve | conteos de sesiones anónimas | **personas**, con email y hora de entrada |
+
+La diferencia que el documento encoda no es el reproductor: es que **el embudo
+Webinar es "Registration-led" y tiene etapa Lead**, y el VSL **no la tiene**. En
+un webinar en vivo no hay archivo que reproducir, así que no hay nada que VTurb
+pueda medir.
+
+**Si en el futuro algún cliente pasa a evergreen** (video grabado detrás de un
+formulario), ese embudo sí se puede armar entero sin WebinarJam: `form_submissions`
+para el registro, y las fuentes de VTurb para asistencia, stick rate y clicks al
+CTA. Las fuentes ya existen y son compatibles por etapa — no hay que construir
+nada.
+
 ### Typeform / application — calificación
 
 | # | Medida | Qué es | Estado | Qué falta |
 |---|---|---|---|---|
-| M17 | `applications_submitted` | Aplicaciones enviadas | ✅ | Nada — `form_responses`, Typeform y Google Forms integrados |
-| M18 | `applications_qualified` | Aplicaciones calificadas | ✅ | Nada — `form_responses.ai_lead_qualification` (`qualified` / `highly_qualified`) |
+| M17 | `applications_submitted` | Aplicaciones enviadas | ✅ | Nada — `form_responses`, con fuente de embudo desde el 2026-08-30 |
+| M18 | `applications_qualified` | Aplicaciones calificadas | ✅ | Nada — `form_responses.ai_lead_qualification`, con fuente de embudo desde el 2026-08-30 |
 
 > **La única fila del documento que OTC ya cubre entera.** Typeform está en 0 orgs
 > pero Google Forms en 3, y la calificación por IA ya está construida.
+>
+> 🔨 **Corregido el 2026-08-30.** Estaban marcadas como ✅ pero **no tenían fuente
+> de embudo**: los datos existían y el módulo no los podía usar. Ahora hay dos
+> fuentes, `form_submissions` y `form_qualified`, con el formulario elegido por el
+> usuario. `form_submissions` sirve para dos etapas distintas porque el documento
+> le da dos roles al mismo formulario: **opt-in de registro** en el webinar (Lead,
+> M13) y **aplicación** en el VSL (Intent, M17).
+>
+> ⭐ Si ninguna respuesta del período tiene calificación de la IA, M18 resuelve a
+> `null`: cero calificadas diría que ninguna aplicación servía, cuando la verdad
+> es que nadie las evaluó.
 
 ### Calendly — agenda y asistencia
 

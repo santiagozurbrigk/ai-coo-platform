@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, Check } from "lucide-react";
 import { cn } from "@ai-coo/ui";
 import { setFunnelStepBindingAction } from "@/app/funnels/actions";
-import type { StepBindingRowView } from "@/app/funnels/actions";
+import type { FunnelFormOption, StepBindingRowView } from "@/app/funnels/actions";
 import type { GHLStageOption } from "@/app/ghl/opportunity-actions";
 import type { VTurbPlayerOption } from "@/app/vturb/actions";
 import type { WebinarJamWebinarOption } from "@/app/webinarjam/actions";
@@ -30,6 +30,7 @@ export function FunnelBindingsForm({
   ghlStages = [],
   vturbPlayers = [],
   webinarJamWebinars = [],
+  forms = [],
 }: {
   funnelId: string;
   rows: StepBindingRowView[];
@@ -42,6 +43,8 @@ export function FunnelBindingsForm({
   vturbPlayers?: VTurbPlayerOption[];
   /** Webinars de WebinarJam disponibles. */
   webinarJamWebinars?: WebinarJamWebinarOption[];
+  /** Formularios de Typeform / Google Forms de la org. */
+  forms?: FunnelFormOption[];
 }) {
   const router = useRouter();
   const { push } = useToast();
@@ -56,7 +59,10 @@ export function FunnelBindingsForm({
     Object.fromEntries(
       rows.map((r) => {
         const value =
-          r.currentConfig.stageId ?? r.currentConfig.playerId ?? r.currentConfig.webinarId;
+          r.currentConfig.stageId ??
+          r.currentConfig.playerId ??
+          r.currentConfig.webinarId ??
+          r.currentConfig.formId;
         return [r.stepId, typeof value === "string" ? value : ""];
       })
     )
@@ -185,6 +191,7 @@ export function FunnelBindingsForm({
                       ghlStages={ghlStages}
                       vturbPlayers={vturbPlayers}
                       webinarJamWebinars={webinarJamWebinars}
+                      forms={forms}
                       onChange={(next) =>
                         handleConfigChange(row.stepId, value, configField.key, next)
                       }
@@ -222,6 +229,7 @@ function ConfigPicker({
   ghlStages,
   vturbPlayers,
   webinarJamWebinars,
+  forms,
   onChange,
 }: {
   field: { key: string; label: string; kind: string };
@@ -230,6 +238,7 @@ function ConfigPicker({
   ghlStages: GHLStageOption[];
   vturbPlayers: VTurbPlayerOption[];
   webinarJamWebinars: WebinarJamWebinarOption[];
+  forms: FunnelFormOption[];
   onChange: (next: string) => void;
 }) {
   const EMPTY_MESSAGE: Record<string, string> = {
@@ -237,6 +246,7 @@ function ConfigPicker({
     webinarjam_webinar:
       "Conectá WebinarJam en Integraciones y sincronizá los webinars para poder elegir uno.",
     ghl_stage: "Sincronizá los pipelines de GoHighLevel en Integraciones para poder elegir la etapa.",
+    form: "Conectá Typeform o Google Forms en Integraciones para poder elegir un formulario.",
   };
   const empty = EMPTY_MESSAGE[field.kind] ?? EMPTY_MESSAGE.ghl_stage;
 
@@ -248,6 +258,12 @@ function ConfigPicker({
           // Sin pitch time no se puede medir "llegaron al CTA": conviene verlo
           // antes de elegir, no después de que el embudo diga "sin datos".
           hint: player.pitchTime ? null : "sin pitch time",
+        }))
+      : field.kind === "form"
+      ? forms.map((form) => ({
+          value: form.formId,
+          label: form.title,
+          hint: form.platform,
         }))
       : field.kind === "webinarjam_webinar"
       ? webinarJamWebinars.map((webinar) => ({

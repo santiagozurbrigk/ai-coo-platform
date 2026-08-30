@@ -155,10 +155,56 @@ describe("missingSourceConfig", () => {
       for (const field of fields ?? []) {
         expect(field.key.length).toBeGreaterThan(0);
         expect(field.label.length).toBeGreaterThan(0);
-        expect(["ghl_stage", "ghl_pipeline", "vturb_player", "webinarjam_webinar"]).toContain(
+        expect([
+          "ghl_stage",
+          "ghl_pipeline",
+          "vturb_player",
+          "webinarjam_webinar",
+          "form",
+        ]).toContain(
           field.kind
         );
       }
+    }
+  });
+});
+
+describe("fuentes agregadas al cerrar los huecos del embudo Webinar (2026-08-30)", () => {
+  it("los clicks al CTA de VTurb sólo sirven para Intent", () => {
+    // Un click al CTA es intención declarada. Bindearlo a Sales Conv. contaría
+    // clicks como si fueran ventas.
+    const source = getFunnelSource("vturb_cta_clicks")!;
+    expect(source.suitableFor).toEqual(["intent"]);
+  });
+
+  it("el formulario sirve como opt-in de registro y como aplicación", () => {
+    // El documento le da los dos roles al mismo formulario: en el webinar es la
+    // puerta de entrada (Lead) y en el VSL es la aplicación (Intent).
+    const source = getFunnelSource("form_submissions")!;
+    expect(source.suitableFor).toContain("lead");
+    expect(source.suitableFor).toContain("intent");
+  });
+
+  it("las aplicaciones calificadas sólo sirven para Intent", () => {
+    const source = getFunnelSource("form_qualified")!;
+    expect(source.suitableFor).toEqual(["intent"]);
+  });
+
+  it("las dos fuentes de formulario piden elegir cuál", () => {
+    // Contar todas las respuestas de todos los formularios de la org mezclaría
+    // el registro al webinar con la aplicación del VSL.
+    for (const id of ["form_submissions", "form_qualified"] as const) {
+      expect(missingSourceConfig(getFunnelSource(id)!, {})).toEqual(["formId"]);
+    }
+  });
+
+  it("cada paso del embudo Webinar tiene al menos una fuente posible salvo el CTA", () => {
+    // ⛔ "Clicked CTA / booked call" queda sin fuente con webinars en vivo:
+    // WebinarJam no expone los clicks al CTA y no hay video del que sacarlos.
+    const webinar = requireFunnelTemplate("webinar");
+    for (const step of webinar.steps) {
+      const options = sourcesForStage(step.stageId);
+      expect(options.length).toBeGreaterThan(0);
     }
   });
 });

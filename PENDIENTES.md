@@ -82,9 +82,11 @@
 
 ---
 
-### [WEBINARJAM-API-KEY] Pedir la API key de WebinarJam
+### [WEBINARJAM-API-KEY] Pedir la API key de WebinarJam 🔴
 
-**Qué es:** la API de WebinarJam/EverWebinar **requiere aprobación previa** — no alcanza con tener cuenta. Es el camino crítico de la unidad I-5.
+**Qué es:** la API de WebinarJam/EverWebinar **requiere aprobación previa** — no alcanza con tener cuenta.
+
+**Por qué subió de prioridad (2026-08-30):** se debatió reemplazar WebinarJam por VTurb y **no se puede**. Los clientes corren sus webinars **en vivo, a una hora fija**, y VTurb es un reproductor de archivos grabados: en un webinar en vivo no hay video que medir. Sin esta key, **tres de los siete pasos del embudo Webinar no tienen datos** y no hay plan B. El razonamiento completo está en `docs/FUNNELS_SOURCE_MAP.md`, sección "Por qué WebinarJam no se puede reemplazar con VTurb".
 
 **Acción:** seguir [el artículo de solicitud](./docs/external-apis/webinarjam/15370143-apply-for-an-api-key-for-webinarjam-or-everwebinar.md) para la cuenta del cliente que vaya a usarse.
 
@@ -287,6 +289,7 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-30 | EMBUDOS-HUECOS: fuente de clicks al CTA de VTurb (M16) y fuentes de formulario (M13, M17, M18), que estaban marcadas como medibles pero desconectadas del módulo. Debate WebinarJam vs VTurb cerrado y documentado. 372 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I5: integración WebinarJam / EverWebinar — registrantes persistidos por fila (la API no acepta rangos de fecha arbitrarios), stick rate pedido filtrado al servidor, segundo de la oferta configurable. M16 documentado como no medible. 364 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I6: integración VTurb — caché por período (engagement_rate es un promedio y no se puede sumar entre días), M12 sólo cuando el player tiene pitch time, catálogo de videos y selector en el formulario de fuentes. 351 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I4: oportunidades de GHL — historial propio de transiciones de etapa (GHL no lo expone), período ciego explícito, webhook con dos vías de autenticación, tres fuentes de embudo con etapa configurable. 331 tests en verde | `Claude-New-Features` |
