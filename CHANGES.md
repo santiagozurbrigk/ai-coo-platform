@@ -14,6 +14,43 @@
 
 ---
 
+### 2026-08-30 — I-5: WebinarJam / EverWebinar, y una medida que la API no da
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260830190000_webinarjam.sql`, `lib/webinarjam/*`, `app/webinarjam/actions.ts`, `lib/funnels/{sources,resolve,instrumentation}.ts`, `components/integrations/webinarjam-connect-panel.tsx`, `components/funnels/funnel-bindings-form.tsx`, docs
+
+**Qué se hizo:**
+La unidad I-5, que cierra la Ola 2: M13 (registrados), M14 (asistieron, vivo + replay) y M15 (se quedaron hasta la oferta).
+
+**Se persisten las personas, no los totales.** `/registrants` **no acepta un rango de fechas arbitrario**: su filtro `date_range` es una lista de presets (hoy, esta semana, últimos 30 días). El módulo de embudos pregunta por períodos arbitrarios, así que la única forma de responder es traer las filas y recortarlas del lado de OTC por `signup_date` y por las fechas de asistencia, que sí vienen por registrante. De ahí `webinarjam_registrants`, una fila por persona y sesión.
+
+**M15 se pide filtrada al servidor, no se deriva.** `attended_live=4` con `attended_live_timestamp = <segundo de la oferta>` devuelve exactamente los que asistieron y se fueron después de ese segundo — WebinarJam lo calcula de su lado. Eso evita depender de `time_live`, que la doc declara `string` sin decir si son segundos, `mm:ss` o `hh:mm:ss`. El segundo de la oferta lo carga el usuario en el panel de Integraciones porque **la API no lo publica**, a diferencia de VTurb que sí expone el `pitch_time` de cada player.
+
+**⛔ M16 (clicks al CTA durante el webinar) no se puede medir, y eso se dice.** La API no lo expone por ninguna vía. Lo más cercano que da es `purchased_live` —compró en la sala—, que es **conversión y no intención**: presentarlo como clicks al CTA sería inventar la medida. El paso `webinar.cta` del embudo se queda sin fuente a propósito, ninguna fuente de WebinarJam se ofrece para él, y el panel explica por qué.
+
+**No hay que elegir entre WebinarJam y EverWebinar.** Son la misma API con dos prefijos: mismos endpoints, mismos parámetros, mismos campos. El sync consulta los dos y guarda de dónde vino cada webinar, así que la pregunta "cuál usa este cliente" desaparece.
+
+**Verificación ejecutada:**
+- `pnpm test`: **364 tests en 20 archivos, todos en verde** (13 nuevos de normalización de registrantes).
+- `tsc --noEmit` limpio, `pnpm lint` sin errores.
+- Migración **aplicada** al proyecto Supabase de OTC.
+
+**Decisiones de diseño:**
+- **Los `schedule` id sólo salen del detalle.** `/webinars` devuelve los horarios como texto ("Every day, 01:00 PM"); `/registrants` necesita el id, que está en `/webinar`. Por eso el sync pide el detalle de cada webinar. Además la doc avisa que **el id de la API no coincide con el que se ve en la pestaña Schedules del panel** — queda anotado en el código.
+- **Los tres campos de asistencia son nullable.** `NULL` significa "la API no lo dijo"; `false` afirma que la persona no asistió. Contar como ausente a alguien de quien no se sabe nada hundiría el show rate sin motivo.
+- **Las fechas se parsean por magnitud.** La doc declara `signup_date` como `integer` sin la unidad; se decide segundos vs milisegundos por el valor, y lo que no se entiende queda en `NULL` en vez de caer en 1970.
+- **El sync de webinars no pisa `pitch_second`.** Es configuración del usuario, no dato de la API.
+- **M13 se cuenta por fecha de registro y M14 por fecha de asistencia.** Son dos preguntas distintas y el documento las separa en dos filas.
+
+**Riesgos / deuda técnica pendiente:**
+- 🔑 **Nada de esto se puede probar sin la API key, que requiere aprobación previa de WebinarJam.** Es el bloqueo de la unidad y conviene pedirla ya — `[WEBINARJAM-API-KEY]` en `PENDIENTES.md`.
+- ⚠️ **El ejemplo de `/registrants` en la doc es una captura de pantalla**, así que no se sabe bajo qué clave viene el array. El cliente acepta `registrants`, `users` y `data`; con el primer response real hay que dejar sólo la correcta.
+- ⚠️ **La tabla de valores de `attended_live` como campo de respuesta no está publicada** — la doc sólo documenta la del parámetro de filtro. Se asumió `0` = no, positivo = sí.
+- `lib/webinarjam/sync.ts` no tiene tests de orquestación — quedó como `[T-6d]` en `docs/TESTING_BACKLOG.md`.
+
+---
+
 ### 2026-08-30 — I-6: VTurb, el video de la landing
 
 **Rama/branch:** `Claude-New-Features`

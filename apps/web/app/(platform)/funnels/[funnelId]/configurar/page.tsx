@@ -6,6 +6,7 @@ import { FunnelBindingsForm } from "@/components/funnels/funnel-bindings-form";
 import { getFunnelBindingsAction } from "@/app/funnels/actions";
 import { listGHLStageOptionsAction } from "@/app/ghl/opportunity-actions";
 import { listVTurbPlayerOptionsAction } from "@/app/vturb/actions";
+import { listWebinarJamWebinarOptionsAction } from "@/app/webinarjam/actions";
 import { blockingTools } from "@/lib/funnels";
 import { paths } from "@/routes/paths";
 
@@ -21,9 +22,10 @@ export default async function FunnelConfigurePage({
   // Dos fuentes piden un parámetro: las de GHL, la etapa del pipeline; las de
   // VTurb, el video. Si la org no sincronizó su catálogo, la lista viene vacía y
   // el formulario lo dice en vez de ofrecer un selector sin opciones.
-  const [ghlStages, vturbPlayers] = await Promise.all([
+  const [ghlStages, vturbPlayers, webinarJamWebinars] = await Promise.all([
     listGHLStageOptionsAction(),
     listVTurbPlayerOptionsAction(),
+    listWebinarJamWebinarOptionsAction(),
   ]);
 
   const pendientes = blockingTools();
@@ -48,6 +50,7 @@ export default async function FunnelConfigurePage({
         rows={data.rows}
         ghlStages={ghlStages}
         vturbPlayers={vturbPlayers}
+        webinarJamWebinars={webinarJamWebinars}
       />
 
       {pendientes.length > 0 ? (

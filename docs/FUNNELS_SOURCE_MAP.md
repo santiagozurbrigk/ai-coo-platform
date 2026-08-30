@@ -106,13 +106,26 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 
 | # | Medida | Qué es | Estado | Qué falta |
 |---|---|---|---|---|
-| M13 | `webinar_registrants` | Registrados | 🔴 | Integración de webinar (o M09 desde la landing) |
-| M14 | `webinar_attendees` | Asistieron, vivo + replay | 🔴 | Integración de webinar |
-| M15 | `webinar_stayed_to_pitch` | Se quedaron hasta la oferta | 🔴 | Integración de webinar |
-| M16 | `webinar_cta_clicks` | Clicks al CTA durante el webinar | 🔴 | Integración de webinar |
+| M13 | `webinar_registrants` | Registrados | 🟡 | Construido; falta la API key, que **requiere aprobación previa** de WebinarJam |
+| M14 | `webinar_attendees` | Asistieron, vivo + replay | 🟡 | Idem M13 |
+| M15 | `webinar_stayed_to_pitch` | Se quedaron hasta la oferta | 🟡 | Idem M13, **y configurar el segundo de la oferta**, que la API no publica |
+| M16 | `webinar_cta_clicks` | Clicks al CTA durante el webinar | ⛔ | **No se puede medir.** La API no lo expone |
 
-> Estas cuatro son **el embudo Webinar entero**: sin ellas sólo se pueden medir
-> sus dos extremos.
+> 🔨 **Construido el 2026-08-30.** Los registrantes se **persisten como filas**
+> (`webinarjam_registrants`) en vez de guardarse agregados, porque `/registrants`
+> **no acepta un rango de fechas arbitrario**: su filtro `date_range` es una lista
+> de presets (hoy, esta semana, últimos 30 días). El recorte al período del embudo
+> lo hace OTC sobre `signup_date` y las fechas de asistencia de cada fila.
+>
+> ⭐ **M15 se pide filtrada al servidor, no se deriva.** `attended_live=4` con
+> `attended_live_timestamp = <segundo de la oferta>` devuelve exactamente los que
+> se quedaron pasada la oferta. Eso evita depender de `time_live`, cuya unidad la
+> doc no declara.
+>
+> ⛔ **M16 queda sin fuente a propósito.** Lo más cercano que da la API es
+> `purchased_live` (compró en la sala), que es **conversión y no intención**.
+> Mostrarlo como "clicks al CTA" sería inventar la medida. El paso
+> `webinar.cta` del embudo se queda en "sin datos" y la UI dice por qué.
 
 ### Typeform / application — calificación
 
@@ -237,10 +250,10 @@ Qué medidas consume cada paso, y si ese paso se puede medir hoy.
 | Etapa | Paso | Medidas | ¿Medible hoy? |
 |---|---|---|---|
 | Click | Ad → registration page | M02, M04, M01 | 🟡 Al periodizar Meta |
-| Lead | Registration opt-in | M08, M09, M01, M13 | 🔴 Falta landing |
-| Engaged | Showed up (live + replay) | M13, M14 | 🔴 Falta webinar |
-| Engaged | Stayed to the pitch | M14, M15 | 🔴 Falta webinar |
-| Intent | Clicked CTA / booked call | M14, M16 | 🔴 Falta webinar |
+| Lead | Registration opt-in | M08, M09, M01, M13 | 🟡 M13 al conseguir la API key; M09 sigue esperando Hyros |
+| Engaged | Showed up (live + replay) | M13, M14 | 🟡 Al conseguir la API key |
+| Engaged | Stayed to the pitch | M14, M15 | 🟡 Al conseguir la API key y cargar el segundo de la oferta |
+| Intent | Clicked CTA / booked call | M14, M16 | ⛔ M16 no existe en la API de WebinarJam |
 | Sales Conv. | Direct buy or closed on call | M14, M24, M26 | 🟡 Al poblar cierres |
 | Cash | Payment collected | M13, M24, M28 | 🟡 Al conectar pagos |
 
@@ -319,7 +332,7 @@ Agrupado por unidad de trabajo, con lo que desbloquea cada una.
 | **I-2** | **Pagos con Whop y Fanbasis** 🔨 **Construido 2026-08-29, sin verificar** | M26–M31 | Etapa Cash de **los 3 embudos**, AOV, ROAS, CAC, EPL, cash vs contracted, refunds | Falta conectar la primera cuenta real y confirmar el mapeo con un webhook de verdad |
 | ~~**I-3**~~ | ~~**Verificar asistencia y cierre de llamadas**~~ ✅ **Hecho 2026-08-30** | M20, M24 | Show rate y Close rate en VSL y DM, 2 health bands | — |
 | **I-4** | **Sync de oportunidades de GHL** 🔨 **Construido 2026-08-30, sin verificar** | M21–M23, M25 | **Embudo DM entero** (4 de 6 pasos) | Falta recibir el primer webhook real y confirmar que la vía de Workflow entregue `pipelineStageId` |
-| **I-5** | **Integración de webinar** (WebinarJam / Zoom) | M13–M16 | **Embudo Webinar entero** (4 de 7 pasos) | **L** — integración nueva desde cero |
+| **I-5** | **Integración de webinar** (WebinarJam / EverWebinar) 🔨 **Construido 2026-08-30, sin verificar** | M13–M15 (**M16 no se puede medir**) | 3 de los 4 pasos propios del embudo Webinar | Falta la API key, que **requiere aprobación previa de WebinarJam** |
 | **I-6** | **Integración VTurb** 🔨 **Construido 2026-08-30, sin verificar** | M08, M10–M12 | Etapa Engaged del **VSL** + visitantes de página | Falta conectar una cuenta y confirmar la semántica de los campos de `Stats`, que el spec no describe |
 | ~~**I-7**~~ | ~~**Analytics de landing / opt-in**~~ — **absorbida por `I-8`**, ver §8 | M08, M09 | Etapa Lead del webinar, denominador del play rate del VSL | — |
 | **I-8** | **Hyros** | M05–M09 | ROAS by-source, etiquetado `[Hyros]`, **y los opt-ins de las landings** | **L** — REST API con auth por API key (leads, journeys, sales, orders). Todos los clientes ya lo pagan |

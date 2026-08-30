@@ -19,7 +19,11 @@ import type { SpineStageId } from "./spine";
 import type { InstrumentationToolId } from "./instrumentation";
 
 /** Tipo de dato que pide un parámetro de fuente, para que la UI sepa qué mostrar. */
-export type FunnelSourceConfigKind = "ghl_stage" | "ghl_pipeline" | "vturb_player";
+export type FunnelSourceConfigKind =
+  | "ghl_stage"
+  | "ghl_pipeline"
+  | "vturb_player"
+  | "webinarjam_webinar";
 
 export type FunnelSourceConfigField = {
   key: string;
@@ -148,6 +152,39 @@ export const FUNNEL_SOURCES = [
     suitableFor: ["engaged", "intent"],
     configFields: [
       { key: "playerId", label: "Video de VTurb", kind: "vturb_player", required: true },
+    ],
+  },
+  {
+    id: "webinar_registrants",
+    label: "Registrados al webinar (WebinarJam)",
+    description:
+      "Personas que se registraron dentro del período, por su fecha de registro (M13).",
+    provenance: "webinar_platform",
+    suitableFor: ["lead"],
+    configFields: [
+      { key: "webinarId", label: "Webinar", kind: "webinarjam_webinar", required: true },
+    ],
+  },
+  {
+    id: "webinar_attendees",
+    label: "Asistieron al webinar (WebinarJam)",
+    description:
+      "Asistieron en vivo o al replay, contados por su fecha de asistencia (M14).",
+    provenance: "webinar_platform",
+    suitableFor: ["engaged"],
+    configFields: [
+      { key: "webinarId", label: "Webinar", kind: "webinarjam_webinar", required: true },
+    ],
+  },
+  {
+    id: "webinar_stayed_to_pitch",
+    label: "Se quedaron hasta la oferta (WebinarJam)",
+    description:
+      "Asistentes que siguieron en la sala pasado el segundo de la oferta (M15). Necesita configurar ese segundo en el webinar.",
+    provenance: "webinar_platform",
+    suitableFor: ["engaged"],
+    configFields: [
+      { key: "webinarId", label: "Webinar", kind: "webinarjam_webinar", required: true },
     ],
   },
   {

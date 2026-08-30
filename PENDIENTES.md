@@ -25,7 +25,7 @@
 
 **Orden acordado — de afuera hacia adentro, no de a un embudo:**
 - **Ola 1 (extremos, sirve a los 3 embudos):** ✅ **Completa.** ~~I-1 métricas de ads~~ · ~~I-2 pagos con Whop y Fanbasis~~ 🔨 *(falta conectar una cuenta real y verificar el mapeo)* · ~~I-3 asistencia y cierres + detección de fuente vacía~~
-- **Ola 2 (medios, por costo):** ~~I-4 GHL opportunities~~ 🔨 *(construido 2026-08-30; falta recibir el primer webhook real — ver `[EMBUDOS-GHL-ENTREGA]`)* · ~~I-6 VTurb~~ 🔨 *(construido 2026-08-30; falta conectar una cuenta real)* · I-5 webinar — 📗 documentación capturada. Hallazgos que cambian el diseño: GHL **no** tiene historial de cambios de etapa (hay que construirlo desde webhooks); VTurb **sí** da la curva de retención y ya modela el segundo del CTA; WebinarJam resuelve el stick rate del lado del servidor pero **no expone clicks al CTA**, y su API key **requiere aprobación previa** — pedirla ya.
+- **Ola 2 (medios, por costo):** ~~I-4 GHL opportunities~~ 🔨 *(construido 2026-08-30; falta recibir el primer webhook real — ver `[EMBUDOS-GHL-ENTREGA]`)* · ~~I-6 VTurb~~ 🔨 *(construido 2026-08-30; falta conectar una cuenta real)* · ~~I-5 webinar~~ 🔨 *(construido 2026-08-30; bloqueado por la aprobación de la API key)* — 📗 documentación capturada. **Ola 2 completa.** Hallazgos que cambian el diseño: GHL **no** tiene historial de cambios de etapa (hay que construirlo desde webhooks); VTurb **sí** da la curva de retención y ya modela el segundo del CTA; WebinarJam resuelve el stick rate del lado del servidor pero **no expone clicks al CTA**, y su API key **requiere aprobación previa** — pedirla ya.
 - **Ola 3:** I-9 retención · I-8 Hyros · I-10 triggers de Zernio — 📗 Hyros capturado. Confirma que **`I-7` no hace falta** (M08 y M09 salen de `/leads` y del reporte de atribución) y que `fields=cost` cubre M01, así que tampoco hace falta cruzar la API de cada plataforma de ads.
 
 **Verificación:** nada se prueba contra cuentas reales hasta terminar todas las olas — ver [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md).
@@ -86,7 +86,11 @@
 
 **Qué es:** la API de WebinarJam/EverWebinar **requiere aprobación previa** — no alcanza con tener cuenta. Es el camino crítico de la unidad I-5.
 
-**Acción:** seguir [el artículo de solicitud](./docs/external-apis/webinarjam/15370143-apply-for-an-api-key-for-webinarjam-or-everwebinar.md) para la cuenta del cliente que vaya a usarse, y confirmar si usa WebinarJam, EverWebinar o los dos.
+**Acción:** seguir [el artículo de solicitud](./docs/external-apis/webinarjam/15370143-apply-for-an-api-key-for-webinarjam-or-everwebinar.md) para la cuenta del cliente que vaya a usarse.
+
+**Ya no hace falta saber cuál de los dos productos usa el cliente:** son la misma API con dos prefijos y el sync consulta los dos. La integración está construida (2026-08-30) y **lo único que falta es la key.**
+
+**Después de conseguirla:** cargar el segundo en el que aparece la oferta de cada webinar, desde el panel de Integraciones. Sin ese número no se puede medir el stick rate — ver `docs/PLAN_VERIFICACION.md` §7.3.
 
 ---
 
@@ -283,6 +287,7 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-30 | EMBUDOS-I5: integración WebinarJam / EverWebinar — registrantes persistidos por fila (la API no acepta rangos de fecha arbitrarios), stick rate pedido filtrado al servidor, segundo de la oferta configurable. M16 documentado como no medible. 364 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I6: integración VTurb — caché por período (engagement_rate es un promedio y no se puede sumar entre días), M12 sólo cuando el player tiene pitch time, catálogo de videos y selector en el formulario de fuentes. 351 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I4: oportunidades de GHL — historial propio de transiciones de etapa (GHL no lo expone), período ciego explícito, webhook con dos vías de autenticación, tres fuentes de embudo con etapa configurable. 331 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | DOC-EXTERNAL-APIS-2: Whop (897 páginas + 3 specs OpenAPI), Commas ex Fanbasis (42 secciones), Hyros (482 guías + 3 specs) y WebinarJam (17 artículos) bajados a `docs/external-apis/`, con un `RESUMEN-OTC.md` por proveedor. Cierra las seis secciones de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |

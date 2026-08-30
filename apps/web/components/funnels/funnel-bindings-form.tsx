@@ -8,6 +8,7 @@ import { setFunnelStepBindingAction } from "@/app/funnels/actions";
 import type { StepBindingRowView } from "@/app/funnels/actions";
 import type { GHLStageOption } from "@/app/ghl/opportunity-actions";
 import type { VTurbPlayerOption } from "@/app/vturb/actions";
+import type { WebinarJamWebinarOption } from "@/app/webinarjam/actions";
 import { useToast } from "@/providers/toast-provider";
 
 const UNBOUND = "__sin_fuente__";
@@ -28,6 +29,7 @@ export function FunnelBindingsForm({
   rows,
   ghlStages = [],
   vturbPlayers = [],
+  webinarJamWebinars = [],
 }: {
   funnelId: string;
   rows: StepBindingRowView[];
@@ -38,6 +40,8 @@ export function FunnelBindingsForm({
   ghlStages?: GHLStageOption[];
   /** Videos de VTurb disponibles. Vacío = falta conectar o sincronizar VTurb. */
   vturbPlayers?: VTurbPlayerOption[];
+  /** Webinars de WebinarJam disponibles. */
+  webinarJamWebinars?: WebinarJamWebinarOption[];
 }) {
   const router = useRouter();
   const { push } = useToast();
@@ -51,7 +55,8 @@ export function FunnelBindingsForm({
   const [configValues, setConfigValues] = useState<Record<string, string>>(
     Object.fromEntries(
       rows.map((r) => {
-        const value = r.currentConfig.stageId ?? r.currentConfig.playerId;
+        const value =
+          r.currentConfig.stageId ?? r.currentConfig.playerId ?? r.currentConfig.webinarId;
         return [r.stepId, typeof value === "string" ? value : ""];
       })
     )
@@ -179,6 +184,7 @@ export function FunnelBindingsForm({
                       disabled={isPending}
                       ghlStages={ghlStages}
                       vturbPlayers={vturbPlayers}
+                      webinarJamWebinars={webinarJamWebinars}
                       onChange={(next) =>
                         handleConfigChange(row.stepId, value, configField.key, next)
                       }
@@ -215,6 +221,7 @@ function ConfigPicker({
   disabled,
   ghlStages,
   vturbPlayers,
+  webinarJamWebinars,
   onChange,
 }: {
   field: { key: string; label: string; kind: string };
@@ -222,12 +229,16 @@ function ConfigPicker({
   disabled: boolean;
   ghlStages: GHLStageOption[];
   vturbPlayers: VTurbPlayerOption[];
+  webinarJamWebinars: WebinarJamWebinarOption[];
   onChange: (next: string) => void;
 }) {
-  const empty =
-    field.kind === "vturb_player"
-      ? "Conectá VTurb en Integraciones y sincronizá los videos para poder elegir uno."
-      : "Sincronizá los pipelines de GoHighLevel en Integraciones para poder elegir la etapa.";
+  const EMPTY_MESSAGE: Record<string, string> = {
+    vturb_player: "Conectá VTurb en Integraciones y sincronizá los videos para poder elegir uno.",
+    webinarjam_webinar:
+      "Conectá WebinarJam en Integraciones y sincronizá los webinars para poder elegir uno.",
+    ghl_stage: "Sincronizá los pipelines de GoHighLevel en Integraciones para poder elegir la etapa.",
+  };
+  const empty = EMPTY_MESSAGE[field.kind] ?? EMPTY_MESSAGE.ghl_stage;
 
   const options =
     field.kind === "vturb_player"
@@ -237,6 +248,14 @@ function ConfigPicker({
           // Sin pitch time no se puede medir "llegaron al CTA": conviene verlo
           // antes de elegir, no después de que el embudo diga "sin datos".
           hint: player.pitchTime ? null : "sin pitch time",
+        }))
+      : field.kind === "webinarjam_webinar"
+      ? webinarJamWebinars.map((webinar) => ({
+          value: webinar.webinarId,
+          label: webinar.name ?? webinar.webinarId,
+          // Mismo criterio que VTurb: sin el segundo de la oferta, el stick rate
+          // no se puede medir.
+          hint: webinar.pitchSecond ? null : "sin segundo de oferta",
         }))
       : ghlStages.map((stage) => ({
           value: stage.stageId,

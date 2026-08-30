@@ -197,6 +197,28 @@ normalización ya está cubierta en `resolve-stats.test.ts`.
 - El memo de `resolveFunnel`: tres steps apuntando al mismo player hacen **una**
   llamada, no tres.
 
+### [T-6d] `lib/webinarjam/sync.ts` — sync de registrantes (agregado 2026-08-30)
+
+**Por qué:** es donde se decide quién cuenta como asistente y quién se quedó hasta
+la oferta. Un error acá mueve el show rate y el stick rate del embudo Webinar.
+
+**Cómo:** mockear `createAdminClient()` y las funciones del cliente.
+
+**Qué verificar:**
+- Se consultan **los dos prefijos**, y si uno falla el otro igual se sincroniza.
+- ⭐ Un webinar **sin `pitch_second`** deja `stayed_past_pitch` en `NULL` para todas
+  sus filas, y **no hace** la segunda consulta filtrada.
+- Si la consulta filtrada de M15 falla, `stayed_past_pitch` queda `NULL` y **no**
+  se marca a todos como que no se quedaron.
+- El upsert de webinars **no pisa `pitch_second`**: es configuración del usuario.
+- Un registrante sin email se descarta y suma a `skipped`.
+- El email se normaliza igual entre el listado completo y el filtrado, para que el
+  cruce de M15 acierte.
+- Los resolvers de `resolve.ts`: sin ninguna fila con asistencia registrada,
+  `webinar_attendees` devuelve `null`; con al menos una, devuelve el conteo real.
+- `webinar_stayed_to_pitch` devuelve `null` si **todas** las filas tienen
+  `stayed_past_pitch` en `NULL`.
+
 ### [T-7] `app/funnels/actions.ts` — Server Actions
 
 **Qué verificar:**

@@ -303,6 +303,26 @@ la fecha.
 
 ---
 
+### 🔴 Lo que quedó SIN documentación al construir I-5 (2026-08-30)
+
+Tres formatos que la doc declara con su tipo y sin su significado. El parseo está
+aislado en `lib/webinarjam/normalize-registrant.ts` y **lo que no se puede leer
+queda en `null`**, nunca en un valor por defecto.
+
+| Campo | Declarado | Qué se asumió |
+|---|---|---|
+| `signup_date`, `date_live`, `date_replay` | `integer` | Epoch. Se decide segundos vs milisegundos **por magnitud**; un texto de fecha también se acepta |
+| `attended_live`, `attended_replay` (respuesta) | `integer` | La doc publica la tabla 0-4 del **parámetro de filtro**, no la del campo de respuesta. Se asume `0` = no, positivo = sí |
+| `revenue_live`, `revenue_replay` | `string` | Puede traer símbolo de moneda. **No se usan todavía** — el dinero del embudo sale de Whop/Fanbasis (I-2), no de acá |
+| `time_live`, `time_replay` | `string` | Unidad sin declarar. **Se evitó depender de ellos**: M15 se pide filtrada al servidor con `attended_live=4` |
+
+**Y una forma de respuesta sin ejemplo en texto.** El ejemplo de `/registrants` en
+la doc es **una captura de pantalla**, así que no se sabe bajo qué clave viene el
+array. El cliente acepta `registrants`, `users` y `data`.
+
+⛔ **M16 no tiene camino.** `webinar_cta_clicks` no está expuesto por ninguna vía.
+No es una asunción pendiente de verificar: es una medida que la API no da.
+
 ## 6. Hyros (unidad I-8) — ✅ **resuelta**
 
 **Documentación:** **capturada el 2026-08-30** en

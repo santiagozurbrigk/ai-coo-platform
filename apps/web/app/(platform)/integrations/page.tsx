@@ -9,6 +9,11 @@ import { GHLOpportunitiesPanel } from "@/components/integrations/ghl-opportuniti
 import { getGHLOpportunitiesStatusAction } from "@/app/ghl/opportunity-actions";
 import { VTurbConnectPanel } from "@/components/integrations/vturb-connect-panel";
 import { getVTurbStatusAction } from "@/app/vturb/actions";
+import { WebinarJamConnectPanel } from "@/components/integrations/webinarjam-connect-panel";
+import {
+  getWebinarJamStatusAction,
+  listWebinarJamWebinarOptionsAction,
+} from "@/app/webinarjam/actions";
 import { ReelMusicUpload } from "@/components/marketing/trial-reels/reel-music-upload";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@ai-coo/ui";
@@ -16,14 +21,23 @@ import { Upload } from "lucide-react";
 import { paths } from "@/routes";
 
 export default async function IntegrationsPage() {
-  const [integrations, reelMusicPath, paymentIntegrations, ghlOpportunities, vturb] =
-    await Promise.all([
-      listIntegrationsAction(),
-      getReelMusicPathAction(),
-      getPaymentIntegrationsStatusAction(),
-      getGHLOpportunitiesStatusAction(),
-      getVTurbStatusAction(),
-    ]);
+  const [
+    integrations,
+    reelMusicPath,
+    paymentIntegrations,
+    ghlOpportunities,
+    vturb,
+    webinarJam,
+    webinarJamWebinars,
+  ] = await Promise.all([
+    listIntegrationsAction(),
+    getReelMusicPathAction(),
+    getPaymentIntegrationsStatusAction(),
+    getGHLOpportunitiesStatusAction(),
+    getVTurbStatusAction(),
+    getWebinarJamStatusAction(),
+    listWebinarJamWebinarOptionsAction(),
+  ]);
 
   return (
     <div className="space-y-8">
@@ -46,6 +60,8 @@ export default async function IntegrationsPage() {
       <GHLOpportunitiesPanel status={ghlOpportunities} />
 
       <VTurbConnectPanel status={vturb} />
+
+      <WebinarJamConnectPanel status={webinarJam} webinars={webinarJamWebinars} />
 
       {/* Trial Reels — configuración de assets */}
       <section className="space-y-3">

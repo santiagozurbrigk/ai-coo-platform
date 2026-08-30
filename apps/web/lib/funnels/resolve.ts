@@ -307,6 +307,127 @@ function createVTurbLoader(organizationId: string, period: FunnelPeriod): VTurbL
   };
 }
 
+// ─── WebinarJam: registrados, asistentes y stick rate ─────────────────────────
+//
+// Salen de contar filas de `webinarjam_registrants` dentro del período. Se
+// persisten las personas y no un agregado porque la API de WebinarJam **no
+// acepta rangos de fecha arbitrarios**: su filtro es una lista de presets (hoy,
+// esta semana, últimos 30 días). El recorte al período del embudo se hace acá.
+
+/**
+ * Registrados en el período (M13), por **fecha de registro**.
+ *
+ * Distinto de M14, que se cuenta por fecha de asistencia: son dos preguntas
+ * distintas y el documento las separa en dos filas.
+ */
+async function countWebinarRegistrants(
+  supabase: SupabaseClient,
+  organizationId: string,
+  period: FunnelPeriod,
+  webinarId: string
+): Promise<number | null> {
+  const { fromIso, toIso } = periodBounds(period);
+  const { count, error } = await supabase
+    .from("webinarjam_registrants")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .eq("webinar_external_id", webinarId)
+    .gte("signup_at", fromIso)
+    .lt("signup_at", toIso);
+
+  if (error) return null;
+  return resolveWithSignal(count ?? 0, () =>
+    countAllTimeRows(supabase, "webinarjam_registrants", organizationId)
+  );
+}
+
+/**
+ * Asistentes en el período (M14), **vivo + replay**, como pide el documento
+ * ("Showed up (live + replay)").
+ *
+ * Se cuenta a la persona una sola vez aunque haya visto el vivo y el replay.
+ */
+async function countWebinarAttendees(
+  supabase: SupabaseClient,
+  organizationId: string,
+  period: FunnelPeriod,
+  webinarId: string
+): Promise<number | null> {
+  const { fromIso, toIso } = periodBounds(period);
+  const { data, error } = await supabase
+    .from("webinarjam_registrants")
+    .select("email, attended_live, attended_replay, live_watched_at, replay_watched_at")
+    .eq("organization_id", organizationId)
+    .eq("webinar_external_id", webinarId);
+
+  if (error || !data) return null;
+
+  const inPeriod = (value: unknown) =>
+    typeof value === "string" && value >= fromIso && value < toIso;
+
+  const attendees = new Set(
+    data
+      .filter(
+        (row) =>
+          (row.attended_live === true && inPeriod(row.live_watched_at)) ||
+          (row.attended_replay === true && inPeriod(row.replay_watched_at))
+      )
+      .map((row) => row.email as string)
+  );
+
+  // Si nadie tiene asistencia registrada, no es que nadie asistió: es que la
+  // API no lo dijo (o el sync todavía no corrió). Mismo criterio que las
+  // llamadas de cierre en `resolveCallOutcomes`.
+  const hasSignal = data.some(
+    (row) => row.attended_live !== null || row.attended_replay !== null
+  );
+  if (attendees.size === 0 && !hasSignal) return null;
+
+  return attendees.size;
+}
+
+/**
+ * Se quedaron hasta la oferta (M15).
+ *
+ * ⭐ `stayed_past_pitch` es `null` mientras el webinar no tenga configurado el
+ * segundo de la oferta: la API de WebinarJam **no publica ese dato** y sin él la
+ * pregunta no se puede hacer. Si todas las filas están en `null`, la medida no
+ * existe — devolver `0` diría que nadie se quedó, que es una afirmación muy
+ * distinta.
+ */
+async function countWebinarStayedToPitch(
+  supabase: SupabaseClient,
+  organizationId: string,
+  period: FunnelPeriod,
+  webinarId: string
+): Promise<number | null> {
+  const { fromIso, toIso } = periodBounds(period);
+  const { data, error } = await supabase
+    .from("webinarjam_registrants")
+    .select("email, stayed_past_pitch, live_watched_at")
+    .eq("organization_id", organizationId)
+    .eq("webinar_external_id", webinarId);
+
+  if (error || !data) return null;
+
+  const measured = data.filter((row) => row.stayed_past_pitch !== null);
+  if (measured.length === 0) return null;
+
+  const stayed = new Set(
+    measured
+      .filter(
+        (row) =>
+          row.stayed_past_pitch === true &&
+          typeof row.live_watched_at === "string" &&
+          row.live_watched_at >= fromIso &&
+          row.live_watched_at < toIso
+      )
+      .map((row) => row.email as string)
+  );
+
+  return stayed.size;
+}
+
 async function resolveSource(
   sourceId: FunnelSourceId,
   supabase: SupabaseClient,
@@ -358,6 +479,19 @@ async function resolveSource(
         column: "status",
         value: "won",
       });
+    case "webinar_registrants":
+    case "webinar_attendees":
+    case "webinar_stayed_to_pitch": {
+      const webinarId = config?.webinarId;
+      if (typeof webinarId !== "string" || !webinarId.trim()) return null;
+      if (sourceId === "webinar_registrants") {
+        return countWebinarRegistrants(supabase, organizationId, period, webinarId);
+      }
+      if (sourceId === "webinar_attendees") {
+        return countWebinarAttendees(supabase, organizationId, period, webinarId);
+      }
+      return countWebinarStayedToPitch(supabase, organizationId, period, webinarId);
+    }
     case "vturb_page_views":
     case "vturb_plays":
     case "vturb_reached_cta": {

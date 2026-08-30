@@ -350,16 +350,65 @@ Es la regla propia de esta unidad.
 
 ---
 
-## 7. Unidades pendientes
+## 7. I-5 — WebinarJam / EverWebinar ⚠️⭐
+
+🔑 **Bloqueo previo:** la API key **requiere aprobación de WebinarJam**. Es el
+primer paso y el más lento — ver `[WEBINARJAM-API-KEY]` en `PENDIENTES.md`.
+
+### 7.1 Conectar y traer el catálogo
+
+| Paso | Resultado esperado |
+|---|---|
+| Pegar la API key | Conecta y sincroniza los webinars. Se prueban los **dos prefijos** (`/webinarjam` y `/everwebinar`): alcanza con que uno responda |
+| Con una cuenta que tiene los dos productos | Aparecen webinars de los dos, cada uno etiquetado con su producto |
+| ⚠️ Mirar `webinarjam_webinars.schedules` | Debe traer objetos con `schedule` id, no textos. Los ids **sólo salen del detalle** (`/webinar`), no de `/webinars` |
+| ⚠️ Contrastar un `schedule` id contra el panel | La doc avisa que **el id de la API NO coincide con el de la pestaña Schedules**. Confirmar que se está usando el de la API |
+
+### 7.2 Los formatos que la doc no declara ⚠️
+
+**Es la verificación que decide si los conteos caen en el período correcto.**
+
+| Paso | Resultado esperado |
+|---|---|
+| ⚠️ Mirar `signup_at` de un registrante contra su fecha real en el panel | Si difiere en años, el epoch se leyó en la unidad equivocada (segundos vs milisegundos) |
+| ⚠️ Mirar `attended_live` de alguien que sí asistió | Debe ser `true`. La doc publica la tabla 0-4 del **filtro**, no la del campo de respuesta: si devolviera otra convención, todos los asistentes se marcarían mal |
+| Un registrante de un webinar con `last_name` deshabilitado | `last_name` en `NULL`, sin romper el sync |
+| ⚠️ Ver bajo qué clave viene el array en `/registrants` | El ejemplo de la doc es una captura de pantalla. El cliente acepta `registrants`, `users` y `data`; confirmar cuál llega y dejar sólo esa |
+
+### 7.3 El segundo de la oferta ⭐
+
+| Paso | Resultado esperado |
+|---|---|
+| Un webinar **sin** segundo de oferta cargado | "Se quedaron hasta la oferta" dice **"sin datos"**, no `0` |
+| Cargar el segundo y volver a traer registrantes | `stayed_past_pitch` deja de ser `NULL` y el stick rate aparece |
+| ⭐ Contrastar contra el panel de WebinarJam | El conteo debería coincidir con los asistentes que se fueron pasado ese minuto |
+| Cambiar el segundo y re-sincronizar | El conteo cambia — no queda pegado al valor anterior |
+| Volver a correr el sync de webinars | El segundo cargado **no se pisa**: es configuración del usuario, no dato de la API |
+
+### 7.4 M16 — la medida que no existe ⛔
+
+| Paso | Resultado esperado |
+|---|---|
+| Abrir el embudo Webinar | El paso "Clicked CTA / booked call" dice **"sin fuente"** |
+| Revisar las opciones de fuente de ese paso | **No** debe ofrecerse ninguna fuente de WebinarJam. `purchased_live` es conversión, no intención: ofrecerlo sería presentar una medida por otra |
+
+### 7.5 Que un dato faltante no se vuelva un cero ⭐
+
+| Paso | Resultado esperado |
+|---|---|
+| Registrantes traídos pero **ninguno** con asistencia registrada | "Asistieron" dice "sin datos", no `0` — mismo criterio que las llamadas de cierre en §4 |
+| Un registrante con asistencia y otros sin ella | El conteo es real: hay señal |
+| Bindear una fuente de webinar sin elegir el webinar | "Falta elegir el webinar" |
+
+---
+
+## 8. Unidades pendientes
 
 Se completa a medida que se construyen.
 
 Todas tienen ya su documentación verificada en `docs/external-apis/`. Lo que sigue
 son las verificaciones contra cuentas reales, que se suman a medida que se construyen.
 
-- [ ] **I-5** — WebinarJam / EverWebinar. 🔑 **La API key requiere aprobación previa
-      de WebinarJam: pedirla antes de empezar.** Verificar en qué unidad viene
-      `time_live` (la doc lo declara `string` sin aclarar si es segundos o `mm:ss`).
 - [ ] **I-9** — Retención y compras repetidas
 - [ ] **I-8** — Hyros. ⭐ Verificar que un parámetro mal escrito **no** pase
       desapercibido: la doc avisa que casi todos los endpoints ignoran parámetros
@@ -368,7 +417,7 @@ son las verificaciones contra cuentas reales, que se suman a medida que se const
 
 ---
 
-## 8. Verificación final, con todo conectado
+## 9. Verificación final, con todo conectado
 
 Cuando estén todas las unidades y todas las cuentas conectadas:
 

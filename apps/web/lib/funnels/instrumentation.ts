@@ -51,8 +51,9 @@ export const INSTRUMENTATION_TOOLS = [
     id: "webinar_platform",
     label: "WebinarJam / Zoom",
     owns: "Show-up, stick rate, CTA clicks",
-    otcStatus: "missing",
-    otcNote: "Integración pendiente. Bloquea la etapa Engaged del embudo Webinar.",
+    otcStatus: "partial",
+    otcNote:
+      'WebinarJam conectado (I-5): registrados, asistentes y stick rate. Los clicks al CTA NO se pueden medir — la API no los expone, y lo más cercano que da es "compró en la sala", que es conversión y no intención.',
   },
   {
     id: "application_form",
