@@ -14,6 +14,37 @@
 
 ---
 
+### 2026-08-31 — Plan de onboarding guiado para cuentas nuevas
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente commit
+**Módulo(s) afectado(s):** `docs/ONBOARDING_PLAN.md` (nuevo), `PENDIENTES.md`
+
+**Qué se hizo:**
+Sesión de diseño, sin código. Se relevó el estado real del onboarding en el repo y se escribió el plan completo en `docs/ONBOARDING_PLAN.md`, con las tres decisiones de producto ya cerradas con Santiago.
+
+**Lo que apareció en el relevamiento:**
+- **No existe onboarding de founder.** `CLAUDE.md` lista `app/onboarding/actions.ts` como "onboarding founder" y **ese archivo no existe** — la fila está desactualizada. Lo único construido es el wizard del holding.
+- **`CinematicWelcome` está huérfana.** El `WelcomeGate` y `welcome-storage.ts` están completos y esperan un `markWelcomePending()` que **ningún flujo llama**. Su lugar natural es el final del gate de onboarding.
+- Las cuentas founder nacen con la organización **ya nombrada** por el super-admin y con `must_change_password`, así que el onboarding arranca después del cambio de contraseña forzado, no antes.
+
+**Qué es obligatorio y por qué (el criterio, no la lista):**
+El criterio elegido no es "qué nos gustaría que cargue" sino **qué se rompe si falta y lo descubre en el mes 2**. Si se recalcula, no es obligatorio; si dejó el histórico mal etiquetado, sí. La segunda fuente objetiva es `getOrgContext()`: lo que el agente lee en cada llamada y no puede degradar con elegancia. Eso deja **tres** ítems en el gate —unidades del negocio, oferta principal, avatar principal— y todo lo demás en checklist o sugerido.
+
+**Decisiones de diseño relevantes:**
+
+- **El progreso se deriva, no se guarda.** La propuesta de partida era una tabla con un booleano por paso. Eso miente en cuatro casos que ya ocurren acá: el super-admin crea la org con nombre; un founder puede conectar Zernio sin pasar por el checklist; un cliente puede importar el histórico primero; y borrar la única oferta deja el booleano en `true`. Guardar el hecho duplica una verdad que ya vive en `products`, `customer_avatars` y `zernio_integrations` — y de dos fuentes para el mismo dato, una se desincroniza siempre. Se persiste sólo lo no derivable.
+- **Una sola dependencia nueva, y no en la primera tanda.** Se evaluaron las cuatro librerías contra el registry de npm en vez de de memoria. Resultados que cambiaron la conclusión: **`onboardjs` está despublicado** (el paquete real es `@onboardjs/core`, en release candidate, ~9K descargas semanales) y **React Joyride sí soporta React 19** (peer `16.8 - 19`), que era la duda más razonable. Queda **Driver.js** —cero dependencias, 156 KB, 2M descargas semanales— y sólo para los tours contextuales, en la segunda tanda. El flujo se construye acá porque **el estado sale de la base de datos**: ninguna librería puede saber si esta org ya tiene una oferta cargada.
+- **El gate no aplica a invitados.** Un `operator` o `viewer` no tiene permiso de `settings` ni de `integrations`, así que el gate lo dejaría encerrado en una pantalla que no puede completar. El redirect del middleware se condiciona a `role = 'founder'` desde la Fase 1, aunque su tour recién se construya en la Fase 3.
+
+**Riesgos / deuda técnica pendiente:**
+- Nada implementado todavía — el plan está listo, el código no existe.
+- El gate agrega consultas al middleware, que corre en cada request. Medir antes de optimizar.
+- Con el gate duro, la única salida para un cliente trabado es que alguien de OTC le marque `skip_onboarding`. Conviene que el panel de visibilidad (Fase 4) llegue antes de tener muchas altas simultáneas.
+- **`CLAUDE.md` tiene dos filas desactualizadas** detectadas de paso: el `app/onboarding/actions.ts` inexistente, y un acento primario violeta `#7C3AED` cuando `DESIGN.md` y los tokens definen naranja `#E15D12`.
+
+---
+
 ### 2026-08-30 — Quitar el rate limit de conexión de integraciones
 
 **Rama/branch:** `Claude-New-Features`

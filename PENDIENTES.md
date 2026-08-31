@@ -177,6 +177,25 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 ## 🟣 Nuevos Features — Implementar cuando Santiago lo indique
 
+### [ONBOARDING] Onboarding guiado para cuentas nuevas — plan cerrado, listo para construir
+
+**Qué es:** hoy **no existe onboarding de founder**. Una cuenta nueva la crea el super-admin, el founder cambia la contraseña y entra a un dashboard vacío. El único onboarding construido es el del holding.
+
+**El plan completo está en [`docs/ONBOARDING_PLAN.md`](./docs/ONBOARDING_PLAN.md)** — leerlo antes de escribir una línea.
+
+**Las tres decisiones ya están cerradas (2026-08-31):**
+1. **Gate duro de tres pasos** (identidad y unidades · oferta principal · avatar principal), con salida de emergencia vía `organizations.skip_onboarding`.
+2. **Los invitados no pasan por el gate** — reciben un tour corto derivado de sus permisos. El ruteo del middleware debe condicionarse a `role = 'founder'` desde la Fase 1.
+3. **Primera tanda: Fases 0, 1 y 2** (derivación · gate · checklist). Los tours con Driver.js quedan para después y **no se agrega ninguna dependencia** en esta tanda.
+
+**La decisión de diseño que no se negocia:** el progreso se **deriva** de las tablas reales, no se guarda en booleanos por paso. Un booleano miente en cuatro casos concretos que ya pasan en este repo — están enumerados en el plan. Se persiste sólo lo no derivable: `gate_completed_at`, `dismissed_items`, `tours_seen`.
+
+**Piezas existentes que hay que reusar, no duplicar:** las Server Actions de settings, producto y avatar (no se escribe una sola mutación nueva); `CinematicWelcome` + `markWelcomePending()`, que hoy **nadie dispara** y cuyo lugar es el final del gate; y el ratio `boundSteps / stepCount` que la página de embudos ya calcula.
+
+**Lo que NO se toca:** `onboarding_responses` y el wizard de `/onboarding/holding` son del holding y quedan como están.
+
+---
+
 ### [UI-21ST] Cuatro componentes de 21st.dev relevados — decidir cuáles entran
 
 **Qué es:** el relevamiento completo (instalación, dependencias, código de uso, prompts y checklist) está en **[`docs/COMPONENTES_21ST.md`](./docs/COMPONENTES_21ST.md)**. Leerlo antes de correr cualquier `21st add`.
