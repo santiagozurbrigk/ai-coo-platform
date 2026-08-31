@@ -121,7 +121,9 @@ export function ConversationAnalysisPanel({
                   Etiqueta IA
                 </dt>
                 <dd className="mt-1">
-                  <span className={tagMeta.className}>{tagMeta.label}</span>
+                  <span className={tagMeta.className} style={tagMeta.style}>
+                    {tagMeta.label}
+                  </span>
                 </dd>
               </div>
             ) : null}

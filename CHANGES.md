@@ -14,6 +14,108 @@
 
 ---
 
+### 2026-08-31 — BRAND-A: la paleta categórica llega a los badges, tags y nodos
+
+**Rama/branch:** `Claude-Design`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `apps/web/app/globals.css`, `apps/web/lib/ui/category-badge.ts` (nuevo), `apps/web/tailwind.config.ts`, `apps/web/components/product/graph-nodes.tsx`, `apps/web/lib/workboard/styles.ts`, `apps/web/constants/conversation-tags.ts`, `apps/web/components/agent/proposal-card.tsx`, `apps/web/components/sales/zernio-side-panel.tsx`, consumidores de workboard y de tags
+
+**Qué se hizo:**
+
+Cierra [BRAND-A]: los 5 archivos que seguían en violeta de la marca anterior
+ahora usan la paleta categórica validada que se definió para los gráficos.
+
+**Tokens de tinta.** `--chart-cat-1…6` está validado a ≥3:1, que es el umbral de
+**marca**, no de texto. Un badge necesita además un color de texto, así que se
+agregaron `--chart-cat-N-ink` en los dos temas, resueltos por búsqueda binaria
+sobre la lightness del anchor hasta cruzar 4.5:1 contra la superficie. Los doce
+valores pasan.
+
+**`lib/ui/category-badge.ts` (nuevo).** `categoryColor`, `categoryInk` y
+`categorySurface(index, { fill, border, ink })`, que arma el relleno y el borde
+con `color-mix` sobre el token. Cada categoría necesitaba tres derivados del
+mismo color en dos temas: con clases de Tailwind eso son seis strings por
+categoría mantenidos a mano, que es exactamente cómo el violeta sobrevivió en
+cinco archivos.
+
+**Asignación de slots**, conservando el color que ya tenía cada categoría donde
+se podía y cambiando sólo lo que colisionaba:
+
+- **Áreas de workboard** — operaciones naranja, ventas azul, finanzas verde,
+  clientes rosa se mantienen; marketing pasa de violeta a índigo. `general` no
+  es una categoría más (es la ausencia de área) y queda neutro.
+- **Nodos del grafo de producto** — framework naranja, avatar azul, escalón
+  verde se mantienen; producto pasa de violeta a índigo y propuesta de valor de
+  ámbar a rosa, porque contra el naranja del framework eran el mismo color. El
+  nodo raíz sale de la paleta: no es un tipo de entidad sino el centro del
+  grafo, así que va neutro y no gasta un slot.
+- **Propuestas del agente** — mismo criterio que los nodos.
+- **Etiqueta "Closeado"** — índigo, que la separa del azul de "Agendado" sin
+  pisar el verde de la escala de calificación.
+- **"Próximo paso" del panel de Zernio** — no es una categoría sino la
+  recomendación del agente: va al color de IA, que en este design system es el
+  de marca.
+
+**Énfasis dentro de un tipo.** Avatar principal y core offer usaban un hue
+distinto del resto (violeta vs púrpura, azul vs celeste) y se leían como dos
+categorías en vez de como una destacada. Ahora es el mismo tono con más
+intensidad de relleno y borde.
+
+**Bug de fondo encontrado y corregido.** Los globs de `content` de Tailwind eran
+`app`, `components`, `layouts` y `packages/ui/src` — **no** `lib` ni
+`constants`. Las clases que se arman en esos dos directorios nunca se generaban,
+así que tres etiquetas de conversación ("Calificado", "Descalificado",
+"Agendado") salían literalmente sin color, y sólo se salvaban las que por
+casualidad aparecían en otro archivo escaneado.
+
+**Contraste de las etiquetas de conversación.** El archivo estaba escrito sólo
+para tema oscuro (`text-teal-300`, `text-white/50`). En claro las pills eran
+ilegibles y "No closeado" era invisible (blanco al 50% sobre blanco). Se
+agregaron los pasos de texto para claro y "No closeado" pasó a tokens neutros.
+"Descalificado" pasó de naranja a ámbar: el naranja es el acento de marca y una
+pill de descalificado en color de marca se lee como énfasis, no como bajada.
+
+Se agregó `/design-system/categorias` con los slots, las áreas, las etiquetas y
+los nodos, para verificar contraste y separación en los dos temas.
+
+**Por qué / finalidad:**
+
+[BRAND-A] estaba trabado porque no existía una paleta categórica que conviviera
+con un acento naranja. El rediseño de gráficos la definió y la validó; esto la
+lleva al resto de la UI. Después del cambio no queda ninguna clase
+`violet-*`/`purple-*`/`indigo-*` en la app.
+
+**Decisiones de diseño relevantes:**
+
+- **Estilos inline con tokens en vez de clases de Tailwind.** Es lo que permite
+  que un solo token defina las tres derivadas y que el tema las cambie sin
+  variantes `dark:`. La contra es que estas superficies ya no son ajustables
+  desde el `className` del llamador.
+- **El nodo raíz y `general` no toman slot.** Gastar un color de categoría en
+  algo que no es una categoría es lo que empuja a inventar un séptimo hue.
+- **La escala de calificación sigue siendo de estado, no categórica.** Verde,
+  ámbar y rojo ahí significan qué tan bien va el lead; sólo los estados de flujo
+  (closeado) toman color de la paleta categórica.
+
+**Verificación:**
+
+`tsc --noEmit` y `pnpm lint` limpios. Capturas de `/design-system/categorias` en
+claro y oscuro, comparadas antes y después. Los doce tokens de tinta validados a
+≥4.5:1 por script. Búsqueda global: 0 clases violeta/púrpura/índigo.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **`next build` no se pudo correr en esta sesión**: `next/font` no logra bajar
+  Inter ni JetBrains Mono de Google Fonts a través del proxy del entorno. Se
+  verificó que el árbol limpio (el commit anterior, ya buildeado con éxito antes
+  en esta misma sesión) falla exactamente igual, así que es de red y no del
+  cambio. **Igual conviene mirar el build de Vercel al mergear.**
+- Los nuevos globs de `content` hacen que Tailwind genere clases que antes
+  faltaban en todo `lib/` y `constants/`, no sólo en los archivos tocados. El CSS
+  crece un poco y puede aparecer color en lugares que hasta ahora salían sin él.
+
+---
+
 ### 2026-08-31 — Rediseño del sistema de gráficos: paleta categórica, leyendas y espaciados
 
 **Rama/branch:** `Claude-Design`

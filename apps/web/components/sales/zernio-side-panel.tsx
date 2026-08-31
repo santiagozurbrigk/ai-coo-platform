@@ -278,9 +278,11 @@ export function ZernioSidePanel({
             </div>
           )}
 
+          {/* No es una categoría: es la recomendación del agente, así que va al
+              color de IA, que en este design system es el de marca. */}
           {analysis.ai_recommended_action && (
-            <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
-              <p className="text-[11px] font-semibold text-violet-600 dark:text-violet-400">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+              <p className="text-[11px] font-semibold text-brand-700 dark:text-brand-400">
                 Próximo paso
               </p>
               <p className="mt-1 text-xs leading-relaxed">{analysis.ai_recommended_action}</p>

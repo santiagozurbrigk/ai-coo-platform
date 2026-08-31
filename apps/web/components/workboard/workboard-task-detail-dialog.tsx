@@ -27,7 +27,12 @@ import {
   TASK_AREA_OPTIONS,
   WORKBOARD_STATUSES,
 } from "@/lib/workboard/constants";
-import { getAreaClasses, getPriorityClasses, PRIORITY_LABELS } from "@/lib/workboard/styles";
+import {
+  getAreaClasses,
+  getAreaStyle,
+  getPriorityClasses,
+  PRIORITY_LABELS,
+} from "@/lib/workboard/styles";
 import { useWorkboard } from "@/providers/workboard-provider";
 import type { TaskArea, TaskPriority, TaskStatus } from "@/types/workboard";
 import { WorkboardTaskResources } from "./workboard-task-resources";
@@ -111,6 +116,7 @@ export function WorkboardTaskDetailDialog() {
             <Badge
               variant="outline"
               className={cn("shrink-0 text-xs", getAreaClasses(area))}
+              style={getAreaStyle(area)}
             >
               {TASK_AREA_LABELS[area]}
             </Badge>

@@ -6,35 +6,43 @@ import { cn } from "@ai-coo/ui";
 import { applyProposalAction, rejectProposalAction } from "@/app/agent/graph-proposal-actions";
 import type { GraphProposal, GraphProposalEntityType } from "@/types/agent";
 import { useToast } from "@/providers/toast-provider";
+import { categoryInk, categorySurface } from "@/lib/ui/category-badge";
 
+/**
+ * Un slot de la paleta categórica por tipo de entidad. El orden conserva el
+ * color que ya tenía cada tipo donde se podía (avatar azul, escalón verde,
+ * framework naranja); `product` era violeta de la marca anterior y pasa a
+ * índigo, y `value_proposition` era ámbar —que colisionaba con el naranja del
+ * framework— y pasa a rosa.
+ */
 const ENTITY_META: Record<
   GraphProposalEntityType,
-  { label: string; icon: React.ReactNode; colorClass: string }
+  { label: string; icon: React.ReactNode; slot: number }
 > = {
+  sales_framework: {
+    label: "Framework de ventas",
+    icon: <FileText className="h-4 w-4" />,
+    slot: 0,
+  },
   customer_avatar: {
     label: "Avatar de cliente",
     icon: <User className="h-4 w-4" />,
-    colorClass: "border-blue-200 bg-blue-50/80 dark:border-blue-500/30 dark:bg-blue-950/40",
-  },
-  product: {
-    label: "Producto / Oferta",
-    icon: <Package className="h-4 w-4" />,
-    colorClass: "border-violet-200 bg-violet-50/80 dark:border-violet-500/30 dark:bg-violet-950/40",
+    slot: 1,
   },
   value_ladder_step: {
     label: "Escalón de valor",
     icon: <ArrowUpRight className="h-4 w-4" />,
-    colorClass: "border-emerald-200 bg-emerald-50/80 dark:border-emerald-500/30 dark:bg-emerald-950/40",
+    slot: 2,
   },
-  sales_framework: {
-    label: "Framework de ventas",
-    icon: <FileText className="h-4 w-4" />,
-    colorClass: "border-orange-200 bg-orange-50/80 dark:border-orange-500/30 dark:bg-orange-950/40",
+  product: {
+    label: "Producto / Oferta",
+    icon: <Package className="h-4 w-4" />,
+    slot: 3,
   },
   value_proposition: {
     label: "Propuesta de valor",
     icon: <Lightbulb className="h-4 w-4" />,
-    colorClass: "border-amber-200 bg-amber-50/80 dark:border-amber-500/30 dark:bg-amber-950/40",
+    slot: 4,
   },
 };
 
@@ -140,13 +148,17 @@ export function ProposalCard({ proposal, onSettled }: ProposalCardProps) {
     <div
       className={cn(
         "rounded-xl border px-4 py-3 text-sm",
-        meta?.colorClass ??
-          "border-border bg-muted/40"
+        meta ? null : "border-border bg-muted/40"
       )}
+      // `ink: false` — la card envuelve su propio texto, que sigue usando el
+      // color de texto del tema; el color de categoría queda en fondo y borde.
+      style={meta ? categorySurface(meta.slot, { fill: 8, border: 26, ink: false }) : undefined}
     >
       {/* Header */}
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-muted-foreground">{meta?.icon}</span>
+        <span style={meta ? { color: categoryInk(meta.slot) } : undefined}>
+          {meta?.icon}
+        </span>
         <span className="font-medium text-foreground">
           {actionLabel} {meta?.label ?? proposal.entityType}
         </span>

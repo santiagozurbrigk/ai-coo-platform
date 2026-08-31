@@ -117,6 +117,16 @@
     --chart-cat-5: #d6558a; /* rosa */
     --chart-cat-6: #0b7a37; /* verde oscuro */
 
+    /* Tinta de texto por categoría: los anchors de arriba están validados a
+       ≥3:1 (umbral de marca), que no alcanza para texto. Estos pasos clarean
+       4.5:1 sobre la superficie del tema, para badges y pills. */
+    --chart-cat-1-ink: #c55110;
+    --chart-cat-2-ink: #2975d1;
+    --chart-cat-3-ink: #0e855c;
+    --chart-cat-4-ink: #4a3aa7;
+    --chart-cat-5-ink: #c04c7b;
+    --chart-cat-6-ink: #0b7a37;
+
     /* Rampa ordinal (etapas de embudo, tiers, buckets): un solo tono,
        lightness monótona de claro a oscuro. */
     --chart-ordinal-1: #f0995c;
@@ -165,6 +175,13 @@
     --chart-cat-4: #6b5bc9;
     --chart-cat-5: #d9639b;
     --chart-cat-6: #1f9440;
+
+    --chart-cat-1-ink: #e8681b;
+    --chart-cat-2-ink: #3d84dd;
+    --chart-cat-3-ink: #12a273;
+    --chart-cat-4-ink: #7d6fcf;
+    --chart-cat-5-ink: #d9639b;
+    --chart-cat-6-ink: #1f9440;
 
     /* Rampa invertida respecto de claro, no un flip automático: en ambos temas
        el paso más alto es el de más contraste contra el fondo, así la última

@@ -323,30 +323,6 @@ La mostraba el footer del sidebar y se perdió. Decidir si va a algún lado de l
 > `#E15D12`, el logotipo real y el favicon nuevo, en tema claro y oscuro.
 > Lo que queda abajo son decisiones, no trabajo mecánico.
 
-### [BRAND-A] Paletas categóricas que todavía usan violeta
-
-**Qué es:** 5 archivos conservan 53 clases violeta a propósito, porque ahí el violeta
-es **una categoría dentro de una paleta** y el mismo archivo ya usa naranja para otra
-categoría. Convertirlas colapsaría dos categorías en el mismo color.
-
-- `components/product/graph-nodes.tsx` (36) — tipos de nodo del grafo de producto
-- `lib/workboard/styles.ts` (6) — colores de etiqueta/prioridad
-- `constants/conversation-tags.ts` (1) — color de tag de conversación
-- `components/agent/proposal-card.tsx` (1) — tipo de propuesta
-- `components/sales/zernio-side-panel.tsx` (2) — bloque de panel lateral
-
-**Estado (2026-08-31):** la paleta categórica que faltaba **ya existe** — se definió
-para los gráficos: `--chart-cat-1…6` en `globals.css`, expuesta por
-`chartCategoricalColors` / `categoricalColor()` en `lib/chart/colors.ts`. Es naranja de
-marca (slot 1) + azul, verde, índigo, rosa y verde oscuro, validada en claro y oscuro
-(lightness, croma, separación bajo protanopía/deuteranopía, contraste ≥3:1).
-
-**Acción restante:** adoptarla en los 5 archivos de arriba, que son badges y nodos de
-UI, no gráficos. Reemplazar cada clase violeta por el slot categórico que le
-corresponda según la posición de esa categoría en su lista. Es mecánico ahora que la
-paleta está definida.
-**Quién:** Claude, con una revisión visual de Santiago.
-
 ### [CHART-A] Vista de tabla como equivalente accesible de cada gráfico
 
 **Qué es:** hoy los valores de un gráfico se leen por tooltip, leyenda con valor y
@@ -449,6 +425,8 @@ referencias + `brand.domain`.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-31 | BRAND-A: paleta categórica aplicada a badges, etiquetas y nodos del grafo; 0 clases violeta en la app | `Claude-Design` |
+| 2026-08-31 | Rediseño del sistema de gráficos: paleta categórica y ordinal validadas, leyendas, espaciados y barra de progreso honesta en métricas | `Claude-Design` |
 | 2026-08-30 | ADDON-EMBUDOS: add-on `embudos` activado en la org "Optimiza tu Control" (`46cce98c`). El módulo ya aparece en el sidebar; no depende de ninguna integración | — (cambio de datos) |
 | 2026-08-30 | EMBUDOS-UI: interfaz del módulo — switcher que conserva el período, KPIs universales con las dos ratios decisivas, etiquetas [Meta]/[Hyros], spine con conectores, índice con estado de configuración. Destapó que computeFunnel no devolvía los KPIs universales. 414 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I8: integración Hyros — atribución por fuente, y corrección del ROAS by-source, que usaba las mismas medidas que el blended y por lo tanto mostraba el mismo número. **Cierra las 10 unidades del plan.** 408 tests en verde | `Claude-New-Features` |
