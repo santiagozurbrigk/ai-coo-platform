@@ -192,6 +192,8 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 **Lo que falta:**
 1. **Probar el flujo completo en un navegador** — lo verificado es SQL, tests, build y render aislado del popover. Pasos en [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md) §13.5, §13.6, §13.9 y §13.10. Lo más importante sigue siendo que una cuenta nueva pase primero por el cambio de contraseña y después por el gate, en ese orden.
 
+**Riesgo a mirar tras el merge con `main`:** el PR #33 dejó anotado que con 10 módulos las islas de la notch nav se superponen a 1280px. Esta rama **suma un ítem a la isla derecha** (el contador de configuración pendiente), que sólo aparece mientras el checklist tiene pasos abiertos. Con 8 módulos hay margen, pero conviene medirlo antes de encender Operaciones y Producto.
+
 **Deuda conocida:** el layout resuelve el estado en cada request de founder (~8 counts en paralelo, cache de 60 s) — medir antes de optimizar. Y el filtro de desconexión de integraciones sigue sin poder observarse porque ninguna org tiene una integración desconectada.
 
 ~~**Estado: ✅ Fase 0 completa (2026-08-31)** — migración `onboarding_state`, catálogo, capa de derivación pura y resolver, con 25 tests. Falta aplicar la migración en Supabase. **Siguiente: Fase 1** (gate de tres pasos + ruteo en el middleware).~~
