@@ -147,6 +147,92 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 ---
 
+## 🤖 Arquitectura de agentes — plan aprobado, sin construir
+
+> Contexto completo en **[`docs/PLAN_AGENT_RUNTIME.md`](./docs/PLAN_AGENT_RUNTIME.md)**.
+> Leerlo antes de tocar `lib/agent/`.
+
+### [AGENT-OAUTH-GUARD] Test que impida revivir el OAuth de Claude 🔴
+
+**Qué es:** OTC hoy está compliant — `normalizeCredentialMode()` en `lib/ai/credential-types.ts`
+retira el modo OAuth y `credential-resolver.ts` sólo lee `claude_api_key_encrypted`. Pero **nada
+impide que alguien lo revierta**, y la política de Anthropic prohíbe explícitamente que un tercero
+almacene o intermedie credenciales de Claude.ai.
+
+**Qué falta:** un test de regresión que falle si `normalizeCredentialMode` devuelve un modo OAuth,
+con un comentario que explique por qué. Es chico y es lo único urgente de este bloque.
+
+---
+
+### [AGENT-TURN-DURATION] Medir cuánto dura un turno del agente 🔴
+
+**Qué es:** la Fase 2 del plan (timeouts, cancelación, un turno en vuelo por conversación) depende
+de si un turno del agente entra en el tope de duración de una función de Vercel. **Nadie lo midió.**
+
+**Por qué bloquea:** si no entra, la Fase 2 necesita un worker aparte (o QStash, que ya se usa para
+RAG), y eso hay que decidirlo **antes** de arrancarla, no en la mitad.
+
+**Cómo:** salen de los logs de `/api/agent/send` en producción. Es una tarde.
+
+---
+
+### [AGENT-RUNTIME-FASE1] Frontera `AgentRuntime`
+
+**Qué es:** meter una interfaz entre OTC y el proveedor —`createSession` / `prompt` / `cancel` /
+`dispose`— con `AgentEvent` modelado con la forma de `session/update` de ACP, que ya se parece al
+SSE de `lib/agent/sse.ts`. `stream-agent-message.ts` pasa a orquestar contra la interfaz.
+
+**Criterio de salida:** `/agent` se comporta igual, `pnpm test` verde, cero cambios de UI.
+
+---
+
+### [AGENT-LIFECYCLE-FASE2] Ciclo de vida de sesión
+
+**Qué es:** las tres cosas que Buzz tiene y el agente de OTC no: `idleTimeout`, `maxTurnDuration`,
+y **un turno en vuelo por conversación** (hoy dos envíos concurrentes en la misma conversación se
+pisan el historial). Más cancelación real desde la UI, que hoy no existe.
+
+**Depende de** `[AGENT-TURN-DURATION]`.
+
+---
+
+### [AGENT-MCP-FASE3] Tools del agente a un servidor MCP
+
+**Qué es:** mover las tools del loop de streaming a un servidor MCP de OTC. Empezar por sólo
+lectura (clientes, contenido, métricas, SOPs); las de escritura después de definir permisos.
+
+**Por qué es la fase que más rinde:** es la única pieza que sirve idéntica con el agente hosted y
+con un companion local. Si alguna vez se hace la Fase 5, ya está construido el canal por el que el
+Claude Code del usuario lee los datos de su negocio.
+
+---
+
+### [AGENT-PER-ORG-FASE4] Agente configurable por organización
+
+**Qué es:** con la interfaz puesta, exponer por org system prompt, modelo, timeouts y qué tools ve.
+Aprovecha el multi-tenant que ya existe.
+
+---
+
+### [AGENT-COMPANION-FASE5] Companion local ("usá tu Claude Pro/Max") ⏸️
+
+**Qué es:** el único camino **compliant** para que el usuario use su suscripción Claude Pro/Max: un
+binario local que corre Claude Code **sin modificar**, con login por el flujo propio de Anthropic y
+credenciales que nunca salen de la máquina. OTC no puede hacerlo desde el servidor — ver §2 del plan.
+
+**En pausa a propósito.** No por dificultad técnica sino porque **nadie validó que la demanda
+exista**. Sólo se justifica si "no quiero pagar la API aparte" resulta ser una objeción real de
+venta.
+
+**Antes de escribir una línea:** confirmar el caso de uso con Anthropic (contact-sales), aceptar los
+Commercial Terms of Service, y revisar marca (OTC no puede llamarse ni presentarse como Claude Code;
+`"{Nombre} Powered by Claude"` sí está permitido).
+
+**Si se hace:** CLI (`npx @otc/agent-bridge`) antes que app de escritorio. Un CLI se prueba en una
+tarde; un Tauri firmado y con autoupdate es un trimestre.
+
+---
+
 ## 🟡 Trial Reels — Feature en producción, mejoras pendientes
 
 

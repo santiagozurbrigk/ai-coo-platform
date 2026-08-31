@@ -14,6 +14,62 @@
 
 ---
 
+### 2026-08-31 — Reverse engineering de Buzz (Block) y plan de arquitectura de agentes
+
+**Rama/branch:** `Claude-claudeplanconection`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `docs/PLAN_AGENT_RUNTIME.md` (nuevo) — documento de decisión, sin cambios de código
+
+**Qué se hizo:**
+Se clonaron y analizaron los repos reales de [`block/buzz`](https://github.com/block/buzz) y
+[`agentclientprotocol/claude-agent-acp`](https://github.com/agentclientprotocol/claude-agent-acp)
+para entender cómo Buzz usa la cuenta Claude Pro/Max del usuario, y se evaluó si OTC puede
+replicarlo. El resultado quedó en `docs/PLAN_AGENT_RUNTIME.md`.
+
+**El hallazgo que decide todo.** Buzz no convierte una suscripción en API. Corre el binario de
+Claude Code **sin modificar** en la máquina del usuario, y el login ocurre por el flujo propio de
+Anthropic: el adapter publica un `authMethod` de tipo `terminal` con
+`["--cli","auth","login","--claudeai"]` y el cliente abre una terminal. Buzz nunca ve el token.
+
+La política de Anthropic (`code.claude.com/docs/en/legal-and-compliance`, sección *Authentication
+and credential use*) prohíbe a terceros ofrecer login de Claude.ai, rutear requests con
+credenciales Free/Pro/Max por cuenta de sus usuarios, y **almacenar o intermediar credenciales o
+session tokens**. Pero tiene una excepción explícita para el usuario final logueándose en el
+binario sin modificar. Buzz cae en la excepción **por ser local**; una web SaaS no puede.
+
+**Verificaciones concretas sobre el código, no sobre resúmenes:**
+- `claude-agent-acp` **no lee ninguna credencial**: sus lecturas de `process.env` no incluyen
+  `CLAUDE_CODE_OAUTH_TOKEN` ni `.credentials.json`. Delega todo al binario.
+- `claudeCliPath()` (`acp-agent.ts:1239`) resuelve el binario como dependencia opcional por
+  plataforma de `@anthropic-ai/claude-agent-sdk`. Es el binario de Anthropic, sin modificar —
+  que es la condición de la que depende la legalidad del esquema.
+- **Hallazgo nuevo:** el flag `--hide-claude-auth` → `shouldHideClaudeAuth()` (`:1287`) es un
+  interruptor de cumplimiento: oculta el login por suscripción y aborta la sesión con
+  `"This integration does not support using claude.ai subscriptions."` (`:6988`). Buzz **no lo
+  pasa** (`grep` sobre todo el repo: cero resultados).
+
+**Estado de OTC: correcto.** `lib/ai/credential-types.ts` ya retira el modo OAuth y
+`credential-resolver.ts` sólo lee `claude_api_key_encrypted`. **No hay nada que corregir.**
+
+**Decisiones de diseño:**
+- **No adoptar ACP como protocolo interno.** Entre módulos del mismo proceso Next.js es
+  serialización sin contrapartida. Sí adoptar **la forma de sus eventos** (`session/update`),
+  que ya se parece al SSE de OTC y sería la del companion si algún día existe.
+- **No copiar Nostr, el relay, ni la cadena de tres procesos.** Resuelven problemas del producto
+  de Buzz (identidad distribuida, agentes locales con shell) que OTC no tiene.
+- **La inversión que rinde en cualquier escenario es la frontera `AgentRuntime` + tools en MCP.**
+  MCP sirve igual con el agente hosted y con un companion local — es la misma pieza.
+- **El companion local queda condicionado a validar demanda**, no a que sea técnicamente posible.
+
+**Riesgos / deuda técnica pendiente:**
+- Falta un **test de regresión** que falle si alguien revive un modo OAuth en
+  `normalizeCredentialMode`. Hoy nada lo impide.
+- **No se midió** cuánto dura un turno del agente contra el tope de Vercel. Decide si la Fase 2
+  necesita un worker aparte, y hay que saberlo antes de arrancarla.
+- El plan no tiene código todavía: es un documento de decisión.
+
+---
+
 ### 2026-08-30 — Quitar el rate limit de conexión de integraciones
 
 **Rama/branch:** `Claude-New-Features`
