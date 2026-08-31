@@ -14,6 +14,54 @@
 
 ---
 
+### 2026-08-30 — Reportes ejecutivos: pulso diario, UI rediseñada y panel discreto
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/executive-reports/{cadences,generate-daily}.ts` (nuevos), `components/executive-reports/*`, `app/(platform)/executive-reports/*`, `app/api/cron/executive-report-daily/`, `app/api/queue/process-cron-executive-report/`, `lib/queue/qstash-client.ts`, `lib/navigation/*`, `components/layout/app-topbar.tsx`, `vercel.json`
+
+**Qué se hizo:**
+El sistema de reportes con IA ya existía —generadores, crons semanal y mensual, tabla— pero se leía desde **Operaciones → Reportes** en el sidebar, con una UI que no seguía el diseño actual y con un botón de generación manual.
+
+**⭐ Dónde vive ahora, y por qué.** Los reportes pasaron a un **panel detrás de un ícono en la barra superior**, disponible desde cualquier pantalla. Un reporte automático se lee y se cierra: no es un lugar donde uno *trabaja*, y ocupar un renglón del sidebar lo ponía al mismo nivel que SOPs o Clientes. La entrada "Reportes" de Operaciones se quitó — el panel no se suma al navbar, lo libera.
+
+Quedan dos páginas, sin entrada en el navbar y accesibles desde el panel: el **historial** (volver sobre reportes viejos) y el **detalle** (compartir el link de uno). Las páginas por cadencia (`/weekly`, `/monthly`) se borraron: el panel ya muestra el último de cada una.
+
+**⭐ El pulso diario es una lectura distinta, no el semanal más seguido.** El documento fuente (§06) le da a cada cadencia un propósito propio, y al diario una advertencia explícita: *"Lectura de 5 minutos. No se toman decisiones con un solo día de datos."* De ahí tres diferencias deliberadas en el generador:
+
+1. **No produce recomendaciones.** El array se guarda vacío y la UI ni siquiera dibuja la sección: un bloque "Recomendaciones — ninguna" se leería como que la IA no encontró nada, cuando en realidad no se le pidió.
+2. **Menos ítems y más cortos** — máximo 3 riesgos y 3 cuellos de botella, de una línea.
+3. **Ventana de un día** en los estados por departamento, no de siete.
+
+La advertencia va **arriba de los números** en la UI. Sin ella, un mal martes parece un problema estructural.
+
+**Sólo generación automática**, como se pidió: la UI de reportes no tiene ningún botón de generar. El pulso diario corre a las 11 UTC (8 de la mañana en Argentina).
+
+**Verificación ejecutada:**
+- `pnpm test`: **429 tests en 25 archivos, todos en verde** (11 nuevos).
+- `tsc --noEmit` y `pnpm lint` limpios.
+- Migración **aplicada**.
+
+**Un bug de layout que se atajó antes de llegar al navegador:** `DialogContent` trae `grid gap-4 p-6` por defecto, así que la columna con scroll interno que necesita el panel no armaba y el contenido se habría desbordado en vez de scrollear. Se pisa con `flex flex-col gap-0 p-0`. No lo detecta ni `tsc` ni el lint: es CSS, y sólo se ve corriendo la app o leyendo el primitivo.
+
+**Decisiones de diseño:**
+- **Un solo worker de cola para las tres cadencias.** El worker acepta un `period` opcional que cae en `weekly`: los jobs ya encolados cuando se agregó el diario no traen el campo y tienen que seguir generando lo que pidieron. Tres workers habrían sido tres copias del mismo archivo cambiando una línea.
+- **El punto de "no leído" vive en `localStorage`, no en la base.** Es una comodidad por navegador: su peor caso es volver a ver un punto que ya se había apagado, y eso no justifica una tabla de leídos. Toda lectura y escritura va en `try/catch` porque el modo privado puede bloquearlo.
+- **El panel se trae sus propios datos.** El shell de la plataforma es client hasta arriba, así que no hay dónde consultar del lado del servidor sin atravesar dos componentes con props que no les incumben. Vive en el layout: monta una vez por sesión, no en cada navegación.
+- **`ReportBody` es el mismo en el panel y en la página de detalle.** El mismo reporte no debería leerse distinto según por dónde se entró.
+- **El historial se agrupa por cadencia y no se ordena por fecha.** Los diarios son muchos más que los otros dos y una lista cronológica única los enterraría.
+- **El botón sólo aparece si hay al menos un reporte.** Un ícono que sólo puede mostrar un vacío es ruido en la barra.
+- **Está en los dos shells** (sidebar clásico y notch nav), porque la notch nav está detrás de un flag y podría activarse en cualquier momento.
+
+**Corrección a algo que dije durante el trabajo:** al empezar reporté que la función estaba "huérfana, sin ningún link desde la navegación". Era falso — estaba en **Operaciones → Reportes**. Lo detecté al romper la compilación de esa página, y cambió el alcance: el panel **reemplaza** esa entrada en vez de sumarse a la navegación.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **Queda un camino de generación manual que no se tocó.** `GenerateWeeklyPipelineButton` (en Inteligencia y en Operaciones) dispara un pipeline que, entre otras cosas, genera el reporte ejecutivo semanal. Sacarlo rompería esas dos pantallas, que están fuera de este pedido. La UI de reportes no ofrece generar nada; ese botón sí, desde otro lado.
+- El pulso diario **nunca corrió**: su primer resultado real es el que va a decir si el prompt produce algo útil o ruido. Si sale ruidoso, lo que hay que ajustar es el prompt del sistema en `generate-daily.ts`, no la UI.
+- El panel no tiene cobertura de Playwright.
+
+---
+
 ### 2026-08-30 — Quitar el rate limit de conexión de integraciones
 
 **Rama/branch:** `Claude-New-Features`

@@ -85,15 +85,20 @@ export const paths = {
       overview: `${PLATFORM}/operations/overview`,
       sops: `${PLATFORM}/operations/sops`,
       inputs: `${PLATFORM}/operations/inputs`,
-      reportes: `${PLATFORM}/operations/reportes`,
       // legacy — kept for backwards compat, map to new routes
       teamInputs: `${PLATFORM}/operations/inputs`,
       weeklyInputs: `${PLATFORM}/operations/inputs`,
     },
 
+    /**
+     * Reportes ejecutivos.
+     *
+     * Ya no hay páginas por cadencia (`/weekly`, `/monthly`): el último de cada
+     * una se lee en el panel de la barra superior. Quedan el historial y el
+     * detalle, que son lo que sirve como página: volver sobre uno viejo y
+     * poder compartir el link.
+     */
     executiveReports: {
-      weekly: `${PLATFORM}/executive-reports/weekly`,
-      monthly: `${PLATFORM}/executive-reports/monthly`,
       history: `${PLATFORM}/executive-reports/history`,
       detail: (id: string) => `${PLATFORM}/executive-reports/${id}`,
     },

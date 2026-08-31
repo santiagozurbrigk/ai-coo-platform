@@ -74,7 +74,13 @@ export function getCronFounderToneWorkerUrl(): string {
 export async function publishCronFanout(
   workerUrl: string,
   orgIds: string[],
-  retries = 2
+  retries = 2,
+  /**
+   * Campos extra que se agregan al cuerpo de cada job, junto al
+   * `organizationId`. Lo usa el cron de reportes ejecutivos para decirle al
+   * worker qué cadencia generar.
+   */
+  extraBody: Record<string, unknown> = {}
 ): Promise<{ published: number; failed: number }> {
   const client = getQStashClient();
   if (!client) throw new Error("QStash no configurado — QSTASH_TOKEN faltante");
@@ -92,7 +98,7 @@ export async function publishCronFanout(
     orgIds.map((organizationId) =>
       client.publishJSON({
         url: workerUrl,
-        body: { organizationId },
+        body: { organizationId, ...extraBody },
         retries,
         headers: extraHeaders,
       })

@@ -10,6 +10,7 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { ThemeToggle } from "@/components/navigation/theme-toggle";
 import { Breadcrumbs } from "@/components/navigation/breadcrumbs";
 import { HoldingBusinessSwitcher } from "@/components/holding/holding-business-switcher";
+import { ReportsPanel } from "@/components/executive-reports/reports-panel";
 
 export function AppTopbar({ className }: { className?: string }) {
   const pathname = usePathname();
@@ -43,6 +44,12 @@ export function AppTopbar({ className }: { className?: string }) {
       actions={
         <>
           <HoldingBusinessSwitcher />
+          {/*
+            Los reportes ejecutivos viven acá y no en el navbar: se leen y se
+            cierran, no son un lugar donde se trabaja. El botón sólo aparece
+            cuando hay algún reporte generado.
+          */}
+          <ReportsPanel />
           <Button
             variant="outline"
             size="icon"

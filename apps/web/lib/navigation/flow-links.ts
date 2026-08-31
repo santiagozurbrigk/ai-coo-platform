@@ -4,7 +4,7 @@ import { paths } from "@/routes";
 export const flowLinks = {
   executiveReportLatest: paths.platform.executiveReports.detail("er1"),
   weeklyInputs: paths.platform.operations.weeklyInputs,
-  weeklyReport: paths.platform.executiveReports.weekly,
+  weeklyReport: paths.platform.executiveReports.history,
 
   risk: (id: string): string => {
     const map: Record<string, string> = {

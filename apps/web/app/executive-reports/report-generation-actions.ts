@@ -22,8 +22,6 @@ function revalidateReportSurfaces() {
   revalidatePath(paths.platform.dashboard);
   revalidatePath(paths.platform.intelligence.root);
   revalidatePath(paths.founder.root);
-  revalidatePath(paths.platform.executiveReports.weekly);
-  revalidatePath(paths.platform.executiveReports.monthly);
   revalidatePath(paths.platform.executiveReports.history);
 }
 

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyQueueRequest } from "@/lib/queue/verify-queue-request";
+import { generateAndSaveDailyExecutiveReport } from "@/lib/executive-reports/generate-daily";
+import { generateAndSaveMonthlyExecutiveReport } from "@/lib/executive-reports/generate-monthly";
 import { generateAndSaveWeeklyExecutiveReport } from "@/lib/executive-reports/generate-weekly";
 
 export const runtime = "nodejs";
@@ -8,7 +10,19 @@ export const maxDuration = 120; // Reporte ejecutivo con IA
 
 const bodySchema = z.object({
   organizationId: z.string().uuid(),
+  /**
+   * Cadencia a generar. Es opcional y cae en `weekly` a propósito: los jobs
+   * que ya estaban encolados cuando se agregó el pulso diario no traen el
+   * campo, y tienen que seguir generando el semanal que pidieron.
+   */
+  period: z.enum(["daily", "weekly", "monthly"]).default("weekly"),
 });
+
+const GENERATORS = {
+  daily: generateAndSaveDailyExecutiveReport,
+  weekly: generateAndSaveWeeklyExecutiveReport,
+  monthly: generateAndSaveMonthlyExecutiveReport,
+} as const;
 
 export async function POST(request: Request) {
   const rawBody = await request.text();
@@ -37,15 +51,23 @@ export async function POST(request: Request) {
     );
   }
 
-  const { organizationId } = parsed.data;
+  const { organizationId, period } = parsed.data;
 
   try {
-    const result = await generateAndSaveWeeklyExecutiveReport(organizationId);
-    console.log("[Queue] process-cron-executive-report completado", { organizationId, result });
-    return NextResponse.json({ ok: true, organizationId, result });
+    const result = await GENERATORS[period](organizationId);
+    console.log("[Queue] process-cron-executive-report completado", {
+      organizationId,
+      period,
+      result,
+    });
+    return NextResponse.json({ ok: true, organizationId, period, result });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[Queue] process-cron-executive-report error", { organizationId, message });
+    console.error("[Queue] process-cron-executive-report error", {
+      organizationId,
+      period,
+      message,
+    });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

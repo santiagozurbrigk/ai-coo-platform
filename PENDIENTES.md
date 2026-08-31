@@ -9,6 +9,26 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [REPORTES-PULSO-DIARIO] Revisar la primera salida real del pulso diario
+
+**Qué es:** el reporte diario se construyó pero **nunca corrió**. Su prompt le pide algo distinto al semanal: detectar roturas obvias sin recomendar acciones, y decir en una oración cuando el día fue normal.
+
+**Qué mirar en el primer resultado real:** que un día tranquilo produzca un reporte corto y honesto en vez de inflar riesgos para llenar espacio. Si sale ruidoso, lo que hay que ajustar es el prompt del sistema en `lib/executive-reports/generate-daily.ts`, no la UI.
+
+**Cuándo:** el cron corre todos los días a las 11 UTC (8 de la mañana en Argentina).
+
+---
+
+### [REPORTES-GENERACION-MANUAL] Decidir qué pasa con el botón de pipeline semanal
+
+**Qué es:** la UI de reportes ya no ofrece generar nada, como se pidió. Pero `GenerateWeeklyPipelineButton` sigue en **Inteligencia** y en **Operaciones**, y ese botón dispara un pipeline que —entre otras cosas— genera el reporte ejecutivo semanal.
+
+**Por qué no se tocó:** sacarlo rompería esas dos pantallas, que están fuera del pedido.
+
+**Qué decidir:** si el reporte ejecutivo tiene que salir de ese pipeline, o si el botón debería generar sólo lo de Inteligencia y Operaciones y dejar el ejecutivo puramente automático.
+
+---
+
 ### [EMBUDOS-SALUD] Habilitar el estado de salud (bandas de la §04) ⏸️
 
 **Qué es:** el documento define bandas de salud por métrica —qué valor es sano, cuál está en el piso y cuál está roto— y OTC tiene el código construido y testeado en `lib/funnels/health-bands.ts`, con la precedencia de tres niveles (plantilla → override de oferta → baseline de la org).
@@ -404,6 +424,7 @@ referencias + `brand.domain`.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-30 | REPORTES-IA: pulso diario (tercera cadencia), UI rediseñada y movida a un panel de la barra superior. "Reportes" salió del sidebar de Operaciones. Sólo generación automática. 429 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | ADDON-EMBUDOS: add-on `embudos` activado en la org "Optimiza tu Control" (`46cce98c`). El módulo ya aparece en el sidebar; no depende de ninguna integración | — (cambio de datos) |
 | 2026-08-30 | EMBUDOS-UI: interfaz del módulo — switcher que conserva el período, KPIs universales con las dos ratios decisivas, etiquetas [Meta]/[Hyros], spine con conectores, índice con estado de configuración. Destapó que computeFunnel no devolvía los KPIs universales. 414 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I8: integración Hyros — atribución por fuente, y corrección del ROAS by-source, que usaba las mismas medidas que el blended y por lo tanto mostraba el mismo número. **Cierra las 10 unidades del plan.** 408 tests en verde | `Claude-New-Features` |

@@ -101,6 +101,10 @@
       "schedule": "0 12 * * 1"
     },
     {
+      "path": "/api/cron/executive-report-daily",
+      "schedule": "0 11 * * *"
+    },
+    {
       "path": "/api/cron/executive-report-weekly",
       "schedule": "30 12 * * 1"
     },
