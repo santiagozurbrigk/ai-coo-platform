@@ -535,6 +535,56 @@ Cuando estén todas las unidades y todas las cuentas conectadas:
 
 ---
 
+## 13. Onboarding — Fase 0 (capa de derivación)
+
+Construido el 2026-08-31. La lógica pura está cubierta por 25 tests unitarios; lo
+que **no** se puede verificar sin una base real es que las consultas lean las
+tablas correctas. Ver `docs/ONBOARDING_PLAN.md`.
+
+### 13.1 Aplicar la migración 🔒
+
+| Paso | Resultado esperado |
+|---|---|
+| Correr `20260831120000_onboarding_state.sql` | La tabla `onboarding_state` existe con RLS activo |
+| 🔒 Desde una sesión de la org A, leer la fila de la org B | Cero filas — la policy filtra por `get_my_organization_id()` |
+| Verificar que `onboarding_responses` quedó intacta | El wizard de holding sigue funcionando igual |
+
+### 13.2 Que los hechos se lean de donde corresponde ⚠️
+
+Con una org real, llamar `resolveOnboardingFacts(orgId)` y contrastar cada campo
+contra lo que muestra la UI:
+
+| Campo | Contra qué se contrasta | Riesgo |
+|---|---|---|
+| `organization` | `/settings` → pestaña General | — |
+| `hasCoreOffer` | `/product` → la oferta marcada como principal | — |
+| `hasPrimaryAvatar` | `/product` → avatar principal | — |
+| `connectedSourceCount` | `/integrations` → tarjetas conectadas | ⚠️ **el más probable de fallar.** Cada proveedor se desconecta distinto: unos borran la fila, otros la marcan. Si una integración desconectada sigue contando, falta un filtro en `DATA_SOURCE_TABLES` |
+| `funnels.fullyBound` | `/funnels` → tarjetas con todos los pasos vinculados | ⚠️ tiene que dar **exactamente** el mismo número que la grilla; si difiere, el checklist y esa pantalla se contradicen |
+| `historicalSnapshotCount` | `/integrations/import` | — |
+| `teamMemberCount` | `/team/members` | ⚠️ cuenta perfiles, founder incluido: con un solo miembro el ítem debe seguir abierto |
+| `indexedDocumentCount` | `/business-context/documents` con estado indexado | — |
+
+### 13.3 La regla central: derivar, no guardar ⭐
+
+Es lo que justifica todo el diseño. Probarlo explícitamente:
+
+| Paso | Resultado esperado |
+|---|---|
+| ⭐ Con una org que **ya tenía** oferta y avatar cargados antes de esta feature | Los ítems aparecen cumplidos y `gate.required` es `false`, sin haber pasado nunca por el wizard |
+| ⭐ Borrar la oferta principal de una org que ya cruzó el gate | El ítem se reabre en el checklist y `gate.required` sigue en `false` — no la expulsa a mitad de trabajo |
+| Conectar una integración desde `/integrations` sin tocar el checklist | El ítem `data_source` aparece cumplido en la siguiente carga |
+| Desconectar esa integración | El ítem vuelve a abrirse ⚠️ (ver 13.2) |
+
+### 13.4 Cache y frescura
+
+| Paso | Resultado esperado |
+|---|---|
+| Completar un ítem y recargar de inmediato | Aparece cumplido — las mutaciones deben llamar `invalidateOnboardingState` |
+| Sin invalidar, esperar 60 s y recargar | Aparece cumplido igual: la ventana de cache es el techo del desfasaje |
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

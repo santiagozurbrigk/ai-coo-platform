@@ -183,6 +183,8 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 **El plan completo está en [`docs/ONBOARDING_PLAN.md`](./docs/ONBOARDING_PLAN.md)** — leerlo antes de escribir una línea.
 
+**Estado: ✅ Fase 0 completa (2026-08-31)** — migración `onboarding_state`, catálogo, capa de derivación pura y resolver, con 25 tests. Falta aplicar la migración en Supabase. **Siguiente: Fase 1** (gate de tres pasos + ruteo en el middleware).
+
 **Las tres decisiones ya están cerradas (2026-08-31):**
 1. **Gate duro de tres pasos** (identidad y unidades · oferta principal · avatar principal), con salida de emergencia vía `organizations.skip_onboarding`.
 2. **Los invitados no pasan por el gate** — reciben un tour corto derivado de sus permisos. El ruteo del middleware debe condicionarse a `role = 'founder'` desde la Fase 1.

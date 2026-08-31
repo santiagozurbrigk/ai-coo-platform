@@ -14,6 +14,44 @@
 
 ---
 
+### 2026-08-31 — Onboarding Fase 0: capa de derivación y estado persistido
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260831120000_onboarding_state.sql` (nuevo), `lib/onboarding/{items,derive,resolve}.ts` (nuevos), `lib/onboarding/__tests__/derive.test.ts` (nuevo), `docs/PLAN_VERIFICACION.md`
+
+**Qué se hizo:**
+Fase 0 del plan de `docs/ONBOARDING_PLAN.md`: el estado de onboarding de cualquier organización ya se puede consultar. **Sin UI todavía** — no hay pantalla ni ruteo, eso es la Fase 1.
+
+- **`onboarding_state`** — una fila por org con lo único que no se puede derivar: `gate_completed_at`, `dismissed_items`, `tours_seen`. RLS con el patrón estándar. `onboarding_responses` (el wizard de holding) queda intacta.
+- **`items.ts`** — catálogo de los 8 ítems con su nivel, a dónde mandan y si se pueden descartar. Sólo datos.
+- **`derive.ts`** — la capa pura: dados los hechos, decide qué está cumplido y si el gate bloquea. No toca la base.
+- **`resolve.ts`** — junta los hechos de las tablas reales y cachea 60 s.
+
+**Decisiones de diseño relevantes:**
+
+- **La asimetría entre `passed` y `satisfied` es lo más importante del archivo.** El gate se cruza una vez (`gate_completed_at`); el checklist mira el estado de ahora. Si alguien borra su única oferta después de haber cruzado, el ítem se reabre en el checklist pero **no lo expulsa de la aplicación a mitad de trabajo**. Mezclar las dos cosas daba una de dos fallas: o quedaba encerrado, o el checklist mentía.
+- **`gate.required` es falso cuando los datos ya están cargados**, aunque nadie haya pasado por el wizard. Eso es lo que evita arrastrar por el gate a las organizaciones que existían antes de esta feature — que era la consecuencia más molesta de la decisión de bloquear.
+- **Del formulario de identidad, sólo tres campos deciden:** nombre, moneda y zona horaria. Industria, país e idioma se piden pero no bloquean. El criterio es el mismo que define el gate: bloquear sólo por lo que no se puede corregir después sin dejar mal etiquetado lo ya cargado.
+- **Un embudo a medio vincular no cuenta como hecho.** Se usa el mismo ratio `boundSteps / stepCount` que la grilla de `/funnels` ya calcula, para que el checklist y esa pantalla no puedan discrepar.
+- **`connectedSourceCount` cuenta tablas, no proveedores concretos.** Cualquier fuente sirve; exigir Zernio sería adivinar el negocio del cliente.
+- **La cache guarda los hechos, no el estado derivado.** La derivación depende de quién mira (rol y `skip_onboarding`) y es pura y barata; meter eso en la clave multiplicaba entradas y volvía la invalidación un barrido por prefijo.
+- **`countRows` devuelve 0 ante cualquier error**, tabla inexistente incluida: un ítem de onboarding no puede tumbar la request que lo muestra.
+
+**Verificación ejecutada:**
+- `vitest`: **443 tests en 25 archivos, todos en verde** (25 nuevos).
+- `tsc --noEmit` limpio.
+- `pnpm lint`: sin errores ni warnings nuevos en `lib/onboarding`.
+- Se agregó la sección 13 a `docs/PLAN_VERIFICACION.md` con lo que no se puede probar sin base real.
+
+**Riesgos / deuda técnica pendiente:**
+- **Lo único verificado es la lógica pura.** Que las consultas lean las tablas correctas necesita una base real — pasos en `PLAN_VERIFICACION.md` §13.
+- ⚠️ **`connectedSourceCount` es lo más probable de fallar.** Cada proveedor se desconecta distinto: `zernio_integrations` y `payment_integrations` marcan `is_active`, `fathom_integrations` usa `status`, y `ghl_integrations` y `calendly_integrations` no tienen ninguna de las dos — ahí la sola presencia de la fila cuenta como conectado. Si alguno borra tokens sin borrar la fila, va a contar de más.
+- La migración **no está aplicada** en Supabase todavía.
+- Nada consume esta capa aún: sin la Fase 1 no cambia nada para el usuario.
+
+---
+
 ### 2026-08-31 — Plan de onboarding guiado para cuentas nuevas
 
 **Rama/branch:** `Claude-Onboarding`
