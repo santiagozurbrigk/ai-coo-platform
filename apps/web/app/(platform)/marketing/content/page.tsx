@@ -67,13 +67,15 @@ export default async function MarketingContentPage({
       </div>
 
       {/* Tab switcher */}
+      <div data-tour="content-tabs">
       <ContentTabSwitcher
         activeTab={activeTab}
         draftsCount={drafts.length}
       />
+      </div>
 
       {/* Content */}
-      <div className="mt-6">
+      <div data-tour="content-grid" className="mt-6">
         {activeTab === "biblioteca" ? (
           <ContentPieceGrid pieces={pieces} />
         ) : (

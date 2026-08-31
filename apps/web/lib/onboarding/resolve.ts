@@ -286,3 +286,25 @@ export async function dismissOnboardingItem(
   if (error) throw new Error(error.message);
   invalidateOnboardingState(organizationId);
 }
+
+/** Marca un tour como visto. Idempotente. */
+export async function markTourSeen(
+  organizationId: string,
+  tourId: string
+): Promise<void> {
+  const current = await resolvePersistedOnboardingState(organizationId);
+  if (current.toursSeen.includes(tourId)) return;
+
+  const now = new Date().toISOString();
+  const { error } = await createAdminClient().from("onboarding_state").upsert(
+    {
+      organization_id: organizationId,
+      tours_seen: [...current.toursSeen, tourId],
+      updated_at: now,
+    },
+    { onConflict: "organization_id" }
+  );
+
+  if (error) throw new Error(error.message);
+  invalidateOnboardingState(organizationId);
+}

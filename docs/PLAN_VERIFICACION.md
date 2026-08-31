@@ -670,6 +670,32 @@ entorno Preview. Es una decisión de infraestructura, no de código.
 | Desconectar ese proveedor | El ítem vuelve a abrirse ⚠️ — sigue siendo el caso que no se pudo observar: ninguna org tiene hoy una integración desconectada |
 | 🔒 Verificar los permisos de la función | `security definer` y execute **sólo** para `service_role`: toma un `org_id` arbitrario y saltea RLS |
 
+### 13.9 Fase 3 — tours contextuales
+
+Construido el 2026-08-31 con Driver.js. **El popover ya se verificó renderizado**
+en Chromium sobre el tema oscuro: fondo `rgb(15,15,15)`, texto `rgb(250,250,250)`,
+descripción en `muted-foreground` y el botón principal en el naranja de marca con
+texto negro. Lo que falta es el disparo real dentro de la aplicación.
+
+| Paso | Resultado esperado |
+|---|---|
+| ⭐ Entrar por primera vez a `/funnels` con una cuenta que nunca lo vio | El tour arranca solo, con 2 pasos |
+| Terminarlo y volver a entrar | No vuelve a aparecer |
+| Cerrarlo con la X o con Escape en el primer paso | Tampoco vuelve: cerrar es una decisión del usuario |
+| ⭐ Abrir `/funnels`, **navegar a otro módulo** sin cerrar el tour, y volver | **Sí** vuelve a aparecer: irse no es haberlo visto |
+| Repetir en `/marketing/content`, `/agent` y `/sales/inbox` | Cada uno con su propio tour, independiente |
+| ⭐ Entrar a `/funnels` con la pantalla **vacía** (sin embudos creados) | Corre igual, pero **sólo con el paso que tiene ancla**: la grilla no existe si no hay embudos, y un paso apuntando a la nada muestra un recuadro flotando |
+| Entrar con una cuenta **invitada** a un módulo que sí puede ver | El tour corre — es su única forma de onboarding |
+| Entrar con una cuenta sin permiso sobre el módulo | No se ofrece |
+| Mirar el popover en tema claro | Los mismos tokens; verificado sólo en oscuro |
+| ⚠️ Probar en mobile | Las anclas de la bandeja (`inbox-conversations`, `inbox-thread`) son las columnas **de escritorio**, ocultas con `md:`. En mobile ese tour va a quedar sin pasos y no correr — es aceptable, pero conviene confirmarlo |
+
+**El guard de las anclas.** `lib/onboarding/__tests__/tours.test.ts` verifica que
+cada `data-tour` declarado exista en el JSX y que no haya anclas huérfanas. Se
+comprobó que **falla en rojo** al borrar un ancla a mano, nombrándola. Es la
+protección contra el modo de falla propio de los tours: un paso que desaparece
+sin que nada se rompa.
+
 ---
 
 ## Regla permanente para Claude Code

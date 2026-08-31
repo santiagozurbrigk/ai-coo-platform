@@ -19,11 +19,12 @@ import { saveGeneralOrganizationSettingsAction } from "@/app/settings/actions";
 import { saveAvatarAction, saveProductAction } from "@/app/product/actions";
 import {
   dismissOnboardingItem,
-  getOnboardingState,
   markGateCompleted,
+  markTourSeen,
 } from "@/lib/onboarding/resolve";
+import { TOUR_IDS, type TourId } from "@/lib/onboarding/tours";
 import { ONBOARDING_ITEMS, type OnboardingItemId } from "@/lib/onboarding/items";
-import { getCurrentOnboardingState } from "@/lib/onboarding/current";
+import { getCurrentOnboardingContext } from "@/lib/onboarding/current";
 import type { OnboardingState } from "@/lib/onboarding/derive";
 import { paths } from "@/routes/paths";
 
@@ -136,7 +137,7 @@ export async function saveGateAvatarAction(
 
 /** Estado de onboarding de la organización activa, ya derivado. */
 export async function getOnboardingStateAction(): Promise<OnboardingState | null> {
-  return getCurrentOnboardingState();
+  return (await getCurrentOnboardingContext()).state;
 }
 
 /**
@@ -192,5 +193,23 @@ export async function dismissOnboardingItemAction(
     const organizationId = await requireOrganizationId();
     await dismissOnboardingItem(organizationId, itemId);
     revalidatePath(paths.platform.dashboard);
+  });
+}
+
+/**
+ * Marca un tour como visto para la organización.
+ *
+ * Valida el id contra el catálogo: la acción es la que escribe y no puede
+ * confiar en lo que le mande el cliente.
+ */
+export async function markTourSeenAction(
+  tourId: TourId
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    if (!(TOUR_IDS as readonly string[]).includes(tourId)) {
+      throw new Error("Tour desconocido.");
+    }
+    const organizationId = await requireOrganizationId();
+    await markTourSeen(organizationId, tourId);
   });
 }

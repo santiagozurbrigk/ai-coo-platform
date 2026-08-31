@@ -6,7 +6,8 @@ import { PlatformLayout } from "@/layouts";
 import { getCurrentUserPermissions } from "@/lib/auth/get-current-permissions";
 import { PermissionsProvider } from "@/providers/permissions-provider";
 import { OnboardingProvider } from "@/providers/onboarding-provider";
-import { getCurrentOnboardingState } from "@/lib/onboarding/current";
+import { TourRunner } from "@/components/onboarding/tour-runner";
+import { getCurrentOnboardingContext } from "@/lib/onboarding/current";
 
 export default async function PlatformRouteLayout({
   children,
@@ -16,8 +17,8 @@ export default async function PlatformRouteLayout({
   const [holdingSession, permissions, onboarding] = await Promise.all([
     getHoldingSessionState(),
     getCurrentUserPermissions(),
-    // Devuelve null para cuentas invitadas, así que no se resuelve nada de más.
-    getCurrentOnboardingState(),
+    // El checklist viene en null para cuentas invitadas; los tours, no.
+    getCurrentOnboardingContext(),
   ]);
 
   return (
@@ -28,6 +29,7 @@ export default async function PlatformRouteLayout({
             <WelcomeGate>
               <PlatformLayout>{children}</PlatformLayout>
             </WelcomeGate>
+            <TourRunner />
           </OnboardingProvider>
         </HoldingPlatformProvider>
       </PermissionsProvider>

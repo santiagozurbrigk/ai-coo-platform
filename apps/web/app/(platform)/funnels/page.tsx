@@ -45,7 +45,7 @@ export default async function FunnelsPage() {
           description="Creá el primero eligiendo un tipo. Después vas a poder elegir de dónde sale el número de cada paso."
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div data-tour="funnels-list" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {funnels.map((funnel) => {
             const complete = funnel.boundSteps >= funnel.stepCount;
             const ratio = funnel.stepCount === 0 ? 0 : funnel.boundSteps / funnel.stepCount;
@@ -105,7 +105,7 @@ export default async function FunnelsPage() {
         </div>
       )}
 
-      <section className="space-y-2">
+      <section data-tour="funnels-create" className="space-y-2">
         <h3 className="text-sm font-medium">Crear un embudo</h3>
         <FunnelCreateForm templates={templates} />
       </section>

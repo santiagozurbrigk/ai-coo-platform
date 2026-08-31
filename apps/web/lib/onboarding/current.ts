@@ -4,8 +4,22 @@ import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { getOnboardingState } from "./resolve";
+import { getOnboardingState, resolvePersistedOnboardingState } from "./resolve";
 import type { OnboardingState } from "./derive";
+
+export type OnboardingContext = {
+  /**
+   * Checklist. `null` para cuentas invitadas: sus ítems viven en Ajustes,
+   * Integraciones y Equipo, donde no tienen permiso.
+   */
+  state: OnboardingState | null;
+  /**
+   * Tours ya vistos. Va aparte del checklist a propósito: los tours **sí** le
+   * corresponden a un invitado —es su única forma de onboarding— y resolverlos
+   * es una consulta por clave primaria, no los ocho `count` del checklist.
+   */
+  toursSeen: string[];
+};
 
 /**
  * Estado de onboarding del usuario y la organización activos.
@@ -14,39 +28,39 @@ import type { OnboardingState } from "./derive";
  * —que es un Server Component— como las acciones. Una Server Action llamada
  * desde un layout funciona, pero deja el endpoint expuesto sin necesidad.
  */
-export async function getCurrentOnboardingState(): Promise<OnboardingState | null> {
-  if (!isSupabaseConfigured()) return null;
+export async function getCurrentOnboardingContext(): Promise<OnboardingContext> {
+  const empty: OnboardingContext = { state: null, toursSeen: [] };
+  if (!isSupabaseConfigured()) return empty;
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (!user) return empty;
 
   const organizationId = await requireOrganizationId();
   const admin = createAdminClient();
 
-  const [{ data: profile }, { data: org }] = await Promise.all([
+  const [{ data: profile }, { data: org }, persisted] = await Promise.all([
     admin.from("profiles").select("role").eq("id", user.id).maybeSingle(),
     admin
       .from("organizations")
       .select("skip_onboarding")
       .eq("id", organizationId)
       .maybeSingle(),
+    resolvePersistedOnboardingState(organizationId),
   ]);
 
   const role = (profile?.role as string | null) ?? "viewer";
 
-  /*
-   * El checklist es trabajo de founder: sus ítems viven en Ajustes,
-   * Integraciones y Equipo, donde un `operator` o un `viewer` no tienen
-   * permiso. Mostrárselo sería pedirles algo que no pueden hacer —y además
-   * ahorra resolver los hechos en cada request de una cuenta invitada.
-   */
-  if (role !== "founder") return null;
+  if (role !== "founder") {
+    return { state: null, toursSeen: persisted.toursSeen };
+  }
 
-  return getOnboardingState(organizationId, {
+  const state = await getOnboardingState(organizationId, {
     role,
     skipOnboarding: Boolean(org?.skip_onboarding),
   });
+
+  return { state, toursSeen: persisted.toursSeen };
 }

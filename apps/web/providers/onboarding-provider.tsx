@@ -4,17 +4,24 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from "re
 import type { OnboardingItemId } from "@/lib/onboarding/items";
 import { applyLocalDismissals } from "@/lib/onboarding/derive";
 import type { OnboardingState } from "@/lib/onboarding/derive";
+import type { OnboardingContext } from "@/lib/onboarding/current";
+import type { TourId } from "@/lib/onboarding/tours";
 
 type OnboardingContextValue = {
   /** `null` cuando no aplica: sin sesión, sin Supabase, o cuenta invitada. */
   state: OnboardingState | null;
   /** Oculta el ítem de inmediato, sin esperar a que el servidor confirme. */
   dismissLocally: (itemId: OnboardingItemId) => void;
+  hasSeenTour: (tourId: TourId) => boolean;
+  /** Marca el tour visto en el cliente, para que no se repita al navegar. */
+  markTourSeenLocally: (tourId: TourId) => void;
 };
 
 const OnboardingCtx = createContext<OnboardingContextValue>({
   state: null,
   dismissLocally: () => {},
+  hasSeenTour: () => true,
+  markTourSeenLocally: () => {},
 });
 
 /**
@@ -29,22 +36,28 @@ export function OnboardingProvider({
   value,
   children,
 }: {
-  value: OnboardingState | null;
+  value: OnboardingContext;
   children: ReactNode;
 }) {
   const [locallyDismissed, setLocallyDismissed] = useState<OnboardingItemId[]>([]);
+  const [seenTours, setSeenTours] = useState<string[]>(value.toursSeen);
 
   const contextValue = useMemo<OnboardingContextValue>(() => {
     const dismissLocally = (id: OnboardingItemId) =>
       setLocallyDismissed((prev) => (prev.includes(id) ? prev : [...prev, id]));
 
-    if (!value) return { state: null, dismissLocally };
+    const markTourSeenLocally = (id: TourId) =>
+      setSeenTours((prev) => (prev.includes(id) ? prev : [...prev, id]));
 
     return {
-      state: applyLocalDismissals(value, locallyDismissed),
+      state: value.state
+        ? applyLocalDismissals(value.state, locallyDismissed)
+        : null,
       dismissLocally,
+      hasSeenTour: (id: TourId) => seenTours.includes(id),
+      markTourSeenLocally,
     };
-  }, [value, locallyDismissed]);
+  }, [value, locallyDismissed, seenTours]);
 
   return (
     <OnboardingCtx.Provider value={contextValue}>{children}</OnboardingCtx.Provider>

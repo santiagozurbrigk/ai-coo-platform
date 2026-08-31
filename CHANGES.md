@@ -14,6 +14,38 @@
 
 ---
 
+### 2026-08-31 — Onboarding Fase 3: tours contextuales con Driver.js
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/onboarding/tours.ts` (nuevo), `components/onboarding/tour-runner.tsx` (nuevo), `lib/onboarding/__tests__/tours.test.ts` (nuevo), `lib/onboarding/current.ts`, `lib/onboarding/resolve.ts`, `app/onboarding/actions.ts`, `providers/onboarding-provider.tsx`, `app/(platform)/layout.tsx`, `app/globals.css`, anclas en `funnels/page.tsx`, `marketing/content/page.tsx`, `agent-sidebar.tsx`, `agent-module.tsx`, `sales-inbox-layout.tsx`, `package.json`
+
+**Qué se hizo:**
+Cuatro tours que arrancan solos la primera vez que alguien entra a Embudos, Contenido, Agente y Bandeja. **Driver.js es la única dependencia que agregó todo el plan de onboarding**, y queda en el chunk del runner: el bundle compartido no se movió (185 kB antes y después).
+
+**Decisiones de diseño relevantes:**
+
+- **Las anclas son `data-tour`, nunca clases de Tailwind**, y hay un test que verifica que cada una siga existiendo en el JSX. El modo de falla de un tour es que un paso deje de aparecer **sin que nada se rompa**; el test lo convierte en rojo. Se comprobó que efectivamente falla al borrar un ancla a mano, nombrándola. También detecta anclas huérfanas —un `data-tour` que ningún tour usa es código muerto o un tour borrado a medias— y que el walk encuentre archivos, para que no pase en verde por no haber leído nada.
+- **Los pasos cuyo elemento no está en el DOM se descartan.** Una pantalla vacía no tiene grilla, y un paso apuntando a la nada muestra un recuadro flotando en el medio. Si no queda ninguno, el tour no corre **y no se marca como visto**: mañana esa pantalla puede tener contenido.
+- **Se espera a que el ancla aparezca** (hasta 4 s) antes de decidir. Varios módulos montan su contenido en un efecto, así que mirar el DOM en el primer render diría que no hay nada.
+- **Navegar a otro módulo NO marca el tour como visto.** La limpieza del efecto también llama a `destroy()`, y sin distinguir los dos casos alguien que abre la pantalla y se va quemaría un tour sin haberlo leído. Cerrarlo con la X o con Escape sí cuenta: ahí la decisión fue del usuario.
+- **Los tours sí le corresponden a las cuentas invitadas** —es su única forma de onboarding, según la decisión del plan— así que `tours_seen` se resuelve para todos, aparte del checklist. Es una consulta por clave primaria, no los ocho `count` del checklist, que sigue siendo founder-only.
+- **El popover se re-mapea a los tokens del design system** en vez de reescribir la hoja de la librería: sigue el tema como cualquier otra superficie y una actualización de Driver.js no lo rompe.
+- **El anclaje del agente NO usa un wrapper con `display: contents`.** Fue el primer intento y estaba mal: un elemento con `display: contents` no tiene caja, así que `getBoundingClientRect()` devuelve ceros y el resaltado no marcaría nada. Las anclas van sobre el `<aside>` y el `<div>` reales.
+
+**Verificación ejecutada:**
+- `vitest`: **481 tests en verde** (12 nuevos).
+- `tsc --noEmit`, `pnpm lint` y `next build` limpios (133 páginas).
+- **El popover se renderizó de verdad en Chromium** sobre el tema oscuro, con el mismo CSS que se despliega: fondo `rgb(15,15,15)`, título `rgb(250,250,250)`, descripción en `muted-foreground` y el botón principal en el naranja de marca `rgb(226,95,18)` con texto negro. Cero errores de página. La primera captura salió translúcida y era la animación de entrada — confirmado midiendo `opacity: 1` una vez asentada.
+
+**Riesgos / deuda técnica pendiente:**
+- **El disparo dentro de la aplicación no está probado.** Lo verificado es el render del popover aislado; que el tour arranque solo al entrar a un módulo queda para el navegador — `PLAN_VERIFICACION.md` §13.9.
+- ⚠️ **El tour de la bandeja probablemente no corra en mobile:** sus anclas son las columnas de escritorio, ocultas con `md:`. El runner descarta los pasos sin ancla, así que no se rompe — simplemente no aparece. Conviene confirmarlo.
+- El popover se verificó **sólo en tema oscuro**. Usa los mismos tokens en claro, pero no se miró.
+- No hay forma de volver a lanzar un tour desde la UI una vez visto.
+
+---
+
 ### 2026-08-31 — FIX: desplegables ilegibles en oscuro y fuentes de datos que no se contaban
 
 **Rama/branch:** `Claude-Onboarding`
