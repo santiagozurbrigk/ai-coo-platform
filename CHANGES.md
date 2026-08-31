@@ -238,6 +238,284 @@ sección. Paletas validadas por script (5/5 checks en ambos temas).
 
 ---
 
+### 2026-08-31 — Onboarding Fase 4: panel de progreso en super-admin
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260831150000_onboarding_org_progress.sql` (nuevo), `lib/super-admin/onboarding-progress{,-mapper}.ts` (nuevos), `components/super-admin/onboarding-progress-table.tsx` (nuevo), `app/(super-admin)/super-admin/onboarding/page.tsx` (nueva), `lib/onboarding/derive.ts`, `lib/onboarding/current.ts`, `components/dashboard/dashboard-empty-state.tsx`, `routes/paths.ts`, `lib/navigation/super-admin-sidebar-modules.ts`
+
+**Qué se hizo:**
+**Super Admin → Onboarding**: en qué punto quedó cada organización, ordenado por quién necesita atención primero. Con esto las cuatro fases del plan están construidas.
+
+**Decisiones de diseño relevantes:**
+
+- **Una consulta para todas las organizaciones.** `onboarding_org_progress()` devuelve los hechos de todas de una vez; resolverlas una por una eran ocho consultas por organización —doscientas con veinticinco clientes— para pintar una pantalla.
+- **La función devuelve hechos, no conclusiones.** Quién está trabado y qué falta lo sigue decidiendo `deriveOnboardingState`, la misma función pura que usa la aplicación. Es lo que garantiza que **el panel no pueda mostrar un progreso distinto del que el cliente ve en su pantalla**. Ninguna regla de negocio está duplicada en SQL.
+- **Los conteos de pasos por plantilla de embudo no se hardcodearon en SQL.** Viven en `lib/funnels/templates/` y la función devuelve el detalle crudo —cada instancia con su plantilla y sus bindings— para que la app resuelva. Copiarlos habría creado una segunda fuente de verdad de las plantillas.
+- **El mapeo puro se separó del acceso a datos** (`-mapper.ts`), siguiendo la convención de `lib/*/mapper.ts` que ya usa el repo: `server-only` no resuelve en vitest, y la lógica que decide algo tiene que poder testearse.
+
+**Dos cosas que aparecieron al correr el mapeo contra los datos reales**, y que no se veían leyendo el código:
+
+1. **Los holdings encabezaban la lista de "necesita atención".** Cuatro de ellos, con el checklist en cero, tapaban a los clientes que sí estaban trabados. Un holding no mide embudos ni importa histórico —eso lo hacen sus negocios— y tiene su propio onboarding. Se agregó `applies` al progreso: las organizaciones a las que este flujo no les corresponde (holdings y las excusadas con `skip_onboarding`) van al final, sin barra de progreso y con el motivo explícito, y no entran en los contadores del encabezado.
+2. **`deriveOnboardingState` no conocía `account_type`.** La regla "un holding no pasa por el gate" vivía sólo en el middleware. El panel deriva sin pasar por ahí, así que marcaba como trabado a un holding nuevo. Se sumó `accountType` al sujeto: ahora la regla vive en la capa pura y la usan los dos.
+
+**De paso — un duplicado que había causado la Fase 2:** una organización nueva veía dos tarjetas pidiendo lo mismo, el checklist ("Conectar una fuente de datos") y el empty state del panel ("Conectá tus primeras integraciones"). El empty state ahora se corre cuando el checklist está visible, porque el checklist sabe más: conoce qué le falta a *esa* organización. También se le sacó la enumeración de proveedores, que estaba vieja (ManyChat, Calendly, Fathom) y se iba a volver a desactualizar.
+
+**Verificación ejecutada:**
+- `vitest`: **498 tests en verde** (14 nuevos).
+- `tsc --noEmit`, `pnpm lint` y `next build` limpios (133 páginas).
+- **El mapeo se corrió contra los datos reales** de las 13 organizaciones con usuarios: el orden sale correcto —de 0/4 a 3/4, con los holdings al final— y los pendientes de cada una coinciden con lo que muestra su propio checklist.
+- **Evidencia en vivo de que la Fase 3 funciona:** `tours_seen = ["funnels"]` en dos organizaciones. El tour se disparó solo en el preview y se persistió.
+
+**Riesgos / deuda técnica pendiente:**
+- **La pantalla no se vio renderizada.** Se verificó el contenido, no el render — `PLAN_VERIFICACION.md` §13.10.
+- **Hoy el panel muestra 0 organizaciones sin terminar la configuración inicial**, porque el backfill eximió a todas las existentes. Recién se va a poblar con cuentas nuevas: no es un bug, pero conviene saberlo antes de mirarlo por primera vez.
+- El panel dice en qué punto quedó cada organización, **no si sigue viva**. La última actividad la cubre `/super-admin/client-health`, que es otra pantalla.
+- `client-health` usa emojis en el JSX, contra la regla de `CLAUDE.md`. Es preexistente y no se tocó.
+
+---
+
+### 2026-08-31 — Onboarding Fase 3: tours contextuales con Driver.js
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/onboarding/tours.ts` (nuevo), `components/onboarding/tour-runner.tsx` (nuevo), `lib/onboarding/__tests__/tours.test.ts` (nuevo), `lib/onboarding/current.ts`, `lib/onboarding/resolve.ts`, `app/onboarding/actions.ts`, `providers/onboarding-provider.tsx`, `app/(platform)/layout.tsx`, `app/globals.css`, anclas en `funnels/page.tsx`, `marketing/content/page.tsx`, `agent-sidebar.tsx`, `agent-module.tsx`, `sales-inbox-layout.tsx`, `package.json`
+
+**Qué se hizo:**
+Cuatro tours que arrancan solos la primera vez que alguien entra a Embudos, Contenido, Agente y Bandeja. **Driver.js es la única dependencia que agregó todo el plan de onboarding**, y queda en el chunk del runner: el bundle compartido no se movió (185 kB antes y después).
+
+**Decisiones de diseño relevantes:**
+
+- **Las anclas son `data-tour`, nunca clases de Tailwind**, y hay un test que verifica que cada una siga existiendo en el JSX. El modo de falla de un tour es que un paso deje de aparecer **sin que nada se rompa**; el test lo convierte en rojo. Se comprobó que efectivamente falla al borrar un ancla a mano, nombrándola. También detecta anclas huérfanas —un `data-tour` que ningún tour usa es código muerto o un tour borrado a medias— y que el walk encuentre archivos, para que no pase en verde por no haber leído nada.
+- **Los pasos cuyo elemento no está en el DOM se descartan.** Una pantalla vacía no tiene grilla, y un paso apuntando a la nada muestra un recuadro flotando en el medio. Si no queda ninguno, el tour no corre **y no se marca como visto**: mañana esa pantalla puede tener contenido.
+- **Se espera a que el ancla aparezca** (hasta 4 s) antes de decidir. Varios módulos montan su contenido en un efecto, así que mirar el DOM en el primer render diría que no hay nada.
+- **Navegar a otro módulo NO marca el tour como visto.** La limpieza del efecto también llama a `destroy()`, y sin distinguir los dos casos alguien que abre la pantalla y se va quemaría un tour sin haberlo leído. Cerrarlo con la X o con Escape sí cuenta: ahí la decisión fue del usuario.
+- **Los tours sí le corresponden a las cuentas invitadas** —es su única forma de onboarding, según la decisión del plan— así que `tours_seen` se resuelve para todos, aparte del checklist. Es una consulta por clave primaria, no los ocho `count` del checklist, que sigue siendo founder-only.
+- **El popover se re-mapea a los tokens del design system** en vez de reescribir la hoja de la librería: sigue el tema como cualquier otra superficie y una actualización de Driver.js no lo rompe.
+- **El anclaje del agente NO usa un wrapper con `display: contents`.** Fue el primer intento y estaba mal: un elemento con `display: contents` no tiene caja, así que `getBoundingClientRect()` devuelve ceros y el resaltado no marcaría nada. Las anclas van sobre el `<aside>` y el `<div>` reales.
+
+**Verificación ejecutada:**
+- `vitest`: **481 tests en verde** (12 nuevos).
+- `tsc --noEmit`, `pnpm lint` y `next build` limpios (133 páginas).
+- **El popover se renderizó de verdad en Chromium** sobre el tema oscuro, con el mismo CSS que se despliega: fondo `rgb(15,15,15)`, título `rgb(250,250,250)`, descripción en `muted-foreground` y el botón principal en el naranja de marca `rgb(226,95,18)` con texto negro. Cero errores de página. La primera captura salió translúcida y era la animación de entrada — confirmado midiendo `opacity: 1` una vez asentada.
+
+**Riesgos / deuda técnica pendiente:**
+- **El disparo dentro de la aplicación no está probado.** Lo verificado es el render del popover aislado; que el tour arranque solo al entrar a un módulo queda para el navegador — `PLAN_VERIFICACION.md` §13.9.
+- ⚠️ **El tour de la bandeja probablemente no corra en mobile:** sus anclas son las columnas de escritorio, ocultas con `md:`. El runner descarta los pasos sin ancla, así que no se rompe — simplemente no aparece. Conviene confirmarlo.
+- El popover se verificó **sólo en tema oscuro**. Usa los mismos tokens en claro, pero no se miró.
+- No hay forma de volver a lanzar un tour desde la UI una vez visto.
+
+---
+
+### 2026-08-31 — FIX: desplegables ilegibles en oscuro y fuentes de datos que no se contaban
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `app/globals.css`, `supabase/migrations/20260831140000_onboarding_connected_sources.sql` (nuevo), `lib/onboarding/resolve.ts`, `docs/PLAN_VERIFICACION.md`
+
+Santiago probó el preview y reportó tres síntomas. Resultaron ser **dos bugs y una propiedad conocida del entorno**.
+
+**1 · Los `<select>` nativos eran ilegibles en modo oscuro** — texto blanco sobre fondo blanco.
+
+`html.dark` ya declaraba `color-scheme: dark`, así que la causa no era esa. Chrome pinta el popup del select con el **background computado del propio elemento**, y la app los estila con `bg-transparent`: eso resuelve a blanco mientras el texto hereda el foreground del tema. El `color-scheme` no alcanza justamente porque el background explícito gana.
+
+Se estila el `<option>` y no el `<select>`: una regla de elemento sobre el select perdería contra las clases de Tailwind de cada uno de los **77 desplegables** que tiene la app. Con `option` gana, porque nadie los estila. **No era un bug del onboarding: afectaba a toda la aplicación en modo oscuro.**
+
+Verificado midiendo el estilo computado en Chromium, antes y después: `rgba(0,0,0,0)` sobre texto `rgb(255,255,255)` → `rgb(15,15,15)` sobre `rgb(250,250,250)`.
+
+**2 · El ítem "conectar una fuente de datos" contaba 5 de 16 tablas.**
+
+Santiago conectó Google y el ítem siguió abierto: `google_forms_integrations` no estaba en el array. Tampoco Typeform, Instagram, ManyChat, Unipile, YouTube, Stripe, Mercado Pago, Hyros, VTurb ni WebinarJam.
+
+Se reemplazó el array por **`onboarding_connected_source_count`**, una función de base de datos. Dos razones: la lista de qué cuenta como fuente ahora vive junto a las tablas en vez de en un array de la app que se desactualiza en silencio cada vez que se agrega un proveedor, y es **una consulta en vez de dieciséis** en un layout que corre en cada request. El criterio es excluir estados terminales (`disconnected`, `revoked`) en vez de exigir un valor, porque cada proveedor usa su propio vocabulario —`'connected'` en unos, `'active'` en otros, `is_active` en otros— y un proveedor nuevo con otra palabra quedaría afuera sin que nada falle.
+
+**No cuentan** `discord_integrations` (canal de notificación hacia afuera, no fuente) ni `team_member_integrations` (por persona, no de la organización).
+
+Aplicada y verificada: la cuenta subió donde correspondía (familiayformacion 3 → 5, Optimiza tu Control 1 → 2).
+
+**3 · "Me deslogueó al conectar Google" — no era un bug.**
+
+Los logs de Vercel lo muestran: el callback `/api/integrations/google-forms/oauth/callback` llegó a **producción**, no al preview. Las rutas OAuth arman la vuelta con una variable de entorno fija, registrada en la consola del proveedor, no con el host de la request. Desde un preview eso encadena los tres síntomas de una sola vez: el cookie de estado queda en el dominio del preview, el callback falla en silencio en producción (por eso no se guardó la integración), aparece el login de producción —donde no hay sesión, no hubo deslogueo— y al entrar no se ve nada de la rama porque no está desplegada ahí.
+
+Ya era así antes de esta rama y aplica a Calendly, Typeform, Stripe, Mercado Pago e Instagram. Documentado en `PLAN_VERIFICACION.md` §13.7 con la salida práctica: en previews, probar el ítem con un proveedor de **API key** (Zernio, GHL, Fathom, pagos), que se conecta por diálogo sin salir del dominio.
+
+**Verificación ejecutada:** 469 tests, `tsc`, `pnpm lint` y `next build` limpios. La función nueva probada contra las 13 organizaciones con usuarios.
+
+**Riesgos / deuda técnica pendiente:**
+- El caso "desconectar una integración y ver que el ítem se reabre" **sigue sin poder observarse**: ninguna organización tiene hoy una integración desconectada.
+- La lógica de qué cuenta como fuente ahora vive en SQL y no la cubre `vitest`. La derivación (`connectedSourceCount > 0`) sigue siendo pura y testeada; lo que se movió es el conteo, que es IO por naturaleza.
+
+---
+
+### 2026-08-31 — FIX: loop de redirects entre el gate y el cambio de contraseña
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/onboarding/gate-routing.ts` (nuevo), `lib/onboarding/__tests__/gate-routing.test.ts` (nuevo), `lib/supabase/middleware.ts`
+
+**El bug.** Santiago probó el preview y `/onboarding` devolvía `ERR_TOO_MANY_REDIRECTS`. Los logs de Vercel mostraban el ciclo entero:
+
+```
+/onboarding → 307 → /auth/force-password-change → 307 → /onboarding → …
+```
+
+Toda cuenta nueva llega con `must_change_password`, así que el middleware la manda a cambiar la contraseña. Pero **el chequeo del gate no exceptuaba esa pantalla** y, como `/auth/force-password-change` no es una ruta pública, la rebotaba de vuelta al gate.
+
+**Lo peor del caso:** rompía exactamente al usuario al que el gate está dirigido —una cuenta recién creada en su primer login— y no lo agarraba nada: `tsc`, `pnpm lint`, 453 tests y `next build` pasaban todos en verde. El comentario del código decía el orden correcto ("va después del cambio de contraseña a propósito"); la condición no lo implementaba.
+
+**El arreglo.** Dos guardas —`!mustChangePassword` y `!isForcePasswordChangePath`—, pero sobre todo **la decisión se extrajo a `lib/onboarding/gate-routing.ts`**, una función pura con 16 tests.
+
+**Por qué extraerla y no sólo agregar la condición:** el modo de falla de esta lógica no es un valor mal calculado, es **un loop entre dos reglas del mismo middleware**, y eso tumba la aplicación entera sin que ninguna herramienta lo note. Mientras la decisión viviera adentro de una función que hace IO y arma `NextResponse`, no había forma de testear las combinaciones. Ahora el loop tiene tres tests que lo cubren por nombre.
+
+**Verificación ejecutada:**
+- `vitest`: **469 tests en verde** (16 nuevos, cuatro de ellos sobre el loop).
+- `tsc --noEmit`, `pnpm lint` y `next build` limpios.
+
+**Riesgos / deuda técnica pendiente:**
+- El middleware sigue teniendo otras reglas de redirect (contraseña expirada, login, holding sin negocio activo) que **no** pasaron por esta extracción. Ninguna choca con el gate hoy, pero conviene el mismo tratamiento si se agrega otra.
+- La lección para la Fase 3: nada de esto se ve sin abrir la aplicación. Los tours van a tener el mismo problema.
+
+---
+
+### 2026-08-31 — Onboarding Fase 2: el checklist persistente
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `components/onboarding/{setup-checklist,notch-setup-indicator}.tsx` (nuevos), `providers/onboarding-provider.tsx` (nuevo), `lib/onboarding/current.ts` (nuevo), `lib/onboarding/derive.ts`, `app/onboarding/actions.ts`, `app/(platform)/layout.tsx`, `components/dashboard/dashboard-page-content.tsx`, `components/navigation/notch-nav/platform-notch-nav.tsx`, `components/navigation/nav-icons.tsx`
+
+**Qué se hizo:**
+Lo que no entra en el gate ya se le muestra al founder: una tarjeta de progreso en el panel y un contador en la isla derecha de la notch nav. Con esto el onboarding queda completo de punta a punta — las tres fases de la primera tanda están cerradas.
+
+**Decisiones de diseño relevantes:**
+
+- **El checklist es sólo para founders.** Sus ítems viven en Ajustes, Integraciones y Equipo, donde un `operator` o un `viewer` no tienen permiso: mostrárselo sería pedirles algo que no pueden hacer. `getCurrentOnboardingState` devuelve `null` para cuentas invitadas, así que además no se resuelven los hechos en cada request de ellas.
+- **El estado se resuelve en el layout, que es Server Component,** y baja por provider. Así la tarjeta se pinta con la primera respuesta en vez de aparecer un segundo después de que la página ya se vio.
+- **La tarjeta se monta en `DashboardPageContent`, no en `DashboardOverview`.** Ese componente hace un early return al empty state, que es justo donde cae una organización recién configurada — o sea, el momento en que el checklist más hace falta. Montarlo adentro lo habría escondido exactamente ahí.
+- **Los descartes se aplican primero en el cliente** y después se confirman contra el servidor, para que el ítem desaparezca al toque. La lógica vive en `applyLocalDismissals`, en la capa pura, porque no alcanza con marcar el ítem: hay que recalcular `open` y `complete`, que son los que deciden si la tarjeta y el contador siguen en pantalla.
+- **`getCurrentOnboardingState` es una función server plana, no una Server Action.** La llama el layout; convertirla en acción dejaría un endpoint expuesto sin necesidad.
+
+**Un bug silencioso encontrado de paso:** `NavIcon` cae a `LayoutDashboard` ante un nombre desconocido, y tres de los íconos del catálogo (`building-2`, `user-round`, `upload`) no estaban en el mapa — se habrían pintado todos iguales sin que nada fallara. Se agregaron, y `NAV_ICON_NAMES` ahora se exporta para que un test verifique la relación en vez del caso.
+
+**Verificación ejecutada:**
+- `vitest`: **453 tests en verde** (6 nuevos: `applyLocalDismissals` y los íconos del catálogo).
+- `tsc --noEmit`, `pnpm lint` y `next build` limpios (133 páginas).
+- **Contra la base real (cierra lo que quedaba abierto de `PLAN_VERIFICACION.md` §13.2):** se replicaron los resolvers en SQL sobre las 8 organizaciones founder con usuarios. El punto que estaba marcado como riesgoso quedó resuelto: las tres instancias de embudo existentes son plantilla `webinar` (7 pasos) con **un solo binding**, así que ninguna cuenta como completa — que es exactamente lo que muestra la grilla de `/funnels`. El checklist y esa pantalla no se contradicen.
+
+**Riesgos / deuda técnica pendiente:**
+- **El layout resuelve el estado en cada request de founder** — unos 8 `count` en paralelo sobre columnas indexadas, con cache de 60 s en memoria. Es el primer lugar donde mirar si el panel se siente lento; medir antes de optimizar.
+- **El filtro de desconexión de integraciones sigue sin observarse:** hoy ninguna organización tiene una integración desconectada, así que no se pudo ver si `connectedSourceCount` cuenta de más. Sigue en `PLAN_VERIFICACION.md` §13.2.
+- Nada probado con sesión de navegador — pasos en §13.6.
+- El contador de la notch nav linkea al panel, no a la tarjeta: no hace scroll ni la resalta.
+
+---
+
+### 2026-08-31 — Onboarding Fase 1: el gate de tres pasos (migraciones aplicadas)
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `app/onboarding/actions.ts`, `app/(platform)/onboarding/page.tsx`, `components/onboarding/onboarding-gate.tsx`, `lib/supabase/middleware.ts`, `layouts/platform-layout.tsx`, `lib/navigation/chromeless.ts`, `constants/organization-options.ts`, `components/settings/settings-form.tsx`, `routes/paths.ts`, `lib/onboarding/derive.ts`, `supabase/migrations/20260831130000_organizations_drop_unit_defaults.sql`, `CLAUDE.md`
+
+**Qué se hizo:**
+Una cuenta founder nueva ya no entra a un panel vacío: cae en `/onboarding` y no sale hasta cargar unidades del negocio, oferta principal y avatar principal. **Las dos migraciones están aplicadas en Supabase** (proyecto OTC).
+
+**Dos cosas que aparecieron al mirar la base real y cambiaron el diseño:**
+
+- **El backfill.** Seis organizaciones existentes —entre ellas `familiayformacion`, activa y con tres miembros— no tienen oferta principal ni avatar, así que al desplegar se habrían encontrado un wizard bloqueante en su próximo login. La migración de `onboarding_state` les marca `gate_completed_at`: quedan eximidas y el checklist les mostrará igual lo que falta. **Verificado por SQL: de 18 perfiles, cero quedan redirigidos.** El gate queda para las cuentas nuevas, que es para lo que se diseñó.
+- **Los defaults de la base tumbaban la premisa del paso 1.** `organizations.currency` tenía default `'USD'` y `timezone` default Buenos Aires, así que una org recién creada nacía "configurada" y la derivación —que sólo puede mirar si el valor está o no— salteaba justo el paso que motivó bloquear. Y el default no es neutro: para un cliente que cobra en pesos, `'USD'` es directamente el valor equivocado e indistinguible de una elección deliberada. Se agregó `20260831130000_organizations_drop_unit_defaults.sql`. No toca las filas existentes, y la UI de Ajustes ya resolvía el null con su propio fallback.
+
+**Decisiones de diseño relevantes:**
+
+- **El middleware hace una sola consulta por clave primaria** (`gate_completed_at`) y nada más. Si el gate hace falta o no —¿ya tiene oferta?— lo decide la página, que es la única que necesita la derivación completa y no corre en cada request.
+- **Las rutas `/api/` quedan excluidas del redirect**, por el mismo motivo que las Server Actions: un redirect devuelve HTML y sobre un `fetch` rompe al cliente en vez de mandarlo a ningún lado.
+- **El gate se renderiza sin chrome** (`lib/navigation/chromeless.ts`). Mostrarle la navegación a alguien que el middleware va a devolver es ofrecerle una salida que no existe. No se incluyó `/onboarding/holding`: ese wizard viene mostrándose dentro del shell y cambiarlo sería ajeno a esta fase.
+- **Cero mutaciones nuevas.** Los tres pasos delegan en `saveGeneralOrganizationSettingsAction`, `saveProductAction` y `saveAvatarAction`. Salir a mitad de camino no pierde nada: al volver, `firstPendingGateStep` arranca en el primero que falte.
+- **Un precio vacío o mal tipeado se guarda como ausente, no como cero** — una oferta sin precio conocido no es una oferta gratis.
+- **`completeOnboardingGateAction` revalida en el servidor** que los tres ítems estén cumplidos. El cliente ya lo impide, pero la acción es la que escribe y no puede confiar en eso.
+- **Las listas de moneda/zona/idioma se extrajeron a `constants/organization-options.ts`**, que ahora comparten Ajustes y el gate: duplicadas se desincronizaban del `z.enum` de `lib/validations.ts` sin que nada fallara.
+
+**Verificación ejecutada:**
+- `vitest`: **447 tests en verde** (4 nuevos sobre `firstPendingGateStep`).
+- `tsc --noEmit` y `pnpm lint` limpios. `next build` OK — 133 páginas, ambas rutas de onboarding presentes.
+- **Contra la base real:** los 18 perfiles existentes entran sin gate; una org creada de cero cae en el gate y con la identidad genuinamente pendiente; 🔒 RLS de `onboarding_state` aislando (1 fila visible de 25). Las orgs de prueba se borraron.
+- Se agregó `PLAN_VERIFICACION.md` §13.5 con lo que falta probar en un navegador.
+
+**Riesgos / deuda técnica pendiente:**
+- **Nada probado con sesión de navegador.** Todo lo verificado es SQL, tests y build; el flujo visual queda para el preview de Vercel — pasos en `PLAN_VERIFICACION.md` §13.5.
+- El gate suma **una consulta al middleware por request de founder**. Con el backfill devuelve rápido, pero conviene medirlo antes de que crezcan las cuentas.
+- La animación de bienvenida se dispara desde el cliente tras completar el gate; si el usuario cierra la pestaña justo ahí, se pierde (el gate igual queda cerrado).
+- Todavía **no hay checklist**: lo que no entra en el gate no se le muestra a nadie hasta la Fase 2.
+
+**De paso:** se corrigieron las dos filas desactualizadas de `CLAUDE.md` —`app/onboarding/actions.ts` ahora existe de verdad, y el acento de marca es naranja `#E15D12`, no violeta.
+
+---
+
+### 2026-08-31 — Onboarding Fase 0: capa de derivación y estado persistido
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260831120000_onboarding_state.sql` (nuevo), `lib/onboarding/{items,derive,resolve}.ts` (nuevos), `lib/onboarding/__tests__/derive.test.ts` (nuevo), `docs/PLAN_VERIFICACION.md`
+
+**Qué se hizo:**
+Fase 0 del plan de `docs/ONBOARDING_PLAN.md`: el estado de onboarding de cualquier organización ya se puede consultar. **Sin UI todavía** — no hay pantalla ni ruteo, eso es la Fase 1.
+
+- **`onboarding_state`** — una fila por org con lo único que no se puede derivar: `gate_completed_at`, `dismissed_items`, `tours_seen`. RLS con el patrón estándar. `onboarding_responses` (el wizard de holding) queda intacta.
+- **`items.ts`** — catálogo de los 8 ítems con su nivel, a dónde mandan y si se pueden descartar. Sólo datos.
+- **`derive.ts`** — la capa pura: dados los hechos, decide qué está cumplido y si el gate bloquea. No toca la base.
+- **`resolve.ts`** — junta los hechos de las tablas reales y cachea 60 s.
+
+**Decisiones de diseño relevantes:**
+
+- **La asimetría entre `passed` y `satisfied` es lo más importante del archivo.** El gate se cruza una vez (`gate_completed_at`); el checklist mira el estado de ahora. Si alguien borra su única oferta después de haber cruzado, el ítem se reabre en el checklist pero **no lo expulsa de la aplicación a mitad de trabajo**. Mezclar las dos cosas daba una de dos fallas: o quedaba encerrado, o el checklist mentía.
+- **`gate.required` es falso cuando los datos ya están cargados**, aunque nadie haya pasado por el wizard. Eso es lo que evita arrastrar por el gate a las organizaciones que existían antes de esta feature — que era la consecuencia más molesta de la decisión de bloquear.
+- **Del formulario de identidad, sólo tres campos deciden:** nombre, moneda y zona horaria. Industria, país e idioma se piden pero no bloquean. El criterio es el mismo que define el gate: bloquear sólo por lo que no se puede corregir después sin dejar mal etiquetado lo ya cargado.
+- **Un embudo a medio vincular no cuenta como hecho.** Se usa el mismo ratio `boundSteps / stepCount` que la grilla de `/funnels` ya calcula, para que el checklist y esa pantalla no puedan discrepar.
+- **`connectedSourceCount` cuenta tablas, no proveedores concretos.** Cualquier fuente sirve; exigir Zernio sería adivinar el negocio del cliente.
+- **La cache guarda los hechos, no el estado derivado.** La derivación depende de quién mira (rol y `skip_onboarding`) y es pura y barata; meter eso en la clave multiplicaba entradas y volvía la invalidación un barrido por prefijo.
+- **`countRows` devuelve 0 ante cualquier error**, tabla inexistente incluida: un ítem de onboarding no puede tumbar la request que lo muestra.
+
+**Verificación ejecutada:**
+- `vitest`: **443 tests en 25 archivos, todos en verde** (25 nuevos).
+- `tsc --noEmit` limpio.
+- `pnpm lint`: sin errores ni warnings nuevos en `lib/onboarding`.
+- Se agregó la sección 13 a `docs/PLAN_VERIFICACION.md` con lo que no se puede probar sin base real.
+
+**Riesgos / deuda técnica pendiente:**
+- **Lo único verificado es la lógica pura.** Que las consultas lean las tablas correctas necesita una base real — pasos en `PLAN_VERIFICACION.md` §13.
+- ⚠️ **`connectedSourceCount` es lo más probable de fallar.** Cada proveedor se desconecta distinto: `zernio_integrations` y `payment_integrations` marcan `is_active`, `fathom_integrations` usa `status`, y `ghl_integrations` y `calendly_integrations` no tienen ninguna de las dos — ahí la sola presencia de la fila cuenta como conectado. Si alguno borra tokens sin borrar la fila, va a contar de más.
+- La migración **no está aplicada** en Supabase todavía.
+- Nada consume esta capa aún: sin la Fase 1 no cambia nada para el usuario.
+
+---
+
+### 2026-08-31 — Plan de onboarding guiado para cuentas nuevas
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente commit
+**Módulo(s) afectado(s):** `docs/ONBOARDING_PLAN.md` (nuevo), `PENDIENTES.md`
+
+**Qué se hizo:**
+Sesión de diseño, sin código. Se relevó el estado real del onboarding en el repo y se escribió el plan completo en `docs/ONBOARDING_PLAN.md`, con las tres decisiones de producto ya cerradas con Santiago.
+
+**Lo que apareció en el relevamiento:**
+- **No existe onboarding de founder.** `CLAUDE.md` lista `app/onboarding/actions.ts` como "onboarding founder" y **ese archivo no existe** — la fila está desactualizada. Lo único construido es el wizard del holding.
+- **`CinematicWelcome` está huérfana.** El `WelcomeGate` y `welcome-storage.ts` están completos y esperan un `markWelcomePending()` que **ningún flujo llama**. Su lugar natural es el final del gate de onboarding.
+- Las cuentas founder nacen con la organización **ya nombrada** por el super-admin y con `must_change_password`, así que el onboarding arranca después del cambio de contraseña forzado, no antes.
+
+**Qué es obligatorio y por qué (el criterio, no la lista):**
+El criterio elegido no es "qué nos gustaría que cargue" sino **qué se rompe si falta y lo descubre en el mes 2**. Si se recalcula, no es obligatorio; si dejó el histórico mal etiquetado, sí. La segunda fuente objetiva es `getOrgContext()`: lo que el agente lee en cada llamada y no puede degradar con elegancia. Eso deja **tres** ítems en el gate —unidades del negocio, oferta principal, avatar principal— y todo lo demás en checklist o sugerido.
+
+**Decisiones de diseño relevantes:**
+
+- **El progreso se deriva, no se guarda.** La propuesta de partida era una tabla con un booleano por paso. Eso miente en cuatro casos que ya ocurren acá: el super-admin crea la org con nombre; un founder puede conectar Zernio sin pasar por el checklist; un cliente puede importar el histórico primero; y borrar la única oferta deja el booleano en `true`. Guardar el hecho duplica una verdad que ya vive en `products`, `customer_avatars` y `zernio_integrations` — y de dos fuentes para el mismo dato, una se desincroniza siempre. Se persiste sólo lo no derivable.
+- **Una sola dependencia nueva, y no en la primera tanda.** Se evaluaron las cuatro librerías contra el registry de npm en vez de de memoria. Resultados que cambiaron la conclusión: **`onboardjs` está despublicado** (el paquete real es `@onboardjs/core`, en release candidate, ~9K descargas semanales) y **React Joyride sí soporta React 19** (peer `16.8 - 19`), que era la duda más razonable. Queda **Driver.js** —cero dependencias, 156 KB, 2M descargas semanales— y sólo para los tours contextuales, en la segunda tanda. El flujo se construye acá porque **el estado sale de la base de datos**: ninguna librería puede saber si esta org ya tiene una oferta cargada.
+- **El gate no aplica a invitados.** Un `operator` o `viewer` no tiene permiso de `settings` ni de `integrations`, así que el gate lo dejaría encerrado en una pantalla que no puede completar. El redirect del middleware se condiciona a `role = 'founder'` desde la Fase 1, aunque su tour recién se construya en la Fase 3.
+
+**Riesgos / deuda técnica pendiente:**
+- Nada implementado todavía — el plan está listo, el código no existe.
+- El gate agrega consultas al middleware, que corre en cada request. Medir antes de optimizar.
+- Con el gate duro, la única salida para un cliente trabado es que alguien de OTC le marque `skip_onboarding`. Conviene que el panel de visibilidad (Fase 4) llegue antes de tener muchas altas simultáneas.
+- **`CLAUDE.md` tiene dos filas desactualizadas** detectadas de paso: el `app/onboarding/actions.ts` inexistente, y un acento primario violeta `#7C3AED` cuando `DESIGN.md` y los tokens definen naranja `#E15D12`.
+
 ### 2026-08-31 — Sacar el panel contenedor y fijar Embudos en la navegación
 
 **Rama/branch:** `Claude-Design`  
@@ -269,6 +547,55 @@ Pedido de Santiago: el recuadro que envolvía todo el contenido de cada panel so
 
 - Con `Operaciones` y `Producto` encendidos serían 10 módulos y a 1280px la isla central **se superpone** con la derecha. Antes de habilitar esos add-ons hay que resolverlo: acortar labels, agrupar módulos o pasar a iconos por debajo de cierto ancho.
 - Se perdió el patrón de puntos de fondo, que era parte del panel. Si se lo quiere de vuelta, va sobre el fondo de la app.
+
+---
+
+### 2026-08-30 — Reportes ejecutivos: pulso diario, UI rediseñada y panel discreto
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/executive-reports/{cadences,generate-daily}.ts` (nuevos), `components/executive-reports/*`, `app/(platform)/executive-reports/*`, `app/api/cron/executive-report-daily/`, `app/api/queue/process-cron-executive-report/`, `lib/queue/qstash-client.ts`, `lib/navigation/*`, `components/navigation/notch-nav/platform-notch-nav.tsx`, `vercel.json`
+
+**Qué se hizo:**
+El sistema de reportes con IA ya existía —generadores, crons semanal y mensual, tabla— pero se leía desde **Operaciones → Reportes** en el sidebar, con una UI que no seguía el diseño actual y con un botón de generación manual.
+
+**⭐ Dónde vive ahora, y por qué.** Los reportes pasaron a un **panel detrás de un ícono en la barra superior**, disponible desde cualquier pantalla. Un reporte automático se lee y se cierra: no es un lugar donde uno *trabaja*, y ocupar un renglón del sidebar lo ponía al mismo nivel que SOPs o Clientes. La entrada "Reportes" de Operaciones se quitó — el panel no se suma al navbar, lo libera.
+
+Quedan dos páginas, sin entrada en el navbar y accesibles desde el panel: el **historial** (volver sobre reportes viejos) y el **detalle** (compartir el link de uno). Las páginas por cadencia (`/weekly`, `/monthly`) se borraron: el panel ya muestra el último de cada una.
+
+**⭐ El pulso diario es una lectura distinta, no el semanal más seguido.** El documento fuente (§06) le da a cada cadencia un propósito propio, y al diario una advertencia explícita: *"Lectura de 5 minutos. No se toman decisiones con un solo día de datos."* De ahí tres diferencias deliberadas en el generador:
+
+1. **No produce recomendaciones.** El array se guarda vacío y la UI ni siquiera dibuja la sección: un bloque "Recomendaciones — ninguna" se leería como que la IA no encontró nada, cuando en realidad no se le pidió.
+2. **Menos ítems y más cortos** — máximo 3 riesgos y 3 cuellos de botella, de una línea.
+3. **Ventana de un día** en los estados por departamento, no de siete.
+
+La advertencia va **arriba de los números** en la UI. Sin ella, un mal martes parece un problema estructural.
+
+**Sólo generación automática**, como se pidió: la UI de reportes no tiene ningún botón de generar. El pulso diario corre a las 11 UTC (8 de la mañana en Argentina).
+
+**Verificación ejecutada** (sobre `main` con onboarding, notch nav y embudos ya mergeados):
+- `pnpm test`: **509 tests en 30 archivos, todos en verde** (11 nuevos de este cambio).
+- `tsc --noEmit` y `pnpm lint` limpios.
+- `pnpm build` completo: **131 páginas**. Quedan `/executive-reports/history` y `/executive-reports/[id]`; `/weekly`, `/monthly` y `/operations/reportes` ya no se compilan.
+- Migración **aplicada**.
+
+**Un bug de layout que se atajó antes de llegar al navegador:** `DialogContent` trae `grid gap-4 p-6` por defecto, así que la columna con scroll interno que necesita el panel no armaba y el contenido se habría desbordado en vez de scrollear. Se pisa con `flex flex-col gap-0 p-0`. No lo detecta ni `tsc` ni el lint: es CSS, y sólo se ve corriendo la app o leyendo el primitivo.
+
+**Decisiones de diseño:**
+- **Un solo worker de cola para las tres cadencias.** El worker acepta un `period` opcional que cae en `weekly`: los jobs ya encolados cuando se agregó el diario no traen el campo y tienen que seguir generando lo que pidieron. Tres workers habrían sido tres copias del mismo archivo cambiando una línea.
+- **El punto de "no leído" vive en `localStorage`, no en la base.** Es una comodidad por navegador: su peor caso es volver a ver un punto que ya se había apagado, y eso no justifica una tabla de leídos. Toda lectura y escritura va en `try/catch` porque el modo privado puede bloquearlo.
+- **El panel se trae sus propios datos.** El shell de la plataforma es client hasta arriba, así que no hay dónde consultar del lado del servidor sin atravesar dos componentes con props que no les incumben. Vive en el layout: monta una vez por sesión, no en cada navegación.
+- **`ReportBody` es el mismo en el panel y en la página de detalle.** El mismo reporte no debería leerse distinto según por dónde se entró.
+- **El historial se agrupa por cadencia y no se ordena por fecha.** Los diarios son muchos más que los otros dos y una lista cronológica única los enterraría.
+- **El botón sólo aparece si hay al menos un reporte.** Un ícono que sólo puede mostrar un vacío es ruido en la barra.
+- **Vive en la isla derecha de la notch nav**, junto al tema y al perfil. Se escribió cuando todavía convivían la topbar clásica y la notch nav; al quedar la notch nav como navegación única (#31, #33), el panel quedó sólo ahí.
+
+**Corrección a algo que dije durante el trabajo:** al empezar reporté que la función estaba "huérfana, sin ningún link desde la navegación". Era falso — estaba en **Operaciones → Reportes**. Lo detecté al romper la compilación de esa página, y cambió el alcance: el panel **reemplaza** esa entrada en vez de sumarse a la navegación.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **Queda un camino de generación manual que no se tocó.** `GenerateWeeklyPipelineButton` (en Inteligencia y en Operaciones) dispara un pipeline que, entre otras cosas, genera el reporte ejecutivo semanal. Sacarlo rompería esas dos pantallas, que están fuera de este pedido. La UI de reportes no ofrece generar nada; ese botón sí, desde otro lado.
+- El pulso diario **nunca corrió**: su primer resultado real es el que va a decir si el prompt produce algo útil o ruido. Si sale ruidoso, lo que hay que ajustar es el prompt del sistema en `generate-daily.ts`, no la UI.
+- El panel no tiene cobertura de Playwright.
 
 ---
 

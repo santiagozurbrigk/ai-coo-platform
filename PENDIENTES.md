@@ -9,6 +9,26 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [REPORTES-PULSO-DIARIO] Revisar la primera salida real del pulso diario
+
+**Qué es:** el reporte diario se construyó pero **nunca corrió**. Su prompt le pide algo distinto al semanal: detectar roturas obvias sin recomendar acciones, y decir en una oración cuando el día fue normal.
+
+**Qué mirar en el primer resultado real:** que un día tranquilo produzca un reporte corto y honesto en vez de inflar riesgos para llenar espacio. Si sale ruidoso, lo que hay que ajustar es el prompt del sistema en `lib/executive-reports/generate-daily.ts`, no la UI.
+
+**Cuándo:** el cron corre todos los días a las 11 UTC (8 de la mañana en Argentina).
+
+---
+
+### [REPORTES-GENERACION-MANUAL] Decidir qué pasa con el botón de pipeline semanal
+
+**Qué es:** la UI de reportes ya no ofrece generar nada, como se pidió. Pero `GenerateWeeklyPipelineButton` sigue en **Inteligencia** y en **Operaciones**, y ese botón dispara un pipeline que —entre otras cosas— genera el reporte ejecutivo semanal.
+
+**Por qué no se tocó:** sacarlo rompería esas dos pantallas, que están fuera del pedido.
+
+**Qué decidir:** si el reporte ejecutivo tiene que salir de ese pipeline, o si el botón debería generar sólo lo de Inteligencia y Operaciones y dejar el ejecutivo puramente automático.
+
+---
+
 ### [EMBUDOS-SALUD] Habilitar el estado de salud (bandas de la §04) ⏸️
 
 **Qué es:** el documento define bandas de salud por métrica —qué valor es sano, cuál está en el piso y cuál está roto— y OTC tiene el código construido y testeado en `lib/funnels/health-bands.ts`, con la precedencia de tres niveles (plantilla → override de oferta → baseline de la org).
@@ -176,6 +196,40 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 
 ## 🟣 Nuevos Features — Implementar cuando Santiago lo indique
+
+### [ONBOARDING] Onboarding guiado para cuentas nuevas — ✅ las cuatro fases construidas
+
+**Qué es:** hasta el 2026-08-31 **no existía onboarding de founder**: una cuenta nueva la creaba el super-admin, el founder cambiaba la contraseña y entraba a un dashboard vacío. Hoy hay gate, checklist y tours; falta la visibilidad interna.
+
+**El plan completo está en [`docs/ONBOARDING_PLAN.md`](./docs/ONBOARDING_PLAN.md)** — leerlo antes de escribir una línea.
+
+**Estado: ✅ Primera tanda completa (2026-08-31)** — Fases 0, 1 y 2. Migraciones **aplicadas en Supabase**, capa de derivación con 35 tests, gate de tres pasos con ruteo en el middleware, y checklist en el panel y la notch nav. Cero dependencias nuevas, como se acordó.
+
+**✅ Fase 3 completa (2026-08-31)** — tours contextuales con Driver.js en Embudos, Contenido, Agente y Bandeja. Es la única dependencia que agregó todo el plan, y queda en el chunk del runner: el bundle compartido no se movió (185 kB).
+
+**✅ Fase 4 completa (2026-08-31)** — panel **Super Admin → Onboarding**: en qué punto quedó cada organización, ordenado por quién necesita atención primero. Una sola consulta (`onboarding_org_progress`) para todas, y la derivación pasa por la misma función pura que la aplicación, así que el panel no puede mostrar un progreso distinto del que ve el cliente.
+
+**Lo que falta:**
+1. **Probar el flujo completo en un navegador** — lo verificado es SQL, tests, build y render aislado del popover. Pasos en [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md) §13.5, §13.6, §13.9 y §13.10. Lo más importante sigue siendo que una cuenta nueva pase primero por el cambio de contraseña y después por el gate, en ese orden.
+
+**Riesgo a mirar tras el merge con `main`:** el PR #33 dejó anotado que con 10 módulos las islas de la notch nav se superponen a 1280px. Esta rama **suma un ítem a la isla derecha** (el contador de configuración pendiente), que sólo aparece mientras el checklist tiene pasos abiertos. Con 8 módulos hay margen, pero conviene medirlo antes de encender Operaciones y Producto.
+
+**Deuda conocida:** el layout resuelve el estado en cada request de founder (~8 counts en paralelo, cache de 60 s) — medir antes de optimizar. Y el filtro de desconexión de integraciones sigue sin poder observarse porque ninguna org tiene una integración desconectada.
+
+~~**Estado: ✅ Fase 0 completa (2026-08-31)** — migración `onboarding_state`, catálogo, capa de derivación pura y resolver, con 25 tests. Falta aplicar la migración en Supabase. **Siguiente: Fase 1** (gate de tres pasos + ruteo en el middleware).~~
+
+**Las tres decisiones ya están cerradas (2026-08-31):**
+1. **Gate duro de tres pasos** (identidad y unidades · oferta principal · avatar principal), con salida de emergencia vía `organizations.skip_onboarding`.
+2. **Los invitados no pasan por el gate** — reciben un tour corto derivado de sus permisos. El ruteo del middleware debe condicionarse a `role = 'founder'` desde la Fase 1.
+3. **Primera tanda: Fases 0, 1 y 2** (derivación · gate · checklist). Los tours con Driver.js quedan para después y **no se agrega ninguna dependencia** en esta tanda.
+
+**La decisión de diseño que no se negocia:** el progreso se **deriva** de las tablas reales, no se guarda en booleanos por paso. Un booleano miente en cuatro casos concretos que ya pasan en este repo — están enumerados en el plan. Se persiste sólo lo no derivable: `gate_completed_at`, `dismissed_items`, `tours_seen`.
+
+**Piezas existentes que hay que reusar, no duplicar:** las Server Actions de settings, producto y avatar (no se escribe una sola mutación nueva); `CinematicWelcome` + `markWelcomePending()`, que hoy **nadie dispara** y cuyo lugar es el final del gate; y el ratio `boundSteps / stepCount` que la página de embudos ya calcula.
+
+**Lo que NO se toca:** `onboarding_responses` y el wizard de `/onboarding/holding` son del holding y quedan como están.
+
+---
 
 ### [UI-21ST] Cuatro componentes de 21st.dev relevados — decidir cuáles entran
 
@@ -427,6 +481,7 @@ referencias + `brand.domain`.
 |-------|------|--------|
 | 2026-08-31 | BRAND-A: paleta categórica aplicada a badges, etiquetas y nodos del grafo; 0 clases violeta en la app | `Claude-Design` |
 | 2026-08-31 | Rediseño del sistema de gráficos: paleta categórica y ordinal validadas, leyendas, espaciados y barra de progreso honesta en métricas | `Claude-Design` |
+| 2026-08-31 | REPORTES-IA: pulso diario (tercera cadencia), UI rediseñada y movida a un panel de la isla derecha de la barra. "Reportes" salió de Operaciones. Sólo generación automática. Rehecho sobre `main` después de que entraran #32/#33/#34: 509 tests, lint y tsc limpios, build de 131 páginas | `Claude-New-Features` |
 | 2026-08-30 | ADDON-EMBUDOS: add-on `embudos` activado en la org "Optimiza tu Control" (`46cce98c`). El módulo ya aparece en el sidebar; no depende de ninguna integración | — (cambio de datos) |
 | 2026-08-30 | EMBUDOS-UI: interfaz del módulo — switcher que conserva el período, KPIs universales con las dos ratios decisivas, etiquetas [Meta]/[Hyros], spine con conectores, índice con estado de configuración. Destapó que computeFunnel no devolvía los KPIs universales. 414 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I8: integración Hyros — atribución por fuente, y corrección del ROAS by-source, que usaba las mismas medidas que el blended y por lo tanto mostraba el mismo número. **Cierra las 10 unidades del plan.** 408 tests en verde | `Claude-New-Features` |

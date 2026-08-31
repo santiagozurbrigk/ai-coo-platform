@@ -49,29 +49,51 @@ function mapRow(row: Record<string, unknown>): ExecutiveReport {
   };
 }
 
-export async function getLatestExecutiveReportAction(
-  period: ReportPeriod
-): Promise<ExecutiveReport | null> {
-  if (!isSupabaseConfigured()) return null;
+/**
+ * El último reporte de cada cadencia, en una sola consulta.
+ *
+ * Es lo que alimenta el panel de la topbar. Se trae todo junto y no una
+ * consulta por pestaña porque el panel muestra las tres de entrada: pedirlas
+ * de a una haría que cambiar de pestaña tenga latencia, sobre algo que ya
+ * está en la base.
+ *
+ * Una cadencia sin reportes devuelve `null`, que la UI muestra como "todavía
+ * no se generó" — distinto de un reporte vacío.
+ */
+export async function getLatestReportsByCadenceAction(): Promise<
+  Record<ReportPeriod, ExecutiveReport | null>
+> {
+  const empty: Record<ReportPeriod, ExecutiveReport | null> = {
+    daily: null,
+    weekly: null,
+    monthly: null,
+  };
+
+  if (!isSupabaseConfigured()) return empty;
 
   const organizationId = await requireOrganizationId();
-
   const supabase = await createClient();
+
+  // Se traen los últimos de la org y se toma el primero de cada cadencia. Con
+  // el índice (organization_id, period, period_start DESC) es una sola pasada.
   const { data, error } = await supabase
     .from("executive_reports")
     .select(SELECT)
     .eq("organization_id", organizationId)
-    .eq("period", period)
     .order("period_start", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(60);
 
   if (error) {
-    console.error("[getLatestExecutiveReport]", error.message);
-    return null;
+    console.error("[getLatestReportsByCadence]", error.message);
+    return empty;
   }
 
-  return data ? mapRow(data) : null;
+  for (const row of data ?? []) {
+    const report = mapRow(row);
+    if (empty[report.period] === null) empty[report.period] = report;
+  }
+
+  return empty;
 }
 
 export async function listExecutiveReportsAction(): Promise<ExecutiveReport[]> {

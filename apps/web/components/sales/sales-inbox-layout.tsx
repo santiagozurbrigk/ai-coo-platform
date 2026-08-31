@@ -111,7 +111,7 @@ function SalesInboxClassic() {
         </Dialog>
       </div>
 
-      <div className="hidden h-full min-w-0 w-[280px] max-w-[280px] shrink-0 overflow-hidden md:flex">
+      <div data-tour="inbox-conversations" className="hidden h-full min-w-0 w-[280px] max-w-[280px] shrink-0 overflow-hidden md:flex">
         <ConversationList
           conversations={conversations}
           selectedId={selectedId}
@@ -119,7 +119,7 @@ function SalesInboxClassic() {
         />
       </div>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:border-r md:border-border">
+      <div data-tour="inbox-thread" className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:border-r md:border-border">
         {selected ? (
           <>
             <ConversationThread conversation={selected} />

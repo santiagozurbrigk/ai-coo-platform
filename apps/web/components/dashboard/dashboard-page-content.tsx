@@ -9,6 +9,7 @@ import type { ZernioAnalyticsSummary } from "@/app/integrations/zernio/actions";
 import type { FrequentObjectionsResult } from "@/types/sales";
 import type { ComputedCustomMetric } from "@/lib/metrics/custom-metrics";
 import { PageLoading } from "@/components/shared/page-loading";
+import { SetupChecklist } from "@/components/onboarding/setup-checklist";
 import { DashboardOverview } from "./dashboard-overview";
 
 const useSupabase = isSupabaseConfigured();
@@ -96,10 +97,16 @@ export function DashboardPageContent({
     return <PageLoading label="Cargando panel general…" />;
   }
 
+  /*
+   * El checklist va acá y no dentro de `DashboardOverview` porque ese
+   * componente hace un early return al empty state — que es justo donde cae una
+   * organización recién configurada, o sea el momento en que el checklist más
+   * hace falta.
+   */
   return (
-    <DashboardOverview
-      data={data}
-      zernioAnalytics={zernioAnalytics}
-    />
+    <div className="space-y-6">
+      <SetupChecklist />
+      <DashboardOverview data={data} zernioAnalytics={zernioAnalytics} />
+    </div>
   );
 }
