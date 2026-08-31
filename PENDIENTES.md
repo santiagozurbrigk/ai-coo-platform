@@ -466,7 +466,7 @@ referencias + `brand.domain`.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
-| 2026-08-30 | REPORTES-IA: pulso diario (tercera cadencia), UI rediseñada y movida a un panel de la barra superior. "Reportes" salió del sidebar de Operaciones. Sólo generación automática. 429 tests en verde | `Claude-New-Features` |
+| 2026-08-31 | REPORTES-IA: pulso diario (tercera cadencia), UI rediseñada y movida a un panel de la isla derecha de la barra. "Reportes" salió de Operaciones. Sólo generación automática. Rehecho sobre `main` después de que entraran #32/#33/#34: 509 tests, lint y tsc limpios, build de 131 páginas | `Claude-New-Features` |
 | 2026-08-30 | ADDON-EMBUDOS: add-on `embudos` activado en la org "Optimiza tu Control" (`46cce98c`). El módulo ya aparece en el sidebar; no depende de ninguna integración | — (cambio de datos) |
 | 2026-08-30 | EMBUDOS-UI: interfaz del módulo — switcher que conserva el período, KPIs universales con las dos ratios decisivas, etiquetas [Meta]/[Hyros], spine con conectores, índice con estado de configuración. Destapó que computeFunnel no devolvía los KPIs universales. 414 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I8: integración Hyros — atribución por fuente, y corrección del ROAS by-source, que usaba las mismas medidas que el blended y por lo tanto mostraba el mismo número. **Cierra las 10 unidades del plan.** 408 tests en verde | `Claude-New-Features` |
