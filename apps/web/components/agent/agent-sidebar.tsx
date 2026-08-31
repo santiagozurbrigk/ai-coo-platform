@@ -27,7 +27,7 @@ export function AgentSidebar() {
 
   return (
     <>
-      <aside className="agent-sidebar">
+      <aside data-tour="agent-sidebar" className="agent-sidebar">
         <button
           type="button"
           onClick={startNewConversation}

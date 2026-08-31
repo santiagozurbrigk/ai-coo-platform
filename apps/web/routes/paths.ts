@@ -133,6 +133,7 @@ export const paths = {
     settings: `${PLATFORM}/settings`,
     settingsTab: (tab: string) => `${PLATFORM}/settings?tab=${tab}`,
     holding: `${PLATFORM}/holding`,
+    onboarding: `${PLATFORM}/onboarding`,
     holdingOnboarding: `${PLATFORM}/onboarding/holding`,
   },
 
@@ -151,6 +152,7 @@ export const paths = {
     costs: "/super-admin/costs",
     infrastructure: "/super-admin/infrastructure",
     clientHealth: "/super-admin/client-health",
+    onboarding: "/super-admin/onboarding",
     waitlist: "/super-admin/waitlist",
     trials: "/super-admin/trials",
     holding: "/super-admin/holding",

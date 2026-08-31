@@ -34,6 +34,11 @@ import {
 } from "./settings-tab-nav";
 import { SignOutButton } from "./sign-out-button";
 import { PaymentPlatformsSettingsSection } from "./payment-platforms-settings-section";
+import {
+  CURRENCY_OPTIONS,
+  LANGUAGE_OPTIONS,
+  TIMEZONE_OPTIONS,
+} from "@/constants/organization-options";
 import { CloserCalendlySettings } from "./closer-calendly-settings";
 import { ThemeSelector } from "./theme-selector";
 import { brandColors } from "@/lib/brand";
@@ -47,26 +52,6 @@ function getInitials(name: string): string {
     .join("");
 }
 
-const TIMEZONE_OPTIONS = [
-  { value: "America/Argentina/Buenos_Aires", label: "Buenos Aires (ART)" },
-  { value: "America/Mexico_City", label: "Ciudad de México (CST)" },
-  { value: "America/Bogota", label: "Bogotá (COT)" },
-  { value: "America/Santiago", label: "Santiago (CLT)" },
-  { value: "America/New_York", label: "Nueva York (EST)" },
-  { value: "Europe/Madrid", label: "Madrid (CET)" },
-  { value: "UTC", label: "UTC" },
-] as const;
-
-const CURRENCY_OPTIONS = [
-  { value: "USD", label: "USD — Dólar" },
-  { value: "ARS", label: "ARS — Peso argentino" },
-  { value: "EUR", label: "EUR — Euro" },
-] as const;
-
-const LANGUAGE_OPTIONS = [
-  { value: "es", label: "Español" },
-  { value: "en", label: "English" },
-] as const;
 
 const SETTINGS_TABS: SettingsTabId[] = [
   "general",

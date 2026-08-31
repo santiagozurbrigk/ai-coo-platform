@@ -40,6 +40,7 @@
     "d3-array": "^3.2.4",
     "d3-shape": "^3.2.0",
     "docx": "^9.7.1",
+    "driver.js": "^1.8.0",
     "exceljs": "^4.4.0",
     "ffprobe-static": "^3.1.0",
     "fluent-ffmpeg": "^2.1.3",

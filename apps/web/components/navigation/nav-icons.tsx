@@ -1,6 +1,7 @@
 import {
   Activity,
   BookOpen,
+  Building2,
   Brain,
   Briefcase,
   CalendarCheck,
@@ -15,6 +16,8 @@ import {
   Settings,
   Shield,
   Sparkles,
+  Upload,
+  UserRound,
   Users,
   Wallet,
   Megaphone,
@@ -44,7 +47,17 @@ const ICON_MAP: Record<string, LucideIcon> = {
   crown: Crown,
   shield: Shield,
   rocket: Rocket,
+  "building-2": Building2,
+  "user-round": UserRound,
+  upload: Upload,
 };
+
+/**
+ * Nombres válidos, para que un config pueda verificarse contra el mapa.
+ * `NavIcon` cae a un ícono por defecto ante un nombre desconocido, así que un
+ * error de tipeo no rompe nada: pinta el ícono equivocado en silencio.
+ */
+export const NAV_ICON_NAMES = Object.keys(ICON_MAP);
 
 export function NavIcon({
   name,

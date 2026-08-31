@@ -459,7 +459,7 @@ Secrets de integraciones → `createAdminClient()` (service role).
 | `app/operations/actions.ts` | weekly inputs, reportes |
 | `app/intelligence/actions.ts` | snapshots |
 | `app/executive-reports/actions.ts` | reportes ejecutivos |
-| `app/onboarding/actions.ts` | onboarding founder |
+| `app/onboarding/actions.ts` | gate de onboarding del founder (negocio, oferta principal, avatar) |
 | `app/(platform)/holding/actions.ts` | switching holding |
 | `app/super-admin/actions.ts` | admin OTC |
 | `app/auth/actions.ts` | signIn, signUp, signOut |
@@ -611,7 +611,7 @@ Eventos SSE: ver `lib/agent/sse.ts` (`token`, `thinking`, `tool`, `done`, `error
 
 - **Iconos:** Lucide React (`lucide-react`), helpers en `components/marketing/marketing-icons.tsx`
 - **No emojis** en JSX de producción
-- **Design system:** `@ai-coo/ui` + tokens en `DESIGN.md` (primary `#7C3AED`)
+- **Design system:** `@ai-coo/ui` + tokens en `DESIGN.md`. El acento de marca es **naranja `#E15D12`** y se usa **siempre por token** (`bg-primary`, `text-primary`) o vía `lib/brand.ts` — nunca hardcodeando el hex
 - **Filtros:** `FilterPills` + `segmented-nav-styles.ts`
 - **Empty states:** `components/shared/empty-state.tsx`
 - **Toasts:** `useToast()` de `@/providers/toast-provider`

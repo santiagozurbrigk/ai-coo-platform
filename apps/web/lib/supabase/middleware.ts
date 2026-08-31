@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/temp-password-expiry";
 import { createAdminClient } from "./admin";
 import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
+import { shouldRedirectToGate } from "@/lib/onboarding/gate-routing";
 import { getSupabaseAnonKey, getSupabaseUrl, isSupabaseConfigured } from "./env";
 
 /** POST de Server Actions: no redirigir a login (devolvería HTML y rompe el cliente). */
@@ -59,6 +60,13 @@ function isPublicPath(pathname: string): boolean {
   }
   return PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
+}
+
+function isOnboardingGatePath(pathname: string): boolean {
+  return (
+    pathname === paths.platform.onboarding ||
+    pathname.startsWith(`${paths.platform.onboarding}/`)
   );
 }
 
@@ -127,7 +135,9 @@ export async function updateSession(request: NextRequest) {
     const admin = createAdminClient();
     const { data: profile } = await admin
       .from("profiles")
-      .select("must_change_password, temp_password_expires_at")
+      .select(
+        "must_change_password, temp_password_expires_at, role, organization_id, organizations(account_type, skip_onboarding)"
+      )
       .eq("id", user.id)
       .maybeSingle();
 
@@ -157,6 +167,63 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = paths.auth.forcePasswordChange;
       return NextResponse.redirect(url);
+    }
+
+    /*
+     * Gate de onboarding.
+     *
+     * La decisión vive en `shouldRedirectToGate`, que es pura y está testeada:
+     * el modo de falla de esta lógica es un loop de redirects entre dos reglas
+     * del middleware, y eso no lo agarra ni el typecheck ni el build.
+     *
+     * Acá sólo se lee `gate_completed_at`, una consulta por clave primaria. Si
+     * el gate hace falta o no —¿ya tiene oferta cargada?— lo decide la página,
+     * que es la única que necesita la derivación completa.
+     */
+    if (
+      profile?.role === "founder" &&
+      profile.organization_id &&
+      !profile.must_change_password &&
+      !isOnboardingGatePath(pathname) &&
+      !isForcePasswordChangePath(pathname) &&
+      !isPublicPath(pathname) &&
+      !pathname.startsWith("/api/") &&
+      !isServerActionRequest(request)
+    ) {
+      const orgField = profile.organizations as
+        | { account_type?: string; skip_onboarding?: boolean }
+        | { account_type?: string; skip_onboarding?: boolean }[]
+        | null;
+      const org = Array.isArray(orgField) ? orgField[0] : orgField;
+
+      const { data: onboarding } = await admin
+        .from("onboarding_state")
+        .select("gate_completed_at")
+        .eq("organization_id", profile.organization_id as string)
+        .maybeSingle();
+
+      const redirectToGate = shouldRedirectToGate({
+        role: profile.role as string,
+        organizationId: profile.organization_id as string,
+        accountType: org?.account_type ?? null,
+        skipOnboarding: Boolean(org?.skip_onboarding),
+        mustChangePassword: Boolean(profile.must_change_password),
+        gateCompletedAt:
+          (onboarding?.gate_completed_at as string | null) ?? null,
+        pathname,
+        isPublicPath: isPublicPath(pathname),
+        isOnboardingGatePath: isOnboardingGatePath(pathname),
+        isForcePasswordChangePath: isForcePasswordChangePath(pathname),
+        isNonNavigationRequest:
+          pathname.startsWith("/api/") || isServerActionRequest(request),
+      });
+
+      if (redirectToGate) {
+        const url = request.nextUrl.clone();
+        url.pathname = paths.platform.onboarding;
+        url.search = "";
+        return NextResponse.redirect(url);
+      }
     }
   }
 

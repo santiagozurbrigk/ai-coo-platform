@@ -535,6 +535,189 @@ Cuando estén todas las unidades y todas las cuentas conectadas:
 
 ---
 
+## 13. Onboarding — Fase 0 (capa de derivación)
+
+Construido el 2026-08-31. La lógica pura está cubierta por 25 tests unitarios; lo
+que **no** se puede verificar sin una base real es que las consultas lean las
+tablas correctas. Ver `docs/ONBOARDING_PLAN.md`.
+
+### 13.1 Aplicar la migración 🔒
+
+| Paso | Resultado esperado |
+|---|---|
+| Correr `20260831120000_onboarding_state.sql` | La tabla `onboarding_state` existe con RLS activo |
+| 🔒 Desde una sesión de la org A, leer la fila de la org B | Cero filas — la policy filtra por `get_my_organization_id()` |
+| Verificar que `onboarding_responses` quedó intacta | El wizard de holding sigue funcionando igual |
+
+### 13.2 Que los hechos se lean de donde corresponde — ✅ verificado 2026-08-31
+
+Se replicaron los resolvers en SQL contra las 8 organizaciones founder con
+usuarios y los resultados son coherentes campo por campo. Los dos que estaban
+marcados como riesgosos quedaron resueltos:
+
+- **`funnels.fullyBound`** — las tres instancias existentes son plantilla
+  `webinar` (7 pasos) con **1 solo binding**, así que ninguna cuenta como
+  completa. Es exactamente lo que muestra la grilla de `/funnels`: el checklist
+  y esa pantalla no se contradicen.
+- **`teamMemberCount`** — sólo `Optimiza tu Control` y `familiayformacion`
+  superan un miembro; el resto mantiene el ítem abierto, como corresponde.
+
+Queda pendiente **sólo** el filtro de desconexión (`connectedSourceCount`): hoy
+ninguna organización tiene una integración desconectada, así que ese caso no se
+pudo observar. Ver la tabla de abajo.
+
+Si hiciera falta re-verificar, contrastar cada campo contra lo que muestra la UI:
+
+| Campo | Contra qué se contrasta | Riesgo |
+|---|---|---|
+| `organization` | `/settings` → pestaña General | — |
+| `hasCoreOffer` | `/product` → la oferta marcada como principal | — |
+| `hasPrimaryAvatar` | `/product` → avatar principal | — |
+| `connectedSourceCount` | `/integrations` → tarjetas conectadas | ⚠️ **el más probable de fallar.** Cada proveedor se desconecta distinto: unos borran la fila, otros la marcan. Si una integración desconectada sigue contando, falta un filtro en `DATA_SOURCE_TABLES` |
+| `funnels.fullyBound` | `/funnels` → tarjetas con todos los pasos vinculados | ⚠️ tiene que dar **exactamente** el mismo número que la grilla; si difiere, el checklist y esa pantalla se contradicen |
+| `historicalSnapshotCount` | `/integrations/import` | — |
+| `teamMemberCount` | `/team/members` | ⚠️ cuenta perfiles, founder incluido: con un solo miembro el ítem debe seguir abierto |
+| `indexedDocumentCount` | `/business-context/documents` con estado indexado | — |
+
+### 13.3 La regla central: derivar, no guardar ⭐
+
+Es lo que justifica todo el diseño. Probarlo explícitamente:
+
+| Paso | Resultado esperado |
+|---|---|
+| ⭐ Con una org que **ya tenía** oferta y avatar cargados antes de esta feature | Los ítems aparecen cumplidos y `gate.required` es `false`, sin haber pasado nunca por el wizard |
+| ⭐ Borrar la oferta principal de una org que ya cruzó el gate | El ítem se reabre en el checklist y `gate.required` sigue en `false` — no la expulsa a mitad de trabajo |
+| Conectar una integración desde `/integrations` sin tocar el checklist | El ítem `data_source` aparece cumplido en la siguiente carga |
+| Desconectar esa integración | El ítem vuelve a abrirse ⚠️ (ver 13.2) |
+
+### 13.4 Cache y frescura
+
+| Paso | Resultado esperado |
+|---|---|
+| Completar un ítem y recargar de inmediato | Aparece cumplido — las mutaciones deben llamar `invalidateOnboardingState` |
+| Sin invalidar, esperar 60 s y recargar | Aparece cumplido igual: la ventana de cache es el techo del desfasaje |
+
+### 13.5 Fase 1 — el gate, contra sesiones reales ⭐
+
+Construido el 2026-08-31. **Las dos migraciones ya están aplicadas** y se verificó
+por SQL que ningún usuario existente queda bloqueado (18 perfiles, cero
+redirigidos) y que RLS aísla (1 fila visible de 25). Lo que falta es con sesión
+de navegador:
+
+| Paso | Resultado esperado |
+|---|---|
+| ⭐ Crear una cuenta founder nueva desde super-admin y entrar | Primero pide cambiar la contraseña; **después** cae en `/onboarding` |
+| El paso 1 llega con moneda y zona horaria **sin elegir** | Es lo que corrige la migración de defaults: si vinieran precargadas, el paso no preguntaría nada |
+| Intentar navegar a `/dashboard` desde el gate | Vuelve al gate |
+| Verificar que la pantalla no muestra la notch nav | El gate se renderiza sin chrome |
+| Completar los tres pasos | Redirige al panel y se reproduce la animación de bienvenida **una sola vez** |
+| Volver a `/onboarding` a mano después de terminar | Redirige al panel |
+| ⭐ Entrar con una cuenta **invitada** (`member`, `admin`) de una org sin oferta | Entra normal al panel, sin gate |
+| Entrar con una cuenta **holding** | Va a `/onboarding/holding`, como antes |
+| Con una org marcada `skip_onboarding` | Entra directo |
+| Salir a mitad del gate y volver a entrar | Retoma en el primer paso sin cumplir, con lo anterior ya guardado |
+| ⚠️ Con el gate abierto, que el agente u otra ruta de API responda | Las rutas `/api/` quedan excluidas del redirect: un redirect devolvería HTML y rompería el fetch |
+
+### 13.6 Fase 2 — el checklist
+
+Construido el 2026-08-31.
+
+| Paso | Resultado esperado |
+|---|---|
+| Entrar al panel con una org con ítems abiertos | La tarjeta aparece arriba de todo, con el progreso y un link por ítem |
+| ⭐ Con una org **sin actividad** (el panel muestra su empty state) | La tarjeta se ve igual: es el momento en que más hace falta, y el overview hace un early return |
+| Mirar la isla derecha de la notch nav | Ícono con el contador de pasos abiertos |
+| Ocultar un ítem con la X | Desaparece al instante, y sigue oculto tras recargar |
+| Ocultar todos los ítems abiertos | La tarjeta y el contador desaparecen juntos |
+| Completar un ítem de verdad (ej. conectar una integración) | Aparece tildado, sin haber tocado el checklist |
+| ⭐ Entrar con una cuenta **invitada** | Ni tarjeta ni contador: el checklist es trabajo de founder |
+| ⚠️ Medir el tiempo de carga del panel | El layout resuelve el estado en cada request de founder (~8 counts en paralelo, cache de 60 s). Si se nota, es el primer lugar donde mirar |
+
+### 13.7 ⚠️ Las integraciones OAuth NO se pueden probar desde un preview
+
+Descubierto el 2026-08-31 probando la Fase 2, y **no es un bug del onboarding**:
+aplica a cualquier rama y ya era así antes.
+
+Las rutas de OAuth arman la vuelta con una **variable de entorno fija**
+(`GOOGLE_FORMS_REDIRECT_URI`, `CALENDLY_REDIRECT_URI`, `TYPEFORM_REDIRECT_URI`,
+`STRIPE_REDIRECT_URI`, `MERCADOPAGO_REDIRECT_URI`, `INSTAGRAM_REDIRECT_URI`), no
+con el host de la request — y esa URL está registrada en la consola del
+proveedor. Desde un preview, la secuencia es:
+
+| Qué pasa | Por qué |
+|---|---|
+| Arranca el OAuth en el preview | El cookie de estado se escribe en el dominio del preview |
+| El proveedor devuelve a **producción** | La redirect URI es fija |
+| El callback falla en silencio | El cookie de estado no existe en ese dominio: no se guarda la integración |
+| Aparece la pantalla de login | En producción no hay sesión — **no es un deslogueo**, es otro dominio |
+| Al entrar, no se ve lo de la rama | Porque estás en producción, no en el preview |
+
+**Cómo probar el ítem "conectar una fuente de datos" en un preview:** usar un
+proveedor de **API key**, que se conecta por diálogo y no sale del dominio —
+Zernio, GoHighLevel, Fathom, o los de pagos. Cuentan igual para el checklist.
+
+**Si hiciera falta probar OAuth en previews**, la salida es registrar un alias
+estable de preview en cada consola de proveedor y apuntar ahí las variables del
+entorno Preview. Es una decisión de infraestructura, no de código.
+
+### 13.8 Fuentes de datos — la función de base de datos
+
+`onboarding_connected_source_count` reemplazó al array de cinco tablas.
+
+| Paso | Resultado esperado |
+|---|---|
+| ⭐ Conectar cualquier proveedor y recargar el panel | El ítem "Conectar una fuente de datos" queda tildado. Antes sólo contaban Zernio, GHL, Calendly, Fathom y pagos: **Google, Typeform, Instagram, ManyChat, Unipile, YouTube, Stripe, Mercado Pago, Hyros, VTurb y WebinarJam no contaban** |
+| Desconectar ese proveedor | El ítem vuelve a abrirse ⚠️ — sigue siendo el caso que no se pudo observar: ninguna org tiene hoy una integración desconectada |
+| 🔒 Verificar los permisos de la función | `security definer` y execute **sólo** para `service_role`: toma un `org_id` arbitrario y saltea RLS |
+
+### 13.9 Fase 3 — tours contextuales
+
+Construido el 2026-08-31 con Driver.js. **El popover ya se verificó renderizado**
+en Chromium sobre el tema oscuro: fondo `rgb(15,15,15)`, texto `rgb(250,250,250)`,
+descripción en `muted-foreground` y el botón principal en el naranja de marca con
+texto negro. Lo que falta es el disparo real dentro de la aplicación.
+
+| Paso | Resultado esperado |
+|---|---|
+| ⭐ Entrar por primera vez a `/funnels` con una cuenta que nunca lo vio | El tour arranca solo, con 2 pasos |
+| Terminarlo y volver a entrar | No vuelve a aparecer |
+| Cerrarlo con la X o con Escape en el primer paso | Tampoco vuelve: cerrar es una decisión del usuario |
+| ⭐ Abrir `/funnels`, **navegar a otro módulo** sin cerrar el tour, y volver | **Sí** vuelve a aparecer: irse no es haberlo visto |
+| Repetir en `/marketing/content`, `/agent` y `/sales/inbox` | Cada uno con su propio tour, independiente |
+| ⭐ Entrar a `/funnels` con la pantalla **vacía** (sin embudos creados) | Corre igual, pero **sólo con el paso que tiene ancla**: la grilla no existe si no hay embudos, y un paso apuntando a la nada muestra un recuadro flotando |
+| Entrar con una cuenta **invitada** a un módulo que sí puede ver | El tour corre — es su única forma de onboarding |
+| Entrar con una cuenta sin permiso sobre el módulo | No se ofrece |
+| Mirar el popover en tema claro | Los mismos tokens; verificado sólo en oscuro |
+| ⚠️ Probar en mobile | Las anclas de la bandeja (`inbox-conversations`, `inbox-thread`) son las columnas **de escritorio**, ocultas con `md:`. En mobile ese tour va a quedar sin pasos y no correr — es aceptable, pero conviene confirmarlo |
+
+**El guard de las anclas.** `lib/onboarding/__tests__/tours.test.ts` verifica que
+cada `data-tour` declarado exista en el JSX y que no haya anclas huérfanas. Se
+comprobó que **falla en rojo** al borrar un ancla a mano, nombrándola. Es la
+protección contra el modo de falla propio de los tours: un paso que desaparece
+sin que nada se rompa.
+
+### 13.10 Fase 4 — panel de onboarding en super-admin
+
+Construido el 2026-08-31. **El contenido ya se verificó** corriendo el mapeo real
+contra los datos reales de las 13 organizaciones con usuarios: el orden sale
+correcto y los holdings quedan al final. Falta verlo renderizado.
+
+| Paso | Resultado esperado |
+|---|---|
+| Entrar a **Super Admin → Onboarding** | Lista ordenada por quién necesita atención primero |
+| Mirar el encabezado | Hoy debería decir **0 sin terminar la configuración inicial** — todas las orgs existentes están eximidas por el backfill |
+| ⭐ Crear una cuenta founder nueva y **no** completar el gate | Aparece primera, con "Todavía no terminó la configuración inicial" y los tres pasos pendientes |
+| Dejarla así 3 días | El texto cambia a "Trabada en la configuración inicial hace N días" |
+| Mirar los holdings y las orgs con `skip_onboarding` | Al final de la lista, **sin barra de progreso**, con el motivo explícito |
+| Contrastar el progreso de una org con lo que ve ese cliente en su panel | Tienen que coincidir: el panel usa la misma `deriveOnboardingState` |
+| 🔒 Verificar los permisos de `onboarding_org_progress()` | `security definer` y execute **sólo** para `service_role`: recorre todas las organizaciones y saltea RLS |
+
+**Lo que este panel no responde todavía:** cuándo fue la última actividad de la
+organización. Hoy dice en qué punto quedó, no si sigue viva — eso lo cubre
+`/super-admin/client-health`, que es una pantalla aparte.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas
