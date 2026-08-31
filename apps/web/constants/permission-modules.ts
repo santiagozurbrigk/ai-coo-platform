@@ -71,6 +71,10 @@ export const MODULE_GROUPS: {
     label: "General",
     moduleIds: [
       "dashboard",
+      // Embudos va acá y no en "Ventas" porque atraviesa módulos: mide desde el
+      // gasto en anuncios hasta el cobro. Agruparlo bajo Ventas sugeriría que
+      // sólo cubre esa parte.
+      "funnels",
       "workboard",
       "agent",
       "clients",

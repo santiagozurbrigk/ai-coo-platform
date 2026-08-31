@@ -137,11 +137,22 @@ export const unipileWebhookRateLimit = rateLimit({
   maxRequests: 40,
 });
 
-/** Conectar integración (por usuario) */
-export const integrationConnectRateLimit = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  maxRequests: 5,
-});
+/*
+ * NO existe un límite para "conectar integración".
+ *
+ * Había uno de 5 intentos por hora y se quitó el 2026-08-30: estaba calibrado
+ * como una defensa de fuerza bruta de login, pero se aplicaba a un formulario
+ * de setup donde equivocarse cinco veces seguidas es normal —tokens largos,
+ * un Location ID que hay que ir a buscar a otra pantalla— y dejaba al usuario
+ * bloqueado 20 minutos en medio de la configuración.
+ *
+ * No protegía de nada real: la acción ya exige sesión iniciada, así que no hay
+ * fuerza bruta que prevenir, y ningún humano tipeando puede acercarse a las
+ * cuotas de los proveedores (GHL admite 100 requests cada 10 segundos).
+ *
+ * Si alguna vez hace falta volver a poner uno, que sea por ventanas cortas
+ * (decenas de intentos en minutos) y no por horas.
+ */
 
 /** Generación de SOPs vía agente (por org) */
 export const sopGenerateRateLimit = rateLimit({

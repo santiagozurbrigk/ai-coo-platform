@@ -1,7 +1,6 @@
 "use server";
 
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
-import { integrationConnectRateLimit, rateLimitErrorMessage } from "@/lib/rate-limit";
 import { requireAuthContext } from "@/lib/auth/require-auth";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -93,9 +92,6 @@ export async function validateGHLKeyAction(
 
   try {
     const { user } = await requireAuthContext();
-    const { allowed, resetAt } = await integrationConnectRateLimit(user.id);
-    if (!allowed) return { success: false, error: rateLimitErrorMessage(resetAt) };
-
     const calendars = await validateGHLApiKey(apiKey.trim(), locationId.trim());
     if (!calendars.length) {
       return { success: false, error: "No se encontraron calendarios en esta ubicación." };

@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { requireAuthContext } from "@/lib/auth/require-auth";
 import {
-  integrationConnectRateLimit,
   integrationRateLimit,
   rateLimitErrorMessage,
 } from "@/lib/rate-limit";
@@ -45,11 +44,6 @@ export async function connectFathomAction(
 
   try {
     const { user, orgId } = await requireAuthContext();
-
-    const { allowed, resetAt } = await integrationConnectRateLimit(user.id);
-    if (!allowed) {
-      return { error: rateLimitErrorMessage(resetAt) };
-    }
 
     const result = await connectFathomWithApiKey(orgId, parsed.data);
 

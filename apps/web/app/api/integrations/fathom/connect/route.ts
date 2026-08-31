@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { connectFathomWithApiKey } from "@/lib/fathom/connect";
-import {
-  integrationConnectRateLimit,
-  rateLimitErrorMessage,
-} from "@/lib/rate-limit";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { apiKeySchema, firstZodError } from "@/lib/validations";
 
@@ -17,14 +13,6 @@ export async function POST(request: Request) {
 
   const auth = await requireAuth();
   if (!auth.ok) return auth.error;
-
-  const { allowed, resetAt } = await integrationConnectRateLimit(auth.user.id);
-  if (!allowed) {
-    return NextResponse.json(
-      { error: rateLimitErrorMessage(resetAt) },
-      { status: 429 }
-    );
-  }
 
   let body: { apiKey?: string };
   try {
