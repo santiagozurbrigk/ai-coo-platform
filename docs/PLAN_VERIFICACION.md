@@ -549,10 +549,24 @@ tablas correctas. Ver `docs/ONBOARDING_PLAN.md`.
 | 🔒 Desde una sesión de la org A, leer la fila de la org B | Cero filas — la policy filtra por `get_my_organization_id()` |
 | Verificar que `onboarding_responses` quedó intacta | El wizard de holding sigue funcionando igual |
 
-### 13.2 Que los hechos se lean de donde corresponde ⚠️
+### 13.2 Que los hechos se lean de donde corresponde — ✅ verificado 2026-08-31
 
-Con una org real, llamar `resolveOnboardingFacts(orgId)` y contrastar cada campo
-contra lo que muestra la UI:
+Se replicaron los resolvers en SQL contra las 8 organizaciones founder con
+usuarios y los resultados son coherentes campo por campo. Los dos que estaban
+marcados como riesgosos quedaron resueltos:
+
+- **`funnels.fullyBound`** — las tres instancias existentes son plantilla
+  `webinar` (7 pasos) con **1 solo binding**, así que ninguna cuenta como
+  completa. Es exactamente lo que muestra la grilla de `/funnels`: el checklist
+  y esa pantalla no se contradicen.
+- **`teamMemberCount`** — sólo `Optimiza tu Control` y `familiayformacion`
+  superan un miembro; el resto mantiene el ítem abierto, como corresponde.
+
+Queda pendiente **sólo** el filtro de desconexión (`connectedSourceCount`): hoy
+ninguna organización tiene una integración desconectada, así que ese caso no se
+pudo observar. Ver la tabla de abajo.
+
+Si hiciera falta re-verificar, contrastar cada campo contra lo que muestra la UI:
 
 | Campo | Contra qué se contrasta | Riesgo |
 |---|---|---|
@@ -603,6 +617,21 @@ de navegador:
 | Con una org marcada `skip_onboarding` | Entra directo |
 | Salir a mitad del gate y volver a entrar | Retoma en el primer paso sin cumplir, con lo anterior ya guardado |
 | ⚠️ Con el gate abierto, que el agente u otra ruta de API responda | Las rutas `/api/` quedan excluidas del redirect: un redirect devolvería HTML y rompería el fetch |
+
+### 13.6 Fase 2 — el checklist
+
+Construido el 2026-08-31.
+
+| Paso | Resultado esperado |
+|---|---|
+| Entrar al panel con una org con ítems abiertos | La tarjeta aparece arriba de todo, con el progreso y un link por ítem |
+| ⭐ Con una org **sin actividad** (el panel muestra su empty state) | La tarjeta se ve igual: es el momento en que más hace falta, y el overview hace un early return |
+| Mirar la isla derecha de la notch nav | Ícono con el contador de pasos abiertos |
+| Ocultar un ítem con la X | Desaparece al instante, y sigue oculto tras recargar |
+| Ocultar todos los ítems abiertos | La tarjeta y el contador desaparecen juntos |
+| Completar un ítem de verdad (ej. conectar una integración) | Aparece tildado, sin haber tocado el checklist |
+| ⭐ Entrar con una cuenta **invitada** | Ni tarjeta ni contador: el checklist es trabajo de founder |
+| ⚠️ Medir el tiempo de carga del panel | El layout resuelve el estado en cada request de founder (~8 counts en paralelo, cache de 60 s). Si se nota, es el primer lugar donde mirar |
 
 ---
 

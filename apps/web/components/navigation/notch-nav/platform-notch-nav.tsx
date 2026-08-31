@@ -13,6 +13,7 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { HoldingBusinessSwitcher } from "@/components/holding/holding-business-switcher";
 import { useHoldingSession } from "@/components/holding/holding-platform-provider";
 import { usePlatformData } from "@/providers";
+import { NotchSetupIndicator } from "@/components/onboarding/notch-setup-indicator";
 import { NotchProfileMenu } from "./notch-profile-menu";
 import {
   buildPlatformSidebarNav,
@@ -37,7 +38,8 @@ import { NotchNav, type NotchNavItem } from "./notch-nav";
  *
  * Reparto de la barra:
  * - Isla central: los módulos. Los que tienen hijos abren un dropdown.
- * - Isla derecha: switcher de holding, Integraciones, tema y perfil.
+ * - Isla derecha: configuración pendiente, switcher de holding, Integraciones,
+ *   tema y perfil.
  * - Ajustes NO está en la barra: se llega desde el menú de perfil.
  * - La paleta de comandos no tiene botón propio; se abre con ⌘K / Ctrl+K.
  */
@@ -137,6 +139,7 @@ export function PlatformNotchNav({ showItems = true }: { showItems?: boolean }) 
 
   const rightContent = (
     <>
+      <NotchSetupIndicator />
       <HoldingBusinessSwitcher />
       {showIntegrations && (
         <Button

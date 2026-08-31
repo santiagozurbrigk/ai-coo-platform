@@ -8,6 +8,7 @@
  * paralela. Lo único propio es marcar el gate como cruzado.
  */
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { createClient } from "@/lib/supabase/server";
@@ -17,9 +18,12 @@ import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { saveGeneralOrganizationSettingsAction } from "@/app/settings/actions";
 import { saveAvatarAction, saveProductAction } from "@/app/product/actions";
 import {
+  dismissOnboardingItem,
   getOnboardingState,
   markGateCompleted,
 } from "@/lib/onboarding/resolve";
+import { ONBOARDING_ITEMS, type OnboardingItemId } from "@/lib/onboarding/items";
+import { getCurrentOnboardingState } from "@/lib/onboarding/current";
 import type { OnboardingState } from "@/lib/onboarding/derive";
 import { paths } from "@/routes/paths";
 
@@ -130,31 +134,9 @@ export async function saveGateAvatarAction(
   });
 }
 
-/** Estado del gate para la organización activa, ya derivado. */
-export async function getOnboardingGateStateAction(): Promise<OnboardingState | null> {
-  if (!isSupabaseConfigured()) return null;
-
-  const organizationId = await requireOrganizationId();
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const admin = createAdminClient();
-  const [{ data: profile }, { data: org }] = await Promise.all([
-    admin.from("profiles").select("role").eq("id", user.id).maybeSingle(),
-    admin
-      .from("organizations")
-      .select("skip_onboarding")
-      .eq("id", organizationId)
-      .maybeSingle(),
-  ]);
-
-  return getOnboardingState(organizationId, {
-    role: (profile?.role as string | null) ?? "viewer",
-    skipOnboarding: Boolean(org?.skip_onboarding),
-  });
+/** Estado de onboarding de la organización activa, ya derivado. */
+export async function getOnboardingStateAction(): Promise<OnboardingState | null> {
+  return getCurrentOnboardingState();
 }
 
 /**
@@ -166,7 +148,7 @@ export async function getOnboardingGateStateAction(): Promise<OnboardingState | 
 export async function completeOnboardingGateAction(): Promise<MutationResult> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
-    const state = await getOnboardingGateStateAction();
+    const state = await getOnboardingStateAction();
 
     if (!state?.gate.satisfied) {
       throw new Error("Todavía faltan datos para terminar la configuración.");
@@ -184,11 +166,31 @@ export async function completeOnboardingGateAction(): Promise<MutationResult> {
  */
 export async function skipSatisfiedGateAction(): Promise<void> {
   const organizationId = await requireOrganizationId();
-  const state = await getOnboardingGateStateAction();
+  const state = await getOnboardingStateAction();
 
   if (state?.gate.satisfied && !state.gate.passed) {
     await markGateCompleted(organizationId);
   }
 
   redirect(paths.platform.dashboard);
+}
+
+/**
+ * Marca un ítem del checklist como descartado.
+ *
+ * `dismissOnboardingItem` valida contra el catálogo: un ítem del gate no se
+ * puede descartar por más que llegue el id.
+ */
+export async function dismissOnboardingItemAction(
+  itemId: OnboardingItemId
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const item = ONBOARDING_ITEMS.find((i) => i.id === itemId);
+    if (!item) throw new Error("Ítem desconocido.");
+    if (!item.dismissible) throw new Error("Ese ítem no se puede ocultar.");
+
+    const organizationId = await requireOrganizationId();
+    await dismissOnboardingItem(organizationId, itemId);
+    revalidatePath(paths.platform.dashboard);
+  });
 }

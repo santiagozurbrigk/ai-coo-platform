@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { OnboardingGate } from "@/components/onboarding/onboarding-gate";
 import {
   getOnboardingGateDefaultsAction,
-  getOnboardingGateStateAction,
+  getOnboardingStateAction,
   skipSatisfiedGateAction,
 } from "@/app/onboarding/actions";
 import { firstPendingGateStep } from "@/lib/onboarding/derive";
@@ -16,7 +16,7 @@ import { paths } from "@/routes/paths";
  * se hace acá, que es la única pantalla que la necesita.
  */
 export default async function OnboardingPage() {
-  const state = await getOnboardingGateStateAction();
+  const state = await getOnboardingStateAction();
 
   // Sin Supabase configurado (modo demo) no hay nada que configurar.
   if (!state) redirect(paths.platform.dashboard);

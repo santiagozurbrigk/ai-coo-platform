@@ -178,6 +178,43 @@ export function deriveOnboardingState(
 }
 
 /**
+ * Aplica descartes que el cliente todavía no confirmó contra el servidor.
+ *
+ * Existe para que el ítem desaparezca al toque y no al revalidar. Recalcula
+ * `open` y `complete`, que es lo que decide si el checklist y su contador
+ * siguen mostrándose: no alcanza con marcar el ítem.
+ *
+ * No toca `done`: ocultar algo no es haberlo hecho.
+ */
+export function applyLocalDismissals(
+  state: OnboardingState,
+  dismissedIds: readonly string[]
+): OnboardingState {
+  if (dismissedIds.length === 0) return state;
+
+  const hidden = new Set(dismissedIds);
+  const items = state.items.map((item) =>
+    // Un ítem no descartable ignora el pedido, igual que en la derivación.
+    item.dismissible && hidden.has(item.id) ? { ...item, dismissed: true } : item
+  );
+
+  const open = items.filter(
+    (i) => i.tier === "checklist" && !i.done && !i.dismissed
+  );
+
+  return {
+    ...state,
+    items,
+    checklist: {
+      ...state.checklist,
+      open,
+      complete: open.length === 0,
+    },
+    suggested: items.filter((i) => i.tier === "suggested"),
+  };
+}
+
+/**
  * En qué paso del gate arrancar: el primero sin cumplir.
  *
  * Quien ya cargó su oferta por fuera del wizard no la vuelve a escribir. El

@@ -14,6 +14,38 @@
 
 ---
 
+### 2026-08-31 — Onboarding Fase 2: el checklist persistente
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `components/onboarding/{setup-checklist,notch-setup-indicator}.tsx` (nuevos), `providers/onboarding-provider.tsx` (nuevo), `lib/onboarding/current.ts` (nuevo), `lib/onboarding/derive.ts`, `app/onboarding/actions.ts`, `app/(platform)/layout.tsx`, `components/dashboard/dashboard-page-content.tsx`, `components/navigation/notch-nav/platform-notch-nav.tsx`, `components/navigation/nav-icons.tsx`
+
+**Qué se hizo:**
+Lo que no entra en el gate ya se le muestra al founder: una tarjeta de progreso en el panel y un contador en la isla derecha de la notch nav. Con esto el onboarding queda completo de punta a punta — las tres fases de la primera tanda están cerradas.
+
+**Decisiones de diseño relevantes:**
+
+- **El checklist es sólo para founders.** Sus ítems viven en Ajustes, Integraciones y Equipo, donde un `operator` o un `viewer` no tienen permiso: mostrárselo sería pedirles algo que no pueden hacer. `getCurrentOnboardingState` devuelve `null` para cuentas invitadas, así que además no se resuelven los hechos en cada request de ellas.
+- **El estado se resuelve en el layout, que es Server Component,** y baja por provider. Así la tarjeta se pinta con la primera respuesta en vez de aparecer un segundo después de que la página ya se vio.
+- **La tarjeta se monta en `DashboardPageContent`, no en `DashboardOverview`.** Ese componente hace un early return al empty state, que es justo donde cae una organización recién configurada — o sea, el momento en que el checklist más hace falta. Montarlo adentro lo habría escondido exactamente ahí.
+- **Los descartes se aplican primero en el cliente** y después se confirman contra el servidor, para que el ítem desaparezca al toque. La lógica vive en `applyLocalDismissals`, en la capa pura, porque no alcanza con marcar el ítem: hay que recalcular `open` y `complete`, que son los que deciden si la tarjeta y el contador siguen en pantalla.
+- **`getCurrentOnboardingState` es una función server plana, no una Server Action.** La llama el layout; convertirla en acción dejaría un endpoint expuesto sin necesidad.
+
+**Un bug silencioso encontrado de paso:** `NavIcon` cae a `LayoutDashboard` ante un nombre desconocido, y tres de los íconos del catálogo (`building-2`, `user-round`, `upload`) no estaban en el mapa — se habrían pintado todos iguales sin que nada fallara. Se agregaron, y `NAV_ICON_NAMES` ahora se exporta para que un test verifique la relación en vez del caso.
+
+**Verificación ejecutada:**
+- `vitest`: **453 tests en verde** (6 nuevos: `applyLocalDismissals` y los íconos del catálogo).
+- `tsc --noEmit`, `pnpm lint` y `next build` limpios (133 páginas).
+- **Contra la base real (cierra lo que quedaba abierto de `PLAN_VERIFICACION.md` §13.2):** se replicaron los resolvers en SQL sobre las 8 organizaciones founder con usuarios. El punto que estaba marcado como riesgoso quedó resuelto: las tres instancias de embudo existentes son plantilla `webinar` (7 pasos) con **un solo binding**, así que ninguna cuenta como completa — que es exactamente lo que muestra la grilla de `/funnels`. El checklist y esa pantalla no se contradicen.
+
+**Riesgos / deuda técnica pendiente:**
+- **El layout resuelve el estado en cada request de founder** — unos 8 `count` en paralelo sobre columnas indexadas, con cache de 60 s en memoria. Es el primer lugar donde mirar si el panel se siente lento; medir antes de optimizar.
+- **El filtro de desconexión de integraciones sigue sin observarse:** hoy ninguna organización tiene una integración desconectada, así que no se pudo ver si `connectedSourceCount` cuenta de más. Sigue en `PLAN_VERIFICACION.md` §13.2.
+- Nada probado con sesión de navegador — pasos en §13.6.
+- El contador de la notch nav linkea al panel, no a la tarjeta: no hace scroll ni la resalta.
+
+---
+
 ### 2026-08-31 — Onboarding Fase 1: el gate de tres pasos (migraciones aplicadas)
 
 **Rama/branch:** `Claude-Onboarding`

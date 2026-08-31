@@ -183,7 +183,14 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 **El plan completo está en [`docs/ONBOARDING_PLAN.md`](./docs/ONBOARDING_PLAN.md)** — leerlo antes de escribir una línea.
 
-**Estado: ✅ Fases 0 y 1 completas (2026-08-31)** — migraciones **aplicadas en Supabase**, capa de derivación con 29 tests, gate de tres pasos y ruteo en el middleware. **Siguiente: Fase 2** (checklist persistente en el dashboard y la notch nav).
+**Estado: ✅ Primera tanda completa (2026-08-31)** — Fases 0, 1 y 2. Migraciones **aplicadas en Supabase**, capa de derivación con 35 tests, gate de tres pasos con ruteo en el middleware, y checklist en el panel y la notch nav. Cero dependencias nuevas, como se acordó.
+
+**Lo que falta, en orden:**
+1. **Probar el flujo en un navegador** — todo lo verificado hasta acá es SQL, tests y build. Pasos en [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md) §13.5 y §13.6. Lo más importante: que una cuenta nueva pase primero por el cambio de contraseña y después por el gate, en ese orden.
+2. **Fase 3 — tours contextuales** con Driver.js (la única dependencia del plan), en orden de costo de setup: Embudos, Contenido, Agente, Bandeja. Anclajes con `data-tour`, nunca clases de Tailwind.
+3. **Fase 4 — visibilidad en super-admin**: en qué punto quedó cada organización. Para un producto B2B vale más que el onboarding mismo, porque muestra quién se trabó y dónde. Encaja en `/super-admin/client-health`.
+
+**Deuda conocida:** el layout resuelve el estado en cada request de founder (~8 counts en paralelo, cache de 60 s) — medir antes de optimizar. Y el filtro de desconexión de integraciones sigue sin poder observarse porque ninguna org tiene una integración desconectada.
 
 ~~**Estado: ✅ Fase 0 completa (2026-08-31)** — migración `onboarding_state`, catálogo, capa de derivación pura y resolver, con 25 tests. Falta aplicar la migración en Supabase. **Siguiente: Fase 1** (gate de tres pasos + ruteo en el middleware).~~
 

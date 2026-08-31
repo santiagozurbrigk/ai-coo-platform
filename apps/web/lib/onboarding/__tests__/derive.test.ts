@@ -9,6 +9,7 @@
 
 import { describe, it, expect } from "vitest";
 import {
+  applyLocalDismissals,
   deriveOnboardingState,
   firstPendingGateStep,
   emptyOnboardingFacts,
@@ -305,5 +306,42 @@ describe("firstPendingGateStep", () => {
     // El gate no debería mostrarse en ese estado, pero un índice negativo
     // rompería el wizard en silencio.
     expect(firstPendingGateStep(deriveOnboardingState(completeFacts()))).toBe(2);
+  });
+});
+
+describe("applyLocalDismissals", () => {
+  const base = deriveOnboardingState(emptyOnboardingFacts(), persisted(), FOUNDER);
+
+  it("devuelve el mismo estado cuando no hay descartes", () => {
+    expect(applyLocalDismissals(base, [])).toBe(base);
+  });
+
+  it("saca el ítem de los abiertos sin marcarlo como hecho", () => {
+    const next = applyLocalDismissals(base, ["team_invited"]);
+    const item = next.items.find((i) => i.id === "team_invited")!;
+
+    expect(item.dismissed).toBe(true);
+    expect(item.done).toBe(false);
+    expect(next.checklist.open.map((i) => i.id)).not.toContain("team_invited");
+  });
+
+  it("cierra el checklist cuando se descarta lo último que quedaba", () => {
+    // Es lo que decide si la tarjeta y el contador siguen visibles: marcar el
+    // ítem sin recalcular `open` los dejaría colgados en pantalla.
+    const ids = base.checklist.open.map((i) => i.id);
+    const next = applyLocalDismissals(base, ids);
+
+    expect(next.checklist.open).toHaveLength(0);
+    expect(next.checklist.complete).toBe(true);
+  });
+
+  it("ignora el pedido sobre un ítem del gate", () => {
+    const next = applyLocalDismissals(base, ["core_offer"]);
+    expect(next.items.find((i) => i.id === "core_offer")!.dismissed).toBe(false);
+  });
+
+  it("no muta el estado original", () => {
+    applyLocalDismissals(base, ["team_invited"]);
+    expect(base.items.find((i) => i.id === "team_invited")!.dismissed).toBe(false);
   });
 });
