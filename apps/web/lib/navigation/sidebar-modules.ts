@@ -265,7 +265,7 @@ export function buildPlatformRootItems(enabledAddOns: AddOnId[]): SidebarNavRoot
 
   for (const item of coreRootItems) {
     items.push(item);
-    // Insertar Operaciones y Producto después de Finanzas (antes del divider)
+    // Se insertan después de Finanzas (antes del divider)
     if (
       item.type === "parent" &&
       item.key === "finanzas"
@@ -276,9 +276,11 @@ export function buildPlatformRootItems(enabledAddOns: AddOnId[]): SidebarNavRoot
       if (enabledAddOns.includes("producto")) {
         items.push({ type: "link", module: productDirectModule });
       }
-      if (enabledAddOns.includes("embudos")) {
-        items.push({ type: "link", module: embudosDirectModule });
-      }
+      // Embudos NO es add-on: va siempre en la navegación. Quién lo ve lo
+      // decide el permiso `funnels`, que filtran los componentes de nav.
+      // El AddOnId "embudos" se deja declarado en lib/auth/add-on-ids.ts
+      // porque puede haber organizaciones que ya lo tengan guardado.
+      items.push({ type: "link", module: embudosDirectModule });
     }
   }
 
