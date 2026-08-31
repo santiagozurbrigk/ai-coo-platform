@@ -177,6 +177,22 @@ export function deriveOnboardingState(
   };
 }
 
+/**
+ * En qué paso del gate arrancar: el primero sin cumplir.
+ *
+ * Quien ya cargó su oferta por fuera del wizard no la vuelve a escribir. El
+ * orden es el del catálogo, así que agregar un paso al gate no obliga a tocar
+ * esta función.
+ */
+export function firstPendingGateStep(state: OnboardingState): number {
+  const gateIds = ONBOARDING_ITEMS.filter((i) => i.tier === "gate").map((i) => i.id);
+  const pending = new Set(state.gate.pendingItemIds);
+  const index = gateIds.findIndex((id) => pending.has(id));
+  // Sin pendientes el gate no debería mostrarse; el último paso es el destino
+  // menos sorprendente si alguien igual llega hasta acá.
+  return index === -1 ? gateIds.length - 1 : index;
+}
+
 /** Hechos de una organización recién creada: nada cargado. */
 export function emptyOnboardingFacts(): OnboardingFacts {
   return {

@@ -583,6 +583,27 @@ Es lo que justifica todo el diseño. Probarlo explícitamente:
 | Completar un ítem y recargar de inmediato | Aparece cumplido — las mutaciones deben llamar `invalidateOnboardingState` |
 | Sin invalidar, esperar 60 s y recargar | Aparece cumplido igual: la ventana de cache es el techo del desfasaje |
 
+### 13.5 Fase 1 — el gate, contra sesiones reales ⭐
+
+Construido el 2026-08-31. **Las dos migraciones ya están aplicadas** y se verificó
+por SQL que ningún usuario existente queda bloqueado (18 perfiles, cero
+redirigidos) y que RLS aísla (1 fila visible de 25). Lo que falta es con sesión
+de navegador:
+
+| Paso | Resultado esperado |
+|---|---|
+| ⭐ Crear una cuenta founder nueva desde super-admin y entrar | Primero pide cambiar la contraseña; **después** cae en `/onboarding` |
+| El paso 1 llega con moneda y zona horaria **sin elegir** | Es lo que corrige la migración de defaults: si vinieran precargadas, el paso no preguntaría nada |
+| Intentar navegar a `/dashboard` desde el gate | Vuelve al gate |
+| Verificar que la pantalla no muestra la notch nav | El gate se renderiza sin chrome |
+| Completar los tres pasos | Redirige al panel y se reproduce la animación de bienvenida **una sola vez** |
+| Volver a `/onboarding` a mano después de terminar | Redirige al panel |
+| ⭐ Entrar con una cuenta **invitada** (`member`, `admin`) de una org sin oferta | Entra normal al panel, sin gate |
+| Entrar con una cuenta **holding** | Va a `/onboarding/holding`, como antes |
+| Con una org marcada `skip_onboarding` | Entra directo |
+| Salir a mitad del gate y volver a entrar | Retoma en el primer paso sin cumplir, con lo anterior ya guardado |
+| ⚠️ Con el gate abierto, que el agente u otra ruta de API responda | Las rutas `/api/` quedan excluidas del redirect: un redirect devolvería HTML y rompería el fetch |
+
 ---
 
 ## Regla permanente para Claude Code

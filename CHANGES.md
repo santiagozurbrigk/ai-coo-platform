@@ -14,6 +14,46 @@
 
 ---
 
+### 2026-08-31 — Onboarding Fase 1: el gate de tres pasos (migraciones aplicadas)
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `app/onboarding/actions.ts`, `app/(platform)/onboarding/page.tsx`, `components/onboarding/onboarding-gate.tsx`, `lib/supabase/middleware.ts`, `layouts/platform-layout.tsx`, `lib/navigation/chromeless.ts`, `constants/organization-options.ts`, `components/settings/settings-form.tsx`, `routes/paths.ts`, `lib/onboarding/derive.ts`, `supabase/migrations/20260831130000_organizations_drop_unit_defaults.sql`, `CLAUDE.md`
+
+**Qué se hizo:**
+Una cuenta founder nueva ya no entra a un panel vacío: cae en `/onboarding` y no sale hasta cargar unidades del negocio, oferta principal y avatar principal. **Las dos migraciones están aplicadas en Supabase** (proyecto OTC).
+
+**Dos cosas que aparecieron al mirar la base real y cambiaron el diseño:**
+
+- **El backfill.** Seis organizaciones existentes —entre ellas `familiayformacion`, activa y con tres miembros— no tienen oferta principal ni avatar, así que al desplegar se habrían encontrado un wizard bloqueante en su próximo login. La migración de `onboarding_state` les marca `gate_completed_at`: quedan eximidas y el checklist les mostrará igual lo que falta. **Verificado por SQL: de 18 perfiles, cero quedan redirigidos.** El gate queda para las cuentas nuevas, que es para lo que se diseñó.
+- **Los defaults de la base tumbaban la premisa del paso 1.** `organizations.currency` tenía default `'USD'` y `timezone` default Buenos Aires, así que una org recién creada nacía "configurada" y la derivación —que sólo puede mirar si el valor está o no— salteaba justo el paso que motivó bloquear. Y el default no es neutro: para un cliente que cobra en pesos, `'USD'` es directamente el valor equivocado e indistinguible de una elección deliberada. Se agregó `20260831130000_organizations_drop_unit_defaults.sql`. No toca las filas existentes, y la UI de Ajustes ya resolvía el null con su propio fallback.
+
+**Decisiones de diseño relevantes:**
+
+- **El middleware hace una sola consulta por clave primaria** (`gate_completed_at`) y nada más. Si el gate hace falta o no —¿ya tiene oferta?— lo decide la página, que es la única que necesita la derivación completa y no corre en cada request.
+- **Las rutas `/api/` quedan excluidas del redirect**, por el mismo motivo que las Server Actions: un redirect devuelve HTML y sobre un `fetch` rompe al cliente en vez de mandarlo a ningún lado.
+- **El gate se renderiza sin chrome** (`lib/navigation/chromeless.ts`). Mostrarle la navegación a alguien que el middleware va a devolver es ofrecerle una salida que no existe. No se incluyó `/onboarding/holding`: ese wizard viene mostrándose dentro del shell y cambiarlo sería ajeno a esta fase.
+- **Cero mutaciones nuevas.** Los tres pasos delegan en `saveGeneralOrganizationSettingsAction`, `saveProductAction` y `saveAvatarAction`. Salir a mitad de camino no pierde nada: al volver, `firstPendingGateStep` arranca en el primero que falte.
+- **Un precio vacío o mal tipeado se guarda como ausente, no como cero** — una oferta sin precio conocido no es una oferta gratis.
+- **`completeOnboardingGateAction` revalida en el servidor** que los tres ítems estén cumplidos. El cliente ya lo impide, pero la acción es la que escribe y no puede confiar en eso.
+- **Las listas de moneda/zona/idioma se extrajeron a `constants/organization-options.ts`**, que ahora comparten Ajustes y el gate: duplicadas se desincronizaban del `z.enum` de `lib/validations.ts` sin que nada fallara.
+
+**Verificación ejecutada:**
+- `vitest`: **447 tests en verde** (4 nuevos sobre `firstPendingGateStep`).
+- `tsc --noEmit` y `pnpm lint` limpios. `next build` OK — 133 páginas, ambas rutas de onboarding presentes.
+- **Contra la base real:** los 18 perfiles existentes entran sin gate; una org creada de cero cae en el gate y con la identidad genuinamente pendiente; 🔒 RLS de `onboarding_state` aislando (1 fila visible de 25). Las orgs de prueba se borraron.
+- Se agregó `PLAN_VERIFICACION.md` §13.5 con lo que falta probar en un navegador.
+
+**Riesgos / deuda técnica pendiente:**
+- **Nada probado con sesión de navegador.** Todo lo verificado es SQL, tests y build; el flujo visual queda para el preview de Vercel — pasos en `PLAN_VERIFICACION.md` §13.5.
+- El gate suma **una consulta al middleware por request de founder**. Con el backfill devuelve rápido, pero conviene medirlo antes de que crezcan las cuentas.
+- La animación de bienvenida se dispara desde el cliente tras completar el gate; si el usuario cierra la pestaña justo ahí, se pierde (el gate igual queda cerrado).
+- Todavía **no hay checklist**: lo que no entra en el gate no se le muestra a nadie hasta la Fase 2.
+
+**De paso:** se corrigieron las dos filas desactualizadas de `CLAUDE.md` —`app/onboarding/actions.ts` ahora existe de verdad, y el acento de marca es naranja `#E15D12`, no violeta.
+
+---
+
 ### 2026-08-31 — Onboarding Fase 0: capa de derivación y estado persistido
 
 **Rama/branch:** `Claude-Onboarding`

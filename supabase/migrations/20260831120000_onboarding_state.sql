@@ -48,3 +48,18 @@ create policy "Users update org onboarding state"
   on public.onboarding_state for update
   using (organization_id = public.get_my_organization_id())
   with check (organization_id = public.get_my_organization_id());
+
+-- ─── Backfill: las organizaciones que ya existían quedan eximidas del gate ────
+--
+-- Sin esto, al desplegar la Fase 1 seis organizaciones reales —una activa con
+-- tres miembros— se encontrarían el próximo login con un wizard bloqueante,
+-- porque nunca cargaron oferta principal ni avatar. Bloquear a un cliente que
+-- ya está usando el producto es hostil, y no hace falta: el checklist les va a
+-- mostrar igual lo que les falta, sin encerrarlas.
+--
+-- El gate queda entonces para lo que se diseñó: las cuentas creadas de acá en
+-- adelante, que empiezan de cero y donde configurar la moneda antes de cargar
+-- el primer dato sí cambia algo.
+insert into public.onboarding_state (organization_id, gate_completed_at)
+select id, now() from public.organizations
+on conflict (organization_id) do nothing;

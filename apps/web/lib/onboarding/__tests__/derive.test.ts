@@ -10,6 +10,7 @@
 import { describe, it, expect } from "vitest";
 import {
   deriveOnboardingState,
+  firstPendingGateStep,
   emptyOnboardingFacts,
   EMPTY_PERSISTED_STATE,
   type OnboardingFacts,
@@ -274,5 +275,35 @@ describe("catálogo", () => {
     const state = deriveOnboardingState(completeFacts());
     expect(state.items).toHaveLength(ONBOARDING_ITEMS.length);
     expect(state.items.every((i) => typeof i.done === "boolean")).toBe(true);
+  });
+});
+
+describe("firstPendingGateStep", () => {
+  it("arranca en el primer paso cuando no hay nada cargado", () => {
+    expect(firstPendingGateStep(deriveOnboardingState(emptyOnboardingFacts()))).toBe(0);
+  });
+
+  it("saltea la identidad si la org ya la tiene", () => {
+    const facts = emptyOnboardingFacts();
+    facts.organization = {
+      name: "Acme",
+      currency: "USD",
+      timezone: "UTC",
+      industry: null,
+      country: null,
+    };
+    expect(firstPendingGateStep(deriveOnboardingState(facts))).toBe(1);
+  });
+
+  it("va al avatar si sólo falta ese", () => {
+    const facts = completeFacts();
+    facts.hasPrimaryAvatar = false;
+    expect(firstPendingGateStep(deriveOnboardingState(facts))).toBe(2);
+  });
+
+  it("no devuelve -1 cuando no queda nada pendiente", () => {
+    // El gate no debería mostrarse en ese estado, pero un índice negativo
+    // rompería el wizard en silencio.
+    expect(firstPendingGateStep(deriveOnboardingState(completeFacts()))).toBe(2);
   });
 });

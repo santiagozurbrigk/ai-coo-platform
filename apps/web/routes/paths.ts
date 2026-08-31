@@ -133,6 +133,7 @@ export const paths = {
     settings: `${PLATFORM}/settings`,
     settingsTab: (tab: string) => `${PLATFORM}/settings?tab=${tab}`,
     holding: `${PLATFORM}/holding`,
+    onboarding: `${PLATFORM}/onboarding`,
     holdingOnboarding: `${PLATFORM}/onboarding/holding`,
   },
 

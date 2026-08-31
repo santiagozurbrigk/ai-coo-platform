@@ -177,13 +177,15 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 ## 🟣 Nuevos Features — Implementar cuando Santiago lo indique
 
-### [ONBOARDING] Onboarding guiado para cuentas nuevas — plan cerrado, listo para construir
+### [ONBOARDING] Onboarding guiado para cuentas nuevas — Fases 0 y 1 hechas, falta la 2
 
-**Qué es:** hoy **no existe onboarding de founder**. Una cuenta nueva la crea el super-admin, el founder cambia la contraseña y entra a un dashboard vacío. El único onboarding construido es el del holding.
+**Qué es:** hasta el 2026-08-31 **no existía onboarding de founder**: una cuenta nueva la creaba el super-admin, el founder cambiaba la contraseña y entraba a un dashboard vacío. Ya existe el gate de tres pasos; falta el checklist.
 
 **El plan completo está en [`docs/ONBOARDING_PLAN.md`](./docs/ONBOARDING_PLAN.md)** — leerlo antes de escribir una línea.
 
-**Estado: ✅ Fase 0 completa (2026-08-31)** — migración `onboarding_state`, catálogo, capa de derivación pura y resolver, con 25 tests. Falta aplicar la migración en Supabase. **Siguiente: Fase 1** (gate de tres pasos + ruteo en el middleware).
+**Estado: ✅ Fases 0 y 1 completas (2026-08-31)** — migraciones **aplicadas en Supabase**, capa de derivación con 29 tests, gate de tres pasos y ruteo en el middleware. **Siguiente: Fase 2** (checklist persistente en el dashboard y la notch nav).
+
+~~**Estado: ✅ Fase 0 completa (2026-08-31)** — migración `onboarding_state`, catálogo, capa de derivación pura y resolver, con 25 tests. Falta aplicar la migración en Supabase. **Siguiente: Fase 1** (gate de tres pasos + ruteo en el middleware).~~
 
 **Las tres decisiones ya están cerradas (2026-08-31):**
 1. **Gate duro de tres pasos** (identidad y unidades · oferta principal · avatar principal), con salida de emergencia vía `organizations.skip_onboarding`.

@@ -62,6 +62,13 @@ function isPublicPath(pathname: string): boolean {
   );
 }
 
+function isOnboardingGatePath(pathname: string): boolean {
+  return (
+    pathname === paths.platform.onboarding ||
+    pathname.startsWith(`${paths.platform.onboarding}/`)
+  );
+}
+
 function isForcePasswordChangePath(pathname: string): boolean {
   return (
     pathname === paths.auth.forcePasswordChange ||
@@ -127,7 +134,9 @@ export async function updateSession(request: NextRequest) {
     const admin = createAdminClient();
     const { data: profile } = await admin
       .from("profiles")
-      .select("must_change_password, temp_password_expires_at")
+      .select(
+        "must_change_password, temp_password_expires_at, role, organization_id, organizations(account_type, skip_onboarding)"
+      )
       .eq("id", user.id)
       .maybeSingle();
 
@@ -157,6 +166,53 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = paths.auth.forcePasswordChange;
       return NextResponse.redirect(url);
+    }
+
+    /*
+     * Gate de onboarding.
+     *
+     * Va después del cambio de contraseña forzado a propósito: toda cuenta
+     * nueva llega con contraseña temporal, y pedirle configurar el negocio
+     * antes de dejarla elegir su contraseña sería el orden equivocado.
+     *
+     * Acá sólo se mira `gate_completed_at`, que es una sola consulta por una
+     * clave primaria. Si el gate hace falta o no —¿ya tiene oferta cargada?—
+     * lo decide la página, que es la única que necesita esa derivación y no
+     * corre en cada request.
+     */
+    if (
+      profile?.role === "founder" &&
+      profile.organization_id &&
+      !isOnboardingGatePath(pathname) &&
+      !isPublicPath(pathname) &&
+      // Un redirect devuelve HTML: sobre un fetch a una ruta de API rompe al
+      // cliente en vez de mandarlo a ningún lado. Es el mismo motivo por el que
+      // las Server Actions quedan afuera.
+      !pathname.startsWith("/api/") &&
+      !isServerActionRequest(request)
+    ) {
+      const orgField = profile.organizations as
+        | { account_type?: string; skip_onboarding?: boolean }
+        | { account_type?: string; skip_onboarding?: boolean }[]
+        | null;
+      const org = Array.isArray(orgField) ? orgField[0] : orgField;
+
+      // Los holdings tienen su propio onboarding y su propio ruteo; las orgs
+      // marcadas con `skip_onboarding` son la salida del super-admin.
+      if (org?.account_type !== "holding" && !org?.skip_onboarding) {
+        const { data: onboarding } = await admin
+          .from("onboarding_state")
+          .select("gate_completed_at")
+          .eq("organization_id", profile.organization_id as string)
+          .maybeSingle();
+
+        if (!onboarding?.gate_completed_at) {
+          const url = request.nextUrl.clone();
+          url.pathname = paths.platform.onboarding;
+          url.search = "";
+          return NextResponse.redirect(url);
+        }
+      }
     }
   }
 
