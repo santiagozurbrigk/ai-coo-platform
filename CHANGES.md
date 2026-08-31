@@ -44,12 +44,16 @@ La advertencia va **arriba de los números** en la UI. Sin ella, un mal martes p
 
 > ⚠️ **El `pnpm build` completo no se pudo verificar en este entorno.** Al borrar
 > `.next` para hacer una corrida limpia se perdió el manifiesto de fuentes
-> cacheado, y `next/font` no puede bajar Inter ni JetBrains Mono: el `fetch`
-> nativo de Node **no lee `HTTPS_PROXY`** (documentado en `/root/.ccr/README.md`;
-> la corrección es `NODE_USE_ENV_PROXY=1`). Google Fonts sí responde por `curl`,
-> así que **es una limitación del entorno y no del código** — los deploys de
-> Vercel de esta rama compilaron siempre bien. Lo que sí cubre el código de este
-> cambio es `tsc`, el lint y los tests.
+> cacheado, y `next/font` no puede bajar Inter ni JetBrains Mono. **La causa
+> quedó sin identificar:** los dos hosts (`fonts.googleapis.com` y
+> `fonts.gstatic.com`) responden `200` desde el `fetch` de Node en este mismo
+> contenedor, con y sin `NODE_USE_ENV_PROXY=1`, así que no es el proxy — es algo
+> del loader de fuentes de Next dentro del sandbox.
+>
+> **No bloquea nada:** los builds de este mismo código **antes** de borrar la
+> caché pasaron en verde, y la verificación que vale es el deploy de Vercel, que
+> compila con red normal. Lo que sí cubre el código de este cambio en este
+> entorno es `tsc`, el lint y los 429 tests.
 
 **Un bug de layout que se atajó antes de llegar al navegador:** `DialogContent` trae `grid gap-4 p-6` por defecto, así que la columna con scroll interno que necesita el panel no armaba y el contenido se habría desbordado en vez de scrollear. Se pisa con `flex flex-col gap-0 p-0`. No lo detecta ni `tsc` ni el lint: es CSS, y sólo se ve corriendo la app o leyendo el primitivo.
 
