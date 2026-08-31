@@ -163,7 +163,7 @@ export function PlatformNotchNav({ showItems = true }: { showItems?: boolean }) 
           </Link>
         </Button>
       )}
-      {/* Mismo criterio que la topbar clásica: los reportes se leen y se cierran. */}
+      {/* Los reportes se leen y se cierran: panel, no una entrada del navbar. */}
       <ReportsPanel />
       <ThemeToggle />
       <NotchProfileMenu />

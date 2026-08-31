@@ -330,7 +330,7 @@ Pedido de Santiago: el recuadro que envolvía todo el contenido de cada panel so
 
 **Rama/branch:** `Claude-New-Features`
 **Commits:** pendiente push
-**Módulo(s) afectado(s):** `lib/executive-reports/{cadences,generate-daily}.ts` (nuevos), `components/executive-reports/*`, `app/(platform)/executive-reports/*`, `app/api/cron/executive-report-daily/`, `app/api/queue/process-cron-executive-report/`, `lib/queue/qstash-client.ts`, `lib/navigation/*`, `components/layout/app-topbar.tsx`, `vercel.json`
+**Módulo(s) afectado(s):** `lib/executive-reports/{cadences,generate-daily}.ts` (nuevos), `components/executive-reports/*`, `app/(platform)/executive-reports/*`, `app/api/cron/executive-report-daily/`, `app/api/queue/process-cron-executive-report/`, `lib/queue/qstash-client.ts`, `lib/navigation/*`, `components/navigation/notch-nav/platform-notch-nav.tsx`, `vercel.json`
 
 **Qué se hizo:**
 El sistema de reportes con IA ya existía —generadores, crons semanal y mensual, tabla— pero se leía desde **Operaciones → Reportes** en el sidebar, con una UI que no seguía el diseño actual y con un botón de generación manual.
@@ -349,9 +349,10 @@ La advertencia va **arriba de los números** en la UI. Sin ella, un mal martes p
 
 **Sólo generación automática**, como se pidió: la UI de reportes no tiene ningún botón de generar. El pulso diario corre a las 11 UTC (8 de la mañana en Argentina).
 
-**Verificación ejecutada:**
-- `pnpm test`: **429 tests en 25 archivos, todos en verde** (11 nuevos).
+**Verificación ejecutada** (sobre `main` con onboarding, notch nav y embudos ya mergeados):
+- `pnpm test`: **509 tests en 30 archivos, todos en verde** (11 nuevos de este cambio).
 - `tsc --noEmit` y `pnpm lint` limpios.
+- `pnpm build` completo: **131 páginas**. Quedan `/executive-reports/history` y `/executive-reports/[id]`; `/weekly`, `/monthly` y `/operations/reportes` ya no se compilan.
 - Migración **aplicada**.
 
 **Un bug de layout que se atajó antes de llegar al navegador:** `DialogContent` trae `grid gap-4 p-6` por defecto, así que la columna con scroll interno que necesita el panel no armaba y el contenido se habría desbordado en vez de scrollear. Se pisa con `flex flex-col gap-0 p-0`. No lo detecta ni `tsc` ni el lint: es CSS, y sólo se ve corriendo la app o leyendo el primitivo.
@@ -363,7 +364,7 @@ La advertencia va **arriba de los números** en la UI. Sin ella, un mal martes p
 - **`ReportBody` es el mismo en el panel y en la página de detalle.** El mismo reporte no debería leerse distinto según por dónde se entró.
 - **El historial se agrupa por cadencia y no se ordena por fecha.** Los diarios son muchos más que los otros dos y una lista cronológica única los enterraría.
 - **El botón sólo aparece si hay al menos un reporte.** Un ícono que sólo puede mostrar un vacío es ruido en la barra.
-- **Está en los dos shells** (sidebar clásico y notch nav), porque la notch nav está detrás de un flag y podría activarse en cualquier momento.
+- **Vive en la isla derecha de la notch nav**, junto al tema y al perfil. Se escribió cuando todavía convivían la topbar clásica y la notch nav; al quedar la notch nav como navegación única (#31, #33), el panel quedó sólo ahí.
 
 **Corrección a algo que dije durante el trabajo:** al empezar reporté que la función estaba "huérfana, sin ningún link desde la navegación". Era falso — estaba en **Operaciones → Reportes**. Lo detecté al romper la compilación de esa página, y cambió el alcance: el panel **reemplaza** esa entrada en vez de sumarse a la navegación.
 
