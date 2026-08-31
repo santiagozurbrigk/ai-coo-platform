@@ -14,6 +14,40 @@
 
 ---
 
+### 2026-08-31 — Sacar el panel contenedor y fijar Embudos en la navegación
+
+**Rama/branch:** `Claude-Design`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `components/layout/platform-shell.tsx`, `components/navigation/notch-nav/notch-nav.tsx`, `lib/navigation/sidebar-modules.ts`
+
+**Qué se hizo:**
+
+- **El contenido va directo sobre el fondo de la app.** Se sacó el `MainContainerPanel` del shell de plataforma: ya no hay tarjeta redondeada con sombra y patrón de puntos envolviendo cada pantalla. El título de página queda fijo arriba (fuera del contenedor de scroll) con un hairline que marca dónde empieza el contenido, y el padding horizontal replica el de `.page-content` para que el h1 alinee con las cards.
+- **`Embudos` deja de ser add-on en la navegación.** Estaba detrás de `enabledAddOns.includes("embudos")`, así que solo aparecía si la organización tenía el add-on activo. Ahora va siempre; quién lo ve lo sigue decidiendo el permiso `funnels`.
+- **Los labels de la barra no se parten en dos líneas** (`whitespace-nowrap` + `min-w-0` en la isla central).
+
+**Por qué / finalidad:**
+
+Pedido de Santiago: el recuadro que envolvía todo el contenido de cada panel sobraba visualmente. Y Embudos no es un módulo opcional del producto, así que no correspondía gatearlo por add-on.
+
+**Decisiones de diseño relevantes:**
+
+- **`MainContainerPanel` NO se borró:** lo sigue usando `three-column-layout`, que es el shell del área de super-admin. Solo dejó de usarlo la plataforma.
+- **Se mantiene el hairline debajo del título.** Sin la tarjeta podría parecer chrome sobrante, pero hace trabajo real: marca el límite entre la franja fija y el área que scrollea; sin él, el contenido subiendo por detrás del título se ve roto.
+- **`Operaciones` y `Producto` siguen gateados por add-on**, que es exactamente el mecanismo para "por ahora no, más adelante sí": apagados hoy, se encienden desde super-admin sin tocar código.
+- **El AddOnId `"embudos"` se deja declarado** en `lib/auth/add-on-ids.ts` aunque ya no gatee nada, porque puede haber organizaciones que lo tengan guardado en la base.
+
+**Verificación:**
+
+`tsc` 4/4, lint 0, build de 132 páginas y 418 tests. Verificación visual en tema claro y oscuro. Se comprobó por aserción que las tres islas de la barra **no se superponen en ningún ancho** (1920, 1512, 1440, 1366, 1280, 1180, 1024, 768) — el gap mínimo es de 32px — y que la lista de módulos queda en Panel General · Clientes · Equipo · Marketing · Ventas · Finanzas · Embudos · Tablero de trabajo.
+
+**Riesgos / deuda técnica pendiente:**
+
+- Con `Operaciones` y `Producto` encendidos serían 10 módulos y a 1280px la isla central **se superpone** con la derecha. Antes de habilitar esos add-ons hay que resolverlo: acortar labels, agrupar módulos o pasar a iconos por debajo de cierto ancho.
+- Se perdió el patrón de puntos de fondo, que era parte del panel. Si se lo quiere de vuelta, va sobre el fondo de la app.
+
+---
+
 ### 2026-08-30 — Quitar el rate limit de conexión de integraciones
 
 **Rama/branch:** `Claude-New-Features`

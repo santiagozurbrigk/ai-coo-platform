@@ -119,7 +119,7 @@ function ItemChrome({
         )}
       >
         {icon}
-        <span className="hidden xl:inline">{label}</span>
+        <span className="hidden whitespace-nowrap xl:inline">{label}</span>
         {badge ? (
           <span className="rounded-full bg-muted px-1.5 text-[10px] font-semibold leading-4 text-muted-foreground">
             {badge}
@@ -150,7 +150,7 @@ export function NotchNav({
         {logo ? <NotchIsland className="gap-2">{logo}</NotchIsland> : <div />}
 
         {items.length > 0 ? (
-          <NotchIsland className="gap-0.5">
+          <NotchIsland className="min-w-0 gap-0.5">
             <nav aria-label="Navegación principal" className="flex items-center gap-0.5">
               {items.map((item) =>
                 item.type === "link" ? (
