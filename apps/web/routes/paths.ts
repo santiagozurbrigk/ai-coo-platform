@@ -152,6 +152,7 @@ export const paths = {
     costs: "/super-admin/costs",
     infrastructure: "/super-admin/infrastructure",
     clientHealth: "/super-admin/client-health",
+    onboarding: "/super-admin/onboarding",
     waitlist: "/super-admin/waitlist",
     trials: "/super-admin/trials",
     holding: "/super-admin/holding",

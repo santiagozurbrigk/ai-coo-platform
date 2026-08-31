@@ -696,6 +696,26 @@ comprobó que **falla en rojo** al borrar un ancla a mano, nombrándola. Es la
 protección contra el modo de falla propio de los tours: un paso que desaparece
 sin que nada se rompa.
 
+### 13.10 Fase 4 — panel de onboarding en super-admin
+
+Construido el 2026-08-31. **El contenido ya se verificó** corriendo el mapeo real
+contra los datos reales de las 13 organizaciones con usuarios: el orden sale
+correcto y los holdings quedan al final. Falta verlo renderizado.
+
+| Paso | Resultado esperado |
+|---|---|
+| Entrar a **Super Admin → Onboarding** | Lista ordenada por quién necesita atención primero |
+| Mirar el encabezado | Hoy debería decir **0 sin terminar la configuración inicial** — todas las orgs existentes están eximidas por el backfill |
+| ⭐ Crear una cuenta founder nueva y **no** completar el gate | Aparece primera, con "Todavía no terminó la configuración inicial" y los tres pasos pendientes |
+| Dejarla así 3 días | El texto cambia a "Trabada en la configuración inicial hace N días" |
+| Mirar los holdings y las orgs con `skip_onboarding` | Al final de la lista, **sin barra de progreso**, con el motivo explícito |
+| Contrastar el progreso de una org con lo que ve ese cliente en su panel | Tienen que coincidir: el panel usa la misma `deriveOnboardingState` |
+| 🔒 Verificar los permisos de `onboarding_org_progress()` | `security definer` y execute **sólo** para `service_role`: recorre todas las organizaciones y saltea RLS |
+
+**Lo que este panel no responde todavía:** cuándo fue la última actividad de la
+organización. Hoy dice en qué punto quedó, no si sigue viva — eso lo cubre
+`/super-admin/client-health`, que es una pantalla aparte.
+
 ---
 
 ## Regla permanente para Claude Code

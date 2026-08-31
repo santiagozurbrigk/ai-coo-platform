@@ -151,6 +151,26 @@ describe("gate — a quién le aplica", () => {
     expect(state.gate.satisfied).toBe(false);
   });
 
+  it("no aplica a un holding: tiene su propio onboarding", () => {
+    // El middleware ya lo contempla, pero el panel de super-admin deriva sin
+    // pasar por él: sin esta regla marcaría como trabado a un holding.
+    const state = deriveOnboardingState(emptyOnboardingFacts(), persisted(), {
+      role: "founder",
+      skipOnboarding: false,
+      accountType: "holding",
+    });
+    expect(state.gate.required).toBe(false);
+  });
+
+  it("sí aplica a una cuenta founder", () => {
+    const state = deriveOnboardingState(emptyOnboardingFacts(), persisted(), {
+      role: "founder",
+      skipOnboarding: false,
+      accountType: "founder",
+    });
+    expect(state.gate.required).toBe(true);
+  });
+
   it("no aplica con skip_onboarding — la salida del super-admin", () => {
     const state = deriveOnboardingState(emptyOnboardingFacts(), persisted(), {
       role: "founder",

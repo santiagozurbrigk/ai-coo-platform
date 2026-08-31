@@ -55,6 +55,15 @@ export type OnboardingSubject = {
   role: string;
   /** `organizations.skip_onboarding` — la salida que maneja el super-admin. */
   skipOnboarding: boolean;
+  /**
+   * `organizations.account_type`. Un holding tiene su propio onboarding y su
+   * propio ruteo, así que este gate no le aplica nunca.
+   *
+   * El middleware ya lo contempla, pero la derivación también tiene que
+   * saberlo: el panel de super-admin la usa sin pasar por el middleware, y sin
+   * esto marcaría como "trabado" a un holding que no tiene por qué cruzar nada.
+   */
+  accountType?: string | null;
 };
 
 export type OnboardingItemState = OnboardingItem & {
@@ -141,6 +150,7 @@ export function deriveOnboardingState(
    * - No es founder: un `operator` o `viewer` no tiene permiso sobre settings ni
    *   integraciones, así que el gate lo dejaría encerrado en una pantalla que no
    *   puede completar.
+   * - Es un holding: tiene su propio onboarding en `/onboarding/holding`.
    * - `skip_onboarding`: la salida de emergencia del super-admin.
    * - Ya pasó, o ya está todo cargado: lo segundo es lo que evita arrastrar por
    *   el wizard a las organizaciones que existían antes de esta feature.
@@ -152,6 +162,7 @@ export function deriveOnboardingState(
    */
   const required =
     subject.role === "founder" &&
+    subject.accountType !== "holding" &&
     !subject.skipOnboarding &&
     !passed &&
     !satisfied;

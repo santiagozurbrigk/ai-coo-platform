@@ -92,5 +92,13 @@ export const superAdminSidebarNav: SidebarNavConfig = {
         icon: "crown",
       },
     },
+    {
+      type: "link",
+      module: {
+        label: "Onboarding",
+        href: paths.superAdmin.onboarding,
+        icon: "rocket",
+      },
+    },
   ],
 };

@@ -45,7 +45,7 @@ export async function getCurrentOnboardingContext(): Promise<OnboardingContext> 
     admin.from("profiles").select("role").eq("id", user.id).maybeSingle(),
     admin
       .from("organizations")
-      .select("skip_onboarding")
+      .select("skip_onboarding, account_type")
       .eq("id", organizationId)
       .maybeSingle(),
     resolvePersistedOnboardingState(organizationId),
@@ -60,6 +60,7 @@ export async function getCurrentOnboardingContext(): Promise<OnboardingContext> 
   const state = await getOnboardingState(organizationId, {
     role,
     skipOnboarding: Boolean(org?.skip_onboarding),
+    accountType: (org?.account_type as string | null) ?? null,
   });
 
   return { state, toursSeen: persisted.toursSeen };

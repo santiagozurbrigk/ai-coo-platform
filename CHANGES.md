@@ -14,6 +14,43 @@
 
 ---
 
+### 2026-08-31 — Onboarding Fase 4: panel de progreso en super-admin
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260831150000_onboarding_org_progress.sql` (nuevo), `lib/super-admin/onboarding-progress{,-mapper}.ts` (nuevos), `components/super-admin/onboarding-progress-table.tsx` (nuevo), `app/(super-admin)/super-admin/onboarding/page.tsx` (nueva), `lib/onboarding/derive.ts`, `lib/onboarding/current.ts`, `components/dashboard/dashboard-empty-state.tsx`, `routes/paths.ts`, `lib/navigation/super-admin-sidebar-modules.ts`
+
+**Qué se hizo:**
+**Super Admin → Onboarding**: en qué punto quedó cada organización, ordenado por quién necesita atención primero. Con esto las cuatro fases del plan están construidas.
+
+**Decisiones de diseño relevantes:**
+
+- **Una consulta para todas las organizaciones.** `onboarding_org_progress()` devuelve los hechos de todas de una vez; resolverlas una por una eran ocho consultas por organización —doscientas con veinticinco clientes— para pintar una pantalla.
+- **La función devuelve hechos, no conclusiones.** Quién está trabado y qué falta lo sigue decidiendo `deriveOnboardingState`, la misma función pura que usa la aplicación. Es lo que garantiza que **el panel no pueda mostrar un progreso distinto del que el cliente ve en su pantalla**. Ninguna regla de negocio está duplicada en SQL.
+- **Los conteos de pasos por plantilla de embudo no se hardcodearon en SQL.** Viven en `lib/funnels/templates/` y la función devuelve el detalle crudo —cada instancia con su plantilla y sus bindings— para que la app resuelva. Copiarlos habría creado una segunda fuente de verdad de las plantillas.
+- **El mapeo puro se separó del acceso a datos** (`-mapper.ts`), siguiendo la convención de `lib/*/mapper.ts` que ya usa el repo: `server-only` no resuelve en vitest, y la lógica que decide algo tiene que poder testearse.
+
+**Dos cosas que aparecieron al correr el mapeo contra los datos reales**, y que no se veían leyendo el código:
+
+1. **Los holdings encabezaban la lista de "necesita atención".** Cuatro de ellos, con el checklist en cero, tapaban a los clientes que sí estaban trabados. Un holding no mide embudos ni importa histórico —eso lo hacen sus negocios— y tiene su propio onboarding. Se agregó `applies` al progreso: las organizaciones a las que este flujo no les corresponde (holdings y las excusadas con `skip_onboarding`) van al final, sin barra de progreso y con el motivo explícito, y no entran en los contadores del encabezado.
+2. **`deriveOnboardingState` no conocía `account_type`.** La regla "un holding no pasa por el gate" vivía sólo en el middleware. El panel deriva sin pasar por ahí, así que marcaba como trabado a un holding nuevo. Se sumó `accountType` al sujeto: ahora la regla vive en la capa pura y la usan los dos.
+
+**De paso — un duplicado que había causado la Fase 2:** una organización nueva veía dos tarjetas pidiendo lo mismo, el checklist ("Conectar una fuente de datos") y el empty state del panel ("Conectá tus primeras integraciones"). El empty state ahora se corre cuando el checklist está visible, porque el checklist sabe más: conoce qué le falta a *esa* organización. También se le sacó la enumeración de proveedores, que estaba vieja (ManyChat, Calendly, Fathom) y se iba a volver a desactualizar.
+
+**Verificación ejecutada:**
+- `vitest`: **498 tests en verde** (14 nuevos).
+- `tsc --noEmit`, `pnpm lint` y `next build` limpios (133 páginas).
+- **El mapeo se corrió contra los datos reales** de las 13 organizaciones con usuarios: el orden sale correcto —de 0/4 a 3/4, con los holdings al final— y los pendientes de cada una coinciden con lo que muestra su propio checklist.
+- **Evidencia en vivo de que la Fase 3 funciona:** `tours_seen = ["funnels"]` en dos organizaciones. El tour se disparó solo en el preview y se persistió.
+
+**Riesgos / deuda técnica pendiente:**
+- **La pantalla no se vio renderizada.** Se verificó el contenido, no el render — `PLAN_VERIFICACION.md` §13.10.
+- **Hoy el panel muestra 0 organizaciones sin terminar la configuración inicial**, porque el backfill eximió a todas las existentes. Recién se va a poblar con cuentas nuevas: no es un bug, pero conviene saberlo antes de mirarlo por primera vez.
+- El panel dice en qué punto quedó cada organización, **no si sigue viva**. La última actividad la cubre `/super-admin/client-health`, que es otra pantalla.
+- `client-health` usa emojis en el JSX, contra la regla de `CLAUDE.md`. Es preexistente y no se tocó.
+
+---
+
 ### 2026-08-31 — Onboarding Fase 3: tours contextuales con Driver.js
 
 **Rama/branch:** `Claude-Onboarding`

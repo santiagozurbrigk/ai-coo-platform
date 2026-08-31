@@ -177,7 +177,7 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 ## 🟣 Nuevos Features — Implementar cuando Santiago lo indique
 
-### [ONBOARDING] Onboarding guiado para cuentas nuevas — Fases 0 a 3 hechas, falta la 4
+### [ONBOARDING] Onboarding guiado para cuentas nuevas — ✅ las cuatro fases construidas
 
 **Qué es:** hasta el 2026-08-31 **no existía onboarding de founder**: una cuenta nueva la creaba el super-admin, el founder cambiaba la contraseña y entraba a un dashboard vacío. Hoy hay gate, checklist y tours; falta la visibilidad interna.
 
@@ -187,9 +187,10 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 **✅ Fase 3 completa (2026-08-31)** — tours contextuales con Driver.js en Embudos, Contenido, Agente y Bandeja. Es la única dependencia que agregó todo el plan, y queda en el chunk del runner: el bundle compartido no se movió (185 kB).
 
-**Lo que falta, en orden:**
-1. **Probar el flujo en un navegador** — todo lo verificado hasta acá es SQL, tests y build. Pasos en [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md) §13.5, §13.6 y §13.9. Lo más importante: que una cuenta nueva pase primero por el cambio de contraseña y después por el gate, en ese orden.
-2. **Fase 4 — visibilidad en super-admin**: en qué punto quedó cada organización. Para un producto B2B vale más que el onboarding mismo, porque muestra quién se trabó y dónde. Encaja en `/super-admin/client-health`.
+**✅ Fase 4 completa (2026-08-31)** — panel **Super Admin → Onboarding**: en qué punto quedó cada organización, ordenado por quién necesita atención primero. Una sola consulta (`onboarding_org_progress`) para todas, y la derivación pasa por la misma función pura que la aplicación, así que el panel no puede mostrar un progreso distinto del que ve el cliente.
+
+**Lo que falta:**
+1. **Probar el flujo completo en un navegador** — lo verificado es SQL, tests, build y render aislado del popover. Pasos en [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md) §13.5, §13.6, §13.9 y §13.10. Lo más importante sigue siendo que una cuenta nueva pase primero por el cambio de contraseña y después por el gate, en ese orden.
 
 **Deuda conocida:** el layout resuelve el estado en cada request de founder (~8 counts en paralelo, cache de 60 s) — medir antes de optimizar. Y el filtro de desconexión de integraciones sigue sin poder observarse porque ninguna org tiene una integración desconectada.
 
