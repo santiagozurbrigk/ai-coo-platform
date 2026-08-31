@@ -46,7 +46,7 @@ function routeByKeywords(text: string, fallback: string): string {
 }
 
 export function resolveExecutiveReportLink(): string {
-  return paths.platform.executiveReports.weekly;
+  return paths.platform.executiveReports.history;
 }
 
 export function resolveMemoryLink(chunk: MemoryChunk): string {
