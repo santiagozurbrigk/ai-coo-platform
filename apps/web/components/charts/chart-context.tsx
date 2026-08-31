@@ -45,13 +45,18 @@ export const chartCssVars = {
   segmentLine: "var(--chart-segment-line)",
 };
 
-/** Default scatter series colors from the chart palette (`--chart-1` … `--chart-5`). */
+/**
+ * Colores por defecto de series de dispersión. Van a la paleta categórica
+ * (`--chart-cat-*`): en un scatter cualquier par de marcas puede quedar
+ * pegado, así que necesitan identidad, no pasos de una rampa monocroma.
+ */
 export const defaultScatterColors = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
+  "var(--chart-cat-1)",
+  "var(--chart-cat-2)",
+  "var(--chart-cat-3)",
+  "var(--chart-cat-4)",
+  "var(--chart-cat-5)",
+  "var(--chart-cat-6)",
 ] as const;
 
 export interface Margin {

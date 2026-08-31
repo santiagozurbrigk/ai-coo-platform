@@ -17,7 +17,7 @@ export function ContentFunnel({
 
   return (
     <Panel title="Embudo de influencia del contenido">
-      <FunnelChartPanel stages={funnelData} color="var(--chart-2)" />
+      <FunnelChartPanel stages={funnelData} />
     </Panel>
   );
 }

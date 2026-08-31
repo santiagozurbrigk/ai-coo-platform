@@ -27,7 +27,7 @@ export function OperationalMetricsSection({
                 ? `${metric.progress}% del objetivo semanal`
                 : undefined
             }
-            progressVariant="violet"
+            progressVariant="brand"
           />
         ))}
       </MetricBand>

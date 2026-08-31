@@ -11,12 +11,13 @@ export const radarCssVars = {
   label: "var(--chart-label, oklch(0.65 0.01 260))",
   grid: "var(--chart-grid)",
   border: "var(--border)",
-  // Default radar colors from chart palette
-  area1: "var(--chart-1)",
-  area2: "var(--chart-2)",
-  area3: "var(--chart-3)",
-  area4: "var(--chart-4)",
-  area5: "var(--chart-5)",
+  // Cada área es una serie distinta (período, equipo, cohorte): identidad,
+  // no magnitud. Van a la paleta categórica.
+  area1: "var(--chart-cat-1)",
+  area2: "var(--chart-cat-2)",
+  area3: "var(--chart-cat-3)",
+  area4: "var(--chart-cat-4)",
+  area5: "var(--chart-cat-5)",
 };
 
 // Default radar color palette

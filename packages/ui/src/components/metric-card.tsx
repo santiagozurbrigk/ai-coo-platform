@@ -11,6 +11,7 @@ import {
 import { Sparkline } from "./sparkline";
 import { MetricAnimatedValue } from "./animated-number";
 import { MetricLineChart } from "./metric-line-chart";
+import { deriveMetricProgress } from "../lib/metric-trend";
 
 export type MetricTrend = "up" | "down" | "neutral";
 
@@ -38,7 +39,7 @@ export interface MetricCardProps {
   progress?: number;
   progressCaption?: string;
   /** Bar color when `progress` is set. */
-  progressVariant?: "trend" | "violet";
+  progressVariant?: "trend" | "brand";
   children?: React.ReactNode;
   /** Datos para el gráfico de línea full-width en el fondo de la card (estilo Whop) */
   chartData?: number[];
@@ -71,26 +72,6 @@ const trendConfig = {
   },
 };
 
-function deriveProgress(
-  value: string | number,
-  trend?: MetricTrend,
-  trendValue?: string
-): number {
-  const str = String(value);
-  const pctInValue = str.match(/([\d.]+)\s*%/);
-  if (pctInValue) return Math.min(100, parseFloat(pctInValue[1]));
-
-  const pctInTrend = trendValue?.match(/([\d.]+)/);
-  if (pctInTrend) {
-    const n = parseFloat(pctInTrend[1]);
-    return Math.min(100, Math.max(12, n * 4));
-  }
-
-  if (trend === "up") return 72;
-  if (trend === "down") return 38;
-  return 56;
-}
-
 export function MetricCard({
   title,
   value,
@@ -117,13 +98,13 @@ export function MetricCard({
 }: MetricCardProps) {
   const cfg = trendConfig[trend];
   const TrendIcon = cfg.icon;
-  const derivedProgress = deriveProgress(value, trend, trendValue);
-  const barWidth = progress ?? derivedProgress;
+  // Igual que en `MetricStat`: sin porcentaje real no se dibuja barra.
+  const barWidth = progress ?? deriveMetricProgress(value, trend, trendValue);
   const comparison =
     subtitle ?? (trendValue ? `vs período anterior  ${trendValue}` : undefined);
   const hasDataSparkline = Boolean(sparklineData?.length);
   const barClassName =
-    progressVariant === "violet"
+    progressVariant === "brand"
       ? "from-brand-600 to-brand-400"
       : cfg.bar;
 
@@ -174,7 +155,7 @@ export function MetricCard({
               "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
           )}
         >
-          <div className="metric-value text-[32px] leading-none tracking-tight tabular-nums sm:text-[36px]">
+          <div className="metric-value text-[32px] leading-none tracking-tight sm:text-[36px]">
             <MetricAnimatedValue value={value} />
           </div>
           {hasDataSparkline ? (
@@ -187,7 +168,7 @@ export function MetricCard({
           ) : null}
         </div>
 
-        {showProgressBar ? (
+        {showProgressBar && barWidth != null ? (
           <div className="mt-4 flex items-center gap-3">
             <div
               className={cn(

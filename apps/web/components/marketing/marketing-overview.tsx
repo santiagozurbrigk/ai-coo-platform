@@ -381,12 +381,10 @@ function PerformanceRadarCard({ types }: { types: ContentTypePerformance[] }) {
   const radarSeries: RadarData[] = [
     {
       label: "Alcance",
-      color: "var(--chart-1)",
       values: Object.fromEntries(types.map((t) => [t.type, Math.round((t.reach / reachMax) * 100)])),
     },
     {
       label: "Conversiones",
-      color: "var(--chart-3)",
       values: Object.fromEntries(types.map((t) => [t.type, Math.round((t.conversions / convMax) * 100)])),
     },
   ];
@@ -403,14 +401,6 @@ function PerformanceRadarCard({ types }: { types: ContentTypePerformance[] }) {
         </div>
       </div>
       <RadarPerformanceChart metrics={radarMetrics} series={radarSeries} className="mx-auto max-w-[240px]" />
-      <div className="flex justify-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-3 rounded-sm bg-[var(--chart-1)]" /> Alcance
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-3 rounded-sm bg-[var(--chart-3)]" /> Conversiones
-        </span>
-      </div>
     </GlassPanel>
   );
 }

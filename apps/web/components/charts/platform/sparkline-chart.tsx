@@ -38,7 +38,10 @@ export function SparklineChart({
         dataKey="value"
         fill={color}
         stroke={color}
-        fillOpacity={0.25}
+        // Relleno degradado a transparente: al 0.25 plano el sparkline se leía
+        // como un bloque gris con un borde duro, no como una tendencia.
+        fillOpacity={0.16}
+        gradientToOpacity={0}
         showLine
         showHighlight={false}
         showMarkers={false}

@@ -3,6 +3,7 @@
 import type { ContentLabel } from "@/lib/content/label-content";
 import { ChartShell, PieDistributionChart } from "@/components/charts/platform";
 import type { PieData } from "@/components/charts/pie-context";
+import { categoricalColor } from "@/lib/chart/colors";
 
 const LABELS: ContentLabel[] = [
   "AUTORIDAD",
@@ -11,11 +12,13 @@ const LABELS: ContentLabel[] = [
   "VENTA",
 ];
 
+// Los cuatro tipos de contenido son categorías, no niveles: con la rampa
+// monocroma NUTRICION y VENTA quedaban como dos grises casi idénticos.
 const SLICE_COLORS: Record<ContentLabel, string> = {
-  AUTORIDAD: "var(--chart-1)",
-  ATRACCION: "var(--chart-2)",
-  NUTRICION: "var(--chart-4)",
-  VENTA: "var(--chart-5)",
+  AUTORIDAD: categoricalColor(0),
+  ATRACCION: categoricalColor(1),
+  NUTRICION: categoricalColor(2),
+  VENTA: categoricalColor(3),
 };
 
 type Props = {

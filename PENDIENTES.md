@@ -335,10 +335,47 @@ categoría. Convertirlas colapsaría dos categorías en el mismo color.
 - `components/agent/proposal-card.tsx` (1) — tipo de propuesta
 - `components/sales/zernio-side-panel.tsx` (2) — bloque de panel lateral
 
-**Acción:** definir una paleta categórica que conviva con un acento naranja
-(el naranja de marca queda reservado para "lo primario"; las categorías deberían ir
-a hues fríos o a neutros diferenciados por luminancia). Es trabajo de diseño.
-**Quién:** Santiago + diseño.
+**Estado (2026-08-31):** la paleta categórica que faltaba **ya existe** — se definió
+para los gráficos: `--chart-cat-1…6` en `globals.css`, expuesta por
+`chartCategoricalColors` / `categoricalColor()` en `lib/chart/colors.ts`. Es naranja de
+marca (slot 1) + azul, verde, índigo, rosa y verde oscuro, validada en claro y oscuro
+(lightness, croma, separación bajo protanopía/deuteranopía, contraste ≥3:1).
+
+**Acción restante:** adoptarla en los 5 archivos de arriba, que son badges y nodos de
+UI, no gráficos. Reemplazar cada clase violeta por el slot categórico que le
+corresponda según la posición de esa categoría en su lista. Es mecánico ahora que la
+paleta está definida.
+**Quién:** Claude, con una revisión visual de Santiago.
+
+### [CHART-A] Vista de tabla como equivalente accesible de cada gráfico
+
+**Qué es:** hoy los valores de un gráfico se leen por tooltip, leyenda con valor y
+etiquetas directas. No hay una vista de tabla equivalente, que es el fallback limpio
+para lectores de pantalla, impresión y modo de contraste forzado.
+
+**Acción:** un toggle "gráfico / tabla" en `ChartShell` que renderice los mismos datos
+como `<table>`. La mayoría de los componentes de `charts/platform` ya reciben los datos
+en forma de filas, así que el toggle puede vivir en el shell.
+**Complejidad:** media.
+
+---
+
+### [CHART-B] Embudo con etapas de valor muy dispar
+
+**Qué es:** `FunnelChartPanel` dibuja el ancho proporcional al valor. Con un rango tipo
+120.000 → 210 las últimas tres etapas quedan como hilos de 1px y ocupan media card sin
+mostrar nada.
+
+**Por qué no se "arregló" en el rediseño de gráficos:** el ancho proporcional es
+correcto — la caída realmente es esa, y una escala logarítmica mentiría sobre la
+conversión. Los valores y porcentajes están rotulados, así que la información se lee.
+
+**Acción posible:** ofrecer una variante en barras horizontales (una barra por etapa +
+la tasa de conversión entre etapas) para cuando el rango es muy amplio. Es una decisión
+de producto, no un bug.
+**Complejidad:** media.
+
+---
 
 ### [BRAND-B] Licenciar Neue Haas Grotesk
 

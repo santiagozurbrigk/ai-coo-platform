@@ -181,8 +181,6 @@ export function FinanceMetrics() {
             secondaryKey="cashCollected"
             primaryLabel="Facturación"
             secondaryLabel="Cash collected"
-            primaryColor="var(--chart-1)"
-            secondaryColor="var(--chart-2)"
             emptyMessage="Sin suficientes meses para el gráfico"
           />
         </div>
@@ -219,6 +217,7 @@ export function FinanceMetrics() {
                 value: m.amount,
               }))}
               className="min-h-[120px]"
+              emptyMessage="No hay cuotas pendientes"
             />
           </MetricChartPanel>
         </BentoCellPlace>

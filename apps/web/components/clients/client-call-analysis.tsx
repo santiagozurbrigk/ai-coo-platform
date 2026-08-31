@@ -168,7 +168,7 @@ export function ClientCallAnalysisSection({
           className={scoreValueClass(enriched.scriptAdherencePct)}
           showProgressBar
           progress={enriched.scriptAdherencePct}
-          progressVariant="violet"
+          progressVariant="brand"
         />
         <MetricStat
           title="Resultado"

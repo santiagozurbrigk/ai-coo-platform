@@ -21,7 +21,7 @@ export interface GridProps {
   strokeOpacity?: number;
   /** Grid line stroke width. Default: 1 */
   strokeWidth?: number;
-  /** Grid line dash array. Default: "4,4" for dashed lines */
+  /** Grid line dash array. Default: `"0"` (hairline sólida). */
   strokeDasharray?: string;
   /** Horizontal row values rendered with alternate styling (e.g. zero baseline). */
   highlightRowValues?: number[];
@@ -48,7 +48,9 @@ export function Grid({
   stroke = chartCssVars.grid,
   strokeOpacity = 1,
   strokeWidth = 1,
-  strokeDasharray = "4,4",
+  // Sólida: el punteado suma ruido y se lee como "proyección" o "umbral"
+  // cuando en realidad es sólo la grilla.
+  strokeDasharray = "0",
   highlightRowValues,
   highlightRowStroke = chartCssVars.foregroundMuted,
   highlightRowStrokeOpacity = 1,

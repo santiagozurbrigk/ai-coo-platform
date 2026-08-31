@@ -10,7 +10,7 @@ import { ChartWrapper } from "./chart-wrapper";
 
 export function HeroAreaChart({
   data,
-  color = "var(--chart-2)",
+  color = "var(--chart-1)",
   className,
   emptyMessage,
 }: {
@@ -33,14 +33,16 @@ export function HeroAreaChart({
         aspectRatio="2.2 / 1"
         className="w-full"
         animationDuration={900}
-        margin={{ top: 56, right: 8, bottom: 28, left: 4 }}
+        // top 56 reservaba lugar para un encabezado flotante que ya no existe:
+        // aplastaba el área contra el piso del gráfico.
+        margin={{ top: 16, right: 8, bottom: 28, left: 4 }}
       >
         <Grid horizontal vertical={false} numTicksRows={3} />
         <Area
           dataKey="value"
           fill={color}
           stroke={color}
-          fillOpacity={0.45}
+          fillOpacity={0.18}
           gradientToOpacity={0}
           showHighlight
         />
