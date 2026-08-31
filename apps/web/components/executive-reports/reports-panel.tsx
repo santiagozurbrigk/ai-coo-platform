@@ -27,8 +27,9 @@ import type { ExecutiveReport, ReportPeriod } from "@/types/executive-reports";
  * ⭐ **Por qué es un panel y no un módulo del navbar.** Un reporte automático se
  * lee y se cierra: no es un lugar donde uno *trabaja*, y ocupar un renglón del
  * navbar con algo que se abre una vez por día lo pondría al mismo nivel que
- * Clientes o Marketing. Vive detrás de un ícono en la barra superior, disponible
- * desde cualquier pantalla y sin costo visual cuando no se usa.
+ * Clientes o Marketing. Vive detrás de un ícono en la isla derecha de la barra
+ * de navegación, disponible desde cualquier pantalla y sin costo visual cuando
+ * no se usa.
  *
  * ⭐ **Por qué el punto no es un contador.** Marca que hay un reporte que este
  * navegador no vio, y se guarda en `localStorage`. Es a propósito una comodidad

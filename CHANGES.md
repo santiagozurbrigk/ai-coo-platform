@@ -42,6 +42,15 @@ La advertencia va **arriba de los números** en la UI. Sin ella, un mal martes p
 - `tsc --noEmit` y `pnpm lint` limpios.
 - Migración **aplicada**.
 
+> ⚠️ **El `pnpm build` completo no se pudo verificar en este entorno.** Al borrar
+> `.next` para hacer una corrida limpia se perdió el manifiesto de fuentes
+> cacheado, y `next/font` no puede bajar Inter ni JetBrains Mono: el `fetch`
+> nativo de Node **no lee `HTTPS_PROXY`** (documentado en `/root/.ccr/README.md`;
+> la corrección es `NODE_USE_ENV_PROXY=1`). Google Fonts sí responde por `curl`,
+> así que **es una limitación del entorno y no del código** — los deploys de
+> Vercel de esta rama compilaron siempre bien. Lo que sí cubre el código de este
+> cambio es `tsc`, el lint y los tests.
+
 **Un bug de layout que se atajó antes de llegar al navegador:** `DialogContent` trae `grid gap-4 p-6` por defecto, así que la columna con scroll interno que necesita el panel no armaba y el contenido se habría desbordado en vez de scrollear. Se pisa con `flex flex-col gap-0 p-0`. No lo detecta ni `tsc` ni el lint: es CSS, y sólo se ve corriendo la app o leyendo el primitivo.
 
 **Decisiones de diseño:**
@@ -54,6 +63,8 @@ La advertencia va **arriba de los números** en la UI. Sin ella, un mal martes p
 - **Está en los dos shells** (sidebar clásico y notch nav), porque la notch nav está detrás de un flag y podría activarse en cualquier momento.
 
 **Corrección a algo que dije durante el trabajo:** al empezar reporté que la función estaba "huérfana, sin ningún link desde la navegación". Era falso — estaba en **Operaciones → Reportes**. Lo detecté al romper la compilación de esa página, y cambió el alcance: el panel **reemplaza** esa entrada en vez de sumarse a la navegación.
+
+**El PR #31 llegó en el medio y movió el piso.** Mientras esto se construía se mergearon a la rama el módulo de Embudos (#30) y la **notch nav como navegación definitiva** (#31), que **eliminó `app-topbar.tsx`** y todo el sidebar clásico. El panel se había montado en los dos shells justamente porque la notch nav podía activarse en cualquier momento; con el sidebar borrado, esa mitad del trabajo quedó sin objeto y el panel vive ahora sólo en la isla derecha de la notch nav. Se aceptó el borrado del topbar en el merge y se actualizaron los comentarios que hablaban de "la topbar clásica", que ya no existe.
 
 **Riesgos / deuda técnica pendiente:**
 - ⚠️ **Queda un camino de generación manual que no se tocó.** `GenerateWeeklyPipelineButton` (en Inteligencia y en Operaciones) dispara un pipeline que, entre otras cosas, genera el reporte ejecutivo semanal. Sacarlo rompería esas dos pantallas, que están fuera de este pedido. La UI de reportes no ofrece generar nada; ese botón sí, desde otro lado.
@@ -119,6 +130,47 @@ De los 21 módulos declarados, era **el único** sin grupo — así que no era u
 
 ---
 
+### 2026-08-30 — NAV-NOTCH definitiva: la notch nav reemplaza al sidebar
+
+**Rama/branch:** `Claude-Design`  
+**Commits:** pendiente push  
+**Módulo(s) afectado(s):** `components/layout/platform-shell.tsx`, `components/navigation/notch-nav/*`, borrados `app-sidebar`, `sidebar-profile-area`, `sidebar-footer`, `sidebar-navigation`, `app-topbar`, `breadcrumbs`, `lib/navigation/nav-style.ts`, `.env.example`, `CLAUDE.md`, `DESIGN.md`
+
+**Qué se hizo:**
+
+- **La notch nav pasa a ser la única navegación de la plataforma.** Se eliminó el flag `NEXT_PUBLIC_NAV_STYLE` y el branch de `PlatformShell`: el shell de la notch **es** ahora `PlatformShell`.
+- **Paridad cerrada antes de borrar el sidebar** — los tres huecos que quedaban:
+  - **Perfil** (`NotchProfileMenu`): avatar con iniciales, nombre de usuario y organización. Era lo único que vivía solo en el `SidebarProfileArea`; sin esto no había forma de ver con qué cuenta y organización estabas logueado. Suma **Cerrar sesión**, que antes estaba enterrado en Ajustes.
+  - **Badge de clientes** en el item Clientes (`usePlatformData().clients.length`), igual que el sidebar.
+  - **"Mi Holding"**, que el sidebar mostraba sólo para cuentas holding y la notch no tenía.
+- **Borrados:** `app-sidebar`, `sidebar-profile-area`, `sidebar-footer`, `sidebar-navigation`, `app-topbar`, `breadcrumbs` y el módulo del flag.
+
+**Por qué / finalidad:**
+
+Decisión de Santiago tras ver la barra funcionando. Cierra `[NAV-3]` de PENDIENTES: no mantener dos navegaciones en paralelo.
+
+**Decisiones de diseño relevantes:**
+
+- **Qué NO se borró.** `ThreeColumnLayout` lo usa `super-admin-layout`; `MobileNav` lo usa la propia notch; `sidebar-item`, `sidebar-two-level-navigation`, `sidebar-root/sub-navigation` y `useSidebarCollapsed` los comparten el **sidebar de super-admin** y el drawer mobile. Se mapearon las dependencias antes de borrar: quedan porque tienen otros consumidores, no por olvido.
+- **`sidebar-modules.ts` conserva el nombre** aunque ya no haya sidebar de plataforma. Renombrarlo tocaría ~15 imports sin cambiar comportamiento; el archivo sigue siendo la fuente de verdad de módulos, permisos y add-ons, y el nombre se puede cambiar en una limpieza aparte.
+- **Sign out en el menú de perfil:** el submit se dispara por `ref` sobre un `<form>` oculto, porque Radix cierra el menú al seleccionar y un `<button type="submit">` dentro del item puede perder el submit.
+- **`gap-2` sólo en los items del perfil**, no en la primitiva `DropdownMenuItem`: tocarla afectaría todos los dropdowns de la app.
+
+**Ajustes de la isla derecha (pedido de Santiago tras revisar el preview):**
+
+- **Fuera el botón de búsqueda.** La paleta se sigue abriendo con **⌘K / Ctrl+K**; se pierde el acceso visible, no el acceso.
+- **El engranaje pasa a ser Integraciones** (icono `plug`) y navega directo a `/integrations`, sin dropdown. Ajustes ya se llega desde el menú de perfil, así que el dropdown de Configuración sobraba.
+- **"Conexión con Ventas" sale de la navegación de Marketing** con `hidden: true`, el mismo patrón que ya usaban "Administrar" y "UTMs". La ruta sigue existiendo y accesible por URL: se saca del menú, no se borra la pantalla.
+
+**Verificación:**
+
+`tsc`, lint y `next build` limpios (127 páginas). Verificación visual con una página de preview temporal (borrada antes del commit): barra completa, dropdown de módulo, menú de perfil con nombre/organización/cerrar sesión y badge de clientes. Los tres ajustes se comprobaron por aserción además de por captura — cero iconos de lupa en el header y el dropdown de Marketing devolviendo Overview · Contenido · Anuncios · Formularios · Automatizaciones · Lead Magnets.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **No validado con sesión real.** El entorno de desarrollo no puede renderizar las páginas autenticadas (faltan las env de Supabase), así que el pill activo, el switcher de holding y el badge con datos reales quedan por confirmar en el preview de Vercel.
+- Se perdió la etiqueta "Fase 1 · Beta" que mostraba el footer del sidebar (`secondaryNavigation` estaba vacío, así que no se perdió ningún link).
+- Ya no hay sidebar como alternativa: revertir es `git revert` del commit.
 ### 2026-08-30 — Traer `main` a la rama de embudos para poder probar todo junto
 
 **Rama/branch:** `Claude-New-Features`

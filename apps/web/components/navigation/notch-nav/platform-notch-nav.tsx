@@ -2,22 +2,19 @@
 
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
-import { Search, Settings } from "lucide-react";
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@ai-coo/ui";
+import { Plug } from "lucide-react";
+import { Button } from "@ai-coo/ui";
 import Link from "next/link";
+import { paths } from "@/routes";
 import { AppLogo } from "@/components/brand";
 import { NavIcon } from "@/components/navigation/nav-icons";
 import { ThemeToggle } from "@/components/navigation/theme-toggle";
 import { ReportsPanel } from "@/components/executive-reports/reports-panel";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { HoldingBusinessSwitcher } from "@/components/holding/holding-business-switcher";
-import { useCommandPalette } from "@/providers/command-palette-provider";
+import { useHoldingSession } from "@/components/holding/holding-platform-provider";
+import { usePlatformData } from "@/providers";
+import { NotchProfileMenu } from "./notch-profile-menu";
 import {
   buildPlatformSidebarNav,
   isSidebarDirectActive,
@@ -29,27 +26,28 @@ import {
   useEnabledAddOns,
   usePermissions,
 } from "@/providers/permissions-provider";
-import { es } from "@/lib/locale/es";
 import { NotchNav, type NotchNavItem } from "./notch-nav";
 
 /**
  * Adaptador de la NotchNav a la plataforma.
  *
  * La única fuente de verdad de navegación sigue siendo
- * `lib/navigation/sidebar-modules.ts`: los items, permisos, add-ons y estado
- * activo salen del mismo config que consume el sidebar. Cambiar un módulo ahí
- * actualiza las dos navegaciones.
+ * `lib/navigation/sidebar-modules.ts`: de ahí salen los items, los permisos,
+ * los add-ons y el estado activo. Para agregar o sacar un módulo se toca ese
+ * config, nunca este archivo.
  *
- * Diferencias deliberadas con el sidebar:
- * - "Configuración" no va en la isla central: vive en la isla derecha como
- *   engranaje, para no ensanchar la barra.
- * - Los módulos con hijos se abren como dropdown en lugar de subnivel.
+ * Reparto de la barra:
+ * - Isla central: los módulos. Los que tienen hijos abren un dropdown.
+ * - Isla derecha: switcher de holding, Integraciones, tema y perfil.
+ * - Ajustes NO está en la barra: se llega desde el menú de perfil.
+ * - La paleta de comandos no tiene botón propio; se abre con ⌘K / Ctrl+K.
  */
 export function PlatformNotchNav({ showItems = true }: { showItems?: boolean }) {
   const pathname = usePathname();
   const enabledAddOns = useEnabledAddOns();
   const { isFounder, modules } = usePermissions();
-  const { setOpen } = useCommandPalette();
+  const { isHolding } = useHoldingSession();
+  const { clients } = usePlatformData();
 
   const checkAccess = (moduleId: PermissionModuleId) =>
     isFounder || (modules[moduleId] ?? "none") !== "none";
@@ -63,6 +61,18 @@ export function PlatformNotchNav({ showItems = true }: { showItems?: boolean }) 
   const items: NotchNavItem[] = useMemo(() => {
     if (!showItems) return [];
     const result: NotchNavItem[] = [];
+
+    // Cuenta holding: acceso al portfolio, como en el sidebar
+    if (isHolding) {
+      result.push({
+        type: "link",
+        id: paths.platform.holding,
+        label: "Mi Holding",
+        icon: <NavIcon name="layers" className="h-4 w-4" />,
+        href: paths.platform.holding,
+        active: isSidebarDirectActive(paths.platform.holding, pathname),
+      });
+    }
 
     for (const item of config.rootItems) {
       if (item.type === "divider") continue;
@@ -78,6 +88,8 @@ export function PlatformNotchNav({ showItems = true }: { showItems?: boolean }) 
           icon: <NavIcon name={m.icon} className="h-4 w-4" />,
           href: m.href,
           active: isSidebarDirectActive(m.href, pathname),
+          badge:
+            m.href === paths.platform.clients.root ? clients.length : undefined,
         });
         continue;
       }
@@ -108,51 +120,54 @@ export function PlatformNotchNav({ showItems = true }: { showItems?: boolean }) 
 
     return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, pathname, activeParent, isFounder, modules, showItems]);
+  }, [config, pathname, activeParent, isFounder, modules, showItems, isHolding, clients.length]);
 
-  const configModule = config.modulesWithChildren.configuracion;
-  const configChildren = (configModule?.children ?? []).filter(
-    (c) => !c.hidden && canSeeNavItem(c.permissionId, checkAccess, isFounder)
-  );
+  /**
+   * Isla derecha. Ajustes no va acá: se llega desde el menú de perfil.
+   * Sólo queda Integraciones, como acceso directo, derivado del mismo config
+   * para que respete permisos.
+   */
+  const integrationsItem = (
+    config.modulesWithChildren.configuracion?.children ?? []
+  ).find((c) => c.href === paths.platform.integrations);
+
+  const showIntegrations =
+    integrationsItem !== undefined &&
+    !integrationsItem.hidden &&
+    canSeeNavItem(integrationsItem.permissionId, checkAccess, isFounder);
 
   const rightContent = (
     <>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
-        onClick={() => setOpen(true)}
-        aria-label={es.common.openPalette}
-        title={es.common.search}
-      >
-        <Search className="h-4 w-4" />
-      </Button>
       <HoldingBusinessSwitcher />
-      {configChildren.length > 0 && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
-              aria-label={configModule.label}
-              title={configModule.label}
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={10}>
-            {configChildren.map((c) => (
-              <DropdownMenuItem key={c.href} asChild>
-                <Link href={c.href}>{c.label}</Link>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+      {showIntegrations && (
+        <Button
+          asChild
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+        >
+          <Link
+            href={paths.platform.integrations}
+            aria-label={integrationsItem.label}
+            title={integrationsItem.label}
+            aria-current={
+              isSidebarChildActive(paths.platform.integrations, pathname)
+                ? "page"
+                : undefined
+            }
+          >
+            <Plug className="h-4 w-4" />
+          </Link>
+        </Button>
       )}
-      {/* Mismo criterio que la topbar clásica: los reportes se leen y se cierran. */}
+      {/*
+        Los reportes ejecutivos viven en la isla derecha y no entre los módulos:
+        un reporte automático se lee y se cierra, no es un lugar donde se
+        trabaja. El botón sólo aparece si hay algún reporte generado.
+      */}
       <ReportsPanel />
       <ThemeToggle />
+      <NotchProfileMenu />
     </>
   );
 

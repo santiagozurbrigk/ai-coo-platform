@@ -99,6 +99,7 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           label: "Conexión con Ventas",
           href: paths.platform.marketing.salesConnection,
           permissionId: "marketing_sales",
+          hidden: true,
         },
         {
           label: "Formularios",
@@ -169,10 +170,11 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           permissionId: "operations_sops",
         },
         { label: "Inteligencia", href: paths.platform.intelligence.root },
-        // "Reportes" salió del sidebar el 2026-08-30: los reportes ejecutivos
-        // se leen desde el panel de la barra superior, disponible en cualquier
-        // pantalla. Un reporte automático se lee y se cierra; no es un lugar
-        // donde se trabaja, y ocupaba un renglón al mismo nivel que SOPs.
+        // "Reportes" salió de la navegación el 2026-08-30: los reportes
+        // ejecutivos se leen desde el panel de la isla derecha, disponible en
+        // cualquier pantalla. Un reporte automático se lee y se cierra; no es
+        // un lugar donde se trabaja, y ocupaba un renglón al mismo nivel que
+        // SOPs.
         { label: "Área del fundador", href: paths.founder.root },
       ],
     },

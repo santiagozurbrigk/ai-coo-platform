@@ -771,7 +771,7 @@ curl -X POST "https://<NEXT_PUBLIC_APP_URL>/api/cron/<nombre>" \
 - ❌ Pushear directamente a `main` — siempre via PR + Squash and merge
 - ❌ Commitear sin que el usuario lo pida
 - ❌ Crear PR sin que el usuario lo pida
-- ❌ Agregar `MarketingSubnav` ni subnavs horizontales por módulo — la navegación por defecto es el sidebar. **Excepción controlada:** existe un experimento de navegación superior (notch nav) activable con `NEXT_PUBLIC_NAV_STYLE=notch`; vive en `components/navigation/notch-nav/` y deriva sus items del mismo `sidebar-modules.ts`. No agregar navegaciones nuevas por fuera de ese mecanismo
+- ❌ Agregar `MarketingSubnav` ni subnavs horizontales por módulo — la navegación de la plataforma es **la notch nav** (`components/navigation/notch-nav/`), barra superior de tres islas, y deriva todos sus items de `lib/navigation/sidebar-modules.ts`. Para agregar un módulo se toca ese config, nunca la barra. El sidebar de plataforma se eliminó el 2026-08-30; `components/navigation/sidebar-*` que quedan son piezas compartidas con el sidebar de **super-admin** y el drawer mobile
 - ❌ Pasar `profileId` JSON completo a Zernio — usar `extractProfileId()`
 
 ### Checklist pre-PR
