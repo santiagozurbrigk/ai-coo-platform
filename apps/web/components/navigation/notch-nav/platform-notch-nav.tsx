@@ -9,6 +9,7 @@ import { paths } from "@/routes";
 import { AppLogo } from "@/components/brand";
 import { NavIcon } from "@/components/navigation/nav-icons";
 import { ThemeToggle } from "@/components/navigation/theme-toggle";
+import { ReportsPanel } from "@/components/executive-reports/reports-panel";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { HoldingBusinessSwitcher } from "@/components/holding/holding-business-switcher";
 import { useHoldingSession } from "@/components/holding/holding-platform-provider";
@@ -162,6 +163,8 @@ export function PlatformNotchNav({ showItems = true }: { showItems?: boolean }) 
           </Link>
         </Button>
       )}
+      {/* Mismo criterio que la topbar clásica: los reportes se leen y se cierran. */}
+      <ReportsPanel />
       <ThemeToggle />
       <NotchProfileMenu />
     </>

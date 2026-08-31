@@ -170,11 +170,11 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           permissionId: "operations_sops",
         },
         { label: "Inteligencia", href: paths.platform.intelligence.root },
-        {
-          label: "Reportes",
-          href: paths.platform.operations.reportes,
-        },
-{ label: "Área del fundador", href: paths.founder.root },
+        // "Reportes" salió del sidebar el 2026-08-30: los reportes ejecutivos
+        // se leen desde el panel de la barra superior, disponible en cualquier
+        // pantalla. Un reporte automático se lee y se cierra; no es un lugar
+        // donde se trabaja, y ocupaba un renglón al mismo nivel que SOPs.
+        { label: "Área del fundador", href: paths.founder.root },
       ],
     },
   };

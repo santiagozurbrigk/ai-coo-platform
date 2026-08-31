@@ -50,7 +50,7 @@ export function getBreadcrumbs(pathname: string): Breadcrumb[] {
   if (pathname.startsWith("/executive-reports/") && pathname !== paths.platform.executiveReports.history) {
     return [
       root,
-      { label: "Reportes ejecutivos", href: paths.platform.executiveReports.weekly },
+      { label: "Reportes ejecutivos", href: paths.platform.executiveReports.history },
       { label: "Detalle del reporte" },
     ];
   }
