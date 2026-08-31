@@ -14,6 +14,46 @@
 
 ---
 
+### 2026-08-31 — FIX: desplegables ilegibles en oscuro y fuentes de datos que no se contaban
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `app/globals.css`, `supabase/migrations/20260831140000_onboarding_connected_sources.sql` (nuevo), `lib/onboarding/resolve.ts`, `docs/PLAN_VERIFICACION.md`
+
+Santiago probó el preview y reportó tres síntomas. Resultaron ser **dos bugs y una propiedad conocida del entorno**.
+
+**1 · Los `<select>` nativos eran ilegibles en modo oscuro** — texto blanco sobre fondo blanco.
+
+`html.dark` ya declaraba `color-scheme: dark`, así que la causa no era esa. Chrome pinta el popup del select con el **background computado del propio elemento**, y la app los estila con `bg-transparent`: eso resuelve a blanco mientras el texto hereda el foreground del tema. El `color-scheme` no alcanza justamente porque el background explícito gana.
+
+Se estila el `<option>` y no el `<select>`: una regla de elemento sobre el select perdería contra las clases de Tailwind de cada uno de los **77 desplegables** que tiene la app. Con `option` gana, porque nadie los estila. **No era un bug del onboarding: afectaba a toda la aplicación en modo oscuro.**
+
+Verificado midiendo el estilo computado en Chromium, antes y después: `rgba(0,0,0,0)` sobre texto `rgb(255,255,255)` → `rgb(15,15,15)` sobre `rgb(250,250,250)`.
+
+**2 · El ítem "conectar una fuente de datos" contaba 5 de 16 tablas.**
+
+Santiago conectó Google y el ítem siguió abierto: `google_forms_integrations` no estaba en el array. Tampoco Typeform, Instagram, ManyChat, Unipile, YouTube, Stripe, Mercado Pago, Hyros, VTurb ni WebinarJam.
+
+Se reemplazó el array por **`onboarding_connected_source_count`**, una función de base de datos. Dos razones: la lista de qué cuenta como fuente ahora vive junto a las tablas en vez de en un array de la app que se desactualiza en silencio cada vez que se agrega un proveedor, y es **una consulta en vez de dieciséis** en un layout que corre en cada request. El criterio es excluir estados terminales (`disconnected`, `revoked`) en vez de exigir un valor, porque cada proveedor usa su propio vocabulario —`'connected'` en unos, `'active'` en otros, `is_active` en otros— y un proveedor nuevo con otra palabra quedaría afuera sin que nada falle.
+
+**No cuentan** `discord_integrations` (canal de notificación hacia afuera, no fuente) ni `team_member_integrations` (por persona, no de la organización).
+
+Aplicada y verificada: la cuenta subió donde correspondía (familiayformacion 3 → 5, Optimiza tu Control 1 → 2).
+
+**3 · "Me deslogueó al conectar Google" — no era un bug.**
+
+Los logs de Vercel lo muestran: el callback `/api/integrations/google-forms/oauth/callback` llegó a **producción**, no al preview. Las rutas OAuth arman la vuelta con una variable de entorno fija, registrada en la consola del proveedor, no con el host de la request. Desde un preview eso encadena los tres síntomas de una sola vez: el cookie de estado queda en el dominio del preview, el callback falla en silencio en producción (por eso no se guardó la integración), aparece el login de producción —donde no hay sesión, no hubo deslogueo— y al entrar no se ve nada de la rama porque no está desplegada ahí.
+
+Ya era así antes de esta rama y aplica a Calendly, Typeform, Stripe, Mercado Pago e Instagram. Documentado en `PLAN_VERIFICACION.md` §13.7 con la salida práctica: en previews, probar el ítem con un proveedor de **API key** (Zernio, GHL, Fathom, pagos), que se conecta por diálogo sin salir del dominio.
+
+**Verificación ejecutada:** 469 tests, `tsc`, `pnpm lint` y `next build` limpios. La función nueva probada contra las 13 organizaciones con usuarios.
+
+**Riesgos / deuda técnica pendiente:**
+- El caso "desconectar una integración y ver que el ítem se reabre" **sigue sin poder observarse**: ninguna organización tiene hoy una integración desconectada.
+- La lógica de qué cuenta como fuente ahora vive en SQL y no la cubre `vitest`. La derivación (`connectedSourceCount > 0`) sigue siendo pura y testeada; lo que se movió es el conteo, que es IO por naturaleza.
+
+---
+
 ### 2026-08-31 — FIX: loop de redirects entre el gate y el cambio de contraseña
 
 **Rama/branch:** `Claude-Onboarding`

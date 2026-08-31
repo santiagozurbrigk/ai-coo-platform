@@ -31,6 +31,24 @@
     background: #000000;
   }
 
+  /*
+   * Popup de los <select> nativos.
+   *
+   * Chrome pinta el desplegable con el background computado del propio select.
+   * Como la app los estila con `bg-transparent`, eso resuelve a blanco mientras
+   * el texto hereda el foreground del tema: en modo oscuro quedaba blanco sobre
+   * blanco, ilegible. `color-scheme: dark` en el html no alcanza justamente
+   * porque el background explícito gana.
+   *
+   * Se estila el <option> y no el <select> a propósito: una regla de elemento
+   * sobre el select perdería contra las clases de Tailwind de cada uno de los
+   * ~77 desplegables de la app, y nadie estila <option>.
+   */
+  option {
+    background-color: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+  }
+
   :root {
     --glass-bg: rgba(255, 255, 255, 0.03);
     --glass-bg-hover: rgba(255, 255, 255, 0.05);

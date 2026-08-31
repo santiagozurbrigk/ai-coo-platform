@@ -26,23 +26,32 @@ import type { OnboardingItemId } from "./items";
 type Admin = ReturnType<typeof createAdminClient>;
 
 /**
- * Tablas que cuentan como "fuente de datos conectada". Cualquiera alcanza: cuál
- * corresponde depende del negocio, y exigir una en particular sería adivinar.
+ * Cuántas fuentes de datos tiene conectadas la organización.
  *
- * `activeFilter` existe porque no todas se desconectan igual: algunas borran la
- * fila, otras la dejan marcada. Sin el filtro, una integración desconectada
- * seguiría contando.
+ * La lista de qué cuenta como fuente vive en la función de base de datos
+ * `onboarding_connected_source_count`, junto a las tablas. Arrancó como un
+ * array acá con cinco tablas de las dieciséis que existen, y el resultado fue
+ * que conectar Google no marcaba el ítem: la tabla no estaba en la lista y
+ * nada fallaba. Un array de nombres de tabla en el código de la app se
+ * desactualiza en silencio cada vez que se agrega un proveedor.
+ *
+ * Además es una consulta en vez de dieciséis, en un layout que corre en cada
+ * request.
  */
-const DATA_SOURCE_TABLES: {
-  table: string;
-  activeFilter?: { column: string; value: unknown };
-}[] = [
-  { table: "zernio_integrations", activeFilter: { column: "is_active", value: true } },
-  { table: "ghl_integrations" },
-  { table: "calendly_integrations" },
-  { table: "fathom_integrations", activeFilter: { column: "status", value: "connected" } },
-  { table: "payment_integrations", activeFilter: { column: "is_active", value: true } },
-];
+async function resolveConnectedSourceCount(
+  admin: Admin,
+  organizationId: string
+): Promise<number> {
+  const { data, error } = await admin.rpc("onboarding_connected_source_count", {
+    org_id: organizationId,
+  });
+
+  if (error) {
+    console.error("[onboarding] contando fuentes:", error.message);
+    return 0;
+  }
+  return typeof data === "number" ? data : 0;
+}
 
 /**
  * Cuenta filas sin traerlas. Devuelve 0 ante cualquier error —incluida una
@@ -125,7 +134,7 @@ export async function resolveOnboardingFacts(
     orgRes,
     coreOfferCount,
     primaryAvatarCount,
-    sourceCounts,
+    connectedSourceCount,
     funnels,
     historicalSnapshotCount,
     teamMemberCount,
@@ -144,11 +153,7 @@ export async function resolveOnboardingFacts(
       column: "is_primary",
       value: true,
     }),
-    Promise.all(
-      DATA_SOURCE_TABLES.map((source) =>
-        countRows(admin, source.table, organizationId, source.activeFilter)
-      )
-    ),
+    resolveConnectedSourceCount(admin, organizationId),
     resolveFunnelFacts(admin, organizationId),
     countRows(admin, "metrics_snapshots", organizationId),
     countRows(admin, "profiles", organizationId),
@@ -173,7 +178,7 @@ export async function resolveOnboardingFacts(
     // La oferta principal implica una oferta: no hace falta contar aparte.
     hasCoreOffer: coreOfferCount > 0,
     hasPrimaryAvatar: primaryAvatarCount > 0,
-    connectedSourceCount: sourceCounts.filter((n) => n > 0).length,
+    connectedSourceCount,
     funnels,
     historicalSnapshotCount,
     teamMemberCount,

@@ -633,6 +633,43 @@ Construido el 2026-08-31.
 | ⭐ Entrar con una cuenta **invitada** | Ni tarjeta ni contador: el checklist es trabajo de founder |
 | ⚠️ Medir el tiempo de carga del panel | El layout resuelve el estado en cada request de founder (~8 counts en paralelo, cache de 60 s). Si se nota, es el primer lugar donde mirar |
 
+### 13.7 ⚠️ Las integraciones OAuth NO se pueden probar desde un preview
+
+Descubierto el 2026-08-31 probando la Fase 2, y **no es un bug del onboarding**:
+aplica a cualquier rama y ya era así antes.
+
+Las rutas de OAuth arman la vuelta con una **variable de entorno fija**
+(`GOOGLE_FORMS_REDIRECT_URI`, `CALENDLY_REDIRECT_URI`, `TYPEFORM_REDIRECT_URI`,
+`STRIPE_REDIRECT_URI`, `MERCADOPAGO_REDIRECT_URI`, `INSTAGRAM_REDIRECT_URI`), no
+con el host de la request — y esa URL está registrada en la consola del
+proveedor. Desde un preview, la secuencia es:
+
+| Qué pasa | Por qué |
+|---|---|
+| Arranca el OAuth en el preview | El cookie de estado se escribe en el dominio del preview |
+| El proveedor devuelve a **producción** | La redirect URI es fija |
+| El callback falla en silencio | El cookie de estado no existe en ese dominio: no se guarda la integración |
+| Aparece la pantalla de login | En producción no hay sesión — **no es un deslogueo**, es otro dominio |
+| Al entrar, no se ve lo de la rama | Porque estás en producción, no en el preview |
+
+**Cómo probar el ítem "conectar una fuente de datos" en un preview:** usar un
+proveedor de **API key**, que se conecta por diálogo y no sale del dominio —
+Zernio, GoHighLevel, Fathom, o los de pagos. Cuentan igual para el checklist.
+
+**Si hiciera falta probar OAuth en previews**, la salida es registrar un alias
+estable de preview en cada consola de proveedor y apuntar ahí las variables del
+entorno Preview. Es una decisión de infraestructura, no de código.
+
+### 13.8 Fuentes de datos — la función de base de datos
+
+`onboarding_connected_source_count` reemplazó al array de cinco tablas.
+
+| Paso | Resultado esperado |
+|---|---|
+| ⭐ Conectar cualquier proveedor y recargar el panel | El ítem "Conectar una fuente de datos" queda tildado. Antes sólo contaban Zernio, GHL, Calendly, Fathom y pagos: **Google, Typeform, Instagram, ManyChat, Unipile, YouTube, Stripe, Mercado Pago, Hyros, VTurb y WebinarJam no contaban** |
+| Desconectar ese proveedor | El ítem vuelve a abrirse ⚠️ — sigue siendo el caso que no se pudo observar: ninguna org tiene hoy una integración desconectada |
+| 🔒 Verificar los permisos de la función | `security definer` y execute **sólo** para `service_role`: toma un `org_id` arbitrario y saltea RLS |
+
 ---
 
 ## Regla permanente para Claude Code
