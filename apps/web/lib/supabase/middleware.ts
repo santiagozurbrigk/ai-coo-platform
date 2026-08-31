@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/temp-password-expiry";
 import { createAdminClient } from "./admin";
 import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
+import { shouldRedirectToGate } from "@/lib/onboarding/gate-routing";
 import { getSupabaseAnonKey, getSupabaseUrl, isSupabaseConfigured } from "./env";
 
 /** POST de Server Actions: no redirigir a login (devolvería HTML y rompe el cliente). */
@@ -171,23 +172,21 @@ export async function updateSession(request: NextRequest) {
     /*
      * Gate de onboarding.
      *
-     * Va después del cambio de contraseña forzado a propósito: toda cuenta
-     * nueva llega con contraseña temporal, y pedirle configurar el negocio
-     * antes de dejarla elegir su contraseña sería el orden equivocado.
+     * La decisión vive en `shouldRedirectToGate`, que es pura y está testeada:
+     * el modo de falla de esta lógica es un loop de redirects entre dos reglas
+     * del middleware, y eso no lo agarra ni el typecheck ni el build.
      *
-     * Acá sólo se mira `gate_completed_at`, que es una sola consulta por una
-     * clave primaria. Si el gate hace falta o no —¿ya tiene oferta cargada?—
-     * lo decide la página, que es la única que necesita esa derivación y no
-     * corre en cada request.
+     * Acá sólo se lee `gate_completed_at`, una consulta por clave primaria. Si
+     * el gate hace falta o no —¿ya tiene oferta cargada?— lo decide la página,
+     * que es la única que necesita la derivación completa.
      */
     if (
       profile?.role === "founder" &&
       profile.organization_id &&
+      !profile.must_change_password &&
       !isOnboardingGatePath(pathname) &&
+      !isForcePasswordChangePath(pathname) &&
       !isPublicPath(pathname) &&
-      // Un redirect devuelve HTML: sobre un fetch a una ruta de API rompe al
-      // cliente en vez de mandarlo a ningún lado. Es el mismo motivo por el que
-      // las Server Actions quedan afuera.
       !pathname.startsWith("/api/") &&
       !isServerActionRequest(request)
     ) {
@@ -197,21 +196,33 @@ export async function updateSession(request: NextRequest) {
         | null;
       const org = Array.isArray(orgField) ? orgField[0] : orgField;
 
-      // Los holdings tienen su propio onboarding y su propio ruteo; las orgs
-      // marcadas con `skip_onboarding` son la salida del super-admin.
-      if (org?.account_type !== "holding" && !org?.skip_onboarding) {
-        const { data: onboarding } = await admin
-          .from("onboarding_state")
-          .select("gate_completed_at")
-          .eq("organization_id", profile.organization_id as string)
-          .maybeSingle();
+      const { data: onboarding } = await admin
+        .from("onboarding_state")
+        .select("gate_completed_at")
+        .eq("organization_id", profile.organization_id as string)
+        .maybeSingle();
 
-        if (!onboarding?.gate_completed_at) {
-          const url = request.nextUrl.clone();
-          url.pathname = paths.platform.onboarding;
-          url.search = "";
-          return NextResponse.redirect(url);
-        }
+      const redirectToGate = shouldRedirectToGate({
+        role: profile.role as string,
+        organizationId: profile.organization_id as string,
+        accountType: org?.account_type ?? null,
+        skipOnboarding: Boolean(org?.skip_onboarding),
+        mustChangePassword: Boolean(profile.must_change_password),
+        gateCompletedAt:
+          (onboarding?.gate_completed_at as string | null) ?? null,
+        pathname,
+        isPublicPath: isPublicPath(pathname),
+        isOnboardingGatePath: isOnboardingGatePath(pathname),
+        isForcePasswordChangePath: isForcePasswordChangePath(pathname),
+        isNonNavigationRequest:
+          pathname.startsWith("/api/") || isServerActionRequest(request),
+      });
+
+      if (redirectToGate) {
+        const url = request.nextUrl.clone();
+        url.pathname = paths.platform.onboarding;
+        url.search = "";
+        return NextResponse.redirect(url);
       }
     }
   }

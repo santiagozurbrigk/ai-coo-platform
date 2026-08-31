@@ -14,6 +14,36 @@
 
 ---
 
+### 2026-08-31 — FIX: loop de redirects entre el gate y el cambio de contraseña
+
+**Rama/branch:** `Claude-Onboarding`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/onboarding/gate-routing.ts` (nuevo), `lib/onboarding/__tests__/gate-routing.test.ts` (nuevo), `lib/supabase/middleware.ts`
+
+**El bug.** Santiago probó el preview y `/onboarding` devolvía `ERR_TOO_MANY_REDIRECTS`. Los logs de Vercel mostraban el ciclo entero:
+
+```
+/onboarding → 307 → /auth/force-password-change → 307 → /onboarding → …
+```
+
+Toda cuenta nueva llega con `must_change_password`, así que el middleware la manda a cambiar la contraseña. Pero **el chequeo del gate no exceptuaba esa pantalla** y, como `/auth/force-password-change` no es una ruta pública, la rebotaba de vuelta al gate.
+
+**Lo peor del caso:** rompía exactamente al usuario al que el gate está dirigido —una cuenta recién creada en su primer login— y no lo agarraba nada: `tsc`, `pnpm lint`, 453 tests y `next build` pasaban todos en verde. El comentario del código decía el orden correcto ("va después del cambio de contraseña a propósito"); la condición no lo implementaba.
+
+**El arreglo.** Dos guardas —`!mustChangePassword` y `!isForcePasswordChangePath`—, pero sobre todo **la decisión se extrajo a `lib/onboarding/gate-routing.ts`**, una función pura con 16 tests.
+
+**Por qué extraerla y no sólo agregar la condición:** el modo de falla de esta lógica no es un valor mal calculado, es **un loop entre dos reglas del mismo middleware**, y eso tumba la aplicación entera sin que ninguna herramienta lo note. Mientras la decisión viviera adentro de una función que hace IO y arma `NextResponse`, no había forma de testear las combinaciones. Ahora el loop tiene tres tests que lo cubren por nombre.
+
+**Verificación ejecutada:**
+- `vitest`: **469 tests en verde** (16 nuevos, cuatro de ellos sobre el loop).
+- `tsc --noEmit`, `pnpm lint` y `next build` limpios.
+
+**Riesgos / deuda técnica pendiente:**
+- El middleware sigue teniendo otras reglas de redirect (contraseña expirada, login, holding sin negocio activo) que **no** pasaron por esta extracción. Ninguna choca con el gate hoy, pero conviene el mismo tratamiento si se agrega otra.
+- La lección para la Fase 3: nada de esto se ve sin abrir la aplicación. Los tours van a tener el mismo problema.
+
+---
+
 ### 2026-08-31 — Onboarding Fase 2: el checklist persistente
 
 **Rama/branch:** `Claude-Onboarding`
