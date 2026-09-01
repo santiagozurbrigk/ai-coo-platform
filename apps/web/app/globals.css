@@ -179,11 +179,44 @@
   }
 
   :root {
+    /* Rampa monocroma — magnitud de una sola serie. Lightness monótona
+       descendente: sirve para jerarquizar, nunca para identificar categorías. */
     --chart-1: #0a0a0a;
-    --chart-2: rgba(10, 10, 10, 0.4);
-    --chart-3: rgba(10, 10, 10, 0.2);
-    --chart-4: rgba(10, 10, 10, 0.32);
-    --chart-5: rgba(10, 10, 10, 0.24);
+    --chart-2: rgba(10, 10, 10, 0.62);
+    --chart-3: rgba(10, 10, 10, 0.44);
+    --chart-4: rgba(10, 10, 10, 0.3);
+    --chart-5: rgba(10, 10, 10, 0.2);
+
+    /* Paleta categórica — identidad de serie. Orden fijo, nunca ciclado.
+       Validada (banda de lightness, piso de croma, separación CVD protan/deutan,
+       piso de visión normal y contraste ≥3:1 sobre #FFFFFF). */
+    --chart-cat-1: #e15d12; /* naranja de marca */
+    --chart-cat-2: #2a78d6; /* azul */
+    --chart-cat-3: #0f8f63; /* verde */
+    --chart-cat-4: #4a3aa7; /* índigo */
+    --chart-cat-5: #d6558a; /* rosa */
+    --chart-cat-6: #0b7a37; /* verde oscuro */
+
+    /* Tinta de texto por categoría: los anchors de arriba están validados a
+       ≥3:1 (umbral de marca), que no alcanza para texto. Estos pasos clarean
+       4.5:1 sobre la superficie del tema, para badges y pills. */
+    --chart-cat-1-ink: #c55110;
+    --chart-cat-2-ink: #2975d1;
+    --chart-cat-3-ink: #0e855c;
+    --chart-cat-4-ink: #4a3aa7;
+    --chart-cat-5-ink: #c04c7b;
+    --chart-cat-6-ink: #0b7a37;
+
+    /* Rampa ordinal (etapas de embudo, tiers, buckets): un solo tono,
+       lightness monótona de claro a oscuro. */
+    --chart-ordinal-1: #f0995c;
+    --chart-ordinal-2: #e15d12;
+    --chart-ordinal-3: #b84e10;
+    --chart-ordinal-4: #8a390b;
+    --chart-ordinal-5: #5e2606;
+
+    /* Superficie de la card: separa marcas contiguas sin dibujarles un borde. */
+    --chart-surface: #ffffff;
     --chart-accent: #e15d12;
     --chart-background: transparent;
     --chart-foreground: #0a0a0a;
@@ -208,10 +241,38 @@
 
   .dark {
     --chart-1: #ffffff;
-    --chart-2: rgba(255, 255, 255, 0.4);
-    --chart-3: rgba(255, 255, 255, 0.2);
-    --chart-4: rgba(255, 255, 255, 0.32);
-    --chart-5: rgba(255, 255, 255, 0.24);
+    --chart-2: rgba(255, 255, 255, 0.62);
+    --chart-3: rgba(255, 255, 255, 0.44);
+    --chart-4: rgba(255, 255, 255, 0.3);
+    --chart-5: rgba(255, 255, 255, 0.2);
+
+    /* Mismas familias y mismo orden que en claro — una serie conserva su
+       identidad al cambiar de tema. Pasos re-escalonados y validados contra
+       la superficie oscura (#0F0F0F), no un flip automático del set claro. */
+    --chart-cat-1: #e8681b;
+    --chart-cat-2: #3d84dd;
+    --chart-cat-3: #12a273;
+    --chart-cat-4: #6b5bc9;
+    --chart-cat-5: #d9639b;
+    --chart-cat-6: #1f9440;
+
+    --chart-cat-1-ink: #e8681b;
+    --chart-cat-2-ink: #3d84dd;
+    --chart-cat-3-ink: #12a273;
+    --chart-cat-4-ink: #7d6fcf;
+    --chart-cat-5-ink: #d9639b;
+    --chart-cat-6-ink: #1f9440;
+
+    /* Rampa invertida respecto de claro, no un flip automático: en ambos temas
+       el paso más alto es el de más contraste contra el fondo, así la última
+       etapa de un embudo (la más chica) sigue siendo legible. */
+    --chart-ordinal-1: #94400c;
+    --chart-ordinal-2: #cf5511;
+    --chart-ordinal-3: #e8763a;
+    --chart-ordinal-4: #f2a26e;
+    --chart-ordinal-5: #f9c9a5;
+
+    --chart-surface: #0f0f0f;
     --chart-accent: #e15d12;
     --chart-background: transparent;
     --chart-foreground: #ffffff;

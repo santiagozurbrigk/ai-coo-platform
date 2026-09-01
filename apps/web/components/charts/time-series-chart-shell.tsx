@@ -106,6 +106,13 @@ function ensureChildKey(child: ReactElement, index: number): ReactElement {
   return cloneElement(child, { key: `chart-child-${index}` });
 }
 
+/**
+ * Holgura del clip de revelado, en px, para que los glifos apoyados sobre el
+ * borde del área de dibujo (marcadores del primer y del último punto) no se
+ * corten. Cubre el radio del marcador más su anillo.
+ */
+const EDGE_GLYPH_CLIP_PADDING = 10;
+
 export interface TimeSeriesChartInnerProps {
   width: number;
   height: number;
@@ -376,7 +383,10 @@ const TimeSeriesChartCore = memo(function TimeSeriesChartCore({
 
   const revealClipPadding = useMemo(() => {
     if (!composedBarDataKeys?.length) {
-      return 0;
+      // Sin barras el clip coincidía exacto con el área de dibujo, así que los
+      // marcadores del primer y del último punto (que caen justo sobre x=0 y
+      // x=innerWidth) salían cortados por la mitad.
+      return EDGE_GLYPH_CLIP_PADDING;
     }
     const barWidth = computeSeriesBarWidth({
       innerWidth,

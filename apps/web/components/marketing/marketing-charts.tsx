@@ -154,11 +154,7 @@ export function ContentFunnelChart({ stages }: { stages: ContentFunnelStage[] })
       className="w-full"
     >
       <div className="funnel-container flex w-full min-h-[280px] justify-center overflow-visible px-2 py-4">
-        <FunnelChartPanel
-          stages={funnelData}
-          color="var(--chart-1)"
-          orientation="horizontal"
-        />
+        <FunnelChartPanel stages={funnelData} orientation="horizontal" />
       </div>
     </ChartShell>
   );
@@ -176,14 +172,12 @@ export function TypeRadarChart({ types }: { types: ContentTypePerformance[] }) {
   const series: RadarData[] = [
     {
       label: "Alcance",
-      color: "var(--chart-1)",
       values: Object.fromEntries(
         types.map((t) => [t.type, Math.round((t.reach / reachMax) * 100)])
       ),
     },
     {
       label: "Conversiones",
-      color: "var(--chart-3)",
       values: Object.fromEntries(
         types.map((t) => [t.type, Math.round((t.conversions / convMax) * 100)])
       ),
@@ -198,14 +192,6 @@ export function TypeRadarChart({ types }: { types: ContentTypePerformance[] }) {
     >
       <div className="flex min-h-[300px] items-center justify-center py-4">
         <RadarPerformanceChart metrics={metrics} series={series} />
-      </div>
-      <div className="flex justify-center gap-4 text-xs">
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-3 rounded-sm bg-[var(--chart-1)]" /> Alcance
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-3 rounded-sm bg-[var(--chart-3)]" /> Conversiones
-        </span>
       </div>
     </ChartShell>
   );

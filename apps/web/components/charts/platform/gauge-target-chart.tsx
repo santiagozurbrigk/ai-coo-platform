@@ -4,54 +4,9 @@ import { Gauge } from "@/components/charts/gauge";
 import { useTheme } from "@/providers/theme-provider";
 import { cn } from "@/lib/utils";
 import { ChartWrapper, CHART_MIN_HEIGHT } from "./chart-wrapper";
-import { brandColors } from "@/lib/brand";
+import { type GaugeVariant, resolveGaugeGradients } from "./gauge-gradients";
 
-export type GaugeVariant = "default" | "inverted" | "margin" | "booking";
-
-function neutralGradients(isDark: boolean): {
-  active: [string, string];
-  inactive: [string, string];
-} {
-  if (isDark) {
-    return {
-      active: ["#FFFFFF", "#FFFFFF"],
-      inactive: ["#222228", "#1a1a20"],
-    };
-  }
-  return {
-    active: ["#0A0A0A", "#0A0A0A"],
-    inactive: ["#e8e8ec", "#e2e2e8"],
-  };
-}
-
-function accentGradients(isDark: boolean): {
-  active: [string, string];
-  inactive: [string, string];
-} {
-  if (isDark) {
-    return {
-      active: [brandColors.primary, brandColors.primaryLight],
-      inactive: ["#2a2119", "#1a1613"],
-    };
-  }
-  return {
-    active: [brandColors.primary, brandColors.primaryHover],
-    inactive: ["#ede9fe", "#e9e5ff"],
-  };
-}
-
-function resolveGradients(
-  variant: GaugeVariant,
-  isDark: boolean
-): {
-  active: [string, string];
-  inactive: [string, string];
-} {
-  if (variant === "margin" || variant === "booking") {
-    return accentGradients(isDark);
-  }
-  return neutralGradients(isDark);
-}
+export type { GaugeVariant } from "./gauge-gradients";
 
 export function GaugeTargetChart({
   value,
@@ -77,7 +32,7 @@ export function GaugeTargetChart({
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
-  const { active, inactive } = resolveGradients(variant, isDark);
+  const { active, inactive } = resolveGaugeGradients(variant, isDark);
 
   return (
     <div

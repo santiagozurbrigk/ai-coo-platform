@@ -9,12 +9,14 @@ export const pieCssVars = {
   foreground: "var(--chart-foreground)",
   foregroundMuted: "var(--chart-foreground-muted)",
   label: "var(--chart-label)",
-  // Default slice colors from chart palette
-  slice1: "var(--chart-1)",
-  slice2: "var(--chart-2)",
-  slice3: "var(--chart-3)",
-  slice4: "var(--chart-4)",
-  slice5: "var(--chart-5)",
+  // Los slices de una torta son categorías: cada uno necesita identidad propia,
+  // no un paso de una rampa monocroma (dos grises contiguos son el mismo slice).
+  slice1: "var(--chart-cat-1)",
+  slice2: "var(--chart-cat-2)",
+  slice3: "var(--chart-cat-3)",
+  slice4: "var(--chart-cat-4)",
+  slice5: "var(--chart-cat-5)",
+  slice6: "var(--chart-cat-6)",
 };
 
 // Default slice color palette
@@ -24,6 +26,7 @@ export const defaultPieColors = [
   pieCssVars.slice3,
   pieCssVars.slice4,
   pieCssVars.slice5,
+  pieCssVars.slice6,
 ];
 
 export interface PieData {

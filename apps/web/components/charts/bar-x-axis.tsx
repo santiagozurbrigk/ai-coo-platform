@@ -67,6 +67,31 @@ function BarXAxisLabel({
   );
 }
 
+/**
+ * Etiqueta de categoría en barras horizontales: va al lado de su barra, no en
+ * el eje inferior. `barScale` mapea categoría → posición vertical, así que
+ * reusar la posición como `x` (lo que hace la variante vertical) apila todas
+ * las etiquetas en la esquina inferior izquierda.
+ */
+function BarYAxisLabel({
+  label,
+  y,
+  width,
+}: {
+  label: string;
+  y: number;
+  width: number;
+}) {
+  return (
+    <div
+      className="absolute flex -translate-y-1/2 justify-end pr-2"
+      style={{ top: y, left: 0, width }}
+    >
+      <span className="truncate text-chart-label text-xs">{label}</span>
+    </div>
+  );
+}
+
 export function BarXAxis(props: BarXAxisProps) {
   const { containerRef, barScale } = useChartStable();
   const [mounted, setMounted] = useState(false);
@@ -93,8 +118,17 @@ const BarXAxisInner = memo(function BarXAxisInner({
   maxLabels = 12,
   container,
 }: BarXAxisProps & { container: HTMLDivElement }) {
-  const { margin, tooltipData, barScale, bandWidth, barXAccessor, data } =
-    useChart();
+  const {
+    margin,
+    tooltipData,
+    barScale,
+    bandWidth,
+    barXAccessor,
+    data,
+    orientation,
+  } = useChart();
+
+  const isHorizontal = orientation === "horizontal";
 
   // Generate labels for each bar
   const labelsToShow = useMemo(() => {
@@ -104,9 +138,12 @@ const BarXAxisInner = memo(function BarXAxisInner({
 
     const allLabels = data.map((d) => {
       const label = barXAccessor(d);
-      const bandX = barScale(label) ?? 0;
-      // Center the label under the bar group
-      const x = bandX + bandWidth / 2 + margin.left;
+      const band = barScale(label) ?? 0;
+      // Centrado sobre la banda: bajo la barra en vertical, junto a ella en
+      // horizontal (donde la banda es una posición vertical).
+      const x = isHorizontal
+        ? band + bandWidth / 2 + margin.top
+        : band + bandWidth / 2 + margin.left;
       return { label, x };
     });
 
@@ -124,6 +161,8 @@ const BarXAxisInner = memo(function BarXAxisInner({
     barXAccessor,
     data,
     margin.left,
+    margin.top,
+    isHorizontal,
     showAllLabels,
     maxLabels,
   ]);
@@ -133,16 +172,25 @@ const BarXAxisInner = memo(function BarXAxisInner({
 
   return createPortal(
     <div className="pointer-events-none absolute inset-0">
-      {labelsToShow.map((item) => (
-        <BarXAxisLabel
-          crosshairX={crosshairX}
-          isHovering={isHovering}
-          key={`${item.label}-${item.x}`}
-          label={item.label}
-          tickerHalfWidth={tickerHalfWidth}
-          x={item.x}
-        />
-      ))}
+      {labelsToShow.map((item) =>
+        isHorizontal ? (
+          <BarYAxisLabel
+            key={`${item.label}-${item.x}`}
+            label={item.label}
+            width={margin.left}
+            y={item.x}
+          />
+        ) : (
+          <BarXAxisLabel
+            crosshairX={crosshairX}
+            isHovering={isHovering}
+            key={`${item.label}-${item.x}`}
+            label={item.label}
+            tickerHalfWidth={tickerHalfWidth}
+            x={item.x}
+          />
+        )
+      )}
     </div>,
     container
   );

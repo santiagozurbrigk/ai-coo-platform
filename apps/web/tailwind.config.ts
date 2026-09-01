@@ -10,6 +10,12 @@ const config: Config = {
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
     "./layouts/**/*.{ts,tsx}",
+    // `lib/` y `constants/` también arman clases (colores de área y prioridad
+    // del workboard, etiquetas de conversación, bandas de salud de embudos).
+    // Sin estos globs Tailwind nunca las generaba y los badges salían sin
+    // color, salvo que la misma clase apareciera por casualidad en otro lado.
+    "./lib/**/*.{ts,tsx}",
+    "./constants/**/*.{ts,tsx}",
     "../../packages/ui/src/**/*.{ts,tsx}",
   ],
   theme: {

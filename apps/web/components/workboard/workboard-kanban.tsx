@@ -17,7 +17,12 @@ import {
 } from "@ai-coo/ui";
 import { TASK_AREA_LABELS } from "@/lib/workboard/constants";
 import { filterKanbanDoneTasks, filterWorkboardTasks, groupTasksIntoColumns } from "@/lib/workboard/group-tasks";
-import { getAreaClasses, getPriorityClasses, PRIORITY_LABELS } from "@/lib/workboard/styles";
+import {
+  getAreaClasses,
+  getAreaStyle,
+  getPriorityClasses,
+  PRIORITY_LABELS,
+} from "@/lib/workboard/styles";
 import { useWorkboard } from "@/providers/workboard-provider";
 import type { TaskStatus, WorkboardTask } from "@/types/workboard";
 
@@ -152,6 +157,7 @@ export function WorkboardKanban() {
                       <Badge
                         variant="outline"
                         className={cn("text-[10px]", getAreaClasses(task.area))}
+                        style={getAreaStyle(task.area)}
                       >
                         {TASK_AREA_LABELS[task.area]}
                       </Badge>

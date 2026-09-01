@@ -27,22 +27,24 @@ export const metricTrendConfig: Record<
   },
 };
 
+/**
+ * Progreso 0–100 de la métrica, **sólo cuando el valor mismo es un porcentaje**.
+ *
+ * Devuelve `null` en cualquier otro caso. La versión anterior inventaba un
+ * ancho cuando no había porcentaje (`up → 72`, `down → 38`, si no `56`, o el
+ * delta de tendencia multiplicado por 4): la barra se veía como un dato y no lo
+ * era. Una barra que no codifica nada es peor que no tener barra.
+ */
 export function deriveMetricProgress(
   value: string | number,
-  trend?: MetricTrend,
-  trendValue?: string
-): number {
-  const str = String(value);
-  const pctInValue = str.match(/([\d.]+)\s*%/);
-  if (pctInValue) return Math.min(100, parseFloat(pctInValue[1]));
+  _trend?: MetricTrend,
+  _trendValue?: string
+): number | null {
+  const pctInValue = String(value).match(/([\d.]+)\s*%/);
+  if (!pctInValue) return null;
 
-  const pctInTrend = trendValue?.match(/([\d.]+)/);
-  if (pctInTrend) {
-    const n = parseFloat(pctInTrend[1]);
-    return Math.min(100, Math.max(12, n * 4));
-  }
+  const parsed = Number.parseFloat(pctInValue[1]);
+  if (!Number.isFinite(parsed)) return null;
 
-  if (trend === "up") return 72;
-  if (trend === "down") return 38;
-  return 56;
+  return Math.min(100, Math.max(0, parsed));
 }

@@ -1,10 +1,12 @@
 export { ChartShell } from "./chart-shell";
 export { ChartWrapper, CHART_MIN_HEIGHT } from "./chart-wrapper";
+export { ChartLegend, type ChartLegendItem } from "./chart-legend";
 export { MetricChartPanel } from "./metric-chart-panel";
 export { HeroAreaChart } from "./hero-area-chart";
 export { InteractiveDualAreaChart } from "./interactive-dual-area-chart";
 export { RingDistributionChart } from "./ring-distribution-chart";
 export { GaugeTargetChart } from "./gauge-target-chart";
+export type { GaugeVariant } from "./gauge-gradients";
 export { MiniMetricChart } from "./mini-metric-chart";
 export { TrendLineChart } from "./trend-line-chart";
 export { DualAreaChart } from "./dual-area-chart";

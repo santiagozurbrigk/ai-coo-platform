@@ -34,7 +34,7 @@ export interface MetricStatProps {
   showProgressBar?: boolean;
   progress?: number;
   progressCaption?: string;
-  progressVariant?: "trend" | "violet";
+  progressVariant?: "trend" | "brand";
   children?: React.ReactNode;
   /** Datos para el gráfico de línea full-width en el fondo (estilo Whop) */
   chartData?: number[];
@@ -70,12 +70,13 @@ export function MetricStat({
   const cfg = metricTrendConfig[trend];
   const TrendIcon = cfg.icon;
   const hasDataSparkline = Boolean(sparklineData?.length);
-  const derivedProgress = deriveMetricProgress(value, trend, trendValue);
-  const barWidth = progress ?? derivedProgress;
+  // La barra sólo aparece si codifica un valor real: el `progress` explícito
+  // del llamador, o un porcentaje leído del propio valor de la métrica.
+  const barWidth = progress ?? deriveMetricProgress(value, trend, trendValue);
   const comparison =
     subtitle ?? (trendValue ? `vs período anterior  ${trendValue}` : undefined);
   const barClassName =
-    progressVariant === "violet"
+    progressVariant === "brand"
       ? "from-brand-600 to-brand-400"
       : cfg.bar;
 
@@ -119,7 +120,7 @@ export function MetricStat({
             "flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3"
         )}
       >
-        <div className="metric-stat-value tabular-nums">
+        <div className="metric-stat-value">
           <MetricAnimatedValue value={value} />
         </div>
         {hasDataSparkline ? (
@@ -132,7 +133,7 @@ export function MetricStat({
         ) : null}
       </div>
 
-      {showProgressBar ? (
+      {showProgressBar && barWidth != null ? (
         <div className="mt-3">
           <div
             className={cn(

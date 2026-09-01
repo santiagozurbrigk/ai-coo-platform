@@ -14,6 +14,230 @@
 
 ---
 
+### 2026-08-31 — BRAND-A: la paleta categórica llega a los badges, tags y nodos
+
+**Rama/branch:** `Claude-Design`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `apps/web/app/globals.css`, `apps/web/lib/ui/category-badge.ts` (nuevo), `apps/web/tailwind.config.ts`, `apps/web/components/product/graph-nodes.tsx`, `apps/web/lib/workboard/styles.ts`, `apps/web/constants/conversation-tags.ts`, `apps/web/components/agent/proposal-card.tsx`, `apps/web/components/sales/zernio-side-panel.tsx`, consumidores de workboard y de tags
+
+**Qué se hizo:**
+
+Cierra [BRAND-A]: los 5 archivos que seguían en violeta de la marca anterior
+ahora usan la paleta categórica validada que se definió para los gráficos.
+
+**Tokens de tinta.** `--chart-cat-1…6` está validado a ≥3:1, que es el umbral de
+**marca**, no de texto. Un badge necesita además un color de texto, así que se
+agregaron `--chart-cat-N-ink` en los dos temas, resueltos por búsqueda binaria
+sobre la lightness del anchor hasta cruzar 4.5:1 contra la superficie. Los doce
+valores pasan.
+
+**`lib/ui/category-badge.ts` (nuevo).** `categoryColor`, `categoryInk` y
+`categorySurface(index, { fill, border, ink })`, que arma el relleno y el borde
+con `color-mix` sobre el token. Cada categoría necesitaba tres derivados del
+mismo color en dos temas: con clases de Tailwind eso son seis strings por
+categoría mantenidos a mano, que es exactamente cómo el violeta sobrevivió en
+cinco archivos.
+
+**Asignación de slots**, conservando el color que ya tenía cada categoría donde
+se podía y cambiando sólo lo que colisionaba:
+
+- **Áreas de workboard** — operaciones naranja, ventas azul, finanzas verde,
+  clientes rosa se mantienen; marketing pasa de violeta a índigo. `general` no
+  es una categoría más (es la ausencia de área) y queda neutro.
+- **Nodos del grafo de producto** — framework naranja, avatar azul, escalón
+  verde se mantienen; producto pasa de violeta a índigo y propuesta de valor de
+  ámbar a rosa, porque contra el naranja del framework eran el mismo color. El
+  nodo raíz sale de la paleta: no es un tipo de entidad sino el centro del
+  grafo, así que va neutro y no gasta un slot.
+- **Propuestas del agente** — mismo criterio que los nodos.
+- **Etiqueta "Closeado"** — índigo, que la separa del azul de "Agendado" sin
+  pisar el verde de la escala de calificación.
+- **"Próximo paso" del panel de Zernio** — no es una categoría sino la
+  recomendación del agente: va al color de IA, que en este design system es el
+  de marca.
+
+**Énfasis dentro de un tipo.** Avatar principal y core offer usaban un hue
+distinto del resto (violeta vs púrpura, azul vs celeste) y se leían como dos
+categorías en vez de como una destacada. Ahora es el mismo tono con más
+intensidad de relleno y borde.
+
+**Bug de fondo encontrado y corregido.** Los globs de `content` de Tailwind eran
+`app`, `components`, `layouts` y `packages/ui/src` — **no** `lib` ni
+`constants`. Las clases que se arman en esos dos directorios nunca se generaban,
+así que tres etiquetas de conversación ("Calificado", "Descalificado",
+"Agendado") salían literalmente sin color, y sólo se salvaban las que por
+casualidad aparecían en otro archivo escaneado.
+
+**Contraste de las etiquetas de conversación.** El archivo estaba escrito sólo
+para tema oscuro (`text-teal-300`, `text-white/50`). En claro las pills eran
+ilegibles y "No closeado" era invisible (blanco al 50% sobre blanco). Se
+agregaron los pasos de texto para claro y "No closeado" pasó a tokens neutros.
+"Descalificado" pasó de naranja a ámbar: el naranja es el acento de marca y una
+pill de descalificado en color de marca se lee como énfasis, no como bajada.
+
+Se agregó `/design-system/categorias` con los slots, las áreas, las etiquetas y
+los nodos, para verificar contraste y separación en los dos temas.
+
+**Por qué / finalidad:**
+
+[BRAND-A] estaba trabado porque no existía una paleta categórica que conviviera
+con un acento naranja. El rediseño de gráficos la definió y la validó; esto la
+lleva al resto de la UI. Después del cambio no queda ninguna clase
+`violet-*`/`purple-*`/`indigo-*` en la app.
+
+**Decisiones de diseño relevantes:**
+
+- **Estilos inline con tokens en vez de clases de Tailwind.** Es lo que permite
+  que un solo token defina las tres derivadas y que el tema las cambie sin
+  variantes `dark:`. La contra es que estas superficies ya no son ajustables
+  desde el `className` del llamador.
+- **El nodo raíz y `general` no toman slot.** Gastar un color de categoría en
+  algo que no es una categoría es lo que empuja a inventar un séptimo hue.
+- **La escala de calificación sigue siendo de estado, no categórica.** Verde,
+  ámbar y rojo ahí significan qué tan bien va el lead; sólo los estados de flujo
+  (closeado) toman color de la paleta categórica.
+
+**Verificación:**
+
+`tsc --noEmit` y `pnpm lint` limpios. Capturas de `/design-system/categorias` en
+claro y oscuro, comparadas antes y después. Los doce tokens de tinta validados a
+≥4.5:1 por script. Búsqueda global: 0 clases violeta/púrpura/índigo.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **`next build` no se pudo correr en esta sesión**: `next/font` no logra bajar
+  Inter ni JetBrains Mono de Google Fonts a través del proxy del entorno. Se
+  verificó que el árbol limpio (el commit anterior, ya buildeado con éxito antes
+  en esta misma sesión) falla exactamente igual, así que es de red y no del
+  cambio. **Igual conviene mirar el build de Vercel al mergear.**
+- Los nuevos globs de `content` hacen que Tailwind genere clases que antes
+  faltaban en todo `lib/` y `constants/`, no sólo en los archivos tocados. El CSS
+  crece un poco y puede aparecer color en lugares que hasta ahora salían sin él.
+
+---
+
+### 2026-08-31 — Rediseño del sistema de gráficos: paleta categórica, leyendas y espaciados
+
+**Rama/branch:** `Claude-Design`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `apps/web/app/globals.css`, `apps/web/lib/chart/colors.ts`, `apps/web/components/charts/*`, `apps/web/components/charts/platform/*`, `packages/ui/src/components/metric-{card,stat}.tsx`, `packages/ui/src/lib/metric-trend.ts`, consumidores en marketing / finanzas
+
+**Qué se hizo:**
+
+Auditoría visual de los 17 componentes de `components/charts/platform` levantando la
+app y comparando capturas en tema claro y oscuro. Se agregó
+`/design-system/charts` (`components/design-system/charts-gallery.tsx`) que los
+renderiza todos con datos de ejemplo — es la página con la que se hizo la auditoría
+y con la que conviene verificar cualquier cambio futuro de gráficos.
+
+**Color — tres familias donde antes había una.** `--chart-1…5` era una sola tinta
+(negro en claro, blanco en oscuro) a distintas opacidades, y se usaba para todo.
+Ahora hay tres familias con trabajos separados, todas en `globals.css` y expuestas
+por `lib/chart/colors.ts`:
+
+- `--chart-1…5` (monocroma) — magnitud dentro de una serie. Se corrigió la rampa:
+  era `1 / .4 / .2 / .32 / .24`, **no monótona**, así que el paso 3 era más claro que
+  el 4 y el 5. Ahora `1 / .62 / .44 / .30 / .20`.
+- `--chart-cat-1…6` (categórica, nueva) — identidad de serie. Naranja de marca +
+  azul, verde, índigo, rosa y verde oscuro.
+- `--chart-ordinal-1…5` (ordinal, nueva) — posición en una secuencia (etapas de
+  embudo). Un solo tono, lightness monótona.
+
+Las dos paletas nuevas se validaron por script en ambos temas, no a ojo: banda de
+lightness, piso de croma, separación de pares adyacentes simulando protanopía y
+deuteranopía, piso de visión normal y contraste ≥3:1 contra la superficie de la
+card. Los dos sets pasan las cinco. La ordinal se invierte entre claro y oscuro para
+que el paso más alto sea siempre el de más contraste contra el fondo.
+
+**Migrados a la paleta categórica:** slices de torta/anillo (`pie-context`), áreas de
+radar (`radar-context`), series de scatter (`chart-context`), barras apiladas,
+áreas duales, distribución de etiquetas de contenido, segmentos de gasto y stacks de
+facturación (`chartSeriesColors` / `expenseSegmentColors` / `revenueStackColors`).
+
+**Leyendas.** Se agregó `ChartLegend` y se puso leyenda en todo gráfico con dos o más
+series. Las tortas y los anillos no tenían ninguna: la identidad de cada slice sólo
+existía en el hover, que no está en touch ni en teclado. Ahora cada entrada además
+lleva su porcentaje como etiqueta directa. `PieDistributionChart` agrupa en "Otros"
+más allá de la sexta categoría en vez de repetir colores.
+
+**Bugs de layout corregidos:**
+
+- `BarXAxis` posicionaba las etiquetas de categoría usando `barScale` como
+  coordenada X siempre. En barras **horizontales** `barScale` es el eje vertical, así
+  que las cinco etiquetas se apilaban una encima de otra en la esquina inferior
+  izquierda. Se agregó la variante horizontal, que las pone al lado de su barra.
+- El clip de revelado (`time-series-chart-shell`) coincidía exacto con el área de
+  dibujo cuando no había barras, y cortaba por la mitad los marcadores del primer y
+  del último punto. Ahora reserva `EDGE_GLYPH_CLIP_PADDING`.
+- `MetricChartPanel` y `MiniMetricChart` posicionaban el encabezado en `absolute`
+  sobre el gráfico, con un degradado encima: el gráfico quedaba pisado arriba y las
+  etiquetas del eje X recortadas contra el piso de la card. El encabezado pasó al
+  flujo normal.
+- `FunnelChartPanel`: las etiquetas de la primera y la última etapa se cortaban
+  contra el borde de la card. El chart posiciona sus etapas en `absolute inset-0`,
+  que ignora el padding del propio elemento, así que la canaleta va en un wrapper.
+- `HeroAreaChart` reservaba `margin.top: 56` para un encabezado flotante que ya no
+  existe, y el área quedaba aplastada contra el piso.
+- `DualAreaChart` no tenía canaleta lateral y la primera etiqueta del eje pisaba el
+  borde.
+
+**Métricas.** `deriveMetricProgress` **inventaba** el ancho de la barra de progreso
+cuando el valor no era un porcentaje: `up → 72`, `down → 38`, si no `56`, o el delta
+de tendencia por 4. `MetricCard` trae `showProgressBar` en `true` por defecto y hay
+59 usos en la app contra 2 que pasan `progress` explícito, así que casi todas las
+cards mostraban una barra que no codificaba nada. Ahora devuelve `null` salvo que el
+valor sea un porcentaje real, y la barra no se dibuja. Se sacó `tabular-nums` de las
+cifras grandes (a ese tamaño deja los números sueltos; sirve en tablas, no en un
+número suelto) y se renombró `progressVariant="violet"` a `"brand"`.
+
+**Otros ajustes:** grilla sólida en vez de punteada (el punteado se lee como umbral o
+proyección); barras más finas (`barGap` 0.2 → 0.55) porque los bloques anchos y
+saturados se leen ruidosos; separación de 2px entre segmentos apilados con la
+superficie de la card en lugar de un borde, y radio fijo de 3px para que la pila siga
+leyéndose como una columna y no como píldoras sueltas; relleno de sparkline
+degradado a transparente.
+
+**Por qué / finalidad:**
+
+Todo el sistema de gráficos era monocromo. Eso funciona para una serie de línea, pero
+falla en cuanto hay categorías: en una torta de 5 slices había dos grises con 4 puntos
+de opacidad de diferencia y ningún rótulo, así que el gráfico no se podía leer. El
+naranja de marca no aparecía en ningún gráfico.
+
+**Decisiones de diseño relevantes:**
+
+- **Se usaron seis hues, no sólo naranja y neutros.** El manual define tres colores de
+  marca, pero eso rige la identidad, no la codificación de datos: con un solo tono no
+  hay forma de distinguir cinco categorías. El naranja queda como slot 1 —lo primario
+  sigue siendo de marca— y los otros cinco son colores de datos.
+- **El orden de los slots es el mismo en claro y oscuro**, con pasos re-escalonados
+  por tema, no un flip automático. Así una serie conserva su color al cambiar de tema.
+- **Los colores se asignan por índice de entidad, no por ranking**, para que filtrar
+  una serie no repinte a las que quedan.
+- **Se prefirió no dibujar la barra de progreso antes que dibujar una inventada.**
+  Cambia el aspecto de casi todas las cards de métrica; es intencional.
+- **La geometría del embudo no se tocó.** Con un rango de 120.000 a 210 las últimas
+  etapas quedan como hilos, pero el ancho es proporcional al valor y eso es cierto:
+  achatarlo (escala log) mentiría sobre la caída. Los valores y porcentajes están
+  rotulados, así que se leen igual.
+
+**Verificación:**
+
+`tsc --noEmit` y `pnpm lint` limpios en los 4 paquetes; `next build` genera las 128
+páginas. Auditoría visual con capturas en tema claro y oscuro antes y después, por
+sección. Paletas validadas por script (5/5 checks en ambos temas).
+
+**Riesgos / deuda técnica pendiente:**
+
+- El cambio de color toca todos los módulos con gráficos (marketing, ventas, finanzas,
+  clientes, super-admin). Conviene que el equipo lo mire en producción.
+- No se agregó vista de tabla como equivalente accesible de cada gráfico; hoy el
+  tooltip y las leyendas con valor cubren la lectura, pero no es lo mismo.
+- Los 5 archivos de [BRAND-A] (badges, nodos de grafo, tags) siguen en violeta: ahora
+  existe la paleta categórica que les faltaba, falta adoptarla.
+
+---
+
 ### 2026-08-31 — Onboarding Fase 4: panel de progreso en super-admin
 
 **Rama/branch:** `Claude-Onboarding`

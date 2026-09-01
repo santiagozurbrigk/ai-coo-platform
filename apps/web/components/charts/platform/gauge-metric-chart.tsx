@@ -1,8 +1,9 @@
 "use client";
 
 import { Gauge } from "@/components/charts/gauge";
+import { useTheme } from "@/providers/theme-provider";
 import { cn } from "@/lib/utils";
-import { brandColors } from "@/lib/brand";
+import { accentGaugeGradients } from "./gauge-gradients";
 
 export function GaugeMetricChart({
   value,
@@ -23,7 +24,9 @@ export function GaugeMetricChart({
   labelClassName?: string;
   centerYFactor?: number;
 }) {
+  const { theme } = useTheme();
   const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
+  const { active, inactive } = accentGaugeGradients(theme === "dark");
 
   return (
     <Gauge
@@ -32,8 +35,8 @@ export function GaugeMetricChart({
       defaultLabel={label}
       suffix={suffix}
       useGradient
-      activeGradient={[brandColors.primary, brandColors.primaryLight]}
-      inactiveGradient={["#2a2119", "#1a1613"]}
+      activeGradient={active}
+      inactiveGradient={inactive}
       minWidth={0}
       className={cn("mx-auto w-full max-w-[240px]", className)}
       valueClassName={valueClassName}

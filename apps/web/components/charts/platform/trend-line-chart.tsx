@@ -39,7 +39,9 @@ export function TrendLineChart({
       aspectRatio={aspectRatio}
       className="w-full"
       animationDuration={animationDuration}
-      margin={{ top: 24, right: 16, bottom: 36, left: 8 }}
+      // Los marcadores del primer y último punto se cortaban contra los bordes
+      // del área de dibujo.
+      margin={{ top: 20, right: 20, bottom: 36, left: 16 }}
     >
       <Grid horizontal vertical={false} numTicksRows={4} />
       <Line

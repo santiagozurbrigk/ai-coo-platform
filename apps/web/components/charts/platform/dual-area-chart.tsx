@@ -4,7 +4,9 @@ import { AreaChart, Area } from "@/components/charts/area-chart";
 import { Grid } from "@/components/charts/grid";
 import { XAxis } from "@/components/charts/x-axis";
 import { ChartTooltip } from "@/components/charts/tooltip";
+import { categoricalColor } from "@/lib/chart/colors";
 import { cn } from "@/lib/utils";
+import { ChartLegend } from "./chart-legend";
 
 export function DualAreaChart({
   data,
@@ -35,42 +37,45 @@ export function DualAreaChart({
     };
   });
 
+  // Dos series son dos identidades: van a dos colores de la paleta categórica.
+  // Dos opacidades del mismo tono se leen como una sola serie con sombra.
+  const primaryColor = categoricalColor(0);
+  const secondaryColor = categoricalColor(1);
+
   return (
-    <div className={cn("w-full space-y-2", className)}>
+    <div className={cn("w-full space-y-3", className)}>
       <AreaChart
         data={rows}
         xDataKey="date"
         aspectRatio={aspectRatio}
         className="w-full"
         animationDuration={1000}
-        margin={{ top: 20, right: 12, bottom: 32, left: 8 }}
+        // Canaleta suficiente para que la primera y la última etiqueta del
+        // eje X no queden pisando el borde de la card.
+        margin={{ top: 20, right: 20, bottom: 32, left: 20 }}
       >
         <Grid horizontal vertical={false} numTicksRows={4} />
         <Area
           dataKey={primaryKey}
-          fill="var(--chart-1)"
-          stroke="var(--chart-1)"
-          fillOpacity={0.35}
+          fill={primaryColor}
+          stroke={primaryColor}
+          fillOpacity={0.22}
         />
         <Area
           dataKey={secondaryKey}
-          fill="var(--chart-2)"
-          stroke="var(--chart-2)"
-          fillOpacity={0.28}
+          fill={secondaryColor}
+          stroke={secondaryColor}
+          fillOpacity={0.22}
         />
         <XAxis numTicks={Math.min(data.length, 6)} />
         <ChartTooltip />
       </AreaChart>
-      <div className="flex justify-center gap-4 text-xs">
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-3 rounded-sm bg-[var(--chart-1)]" />
-          {primaryLabel}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-3 rounded-sm bg-[var(--chart-2)]" />
-          {secondaryLabel}
-        </span>
-      </div>
+      <ChartLegend
+        items={[
+          { label: primaryLabel, color: primaryColor },
+          { label: secondaryLabel, color: secondaryColor },
+        ]}
+      />
     </div>
   );
 }

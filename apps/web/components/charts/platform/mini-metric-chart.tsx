@@ -2,8 +2,12 @@
 
 import { GlassPanel, cn } from "@ai-coo/ui";
 import type { ReactNode } from "react";
-import { CHART_MIN_HEIGHT } from "./chart-wrapper";
 
+/**
+ * Métrica compacta con sparkline al pie. Igual que `MetricChartPanel`, el
+ * encabezado va en el flujo: flotándolo el sparkline quedaba recortado contra
+ * el borde inferior de la card.
+ */
 export function MiniMetricChart({
   title,
   value,
@@ -17,19 +21,15 @@ export function MiniMetricChart({
 }) {
   return (
     <GlassPanel
-      className={cn(
-        "relative flex flex-col overflow-hidden p-0",
-        CHART_MIN_HEIGHT.sm,
-        className
-      )}
+      className={cn("flex flex-col gap-3 overflow-hidden p-4", className)}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-3 pt-3">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div>
+        <p className="text-micro font-medium uppercase tracking-wide text-muted-foreground">
           {title}
         </p>
-        <p className="text-xl font-semibold tabular-nums">{value}</p>
+        <p className="mt-0.5 text-xl font-semibold">{value}</p>
       </div>
-      <div className="mt-auto min-h-[120px] w-full flex-1 pt-10">{children}</div>
+      <div className="flex min-h-[56px] w-full flex-1 items-end">{children}</div>
     </GlassPanel>
   );
 }

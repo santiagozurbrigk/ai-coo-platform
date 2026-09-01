@@ -10,6 +10,7 @@ export function ConversationTagBadge({ tag }: { tag: ConversationTagId }) {
         "inline-flex rounded-full border px-2 py-0.5 text-2xs font-medium",
         config.className
       )}
+      style={config.style}
     >
       {config.label}
     </span>

@@ -377,22 +377,35 @@ La mostraba el footer del sidebar y se perdió. Decidir si va a algún lado de l
 > `#E15D12`, el logotipo real y el favicon nuevo, en tema claro y oscuro.
 > Lo que queda abajo son decisiones, no trabajo mecánico.
 
-### [BRAND-A] Paletas categóricas que todavía usan violeta
+### [CHART-A] Vista de tabla como equivalente accesible de cada gráfico
 
-**Qué es:** 5 archivos conservan 53 clases violeta a propósito, porque ahí el violeta
-es **una categoría dentro de una paleta** y el mismo archivo ya usa naranja para otra
-categoría. Convertirlas colapsaría dos categorías en el mismo color.
+**Qué es:** hoy los valores de un gráfico se leen por tooltip, leyenda con valor y
+etiquetas directas. No hay una vista de tabla equivalente, que es el fallback limpio
+para lectores de pantalla, impresión y modo de contraste forzado.
 
-- `components/product/graph-nodes.tsx` (36) — tipos de nodo del grafo de producto
-- `lib/workboard/styles.ts` (6) — colores de etiqueta/prioridad
-- `constants/conversation-tags.ts` (1) — color de tag de conversación
-- `components/agent/proposal-card.tsx` (1) — tipo de propuesta
-- `components/sales/zernio-side-panel.tsx` (2) — bloque de panel lateral
+**Acción:** un toggle "gráfico / tabla" en `ChartShell` que renderice los mismos datos
+como `<table>`. La mayoría de los componentes de `charts/platform` ya reciben los datos
+en forma de filas, así que el toggle puede vivir en el shell.
+**Complejidad:** media.
 
-**Acción:** definir una paleta categórica que conviva con un acento naranja
-(el naranja de marca queda reservado para "lo primario"; las categorías deberían ir
-a hues fríos o a neutros diferenciados por luminancia). Es trabajo de diseño.
-**Quién:** Santiago + diseño.
+---
+
+### [CHART-B] Embudo con etapas de valor muy dispar
+
+**Qué es:** `FunnelChartPanel` dibuja el ancho proporcional al valor. Con un rango tipo
+120.000 → 210 las últimas tres etapas quedan como hilos de 1px y ocupan media card sin
+mostrar nada.
+
+**Por qué no se "arregló" en el rediseño de gráficos:** el ancho proporcional es
+correcto — la caída realmente es esa, y una escala logarítmica mentiría sobre la
+conversión. Los valores y porcentajes están rotulados, así que la información se lee.
+
+**Acción posible:** ofrecer una variante en barras horizontales (una barra por etapa +
+la tasa de conversión entre etapas) para cuando el rango es muy amplio. Es una decisión
+de producto, no un bug.
+**Complejidad:** media.
+
+---
 
 ### [BRAND-B] Licenciar Neue Haas Grotesk
 
@@ -466,6 +479,8 @@ referencias + `brand.domain`.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-08-31 | BRAND-A: paleta categórica aplicada a badges, etiquetas y nodos del grafo; 0 clases violeta en la app | `Claude-Design` |
+| 2026-08-31 | Rediseño del sistema de gráficos: paleta categórica y ordinal validadas, leyendas, espaciados y barra de progreso honesta en métricas | `Claude-Design` |
 | 2026-08-31 | REPORTES-IA: pulso diario (tercera cadencia), UI rediseñada y movida a un panel de la isla derecha de la barra. "Reportes" salió de Operaciones. Sólo generación automática. Rehecho sobre `main` después de que entraran #32/#33/#34: 509 tests, lint y tsc limpios, build de 131 páginas | `Claude-New-Features` |
 | 2026-08-30 | ADDON-EMBUDOS: add-on `embudos` activado en la org "Optimiza tu Control" (`46cce98c`). El módulo ya aparece en el sidebar; no depende de ninguna integración | — (cambio de datos) |
 | 2026-08-30 | EMBUDOS-UI: interfaz del módulo — switcher que conserva el período, KPIs universales con las dos ratios decisivas, etiquetas [Meta]/[Hyros], spine con conectores, índice con estado de configuración. Destapó que computeFunnel no devolvía los KPIs universales. 414 tests en verde | `Claude-New-Features` |
