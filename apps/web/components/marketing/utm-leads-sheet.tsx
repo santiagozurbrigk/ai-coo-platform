@@ -1,6 +1,10 @@
 "use client";
 
 import { ArrowDown, X } from "lucide-react";
+import {
+  CLOSING_CALL_STATUS_LABEL,
+  isClosingCallStatus,
+} from "@/lib/closing/call-status";
 import { Badge, cn } from "@ai-coo/ui";
 import type { UTMFunnelData, UTMLinkRow } from "@/types/utm";
 
@@ -27,16 +31,11 @@ function conversionPct(from: number, to: number): string {
 }
 
 function bookingStatusLabel(status?: string): string {
-  switch (status) {
-    case "closed":
-      return "Completado";
-    case "no_show":
-      return "No show";
-    case "not_closed":
-      return "No cerrado";
-    default:
-      return "Agendado";
-  }
+  // Sin el vocabulario compartido, cada estado nuevo caía en "Agendado": una
+  // llamada cancelada se mostraba como si siguiera en pie.
+  return isClosingCallStatus(status)
+    ? CLOSING_CALL_STATUS_LABEL[status]
+    : "Agendado";
 }
 
 function roiBadge(totalRevenue: number) {

@@ -12,7 +12,7 @@ export type CalendlyOrgSyncResult = {
   synced: number;
   inserted: number;
   updated: number;
-  skippedClosed: number;
+  skippedManualStatus: number;
   fetched: number;
   skipped?: boolean;
   reason?: string;
@@ -23,7 +23,7 @@ export type CalendlyBulkSyncResult = {
   synced: number;
   inserted: number;
   updated: number;
-  skippedClosed: number;
+  skippedManualStatus: number;
   fetched: number;
   results: CalendlyOrgSyncResult[];
 };
@@ -36,7 +36,7 @@ const EMPTY_ORG_RESULT = (
   synced: 0,
   inserted: 0,
   updated: 0,
-  skippedClosed: 0,
+  skippedManualStatus: 0,
   fetched: 0,
   skipped: true,
   reason,
@@ -95,7 +95,7 @@ export async function syncCalendlyOrganizationSafe(
       synced,
       inserted: result.inserted,
       updated: result.updated,
-      skippedClosed: result.skippedClosed,
+      skippedManualStatus: result.skippedManualStatus,
       fetched: events.length,
     };
   } catch (e) {
@@ -130,7 +130,7 @@ export async function applyCalendlyEventsSafe(
       synced,
       inserted: result.inserted,
       updated: result.updated,
-      skippedClosed: result.skippedClosed,
+      skippedManualStatus: result.skippedManualStatus,
       fetched: events.length,
     };
   } catch (e) {
@@ -157,7 +157,7 @@ export async function syncAllCalendlyOrganizationsSafe(): Promise<CalendlyBulkSy
       synced: 0,
       inserted: 0,
       updated: 0,
-      skippedClosed: 0,
+      skippedManualStatus: 0,
       fetched: 0,
       results: [],
     };
@@ -170,7 +170,7 @@ export async function syncAllCalendlyOrganizationsSafe(): Promise<CalendlyBulkSy
       synced: 0,
       inserted: 0,
       updated: 0,
-      skippedClosed: 0,
+      skippedManualStatus: 0,
       fetched: 0,
       results: [],
     };
@@ -180,7 +180,7 @@ export async function syncAllCalendlyOrganizationsSafe(): Promise<CalendlyBulkSy
   let synced = 0;
   let inserted = 0;
   let updated = 0;
-  let skippedClosed = 0;
+  let skippedManualStatus = 0;
   let fetched = 0;
 
   for (const row of integrations) {
@@ -189,7 +189,7 @@ export async function syncAllCalendlyOrganizationsSafe(): Promise<CalendlyBulkSy
     synced += r.synced;
     inserted += r.inserted;
     updated += r.updated;
-    skippedClosed += r.skippedClosed;
+    skippedManualStatus += r.skippedManualStatus;
     fetched += r.fetched;
   }
 
@@ -198,7 +198,7 @@ export async function syncAllCalendlyOrganizationsSafe(): Promise<CalendlyBulkSy
     synced,
     inserted,
     updated,
-    skippedClosed,
+    skippedManualStatus,
     fetched,
     results,
   };

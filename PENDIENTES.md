@@ -9,6 +9,71 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [LLAMADAS-FASE-1] Clasificación e identidad de llamadas
+
+**Qué es:** la Fase 0 corrigió la ingesta. Falta lo que hace que el módulo
+entienda qué es cada llamada.
+
+**Lo que cambió respecto del plan original.** Se bajó la documentación de Fathom
+y `GET /meetings` devuelve dos cosas que OTC descarta:
+
+- **`calendar_invitees[]`** con `email`, `email_domain` e `is_external`. Resuelve
+  la identidad sin parsear el título, y separa reunión interna de externa sin
+  heurística.
+- **`meeting_type`**, configurable por organización, con `/meeting_types` para
+  enumerarlos.
+
+Eso es **mejor que la convención de nombres** que se había planeado: en vez de
+que el closer escriba `"Llamada de venta - Mariano"` después de cada llamada, la
+org mapea una vez qué tipo de reunión de Fathom es venta, entrega o equipo. La
+convención queda como respaldo para las improvisadas, que son las que no tienen
+tipo asignado.
+
+**Qué falta hacer:**
+- Leer `calendar_invitees` y `meeting_type` en `lib/fathom/api.ts`, que hoy sólo
+  parsea título, fechas y transcript.
+- Parser posicional del título (`tipo - quién`) como respaldo.
+- Match por ventana horaria entre grabación y `closing_calls.scheduled_at`.
+- FK real entre `closing_calls` y `fathom_calls`, retirando el `ilike '%nombre%'`.
+- Cola de "sin clasificar" en la UI, con el motivo.
+- Reemplazar los cuatro clasificadores que compiten hoy por uno solo.
+
+**Verificar primero contra una cuenta real:** que `calendar_invitees` venga
+poblado en las reuniones improvisadas (el 86% del volumen) y que la org tenga
+tipos de reunión configurados en Fathom. Detalle en
+`docs/external-apis/fathom/RESUMEN-OTC.md`.
+
+---
+
+### [LLAMADAS-FASE-2] Seguimiento del lead
+
+**Qué es:** lo que se pidió originalmente. Depende de la Fase 1.
+
+- Tabla `sales_leads` y migración que hile las reagendas ya existentes (hay leads
+  con 7 turnos en 2 días guardados como filas sueltas).
+- Separar los tres ejes que hoy viven en `status`: ciclo de vida, asistencia y
+  resultado, más próximo paso con fecha y responsable.
+- Ficha del lead: todos sus intentos, calificaciones y objeciones en un hilo.
+- Cola de pendientes de resultado (957 llamadas pasadas sin desenlace).
+- Transición lead → cliente explícita al cerrar.
+
+**Ya listo de la Fase 0:** `lead_email` se persiste, `cancelled` y `attended`
+existen como estados, y los syncs ya no pisan lo que carga una persona.
+
+---
+
+### [LLAMADAS-CANCELED-BY] Leer quién canceló en Calendly
+
+**Qué es:** `cancelled_by` se llena con `unknown` en los dos proveedores.
+Calendly expone el autor en `cancellation.canceled_by` y todavía no se lee; GHL
+no lo informa.
+
+**Por qué importa:** que cancele el lead es una señal sobre el lead; que cancele
+el closer es una señal sobre la operación. Con `unknown` en todo, la distinción
+no se puede usar.
+
+---
+
 ### [REPORTES-PULSO-DIARIO] Revisar la primera salida real del pulso diario
 
 **Qué es:** el reporte diario se construyó pero **nunca corrió**. Su prompt le pide algo distinto al semanal: detectar roturas obvias sin recomendar acciones, y decir en una oración cuando el día fue normal.
@@ -479,6 +544,7 @@ referencias + `brand.domain`.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-09-01 | LLAMADAS-FASE-0: `showed` de GHL dejó de contarse como venta; canceladas se importan como canceladas y no como no-show; los syncs dejaron de pisar los estados manuales; se dejó de inventar `"delivery"`; rescate de llamadas trabadas; `lead_email` persistido; documentación de Fathom bajada al repo. 544 tests | `Claude-New-Features` |
 | 2026-08-31 | BRAND-A: paleta categórica aplicada a badges, etiquetas y nodos del grafo; 0 clases violeta en la app | `Claude-Design` |
 | 2026-08-31 | Rediseño del sistema de gráficos: paleta categórica y ordinal validadas, leyendas, espaciados y barra de progreso honesta en métricas | `Claude-Design` |
 | 2026-08-31 | REPORTES-IA: pulso diario (tercera cadencia), UI rediseñada y movida a un panel de la isla derecha de la barra. "Reportes" salió de Operaciones. Sólo generación automática. Rehecho sobre `main` después de que entraran #32/#33/#34: 509 tests, lint y tsc limpios, build de 131 páginas | `Claude-New-Features` |

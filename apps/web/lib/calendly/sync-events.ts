@@ -5,10 +5,13 @@ import { repairClosingConversationLinks } from "@/lib/conversations/repair-links
 import { attributeBookingToUTM } from "@/lib/utm/attribute-booking";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CalendlyEventSyncPayload } from "@/types/calendly";
+import type { ClosingCallStatus } from "@/types/closing";
+import { syncMayOverwriteStatus } from "@/lib/closing/call-status";
 
 type ExistingClosingCallRow = {
   id: string;
-  status: string;
+  status: ClosingCallStatus;
+  status_source: string | null;
   calendly_event_id: string | null;
 };
 
@@ -21,7 +24,10 @@ function mapSyncError(msg: string): string {
 
 /**
  * Sync idempotente (incremental) de eventos de Calendly → `closing_calls`.
- * No sobreescribe deals ya cerrados (status='closed').
+ *
+ * ⭐ No pisa el estado que cargó una persona. Antes sólo respetaba `closed`, así
+ * que un `not_closed` o un `no_show` marcado por un closer volvía a `scheduled`
+ * en la siguiente corrida del cron — cada hora.
  * Sin "use server": importable desde route handlers y cron sin colisión con Server Actions.
  */
 export async function syncCalendlyEventsForOrganization(
@@ -31,7 +37,8 @@ export async function syncCalendlyEventsForOrganization(
 ): Promise<{
   inserted: number;
   updated: number;
-  skippedClosed: number;
+  /** Turnos cuyo estado no se tocó porque lo había cargado una persona. */
+  skippedManualStatus: number;
 }> {
   const normalized = events
     .map((e) => ({
@@ -46,14 +53,14 @@ export async function syncCalendlyEventsForOrganization(
     .filter((e) => e.eventId && e.inviteeName && e.startTime);
 
   if (!normalized.length) {
-    return { inserted: 0, updated: 0, skippedClosed: 0 };
+    return { inserted: 0, updated: 0, skippedManualStatus: 0 };
   }
 
   const uniqueEventIds = Array.from(new Set(normalized.map((e) => e.eventId)));
 
   const { data: existing, error: existingError } = await supabase
     .from("closing_calls")
-    .select("id, status, calendly_event_id")
+    .select("id, status, status_source, calendly_event_id")
     .eq("organization_id", organizationId)
     .in("calendly_event_id", uniqueEventIds);
 
@@ -68,19 +75,20 @@ export async function syncCalendlyEventsForOrganization(
   }
 
   const toInsert = normalized.filter((e) => !byEventId.has(e.eventId));
-  const toUpdate = normalized.filter((e) => {
-    const row = byEventId.get(e.eventId);
-    return row ? row.status !== "closed" : false;
-  });
-  const skippedClosed = normalized.length - toInsert.length - toUpdate.length;
+  const toUpdate = normalized.filter((e) => byEventId.has(e.eventId));
+  let skippedManualStatus = 0;
 
   const toInsertRows = toInsert.map((e) => ({
     organization_id: organizationId,
     calendly_event_id: e.eventId,
     calendly_url: e.url ?? null,
     lead_name: e.inviteeName,
+    lead_email: e.inviteeEmail?.trim() || null,
     scheduled_at: e.startTime,
     status: e.statusHint ?? "scheduled",
+    // Calendly informa la cancelación en el propio evento pero no siempre su
+    // autor. `unknown` es el valor honesto hasta que se lea `canceled_by`.
+    cancelled_by: e.statusHint === "cancelled" ? "unknown" : null,
     form_answers: e.questionsAndAnswers,
     conversation_id: null,
   }));
@@ -111,16 +119,28 @@ export async function syncCalendlyEventsForOrganization(
     const row = byEventId.get(e.eventId);
     if (!row) continue;
 
+    // Los datos del turno se refrescan siempre —ahí Calendly manda—. Lo único
+    // que se protege es el estado, porque es lo que carga una persona.
+    const patch: Record<string, unknown> = {
+      calendly_url: e.url ?? null,
+      lead_name: e.inviteeName,
+      lead_email: e.inviteeEmail?.trim() || null,
+      scheduled_at: e.startTime,
+      form_answers: e.questionsAndAnswers,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (syncMayOverwriteStatus({ status: row.status, statusSource: row.status_source })) {
+      const next = e.statusHint ?? "scheduled";
+      patch.status = next;
+      patch.cancelled_by = next === "cancelled" ? "unknown" : null;
+    } else {
+      skippedManualStatus++;
+    }
+
     const { error: updateError } = await supabase
       .from("closing_calls")
-      .update({
-        calendly_url: e.url ?? null,
-        lead_name: e.inviteeName,
-        scheduled_at: e.startTime,
-        status: e.statusHint ?? "scheduled",
-        form_answers: e.questionsAndAnswers,
-        updated_at: new Date().toISOString(),
-      })
+      .update(patch)
       .eq("id", row.id);
 
     if (updateError) {
@@ -133,6 +153,6 @@ export async function syncCalendlyEventsForOrganization(
   return {
     inserted: toInsertRows.length,
     updated: toUpdate.length,
-    skippedClosed,
+    skippedManualStatus,
   };
 }

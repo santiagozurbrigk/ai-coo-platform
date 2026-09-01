@@ -2,36 +2,53 @@
  * Sync idempotente GHL appointments → closing_calls.
  * Patrón análogo a lib/calendly/sync-events.ts.
  *
- * - No sobreescribe deals ya cerrados (status='closed').
- * - Cancellations e 'invalid' de GHL → skip (no se importan).
+ * - No sobreescribe un estado que cargó una persona (status_source='manual').
+ * - Las canceladas SÍ se importan: una llamada que no ocurrió es información.
  * - Idempotencia via ghl_appointment_id (unique index por org).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { GHLAppointment, GHLAppointmentStatus, GHLContactAttributionSource } from "./client";
 import { getGHLContact } from "./client";
+import type { ClosingCallStatus } from "@/types/closing";
+import { syncMayOverwriteStatus } from "@/lib/closing/call-status";
 
 // ─── Mapeo de status GHL → closing_calls ─────────────────────────────────────
 
-const STATUS_MAP: Partial<Record<GHLAppointmentStatus, string>> = {
-  showed:    "closed",
+/**
+ * ⭐ `showed` significa **que el lead asistió**, no que compró.
+ *
+ * Estaba mapeado a `closed`, que en OTC es una venta cerrada y alimenta la
+ * etapa Cash del embudo y la facturación. O sea: cada lead que se presentaba a
+ * una llamada se contaba como una venta. Ahora cae en `attended`, que es
+ * exactamente lo que GHL está diciendo, y el resultado lo carga una persona.
+ *
+ * ⭐ `cancelled` **se importa**. Antes se descartaba en el filtro, así que una
+ * llamada cancelada no existía para OTC. No es un `no_show`: en un no-show el
+ * lead faltó a una llamada que ocurrió; acá la llamada nunca ocurrió.
+ *
+ * `invalid` se sigue omitiendo: GHL lo usa para turnos que no representan una
+ * cita real, así que no hay nada que registrar.
+ */
+const STATUS_MAP: Partial<Record<GHLAppointmentStatus, ClosingCallStatus>> = {
+  showed:    "attended",
   noshow:    "no_show",
   booked:    "scheduled",
   confirmed: "scheduled",
-  // cancelled / invalid → undefined → se omiten
+  cancelled: "cancelled",
+  // invalid → undefined → se omite: no es una cita real
 };
 
-function mapGHLStatus(
-  ghlStatus: GHLAppointmentStatus
-): "closed" | "no_show" | "scheduled" | null {
-  return (STATUS_MAP[ghlStatus] as "closed" | "no_show" | "scheduled") ?? null;
+export function mapGHLStatus(ghlStatus: GHLAppointmentStatus): ClosingCallStatus | null {
+  return STATUS_MAP[ghlStatus] ?? null;
 }
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
 type ExistingRow = {
   id: string;
-  status: string;
+  status: ClosingCallStatus;
+  status_source: string | null;
   ghl_appointment_id: string | null;
 };
 
@@ -67,8 +84,10 @@ function buildFormAnswers(appointment: GHLAppointment) {
 export type GHLSyncResult = {
   inserted: number;
   updated: number;
-  skippedClosed: number;
-  skippedCancelled: number;
+  /** Llamadas cuyo estado no se tocó porque lo cargó una persona. */
+  skippedManualStatus: number;
+  /** Turnos que GHL marcó `invalid`: no representan una cita real. */
+  skippedInvalid: number;
   fetched: number;
 };
 
@@ -123,16 +142,15 @@ export async function syncGHLAppointmentsForOrganization(
   const result: GHLSyncResult = {
     inserted: 0,
     updated: 0,
-    skippedClosed: 0,
-    skippedCancelled: 0,
+    skippedManualStatus: 0,
+    skippedInvalid: 0,
     fetched: appointments.length,
   };
 
-  // Filtrar cancelled e invalid (no se importan)
+  // Sólo se descarta lo que GHL marca `invalid`. Las canceladas se importan.
   const importable = appointments.filter((a) => {
-    const mapped = mapGHLStatus(a.appointmentStatus);
-    if (mapped === null) {
-      result.skippedCancelled++;
+    if (mapGHLStatus(a.appointmentStatus) === null) {
+      result.skippedInvalid++;
       return false;
     }
     return true;
@@ -145,7 +163,7 @@ export async function syncGHLAppointmentsForOrganization(
   // Buscar cuáles ya existen
   const { data: existing, error: existingError } = await supabase
     .from("closing_calls")
-    .select("id, status, ghl_appointment_id")
+    .select("id, status, status_source, ghl_appointment_id")
     .eq("organization_id", organizationId)
     .in("ghl_appointment_id", appointmentIds);
 
@@ -158,11 +176,7 @@ export async function syncGHLAppointmentsForOrganization(
   }
 
   const toInsert = importable.filter((a) => !byAppointmentId.has(a.id));
-  const toUpdate = importable.filter((a) => {
-    const row = byAppointmentId.get(a.id);
-    return row ? row.status !== "closed" : false;
-  });
-  result.skippedClosed += importable.length - toInsert.length - toUpdate.length;
+  const toUpdate = importable.filter((a) => byAppointmentId.has(a.id));
 
   // ── Enriquecer con UTMs del contacto (solo para rows que cambian) ──────────
   // Fetch paralelo (concurrencia 5) para no saturar la API de GHL
@@ -187,6 +201,11 @@ export async function syncGHLAppointmentsForOrganization(
       lead_name:          resolveLeadName(a),
       scheduled_at:       a.startTime,
       status:             mapGHLStatus(a.appointmentStatus)!,
+      // GHL informa la cancelación pero no quién la pidió. `unknown` es el
+      // valor honesto: la alternativa sería atribuírsela al lead sin saberlo.
+      cancelled_by:       mapGHLStatus(a.appointmentStatus) === "cancelled" ? "unknown" : null,
+      lead_email:         a.contact?.email?.trim() || null,
+      lead_phone:         a.contact?.phone?.trim() || null,
       form_answers:       buildFormAnswers(a),
       ...buildUtmFields(attributionMap.get(a.contactId)),
     }));
@@ -199,17 +218,32 @@ export async function syncGHLAppointmentsForOrganization(
   // ── UPDATE ─────────────────────────────────────────────────────────────────
   for (const a of toUpdate) {
     const row = byAppointmentId.get(a.id)!;
+
+    // Los datos del turno (horario, nombre, contacto) siempre se refrescan:
+    // ahí GHL es la fuente de verdad. El estado es lo único que se protege,
+    // porque es lo que carga una persona.
+    const patch: Record<string, unknown> = {
+      lead_name:      resolveLeadName(a),
+      scheduled_at:   a.startTime,
+      form_answers:   buildFormAnswers(a),
+      ghl_contact_id: a.contactId ?? null,
+      lead_email:     a.contact?.email?.trim() || null,
+      lead_phone:     a.contact?.phone?.trim() || null,
+      updated_at:     new Date().toISOString(),
+      ...buildUtmFields(attributionMap.get(a.contactId)),
+    };
+
+    const mapped = mapGHLStatus(a.appointmentStatus)!;
+    if (syncMayOverwriteStatus({ status: row.status, statusSource: row.status_source })) {
+      patch.status = mapped;
+      patch.cancelled_by = mapped === "cancelled" ? "unknown" : null;
+    } else {
+      result.skippedManualStatus++;
+    }
+
     const { error } = await supabase
       .from("closing_calls")
-      .update({
-        lead_name:      resolveLeadName(a),
-        scheduled_at:   a.startTime,
-        status:         mapGHLStatus(a.appointmentStatus)!,
-        form_answers:   buildFormAnswers(a),
-        ghl_contact_id: a.contactId ?? null,
-        updated_at:     new Date().toISOString(),
-        ...buildUtmFields(attributionMap.get(a.contactId)),
-      })
+      .update(patch)
       .eq("id", row.id)
       .eq("organization_id", organizationId);
 

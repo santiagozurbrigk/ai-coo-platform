@@ -1,8 +1,10 @@
 import type {
   CalendlyFormAnswer,
   ClosingCall,
+  ClosingCallCancelledBy,
   ClosingCallSource,
   ClosingCallStatus,
+  ClosingCallStatusSource,
   ClosingOutcome,
 } from "@/types/closing";
 
@@ -12,6 +14,10 @@ export type ClosingCallRow = {
   lead_name: string;
   scheduled_at: string;
   status: ClosingCallStatus;
+  status_source?: ClosingCallStatusSource | null;
+  cancelled_by?: ClosingCallCancelledBy | null;
+  lead_email?: string | null;
+  lead_phone?: string | null;
   conversation_id: string | null;
   form_answers: CalendlyFormAnswer[] | null;
   fathom_url: string | null;
@@ -45,6 +51,10 @@ export function rowToClosingCall(row: ClosingCallRow): ClosingCall {
     leadName: row.lead_name,
     scheduledAt: row.scheduled_at,
     status: row.status,
+    statusSource: row.status_source ?? undefined,
+    cancelledBy: row.cancelled_by ?? undefined,
+    leadEmail: row.lead_email ?? null,
+    leadPhone: row.lead_phone ?? null,
     conversationId: row.conversation_id ?? undefined,
     formAnswers: row.form_answers ?? [],
     fathomUrl: row.fathom_url ?? undefined,
@@ -90,7 +100,16 @@ export function patchToClosingUpdateRow(
 
   if (patch.leadName != null) row.lead_name = patch.leadName;
   if (patch.scheduledAt != null) row.scheduled_at = patch.scheduledAt;
-  if (patch.status != null) row.status = patch.status;
+  if (patch.status != null) {
+    row.status = patch.status;
+    // ⭐ Todo cambio de estado que pasa por acá lo originó una persona: este
+    // mapper sirve a las Server Actions, no a los syncs. Marcarlo es lo que
+    // impide que el próximo cron de Calendly o GHL lo devuelva a `scheduled`.
+    row.status_source = "manual";
+  }
+  if (patch.cancelledBy !== undefined) row.cancelled_by = patch.cancelledBy ?? null;
+  if (patch.leadEmail !== undefined) row.lead_email = patch.leadEmail ?? null;
+  if (patch.leadPhone !== undefined) row.lead_phone = patch.leadPhone ?? null;
   if (patch.conversationId !== undefined) {
     row.conversation_id = patch.conversationId ?? null;
   }

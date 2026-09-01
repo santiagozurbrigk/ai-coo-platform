@@ -192,7 +192,13 @@ export async function computeSalesAttributionForOrg(
     const pieceId = conversationToPiece.get(call.conversation_id);
     if (!pieceId) continue;
 
-    if (call.status === "scheduled" || call.status === "no_show") {
+    // Una cancelada tampoco llegó a venta: cuenta como agendada sin desenlace,
+    // igual que una `scheduled` o un `no_show`.
+    if (
+      call.status === "scheduled" ||
+      call.status === "no_show" ||
+      call.status === "cancelled"
+    ) {
       incrementAttribution(attribution, pieceId, { scheduled_count: 1 });
     }
   }

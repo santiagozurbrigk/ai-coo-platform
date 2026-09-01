@@ -1,0 +1,47 @@
+# Fathom API
+
+## Docs
+
+- [Introduction](https://developers.fathom.ai/index.md): Welcome to Fathom's API! 🚀
+- [Quickstart](https://developers.fathom.ai/quickstart.md): Generate an API key and make your first call
+- [Webhooks](https://developers.fathom.ai/webhooks.md): Automatically trigger webhook events after your meetings
+- [Building with OAuth](https://developers.fathom.ai/oauth.md): Launching an integration for mutual customers with Fathom? Let's get started!
+- [FAQ](https://developers.fathom.ai/faq.md): Frequently asked questions about Fathom's API
+- [Api overview](https://developers.fathom.ai/api-overview.md)
+- [List meetings](https://developers.fathom.ai/api-reference/meetings/list-meetings.md)
+- [List meeting types](https://developers.fathom.ai/api-reference/meetings/list-meeting-types.md): List your org's meeting types, including both `active` and `inactive`. Use the returned `name` values as the meeting_type filter on GET /meetings.
+- [Get summary](https://developers.fathom.ai/api-reference/recordings/get-summary.md): This endpoint has two behaviors depending on your request payload: - If you send `destination_url`, the endpoint will behave in an asynchronous manner. - If you do not send `destination_url`, the endpoint will return the data directly.
+- [Get transcript](https://developers.fathom.ai/api-reference/recordings/get-transcript.md): This endpoint has two behaviors depending on your request payload: - If you send `destination_url`, the endpoint will behave in an asynchronous manner. - If you do not send `destination_url`, the endpoint will return the data directly.
+- [Request a download](https://developers.fathom.ai/api-reference/recordings/request-a-download.md): Starts async generation of a downloadable file and returns a `download_id` to poll. Video is generated in the background; audio-only recordings complete immediately, so the response may already return `status: completed` with the file payload.
+- [Get download status](https://developers.fathom.ai/api-reference/recordings/get-download-status.md): Returns the status of a download created with the request-a-download endpoint. When the download is completed, the payload carries a short-lived signed URL for the generated file. Only the API client that created the download can read it.
+- [List teams](https://developers.fathom.ai/api-reference/teams/list-teams.md)
+- [List team members](https://developers.fathom.ai/api-reference/team-members/list-team-members.md)
+- [List users and their permissions](https://developers.fathom.ai/api-reference/users/list-users-and-their-permissions.md): List all users in the account with their permissions.
+- [Create a webhook](https://developers.fathom.ai/api-reference/webhooks/create-a-webhook.md): Create a webhook to receive new meeting content. At least one of `include_transcript`, `include_crm_matches`, `include_summary`, or `include_action_items` must be true.
+- [Delete a webhook](https://developers.fathom.ai/api-reference/webhooks/delete-a-webhook.md): Delete a webhook.
+- [New meeting content ready](https://developers.fathom.ai/api-reference/webhook-payloads/new-meeting-content-ready.md): Webhook sent to the URL you register in Fathom settings.
+- [SDK Introduction](https://developers.fathom.ai/sdks/index.md): Get started with Fathom using our official TypeScript and Python SDKs
+- [TypeScript Installation](https://developers.fathom.ai/sdks/typescript-installation.md): Install the Fathom TypeScript SDK
+- [Python Installation](https://developers.fathom.ai/sdks/python-installation.md): Install the Fathom Python SDK
+- [Authentication](https://developers.fathom.ai/sdks/authentication.md): Authenticate with the Fathom SDKs using API keys
+- [OAuth](https://developers.fathom.ai/sdks/oauth.md): Use OAuth authentication with the Fathom SDKs
+- [Available Methods](https://developers.fathom.ai/sdks/available-methods.md): All available methods in the Fathom SDKs
+- [Filtering](https://developers.fathom.ai/sdks/filtering.md): Filter data with the Fathom SDKs
+- [Pagination](https://developers.fathom.ai/sdks/pagination.md): Handle paginated responses with the Fathom SDKs
+- [Error Handling](https://developers.fathom.ai/sdks/error-handling.md): Handle errors with the Fathom SDKs
+- [Advanced Configuration](https://developers.fathom.ai/sdks/advanced-configuration.md): Advanced options and configurations for the Fathom SDKs
+- [TypeScript SDK Changes](https://developers.fathom.ai/sdks/breaking-changes/typescript-changes.md): Breaking changes in TypeScript SDK version 0.0.30
+- [Python SDK Changes](https://developers.fathom.ai/sdks/breaking-changes/python-changes.md): Breaking changes in Python SDK version 0.0.30
+- [SDK Maturity](https://developers.fathom.ai/sdks/breaking-changes/sdk-maturity.md): Information about SDK maturity and version management
+- [Overview](https://developers.fathom.ai/mcp-docs/index.md): Connect your meeting data to LLMs using the Model Context Protocol
+- [ChatGPT](https://developers.fathom.ai/mcp-docs/chatgpt.md): Connect Fathom to ChatGPT using the official Fathom app
+- [Claude](https://developers.fathom.ai/mcp-docs/claude.md): Connect Fathom to Claude with the official connector, or via Claude Code
+- [Troubleshooting](https://developers.fathom.ai/mcp-docs/troubleshooting.md)
+- [💡 Get Inspired](https://developers.fathom.ai/inspiration/index.md): Peek at what others have built—and spark your own next project.
+- [Pylon](https://developers.fathom.ai/inspiration/pylon.md): How Pylon uses Fathom to power AI-native customer support.
+- [Twine](https://developers.fathom.ai/inspiration/twine.md): How Twine bring meeting insights into revenue workflows with the help of Fathom
+- [What's new?](https://developers.fathom.ai/changelog.md): Updates and announcements for developers.
+
+## OpenAPI Specs
+
+- [openapi](https://developers.fathom.ai/api-reference/openapi.yaml)

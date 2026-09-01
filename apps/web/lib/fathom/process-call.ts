@@ -105,7 +105,12 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
 
   await admin
     .from("fathom_calls")
-    .update({ status: "processing" })
+    .update({
+      status: "processing",
+      // Sin esta marca no hay forma de distinguir una llamada que se está
+      // procesando ahora de una que quedó colgada a mitad de camino.
+      processing_started_at: new Date().toISOString(),
+    })
     .eq("id", call.id);
 
   let title = call.title;
@@ -307,7 +312,12 @@ export async function finalizeAssociatedCall(params: {
       ai_next_steps: nextSteps,
       ai_problems_detected: problems,
       ai_progress_vs_previous: analysis?.progress_vs_previous ?? null,
-      call_type: analysis?.call_type ?? "delivery",
+      // ⭐ Sin análisis no hay tipo. Antes acá decía `?? "delivery"`: cuando la
+      // IA fallaba, la llamada quedaba marcada como entrega sin que nadie lo
+      // hubiera determinado. Un hueco de instrumentación mostrado como dato es
+      // exactamente lo que la regla central del módulo prohíbe — `null` dice la
+      // verdad, y la UI puede pedir que alguien lo resuelva.
+      call_type: analysis?.call_type ?? null,
       processed_at: new Date().toISOString(),
     })
     .eq("id", params.callId);

@@ -1,3 +1,4 @@
+import type { ClosingCallStatus } from "@/types/closing";
 /**
  * Parser de Excel para importación de llamadas de cierre.
  * Soporta plantilla Limitless (tab "Llamadas de cierre") y archivos propios.
@@ -11,7 +12,7 @@ export type ClosingCallImportRow = {
   leadName: string;
   email?: string;
   scheduledAt: string;    // ISO 8601
-  status: "closed" | "not_closed" | "no_show" | "scheduled";
+  status: ClosingCallStatus;
   amountClosed?: number;
   notes?: string;
 };
@@ -53,6 +54,8 @@ function resolveStatus(raw: string | undefined): ClosingCallImportRow["status"] 
   if (v === "cerrado" || v === "closed" || v === "ganado" || v === "won") return "closed";
   if (v === "no_cerrado" || v === "not_closed" || v === "no cerrado" || v === "perdido" || v === "lost") return "not_closed";
   if (v === "no_show" || v === "no show" || v === "noshow") return "no_show";
+  if (v === "cancelado" || v === "cancelada" || v === "cancelled" || v === "canceled") return "cancelled";
+  if (v === "asistio" || v === "asistió" || v === "attended" || v === "showed") return "attended";
   if (v === "agendado" || v === "scheduled" || v === "pendiente") return "scheduled";
   return "closed"; // default: si el usuario lo registró, fue cerrado
 }

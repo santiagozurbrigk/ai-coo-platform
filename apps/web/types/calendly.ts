@@ -43,6 +43,6 @@ export type CalendlyEventSyncPayload = {
    * Estado sugerido para closing_calls (solo si la llamada NO está marcada como closed).
    * Ej: "scheduled", "no_show".
    */
-  statusHint?: "scheduled" | "not_closed" | "no_show";
+  statusHint?: "scheduled" | "not_closed" | "no_show" | "cancelled";
 };
 

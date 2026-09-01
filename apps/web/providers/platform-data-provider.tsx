@@ -31,6 +31,7 @@ import {
   type ConnectedUnipileAccount,
 } from "@/lib/sales/unipile-inbox-filter";
 import { createClient } from "@/lib/supabase/client";
+import { acceptsManualOutcome } from "@/lib/closing/call-status";
 import {
   createClientAction,
   listClientsAction,
@@ -659,7 +660,11 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
   const markCallNotClosed = useCallback(
     async (callId: string, reason: NoCloseReasonId, notes?: string) => {
       const call = closingCalls.find((c) => c.id === callId);
-      if (call && call.status !== "scheduled") {
+      // `attended` también acepta resultado: es una llamada que el proveedor
+      // marcó como asistida y a la que todavía nadie le cargó el desenlace.
+      // Con el chequeo anterior (sólo `scheduled`) esas llamadas quedaban sin
+      // forma de cerrarse desde OTC.
+      if (call && !acceptsManualOutcome(call.status)) {
         throw new Error("Esta llamada ya tiene un resultado registrado.");
       }
       await updateClosingCall(callId, {
@@ -674,7 +679,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
   const markCallNoShow = useCallback(
     async (callId: string) => {
       const call = closingCalls.find((c) => c.id === callId);
-      if (call && call.status !== "scheduled") {
+      if (call && !acceptsManualOutcome(call.status)) {
         throw new Error("Esta llamada ya tiene un resultado registrado.");
       }
       await updateClosingCall(callId, { status: "no_show" });

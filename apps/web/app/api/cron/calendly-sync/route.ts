@@ -52,7 +52,7 @@ export async function POST(request: Request) {
           synced: 0,
           inserted: 0,
           updated: 0,
-          skippedClosed: 0,
+          skippedManualStatus: 0,
           fetched: 0,
         });
       }
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       orgs: bulk.orgs,
       inserted: bulk.inserted,
       updated: bulk.updated,
-      skippedClosed: bulk.skippedClosed,
+      skippedManualStatus: bulk.skippedManualStatus,
       fetched: bulk.fetched,
     });
   } catch (e) {
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
       synced: 0,
       inserted: 0,
       updated: 0,
-      skippedClosed: 0,
+      skippedManualStatus: 0,
       fetched: 0,
     });
   }

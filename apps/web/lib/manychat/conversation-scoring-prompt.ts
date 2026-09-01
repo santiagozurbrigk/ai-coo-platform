@@ -1,3 +1,4 @@
+import type { ClosingCallStatus } from "@/types/closing";
 import { wrapUntrustedContent } from "@/lib/ai/wrap-untrusted-content";
 import type {
   ConversationFunnelStage,
@@ -11,7 +12,7 @@ export type ConversationScoringMessage = {
 };
 
 export type ClosingCallHint = {
-  status: "scheduled" | "closed" | "not_closed" | "no_show";
+  status: ClosingCallStatus;
   scheduledAt: string;
 };
 

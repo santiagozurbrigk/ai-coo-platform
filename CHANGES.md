@@ -14,6 +14,110 @@
 
 ---
 
+### 2026-09-01 — Llamadas Fase 0: dejar de corromper datos de venta
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/closing/call-status.ts` (nuevo), `lib/fathom/reclaim-stuck.ts` (nuevo), `supabase/migrations/20260901120000_closing_calls_disposition.sql` (nueva), `lib/ghl/sync-appointments.ts`, `lib/calendly/{sync-events,closer-sync,fetch-scheduled-events}.ts`, `app/api/integrations/calendly/webhook/route.ts`, `lib/fathom/process-call.ts`, `lib/funnels/source-signal.ts`, `lib/closing/mapper.ts`, `lib/manychat/*`, `components/closing/*`, `docs/external-apis/fathom/` (nuevo)
+
+**Qué se hizo:**
+
+Primera fase del rediseño del módulo de llamadas. **No agrega features**: corrige
+la ingesta antes de construir el seguimiento de leads encima. El orden importa
+porque el sync borraba los estados manuales cada hora, así que cualquier
+seguimiento construido primero habría durado hasta el próximo cron.
+
+**⭐ Asistir se estaba contando como vender.** `showed` en GoHighLevel significa
+que el lead asistió. Estaba mapeado a `closed`, que en OTC es una venta cerrada y
+alimenta la etapa Cash del embudo y la facturación. Ahora cae en `attended`, un
+estado nuevo que dice exactamente lo que GHL dice y deja el resultado para que lo
+cargue una persona.
+
+**⭐ Cancelar no es faltar, y en dos lugares distintos era lo mismo.** GHL
+descartaba las canceladas en el filtro del sync —una llamada cancelada no existía
+para OTC— y Calendly las guardaba como `no_show`, en `fetch-scheduled-events.ts`
+y en el webhook. En un no-show el lead faltó a una llamada que ocurrió; en una
+cancelación la llamada nunca ocurrió. Confundirlas infla la tasa de inasistencia
+y borra el evento que el seguimiento del lead tiene que registrar. Estado nuevo
+`cancelled`, con `cancelled_by` para distinguir si canceló el lead o el closer.
+
+**⭐ El sync ya no pisa lo que carga una persona.** Los updates sólo respetaban
+`status = 'closed'`, así que un `not_closed` o un `no_show` marcado por un closer
+volvía a `scheduled` en la siguiente corrida. Nueva columna `status_source`: todo
+lo que pasa por el mapper de las Server Actions se marca `manual`, y los tres
+syncs (Calendly, closer-sync, GHL) dejan de tocar el estado en esas filas. Los
+datos del turno —horario, nombre, contacto— se siguen refrescando siempre: ahí el
+proveedor sí es la fuente de verdad.
+
+**⭐ Se dejó de inventar el tipo de llamada.** `process-call.ts` escribía
+`call_type: analysis?.call_type ?? "delivery"`: cuando la IA fallaba, la llamada
+quedaba marcada como entrega sin que nadie lo hubiera determinado. Ahora es
+`null`. Explica las 122 llamadas que hoy tienen tipo nulo teniendo transcript.
+
+**Llamadas trabadas.** `processSingleFathomCall` marca `processing` antes de
+trabajar y el cron sólo levanta `pending`: si algo falla, la fila queda colgada
+para siempre. Había 51 así, la más vieja del 16 de julio. Nueva columna
+`processing_started_at` y rescate en el cron.
+
+**Identidad del lead.** `sync-events.ts` recibía el email del invitado de Calendly
+y lo usaba sólo para atribución UTM, descartándolo. Ahora se persiste en
+`lead_email`, que es lo que la Fase 2 necesita para hilar reagendas de las 186
+llamadas que no vienen de GHL.
+
+**Documentación de Fathom bajada.** Era el séptimo proveedor y no estaba en
+`docs/external-apis/`. Leerla corrigió un supuesto del plan: `GET /meetings`
+devuelve `calendar_invitees[]` con **email, dominio e `is_external`**, y un campo
+**`meeting_type`** configurable por organización — y OTC descarta los dos, porque
+`lib/fathom/api.ts` sólo parsea título, fechas y transcript.
+
+**Decisiones de diseño relevantes:**
+
+- **Un solo vocabulario de estados** (`lib/closing/call-status.ts`). Estaba
+  interpretado a mano en quince archivos, cada uno decidiendo por su cuenta qué
+  contaba como asistencia y qué como venta; así fue como `showed` terminó siendo
+  `closed`. Los `Record<ClosingCallStatus, …>` de la UI hacen que el compilador
+  exija cubrir cada estado nuevo, pero las comparaciones sueltas no, y había
+  tres que caían en el default equivocado (`utm-leads-sheet`, `lead-journey`,
+  `score-conversation`): un estado nuevo se mostraba como "Agendado".
+- **`CallStatus` de embudos pasó a ser un alias, no una copia.** La lista
+  duplicada quedándose atrás es exactamente cómo `attended` habría dejado de
+  contarse en la asistencia del embudo.
+- **`syncMayOverwriteStatus` protege además los `closed` viejos.** Las filas
+  anteriores a la migración quedaron en `status_source = 'sync'` porque la
+  columna no existía; sin esa protección, el primer sync posterior al cambio de
+  `showed` habría devuelto a `attended` los 4 cierres existentes.
+- **El rescate de trabadas no toca las viejas, a propósito.** Mira
+  `processing_started_at`, que se agregó ahora: las 51 que ya estaban colgadas no
+  lo tienen y quedan afuera sin necesidad de un caso especial. Es la decisión del
+  usuario —las llamadas anteriores a este sistema se dejan como están— y además
+  evita disparar 51 análisis con IA que nadie pidió.
+- **`attended` cuenta como asistencia en las métricas.** Es el denominador de la
+  tasa de cierre: dejarlo afuera la subestimaría.
+- **Una cancelada no es señal de asistencia.** Un período con sólo agendadas y
+  canceladas sigue sin resultados cargados (`hasOutcomes = false`), porque la
+  llamada nunca ocurrió y no dice nada sobre si los leads se presentan.
+
+**Verificación ejecutada:**
+- `pnpm test`: **544 tests en 33 archivos, todos en verde** (35 nuevos).
+- `tsc --noEmit` y `pnpm lint` limpios. `pnpm build` completo: 133 páginas.
+- Migración **aplicada** a Supabase y verificada: ninguna fila existente cambió
+  de estado (981 `scheduled` / 44 `no_show` / 4 `closed`, igual que antes).
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Las 4 llamadas marcadas como venta que sólo fueron asistencia siguen ahí**,
+  por decisión explícita del usuario de no tocar el histórico. Van a seguir
+  contando como ventas en facturación y en la etapa Cash del embudo. El defecto
+  que las generaba está corregido: no se suman nuevas.
+- Las 51 llamadas trabadas desde julio quedan trabadas, por la misma decisión.
+- `cancelled_by` se llena con `unknown` en los dos proveedores. Calendly expone
+  el autor en `cancellation.canceled_by` y todavía no se lee; GHL no lo informa.
+- El eje de estado sigue siendo un solo campo con tres significados. Separarlo en
+  campos propios es Fase 2; mientras tanto los predicados de
+  `lib/closing/call-status.ts` son la única lectura correcta.
+
+---
+
 ### 2026-08-31 — BRAND-A: la paleta categórica llega a los badges, tags y nodos
 
 **Rama/branch:** `Claude-Design`

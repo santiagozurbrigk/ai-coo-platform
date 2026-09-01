@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Badge, Button, cn, GlassPanel } from "@ai-coo/ui";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CLOSING_CALL_STATUS_LABEL } from "@/lib/closing/call-status";
 import {
   addMonths,
   addWeeks,
@@ -22,25 +23,24 @@ import {
 } from "@/lib/closing/calendar";
 import type { ClosingCall, ClosingCallStatus } from "@/types/closing";
 
-const STATUS_LABEL: Record<ClosingCallStatus, string> = {
-  scheduled: "Agendada",
-  closed: "Cerrada",
-  not_closed: "No cerrada",
-  no_show: "No show",
-};
+const STATUS_LABEL = CLOSING_CALL_STATUS_LABEL;
 
 const STATUS_DOT: Record<ClosingCallStatus, string> = {
   scheduled: "bg-primary",
+  attended: "bg-sky-500",
   closed: "bg-emerald-500",
   not_closed: "bg-amber-500",
   no_show: "bg-destructive",
+  cancelled: "bg-muted-foreground",
 };
 
 const STATUS_CHIP: Record<ClosingCallStatus, string> = {
   scheduled: "border-primary/30 bg-primary/10 hover:bg-primary/15",
+  attended: "border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/15",
   closed: "border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15",
   not_closed: "border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15",
   no_show: "border-destructive/30 bg-destructive/10 hover:bg-destructive/15",
+  cancelled: "border-border bg-muted/40 hover:bg-muted/60",
 };
 
 type ClosingCalendarProps = {

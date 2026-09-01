@@ -11,6 +11,10 @@ import {
 } from "@ai-coo/ui";
 import { Calendar, ExternalLink, Video } from "lucide-react";
 import { FilterPills } from "@/components/marketing/filter-pills";
+import {
+  CLOSING_CALL_STATUSES,
+  CLOSING_CALL_STATUS_LABEL,
+} from "@/lib/closing/call-status";
 import { ModuleSubnav } from "@/components/shared/client";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -33,12 +37,9 @@ const TABS = [
   { label: "Equipo", hash: "equipo" },
 ] as const;
 
-const STATUS_LABEL: Record<ClosingCallStatus, string> = {
-  scheduled: "Agendada",
-  closed: "Completada — Cerrada",
-  not_closed: "Completada — No cerrada",
-  no_show: "No show",
-};
+// Las etiquetas viven en lib/closing/call-status.ts: eran tres copias distintas
+// del mismo vocabulario, y así fue como se desincronizaron.
+const STATUS_LABEL = CLOSING_CALL_STATUS_LABEL;
 
 const SOURCE_LABEL: Record<ClosingCallSource, string> = {
   calendly: "Calendly",
@@ -57,9 +58,11 @@ const STATUS_VARIANT: Record<
   "default" | "success" | "warning" | "destructive" | "secondary"
 > = {
   scheduled: "default",
+  attended: "secondary",
   closed: "success",
   not_closed: "warning",
   no_show: "destructive",
+  cancelled: "secondary",
 };
 
 function formatCallDate(iso: string) {
@@ -217,7 +220,7 @@ export function ClosingOverview({
             <>
               <FilterPills
                 options={(
-                  ["all", "scheduled", "closed", "not_closed", "no_show"] as const
+                  ["all", ...CLOSING_CALL_STATUSES] as const
                 ).map((f) => ({
                   value: f,
                   label:
@@ -349,10 +352,12 @@ export function ClosingOverview({
               <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                 {(
                   [
-                    ["scheduled", "Agendada"],
-                    ["closed", "Cerrada"],
-                    ["not_closed", "No cerrada"],
-                    ["no_show", "No show"],
+                    ["scheduled", CLOSING_CALL_STATUS_LABEL.scheduled],
+                    ["attended", CLOSING_CALL_STATUS_LABEL.attended],
+                    ["closed", CLOSING_CALL_STATUS_LABEL.closed],
+                    ["not_closed", CLOSING_CALL_STATUS_LABEL.not_closed],
+                    ["no_show", CLOSING_CALL_STATUS_LABEL.no_show],
+                    ["cancelled", CLOSING_CALL_STATUS_LABEL.cancelled],
                   ] as const
                 ).map(([status, label]) => (
                   <span key={status} className="flex items-center gap-1.5">
@@ -361,8 +366,10 @@ export function ClosingOverview({
                         "h-2 w-2 rounded-full",
                         status === "scheduled" && "bg-primary",
                         status === "closed" && "bg-emerald-500",
+                        status === "attended" && "bg-sky-500",
                         status === "not_closed" && "bg-amber-500",
-                        status === "no_show" && "bg-destructive"
+                        status === "no_show" && "bg-destructive",
+                        status === "cancelled" && "bg-muted-foreground"
                       )}
                     />
                     {label}

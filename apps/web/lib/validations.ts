@@ -610,10 +610,14 @@ export const updateClientSchema = clientFieldsSchema.partial();
 
 export const closingCallStatusSchema = z.enum([
   "scheduled",
+  "attended",
   "closed",
   "not_closed",
   "no_show",
+  "cancelled",
 ]);
+
+export const closingCallCancelledBySchema = z.enum(["lead", "closer", "unknown"]);
 
 const calendlyFormAnswerSchema = z.object({
   question: z.string().trim().min(1).max(500),
@@ -639,6 +643,7 @@ const closingCallFieldsSchema = z.object({
   paymentSourcePlatformId: z.string().trim().max(100).optional(),
   paymentDestinationPlatformId: z.string().trim().max(100).optional(),
   paymentReceivedFrom: z.string().trim().max(500).optional(),
+  cancelledBy: closingCallCancelledBySchema.optional(),
 });
 
 export const updateClosingCallSchema = closingCallFieldsSchema.partial();
