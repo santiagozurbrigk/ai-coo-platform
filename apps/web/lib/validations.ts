@@ -579,6 +579,9 @@ const clientInstallmentSchema = z.object({
 const clientFieldsSchema = z.object({
   name: clientNameSchema,
   nickname: z.string().trim().max(100).optional(),
+  // Sin declararlo acá Zod lo descarta en silencio y nunca llega a la base:
+  // es lo que hila al lead con el cliente en que se convirtió.
+  email: z.string().trim().email().max(320).nullable().optional(),
   joinDate: isoDateSchema,
   paymentType: clientPaymentTypeSchema,
   platform: paymentPlatformSchema,

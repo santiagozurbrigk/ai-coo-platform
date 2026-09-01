@@ -21,100 +21,123 @@ function at(minutes: number): string {
   return new Date(new Date(TURNO).getTime() + minutes * 60_000).toISOString();
 }
 
-describe("las dos señales juntas", () => {
-  it("mail y horario coincidiendo dan confianza alta", () => {
+describe("mail + horario: el cruce confirmado", () => {
+  it("asocia cuando el mail de un participante es el del lead del turno", () => {
     const result = matchRecordingToAppointment({
       recordingStart: at(3),
-      inviteeEmails: ["mariano@acme.com"],
+      participantEmails: ["closer@otc.com", "mariano@acme.com"],
       candidates: [candidate()],
     });
 
     expect(result.status).toBe("matched");
     if (result.status !== "matched") return;
     expect(result.match.appointmentId).toBe("turno-1");
-    expect(result.match.confidence).toBe("high");
-    expect(result.match.matchedOn).toEqual(["email", "time"]);
+    expect(result.match.confidence).toBe("confirmed");
     expect(result.match.minutesApart).toBe(3);
   });
 
   it("el mail no distingue mayúsculas ni espacios", () => {
     const result = matchRecordingToAppointment({
       recordingStart: at(2),
-      inviteeEmails: ["  MARIANO@Acme.com "],
+      participantEmails: ["  MARIANO@Acme.com "],
       candidates: [candidate()],
     });
     expect(result.status).toBe("matched");
   });
-});
 
-describe("una sola señal", () => {
-  it("sólo el horario alcanza, con confianza media", () => {
-    // Es el caso que hace que todo esto funcione sin que nadie configure nada.
+  it("con mail la ventana es amplia: la llamada puede arrancar tarde", () => {
     const result = matchRecordingToAppointment({
-      recordingStart: at(10),
-      inviteeEmails: [],
-      candidates: [candidate({ leadEmail: null })],
+      recordingStart: at(180),
+      participantEmails: ["mariano@acme.com"],
+      candidates: [candidate()],
     });
-
     expect(result.status).toBe("matched");
     if (result.status !== "matched") return;
-    expect(result.match.confidence).toBe("medium");
-    expect(result.match.matchedOn).toEqual(["time"]);
+    expect(result.match.confidence).toBe("confirmed");
   });
 
-  it("con mail coincidente la ventana se estira: una llamada puede arrancar tarde", () => {
-    const result = matchRecordingToAppointment({
-      recordingStart: at(180),
-      inviteeEmails: ["mariano@acme.com"],
-      candidates: [candidate()],
-    });
-    expect(result.status).toBe("matched");
-  });
-
-  it("sin mail, tres horas tarde ya no es el mismo turno", () => {
-    const result = matchRecordingToAppointment({
-      recordingStart: at(180),
-      inviteeEmails: [],
-      candidates: [candidate({ leadEmail: null })],
-    });
-    expect(result).toEqual({ status: "no_match", reason: "outside_window" });
-  });
-});
-
-describe("el mail manda sobre la cercanía", () => {
-  it("elige el turno del invitado aunque otro esté más cerca en el tiempo", () => {
+  it("gana sobre un turno más cercano en el tiempo pero de otro lead", () => {
+    // El mail es identidad; la hora sólo corrobora.
     const result = matchRecordingToAppointment({
       recordingStart: at(5),
-      inviteeEmails: ["mariano@acme.com"],
+      participantEmails: ["mariano@acme.com"],
       candidates: [
-        candidate({ id: "otro-lead", scheduledAt: at(4), leadEmail: "otro@x.com" }),
-        candidate({ id: "turno-de-mariano", scheduledAt: at(-40) }),
+        candidate({ id: "otro", scheduledAt: at(4), leadEmail: "otro@x.com" }),
+        candidate({ id: "el-de-mariano", scheduledAt: at(-40) }),
       ],
     });
 
     expect(result.status).toBe("matched");
     if (result.status !== "matched") return;
-    expect(result.match.appointmentId).toBe("turno-de-mariano");
+    expect(result.match.appointmentId).toBe("el-de-mariano");
+  });
+
+  it("el mismo lead con dos turnos a la misma hora no se resuelve solo", () => {
+    const result = matchRecordingToAppointment({
+      recordingStart: at(5),
+      participantEmails: ["mariano@acme.com"],
+      candidates: [
+        candidate({ id: "a" }),
+        candidate({ id: "b" }),
+      ],
+    });
+    expect(result).toEqual({ status: "no_match", reason: "ambiguous" });
   });
 });
 
-describe("cuando vincular sería adivinar", () => {
-  it("dos turnos a la misma hora sin mail que los separe van a revisión", () => {
+describe("sólo horario: el cruce provisional", () => {
+  it("asocia cuando hay un ÚNICO turno en la ventana", () => {
+    // Existe porque los turnos todavía no tienen mail: `lead_email` se agregó en
+    // la Fase 0 y se llena a medida que corren los syncs. Con la regla estricta
+    // no se asociaría ninguna llamada durante semanas.
+    const result = matchRecordingToAppointment({
+      recordingStart: at(10),
+      participantEmails: ["mariano@acme.com"],
+      candidates: [candidate({ leadEmail: null })],
+    });
+
+    expect(result.status).toBe("matched");
+    if (result.status !== "matched") return;
+    expect(result.match.confidence).toBe("provisional");
+  });
+
+  it("con dos turnos posibles NO asocia: elegir el más cercano sería adivinar", () => {
+    // Un vínculo mal hecho le adjudica a un lead una llamada que no tuvo.
     const result = matchRecordingToAppointment({
       recordingStart: at(5),
-      inviteeEmails: [],
+      participantEmails: [],
       candidates: [
         candidate({ id: "a", leadEmail: null }),
-        candidate({ id: "b", leadEmail: null }),
+        candidate({ id: "b", scheduledAt: at(30), leadEmail: null }),
       ],
     });
     expect(result).toEqual({ status: "no_match", reason: "ambiguous" });
   });
 
-  it("sin turnos en el período no hay match", () => {
+  it("la ventana sin mail es corta", () => {
+    const result = matchRecordingToAppointment({
+      recordingStart: at(120),
+      participantEmails: [],
+      candidates: [candidate({ leadEmail: null })],
+    });
+    expect(result).toEqual({ status: "no_match", reason: "outside_window" });
+  });
+
+  it("una grabación anterior al turno cuenta igual: la ventana es simétrica", () => {
+    const result = matchRecordingToAppointment({
+      recordingStart: at(-10),
+      participantEmails: [],
+      candidates: [candidate({ leadEmail: null })],
+    });
+    expect(result.status).toBe("matched");
+  });
+});
+
+describe("lo que no cruza", () => {
+  it("sin turnos cerca no hay match", () => {
     const result = matchRecordingToAppointment({
       recordingStart: at(0),
-      inviteeEmails: ["mariano@acme.com"],
+      participantEmails: ["mariano@acme.com"],
       candidates: [],
     });
     expect(result).toEqual({ status: "no_match", reason: "no_candidates" });
@@ -123,7 +146,7 @@ describe("cuando vincular sería adivinar", () => {
   it("sin hora de grabación no se puede cruzar nada", () => {
     const result = matchRecordingToAppointment({
       recordingStart: null,
-      inviteeEmails: ["mariano@acme.com"],
+      participantEmails: ["mariano@acme.com"],
       candidates: [candidate()],
     });
     expect(result).toEqual({ status: "no_match", reason: "no_recording_time" });
@@ -132,7 +155,7 @@ describe("cuando vincular sería adivinar", () => {
   it("una fecha inválida se trata como ausente, no rompe", () => {
     const result = matchRecordingToAppointment({
       recordingStart: "no-es-fecha",
-      inviteeEmails: [],
+      participantEmails: [],
       candidates: [candidate()],
     });
     expect(result).toEqual({ status: "no_match", reason: "no_recording_time" });
@@ -141,25 +164,24 @@ describe("cuando vincular sería adivinar", () => {
   it("un turno con fecha inválida se ignora sin tumbar el resto", () => {
     const result = matchRecordingToAppointment({
       recordingStart: at(2),
-      inviteeEmails: [],
+      participantEmails: ["mariano@acme.com"],
       candidates: [
-        candidate({ id: "roto", scheduledAt: "vaya-a-saber", leadEmail: null }),
-        candidate({ id: "sano", leadEmail: null }),
+        candidate({ id: "roto", scheduledAt: "vaya-a-saber" }),
+        candidate({ id: "sano" }),
       ],
     });
     expect(result.status).toBe("matched");
     if (result.status !== "matched") return;
     expect(result.match.appointmentId).toBe("sano");
   });
-});
 
-describe("una grabación anterior al turno", () => {
-  it("cuenta igual: la ventana es simétrica", () => {
+  it("una reunión de equipo no cruza, y eso es correcto", () => {
+    // Nadie del equipo tiene el mail de un lead, y no hay turno a esa hora.
     const result = matchRecordingToAppointment({
-      recordingStart: at(-10),
-      inviteeEmails: [],
-      candidates: [candidate({ leadEmail: null })],
+      recordingStart: at(600),
+      participantEmails: ["santi@otc.com", "ana@otc.com"],
+      candidates: [candidate()],
     });
-    expect(result.status).toBe("matched");
+    expect(result.status).toBe("no_match");
   });
 });

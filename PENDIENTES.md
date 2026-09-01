@@ -19,47 +19,25 @@ listas, para pasar la implementación entera a producción de una vez.
 
 ---
 
-### [LLAMADAS-TIPOS-FATHOM] Verificar cómo se asignan los tipos de reunión
+### [LLAMADAS-VERIFICAR-FATHOM] Probar el cruce con datos reales 🔴
 
-**Qué mirar en la cuenta de Fathom** (bloquea el diseño de la Fase 1):
-
-1. ¿Existen tipos de reunión configurados?
-2. ¿El tipo se asigna **solo** (por alguna regla de Fathom) o **a mano**, reunión
-   por reunión?
-
-**Por qué decide todo:** si es automático, el equipo no hace nada nunca. Si es
-manual, es el mismo esfuerzo que renombrar la llamada —sólo que eligiendo de una
-lista en vez de escribiendo, que falla menos.
-
-**Lo que ya sabemos por la documentación:** `GET /meeting_types` es **de sólo
-lectura** —OTC no puede crear ni asignar tipos, eso se hace dentro de Fathom— y
-los tipos **no tienen ID: la clave es el nombre**. Si alguien renombra un tipo,
-el mapeo se rompe; la pantalla de OTC tiene que avisar "este tipo ya no existe"
-en vez de dejar de clasificar en silencio.
-
-**Fuera de alcance por decisión del usuario:** las reuniones improvisadas (las
-`"Impromptu…"`, el 86% del histórico). Esto rige de hoy en adelante.
-
----
-
-### [LLAMADAS-VERIFICAR-FATHOM] Probar la clasificación con datos reales 🔴
-
-**Qué es:** la Fase 1 está construida pero **nada se probó contra una cuenta real
+**Qué es:** el motor está construido pero **nada se probó contra una cuenta real
 de Fathom**. El mapeo de campos se hizo leyendo la documentación.
 
 **Qué mirar, en orden:**
 
-1. **¿`calendar_invitees` viene poblado?** Es la señal de la que cuelga todo. El
-   schema lo marca obligatorio, pero una reunión sin evento de calendario podría
-   traer el array vacío.
-2. **¿Existen tipos de reunión en la cuenta?** El panel de Integraciones →
-   Clasificación de llamadas lo responde solo, sin que la API key salga del
-   servidor. Tres resultados posibles: la lista con los tipos, "no tenés tipos
-   configurados", o "no se pudo consultar".
-3. **¿La ventana horaria es la correcta?** Hoy son 12 h con mail coincidente y
-   45 min sin él. Se mide contra los cruces reales y se ajusta si hace falta.
+1. **¿`calendar_invitees` viene poblado?** Es la señal de la que cuelga todo.
+   El schema lo marca obligatorio, pero una reunión sin evento de calendario
+   podría traer el array vacío.
+2. **¿Cuántas grabaciones quedan sin turno, y cuáles de esas eran ventas?** Se ve
+   en Integraciones → Llamadas de venta. Estar en esa lista no es un problema:
+   una reunión de equipo o una sesión con un cliente no es una venta.
+3. **¿La ventana de 45 minutos del match provisional es la correcta?** Se eligió
+   por criterio, no midiendo cruces reales.
 
-**Dónde se ve:** Integraciones → Clasificación de llamadas.
+**Alcance actual:** OTC registra **únicamente llamadas de venta**. Equipo y
+entrega de servicio quedan para más adelante — cuando se implementen, entran por
+`counterparty` y `purpose`, que ya existen.
 
 ---
 
@@ -562,6 +540,7 @@ referencias + `brand.domain`.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-09-01 | LLAMADAS-ALCANCE: reducción a sólo llamadas de venta. Una grabación lo es cuando el mail de un participante coincide con el del lead de un turno y el horario corresponde; match provisional por horario mientras los turnos no tengan mail. Se retiró lo que quedó fuera de alcance (tipos de reunión, parser de título, match contra clientes, detección de equipo). El mail del lead ahora viaja al cliente al cerrar. 558 tests | `Claude-New-Features` |
 | 2026-09-01 | LLAMADAS-FASE-1: un solo clasificador con dos ejes (con quién / para qué). Se empezaron a leer los invitados de Fathom —con mail e `is_external`— que el parser descartaba, y el cruce grabación↔turno por horario y mail, con FK real. Parser posicional del título como respaldo. UI de mapeo de tipos y cola de sin clasificar. 581 tests | `Claude-New-Features` |
 | 2026-09-01 | LLAMADAS-FASE-0: `showed` de GHL dejó de contarse como venta; canceladas se importan como canceladas y no como no-show; los syncs dejaron de pisar los estados manuales; se dejó de inventar `"delivery"`; rescate de llamadas trabadas; `lead_email` persistido; documentación de Fathom bajada al repo. 544 tests | `Claude-New-Features` |
 | 2026-08-31 | BRAND-A: paleta categórica aplicada a badges, etiquetas y nodos del grafo; 0 clases violeta en la app | `Claude-Design` |

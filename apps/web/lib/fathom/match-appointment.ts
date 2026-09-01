@@ -3,20 +3,24 @@ import { normalizeEmail } from "@/lib/fathom/invitees";
 /**
  * Cruce entre una grabación de Fathom y un turno agendado (`closing_calls`).
  *
- * ⭐ **Es la señal más fuerte del módulo, y no depende de nadie.** Funciona
- * aunque el título esté vacío y aunque nadie configure tipos de reunión: si una
- * grabación arranca dentro de la ventana de un turno y el mail de un invitado
- * coincide con el del lead de ese turno, **es esa llamada de venta**.
+ * ⭐ **Es toda la regla del módulo.** OTC registra **únicamente llamadas de
+ * venta**, y una grabación es una llamada de venta cuando el mail de alguno de
+ * sus participantes coincide con el del lead de un turno y el horario
+ * corresponde. Lo que no cruza no es un error ni algo a revisar: simplemente no
+ * es una llamada de venta.
  *
  * ⭐ **El horario no tiene faltas de ortografía.** El cruce anterior era un
  * `ilike '%nombre%'` que tomaba el turno más reciente sin mirar fechas. Los
  * nombres de la base vienen con emojis y dobles espacios (`"🩷 Diana
  * Villarreal"`, `"Bastián  Sesión de Consultoría 🚀"`); las marcas de tiempo, no.
  *
- * ⭐ **Dos señales independientes.** Mail y horario se confirman entre sí. Con
- * las dos, la confianza es alta y la ventana puede ser amplia —una llamada puede
- * arrancar tarde—. Con una sola, la ventana se achica y la confianza baja. Sin
- * ninguna, no hay match: preferimos no vincular a vincular mal.
+ * ⭐ **El match provisional es temporal, y se apaga solo.** Los turnos todavía no
+ * tienen mail: `lead_email` se agregó en la Fase 0 y se llena a medida que
+ * corren los syncs. Con la regla estricta no se asociaría **ninguna** llamada
+ * durante semanas. Por eso un solo turno dentro de una ventana corta alcanza
+ * para asociar, marcado como `provisional` para que se pueda distinguir de un
+ * cruce confirmado. Cuando los turnos tengan mail, este camino deja de usarse
+ * por sí mismo: el match por mail siempre gana.
  */
 
 export type AppointmentCandidate = {
@@ -26,11 +30,15 @@ export type AppointmentCandidate = {
   leadEmail: string | null;
 };
 
+export type MatchConfidence =
+  /** Mail y horario coinciden: es esa llamada, sin ambigüedad. */
+  | "confirmed"
+  /** Sólo el horario, y un único turno posible. Se revisa cuando haya mails. */
+  | "provisional";
+
 export type AppointmentMatch = {
   appointmentId: string;
-  confidence: "high" | "medium";
-  /** Qué señales coincidieron. Se guarda para poder auditar un vínculo. */
-  matchedOn: ("email" | "time")[];
+  confidence: MatchConfidence;
   minutesApart: number;
 };
 
@@ -45,22 +53,23 @@ export type NoMatchReason =
   | "no_candidates"
   /** Ninguno cayó dentro de la ventana ni coincidió por mail. */
   | "outside_window"
-  /** Varios turnos igual de plausibles: vincular sería adivinar. */
+  /** Varios turnos igual de plausibles: asociar sería adivinar. */
   | "ambiguous";
 
 /**
- * Ventana amplia, para cuando el mail ya confirmó de quién es la llamada.
+ * Ventana para un cruce confirmado por mail.
  *
- * Cubre que la llamada arranque tarde o que se corra dentro del día sin que se
- * actualice el turno.
+ * Amplia a propósito: el mail ya dice de quién es la llamada, así que la hora
+ * sólo corrobora. Cubre que la llamada arranque tarde o se corra dentro del día.
  */
 export const EMAIL_MATCH_WINDOW_MINUTES = 12 * 60;
 
 /**
- * Ventana ajustada, para cuando lo único que hay es la coincidencia horaria.
+ * Ventana para un cruce provisional, sin mail.
  *
- * Sin mail, sólo el solapamiento sostiene el vínculo: 45 minutos cubre el
- * arranque tarde de una llamada sin llegar a tocar el turno siguiente.
+ * Ajustada: sin mail, el solapamiento es lo único que sostiene el vínculo.
+ * 45 minutos cubre el arranque tarde de una llamada sin llegar al turno
+ * siguiente.
  */
 export const TIME_ONLY_WINDOW_MINUTES = 45;
 
@@ -69,13 +78,14 @@ function minutesBetween(a: number, b: number): number {
 }
 
 /**
- * Elige el turno al que corresponde una grabación.
+ * Decide a qué turno corresponde una grabación.
  *
  * Puro: recibe los candidatos ya consultados. La consulta vive en el resolver.
  */
 export function matchRecordingToAppointment(params: {
   recordingStart: string | null | undefined;
-  inviteeEmails: string[];
+  /** Mails de los participantes de la grabación. */
+  participantEmails: string[];
   candidates: AppointmentCandidate[];
 }): AppointmentMatchResult {
   const startedAt = params.recordingStart
@@ -90,7 +100,7 @@ export function matchRecordingToAppointment(params: {
   }
 
   const emails = new Set(
-    params.inviteeEmails
+    params.participantEmails
       .map((email) => normalizeEmail(email))
       .filter((email): email is string => Boolean(email))
   );
@@ -114,33 +124,47 @@ export function matchRecordingToAppointment(params: {
     return { status: "no_match", reason: "outside_window" };
   }
 
-  // Con mail coincidente siempre gana, por lejos que esté en el tiempo: es la
-  // señal de identidad, y la hora es sólo corroboración.
   const withEmail = scored.filter((s) => s.byEmail);
-  const pool = withEmail.length > 0 ? withEmail : scored;
-  pool.sort((a, b) => a.minutes - b.minutes);
 
-  const best = pool[0]!;
+  // ── Camino confirmado ──────────────────────────────────────────────────────
+  if (withEmail.length > 0) {
+    withEmail.sort((a, b) => a.minutes - b.minutes);
 
-  // Empate real: dos turnos del mismo lead a la misma hora, o dos turnos
-  // distintos igual de cerca sin mail que los separe. Vincular sería elegir al
-  // azar, así que se manda a revisión.
-  const runnerUp = pool[1];
-  if (runnerUp && Math.abs(runnerUp.minutes - best.minutes) < 1) {
+    // El mismo lead con dos turnos a la misma hora: no hay forma de elegir.
+    if (
+      withEmail.length > 1 &&
+      Math.abs(withEmail[1]!.minutes - withEmail[0]!.minutes) < 1
+    ) {
+      return { status: "no_match", reason: "ambiguous" };
+    }
+
+    const best = withEmail[0]!;
+    return {
+      status: "matched",
+      match: {
+        appointmentId: best.candidate.id,
+        confidence: "confirmed",
+        minutesApart: Math.round(best.minutes),
+      },
+    };
+  }
+
+  // ── Camino provisional ─────────────────────────────────────────────────────
+  //
+  // Sin mail, sólo se asocia cuando hay **un único** turno en la ventana. Con
+  // dos candidatos elegir el más cercano sería adivinar, y un vínculo mal hecho
+  // le adjudica a un lead una llamada que no tuvo.
+  if (scored.length > 1) {
     return { status: "no_match", reason: "ambiguous" };
   }
 
-  const matchedOn: ("email" | "time")[] = best.byEmail ? ["email"] : [];
-  if (best.minutes <= TIME_ONLY_WINDOW_MINUTES) matchedOn.push("time");
-
+  const only = scored[0]!;
   return {
     status: "matched",
     match: {
-      appointmentId: best.candidate.id,
-      // Alta sólo cuando las dos señales independientes coinciden.
-      confidence: matchedOn.length === 2 ? "high" : "medium",
-      matchedOn,
-      minutesApart: Math.round(best.minutes),
+      appointmentId: only.candidate.id,
+      confidence: "provisional",
+      minutesApart: Math.round(only.minutes),
     },
   };
 }

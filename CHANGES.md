@@ -14,6 +14,92 @@
 
 ---
 
+### 2026-09-01 — Llamadas: reducción de alcance a sólo llamadas de venta
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/fathom/{match-appointment,resolve-sales-call,invitees}.ts`, `app/fathom/sales-call-actions.ts` (nuevo), `components/integrations/unlinked-recordings-panel.tsx` (nuevo), `supabase/migrations/20260901210000_sales_calls_only.sql` (nueva), `providers/platform-data-provider.tsx`, `types/clients.ts`, `lib/clients/mapper.ts`, `lib/validations.ts`
+
+**Qué se hizo:**
+
+Decisión de producto: OTC registra **únicamente llamadas de venta**. Equipo y
+entrega de servicio quedan para más adelante.
+
+**La regla, completa:** una grabación de Fathom es una llamada de venta cuando el
+mail de alguno de sus participantes coincide con el del lead de un turno
+agendado y el horario corresponde. Lo que no cruza existe igual en
+`fathom_calls`, pero no entra al módulo de ventas — y eso **no es un error**.
+
+**⭐ El match provisional, y por qué existe.** Los 1.027 turnos actuales no tienen
+mail: `lead_email` se agregó en la Fase 0 y se llena a medida que corren los
+syncs. Con la regla estricta no se asociaría **ninguna** llamada durante semanas.
+Por eso un único turno dentro de una ventana corta (45 min) alcanza para
+asociar, marcado como `provisional` y distinguible de un cruce `confirmed` por
+mail (ventana de 12 h). Con **dos** turnos posibles no se asocia: elegir el más
+cercano sería adivinar, y un vínculo mal hecho le adjudica a un lead una llamada
+que no tuvo. Este camino se apaga solo cuando los turnos tengan mail.
+
+**Se retiró lo que quedó fuera de alcance**, en vez de dejarlo dormido: el mapeo
+de tipos de reunión de Fathom (tabla, acciones, pantalla y lector de la API), el
+parser de la convención del título, la búsqueda contra clientes por mail y la
+detección de reunión de equipo. Código y columnas que parecen vivos pero nadie
+escribe son exactamente cómo terminaron conviviendo los cuatro clasificadores
+que la Fase 1 acababa de reemplazar.
+
+**La cola de revisión se reformuló.** Ya no pregunta "¿qué es esto?" sino que
+deja **vincular a mano** una grabación con un turno. El caso que resuelve es el
+inverso al que parece: una llamada de venta real que no llegó a cruzar, y por lo
+tanto un turno sin su registro de la llamada — que es lo que el seguimiento del
+lead necesita.
+
+**El mail del lead viaja al cliente al cerrar la venta.** La columna
+`clients.email` existía en la base pero la aplicación **nunca la escribía**: los
+264 clientes cargados tenían el mail vacío, y el tipo `Client` ni siquiera tenía
+el campo. Es la identidad estable que hila al lead con el cliente en que se
+convirtió, y sin ella la Fase 2 no puede seguir el hilo.
+
+**Corrección de un defecto de la Fase 0:** al agregar el estado `attended` se
+actualizaron los botones de "no cerró" y "no show" para aceptarlo, pero **se
+había salteado el de cerrar la venta**. Una llamada que GHL marcaba como asistida
+no se podía cerrar desde OTC.
+
+**Decisiones de diseño relevantes:**
+
+- **Se comparan todos los participantes, no sólo los que Fathom marca externos.**
+  `is_external` se calcula contra el dominio de la cuenta de Fathom: un closer
+  con Gmail personal figura como externo y un lead con dominio parecido figura
+  como interno. El mail del turno es la referencia, así que conviene comparar
+  contra el conjunto completo y dejar que el turno decida.
+- **El mail le gana a la cercanía temporal.** Si un participante coincide con el
+  lead de un turno, ese turno gana aunque otro esté más cerca en el tiempo: el
+  mail es identidad, la hora corrobora.
+- **Sin mail y con más de un turno posible, no se asocia.** Es la diferencia
+  entre un dato y una suposición.
+- **`counterparty` y `purpose` se conservan** aunque hoy sólo tomen `lead` y
+  `sales`: son la puerta por la que entran entrega y equipo cuando se
+  implementen. `calendar_invitees` y `meeting_type` también, porque son datos
+  crudos que Fathom devuelve y guardarlos no cuesta nada.
+- **`email` se agregó al schema de validación de cliente.** Sin declararlo, Zod
+  lo descartaba en silencio y nunca habría llegado a la base.
+
+**Verificación ejecutada:**
+- `pnpm test`: **558 tests en 34 archivos, todos en verde** (14 del matcher, reescritos contra la regla nueva).
+- `tsc --noEmit` y `pnpm lint` limpios. `pnpm build` completo: 133 páginas.
+- Migración **aplicada** a Supabase.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Nada se probó todavía contra una cuenta real de Fathom.** Lo primero a
+  verificar sigue siendo si `calendar_invitees` viene poblado.
+- La ventana de 45 minutos del match provisional se eligió por criterio, no
+  midiendo cruces reales. Se ajusta con datos.
+- Los 264 clientes existentes siguen sin mail: sólo los nuevos lo heredan.
+- `associateCallWithClients` (el fuzzy match por título) sigue en el pipeline
+  como último recurso; se retira cuando haya datos reales que confirmen que no
+  se activa.
+
+---
+
 ### 2026-09-01 — Llamadas Fase 1: un clasificador, dos ejes, y la señal que se estaba tirando
 
 **Rama/branch:** `Claude-New-Features`

@@ -71,19 +71,15 @@ export function parseFathomInvitees(raw: unknown): FathomInvitee[] {
   return invitees;
 }
 
-/** Mails de los invitados externos. Es el conjunto que identifica al lead. */
-export function externalEmails(invitees: FathomInvitee[]): string[] {
-  return invitees.filter((i) => i.isExternal).map((i) => i.email);
-}
-
 /**
- * ¿Es una reunión sólo del equipo?
+ * Mails de todos los participantes.
  *
- * Devuelve `null` cuando no hay invitados cargados: sin lista no se puede
- * afirmar que no había externos. Distinguir "no había externos" de "no sabemos
- * quiénes eran" es la misma regla que rige todo el módulo.
+ * ⭐ **Todos, no sólo los que Fathom marca externos.** `is_external` se calcula
+ * contra el dominio de la cuenta de Fathom: un closer con Gmail personal figura
+ * como externo, y un lead con un dominio parecido al de la empresa figura como
+ * interno. Para cruzar contra la agenda la referencia es el mail del turno, así
+ * que conviene comparar contra el conjunto completo y dejar que el turno decida.
  */
-export function isInternalOnly(invitees: FathomInvitee[]): boolean | null {
-  if (invitees.length === 0) return null;
-  return invitees.every((i) => !i.isExternal);
+export function allEmails(invitees: FathomInvitee[]): string[] {
+  return invitees.map((i) => i.email);
 }

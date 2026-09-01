@@ -5,11 +5,9 @@ import { extractTeamMeetingTaskProposals } from "@/lib/fathom/team-task-extracti
 import { associateCallWithClients } from "@/lib/fathom/associate";
 import { isManualFathomLink } from "@/lib/fathom/client-matcher";
 
-/** Confianza de un vínculo resuelto por coincidencia exacta de mail. */
-const EMAIL_MATCH_CONFIDENCE = 0.95;
 import { fetchFathomMeetingTitle } from "@/lib/fathom/api";
 import { parseFathomInvitees } from "@/lib/fathom/invitees";
-import { resolveCallClassification } from "@/lib/fathom/resolve-classification";
+import { resolveSalesCall } from "@/lib/fathom/resolve-sales-call";
 import { ingestDocument } from "@/lib/rag/ingest";
 import {
   publishFathomAnalysisJob,
@@ -133,42 +131,31 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
     if (updatedTitle) title = updatedTitle;
   }
 
-  // ⭐ Clasificación. Reemplaza a los cuatro mecanismos que competían y se
-  // pisaban entre sí. Corre después de refrescar el título —la ventana de 30
-  // minutos existe para que alguien pueda renombrar la reunión— y antes de
-  // cualquier análisis, porque de acá sale con quién y para qué es la llamada.
-  const classification = await resolveCallClassification({
+  // ⭐ ¿Es una llamada de venta? Es la única pregunta que el módulo responde hoy.
+  //
+  // OTC registra únicamente llamadas de venta: una grabación lo es cuando el
+  // mail de alguno de sus participantes coincide con el del lead de un turno
+  // agendado y el horario corresponde. Lo que no cruza —una reunión de equipo,
+  // una sesión con un cliente— existe igual en `fathom_calls`, pero no entra al
+  // módulo de ventas. No es un error.
+  //
+  // Corre después de refrescar el título (la espera de 30 minutos existe para
+  // que alguien pueda renombrar la reunión) y antes de cualquier análisis.
+  const salesCall = await resolveSalesCall({
     organizationId: call.organization_id,
-    title,
     invitees: parseFathomInvitees(call.calendar_invitees),
-    meetingType: call.meeting_type ?? null,
     recordingStart: call.call_date ?? null,
   });
 
-  const classificationUpdate: Record<string, unknown> = {
-    counterparty: classification.counterparty,
-    purpose: classification.purpose,
-    classification_signals: classification.signals,
-    unclassified_reason: classification.reason,
-    declared_name: classification.declaredName,
-    closing_call_id: classification.appointmentId,
-    appointment_match: classification.appointmentMatch,
-  };
-
-  // Un invitado externo cuyo mail es el de un cliente: eso identifica al cliente
-  // con certeza. Es lo que reemplaza al fuzzy match contra el título, que dejó
-  // 0 de 248 llamadas asociadas.
-  //
-  // 0.95 y no 1: `1` está reservado para los vínculos que hizo una persona
-  // (`MANUAL_FATHOM_LINK_CONFIDENCE`), y este es automático. Alcanza de sobra
-  // para el umbral de asociación, que es 0.75.
-  const isManual = isManualFathomLink(call.client_id, call.association_confidence);
-  if (classification.clientId && !isManual) {
-    classificationUpdate.client_id = classification.clientId;
-    classificationUpdate.association_confidence = EMAIL_MATCH_CONFIDENCE;
-  }
-
-  await admin.from("fathom_calls").update(classificationUpdate).eq("id", call.id);
+  await admin
+    .from("fathom_calls")
+    .update({
+      purpose: salesCall.isSalesCall ? "sales" : null,
+      counterparty: salesCall.isSalesCall ? "lead" : null,
+      closing_call_id: salesCall.appointmentId,
+      appointment_match: salesCall.match,
+    })
+    .eq("id", call.id);
 
   const { data: callState } = await admin
     .from("fathom_calls")
@@ -197,7 +184,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
       confidence: linkConfidence,
       durationSeconds: call.duration_seconds,
       callDate: call.call_date,
-      purpose: classification.purpose,
+      purpose: salesCall.isSalesCall ? "sales" : null,
     });
     return;
   }
@@ -241,7 +228,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
       await maybeExtractTeamMeetingTasks({
         callId: call.id,
         organizationId: call.organization_id,
-        purpose: classification.purpose,
+        purpose: salesCall.isSalesCall ? "sales" : null,
         transcript: call.transcript,
         summary: analysis?.situation_summary ?? call.summary ?? null,
       });
@@ -285,7 +272,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
     confidence: association.confidence,
     durationSeconds: call.duration_seconds,
     callDate: call.call_date,
-    purpose: classification.purpose,
+    purpose: salesCall.isSalesCall ? "sales" : null,
   });
 }
 

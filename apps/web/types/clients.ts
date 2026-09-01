@@ -48,6 +48,14 @@ export type Client = {
   id: string;
   name: string;
   nickname?: string;
+  /**
+   * Mail del cliente. Se hereda del lead al cerrar la venta.
+   *
+   * ⭐ La columna existía en la base pero la aplicación nunca la escribía: al
+   * revisar, los 264 clientes cargados tenían el mail vacío. Es la identidad
+   * estable que hila al lead con el cliente en que se convirtió.
+   */
+  email?: string | null;
   joinDate: string;
   paymentType: "upfront" | "installments" | "upfront_fee";
   platform: PaymentPlatform;
