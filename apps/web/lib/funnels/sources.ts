@@ -100,7 +100,7 @@ export const FUNNEL_SOURCES = [
   {
     id: "closing_calls_attended",
     label: "Llamadas a las que asistieron",
-    description: 'Llamadas cerradas o no cerradas: excluye los "no_show".',
+    description: 'Llamadas a las que el lead asistió: excluye "no_show" y canceladas.',
     provenance: "calendly",
     suitableFor: ["sales_conv"],
   },

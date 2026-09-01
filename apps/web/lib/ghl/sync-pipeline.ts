@@ -32,8 +32,8 @@ export async function syncGHLOrganizationSafe(
     organizationId,
     inserted: 0,
     updated: 0,
-    skippedClosed: 0,
-    skippedCancelled: 0,
+    skippedManualStatus: 0,
+    skippedInvalid: 0,
     fetched: 0,
   };
 

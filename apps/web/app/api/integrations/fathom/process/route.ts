@@ -3,6 +3,7 @@ import { assertCronAuthorized } from "@/lib/integrations/cron-auth";
 import { probeFathomListEndpoint } from "@/lib/fathom/api";
 import { getFathomIntegrationDiagnostics } from "@/lib/fathom/diagnostics";
 import { processPendingFathomCalls } from "@/lib/fathom/process-call";
+import { reclaimStuckFathomCalls } from "@/lib/fathom/reclaim-stuck";
 import { syncAllFathomIntegrations } from "@/lib/fathom/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -13,7 +14,8 @@ export const maxDuration = 60;
 /**
  * Cron Fathom:
  * 1. Sync desde API (GET /external/v1/meetings — documentado en developers.fathom.ai)
- * 2. Procesar llamadas pending cuyo delay de 30 min ya venció
+ * 2. Rescatar las que quedaron trabadas en `processing`
+ * 3. Procesar llamadas pending cuyo delay de 30 min ya venció
  */
 async function runFathomProcess(request: Request) {
   console.log("[Fathom:process] START - version 3");
@@ -108,6 +110,10 @@ async function runFathomProcess(request: Request) {
     console.error("[Fathom:process] Sync error:", syncError, e);
   }
 
+  // Antes de procesar la cola, devolver a `pending` lo que quedó colgado en
+  // `processing`. Lo rescatado se procesa en la corrida siguiente.
+  const reclaimed = await reclaimStuckFathomCalls();
+
   const processed = await processPendingFathomCalls(50);
   console.log("[Fathom:process] Pending processed:", processed);
 
@@ -115,6 +121,7 @@ async function runFathomProcess(request: Request) {
     ok: true,
     version: 3,
     processed,
+    reclaimed,
     sync,
     syncError: syncError ?? null,
     diagnostics,

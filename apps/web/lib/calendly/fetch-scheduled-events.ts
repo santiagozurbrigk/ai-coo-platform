@@ -60,9 +60,21 @@ async function fetchAllPages<T>(
   return items;
 }
 
+/**
+ * ⭐ Cancelar no es faltar.
+ *
+ * `invitee.status === "canceled"` se guardaba como `no_show`, que mezcla dos
+ * hechos distintos: en un no-show el lead no se presentó a una llamada que
+ * ocurrió; en una cancelación la llamada nunca ocurrió. Contarlas juntas infla
+ * la tasa de inasistencia con turnos que nadie dejó plantado, y borra el evento
+ * que el seguimiento del lead necesita registrar.
+ *
+ * Calendly informa la cancelación en `invitee.status` pero no siempre quién la
+ * pidió; el autor se resuelve aparte, en `cancellation.canceled_by`.
+ */
 function mapInviteeStatus(invitee: InviteeResource): CalendlyEventSyncPayload["statusHint"] {
   if (invitee.no_show?.created_at) return "no_show";
-  if (invitee.status === "canceled") return "no_show";
+  if (invitee.status === "canceled") return "cancelled";
   return "scheduled";
 }
 

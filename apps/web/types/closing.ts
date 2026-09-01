@@ -1,4 +1,26 @@
-export type ClosingCallStatus = "scheduled" | "closed" | "not_closed" | "no_show";
+/**
+ * Estados de una llamada de cierre.
+ *
+ * `attended` y `cancelled` se agregaron en la Fase 0 porque describen cosas que
+ * pasan y no se podían representar: asistir sin resultado cargado (lo que
+ * significa `showed` en GHL) y un turno que se canceló antes de ocurrir.
+ *
+ * Las etiquetas y los predicados viven en `lib/closing/call-status.ts`.
+ * No compares contra estos strings a mano: preguntale a ese módulo.
+ */
+export type ClosingCallStatus =
+  | "scheduled"
+  | "attended"
+  | "closed"
+  | "not_closed"
+  | "no_show"
+  | "cancelled";
+
+/** Quién fijó el estado actual. Los syncs no pisan lo que marcó una persona. */
+export type ClosingCallStatusSource = "sync" | "manual";
+
+/** Autor de la cancelación. `unknown` cuando el proveedor no lo informa. */
+export type ClosingCallCancelledBy = "lead" | "closer" | "unknown";
 
 export type CalendlyFormAnswer = {
   question: string;
@@ -30,6 +52,13 @@ export type ClosingCall = {
   paymentReceivedFrom?: string;
   /** Origen de la llamada: Calendly, GHL o cargada manualmente */
   source?: ClosingCallSource;
+  /** Quién fijó el estado actual. Los syncs respetan `manual`. */
+  statusSource?: ClosingCallStatusSource;
+  /** Autor de la cancelación, cuando la llamada está cancelada. */
+  cancelledBy?: ClosingCallCancelledBy;
+  /** Identidad estable del lead, para hilar reagendas entre turnos. */
+  leadEmail?: string | null;
+  leadPhone?: string | null;
   /** Atribución UTM del contacto en GHL (disponible para llamadas de origen GHL) */
   utmSource?: string | null;
   utmMedium?: string | null;

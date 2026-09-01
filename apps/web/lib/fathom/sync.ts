@@ -41,6 +41,12 @@ function buildFathomCallRow(organizationId: string, meeting: FathomMeetingRecord
     call_date: recordingStart ?? new Date().toISOString(),
     duration_seconds: durationSeconds,
     transcript,
+    // ⭐ Las señales con las que se clasifica. Venían en la respuesta de la API
+    // desde siempre y el parser las descartaba; sin ellas, lo único que quedaba
+    // para decidir qué era una llamada era el título, vacío en el 86% de los
+    // casos.
+    calendar_invitees: meeting.calendar_invitees ?? [],
+    meeting_type: meeting.meeting_type ?? null,
     status: "pending" as const,
     processed_after: processedAfter,
     association_candidates: [] as unknown[],
@@ -84,6 +90,10 @@ async function upsertFathomCallFromMeeting(
     call_date: row.call_date,
     duration_seconds: row.duration_seconds,
     transcript: row.transcript,
+    // Se refrescan en cada sync: el tipo se puede asignar en Fathom después de
+    // la llamada, igual que el título.
+    calendar_invitees: row.calendar_invitees,
+    meeting_type: row.meeting_type,
   };
 
   let callId: string;

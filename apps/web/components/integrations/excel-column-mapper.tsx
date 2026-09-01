@@ -28,7 +28,7 @@ const CLOSING_FIELDS: FieldDef[] = [
   { key: "leadName",    label: "Nombre prospecto", required: true },
   { key: "scheduledAt", label: "Fecha y hora",     required: true },
   { key: "email",       label: "Email",            required: false },
-  { key: "status",      label: "Estado",           required: false, hint: "cerrado / no_cerrado / no_show" },
+  { key: "status",      label: "Estado",           required: false, hint: "cerrado / no_cerrado / no_show / cancelado / asistió" },
   { key: "amountClosed", label: "Monto cerrado",   required: false },
   { key: "notes",       label: "Notas",            required: false },
 ];

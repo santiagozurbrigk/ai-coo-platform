@@ -165,7 +165,8 @@ export type GHLSyncActionResult = {
   fetched: number;
   inserted: number;
   updated: number;
-  skippedCancelled: number;
+  /** Turnos cuyo estado no se tocó porque lo había cargado una persona. */
+  skippedManualStatus: number;
 };
 
 export async function syncGHLAppointmentsAction(): Promise<
@@ -180,7 +181,7 @@ export async function syncGHLAppointmentsAction(): Promise<
       fetched: result.fetched,
       inserted: result.inserted,
       updated: result.updated,
-      skippedCancelled: result.skippedCancelled,
+      skippedManualStatus: result.skippedManualStatus,
     };
   });
 }

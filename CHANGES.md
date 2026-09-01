@@ -14,6 +14,389 @@
 
 ---
 
+### 2026-09-02 — Llamadas Fase 2: seguimiento del lead
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/sales/{lead-thread,resolve-lead}.ts` (nuevos), `app/sales/lead-actions.ts` (nuevo), `components/closing/lead-follow-up-panel.tsx` (nuevo), `supabase/migrations/20260902100000_sales_leads.sql` (nueva), `lib/{ghl/sync-appointments,calendly/sync-events}.ts`, `providers/platform-data-provider.tsx`, `components/closing/closing-overview.tsx`
+
+**Qué se hizo:**
+
+Cierra el pedido original: poder seguir a cada lead cuando la llamada no termina
+en venta.
+
+**⭐ El lead como entidad.** Cada turno era una fila suelta: un lead con siete
+turnos en dos días eran siete filas sin relación entre sí. La tabla `sales_leads`
+los hila. La identidad es el **mail**, con el contacto de GHL como respaldo —
+**nunca el nombre**: los nombres de la base vienen con emojis y espacios dobles,
+y fusionar dos personas por un nombre parecido es peor que dejarlas separadas.
+Un turno sin identidad estable no genera lead y queda suelto hasta que un sync se
+la complete.
+
+La migración hiló los turnos existentes por contacto de GHL: **845 leads, 861
+turnos enganchados, 15 leads con más de un turno** — esas son las reagendas que
+estaban huérfanas. Es aditivo: no se modificó estado, resultado ni ninguna otra
+columna, y los 4 cierres existentes quedaron intactos.
+
+**⭐ El próximo paso, que es lo que faltaba.** De 1.027 turnos, **cero** tenían
+resultado cargado. No porque nadie trabajara: porque después de una llamada que
+no cerraba **no había dónde anotar qué seguía**. Ahora cada llamada acepta un
+próximo paso —reagendar, seguir, esperando al lead, perdido— con fecha,
+responsable y notas.
+
+**⭐ Los tres estados que son trabajo real**, derivados sin inventar nada:
+
+| Estado | Qué significa |
+|---|---|
+| `follow_up_due` | Hay un próximo paso cuya fecha venció |
+| `pending_outcome` | La llamada pasó y nadie cargó qué ocurrió |
+| `stalled` | Tuvo desenlace, no cerró, y **nadie definió qué sigue** |
+
+El tercero es la fuga que el módulo viene a tapar: el lead queda sin dueño y sin
+fecha, y desaparece.
+
+**Calificación en dos momentos.** Antes de la llamada y después,
+deliberadamente separadas. Colapsarlas perdería justo la información útil: si el
+lead resultó mejor o peor de lo que parecía al agendar.
+
+**El ciclo lead → cliente se cierra.** Al vender, el lead queda vinculado al
+cliente en que se convirtió. Antes el hilo se cortaba justo ahí: el lead
+desaparecía y el cliente aparecía sin nada que dijera que eran la misma persona.
+
+**Decisiones de diseño relevantes:**
+
+- **No se infieren reagendas.** Sería fácil decir "este turno se canceló y
+  apareció otro después, entonces se reagendó", pero podrían ser dos intentos
+  independientes. El hilo muestra los intentos en orden —que es un hecho— y la
+  reagenda la **declara el closer** con el próximo paso. Misma regla que sostiene
+  todo el módulo.
+- **Un próximo paso sin fecha se rechaza.** Sin fecha nunca vencería, así que
+  nunca volvería a la cola: sería una forma silenciosa de perder el lead. `lost`
+  es la excepción, porque cierra el hilo.
+- **El seguimiento vencido pesa más que el resultado sin cargar.** Una fecha que
+  pasó es un compromiso incumplido.
+- **`lost` se lee del intento más reciente.** Un "perdido" viejo seguido de un
+  turno nuevo significa que el lead volvió, no que sigue perdido.
+- **Un lead sin turnos no es trabajo pendiente.** Todavía no pasó nada.
+- **La resolución de leads maneja la carrera entre dos syncs**: si el índice
+  único corta el insert, se recupera el lead que ganó en vez de perder el vínculo
+  del turno.
+
+**Verificación ejecutada:**
+- `pnpm test`: **577 tests en 35 archivos, todos en verde** (19 nuevos del hilo).
+- `tsc --noEmit` y `pnpm lint` limpios. `pnpm build` completo: 133 páginas.
+- Migración **aplicada** y verificada: 845 leads, 861 turnos hilados, 15 con
+  varios turnos, 4 cierres sin tocar.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Nada se probó todavía contra cuentas reales.** Sigue pendiente todo el
+  bloque de verificación de Fathom.
+- Los turnos de Calendly sin mail (186) no tienen lead hasta que un sync se lo
+  complete. El mail ya se persiste desde la Fase 0, así que se resuelve solo.
+- El responsable del próximo paso (`next_action_owner_id`) se guarda pero la UI
+  todavía no lo deja elegir: hoy queda en null.
+- La calificación previa (`pre_call_qualification`) tiene columna y acción pero
+  la UI sólo expone la posterior.
+- El panel no tiene cobertura de Playwright.
+
+---
+
+### 2026-09-01 — Llamadas: reducción de alcance a sólo llamadas de venta
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/fathom/{match-appointment,resolve-sales-call,invitees}.ts`, `app/fathom/sales-call-actions.ts` (nuevo), `components/integrations/unlinked-recordings-panel.tsx` (nuevo), `supabase/migrations/20260901210000_sales_calls_only.sql` (nueva), `providers/platform-data-provider.tsx`, `types/clients.ts`, `lib/clients/mapper.ts`, `lib/validations.ts`
+
+**Qué se hizo:**
+
+Decisión de producto: OTC registra **únicamente llamadas de venta**. Equipo y
+entrega de servicio quedan para más adelante.
+
+**La regla, completa:** una grabación de Fathom es una llamada de venta cuando el
+mail de alguno de sus participantes coincide con el del lead de un turno
+agendado y el horario corresponde. Lo que no cruza existe igual en
+`fathom_calls`, pero no entra al módulo de ventas — y eso **no es un error**.
+
+**⭐ El match provisional, y por qué existe.** Los 1.027 turnos actuales no tienen
+mail: `lead_email` se agregó en la Fase 0 y se llena a medida que corren los
+syncs. Con la regla estricta no se asociaría **ninguna** llamada durante semanas.
+Por eso un único turno dentro de una ventana corta (45 min) alcanza para
+asociar, marcado como `provisional` y distinguible de un cruce `confirmed` por
+mail (ventana de 12 h). Con **dos** turnos posibles no se asocia: elegir el más
+cercano sería adivinar, y un vínculo mal hecho le adjudica a un lead una llamada
+que no tuvo. Este camino se apaga solo cuando los turnos tengan mail.
+
+**Se retiró lo que quedó fuera de alcance**, en vez de dejarlo dormido: el mapeo
+de tipos de reunión de Fathom (tabla, acciones, pantalla y lector de la API), el
+parser de la convención del título, la búsqueda contra clientes por mail y la
+detección de reunión de equipo. Código y columnas que parecen vivos pero nadie
+escribe son exactamente cómo terminaron conviviendo los cuatro clasificadores
+que la Fase 1 acababa de reemplazar.
+
+**La cola de revisión se reformuló.** Ya no pregunta "¿qué es esto?" sino que
+deja **vincular a mano** una grabación con un turno. El caso que resuelve es el
+inverso al que parece: una llamada de venta real que no llegó a cruzar, y por lo
+tanto un turno sin su registro de la llamada — que es lo que el seguimiento del
+lead necesita.
+
+**El mail del lead viaja al cliente al cerrar la venta.** La columna
+`clients.email` existía en la base pero la aplicación **nunca la escribía**: los
+264 clientes cargados tenían el mail vacío, y el tipo `Client` ni siquiera tenía
+el campo. Es la identidad estable que hila al lead con el cliente en que se
+convirtió, y sin ella la Fase 2 no puede seguir el hilo.
+
+**Corrección de un defecto de la Fase 0:** al agregar el estado `attended` se
+actualizaron los botones de "no cerró" y "no show" para aceptarlo, pero **se
+había salteado el de cerrar la venta**. Una llamada que GHL marcaba como asistida
+no se podía cerrar desde OTC.
+
+**Decisiones de diseño relevantes:**
+
+- **Se comparan todos los participantes, no sólo los que Fathom marca externos.**
+  `is_external` se calcula contra el dominio de la cuenta de Fathom: un closer
+  con Gmail personal figura como externo y un lead con dominio parecido figura
+  como interno. El mail del turno es la referencia, así que conviene comparar
+  contra el conjunto completo y dejar que el turno decida.
+- **El mail le gana a la cercanía temporal.** Si un participante coincide con el
+  lead de un turno, ese turno gana aunque otro esté más cerca en el tiempo: el
+  mail es identidad, la hora corrobora.
+- **Sin mail y con más de un turno posible, no se asocia.** Es la diferencia
+  entre un dato y una suposición.
+- **`counterparty` y `purpose` se conservan** aunque hoy sólo tomen `lead` y
+  `sales`: son la puerta por la que entran entrega y equipo cuando se
+  implementen. `calendar_invitees` y `meeting_type` también, porque son datos
+  crudos que Fathom devuelve y guardarlos no cuesta nada.
+- **`email` se agregó al schema de validación de cliente.** Sin declararlo, Zod
+  lo descartaba en silencio y nunca habría llegado a la base.
+
+**Verificación ejecutada:**
+- `pnpm test`: **558 tests en 34 archivos, todos en verde** (14 del matcher, reescritos contra la regla nueva).
+- `tsc --noEmit` y `pnpm lint` limpios. `pnpm build` completo: 133 páginas.
+- Migración **aplicada** a Supabase.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Nada se probó todavía contra una cuenta real de Fathom.** Lo primero a
+  verificar sigue siendo si `calendar_invitees` viene poblado.
+- La ventana de 45 minutos del match provisional se eligió por criterio, no
+  midiendo cruces reales. Se ajusta con datos.
+- Los 264 clientes existentes siguen sin mail: sólo los nuevos lo heredan.
+- `associateCallWithClients` (el fuzzy match por título) sigue en el pipeline
+  como último recurso; se retira cuando haya datos reales que confirmen que no
+  se activa.
+
+---
+
+### 2026-09-01 — Llamadas Fase 1: un clasificador, dos ejes, y la señal que se estaba tirando
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/fathom/{invitees,parse-title,match-appointment,classify,resolve-classification}.ts` (nuevos), `supabase/migrations/20260901180000_fathom_classification.sql` (nueva), `app/fathom/classification-actions.ts` (nuevo), `components/integrations/{fathom-call-classification-panel,unclassified-calls-panel}.tsx` (nuevos), `lib/fathom/{api,sync,process-call}.ts`, `app/fathom/{actions,member-actions}.ts`, `app/(platform)/integrations/page.tsx`
+
+**Qué se hizo:**
+
+**⭐ El hallazgo que cambió el plan.** Se bajó la documentación de Fathom (faltaba
+en el repo) y `GET /meetings` devuelve **`calendar_invitees[]`** con el mail de
+cada invitado, su dominio y **`is_external`** — en la lista de campos
+**obligatorios** de la respuesta. `lib/fathom/api.ts` parseaba título, fechas y
+transcript, y **descartaba todo lo demás**.
+
+Eso es lo que faltaba: el 86% de los títulos reales son `"Impromptu Google Meet
+Meeting"`, y toda la arquitectura leía el título. Con los invitados, la identidad
+y el "interna vs. externa" salen de la API, no de adivinar.
+
+**⭐ Dos ejes en vez de uno.** `call_type` mezclaba *con quién* y *para qué*, y el
+fracaso de la primera pregunta decidía la segunda en silencio. Ahora son
+`counterparty` (lead/cliente/interna) y `purpose` (venta/entrega/equipo). Una
+llamada de venta es con un **lead**, que por definición todavía no es cliente —
+por eso el sistema viejo, que buscaba clientes, las mandaba todas a `unmatched` y
+las analizaba con `clientName: "Equipo interno"`.
+
+**⭐ Un solo clasificador.** `classify.ts` reemplaza a los cuatro que competían:
+el regex de equipo de `associate.ts`, las 60 keywords de `classify-call-type.ts`
+(eliminado), la IA sobre el transcript y el fuzzy match del título. Orden de
+señales, de la más verificable a la más frágil: turno agendado → cliente por mail
+→ invitados internos → tipo de reunión → convención del título. Sin ninguna,
+`null` con el motivo y a la cola de revisión.
+
+**⭐ El cruce con la agenda, que es la señal fuerte.** `match-appointment.ts`
+cruza la grabación con `closing_calls` por **horario y mail**. Reemplaza al
+`ilike '%nombre%'` que tomaba el turno más reciente sin mirar fechas. Ventana
+amplia (12 h) cuando el mail confirma la identidad, ajustada (45 min) cuando lo
+único que hay es el solapamiento. Dos turnos igual de plausibles → `ambiguous`,
+no un vínculo al azar. Y la FK real `fathom_calls.closing_call_id`, que no
+existía.
+
+**El parser del título, por posición.** `"Llamada de venta - Mariano"`: el tipo
+sólo a la izquierda del separador, la identidad sólo a la derecha. El viejo
+buscaba keywords en cualquier parte, así que `"Weekly de ventas"` (equipo) caía
+en venta y `"Reunión con Juan"` (venta) caía en equipo. Es respaldo, no
+mecanismo principal.
+
+**UI.** Pantalla de mapeo tipo de reunión → propósito, y cola de llamadas sin
+clasificar con el motivo y resolución en un clic.
+
+**Decisiones de diseño relevantes:**
+
+- **Un array de invitados vacío no es "no había externos".** `isInternalOnly`
+  devuelve `null` sin lista: sin invitados no se puede afirmar que la reunión era
+  interna. Misma regla que rige todo el módulo.
+- **El mail manda sobre la cercanía temporal.** Si un invitado coincide con el
+  lead de un turno, ese turno gana aunque otro esté más cerca en el tiempo: el
+  mail es identidad, la hora es corroboración.
+- **`normalizeEmail` no saca puntos ni sufijos `+algo`.** Son convenciones de
+  Gmail, no del protocolo; aplicarlas a dominios corporativos uniría personas
+  distintas.
+- **Confianza 0.95 para el vínculo por mail, no 1.** `1` está reservado a
+  `MANUAL_FATHOM_LINK_CONFIDENCE` — los vínculos que hizo una persona. 0.95
+  supera el umbral de asociación (0.75) sin hacerse pasar por manual.
+- **La clave del mapeo de tipos es el nombre, no un ID**, porque la API de Fathom
+  no expone identificador. Si alguien renombra un tipo el mapeo queda huérfano, y
+  la UI lo marca en vez de dejar de clasificar en silencio.
+- **La API de tipos es de sólo lectura.** Los tipos se crean y se asignan dentro
+  de Fathom; OTC sólo los lista. El panel lo dice explícitamente.
+- **Una lista vacía de tipos es una respuesta válida**, distinta de "no se pudo
+  preguntar" (`unavailable`). El panel explica que la clasificación funciona
+  igual sin tipos.
+- **La IA dejó de escribir `call_type`.** Lo decide el clasificador. `call_type`
+  queda como columna legada; los lectores migraron a `purpose` —incluida la
+  lista de llamadas de venta, que filtraba `call_type = 'consulting'` y por eso
+  perdía toda llamada mal clasificada.
+
+**Verificación ejecutada:**
+- `pnpm test`: **581 tests en 36 archivos, todos en verde** (37 nuevos).
+- `tsc --noEmit` y `pnpm lint` limpios. `pnpm build` completo: 133 páginas.
+- Migración **aplicada** a Supabase.
+
+**Un hueco que encontró un test antes de llegar a producción:** el clasificador
+reportaba `no_signal` cuando había invitados externos pero no se resolvía el
+propósito. Son situaciones distintas —"no hay nada de dónde agarrarse" vs.
+"sabemos que fue con alguien de afuera y falta para qué"— y la cola de revisión
+las trata distinto. Se corrigió el código, no el test.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Nada de esto se probó contra una cuenta real de Fathom.** El mapeo de
+  campos se construyó leyendo la documentación. Lo primero que hay que mirar es
+  si `calendar_invitees` viene poblado, y si la organización tiene tipos de
+  reunión configurados.
+- **No se sabe si los tipos de reunión existen en la cuenta del usuario.** La
+  documentación de la API no explica dónde se crean y no aparecen en la pantalla
+  de ajustes de Fathom. El panel de OTC responde la pregunta desde el deploy sin
+  que la API key pase por ningún lado.
+- `associateCallWithClients` (el fuzzy match por título) sigue en el pipeline
+  como último recurso. Con el match por mail ya no debería activarse; se retira
+  en la Fase 2 una vez confirmado con datos reales.
+- La cola de revisión no permite vincular a un cliente o a un turno concreto,
+  sólo asignar el propósito.
+
+---
+
+### 2026-09-01 — Llamadas Fase 0: dejar de corromper datos de venta
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/closing/call-status.ts` (nuevo), `lib/fathom/reclaim-stuck.ts` (nuevo), `supabase/migrations/20260901120000_closing_calls_disposition.sql` (nueva), `lib/ghl/sync-appointments.ts`, `lib/calendly/{sync-events,closer-sync,fetch-scheduled-events}.ts`, `app/api/integrations/calendly/webhook/route.ts`, `lib/fathom/process-call.ts`, `lib/funnels/source-signal.ts`, `lib/closing/mapper.ts`, `lib/manychat/*`, `components/closing/*`, `docs/external-apis/fathom/` (nuevo)
+
+**Qué se hizo:**
+
+Primera fase del rediseño del módulo de llamadas. **No agrega features**: corrige
+la ingesta antes de construir el seguimiento de leads encima. El orden importa
+porque el sync borraba los estados manuales cada hora, así que cualquier
+seguimiento construido primero habría durado hasta el próximo cron.
+
+**⭐ Asistir se estaba contando como vender.** `showed` en GoHighLevel significa
+que el lead asistió. Estaba mapeado a `closed`, que en OTC es una venta cerrada y
+alimenta la etapa Cash del embudo y la facturación. Ahora cae en `attended`, un
+estado nuevo que dice exactamente lo que GHL dice y deja el resultado para que lo
+cargue una persona.
+
+**⭐ Cancelar no es faltar, y en dos lugares distintos era lo mismo.** GHL
+descartaba las canceladas en el filtro del sync —una llamada cancelada no existía
+para OTC— y Calendly las guardaba como `no_show`, en `fetch-scheduled-events.ts`
+y en el webhook. En un no-show el lead faltó a una llamada que ocurrió; en una
+cancelación la llamada nunca ocurrió. Confundirlas infla la tasa de inasistencia
+y borra el evento que el seguimiento del lead tiene que registrar. Estado nuevo
+`cancelled`, con `cancelled_by` para distinguir si canceló el lead o el closer.
+
+**⭐ El sync ya no pisa lo que carga una persona.** Los updates sólo respetaban
+`status = 'closed'`, así que un `not_closed` o un `no_show` marcado por un closer
+volvía a `scheduled` en la siguiente corrida. Nueva columna `status_source`: todo
+lo que pasa por el mapper de las Server Actions se marca `manual`, y los tres
+syncs (Calendly, closer-sync, GHL) dejan de tocar el estado en esas filas. Los
+datos del turno —horario, nombre, contacto— se siguen refrescando siempre: ahí el
+proveedor sí es la fuente de verdad.
+
+**⭐ Se dejó de inventar el tipo de llamada.** `process-call.ts` escribía
+`call_type: analysis?.call_type ?? "delivery"`: cuando la IA fallaba, la llamada
+quedaba marcada como entrega sin que nadie lo hubiera determinado. Ahora es
+`null`. Explica las 122 llamadas que hoy tienen tipo nulo teniendo transcript.
+
+**Llamadas trabadas.** `processSingleFathomCall` marca `processing` antes de
+trabajar y el cron sólo levanta `pending`: si algo falla, la fila queda colgada
+para siempre. Había 51 así, la más vieja del 16 de julio. Nueva columna
+`processing_started_at` y rescate en el cron.
+
+**Identidad del lead.** `sync-events.ts` recibía el email del invitado de Calendly
+y lo usaba sólo para atribución UTM, descartándolo. Ahora se persiste en
+`lead_email`, que es lo que la Fase 2 necesita para hilar reagendas de las 186
+llamadas que no vienen de GHL.
+
+**Documentación de Fathom bajada.** Era el séptimo proveedor y no estaba en
+`docs/external-apis/`. Leerla corrigió un supuesto del plan: `GET /meetings`
+devuelve `calendar_invitees[]` con **email, dominio e `is_external`**, y un campo
+**`meeting_type`** configurable por organización — y OTC descarta los dos, porque
+`lib/fathom/api.ts` sólo parsea título, fechas y transcript.
+
+**Decisiones de diseño relevantes:**
+
+- **Un solo vocabulario de estados** (`lib/closing/call-status.ts`). Estaba
+  interpretado a mano en quince archivos, cada uno decidiendo por su cuenta qué
+  contaba como asistencia y qué como venta; así fue como `showed` terminó siendo
+  `closed`. Los `Record<ClosingCallStatus, …>` de la UI hacen que el compilador
+  exija cubrir cada estado nuevo, pero las comparaciones sueltas no, y había
+  tres que caían en el default equivocado (`utm-leads-sheet`, `lead-journey`,
+  `score-conversation`): un estado nuevo se mostraba como "Agendado".
+- **`CallStatus` de embudos pasó a ser un alias, no una copia.** La lista
+  duplicada quedándose atrás es exactamente cómo `attended` habría dejado de
+  contarse en la asistencia del embudo.
+- **`syncMayOverwriteStatus` protege además los `closed` viejos.** Las filas
+  anteriores a la migración quedaron en `status_source = 'sync'` porque la
+  columna no existía; sin esa protección, el primer sync posterior al cambio de
+  `showed` habría devuelto a `attended` los 4 cierres existentes.
+- **El rescate de trabadas no toca las viejas, a propósito.** Mira
+  `processing_started_at`, que se agregó ahora: las 51 que ya estaban colgadas no
+  lo tienen y quedan afuera sin necesidad de un caso especial. Es la decisión del
+  usuario —las llamadas anteriores a este sistema se dejan como están— y además
+  evita disparar 51 análisis con IA que nadie pidió.
+- **`attended` cuenta como asistencia en las métricas.** Es el denominador de la
+  tasa de cierre: dejarlo afuera la subestimaría.
+- **Una cancelada no es señal de asistencia.** Un período con sólo agendadas y
+  canceladas sigue sin resultados cargados (`hasOutcomes = false`), porque la
+  llamada nunca ocurrió y no dice nada sobre si los leads se presentan.
+
+**Verificación ejecutada:**
+- `pnpm test`: **544 tests en 33 archivos, todos en verde** (35 nuevos).
+- `tsc --noEmit` y `pnpm lint` limpios. `pnpm build` completo: 133 páginas.
+- Migración **aplicada** a Supabase y verificada: ninguna fila existente cambió
+  de estado (981 `scheduled` / 44 `no_show` / 4 `closed`, igual que antes).
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Las 4 llamadas marcadas como venta que sólo fueron asistencia siguen ahí**,
+  por decisión explícita del usuario de no tocar el histórico. Van a seguir
+  contando como ventas en facturación y en la etapa Cash del embudo. El defecto
+  que las generaba está corregido: no se suman nuevas.
+- Las 51 llamadas trabadas desde julio quedan trabadas, por la misma decisión.
+- `cancelled_by` se llena con `unknown` en los dos proveedores. Calendly expone
+  el autor en `cancellation.canceled_by` y todavía no se lee; GHL no lo informa.
+- El eje de estado sigue siendo un solo campo con tres significados. Separarlo en
+  campos propios es Fase 2; mientras tanto los predicados de
+  `lib/closing/call-status.ts` son la única lectura correcta.
+
+---
+
 ### 2026-08-31 — BRAND-A: la paleta categórica llega a los badges, tags y nodos
 
 **Rama/branch:** `Claude-Design`

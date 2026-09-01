@@ -1,3 +1,5 @@
+import { parseFathomInvitees, type FathomInvitee } from "@/lib/fathom/invitees";
+
 const FATHOM_API_BASE =
   process.env.FATHOM_API_BASE?.trim() ?? "https://api.fathom.ai/external/v1";
 
@@ -231,6 +233,12 @@ export type FathomMeetingRecord = {
   scheduled_start_time?: string;
   recording_end_time?: string;
   url?: string;
+  /** Invitados del calendario, con mail y si son externos. Puede venir vacío. */
+  calendar_invitees: FathomInvitee[];
+  /** Tipo de reunión asignado en Fathom, o null si la org no usa tipos. */
+  meeting_type?: string | null;
+  /** URL de la videollamada (Zoom/Meet/Teams) del evento de calendario. */
+  meeting_url?: string | null;
 };
 
 function pickString(obj: Record<string, unknown>, keys: string[]): string | undefined {
@@ -326,6 +334,12 @@ export function mapFathomMeeting(raw: unknown): FathomMeetingRecord | null {
     scheduled_start_time: scheduledStart,
     recording_end_time: recordingEnd,
     url: pickString(obj, ["url", "share_url", "record_url", "recording_url"]),
+    // ⭐ Estos tres venían en la respuesta desde siempre y el parser los tiraba.
+    // Son la señal con la que se identifica y clasifica una llamada; el título,
+    // que era lo único que se leía, está vacío en el 86% de los casos.
+    calendar_invitees: parseFathomInvitees(obj.calendar_invitees),
+    meeting_type: pickString(obj, ["meeting_type"]) ?? null,
+    meeting_url: pickString(obj, ["meeting_url"]) ?? null,
   };
 }
 

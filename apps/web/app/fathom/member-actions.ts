@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { requireAuthContext } from "@/lib/auth/require-auth";
 import { validateFathomApiKey, listFathomMeetings } from "@/lib/fathom/api";
-import { classifyFathomCallTypeByTitle } from "@/lib/fathom/classify-call-type";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { encrypt, decrypt } from "@/lib/security/encryption";
@@ -150,7 +149,6 @@ export async function syncMemberFathomAction(): Promise<{ synced: number }> {
   for (const meeting of meetings) {
     const fathomCallId = String(meeting.recording_id ?? meeting.id);
     const title = meeting.title || meeting.meeting_title || "Sin título";
-    const callType = classifyFathomCallTypeByTitle(title);
     const recordingStart =
       meeting.recording_start_time ??
       meeting.scheduled_start_time ??
@@ -166,7 +164,10 @@ export async function syncMemberFathomAction(): Promise<{ synced: number }> {
         raw_title: meeting.meeting_title || meeting.title,
         fathom_url: meeting.url ?? null,
         call_date: recordingStart,
-        call_type: callType,
+        // La clasificación la resuelve el pipeline con el clasificador único.
+        // Antes acá se clasificaba por keywords y el cron lo sobrescribía con
+        // el resultado de la IA —o con null si fallaba—, así que este trabajo
+        // se tiraba siempre.
         status: "pending",
         processed_after: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
         association_candidates: [],

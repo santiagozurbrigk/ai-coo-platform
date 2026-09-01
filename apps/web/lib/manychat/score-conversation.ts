@@ -1,4 +1,5 @@
 import { callClaudeJson } from "@/lib/ai/anthropic";
+import { isClosingCallStatus } from "@/lib/closing/call-status";
 import { buildOrgContextText, getOrgContext } from "@/lib/ai/org-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
@@ -94,11 +95,16 @@ function funnelStageFromClosingCall(
 ): ConversationFunnelStage | null {
   switch (status) {
     case "scheduled":
+    // El lead se presentó pero todavía no hay resultado cargado: en el embudo
+    // de la conversación sigue siendo un agendado que ocurrió, no un cierre.
+    case "attended":
       return "agendado";
     case "no_show":
       return "no_show";
     case "closed":
       return "cerrado";
+    // `not_closed` y `cancelled` no tienen etapa propia acá: dejar que el
+    // scoring del chat decida es más honesto que forzarlas a una que no existe.
     default:
       return null;
   }
@@ -154,14 +160,9 @@ async function fetchClosingCallHint(
   if (!data?.status || !data.scheduled_at) return undefined;
 
   const status = data.status as ClosingCallHint["status"];
-  if (
-    status !== "scheduled" &&
-    status !== "closed" &&
-    status !== "not_closed" &&
-    status !== "no_show"
-  ) {
-    return undefined;
-  }
+  // Antes esto enumeraba los cuatro estados a mano, así que una llamada en un
+  // estado nuevo dejaba de informar el scoring sin que nadie se enterara.
+  if (!isClosingCallStatus(status)) return undefined;
 
   return {
     status,

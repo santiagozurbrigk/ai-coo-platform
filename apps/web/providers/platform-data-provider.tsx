@@ -31,12 +31,14 @@ import {
   type ConnectedUnipileAccount,
 } from "@/lib/sales/unipile-inbox-filter";
 import { createClient } from "@/lib/supabase/client";
+import { acceptsManualOutcome } from "@/lib/closing/call-status";
 import {
   createClientAction,
   listClientsAction,
   updateClientAction,
 } from "@/app/clients/actions";
 import { recordClientPaymentAction } from "@/app/clients/payment-actions";
+import { linkLeadToClientAction } from "@/app/sales/lead-actions";
 import {
   getPaidAmountFromClosePayload,
   getPaymentDateFromClosePayload,
@@ -119,7 +121,9 @@ function sortConversationsByRecency(list: Conversation[]): Conversation[] {
 
 function buildClientFromPayment(
   callId: string,
-  payment: ClosePaymentPayload
+  payment: ClosePaymentPayload,
+  /** Mail del lead del turno: es lo que hila al lead con el cliente. */
+  leadEmail?: string | null
 ): Omit<Client, "id"> {
   // Calcular ingresos totales:
   // Para cuotas, si hay montos manuales por cuota, sumar esos; si no, usar monto uniforme × N
@@ -166,6 +170,9 @@ function buildClientFromPayment(
 
   return {
     name: payment.clientName,
+    // ⭐ El mail viaja del turno al cliente. Sin esto, el hilo entre el lead y
+    // el cliente en que se convirtió se corta justo en el momento del cierre.
+    email: leadEmail ?? null,
     joinDate: new Date().toISOString().slice(0, 10),
     paymentType: payment.paymentType,
     platform: "other",
@@ -598,8 +605,12 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       if (call?.status === "closed") {
         throw new Error("Esta llamada ya está marcada como cerrada.");
       }
-      if (call && call.status !== "scheduled") {
-        throw new Error("Solo podés cerrar llamadas que siguen agendadas.");
+      // `attended` también acepta cierre: es una llamada que el proveedor marcó
+      // como asistida y a la que todavía nadie le cargó el resultado. Con el
+      // chequeo anterior —sólo `scheduled`— una llamada que GHL marcaba asistida
+      // no se podía cerrar desde OTC.
+      if (call && !acceptsManualOutcome(call.status)) {
+        throw new Error("Esta llamada ya tiene un resultado registrado.");
       }
 
       const revenue =
@@ -625,8 +636,16 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
 
       await syncConversationTagForCall(call, "closeado");
 
-      const draft = buildClientFromPayment(callId, payment);
+      const draft = buildClientFromPayment(callId, payment, call?.leadEmail);
       const client = await addClient(draft);
+
+      // Cierra el ciclo lead → cliente. Sin esto el hilo se corta justo en el
+      // momento en que el lead se convierte en cliente.
+      if (useSupabase) {
+        await linkLeadToClientAction({ callId, clientId: client.id }).catch(
+          (err) => console.error("[markCallClosed] link lead → cliente:", err)
+        );
+      }
 
       if (useSupabase && payment.proof) {
         const recordResult = await recordClientPaymentAction({
@@ -659,7 +678,11 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
   const markCallNotClosed = useCallback(
     async (callId: string, reason: NoCloseReasonId, notes?: string) => {
       const call = closingCalls.find((c) => c.id === callId);
-      if (call && call.status !== "scheduled") {
+      // `attended` también acepta resultado: es una llamada que el proveedor
+      // marcó como asistida y a la que todavía nadie le cargó el desenlace.
+      // Con el chequeo anterior (sólo `scheduled`) esas llamadas quedaban sin
+      // forma de cerrarse desde OTC.
+      if (call && !acceptsManualOutcome(call.status)) {
         throw new Error("Esta llamada ya tiene un resultado registrado.");
       }
       await updateClosingCall(callId, {
@@ -674,7 +697,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
   const markCallNoShow = useCallback(
     async (callId: string) => {
       const call = closingCalls.find((c) => c.id === callId);
-      if (call && call.status !== "scheduled") {
+      if (call && !acceptsManualOutcome(call.status)) {
         throw new Error("Esta llamada ya tiene un resultado registrado.");
       }
       await updateClosingCall(callId, { status: "no_show" });

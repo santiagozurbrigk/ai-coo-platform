@@ -21,12 +21,6 @@ const VALID_AREAS = new Set([
 
 const VALID_PRIORITIES = new Set(["low", "medium", "high"]);
 
-export function isTeamMeetingCallType(
-  callType: string | null | undefined
-): boolean {
-  return callType === "team" || callType === "team_meeting";
-}
-
 function parseTaskProposals(raw: string): FathomTaskProposal[] {
   const trimmed = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   const arrayMatch = trimmed.match(/\[[\s\S]*\]/);

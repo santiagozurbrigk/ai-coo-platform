@@ -22,12 +22,19 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ClosingCallStatus } from "@/types/closing";
+import { callWasAttended, callIsSale } from "@/lib/closing/call-status";
 
-/** Estado de una llamada de cierre, tal como lo modela `closing_calls`. */
-export type CallStatus = "scheduled" | "closed" | "not_closed" | "no_show";
+/**
+ * Estado de una llamada de cierre, tal como lo modela `closing_calls`.
+ *
+ * Es un alias, no una copia: cuando la lista duplicada se quedó atrás fue así
+ * como `attended` dejó de contarse en la asistencia del embudo.
+ */
+export type CallStatus = ClosingCallStatus;
 
 export type CallOutcomeCounts = {
-  /** Asistieron: cerradas o no cerradas. `null` si nadie registró resultados. */
+  /** Asistieron: asistidas, cerradas o no cerradas. `null` si no hay resultados. */
   attended: number | null;
   /** Cerradas. `null` si nadie registró resultados. */
   closed: number | null;
@@ -48,18 +55,22 @@ export type CallOutcomeCounts = {
  * Un `no_show` SÍ es un resultado cargado: significa que alguien miró la llamada
  * y registró que el lead no vino. Por eso una org con llamadas `scheduled` y
  * `no_show` sí tiene señal, y su cero de asistencia es real.
+ *
+ * Una `cancelled`, en cambio, **no** es señal de asistencia: la llamada nunca
+ * ocurrió, así que no dice nada sobre si los leads se presentan. Un período con
+ * sólo agendadas y canceladas sigue sin resultados cargados.
  */
 export function resolveCallOutcomes(statuses: CallStatus[]): CallOutcomeCounts {
   const total = statuses.length;
-  const hasOutcomes = statuses.some((s) => s !== "scheduled");
+  const hasOutcomes = statuses.some((s) => s !== "scheduled" && s !== "cancelled");
 
   if (!hasOutcomes) {
     return { attended: null, closed: null, total, hasOutcomes: false };
   }
 
   return {
-    attended: statuses.filter((s) => s === "closed" || s === "not_closed").length,
-    closed: statuses.filter((s) => s === "closed").length,
+    attended: statuses.filter(callWasAttended).length,
+    closed: statuses.filter(callIsSale).length,
     total,
     hasOutcomes: true,
   };

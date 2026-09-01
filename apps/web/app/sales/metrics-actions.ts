@@ -3,6 +3,8 @@
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { createClient } from "@/lib/supabase/server";
 import type { SalesPerformanceMetrics } from "@/types/sales";
+import type { ClosingCallStatus } from "@/types/closing";
+import { callWasAttended } from "@/lib/closing/call-status";
 
 // ─── Snapshots de métricas importadas ─────────────────────────────────────────
 
@@ -94,8 +96,11 @@ export async function getSalesPerformanceMetricsAction(
   const convRows = conversations ?? [];
 
   const totalAgendas = callRows.length;
-  const asistencias = callRows.filter(
-    (call) => call.status === "closed" || call.status === "not_closed"
+  // `attended` cuenta como asistencia: es una llamada que el proveedor confirmó
+  // asistida y a la que todavía no se le cargó el resultado. Dejarla afuera
+  // subestimaría el denominador de la tasa de cierre.
+  const asistencias = callRows.filter((call) =>
+    callWasAttended(call.status as ClosingCallStatus)
   ).length;
   const cierres = callRows.filter((call) => call.status === "closed").length;
   const noShows = callRows.filter((call) => call.status === "no_show").length;

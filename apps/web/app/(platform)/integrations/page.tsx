@@ -16,6 +16,8 @@ import {
 } from "@/app/webinarjam/actions";
 import { HyrosConnectPanel } from "@/components/integrations/hyros-connect-panel";
 import { getHyrosStatusAction } from "@/app/hyros/actions";
+import { UnlinkedRecordingsPanel } from "@/components/integrations/unlinked-recordings-panel";
+import { listUnlinkedRecordingsAction } from "@/app/fathom/sales-call-actions";
 import { ReelMusicUpload } from "@/components/marketing/trial-reels/reel-music-upload";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@ai-coo/ui";
@@ -32,6 +34,7 @@ export default async function IntegrationsPage() {
     webinarJam,
     webinarJamWebinars,
     hyros,
+    unlinkedRecordings,
   ] = await Promise.all([
     listIntegrationsAction(),
     getReelMusicPathAction(),
@@ -41,6 +44,7 @@ export default async function IntegrationsPage() {
     getWebinarJamStatusAction(),
     listWebinarJamWebinarOptionsAction(),
     getHyrosStatusAction(),
+    listUnlinkedRecordingsAction(),
   ]);
 
   return (
@@ -68,6 +72,19 @@ export default async function IntegrationsPage() {
       <WebinarJamConnectPanel status={webinarJam} webinars={webinarJamWebinars} />
 
       <HyrosConnectPanel status={hyros} />
+
+      {/* Llamadas de venta — Fase 1 del módulo de llamadas */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">Llamadas de venta</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Una grabación de Fathom es una llamada de venta cuando el mail de un
+            participante coincide con el de un turno agendado y el horario
+            corresponde
+          </p>
+        </div>
+        <UnlinkedRecordingsPanel recordings={unlinkedRecordings} />
+      </section>
 
       {/* Trial Reels — configuración de assets */}
       <section className="space-y-3">

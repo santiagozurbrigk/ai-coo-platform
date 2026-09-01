@@ -579,6 +579,9 @@ const clientInstallmentSchema = z.object({
 const clientFieldsSchema = z.object({
   name: clientNameSchema,
   nickname: z.string().trim().max(100).optional(),
+  // Sin declararlo acá Zod lo descarta en silencio y nunca llega a la base:
+  // es lo que hila al lead con el cliente en que se convirtió.
+  email: z.string().trim().email().max(320).nullable().optional(),
   joinDate: isoDateSchema,
   paymentType: clientPaymentTypeSchema,
   platform: paymentPlatformSchema,
@@ -610,10 +613,14 @@ export const updateClientSchema = clientFieldsSchema.partial();
 
 export const closingCallStatusSchema = z.enum([
   "scheduled",
+  "attended",
   "closed",
   "not_closed",
   "no_show",
+  "cancelled",
 ]);
+
+export const closingCallCancelledBySchema = z.enum(["lead", "closer", "unknown"]);
 
 const calendlyFormAnswerSchema = z.object({
   question: z.string().trim().min(1).max(500),
@@ -639,6 +646,7 @@ const closingCallFieldsSchema = z.object({
   paymentSourcePlatformId: z.string().trim().max(100).optional(),
   paymentDestinationPlatformId: z.string().trim().max(100).optional(),
   paymentReceivedFrom: z.string().trim().max(500).optional(),
+  cancelledBy: closingCallCancelledBySchema.optional(),
 });
 
 export const updateClosingCallSchema = closingCallFieldsSchema.partial();

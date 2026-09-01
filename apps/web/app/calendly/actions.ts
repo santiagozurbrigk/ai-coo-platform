@@ -18,7 +18,7 @@ import { createClient } from "@/lib/supabase/server";
 export type CalendlyPullResult = {
   inserted: number;
   updated: number;
-  skippedClosed: number;
+  skippedManualStatus: number;
   fetched: number;
 };
 

@@ -1,13 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { analyzeFathomTranscript } from "@/lib/fathom/analyze-transcript";
 import { generateDeepCallAnalysis } from "@/lib/fathom/deep-call-analysis";
-import {
-  extractTeamMeetingTaskProposals,
-  isTeamMeetingCallType,
-} from "@/lib/fathom/team-task-extraction";
+import { extractTeamMeetingTaskProposals } from "@/lib/fathom/team-task-extraction";
 import { associateCallWithClients } from "@/lib/fathom/associate";
 import { isManualFathomLink } from "@/lib/fathom/client-matcher";
+
 import { fetchFathomMeetingTitle } from "@/lib/fathom/api";
+import { parseFathomInvitees } from "@/lib/fathom/invitees";
+import { resolveSalesCall } from "@/lib/fathom/resolve-sales-call";
 import { ingestDocument } from "@/lib/rag/ingest";
 import {
   publishFathomAnalysisJob,
@@ -41,16 +41,19 @@ export type FathomCallRow = {
   duration_seconds?: number | null;
   call_date?: string | null;
   summary?: string | null;
+  calendar_invitees?: unknown;
+  meeting_type?: string | null;
 };
 
 async function maybeExtractTeamMeetingTasks(params: {
   callId: string;
   organizationId: string;
-  callType: string | null | undefined;
+  /** Propósito resuelto por el clasificador, no por la IA del transcript. */
+  purpose: string | null | undefined;
   transcript: string | null;
   summary?: string | null;
 }): Promise<void> {
-  if (!isTeamMeetingCallType(params.callType) || !params.transcript?.trim()) {
+  if (params.purpose !== "team" || !params.transcript?.trim()) {
     return;
   }
 
@@ -105,7 +108,12 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
 
   await admin
     .from("fathom_calls")
-    .update({ status: "processing" })
+    .update({
+      status: "processing",
+      // Sin esta marca no hay forma de distinguir una llamada que se está
+      // procesando ahora de una que quedó colgada a mitad de camino.
+      processing_started_at: new Date().toISOString(),
+    })
     .eq("id", call.id);
 
   let title = call.title;
@@ -122,6 +130,32 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
     );
     if (updatedTitle) title = updatedTitle;
   }
+
+  // ⭐ ¿Es una llamada de venta? Es la única pregunta que el módulo responde hoy.
+  //
+  // OTC registra únicamente llamadas de venta: una grabación lo es cuando el
+  // mail de alguno de sus participantes coincide con el del lead de un turno
+  // agendado y el horario corresponde. Lo que no cruza —una reunión de equipo,
+  // una sesión con un cliente— existe igual en `fathom_calls`, pero no entra al
+  // módulo de ventas. No es un error.
+  //
+  // Corre después de refrescar el título (la espera de 30 minutos existe para
+  // que alguien pueda renombrar la reunión) y antes de cualquier análisis.
+  const salesCall = await resolveSalesCall({
+    organizationId: call.organization_id,
+    invitees: parseFathomInvitees(call.calendar_invitees),
+    recordingStart: call.call_date ?? null,
+  });
+
+  await admin
+    .from("fathom_calls")
+    .update({
+      purpose: salesCall.isSalesCall ? "sales" : null,
+      counterparty: salesCall.isSalesCall ? "lead" : null,
+      closing_call_id: salesCall.appointmentId,
+      appointment_match: salesCall.match,
+    })
+    .eq("id", call.id);
 
   const { data: callState } = await admin
     .from("fathom_calls")
@@ -150,6 +184,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
       confidence: linkConfidence,
       durationSeconds: call.duration_seconds,
       callDate: call.call_date,
+      purpose: salesCall.isSalesCall ? "sales" : null,
     });
     return;
   }
@@ -177,15 +212,12 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
         previousCallsSummary: "",
       });
 
-      const callType = analysis?.call_type ?? null;
-
       await admin
         .from("fathom_calls")
         .update({
           title,
           raw_title: call.raw_title ?? call.title,
           status: "unmatched",
-          call_type: callType,
           ai_situation_summary: analysis?.situation_summary ?? null,
           ai_next_steps: analysis?.next_steps ?? [],
           ai_problems_detected: analysis?.problems_detected ?? [],
@@ -196,7 +228,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
       await maybeExtractTeamMeetingTasks({
         callId: call.id,
         organizationId: call.organization_id,
-        callType,
+        purpose: salesCall.isSalesCall ? "sales" : null,
         transcript: call.transcript,
         summary: analysis?.situation_summary ?? call.summary ?? null,
       });
@@ -240,6 +272,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
     confidence: association.confidence,
     durationSeconds: call.duration_seconds,
     callDate: call.call_date,
+    purpose: salesCall.isSalesCall ? "sales" : null,
   });
 }
 
@@ -255,6 +288,8 @@ export async function finalizeAssociatedCall(params: {
   confidence: number;
   durationSeconds?: number | null;
   callDate?: string | null;
+  /** Propósito ya resuelto por el clasificador. */
+  purpose?: string | null;
 }): Promise<void> {
   const admin = createAdminClient();
 
@@ -307,7 +342,6 @@ export async function finalizeAssociatedCall(params: {
       ai_next_steps: nextSteps,
       ai_problems_detected: problems,
       ai_progress_vs_previous: analysis?.progress_vs_previous ?? null,
-      call_type: analysis?.call_type ?? "delivery",
       processed_at: new Date().toISOString(),
     })
     .eq("id", params.callId);
@@ -315,7 +349,7 @@ export async function finalizeAssociatedCall(params: {
   await maybeExtractTeamMeetingTasks({
     callId: params.callId,
     organizationId: params.organizationId,
-    callType: analysis?.call_type ?? null,
+    purpose: params.purpose ?? null,
     transcript: params.transcript,
     summary: analysis?.situation_summary ?? null,
   });

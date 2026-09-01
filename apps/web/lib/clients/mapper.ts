@@ -7,6 +7,7 @@ export type ClientRow = {
   organization_id: string;
   name: string;
   nickname: string | null;
+  email: string | null;
   join_date: string;
   payment_type: Client["paymentType"];
   platform: PaymentPlatform;
@@ -33,6 +34,7 @@ export function rowToClient(row: ClientRow): Client {
     id: row.id,
     name: row.name,
     nickname: row.nickname ?? undefined,
+    email: row.email ?? null,
     joinDate: row.join_date,
     paymentType: row.payment_type,
     platform: row.platform,
@@ -63,6 +65,7 @@ export function clientToInsertRow(
     organization_id: organizationId,
     name: client.name,
     nickname: client.nickname ?? null,
+    email: client.email ?? null,
     join_date: client.joinDate,
     payment_type: client.paymentType,
     platform: client.platform,

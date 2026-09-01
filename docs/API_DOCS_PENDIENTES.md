@@ -33,6 +33,19 @@ desarrollo remoto: la política de red los bloqueaba a todos. Verificado el
 >
 > **Antes de dar por bloqueado cualquier dominio, probarlo.**
 
+> **2026-09-01 — Fathom bajada.** Faltaba el séptimo proveedor: Fathom no estaba
+> ni en `docs/external-apis/` ni listado acá, pese a ser la fuente de todas las
+> llamadas. `developers.fathom.ai` responde `200` y publica su documentación en
+> markdown vía `llms.txt`. Los 39 archivos están en
+> **[`docs/external-apis/fathom/`](./external-apis/fathom/)**, con las URLs en
+> `docs/external-apis/tools/fathom-urls.txt`.
+>
+> Leerla corrigió un supuesto del plan del módulo de llamadas: `GET /meetings`
+> devuelve **`calendar_invitees[]` con email, dominio e `is_external`**, y un
+> campo **`meeting_type`** configurable por organización. OTC descarta los dos.
+> El detalle está en
+> [`fathom/RESUMEN-OTC.md`](./external-apis/fathom/RESUMEN-OTC.md).
+
 Eso no impide construir, pero cambia **cómo** hay que construir. El patrón que se
 sigue en todas estas integraciones:
 

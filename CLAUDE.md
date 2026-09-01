@@ -69,7 +69,25 @@ credencial o la documentación— sumá su bloque de verificación a
 resultado esperado, marcando lo que tiene alta probabilidad de fallar, lo que
 verifica seguridad y lo que verifica una regla de diseño central.
 
-### 5. Nunca saltear la actualización de CHANGES.md y PENDIENTES.md
+### 5. Explicar en palabras simples al terminar cada bloque de trabajo
+
+**Cada vez que se termina algo** —una fase, una feature, un bugfix significativo—
+cerrar con una explicación **en palabras simples, para alguien que no programa**.
+
+No es un resumen técnico traducido: es contar qué pasaba, qué se hizo y qué
+cambia para el negocio, sin nombres de archivos ni de funciones.
+
+- **Qué estaba mal**, con una comparación cotidiana si ayuda
+- **Qué se hizo**, en términos de lo que el usuario ve o deja de sufrir
+- **Qué falta verificar**, dicho sin rodeos
+
+El detalle técnico va en `CHANGES.md`, no en la respuesta. Los números que
+respaldan lo que se afirma (tests, filas afectadas, porcentajes) sí van, porque
+son lo que distingue una afirmación de una impresión.
+
+---
+
+### 6. Nunca saltear la actualización de CHANGES.md y PENDIENTES.md
 
 Aunque el cambio parezca pequeño (un bugfix de una línea, un tweak de UI), documentarlo en `CHANGES.md`. La continuidad de contexto entre sesiones depende de este registro.
 
@@ -78,7 +96,7 @@ Al finalizar cada sesión, también actualizar `PENDIENTES.md`:
 - Agregar nuevos pendientes que hayan surgido durante la sesión
 - Actualizar la descripción de ítems que cambiaron de scope o estado
 
-### 6. Workflow de Git — ramas, PRs y merges
+### 7. Workflow de Git — ramas, PRs y merges
 
 **Todo el desarrollo ocurre en ramas de feature. Nunca commitear directamente a `main`.**
 
@@ -677,7 +695,7 @@ Eventos SSE: ver `lib/agent/sse.ts` (`token`, `thinking`, `tool`, `done`, `error
 
 ## 9. WORKFLOW DE DEPLOY
 
-### Flujo completo (ver también Regla 6 en sección de Reglas Obligatorias)
+### Flujo completo (ver también Regla 7 en sección de Reglas Obligatorias)
 
 ```
 rama-de-feature  →  PR a main  →  Squash and merge  →  Vercel build  →  Production (gru1)

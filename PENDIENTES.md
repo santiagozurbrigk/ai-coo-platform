@@ -9,6 +9,69 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [LLAMADAS-PR] Un solo PR al final, no uno por fase
+
+**Decisión del usuario (2026-09-01):** las tres fases del módulo de llamadas se
+acumulan en `Claude-New-Features` y se abre **un único PR** cuando estén todas
+listas, para pasar la implementación entera a producción de una vez.
+
+**No abrir PR antes de terminar la Fase 2.**
+
+---
+
+### [LLAMADAS-VERIFICAR-FATHOM] Probar el cruce con datos reales 🔴
+
+**Qué es:** el motor está construido pero **nada se probó contra una cuenta real
+de Fathom**. El mapeo de campos se hizo leyendo la documentación.
+
+**Qué mirar, en orden:**
+
+1. **¿`calendar_invitees` viene poblado?** Es la señal de la que cuelga todo.
+   El schema lo marca obligatorio, pero una reunión sin evento de calendario
+   podría traer el array vacío.
+2. **¿Cuántas grabaciones quedan sin turno, y cuáles de esas eran ventas?** Se ve
+   en Integraciones → Llamadas de venta. Estar en esa lista no es un problema:
+   una reunión de equipo o una sesión con un cliente no es una venta.
+3. **¿La ventana de 45 minutos del match provisional es la correcta?** Se eligió
+   por criterio, no midiendo cruces reales.
+
+**Alcance actual:** OTC registra **únicamente llamadas de venta**. Equipo y
+entrega de servicio quedan para más adelante — cuando se implementen, entran por
+`counterparty` y `purpose`, que ya existen.
+
+---
+
+### [LLAMADAS-FASE-2-PULIR] Detalles que quedaron a medias del seguimiento
+
+**Responsable del próximo paso:** la columna `next_action_owner_id` existe y la
+acción lo acepta, pero la UI todavía no deja elegir a quién se le asigna. Hoy
+queda en null.
+
+**Calificación previa:** `pre_call_qualification` tiene columna y acción, pero el
+panel sólo expone la posterior. La previa tendría que poder cargarse desde la
+ficha del turno, antes de la llamada.
+
+**Turnos de Calendly sin lead:** los 186 turnos que no vienen de GHL no tienen
+identidad estable hasta que un sync les complete el mail. Se resuelve solo —el
+mail ya se persiste desde la Fase 0—, pero conviene verificar que efectivamente
+se completen.
+
+**Sin cobertura de Playwright** en el panel de seguimiento.
+
+---
+
+### [LLAMADAS-CANCELED-BY] Leer quién canceló en Calendly
+
+**Qué es:** `cancelled_by` se llena con `unknown` en los dos proveedores.
+Calendly expone el autor en `cancellation.canceled_by` y todavía no se lee; GHL
+no lo informa.
+
+**Por qué importa:** que cancele el lead es una señal sobre el lead; que cancele
+el closer es una señal sobre la operación. Con `unknown` en todo, la distinción
+no se puede usar.
+
+---
+
 ### [REPORTES-PULSO-DIARIO] Revisar la primera salida real del pulso diario
 
 **Qué es:** el reporte diario se construyó pero **nunca corrió**. Su prompt le pide algo distinto al semanal: detectar roturas obvias sin recomendar acciones, y decir en una oración cuando el día fue normal.
@@ -479,6 +542,10 @@ referencias + `brand.domain`.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-09-02 | LLAMADAS-FASE-2: seguimiento del lead. Tabla `sales_leads` que hila los intentos (845 leads, 861 turnos, 15 con reagendas). Próximo paso con fecha y notas — lo que faltaba para que una llamada que no cierra deje de ser un callejón sin salida. Tres estados de trabajo derivados: seguimiento vencido, falta resultado y sin próximo paso. Calificación antes y después. Ciclo lead → cliente cerrado al vender. 577 tests | `Claude-New-Features` |
+| 2026-09-01 | LLAMADAS-ALCANCE: reducción a sólo llamadas de venta. Una grabación lo es cuando el mail de un participante coincide con el del lead de un turno y el horario corresponde; match provisional por horario mientras los turnos no tengan mail. Se retiró lo que quedó fuera de alcance (tipos de reunión, parser de título, match contra clientes, detección de equipo). El mail del lead ahora viaja al cliente al cerrar. 558 tests | `Claude-New-Features` |
+| 2026-09-01 | LLAMADAS-FASE-1: un solo clasificador con dos ejes (con quién / para qué). Se empezaron a leer los invitados de Fathom —con mail e `is_external`— que el parser descartaba, y el cruce grabación↔turno por horario y mail, con FK real. Parser posicional del título como respaldo. UI de mapeo de tipos y cola de sin clasificar. 581 tests | `Claude-New-Features` |
+| 2026-09-01 | LLAMADAS-FASE-0: `showed` de GHL dejó de contarse como venta; canceladas se importan como canceladas y no como no-show; los syncs dejaron de pisar los estados manuales; se dejó de inventar `"delivery"`; rescate de llamadas trabadas; `lead_email` persistido; documentación de Fathom bajada al repo. 544 tests | `Claude-New-Features` |
 | 2026-08-31 | BRAND-A: paleta categórica aplicada a badges, etiquetas y nodos del grafo; 0 clases violeta en la app | `Claude-Design` |
 | 2026-08-31 | Rediseño del sistema de gráficos: paleta categórica y ordinal validadas, leyendas, espaciados y barra de progreso honesta en métricas | `Claude-Design` |
 | 2026-08-31 | REPORTES-IA: pulso diario (tercera cadencia), UI rediseñada y movida a un panel de la isla derecha de la barra. "Reportes" salió de Operaciones. Sólo generación automática. Rehecho sobre `main` después de que entraran #32/#33/#34: 509 tests, lint y tsc limpios, build de 131 páginas | `Claude-New-Features` |

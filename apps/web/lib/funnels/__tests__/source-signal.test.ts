@@ -33,6 +33,21 @@ describe("resultados de llamadas", () => {
     expect(result.hasOutcomes).toBe(false);
   });
 
+  it("una llamada asistida cuenta como asistencia aunque no tenga resultado", () => {
+    // `attended` es lo que significa `showed` en GHL. Dejarla afuera
+    // subestimaría el denominador de la tasa de cierre.
+    const result = resolveCallOutcomes(["attended", "closed", "scheduled"]);
+    expect(result.attended).toBe(2);
+    expect(result.closed).toBe(1);
+  });
+
+  it("una cancelada no cuenta como asistencia ni como resultado cargado", () => {
+    // La llamada nunca ocurrió: no dice nada sobre si los leads se presentan.
+    const result = resolveCallOutcomes(["scheduled", "cancelled", "cancelled"]);
+    expect(result.attended).toBeNull();
+    expect(result.hasOutcomes).toBe(false);
+  });
+
   it("un no_show SÍ cuenta como resultado cargado", () => {
     // Alguien miró la llamada y registró que el lead no vino. Eso es señal: el
     // cero de asistencia que sale de acá es real.

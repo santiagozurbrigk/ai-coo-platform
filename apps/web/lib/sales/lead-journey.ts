@@ -1,4 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import {
+  CLOSING_CALL_STATUS_LABEL,
+  isClosingCallStatus,
+} from "@/lib/closing/call-status";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   resolveContentAssetFromConversation,
@@ -124,10 +128,9 @@ function contentTypeLabel(type: string): string {
 }
 
 function closingStatusLabel(status: string): string {
-  if (status === "closed")     return "completada";
-  if (status === "not_closed") return "no cerrada";
-  if (status === "no_show")    return "no show";
-  return "agendada";
+  return isClosingCallStatus(status)
+    ? CLOSING_CALL_STATUS_LABEL[status].toLowerCase()
+    : "agendada";
 }
 
 /** Decide si un comentario de post pertenece al lead usando el Instagram user ID. */

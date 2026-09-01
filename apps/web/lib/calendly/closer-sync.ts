@@ -8,6 +8,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchCalendlyScheduledEventPayloads } from "@/lib/calendly/fetch-scheduled-events";
 import { repairClosingConversationLinks } from "@/lib/conversations/repair-links";
+import { syncMayOverwriteStatus } from "@/lib/closing/call-status";
+import type { ClosingCallStatus } from "@/types/closing";
 import { attributeBookingToUTM } from "@/lib/utm/attribute-booking";
 import type { CalendlyEventSyncPayload } from "@/types/calendly";
 
@@ -32,7 +34,7 @@ export type CloserSyncResult = {
   organizationId: string;
   inserted: number;
   updated: number;
-  skippedClosed: number;
+  skippedManualStatus: number;
   fetched: number;
   skipped?: boolean;
   reason?: string;
@@ -114,7 +116,7 @@ export async function syncCloserCalendlyEvents(
     const { calendly_user_uri: calendlyUserUri } = config;
 
     if (!calendlyUserUri) {
-      return { profileId, organizationId, inserted: 0, updated: 0, skippedClosed: 0, fetched: 0, skipped: true, reason: "no_user_uri" };
+      return { profileId, organizationId, inserted: 0, updated: 0, skippedManualStatus: 0, fetched: 0, skipped: true, reason: "no_user_uri" };
     }
 
     // Fetch eventos del closer (la API de Calendly permite filtrar por user)
@@ -125,7 +127,7 @@ export async function syncCloserCalendlyEvents(
     );
 
     if (!events.length) {
-      return { profileId, organizationId, inserted: 0, updated: 0, skippedClosed: 0, fetched: 0 };
+      return { profileId, organizationId, inserted: 0, updated: 0, skippedManualStatus: 0, fetched: 0 };
     }
 
     // Upsert en closing_calls con closer_id asignado
@@ -153,7 +155,7 @@ export async function syncCloserCalendlyEvents(
       organizationId,
       inserted: 0,
       updated: 0,
-      skippedClosed: 0,
+      skippedManualStatus: 0,
       fetched: 0,
       skipped: true,
       reason: err instanceof Error ? err.message : "unexpected_error",
@@ -166,7 +168,7 @@ async function upsertClosingCallsForCloser(
   profileId: string,
   calendlyHostUri: string,
   events: CalendlyEventSyncPayload[]
-): Promise<{ inserted: number; updated: number; skippedClosed: number }> {
+): Promise<{ inserted: number; updated: number; skippedManualStatus: number }> {
   const admin = createAdminClient();
 
   const normalized = events
@@ -181,19 +183,25 @@ async function upsertClosingCallsForCloser(
     }))
     .filter((e) => e.eventId && e.inviteeName && e.startTime);
 
-  if (!normalized.length) return { inserted: 0, updated: 0, skippedClosed: 0 };
+  if (!normalized.length) return { inserted: 0, updated: 0, skippedManualStatus: 0 };
 
   const uniqueEventIds = Array.from(new Set(normalized.map((e) => e.eventId)));
 
   const { data: existing, error: existingError } = await admin
     .from("closing_calls")
-    .select("id, status, calendly_event_id, closer_id")
+    .select("id, status, status_source, calendly_event_id, closer_id")
     .eq("organization_id", organizationId)
     .in("calendly_event_id", uniqueEventIds);
 
   if (existingError) throw new Error(existingError.message);
 
-  type ExistingRow = { id: string; status: string; calendly_event_id: string | null; closer_id: string | null };
+  type ExistingRow = {
+    id: string;
+    status: ClosingCallStatus;
+    status_source: string | null;
+    calendly_event_id: string | null;
+    closer_id: string | null;
+  };
   const existingRows = (existing ?? []) as ExistingRow[];
   const byEventId = new Map<string, ExistingRow>();
   for (const row of existingRows) {
@@ -201,11 +209,8 @@ async function upsertClosingCallsForCloser(
   }
 
   const toInsert = normalized.filter((e) => !byEventId.has(e.eventId));
-  const toUpdate = normalized.filter((e) => {
-    const row = byEventId.get(e.eventId);
-    return row ? row.status !== "closed" : false;
-  });
-  const skippedClosed = normalized.length - toInsert.length - toUpdate.length;
+  const toUpdate = normalized.filter((e) => byEventId.has(e.eventId));
+  let skippedManualStatus = 0;
 
   // Insertar nuevas llamadas con closer_id
   if (toInsert.length > 0) {
@@ -216,8 +221,10 @@ async function upsertClosingCallsForCloser(
       calendly_host_uri: calendlyHostUri,
       closer_id: profileId,
       lead_name: e.inviteeName,
+      lead_email: e.inviteeEmail?.trim() || null,
       scheduled_at: e.startTime,
       status: e.statusHint ?? "scheduled",
+      cancelled_by: e.statusHint === "cancelled" ? "unknown" : null,
       form_answers: e.questionsAndAnswers,
       conversation_id: null,
     }));
@@ -248,24 +255,31 @@ async function upsertClosingCallsForCloser(
     const row = byEventId.get(e.eventId);
     if (!row) continue;
 
-    await admin
-      .from("closing_calls")
-      .update({
-        calendly_url: e.url ?? null,
-        calendly_host_uri: calendlyHostUri,
-        closer_id: profileId,        // asignar/actualizar el closer
-        lead_name: e.inviteeName,
-        scheduled_at: e.startTime,
-        status: e.statusHint ?? "scheduled",
-        form_answers: e.questionsAndAnswers,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", row.id);
+    const patch: Record<string, unknown> = {
+      calendly_url: e.url ?? null,
+      calendly_host_uri: calendlyHostUri,
+      closer_id: profileId,        // asignar/actualizar el closer
+      lead_name: e.inviteeName,
+      lead_email: e.inviteeEmail?.trim() || null,
+      scheduled_at: e.startTime,
+      form_answers: e.questionsAndAnswers,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (syncMayOverwriteStatus({ status: row.status, statusSource: row.status_source })) {
+      const next = e.statusHint ?? "scheduled";
+      patch.status = next;
+      patch.cancelled_by = next === "cancelled" ? "unknown" : null;
+    } else {
+      skippedManualStatus++;
+    }
+
+    await admin.from("closing_calls").update(patch).eq("id", row.id);
   }
 
   await repairClosingConversationLinks(admin, organizationId);
 
-  return { inserted: toInsert.length, updated: toUpdate.length, skippedClosed };
+  return { inserted: toInsert.length, updated: toUpdate.length, skippedManualStatus };
 }
 
 // ─── Sync de todos los closers de una org ─────────────────────────────────────

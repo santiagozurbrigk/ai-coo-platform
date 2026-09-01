@@ -92,12 +92,17 @@ function extractQuestionsAndAnswers(payload: CalendlyWebhookInviteePayload) {
   );
 }
 
+/**
+ * Un `invitee.canceled` es una cancelación, no una inasistencia: la llamada
+ * nunca ocurrió. Guardarlo como `no_show` inflaba la tasa de inasistencia y
+ * hacía invisible el evento que el seguimiento del lead tiene que registrar.
+ */
 function mapStatusHint(
   eventType: string
-): "scheduled" | "no_show" | "not_closed" {
+): "scheduled" | "no_show" | "cancelled" {
   if (eventType === "invitee.created") return "scheduled";
   if (eventType === "invitee_no_show.created") return "no_show";
-  if (eventType === "invitee.canceled") return "no_show";
+  if (eventType === "invitee.canceled") return "cancelled";
   if (eventType === "invitee_no_show.deleted") return "scheduled";
   return "scheduled";
 }

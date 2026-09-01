@@ -44,6 +44,8 @@ export type FathomKnowledgeCall = {
   client_id: string | null;
   clientName?: string | null;
   call_type?: string | null;
+  /** Propósito resuelto por el clasificador único de la Fase 1. */
+  purpose?: string | null;
   summary?: string | null;
   ai_task_proposals?: FathomTaskProposal[];
   tasks_sent_to_board?: boolean;
