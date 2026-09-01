@@ -14,6 +14,111 @@
 
 ---
 
+### 2026-09-01 — Llamadas Fase 1: un clasificador, dos ejes, y la señal que se estaba tirando
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/fathom/{invitees,parse-title,match-appointment,classify,resolve-classification}.ts` (nuevos), `supabase/migrations/20260901180000_fathom_classification.sql` (nueva), `app/fathom/classification-actions.ts` (nuevo), `components/integrations/{fathom-call-classification-panel,unclassified-calls-panel}.tsx` (nuevos), `lib/fathom/{api,sync,process-call}.ts`, `app/fathom/{actions,member-actions}.ts`, `app/(platform)/integrations/page.tsx`
+
+**Qué se hizo:**
+
+**⭐ El hallazgo que cambió el plan.** Se bajó la documentación de Fathom (faltaba
+en el repo) y `GET /meetings` devuelve **`calendar_invitees[]`** con el mail de
+cada invitado, su dominio y **`is_external`** — en la lista de campos
+**obligatorios** de la respuesta. `lib/fathom/api.ts` parseaba título, fechas y
+transcript, y **descartaba todo lo demás**.
+
+Eso es lo que faltaba: el 86% de los títulos reales son `"Impromptu Google Meet
+Meeting"`, y toda la arquitectura leía el título. Con los invitados, la identidad
+y el "interna vs. externa" salen de la API, no de adivinar.
+
+**⭐ Dos ejes en vez de uno.** `call_type` mezclaba *con quién* y *para qué*, y el
+fracaso de la primera pregunta decidía la segunda en silencio. Ahora son
+`counterparty` (lead/cliente/interna) y `purpose` (venta/entrega/equipo). Una
+llamada de venta es con un **lead**, que por definición todavía no es cliente —
+por eso el sistema viejo, que buscaba clientes, las mandaba todas a `unmatched` y
+las analizaba con `clientName: "Equipo interno"`.
+
+**⭐ Un solo clasificador.** `classify.ts` reemplaza a los cuatro que competían:
+el regex de equipo de `associate.ts`, las 60 keywords de `classify-call-type.ts`
+(eliminado), la IA sobre el transcript y el fuzzy match del título. Orden de
+señales, de la más verificable a la más frágil: turno agendado → cliente por mail
+→ invitados internos → tipo de reunión → convención del título. Sin ninguna,
+`null` con el motivo y a la cola de revisión.
+
+**⭐ El cruce con la agenda, que es la señal fuerte.** `match-appointment.ts`
+cruza la grabación con `closing_calls` por **horario y mail**. Reemplaza al
+`ilike '%nombre%'` que tomaba el turno más reciente sin mirar fechas. Ventana
+amplia (12 h) cuando el mail confirma la identidad, ajustada (45 min) cuando lo
+único que hay es el solapamiento. Dos turnos igual de plausibles → `ambiguous`,
+no un vínculo al azar. Y la FK real `fathom_calls.closing_call_id`, que no
+existía.
+
+**El parser del título, por posición.** `"Llamada de venta - Mariano"`: el tipo
+sólo a la izquierda del separador, la identidad sólo a la derecha. El viejo
+buscaba keywords en cualquier parte, así que `"Weekly de ventas"` (equipo) caía
+en venta y `"Reunión con Juan"` (venta) caía en equipo. Es respaldo, no
+mecanismo principal.
+
+**UI.** Pantalla de mapeo tipo de reunión → propósito, y cola de llamadas sin
+clasificar con el motivo y resolución en un clic.
+
+**Decisiones de diseño relevantes:**
+
+- **Un array de invitados vacío no es "no había externos".** `isInternalOnly`
+  devuelve `null` sin lista: sin invitados no se puede afirmar que la reunión era
+  interna. Misma regla que rige todo el módulo.
+- **El mail manda sobre la cercanía temporal.** Si un invitado coincide con el
+  lead de un turno, ese turno gana aunque otro esté más cerca en el tiempo: el
+  mail es identidad, la hora es corroboración.
+- **`normalizeEmail` no saca puntos ni sufijos `+algo`.** Son convenciones de
+  Gmail, no del protocolo; aplicarlas a dominios corporativos uniría personas
+  distintas.
+- **Confianza 0.95 para el vínculo por mail, no 1.** `1` está reservado a
+  `MANUAL_FATHOM_LINK_CONFIDENCE` — los vínculos que hizo una persona. 0.95
+  supera el umbral de asociación (0.75) sin hacerse pasar por manual.
+- **La clave del mapeo de tipos es el nombre, no un ID**, porque la API de Fathom
+  no expone identificador. Si alguien renombra un tipo el mapeo queda huérfano, y
+  la UI lo marca en vez de dejar de clasificar en silencio.
+- **La API de tipos es de sólo lectura.** Los tipos se crean y se asignan dentro
+  de Fathom; OTC sólo los lista. El panel lo dice explícitamente.
+- **Una lista vacía de tipos es una respuesta válida**, distinta de "no se pudo
+  preguntar" (`unavailable`). El panel explica que la clasificación funciona
+  igual sin tipos.
+- **La IA dejó de escribir `call_type`.** Lo decide el clasificador. `call_type`
+  queda como columna legada; los lectores migraron a `purpose` —incluida la
+  lista de llamadas de venta, que filtraba `call_type = 'consulting'` y por eso
+  perdía toda llamada mal clasificada.
+
+**Verificación ejecutada:**
+- `pnpm test`: **581 tests en 36 archivos, todos en verde** (37 nuevos).
+- `tsc --noEmit` y `pnpm lint` limpios. `pnpm build` completo: 133 páginas.
+- Migración **aplicada** a Supabase.
+
+**Un hueco que encontró un test antes de llegar a producción:** el clasificador
+reportaba `no_signal` cuando había invitados externos pero no se resolvía el
+propósito. Son situaciones distintas —"no hay nada de dónde agarrarse" vs.
+"sabemos que fue con alguien de afuera y falta para qué"— y la cola de revisión
+las trata distinto. Se corrigió el código, no el test.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Nada de esto se probó contra una cuenta real de Fathom.** El mapeo de
+  campos se construyó leyendo la documentación. Lo primero que hay que mirar es
+  si `calendar_invitees` viene poblado, y si la organización tiene tipos de
+  reunión configurados.
+- **No se sabe si los tipos de reunión existen en la cuenta del usuario.** La
+  documentación de la API no explica dónde se crean y no aparecen en la pantalla
+  de ajustes de Fathom. El panel de OTC responde la pregunta desde el deploy sin
+  que la API key pase por ningún lado.
+- `associateCallWithClients` (el fuzzy match por título) sigue en el pipeline
+  como último recurso. Con el match por mail ya no debería activarse; se retira
+  en la Fase 2 una vez confirmado con datos reales.
+- La cola de revisión no permite vincular a un cliente o a un turno concreto,
+  sólo asignar el propósito.
+
+---
+
 ### 2026-09-01 — Llamadas Fase 0: dejar de corromper datos de venta
 
 **Rama/branch:** `Claude-New-Features`

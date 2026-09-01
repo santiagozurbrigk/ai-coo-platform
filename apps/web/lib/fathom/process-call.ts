@@ -1,13 +1,15 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { analyzeFathomTranscript } from "@/lib/fathom/analyze-transcript";
 import { generateDeepCallAnalysis } from "@/lib/fathom/deep-call-analysis";
-import {
-  extractTeamMeetingTaskProposals,
-  isTeamMeetingCallType,
-} from "@/lib/fathom/team-task-extraction";
+import { extractTeamMeetingTaskProposals } from "@/lib/fathom/team-task-extraction";
 import { associateCallWithClients } from "@/lib/fathom/associate";
 import { isManualFathomLink } from "@/lib/fathom/client-matcher";
+
+/** Confianza de un vínculo resuelto por coincidencia exacta de mail. */
+const EMAIL_MATCH_CONFIDENCE = 0.95;
 import { fetchFathomMeetingTitle } from "@/lib/fathom/api";
+import { parseFathomInvitees } from "@/lib/fathom/invitees";
+import { resolveCallClassification } from "@/lib/fathom/resolve-classification";
 import { ingestDocument } from "@/lib/rag/ingest";
 import {
   publishFathomAnalysisJob,
@@ -41,16 +43,19 @@ export type FathomCallRow = {
   duration_seconds?: number | null;
   call_date?: string | null;
   summary?: string | null;
+  calendar_invitees?: unknown;
+  meeting_type?: string | null;
 };
 
 async function maybeExtractTeamMeetingTasks(params: {
   callId: string;
   organizationId: string;
-  callType: string | null | undefined;
+  /** Propósito resuelto por el clasificador, no por la IA del transcript. */
+  purpose: string | null | undefined;
   transcript: string | null;
   summary?: string | null;
 }): Promise<void> {
-  if (!isTeamMeetingCallType(params.callType) || !params.transcript?.trim()) {
+  if (params.purpose !== "team" || !params.transcript?.trim()) {
     return;
   }
 
@@ -128,6 +133,43 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
     if (updatedTitle) title = updatedTitle;
   }
 
+  // ⭐ Clasificación. Reemplaza a los cuatro mecanismos que competían y se
+  // pisaban entre sí. Corre después de refrescar el título —la ventana de 30
+  // minutos existe para que alguien pueda renombrar la reunión— y antes de
+  // cualquier análisis, porque de acá sale con quién y para qué es la llamada.
+  const classification = await resolveCallClassification({
+    organizationId: call.organization_id,
+    title,
+    invitees: parseFathomInvitees(call.calendar_invitees),
+    meetingType: call.meeting_type ?? null,
+    recordingStart: call.call_date ?? null,
+  });
+
+  const classificationUpdate: Record<string, unknown> = {
+    counterparty: classification.counterparty,
+    purpose: classification.purpose,
+    classification_signals: classification.signals,
+    unclassified_reason: classification.reason,
+    declared_name: classification.declaredName,
+    closing_call_id: classification.appointmentId,
+    appointment_match: classification.appointmentMatch,
+  };
+
+  // Un invitado externo cuyo mail es el de un cliente: eso identifica al cliente
+  // con certeza. Es lo que reemplaza al fuzzy match contra el título, que dejó
+  // 0 de 248 llamadas asociadas.
+  //
+  // 0.95 y no 1: `1` está reservado para los vínculos que hizo una persona
+  // (`MANUAL_FATHOM_LINK_CONFIDENCE`), y este es automático. Alcanza de sobra
+  // para el umbral de asociación, que es 0.75.
+  const isManual = isManualFathomLink(call.client_id, call.association_confidence);
+  if (classification.clientId && !isManual) {
+    classificationUpdate.client_id = classification.clientId;
+    classificationUpdate.association_confidence = EMAIL_MATCH_CONFIDENCE;
+  }
+
+  await admin.from("fathom_calls").update(classificationUpdate).eq("id", call.id);
+
   const { data: callState } = await admin
     .from("fathom_calls")
     .select("client_id, association_confidence")
@@ -155,6 +197,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
       confidence: linkConfidence,
       durationSeconds: call.duration_seconds,
       callDate: call.call_date,
+      purpose: classification.purpose,
     });
     return;
   }
@@ -182,15 +225,12 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
         previousCallsSummary: "",
       });
 
-      const callType = analysis?.call_type ?? null;
-
       await admin
         .from("fathom_calls")
         .update({
           title,
           raw_title: call.raw_title ?? call.title,
           status: "unmatched",
-          call_type: callType,
           ai_situation_summary: analysis?.situation_summary ?? null,
           ai_next_steps: analysis?.next_steps ?? [],
           ai_problems_detected: analysis?.problems_detected ?? [],
@@ -201,7 +241,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
       await maybeExtractTeamMeetingTasks({
         callId: call.id,
         organizationId: call.organization_id,
-        callType,
+        purpose: classification.purpose,
         transcript: call.transcript,
         summary: analysis?.situation_summary ?? call.summary ?? null,
       });
@@ -245,6 +285,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
     confidence: association.confidence,
     durationSeconds: call.duration_seconds,
     callDate: call.call_date,
+    purpose: classification.purpose,
   });
 }
 
@@ -260,6 +301,8 @@ export async function finalizeAssociatedCall(params: {
   confidence: number;
   durationSeconds?: number | null;
   callDate?: string | null;
+  /** Propósito ya resuelto por el clasificador. */
+  purpose?: string | null;
 }): Promise<void> {
   const admin = createAdminClient();
 
@@ -312,12 +355,6 @@ export async function finalizeAssociatedCall(params: {
       ai_next_steps: nextSteps,
       ai_problems_detected: problems,
       ai_progress_vs_previous: analysis?.progress_vs_previous ?? null,
-      // ⭐ Sin análisis no hay tipo. Antes acá decía `?? "delivery"`: cuando la
-      // IA fallaba, la llamada quedaba marcada como entrega sin que nadie lo
-      // hubiera determinado. Un hueco de instrumentación mostrado como dato es
-      // exactamente lo que la regla central del módulo prohíbe — `null` dice la
-      // verdad, y la UI puede pedir que alguien lo resuelva.
-      call_type: analysis?.call_type ?? null,
       processed_at: new Date().toISOString(),
     })
     .eq("id", params.callId);
@@ -325,7 +362,7 @@ export async function finalizeAssociatedCall(params: {
   await maybeExtractTeamMeetingTasks({
     callId: params.callId,
     organizationId: params.organizationId,
-    callType: analysis?.call_type ?? null,
+    purpose: params.purpose ?? null,
     transcript: params.transcript,
     summary: analysis?.situation_summary ?? null,
   });

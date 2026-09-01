@@ -42,39 +42,24 @@ en vez de dejar de clasificar en silencio.
 
 ---
 
-### [LLAMADAS-FASE-1] Clasificación e identidad de llamadas
+### [LLAMADAS-VERIFICAR-FATHOM] Probar la clasificación con datos reales 🔴
 
-**Qué es:** la Fase 0 corrigió la ingesta. Falta lo que hace que el módulo
-entienda qué es cada llamada.
+**Qué es:** la Fase 1 está construida pero **nada se probó contra una cuenta real
+de Fathom**. El mapeo de campos se hizo leyendo la documentación.
 
-**Lo que cambió respecto del plan original.** Se bajó la documentación de Fathom
-y `GET /meetings` devuelve dos cosas que OTC descarta:
+**Qué mirar, en orden:**
 
-- **`calendar_invitees[]`** con `email`, `email_domain` e `is_external`. Resuelve
-  la identidad sin parsear el título, y separa reunión interna de externa sin
-  heurística.
-- **`meeting_type`**, configurable por organización, con `/meeting_types` para
-  enumerarlos.
+1. **¿`calendar_invitees` viene poblado?** Es la señal de la que cuelga todo. El
+   schema lo marca obligatorio, pero una reunión sin evento de calendario podría
+   traer el array vacío.
+2. **¿Existen tipos de reunión en la cuenta?** El panel de Integraciones →
+   Clasificación de llamadas lo responde solo, sin que la API key salga del
+   servidor. Tres resultados posibles: la lista con los tipos, "no tenés tipos
+   configurados", o "no se pudo consultar".
+3. **¿La ventana horaria es la correcta?** Hoy son 12 h con mail coincidente y
+   45 min sin él. Se mide contra los cruces reales y se ajusta si hace falta.
 
-Eso es **mejor que la convención de nombres** que se había planeado: en vez de
-que el closer escriba `"Llamada de venta - Mariano"` después de cada llamada, la
-org mapea una vez qué tipo de reunión de Fathom es venta, entrega o equipo. La
-convención queda como respaldo para las improvisadas, que son las que no tienen
-tipo asignado.
-
-**Qué falta hacer:**
-- Leer `calendar_invitees` y `meeting_type` en `lib/fathom/api.ts`, que hoy sólo
-  parsea título, fechas y transcript.
-- Parser posicional del título (`tipo - quién`) como respaldo.
-- Match por ventana horaria entre grabación y `closing_calls.scheduled_at`.
-- FK real entre `closing_calls` y `fathom_calls`, retirando el `ilike '%nombre%'`.
-- Cola de "sin clasificar" en la UI, con el motivo.
-- Reemplazar los cuatro clasificadores que compiten hoy por uno solo.
-
-**Verificar primero contra una cuenta real:** que `calendar_invitees` venga
-poblado en las reuniones improvisadas (el 86% del volumen) y que la org tenga
-tipos de reunión configurados en Fathom. Detalle en
-`docs/external-apis/fathom/RESUMEN-OTC.md`.
+**Dónde se ve:** Integraciones → Clasificación de llamadas.
 
 ---
 
@@ -577,6 +562,7 @@ referencias + `brand.domain`.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-09-01 | LLAMADAS-FASE-1: un solo clasificador con dos ejes (con quién / para qué). Se empezaron a leer los invitados de Fathom —con mail e `is_external`— que el parser descartaba, y el cruce grabación↔turno por horario y mail, con FK real. Parser posicional del título como respaldo. UI de mapeo de tipos y cola de sin clasificar. 581 tests | `Claude-New-Features` |
 | 2026-09-01 | LLAMADAS-FASE-0: `showed` de GHL dejó de contarse como venta; canceladas se importan como canceladas y no como no-show; los syncs dejaron de pisar los estados manuales; se dejó de inventar `"delivery"`; rescate de llamadas trabadas; `lead_email` persistido; documentación de Fathom bajada al repo. 544 tests | `Claude-New-Features` |
 | 2026-08-31 | BRAND-A: paleta categórica aplicada a badges, etiquetas y nodos del grafo; 0 clases violeta en la app | `Claude-Design` |
 | 2026-08-31 | Rediseño del sistema de gráficos: paleta categórica y ordinal validadas, leyendas, espaciados y barra de progreso honesta en métricas | `Claude-Design` |

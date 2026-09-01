@@ -16,6 +16,12 @@ import {
 } from "@/app/webinarjam/actions";
 import { HyrosConnectPanel } from "@/components/integrations/hyros-connect-panel";
 import { getHyrosStatusAction } from "@/app/hyros/actions";
+import { FathomCallClassificationPanel } from "@/components/integrations/fathom-call-classification-panel";
+import { UnclassifiedCallsPanel } from "@/components/integrations/unclassified-calls-panel";
+import {
+  getFathomMeetingTypesAction,
+  listUnclassifiedCallsAction,
+} from "@/app/fathom/classification-actions";
 import { ReelMusicUpload } from "@/components/marketing/trial-reels/reel-music-upload";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@ai-coo/ui";
@@ -32,6 +38,8 @@ export default async function IntegrationsPage() {
     webinarJam,
     webinarJamWebinars,
     hyros,
+    fathomMeetingTypes,
+    unclassifiedCalls,
   ] = await Promise.all([
     listIntegrationsAction(),
     getReelMusicPathAction(),
@@ -41,6 +49,8 @@ export default async function IntegrationsPage() {
     getWebinarJamStatusAction(),
     listWebinarJamWebinarOptionsAction(),
     getHyrosStatusAction(),
+    getFathomMeetingTypesAction(),
+    listUnclassifiedCallsAction(),
   ]);
 
   return (
@@ -68,6 +78,18 @@ export default async function IntegrationsPage() {
       <WebinarJamConnectPanel status={webinarJam} webinars={webinarJamWebinars} />
 
       <HyrosConnectPanel status={hyros} />
+
+      {/* Clasificación de llamadas — Fase 1 del módulo de llamadas */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">Clasificación de llamadas</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Cómo OTC decide si una llamada es de venta, de entrega o de equipo
+          </p>
+        </div>
+        <FathomCallClassificationPanel state={fathomMeetingTypes} />
+        <UnclassifiedCallsPanel calls={unclassifiedCalls} />
+      </section>
 
       {/* Trial Reels — configuración de assets */}
       <section className="space-y-3">

@@ -6,7 +6,6 @@ import { Button } from "@ai-coo/ui";
 import { FathomTaskProposalModal } from "@/components/fathom/fathom-task-proposal-modal";
 import type { FathomKnowledgeCall } from "@/types/business-context";
 import type { FathomTaskProposal } from "@/lib/fathom/team-task-extraction";
-import { isTeamMeetingCallType } from "@/lib/fathom/team-task-extraction";
 
 type FathomCallDetailProps = {
   call: FathomKnowledgeCall;
@@ -19,7 +18,7 @@ export function FathomCallDetail({ call, onTasksSent }: FathomCallDetailProps) {
   const [allRejected, setAllRejected] = useState(false);
 
   const proposals = (call.ai_task_proposals ?? []) as FathomTaskProposal[];
-  const isTeamMeeting = isTeamMeetingCallType(call.call_type);
+  const isTeamMeeting = call.purpose === "team";
   const hasProposals = proposals.length > 0;
 
   if (!isTeamMeeting || !hasProposals) return null;

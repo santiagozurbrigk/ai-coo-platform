@@ -314,7 +314,10 @@ export async function getSalesCallsAction(): Promise<
          call_analyses(id, overall_score, closer_name, lead_qualified, sold, booked, summary, strengths, improvements, objections)`
       )
       .eq("organization_id", organizationId)
-      .eq("call_type", "consulting")
+      // Antes: `call_type = 'consulting'`. Ese campo lo escribía la IA sin
+      // definiciones de ningún tipo, y cuando fallaba quedaba en null — así que
+      // una llamada de venta mal clasificada simplemente desaparecía de acá.
+      .eq("purpose", "sales")
       .order("call_date", { ascending: false })
       .limit(100);
 

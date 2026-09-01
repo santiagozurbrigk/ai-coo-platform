@@ -11,6 +11,8 @@ type FathomCallDbRow = {
   status: string;
   client_id: string | null;
   call_type: string | null;
+  /** Eje nuevo de la Fase 1. `call_type` queda como legado hasta la Fase 2. */
+  purpose: string | null;
   summary: string | null;
   ai_task_proposals: FathomKnowledgeCall["ai_task_proposals"] | null;
   tasks_sent_to_board: boolean | null;
@@ -34,6 +36,7 @@ function mapRow(row: FathomCallDbRow): FathomKnowledgeCall {
     client_id: row.client_id,
     clientName: clientName ?? null,
     call_type: row.call_type,
+    purpose: row.purpose ?? null,
     summary: row.summary,
     ai_task_proposals: Array.isArray(row.ai_task_proposals)
       ? row.ai_task_proposals
@@ -54,7 +57,7 @@ export async function loadFathomCallsForKnowledgeBase(
     admin
       .from("fathom_calls")
       .select(
-        "id, title, call_date, duration_seconds, fathom_url, transcript, status, client_id, call_type, summary, ai_task_proposals, tasks_sent_to_board"
+        "id, title, call_date, duration_seconds, fathom_url, transcript, status, client_id, call_type, purpose, summary, ai_task_proposals, tasks_sent_to_board"
       )
       .eq("organization_id", organizationId)
       .is("client_id", null)
@@ -62,7 +65,7 @@ export async function loadFathomCallsForKnowledgeBase(
     admin
       .from("fathom_calls")
       .select(
-        "id, title, call_date, duration_seconds, fathom_url, transcript, status, client_id, call_type, summary, ai_task_proposals, tasks_sent_to_board, clients(name)"
+        "id, title, call_date, duration_seconds, fathom_url, transcript, status, client_id, call_type, purpose, summary, ai_task_proposals, tasks_sent_to_board, clients(name)"
       )
       .eq("organization_id", organizationId)
       .not("client_id", "is", null)
