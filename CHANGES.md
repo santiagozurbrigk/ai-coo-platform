@@ -14,6 +14,94 @@
 
 ---
 
+### 2026-09-02 — Llamadas Fase 2: seguimiento del lead
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/sales/{lead-thread,resolve-lead}.ts` (nuevos), `app/sales/lead-actions.ts` (nuevo), `components/closing/lead-follow-up-panel.tsx` (nuevo), `supabase/migrations/20260902100000_sales_leads.sql` (nueva), `lib/{ghl/sync-appointments,calendly/sync-events}.ts`, `providers/platform-data-provider.tsx`, `components/closing/closing-overview.tsx`
+
+**Qué se hizo:**
+
+Cierra el pedido original: poder seguir a cada lead cuando la llamada no termina
+en venta.
+
+**⭐ El lead como entidad.** Cada turno era una fila suelta: un lead con siete
+turnos en dos días eran siete filas sin relación entre sí. La tabla `sales_leads`
+los hila. La identidad es el **mail**, con el contacto de GHL como respaldo —
+**nunca el nombre**: los nombres de la base vienen con emojis y espacios dobles,
+y fusionar dos personas por un nombre parecido es peor que dejarlas separadas.
+Un turno sin identidad estable no genera lead y queda suelto hasta que un sync se
+la complete.
+
+La migración hiló los turnos existentes por contacto de GHL: **845 leads, 861
+turnos enganchados, 15 leads con más de un turno** — esas son las reagendas que
+estaban huérfanas. Es aditivo: no se modificó estado, resultado ni ninguna otra
+columna, y los 4 cierres existentes quedaron intactos.
+
+**⭐ El próximo paso, que es lo que faltaba.** De 1.027 turnos, **cero** tenían
+resultado cargado. No porque nadie trabajara: porque después de una llamada que
+no cerraba **no había dónde anotar qué seguía**. Ahora cada llamada acepta un
+próximo paso —reagendar, seguir, esperando al lead, perdido— con fecha,
+responsable y notas.
+
+**⭐ Los tres estados que son trabajo real**, derivados sin inventar nada:
+
+| Estado | Qué significa |
+|---|---|
+| `follow_up_due` | Hay un próximo paso cuya fecha venció |
+| `pending_outcome` | La llamada pasó y nadie cargó qué ocurrió |
+| `stalled` | Tuvo desenlace, no cerró, y **nadie definió qué sigue** |
+
+El tercero es la fuga que el módulo viene a tapar: el lead queda sin dueño y sin
+fecha, y desaparece.
+
+**Calificación en dos momentos.** Antes de la llamada y después,
+deliberadamente separadas. Colapsarlas perdería justo la información útil: si el
+lead resultó mejor o peor de lo que parecía al agendar.
+
+**El ciclo lead → cliente se cierra.** Al vender, el lead queda vinculado al
+cliente en que se convirtió. Antes el hilo se cortaba justo ahí: el lead
+desaparecía y el cliente aparecía sin nada que dijera que eran la misma persona.
+
+**Decisiones de diseño relevantes:**
+
+- **No se infieren reagendas.** Sería fácil decir "este turno se canceló y
+  apareció otro después, entonces se reagendó", pero podrían ser dos intentos
+  independientes. El hilo muestra los intentos en orden —que es un hecho— y la
+  reagenda la **declara el closer** con el próximo paso. Misma regla que sostiene
+  todo el módulo.
+- **Un próximo paso sin fecha se rechaza.** Sin fecha nunca vencería, así que
+  nunca volvería a la cola: sería una forma silenciosa de perder el lead. `lost`
+  es la excepción, porque cierra el hilo.
+- **El seguimiento vencido pesa más que el resultado sin cargar.** Una fecha que
+  pasó es un compromiso incumplido.
+- **`lost` se lee del intento más reciente.** Un "perdido" viejo seguido de un
+  turno nuevo significa que el lead volvió, no que sigue perdido.
+- **Un lead sin turnos no es trabajo pendiente.** Todavía no pasó nada.
+- **La resolución de leads maneja la carrera entre dos syncs**: si el índice
+  único corta el insert, se recupera el lead que ganó en vez de perder el vínculo
+  del turno.
+
+**Verificación ejecutada:**
+- `pnpm test`: **577 tests en 35 archivos, todos en verde** (19 nuevos del hilo).
+- `tsc --noEmit` y `pnpm lint` limpios. `pnpm build` completo: 133 páginas.
+- Migración **aplicada** y verificada: 845 leads, 861 turnos hilados, 15 con
+  varios turnos, 4 cierres sin tocar.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Nada se probó todavía contra cuentas reales.** Sigue pendiente todo el
+  bloque de verificación de Fathom.
+- Los turnos de Calendly sin mail (186) no tienen lead hasta que un sync se lo
+  complete. El mail ya se persiste desde la Fase 0, así que se resuelve solo.
+- El responsable del próximo paso (`next_action_owner_id`) se guarda pero la UI
+  todavía no lo deja elegir: hoy queda en null.
+- La calificación previa (`pre_call_qualification`) tiene columna y acción pero
+  la UI sólo expone la posterior.
+- El panel no tiene cobertura de Playwright.
+
+---
+
 ### 2026-09-01 — Llamadas: reducción de alcance a sólo llamadas de venta
 
 **Rama/branch:** `Claude-New-Features`

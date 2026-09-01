@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CalendlyEventSyncPayload } from "@/types/calendly";
 import type { ClosingCallStatus } from "@/types/closing";
 import { syncMayOverwriteStatus } from "@/lib/closing/call-status";
+import { resolveLeadId } from "@/lib/sales/resolve-lead";
 
 type ExistingClosingCallRow = {
   id: string;
@@ -78,12 +79,28 @@ export async function syncCalendlyEventsForOrganization(
   const toUpdate = normalized.filter((e) => byEventId.has(e.eventId));
   let skippedManualStatus = 0;
 
+  // Identidad del lead, resuelta antes de escribir para que el turno nazca ya
+  // enganchado a su hilo. En Calendly la única identidad estable es el mail:
+  // los turnos sin mail quedan sueltos hasta que un sync se los complete.
+  const leadIds = new Map<string, string | null>();
+  for (const e of [...toInsert, ...toUpdate]) {
+    if (leadIds.has(e.eventId)) continue;
+    leadIds.set(
+      e.eventId,
+      await resolveLeadId(supabase, organizationId, {
+        name: e.inviteeName!,
+        email: e.inviteeEmail ?? null,
+      })
+    );
+  }
+
   const toInsertRows = toInsert.map((e) => ({
     organization_id: organizationId,
     calendly_event_id: e.eventId,
     calendly_url: e.url ?? null,
     lead_name: e.inviteeName,
     lead_email: e.inviteeEmail?.trim() || null,
+    lead_id: leadIds.get(e.eventId) ?? null,
     scheduled_at: e.startTime,
     status: e.statusHint ?? "scheduled",
     // Calendly informa la cancelación en el propio evento pero no siempre su
@@ -125,6 +142,7 @@ export async function syncCalendlyEventsForOrganization(
       calendly_url: e.url ?? null,
       lead_name: e.inviteeName,
       lead_email: e.inviteeEmail?.trim() || null,
+      lead_id: leadIds.get(e.eventId) ?? null,
       scheduled_at: e.startTime,
       form_answers: e.questionsAndAnswers,
       updated_at: new Date().toISOString(),

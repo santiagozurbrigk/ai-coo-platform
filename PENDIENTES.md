@@ -41,20 +41,22 @@ entrega de servicio quedan para más adelante — cuando se implementen, entran 
 
 ---
 
-### [LLAMADAS-FASE-2] Seguimiento del lead
+### [LLAMADAS-FASE-2-PULIR] Detalles que quedaron a medias del seguimiento
 
-**Qué es:** lo que se pidió originalmente. Depende de la Fase 1.
+**Responsable del próximo paso:** la columna `next_action_owner_id` existe y la
+acción lo acepta, pero la UI todavía no deja elegir a quién se le asigna. Hoy
+queda en null.
 
-- Tabla `sales_leads` y migración que hile las reagendas ya existentes (hay leads
-  con 7 turnos en 2 días guardados como filas sueltas).
-- Separar los tres ejes que hoy viven en `status`: ciclo de vida, asistencia y
-  resultado, más próximo paso con fecha y responsable.
-- Ficha del lead: todos sus intentos, calificaciones y objeciones en un hilo.
-- Cola de pendientes de resultado (957 llamadas pasadas sin desenlace).
-- Transición lead → cliente explícita al cerrar.
+**Calificación previa:** `pre_call_qualification` tiene columna y acción, pero el
+panel sólo expone la posterior. La previa tendría que poder cargarse desde la
+ficha del turno, antes de la llamada.
 
-**Ya listo de la Fase 0:** `lead_email` se persiste, `cancelled` y `attended`
-existen como estados, y los syncs ya no pisan lo que carga una persona.
+**Turnos de Calendly sin lead:** los 186 turnos que no vienen de GHL no tienen
+identidad estable hasta que un sync les complete el mail. Se resuelve solo —el
+mail ya se persiste desde la Fase 0—, pero conviene verificar que efectivamente
+se completen.
+
+**Sin cobertura de Playwright** en el panel de seguimiento.
 
 ---
 
@@ -540,6 +542,7 @@ referencias + `brand.domain`.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-09-02 | LLAMADAS-FASE-2: seguimiento del lead. Tabla `sales_leads` que hila los intentos (845 leads, 861 turnos, 15 con reagendas). Próximo paso con fecha y notas — lo que faltaba para que una llamada que no cierra deje de ser un callejón sin salida. Tres estados de trabajo derivados: seguimiento vencido, falta resultado y sin próximo paso. Calificación antes y después. Ciclo lead → cliente cerrado al vender. 577 tests | `Claude-New-Features` |
 | 2026-09-01 | LLAMADAS-ALCANCE: reducción a sólo llamadas de venta. Una grabación lo es cuando el mail de un participante coincide con el del lead de un turno y el horario corresponde; match provisional por horario mientras los turnos no tengan mail. Se retiró lo que quedó fuera de alcance (tipos de reunión, parser de título, match contra clientes, detección de equipo). El mail del lead ahora viaja al cliente al cerrar. 558 tests | `Claude-New-Features` |
 | 2026-09-01 | LLAMADAS-FASE-1: un solo clasificador con dos ejes (con quién / para qué). Se empezaron a leer los invitados de Fathom —con mail e `is_external`— que el parser descartaba, y el cruce grabación↔turno por horario y mail, con FK real. Parser posicional del título como respaldo. UI de mapeo de tipos y cola de sin clasificar. 581 tests | `Claude-New-Features` |
 | 2026-09-01 | LLAMADAS-FASE-0: `showed` de GHL dejó de contarse como venta; canceladas se importan como canceladas y no como no-show; los syncs dejaron de pisar los estados manuales; se dejó de inventar `"delivery"`; rescate de llamadas trabadas; `lead_email` persistido; documentación de Fathom bajada al repo. 544 tests | `Claude-New-Features` |

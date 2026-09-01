@@ -38,6 +38,7 @@ import {
   updateClientAction,
 } from "@/app/clients/actions";
 import { recordClientPaymentAction } from "@/app/clients/payment-actions";
+import { linkLeadToClientAction } from "@/app/sales/lead-actions";
 import {
   getPaidAmountFromClosePayload,
   getPaymentDateFromClosePayload,
@@ -637,6 +638,14 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
 
       const draft = buildClientFromPayment(callId, payment, call?.leadEmail);
       const client = await addClient(draft);
+
+      // Cierra el ciclo lead → cliente. Sin esto el hilo se corta justo en el
+      // momento en que el lead se convierte en cliente.
+      if (useSupabase) {
+        await linkLeadToClientAction({ callId, clientId: client.id }).catch(
+          (err) => console.error("[markCallClosed] link lead → cliente:", err)
+        );
+      }
 
       if (useSupabase && payment.proof) {
         const recordResult = await recordClientPaymentAction({

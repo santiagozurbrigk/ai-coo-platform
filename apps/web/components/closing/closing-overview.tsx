@@ -30,10 +30,13 @@ import { ClosingCalendar } from "./closing-calendar";
 import { ClosersRanking } from "./closers-ranking";
 import { PaymentModal } from "./payment-modal";
 import { NoCloseModal } from "./no-close-modal";
+import { LeadFollowUpPanel } from "./lead-follow-up-panel";
+import type { LeadSummary } from "@/app/sales/lead-actions";
 
 const TABS = [
   { label: "Calendario", hash: "calendario" },
   { label: "Lista", hash: "lista" },
+  { label: "Seguimiento", hash: "seguimiento" },
   { label: "Equipo", hash: "equipo" },
 ] as const;
 
@@ -78,11 +81,14 @@ function formatCallDate(iso: string) {
 export function ClosingOverview({
   ghlCalendars = [],
   ghlSelectedCalendarIds = [],
+  leadsNeedingAttention = [],
 }: {
   /** Calendarios disponibles en GHL (fetched server-side). Vacío si no hay integración. */
   ghlCalendars?: GHLCalendar[];
   /** IDs de calendarios actualmente seleccionados para sync. */
   ghlSelectedCalendarIds?: string[];
+  /** Leads con trabajo pendiente, resueltos en el servidor. */
+  leadsNeedingAttention?: LeadSummary[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -195,13 +201,21 @@ export function ClosingOverview({
         isTabActive={(href) => (href.split("#")[1] ?? "calendario") === activeTab}
       />
 
-      {activeTab === "equipo" ? (
+      {activeTab === "seguimiento" ? (
+        <LeadFollowUpPanel leads={leadsNeedingAttention} />
+      ) : activeTab === "equipo" ? (
         <div className="space-y-4">
           <ClosersRanking />
         </div>
       ) : null}
 
-      <div className={activeTab === "equipo" ? "hidden" : "flex flex-col gap-6"}>
+      <div
+        className={
+          activeTab === "equipo" || activeTab === "seguimiento"
+            ? "hidden"
+            : "flex flex-col gap-6"
+        }
+      >
         <div className="min-w-0 w-full space-y-4">
           {closingCallsLoading ? (
             <p className="text-sm text-muted-foreground">Cargando llamadas…</p>

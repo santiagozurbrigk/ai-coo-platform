@@ -12,6 +12,7 @@ import type { GHLAppointment, GHLAppointmentStatus, GHLContactAttributionSource 
 import { getGHLContact } from "./client";
 import type { ClosingCallStatus } from "@/types/closing";
 import { syncMayOverwriteStatus } from "@/lib/closing/call-status";
+import { resolveLeadId } from "@/lib/sales/resolve-lead";
 
 // ─── Mapeo de status GHL → closing_calls ─────────────────────────────────────
 
@@ -191,6 +192,24 @@ export async function syncGHLAppointmentsForOrganization(
     attributionMap = await fetchContactAttributions(apiKey, uniqueContactIds);
   }
 
+  // ── Identidad del lead ─────────────────────────────────────────────────────
+  // Se resuelve antes de escribir para que el turno nazca ya enganchado a su
+  // hilo: es lo que permite ver los reagendamientos como intentos de la misma
+  // persona en vez de filas sueltas.
+  const leadIds = new Map<string, string | null>();
+  for (const a of [...toInsert, ...toUpdate]) {
+    if (leadIds.has(a.id)) continue;
+    leadIds.set(
+      a.id,
+      await resolveLeadId(supabase, organizationId, {
+        name: resolveLeadName(a),
+        email: a.contact?.email ?? null,
+        phone: a.contact?.phone ?? null,
+        ghlContactId: a.contactId ?? null,
+      })
+    );
+  }
+
   // ── INSERT ─────────────────────────────────────────────────────────────────
   if (toInsert.length > 0) {
     const rows = toInsert.map((a) => ({
@@ -206,6 +225,7 @@ export async function syncGHLAppointmentsForOrganization(
       cancelled_by:       mapGHLStatus(a.appointmentStatus) === "cancelled" ? "unknown" : null,
       lead_email:         a.contact?.email?.trim() || null,
       lead_phone:         a.contact?.phone?.trim() || null,
+      lead_id:            leadIds.get(a.id) ?? null,
       form_answers:       buildFormAnswers(a),
       ...buildUtmFields(attributionMap.get(a.contactId)),
     }));
@@ -229,6 +249,7 @@ export async function syncGHLAppointmentsForOrganization(
       ghl_contact_id: a.contactId ?? null,
       lead_email:     a.contact?.email?.trim() || null,
       lead_phone:     a.contact?.phone?.trim() || null,
+      lead_id:        leadIds.get(a.id) ?? null,
       updated_at:     new Date().toISOString(),
       ...buildUtmFields(attributionMap.get(a.contactId)),
     };
