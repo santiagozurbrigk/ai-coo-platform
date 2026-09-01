@@ -9,6 +9,39 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [LLAMADAS-PR] Un solo PR al final, no uno por fase
+
+**Decisión del usuario (2026-09-01):** las tres fases del módulo de llamadas se
+acumulan en `Claude-New-Features` y se abre **un único PR** cuando estén todas
+listas, para pasar la implementación entera a producción de una vez.
+
+**No abrir PR antes de terminar la Fase 2.**
+
+---
+
+### [LLAMADAS-TIPOS-FATHOM] Verificar cómo se asignan los tipos de reunión
+
+**Qué mirar en la cuenta de Fathom** (bloquea el diseño de la Fase 1):
+
+1. ¿Existen tipos de reunión configurados?
+2. ¿El tipo se asigna **solo** (por alguna regla de Fathom) o **a mano**, reunión
+   por reunión?
+
+**Por qué decide todo:** si es automático, el equipo no hace nada nunca. Si es
+manual, es el mismo esfuerzo que renombrar la llamada —sólo que eligiendo de una
+lista en vez de escribiendo, que falla menos.
+
+**Lo que ya sabemos por la documentación:** `GET /meeting_types` es **de sólo
+lectura** —OTC no puede crear ni asignar tipos, eso se hace dentro de Fathom— y
+los tipos **no tienen ID: la clave es el nombre**. Si alguien renombra un tipo,
+el mapeo se rompe; la pantalla de OTC tiene que avisar "este tipo ya no existe"
+en vez de dejar de clasificar en silencio.
+
+**Fuera de alcance por decisión del usuario:** las reuniones improvisadas (las
+`"Impromptu…"`, el 86% del histórico). Esto rige de hoy en adelante.
+
+---
+
 ### [LLAMADAS-FASE-1] Clasificación e identidad de llamadas
 
 **Qué es:** la Fase 0 corrigió la ingesta. Falta lo que hace que el módulo
