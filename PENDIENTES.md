@@ -9,16 +9,14 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [C0-MIGRACION] Aplicar `20260903080000_field_definitions.sql` 🔴
+### [C0-PROBAR-PANTALLA] Probar Campos personalizados en la app
 
-**Qué es:** la migración de los campos configurables (C0) está escrita y
-commiteada pero **no aplicada**. Hasta que se aplique, Configuración → Campos
-personalizados se ve vacía y crear una columna falla.
+**Qué es:** la migración ya está aplicada y los cortes de la base están
+verificados, pero **la pantalla nunca se abrió**. Falta la pasada de UI.
 
-**Cómo:** `supabase db push`, o pegar el SQL en el editor del dashboard.
-
-**Después:** correr el bloque §14 de `docs/PLAN_VERIFICACION.md` — el paso que
-más importa es que renombrar una columna **no** cambie su clave interna.
+**Qué mirar,** en el orden del bloque §14 de `docs/PLAN_VERIFICACION.md`. El paso
+que más importa: renombrar una columna y confirmar que su **clave interna no
+cambia** — si cambia, el mecanismo entero se cae.
 
 ---
 

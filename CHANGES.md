@@ -93,11 +93,18 @@ errores juntos, no el primero.
 - `pnpm test`: **635 tests en 39 archivos, todos en verde** (58 nuevos de `lib/custom-fields`).
 - `tsc --noEmit` y `pnpm lint` limpios (sin warnings nuevos).
 - `pnpm build` completo; la ruta `/clients/campos` se construye.
+- **Migración aplicada** al proyecto OTC (`nrzlylzbmsuowzhpdnjl`): 16 columnas, 4
+  checks, 3 índices, 4 policies, RLS activo, trigger de `updated_at`.
+- Los cortes de la base se probaron ejecutándolos, dentro de transacciones
+  revertidas (cero filas quedaron): la clave repetida dentro de la misma entidad
+  **corta**; la misma clave en la otra entidad **se permite**; `entity`,
+  `field_type`, `options_source` y `currency` **rechazan** un valor fuera de
+  vocabulario; el trigger pisa un `updated_at` viejo; `options_source` arranca en
+  `inline`.
+- `get_advisors` de seguridad: **ningún hallazgo sobre `field_definitions`**.
 
 **Riesgos / deuda técnica pendiente:**
 
-- 🔴 **La migración no está aplicada.** Sin ella la pantalla se ve vacía y crear
-  una columna falla. Bloque de verificación en `docs/PLAN_VERIFICACION.md` §14.
 - **Nada de esto se probó contra la app corriendo** — sólo tests unitarios,
   typecheck y build.
 - **`options_source = 'journey_stages'` no se puede elegir desde la UI** hasta

@@ -724,13 +724,18 @@ Construido el 2026-09-02, rama `claude/checkpoints-cliente`. La lógica pura tie
 **58 tests en verde**; lo que sigue verifica lo que los tests no pueden ver: la
 migración aplicada, RLS y la pantalla.
 
-🤖 No necesita ninguna cuenta externa. **Sí necesita la migración
-`20260903080000_field_definitions.sql` aplicada** — sin ella la pantalla se ve
-vacía y crear una columna falla.
+🤖 No necesita ninguna cuenta externa.
+
+✅ **Migración aplicada el 2026-09-02** al proyecto OTC. Los cortes de la base ya
+se verificaron ejecutándolos (en transacciones revertidas, cero filas quedaron):
+clave repetida en la misma entidad **corta**; la misma clave en la otra entidad
+**se permite**; `entity`, `field_type`, `options_source` y `currency` rechazan un
+valor fuera de vocabulario; el trigger de `updated_at` pisa una fecha vieja.
+Lo que sigue es la pasada por la pantalla, que no se hizo.
 
 | Paso | Resultado esperado |
 |---|---|
-| Aplicar la migración y entrar a **Configuración → Campos personalizados** | Dos solapas (Wins, Checkpoints), las dos vacías |
+| Entrar a **Configuración → Campos personalizados** | Dos solapas (Wins, Checkpoints), las dos vacías |
 | Apretar **Cargar "Tipo de win" de ejemplo** | Aparece una columna de lista con 7 opciones de colores |
 | Recargar la página | La columna sigue ahí, con el mismo orden |
 | ⭐ Renombrar la columna a "Categoría" | Cambia el nombre visible y la **clave interna sigue siendo `tipo_de_win`** — es lo que hace que renombrar no toque un dato cargado |
