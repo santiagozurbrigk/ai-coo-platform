@@ -79,6 +79,8 @@ export const paths = {
       root: `${PLATFORM}/clients`,
       detail: (id: string) => `${PLATFORM}/clients/${id}`,
       pendingCalls: `${PLATFORM}/clients/pending-calls`,
+      /** C0 · Configuración de las columnas configurables de wins y checkpoints. */
+      customFields: `${PLATFORM}/clients/campos`,
     },
 
     operations: {

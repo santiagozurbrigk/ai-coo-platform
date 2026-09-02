@@ -34,6 +34,11 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           href: paths.platform.integrations,
           permissionId: "integrations",
         },
+        {
+          label: "Campos personalizados",
+          href: paths.platform.clients.customFields,
+          permissionId: "clients",
+        },
       ],
     },
     agente: {
