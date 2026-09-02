@@ -308,6 +308,22 @@ Leerlo antes de arrancar cualquiera de los cinco.
 qué es "Fase" en un win · si el recorrido de checkpoints es por org o por producto ·
 si se confirma reabrir entrega · si los Loom se suben como archivo o por link.
 
+**Reparto en cinco encargos**, uno por sesión de Claude Code. Cada sesión lee el
+plan, busca su encargo y respeta las reglas de convivencia (ramas, archivos
+compartidos, bloque de timestamps de migración):
+
+| Encargo | Nombre | Rama | Depende de |
+|---|---|---|---|
+| **A** | `WINS` | `claude/wins-tracker` | C1 (catálogo de fases) |
+| **B** | `LLAMADAS` | `claude/llamadas-cliente` | Verificar Fathom · decisión #4 |
+| **C** | `CHECKPOINTS` | `claude/checkpoints-cliente` | Nada. **C1 desbloquea A** |
+| **D** | `SOPS-VIDEO` | `claude/sops-desde-video` | Nada — totalmente aislado |
+| **E** | `DISCORD` | `claude/discord-bot-produccion` | D3 depende de A y C |
+
+⚠️ **`apps/web/components/clients/client-detail.tsx` es el punto caliente:**
+cuatro de los cinco encargos quieren agregarle una sección. La regla es un
+import y una línea, sin reordenar lo existente.
+
 ---
 
 ### [ONBOARDING] Onboarding guiado para cuentas nuevas — ✅ las cuatro fases construidas

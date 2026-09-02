@@ -20,6 +20,15 @@
 **Commits:** este
 **Módulo(s) afectado(s):** `docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md` (nuevo), `PENDIENTES.md`
 
+**Actualización del mismo día:** el plan se repartió en **cinco encargos**, uno
+por sesión de Claude Code, con rama, archivos propios, archivos compartidos,
+bloque de timestamps de migración y prompt de arranque copiable por encargo. Se
+sumaron las **reglas de convivencia**: el punto caliente es
+`components/clients/client-detail.tsx`, donde cuatro de los cinco encargos
+quieren agregar una sección, y `CHANGES.md`/`PENDIENTES.md`, que dan conflicto
+por diseño (la regla es quedarse con las dos entradas, nunca descartar la del
+otro encargo).
+
 **Qué se hizo:**
 
 Sesión de planificación, **sin cambios de código**. Se leyó el repo para los cinco
