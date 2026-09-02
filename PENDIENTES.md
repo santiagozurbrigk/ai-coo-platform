@@ -342,19 +342,29 @@ nadie), `sales_leads`, `closing_calls`, los contactos de GHL y los mails de
 comprador de los pagos — así el sistema ya conoce a cada cliente el día que se
 enciende.
 
-🕳️ **Los huecos para arrancar están listados en el plan**, sección "Huecos".
-Los dos bloqueos duros: **decisión #9** (quién ve una llamada de un miembro que no
-quedó vinculada — frena el Encargo B) y **decisión #10** (dónde corre y quién paga
-el contenedor del bot — frena el Encargo E).
+✅ **El plan está listo para ejecutar (2026-09-02).** Todas las decisiones
+cerradas salvo la #3, que no bloquea. El documento tiene **checklist de arranque**,
+**registro de decisiones** y un **prompt copiable por encargo**.
 
-🔴 **Alerta de seguridad:** `app/fathom/member-actions.ts` hace
-`try { encrypt(k) } catch { return k }` y `lib/security/encryption.ts` lanza si
-falta `ENCRYPTION_MASTER_KEY`. **Si esa variable no está en producción, la API key
-de Fathom del miembro se guarda en texto plano, en silencio.** Tiene que fallar en
-vez de degradarse.
+⭐ **Campos configurables (`C0`, dueño el Encargo C, va primero):** el tracker de
+wins y el registro de checkpoints son **tablas con columnas configurables** —lista
+de opciones o texto libre—, y los valores se cargan desde la pantalla. Se guarda
+el `value` y nunca el `label`; las opciones **se archivan, no se borran**. Su
+`options_source` permite que el campo "Fase" de un win pase después a tomar las
+opciones del catálogo del Encargo C **cambiando una fila**, así que **A ya no
+depende de C1** y los cinco encargos son independientes.
 
-⚠️ **Hueco transversal:** el plan no define qué `permissionId` lleva cada ruta
-nueva. Tres encargos agregan rutas en paralelo — cerrarlo antes de que arranquen.
+⭐ **Regla obligatoria para las cinco sesiones:** antes de escribir código de cada
+fase, explicar **en palabras simples** qué se va a construir y el **flujo completo
+paso a paso**, y esperar respuesta.
+
+✅ **Permisos de rutas nuevas fijados** (wins, checkpoints y llamadas →
+`clients`; configuración de campos → `settings`; keys de Fathom →
+`integrations`). Nadie inventa un `permissionId` nuevo.
+
+🔴 **Antes de largar nada:** verificar `ENCRYPTION_MASTER_KEY` en producción (sin
+eso el Encargo B guardaría las keys de Fathom en texto plano) y crear el proyecto
+de **Railway** para el bot.
 
 ⭐ **El alias se aprende solo** (2026-09-02): cuando hubo calendario, Fathom
 entrega el vínculo **nombre de pantalla ↔ mail**. Y todo cliente fue lead antes,

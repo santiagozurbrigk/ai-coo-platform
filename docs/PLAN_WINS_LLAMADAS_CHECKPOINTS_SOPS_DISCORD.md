@@ -44,11 +44,11 @@ Encargo C y el Encargo A.
 
 | Encargo | Nombre | Fases | Rama | Depende de | Aislamiento |
 |---|---|---|---|---|---|
-| **A** | `WINS` | W1 · W2 · W3 | `claude/wins-tracker` | **C1** (catálogo de fases) | Medio |
-| **B** | `LLAMADAS` | **L0** · L1 · L2 · L3 · L4 | `claude/llamadas-cliente` | Decisión #4 y #9 (privacidad) | Alto |
-| **C** | `CHECKPOINTS` | C1 · C2 · C3 | `claude/checkpoints-cliente` | Nada. **C1 desbloquea A** | Alto |
+| **A** | `WINS` | W1 · W2 · W3 | `claude/wins-tracker` | **C0** (campos configurables) | Medio |
+| **B** | `LLAMADAS` | **L0** · L1 · L2 · L3 · L4 | `claude/llamadas-cliente` | Nada — **privacidad ya decidida** | Alto |
+| **C** | `CHECKPOINTS` | **C0** · C1 · C2 · C3 | `claude/checkpoints-cliente` | Nada. **C0 desbloquea A y va primero** | Alto |
 | **D** | `SOPS-VIDEO` | S1 · S2 · S3 | `claude/sops-desde-video` | Nada | **Total** — arrancá cuando quieras |
-| **E** | `DISCORD` | D1 · D2 · D3 | `claude/discord-bot-produccion` | D3 depende de A y C | Alto (D1 y D2) |
+| **E** | `DISCORD` | D1 · D2 · D3 | `claude/discord-bot-produccion` | D3 depende de A y C. **Hosting: Railway** | Alto (D1 y D2) |
 
 **Para asignar una sesión, alcanza con decirle:**
 
@@ -68,17 +68,25 @@ Los prompts completos de arranque están al final de cada ficha.
 | **Archivos que son tuyos** | `apps/web/lib/wins/**` · `apps/web/app/clients/win-actions.ts` · `apps/web/components/clients/wins/**` · `apps/web/app/(platform)/clients/wins/**` · `apps/web/types/wins.ts` · tu migración |
 | **Compartidos que vas a tocar** | `routes/paths.ts` · `lib/navigation/sidebar-modules.ts` · `components/clients/client-detail.tsx` · `clients` (columnas `niche`, `baseline_*`) |
 | **NO toques** | `lib/fathom/**` (es de B) · `lib/checkpoints/**` (es de C) · `apps/discord-bot/**` (es de E) |
-| **Dependencia** | El campo **Fase** necesita el catálogo del Encargo C. **Arrancá igual**: `phase_id` nullable + `phase_label` de respaldo. Cuando C1 esté mergeado, conectás la FK |
-| **Decisiones que te bloquean** | #1 (tipos de win) y #2 (qué es "Fase"). Si no hay respuesta, aplicá el supuesto del final del documento y dejalo escrito |
+| **⭐ El tracker es una tabla de campos configurables** | **No definas enums.** "Tipo de win" y "Fase" son campos `select` cuyas opciones se cargan desde la interfaz, con el mecanismo compartido **C0**. Santiago llena los valores después, usándolo |
+| **Dependencia** | **C0** (campos configurables), que entrega el Encargo C y es chico. Ya **no** dependés del catálogo de fases: el campo "Fase" arranca con opciones propias y más adelante se le cambia `options_source` en una fila |
+| **Decisiones que te bloquean** | **Ninguna.** Las #1 y #2 se disolvieron: eran "qué valores van", y ahora los valores se cargan a mano |
 
 **Prompt de arranque:**
 
 ```
 Leé docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md, CHANGES.md y PENDIENTES.md.
-Sos el ENCARGO A (WINS). Implementá las fases W1 y W2 en la rama claude/wins-tracker,
-partiendo de main actualizado. Respetá las reglas de convivencia del documento:
-usá el bloque de migraciones 20260903 09MM 00, tocá los archivos compartidos al
-final y en un commit aparte, y no abras PR. Empezá por W1.
+Sos el ENCARGO A (WINS). El tracker es una TABLA DE CAMPOS CONFIGURABLES: no definas
+enums de "tipo de win" ni de "fase" — usá el mecanismo compartido C0 que entrega el
+Encargo C, y los valores los cargo yo después desde la pantalla.
+
+ANTES DE ESCRIBIR CÓDIGO: contame en palabras simples qué vas a construir y el flujo
+completo paso a paso — qué hago yo, qué hace el sistema, qué queda guardado y qué veo
+después. Esperá mi respuesta. Repetilo en cada fase.
+
+Después implementá W1 en la rama claude/wins-tracker desde main actualizado. Bloque de
+migraciones 20260903 09MM 00. Tocá los archivos compartidos al final y en un commit
+aparte. No abras PR.
 ```
 
 ---
@@ -110,7 +118,8 @@ final y en un commit aparte, y no abras PR. Empezá por W1.
 | **⭐ Empezá por L0** | Fathom ya entrega **próximos pasos con link al segundo**, resumen, momentos marcados y —lo más importante— **el vínculo entre nombre de pantalla y mail** (`matched_speaker_display_name`). OTC pide uno solo de los cuatro `include_`. Y 🐛 **el resumen nunca llega**: `default_summary` es un objeto y `pickString` devuelve null |
 | **⭐ El alias se aprende solo** | Todo cliente fue lead, y su llamada de venta **sí estuvo agendada** → de ahí sale su nombre de pantalla gratis, y con eso se resuelven todas sus entregas futuras. **El lado de ventas le enseña al de entrega** |
 | **Sembrá el alias desde el día uno** | `client_identities` arranca poblada con nombres, **apodos** y mails de `clients`, `sales_leads`, `closing_calls`, contactos de GHL y mails de comprador de los pagos |
-| **Decisión que te bloquea** | #4 (confirmar el alcance de entrega). La #6 —"¿el founder también cierra?"— y la #8 —"revisá los tipos en Fathom"— **quedaron cerradas** |
+| **✅ Privacidad — ya decidida, implementala así** | Una llamada que **no** quedó vinculada a un cliente ni a un lead **la ve sólo quien la grabó** (`fathom_calls.user_id`). Al vincularse pasa a ser de la organización. Y se dice **en la pantalla de conexión, antes de pegar la key** |
+| **Decisión que te bloquea** | **Ninguna.** La #4 se da por confirmada; #6, #8 y #9 quedaron cerradas |
 
 **Prompt de arranque:**
 
@@ -120,16 +129,21 @@ Sos el ENCARGO B (LLAMADAS). Leé completa la sección larga del Encargo B: se r
 dos veces. La idea central es que el propósito de una llamada lo define la contraparte
 (cliente → entrega, lead → venta), no quién grabó ni el calendario.
 
-Ojo: Fathom NO permite etiquetar llamadas, está verificado — no hay señal declarativa
-de Fathom y no pierdas tiempo ahí. Antes de escribir código hacé las dos verificaciones
-que lista la ficha y decime los resultados: si la API key ve las llamadas del closer, y
-qué trae el payload de una llamada grabada sin agendar.
+Ojo: Fathom NO permite etiquetar llamadas, está verificado — no pierdas tiempo ahí.
 
-Empezá por L0: las keys de Fathom por miembro. Está a medio construir y no funciona —
-el código usa una columna encrypted_api_key que no existe. Y los webhooks se crean por
-API con la key del miembro (POST /webhooks), así que el miembro pega su key una vez y
-OTC le crea el webhook solo. Antes de tocar nada, decime qué decidió Santiago sobre la
-privacidad (decisión #9). Rama claude/llamadas-cliente desde main actualizado. Sin backfill. Bloque de migraciones 20260903 10MM 00. Guardá
+La privacidad ya está decidida: una llamada que no quedó vinculada a un cliente ni a un
+lead la ve SÓLO quien la grabó; al vincularse pasa a ser de la organización; y se dice
+en la pantalla de conexión antes de pegar la key.
+
+ANTES DE ESCRIBIR CÓDIGO: contame en palabras simples qué vas a construir y el flujo
+completo paso a paso — qué hago yo, qué hace el sistema, qué queda guardado y qué veo
+después. Esperá mi respuesta. Repetilo en cada fase.
+
+Empezá por L0: las keys de Fathom por miembro. Está a medio construir y no funciona — el
+código usa una columna encrypted_api_key que no existe. Y los webhooks se crean por API
+con la key del miembro (POST /webhooks), así que el miembro pega su key una vez y OTC le
+crea el webhook solo. Ojo con la alerta de seguridad de la sección Huecos: si no se puede
+cifrar, no se guarda. Rama claude/llamadas-cliente desde main actualizado. Sin backfill. Bloque de migraciones 20260903 10MM 00. Guardá
 siempre resolution_method. No toques lib/wins, lib/checkpoints ni apps/discord-bot.
 No abras PR.
 ```
@@ -146,18 +160,25 @@ No abras PR.
 | **Archivos que son tuyos** | `apps/web/lib/checkpoints/**` · `apps/web/app/clients/checkpoint-actions.ts` · `apps/web/components/clients/checkpoints/**` · `apps/web/app/(platform)/clients/checkpoints/**` · `apps/web/types/checkpoints.ts` · tu migración |
 | **Compartidos que vas a tocar** | `components/clients/client-detail.tsx` · `routes/paths.ts` · `lib/navigation/sidebar-modules.ts` · `clients` (columna `current_stage_id`) |
 | **NO toques** | `clients.status` ni su check ni `lib/validations.ts` — el status grueso **no se hace configurable**. Tampoco `lib/wins/**`, `lib/fathom/**` ni `apps/discord-bot/**` |
-| **🔴 Prioridad** | **C1 (el catálogo) desbloquea al Encargo A.** Entregalo y mergealo antes de seguir con C2. Avisá cuando esté |
+| **🔴 Prioridad — empezá por C0** | **`C0` (campos configurables) es lo primero de todo el plan.** Es chico, lo usan A y C, y hasta que no esté el Encargo A no puede cerrar su tracker. Entregalo y mergealo **antes** de C1. Avisá cuando esté |
+| **⭐ Todo lo configurable pasa por C0** | El `metric_schema` de un checkpoint **es** un conjunto de campos configurables. No armes un segundo mecanismo |
 | **Decisión que te bloquea** | #3 — ¿un recorrido por organización o uno por producto? Dejá `product_id` nullable desde la migración igual |
 
 **Prompt de arranque:**
 
 ```
 Leé docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md, CHANGES.md y PENDIENTES.md.
-Sos el ENCARGO C (CHECKPOINTS). Empezá por C1, que es prioridad porque desbloquea al
-Encargo A: catálogo de fases y checkpoints más su UI de configuración, en la rama
-claude/checkpoints-cliente desde main actualizado. Usá el bloque de migraciones
-20260903 08MM 00. No toques clients.status. Avisame cuando C1 esté listo para mergear
-antes de seguir con C2. No abras PR.
+Sos el ENCARGO C (CHECKPOINTS). Empezá por C0 — campos configurables — que es la
+primera pieza de todo el plan y la usa también el Encargo A: leé la sección "Pieza
+compartida · C0" del documento. Entregalo y avisame para mergearlo ANTES de seguir con
+C1.
+
+ANTES DE ESCRIBIR CÓDIGO: contame en palabras simples qué vas a construir y el flujo
+completo paso a paso — qué hago yo, qué hace el sistema, qué queda guardado y qué veo
+después. Esperá mi respuesta. Repetilo en cada fase.
+
+Rama claude/checkpoints-cliente desde main actualizado. Bloque de migraciones
+20260903 08MM 00. No toques clients.status. No abras PR.
 ```
 
 ---
@@ -180,11 +201,18 @@ antes de seguir con C2. No abras PR.
 
 ```
 Leé docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md, CHANGES.md y PENDIENTES.md.
-Sos el ENCARGO D (SOPS-VIDEO). Implementá S1 en la rama claude/sops-desde-video desde
-main actualizado: subida del archivo de video, job asíncrono, extracción de audio con
-ffmpeg y transcripción, con el cálculo de cortes como lógica pura testeada. Arreglá de
-paso que /api/agent/transcribe registre en token_usage. Usá el bloque de migraciones
-20260903 11MM 00. No toques nada del módulo de clientes. No abras PR.
+Sos el ENCARGO D (SOPS-VIDEO). Sos el encargo más aislado: no compartís archivos con
+nadie y podés arrancar sin coordinar.
+
+ANTES DE ESCRIBIR CÓDIGO: contame en palabras simples qué vas a construir y el flujo
+completo paso a paso — qué hago yo, qué hace el sistema, qué queda guardado y qué veo
+después. Esperá mi respuesta. Repetilo en cada fase.
+
+Después implementá S1 en la rama claude/sops-desde-video desde main actualizado: subida
+del archivo de video, job asíncrono, extracción de audio con ffmpeg y transcripción, con
+el cálculo de cortes como lógica pura testeada. Arreglá de paso que /api/agent/transcribe
+registre en token_usage. Bloque de migraciones 20260903 11MM 00. No toques nada del
+módulo de clientes. No abras PR.
 ```
 
 ---
@@ -195,7 +223,8 @@ paso que /api/agent/transcribe registre en token_usage. Usá el bloque de migrac
 
 | | |
 |---|---|
-| **Hacé** | **D1 es operación, no código:** activar el intent, publicar la app, desplegar el contenedor, instalar el bot en un servidor real. Después: actividad del cliente, señal de silencio y propuestas |
+| **Hacé** | **D1 es operación, no código:** activar el intent, publicar la app, **desplegar el contenedor en Railway** (decidido por Santiago), instalar el bot en un servidor real. Después: actividad del cliente, señal de silencio y propuestas |
+| **Hosting: Railway** | Ya hay `Dockerfile` en `apps/discord-bot`. Variables que necesita: `DISCORD_BOT_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OTC_API_URL`, `OTC_WEBHOOK_SECRET` (ver `apps/discord-bot/.env.example`) |
 | **Archivos que son tuyos** | `apps/discord-bot/**` · `apps/web/app/discord/actions.ts` · `apps/web/app/api/discord/**` · `apps/web/components/integrations/discord-settings.tsx` · `apps/web/components/clients/client-discord-activity.tsx` · tu migración |
 | **Compartidos que vas a tocar** | `components/clients/client-detail.tsx` — **ya tenés tu sección ahí**, la modificás, no agregás una nueva |
 | **NO toques** | `lib/wins/**` (es de A) · `lib/fathom/**` (es de B) · `lib/checkpoints/**` (es de C) |
@@ -207,12 +236,101 @@ paso que /api/agent/transcribe registre en token_usage. Usá el bloque de migrac
 
 ```
 Leé docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md, CHANGES.md y PENDIENTES.md.
-Sos el ENCARGO E (DISCORD). Empezá por D1, que es operación y no código: decime paso a
-paso qué tengo que hacer yo (activar el intent MESSAGE CONTENT, publicar la app,
-desplegar el contenedor, qué variables de entorno) y preparame lo que haga falta del
-lado del repo para que eso funcione. Rama claude/discord-bot-produccion desde main
-actualizado. Después seguimos con D2. No abras PR.
+Sos el ENCARGO E (DISCORD). El bot está entero y sin desplegar. El hosting ya está
+decidido: RAILWAY.
+
+ANTES DE ESCRIBIR CÓDIGO: contame en palabras simples qué vas a construir y el flujo
+completo paso a paso — qué hago yo, qué hace el sistema, qué queda guardado y qué veo
+después. Esperá mi respuesta. Repetilo en cada fase.
+
+Empezá por D1, que es operación y no código: decime paso a paso qué tengo que hacer yo
+(activar el intent MESSAGE CONTENT, publicar la app de Discord, desplegar en Railway,
+qué variables de entorno cargar) y preparame lo que haga falta del lado del repo. Rama
+claude/discord-bot-produccion desde main actualizado. Después seguimos con D2. No abras
+PR.
 ```
+
+---
+
+## 🧩 Pieza compartida · `C0` — Campos configurables
+
+> **Decisión de Santiago (2026-09-02):** el tracker de wins y el registro de
+> checkpoints se construyen **como una tabla que se completa a mano**, donde cada
+> columna es o **una lista de opciones para elegir** o **texto libre**.
+> **Primero se construye el mecanismo; los valores de cada columna se definen
+> después.**
+>
+> **Dueño: Encargo C.** Se entrega **antes que nada** —es chico— y los encargos
+> **A** y **C** lo usan. Ningún encargo define enums propios.
+
+### Por qué esto es lo correcto
+
+La versión anterior del plan pedía decidir **hoy** la lista de tipos de win y qué
+significa "Fase". Eso obligaba a acertar antes de usar el módulo, y equivocarse
+costaba una migración.
+
+Con campos configurables, esas listas **se cargan desde la interfaz cuando el uso
+real las revele**. La decisión deja de ser un bloqueo y pasa a ser una pantalla.
+
+### El modelo — deliberadamente liviano
+
+```
+field_definitions                ← una fila por columna configurable
+  organization_id
+  entity        'win' | 'checkpoint'    ← a qué tabla pertenece la columna
+  key           'tipo_win'              ← estable, es lo que se guarda
+  label         'Tipo de win'           ← lo que se ve, se puede renombrar
+  field_type    'select' | 'multi_select' | 'text' | 'number' | 'date' | 'currency'
+  options       jsonb  [{ value, label, color, archived }]   ← inline, sin tabla aparte
+  options_source 'inline' | 'journey_stages'                 ← ⭐ ver abajo
+  is_required, sort_order, archived_at
+```
+
+Y el valor cargado vive **en un `jsonb` de la propia fila**:
+
+```
+client_wins.custom              jsonb   { "tipo_win": "facturacion", "fase": "escala" }
+client_checkpoint_events.metrics jsonb  ← ya estaba pensado así
+```
+
+**Por qué `jsonb` y no una tabla de valores:** una tabla clave-valor obligaría a
+un join por columna para leer una fila. Con `jsonb`, **una fila de la tabla es una
+fila de la base**, que es exactamente lo que la pantalla necesita. Y el repo ya
+usa este patrón en `content_pieces.metrics`, `clients.installments` y
+`closing_calls.form_answers`.
+
+### Las tres reglas que evitan que esto se pudra
+
+1. **Se guarda el `value`, nunca el `label`.** Renombrar "Facturación" a "Ingresos" no toca un solo dato cargado.
+2. **Una opción no se borra: se archiva.** Los wins que la usaban la siguen mostrando. Borrar una opción en uso reescribiría el pasado.
+3. **Un campo archivado deja de ofrecerse pero sigue mostrándose** donde ya se cargó.
+
+### ⭐ `options_source` — lo que desactiva la dependencia entre A y C
+
+El campo **"Fase"** de un win podría, en el futuro, tomar sus opciones del
+catálogo de fases del recorrido del cliente (Encargo C). Pero **no hace falta
+esperarlo**:
+
+| Momento | `options_source` | Qué pasa |
+|---|---|---|
+| Hoy | `inline` | Las fases de un win son opciones cargadas a mano. **El Encargo A arranca solo** |
+| Cuando C entregue el catálogo | `journey_stages` | Se cambia **una fila**, y las opciones pasan a salir del catálogo. **Sin migración de datos** |
+
+Eso **elimina la única compuerta dura que tenía el plan**. Ahora los cinco
+encargos son independientes.
+
+⚠️ El precio, dicho claro: hasta que se haga el cambio, **puede haber dos listas
+de fases que se desincronicen**. Es aceptable porque volver a alinearlas es
+editar una fila, no migrar datos.
+
+### Qué entrega C0
+
+- La migración de `field_definitions`
+- `lib/custom-fields/` — resolver el esquema, validar un valor contra su campo. **Puro y con tests**
+- Una pantalla de configuración para crear campos y cargar sus opciones
+- Un componente que **renderiza una celda según su campo** — lo usan A y C sin duplicar nada
+
+**Es chico y bloquea a dos encargos: va primero.**
 
 ---
 
@@ -220,6 +338,21 @@ actualizado. Después seguimos con D2. No abras PR.
 
 Hay cinco sesiones sobre el mismo repo. Estas reglas existen para que el trabajo
 de una no borre el de otra.
+
+**0 · ⭐ Antes de implementar, explicá qué vas a hacer — en palabras simples.**
+
+**Regla de Santiago, obligatoria para las cinco sesiones.** Antes de escribir la
+primera línea de código de una fase, parás y le contás:
+
+- **Qué vas a construir**, en términos de lo que él va a ver o dejar de sufrir — no de archivos ni de funciones.
+- **El flujo completo, paso a paso:** qué hace la persona, qué hace el sistema, qué queda guardado y qué ve después.
+- **Qué decisiones tomaste** que él podría querer distintas.
+- **Qué NO vas a hacer** en esa fase.
+
+Recién cuando él responde, empezás. Vale para **cada fase**, no sólo la primera.
+
+Es la regla 5 del `CLAUDE.md` aplicada **antes** y no sólo después: es mucho más
+barato corregir un flujo en una conversación que en un diff.
 
 **1 · Una rama por encargo, siempre desde `main` actualizado.**
 ```bash
@@ -315,8 +448,8 @@ interpola y no muestra una flecha verde sin datos que la sostengan.
 ```
 client_wins
   organization_id, client_id, win_date, achievement (texto),
-  win_type, phase_id → client_journey_stages (ver Encargo C), phase_label (respaldo),
   metric_key, metric_value, metric_unit,     ← opcional, es lo que hace posible el dashboard
+  custom jsonb,   ⭐ acá viven "tipo de win", "fase" y toda columna configurable (ver C0)
   source ('manual' | 'discord' | 'fathom'), source_ref, notes
 
 win_attachments        ← mismo patrón que sop_attachments (draft_id + storage_path)
@@ -343,7 +476,7 @@ de clientes no van en un bucket público.
 
 | Fase | Entregable | Cómo se verifica |
 |---|---|---|
-| **W1** | Migración + acciones CRUD + tracker (tabla, alta con captura, filtros) en `/clients/wins` | Se carga un win a mano con captura y se ve en la lista |
+| **W1** | Migración + acciones CRUD + tracker (tabla, alta con captura, filtros) en `/clients/wins`, **con las columnas configurables de C0** | Se crea a mano una columna "Tipo de win" con tres opciones, se carga un win usándola y se ve en la lista |
 | **W2** | Dashboard: agrupado por cliente, con nicho, punto inicial → final, plazo y usos | Un cliente con dos medidas muestra el recorrido; uno sin medidas dice "sin medir" |
 | **W3** | Enganches: win desde testimonio de Discord (Encargo E), win desde llamada (Encargo B), sección de wins en la ficha del cliente | Un testimonio de Discord aparece como *candidato* y sólo se convierte en win cuando alguien lo acepta |
 
@@ -355,12 +488,19 @@ de clientes no van en un bucket público.
 - `apps/web/components/clients/wins/` — `wins-tracker.tsx`, `wins-dashboard.tsx`, `win-form-modal.tsx`
 - `apps/web/routes/paths.ts` + `lib/navigation/sidebar-modules.ts`
 
-### Decisión abierta
+### ✅ Decisiones cerradas
 
-- **La lista real de "tipos de win".** Propuesta de arranque: `facturación`,
-  `hito`, `testimonio`, `métrica`, `lanzamiento`, `mentalidad`, `otro`. Si la
-  lista es de la organización y no fija, cuesta una tabla `win_types` más.
-- **"Fase" depende del Encargo C.** Ver el orden recomendado al final.
+- **No hay lista de "tipos de win" que definir.** Es un campo `select`
+  configurable (**C0**) y Santiago carga sus opciones desde la pantalla. Lo mismo
+  con **"Fase"**.
+- **Ya no dependés del catálogo de fases del Encargo C.** El campo "Fase" arranca
+  con opciones propias (`options_source = 'inline'`); cuando C entregue el
+  catálogo, se cambia esa fila a `'journey_stages'` **sin migrar un solo dato**.
+- Lo único que necesitás de C es **C0**, que es chico y va primero.
+
+**Propuesta de opciones para arrancar** —para que la pantalla no nazca vacía, y
+sabiendo que Santiago las va a cambiar—: `facturación`, `hito`, `testimonio`,
+`métrica`, `lanzamiento`, `mentalidad`, `otro`.
 
 ---
 
@@ -1009,14 +1149,19 @@ del cliente; no la hace un heurístico.
 
 | Fase | Entregable | Cómo se verifica |
 |---|---|---|
-| **C1** | Catálogo (fases + checkpoints) + UI de configuración en `/clients/checkpoints` | Se configura un recorrido de 5 pasos. **Desbloquea el campo "Fase" de Wins** |
+| **C0** | 🔴 **Campos configurables** — ver la sección "Pieza compartida · C0". Migración, lib pura con tests, pantalla de configuración y el componente que renderiza una celda | Se crea una columna "Tipo de win" con tres opciones desde la pantalla. **Va primero: lo usa también el Encargo A** |
+| **C1** | Catálogo (fases + checkpoints) + UI de configuración en `/clients/checkpoints` | Se configura un recorrido de 5 pasos |
 | **C2** | Registro de eventos, con formulario **generado desde `metric_schema`**, + stepper en la ficha del cliente | Registrar un checkpoint carga sus métricas y, si corresponde, mueve el status |
 | **C3** | Derivados: fase actual en la lista de clientes, clientes trabados, propuestas automáticas desde los encargos B y E | Un cliente que pasó `expected_days` aparece marcado |
 
 ### Decisión abierta 🔴
 
-- **¿El recorrido es igual para todos los clientes de la org, o depende del producto contratado?** (`clients.offered_product` ya existe, de `20260720100000`). La columna `product_id` la dejo nullable desde el día uno porque es barata; **la UI de v1 asume un solo recorrido por organización**. Si en realidad hay uno por producto, cambia la UI de configuración y el stepper.
-- **Qué es "Fase" en el tracker de Wins:** asumo que es la fase del recorrido en la que estaba el cliente cuando ocurrió el win. Si es otra cosa (por ejemplo la fase del *lanzamiento*), cambia el modelo de Wins.
+- **¿El recorrido es igual para todos los clientes de la org, o depende del producto contratado?** (`clients.offered_product` ya existe, de `20260720100000`). La columna `product_id` la dejo nullable desde el día uno porque es barata; **la UI de v1 asume un solo recorrido por organización**. Si en realidad hay uno por producto, cambia la UI de configuración y el stepper — **no el modelo de datos**, así que el costo de equivocarse es bajo.
+
+### ✅ Cerrado
+
+- **El `metric_schema` de un checkpoint es un conjunto de campos configurables de C0.** No armes un segundo mecanismo para lo mismo.
+- **Qué es "Fase" en un win** dejó de ser una pregunta: es un campo configurable del Encargo A, que más adelante puede apuntar a este catálogo cambiando una fila.
 
 ---
 
@@ -1172,43 +1317,36 @@ una decisión que conviene tomar antes de instalarlo en el servidor de un client
 
 ## Orden recomendado
 
-Con las cinco sesiones en paralelo, **cuatro de los cinco encargos pueden
-arrancar hoy mismo**. Sólo hay dos compuertas reales.
+**Ya no queda ninguna compuerta dura.** Las decisiones que bloqueaban están
+cerradas y los campos configurables desactivaron la dependencia entre A y C.
+**Las cinco sesiones pueden arrancar hoy.**
 
 ```
-ARRANCAN YA, sin esperar a nadie
+PRIMERO, y es chico          C · CHECKPOINTS → C0   Campos configurables.
+                                                    Lo usa también WINS.
 
-  D · SOPS-VIDEO   →  S1   El más aislado del repo. No coordina con nadie
-  C · CHECKPOINTS  →  C1   Prioridad: es lo que desbloquea a WINS
-  E · DISCORD      →  D1   Operación pura. Depende de terceros, por eso va primero
-  A · WINS         →  W1   Arranca con phase_id nullable; conecta la FK cuando C1 mergee
+ARRANCAN YA, en paralelo
+  A · WINS         → W1   Espera C0 para cerrar el tracker, pero puede ir armando todo lo demás
+  B · LLAMADAS     → L0   Keys por miembro. Privacidad ya decidida
+  D · SOPS-VIDEO   → S1   El más aislado. No coordina con nadie
+  E · DISCORD      → D1   Operación: Railway + intent de Discord
 
-ESPERA UNA CONFIRMACIÓN
+────────────── la única secuencia que queda ──────────────
 
-  B · LLAMADAS     →  L0   🔴 Necesita las decisiones #4 y #9 (privacidad)
-
-────────────── las dos únicas compuertas ──────────────
-
-  C1 mergeado   ──▶  A conecta la FK de fase (W1 cierra)
+  C0 mergeado   ──▶  A cierra su tracker con columnas configurables
   A y C listos  ──▶  E puede hacer D3 (propuestas de win y de checkpoint)
 ```
 
-**Por qué D1 y la llamada de prueba de Fathom van primero:** los dos dependen de
-algo externo, y los dos pueden invalidar planes enteros. Todo el Encargo B se
-apoya en que Fathom devuelva `recorded_by` en cada grabación; si no viniera, el
-plan cambia de raíz. Y ahora verificarlo es barato: **grabás una llamada sin
-agendarla y mirás el payload crudo** — no hace falta esperar a que se acumulen
-datos, porque los viejos no cuentan.
+**Por qué C0 va primero:** es la pieza más chica del plan y la usan dos encargos.
+Si A y C la construyen cada uno por su lado, terminás con dos mecanismos para lo
+mismo y una migración para unificarlos.
 
-**Por qué C1 es la primera prioridad de código:** es chico y es la única
-dependencia dura del plan. Cuanto antes mergee, antes deja de estorbar al
-Encargo A.
+**Por qué D1 y la llamada de prueba de Fathom van temprano:** los dos dependen de
+algo externo. Todo el Encargo B se apoya en que Fathom devuelva `recorded_by` en
+cada grabación; si no viniera, el plan cambia de raíz. Verificarlo es barato:
+**grabás una llamada sin agendarla y mirás el payload crudo.**
 
-**Por qué Wins va temprano:** es el pedido más autocontenido, no depende de
-ninguna integración externa y entrega valor visible solo.
-
-**Por qué SOPs puede arrancar sin coordinar:** es el de mayor esfuerzo (job
-asíncrono, ffmpeg, transcripción, prompt nuevo, marcadores de imagen), pero no
+**Por qué SOPs puede arrancar sin coordinar:** es el de mayor esfuerzo, pero no
 comparte un solo archivo con los otros cuatro. Es el encargo ideal para la sesión
 que quieras dejar corriendo sola.
 
@@ -1219,17 +1357,19 @@ que quieras dejar corriendo sola.
 Auditoría del plan completo, 2026-09-02. Cuatro categorías, de la que más
 bloquea a la que menos.
 
-### 1 · Decisiones que sólo puede tomar Santiago
+### 1 · Decisiones de producto — ✅ todas cerradas
 
-| # | Decisión | Encargo | ¿Bloquea el arranque? |
+| # | Decisión | Encargo | Estado |
 |---|---|---|---|
-| **9** | 🔴 **Privacidad:** ¿quién ve una llamada de un miembro que no quedó vinculada a nadie? | **B** | **Sí.** No se le puede pedir la key a nadie sin esto |
-| **10** | 🔴 **¿Dónde corre el bot de Discord, y quién lo paga?** | **E** | **Sí.** Es un proceso 24/7 que Vercel no corre |
-| **4** | ¿Confirmás reabrir las llamadas de entrega? | **B** | Sí — revierte una decisión del 2026-09-01 |
-| **3** | ¿El recorrido de checkpoints es uno por organización o uno por producto? | **C** | No: hay supuesto y la columna queda lista igual |
-| **1** · **2** | Tipos de win · qué es "Fase" en un win | **A** | No: hay supuesto, pero cambiarlo después cuesta una migración |
-| **5** | Loom: ¿archivo subido o link pegado? | **D** | No: el supuesto (archivo) alcanza para S1 y S2 completos |
-| **7** | ¿Vas a confirmar contrapartes a mano al principio? | **B** | No — muy aliviada desde que el alias se auto-aprende |
+| **9** | Privacidad de las llamadas no vinculadas | **B** | ✅ **Sólo quien la grabó**, hasta que se vincule. Se avisa antes de pegar la key |
+| **10** | Dónde corre el bot de Discord | **E** | ✅ **Railway** |
+| **1** · **2** | Tipos de win · qué es "Fase" | **A** | ✅ **Disueltas:** son campos configurables (C0), los valores se cargan a mano |
+| **4** | Reabrir las llamadas de entrega | **B** | ✅ Confirmado |
+| **5** | Loom: archivo o link | **D** | ✅ **Archivo subido.** Alcanza para S1 y S2 completos |
+| **7** | Confirmar contrapartes a mano | **B** | ✅ Sí, y son pocos casos desde que el alias se auto-aprende |
+| **3** | Recorrido de checkpoints: ¿por organización o por producto? | **C** | ⚠️ **La única que sigue abierta**, y **no bloquea**: la columna queda lista y sólo cambia la UI |
+
+**Ninguna sesión está frenada esperando una respuesta.**
 
 ### 2 · Verificaciones contra cuentas reales — media hora tuya, en total
 
@@ -1237,6 +1377,7 @@ bloquea a la que menos.
 |---|---|---|
 | 🔴 **Grabá una llamada de Fathom sin agendarla** y mirá el payload crudo | **B** | ¿Vienen `recorded_by`, `meeting_url` en `null` y los `display_name` de los hablantes? **Todo el módulo se apoya en eso** |
 | 🔴 **Activá el intent `MESSAGE CONTENT`** en el portal de Discord | **E** | Sin eso el bot recibe los mensajes **vacíos** y parece funcionar |
+| 🔴 **Creá el proyecto en Railway** y cargá las cinco variables | **E** | Están en `apps/discord-bot/.env.example`. La sesión del Encargo E te va a guiar |
 | ¿Tenés más de un calendario sincronizado hoy? | **B** | Define si `calendar_purpose_map` hace falta desde el día uno o puede esperar |
 
 ✅ **Ya resuelto y no hace falta verificar:** el acceso a la API de Fathom. Su FAQ
@@ -1248,7 +1389,7 @@ que cualquier miembro puede generar su key sin cambiar de plan.
 | Qué | Encargo | Estado |
 |---|---|---|
 | 🔴 **`ENCRYPTION_MASTER_KEY` en producción** | **B** | Ver la alerta de seguridad abajo |
-| Hosting del bot (Railway / Fly.io / Render) | **E** | No existe |
+| Cuenta de **Railway** para el bot | **E** | ✅ Decidido, falta crearla |
 | App de Discord publicada + `NEXT_PUBLIC_DISCORD_CLIENT_ID` | **E** | No verificado |
 | `OPENAI_API_KEY` (Whisper) | **D** | Ya se usa en `/api/agent/transcribe` |
 | Buckets nuevos (`client-wins`, `sop-videos`) | **A** · **D** | Los crea la migración, no es una credencial |
@@ -1275,15 +1416,26 @@ no se resuelvan por omisión.
 | # | Hueco | Encargo | Propuesta |
 |---|---|---|---|
 | a | **Un cliente con varias métricas.** El dashboard muestra punto inicial → final, pero no está definido qué pasa si un cliente tiene tres métricas distintas | **A** | Una fila por métrica, y una marcada como principal para la vista resumida |
+| h | **Renombrar o archivar una opción de un campo configurable** | **C0** | ✅ **Resuelto en el diseño de C0:** se guarda el `value`, no el `label`; las opciones se archivan, nunca se borran |
 | b | **Borrar o reordenar un checkpoint que ya tiene eventos** | **C** | Los checkpoints se archivan, no se borran. Reordenar no reescribe eventos pasados |
 | c | **Retención de las llamadas internas.** ¿Se guardan para siempre? | **B** | Sale de la decisión #9 |
 | d | **Umbral de la propuesta de IA.** Cuándo propone y cuándo dice "no sé" | **B** | Que diga "no sé" es una respuesta válida, y es preferible a una propuesta débil |
 | e | **Límite de duración/tamaño del video** y qué pasa si Whisper falla a mitad de un corte | **D** | Reintentar sólo ese corte; el job no se pierde entero |
 | f | **Retención de los mensajes de Discord** | **E** | Configurable por organización |
-| g | 🔴 **Los permisos de las rutas nuevas.** El repo tiene un sistema de permisos por módulo (`permissionId` en `sidebar-modules.ts`) y **el plan no dice qué permiso lleva cada ruta nueva** | **A** · **B** · **C** | Wins y checkpoints cuelgan de `clients`; el panel de keys de Fathom, de `integrations` |
+| g | 🔴 **Los permisos de las rutas nuevas.** El repo tiene un sistema de permisos por módulo (`permissionId` en `sidebar-modules.ts`) y **el plan no decía qué permiso lleva cada ruta nueva** | **A** · **B** · **C** | ✅ **Cerrado abajo** |
 
-**El hueco (g) es transversal y hay que cerrarlo antes de que las tres sesiones
-agreguen rutas**, o cada una va a inventar su propio permiso.
+#### ✅ Permisos de las rutas nuevas — decidido, para que nadie invente el suyo
+
+| Ruta nueva | `permissionId` | Encargo |
+|---|---|---|
+| `/clients/wins` | `clients` | **A** |
+| `/clients/checkpoints` (configuración) | `clients` | **C** |
+| `/clients/calls` | `clients` | **B** |
+| Configuración de campos (C0) | `settings` | **C** |
+| Panel de keys de Fathom por miembro | `integrations` | **B** |
+
+**Nadie crea un `permissionId` nuevo.** Si a alguna sesión le parece que hace
+falta, lo plantea antes en vez de inventarlo.
 
 ### Lo que NO es un hueco
 
@@ -1294,24 +1446,55 @@ agreguen rutas**, o cada una va a inventar su propio permiso.
 
 ---
 
-## Decisiones que necesito de Santiago
+## 📋 Registro de decisiones — todas cerradas salvo una
 
-| # | Decisión | Bloquea a | Por qué |
+| # | Decisión | Encargo | Resolución |
 |---|---|---|---|
-| 1 | **La lista real de "tipos de win"** | **A** | Define si es un enum o una tabla configurable |
-| 2 | **Qué es "Fase" en un win** — ¿la fase del recorrido del cliente, o algo del lanzamiento? | **A** | Cambia el modelo de datos de Wins |
-| 3 | **¿El recorrido de checkpoints es uno solo por organización, o uno por producto?** | **C** | Cambia la UI de configuración y el stepper |
-| 4 | **¿Confirmás reabrir las llamadas de entrega?** Se cerraron el 2026-09-01 y este pedido las reabre | **B** | Es una vuelta atrás de una decisión de producto de hace días |
-| 5 | **¿Los Loom se suben como archivo, o hace falta que funcione con el link pegado?** | **D** | El link es frágil y hay que decidir si vale el riesgo |
-| 7 | **¿Estás dispuesto a confirmar a mano la contraparte en algunos casos?** | **B** | **Muy aliviada:** el alias se auto-aprende de las llamadas agendadas, así que sólo quedan los clientes que nunca pasaron por una agenda y las variantes raras de nombre |
-| 9 | 🔴 **¿Quién ve las llamadas de un miembro que no quedaron vinculadas a un cliente ni a un lead?** | **B** | Conectar su Fathom hace que OTC reciba **todo** lo que graba, incluidos 1-a-1 con vos y entrevistas. Propuesta: sólo quien la grabó, hasta que se vincule. **Hay que decidirlo antes de pedirle la key a nadie** |
-| 10 | 🔴 **¿Quién despliega y paga el contenedor del bot de Discord?** | **E** | Es un proceso 24/7 que Vercel no corre. Sin eso, el Encargo E no arranca |
-| ~~6~~ | ~~¿Vos también cerrás ventas?~~ **Disuelta por el rediseño** | — | El propósito ya no depende de quién grabó |
-| ~~8~~ | ~~¿Podés revisar cómo se asignan los tipos de reunión?~~ **Respondida: Fathom no permite etiquetar llamadas** | — | Descartada como señal. El diseño ya asumía el peor caso |
+| 1 | Lista de "tipos de win" | A | ✅ **Disuelta.** Campo configurable — los valores se cargan a mano |
+| 2 | Qué es "Fase" en un win | A | ✅ **Disuelta.** Campo configurable; más adelante puede apuntar al catálogo de C |
+| 3 | Recorrido de checkpoints: ¿por organización o por producto? | C | ⚠️ **Abierta, no bloquea.** Se asume uno por organización, con `product_id` listo |
+| 4 | Reabrir las llamadas de entrega | B | ✅ Confirmado |
+| 5 | Loom: ¿archivo o link? | D | ✅ **Archivo subido** |
+| 6 | ¿El founder también cierra? | — | ✅ **Disuelta.** El propósito no depende de quién grabó |
+| 7 | ¿Confirmar contrapartes a mano? | B | ✅ Sí — y son pocos casos desde que el alias se auto-aprende |
+| 8 | ¿Se pueden etiquetar las llamadas en Fathom? | — | ✅ **No.** Descartado como señal; el diseño no lo necesitaba |
+| 9 | ¿Quién ve una llamada no vinculada? | B | ✅ **Sólo quien la grabó**, hasta que se vincule. Se avisa antes de pedir la key |
+| 10 | ¿Dónde corre el bot de Discord? | E | ✅ **Railway** |
 
-Mientras no haya respuesta, el plan asume: (1) el enum propuesto, (2) fase del
-recorrido del cliente, (3) uno por organización con la columna lista para
-producto, (4) sí, se reabre entrega sin tocar ventas, (5) archivo subido,
-(7) sí, pero son pocos casos porque el alias se auto-aprende, (9) que una llamada
-sin vincular la ve sólo quien la grabó, (10) un contenedor chico en Railway o
-Fly.io. Las decisiones 6 y 8 quedaron cerradas.
+**Ninguna sesión está esperando una respuesta para arrancar.**
+
+---
+
+## ✅ Checklist de arranque
+
+Lo que hay que hacer, en orden, para poner las cinco sesiones a trabajar.
+
+### Antes de largar nada (10 minutos)
+
+- [ ] Confirmar que `ENCRYPTION_MASTER_KEY` está seteada en producción — sin eso el Encargo B guardaría claves en texto plano
+- [ ] Crear la cuenta / proyecto en **Railway** para el bot
+
+### Largar la primera sesión
+
+- [ ] **Encargo C** con su prompt → que entregue **C0** (campos configurables) y avise
+- [ ] Mergear C0
+
+### Largar las otras cuatro, en paralelo
+
+- [ ] **Encargo A** (`WINS`) — arranca ya; cierra el tracker cuando C0 esté mergeado
+- [ ] **Encargo B** (`LLAMADAS`) — empieza por L0
+- [ ] **Encargo D** (`SOPS-VIDEO`) — totalmente aislado
+- [ ] **Encargo E** (`DISCORD`) — empieza por D1, que es operación
+
+### Lo que te van a pedir a vos, en algún momento
+
+- [ ] Grabar **una llamada de Fathom sin agendarla** y pasar el payload crudo (Encargo B)
+- [ ] Activar el intent **`MESSAGE CONTENT`** en el portal de Discord (Encargo E)
+- [ ] Publicar la app de Discord y cargar las variables en Railway (Encargo E)
+- [ ] Cargar los valores reales de los campos configurables — tipos de win, fases (cuando A entregue la pantalla)
+
+### Recordá que cada sesión te debe
+
+**Antes de escribir código, en cada fase:** una explicación en palabras simples de
+qué va a construir y el flujo completo paso a paso. Si empieza a codear sin eso,
+paralas.

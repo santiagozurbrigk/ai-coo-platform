@@ -14,6 +14,92 @@
 
 ---
 
+### 2026-09-02 — Plan listo para ejecutar: campos configurables, decisiones cerradas y checklist de arranque
+
+**Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`
+**Commits:** este
+**Módulo(s) afectado(s):** `docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md`, `PENDIENTES.md`
+
+**Qué se hizo:**
+
+Santiago cerró las decisiones abiertas y dio una directiva de producto que
+simplifica el plan. El documento queda **listo para largar las cinco sesiones**.
+Sigue sin haber cambios de código.
+
+**Decisiones cerradas:**
+
+- **Privacidad (#9):** una llamada de Fathom que **no** quedó vinculada a un
+  cliente ni a un lead **la ve sólo quien la grabó**; al vincularse pasa a ser de
+  la organización, y se avisa en la pantalla **antes** de pegar la key.
+- **Hosting del bot (#10): Railway.**
+- **#4** confirmada, **#5** archivo subido, **#6** y **#8** ya estaban disueltas.
+- Queda abierta sólo la **#3** (recorrido por organización o por producto), y
+  **no bloquea**: la columna queda lista y sólo cambia la UI.
+
+**⭐ La directiva que simplifica el plan: campos configurables.**
+
+En vez de decidir hoy la lista de tipos de win y qué significa "Fase", el tracker
+se construye **como una tabla cuyas columnas se configuran**: cada una es una
+lista de opciones para elegir o texto libre. **Primero el mecanismo; los valores
+se cargan después, desde la pantalla, cuando el uso real los revele.**
+
+Se agregó la **pieza compartida `C0`**, dueño el Encargo C, que entrega el
+mecanismo y lo usan A y C. Diseño deliberadamente liviano: la definición del campo
+lleva sus opciones **inline en un jsonb**, y el valor cargado vive en un `jsonb`
+de la propia fila —mismo patrón que `content_pieces.metrics` o
+`closing_calls.form_answers`—, en vez de una tabla clave-valor que obligaría a un
+join por columna.
+
+Tres reglas lo sostienen: **se guarda el `value`, nunca el `label`** (renombrar no
+toca datos); **una opción se archiva, no se borra** (borrarla reescribiría el
+pasado); y un campo archivado deja de ofrecerse pero se sigue mostrando donde ya
+se cargó.
+
+**⭐ `options_source` elimina la única compuerta dura del plan.** El campo "Fase"
+de un win arranca con opciones propias (`inline`) y **más adelante** puede tomarlas
+del catálogo de fases del Encargo C cambiando **una fila** a `journey_stages`, sin
+migrar un solo dato. Con eso **el Encargo A dejó de depender de C1**, y los cinco
+encargos quedaron independientes.
+
+**⭐ Regla nueva y obligatoria para las cinco sesiones (pedido de Santiago):**
+antes de escribir la primera línea de código de **cada fase**, la sesión tiene que
+explicar **en palabras simples** qué va a construir y **el flujo completo paso a
+paso** —qué hace la persona, qué hace el sistema, qué queda guardado, qué ve
+después—, más qué decidió que podría quererse distinto y qué **no** va a hacer.
+Recién con la respuesta empieza. Es la regla 5 del `CLAUDE.md` aplicada **antes**
+y no sólo después: corregir un flujo en una conversación es mucho más barato que
+en un diff. Quedó como regla 0 de convivencia y **dentro de los cinco prompts de
+arranque**.
+
+**Dos huecos transversales cerrados:**
+
+- **Permisos de las rutas nuevas:** se fijó qué `permissionId` lleva cada una
+  (wins, checkpoints y llamadas → `clients`; configuración de campos →
+  `settings`; panel de keys de Fathom → `integrations`). **Nadie inventa uno
+  nuevo.** Sin esto, tres sesiones agregando rutas en paralelo habrían creado tres
+  criterios distintos.
+- **Renombrar o archivar opciones** quedó resuelto por diseño en C0.
+
+**Otros cambios del documento:** orden recomendado reescrito —ya no hay compuertas
+duras, C0 va primero por ser chico y compartido—, la tabla de decisiones pasó a
+ser un **registro con la resolución de cada una**, y se agregó un **checklist de
+arranque** con lo que hay que hacer antes de largar, qué sesión va primero y qué
+le van a pedir a Santiago en el camino.
+
+**Verificación ejecutada:** ninguna — no hay código.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ Hasta que el campo "Fase" pase a `journey_stages`, **puede haber dos listas de
+  fases que se desincronicen**. Aceptable: volver a alinearlas es editar una fila.
+- 🔴 Sigue vigente la alerta de seguridad de `ENCRYPTION_MASTER_KEY`: es lo primero
+  del checklist de arranque.
+- ⚠️ Los campos configurables son un mecanismo genérico: si se usa para todo,
+  termina siendo una base de datos dentro de la base de datos. **Sólo para lo que
+  el usuario debe poder cambiar sin tocar código.**
+
+---
+
 ### 2026-09-02 — Auditoría del plan: reordenado, secciones obsoletas removidas y lista de huecos
 
 **Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`
