@@ -13,7 +13,7 @@
 | Pedido | Estado real | Trabajo principal |
 |---|---|---|
 | **1. Tracker + Dashboard de Wins** | 🔴 No existe nada. Lo más cercano es `clients.is_success_case`, un booleano sin detalle | Módulo nuevo completo |
-| **2. Llamadas de Fathom asignadas al cliente** | 🟡 Hay mucho construido y **apuntando a otro lado**: la asociación se hace por título, y la señal que resuelve el caso real (`recorded_by`) ni se parsea. La mayoría de las entregas **no pasa por ningún calendario** | Dos ejes nuevos: propósito e identidad aprendida |
+| **2. Llamadas de Fathom asignadas al cliente** | 🟡 Hay mucho construido y **apuntando a otro lado**: se clasifica por título, cuando la respuesta está en **quién es la otra persona** — y OTC ya tiene la lista de clientes y de leads | Resolver la contraparte y derivar el propósito de eso |
 | **3. Checkpoints configurables** | 🔴 No existe. `custom_metrics` y `metrics_snapshots` son **otra cosa** (KPIs de organización, no del cliente) | Módulo nuevo — y es el que desbloquea el campo "Fase" de Wins |
 | **4. Creador de SOPs desde Loom + capturas** | 🟡 El creador existe y funciona desde texto. Whisper, ffmpeg, el bucket privado y el patrón de job asíncrono ya están en el repo por otras features | Entrada de video + capturas dentro del contenido |
 | **5. Bot de Discord** | 🟢 **El bot está entero y no está desplegado.** Código, tablas, OAuth de instalación y UI: todo existe | Deploy (operación, no código) + conectarlo al tracking |
@@ -45,7 +45,7 @@ Encargo C y el Encargo A.
 | Encargo | Nombre | Fases | Rama | Depende de | Aislamiento |
 |---|---|---|---|---|---|
 | **A** | `WINS` | W1 · W2 · W3 | `claude/wins-tracker` | **C1** (catálogo de fases) | Medio |
-| **B** | `LLAMADAS` | L1 · L2 · L3 | `claude/llamadas-cliente` | Una llamada de prueba · decisiones #4 y #6 | Alto |
+| **B** | `LLAMADAS` | L1 · L2 · L3 | `claude/llamadas-cliente` | Tres verificaciones en Fathom · decisión #4 | Alto |
 | **C** | `CHECKPOINTS` | C1 · C2 · C3 | `claude/checkpoints-cliente` | Nada. **C1 desbloquea A** | Alto |
 | **D** | `SOPS-VIDEO` | S1 · S2 · S3 | `claude/sops-desde-video` | Nada | **Total** — arrancá cuando quieras |
 | **E** | `DISCORD` | D1 · D2 · D3 | `claude/discord-bot-produccion` | D3 depende de A y C | Alto (D1 y D2) |
@@ -87,36 +87,38 @@ final y en un commit aparte, y no abras PR. Empezá por W1.
 
 **Rama:** `claude/llamadas-cliente` · **Bloque de migraciones:** `20260903 10 MM 00`
 
-> ⚠️ **Rediseñado el 2026-09-02.** Las llamadas de entrega **casi nunca pasan por
-> un calendario**, y cuando pasan hay varios calendarios con significados
-> distintos. Leé la sección larga completa antes de escribir una línea: la señal
-> que sostiene el módulo es `recorded_by`, y hoy ni se parsea.
+> ⚠️ **Rediseñado dos veces el 2026-09-02.** La idea central: **el propósito de
+> una llamada lo define la otra persona, no quién grabó ni de qué calendario
+> salió.** Cliente → entrega. Lead → venta. Leé la sección larga completa antes
+> de escribir una línea.
 
 | | |
 |---|---|
-| **Hacé** | El eje propósito (quién grabó + tipo de reunión + qué significa cada calendario), el eje identidad con **alias aprendido**, y el panel de llamadas en la ficha del cliente |
+| **Hacé** | Resolver **quién es la contraparte** de cada grabación, derivar el propósito de eso, aprender el alias en cada confirmación manual, y el panel de llamadas en la ficha del cliente |
 | **Archivos que son tuyos** | `apps/web/lib/fathom/**` · `apps/web/app/fathom/**` · `apps/web/components/integrations/fathom-mapping-panel.tsx` · `apps/web/components/integrations/unlinked-recordings-panel.tsx` · `apps/web/components/clients/client-calls-panel.tsx` · `apps/web/app/(platform)/clients/calls/**` · tu migración |
-| **Compartidos que vas a tocar** | `components/clients/client-detail.tsx` · `routes/paths.ts` · `lib/ghl/sync-appointments.ts` y `lib/calendly/sync-events.ts` (sólo para escribir `calendar_provider` y `calendar_ref`) |
+| **Compartidos que vas a tocar** | `components/clients/client-detail.tsx` · `routes/paths.ts` · `lib/ghl/sync-appointments.ts` y `lib/calendly/sync-events.ts` (sólo `calendar_provider` y `calendar_ref`) |
 | **NO toques** | `lib/wins/**` (es de A) · `lib/checkpoints/**` (es de C) · `apps/discord-bot/**` (es de E) |
 | **⚠️ Cuidado** | `lib/fathom/client-matcher.ts` lo usan otras pantallas. **Degradalo a candidato, no lo borres** sin revisar quién lo importa |
-| **Sin backfill** | Los datos históricos **no importan** (decisión de Santiago). No migres llamadas viejas, no recuperes nada. Todo cuenta de hoy en adelante |
-| **Antes de escribir código** | Grabá **una llamada de prueba** y mirá el payload crudo: ¿viene `recorded_by`? ¿`meeting_url` es `null` cuando no hubo agenda? ¿`transcript[].speaker.display_name` trae nombres útiles? **Todo el módulo se apoya en eso** |
-| **Decisiones que te bloquean** | #4 (confirmar el alcance de entrega) y #6 (¿el founder también cierra?) |
+| **Sin backfill** | Los datos históricos **no importan**. Nada que migrar ni recuperar |
+| **🔴 Antes de escribir código — tres verificaciones** | **(a)** ¿Cómo se asignan los `meeting_type` en Fathom? Se mira en su interfaz, no en la API — **puede simplificar todo el módulo**. **(b)** ¿La key ve las llamadas del closer, o están sin compartir? **(c)** Grabá una llamada sin agendarla: ¿vienen `recorded_by`, `meeting_url` en null y los nombres de los hablantes? |
+| **Decisión que te bloquea** | #4 (confirmar el alcance de entrega). La #6 vieja —"¿el founder también cierra?"— **se disolvió con el rediseño**: ya no importa quién grabó |
 
 **Prompt de arranque:**
 
 ```
 Leé docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md, CHANGES.md y PENDIENTES.md.
 Sos el ENCARGO B (LLAMADAS). Leé completa la sección larga del Encargo B: se rediseñó
-porque las llamadas de entrega casi nunca pasan por un calendario.
+dos veces. La idea central es que el propósito de una llamada lo define la contraparte
+(cliente → entrega, lead → venta), no quién grabó ni el calendario.
 
-Antes de escribir código: grabá o pedime una llamada de prueba sin agendarla, mirá el
-payload crudo de Fathom y decime si vienen recorded_by, meeting_url y los display_name
-de los hablantes. Todo el módulo se apoya en eso.
+Antes de escribir código hacé las tres verificaciones que lista la ficha y decime los
+resultados: cómo se asignan los meeting_type en Fathom, si la API key ve las llamadas
+del closer, y qué trae el payload de una llamada grabada sin agendar.
 
-Después implementá L1 (el eje propósito) en la rama claude/llamadas-cliente desde main
-actualizado. Sin backfill: los datos viejos no importan. Bloque de migraciones
-20260903 10MM 00. No toques lib/wins, lib/checkpoints ni apps/discord-bot. No abras PR.
+Después implementá L1 (resolver la contraparte) en la rama claude/llamadas-cliente
+desde main actualizado. Sin backfill. Bloque de migraciones 20260903 10MM 00. Guardá
+siempre resolution_method. No toques lib/wins, lib/checkpoints ni apps/discord-bot.
+No abras PR.
 ```
 
 ---
@@ -351,172 +353,231 @@ de clientes no van en un bucket público.
 
 ## ENCARGO B · `LLAMADAS` — Registro de llamadas por cliente
 
-> ⚠️ **Esta sección se rediseñó el 2026-09-02** después de una corrección de
-> Santiago que invalidó el diseño anterior. Lo que sigue reemplaza por completo
-> la versión que resolvía la identidad cruzando contra la agenda.
+> ⚠️ **Rediseñado dos veces el 2026-09-02.** Primero porque las llamadas de
+> entrega casi nunca pasan por un calendario. Después porque el closer también
+> entrega, lo que tiró abajo el eje "quién grabó". Esta versión reemplaza a las
+> dos anteriores. **Leela entera antes de escribir una línea.**
 
-### Las dos correcciones que cambian todo
+### El cuello de botella estaba mal planteado — incluso por este documento
 
-**1 · La mayoría de las llamadas de entrega nunca pasan por un calendario.**
-Caen en Fathom directamente. Y la especificación de Fathom —bajada en el repo—
-dice que `calendar_invitees` **puede venir vacío**, y que eso es exactamente lo
-que pasa en una reunión sin evento de calendario. El propio `lib/fathom/invitees.ts`
-ya lo tiene documentado.
+Las dos versiones anteriores buscaban una señal que dijera *"esta llamada es de
+venta"* o *"esta es de entrega"*: primero el calendario, después quién grabó. Las
+dos fallan por la misma razón, y la corrección de Santiago la deja a la vista:
 
-Consecuencia: **cruzar por mail de invitado no resuelve casi ninguna llamada de
-entrega.** Sigue siendo la señal más fuerte cuando existe, pero no puede ser el
-plan.
+> *"El closer siempre cierra ventas, pero puede haber casos en que también
+> entregue el servicio."*
 
-**2 · Hay varios calendarios y significan cosas distintas.** Uno del closer, con
-puras llamadas de venta. Otro del founder, con llamadas de clientes. El diseño
-anterior decía *"si cruza con un turno agendado → es una venta"*, y eso
-**habría etiquetado como venta cada llamada de cliente del founder** en cuanto se
-sincronizara su calendario. Era un error, y esta corrección lo mata.
+**Ninguna propiedad de la llamada dice para qué era.** Ni el calendario —la
+mayoría no pasa por uno—, ni quién grabó —la misma persona hace las dos cosas—,
+ni el título —el 86% son "Impromptu Google Meet Meeting"—.
 
-**3 · Los datos históricos no importan.** Decisión de Santiago: las llamadas que
-hoy están en la base no cuentan. **No hay backfill, no hay migración de datos, no
-hay que recuperar nada.** Todo vale de hoy en adelante. Eso simplifica las
-migraciones y cambia el criterio de verificación: no se mide sobre lo viejo, se
-mide sobre lo que entre a partir de que esto esté vivo.
+⭐ **Pero hay una propiedad que sí lo dice, y es la otra persona.**
 
-### ⭐ Qué señales da Fathom cuando NO hubo calendario
+| Con quién fue la llamada | Qué era |
+|---|---|
+| Con un **cliente** | Entrega |
+| Con un **lead que todavía no compró** | Venta |
+| Sólo con gente del equipo | Interna |
 
-De la especificación en `docs/external-apis/fathom/api-reference/meetings/list-meetings.md`:
+Eso disuelve el problema por completo: **quién grabó deja de importar.** El closer
+con un cliente es entrega. El closer con un lead es venta. El founder con un
+cliente es entrega. No hay que mapear personas a roles, ni calendarios a
+propósitos, ni pedirle al usuario que cambie cómo trabaja.
 
-| Señal | ¿Viene sin calendario? | Qué resuelve | ¿OTC la lee hoy? |
+**Y OTC está en una posición única para hacerlo**, porque ya tiene las dos listas:
+`clients` y `sales_leads` — y `sales_leads.client_id` ya registra cuál lead se
+convirtió en cuál cliente (`20260902100000_sales_leads.sql`). Fathom no puede
+hacer esta clasificación: no sabe quiénes son tus clientes. **OTC sí.**
+
+### Entonces el problema real es uno solo: ¿quién es la otra persona?
+
+Y ese es un problema mucho más chico, porque:
+
+- **Tu cartera de clientes es chica y estable.** Diez, treinta, cien personas que
+  se repiten llamada tras llamada.
+- **Los leads son muchos y siempre nuevos** — pero los leads **sí** vienen con
+  mail, porque pasaron por una agenda para reservar el turno.
+
+O sea: donde hay volumen (leads) hay mail, y donde no hay mail (entregas) hay
+poca gente y se repite. Las dos mitades del problema tienen solución distinta y
+las dos son tratables.
+
+### Cómo se identifica a la otra persona
+
+**Paso 0 · Sacar a los de casa.** La contraparte es el participante que **no** es
+del equipo. Y hay un truco gratis para saber quiénes son del equipo:
+`recorded_by` viene en **todas** las grabaciones y siempre es alguien de casa.
+Después de unas pocas llamadas, OTC conoce los nombres de pantalla del equipo sin
+preguntarle nada a nadie. Se completa con los `profiles` de la organización.
+
+Acá `recorded_by` sí sirve — **para descartar internos y para atribuir la llamada
+a un closer**, no para decidir el propósito.
+
+**Paso 1 · Identificar a la contraparte,** de lo más fuerte a lo más débil:
+
+| # | Señal | Fuerza | ¿Sirve sin calendario? |
 |---|---|---|---|
-| **`recorded_by`** (nombre, mail, dominio, **equipo**) | ✅ **Siempre** — está en el `required` del schema | **Quién de tu equipo grabó**: closer o founder | 🔴 **Ni se parsea** |
-| `transcript[].speaker.display_name` | ✅ Siempre que haya transcript | Cómo se llama el otro en Zoom/Meet | 🟡 Se guarda crudo, no se usa |
-| `meeting_type` | ✅ Si la org lo asigna en Fathom | Propósito declarado | 🟡 Se parsea, no se usa |
-| **`meeting_url`** | ❌ **`null` = no hubo calendario** | **Bandera directa** de "esta no pasó por agenda" | 🟡 Se parsea, no se usa |
-| `calendar_invitees[].email` | ❌ Vacío sin calendario | Identidad fuerte **cuando existe** | ✅ |
-| `speaker.matched_calendar_invitee_email` | ❌ | Une hablante ↔ mail | 🔴 No |
-| `title` | ✅ | 86% son "Impromptu Google Meet Meeting" | ✅ — y hay que **dejar de usarla** |
-| `crm_matches` | — | Requiere un CRM conectado *a Fathom*. OTC no lo es | ❌ Inservible |
+| 1 | Mail de invitado externo ∈ identidades de un cliente o mail de un lead | Determinista | ❌ |
+| 2 | ⭐ Nombre de hablante ∈ **alias aprendido** | Determinista **después de una confirmación humana** | ✅ |
+| 3 | Nombre de hablante = nombre de cliente o lead (normalizado) | Alta, pero **candidato** | ✅ |
+| 4 | Lo que la persona dice de sí misma en el transcript | Propuesta con motivo | ✅ |
+| 5 | Nada | Cola de revisión | — |
 
-**`recorded_by` es el hallazgo que ordena todo el rediseño.** Resuelve el problema
-de los múltiples calendarios **sin depender de calendarios**: en vez de mapear
-agendas, la organización mapea **personas de Fathom → rol**, una sola vez. El
-closer graba ventas, el founder graba entrega. Y sigue funcionando cuando no
-hubo agenda, que es el caso mayoritario.
+**Paso 2 · El propósito sale de la contraparte,** sin más preguntas:
 
-⚠️ **Con una salvedad honesta:** si el founder es también el closer —organización
-de una persona— `recorded_by` no distingue nada. Ahí la señal útil es el
-`meeting_type` de Fathom o el alias aprendido. Hay que decírselo al usuario en la
-pantalla de configuración en vez de dejar que confíe en un mapeo que no lo cubre.
-
-### La arquitectura nueva: dos ejes que se resuelven por separado
-
-El diseño viejo mezclaba "para qué era la llamada" con "con quién fue" en una
-sola cadena, y el fracaso de la primera pregunta decidía la segunda en silencio
-—que es **exactamente el error que la Fase 1 del módulo ya había corregido una
-vez** (ver `20260901180000_fathom_classification.sql`). Se separan.
-
-**EJE 1 · PROPÓSITO — ¿venta o entrega?** De lo más declarado a lo más general:
-
-| # | Señal | Fuerza |
+| Contraparte resuelta | `counterparty` | `purpose` |
 |---|---|---|
-| 1 | `meeting_type` mapeado por la org | Determinista, declarado por llamada |
-| 2 | Cruza con un turno de un calendario **cuyo propósito la org declaró** | Determinista, y es **lo que arregla el multicalendario** |
-| 3 | `recorded_by` mapeado a un rol | Por defecto de la persona |
-| 4 | Nada de lo anterior | Sin propósito → cola de revisión |
+| Cliente activo | `client` | `delivery` |
+| Cliente **con un turno agendado que cruza** | `client` | `sales` — es un upsell |
+| Lead que todavía no compró | `lead` | `sales` |
+| Nadie externo | `internal` | `team` |
 
-El orden va del más específico al más general a propósito: un closer puede tomar
-una llamada de entrega, así que lo declarado **para esa llamada** le gana al rol
-por defecto de quien grabó.
+Las dos columnas ya existen y son separadas desde `20260901180000` — **ese
+diseño era correcto y acá se aprovecha entero.** Un upsell es una llamada de
+venta con un cliente, y el modelo puede decir las dos cosas a la vez en vez de
+tener que elegir una y perder la otra.
 
-**EJE 2 · CON QUIÉN — ¿qué cliente, o qué lead?**
+**Paso 3 · Sólo si la contraparte no se resolvió,** en este orden:
 
-| # | Señal | Resultado |
-|---|---|---|
-| 1 | Mail de invitado ∈ identidades de un cliente | **Cliente.** Fuerte |
-| 2 | Mail de invitado ∈ mail del lead de un turno | **Lead** |
-| 3 | ⭐ Nombre de hablante ∈ **alias aprendido** | **Cliente.** Determinista, después de una confirmación humana |
-| 4 | Nombre de hablante ≈ nombre de cliente | **Candidato**, nunca asociación automática |
-| 5 | Nada | Sin identidad → cola de revisión |
+1. **`meeting_type` de Fathom**, mapeado por la organización → determinista, y
+   **funciona sin calendario**. Es el único campo declarativo por llamada que
+   Fathom ofrece. Hay que reponer `fathom_meeting_type_map`, dropeada el 2026-09-01.
+2. **Cruce con un turno** cuyo calendario la organización declaró como de ventas
+   o de entrega. Esto es lo que resuelve el multicalendario, ahora como una señal
+   entre varias y no como la regla principal.
+3. **Leer el transcript con IA** (abajo).
+4. Nada → cola de revisión.
 
-### ⭐ La idea central: aprender la identidad una vez
+**Paso 4 · La confirmación enseña.** Cada vez que alguien resuelve una llamada a
+mano, **se guarda el alias del hablante**. Esa persona no se vuelve a preguntar
+nunca. El trabajo manual arranca alto y **tiende a cero**.
 
-Como la mayoría de las llamadas no traen mail, **ningún algoritmo las va a
-resolver solo**. La salida no es adivinar mejor: es **recordar**.
+### El desempate por contenido: lo que la IA puede y lo que no
 
-Cuando el founder confirma a mano *"este hablante 'Juan P.' es el cliente Juan
-Pérez"*, el sistema **guarda el alias**. La próxima grabación con ese hablante se
-resuelve sola, sin heurística y sin volver a preguntar.
+Una llamada de venta y una de entrega **no se parecen en nada**. La de venta
+tiene descubrimiento, objeciones, precio y cierre. La de entrega tiene revisión
+de avances, "cómo te fue esta semana" y próximos pasos. Un modelo leyendo los
+primeros minutos del transcript distingue eso con mucha más precisión que
+cualquier heurística de metadatos.
 
-Eso convierte un problema de matching irresoluble en **un problema de etiquetado
-que se agota**: el trabajo manual arranca alto y tiende a cero a medida que la
-cartera se estabiliza. Y funciona justamente porque una cartera de clientes es
-chica y estable —a diferencia de los leads, que son muchos y siempre nuevos, que
-es la razón por la que para ventas el cruce por mail sí era el diseño correcto.
+**Pero la IA acá tiene un lugar preciso, y hay que respetarlo:**
 
-Es la misma regla de siempre, aplicada donde corresponde: **el sistema no
-inventa una identidad, pero sí recuerda para siempre la que una persona
-declaró.**
+- ✅ Actúa **sólo** cuando la identidad no se resolvió. Nunca pisa una señal determinista.
+- ✅ Produce una **propuesta con su motivo**, no un hecho.
+- ✅ Su salida se confirma con un click — y esa confirmación **enseña el alias**.
+- ❌ **Nunca** decide sola que una llamada es de venta y la mete en las métricas de ventas.
+
+La diferencia importa: si la IA decidiera sola, un error suyo contaminaría el
+tablero de ventas en silencio. Como propuesta, su peor error cuesta un click.
+
+Ese es el rol honesto de la IA en este módulo: **no decidir, sino convertir la
+confirmación del humano en un click en vez de una búsqueda.**
+
+### Medir por qué peldaño se resolvió cada llamada
+
+Cada llamada guarda **cuál regla la resolvió** (`resolution_method`). Sin eso, en
+dos semanas nadie va a saber si el módulo funciona porque el alias aprendido está
+haciendo el trabajo o porque la IA está tapando un problema de configuración.
+
+Con eso, el panel responde en una tabla: cuántas por mail, cuántas por alias,
+cuántas por tipo de reunión, cuántas por IA, cuántas a mano. **Eso dice dónde
+invertir**, en vez de adivinar.
+
+### 🔴 Lo primero que hay que averiguar, y es de Fathom
+
+**¿Cómo se le asigna un `meeting_type` a una reunión?** La documentación de la API
+sólo explica cómo **leerlos** (`GET /meeting_types`, filtro `meeting_type` en
+`GET /meetings`) — **no dice cómo se asignan**. Y eso cambia el ranking entero:
+
+- **Si Fathom permite asignarlos por regla** (por título del evento, por dominio
+  del invitado, por calendario), entonces configurás dos tipos —"Venta" y
+  "Entrega"— **una sola vez**, y la clasificación pasa a ser determinista para
+  casi todas las llamadas. Sería la solución más limpia de todas.
+- **Si hay que ponerlos a mano en cada llamada**, es un fallback razonable para
+  las dudosas, no la vía principal.
+
+**Es lo primero que hay que mirar, y se mira en la interfaz de Fathom, no en la
+API.** Quedó anotado en `docs/API_DOCS_PENDIENTES.md` (regla 3 del `CLAUDE.md`).
+
+### 🔴 El otro hallazgo operativo: la API key de Fathom es por persona
+
+Del FAQ oficial: *"API keys are per user, not per org, and there are no org-level
+keys."* Una key sólo ve **lo que esa persona grabó o lo que le compartieron**.
+
+**Si el closer graba en su cuenta y no comparte, OTC no ve esas llamadas.** No es
+que las clasifique mal: no existen para el sistema.
+
+Hay dos salidas y las dos son de configuración, no de código:
+1. Que un **admin de Fathom** tenga acceso a todas las llamadas compartidas, y usar su key.
+2. Que **cada miembro conecte su propia key** — y esto **ya está construido en OTC**: `app/fathom/member-actions.ts` tiene `connectMemberFathomAction` y `syncMemberFathomAction`.
+
+La opción 2 además da algo mejor que `recorded_by`: sabés **qué perfil de OTC**
+grabó cada llamada, sin tener que casar mails.
 
 ### Modelo de datos
 
 ```
-client_identities              ← ⭐ el alias aprendido. Reemplaza la idea de client_emails
+client_identities              ← ⭐ el alias aprendido
   organization_id, client_id,
   kind ('email' | 'speaker_name' | 'domain'),
   value, confirmed_by, confirmed_at, source
   unique (organization_id, kind, lower(value))
+  -- Sirve igual para leads: se agrega lead_id nullable, excluyentes entre sí
 
-fathom_user_roles              ← el eje propósito sin depender de calendarios
-  organization_id, fathom_user_email, role ('closer'|'delivery'|'both'|'ignore'), profile_id
+team_speaker_names             ← el roster interno, auto-alimentado por recorded_by
+  organization_id, display_name, email, profile_id, source ('recorded_by'|'profile'|'manual')
 
-fathom_meeting_type_map        ← REPONER la que se dropeó el 2026-09-01
+fathom_meeting_type_map        ← REPONER la dropeada el 2026-09-01
   organization_id, meeting_type_name, purpose ('sales'|'delivery'|'team')
 
-calendar_purpose_map           ← el multicalendario, declarado por la org
-  organization_id, provider ('ghl'|'calendly'), calendar_ref, label,
-  purpose ('sales'|'delivery'|'other')
+calendar_purpose_map           ← el multicalendario, ahora como una señal más
+  organization_id, provider ('ghl'|'calendly'), calendar_ref, label, purpose
 
 closing_calls  + calendar_provider, + calendar_ref
-  ↑ `ghl_calendar_id` YA existe y YA se llena (20260824100000). Falta el
-    equivalente de Calendly y una clave única para que el mapa tenga una sola llave
+  ↑ `ghl_calendar_id` YA existe y YA se llena. Falta el equivalente de Calendly
+    y una llave única para que el mapa tenga una sola clave
 
-fathom_calls   + recorded_by_email, + recorded_by_name, + had_calendar_event (de meeting_url),
-               + speaker_names text[], + ai_topic
+fathom_calls   + recorded_by_email, + recorded_by_name
+               + had_calendar_event   (derivado de meeting_url === null)
+               + speaker_names text[]
+               + counterpart_client_id, + counterpart_lead_id
+               + resolution_method     ⭐ por qué peldaño se resolvió
+               + ai_topic
 ```
 
-**Por qué `client_identities` y no `client_emails`:** un mail es sólo una clase de
-identidad. El nombre de hablante es otra, y es la que resuelve el caso mayoritario.
-Una tabla con `kind` las trata igual y evita construir dos mecanismos paralelos
-para lo mismo. **De paso le da al `!vincular` del bot de Discord un lugar mejor
-donde buscar** — pero eso es del Encargo E, no lo implementes acá.
+**`fathom_user_roles` desapareció del diseño.** Era el corazón de la versión
+anterior y ya no hace falta: el propósito no sale de quién grabó.
 
 ### Fases
 
 | Fase | Entregable | Cómo se verifica |
 |---|---|---|
-| **L1** | **El eje propósito.** Parsear `recorded_by` y `meeting_url`; los tres mapas (personas, tipos de reunión, calendarios); `calendar_ref` en los dos syncs; UI de configuración en Integraciones | **Grabá una llamada de prueba sin agendarla.** Tiene que quedar con `purpose='delivery'` por el rol de quien la grabó, sin haber pasado por ningún calendario |
-| **L2** | **El eje identidad.** `client_identities`, resolución por mail y por alias, cola de revisión con un botón que **guarda el alias al confirmar** | Confirmá un cliente una vez. **La segunda grabación con el mismo hablante tiene que resolverse sola** |
-| **L3** | **El registro.** Tema con Haiku, preview, próximos pasos, panel en la ficha del cliente, escritura en el timeline | Una llamada de entrega aparece en la ficha con fecha, tema, link y próximos pasos |
-
-**Ojo con el criterio de L1:** no se mide sobre las llamadas viejas —no importan—
-sino grabando una nueva a propósito y mirando cómo queda clasificada.
+| **L1** | **La contraparte.** Parsear `recorded_by` y `meeting_url`; roster interno auto-alimentado; `client_identities`; resolución por mail y por nombre exacto; `resolution_method` | Grabá una llamada con un cliente **sin agendarla**. Tiene que quedar `counterparty='client'`, `purpose='delivery'`, y decir por qué |
+| **L2** | **El aprendizaje.** Cola de revisión que al confirmar **guarda el alias**; propuesta de la IA leyendo el transcript; los dos mapas de respaldo (tipo de reunión y calendarios) | Confirmá un cliente una vez. **La segunda grabación con ese hablante se resuelve sola**, y `resolution_method` dice `alias` |
+| **L3** | **El registro.** Tema con Haiku, preview, próximos pasos, panel en la ficha, timeline, y el tablero de `resolution_method` | Una entrega aparece en la ficha con fecha, tema, link y próximos pasos |
 
 ### Archivos a tocar
 
-- `supabase/migrations/20260903 10MM 00_*.sql` — sin backfill: nada que recuperar
-- `lib/fathom/api.ts` — **parsear `recorded_by`** (hoy se descarta) y usar `meeting_url` como bandera de "sin calendario"
-- `lib/fathom/resolve-purpose.ts` (nuevo) — eje 1. **Puro y con tests**
-- `lib/fathom/resolve-subject.ts` (nuevo) — eje 2. **Puro y con tests**
-- `lib/fathom/resolve-sales-call.ts` — pasa a ser un caso del eje 1, no el punto de entrada
+- `supabase/migrations/20260903 10MM 00_*.sql` — **sin backfill**: los datos viejos no importan
+- `lib/fathom/api.ts` — **parsear `recorded_by`** (hoy se descarta) y `meeting_url` como bandera de "sin agenda"
+- `lib/fathom/resolve-counterpart.ts` (nuevo) — pasos 0 y 1. **Puro y con tests**
+- `lib/fathom/resolve-purpose.ts` (nuevo) — pasos 2 y 3. **Puro y con tests**
+- `lib/fathom/classify-from-transcript.ts` (nuevo) — la propuesta de la IA, aislada
+- `lib/fathom/resolve-sales-call.ts` — queda como un caso del paso 3, no el punto de entrada
 - `lib/fathom/client-matcher.ts` — **degradar a candidato.** Revisá quién lo importa antes de tocarlo
 - `lib/ghl/sync-appointments.ts` y `lib/calendly/sync-events.ts` — escribir `calendar_provider` y `calendar_ref`
-- `components/integrations/fathom-mapping-panel.tsx` (nuevo) — las tres tablas de configuración
-- `components/integrations/unlinked-recordings-panel.tsx` — la cola que **enseña el alias**
+- `components/integrations/fathom-mapping-panel.tsx` (nuevo)
+- `components/integrations/unlinked-recordings-panel.tsx` — la cola que **enseña**
 - `components/clients/client-calls-panel.tsx` (nuevo)
 
 ### Riesgos
 
-- ⚠️ **`recorded_by` no está verificado contra la cuenta real.** Está en el `required` del schema, así que debería venir siempre — pero el módulo entero se apoya en eso. **Verificalo antes de escribir código**, y ahora es fácil: grabá una llamada de prueba y mirá el payload crudo.
-- ⚠️ **Un founder que también es closer rompe el eje `recorded_by`.** No es un bug, es un límite: hay que decirlo en la UI de configuración, no dejar que el usuario descubra solo que su mapeo no distingue nada.
-- ⚠️ **Los nombres de hablante son inestables.** La misma persona puede aparecer como "Juan", "Juan P." o "iPhone de Juan". Por eso el alias es una tabla con varias filas por cliente y no un campo: **cada variante que alguien confirma se suma**, no reemplaza a la anterior.
-- ⚠️ **Costo de IA:** analizar entregas además de ventas multiplica las llamadas procesadas. Mirar `token_usage` después de la primera semana.
+- 🔴 **No está verificado cómo se asignan los `meeting_type` en Fathom.** Es lo primero que hay que mirar y puede simplificar todo el módulo.
+- 🔴 **La API key es por persona.** Si las llamadas del closer no están compartidas, **no existen para OTC**. Verificar antes que nada.
+- ⚠️ **`recorded_by` no está probado contra la cuenta real.** Está en el `required` del schema, pero el roster interno se apoya en eso.
+- ⚠️ **Los nombres de pantalla son inestables:** "Juan", "Juan P.", "iPhone de Juan". Por eso el alias es una tabla con varias filas por persona: **cada variante confirmada se suma**, no reemplaza.
+- ⚠️ **Un cliente que vuelve como lead a otra oferta** existe y el modelo lo soporta (upsell), pero conviene mirar los primeros casos reales antes de confiar en la regla.
+- ⚠️ **Costo de IA:** el desempate por transcript corre sólo sobre las no resueltas. Si esa proporción no baja con el tiempo, algo está mal configurado — y `resolution_method` es lo que lo va a mostrar.
 
 ## ENCARGO C · `CHECKPOINTS` — Checkpoints configurables
 
@@ -751,7 +812,7 @@ ARRANCAN YA, sin esperar a nadie
 
 ESPERA UNA CONFIRMACIÓN
 
-  B · LLAMADAS     →  L1   🔴 Necesita las decisiones #4 y #6, más una llamada de prueba
+  B · LLAMADAS     →  L1   🔴 Necesita la decisión #4 y tres verificaciones en Fathom
 
 ────────────── las dos únicas compuertas ──────────────
 
@@ -789,11 +850,13 @@ que quieras dejar corriendo sola.
 | 3 | **¿El recorrido de checkpoints es uno solo por organización, o uno por producto?** | **C** | Cambia la UI de configuración y el stepper |
 | 4 | **¿Confirmás reabrir las llamadas de entrega?** Se cerraron el 2026-09-01 y este pedido las reabre | **B** | Es una vuelta atrás de una decisión de producto de hace días |
 | 5 | **¿Los Loom se suben como archivo, o hace falta que funcione con el link pegado?** | **D** | El link es frágil y hay que decidir si vale el riesgo |
-| 6 | **¿Vos también cerrás ventas, o el closer es siempre otra persona?** | **B** | Si grabás vos las dos cosas, el eje `recorded_by` no distingue nada y hay que apoyarse en el tipo de reunión de Fathom |
-| 7 | **¿Estás dispuesto a confirmar a mano los primeros clientes de cada llamada?** | **B** | Es el precio de que después se resuelva solo. Si la respuesta es no, no hay diseño alternativo que funcione |
+| ~~6~~ | ~~¿Vos también cerrás ventas?~~ **Disuelta por el rediseño** | — | El propósito ya no depende de quién grabó, así que la pregunta dejó de importar |
+| 7 | **¿Estás dispuesto a confirmar a mano la contraparte las primeras veces?** | **B** | Es el precio de que después se resuelva solo. Si la respuesta es no, no hay diseño alternativo que funcione con llamadas sin mail |
+| 8 | **¿Podés revisar en Fathom cómo se asignan los tipos de reunión?** | **B** | Si se asignan por regla, la clasificación pasa a ser determinista y el módulo se simplifica entero |
 
 Mientras no haya respuesta, el plan asume: (1) el enum propuesto, (2) fase del
 recorrido del cliente, (3) uno por organización con la columna lista para
 producto, (4) sí, se reabre entrega sin tocar ventas, (5) archivo subido,
-(6) el closer es otra persona —pero la UI avisa cuando el mapeo no distingue—,
-(7) sí, se confirma a mano y el sistema aprende el alias.
+(6) disuelta, (7) sí, se confirma a mano y el sistema aprende el alias, (8) que
+los tipos hay que ponerlos a mano — el peor caso, así que si se pueden asignar
+por regla sólo puede mejorar.

@@ -315,7 +315,7 @@ compartidos, bloque de timestamps de migración):
 | Encargo | Nombre | Rama | Depende de |
 |---|---|---|---|
 | **A** | `WINS` | `claude/wins-tracker` | C1 (catálogo de fases) |
-| **B** | `LLAMADAS` | `claude/llamadas-cliente` | Llamada de prueba · decisiones #4 y #6 |
+| **B** | `LLAMADAS` | `claude/llamadas-cliente` | Tres verificaciones en Fathom · decisión #4 |
 | **C** | `CHECKPOINTS` | `claude/checkpoints-cliente` | Nada. **C1 desbloquea A** |
 | **D** | `SOPS-VIDEO` | `claude/sops-desde-video` | Nada — totalmente aislado |
 | **E** | `DISCORD` | `claude/discord-bot-produccion` | D3 depende de A y C |
@@ -324,14 +324,22 @@ compartidos, bloque de timestamps de migración):
 cuatro de los cinco encargos quieren agregarle una sección. La regla es un
 import y una línea, sin reordenar lo existente.
 
-🔁 **El Encargo B se rediseñó el 2026-09-02.** Las llamadas de entrega **casi
-nunca pasan por un calendario**, y cuando pasan hay varios calendarios con
-significados distintos (el del closer son ventas, el del founder son clientes).
-El diseño anterior —cruzar por mail de invitado, y tratar cualquier turno
-agendado como venta— no resolvía el caso mayoritario y además habría etiquetado
-mal las llamadas de cliente del founder. El diseño nuevo separa **propósito** de
-**identidad**, se apoya en `recorded_by` (que Fathom devuelve siempre y OTC
-descarta) y **aprende el alias del hablante** en la primera confirmación manual.
+🔁 **El Encargo B se rediseñó dos veces el 2026-09-02.** La versión final:
+**el propósito de una llamada lo define la contraparte, no quién grabó ni de qué
+calendario salió.** Con un cliente es entrega; con un lead es venta. Eso disuelve
+el problema de que el closer también entregue, y OTC puede resolverlo porque ya
+tiene las listas de `clients` y `sales_leads`. El trabajo real pasa a ser
+identificar a la otra persona, con **alias aprendido** en cada confirmación
+manual y la IA leyendo el transcript **sólo como propuesta** sobre lo no resuelto.
+Cada llamada guarda **por qué peldaño se resolvió**.
+
+🔴 **Dos verificaciones de Fathom bloquean el Encargo B** (detalle en
+[`docs/API_DOCS_PENDIENTES.md`](./docs/API_DOCS_PENDIENTES.md) §7):
+**(a)** no está documentado cómo se asigna un `meeting_type` a una reunión — si
+se pudiera por regla, la clasificación se vuelve determinista y el módulo se
+simplifica entero; **(b)** la API key de Fathom es **por persona, no por
+organización**: si el closer graba en su cuenta y no comparte, **esas llamadas no
+llegan a OTC**.
 
 📌 **Los datos históricos no importan** (decisión de Santiago): ningún encargo
 necesita backfill, y cada fase se verifica generando un dato nuevo a propósito.

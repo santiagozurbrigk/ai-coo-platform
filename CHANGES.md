@@ -14,6 +14,85 @@
 
 ---
 
+### 2026-09-02 — El propósito de una llamada lo define la contraparte, no quién grabó
+
+**Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`
+**Commits:** este
+**Módulo(s) afectado(s):** `docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md`, `docs/API_DOCS_PENDIENTES.md`, `PENDIENTES.md`
+
+**Qué se hizo:**
+
+Segundo rediseño del Encargo B en el mismo día, tras la corrección de Santiago:
+*"el closer siempre cierra ventas, pero puede haber casos en que también entregue
+el servicio"*. Sigue sin haber cambios de código.
+
+**⭐ El cuello de botella estaba mal planteado, incluido por este documento.**
+
+Las dos versiones anteriores buscaban una propiedad de la llamada que dijera para
+qué era: primero el calendario, después quién grabó. Las dos fallan por lo mismo
+—**ninguna propiedad de la llamada dice para qué era**—. Ni el calendario (la
+mayoría no pasa por uno), ni quién grabó (la misma persona hace las dos cosas), ni
+el título (86% "Impromptu Google Meet Meeting").
+
+**La propiedad que sí lo dice es la otra persona:** con un cliente es entrega, con
+un lead es venta. Eso disuelve el problema entero — quién grabó deja de importar —
+y **OTC está en posición única para resolverlo**, porque ya tiene las dos listas:
+`clients` y `sales_leads`, con `sales_leads.client_id` uniéndolas. Fathom no sabe
+quiénes son tus clientes; OTC sí.
+
+**Decisiones de diseño relevantes:**
+
+- **El problema real es identificar a la contraparte, y es tratable porque se
+  parte en dos mitades con solución distinta:** donde hay volumen (leads) hay
+  mail, porque pasaron por una agenda; donde no hay mail (entregas) hay poca
+  gente y se repite llamada tras llamada.
+- **`recorded_by` cambia de rol.** Ya no decide el propósito: sirve para
+  **descartar internos** —viene en todas las grabaciones y siempre es alguien de
+  casa, así que el roster del equipo se arma solo— y para atribuir la llamada a un
+  closer. `fathom_user_roles` desapareció del diseño.
+- **`counterparty` y `purpose` siguen separadas**, y ahora se aprovechan enteras:
+  un upsell es una llamada de venta con un cliente y el modelo dice las dos cosas
+  en vez de tener que elegir una.
+- **El lugar honesto de la IA:** el desempate por transcript corre **sólo** sobre
+  lo no resuelto, produce una **propuesta con motivo**, nunca pisa una señal
+  determinista y nunca mete sola una llamada en las métricas de ventas. Si
+  decidiera sola, un error suyo contaminaría el tablero en silencio; como
+  propuesta, su peor error cuesta un click. Su rol no es decidir: es convertir la
+  confirmación del humano en un click en vez de una búsqueda.
+- **Cada llamada guarda `resolution_method`** — por qué peldaño se resolvió. Sin
+  eso, en dos semanas nadie sabría si el módulo funciona porque el alias está
+  haciendo el trabajo o porque la IA está tapando un problema de configuración.
+- Las fases se redividieron: **L1 contraparte · L2 aprendizaje · L3 registro**.
+
+**Dos hallazgos de la documentación de Fathom, anotados en `API_DOCS_PENDIENTES.md` §7:**
+
+- 🔴 **No está documentado cómo se asigna un `meeting_type` a una reunión.** La API
+  sólo explica cómo leerlos. Si se pudieran asignar por regla, dos tipos
+  configurados una vez volverían determinista casi toda la clasificación. El
+  diseño asume el peor caso —asignación manual— para no depender de eso.
+- 🔴 **La API key de Fathom es por persona, no por organización** (FAQ textual). Si
+  el closer graba en su cuenta y no comparte, **esas llamadas no existen para
+  OTC**. OTC ya tiene keys por miembro construidas en `app/fathom/member-actions.ts`.
+
+**Verificación ejecutada:** ninguna — no hay código. La verificación de L1 pasa a
+ser grabar una llamada con un cliente **sin agendarla** y comprobar que quede
+`counterparty='client'`, `purpose='delivery'`, diciendo por qué.
+
+**Riesgos / deuda técnica pendiente:**
+
+- 🔴 Las tres verificaciones previas del Encargo B: cómo se asignan los tipos de
+  reunión, si la key ve las llamadas del closer, y qué trae el payload de una
+  llamada sin agenda.
+- ⚠️ Los nombres de pantalla son inestables ("Juan", "Juan P.", "iPhone de Juan"):
+  el alias es una tabla con varias filas por persona, cada variante confirmada se
+  suma.
+- ⚠️ Si la proporción de llamadas resueltas por IA no baja con el tiempo, hay algo
+  mal configurado — `resolution_method` es lo que lo va a mostrar.
+- La decisión abierta #6 ("¿el founder también cierra?") **se disolvió**: dejó de
+  importar. Entraron la #7 (confirmar a mano) y la #8 (revisar los tipos en Fathom).
+
+---
+
 ### 2026-09-02 — Rediseño del Encargo B: las llamadas de entrega no pasan por un calendario
 
 **Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`

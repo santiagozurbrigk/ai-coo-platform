@@ -72,6 +72,7 @@ que se escribió a ciegas, y verificar contra cuentas reales.
 | **VTurb** | I-6 | Sin empezar | ✅ [resumen](./external-apis/vturb/RESUMEN-OTC.md) | Construir |
 | **WebinarJam / EverWebinar** | I-5 | Sin empezar | ✅ [resumen](./external-apis/webinarjam/RESUMEN-OTC.md) | **Pedir la API key** (requiere aprobación) y construir |
 | **Hyros** | I-8 | Sin empezar | ✅ [resumen](./external-apis/hyros/RESUMEN-OTC.md) | Construir |
+| **Fathom** | Llamadas | Construido, en rediseño | ✅ [resumen](./external-apis/fathom/RESUMEN-OTC.md) | 🔴 **Falta doc de producto**: cómo se asignan los tipos de reunión — ver §7 |
 
 ---
 
@@ -394,6 +395,76 @@ normalizador tolera texto con símbolo. **Con una guarda:** un texto sin dígito
 > no da error: devuelve la lista completa de leads, que se leería como un pico de
 > opt-ins que nunca ocurrió. Por eso el cliente construye los nombres de parámetro
 > en un solo lugar y no los arma dinámicamente en ningún lado.
+
+---
+
+## 7. Fathom — cómo se asignan los tipos de reunión (módulo de llamadas) 🔴
+
+**Agregado el 2026-09-02**, al rediseñar la clasificación de llamadas.
+
+La documentación de Fathom **está capturada entera** en
+[`docs/external-apis/fathom/`](./external-apis/fathom/) — 39 archivos, con el
+spec OpenAPI completo. No falta documentación de API. Lo que falta es
+**documentación de producto**, que Fathom no publica en `developers.fathom.ai`.
+
+### 🔴 La pregunta que decide el diseño del módulo
+
+**¿Cómo se le asigna un `meeting_type` a una reunión?**
+
+Lo que la API **sí** dice, verificado en el spec:
+
+- `GET /meeting_types` lista los tipos de la organización, con `name` y `status` (`active` / `inactive`).
+- `GET /meetings` acepta `meeting_type` como filtro por nombre (confirmado también en el FAQ).
+- Cada reunión trae `meeting_type` con el nombre del tipo asignado, o `null` si no tiene.
+- **No hay identificador**: la clave es el nombre. Si alguien renombra un tipo, la fila del mapeo queda huérfana.
+
+Lo que **no** dice en ninguna parte:
+
+- Si los tipos se asignan **automáticamente por alguna regla** (título del evento de calendario, dominio del invitado, calendario de origen, plantilla de reunión).
+- O si hay que **elegirlos a mano en cada llamada**.
+- Ni qué pasa con una reunión **sin evento de calendario**, que es el caso mayoritario de las llamadas de entrega.
+
+**Por qué decide el diseño:** si se pueden asignar por regla, dos tipos —"Venta" y
+"Entrega"— configurados una sola vez vuelven **determinista** la clasificación de
+casi todas las llamadas, incluidas las que no pasan por ninguna agenda. Si hay que
+ponerlos a mano, es un respaldo razonable para las dudosas pero no la vía principal.
+
+**Cómo verificarlo:** en la interfaz de Fathom, no en la API. Configuración →
+tipos de reunión. **Es lo primero que tiene que mirar el Encargo B.**
+
+**Supuesto mientras tanto:** se asume el **peor caso** —asignación manual—, así que
+el diseño no depende de esta señal: la clasificación sale de identificar a la
+contraparte contra las listas de clientes y leads que OTC ya tiene. Si los tipos se
+pueden automatizar, sólo puede mejorar.
+
+### 🔴 El hallazgo operativo que viene con esto
+
+Del [FAQ oficial](./external-apis/fathom/faq.md), textual:
+
+> *"API keys are per user, not per org, and there are no org-level keys."*
+
+Una key sólo ve **lo que esa persona grabó o lo que le compartieron**. Consecuencia
+para OTC: **si el closer graba en su cuenta y no comparte, esas llamadas no existen
+para el sistema** — no se clasifican mal, directamente no llegan.
+
+Dos salidas, las dos de configuración:
+
+1. Darle a un **admin de Fathom** acceso a todas las llamadas compartidas y usar su key.
+2. Que **cada miembro conecte su propia key** — **ya está construido** en `app/fathom/member-actions.ts`.
+
+**Verificar antes de construir nada:** ¿la key configurada hoy ve las llamadas del closer?
+
+### Lo que ya está confirmado y no hace falta verificar
+
+| Campo | Confirmado en el spec |
+|---|---|
+| `recorded_by` (nombre, mail, dominio, equipo) | **Obligatorio.** Viene en todas las reuniones |
+| `calendar_invitees[]` | Obligatorio, **pero el array puede venir vacío** sin evento de calendario |
+| `meeting_url` | **`null` cuando no hay reunión de calendario asociada** — bandera directa |
+| `transcript[].speaker.display_name` | Obligatorio dentro de cada ítem del transcript |
+| `speaker.matched_calendar_invitee_email` | Sólo con `include_transcript`, y sólo desde feb-2025 |
+| `crm_matches` | Requiere un CRM conectado **a Fathom**. OTC no lo es → inservible |
+| Paginación | 10 por página, sin parámetro para subirlo. Sólo `next_cursor` |
 
 ---
 
