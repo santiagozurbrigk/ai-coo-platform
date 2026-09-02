@@ -260,6 +260,56 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 ## 🟣 Nuevos Features — Implementar cuando Santiago lo indique
 
+### [PLAN-5-MODULOS] Wins, llamadas por cliente, checkpoints, SOPs desde video y Discord 📋
+
+**Qué es:** el plan de desarrollo completo de los cinco pedidos del 2026-09-02 está
+en **[`docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md`](./docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md)**.
+Leerlo antes de arrancar cualquiera de los cinco.
+
+**Lo que la lectura del repo cambió respecto de lo que parecía:**
+
+- **El bot de Discord está entero y no está desplegado.** Código, tablas, OAuth de
+  instalación y UI: todo existe. Lo que falta es operación (activar el intent
+  `MESSAGE CONTENT`, publicar la app, correr el contenedor), no código. Y **no hay
+  camino serverless**: leer mensajes exige el Gateway, o sea un proceso 24/7.
+- **La asociación de llamadas a clientes por mail ya tiene el dato guardado.**
+  `fathom_calls.calendar_invitees` se persiste desde la Fase 1; lo que falla es que
+  la asociación sigue haciéndose por título, y el 86% de los títulos son
+  "Impromptu Google Meet Meeting". Cambiar la regla es barato.
+- **El pedido reabre las llamadas de entrega**, que se cerraron el 2026-09-01
+  (`[LLAMADAS-*]`). Es la puerta que esa migración dejó abierta a propósito
+  (`counterparty='client'`, `purpose='delivery'`), pero es una vuelta atrás de una
+  decisión de producto y hay que confirmarla.
+- **El dashboard de wins pide datos que el tracker no captura** (nicho, punto
+  inicial, punto final, plazo). Sólo salen si cada win puede llevar una medida
+  numérica. Sin dos puntos comparables, el dashboard dice "sin medir" en vez de
+  inventar un progreso.
+- **El campo "Fase" del tracker de wins depende del catálogo de checkpoints**, así
+  que ese catálogo va primero. Es la única dependencia dura entre los cinco.
+- **Las piezas técnicas del SOP desde Loom ya están en el repo** por otras features:
+  Whisper, ffmpeg, bucket privado y el patrón de job con QStash. Falta conectarlas
+  y resolver que Loom **no publica API para bajar el video**: el camino es que el
+  usuario suba el archivo.
+- **`sop_attachments` existe pero las imágenes nunca entran al SOP** — al prompt
+  sólo le llegan los nombres de archivo (`sop-creator-form.tsx:73`).
+
+**Bugs que la lectura dejó a la vista, con o sin este plan:**
+
+- 🐛 `apps/discord-bot/src/handlers/testimonial-handler.ts` marca como testimonio
+  **todo mensaje en un canal cuyo nombre contenga "win", "logro", "caso" o
+  "resultado"**, sin mirar el contenido. Un canal `#wins` convierte cada
+  "felicitaciones" en testimonio.
+- 🐛 `discord_messages.ai_sentiment` y `requires_attention` existen desde el día uno
+  y **nadie las llena**.
+- 🐛 `/api/agent/transcribe` **no registra nada en `token_usage`**: el costo de
+  Whisper es invisible hoy, y con SOPs desde video pasa a importar.
+
+**Cinco decisiones abiertas** (lista completa al final del plan): tipos de win ·
+qué es "Fase" en un win · si el recorrido de checkpoints es por org o por producto ·
+si se confirma reabrir entrega · si los Loom se suben como archivo o por link.
+
+---
+
 ### [ONBOARDING] Onboarding guiado para cuentas nuevas — ✅ las cuatro fases construidas
 
 **Qué es:** hasta el 2026-08-31 **no existía onboarding de founder**: una cuenta nueva la creaba el super-admin, el founder cambiaba la contraseña y entraba a un dashboard vacío. Hoy hay gate, checklist y tours; falta la visibilidad interna.

@@ -14,6 +14,73 @@
 
 ---
 
+### 2026-09-02 — Plan de desarrollo: wins, llamadas por cliente, checkpoints, SOPs desde video y Discord
+
+**Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`
+**Commits:** este
+**Módulo(s) afectado(s):** `docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md` (nuevo), `PENDIENTES.md`
+
+**Qué se hizo:**
+
+Sesión de planificación, **sin cambios de código**. Se leyó el repo para los cinco
+pedidos del 2026-09-02 y se escribió el plan con fases, entregables, archivos a
+tocar y criterio de verificación por fase.
+
+**Por qué / finalidad:** tres de los cinco pedidos ya tienen la mayor parte
+construida en el repo, apuntando a otro lado o sin desplegar. Arrancar a
+construir sin esa lectura habría duplicado trabajo existente.
+
+**Hallazgos que cambian el alcance de lo pedido:**
+
+| Pedido | Lo que la lectura cambió |
+|---|---|
+| Bot de Discord | Está **entero y sin desplegar**. Falta operación, no código. Y **no hay camino serverless**: leer mensajes exige el Gateway |
+| Llamadas por cliente | `calendar_invitees` **ya se persiste** con los mails. La asociación falla porque se hace por título, y el 86% de los títulos son "Impromptu Google Meet Meeting" |
+| Llamadas por cliente | El pedido **reabre entrega**, cerrada el 2026-09-01. Es la puerta que esa migración dejó abierta, pero es una vuelta atrás y hay que confirmarla |
+| Wins | El dashboard pide nicho, punto inicial, punto final y plazo — **datos que el tracker descrito no captura**. Sólo salen si el win lleva una medida numérica |
+| Wins ↔ Checkpoints | El campo "Fase" del tracker **depende del catálogo de checkpoints**. Única dependencia dura entre los cinco |
+| SOPs desde Loom | Whisper, ffmpeg, bucket privado y el patrón de job con QStash **ya están en el repo**. Loom **no publica API para bajar el video**: el camino es subir el archivo |
+
+**Decisiones de diseño relevantes:**
+
+- **La identidad del cliente para cruzar llamadas es el mail, nunca el nombre** —
+  misma regla que sostiene `sales_leads`. Se propone `client_emails` porque
+  `clients.email` es un solo campo y está mayormente vacío. El fuzzy por nombre
+  y el cruce por dominio quedan como **candidatos de revisión**, no como
+  asociación automática: un dominio genérico uniría a todos los clientes en uno.
+- **Venta antes que cliente** en el orden de resolución de una grabación: un
+  cliente que vuelve a un turno agendado es un upsell, y eso es una venta.
+- **El dashboard de wins dice "sin medir"** cuando no hay dos puntos numéricos
+  comparables, en vez de estimar un progreso.
+- **Nada se dispara solo.** Discord y Fathom producen **propuestas** de win y de
+  checkpoint, que alguien acepta. Un win es una afirmación sobre el negocio de un
+  cliente; no la hace un heurístico.
+- **En los SOPs desde video se guarda el marcador `sop-attachment:<id>`, no la
+  URL** — las signed URLs vencen, el markdown queda estable. Y todo id que no
+  exista se borra del contenido: nunca un link roto ni una imagen inventada.
+- **El prompt del SOP desde video debe marcar los huecos** ("el video no aclara
+  qué pasa si X") en vez de rellenarlos. Es el riesgo principal de la feature.
+- **Se ordenó primero lo que depende de terceros** (deploy del bot, verificación
+  de Fathom con datos reales) porque pueden invalidar planes enteros.
+
+**Verificación ejecutada:** ninguna — no hay código. El plan define el criterio
+de verificación de cada fase; el de la fase L1 es medible y hoy vale cero
+(llamadas asociadas a un cliente).
+
+**Riesgos / deuda técnica pendiente:**
+
+- 🔴 **Cinco decisiones abiertas** al final del plan. El plan asume una respuesta
+  para cada una y la deja escrita; si alguna cambia, cambia el modelo de datos.
+- ⚠️ El plan de llamadas hereda entero el riesgo de `[LLAMADAS-VERIFICAR-FATHOM]`:
+  si `calendar_invitees` viniera vacío en las reuniones improvisadas, la regla
+  nueva tampoco cruza. Por eso la verificación va antes de construir.
+- 🐛 Tres bugs quedaron a la vista y **no se corrigieron** (sesión de plan):
+  el detector de testimonios de Discord marca todo mensaje de un canal `#wins`;
+  `ai_sentiment` y `requires_attention` no se llenan nunca; `/api/agent/transcribe`
+  no registra en `token_usage`. Anotados en `PENDIENTES.md`.
+
+---
+
 ### 2026-09-02 — Llamadas Fase 2: seguimiento del lead
 
 **Rama/branch:** `Claude-New-Features`
