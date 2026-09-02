@@ -14,6 +14,82 @@
 
 ---
 
+### 2026-09-02 — Rediseño del Encargo B: las llamadas de entrega no pasan por un calendario
+
+**Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`
+**Commits:** este
+**Módulo(s) afectado(s):** `docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md`, `PENDIENTES.md`
+
+**Qué se hizo:**
+
+Rediseño completo del Encargo B (llamadas por cliente) tras una corrección de
+Santiago. Sigue sin haber cambios de código.
+
+**Qué invalidó el diseño anterior:**
+
+1. **La mayoría de las llamadas de entrega nunca pasa por un calendario.** Caen en
+   Fathom directamente. La especificación de Fathom dice que `calendar_invitees`
+   **puede venir vacío**, y eso es exactamente lo que pasa en una reunión sin
+   evento de calendario. Cruzar por mail de invitado **no resuelve casi ninguna
+   llamada de entrega**.
+2. **Hay varios calendarios con significados distintos** — el del closer es puras
+   ventas, el del founder son clientes. La regla anterior *"si cruza con un turno
+   agendado es una venta"* **habría etiquetado como venta cada llamada de cliente
+   del founder** en cuanto se sincronizara su calendario. Era un bug del plan.
+3. **Los datos históricos no importan** (decisión de Santiago). Sin backfill en
+   ninguno de los cinco encargos; el criterio de verificación pasa a ser generar
+   un dato nuevo a propósito en vez de medir sobre lo viejo.
+
+**El hallazgo que ordena el rediseño:**
+
+`recorded_by` está en el **`required`** del schema de Fathom: viene siempre, con
+mail, dominio y equipo de quien grabó — **y `lib/fathom/api.ts` lo descarta**.
+Resuelve el problema del multicalendario **sin depender de calendarios**: la org
+mapea personas → rol una sola vez, y eso sigue valiendo cuando no hubo agenda.
+`meeting_url` en `null` es además una bandera directa de "esta grabación no pasó
+por ninguna agenda".
+
+**Decisiones de diseño relevantes:**
+
+- **Dos ejes separados, propósito e identidad.** Mezclarlos hacía que el fracaso
+  de la primera pregunta decidiera la segunda en silencio — el error exacto que
+  la Fase 1 del módulo ya había corregido una vez.
+- **El propósito se resuelve de lo declarado a lo general:** tipo de reunión →
+  propósito del calendario del turno → rol de quien grabó. Un closer puede tomar
+  una entrega, así que lo declarado para esa llamada le gana al rol por defecto.
+- **⭐ La identidad se aprende una vez.** Sin mail no hay algoritmo que resuelva
+  una llamada de entrega, así que la salida no es adivinar mejor sino **recordar**:
+  cuando alguien confirma que el hablante "Juan P." es el cliente Juan Pérez, el
+  alias queda guardado y toda grabación futura con ese hablante se resuelve sola.
+  Convierte un matching irresoluble en un etiquetado que se agota — funciona
+  porque una cartera de clientes es chica y estable, a diferencia de los leads.
+- **`client_identities` con `kind` reemplaza a `client_emails`.** El mail es sólo
+  una clase de identidad; el nombre de hablante es la que resuelve el caso
+  mayoritario. Una sola tabla evita dos mecanismos paralelos para lo mismo.
+- **Cada variante de nombre confirmada se suma, no reemplaza:** la misma persona
+  aparece como "Juan", "Juan P." o "iPhone de Juan".
+- **Se repone `fathom_meeting_type_map`**, dropeada el 2026-09-01: con entrega de
+  vuelta en alcance, vuelve a ser la señal determinista más barata.
+- Las fases se redividieron por eje: **L1 propósito · L2 identidad · L3 registro**,
+  cada una verificable sola.
+
+**Verificación ejecutada:** ninguna — no hay código. La verificación de L1 cambió:
+grabar **una llamada de prueba sin agendarla** y mirar el payload crudo.
+
+**Riesgos / deuda técnica pendiente:**
+
+- 🔴 **`recorded_by` no está verificado contra la cuenta real.** Está en el
+  `required` del schema, pero el módulo entero se apoya en eso. Es lo primero que
+  tiene que hacer el Encargo B.
+- ⚠️ **Un founder que también cierra rompe el eje `recorded_by`.** Es un límite, no
+  un bug: la UI tiene que avisarlo en vez de dejar que el usuario descubra solo que
+  su mapeo no distingue nada. Nueva decisión abierta (#6).
+- ⚠️ **El diseño exige confirmación manual al principio.** Nueva decisión abierta
+  (#7): si Santiago no está dispuesto a confirmar los primeros clientes a mano, no
+  hay diseño alternativo que funcione.
+
+---
+
 ### 2026-09-02 — Plan de desarrollo: wins, llamadas por cliente, checkpoints, SOPs desde video y Discord
 
 **Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`

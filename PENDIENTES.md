@@ -315,7 +315,7 @@ compartidos, bloque de timestamps de migración):
 | Encargo | Nombre | Rama | Depende de |
 |---|---|---|---|
 | **A** | `WINS` | `claude/wins-tracker` | C1 (catálogo de fases) |
-| **B** | `LLAMADAS` | `claude/llamadas-cliente` | Verificar Fathom · decisión #4 |
+| **B** | `LLAMADAS` | `claude/llamadas-cliente` | Llamada de prueba · decisiones #4 y #6 |
 | **C** | `CHECKPOINTS` | `claude/checkpoints-cliente` | Nada. **C1 desbloquea A** |
 | **D** | `SOPS-VIDEO` | `claude/sops-desde-video` | Nada — totalmente aislado |
 | **E** | `DISCORD` | `claude/discord-bot-produccion` | D3 depende de A y C |
@@ -323,6 +323,18 @@ compartidos, bloque de timestamps de migración):
 ⚠️ **`apps/web/components/clients/client-detail.tsx` es el punto caliente:**
 cuatro de los cinco encargos quieren agregarle una sección. La regla es un
 import y una línea, sin reordenar lo existente.
+
+🔁 **El Encargo B se rediseñó el 2026-09-02.** Las llamadas de entrega **casi
+nunca pasan por un calendario**, y cuando pasan hay varios calendarios con
+significados distintos (el del closer son ventas, el del founder son clientes).
+El diseño anterior —cruzar por mail de invitado, y tratar cualquier turno
+agendado como venta— no resolvía el caso mayoritario y además habría etiquetado
+mal las llamadas de cliente del founder. El diseño nuevo separa **propósito** de
+**identidad**, se apoya en `recorded_by` (que Fathom devuelve siempre y OTC
+descarta) y **aprende el alias del hablante** en la primera confirmación manual.
+
+📌 **Los datos históricos no importan** (decisión de Santiago): ningún encargo
+necesita backfill, y cada fase se verifica generando un dato nuevo a propósito.
 
 ---
 
