@@ -14,6 +14,99 @@
 
 ---
 
+### 2026-09-02 — Keys de Fathom por miembro: el webhook se crea por API, y hoy nada de esto funciona
+
+**Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`
+**Commits:** este
+**Módulo(s) afectado(s):** `docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md`, `docs/API_DOCS_PENDIENTES.md`, `PENDIENTES.md`
+
+**Qué se hizo:**
+
+Santiago decidió que **cada miembro conecte su propio Fathom**. Se diseñó la
+administración completa y se auditó lo que ya existía. Sigue sin haber cambios de
+código.
+
+**🐛 Lo que existe está a medio construir y NO funciona — tres bugs:**
+
+1. **La columna no existe.** `app/fathom/member-actions.ts` escribe y lee
+   `encrypted_api_key`; `team_member_integrations` define **`api_key`**. Ninguna
+   migración agrega esa columna. **Conectar un miembro falla, y sincronizar
+   también.** La feature nunca anduvo.
+2. **El cron horario ignora a los miembros:** `lib/fathom/sync.ts:162` lee sólo
+   `fathom_integrations.api_key` —la de la organización— y **en texto plano**,
+   mientras la de miembro se pensó cifrada.
+3. **La ruta de webhook escanea todas las organizaciones**, probando secreto por
+   secreto hasta que uno valide.
+
+Con los tres juntos, **hoy sólo llegan las llamadas de la key de la
+organización** — que es justo el problema que este cambio viene a resolver.
+
+**⭐ El hallazgo que hace viable la administración: `POST /webhooks`.**
+
+El webhook **se crea por API con la key del miembro** y devuelve `id` y `secret`.
+Así el flujo no es "cada uno configura un webhook a mano en Fathom"
+—impracticable— sino **pega su key una vez y OTC le crea el webhook solo**. Y hay
+`DELETE /webhooks/{id}`, así que al desconectarse OTC limpia lo que creó en vez
+de dejar basura en la cuenta de esa persona.
+
+**Decisiones de diseño relevantes:**
+
+- **⭐ `triggered_for` resuelve la deduplicación en el origen.** Registrando
+  `my_recordings` + `my_shared_with_team_recordings` —y **no**
+  `shared_team_recordings`— cada grabación la entrega **su dueño y nadie más**,
+  aunque dos miembros hayan estado en la misma llamada. El índice único
+  `(organization_id, fathom_call_id)` queda como red de contención, no como el
+  mecanismo.
+- **URL de destino con token por miembro** (`/webhook/<token>`): la firma se
+  verifica contra un solo secreto, en vez del escaneo cross-organización actual.
+- **⚠️ Los pedidos con `include_transcript` o `include_summary` son "pesados"
+  para Fathom: 30 por minuto, y puede bajar a 5.** Con 10 reuniones por página y
+  sin forma de subirlo, **el polling se choca contra el techo**. El webhook no
+  gasta nada de eso; el poll queda sólo para reconciliar, **sin `include_`**, y
+  el detalle caro se pide únicamente para los huecos.
+- **El dueño de la key se confirma, no se adivina.** No hay `/users/me`: se pide
+  `/meetings?limit=10` sin `include_`, se toma el `recorded_by.email` más
+  frecuente y **se le muestra al miembro para que confirme**.
+- **⭐ El estado peligroso es un miembro desconectado, no una llamada mal
+  clasificada.** Una clasificación mala se ve y se corrige; una key muerta hace
+  que las llamadas de esa persona dejen de llegar **y todo parezca bien**. Por eso
+  se guarda y se muestra `last_event_at` por miembro, y un 401 marca la fila como
+  revocada y avisa. **Nunca dejar de recibir en silencio.**
+- **La key de organización no se apaga** hasta que haya llegado al menos un evento
+  de cada miembro conectado. Después queda un solo mecanismo y el founder es un
+  miembro más.
+- Las fases del Encargo B se renumeraron: **L0 acceso · L1 datos · L2 contraparte
+  · L3 aprendizaje · L4 registro.**
+
+**🔴 Privacidad — nueva decisión abierta (#9).** Pedirle a un miembro que conecte
+su Fathom hace que OTC reciba **todo lo que graba**: ventas, sí, pero también
+1-a-1 con el founder y entrevistas. Propuesta: decirlo en la pantalla antes de
+pegar la key, y que **una llamada no vinculada a un cliente ni a un lead sea
+visible sólo para quien la grabó** (`fathom_calls.user_id` ya existe); recién al
+vincularse pasa a ser de la organización. **Hay que decidirlo antes de pedirle la
+key a nadie** — sin eso, la diferencia entre herramienta y vigilancia la define el
+azar.
+
+**Sobre OAuth:** se evaluó y **se descarta por ahora**. Requiere registrar una app
+en el marketplace de Fathom y pasar una revisión —el mismo cuello de botella que
+`[FEAT-GHL-OAUTH]`—, y además **las apps OAuth no pueden usar `include_summary`
+ni `include_transcript` en `/meetings`**: habría que pedir cada transcripción por
+separado, que es justo lo que la fase L1 necesita barato.
+
+**Verificación ejecutada:** ninguna — no hay código. L0 define cinco pasos de
+verificación concretos, entre ellos que dos miembros en la misma llamada generen
+**una sola fila**.
+
+**Riesgos / deuda técnica pendiente:**
+
+- 🔴 La decisión #9 (privacidad) bloquea el arranque de L0.
+- ⚠️ No hay endpoint para listar webhooks: si se pierde el `webhook_id`, queda uno
+  huérfano en la cuenta del miembro que sólo él puede borrar desde Fathom.
+- ⚠️ Un miembro puede revocar su key sin avisar. El panel lo detecta por el 401 y
+  por `last_event_at`, no hay forma de prevenirlo.
+
+---
+
 ### 2026-09-02 — El alias se aprende solo: la respuesta de Fathom traía tres regalos y un bug
 
 **Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`

@@ -45,7 +45,7 @@ Encargo C y el Encargo A.
 | Encargo | Nombre | Fases | Rama | Depende de | Aislamiento |
 |---|---|---|---|---|---|
 | **A** | `WINS` | W1 · W2 · W3 | `claude/wins-tracker` | **C1** (catálogo de fases) | Medio |
-| **B** | `LLAMADAS` | **L0** · L1 · L2 · L3 | `claude/llamadas-cliente` | Verificar acceso de la key · decisión #4 | Alto |
+| **B** | `LLAMADAS` | **L0** · L1 · L2 · L3 · L4 | `claude/llamadas-cliente` | Decisión #4 y #9 (privacidad) | Alto |
 | **C** | `CHECKPOINTS` | C1 · C2 · C3 | `claude/checkpoints-cliente` | Nada. **C1 desbloquea A** | Alto |
 | **D** | `SOPS-VIDEO` | S1 · S2 · S3 | `claude/sops-desde-video` | Nada | **Total** — arrancá cuando quieras |
 | **E** | `DISCORD` | D1 · D2 · D3 | `claude/discord-bot-produccion` | D3 depende de A y C | Alto (D1 y D2) |
@@ -104,7 +104,8 @@ final y en un commit aparte, y no abras PR. Empezá por W1.
 | **NO toques** | `lib/wins/**` (es de A) · `lib/checkpoints/**` (es de C) · `apps/discord-bot/**` (es de E) |
 | **⚠️ Cuidado** | `lib/fathom/client-matcher.ts` lo usan otras pantallas. **Degradalo a candidato, no lo borres** sin revisar quién lo importa |
 | **Sin backfill** | Los datos históricos **no importan**. Nada que migrar ni recuperar |
-| **🔴 Antes de escribir código — dos verificaciones** | **(a)** ¿La API key ve las llamadas del closer, o están sin compartir? Si no las ve, **no existen para OTC**. **(b)** Grabá una llamada sin agendarla: ¿vienen `recorded_by`, `meeting_url` en `null` y los nombres de los hablantes? |
+| **🔴 Empezá por L0 — el acceso** | **Cada miembro conecta su propio Fathom.** Está a medio construir y **no funciona**: el código usa la columna `encrypted_api_key`, que **no existe** en ninguna migración. Y hay un hallazgo que cambia todo: **`POST /webhooks` crea el webhook con la key del miembro**, así que el miembro pega su key una vez y OTC hace el resto |
+| **🔴 Verificá antes de construir** | Grabá una llamada sin agendarla: ¿vienen `recorded_by`, `meeting_url` en `null` y los nombres de los hablantes? |
 | **No pierdas tiempo con** | Los `meeting_type` de Fathom: **no se pueden etiquetar**, está verificado y descartado |
 | **⭐ Empezá por L0** | Fathom ya entrega **próximos pasos con link al segundo**, resumen, momentos marcados y —lo más importante— **el vínculo entre nombre de pantalla y mail** (`matched_speaker_display_name`). OTC pide uno solo de los cuatro `include_`. Y 🐛 **el resumen nunca llega**: `default_summary` es un objeto y `pickString` devuelve null |
 | **⭐ El alias se aprende solo** | Todo cliente fue lead, y su llamada de venta **sí estuvo agendada** → de ahí sale su nombre de pantalla gratis, y con eso se resuelven todas sus entregas futuras. **El lado de ventas le enseña al de entrega** |
@@ -124,9 +125,11 @@ de Fathom y no pierdas tiempo ahí. Antes de escribir código hacé las dos veri
 que lista la ficha y decime los resultados: si la API key ve las llamadas del closer, y
 qué trae el payload de una llamada grabada sin agendar.
 
-Después implementá L0 (pedirle a Fathom todo lo que ya entrega y no estamos pidiendo,
-y arreglar el bug del resumen) y seguí con L1 (resolver la contraparte), en la rama
-claude/llamadas-cliente desde main actualizado. Sin backfill. Bloque de migraciones 20260903 10MM 00. Guardá
+Empezá por L0: las keys de Fathom por miembro. Está a medio construir y no funciona —
+el código usa una columna encrypted_api_key que no existe. Y los webhooks se crean por
+API con la key del miembro (POST /webhooks), así que el miembro pega su key una vez y
+OTC le crea el webhook solo. Antes de tocar nada, decime qué decidió Santiago sobre la
+privacidad (decisión #9). Rama claude/llamadas-cliente desde main actualizado. Sin backfill. Bloque de migraciones 20260903 10MM 00. Guardá
 siempre resolution_method. No toques lib/wins, lib/checkpoints ni apps/discord-bot.
 No abras PR.
 ```
@@ -469,7 +472,181 @@ tener que elegir una y perder la otra.
 mano, **se guarda el alias del hablante**. Esa persona no se vuelve a preguntar
 nunca. El trabajo manual arranca alto y **tiende a cero**.
 
-### ⭐ Lo que la respuesta de Fathom ya trae y OTC no está pidiendo
+### 🔴 L0 · Las keys de Fathom por miembro: cómo se administran
+
+**Decisión de Santiago (2026-09-02): cada miembro del equipo conecta su propio
+Fathom.** Es la salida correcta al problema de que las keys sean por persona — y
+además da algo mejor que `recorded_by`: saber **qué perfil de OTC** grabó cada
+llamada sin tener que casar mails.
+
+#### Estado real: está a medio construir y **no funciona**
+
+| Pieza | Dónde | Estado |
+|---|---|---|
+| `team_member_integrations` (org, user, tipo, key, `connected_at`, `last_sync_at`) | `20260710180000` | ✅ Existe, con RLS de "sólo tu propia fila" |
+| `fathom_calls.user_id` | misma migración | ✅ Existe |
+| `connect` / `disconnect` / `sync` / `listStatuses` por miembro | `app/fathom/member-actions.ts` | ⚠️ Escritas |
+| Panel de miembros | `components/integrations/fathom-member-accounts.tsx` | ⚠️ Existe |
+| Cifrado de la key | `lib/security/encryption` | ✅ Existe |
+
+**🐛 Pero nunca funcionó, y hay tres bugs concretos:**
+
+1. **La columna no existe.** Las acciones escriben y leen `encrypted_api_key`;
+   la tabla define **`api_key`**. No hay ninguna migración que agregue
+   `encrypted_api_key`. **Conectar un miembro falla, y sincronizar también.**
+2. **El cron horario ignora a los miembros.** `lib/fathom/sync.ts:162` lee sólo
+   `fathom_integrations.api_key` —la key **de la organización**— y encima **en
+   texto plano**, mientras que la de miembro se pensó cifrada. Dos mecanismos
+   distintos para lo mismo.
+3. **La ruta de webhook escanea todas las organizaciones.** Trae todos los
+   `fathom_integrations` y prueba secreto por secreto hasta que uno valide. Con
+   webhooks por miembro eso no escala y además es un patrón que conviene no
+   mantener.
+
+Con los tres bugs juntos: **hoy sólo llegan las llamadas de la key de la
+organización.** Que es exactamente el problema que este cambio viene a resolver.
+
+#### ⭐ El hallazgo que cambia la administración: los webhooks se crean por API
+
+`POST /webhooks` acepta la key de un miembro y devuelve `id` y **`secret`**:
+
+```
+POST /webhooks
+  destination_url          ← una URL propia de ese miembro
+  include_transcript       ← true
+  include_summary          ← true
+  include_action_items     ← true
+  triggered_for            ← ver abajo, es lo que evita los duplicados
+→ 201 { id, url, secret, created_at, ... }
+```
+
+Entonces el flujo **no** es "cada miembro configura un webhook a mano en Fathom"
+—impracticable—, sino: **pega su key una vez y OTC le crea el webhook solo.**
+
+Y hay un `DELETE /webhooks/{id}`, así que al desconectarse **OTC limpia lo que
+creó** en vez de dejar basura colgada en la cuenta de esa persona.
+
+#### El flujo, de punta a punta
+
+| # | Paso | Detalle |
+|---|---|---|
+| 1 | El miembro entra a Integraciones → "Conectar mi Fathom" | La pantalla explica dónde generar la key: Fathom → *User Settings* → *API Access* |
+| 2 | Pega la key | Se valida con una llamada real antes de guardar nada |
+| 3 | **Se identifica al dueño de la key** | No hay `/users/me`. Se pide `/meetings?limit=10` **sin** ningún `include_` (barato) y se toma el `recorded_by.email` más frecuente → **se le muestra al miembro para que confirme**. Nunca se asume en silencio |
+| 4 | Se guarda cifrada | Con `lib/security/encryption`, en la columna que **sí** existe |
+| 5 | **OTC crea el webhook con esa key** | Guarda `webhook_id` y `webhook_secret` de ese miembro |
+| 6 | Al desconectar | `DELETE /webhooks/{id}` y se borra la fila |
+
+#### ⭐ `triggered_for` es lo que evita los duplicados
+
+Si dos miembros están en la misma llamada, las dos keys la ven. La deduplicación
+no se resuelve después: **se resuelve eligiendo bien qué se pide.**
+
+| Opción | Qué entrega | ¿Se usa? |
+|---|---|---|
+| `my_recordings` | Las propias, privadas o compartidas con individuos | ✅ **Sí** |
+| `my_shared_with_team_recordings` | (Team Plans) Las propias compartidas con equipos | ✅ **Sí** |
+| `shared_team_recordings` | (Team Plans) **Las de los demás** de tu plan | ❌ **No** — genera duplicados |
+| `shared_external_recordings` | Las que te comparten de afuera | ❌ No — fuera de alcance |
+
+Las dos primeras juntas son **exactamente "todo lo que grabé yo"**, sin
+solaparse con nadie. Así **cada grabación la entrega su dueño y nadie más**.
+
+Red de contención por si algo cambia: el índice único
+`(organization_id, fathom_call_id)` de `20260607100000` ya está.
+
+#### La URL de destino lleva un token por miembro
+
+`/api/integrations/fathom/webhook/<token>` — un token opaco por integración.
+
+Con eso la verificación de firma es **contra un solo secreto**, en vez del
+escaneo de todas las organizaciones que hace la ruta actual. Es más rápido, más
+simple de razonar y no cruza datos entre organizaciones.
+
+#### Los límites de tasa: el webhook es lo que los esquiva
+
+| Límite | Valor |
+|---|---|
+| Global | **60 llamadas por minuto**, por key |
+| **Pesadas** | **30 por minuto — y puede bajar a 5** en momentos de carga |
+| Descarga de grabación | 30 por minuto, aparte |
+
+⚠️ **Y "pesada" es exactamente lo que hace falta:** *"requests to /meetings that
+set `include_summary` or `include_transcript` to true"*. Con 10 reuniones por
+página y sin parámetro para subirlo, **sincronizar por polling se choca contra
+ese techo enseguida**.
+
+**El webhook no gasta nada de eso.** Fathom empuja el contenido completo y OTC no
+pregunta. Además llega en el momento, no en la próxima hora.
+
+**Poll sólo para reconciliar, y barato:** un chequeo diario por miembro
+**sin ningún `include_`** —que no es pesado— para detectar grabaciones que el
+webhook no entregó. Sólo para las que falten se pide el detalle pesado.
+Detección barata, gasto caro sólo sobre el hueco.
+
+Y como cada miembro tiene su propia key, **cada uno tiene su propio presupuesto**:
+más keys es más margen, no menos.
+
+#### ⭐ El estado peligroso es un miembro desconectado, no una llamada mal clasificada
+
+Una llamada mal clasificada se ve y se corrige. **Un miembro cuya key murió
+simplemente deja de aportar llamadas, y todo parece funcionar bien.** Ese es el
+modo de falla que hay que hacer imposible.
+
+Las keys mueren solas: el FAQ dice que **dejan de funcionar cuando el usuario se
+desactiva o sale del equipo**, devolviendo 4xx. Y el miembro puede revocarla
+cuando quiera.
+
+Entonces, por miembro se guarda y se muestra:
+
+- `status` — conectado / revocada / con error
+- `last_event_at` — **cuándo llegó el último webhook**, que es la señal que importa
+- `last_error` y `last_error_at`
+
+Y el panel de administración responde de un vistazo: **quién está conectado,
+quién no, y quién hace días que no manda nada.** Un 401 marca la fila como
+revocada y avisa al founder. **Nunca dejar de recibir en silencio.**
+
+#### 🔴 Privacidad: decidirlo **antes** de pedirle la key a nadie
+
+Pedirle a un miembro que conecte su Fathom significa que OTC va a recibir **todo
+lo que esa persona grabe**: llamadas de venta, sí, pero también 1-a-1 con vos,
+entrevistas, y lo que sea que grabe con su cuenta.
+
+Eso no se resuelve con una nota al pie. La propuesta:
+
+1. **Decirlo en la pantalla de conexión, antes de pegar la key**, en una oración: qué se lee, qué se guarda y quién lo ve.
+2. **Una llamada que no quedó vinculada a un cliente ni a un lead es visible sólo para quien la grabó** (`fathom_calls.user_id` ya existe). Recién cuando se asocia a un cliente o un lead pasa a ser de la organización — porque ahí sí es información del negocio.
+3. **Desconectarse tiene que ser un botón**, y tiene que borrar el webhook de la cuenta de esa persona.
+
+Sin esto, la diferencia entre una herramienta de trabajo y vigilancia la termina
+definiendo el azar.
+
+#### Modelo de datos
+
+```
+team_member_integrations   ← ya existe, se le agrega:
+  + encrypted_api_key text      🐛 LA COLUMNA QUE FALTA — hoy el código la usa y no existe
+  + provider_account_email      el mail de la cuenta de Fathom, confirmado por el miembro
+  + webhook_id, webhook_secret  lo que devuelve POST /webhooks
+  + webhook_token               el segmento opaco de la URL de destino
+  + status, last_event_at, last_error, last_error_at
+```
+
+**Qué pasa con la key de la organización:** `fathom_integrations` sigue viva y es
+lo único que funciona hoy. **No se apaga hasta que haya llegado al menos un
+evento de cada miembro conectado** — el panel de estado es justamente lo que
+permite saberlo. Después queda un solo mecanismo, y el founder es un miembro más.
+
+#### Cómo se verifica L0
+
+1. Dos miembros conectan su key. El panel los muestra conectados, con el mail de su cuenta de Fathom confirmado por cada uno.
+2. Cada uno graba una llamada. **Las dos llegan solas, sin apretar sincronizar**, y `fathom_calls.user_id` dice quién grabó cada una.
+3. Los dos están en una misma llamada: **llega una sola fila**, no dos.
+4. Uno revoca su key en Fathom: **la fila pasa a "revocada"** en el panel y avisa.
+5. Uno se desconecta: el webhook **desaparece de su cuenta de Fathom**.
+
+### L1 · Lo que la respuesta de Fathom ya trae y OTC no está pidiendo
 
 Releyendo la respuesta completa de `GET /meetings` aparecieron cuatro cosas que
 cambian el plan **para mejor**. Tres son datos gratis; la cuarta es un bug.
@@ -741,10 +918,11 @@ quiera declarar.
 
 | Fase | Entregable | Cómo se verifica |
 |---|---|---|
-| **L0** | **Pedir lo que ya está disponible.** Sumar `include_summary`, `include_action_items` e `include_highlights`; arreglar el bug del resumen; parsear `recorded_by`, `meeting_url`, `action_items`, `highlights` y los dos campos `matched_*` | Una grabación nueva llega con resumen, próximos pasos con link al segundo, y el vínculo nombre↔mail de cada participante |
-| **L1** | **La contraparte.** Roster interno auto-alimentado; `client_identities` **sembrada** desde clientes, leads, contactos de GHL y pagos, y **auto-aprendida** desde `matched_speaker_display_name`; resolución por mail y por alias; `resolution_method` | Grabá una llamada con un cliente **sin agendarla**. Tiene que quedar `counterparty='client'`, `purpose='delivery'` **sin que nadie haya confirmado nada antes**, y decir por qué |
-| **L2** | **El aprendizaje.** Cola de revisión que al confirmar **guarda el alias**; propuesta de la IA leyendo el transcript; mapa de propósito por calendario | Confirmá un cliente una vez. **La segunda grabación con ese hablante se resuelve sola**, y `resolution_method` dice `alias` |
-| **L3** | **El registro.** Tema con Haiku, preview, **próximos pasos nativos de Fathom con su link al segundo** —distinguiendo los escritos por una persona de los deducidos por IA—, panel en la ficha, timeline y el tablero de `resolution_method` | Una entrega aparece en la ficha con fecha, tema, link y próximos pasos clickeables al momento exacto |
+| **L0** | **El acceso.** Keys por miembro (arreglando los tres bugs), webhook creado automáticamente con `POST /webhooks`, URL con token por miembro, panel de estado con `last_event_at` | Los cinco pasos de verificación de la sección L0 |
+| **L1** | **Los datos.** Sumar `include_summary`, `include_action_items` e `include_highlights`; arreglar el bug del resumen; parsear `recorded_by`, `meeting_url`, `action_items`, `highlights` y los dos campos `matched_*` | Una grabación nueva llega con resumen, próximos pasos con link al segundo, y el vínculo nombre↔mail de cada participante |
+| **L2** | **La contraparte.** Roster interno auto-alimentado; `client_identities` **sembrada** desde clientes, leads, contactos de GHL y pagos, y **auto-aprendida** desde `matched_speaker_display_name`; resolución por mail y por alias; `resolution_method` | Grabá una llamada con un cliente **sin agendarla**. Tiene que quedar `counterparty='client'`, `purpose='delivery'` **sin que nadie haya confirmado nada antes**, y decir por qué |
+| **L3** | **El aprendizaje.** Cola de revisión que al confirmar **guarda el alias**; propuesta de la IA leyendo el transcript; mapa de propósito por calendario | Confirmá un cliente una vez. **La segunda grabación con ese hablante se resuelve sola**, y `resolution_method` dice `alias` |
+| **L4** | **El registro.** Tema con Haiku, preview, **próximos pasos nativos de Fathom con su link al segundo** —distinguiendo los escritos por una persona de los deducidos por IA—, panel en la ficha, timeline y el tablero de `resolution_method` | Una entrega aparece en la ficha con fecha, tema, link y próximos pasos clickeables al momento exacto |
 
 ### Archivos a tocar
 
@@ -758,10 +936,18 @@ quiera declarar.
 - `lib/ghl/sync-appointments.ts` y `lib/calendly/sync-events.ts` — escribir `calendar_provider` y `calendar_ref`
 - `components/integrations/fathom-mapping-panel.tsx` (nuevo)
 - `components/integrations/unlinked-recordings-panel.tsx` — la cola que **enseña**
+- `app/fathom/member-actions.ts` — 🐛 **arreglar `encrypted_api_key`** · crear y borrar el webhook · identificar al dueño de la key
+- `app/api/integrations/fathom/webhook/[token]/route.ts` (nuevo) — reemplaza el escaneo cross-organización
+- `lib/fathom/sync.ts` — que el cron recorra **las keys de los miembros**, no sólo la de la organización
+- `components/integrations/fathom-member-accounts.tsx` — panel de estado: conectado, último evento, último error
 - `components/clients/client-calls-panel.tsx` (nuevo)
 
 ### Riesgos
 
+- 🐛 **La conexión por miembro nunca funcionó:** el código usa `encrypted_api_key` y esa columna no existe. Es lo primero de L0.
+- 🔴 **Un miembro desconectado no hace ruido.** Sus llamadas dejan de llegar y todo parece bien. Por eso `last_event_at` por miembro no es un adorno.
+- 🔴 **Privacidad:** OTC va a recibir todo lo que cada miembro grabe, no sólo lo del trabajo. Hay que decidir la visibilidad **antes** de pedir la primera key.
+- ⚠️ **Los pedidos con `include_transcript` son "pesados"** para Fathom: 30 por minuto, y **puede bajar a 5**. El webhook los evita; el polling de reconciliación va sin `include_` y sólo pide el detalle de los huecos.
 - 🔴 **La API key es por persona.** Si las llamadas del closer no están compartidas, **no existen para OTC**. Verificar antes que nada.
 - ⚠️ **`recorded_by` no está probado contra la cuenta real.** Está en el `required` del schema, pero el roster interno se apoya en eso.
 - ⚠️ **Los nombres de pantalla son inestables:** "Juan", "Juan P.", "iPhone de Juan". Por eso el alias es una tabla con varias filas por persona: **cada variante confirmada se suma**, no reemplaza.
@@ -1004,7 +1190,7 @@ ARRANCAN YA, sin esperar a nadie
 
 ESPERA UNA CONFIRMACIÓN
 
-  B · LLAMADAS     →  L0   🔴 Necesita la decisión #4 y verificar el acceso de la key
+  B · LLAMADAS     →  L0   🔴 Necesita las decisiones #4 y #9 (privacidad)
 
 ────────────── las dos únicas compuertas ──────────────
 
@@ -1044,10 +1230,12 @@ que quieras dejar corriendo sola.
 | 5 | **¿Los Loom se suben como archivo, o hace falta que funcione con el link pegado?** | **D** | El link es frágil y hay que decidir si vale el riesgo |
 | ~~6~~ | ~~¿Vos también cerrás ventas?~~ **Disuelta por el rediseño** | — | El propósito ya no depende de quién grabó, así que la pregunta dejó de importar |
 | 7 | **¿Estás dispuesto a confirmar a mano la contraparte en algunos casos?** | **B** | **Muy aliviada:** el alias se auto-aprende de las llamadas agendadas, así que sólo quedan los clientes que nunca pasaron por una agenda y las variantes raras de nombre |
+| 9 | 🔴 **¿Quién ve las llamadas de un miembro que no quedaron vinculadas a un cliente ni a un lead?** | **B** | Conectar su Fathom hace que OTC reciba **todo** lo que graba, incluidos 1-a-1 con vos y entrevistas. Propuesta: sólo quien la grabó, hasta que se vincule. **Hay que decidirlo antes de pedirle la key a nadie** |
 | ~~8~~ | ~~¿Podés revisar cómo se asignan los tipos de reunión?~~ **Respondida: Fathom no permite etiquetar llamadas** | — | Descartada como señal. El diseño ya asumía el peor caso, así que no cambia nada |
 
 Mientras no haya respuesta, el plan asume: (1) el enum propuesto, (2) fase del
 recorrido del cliente, (3) uno por organización con la columna lista para
 producto, (4) sí, se reabre entrega sin tocar ventas, (5) archivo subido,
-(6) disuelta, (7) sí, pero son pocos casos porque el alias se auto-aprende, (8)
+(6) disuelta, (7) sí, pero son pocos casos porque el alias se auto-aprende, (9)
+que una llamada sin vincular la ve sólo quien la grabó, (8)
 cerrada — Fathom no etiqueta, y el diseño no la necesitaba.

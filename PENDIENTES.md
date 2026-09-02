@@ -315,7 +315,7 @@ compartidos, bloque de timestamps de migración):
 | Encargo | Nombre | Rama | Depende de |
 |---|---|---|---|
 | **A** | `WINS` | `claude/wins-tracker` | C1 (catálogo de fases) |
-| **B** | `LLAMADAS` | `claude/llamadas-cliente` | Verificar acceso de la key · decisión #4 |
+| **B** | `LLAMADAS` | `claude/llamadas-cliente` | Decisiones #4 y #9 (privacidad) |
 | **C** | `CHECKPOINTS` | `claude/checkpoints-cliente` | Nada. **C1 desbloquea A** |
 | **D** | `SOPS-VIDEO` | `claude/sops-desde-video` | Nada — totalmente aislado |
 | **E** | `DISCORD` | `claude/discord-bot-produccion` | D3 depende de A y C |
@@ -356,11 +356,28 @@ momentos marcados. Y `lib/fathom/api.ts:326` lee `default_summary` con
 vacío** — y de ese campo cuelgan el tema de la llamada, el preview y el desempate
 por contenido. Es la fase **L0** del Encargo B.
 
-🔴 **Queda una sola verificación bloqueante del Encargo B** (detalle en
-[`docs/API_DOCS_PENDIENTES.md`](./docs/API_DOCS_PENDIENTES.md) §7): la API key de
-Fathom es **por persona, no por organización**. Si el closer graba en su cuenta y
-no comparte, **esas llamadas no llegan a OTC** — no se clasifican mal, no
-existen.
+🔑 **Cada miembro conecta su propio Fathom** (decisión de Santiago, 2026-09-02),
+porque las API keys de Fathom son **por persona**: lo que el closer no comparte,
+para OTC no existe. **Está a medio construir y no funciona** — el código usa la
+columna `encrypted_api_key`, que no existe en ninguna migración; el cron sólo lee
+la key de la organización, en texto plano; y la ruta de webhook escanea los
+secretos de todas las organizaciones.
+
+⭐ **Lo que lo hace administrable:** `POST /webhooks` **crea el webhook con la key
+del miembro** y devuelve su secreto, así que el miembro pega su key una vez y OTC
+hace el resto (y `DELETE /webhooks/{id}` limpia al desconectar). Elegir
+`triggered_for` = `my_recordings` + `my_shared_with_team_recordings` **evita los
+duplicados en el origen** cuando dos miembros están en la misma llamada. Y esquiva
+los límites de tasa: los pedidos con `include_transcript` son **pesados** para
+Fathom —30 por minuto, y puede bajar a 5—, así que el polling no escala.
+
+⚠️ **El estado peligroso es un miembro desconectado**, no una llamada mal
+clasificada: sus llamadas dejan de llegar y todo parece andar bien. Por eso hay
+que guardar y mostrar `last_event_at` por miembro.
+
+🔴 **Decisión #9, bloqueante:** conectar el Fathom de un miembro hace que OTC
+reciba **todo lo que graba**, incluidos 1-a-1 y entrevistas. Hay que decidir quién
+ve una llamada no vinculada **antes de pedirle la key a nadie**.
 
 📌 **Los datos históricos no importan** (decisión de Santiago): ningún encargo
 necesita backfill, y cada fase se verifica generando un dato nuevo a propósito.

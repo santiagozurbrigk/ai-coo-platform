@@ -437,22 +437,60 @@ mails de comprador de los pagos.
 que no declara nada no es un bloqueo cuando el dato para interpretar ya está en
 casa.
 
-### 🔴 El hallazgo operativo que SÍ sigue abierto
+### ✅ Resuelto: la API key es por persona → cada miembro conecta la suya
 
 Del [FAQ oficial](./external-apis/fathom/faq.md), textual:
 
 > *"API keys are per user, not per org, and there are no org-level keys."*
 
-Una key sólo ve **lo que esa persona grabó o lo que le compartieron**. Consecuencia
-para OTC: **si el closer graba en su cuenta y no comparte, esas llamadas no existen
-para el sistema** — no se clasifican mal, directamente no llegan.
+Una key sólo ve **lo que esa persona grabó o lo que le compartieron**. Si el
+closer graba en su cuenta y no comparte, esas llamadas **no existen para OTC**.
 
-Dos salidas, las dos de configuración:
+**Decisión de Santiago (2026-09-02): cada miembro conecta su propio Fathom.**
 
-1. Darle a un **admin de Fathom** acceso a todas las llamadas compartidas y usar su key.
-2. Que **cada miembro conecte su propia key** — **ya está construido** en `app/fathom/member-actions.ts`.
+**⭐ Y los webhooks se crean por API**, lo que hace la administración viable:
 
-**Verificar antes de construir nada:** ¿la key configurada hoy ve las llamadas del closer?
+| Endpoint | Qué hace |
+|---|---|
+| `POST /webhooks` | Crea el webhook **con la key del miembro**. Body: `destination_url`, `triggered_for` y los `include_*`. Devuelve `id`, `url`, **`secret`** y `created_at` |
+| `DELETE /webhooks/{id}` | Lo borra — al desconectarse, OTC limpia lo que creó |
+
+No hay endpoint para **listar** webhooks: hay que guardar el `id` que devuelve la
+creación.
+
+**`triggered_for` es lo que evita los duplicados** cuando dos miembros están en la
+misma llamada:
+
+| Valor | Qué entrega | ¿Se usa? |
+|---|---|---|
+| `my_recordings` | Las propias, privadas o compartidas con individuos (en Team Plans **excluye** las compartidas con equipos) | ✅ |
+| `my_shared_with_team_recordings` | (Team Plans) Las propias compartidas con equipos | ✅ |
+| `shared_team_recordings` | (Team Plans) Las **de los demás** del plan | ❌ duplica |
+| `shared_external_recordings` | Las que comparten desde afuera | ❌ fuera de alcance |
+
+Las dos primeras juntas son exactamente *"todo lo que grabé yo"*, sin solaparse
+con nadie.
+
+**Firma:** headers `webhook-id`, `webhook-timestamp` y `webhook-signature`; se
+firma `${id}.${timestamp}.${body}` con el secreto **sin** el prefijo `whsec_`,
+decodificado de base64. El `webhook-id` **se repite en los reintentos**, así que
+sirve para deduplicar.
+
+### ⚠️ Los límites de tasa, y por qué el webhook importa
+
+| Límite | Valor |
+|---|---|
+| Global | 60 llamadas / 60 s, **por key** |
+| **Pesadas** | 30 / 60 s — **y puede bajar a 5** en momentos de carga |
+| Descarga de grabación | 30 / 60 s, aparte |
+
+**Son "pesadas" los pedidos a `/meetings` con `include_summary` o
+`include_transcript` en true** — justo lo que hace falta. Con 10 reuniones por
+página y sin parámetro para subirlo, **el polling se choca contra ese techo**.
+
+El webhook no gasta nada de eso. El poll queda sólo para reconciliar, **sin
+ningún `include_`** (no es pesado), y el detalle caro se pide únicamente para las
+grabaciones que falten.
 
 ### Lo que ya está confirmado y no hace falta verificar
 
