@@ -342,6 +342,20 @@ nadie), `sales_leads`, `closing_calls`, los contactos de GHL y los mails de
 comprador de los pagos — así el sistema ya conoce a cada cliente el día que se
 enciende.
 
+⭐ **El alias se aprende solo** (2026-09-02): cuando hubo calendario, Fathom
+entrega el vínculo **nombre de pantalla ↔ mail**. Y todo cliente fue lead antes,
+con su llamada de venta agendada — así que de ahí sale su nombre de Zoom gratis y
+todas sus entregas futuras se resuelven sin que nadie confirme nada. **El lado de
+ventas le enseña al de entrega.**
+
+🐛 **Tres cosas que OTC no le está pidiendo a Fathom, y un bug:** no manda
+`include_summary`, `include_action_items` ni `include_highlights`, así que se
+pierde el resumen, **los próximos pasos nativos con link al segundo exacto** y los
+momentos marcados. Y `lib/fathom/api.ts:326` lee `default_summary` con
+`pickString` cuando **es un objeto**, así que `fathom_calls.summary` **está
+vacío** — y de ese campo cuelgan el tema de la llamada, el preview y el desempate
+por contenido. Es la fase **L0** del Encargo B.
+
 🔴 **Queda una sola verificación bloqueante del Encargo B** (detalle en
 [`docs/API_DOCS_PENDIENTES.md`](./docs/API_DOCS_PENDIENTES.md) §7): la API key de
 Fathom es **por persona, no por organización**. Si el closer graba en su cuenta y

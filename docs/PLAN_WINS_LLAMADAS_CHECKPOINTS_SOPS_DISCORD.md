@@ -45,7 +45,7 @@ Encargo C y el Encargo A.
 | Encargo | Nombre | Fases | Rama | Depende de | Aislamiento |
 |---|---|---|---|---|---|
 | **A** | `WINS` | W1 · W2 · W3 | `claude/wins-tracker` | **C1** (catálogo de fases) | Medio |
-| **B** | `LLAMADAS` | L1 · L2 · L3 | `claude/llamadas-cliente` | Dos verificaciones en Fathom · decisión #4 | Alto |
+| **B** | `LLAMADAS` | **L0** · L1 · L2 · L3 | `claude/llamadas-cliente` | Verificar acceso de la key · decisión #4 | Alto |
 | **C** | `CHECKPOINTS` | C1 · C2 · C3 | `claude/checkpoints-cliente` | Nada. **C1 desbloquea A** | Alto |
 | **D** | `SOPS-VIDEO` | S1 · S2 · S3 | `claude/sops-desde-video` | Nada | **Total** — arrancá cuando quieras |
 | **E** | `DISCORD` | D1 · D2 · D3 | `claude/discord-bot-produccion` | D3 depende de A y C | Alto (D1 y D2) |
@@ -106,7 +106,9 @@ final y en un commit aparte, y no abras PR. Empezá por W1.
 | **Sin backfill** | Los datos históricos **no importan**. Nada que migrar ni recuperar |
 | **🔴 Antes de escribir código — dos verificaciones** | **(a)** ¿La API key ve las llamadas del closer, o están sin compartir? Si no las ve, **no existen para OTC**. **(b)** Grabá una llamada sin agendarla: ¿vienen `recorded_by`, `meeting_url` en `null` y los nombres de los hablantes? |
 | **No pierdas tiempo con** | Los `meeting_type` de Fathom: **no se pueden etiquetar**, está verificado y descartado |
-| **Sembrá el alias desde el día uno** | `client_identities` arranca poblada con nombres, **apodos** y mails de `clients`, `sales_leads`, `closing_calls`, contactos de GHL y mails de comprador de los pagos. La confirmación manual es para las variantes raras, no para todos |
+| **⭐ Empezá por L0** | Fathom ya entrega **próximos pasos con link al segundo**, resumen, momentos marcados y —lo más importante— **el vínculo entre nombre de pantalla y mail** (`matched_speaker_display_name`). OTC pide uno solo de los cuatro `include_`. Y 🐛 **el resumen nunca llega**: `default_summary` es un objeto y `pickString` devuelve null |
+| **⭐ El alias se aprende solo** | Todo cliente fue lead, y su llamada de venta **sí estuvo agendada** → de ahí sale su nombre de pantalla gratis, y con eso se resuelven todas sus entregas futuras. **El lado de ventas le enseña al de entrega** |
+| **Sembrá el alias desde el día uno** | `client_identities` arranca poblada con nombres, **apodos** y mails de `clients`, `sales_leads`, `closing_calls`, contactos de GHL y mails de comprador de los pagos |
 | **Decisión que te bloquea** | #4 (confirmar el alcance de entrega). La #6 —"¿el founder también cierra?"— y la #8 —"revisá los tipos en Fathom"— **quedaron cerradas** |
 
 **Prompt de arranque:**
@@ -122,8 +124,9 @@ de Fathom y no pierdas tiempo ahí. Antes de escribir código hacé las dos veri
 que lista la ficha y decime los resultados: si la API key ve las llamadas del closer, y
 qué trae el payload de una llamada grabada sin agendar.
 
-Después implementá L1 (resolver la contraparte) en la rama claude/llamadas-cliente
-desde main actualizado. Sin backfill. Bloque de migraciones 20260903 10MM 00. Guardá
+Después implementá L0 (pedirle a Fathom todo lo que ya entrega y no estamos pidiendo,
+y arreglar el bug del resumen) y seguí con L1 (resolver la contraparte), en la rama
+claude/llamadas-cliente desde main actualizado. Sin backfill. Bloque de migraciones 20260903 10MM 00. Guardá
 siempre resolution_method. No toques lib/wins, lib/checkpoints ni apps/discord-bot.
 No abras PR.
 ```
@@ -427,7 +430,7 @@ a un closer**, no para decidir el propósito.
 | # | Señal | Fuerza | ¿Sirve sin calendario? |
 |---|---|---|---|
 | 1 | Mail de invitado externo ∈ identidades de un cliente o mail de un lead | Determinista | ❌ |
-| 2 | ⭐ Nombre de hablante ∈ **alias aprendido** | Determinista **después de una confirmación humana** | ✅ |
+| 2 | ⭐ Nombre de hablante ∈ **alias aprendido** | Determinista. Y el alias **se aprende solo** de las llamadas que sí tuvieron calendario | ✅ |
 | 3 | Nombre de hablante = nombre de cliente o lead (normalizado) | Alta, pero **candidato** | ✅ |
 | 4 | Lo que la persona dice de sí misma en el transcript | Propuesta con motivo | ✅ |
 | 5 | Nada | Cola de revisión | — |
@@ -465,6 +468,126 @@ tener que elegir una y perder la otra.
 **Paso 4 · La confirmación enseña.** Cada vez que alguien resuelve una llamada a
 mano, **se guarda el alias del hablante**. Esa persona no se vuelve a preguntar
 nunca. El trabajo manual arranca alto y **tiende a cero**.
+
+### ⭐ Lo que la respuesta de Fathom ya trae y OTC no está pidiendo
+
+Releyendo la respuesta completa de `GET /meetings` aparecieron cuatro cosas que
+cambian el plan **para mejor**. Tres son datos gratis; la cuarta es un bug.
+
+#### 1 · ⭐⭐ El alias se aprende solo — el hallazgo más importante del módulo
+
+Cuando **sí** hubo evento de calendario, Fathom entrega el vínculo entre el
+nombre de pantalla y el mail, **en las dos direcciones**:
+
+```
+calendar_invitees[].matched_speaker_display_name   ← "el mail X habla como 'Juan P.'"
+transcript[].speaker.matched_calendar_invitee_email ← "el que dice llamarse 'Juan P.' es X"
+```
+
+Y acá se cierra el círculo, porque **todo cliente fue primero un lead, y la
+llamada de venta de ese lead sí estuvo agendada**:
+
+```
+Llamada de VENTA  →  tiene calendario  →  tiene mail  →  se resuelve sola
+                                      ↘
+                        Fathom regala: "ese mail habla como 'Juan P.'"
+                                      ↘
+                              se guarda el alias
+                                      ↘
+Llamadas de ENTREGA  →  sin calendario, sin mail  →  se resuelven por el alias
+```
+
+**El lado de ventas —que ya funciona— le enseña al lado de entrega.** Sin que
+nadie confirme nada.
+
+Eso reduce muchísimo el trabajo manual que la versión anterior daba por
+inevitable: la confirmación a mano queda para quien nunca tuvo una llamada
+agendada y para las variantes raras del nombre. **No para cada cliente.**
+
+⚠️ Dos condiciones de la documentación: `matched_speaker_display_name` sólo viene
+con `include_transcript=true` —que OTC ya manda— y **sólo para reuniones
+posteriores a feb-2025**. Las dos se cumplen.
+
+#### 2 · Los próximos pasos ya vienen hechos, con link al segundo exacto
+
+El pedido original decía *"próximos pasos hablados en la llamada"*. **Fathom ya
+los entrega**, y con más de lo que OTC genera hoy con Claude:
+
+| Campo | Qué aporta |
+|---|---|
+| `description` | El próximo paso, en texto |
+| `user_generated` | ⭐ **Si lo escribió una persona o lo dedujo la IA de Fathom.** Un paso escrito por un humano es una declaración; uno de la IA es una inferencia — y **no hay que mostrarlos igual** |
+| `completed` | Si ya se hizo |
+| `recording_playback_url` + `recording_timestamp` | ⭐ **Link al segundo exacto de la grabación** donde se dijo |
+| `assignee` (nombre, mail, equipo) | A quién le toca — y **un mail más para la tabla de identidades** |
+
+Hoy OTC genera `ai_next_steps[]` mandándole el transcript a Claude. **Fathom ya lo
+hizo, mejor y gratis.** La regla: los de Fathom son la fuente; la IA de OTC sólo
+completa si vienen vacíos.
+
+#### 3 · Fathom no etiqueta llamadas, pero sí etiqueta *momentos*
+
+`highlights[].type` es **"the label of the bookmark this highlight was created
+from"**. O sea: no se puede etiquetar la llamada, pero **sí marcar un momento con
+una etiqueta**, y esa etiqueta llega por la API.
+
+Hay un canal declarativo por llamada después de todo — vive en los momentos, no
+en la llamada. En el ejemplo de la documentación la etiqueta es `"Objection"`, que
+ya de por sí es una señal de venta.
+
+**Vale la pena averiguar si las etiquetas de bookmark son personalizables en
+Fathom.** Si lo son, un bookmark puesto durante la llamada sería una declaración
+determinista.
+
+⚠️ **Pero el diseño no puede depender de esto**, porque exige que alguien apriete
+un botón en cada llamada. Es un **acelerador para los casos dudosos**, no la base.
+Lo que sí hay que hacer siempre: **persistir `highlights` crudo**. No cuesta nada
+y `summary` y `text` son entrada barata para el desempate por contenido — mucho
+más barata que mandar el transcript entero.
+
+#### 4 · 🐛 Bug: el resumen nunca llega
+
+`lib/fathom/api.ts:326` hace:
+
+```ts
+summary: pickString(obj, ["summary", "ai_summary", "default_summary"])
+```
+
+Pero `default_summary` **no es un string**: es un objeto
+`{ template_name, markdown_formatted }`. `pickString` devuelve `null`. Y encima
+**OTC nunca pide `include_summary=true`**.
+
+Resultado: **`fathom_calls.summary` está vacío**. Y de ahí cuelgan el "tema de la
+llamada", el preview y el desempate por contenido — las tres features se apoyan en
+un campo que no se está llenando. **Arreglarlo es parte de L1.**
+
+#### Los cuatro `include_` son opcionales y OTC pide uno solo
+
+| Parámetro | ¿Lo pide OTC? | Qué se pierde |
+|---|---|---|
+| `include_transcript` | ✅ Sí | — |
+| `include_summary` | 🔴 No | El resumen — ver el bug de arriba |
+| `include_action_items` | 🔴 No | **Los próximos pasos con link al segundo** |
+| `include_highlights` | 🔴 No | Los momentos marcados y sus etiquetas |
+
+Tres pedidos de datos gratis que hoy no se hacen.
+
+#### ⚠️ Una trampa: `calendar_invitees_domains_type`
+
+Es obligatorio y siempre trae valor (`only_internal` / `one_or_more_external`),
+así que **parece** un detector de "¿había alguien de afuera?". No lo es: se calcula
+sobre los invitados del calendario, y **sin calendario no hay invitados**. Una
+llamada de entrega con un cliente, sin agenda, va a decir `only_internal`.
+
+**Nunca usarlo como detector de externos.** Los externos se detectan por los
+hablantes que no están en el roster del equipo.
+
+#### Sobre `meeting_type`
+
+El ejemplo de la documentación lo muestra poblado, pero Santiago verificó que
+Fathom no permite etiquetar llamadas. **Se persiste el valor crudo igual** —ya se
+parsea, cuesta cero— **y no se construye nada encima**. Si algún día llegara
+poblado, es señal gratis; si no llega, no se pierde nada.
 
 ### ⭐ La asimetría que hace todo esto tratable
 
@@ -602,6 +725,9 @@ fathom_calls   + recorded_by_email, + recorded_by_name
                + counterpart_client_id, + counterpart_lead_id
                + resolution_method     ⭐ por qué peldaño se resolvió
                + ai_topic
+               + action_items jsonb    ⭐ nativos de Fathom, con user_generated y
+                                         recording_playback_url al segundo exacto
+               + highlights jsonb      ⭐ momentos marcados y su etiqueta de bookmark
 ```
 
 **Dos tablas de versiones anteriores desaparecieron del diseño.**
@@ -615,14 +741,15 @@ quiera declarar.
 
 | Fase | Entregable | Cómo se verifica |
 |---|---|---|
-| **L1** | **La contraparte.** Parsear `recorded_by` y `meeting_url`; roster interno auto-alimentado; `client_identities` **sembrada desde clientes, leads, contactos de GHL y pagos**; resolución por mail y por nombre; `resolution_method` | Grabá una llamada con un cliente **sin agendarla**. Tiene que quedar `counterparty='client'`, `purpose='delivery'` **sin que nadie haya confirmado nada antes**, y decir por qué |
+| **L0** | **Pedir lo que ya está disponible.** Sumar `include_summary`, `include_action_items` e `include_highlights`; arreglar el bug del resumen; parsear `recorded_by`, `meeting_url`, `action_items`, `highlights` y los dos campos `matched_*` | Una grabación nueva llega con resumen, próximos pasos con link al segundo, y el vínculo nombre↔mail de cada participante |
+| **L1** | **La contraparte.** Roster interno auto-alimentado; `client_identities` **sembrada** desde clientes, leads, contactos de GHL y pagos, y **auto-aprendida** desde `matched_speaker_display_name`; resolución por mail y por alias; `resolution_method` | Grabá una llamada con un cliente **sin agendarla**. Tiene que quedar `counterparty='client'`, `purpose='delivery'` **sin que nadie haya confirmado nada antes**, y decir por qué |
 | **L2** | **El aprendizaje.** Cola de revisión que al confirmar **guarda el alias**; propuesta de la IA leyendo el transcript; mapa de propósito por calendario | Confirmá un cliente una vez. **La segunda grabación con ese hablante se resuelve sola**, y `resolution_method` dice `alias` |
-| **L3** | **El registro.** Tema con Haiku, preview, próximos pasos, panel en la ficha, timeline, y el tablero de `resolution_method` | Una entrega aparece en la ficha con fecha, tema, link y próximos pasos |
+| **L3** | **El registro.** Tema con Haiku, preview, **próximos pasos nativos de Fathom con su link al segundo** —distinguiendo los escritos por una persona de los deducidos por IA—, panel en la ficha, timeline y el tablero de `resolution_method` | Una entrega aparece en la ficha con fecha, tema, link y próximos pasos clickeables al momento exacto |
 
 ### Archivos a tocar
 
 - `supabase/migrations/20260903 10MM 00_*.sql` — **sin backfill**: los datos viejos no importan
-- `lib/fathom/api.ts` — **parsear `recorded_by`** (hoy se descarta) y `meeting_url` como bandera de "sin agenda"
+- `lib/fathom/api.ts` — 🐛 **arreglar el resumen** (`default_summary` es un objeto, no un string) · sumar `include_summary`, `include_action_items` e `include_highlights` · **parsear `recorded_by`, `action_items`, `highlights` y los dos campos `matched_*`** · `meeting_url` como bandera de "sin agenda"
 - `lib/fathom/resolve-counterpart.ts` (nuevo) — pasos 0 y 1. **Puro y con tests**
 - `lib/fathom/resolve-purpose.ts` (nuevo) — pasos 2 y 3. **Puro y con tests**
 - `lib/fathom/classify-from-transcript.ts` (nuevo) — la propuesta de la IA, aislada
@@ -640,6 +767,8 @@ quiera declarar.
 - ⚠️ **Los nombres de pantalla son inestables:** "Juan", "Juan P.", "iPhone de Juan". Por eso el alias es una tabla con varias filas por persona: **cada variante confirmada se suma**, no reemplaza.
 - ⚠️ **Un cliente que vuelve como lead a otra oferta** existe y el modelo lo soporta (upsell), pero conviene mirar los primeros casos reales antes de confiar en la regla.
 - ⚠️ **Costo de IA:** el desempate por transcript corre sólo sobre las no resueltas. Si esa proporción no baja con el tiempo, algo está mal configurado — y `resolution_method` es lo que lo va a mostrar.
+- 🐛 **`fathom_calls.summary` está vacío hoy** por el bug de `pickString` sobre `default_summary` más el `include_summary` que no se pide. Tres features cuelgan de ese campo. Es lo primero de L0.
+- ⚠️ **El auto-aprendizaje del alias sólo cubre a quien tuvo alguna llamada agendada.** Un cliente que nunca pasó por una agenda —heredado, o cerrado por DM— sigue necesitando una confirmación manual. Son pocos, pero existen.
 - ⚠️ **Una venta improvisada sin turno** se apoya enteramente en que el lead ya esté en `sales_leads`. Si un lead llega por un canal que OTC no sincroniza, esa llamada va a la cola de revisión. Es correcto que vaya: es preferible preguntar antes que meter una venta inventada en el tablero.
 
 ## ENCARGO C · `CHECKPOINTS` — Checkpoints configurables
@@ -875,7 +1004,7 @@ ARRANCAN YA, sin esperar a nadie
 
 ESPERA UNA CONFIRMACIÓN
 
-  B · LLAMADAS     →  L1   🔴 Necesita la decisión #4 y dos verificaciones en Fathom
+  B · LLAMADAS     →  L0   🔴 Necesita la decisión #4 y verificar el acceso de la key
 
 ────────────── las dos únicas compuertas ──────────────
 
@@ -914,11 +1043,11 @@ que quieras dejar corriendo sola.
 | 4 | **¿Confirmás reabrir las llamadas de entrega?** Se cerraron el 2026-09-01 y este pedido las reabre | **B** | Es una vuelta atrás de una decisión de producto de hace días |
 | 5 | **¿Los Loom se suben como archivo, o hace falta que funcione con el link pegado?** | **D** | El link es frágil y hay que decidir si vale el riesgo |
 | ~~6~~ | ~~¿Vos también cerrás ventas?~~ **Disuelta por el rediseño** | — | El propósito ya no depende de quién grabó, así que la pregunta dejó de importar |
-| 7 | **¿Estás dispuesto a confirmar a mano la contraparte las primeras veces?** | **B** | Es el precio de que después se resuelva solo. Si la respuesta es no, no hay diseño alternativo que funcione con llamadas sin mail |
+| 7 | **¿Estás dispuesto a confirmar a mano la contraparte en algunos casos?** | **B** | **Muy aliviada:** el alias se auto-aprende de las llamadas agendadas, así que sólo quedan los clientes que nunca pasaron por una agenda y las variantes raras de nombre |
 | ~~8~~ | ~~¿Podés revisar cómo se asignan los tipos de reunión?~~ **Respondida: Fathom no permite etiquetar llamadas** | — | Descartada como señal. El diseño ya asumía el peor caso, así que no cambia nada |
 
 Mientras no haya respuesta, el plan asume: (1) el enum propuesto, (2) fase del
 recorrido del cliente, (3) uno por organización con la columna lista para
 producto, (4) sí, se reabre entrega sin tocar ventas, (5) archivo subido,
-(6) disuelta, (7) sí, se confirma a mano y el sistema aprende el alias, (8)
+(6) disuelta, (7) sí, pero son pocos casos porque el alias se auto-aprende, (8)
 cerrada — Fathom no etiqueta, y el diseño no la necesitaba.

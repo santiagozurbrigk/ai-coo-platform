@@ -14,6 +14,83 @@
 
 ---
 
+### 2026-09-02 — El alias se aprende solo: la respuesta de Fathom traía tres regalos y un bug
+
+**Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`
+**Commits:** este
+**Módulo(s) afectado(s):** `docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md`, `docs/API_DOCS_PENDIENTES.md`, `PENDIENTES.md`
+
+**Qué se hizo:**
+
+Santiago pasó la respuesta completa de `GET /meetings`. Releerla campo por campo
+contra el código encontró **tres datos gratis que OTC no pide y un bug**. Sigue
+sin haber cambios de código.
+
+**⭐ 1 · El alias se aprende solo — el hallazgo más importante del módulo.**
+
+Cuando hubo evento de calendario, Fathom entrega el vínculo nombre de pantalla ↔
+mail en las dos direcciones (`calendar_invitees[].matched_speaker_display_name` y
+`transcript[].speaker.matched_calendar_invitee_email`).
+
+Y ahí se cierra el círculo: **todo cliente fue primero un lead, y la llamada de
+venta de ese lead sí estuvo agendada.** Esa llamada se resuelve sola por mail, y
+de paso Fathom regala cómo se llama esa persona en Zoom. Con eso, **todas sus
+llamadas de entrega futuras —sin calendario y sin mail— se resuelven por alias**.
+
+**El lado de ventas, que ya funciona, le enseña al lado de entrega.** Sin que
+nadie confirme nada. Eso desactiva casi entero el trabajo manual que la versión
+anterior daba por inevitable: queda sólo para clientes que nunca pasaron por una
+agenda y para variantes raras del nombre.
+
+**⭐ 2 · Los próximos pasos ya vienen hechos.** El pedido original pedía "próximos
+pasos hablados en la llamada" y OTC los genera con Claude desde el transcript.
+**Fathom ya los entrega**, con `user_generated` (si lo escribió una persona o lo
+dedujo su IA — no hay que mostrarlos igual), `completed`, `assignee` y
+**`recording_playback_url` con el segundo exacto de la grabación**. Los de Fathom
+pasan a ser la fuente; la IA de OTC sólo completa si vienen vacíos.
+
+**⭐ 3 · Fathom no etiqueta llamadas, pero sí etiqueta momentos.**
+`highlights[].type` es la etiqueta del bookmark con que alguien marcó ese
+instante. Hay un canal declarativo después de todo, sólo que vive en los momentos
+y no en la llamada. **El diseño no depende de eso** —exige apretar un botón en
+cada llamada—, pero `highlights` se persiste siempre: es entrada barata para el
+desempate por contenido, mucho más que el transcript entero.
+
+**🐛 4 · El resumen nunca llega.** `lib/fathom/api.ts:326` hace
+`pickString(obj, ["summary","ai_summary","default_summary"])`, pero
+`default_summary` **es un objeto** `{template_name, markdown_formatted}`, así que
+`pickString` devuelve `null`. Y OTC tampoco manda `include_summary=true`. **De ese
+campo cuelgan el tema de la llamada, el preview y el desempate por contenido.**
+
+**De los cuatro `include_`, OTC pide uno solo:** manda `include_transcript` y no
+manda `include_summary`, `include_action_items` ni `include_highlights`.
+
+**Decisiones de diseño relevantes:**
+
+- **Fase L0 nueva y primera:** pedirle a Fathom todo lo que ya entrega y arreglar
+  el bug del resumen, antes de construir cualquier lógica de clasificación. Es
+  barato y cambia el material de entrada de todo lo que viene después.
+- **`user_generated` no es un detalle:** un próximo paso escrito por una persona
+  es una declaración; uno deducido por IA es una inferencia. Se muestran distinto.
+- ⚠️ **Trampa documentada:** `calendar_invitees_domains_type` parece un detector de
+  externos y no lo es — se calcula sobre invitados del calendario, así que sin
+  calendario dice `only_internal` aunque haya un cliente del otro lado. Los
+  externos se detectan por hablantes fuera del roster del equipo.
+- **`meeting_type` se persiste crudo igual** aunque esté descartado: ya se parsea,
+  cuesta cero, y si algún día llegara poblado es señal gratis.
+
+**Verificación ejecutada:** ninguna — no hay código.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ El auto-aprendizaje del alias **sólo cubre a quien tuvo alguna llamada
+  agendada**. Un cliente heredado o cerrado por DM sigue necesitando una
+  confirmación manual. Son pocos, pero existen.
+- 🔴 Sigue abierta la verificación de que la API key vea las llamadas del closer.
+- La decisión #7 (confirmar a mano) queda **muy aliviada** por el punto 1.
+
+---
+
 ### 2026-09-02 — Fathom no etiqueta llamadas: la interpretación la pone OTC
 
 **Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`

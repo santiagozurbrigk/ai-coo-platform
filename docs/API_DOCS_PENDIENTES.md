@@ -463,6 +463,11 @@ Dos salidas, las dos de configuración:
 | `meeting_url` | **`null` cuando no hay reunión de calendario asociada** — bandera directa |
 | `transcript[].speaker.display_name` | Obligatorio dentro de cada ítem del transcript |
 | `speaker.matched_calendar_invitee_email` | Sólo con `include_transcript`, y sólo desde feb-2025 |
+| ⭐ `calendar_invitees[].matched_speaker_display_name` | **El vínculo nombre de pantalla ↔ mail.** Sólo con `include_transcript` y sólo para reuniones posteriores a feb-2025 |
+| ⭐ `action_items[]` | `description`, `user_generated` (persona vs. IA), `completed`, `assignee` y **`recording_playback_url` con el segundo exacto**. Requiere `include_action_items` |
+| ⭐ `highlights[].type` | **La etiqueta del bookmark** con que se marcó ese momento. Requiere `include_highlights` |
+| `default_summary` | **Un objeto** `{template_name, markdown_formatted}`, no un string. Requiere `include_summary` |
+| `calendar_invitees_domains_type` | ⚠️ **Trampa:** obligatorio y siempre con valor, pero se calcula sobre los invitados del calendario. Sin calendario dice `only_internal` aunque haya externos |
 | `crm_matches` | Requiere un CRM conectado **a Fathom**. OTC no lo es → inservible |
 | Paginación | 10 por página, sin parámetro para subirlo. Sólo `next_cursor` |
 
