@@ -315,7 +315,7 @@ compartidos, bloque de timestamps de migración):
 | Encargo | Nombre | Rama | Depende de |
 |---|---|---|---|
 | **A** | `WINS` | `claude/wins-tracker` | C1 (catálogo de fases) |
-| **B** | `LLAMADAS` | `claude/llamadas-cliente` | Tres verificaciones en Fathom · decisión #4 |
+| **B** | `LLAMADAS` | `claude/llamadas-cliente` | Verificar acceso de la key · decisión #4 |
 | **C** | `CHECKPOINTS` | `claude/checkpoints-cliente` | Nada. **C1 desbloquea A** |
 | **D** | `SOPS-VIDEO` | `claude/sops-desde-video` | Nada — totalmente aislado |
 | **E** | `DISCORD` | `claude/discord-bot-produccion` | D3 depende de A y C |
@@ -333,13 +333,20 @@ identificar a la otra persona, con **alias aprendido** en cada confirmación
 manual y la IA leyendo el transcript **sólo como propuesta** sobre lo no resuelto.
 Cada llamada guarda **por qué peldaño se resolvió**.
 
-🔴 **Dos verificaciones de Fathom bloquean el Encargo B** (detalle en
-[`docs/API_DOCS_PENDIENTES.md`](./docs/API_DOCS_PENDIENTES.md) §7):
-**(a)** no está documentado cómo se asigna un `meeting_type` a una reunión — si
-se pudiera por regla, la clasificación se vuelve determinista y el módulo se
-simplifica entero; **(b)** la API key de Fathom es **por persona, no por
-organización**: si el closer graba en su cuenta y no comparte, **esas llamadas no
-llegan a OTC**.
+⛔ **Fathom no permite etiquetar llamadas** (verificado por Santiago, 2026-09-02).
+`meeting_type` queda descartado y `fathom_meeting_type_map` **no se repone**. El
+diseño no se cayó porque asumía el peor caso: de Fathom se toman **hechos crudos**
+y **la interpretación la pone OTC**. Lo que compensa es que la tabla de
+identidades **se siembra** con `clients` (incluido `nickname`, que hoy no usa
+nadie), `sales_leads`, `closing_calls`, los contactos de GHL y los mails de
+comprador de los pagos — así el sistema ya conoce a cada cliente el día que se
+enciende.
+
+🔴 **Queda una sola verificación bloqueante del Encargo B** (detalle en
+[`docs/API_DOCS_PENDIENTES.md`](./docs/API_DOCS_PENDIENTES.md) §7): la API key de
+Fathom es **por persona, no por organización**. Si el closer graba en su cuenta y
+no comparte, **esas llamadas no llegan a OTC** — no se clasifican mal, no
+existen.
 
 📌 **Los datos históricos no importan** (decisión de Santiago): ningún encargo
 necesita backfill, y cada fase se verifica generando un dato nuevo a propósito.

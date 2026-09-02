@@ -14,6 +14,80 @@
 
 ---
 
+### 2026-09-02 — Fathom no etiqueta llamadas: la interpretación la pone OTC
+
+**Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`
+**Commits:** `b2115fd` + este
+**Módulo(s) afectado(s):** `docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md`, `docs/API_DOCS_PENDIENTES.md`, `PENDIENTES.md`
+
+**Qué se hizo:**
+
+Santiago verificó que **Fathom no da ninguna posibilidad de etiquetar las
+llamadas**. `meeting_type` queda descartado como señal y se cierra la §7 de
+`API_DOCS_PENDIENTES.md`. Sigue sin haber cambios de código.
+
+**El diseño no se cayó, y eso era el punto.** Se había asumido el peor caso a
+propósito para no depender de una señal que Fathom no garantiza. Lo único que se
+elimina es un peldaño de respaldo: `fathom_meeting_type_map` **no se repone** —la
+dropeada el 2026-09-01 se queda dropeada— y `fathom_user_roles` ya había
+desaparecido en el rediseño anterior. **Ninguna de las dos hace falta.**
+
+**Regla general que deja este caso:** de Fathom se toman **hechos crudos** —quién
+grabó, quiénes hablaron, si hubo evento de calendario, qué se dijo—. La
+**interpretación** la pone OTC con lo que sabe de su propio negocio.
+
+**Dos cosas que se agregaron para compensar:**
+
+**⭐ La asimetría venta/entrega**, que no estaba escrita y es fuerte:
+
+| | Venta | Entrega |
+|---|---|---|
+| ¿Se agenda? | Casi siempre — el lead reserva turno | Muchas veces no |
+| ¿Trae mail? | Sí, por la agenda | Muchas veces no |
+| ¿Cuánta gente distinta? | Muchísima y siempre nueva | Poca y se repite |
+
+Donde hay volumen hay mail; donde no hay mail hay poca gente que se repite. **Las
+dos mitades duras no coinciden nunca.** De ahí la regla negativa: *una grabación
+que no cruza ningún turno agendado casi seguro no es una venta*, porque las
+ventas se agendan. Con eso la pregunta "¿venta o entrega?" se responde casi sola
+y **el trabajo real que queda es sólo decir con qué cliente fue**.
+
+La excepción prevista: una venta improvisada que no cruza turno se resuelve igual
+porque la contraparte cae contra `sales_leads` — lead conocido → venta.
+
+**⭐ La tabla de identidades no arranca vacía.** Se siembra con todo lo que OTC ya
+tiene y hoy no usa para esto: `clients.name` y **`clients.nickname`** —que es
+justo el dato que hace match con un nombre de pantalla de Zoom y no lo usa
+nadie—, `clients.email`, `sales_leads`, `closing_calls.lead_*`, los contactos de
+GHL (`lib/ghl/sync-contacts.ts`) y el `customerEmail` de los pagos
+(`lib/payments/normalize.ts`). **Ese es el reemplazo real de lo que Fathom no
+da:** el día que se enciende, el sistema ya conoce a cada cliente y cada lead por
+nombre, apodo y mail. La confirmación manual queda para las variantes raras
+—"iPhone de Juan"—, no para todo el mundo.
+
+**Decisiones de diseño relevantes:**
+
+- **No depender de ningún dato declarativo de un proveedor** cuando el dato para
+  interpretar ya está en casa.
+- **`calendar_purpose_map` se queda pero con un solo trabajo**: que un turno del
+  calendario de entrega del founder no cuente como evidencia de venta.
+- El criterio de verificación de L1 se endureció: la llamada de prueba tiene que
+  resolverse **sin que nadie haya confirmado nada antes**, gracias a la siembra.
+
+**Verificación ejecutada:** ninguna — no hay código.
+
+**Riesgos / deuda técnica pendiente:**
+
+- 🔴 Sigue abierta la verificación de que **la API key de Fathom vea las llamadas
+  del closer**: las keys son por persona, y lo que no está compartido no llega.
+- ⚠️ Una venta improvisada se apoya en que el lead ya esté en `sales_leads`. Si
+  llega por un canal que OTC no sincroniza, va a la cola de revisión — y **está
+  bien que vaya**: preferible preguntar que inventar una venta en el tablero.
+- Decisiones cerradas: la #6 (¿el founder también cierra?) y la #8 (los tipos de
+  reunión). Ninguna de las dos importa ya.
+
+---
+
 ### 2026-09-02 — El propósito de una llamada lo define la contraparte, no quién grabó
 
 **Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`

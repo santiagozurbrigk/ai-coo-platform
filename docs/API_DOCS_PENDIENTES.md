@@ -72,7 +72,7 @@ que se escribió a ciegas, y verificar contra cuentas reales.
 | **VTurb** | I-6 | Sin empezar | ✅ [resumen](./external-apis/vturb/RESUMEN-OTC.md) | Construir |
 | **WebinarJam / EverWebinar** | I-5 | Sin empezar | ✅ [resumen](./external-apis/webinarjam/RESUMEN-OTC.md) | **Pedir la API key** (requiere aprobación) y construir |
 | **Hyros** | I-8 | Sin empezar | ✅ [resumen](./external-apis/hyros/RESUMEN-OTC.md) | Construir |
-| **Fathom** | Llamadas | Construido, en rediseño | ✅ [resumen](./external-apis/fathom/RESUMEN-OTC.md) | 🔴 **Falta doc de producto**: cómo se asignan los tipos de reunión — ver §7 |
+| **Fathom** | Llamadas | Construido, en rediseño | ✅ [resumen](./external-apis/fathom/RESUMEN-OTC.md) | ⛔ Tipos de reunión **descartados** (Fathom no etiqueta). 🔴 Falta verificar que la key vea las llamadas del closer — ver §7 |
 
 ---
 
@@ -398,46 +398,46 @@ normalizador tolera texto con símbolo. **Con una guarda:** un texto sin dígito
 
 ---
 
-## 7. Fathom — cómo se asignan los tipos de reunión (módulo de llamadas) 🔴
+## 7. Fathom — sin señal declarativa por llamada (módulo de llamadas) · ⛔ CERRADA 2026-09-02
 
-**Agregado el 2026-09-02**, al rediseñar la clasificación de llamadas.
+**Agregado el 2026-09-02** al rediseñar la clasificación de llamadas.
+**Cerrada el mismo día** por verificación de Santiago.
 
 La documentación de Fathom **está capturada entera** en
 [`docs/external-apis/fathom/`](./external-apis/fathom/) — 39 archivos, con el
-spec OpenAPI completo. No falta documentación de API. Lo que falta es
+spec OpenAPI completo. No faltaba documentación de API. Lo que faltaba era
 **documentación de producto**, que Fathom no publica en `developers.fathom.ai`.
 
-### 🔴 La pregunta que decide el diseño del módulo
+### ⛔ La pregunta que decidía el diseño, y su respuesta
 
 **¿Cómo se le asigna un `meeting_type` a una reunión?**
 
-Lo que la API **sí** dice, verificado en el spec:
+La API sólo explica cómo **leerlos** (`GET /meeting_types`, filtro `meeting_type`
+en `GET /meetings`, y el campo `meeting_type` en cada reunión con el nombre
+asignado o `null`). **No dice cómo se asignan**, ni si se pueden asignar por
+regla, ni qué pasa con una reunión sin evento de calendario.
 
-- `GET /meeting_types` lista los tipos de la organización, con `name` y `status` (`active` / `inactive`).
-- `GET /meetings` acepta `meeting_type` como filtro por nombre (confirmado también en el FAQ).
-- Cada reunión trae `meeting_type` con el nombre del tipo asignado, o `null` si no tiene.
-- **No hay identificador**: la clave es el nombre. Si alguien renombra un tipo, la fila del mapeo queda huérfana.
+> **Respuesta (Santiago, 2026-09-02): Fathom no da ninguna posibilidad de
+> etiquetar las llamadas.**
 
-Lo que **no** dice en ninguna parte:
+**Consecuencia:** `meeting_type` queda **descartado** como señal.
+`fathom_meeting_type_map` **no se repone** —la que se dropeó el 2026-09-01 se
+queda dropeada— y no hay que volver sobre esto.
 
-- Si los tipos se asignan **automáticamente por alguna regla** (título del evento de calendario, dominio del invitado, calendario de origen, plantilla de reunión).
-- O si hay que **elegirlos a mano en cada llamada**.
-- Ni qué pasa con una reunión **sin evento de calendario**, que es el caso mayoritario de las llamadas de entrega.
+**Por qué no rompió nada:** el diseño del módulo asumía el **peor caso** a
+propósito, justamente para no depender de una señal que Fathom no garantiza. La
+clasificación sale de identificar a la contraparte contra las listas de clientes
+y leads **que OTC ya tiene**, y las identidades se siembran desde `clients`
+(incluido `nickname`), `sales_leads`, `closing_calls`, los contactos de GHL y los
+mails de comprador de los pagos.
 
-**Por qué decide el diseño:** si se pueden asignar por regla, dos tipos —"Venta" y
-"Entrega"— configurados una sola vez vuelven **determinista** la clasificación de
-casi todas las llamadas, incluidas las que no pasan por ninguna agenda. Si hay que
-ponerlos a mano, es un respaldo razonable para las dudosas pero no la vía principal.
+**La regla general que deja este caso:** de Fathom se toman **hechos crudos**
+—quién grabó, quiénes hablaron, si hubo evento de calendario, qué se dijo—. La
+**interpretación** la pone OTC con lo que sabe de su propio negocio. Un proveedor
+que no declara nada no es un bloqueo cuando el dato para interpretar ya está en
+casa.
 
-**Cómo verificarlo:** en la interfaz de Fathom, no en la API. Configuración →
-tipos de reunión. **Es lo primero que tiene que mirar el Encargo B.**
-
-**Supuesto mientras tanto:** se asume el **peor caso** —asignación manual—, así que
-el diseño no depende de esta señal: la clasificación sale de identificar a la
-contraparte contra las listas de clientes y leads que OTC ya tiene. Si los tipos se
-pueden automatizar, sólo puede mejorar.
-
-### 🔴 El hallazgo operativo que viene con esto
+### 🔴 El hallazgo operativo que SÍ sigue abierto
 
 Del [FAQ oficial](./external-apis/fathom/faq.md), textual:
 
