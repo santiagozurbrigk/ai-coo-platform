@@ -14,6 +14,65 @@
 
 ---
 
+### 2026-09-02 — Auditoría del plan: reordenado, secciones obsoletas removidas y lista de huecos
+
+**Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`
+**Commits:** este
+**Módulo(s) afectado(s):** `docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md`, `PENDIENTES.md`
+
+**Qué se hizo:**
+
+Auditoría completa del plan tras cuatro rediseños del Encargo B en un día, más la
+lista de huecos para poder arrancar. Sin cambios de código.
+
+**Lo que estaba mal en el documento:**
+
+1. **Una sección obsoleta contradecía al resto.** "El hallazgo operativo que sí
+   sigue abierto: la API key es por persona" seguía presentándose como abierta
+   cuando ya estaba decidida y diseñada en L0 — y encima afirmaba que la conexión
+   por miembro *"ya está construida en OTC"*, que es **falso**: no funciona por el
+   bug de `encrypted_api_key`. Reemplazada por un cierre correcto que apunta a L0.
+2. **El orden de lectura estaba roto.** Las secciones conceptuales quedaron
+   partidas al medio por las dos operativas (L0 y L1). Reordenado: concepto →
+   operación → implementación.
+3. **La tabla de decisiones tenía la #9 antes de la #8** y la lista de supuestos
+   fuera de orden.
+
+**⭐ Hallazgo de seguridad, nuevo:** `app/fathom/member-actions.ts` hace
+`try { encrypt(k) } catch { return k }`, y `lib/security/encryption.ts` **lanza si
+`ENCRYPTION_MASTER_KEY` no está configurada**. O sea: **si esa variable falta en
+producción, la API key de Fathom del miembro se guarda en texto plano, en silencio
+y sin error.** Mismo patrón en `readApiKey`. El Encargo B tiene que hacer que
+**falle en vez de degradarse**: un secreto de un tercero no se persiste sin cifrar.
+
+**⭐ Hueco transversal detectado:** el repo tiene un sistema de permisos por módulo
+(`permissionId` en `lib/navigation/sidebar-modules.ts`) y **el plan no decía qué
+permiso lleva cada ruta nueva**. Con tres encargos agregando rutas en paralelo,
+cada uno habría inventado el suyo. Hay que cerrarlo antes de que arranquen.
+
+**Sección nueva "🕳️ Huecos"** con cuatro categorías: decisiones de producto,
+verificaciones contra cuentas reales, credenciales y entorno, y huecos de diseño
+del propio plan (siete, con propuesta para cada uno). Incluye una lista explícita
+de **lo que NO es un hueco**, para que nadie lo vuelva a investigar.
+
+**Dos bloqueos duros identificados:** la decisión #9 (privacidad de las llamadas
+no vinculadas) frena el Encargo B, y la #10 nueva (dónde corre y quién paga el
+contenedor del bot) frena el Encargo E.
+
+**Verificación ejecutada:** barrido del documento buscando afirmaciones obsoletas
+—`fathom_meeting_type_map`, `fathom_user_roles`, "tres verificaciones", "ya está
+construido"—. Las únicas menciones que quedan son las que explican **por qué esas
+tablas no van** en el diseño.
+
+**Riesgos / deuda técnica pendiente:**
+
+- El Encargo B ocupa la mitad del documento. Es proporcional a su complejidad,
+  pero conviene que su sesión lo lea entero antes de tocar nada.
+- Los siete huecos de diseño tienen propuesta, no decisión. Si una sesión elige
+  distinto, que lo deje escrito en `CHANGES.md`.
+
+---
+
 ### 2026-09-02 — Keys de Fathom por miembro: el webhook se crea por API, y hoy nada de esto funciona
 
 **Rama/branch:** `claude/tracker-wins-development-plan-3b6egw`

@@ -342,6 +342,20 @@ nadie), `sales_leads`, `closing_calls`, los contactos de GHL y los mails de
 comprador de los pagos — así el sistema ya conoce a cada cliente el día que se
 enciende.
 
+🕳️ **Los huecos para arrancar están listados en el plan**, sección "Huecos".
+Los dos bloqueos duros: **decisión #9** (quién ve una llamada de un miembro que no
+quedó vinculada — frena el Encargo B) y **decisión #10** (dónde corre y quién paga
+el contenedor del bot — frena el Encargo E).
+
+🔴 **Alerta de seguridad:** `app/fathom/member-actions.ts` hace
+`try { encrypt(k) } catch { return k }` y `lib/security/encryption.ts` lanza si
+falta `ENCRYPTION_MASTER_KEY`. **Si esa variable no está en producción, la API key
+de Fathom del miembro se guarda en texto plano, en silencio.** Tiene que fallar en
+vez de degradarse.
+
+⚠️ **Hueco transversal:** el plan no define qué `permissionId` lleva cada ruta
+nueva. Tres encargos agregan rutas en paralelo — cerrarlo antes de que arranquen.
+
 ⭐ **El alias se aprende solo** (2026-09-02): cuando hubo calendario, Fathom
 entrega el vínculo **nombre de pantalla ↔ mail**. Y todo cliente fue lead antes,
 con su llamada de venta agendada — así que de ahí sale su nombre de Zoom gratis y
