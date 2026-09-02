@@ -14,6 +14,104 @@
 
 ---
 
+### 2026-09-02 — C0: campos configurables (pieza compartida Wins + Checkpoints)
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260903080000_field_definitions.sql` (nueva), `lib/custom-fields/**` (nuevo), `types/custom-fields.ts` (nuevo), `app/clients/custom-field-actions.ts` (nuevo), `components/clients/custom-fields/**` (nuevo), `app/(platform)/clients/campos/page.tsx` (nueva), `routes/paths.ts`, `lib/navigation/sidebar-modules.ts`, `docs/PLAN_VERIFICACION.md`
+
+**Qué se hizo:**
+
+Primera pieza del plan `docs/PLAN_WINS_LLAMADAS_CHECKPOINTS_SOPS_DISCORD.md`
+(Encargo C, fase C0). Es la pieza que **desbloquea al Encargo A**: el tracker de
+wins no puede cerrar sin ella.
+
+Agregar una columna a una tabla del producto —"Tipo de win", "Fase",
+"Facturación al mes 3"— era una migración. Eso obligaba a acertar la lista de
+valores antes de usar el módulo. Ahora es una pantalla.
+
+**El modelo, deliberadamente liviano.** `field_definitions` guarda la
+**definición** de una columna: entidad (`win` | `checkpoint`), clave, etiqueta,
+tipo (lista, lista múltiple, texto, número, dinero, fecha), opciones inline en
+`jsonb`, obligatoriedad, orden y archivado. El **valor** cargado vive en el
+`jsonb` de la fila dueña (`client_wins.custom`,
+`client_checkpoint_events.metrics`), no en una tabla clave-valor: una tabla
+aparte obligaría a un join por columna para pintar una fila. Es el patrón que el
+repo ya usa en `content_pieces.metrics` y `closing_calls.form_answers`.
+
+**Las tres reglas que evitan que esto se pudra**, y dónde se aplican:
+
+| Regla | Dónde se hace cumplir |
+|---|---|
+| Se guarda el `value`, nunca el `label` | La clave se deriva al crear y `updateFieldDefinitionAction` no la acepta como cambio |
+| Una opción no se borra: se archiva | `assertNoOptionDisappears` rechaza sacar una opción ya guardada |
+| Un campo archivado deja de ofrecerse pero sigue mostrándose | `activeFields` para cargar, `fieldsForValues` para mostrar |
+
+**⭐ `options_source` desactiva la dependencia entre A y C.** La columna existe
+desde el día uno con dos valores: `inline` (hoy) y `journey_stages` (cuando C1
+entregue el catálogo de fases). El campo "Fase" del Encargo A arranca con
+opciones propias y más adelante se cambia **una fila**, sin migrar un solo dato.
+La app rechaza `journey_stages` mientras el catálogo no exista, y
+`resolveFieldOptions` en ese caso devuelve vacío en vez de caer en las opciones
+inline: mezclar las dos listas sería el peor de los dos mundos.
+
+**La validación es dura, a propósito.** Un valor que no se entiende no se guarda
+como cero ni como vacío: se rechaza diciendo por qué. Un monto como
+`"mil dólares"` o `"1.2.3"` no pasa; `"1.234,56"` y `"1,234.56"` sí, porque es lo
+que una persona escribe de verdad. Una fecha que no existe (`2026-02-31`) se
+rechaza en vez de correrse a marzo. `validateFieldValues` devuelve **todos** los
+errores juntos, no el primero.
+
+**Decisiones de diseño relevantes:**
+
+- **La clave se deriva del nombre y no se muestra como campo editable.** Pedirla
+  a mano sería pedir una decisión técnica a quien está configurando una columna.
+  Dos etiquetas que sólo difieren en acentos derivan a la misma clave y la
+  segunda se rechaza —es el caso que rompería el índice único de la base.
+- **Dinero y número son tipos distintos.** El dinero lleva moneda y se formatea;
+  un porcentaje lleva unidad. Colapsarlos perdería las dos cosas.
+- **El color de una opción se guarda como nombre de token (`cat-1`…`cat-6`), no
+  como hex.** Los colores siguen el tema claro/oscuro y salen de la paleta
+  categórica del design system (regla del `CLAUDE.md`: nunca hardcodear el hex).
+- **La pantalla nace vacía**, con un botón que carga la propuesta de "Tipo de
+  win" del plan. Precargar datos que el usuario va a borrar es peor que un estado
+  vacío con salida.
+- **Mutaciones sólo para el founder**, igual que `plan_durations`. Un `operator`
+  ve la configuración y no la cambia; el corte está en el servidor, no sólo en la
+  UI.
+- **Borrar de verdad sólo si nadie usó la columna.** `isFieldInUse` consulta
+  `client_wins` / `client_checkpoint_events`; **esas tablas todavía no existen**
+  (las traen A y C2) y una tabla ausente cuenta como "sin uso", que es la verdad
+  hoy. Ante un error de base que no sea "tabla inexistente", no borra: la opción
+  que no pierde datos.
+- **Se entrega también el input, no sólo la celda.** El plan pedía "un componente
+  que renderiza una celda"; A y C también necesitan **cargar** el valor, y era el
+  mismo mecanismo. `FieldValueCell` + `FieldValueInput` van juntos para que un
+  tipo de campo nuevo se soporte una sola vez.
+
+**Verificación ejecutada:**
+- `pnpm test`: **635 tests en 39 archivos, todos en verde** (58 nuevos de `lib/custom-fields`).
+- `tsc --noEmit` y `pnpm lint` limpios (sin warnings nuevos).
+- `pnpm build` completo; la ruta `/clients/campos` se construye.
+
+**Riesgos / deuda técnica pendiente:**
+
+- 🔴 **La migración no está aplicada.** Sin ella la pantalla se ve vacía y crear
+  una columna falla. Bloque de verificación en `docs/PLAN_VERIFICACION.md` §14.
+- **Nada de esto se probó contra la app corriendo** — sólo tests unitarios,
+  typecheck y build.
+- **`options_source = 'journey_stages'` no se puede elegir desde la UI** hasta
+  que C1 entregue el catálogo de fases. La columna ya existe en la base.
+- **El chequeo de "columna en uso" todavía no puede fallar de verdad**, porque
+  las tablas de valores no existen. Cuando entre el Encargo A hay que
+  reverificarlo.
+- El reordenamiento hace un `update` por fila en un `for`. Con la cantidad de
+  columnas que esto va a tener (decenas, no miles) es correcto; si alguna vez
+  crece, va a una función de base.
+- Sin cobertura de Playwright en la pantalla.
+
+---
+
 ### 2026-09-02 — Llamadas Fase 2: seguimiento del lead
 
 **Rama/branch:** `Claude-New-Features`

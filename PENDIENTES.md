@@ -9,6 +9,36 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [C0-MIGRACION] Aplicar `20260903080000_field_definitions.sql` 🔴
+
+**Qué es:** la migración de los campos configurables (C0) está escrita y
+commiteada pero **no aplicada**. Hasta que se aplique, Configuración → Campos
+personalizados se ve vacía y crear una columna falla.
+
+**Cómo:** `supabase db push`, o pegar el SQL en el editor del dashboard.
+
+**Después:** correr el bloque §14 de `docs/PLAN_VERIFICACION.md` — el paso que
+más importa es que renombrar una columna **no** cambie su clave interna.
+
+---
+
+### [C0-PENDIENTES] Lo que C0 dejó abierto a propósito
+
+**`options_source = 'journey_stages'` no se puede elegir desde la UI.** La
+columna existe en la base y la lógica la soporta; falta el catálogo de fases,
+que entrega **C1**. Cuando esté, se habilita la opción en la pantalla y el campo
+"Fase" del Encargo A pasa a tomar sus opciones del catálogo cambiando una fila,
+sin migrar datos.
+
+**El chequeo de "columna en uso" todavía no puede fallar.** `isFieldInUse`
+consulta `client_wins` y `client_checkpoint_events`, que no existen: las traen el
+**Encargo A** y **C2**. Hoy toda columna cuenta como sin uso y se puede borrar.
+Reverificar cuando esas tablas entren.
+
+**Sin cobertura de Playwright** en la pantalla de campos personalizados.
+
+---
+
 ### [LLAMADAS-PR] Un solo PR al final, no uno por fase
 
 **Decisión del usuario (2026-09-01):** las tres fases del módulo de llamadas se
