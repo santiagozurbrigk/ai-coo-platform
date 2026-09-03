@@ -30,6 +30,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
 import { useToast } from "@/providers/toast-provider";
 import type { MutationResult } from "@/lib/server/action-result";
 import {
@@ -150,21 +151,18 @@ export function CustomFieldsPage({
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">Campos personalizados</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Las columnas del tracker de wins y las métricas que se piden al registrar un
-            checkpoint. Se definen acá, sin tocar código.
-          </p>
-        </div>
-        {canManage ? (
-          <Button onClick={openCreate} disabled={pending}>
-            <Plus className="mr-1 h-4 w-4" />
-            Nueva columna
-          </Button>
-        ) : null}
-      </div>
+      {/* El título ya lo pone el topbar: acá va sólo la bajada (ver PageHeader). */}
+      <PageHeader
+        description="Las columnas del tracker de wins y las métricas que se piden al registrar un checkpoint. Se definen acá, sin tocar código."
+        actions={
+          canManage ? (
+            <Button onClick={openCreate} disabled={pending}>
+              <Plus className="mr-1 h-4 w-4" />
+              Nueva columna
+            </Button>
+          ) : undefined
+        }
+      />
 
       {!canManage ? (
         <GlassPanel className="p-4 text-sm text-muted-foreground">

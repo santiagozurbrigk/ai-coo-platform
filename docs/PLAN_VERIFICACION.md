@@ -756,6 +756,42 @@ ya no existe—. Es el paso más importante de este bloque.
 
 ---
 
+## 15. C1 — El recorrido del cliente (fases y checkpoints)
+
+Construido el 2026-09-03. **28 tests** sobre la lógica pura.
+
+✅ **Migración aplicada** al proyecto OTC, y los cortes de la base verificados
+ejecutándolos en transacciones revertidas (cero filas quedaron): un color fuera
+de la paleta corta; un `sets_client_status` que no es uno de los cuatro de
+`clients.status` corta; un plazo de cero días corta; un checkpoint bajo una fase
+inexistente corta.
+
+🤖 No necesita ninguna cuenta externa. Sí necesita **al menos una columna de
+checkpoint** cargada en Campos personalizados para poder elegir métricas.
+
+| Paso | Resultado esperado |
+|---|---|
+| **Clientes → Recorrido del cliente** | Estado vacío con el botón de recorrido de ejemplo |
+| Apretar **Cargar un recorrido de ejemplo** | Tres fases: Onboarding, Primeros resultados, Escala |
+| Agregar un checkpoint a la primera fase | Aparece anidado bajo su fase |
+| Ponerle plazo `5` | Se muestra "5 d" con el reloj. El texto del formulario aclara **desde el checkpoint anterior** |
+| Ponerle "Al alcanzarlo pasa a: Activo" | Se muestra la etiqueta "→ Activo" |
+| Tildarle una métrica y marcarla obligatoria | Aparece con asterisco en la fila del checkpoint |
+| ⭐ Renombrar esa columna en **Campos personalizados** y volver | La métrica sigue enganchada y muestra el **nombre nuevo** — la referencia es por clave |
+| ⭐ Archivar esa columna y volver | La métrica queda marcada en ámbar con el aviso de que apunta a algo que ya no está disponible |
+| ⭐ Intentar **borrar una fase con checkpoints adentro** | **Se rechaza.** Si no lo hiciera, la cascada de la base borraría todos los checkpoints sin avisar |
+| Borrar una fase vacía | Se borra |
+| Subir y bajar fases y checkpoints | El orden persiste al recargar |
+| ⚠️ Borrar un checkpoint que algún cliente alcanzó | **Hoy no se puede probar**: `client_checkpoint_events` la trae C2. Reverificar entonces |
+| 🔒 Entrar con un usuario `operator` | No ve el botón en Clientes; entrando por la dirección directa ve el recorrido sin botones de editar |
+| 🔒 RLS de las dos tablas | Un usuario de otra organización no ve ni una fila |
+
+**Qué significa si falla el renombrado:** si al renombrar una columna la métrica
+del checkpoint se desengancha, el puente entre C0 y C1 está roto y hay que mirar
+`resolveMetricSchema` antes de seguir con C2.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

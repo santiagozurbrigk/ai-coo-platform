@@ -83,6 +83,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Campos personalizados",
     subtitle: "Clientes — columnas de wins y checkpoints",
   },
+  "/clients/checkpoints": {
+    title: "Recorrido del cliente",
+    subtitle: "Clientes — fases y checkpoints",
+  },
   "/operations/overview": {
     title: "Operaciones",
     subtitle: "Salud operativa del negocio",
@@ -218,7 +222,8 @@ export function getPageMeta(pathname: string): {
   if (
     pathname.startsWith("/clients/") &&
     pathname !== "/clients/pending-calls" &&
-    pathname !== "/clients/campos"
+    pathname !== "/clients/campos" &&
+    pathname !== "/clients/checkpoints"
   ) {
     return { title: "Detalle de cliente", subtitle: "Clientes" };
   }

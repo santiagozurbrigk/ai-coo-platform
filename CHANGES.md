@@ -14,6 +14,88 @@
 
 ---
 
+### 2026-09-03 — C1: el recorrido del cliente (fases y checkpoints configurables)
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260903081000_client_journey.sql` (nueva), `lib/checkpoints/**` (nuevo), `types/checkpoints.ts` (nuevo), `app/clients/checkpoint-actions.ts` (nuevo), `components/clients/checkpoints/**` (nuevo), `app/(platform)/clients/checkpoints/page.tsx` (nueva), `routes/paths.ts`, `lib/navigation/page-meta.ts`, `components/clients/clients-list.tsx`, `components/clients/custom-fields/custom-fields-page.tsx`
+
+**Qué se hizo:**
+
+Segunda fase del Encargo C. Un cliente tenía un estado grueso —pendiente,
+onboardeado, activo, caso de éxito— y nada más: no había forma de decir "ya hizo
+la sesión de arranque pero todavía no lanzó", ni de notar que alguien está
+trabado hace tres semanas en un paso que debería tomar cinco días.
+
+**Dos niveles.** `client_journey_stages` son los tramos grandes; `client_checkpoints`
+son los hitos concretos dentro de cada tramo. Un checkpoint no es una tarea: es
+una afirmación sobre el negocio del cliente.
+
+**⭐ Las métricas de un checkpoint SON campos de C0.** `metric_schema` guarda
+`[{ field_key, required }]` — **referencias** a `field_definitions` con
+`entity = 'checkpoint'`, no una copia de esas definiciones. Renombrar una métrica
+la cambia en todos los checkpoints a la vez porque lo guardado es la clave. Es la
+decisión que el plan marcaba como cerrada: no hay un segundo mecanismo de campos
+configurables.
+
+**El plazo se cuenta desde el checkpoint anterior** (decisión de Santiago,
+2026-09-03), no desde el alta del cliente: así "5 días" significa lo mismo para
+el primer hito que para el décimo. `cumulativeExpectedDays` devuelve `null` en
+cuanto **un solo** paso del camino no tiene plazo — sumar sólo los configurados
+daría un número menor al real y parecería una respuesta.
+
+**Decisiones de diseño relevantes:**
+
+- **Un checkpoint puede endurecer la obligatoriedad de una métrica, nunca
+  aflojarla.** Un campo obligatorio en C0 lo es en todos lados; si no, la
+  configuración global no significaría nada.
+- **Un checkpoint sin fase se devuelve aparte, no se descarta.** Si se filtrara en
+  silencio, alguien configuraría un hito y no lo vería nunca más sin ningún aviso.
+  La pantalla los muestra en un panel propio.
+- **Una referencia rota a una métrica se muestra marcada, no se esconde.** Ver
+  "esta métrica apunta a una columna que ya no existe" es lo que permite sacarla.
+- **Borrar una fase con checkpoints se rechaza.** La cascada de la base los
+  borraría a todos —está verificado— y ese es justo el borrado silencioso que no
+  queremos.
+- **`clients.status` no se toca.** El checkpoint puede *setearlo* si su definición
+  lo dice, que es distinto de hacerlo configurable. La lista de cuatro valores se
+  re-declara en `types/checkpoints.ts` para dejar explícito que es otra decisión.
+- **`product_id` nullable desde el día uno**, pero la UI v1 asume **un solo
+  recorrido por organización** (decisión abierta #3 del plan). Si resulta que
+  depende del producto, cambia la pantalla, no el modelo.
+
+**Verificación ejecutada:**
+- `pnpm test`: **663 tests en 41 archivos, todos en verde** (28 nuevos de `lib/checkpoints`).
+- `tsc --noEmit`, `pnpm lint` y `pnpm build` limpios; `/clients/checkpoints` se construye.
+- **Migración aplicada** al proyecto OTC. Los cortes se probaron ejecutándolos en
+  transacciones revertidas (cero filas quedaron): un color fuera de la paleta
+  **corta**; un estado que no es uno de los cuatro de `clients.status` **corta**;
+  un plazo de cero días **corta**; un checkpoint bajo una fase inexistente
+  **corta**; y borrar una fase **se lleva sus checkpoints por cascada** — que es
+  exactamente por lo que la app lo impide.
+- **La pantalla se abrió en un navegador** (dev server + Playwright), con fases,
+  plazos, estados, métricas y una referencia rota marcada en ámbar.
+
+**Un error de UI encontrado al mirarla, y corregido en las dos pantallas:**
+el título aparecía **dos veces** —una en la barra superior y otra como `h1` del
+cuerpo—. El repo tiene una convención explícita en `components/shared/page-header.tsx`
+("omitir el título si ya aparece en el topbar"). Las dos pantallas del Encargo C
+pasan a usar `PageHeader`, así que el arreglo alcanza también a C0.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **Nada se probó con una sesión real.** Las capturas se sacaron forzando el
+  founder y con datos fabricados: prueban que la pantalla se dibuja, no que
+  guardar funcione.
+- **En la ficha del cliente todavía no aparece nada.** Registrar que un cliente
+  alcanzó un checkpoint es C2; marcar trabados es C3.
+- **`clients.current_stage_id` no se agregó todavía**: es estado, no catálogo, y
+  se escribe cuando se registra un evento. Va en la migración de C2.
+- El reordenamiento hace un `update` por fila en un `for`, igual que en C0.
+- Sin cobertura de Playwright en la pantalla.
+
+---
+
 ### 2026-09-02 — C0: campos configurables (pieza compartida Wins + Checkpoints)
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`

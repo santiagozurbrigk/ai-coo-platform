@@ -9,11 +9,33 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [C1-PROBAR-PANTALLA] Probar el Recorrido del cliente con una sesión real
+
+**Qué es:** la migración está aplicada y los cortes de la base verificados, pero
+la pantalla sólo se vio **con datos fabricados y el founder forzado**. Falta la
+pasada real: crear tres fases, meterles checkpoints y elegirles métricas.
+
+**Qué mirar,** bloque §15 de `docs/PLAN_VERIFICACION.md`. Los dos pasos que más
+importan: que una métrica siga apuntando a su columna después de renombrarla, y
+que borrar una fase con checkpoints adentro **se rechace** (la base los borraría
+en cascada).
+
+**Pendiente de scope, anotado a propósito:** `clients.current_stage_id` todavía
+no existe. Es estado, no catálogo, y se escribe al registrar un evento — va en la
+migración de **C2**.
+
+---
+
 ### [C0-PROBAR-PANTALLA] Probar Campos personalizados con una sesión real
 
-**Qué es:** la pantalla ya se abrió en un navegador y renderiza bien, pero
-**sin sesión real**: el founder se forzó a mano para poder verla. Falta la pasada
-con un usuario de verdad, que es la única que prueba los permisos y el guardado.
+**Qué es:** ✅ **parcialmente verificado el 2026-09-03 con datos reales.** En la
+base hay dos columnas creadas desde la pantalla: una de wins (`tipo_de_win`, 7
+opciones, cargada con el botón de ejemplo y **después renombrada a "Wbinar"
+manteniendo su clave interna** — que es la prueba del mecanismo entero) y una de
+checkpoints (`nose`, lista de 2 opciones, obligatoria).
+
+Queda por probar: archivar una opción, el rechazo al sacar una opción en uso, y
+que un `operator` no vea los botones de editar.
 
 **Qué mirar,** en el orden del bloque §14 de `docs/PLAN_VERIFICACION.md`. El paso
 que más importa: crear una columna, renombrarla y confirmar que su **clave interna

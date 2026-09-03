@@ -81,6 +81,8 @@ export const paths = {
       pendingCalls: `${PLATFORM}/clients/pending-calls`,
       /** C0 · Configuración de las columnas configurables de wins y checkpoints. */
       customFields: `${PLATFORM}/clients/campos`,
+      /** C1 · Catálogo de fases y checkpoints del recorrido del cliente. */
+      checkpoints: `${PLATFORM}/clients/checkpoints`,
     },
 
     operations: {
