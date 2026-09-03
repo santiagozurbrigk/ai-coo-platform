@@ -30,8 +30,9 @@ import { ClosingCalendar } from "./closing-calendar";
 import { ClosersRanking } from "./closers-ranking";
 import { PaymentModal } from "./payment-modal";
 import { NoCloseModal } from "./no-close-modal";
-import { LeadFollowUpPanel } from "./lead-follow-up-panel";
-import type { LeadSummary } from "@/app/sales/lead-actions";
+import { LeadsTable } from "./leads-table";
+import type { LeadTableResult } from "@/app/sales/lead-actions";
+import type { TeamMember } from "@/types/team";
 
 const TABS = [
   { label: "Calendario", hash: "calendario" },
@@ -81,14 +82,17 @@ function formatCallDate(iso: string) {
 export function ClosingOverview({
   ghlCalendars = [],
   ghlSelectedCalendarIds = [],
-  leadsNeedingAttention = [],
+  leadsTable,
+  teamMembers = [],
 }: {
   /** Calendarios disponibles en GHL (fetched server-side). Vacío si no hay integración. */
   ghlCalendars?: GHLCalendar[];
   /** IDs de calendarios actualmente seleccionados para sync. */
   ghlSelectedCalendarIds?: string[];
-  /** Leads con trabajo pendiente, resueltos en el servidor. */
-  leadsNeedingAttention?: LeadSummary[];
+  /** Primera página de la tabla de seguimiento, resuelta en el servidor. */
+  leadsTable: LeadTableResult;
+  /** Equipo de la organización, para asignar el responsable del próximo paso. */
+  teamMembers?: TeamMember[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -202,7 +206,7 @@ export function ClosingOverview({
       />
 
       {activeTab === "seguimiento" ? (
-        <LeadFollowUpPanel leads={leadsNeedingAttention} />
+        <LeadsTable initial={leadsTable} teamMembers={teamMembers} />
       ) : activeTab === "equipo" ? (
         <div className="space-y-4">
           <ClosersRanking />

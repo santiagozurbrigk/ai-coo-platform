@@ -718,6 +718,66 @@ organización. Hoy dice en qué punto quedó, no si sigue viva — eso lo cubre
 
 ---
 
+## 14. Seguimiento en tabla, con valores propios (2026-09-03)
+
+Construido sin poder abrirlo en un navegador: la sesión no tiene la app corriendo
+ni cobertura de Playwright en esta pantalla. Todo lo de acá es 🤖 —no hace falta
+ninguna cuenta externa—, pero **nada se vio renderizado**.
+
+**Antes de nada:** aplicar `supabase/migrations/20260903120000_sales_follow_up_options.sql`.
+Sin eso la tabla funciona igual (cae a los valores de fábrica), pero crear un
+valor propio falla.
+
+### 14.1 La tabla reemplaza al acordeón
+
+| Paso | Resultado esperado |
+|---|---|
+| Entrar a **Ventas → Closing → Seguimiento** | Una tabla con nueve columnas, no las tarjetas desplegables |
+| Mirar el pill **Pendientes** | El número tiene que coincidir con lo que mostraba el panel anterior |
+| ⭐ Pasar a **Todos** | Aparecen también los ganados, perdidos y agendados — los ~845 leads que antes no se veían en ninguna pantalla |
+| Buscar por nombre y por mail | Filtra sobre el total, no sobre la página |
+| Pasar de página | La numeración dice `51–100 de N` y las filas cambian |
+
+### 14.2 Editar en la celda
+
+| Paso | Resultado esperado |
+|---|---|
+| Elegir un **próximo paso** en una fila | Se guarda solo, sin botón. La columna **Estado** cambia en el acto |
+| ⭐ Recargar la página | El cambio sigue ahí: el guardado optimista no mintió |
+| Cambiar la **fecha** | El estado pasa de "Seguimiento vencido" a "Seguimiento agendado" al ponerla a futuro |
+| Elegir **Dar por perdido** | La celda de fecha queda deshabilitada y el estado pasa a "Perdido" |
+| ⭐ Cambiar el próximo paso de una fila que ya tenía nota y responsable | La nota y el responsable **no se borran** |
+| Asignar un **responsable** | Es la primera vez que `next_action_owner_id` se puede cargar desde la UI; verificar en la base que la columna se llenó |
+| Escribir una **nota** y hacer click afuera | Se guarda; con Escape vuelve al valor anterior |
+| Click en el nombre del lead | Se abre el panel lateral con el hilo de intentos completo |
+
+### 14.3 Valores propios ⭐
+
+| Paso | Resultado esperado |
+|---|---|
+| Abrir el selector de próximo paso → **Crear valor…** | Formulario con nombre, color y comportamiento |
+| Crear uno con **Necesita fecha** (ej. "Esperando pago") | Queda seleccionado en esa fila y disponible en todas las demás |
+| ⭐ Crear uno con **Cierra el hilo** (ej. "Derivado a socio") y elegirlo | El estado pasa a "Perdido" y la fecha queda deshabilitada — se comporta igual que `lost` |
+| Crear una **calificación** propia | No pide comportamiento: las calificaciones sólo describen |
+| Intentar crear uno con un nombre que ya existe | Lo rechaza con "Ya existe un valor con ese nombre" |
+| Abrir **Valores** en la barra | Los de fábrica se ven con un candado; los propios se renombran, recolorean y archivan |
+| ⭐ Archivar un valor que **está en uso** | Desaparece del selector, pero las filas que lo tenían lo siguen mostrando tachado. **El dato no se blanquea** |
+| 🔒 Verificar RLS de `sales_follow_up_options` | Un usuario de otra organización no ve ni crea valores ajenos |
+
+### 14.4 Lo que puede fallar
+
+- ⚠️ **El techo de 2.000 leads.** El estado se deriva en JS, no en SQL, así que la
+  tabla se resuelve en memoria. Pasado ese número aparece el aviso y **hay leads
+  que no entran en la vista**. Hoy son ~845: sobra. El día que no sobre, hay que
+  derivar el estado en la base.
+- ⚠️ **Fecha por defecto.** Elegir un próximo paso que pide fecha y no la tiene la
+  pone en **pasado mañana** en vez de pedirla. Es deliberado —sin fecha el lead se
+  pierde en silencio— pero hay que confirmar que se entiende al usarlo.
+- ⚠️ **Sin cobertura de Playwright.** La lógica pura tiene 37 tests; la pantalla,
+  ninguno.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

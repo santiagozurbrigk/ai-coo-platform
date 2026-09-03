@@ -14,6 +14,99 @@
 
 ---
 
+### 2026-09-03 — Seguimiento en tabla, con valores propios de cada organización
+
+**Rama/branch:** `claude/seguimientos-tabla-closing-u6arke`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/sales/follow-up-options.ts` (nuevo), `app/sales/follow-up-options-actions.ts` (nuevo), `components/closing/{leads-table,lead-detail-drawer,follow-up-option-picker,manage-follow-up-options-dialog}.tsx` (nuevos), `components/closing/lead-follow-up-panel.tsx` (eliminado), `supabase/migrations/20260903120000_sales_follow_up_options.sql` (nueva), `lib/sales/lead-thread.ts`, `app/sales/lead-actions.ts`, `components/closing/closing-overview.tsx`, `app/(platform)/sales/closing/page.tsx`
+
+**Qué se hizo:**
+
+La pestaña **Seguimiento** del panel de closing pasa de acordeón a tabla editable
+tipo Airtable, y el vocabulario del seguimiento deja de estar cerrado.
+
+**⭐ La tabla, en vez del acordeón.** Editar un lead costaba tres clicks —abrir la
+fila, elegir el botón, guardar— y nunca se podían mirar dos leads a la vez. Ahora
+son nueve columnas y cada celda se edita en el lugar, guardando sola:
+calificación, próximo paso, fecha, responsable y notas. El historial de intentos
+se mudó a un panel lateral que se abre con el nombre del lead: dejó de ocupar la
+vista principal, pero no se perdió.
+
+**⭐ Se ven todos los leads, no sólo los que arden.** El panel anterior listaba
+únicamente los tres estados accionables, con `limit 100`. Los ganados, perdidos y
+agendados —la enorme mayoría de los ~845 leads— no aparecían en **ninguna**
+pantalla. El toggle *Pendientes / Todos* abre la base completa, con filtro por
+estado, buscador, orden y paginado.
+
+**⭐ El estado se sigue derivando, y ahora también en el cliente.** La columna
+Estado no se edita. Al cambiar una celda, la fila se recalcula con el mismo
+`buildLeadThread` que usa el servidor —es puro— así que el estado se mueve en el
+acto sin persistir nada derivado y sin esperar un round-trip.
+
+**⭐ Valores propios de seguimiento.** El próximo paso y la calificación eran
+listas cerradas por partida doble: constantes de TypeScript **y** un CHECK en
+Postgres. Agregar "Esperando pago" pedía migración y deploy, así que esa
+información terminaba en las notas, donde no se puede filtrar ni contar. Ahora
+cada organización crea los suyos desde el propio selector de la tabla.
+
+| | |
+|---|---|
+| Tabla nueva | `sales_follow_up_options` (org, kind, slug, label, color, behavior, sort_order, archived_at) |
+| CHECK dados de baja | `closing_calls_next_action_check`, `closing_calls_pre_call_qualification_check`, `closing_calls_post_call_qualification_check` |
+| Validación | pasa a la Server Action, contra `built-ins ∪ opciones de la org` |
+
+**Decisiones de diseño relevantes:**
+
+- **Un valor no es una etiqueta: tiene consecuencia.** `lost` cierra el hilo y
+  todo lo demás exige fecha. Si un valor propio fuera texto libre, el motor de
+  estados no sabría qué hacer con él. Por eso cada valor **declara su
+  comportamiento** al crearse (`needs_date` o `closes_thread`), y el motor pregunta
+  por el comportamiento en vez de comparar contra el string `lost`. Un valor
+  propio que cierra el hilo cierra igual que el de fábrica.
+- **Los valores de fábrica no se siembran en la base.** Viven en el código, como
+  en `knowledge_base_categories`: no hay que backfillear cada organización, una
+  organización nueva ya tiene vocabulario, y borrar filas no puede dejar a nadie
+  sin próximo paso posible. Un valor propio tampoco puede pisar a uno de fábrica
+  —si pudiera, alguien podría hacer que `lost` deje de cerrar y los leads perdidos
+  volverían a la cola para siempre.
+- **Se archiva, no se borra.** Hay turnos apuntando al slug: borrarlo vaciaría ese
+  dato en silencio. Archivado desaparece del selector y las filas viejas lo siguen
+  mostrando, tachado. Misma regla de siempre: lo que no se entiende se marca, no
+  se blanquea.
+- **Un slug desconocido pide fecha.** Es la respuesta prudente: si el valor se
+  archivó o se perdió, exigir la fecha mantiene al lead en la cola en vez de
+  dejarlo caer sin que nadie se entere.
+- **Cambiar el próximo paso no pisa el responsable ni la nota.** Sólo se tocan si
+  vienen explícitos en la llamada; borrar el paso sí los limpia, porque le
+  pertenecen.
+- **Elegir un paso que pide fecha sin tenerla la pone en pasado mañana** en vez de
+  bloquear el guardado. Un paso sin fecha nunca vence y por lo tanto nunca vuelve
+  a la cola; la celda de al lado queda lista para corregirla.
+- **Se completó `next_action_owner_id`**, que existía en la base y en la acción
+  desde la Fase 2 pero no tenía UI: era un pendiente anotado en `PENDIENTES.md`.
+- **El índice de la cola dejó de excluir `'lost'` por nombre** y ahora excluye lo
+  que no tiene fecha — que es la condición real, y cubre a cualquier valor propio
+  que cierre el hilo.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **Techo de 2.000 leads.** El estado se deriva en JS, no en SQL, así que filtrar y
+  paginar por estado se resuelve en memoria en el servidor. Con ~845 leads sobra;
+  pasado el techo la tabla avisa que hay leads afuera en vez de mostrarse
+  incompleta. El día que no alcance, hay que derivar el estado en la base.
+- **Nada se vio renderizado**: la sesión no corrió la app ni tiene Playwright en
+  esta pantalla. El bloque de verificación quedó en `docs/PLAN_VERIFICACION.md` §14.
+- **La migración no está aplicada** todavía en Supabase. Sin ella la tabla
+  funciona con los valores de fábrica, pero crear uno propio falla.
+- **La calificación previa** (`pre_call_qualification`) sigue sin exponerse: la
+  tabla sólo edita la posterior.
+
+**Verificación:** `tsc --noEmit` limpio, `pnpm build` OK, **595 tests en verde**
+(18 nuevos: 13 del catálogo de valores y 5 del motor de estados con valores
+propios).
+
+---
+
 ### 2026-09-02 — Llamadas Fase 2: seguimiento del lead
 
 **Rama/branch:** `Claude-New-Features`

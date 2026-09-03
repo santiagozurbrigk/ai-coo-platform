@@ -9,8 +9,17 @@ import {
   type LeadAttempt,
   type LeadQualification,
   type LeadThread,
+  type LeadThreadState,
   type NextAction,
 } from "@/lib/sales/lead-thread";
+import {
+  closingActionSlugs,
+  findOption,
+  needsDate,
+  selectableOptions,
+  type FollowUpCatalog,
+} from "@/lib/sales/follow-up-options";
+import { getFollowUpCatalogAction } from "@/app/sales/follow-up-options-actions";
 import type { ClosingCallStatus } from "@/types/closing";
 import { paths } from "@/routes";
 
@@ -19,7 +28,7 @@ import { paths } from "@/routes";
  */
 
 const ATTEMPT_COLUMNS =
-  "id, scheduled_at, status, next_action, next_action_at, pre_call_qualification, post_call_qualification";
+  "id, scheduled_at, status, next_action, next_action_at, next_action_owner_id, next_action_notes, pre_call_qualification, post_call_qualification";
 
 type AttemptRow = {
   id: string;
@@ -27,6 +36,8 @@ type AttemptRow = {
   status: ClosingCallStatus;
   next_action: NextAction | null;
   next_action_at: string | null;
+  next_action_owner_id: string | null;
+  next_action_notes: string | null;
   pre_call_qualification: LeadQualification | null;
   post_call_qualification: LeadQualification | null;
 };
@@ -38,6 +49,8 @@ function rowToAttempt(row: AttemptRow): LeadAttempt {
     status: row.status,
     nextAction: row.next_action,
     nextActionAt: row.next_action_at,
+    nextActionOwnerId: row.next_action_owner_id,
+    nextActionNotes: row.next_action_notes,
     preCallQualification: row.pre_call_qualification,
     postCallQualification: row.post_call_qualification,
   };
@@ -52,68 +65,224 @@ export type LeadSummary = {
   clientId: string | null;
 };
 
+// ─── La tabla ────────────────────────────────────────────────────────────────
+
 /**
- * Leads que necesitan atención, más urgente primero.
+ * Una fila de la tabla de seguimiento.
  *
- * ⭐ **Es la pantalla que no existía.** De 1.027 turnos, cero tenían resultado
- * cargado — no porque nadie trabajara, sino porque no había dónde anotar qué
- * seguía después de una llamada que no cerró. Acá aparecen los tres casos que
- * son trabajo real: falta cargar el resultado, el seguimiento venció, o el lead
- * quedó sin próximo paso.
+ * Trae ya resuelto lo que se ve y lo que se edita, más el hilo completo para el
+ * panel de detalle: son ~1 consulta por página en vez de una por fila abierta.
  */
-export async function listLeadsNeedingAttentionAction(
-  limit = 100
-): Promise<LeadSummary[]> {
+export type LeadTableRow = {
+  leadId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  clientId: string | null;
+  state: LeadThreadState;
+  attemptCount: number;
+  lastAttemptAt: string | null;
+  lastStatus: ClosingCallStatus | null;
+  qualification: string | null;
+  nextAction: string | null;
+  nextActionAt: string | null;
+  nextActionOwnerId: string | null;
+  nextActionNotes: string | null;
+  /**
+   * Turno sobre el que escriben las ediciones de la fila.
+   *
+   * Es el intento accionable cuando lo hay; si no, el más reciente — editar un
+   * lead ganado o perdido tiene que seguir siendo posible.
+   */
+  targetAttemptId: string | null;
+  /** Del más reciente al más viejo, para el panel de detalle. */
+  attempts: LeadAttempt[];
+};
+
+export type LeadTableScope = "pending" | "all";
+export type LeadTableSort = "urgency" | "recent" | "name" | "next_action_at";
+
+export type LeadTableParams = {
+  scope?: LeadTableScope;
+  /** Un estado puntual, o "all". */
+  state?: LeadThreadState | "all";
+  search?: string;
+  sort?: LeadTableSort;
+  page?: number;
+  pageSize?: number;
+};
+
+export type LeadTableResult = {
+  rows: LeadTableRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  /** Cuántos leads hay en cada estado, sobre el total (no sobre la página). */
+  counts: Record<LeadThreadState, number>;
+  catalog: FollowUpCatalog;
+  /**
+   * Se alcanzó el techo de lectura y hay leads que no entraron.
+   *
+   * El estado se **deriva** de los turnos, no se guarda, así que no se puede
+   * filtrar ni paginar en SQL. A esta escala se resuelve en memoria; el día que
+   * no alcance, hay que derivarlo en la base. Decirlo es preferible a mostrar
+   * una tabla incompleta como si fuera todo.
+   */
+  truncated: boolean;
+};
+
+/** Techo de lectura. Ver `truncated`. */
+const MAX_LEADS = 2000;
+const DEFAULT_PAGE_SIZE = 50;
+
+/** Orden de urgencia: el compromiso incumplido primero. */
+const URGENCY: Record<LeadThreadState, number> = {
+  follow_up_due: 0,
+  pending_outcome: 1,
+  stalled: 2,
+  scheduled: 3,
+  follow_up_planned: 4,
+  won: 5,
+  lost: 6,
+};
+
+const EMPTY_COUNTS: Record<LeadThreadState, number> = {
+  follow_up_due: 0,
+  pending_outcome: 0,
+  stalled: 0,
+  scheduled: 0,
+  follow_up_planned: 0,
+  won: 0,
+  lost: 0,
+};
+
+function time(iso: string | null): number {
+  if (!iso) return 0;
+  const value = new Date(iso).getTime();
+  return Number.isNaN(value) ? 0 : value;
+}
+
+/**
+ * La tabla de seguimiento.
+ *
+ * ⭐ **Muestra todos los leads, no sólo los que arden.** El panel anterior sólo
+ * listaba los tres estados accionables: los ganados, perdidos y agendados no se
+ * veían en ninguna pantalla. Con `scope: "all"` la tabla es la base completa.
+ */
+export async function listLeadsTableAction(
+  params: LeadTableParams = {}
+): Promise<LeadTableResult> {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
+  const scope = params.scope ?? "pending";
+  const page = Math.max(1, params.page ?? 1);
+  const pageSize = Math.min(200, Math.max(10, params.pageSize ?? DEFAULT_PAGE_SIZE));
+  const sort = params.sort ?? "urgency";
+  const search = (params.search ?? "").trim().toLowerCase();
+
+  const catalog = await getFollowUpCatalogAction();
+  const closing = closingActionSlugs(catalog.nextActions);
+
   const { data, error } = await supabase
     .from("sales_leads")
-    .select(`id, name, email, client_id, closing_calls(${ATTEMPT_COLUMNS})`)
+    .select(`id, name, email, phone, client_id, closing_calls(${ATTEMPT_COLUMNS})`)
     .eq("organization_id", organizationId)
-    .limit(limit);
+    .limit(MAX_LEADS + 1);
 
-  if (error) return [];
+  if (error) {
+    return {
+      rows: [],
+      total: 0,
+      page,
+      pageSize,
+      counts: { ...EMPTY_COUNTS },
+      catalog,
+      truncated: false,
+    };
+  }
 
+  const raw = data ?? [];
+  const truncated = raw.length > MAX_LEADS;
   const now = new Date();
-  const summaries: LeadSummary[] = [];
+  const counts = { ...EMPTY_COUNTS };
+  const all: LeadTableRow[] = [];
 
-  for (const row of data ?? []) {
+  for (const row of raw.slice(0, MAX_LEADS)) {
     const attempts = Array.isArray(row.closing_calls)
       ? (row.closing_calls as AttemptRow[]).map(rowToAttempt)
       : [];
     // Un lead sin turnos no es trabajo pendiente: todavía no pasó nada.
     if (attempts.length === 0) continue;
 
-    const thread = buildLeadThread(attempts, now);
-    if (!isActionable(thread.state)) continue;
+    const thread = buildLeadThread(attempts, now, closing);
+    counts[thread.state] += 1;
 
-    summaries.push({
+    const target =
+      thread.actionableAttemptId ?? thread.attempts[0]?.id ?? null;
+    const targetAttempt = thread.attempts.find((a) => a.id === target) ?? null;
+    const latest = thread.attempts[0] ?? null;
+
+    all.push({
       leadId: row.id as string,
       name: (row.name as string) ?? "Sin nombre",
       email: (row.email as string | null) ?? null,
+      phone: (row.phone as string | null) ?? null,
       clientId: (row.client_id as string | null) ?? null,
-      thread,
+      state: thread.state,
+      attemptCount: thread.attemptCount,
+      lastAttemptAt: latest?.scheduledAt ?? null,
+      lastStatus: latest?.status ?? null,
+      qualification: thread.latestQualification,
+      nextAction: targetAttempt?.nextAction ?? null,
+      nextActionAt: targetAttempt?.nextActionAt ?? null,
+      nextActionOwnerId: targetAttempt?.nextActionOwnerId ?? null,
+      nextActionNotes: targetAttempt?.nextActionNotes ?? null,
+      targetAttemptId: target,
+      attempts: thread.attempts,
     });
   }
 
-  // Orden de urgencia: el compromiso incumplido primero, después lo que quedó
-  // sin desenlace, y por último los leads que nadie retomó.
-  const URGENCY: Record<string, number> = {
-    follow_up_due: 0,
-    pending_outcome: 1,
-    stalled: 2,
-  };
-  summaries.sort((a, b) => {
-    const byState = (URGENCY[a.thread.state] ?? 9) - (URGENCY[b.thread.state] ?? 9);
+  let rows = all;
+  if (scope === "pending") rows = rows.filter((r) => isActionable(r.state));
+  if (params.state && params.state !== "all") {
+    rows = rows.filter((r) => r.state === params.state);
+  }
+  if (search) {
+    rows = rows.filter(
+      (r) =>
+        r.name.toLowerCase().includes(search) ||
+        (r.email ?? "").toLowerCase().includes(search)
+    );
+  }
+
+  rows = [...rows].sort((a, b) => {
+    if (sort === "name") return a.name.localeCompare(b.name, "es");
+    if (sort === "recent") return time(b.lastAttemptAt) - time(a.lastAttemptAt);
+    if (sort === "next_action_at") {
+      // Los que no tienen fecha van al final, no al principio.
+      const ta = a.nextActionAt ? time(a.nextActionAt) : Number.MAX_SAFE_INTEGER;
+      const tb = b.nextActionAt ? time(b.nextActionAt) : Number.MAX_SAFE_INTEGER;
+      return ta - tb;
+    }
+    const byState = URGENCY[a.state] - URGENCY[b.state];
     if (byState !== 0) return byState;
-    // Dentro del mismo estado, lo más viejo primero.
-    const ta = new Date(a.thread.attempts[0]?.scheduledAt ?? 0).getTime();
-    const tb = new Date(b.thread.attempts[0]?.scheduledAt ?? 0).getTime();
-    return ta - tb;
+    // Dentro del mismo estado, lo más viejo primero: es lo que espera hace más.
+    return time(a.lastAttemptAt) - time(b.lastAttemptAt);
   });
 
-  return summaries;
+  const total = rows.length;
+  const start = (page - 1) * pageSize;
+
+  return {
+    rows: rows.slice(start, start + pageSize),
+    total,
+    page,
+    pageSize,
+    counts,
+    catalog,
+    truncated,
+  };
 }
 
 /** El hilo completo de un lead. */
@@ -123,12 +292,15 @@ export async function getLeadThreadAction(
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("sales_leads")
-    .select(`id, name, email, client_id, closing_calls(${ATTEMPT_COLUMNS})`)
-    .eq("id", leadId)
-    .eq("organization_id", organizationId)
-    .maybeSingle();
+  const [catalog, { data, error }] = await Promise.all([
+    getFollowUpCatalogAction(),
+    supabase
+      .from("sales_leads")
+      .select(`id, name, email, client_id, closing_calls(${ATTEMPT_COLUMNS})`)
+      .eq("id", leadId)
+      .eq("organization_id", organizationId)
+      .maybeSingle(),
+  ]);
 
   if (error || !data) return null;
 
@@ -141,7 +313,11 @@ export async function getLeadThreadAction(
     name: (data.name as string) ?? "Sin nombre",
     email: (data.email as string | null) ?? null,
     clientId: (data.client_id as string | null) ?? null,
-    thread: buildLeadThread(attempts),
+    thread: buildLeadThread(
+      attempts,
+      new Date(),
+      closingActionSlugs(catalog.nextActions)
+    ),
   };
 }
 
@@ -159,24 +335,99 @@ export async function setNextActionAction(params: {
 }): Promise<{ ok: boolean; error?: string }> {
   const organizationId = await requireOrganizationId();
 
-  // Un próximo paso sin fecha no es un compromiso: nunca vencería, así que
-  // nunca volvería a aparecer en la cola. `lost` es la excepción, porque cierra.
-  if (
-    params.nextAction &&
-    params.nextAction !== "lost" &&
-    !params.nextActionAt
-  ) {
-    return { ok: false, error: "El próximo paso necesita una fecha." };
+  // El catálogo decide: qué valores existen y cuáles piden fecha. Antes esto era
+  // una comparación contra el string `lost`, que dejaba afuera a cualquier valor
+  // propio que también cierre el hilo.
+  const catalog = await getFollowUpCatalogAction();
+  const wantsDate = params.nextAction
+    ? needsDate(catalog.nextActions, params.nextAction)
+    : false;
+
+  if (params.nextAction) {
+    const option = findOption(catalog.nextActions, params.nextAction);
+    // Un slug que no está en el catálogo no se guarda: sería un valor inventado,
+    // y nada sabría después qué hacer con él.
+    if (!option) {
+      return { ok: false, error: "Ese próximo paso no existe en el catálogo." };
+    }
+    if (option.archived) {
+      return { ok: false, error: "Ese valor está archivado." };
+    }
+    // Un próximo paso sin fecha no es un compromiso: nunca vencería, así que
+    // nunca volvería a aparecer en la cola. Los valores que cierran el hilo son
+    // la excepción, porque lo terminan.
+    if (wantsDate && !params.nextActionAt) {
+      return { ok: false, error: "El próximo paso necesita una fecha." };
+    }
+  }
+
+  const patch: Record<string, unknown> = {
+    next_action: params.nextAction,
+    // Un valor que cierra el hilo no lleva fecha: no hay nada que vencer.
+    next_action_at: wantsDate ? (params.nextActionAt ?? null) : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (!params.nextAction) {
+    // Sin próximo paso no hay responsable ni nota del paso: son del compromiso
+    // que se acaba de borrar.
+    patch.next_action_owner_id = null;
+    patch.next_action_notes = null;
+  } else {
+    // Cambiar el próximo paso desde la tabla no puede pisar el responsable ni la
+    // nota que alguien ya había cargado: sólo se tocan si vienen en la llamada.
+    if (params.ownerId !== undefined) patch.next_action_owner_id = params.ownerId;
+    if (params.notes !== undefined) patch.next_action_notes = params.notes;
   }
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("closing_calls")
+    .update(patch)
+    .eq("id", params.callId)
+    .eq("organization_id", organizationId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(paths.platform.sales.closing);
+  return { ok: true };
+}
+
+/** Cambia sólo el responsable del próximo paso, sin tocar el resto. */
+export async function setNextActionOwnerAction(params: {
+  callId: string;
+  ownerId: string | null;
+}): Promise<{ ok: boolean; error?: string }> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("closing_calls")
     .update({
-      next_action: params.nextAction,
-      next_action_at: params.nextAction ? (params.nextActionAt ?? null) : null,
-      next_action_owner_id: params.nextAction ? (params.ownerId ?? null) : null,
-      next_action_notes: params.nextAction ? (params.notes ?? null) : null,
+      next_action_owner_id: params.ownerId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", params.callId)
+    .eq("organization_id", organizationId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(paths.platform.sales.closing);
+  return { ok: true };
+}
+
+/** Cambia sólo las notas del próximo paso. */
+export async function setNextActionNotesAction(params: {
+  callId: string;
+  notes: string | null;
+}): Promise<{ ok: boolean; error?: string }> {
+  const organizationId = await requireOrganizationId();
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("closing_calls")
+    .update({
+      next_action_notes: params.notes?.trim() || null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", params.callId)
@@ -195,6 +446,18 @@ export async function setLeadQualificationAction(params: {
   qualification: LeadQualification | null;
 }): Promise<{ ok: boolean; error?: string }> {
   const organizationId = await requireOrganizationId();
+
+  if (params.qualification) {
+    const catalog = await getFollowUpCatalogAction();
+    const option = findOption(
+      selectableOptions(catalog.qualifications),
+      params.qualification
+    );
+    if (!option) {
+      return { ok: false, error: "Esa calificación no existe en el catálogo." };
+    }
+  }
+
   const supabase = await createClient();
 
   const column =
