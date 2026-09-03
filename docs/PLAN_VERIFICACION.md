@@ -735,7 +735,7 @@ Lo que sigue es la pasada por la pantalla, que no se hizo.
 
 | Paso | Resultado esperado |
 |---|---|
-| Entrar a **Configuración → Campos personalizados** | Dos solapas (Wins, Checkpoints), las dos vacías |
+| Entrar a **Clientes** → botón **Campos personalizados** (arriba a la derecha, junto a "Crear planes") | Dos solapas (Wins, Checkpoints), las dos vacías, y el encabezado dice "Campos personalizados" |
 | Apretar **Cargar "Tipo de win" de ejemplo** | Aparece una columna de lista con 7 opciones de colores |
 | Recargar la página | La columna sigue ahí, con el mismo orden |
 | ⭐ Renombrar la columna a "Categoría" | Cambia el nombre visible y la **clave interna sigue siendo `tipo_de_win`** — es lo que hace que renombrar no toque un dato cargado |
@@ -746,7 +746,7 @@ Lo que sigue es la pasada por la pantalla, que no se hizo.
 | Crear una columna llamada sólo con emojis | Se rechaza pidiendo al menos una letra o un número |
 | Borrar una columna recién creada | Se borra (nadie la usó todavía) |
 | ⚠️ Borrar una columna **con datos cargados**, cuando exista `client_wins` | Se rechaza y ofrece archivar. **Hoy no se puede probar**: la tabla de valores la trae el Encargo A |
-| 🔒 Entrar con un usuario `operator` | Ve la configuración pero no los botones de editar; las acciones del servidor rechazan igual si se llaman directo |
+| 🔒 Entrar con un usuario `operator` | **No ve el botón** en Clientes; entrando por la dirección directa ve la configuración sin botones de editar, y las acciones del servidor rechazan igual si se llaman a mano |
 | 🔒 Verificar RLS de `field_definitions` | Un usuario de otra organización no ve ni una fila |
 | ⚠️ Elegir `options_source = 'journey_stages'` | **No se puede desde la UI todavía, y está bien**: el catálogo de fases lo entrega C1. La columna existe en la base desde ahora |
 

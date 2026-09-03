@@ -18,7 +18,7 @@
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
 **Commits:** pendiente push
-**Módulo(s) afectado(s):** `supabase/migrations/20260903080000_field_definitions.sql` (nueva), `lib/custom-fields/**` (nuevo), `types/custom-fields.ts` (nuevo), `app/clients/custom-field-actions.ts` (nuevo), `components/clients/custom-fields/**` (nuevo), `app/(platform)/clients/campos/page.tsx` (nueva), `routes/paths.ts`, `lib/navigation/sidebar-modules.ts`, `docs/PLAN_VERIFICACION.md`
+**Módulo(s) afectado(s):** `supabase/migrations/20260903080000_field_definitions.sql` (nueva), `lib/custom-fields/**` (nuevo), `types/custom-fields.ts` (nuevo), `app/clients/custom-field-actions.ts` (nuevo), `components/clients/custom-fields/**` (nuevo), `app/(platform)/clients/campos/page.tsx` (nueva), `routes/paths.ts`, `lib/navigation/sidebar-modules.ts`, `lib/navigation/page-meta.ts`, `components/clients/clients-list.tsx`, `docs/PLAN_VERIFICACION.md`
 
 **Qué se hizo:**
 
@@ -102,6 +102,28 @@ errores juntos, no el primero.
   vocabulario; el trigger pisa un `updated_at` viejo; `options_source` arranca en
   `inline`.
 - `get_advisors` de seguridad: **ningún hallazgo sobre `field_definitions`**.
+- **La pantalla se abrió en un navegador** (dev server + Playwright): renderiza el
+  estado vacío, el botón desde Clientes, y el diálogo derivando la clave interna
+  en vivo (`Tipo de win` → `tipo_de_win`).
+
+**Dos errores encontrados al abrirla, y corregidos:**
+
+1. 🔴 **El acceso no se veía en el escritorio.** El ítem estaba en el grupo
+   "Configuración" de `sidebar-modules.ts`, y la barra superior
+   (`platform-notch-nav.tsx`) **saltea ese grupo entero** — de ahí sólo dibuja
+   Integraciones, con un `href` puesto a mano. Sólo aparecía en el menú mobile.
+   El comentario del archivo dice que la navegación sale del config, y eso vale
+   para la isla del medio pero **no para la isla derecha**. Se movió a un botón
+   en el encabezado de **Clientes**, junto a "Crear planes" (decisión de
+   Santiago), y se sacó del grupo "Configuración" para dejar **un solo acceso**.
+2. **El encabezado decía "Detalle de cliente".** `getPageMeta` tiene un catch-all
+   `pathname.startsWith("/clients/")` que capturaba la ruta nueva. Se agregó la
+   entrada explícita al mapa estático y la exclusión en el catch-all, igual que
+   ya estaba hecho para `/clients/pending-calls`.
+
+**La lección, anotada:** dar por buena una pantalla sin abrirla es exactamente
+cómo se cuelan estos dos. Los tests, el typecheck y el build pasaban con los dos
+errores adentro.
 
 **Riesgos / deuda técnica pendiente:**
 

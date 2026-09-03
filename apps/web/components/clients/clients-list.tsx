@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Badge, Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, StaggerFade, StaggerFadeItem } from "@ai-coo/ui";
-import { BookOpen, Settings2, Star, Trash2 } from "lucide-react";
+import { BookOpen, Settings2, SlidersHorizontal, Star, Trash2 } from "lucide-react";
 import { assignClientPlanAction, deleteClientAction } from "@/app/clients/actions";
 import { listPlansAction } from "@/app/clients/plan-actions";
 import { getClientsTableEnrichmentAction } from "@/app/clients/plan-duration-actions";
@@ -296,16 +296,30 @@ export function ClientsList({ clients }: { clients: Client[] }) {
           ) : null}
         </div>
         {isFounder ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => setPlansOpen(true)}
-          >
-            <Settings2 className="h-4 w-4" />
-            Crear planes
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setPlansOpen(true)}
+            >
+              <Settings2 className="h-4 w-4" />
+              Crear planes
+            </Button>
+            {/*
+              C0 · Único acceso a la configuración de columnas configurables.
+              Va acá y no en el grupo "Configuración" de la navegación: la barra
+              superior saltea ese grupo entero, así que desde el escritorio no se
+              llegaba.
+            */}
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link href={paths.platform.clients.customFields}>
+                <SlidersHorizontal className="h-4 w-4" />
+                Campos personalizados
+              </Link>
+            </Button>
+          </div>
         ) : null}
       </div>
 

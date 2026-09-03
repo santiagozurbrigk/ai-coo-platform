@@ -79,6 +79,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Clientes",
     subtitle: "Desde el cierre hasta caso de éxito",
   },
+  "/clients/campos": {
+    title: "Campos personalizados",
+    subtitle: "Clientes — columnas de wins y checkpoints",
+  },
   "/operations/overview": {
     title: "Operaciones",
     subtitle: "Salud operativa del negocio",
@@ -211,7 +215,11 @@ export function getPageMeta(pathname: string): {
   if (pathname.startsWith("/product/offer/")) {
     return { title: "Oferta", subtitle: "Detalle de oferta — Producto" };
   }
-  if (pathname.startsWith("/clients/") && pathname !== "/clients/pending-calls") {
+  if (
+    pathname.startsWith("/clients/") &&
+    pathname !== "/clients/pending-calls" &&
+    pathname !== "/clients/campos"
+  ) {
     return { title: "Detalle de cliente", subtitle: "Clientes" };
   }
   if (pathname === "/clients/pending-calls") {

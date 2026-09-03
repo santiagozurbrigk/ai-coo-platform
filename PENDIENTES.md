@@ -9,14 +9,17 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [C0-PROBAR-PANTALLA] Probar Campos personalizados en la app
+### [C0-PROBAR-PANTALLA] Probar Campos personalizados con una sesión real
 
-**Qué es:** la migración ya está aplicada y los cortes de la base están
-verificados, pero **la pantalla nunca se abrió**. Falta la pasada de UI.
+**Qué es:** la pantalla ya se abrió en un navegador y renderiza bien, pero
+**sin sesión real**: el founder se forzó a mano para poder verla. Falta la pasada
+con un usuario de verdad, que es la única que prueba los permisos y el guardado.
 
 **Qué mirar,** en el orden del bloque §14 de `docs/PLAN_VERIFICACION.md`. El paso
-que más importa: renombrar una columna y confirmar que su **clave interna no
-cambia** — si cambia, el mecanismo entero se cae.
+que más importa: crear una columna, renombrarla y confirmar que su **clave interna
+no cambia** — si cambia, el mecanismo entero se cae.
+
+**Verificar también** que un `operator` ve la pantalla sin los botones de editar.
 
 ---
 
