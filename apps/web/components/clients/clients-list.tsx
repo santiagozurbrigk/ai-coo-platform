@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Badge, Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, StaggerFade, StaggerFadeItem } from "@ai-coo/ui";
-import { AlertTriangle, BookOpen, Route, Settings2, SlidersHorizontal, Star, Trash2, Trophy } from "lucide-react";
+import { AlertTriangle, BookOpen, MoonStar, Route, Settings2, SlidersHorizontal, Star, Trash2, Trophy } from "lucide-react";
 import { assignClientPlanAction, deleteClientAction } from "@/app/clients/actions";
 import { listPlansAction } from "@/app/clients/plan-actions";
 import { getClientsTableEnrichmentAction } from "@/app/clients/plan-duration-actions";
+import { getClientsDiscordActivityAction } from "@/app/discord/actions";
+import type { ClientActivity } from "@/lib/discord/activity";
 import { getClientsJourneyStatusAction } from "@/app/clients/checkpoint-derived-actions";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import {
@@ -199,6 +201,8 @@ export function ClientsList({ clients }: { clients: Client[] }) {
   const [paidByClientId, setPaidByClientId] = useState<Record<string, number>>({});
   const [planDurations, setPlanDurations] = useState<PlanDuration[]>([]);
   const [isFounder, setIsFounder] = useState(false);
+  /** D2 · Actividad en Discord por cliente, para la señal de silencio. */
+  const [discordActivity, setDiscordActivity] = useState<Record<string, ClientActivity>>({});
   /** C3 · Fase actual y "trabado" por cliente. Derivado, no guardado. */
   const [journey, setJourney] = useState<Record<string, ClientJourneyStatus>>({});
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -212,11 +216,13 @@ export function ClientsList({ clients }: { clients: Client[] }) {
 
   useEffect(() => {
     startLoad(async () => {
-      const [enrichment, fetchedPlans, journeyStatus] = await Promise.all([
+      const [enrichment, fetchedPlans, journeyStatus, activity] = await Promise.all([
         getClientsTableEnrichmentAction(),
         listPlansAction(),
         getClientsJourneyStatusAction(),
+        getClientsDiscordActivityAction(),
       ]);
+      setDiscordActivity(activity);
       setPaidByClientId(enrichment.paidByClientId);
       setPlanDurations(enrichment.planDurations);
       setIsFounder(enrichment.isFounder);
@@ -453,7 +459,19 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                     </td>
                   ) : null}
                   <td className="px-4 py-3">
-                    <Badge variant="secondary">{STATUS_LABEL[client.status]}</Badge>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge variant="secondary">{STATUS_LABEL[client.status]}</Badge>
+                      {/* D2 · Silencio en Discord: se avisa donde ya se mira el estado. */}
+                      {discordActivity[client.id]?.isSilent ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border border-warning/40 px-1.5 py-0.5 text-[10px] text-warning"
+                          title={`Sin escribir en Discord hace ${discordActivity[client.id]?.daysSinceLastMessage} días`}
+                        >
+                          <MoonStar className="h-2.5 w-2.5" />
+                          {discordActivity[client.id]?.daysSinceLastMessage}d
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">

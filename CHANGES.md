@@ -14,6 +14,98 @@
 
 ---
 
+### 2026-09-03 — E · DISCORD: despliegue, actividad, silencio y testimonios
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `apps/discord-bot/{src/client.ts,src/index.ts,src/handlers/testimonial-handler.ts,Dockerfile,railway.json,.env.example}`, `lib/discord/{activity,classify-messages}.ts` (nuevos), `app/discord/actions.ts`, `components/clients/{client-discord-activity,clients-list}.tsx`, `docs/DISCORD_DEPLOY.md` (nuevo), y el cierre del pendiente de A (`components/clients/wins/client-baseline-dialog.tsx`)
+
+**Qué se hizo:**
+
+Encargo E (D1 + D2 + D3). El bot estaba **escrito entero y sin correr en ningún
+lado**.
+
+**D1 — operación, no código.** Runbook completo en `docs/DISCORD_DEPLOY.md`: activar
+el intent, sacar el token, desplegar en Railway y instalar el bot. Del lado del
+repo: `railway.json`, `.env.example` con de dónde sale cada variable, y un
+Dockerfile multi-stage que corre como `node` y no como root.
+
+**🔴 Un bloqueante de D1 encontrado y arreglado antes de que costara una tarde.**
+El bot pedía el intent `GuildMembers`, que **también es privilegiado** y que el
+código **no usa para nada**. Si Santiago activaba sólo MESSAGE CONTENT (que es lo
+que decía el plan), el login habría fallado entero con `Used disallowed intents` y
+el proceso habría muerto sin explicar por qué. Se sacó: un permiso menos que pedir
+y un modo de falla menos. Además el arranque ahora **valida `OTC_API_URL` y
+`OTC_WEBHOOK_SECRET`** (antes el bot arrancaba sin ellas y fallaba en silencio en
+cada request), traduce el error de intents a instrucciones concretas, y cierra
+limpio con SIGTERM para que Railway no deje sesiones colgadas.
+
+**D2 — actividad y silencio.** `summarizeClientActivity` sale de contar filas que
+el bot ya guarda: no necesita IA. La señal que importa no es cuánto habla un
+cliente sino **hace cuánto que no habla**. Se ve en la ficha y, como badge, en la
+lista de clientes junto al estado.
+
+**D3 — el bug que "iba a doler", corregido.** El detector marcaba como testimonio
+**todo** mensaje de un canal llamado `#wins`, sin leer el contenido: cada
+"felicitaciones 🎉" entraba al tracker. Ahora el nombre del canal es una señal
+más —baja el listón a una coincidencia, nunca a cero— y hay un largo mínimo. La
+clasificación de verdad la hace **Haiku por lote** (25 mensajes por llamada),
+que además llena `ai_sentiment`, `ai_summary` y `requires_attention`: **las tres
+columnas que existían desde el día uno y nadie llenaba**.
+
+**Decisiones de diseño relevantes:**
+
+- **⭐ Un testimonio es un candidato, nunca un win.** Convertirlo es una acción
+  explícita de una persona. El win queda con `source='discord'` y `source_ref`
+  apuntando al mensaje, y un mismo mensaje **no puede generar dos wins**.
+- **Un cliente que nunca habló NO está en silencio.** Marcarlo confundiría "no lo
+  conectamos todavía" con "se está yendo"; son dos problemas distintos y se
+  distinguen (`neverSpoke`).
+- **Los mensajes los escriben terceros**, así que van envueltos con
+  `wrapUntrustedContent`: nada de lo que diga un cliente de tu cliente puede
+  cambiar la tarea del modelo.
+- **La respuesta del modelo se valida contra el lote que se mandó**: un id
+  inventado o un sentimiento que no existe se descartan, y ese mensaje queda **sin
+  clasificar** en vez de guardarse con un valor inventado. Si un lote falla, sigue
+  el siguiente.
+- **Un mensaje con contenido vacío no se manda a clasificar**: es la señal de que
+  el intent no está activado, no un mensaje sin texto. No se paga por clasificar
+  el síntoma de un error de configuración.
+- **La lista de clientes no gana una columna**: la señal de silencio va junto al
+  estado. Ocho columnas ya son muchas.
+
+**También se cerró un pendiente del Encargo A:** el **nicho y el punto de partida**
+del cliente ahora tienen pantalla — un diálogo desde el dashboard de wins, que es
+donde se nota el hueco (ves "sin medir" y arreglás la causa ahí mismo).
+
+**Verificación ejecutada:**
+- `pnpm test`: **723 tests en 46 archivos, todos en verde** (22 nuevos de
+  `lib/discord`).
+- `tsc --noEmit` y `pnpm lint` limpios en la app **y en el bot**; `pnpm build` completo.
+- **Seguridad del bucket de wins verificada** (pendiente 🔴 de A, parcialmente
+  cerrado): `client-wins` es privado, 10 MB, sólo imágenes, y **ninguna policy de
+  `storage.objects` lo nombra** — ningún rol del cliente puede leerlo ni
+  escribirlo; sólo el admin del servidor, que es lo que hace el código.
+
+**Riesgos / deuda técnica pendiente:**
+
+- 🔴 **D1 no está hecho: es tuyo.** Nada del bot corre hasta activar el intent y
+  desplegar. El runbook está en `docs/DISCORD_DEPLOY.md`.
+- 🔴 **La subida de capturas de wins sigue sin ejecutarse.** Se verificó la
+  configuración y la seguridad del bucket, pero **la vuelta completa (pedir signed
+  URL → subir → leer) necesita la service role key**, que no está en este entorno.
+- **El clasificador nunca corrió contra la API.** La lógica pura tiene tests, pero
+  no se llamó a Haiku ni una vez: falta ver la calidad real de la clasificación,
+  sobre todo cuántos falsos positivos de testimonio quedan.
+- **No hay disparador automático del clasificador**: `classifyDiscordMessagesAction`
+  existe pero nadie la llama todavía. Debería ser un cron.
+- **La propuesta de checkpoint desde un mensaje (la cuarta conexión del plan) no
+  se construyó.** Testimonio → win sí; mensaje → checkpoint quedó afuera.
+- **Retención de mensajes de terceros: sin decidir.** Está anotado en el runbook
+  como algo a resolver **antes** de instalar el bot en el servidor de un cliente.
+
+---
+
 ### 2026-09-03 — A · WINS: tracker de logros y dashboard de casos
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`

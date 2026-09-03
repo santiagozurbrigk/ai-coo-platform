@@ -58,6 +58,7 @@ export function WinsPage({ initialData }: { initialData: WinsPageData }) {
             clients={data.clients}
             baselines={data.baselines}
             niches={data.niches}
+            onChanged={refresh}
           />
         </TabsContent>
       </Tabs>

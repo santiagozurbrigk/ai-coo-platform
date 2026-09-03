@@ -9,16 +9,49 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [A-BASELINE-SIN-UI] El baseline y el nicho del cliente no se pueden cargar desde la pantalla
+### [E-D1-DESPLEGAR] Desplegar el bot de Discord 🔴
 
-**Qué es:** el dashboard de wins usa `clients.niche` y el baseline
-(`baseline_metric_key/value/unit/captured_at`) para armar el punto inicial. La
-acción `updateClientBaselineAction` existe y valida, pero **no hay UI**: hoy se
-cargan por base.
+**Qué es:** el bot está escrito entero y **no corre en ningún lado**. Nada de la
+actividad, el silencio ni los testimonios funciona hasta que esté desplegado.
 
-**Dónde iría:** en la ficha del cliente, junto a los datos del cliente. Es lo que
-falta para que el dashboard muestre el recorrido completo desde el día uno en vez
-de arrancar en el primer win con número.
+**Es operación, no código.** El runbook paso a paso está en
+**`docs/DISCORD_DEPLOY.md`**: activar el intent MESSAGE CONTENT, sacar el token,
+desplegar en Railway con cinco variables, e instalar el bot en un servidor.
+
+**Cómo sabés que salió bien:** hay filas en `discord_messages` **con `content` no
+vacío**. Si `content` viene vacío, el intent no está activado — ese es el modo de
+falla peligroso, porque el bot parece andar.
+
+---
+
+### [E-RETENCION] Decidir la retención de mensajes de terceros 🔴
+
+**Qué es:** el bot lee y guarda mensajes de **personas que no son usuarias de
+OTC** (los clientes de tu cliente). Hoy se guardan para siempre y no hay nada
+escrito que diga que el servidor está siendo registrado.
+
+**Cuándo:** **antes** de instalarlo en el servidor de un cliente, no después.
+
+---
+
+### [E-CLASIFICADOR-SIN-CRON] El clasificador existe pero nadie lo llama
+
+**Qué es:** `classifyDiscordMessagesAction` clasifica mensajes por lote con Haiku
+(sentimiento, atención y testimonios), pero **no hay disparador**: hay que
+llamarla a mano. Debería ser un cron diario, como los demás.
+
+**Además:** nunca corrió contra la API real. Falta ver la calidad de la
+clasificación, sobre todo **cuántos falsos positivos de testimonio** quedan
+después de arreglar el detector del bot.
+
+---
+
+### [E-CHECKPOINT-DESDE-MENSAJE] La cuarta conexión del bot quedó afuera
+
+**Qué es:** el plan lista cuatro conexiones entre el bot y el tracking. Se
+construyeron tres (actividad, silencio, testimonio → win). Falta **mensaje →
+propuesta de checkpoint**, que tendría que producir una propuesta para el
+recorrido del cliente (C), nunca un evento directo.
 
 ---
 
@@ -28,9 +61,14 @@ de arrancar en el primer win con número.
 escrito copiando el patrón de `sop_attachments`, pero **nunca corrió**. Toca
 storage, que es donde más fácil se rompe algo silenciosamente.
 
-**Qué mirar:** que el bucket `client-wins` exista (la migración lo crea), que la
-imagen suba, que se vea en el tracker por signed URL, y que borrar un win **borre
-también el archivo** del bucket.
+✅ **Verificado el 2026-09-03 — la mitad de seguridad:** el bucket `client-wins`
+existe, es **privado**, limita a 10 MB y sólo imágenes, y **ninguna policy de
+`storage.objects` lo nombra**: ningún rol del cliente puede leerlo ni escribirlo
+directamente. Sólo el admin del servidor, que es lo que hace el código.
+
+🔴 **Falta la vuelta completa**, que necesita la `SUPABASE_SERVICE_ROLE_KEY` (no
+está en el entorno de desarrollo): pedir el signed URL, subir la imagen, verla en
+el tracker, y confirmar que borrar un win **borra también el archivo** del bucket.
 
 ---
 
