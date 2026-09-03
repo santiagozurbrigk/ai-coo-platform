@@ -34,7 +34,7 @@ vista principal, pero no se perdió.
 
 **⭐ Se ven todos los leads, no sólo los que arden.** El panel anterior listaba
 únicamente los tres estados accionables, con `limit 100`. Los ganados, perdidos y
-agendados —la enorme mayoría de los ~845 leads— no aparecían en **ninguna**
+agendados —la enorme mayoría de los 964 leads de hoy— no aparecían en **ninguna**
 pantalla. El toggle *Pendientes / Todos* abre la base completa, con filtro por
 estado, buscador, orden y paginado.
 
@@ -91,13 +91,14 @@ cada organización crea los suyos desde el propio selector de la tabla.
 **Riesgos / deuda técnica pendiente:**
 
 - **Techo de 2.000 leads.** El estado se deriva en JS, no en SQL, así que filtrar y
-  paginar por estado se resuelve en memoria en el servidor. Con ~845 leads sobra;
+  paginar por estado se resuelve en memoria en el servidor. Con 964 leads sobra;
   pasado el techo la tabla avisa que hay leads afuera en vez de mostrarse
   incompleta. El día que no alcance, hay que derivar el estado en la base.
 - **Nada se vio renderizado**: la sesión no corrió la app ni tiene Playwright en
   esta pantalla. El bloque de verificación quedó en `docs/PLAN_VERIFICACION.md` §14.
-- **La migración no está aplicada** todavía en Supabase. Sin ella la tabla
-  funciona con los valores de fábrica, pero crear uno propio falla.
+- **La migración se aplicó y se verificó** en Supabase el 2026-09-03: tabla creada
+  con RLS, 0 CHECK restantes en `closing_calls`, índice de la cola recreado, y los
+  1.139 turnos y 964 leads existentes intactos.
 - **La calificación previa** (`pre_call_qualification`) sigue sin exponerse: la
   tabla sólo edita la posterior.
 

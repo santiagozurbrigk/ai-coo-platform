@@ -724,9 +724,9 @@ Construido sin poder abrirlo en un navegador: la sesión no tiene la app corrien
 ni cobertura de Playwright en esta pantalla. Todo lo de acá es 🤖 —no hace falta
 ninguna cuenta externa—, pero **nada se vio renderizado**.
 
-**Antes de nada:** aplicar `supabase/migrations/20260903120000_sales_follow_up_options.sql`.
-Sin eso la tabla funciona igual (cae a los valores de fábrica), pero crear un
-valor propio falla.
+**La migración `20260903120000_sales_follow_up_options.sql` ya está aplicada**
+(2026-09-03, verificada: tabla con RLS, 0 CHECK restantes en `closing_calls`,
+1.139 turnos intactos).
 
 ### 14.1 La tabla reemplaza al acordeón
 
@@ -734,7 +734,7 @@ valor propio falla.
 |---|---|
 | Entrar a **Ventas → Closing → Seguimiento** | Una tabla con nueve columnas, no las tarjetas desplegables |
 | Mirar el pill **Pendientes** | El número tiene que coincidir con lo que mostraba el panel anterior |
-| ⭐ Pasar a **Todos** | Aparecen también los ganados, perdidos y agendados — los ~845 leads que antes no se veían en ninguna pantalla |
+| ⭐ Pasar a **Todos** | Aparecen también los ganados, perdidos y agendados — los 964 leads que antes no se veían en ninguna pantalla |
 | Buscar por nombre y por mail | Filtra sobre el total, no sobre la página |
 | Pasar de página | La numeración dice `51–100 de N` y las filas cambian |
 
@@ -768,7 +768,7 @@ valor propio falla.
 
 - ⚠️ **El techo de 2.000 leads.** El estado se deriva en JS, no en SQL, así que la
   tabla se resuelve en memoria. Pasado ese número aparece el aviso y **hay leads
-  que no entran en la vista**. Hoy son ~845: sobra. El día que no sobre, hay que
+  que no entran en la vista**. Hoy son 964: sobra, con menos margen del esperado. El día que no sobre, hay que
   derivar el estado en la base.
 - ⚠️ **Fecha por defecto.** Elegir un próximo paso que pide fecha y no la tiene la
   pone en **pasado mañana** en vez de pedirla. Es deliberado —sin fecha el lead se

@@ -60,24 +60,13 @@ se completen.
 
 ---
 
-### [SEGUIMIENTO-MIGRACION] Aplicar la migración de valores propios 🔴
-
-`supabase/migrations/20260903120000_sales_follow_up_options.sql` **todavía no está
-aplicada**. Sin ella la tabla de seguimiento funciona con los valores de fábrica,
-pero crear un valor propio falla al insertar.
-
-Crea `sales_follow_up_options` y da de baja tres CHECK de `closing_calls`
-(`next_action`, `pre_call_qualification`, `post_call_qualification`), cuya
-validación pasó a la Server Action.
-
----
-
 ### [SEGUIMIENTO-ESCALA] El estado se deriva en JS, no en SQL
 
 La tabla de seguimiento lee hasta **2.000 leads** y filtra, ordena y pagina en
 memoria en el servidor, porque el estado del lead se deriva de sus turnos y no
-está persistido. Con ~845 leads sobra; pasado el techo la tabla avisa que hay
-leads afuera en vez de mostrarse incompleta.
+está persistido. Con 964 leads (medidos el 2026-09-03) sobra, pero el margen
+es menor de lo que parecía: pasado el techo la tabla avisa que hay leads afuera
+en vez de mostrarse incompleta.
 
 Cuando no alcance, hay que derivar el estado en la base (vista o función), **no**
 persistirlo: guardar un estado derivado es lo que haría que la tabla mienta
