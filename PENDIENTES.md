@@ -9,6 +9,41 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [A-BASELINE-SIN-UI] El baseline y el nicho del cliente no se pueden cargar desde la pantalla
+
+**Qué es:** el dashboard de wins usa `clients.niche` y el baseline
+(`baseline_metric_key/value/unit/captured_at`) para armar el punto inicial. La
+acción `updateClientBaselineAction` existe y valida, pero **no hay UI**: hoy se
+cargan por base.
+
+**Dónde iría:** en la ficha del cliente, junto a los datos del cliente. Es lo que
+falta para que el dashboard muestre el recorrido completo desde el día uno en vez
+de arrancar en el primer win con número.
+
+---
+
+### [A-PROBAR-CAPTURAS] La subida de capturas nunca se ejecutó 🔴
+
+**Qué es:** el flujo de captura (pedir signed URL → subir → registrar) está
+escrito copiando el patrón de `sop_attachments`, pero **nunca corrió**. Toca
+storage, que es donde más fácil se rompe algo silenciosamente.
+
+**Qué mirar:** que el bucket `client-wins` exista (la migración lo crea), que la
+imagen suba, que se vea en el tracker por signed URL, y que borrar un win **borre
+también el archivo** del bucket.
+
+---
+
+### [A-ENGANCHES-W3] Wins desde Discord y desde llamadas
+
+**Qué es:** la fase W3 dejó la sección de wins en la ficha del cliente, pero los
+**candidatos automáticos** no están: un testimonio de Discord y una llamada de
+Fathom deberían proponer un win que alguien acepta —mismo criterio que las
+propuestas de checkpoint de C3—. Lo conectan los Encargos **E** y **B**.
+`client_wins.source` y `source_ref` ya existen para eso.
+
+---
+
 ### [C3-TRABADO-SIN-PRIMER-HITO] Un cliente que nunca arrancó no figura como trabado
 
 **Qué es:** el plazo se cuenta desde el hito **inmediatamente anterior**. Si un

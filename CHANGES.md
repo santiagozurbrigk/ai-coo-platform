@@ -14,6 +14,84 @@
 
 ---
 
+### 2026-09-03 — A · WINS: tracker de logros y dashboard de casos
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260903090000_client_wins.sql` (nueva), `lib/wins/**` (nuevo), `types/wins.ts` (nuevo), `app/clients/{win-actions,win-page-actions}.ts` (nuevos), `components/clients/wins/**` (nuevo), `app/(platform)/clients/wins/page.tsx` (nueva), `routes/paths.ts`, `lib/navigation/page-meta.ts`, `components/clients/{clients-list,client-detail}.tsx`
+
+**Qué se hizo:**
+
+Encargo A completo (W1 + W2 + W3). Un cliente exitoso era un **booleano**
+(`clients.is_success_case`): sin fecha, sin logro y sin número. Ahora cada logro
+es un registro con su fecha, su captura y —si aplica— su medida.
+
+**⭐ El problema de diseño que había que resolver primero.** El tracker y el
+dashboard **no piden los mismos datos**: el tracker es por win (fecha, logro,
+captura); el dashboard es por cliente (nicho, punto inicial → final, plazo). Lo
+segundo sale sólo si cada win puede llevar una **medida comparable** — clave,
+valor y unidad. Con eso, el punto inicial es el baseline del cliente o el valor
+más viejo, el final es el más reciente, y el plazo son los días entre ambos.
+
+**La regla dura:** si un cliente no tiene **dos puntos numéricos comparables**, el
+dashboard dice **"sin medir"** y explica por qué. No estima, no interpola, y no
+muestra una flecha verde sin datos que la sostengan. Y "comparables" es estricto:
+misma clave **y misma unidad** — facturación en USD y en ARS no se restan.
+
+**Decisiones de diseño relevantes:**
+
+- **Cuatro motivos distintos de "sin medir"**, y se muestran: ningún win con
+  número, un solo punto, unidades distintas, o dos números del mismo día. Decir
+  "sin medir" a secas no ayuda a arreglarlo.
+- **Un porcentaje desde cero es `null`, no un número enorme.** Crecer de 0 a 7 no
+  es "+∞%": se muestra la diferencia absoluta y nada más.
+- **Una métrica puede caer** y la diferencia queda negativa, a la vista.
+- **Se elige la medida con más puntos** cuando el cliente tiene varias — la que
+  mejor cuenta su historia — y se puede forzar otra.
+- **El baseline vive en el cliente, no en un win**: no es un logro, es el punto
+  contra el que se miden los logros. Un baseline **sin fecha no sirve** para medir
+  un plazo, así que no cuenta como punto.
+- **`niche` es del cliente.** `organizations.industry` ya existía pero es el nicho
+  de la organización dueña de OTC, que es otra cosa.
+- **`win_usages` es una tabla y no dos columnas**: un caso bueno se usa en varios
+  lados, y "¿dónde está usado este caso?" no se puede responder con texto libre.
+- **Las capturas van a un bucket privado** (`client-wins`, sólo imágenes, 10 MB),
+  por signed URL — resultados de clientes no van en un bucket público. Borrar un
+  win **borra también los objetos de storage**: la cascada de la base se lleva las
+  filas pero no los archivos.
+- **Las columnas configurables son las de C0** (`entity = 'win'`), renderizadas
+  con el mismo `FieldValueInput`/`FieldValueCell`. No hay un segundo mecanismo.
+- **Una medida a medias se rechaza**: o están la clave y el número, o no hay
+  medida. Un número ilegible se rechaza con el motivo, no se guarda como cero.
+
+**Verificación ejecutada:**
+- `pnpm test`: **701 tests en 44 archivos, todos en verde** (14 nuevos de
+  `lib/wins/derive-case`).
+- `tsc --noEmit`, `pnpm lint` y `pnpm build` limpios; `/clients/wins` se construye.
+- **Migración aplicada** al proyecto OTC, cortes probados en transacciones
+  revertidas con cliente y win fabricados y borrados: `source` inválido **corta**;
+  un canal de uso fuera del vocabulario **corta**; un adjunto sin win **y** sin
+  draft **corta**; `storage_path` duplicado **corta**; borrar el win **se lleva
+  usos y adjuntos por cascada**; y el bucket quedó **privado**.
+- **Las dos solapas se abrieron en un navegador**: el tracker con la columna
+  "Tipo de win" de C0 y sus colores, y el dashboard con el recorrido de un cliente
+  (500 → 8.500 USD, +1600% en 217 días) y **dos "sin medir" con su motivo**.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **Nada se probó con sesión real**: capturas con datos fabricados y página
+  descartable (ya borrada). **La subida de capturas nunca se ejecutó de verdad** —
+  es lo que más conviene probar primero, porque toca storage.
+- **W3 quedó a medias por diseño:** la sección de wins está en la ficha del
+  cliente, pero los enganches con **Discord** (testimonio → candidato) y **Fathom**
+  (llamada → candidato) son de los Encargos E y B. `source`/`source_ref` ya existen.
+- **El baseline y el nicho no tienen UI todavía**: `updateClientBaselineAction`
+  existe y funciona, pero no hay dónde cargarlos desde la pantalla. Hoy se cargan
+  por base.
+- Sin cobertura de Playwright.
+
+---
+
 ### 2026-09-03 — C3: clientes trabados, fase en la lista y buzón de propuestas
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`

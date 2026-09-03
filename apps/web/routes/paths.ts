@@ -83,6 +83,8 @@ export const paths = {
       customFields: `${PLATFORM}/clients/campos`,
       /** C1 · Catálogo de fases y checkpoints del recorrido del cliente. */
       checkpoints: `${PLATFORM}/clients/checkpoints`,
+      /** A · Tracker de wins y dashboard de casos. */
+      wins: `${PLATFORM}/clients/wins`,
     },
 
     operations: {

@@ -866,6 +866,49 @@ salteando validaciones, el buzón sería una puerta trasera al registro. Revisar
 
 ---
 
+## 18. A · WINS — tracker de logros y dashboard de casos
+
+Construido el 2026-09-03. **14 tests nuevos** sobre `derive-case` (701 en total).
+
+✅ **Migración aplicada**, cortes verificados en transacciones revertidas:
+`source` inválido corta; canal de uso fuera del vocabulario corta; un adjunto sin
+win y sin draft corta; `storage_path` duplicado corta; borrar el win se lleva usos
+y adjuntos; el bucket `client-wins` quedó **privado**.
+
+🤖 Conviene tener al menos una columna de win cargada en Campos personalizados (C0).
+
+**El tracker:**
+
+| Paso | Resultado esperado |
+|---|---|
+| **Clientes → Wins** | Solapas Tracker y Dashboard; el tracker vacío explica para qué sirve el número |
+| Cargar un win sin número | Entra; la columna Medida muestra un guion |
+| ⭐ Cargar la medida a medias (clave sin número) | **Se rechaza** pidiendo las dos o ninguna |
+| Cargar un número ilegible ("mil") | **Se rechaza** con el motivo |
+| ⭐ Las columnas de C0 aparecen como columnas del tracker | Con sus opciones y colores |
+| 🔴 **Subir una captura** | Sube, se ve en miniatura por signed URL. **Nunca se probó** |
+| 🔴 Borrar el win con captura | Se borra la fila **y el archivo del bucket** |
+| Agregar "se usó en" (Landing, VSL…) | Cada uso es un chip; se quita tocándolo |
+
+**El dashboard:**
+
+| Paso | Resultado esperado |
+|---|---|
+| Un cliente con **dos wins** con la misma clave y unidad | Punto inicial → final, la diferencia con su porcentaje, y el plazo en días |
+| ⭐ Un cliente con **un solo** número | "Sin medir · Hay un solo número: falta otro para comparar" |
+| ⭐ Un cliente **sin** números | "Sin medir · Ningún win de este cliente tiene un número cargado" |
+| ⭐ Dos wins con **unidades distintas** (USD y ARS) | "Sin medir · unidades distintas". **No los resta** |
+| Dos números del **mismo día** | "Sin medir · no hay plazo que medir" |
+| Un cliente que **bajó** una métrica | La diferencia se muestra negativa, en rojo, no se esconde |
+| Cargar el baseline del cliente (hoy por base) | El punto inicial pasa a ser el baseline |
+| ⚠️ Nicho y baseline | **No tienen UI**: se cargan por base. Ver pendiente `[A-BASELINE-SIN-UI]` |
+
+**Qué significa si falla "sin medir":** si el dashboard mostrara un número donde
+debería decir "sin medir", estaría inventando el dato más importante del módulo.
+Es el paso que más importa de este bloque.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas
