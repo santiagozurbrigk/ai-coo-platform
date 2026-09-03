@@ -14,6 +14,88 @@
 
 ---
 
+### 2026-09-03 — C2: registrar que un cliente alcanzó un checkpoint
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260903082000_client_checkpoint_events.sql` (nueva), `lib/checkpoints/progress.ts` (nuevo), `lib/checkpoints/mapper.ts`, `types/checkpoints.ts`, `app/clients/checkpoint-event-actions.ts` (nuevo), `components/clients/checkpoints/{client-journey-section,record-checkpoint-dialog}.tsx` (nuevos), `components/clients/client-detail.tsx`
+
+**Qué se hizo:**
+
+Tercera fase del Encargo C. C1 dejó el catálogo (fases + checkpoints); C2 es
+caminarlo con un cliente concreto. En la ficha del cliente aparece una sección
+**"Recorrido"**: los checkpoints en orden, cada uno alcanzado (con fecha y
+métricas) o pendiente (con botón "Registrar").
+
+**El formulario de métricas se genera desde C1.** Al registrar un checkpoint, el
+formulario pide exactamente las métricas que ese hito declaró en su
+`metric_schema`, con el control correcto para cada tipo — reusando el
+`FieldValueInput` de C0. No hay un formulario escrito a mano por checkpoint. Las
+métricas se validan con `validateFieldValues` de C0: lo que no se entiende se
+rechaza, no se guarda como cero.
+
+**Al guardar pasan tres cosas:** queda el registro (quién, cuándo, qué números,
+qué nota); si el checkpoint declara `sets_client_status`, el cliente pasa a ese
+estado solo; y se recalcula `clients.current_stage_id` para que la lista de
+clientes de C3 no tenga que recomputar el recorrido de cada uno.
+
+**Decisiones de diseño relevantes:**
+
+- **Un checkpoint se alcanza una sola vez por cliente.** Índice único
+  `(client_id, checkpoint_id)`; registrar de nuevo hace upsert y edita el evento
+  que ya existe, no duplica.
+- **No se exige el orden.** Se puede marcar el tercer hito sin el primero: la
+  realidad es desprolija y frenar sería peor. El hueco se ve en la línea.
+- **⭐ La fase actual sigue el orden del recorrido, no la fecha del evento.** Un
+  hito tardío de una fase temprana no hace "retroceder" al cliente
+  (`summarizeJourneyPosition`).
+- **⭐ Deshacer no revierte el estado grueso.** Volver automáticamente sería
+  adivinar a cuál estado; el cliente pudo avanzar por otro camino. Sí recalcula
+  la fase actual, que se deriva del recorrido sin ambigüedad. La UI avisa lo
+  primero con un confirm antes de deshacer.
+- **La fecha puede ser pasada, nunca futura.** Registrar algo que no ocurrió lo
+  convierte en una intención y rompe lo que se mide después.
+- **Registrar es trabajo operativo, no configuración.** A diferencia del catálogo
+  (C1, sólo founder), un evento lo puede crear cualquier miembro con acceso a
+  clientes; el gate real es la RLS por organización.
+- **Una métrica que quedó apuntando a una columna borrada no se pide** y se avisa
+  en el formulario; los registros viejos que la tenían la siguen mostrando.
+- **En `client-detail.tsx`: un import y una línea** (regla de convivencia). La
+  sección se auto-fetchea con sólo `clientId`, como `ClientDiscordActivity`, y
+  no aparece si el recorrido no está configurado (mandar a configurarlo desde la
+  ficha de un cliente sería ruido; su lugar es la pantalla de C1).
+
+**Verificación ejecutada:**
+- `pnpm test`: **673 tests en 42 archivos, todos en verde** (10 nuevos de
+  `lib/checkpoints/progress`).
+- `tsc --noEmit`, `pnpm lint` y `pnpm build` limpios.
+- **Migración aplicada** al proyecto OTC. Los cortes se probaron ejecutándolos en
+  transacciones revertidas, con un cliente fabricado y borrado (cero filas
+  quedaron; los 264 clientes reales de otra org, intactos): el índice único
+  **corta** el mismo checkpoint dos veces para un cliente; otro checkpoint del
+  mismo cliente **se permite**; un `source` fuera de vocabulario **corta**;
+  `clients.current_stage_id` acepta la fase; borrar el checkpoint y borrar el
+  cliente **se llevan sus eventos por cascada**.
+- **La sección se abrió en un navegador** (dev server + Playwright): la línea con
+  alcanzados/pendientes, la métrica formateada (`US$ 8.500`), el resumen "2 de 3 ·
+  Primeros resultados", y el diálogo de registro sin métricas cuando el
+  checkpoint no pide ninguna.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **Nada se probó con una sesión real.** Las capturas usan datos fabricados y una
+  página descartable (ya borrada): prueban que la sección se dibuja, no que
+  guardar/deshacer funcione contra la app.
+- **Marcar clientes trabados y poner la fase en la lista de clientes es C3.**
+  `current_stage_id` ya se escribe; falta consumirlo.
+- **Las propuestas automáticas desde Discord/Fathom son C3** — `source` ya tiene
+  los valores.
+- `recomputeCurrentStage` relee fases, checkpoints y eventos en cada registro/
+  deshacer. Correcto para la escala de esto; si creciera, va a una función de base.
+- Sin cobertura de Playwright en la sección.
+
+---
+
 ### 2026-09-03 — C1: el recorrido del cliente (fases y checkpoints configurables)
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`

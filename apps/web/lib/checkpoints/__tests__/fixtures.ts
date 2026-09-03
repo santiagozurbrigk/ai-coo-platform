@@ -32,3 +32,22 @@ export function checkpoint(overrides: Partial<Checkpoint> = {}): Checkpoint {
     ...overrides,
   };
 }
+
+export function event(
+  overrides: Partial<import("@/types/checkpoints").CheckpointEvent> = {}
+): import("@/types/checkpoints").CheckpointEvent {
+  return {
+    id: "ev-1",
+    organizationId: "org-1",
+    clientId: "client-1",
+    checkpointId: "cp-1",
+    reachedAt: "2026-09-03T00:00:00.000Z",
+    metrics: {},
+    note: null,
+    recordedBy: null,
+    source: "manual",
+    createdAt: "2026-09-03T00:00:00.000Z",
+    updatedAt: "2026-09-03T00:00:00.000Z",
+    ...overrides,
+  };
+}

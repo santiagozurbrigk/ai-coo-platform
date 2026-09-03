@@ -107,3 +107,56 @@ export type CheckpointRow = {
   created_at: string;
   updated_at: string;
 };
+
+// ─── C2 · Eventos: lo que ocurrió ─────────────────────────────────────────────
+
+/** De dónde salió un evento. Las fuentes externas proponen; alguien confirma. */
+export const CHECKPOINT_EVENT_SOURCES = [
+  "manual",
+  "discord",
+  "fathom",
+  "automatic",
+] as const;
+export type CheckpointEventSource = (typeof CHECKPOINT_EVENT_SOURCES)[number];
+
+/** Un checkpoint alcanzado por un cliente. */
+export type CheckpointEvent = {
+  id: string;
+  organizationId: string;
+  clientId: string;
+  checkpointId: string;
+  reachedAt: string;
+  /** Valores de las métricas, con la clave del campo de C0. */
+  metrics: Record<string, unknown>;
+  note: string | null;
+  recordedBy: string | null;
+  source: CheckpointEventSource;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * Un checkpoint del recorrido junto con el evento que lo alcanzó, si existe.
+ *
+ * Es lo que dibuja la línea en la ficha del cliente: cada hito con una de dos
+ * caras, alcanzado o pendiente.
+ */
+export type CheckpointWithEvent = {
+  checkpoint: Checkpoint;
+  stage: JourneyStage;
+  event: CheckpointEvent | null;
+};
+
+export type CheckpointEventRow = {
+  id: string;
+  organization_id: string;
+  client_id: string;
+  checkpoint_id: string;
+  reached_at: string;
+  metrics: unknown;
+  note: string | null;
+  recorded_by: string | null;
+  source: string;
+  created_at: string;
+  updated_at: string;
+};

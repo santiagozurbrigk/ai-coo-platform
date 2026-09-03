@@ -13,6 +13,7 @@ import { ClientLinkedCallsSection } from "@/components/clients/client-linked-cal
 import { ClientPaymentsSection } from "@/components/clients/client-payments-section";
 import { ClientDiscordActivity } from "@/components/clients/client-discord-activity";
 import { ClientTimeline } from "@/components/clients/client-timeline";
+import { ClientJourneySection } from "@/components/clients/checkpoints";
 import { paths } from "@/routes";
 import type { Client, ClientStatus } from "@/types/clients";
 
@@ -145,6 +146,8 @@ export function ClientDetail({ client: initial }: { client: Client }) {
       </section>
 
       <ClientPaymentsSection client={client} />
+
+      <ClientJourneySection clientId={client.id} />
 
       {client.salesFathomUrl && (
         <section className="space-y-3">

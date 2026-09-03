@@ -7,3 +7,4 @@
 export * from "@/lib/checkpoints/journey";
 export * from "@/lib/checkpoints/mapper";
 export * from "@/lib/checkpoints/metric-schema";
+export * from "@/lib/checkpoints/progress";

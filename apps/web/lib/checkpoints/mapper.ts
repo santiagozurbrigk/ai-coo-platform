@@ -6,7 +6,11 @@
  */
 import {
   CHECKPOINT_CLIENT_STATUSES,
+  CHECKPOINT_EVENT_SOURCES,
   type Checkpoint,
+  type CheckpointEvent,
+  type CheckpointEventRow,
+  type CheckpointEventSource,
   type CheckpointRow,
   type ClientStatusValue,
   type JourneyStage,
@@ -55,5 +59,33 @@ export function isClientStatusValue(value: unknown): value is ClientStatusValue 
   return (
     typeof value === "string" &&
     (CHECKPOINT_CLIENT_STATUSES as readonly string[]).includes(value)
+  );
+}
+
+export function rowToCheckpointEvent(row: CheckpointEventRow): CheckpointEvent {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    clientId: row.client_id,
+    checkpointId: row.checkpoint_id,
+    reachedAt: row.reached_at,
+    // El jsonb puede traer cualquier cosa; un objeto que no es objeto se lee
+    // como vacío en vez de romper la lectura de todos los eventos del cliente.
+    metrics:
+      typeof row.metrics === "object" && row.metrics !== null && !Array.isArray(row.metrics)
+        ? (row.metrics as Record<string, unknown>)
+        : {},
+    note: row.note,
+    recordedBy: row.recorded_by,
+    source: isCheckpointEventSource(row.source) ? row.source : "manual",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function isCheckpointEventSource(value: unknown): value is CheckpointEventSource {
+  return (
+    typeof value === "string" &&
+    (CHECKPOINT_EVENT_SOURCES as readonly string[]).includes(value)
   );
 }

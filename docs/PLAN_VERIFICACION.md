@@ -792,6 +792,41 @@ del checkpoint se desengancha, el puente entre C0 y C1 está roto y hay que mira
 
 ---
 
+## 16. C2 — Registrar que un cliente alcanzó un checkpoint
+
+Construido el 2026-09-03. **10 tests nuevos** sobre la lógica de progreso (683 en total).
+
+✅ **Migración aplicada** al proyecto OTC, cortes verificados ejecutándolos en
+transacciones revertidas con un cliente fabricado y borrado (cero filas
+quedaron): el índice único corta el mismo checkpoint dos veces por cliente; otro
+checkpoint del mismo cliente se permite; un `source` inválido corta;
+`clients.current_stage_id` acepta la fase; borrar el checkpoint o el cliente se
+lleva sus eventos por cascada.
+
+🤖 Necesita **un recorrido configurado con al menos un checkpoint** (C1) y **al
+menos un cliente**.
+
+| Paso | Resultado esperado |
+|---|---|
+| Entrar a un cliente | Abajo de los pagos, la sección **"Recorrido"** con los checkpoints en orden |
+| Si el recorrido no está configurado | La sección **no aparece**: se configura en su pantalla, no desde la ficha |
+| Apretar **Registrar** en un pendiente sin métricas | Diálogo con fecha (hoy) y nota, nada más |
+| ⭐ Registrar uno que pide métricas | El formulario pide **exactamente** las métricas configuradas, con el control de cada tipo |
+| Cargar un monto ilegible ("mil") | Se rechaza con el motivo; no se guarda como cero |
+| Elegir una fecha futura | Se rechaza (el input ya la limita, y el server también) |
+| Guardar | El hito pasa a "alcanzado" con su fecha y sus números; el resumen de arriba sube |
+| ⭐ Registrar uno con "pasa a: Activo" | El **estado del cliente** cambia a Activo arriba de la ficha |
+| Marcar el tercer hito sin el primero | Se permite; el primero queda como hueco pendiente |
+| ⭐ Deshacer un registro | Pide confirmación; si movía el estado, **avisa que no vuelve solo**. El estado del cliente **no** cambia; la fase actual sí se recalcula |
+| Registrar el mismo checkpoint dos veces | La segunda vez **edita** el registro, no duplica |
+| 🔒 RLS de `client_checkpoint_events` | Un usuario de otra organización no ve ni una fila |
+
+**Qué significa si falla el estado:** si registrar un checkpoint con
+`sets_client_status` no mueve el estado del cliente, revisar `applyClientStatus`
+en `checkpoint-event-actions.ts` antes de C3, que se apoya en esto.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

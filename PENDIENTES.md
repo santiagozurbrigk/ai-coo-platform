@@ -9,6 +9,20 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [C2-PROBAR-FICHA] Probar el registro de checkpoints en la ficha con sesión real
+
+**Qué es:** la sección "Recorrido" de la ficha del cliente ya se vio en un
+navegador, pero **con datos fabricados y una página descartable** (borrada).
+Falta la pasada real: entrar a un cliente, registrar un checkpoint, ver que las
+métricas se piden según lo configurado y que se guardan.
+
+**Qué mirar,** bloque §16 de `docs/PLAN_VERIFICACION.md`. Los tres que más
+importan: que un checkpoint con `sets_client_status` **mueva el estado del
+cliente** al registrarlo; que **deshacer NO revierta el estado** (sí avisa); y
+que un monto ilegible se rechace en vez de guardarse como cero.
+
+---
+
 ### [C1-PROBAR-PANTALLA] Probar el Recorrido del cliente con una sesión real
 
 **Qué es:** la migración está aplicada y los cortes de la base verificados, pero
