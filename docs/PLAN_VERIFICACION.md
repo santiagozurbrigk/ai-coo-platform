@@ -827,6 +827,45 @@ en `checkpoint-event-actions.ts` antes de C3, que se apoya en esto.
 
 ---
 
+## 17. C3 — Clientes trabados, fase en la lista y buzón de propuestas
+
+Construido el 2026-09-03. **14 tests nuevos** sobre "trabado" (687 en total).
+
+✅ **Migración aplicada**, cortes verificados en transacciones revertidas: el
+duplicado pendiente de la misma fuente corta; otra fuente para el mismo hito se
+permite; `source = 'manual'` corta; una confianza fuera de 0–1 corta; tras
+resolver se puede volver a proponer; borrar el cliente se lleva sus propuestas.
+
+🤖 Necesita un recorrido con plazos configurados (C1) y hitos registrados (C2).
+
+| Paso | Resultado esperado |
+|---|---|
+| Entrar a **Clientes** con un recorrido configurado | Columna **"Recorrido"** con la fase actual y su color |
+| Un cliente sin ningún hito registrado | Dice **"Sin empezar"**, no "Fase 1" |
+| Un cliente con todo el recorrido hecho | "N de N", sin aviso |
+| ⭐ Registrar un hito con plazo y esperar a que venza | El cliente muestra **"trabado hace N días"** en rojo |
+| Si no hay ningún trabado | La pill **"Trabados" no aparece** |
+| Con al menos uno | Aparece **"Trabados (N)"**; al tocarla la lista deja sólo ésos |
+| ⚠️ Un cliente que compró y **nunca** registró un hito | **No** aparece como trabado. Es el límite documentado, no un bug |
+| Sin recorrido configurado | La columna **no aparece** |
+| 🔒 RLS de `client_checkpoint_proposals` | Un usuario de otra organización no ve ni una fila |
+
+**Del buzón de propuestas** (necesita que E o B lo alimenten, o un insert a mano):
+
+| Paso | Resultado esperado |
+|---|---|
+| Insertar una propuesta a mano en la tabla | Aparece en la ficha del cliente, arriba del recorrido, con quién propone y por qué |
+| ⭐ Aceptar | Se crea el evento real, con las **mismas validaciones** que el registro manual, y el estado del cliente se mueve si el hito lo declara |
+| Descartar | No crea nada; la propuesta desaparece del buzón y queda como historial |
+| Insertar dos veces la misma propuesta pendiente | La segunda no entra (índice parcial) |
+| Proponer un hito **ya registrado** | No se crea la propuesta |
+
+**Qué significa si falla el aceptar:** si aceptar una propuesta creara el evento
+salteando validaciones, el buzón sería una puerta trasera al registro. Revisar que
+`acceptCheckpointProposalAction` siga llamando a `recordCheckpointAction`.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

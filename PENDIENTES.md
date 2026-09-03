@@ -9,6 +9,30 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [C3-TRABADO-SIN-PRIMER-HITO] Un cliente que nunca arrancó no figura como trabado
+
+**Qué es:** el plazo se cuenta desde el hito **inmediatamente anterior**. Si un
+cliente no tiene ningún hito registrado, no hay desde cuándo contar y **no se
+marca trabado** — aunque sea el caso más urgente (compró y nunca empezó).
+
+**Por qué quedó así:** anclarlo a la fecha de alta del cliente es una decisión de
+producto distinta, no un bug. Hoy esos clientes se ven igual en la lista, con
+"Sin empezar".
+
+**Si se decide cambiarlo:** el único lugar a tocar es `deriveClientJourneyStatus`
+en `lib/checkpoints/stalled.ts`, caso 3.
+
+---
+
+### [C3-CONECTAR-PROPUESTAS] El buzón de propuestas todavía no recibe nada
+
+**Qué es:** `createCheckpointProposalAction` es la entrada del buzón y funciona,
+pero **ninguna fuente escribe todavía**. Lo conectan los Encargos **E** (Discord:
+mensaje marcado como testimonio → propone el hito) y **B** (Fathom: llamada de
+entrega → propone el hito).
+
+---
+
 ### [C2-PROBAR-FICHA] Probar el registro de checkpoints en la ficha con sesión real
 
 **Qué es:** la sección "Recorrido" de la ficha del cliente ya se vio en un

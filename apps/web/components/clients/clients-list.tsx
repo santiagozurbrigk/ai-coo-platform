@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Badge, Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, StaggerFade, StaggerFadeItem } from "@ai-coo/ui";
-import { BookOpen, Route, Settings2, SlidersHorizontal, Star, Trash2 } from "lucide-react";
+import { AlertTriangle, BookOpen, Route, Settings2, SlidersHorizontal, Star, Trash2 } from "lucide-react";
 import { assignClientPlanAction, deleteClientAction } from "@/app/clients/actions";
 import { listPlansAction } from "@/app/clients/plan-actions";
 import { getClientsTableEnrichmentAction } from "@/app/clients/plan-duration-actions";
+import { getClientsJourneyStatusAction } from "@/app/clients/checkpoint-derived-actions";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import {
   computeOutstandingBalance,
@@ -21,6 +22,9 @@ import { useToast } from "@/providers/toast-provider";
 import type { Client, ClientStatus } from "@/types/clients";
 import type { Plan } from "@/types/plans";
 import type { PlanDuration } from "@/types/plan-durations";
+import type { ClientJourneyStatus } from "@/types/checkpoints";
+import { fieldOptionColorVar } from "@/lib/custom-fields";
+import { formatOverdue } from "@/lib/checkpoints";
 import { PlanManagerDialog } from "./plan-manager-dialog";
 
 const STATUS_LABEL: Record<ClientStatus, string> = {
@@ -30,7 +34,9 @@ const STATUS_LABEL: Record<ClientStatus, string> = {
   success_case: "Caso de éxito",
 };
 
-const STATUS_FILTERS: { id: ClientStatus | "all"; label: string }[] = [
+type ClientListFilter = ClientStatus | "all" | "stalled";
+
+const STATUS_FILTERS: { id: ClientListFilter; label: string }[] = [
   { id: "all", label: "Todos" },
   { id: "pending_onboarding", label: "Pendiente onboarding" },
   { id: "onboarding_done", label: "Onboarding hecho" },
@@ -188,11 +194,13 @@ function AssignPlanDialog({
 export function ClientsList({ clients }: { clients: Client[] }) {
   const { refreshClients } = usePlatformData();
   const { push } = useToast();
-  const [statusFilter, setStatusFilter] = useState<ClientStatus | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<ClientListFilter>("all");
   const [planFilter, setPlanFilter] = useState<string>("all");
   const [paidByClientId, setPaidByClientId] = useState<Record<string, number>>({});
   const [planDurations, setPlanDurations] = useState<PlanDuration[]>([]);
   const [isFounder, setIsFounder] = useState(false);
+  /** C3 · Fase actual y "trabado" por cliente. Derivado, no guardado. */
+  const [journey, setJourney] = useState<Record<string, ClientJourneyStatus>>({});
   const [plans, setPlans] = useState<Plan[]>([]);
   const [plansOpen, setPlansOpen] = useState(false);
   const [loadingEnrichment, startLoad] = useTransition();
@@ -204,14 +212,16 @@ export function ClientsList({ clients }: { clients: Client[] }) {
 
   useEffect(() => {
     startLoad(async () => {
-      const [enrichment, fetchedPlans] = await Promise.all([
+      const [enrichment, fetchedPlans, journeyStatus] = await Promise.all([
         getClientsTableEnrichmentAction(),
         listPlansAction(),
+        getClientsJourneyStatusAction(),
       ]);
       setPaidByClientId(enrichment.paidByClientId);
       setPlanDurations(enrichment.planDurations);
       setIsFounder(enrichment.isFounder);
       setPlans(fetchedPlans);
+      setJourney(journeyStatus);
     });
   }, [clients]);
 
@@ -223,16 +233,30 @@ export function ClientsList({ clients }: { clients: Client[] }) {
     ];
   }, [clients]);
 
+  const stalledCount = useMemo(
+    () => Object.values(journey).filter((entry) => entry.stalled).length,
+    [journey]
+  );
+
+  /** ¿Hay recorrido configurado? Sin él la columna no se muestra. */
+  const hasJourney = Object.keys(journey).length > 0;
+
   const filtered = useMemo(() => {
     return clients.filter((client) => {
-      if (statusFilter !== "all" && client.status !== statusFilter) return false;
+      // "Trabado" no es un estado del cliente: es una vista derivada del
+      // recorrido, así que se filtra aparte de los cuatro estados.
+      if (statusFilter === "stalled") {
+        if (!journey[client.id]?.stalled) return false;
+      } else if (statusFilter !== "all" && client.status !== statusFilter) {
+        return false;
+      }
       if (planFilter !== "all") {
         const plan = getClientPlanName(client);
         if (plan !== planFilter) return false;
       }
       return true;
     });
-  }, [clients, statusFilter, planFilter]);
+  }, [clients, statusFilter, planFilter, journey]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -277,9 +301,14 @@ export function ClientsList({ clients }: { clients: Client[] }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <FilterPills
-            options={STATUS_FILTERS.map((f) => ({ value: f.id, label: f.label }))}
+            options={[
+              ...STATUS_FILTERS,
+              ...(stalledCount > 0
+                ? [{ id: "stalled" as const, label: `Trabados (${stalledCount})` }]
+                : []),
+            ].map((f) => ({ value: f.id, label: f.label }))}
             value={statusFilter}
-            onChange={(value) => setStatusFilter(value as ClientStatus | "all")}
+            onChange={(value) => setStatusFilter(value as ClientListFilter)}
           />
           {planOptions.length > 1 ? (
             <select
@@ -339,6 +368,9 @@ export function ClientsList({ clients }: { clients: Client[] }) {
               <th className="px-4 py-3 font-medium">Pago</th>
               <th className="px-4 py-3 font-medium">Adeudado</th>
               <th className="px-4 py-3 font-medium">Monto</th>
+              {hasJourney ? (
+                <th className="px-4 py-3 font-medium">Recorrido</th>
+              ) : null}
               <th className="px-4 py-3 font-medium">Estado</th>
               <th className="px-4 py-3 font-medium" />
             </tr>
@@ -409,6 +441,11 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                   <td className="px-4 py-3 tabular-nums">
                     {formatCurrency(client.totalAmount)}
                   </td>
+                  {hasJourney ? (
+                    <td className="px-4 py-3">
+                      <JourneyCell status={journey[client.id]} />
+                    </td>
+                  ) : null}
                   <td className="px-4 py-3">
                     <Badge variant="secondary">{STATUS_LABEL[client.status]}</Badge>
                   </td>
@@ -475,6 +512,49 @@ export function ClientsList({ clients }: { clients: Client[] }) {
           pending={pending}
         />
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * C3 · La fase del cliente y si está trabado.
+ *
+ * Un cliente sin ningún hito registrado muestra un guion, no "Fase 1": no
+ * empezó el recorrido, y decir lo contrario sería inventar.
+ */
+function JourneyCell({ status }: { status: ClientJourneyStatus | undefined }) {
+  if (!status) return <span className="text-muted-foreground">—</span>;
+
+  const overdue = formatOverdue(status);
+
+  return (
+    <div className="space-y-0.5">
+      {status.currentStageName ? (
+        <span className="inline-flex items-center gap-1.5 text-xs">
+          <span
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{
+              backgroundColor: status.currentStageColor
+                ? fieldOptionColorVar(status.currentStageColor)
+                : undefined,
+            }}
+          />
+          {status.currentStageName}
+        </span>
+      ) : (
+        <span className="text-xs text-muted-foreground">Sin empezar</span>
+      )}
+
+      {overdue ? (
+        <span className="flex items-center gap-1 text-[11px] text-destructive">
+          <AlertTriangle className="h-3 w-3" />
+          {overdue}
+        </span>
+      ) : (
+        <span className="block text-[11px] text-muted-foreground">
+          {status.reached} de {status.total}
+        </span>
+      )}
     </div>
   );
 }

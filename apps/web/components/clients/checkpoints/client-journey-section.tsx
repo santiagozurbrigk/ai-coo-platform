@@ -11,11 +11,12 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { Badge, Button, GlassPanel, cn } from "@ai-coo/ui";
-import { CheckCircle2, Circle, Clock, RotateCcw } from "lucide-react";
+import { CheckCircle2, Circle, Clock, RotateCcw, Sparkles } from "lucide-react";
 import { useToast } from "@/providers/toast-provider";
 import type {
   Checkpoint,
   CheckpointEvent,
+  CheckpointProposal,
   CheckpointWithEvent,
 } from "@/types/checkpoints";
 import type { FieldDefinition } from "@/types/custom-fields";
@@ -26,6 +27,11 @@ import {
   recordCheckpointAction,
   undoCheckpointAction,
 } from "@/app/clients/checkpoint-event-actions";
+import {
+  acceptCheckpointProposalAction,
+  listCheckpointProposalsAction,
+  rejectCheckpointProposalAction,
+} from "@/app/clients/checkpoint-derived-actions";
 import { paths } from "@/routes";
 import { RecordCheckpointDialog } from "@/components/clients/checkpoints/record-checkpoint-dialog";
 
@@ -40,14 +46,20 @@ const EMPTY: JourneyData = {
 export function ClientJourneySection({ clientId }: { clientId: string }) {
   const { push } = useToast();
   const [data, setData] = useState<JourneyData>(EMPTY);
+  const [proposals, setProposals] = useState<CheckpointProposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     let alive = true;
-    getClientJourneyAction(clientId)
-      .then((next) => {
-        if (alive) setData(next);
+    Promise.all([
+      getClientJourneyAction(clientId),
+      listCheckpointProposalsAction(clientId),
+    ])
+      .then(([next, pending]) => {
+        if (!alive) return;
+        setData(next);
+        setProposals(pending);
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -74,7 +86,12 @@ export function ClientJourneySection({ clientId }: { clientId: string }) {
     progress.find((entry) => entry.stage.id === summary.currentStageId)?.stage.name ?? null;
 
   async function refresh() {
-    setData(await getClientJourneyAction(clientId));
+    const [next, pending] = await Promise.all([
+      getClientJourneyAction(clientId),
+      listCheckpointProposalsAction(clientId),
+    ]);
+    setData(next);
+    setProposals(pending);
   }
 
   function submit(input: {
@@ -129,6 +146,43 @@ export function ClientJourneySection({ clientId }: { clientId: string }) {
           </span>
         ) : null}
       </div>
+
+      {proposals.length > 0 ? (
+        <div className="space-y-2">
+          {proposals.map((proposal) => (
+            <ProposalCard
+              key={proposal.id}
+              proposal={proposal}
+              checkpointName={
+                progress.find((entry) => entry.checkpoint.id === proposal.checkpointId)
+                  ?.checkpoint.name ?? "un checkpoint"
+              }
+              pending={pending}
+              onAccept={() =>
+                startTransition(async () => {
+                  const result = await acceptCheckpointProposalAction(proposal.id);
+                  if (!result.success) {
+                    push({ title: "No se pudo aceptar", description: result.error });
+                    return;
+                  }
+                  await refresh();
+                  push({ title: "Checkpoint registrado", variant: "success" });
+                })
+              }
+              onReject={() =>
+                startTransition(async () => {
+                  const result = await rejectCheckpointProposalAction(proposal.id);
+                  if (!result.success) {
+                    push({ title: "No se pudo descartar", description: result.error });
+                    return;
+                  }
+                  await refresh();
+                })
+              }
+            />
+          ))}
+        </div>
+      ) : null}
 
       {summary.total === 0 ? (
         <GlassPanel className="p-4 text-sm text-muted-foreground">
@@ -286,5 +340,68 @@ function ReachedMetrics({
         </span>
       ))}
     </div>
+  );
+}
+
+const PROPOSAL_SOURCE_LABEL: Record<CheckpointProposal["source"], string> = {
+  discord: "Discord",
+  fathom: "una llamada",
+  automatic: "el sistema",
+};
+
+/**
+ * Una propuesta de una fuente externa.
+ *
+ * ⭐ Se lee como una sugerencia, no como un hecho: dice quién la propone y por
+ * qué, y no hace nada hasta que alguien la acepta.
+ */
+function ProposalCard({
+  proposal,
+  checkpointName,
+  pending,
+  onAccept,
+  onReject,
+}: {
+  proposal: CheckpointProposal;
+  checkpointName: string;
+  pending: boolean;
+  onAccept: () => void;
+  onReject: () => void;
+}) {
+  return (
+    <GlassPanel className="space-y-2 border-primary/20 p-3">
+      <div className="flex items-start gap-2">
+        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm">
+            <span className="text-muted-foreground">
+              {PROPOSAL_SOURCE_LABEL[proposal.source]} sugiere que alcanzó
+            </span>{" "}
+            <strong>{checkpointName}</strong>
+          </p>
+          {proposal.rationale ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">{proposal.rationale}</p>
+          ) : null}
+          {proposal.suggestedReachedAt ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {new Date(proposal.suggestedReachedAt).toLocaleDateString("es-AR", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                timeZone: "UTC",
+              })}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" size="sm" disabled={pending} onClick={onReject}>
+          Descartar
+        </Button>
+        <Button size="sm" disabled={pending} onClick={onAccept}>
+          Aceptar
+        </Button>
+      </div>
+    </GlassPanel>
   );
 }

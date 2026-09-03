@@ -160,3 +160,72 @@ export type CheckpointEventRow = {
   created_at: string;
   updated_at: string;
 };
+
+// ─── C3 · Derivados y propuestas ──────────────────────────────────────────────
+
+/** Quién propone. 'manual' no existe: una propuesta manual sería un registro. */
+export const CHECKPOINT_PROPOSAL_SOURCES = ["discord", "fathom", "automatic"] as const;
+export type CheckpointProposalSource = (typeof CHECKPOINT_PROPOSAL_SOURCES)[number];
+
+export const CHECKPOINT_PROPOSAL_STATUSES = ["pending", "accepted", "rejected"] as const;
+export type CheckpointProposalStatus = (typeof CHECKPOINT_PROPOSAL_STATUSES)[number];
+
+export type CheckpointProposal = {
+  id: string;
+  organizationId: string;
+  clientId: string;
+  checkpointId: string;
+  source: CheckpointProposalSource;
+  sourceRef: string | null;
+  rationale: string | null;
+  suggestedReachedAt: string | null;
+  suggestedMetrics: Record<string, unknown>;
+  confidence: number | null;
+  status: CheckpointProposalStatus;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CheckpointProposalRow = {
+  id: string;
+  organization_id: string;
+  client_id: string;
+  checkpoint_id: string;
+  source: string;
+  source_ref: string | null;
+  rationale: string | null;
+  suggested_reached_at: string | null;
+  suggested_metrics: unknown;
+  confidence: number | null;
+  status: string;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * El estado del recorrido de un cliente, resumido para la lista de clientes.
+ *
+ * Es una vista **derivada**: no se guarda. "Trabado" se recalcula cada vez, igual
+ * que el `stalled` del módulo de leads.
+ */
+export type ClientJourneyStatus = {
+  clientId: string;
+  currentStageId: string | null;
+  currentStageName: string | null;
+  currentStageColor: FieldOptionColor | null;
+  reached: number;
+  total: number;
+  /** El próximo hito pendiente del recorrido. */
+  nextCheckpointId: string | null;
+  nextCheckpointName: string | null;
+  /**
+   * Días de atraso del próximo hito. `null` cuando no se puede saber: sin plazo
+   * configurado, sin hito anterior registrado, o recorrido completo.
+   */
+  overdueDays: number | null;
+  stalled: boolean;
+};

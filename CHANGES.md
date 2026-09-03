@@ -14,6 +14,87 @@
 
 ---
 
+### 2026-09-03 — C3: clientes trabados, fase en la lista y buzón de propuestas
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260903083000_client_checkpoint_proposals.sql` (nueva), `lib/checkpoints/stalled.ts` (nuevo), `types/checkpoints.ts`, `app/clients/checkpoint-derived-actions.ts` (nuevo), `components/clients/checkpoints/client-journey-section.tsx`, `components/clients/clients-list.tsx`
+
+**Qué se hizo:**
+
+Cierra el Encargo C. C0/C1/C2 construyeron la maquinaria; C3 es lo que la
+maquinaria devuelve cuando se la mira de lejos, sin abrir cliente por cliente.
+
+**⭐ Clientes trabados.** Un cliente está trabado cuando su próximo hito
+pendiente venció: pasaron más días que su plazo, contados desde el hito
+**inmediatamente anterior** del recorrido. Es una vista derivada —se recalcula,
+no se guarda— igual que el `stalled` del módulo de leads, y **no toca
+`clients.status`**.
+
+**Las tres razones por las que devuelve "no se puede saber"** (`overdueDays:
+null`) en vez de un número inventado: el recorrido está completo; el próximo hito
+no tiene plazo; o el hito inmediatamente anterior no está registrado. La tercera
+incluye el **límite consciente del diseño**: un cliente que compró y nunca arrancó
+**no aparece como trabado** hasta que se registre su primer hito. Anclarlo a la
+fecha de alta sería otra decisión, no una corrección — está anotado como
+pendiente.
+
+**La fase en la lista de clientes.** Columna "Recorrido" con el nombre y el color
+de la fase actual, más "N de M" o el aviso de trabado. Un cliente sin hitos dice
+**"Sin empezar"**, no "Fase 1". La columna **no aparece** si no hay recorrido
+configurado, y la pill "Trabados (N)" **sólo aparece si hay alguno**: ofrecer un
+filtro que siempre da vacío es peor que no ofrecerlo.
+
+**⭐ El buzón de propuestas.** `client_checkpoint_proposals` es el receptor donde
+Discord (E) y Fathom (B) proponen que un cliente alcanzó un hito. Aparecen dentro
+de la sección "Recorrido" del cliente, con quién las propone, por qué y la fecha
+sugerida, y dos botones. **Nada se dispara solo.**
+
+**Decisiones de diseño relevantes:**
+
+- **Aceptar una propuesta pasa por `recordCheckpointAction`**, el mismo camino que
+  el registro manual. Así no puede saltear las validaciones de las métricas ni la
+  regla de la fecha, y el estado del cliente se mueve igual que siempre. Si el
+  evento falla, la propuesta **queda pendiente**: no se marca aceptado algo que no
+  se registró.
+- **Índice único parcial `(client_id, checkpoint_id, source) where pending`.** Un
+  sync horario no deja veinte propuestas idénticas; y una vez resuelta, se puede
+  volver a proponer (verificado contra la base).
+- **`confidence` se guarda pero no auto-acepta.** Sirve para ordenar y para medir
+  después qué fuente acierta.
+- **No se propone un hito ya registrado**: proponer lo que ya pasó es ruido.
+- **`source_ref` es obligatorio en espíritu**: sin un puntero a la evidencia (id
+  del mensaje, de la llamada), una propuesta es una afirmación sin respaldo.
+- **El resumen de la lista se calcula en una sola pasada** server-side: trae todos
+  los eventos de la org y los agrupa en memoria. Cargar el recorrido por cliente
+  sería una consulta por fila.
+
+**Verificación ejecutada:**
+- `pnpm test`: **687 tests en 43 archivos, todos en verde** (14 nuevos de
+  `lib/checkpoints/stalled`).
+- `tsc --noEmit`, `pnpm lint` y `pnpm build` limpios.
+- **Migración aplicada** al proyecto OTC, cortes probados en transacciones
+  revertidas con cliente fabricado y borrado: el duplicado pendiente de la misma
+  fuente **corta**; otra fuente para el mismo hito **se permite**; `source =
+  'manual'` **corta**; una confianza fuera de 0–1 **corta**; tras resolver una
+  propuesta **se puede volver a proponer**; borrar el cliente **se lleva sus
+  propuestas por cascada**.
+- **La lista y el buzón se abrieron en un navegador** (dev server + Playwright):
+  la columna con color por fase, "trabado hace 6 días" en rojo, "Sin empezar" para
+  el cliente sin hitos, el filtro "Trabados (1)" dejando una sola fila, y la
+  tarjeta de propuesta de Discord con su motivo y sus dos botones.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **Nada se probó con sesión real**: capturas con datos fabricados y página
+  descartable (ya borrada).
+- **El buzón todavía no recibe nada.** `createCheckpointProposalAction` es la
+  entrada; conectarla es de los Encargos **E** (Discord) y **B** (Fathom).
+- **Un cliente sin ningún hito nunca figura como trabado** (límite documentado).
+- Sin cobertura de Playwright.
+
+---
+
 ### 2026-09-03 — C2: registrar que un cliente alcanzó un checkpoint
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
