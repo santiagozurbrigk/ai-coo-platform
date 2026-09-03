@@ -393,6 +393,87 @@ export async function setNextActionAction(params: {
   return { ok: true };
 }
 
+/**
+ * Carga el seguimiento completo de una llamada en un solo guardado.
+ *
+ * ⭐ **Es el momento en que la información existe.** El seguimiento se cargaba
+ * sólo desde la tabla, o sea después: el closer marcaba "no cerró", cerraba la
+ * pantalla y el próximo paso quedaba para más tarde — que en los datos reales
+ * significaba nunca (de 1.027 turnos, cero tenían resultado). Al pedirlo en el
+ * mismo modal donde se marca el resultado, se carga cuando el closer todavía
+ * tiene la llamada fresca.
+ *
+ * Calificación y próximo paso van en un solo UPDATE: dos guardados podían dejar
+ * una llamada calificada sin próximo paso, que es justo el estado que el módulo
+ * intenta evitar.
+ */
+export async function saveCallFollowUpAction(params: {
+  callId: string;
+  qualification?: string | null;
+  nextAction?: string | null;
+  nextActionAt?: string | null;
+  ownerId?: string | null;
+  notes?: string | null;
+}): Promise<{ ok: boolean; error?: string }> {
+  const organizationId = await requireOrganizationId();
+  const catalog = await getFollowUpCatalogAction();
+
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+  if (params.qualification !== undefined) {
+    if (params.qualification) {
+      const option = findOption(
+        selectableOptions(catalog.qualifications),
+        params.qualification
+      );
+      if (!option) {
+        return { ok: false, error: "Esa calificación no existe en el catálogo." };
+      }
+    }
+    patch.post_call_qualification = params.qualification;
+  }
+
+  if (params.nextAction !== undefined) {
+    if (params.nextAction) {
+      const option = findOption(catalog.nextActions, params.nextAction);
+      if (!option) {
+        return { ok: false, error: "Ese próximo paso no existe en el catálogo." };
+      }
+      if (option.archived) return { ok: false, error: "Ese valor está archivado." };
+
+      const wantsDate = needsDate(catalog.nextActions, params.nextAction);
+      if (wantsDate && !params.nextActionAt) {
+        return { ok: false, error: "El próximo paso necesita una fecha." };
+      }
+
+      patch.next_action = params.nextAction;
+      patch.next_action_at = wantsDate ? params.nextActionAt : null;
+      patch.next_action_owner_id = params.ownerId ?? null;
+      patch.next_action_notes = params.notes?.trim() || null;
+    } else {
+      // Sin próximo paso el lead queda en la cola como "Sin próximo paso". Es un
+      // estado legítimo —a veces todavía no se sabe qué sigue— y es preferible a
+      // inventar un compromiso que nadie asumió.
+      patch.next_action = null;
+      patch.next_action_at = null;
+      patch.next_action_owner_id = null;
+      patch.next_action_notes = null;
+    }
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("closing_calls")
+    .update(patch)
+    .eq("id", params.callId)
+    .eq("organization_id", organizationId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(paths.platform.sales.closing);
+  return { ok: true };
+}
+
 /** Cambia sólo el responsable del próximo paso, sin tocar el resto. */
 export async function setNextActionOwnerAction(params: {
   callId: string;

@@ -14,6 +14,62 @@
 
 ---
 
+### 2026-09-03 — El seguimiento se carga al marcar el resultado, no después
+
+**Rama/branch:** `claude/seguimientos-tabla-closing-u6arke`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `components/closing/call-outcome-modal.tsx` (nuevo), `components/closing/no-close-modal.tsx` (eliminado), `app/sales/lead-actions.ts`, `components/closing/closing-overview.tsx`
+
+**Qué se hizo:**
+
+**⭐ El seguimiento se pide cuando la información existe.** Hasta acá el próximo
+paso sólo se cargaba desde la tabla de seguimiento — o sea, *después*: el closer
+marcaba "no cerró", cerraba la pantalla, y lo que seguía quedaba para más tarde.
+En los datos reales "más tarde" significaba nunca: de 1.027 turnos, cero tenían
+resultado cargado. Ahora el mismo modal que registra el resultado pide
+calificación, próximo paso, fecha, responsable y nota, con la llamada fresca.
+
+**Un solo modal para los dos resultados.** "No show" era una acción directa sin
+ninguna pantalla: se marcaba y listo, sin lugar donde anotar nada. Ahora abre el
+mismo modal que "no cerrada", sin el selector de motivo —el motivo es el no
+show— pero con el mismo bloque de seguimiento. Los valores propios se pueden
+crear desde ahí igual que en la tabla.
+
+**Se completó la corrección de `acceptsManualOutcome` en la UI.** El panel de
+detalle comparaba `status === "scheduled"` a mano, así que una llamada que el
+proveedor marcó como asistida no tenía botones para cargarle resultado — es
+exactamente el estado "Falta cargar el resultado" de la tabla, que quedaba sin
+forma de resolverse. El predicado existía desde la Fase 0; faltaba usarlo acá.
+
+**Decisiones de diseño relevantes:**
+
+- **Dejar el próximo paso vacío es legítimo, y el modal dice la consecuencia.**
+  A veces no se sabe qué sigue. Obligar a elegir produciría valores falsos; el
+  modal avisa que el lead queda en la cola como "Sin próximo paso" y lo deja
+  pasar. La fuga se ve en la tabla, que es donde tiene que verse.
+- **Calificación y próximo paso van en un solo UPDATE** (`saveCallFollowUpAction`).
+  Dos guardados separados podían dejar una llamada calificada sin próximo paso,
+  que es justo el estado que el módulo intenta evitar.
+- **El resultado se guarda primero.** Es el dato que el closer vino a cargar. Si
+  el seguimiento falla después, el toast lo dice con todas las letras —"el
+  resultado se guardó, el seguimiento no"— en vez de sugerir que se perdió todo.
+- **El modal se resetea en cada apertura.** Arrastrar lo cargado en la llamada
+  anterior pondría en la ficha de un lead algo que se dijo de otro.
+- **`no_show` salió de la lista de motivos de no cierre**: ahora es un camino
+  propio, y tenerlo en las dos partes invitaba a registrar lo mismo de dos formas.
+
+**Riesgos / deuda técnica pendiente:**
+
+- **Sin verificar en pantalla**, como el resto del bloque: la sesión no corre la
+  app. Los pasos están en `docs/PLAN_VERIFICACION.md` §14.5.
+- Una llamada **sin lead** (sin mail ni contacto de GHL) guarda igual su
+  seguimiento, pero no aparece en la tabla hasta que un sync le complete la
+  identidad. Es el comportamiento heredado de la Fase 2, no cambió.
+
+**Verificación:** `tsc --noEmit` limpio, `pnpm build` OK, 595 tests en verde.
+
+---
+
 ### 2026-09-03 — Seguimiento en tabla, con valores propios de cada organización
 
 **Rama/branch:** `claude/seguimientos-tabla-closing-u6arke`

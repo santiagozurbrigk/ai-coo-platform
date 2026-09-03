@@ -764,6 +764,19 @@ ninguna cuenta externa—, pero **nada se vio renderizado**.
 | ⭐ Archivar un valor que **está en uso** | Desaparece del selector, pero las filas que lo tenían lo siguen mostrando tachado. **El dato no se blanquea** |
 | 🔒 Verificar RLS de `sales_follow_up_options` | Un usuario de otra organización no ve ni crea valores ajenos |
 
+### 14.5 Cargar el seguimiento al marcar el resultado ⭐
+
+| Paso | Resultado esperado |
+|---|---|
+| Abrir una llamada agendada → **Marcar como no cerrada** | El modal pide motivo, notas **y** el bloque de seguimiento (calificación, próximo paso, fecha, responsable, nota) |
+| Guardar con un próximo paso cargado | Toast "Resultado y seguimiento guardados". En la pestaña Seguimiento la fila ya aparece con ese próximo paso y su fecha |
+| ⭐ Guardar **sin** próximo paso | El modal avisa antes que el lead queda como "Sin próximo paso", y así aparece en la tabla. No lo bloquea |
+| **Marcar como no show** | Abre el mismo modal, **sin** selector de motivo, con el mismo bloque de seguimiento |
+| Elegir un próximo paso que pide fecha y borrar la fecha | No deja guardar: "El próximo paso necesita una fecha" |
+| Crear un valor propio desde el modal | Queda seleccionado y disponible después en la tabla |
+| Abrir una llamada en estado **"Asistió — sin resultado"** | ⭐ Tiene los tres botones de resultado. Antes no los tenía: la UI comparaba contra `scheduled` a mano |
+| Reabrir el modal con otra llamada | Todos los campos en blanco — no arrastra lo de la llamada anterior |
+
 ### 14.4 Lo que puede fallar
 
 - ⚠️ **El techo de 2.000 leads.** El estado se deriva en JS, no en SQL, así que la
