@@ -39,6 +39,7 @@ import {
   listCheckpointsAction,
   listJourneyStagesAction,
 } from "@/app/clients/checkpoint-actions";
+import { createCheckpointProposal } from "@/lib/checkpoints/create-proposal";
 import { recordCheckpointAction } from "@/app/clients/checkpoint-event-actions";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { firstZodError } from "@/lib/validations";
@@ -216,37 +217,19 @@ export async function createCheckpointProposalAction(
     if (!parsed.success) throw new Error(firstZodError(parsed.error));
     const values = parsed.data;
 
-    const supabase = await createClient();
-
-    const { count: alreadyReached } = await supabase
-      .from("client_checkpoint_events")
-      .select("id", { count: "exact", head: true })
-      .eq("organization_id", organizationId)
-      .eq("client_id", values.clientId)
-      .eq("checkpoint_id", values.checkpointId);
-
-    if ((alreadyReached ?? 0) > 0) return { created: false };
-
-    const { error } = await supabase.from("client_checkpoint_proposals").insert({
-      organization_id: organizationId,
-      client_id: values.clientId,
-      checkpoint_id: values.checkpointId,
+    const result = await createCheckpointProposal({
+      organizationId,
+      clientId: values.clientId,
+      checkpointId: values.checkpointId,
       source: values.source,
-      source_ref: values.sourceRef,
+      sourceRef: values.sourceRef,
       rationale: values.rationale,
-      suggested_reached_at: values.suggestedReachedAt,
-      suggested_metrics: values.suggestedMetrics,
+      suggestedReachedAt: values.suggestedReachedAt,
+      suggestedMetrics: values.suggestedMetrics,
       confidence: values.confidence,
     });
 
-    if (error) {
-      // El índice único parcial corta el duplicado pendiente: no es un error,
-      // es la propuesta que ya estaba esperando.
-      if (error.code === "23505" || /duplicate key/i.test(error.message)) {
-        return { created: false };
-      }
-      throw new Error(error.message);
-    }
+    if (!result.created) return { created: false };
 
     revalidatePath(paths.platform.clients.detail(values.clientId));
     return { created: true };
