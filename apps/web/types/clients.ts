@@ -80,3 +80,26 @@ export type Client = {
   /** ID del sistema de cuotas elegido dentro del plan */
   selectedInstallmentSystemId?: string;
 };
+
+/**
+ * ⭐ El seguimiento del cliente: a dónde iba, cuándo termina y cómo va hoy.
+ *
+ * Vive aparte de `Client` —igual que el nicho y el baseline— porque son datos
+ * del recorrido, no de la venta: se cargan y se leen en otro momento y en otra
+ * pantalla.
+ *
+ * `goal*` es **a dónde iba**; el baseline es **de dónde salió**. Sin los dos, un
+ * programa se puede cerrar sin saber si se cumplió.
+ */
+export type ClientTracking = {
+  goalText: string | null;
+  goalMetricKey: string | null;
+  goalMetricValue: number | null;
+  goalMetricUnit: string | null;
+  /** Cuándo termina el programa (`YYYY-MM-DD`). */
+  exitDate: string | null;
+  /** Dónde está parado hoy, en palabras. Es el campo que se pisa cada semana. */
+  currentStatusNote: string | null;
+  currentMetricValue: number | null;
+  currentStatusUpdatedAt: string | null;
+};

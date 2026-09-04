@@ -1,6 +1,6 @@
 import { parseFathomInvitees, type FathomInvitee } from "@/lib/fathom/invitees";
 
-const FATHOM_API_BASE =
+export const FATHOM_API_BASE =
   process.env.FATHOM_API_BASE?.trim() ?? "https://api.fathom.ai/external/v1";
 
 /** Documentado: GET /external/v1/meetings — legacy no oficial: /v1/calls */
@@ -248,6 +248,18 @@ function pickString(obj: Record<string, unknown>, keys: string[]): string | unde
     if (typeof value === "number" && Number.isFinite(value)) {
       return String(value);
     }
+    // 🐛 Bug arreglado: `default_summary` de Fathom es un **objeto**
+    // (`{ markdown_formatted: "..." }`), no un string. Sin esto `pickString`
+    // devolvía undefined y **el resumen no llegaba nunca**, en silencio.
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      const nested = value as Record<string, unknown>;
+      for (const nestedKey of ["markdown_formatted", "text", "content", "summary"]) {
+        const nestedValue = nested[nestedKey];
+        if (typeof nestedValue === "string" && nestedValue.trim()) {
+          return nestedValue.trim();
+        }
+      }
+    }
   }
   return undefined;
 }
@@ -346,6 +358,12 @@ export function mapFathomMeeting(raw: unknown): FathomMeetingRecord | null {
 export type ListFathomMeetingsOptions = {
   createdAfter?: string;
   includeTranscript?: boolean;
+  /** El resumen ya escrito por Fathom. */
+  includeSummary?: boolean;
+  /** Los próximos pasos, con link al segundo exacto del video. */
+  includeActionItems?: boolean;
+  /** ⭐ De acá sale `matched_speaker_display_name`: el alias, gratis. */
+  includeCrmMatches?: boolean;
   maxPages?: number;
   /** Loguea status, headers, respuesta cruda y shape de paginación (cron/debug). */
   debug?: boolean;
@@ -370,6 +388,30 @@ export async function listFathomMeetings(
     }
     if (options.includeTranscript !== false) {
       url.searchParams.set("include_transcript", "true");
+    }
+    /**
+     * ⭐ Fathom ofrece cuatro `include_` y OTC pedía **uno solo**, así que se
+     * estaba tirando información que ya viene sin costo extra de request:
+     *
+     * - `include_summary`      — el resumen ya escrito (⚠️ ver el bug de
+     *                            `default_summary` en `pickString`)
+     * - `include_action_items` — los próximos pasos, **con link al segundo exacto**
+     * - `include_crm_matches`  — ⭐ el vínculo entre nombre de pantalla y mail
+     *                            (`matched_speaker_display_name`), que es de
+     *                            donde el alias se aprende solo
+     *
+     * ⚠️ Ojo con el costo: pedir summary o transcript convierte el request en
+     * "pesado" (30/min, y puede bajar a 5). Por eso el camino normal es el
+     * webhook, que no gasta cuota; esto es para el poll de reconciliación.
+     */
+    if (options.includeSummary !== false) {
+      url.searchParams.set("include_summary", "true");
+    }
+    if (options.includeActionItems !== false) {
+      url.searchParams.set("include_action_items", "true");
+    }
+    if (options.includeCrmMatches !== false) {
+      url.searchParams.set("include_crm_matches", "true");
     }
 
     const { res, rawText, endpoint } = await fetchFathomListPage(

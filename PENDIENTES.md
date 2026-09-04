@@ -9,6 +9,282 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [TRACKERS-PERMISOS-VACIOS] Todos los wins ya cargados quedan sin permiso 🔴
+
+**Qué es:** los permisos existen desde hoy, así que **cada win cargado antes de
+esta sesión quedó en "sin preguntar"** — o sea, no publicable. Es deliberado: no
+se puede asumir un permiso que nadie dio. Pero significa que la primera vez que
+entres al dashboard vas a ver todo marcado sin permiso.
+
+**Qué hacer:** repasar los wins que ya se usaron en material y cargarles el
+permiso que efectivamente dieron, con la nota de cómo lo dijeron.
+
+---
+
+### [TRACKERS-PROBAR-CON-SESION] Probar los cinco cambios con una sesión real 🔴
+
+**Qué es:** las capturas de la revisión semanal, del tracker con permisos y de la
+ficha del cliente se sacaron con el middleware puenteado y datos inventados. Eso
+verifica que la pantalla dibuja, **no** que las Server Actions escriben.
+
+**Qué probar:** cargar un permiso y ver que el filtro "Con permiso" lo levanta;
+marcar una reservada; cargar objetivo y fecha de egreso en la ficha; anotar un
+estado en la revisión semanal y ver la fecha del anotado.
+
+**Bloque completo en:** `docs/PLAN_VERIFICACION.md`.
+
+---
+
+### [TRACKERS-EGRESO-MANUAL] La fecha de egreso no se calcula del plan
+
+**Qué es:** `clients.exit_date` se carga a mano. Existe `plan_durations` con la
+duración del plan; calcular la fecha desde ahí y dejarla editable era la propuesta
+del análisis y quedó afuera.
+
+---
+
+### [TRACKERS-RIESGO-PAGOS] "En riesgo" sólo ve las cuotas cargadas
+
+**Qué es:** la señal de pago atrasado sale de `clients.installments`. Un cliente
+sin cuotas cargadas —pago único, o cuotas que nunca se cargaron— **nunca dispara
+esa señal**, así que necesita las otras dos para aparecer en riesgo.
+
+---
+
+### [TRACKERS-RECOMENDACIONES-6-10] Lo que el análisis dejó para después
+
+**Qué es:** de las diez recomendaciones de `docs/TRACKERS_EXCEL_VS_OTC.md` se
+construyeron las cinco primeras. Quedan: ficha de caso (creencias, restricciones,
+proceso), checklist de contenido por caso, revisión mensual de patrones, caso de
+éxito como entidad curada, próximos pasos por llamada de entrega y responsable por
+cliente. **Son producto nuevo, no una migración chica.**
+
+---
+
+### [B-FATHOM-NUNCA-PROBADO] Probar Fathom contra una cuenta real 🔴
+
+**Qué es:** L0 arregló el módulo de keys por miembro —que **nunca funcionó**,
+porque el código usaba una columna inexistente— pero **nada se probó contra
+Fathom**. Ni conectar una key, ni crear un webhook, ni recibir un evento.
+
+**Lo que más riesgo tiene, en orden:**
+
+1. **La verificación de firma.** Se asume HMAC-SHA256 sobre el cuerpo crudo y una
+   lista de headers posibles. **Si Fathom firma distinto, se rechazan todos los
+   webhooks** y no llega ninguna llamada. Es lo primero a mirar con un evento real.
+2. **La forma del payload del webhook** y de `crm_matches`. El extractor acepta
+   variantes y descarta lo que no entiende, pero la primera llamada real manda.
+3. **`POST /webhooks`.** Que devuelva `id` y `secret` como dice el plan.
+
+**Cómo se verifica (del plan):** dos miembros conectan su key → el panel los
+muestra conectados con su mail confirmado → cada uno graba una llamada y **las dos
+llegan solas** → los dos en una misma llamada dan **una sola fila** → uno revoca la
+key y la fila pasa a "revocada" → uno se desconecta y **el webhook desaparece de su
+cuenta de Fathom**.
+
+---
+
+### [B-SEMBRAR-IDENTIDADES] Sembrar `client_identities` 🔴
+
+**Qué es:** la tabla existe y la resolución de contraparte la usa, pero **nadie la
+llena todavía**. Sin la siembra, el módulo arranca resolviendo mucho menos de lo
+que puede: cada llamada iría a la cola de revisión en vez de resolverse sola.
+
+**De dónde sale, todo ya existe en la base:** `clients` (nombre, **apodo**, mail),
+`sales_leads`, `closing_calls` (nombre y mail de cada turno), contactos de GHL, y
+el **mail del comprador** de los pagos.
+
+**Ojo con el apodo:** `clients.nickname` es exactamente el tipo de dato que hace
+match con un nombre de pantalla de Zoom, y hoy no lo usa nadie.
+
+---
+
+### [D-SOPS-VIDEO-NUNCA-CORRIO] Probar el flujo entero de SOP desde video 🔴
+
+**Qué es:** el encargo D está completo pero **nunca se ejecutó**: no se subió un
+video, no se llamó a Whisper ni a Sonnet, y el worker no corrió una sola vez. La
+lógica pura tiene 25 tests; el resto no tiene ninguna prueba real.
+
+**Lo que más riesgo tiene, en orden:**
+
+1. **ffmpeg en Vercel.** El binario de `@ffmpeg-installer` está en `apps/web` por
+   Trial Reels, pero el worker de SOPs nunca se ejecutó en producción. Si no está
+   disponible en la lambda, falla ahí y no hay forma de saberlo antes.
+2. **El tiempo.** `maxDuration = 800`; un Loom de una hora hace cinco llamadas a
+   Whisper en serie. Puede no alcanzar.
+3. **El peso estimado del audio** (`ESTIMATED_BYTES_PER_SECOND`) se eligió por
+   criterio, no midiendo. Conviene transcribir un audio real y ajustar.
+4. **La calidad del SOP.** La regla de "no inventar pasos" está en el prompt; no
+   hay forma de saber cuánto la respeta sin correrla contra un video real.
+
+**Necesita:** `OPENAI_API_KEY`, `QSTASH_TOKEN` y `NEXT_PUBLIC_APP_URL`.
+
+---
+
+### [E-D1-DESPLEGAR] Desplegar el bot de Discord 🔴
+
+**Qué es:** el bot está escrito entero y **no corre en ningún lado**. Nada de la
+actividad, el silencio ni los testimonios funciona hasta que esté desplegado.
+
+**Es operación, no código.** El runbook paso a paso está en
+**`docs/DISCORD_DEPLOY.md`**: activar el intent MESSAGE CONTENT, sacar el token,
+desplegar en Railway con cinco variables, e instalar el bot en un servidor.
+
+**Cómo sabés que salió bien:** hay filas en `discord_messages` **con `content` no
+vacío**. Si `content` viene vacío, el intent no está activado — ese es el modo de
+falla peligroso, porque el bot parece andar.
+
+---
+
+### [E-RETENCION] Decidir la retención de mensajes de terceros 🔴
+
+**Qué es:** el bot lee y guarda mensajes de **personas que no son usuarias de
+OTC** (los clientes de tu cliente). Hoy se guardan para siempre y no hay nada
+escrito que diga que el servidor está siendo registrado.
+
+**Cuándo:** **antes** de instalarlo en el servidor de un cliente, no después.
+
+---
+
+### [E-CLASIFICADOR-SIN-CRON] El clasificador existe pero nadie lo llama
+
+**Qué es:** `classifyDiscordMessagesAction` clasifica mensajes por lote con Haiku
+(sentimiento, atención y testimonios), pero **no hay disparador**: hay que
+llamarla a mano. Debería ser un cron diario, como los demás.
+
+**Además:** nunca corrió contra la API real. Falta ver la calidad de la
+clasificación, sobre todo **cuántos falsos positivos de testimonio** quedan
+después de arreglar el detector del bot.
+
+---
+
+### [E-CHECKPOINT-DESDE-MENSAJE] La cuarta conexión del bot quedó afuera
+
+**Qué es:** el plan lista cuatro conexiones entre el bot y el tracking. Se
+construyeron tres (actividad, silencio, testimonio → win). Falta **mensaje →
+propuesta de checkpoint**, que tendría que producir una propuesta para el
+recorrido del cliente (C), nunca un evento directo.
+
+---
+
+### [A-PROBAR-CAPTURAS] La subida de capturas nunca se ejecutó 🔴
+
+**Qué es:** el flujo de captura (pedir signed URL → subir → registrar) está
+escrito copiando el patrón de `sop_attachments`, pero **nunca corrió**. Toca
+storage, que es donde más fácil se rompe algo silenciosamente.
+
+✅ **Verificado el 2026-09-03 — la mitad de seguridad:** el bucket `client-wins`
+existe, es **privado**, limita a 10 MB y sólo imágenes, y **ninguna policy de
+`storage.objects` lo nombra**: ningún rol del cliente puede leerlo ni escribirlo
+directamente. Sólo el admin del servidor, que es lo que hace el código.
+
+🔴 **Falta la vuelta completa**, que necesita la `SUPABASE_SERVICE_ROLE_KEY` (no
+está en el entorno de desarrollo): pedir el signed URL, subir la imagen, verla en
+el tracker, y confirmar que borrar un win **borra también el archivo** del bucket.
+
+---
+
+### [A-ENGANCHES-W3] Wins desde Discord y desde llamadas
+
+**Qué es:** la fase W3 dejó la sección de wins en la ficha del cliente, pero los
+**candidatos automáticos** no están: un testimonio de Discord y una llamada de
+Fathom deberían proponer un win que alguien acepta —mismo criterio que las
+propuestas de checkpoint de C3—. Lo conectan los Encargos **E** y **B**.
+`client_wins.source` y `source_ref` ya existen para eso.
+
+---
+
+### [C3-TRABADO-SIN-PRIMER-HITO] Un cliente que nunca arrancó no figura como trabado
+
+**Qué es:** el plazo se cuenta desde el hito **inmediatamente anterior**. Si un
+cliente no tiene ningún hito registrado, no hay desde cuándo contar y **no se
+marca trabado** — aunque sea el caso más urgente (compró y nunca empezó).
+
+**Por qué quedó así:** anclarlo a la fecha de alta del cliente es una decisión de
+producto distinta, no un bug. Hoy esos clientes se ven igual en la lista, con
+"Sin empezar".
+
+**Si se decide cambiarlo:** el único lugar a tocar es `deriveClientJourneyStatus`
+en `lib/checkpoints/stalled.ts`, caso 3.
+
+---
+
+### [C3-CONECTAR-PROPUESTAS] El buzón de propuestas todavía no recibe nada
+
+**Qué es:** `createCheckpointProposalAction` es la entrada del buzón y funciona,
+pero **ninguna fuente escribe todavía**. Lo conectan los Encargos **E** (Discord:
+mensaje marcado como testimonio → propone el hito) y **B** (Fathom: llamada de
+entrega → propone el hito).
+
+---
+
+### [C2-PROBAR-FICHA] Probar el registro de checkpoints en la ficha con sesión real
+
+**Qué es:** la sección "Recorrido" de la ficha del cliente ya se vio en un
+navegador, pero **con datos fabricados y una página descartable** (borrada).
+Falta la pasada real: entrar a un cliente, registrar un checkpoint, ver que las
+métricas se piden según lo configurado y que se guardan.
+
+**Qué mirar,** bloque §16 de `docs/PLAN_VERIFICACION.md`. Los tres que más
+importan: que un checkpoint con `sets_client_status` **mueva el estado del
+cliente** al registrarlo; que **deshacer NO revierta el estado** (sí avisa); y
+que un monto ilegible se rechace en vez de guardarse como cero.
+
+---
+
+### [C1-PROBAR-PANTALLA] Probar el Recorrido del cliente con una sesión real
+
+**Qué es:** la migración está aplicada y los cortes de la base verificados, pero
+la pantalla sólo se vio **con datos fabricados y el founder forzado**. Falta la
+pasada real: crear tres fases, meterles checkpoints y elegirles métricas.
+
+**Qué mirar,** bloque §15 de `docs/PLAN_VERIFICACION.md`. Los dos pasos que más
+importan: que una métrica siga apuntando a su columna después de renombrarla, y
+que borrar una fase con checkpoints adentro **se rechace** (la base los borraría
+en cascada).
+
+**Pendiente de scope, anotado a propósito:** `clients.current_stage_id` todavía
+no existe. Es estado, no catálogo, y se escribe al registrar un evento — va en la
+migración de **C2**.
+
+---
+
+### [C0-PROBAR-PANTALLA] Probar Campos personalizados con una sesión real
+
+**Qué es:** ✅ **parcialmente verificado el 2026-09-03 con datos reales.** En la
+base hay dos columnas creadas desde la pantalla: una de wins (`tipo_de_win`, 7
+opciones, cargada con el botón de ejemplo y **después renombrada a "Wbinar"
+manteniendo su clave interna** — que es la prueba del mecanismo entero) y una de
+checkpoints (`nose`, lista de 2 opciones, obligatoria).
+
+Queda por probar: archivar una opción, el rechazo al sacar una opción en uso, y
+que un `operator` no vea los botones de editar.
+
+**Qué mirar,** en el orden del bloque §14 de `docs/PLAN_VERIFICACION.md`. El paso
+que más importa: crear una columna, renombrarla y confirmar que su **clave interna
+no cambia** — si cambia, el mecanismo entero se cae.
+
+**Verificar también** que un `operator` ve la pantalla sin los botones de editar.
+
+---
+
+### [C0-PENDIENTES] Lo que C0 dejó abierto a propósito
+
+**`options_source = 'journey_stages'` no se puede elegir desde la UI.** La
+columna existe en la base y la lógica la soporta; falta el catálogo de fases,
+que entrega **C1**. Cuando esté, se habilita la opción en la pantalla y el campo
+"Fase" del Encargo A pasa a tomar sus opciones del catálogo cambiando una fila,
+sin migrar datos.
+
+**El chequeo de "columna en uso" todavía no puede fallar.** `isFieldInUse`
+consulta `client_wins` y `client_checkpoint_events`, que no existen: las traen el
+**Encargo A** y **C2**. Hoy toda columna cuenta como sin uso y se puede borrar.
+Reverificar cuando esas tablas entren.
+
+**Sin cobertura de Playwright** en la pantalla de campos personalizados.
+
+---
+
 ### [LLAMADAS-PR] Un solo PR al final, no uno por fase
 
 **Decisión del usuario (2026-09-01):** las tres fases del módulo de llamadas se
@@ -556,6 +832,8 @@ referencias + `brand.domain`.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-09-04 | TRACKERS-EXCEL: las cinco piezas que los Excel tenían y OTC no — permisos del cliente sobre su win (con la forma en que quiere aparecer), estado de uso con el filtro "Sin usar", objetivo con el que entró, fecha de egreso y estado actual en palabras. Más la pantalla de **Revisión semanal** con las cuatro preguntas. 812 tests | `claude/checkpoints-cliente-ccc3ih` |
+| 2026-09-04 | OPERACIONES-ADDON-APAGADO: SOPs salió del add-on `operaciones` y es un módulo propio de la barra superior. El creador de SOPs existía y **nadie podía llegar**, porque las 5 organizaciones tienen `enabled_add_ons` vacío. El resto de Operaciones sigue detrás del add-on | `claude/checkpoints-cliente-ccc3ih` |
 | 2026-09-03 | SEGUIMIENTO-EN-EL-MOMENTO: el modal de resultado de la llamada pide también el seguimiento (calificación, próximo paso, fecha, responsable, nota) en un solo guardado. "No show" pasó de acción directa a modal con el mismo bloque. El panel de detalle ahora usa `acceptsManualOutcome`, así que las llamadas "asistió sin resultado" pueden cerrarse | `claude/seguimientos-tabla-closing-u6arke` |
 | 2026-09-03 | SEGUIMIENTO-TABLA: la pestaña Seguimiento pasa de acordeón a tabla editable celda por celda (calificación, próximo paso, fecha, responsable, notas), con panel lateral para el hilo de intentos, filtros, buscador, orden y paginado. Se ven **todos** los leads, no sólo los tres estados accionables. Valores de seguimiento propios por organización (`sales_follow_up_options`): cada valor declara si pide fecha o cierra el hilo, se archiva en vez de borrarse, y los de fábrica no se pueden pisar. Se completó `next_action_owner_id`, que no tenía UI. 595 tests | `claude/seguimientos-tabla-closing-u6arke` |
 | 2026-09-02 | LLAMADAS-FASE-2: seguimiento del lead. Tabla `sales_leads` que hila los intentos (845 leads, 861 turnos, 15 con reagendas). Próximo paso con fecha y notas — lo que faltaba para que una llamada que no cierra deje de ser un callejón sin salida. Tres estados de trabajo derivados: seguimiento vencido, falta resultado y sin próximo paso. Calificación antes y después. Ciclo lead → cliente cerrado al vender. 577 tests | `Claude-New-Features` |

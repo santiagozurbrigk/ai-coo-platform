@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthContext } from "@/lib/auth/require-auth";
+import { trackTranscriptionUsage } from "@/lib/sops/transcription-usage";
+import { ESTIMATED_BYTES_PER_SECOND } from "@/lib/sops/audio-chunks";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
+  let organizationId: string;
   try {
-    await requireAuthContext();
+    const auth = await requireAuthContext();
+    organizationId = auth.orgId;
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -54,6 +58,9 @@ export async function POST(req: NextRequest) {
   whisperForm.append("file", audioFile, filename);
   whisperForm.append("model", "whisper-1");
   whisperForm.append("language", "es");
+  // `verbose_json` devuelve la duración real del audio. Sin ella habría que
+  // estimarla por el peso del archivo, que varía con el códec.
+  whisperForm.append("response_format", "verbose_json");
 
   const whisperRes = await fetch(
     "https://api.openai.com/v1/audio/transcriptions",
@@ -76,6 +83,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const data = (await whisperRes.json()) as { text?: string };
+  const data = (await whisperRes.json()) as { text?: string; duration?: number };
+
+  // ⭐ El costo de Whisper era invisible: no se registraba en ningún lado.
+  // Si la API no devolvió la duración, se estima por el peso — impreciso, pero
+  // muchísimo mejor que registrar cero.
+  const seconds =
+    typeof data.duration === "number" && data.duration > 0
+      ? data.duration
+      : audioFile.size / ESTIMATED_BYTES_PER_SECOND;
+
+  await trackTranscriptionUsage({
+    organizationId,
+    seconds,
+    feature: "agent_voice_transcription",
+  });
+
   return NextResponse.json({ text: data.text ?? "" });
 }

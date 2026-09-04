@@ -9,6 +9,36 @@
 
 ---
 
+## Loom — no publica API para bajar el video de un share link
+
+**Agregado el 2026-09-04 (Encargo D, SOPs desde video).**
+
+**Qué se implementó sin documentación:** nada contra la API de Loom, y esa es
+justamente la conclusión. Loom **no publica un endpoint** para descargar el mp4 a
+partir de un link compartido. Lo que existe de su API pública es para crear
+grabaciones embebidas, no para leerlas.
+
+**Qué se asumió, y con qué confianza:**
+
+| Supuesto | Confianza | Cómo se verifica |
+|---|---|---|
+| No hay forma documentada de bajar el video desde un share link | **Alta** — es una decisión de producto de Loom, no un hueco de documentación | Buscar "download" en su referencia de API |
+| Raspar la página pública del video para sacar el mp4 funcionaría | **Baja, y no se construyó** | — |
+
+**La decisión, y por qué:** el flujo pide **subir el archivo**. El usuario baja el
+mp4 desde Loom (que sí se puede desde su interfaz) y lo sube a OTC. Cero
+fragilidad y cero problema con los términos de uso.
+
+El camino cómodo —pegar el link y que el sistema resuelva el archivo— **se
+descartó a propósito para v1**: depende de que el video sea público y de que el
+HTML de Loom no cambie. Si alguna vez se construye, tiene que **fallar diciendo
+"no se pudo, subí el archivo"** y nunca dejar el job colgado.
+
+**Qué no hace falta verificar:** nada bloquea la feature. Está anotado acá porque
+la regla 3 del `CLAUDE.md` lo pide, no porque haya una deuda técnica escondida.
+
+---
+
 ## Por qué existe este archivo
 
 Ningún dominio de documentación de API era alcanzable desde el entorno de

@@ -164,11 +164,6 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           href: paths.platform.operations.inputs,
           permissionId: "operations_overview",
         },
-        {
-          label: "SOPs",
-          href: paths.platform.operations.sops,
-          permissionId: "operations_sops",
-        },
         { label: "Inteligencia", href: paths.platform.intelligence.root },
         // "Reportes" salió del sidebar el 2026-08-30: los reportes ejecutivos
         // se leen desde el panel de la barra superior, disponible en cualquier
@@ -231,6 +226,20 @@ export const directModules: SidebarDirectModule[] = [
     icon: "brain",
     permissionId: "knowledge_base",
   },
+  /**
+   * SOPs es un módulo propio y **no depende del add-on `operaciones`**.
+   *
+   * Estaba adentro de ese grupo, así que en una organización sin el add-on
+   * —hoy, todas— el creador de SOPs no se veía desde el menú: existía y no
+   * había cómo llegar. Se sacó afuera; el resto de Operaciones (Overview,
+   * Inputs, Inteligencia, Área del fundador) sigue detrás del add-on.
+   */
+  {
+    label: "SOPs",
+    href: paths.platform.operations.sops,
+    icon: "book-open",
+    permissionId: "operations_sops",
+  },
   {
     label: "Equipo",
     href: paths.platform.team.root,
@@ -253,6 +262,7 @@ const coreRootItems: SidebarNavRootItem[] = [
   { type: "parent", key: "finanzas" },
   { type: "divider" },
   { type: "link", module: byHref(paths.platform.workboard.root) },
+  { type: "link", module: byHref(paths.platform.operations.sops) },
   { type: "parent", key: "configuracion" },
 ];
 
@@ -298,6 +308,8 @@ export function getParentFromPath(pathname: string): SidebarParentKey | null {
   if (pathname.startsWith("/marketing")) return "marketing";
   if (pathname.startsWith(paths.platform.comentarios)) return "marketing";
   if (pathname.startsWith("/sales")) return "ventas";
+  // SOPs es un módulo propio: no marca activo al grupo Operaciones.
+  if (pathname.startsWith(paths.platform.operations.sops)) return null;
   if (pathname.startsWith("/operations")) return "operaciones";
   if (pathname.startsWith("/intelligence")) return "operaciones";
   if (pathname.startsWith("/executive-reports")) return "operaciones";

@@ -1,7 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import {
+  extractAttachmentIds,
+  resolveAttachmentMarkers,
+} from "@/lib/sops/attachment-markers";
+import { resolveSopAttachmentUrlsAction } from "@/app/sops/video-actions";
 
 const proseClassName =
   "prose prose-sm dark:prose-invert max-w-none " +
@@ -17,13 +23,36 @@ const proseClassName =
   "first:prose-headings:mt-0 first:prose-p:mt-0";
 
 export function SopContentViewer({ content }: { content: string }) {
+  /**
+   * ⭐ D · S3 — Las capturas se guardan como `sop-attachment:<id>` y se resuelven
+   * a URL firmada **acá, al mostrar**. Si el markdown guardara la URL, el SOP se
+   * vería bien hoy y roto la semana que viene, cuando la firma venza.
+   */
+  const [resolved, setResolved] = useState(content);
+
+  useEffect(() => {
+    const ids = extractAttachmentIds(content);
+    if (ids.length === 0) {
+      setResolved(content);
+      return;
+    }
+
+    let alive = true;
+    void resolveSopAttachmentUrlsAction(ids).then((urls) => {
+      if (alive) setResolved(resolveAttachmentMarkers(content, urls));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [content]);
+
   if (!content.trim()) {
     return <p className="text-sm text-muted-foreground">Sin contenido.</p>;
   }
 
   return (
     <div className={proseClassName}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{resolved}</ReactMarkdown>
     </div>
   );
 }

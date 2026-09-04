@@ -79,6 +79,14 @@ export const paths = {
       root: `${PLATFORM}/clients`,
       detail: (id: string) => `${PLATFORM}/clients/${id}`,
       pendingCalls: `${PLATFORM}/clients/pending-calls`,
+      /** C0 · Configuración de las columnas configurables de wins y checkpoints. */
+      customFields: `${PLATFORM}/clients/campos`,
+      /** C1 · Catálogo de fases y checkpoints del recorrido del cliente. */
+      checkpoints: `${PLATFORM}/clients/checkpoints`,
+      /** A · Tracker de wins y dashboard de casos. */
+      wins: `${PLATFORM}/clients/wins`,
+      /** ⭐ La revisión semanal: cuatro preguntas, una lista de nombres. */
+      weeklyReview: `${PLATFORM}/clients/revision`,
     },
 
     operations: {
