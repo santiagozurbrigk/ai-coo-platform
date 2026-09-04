@@ -91,6 +91,10 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Wins",
     subtitle: "Clientes — logros y casos de éxito",
   },
+  "/clients/revision": {
+    title: "Revisión semanal",
+    subtitle: "Clientes — a quién mirar esta semana",
+  },
   "/operations/overview": {
     title: "Operaciones",
     subtitle: "Salud operativa del negocio",
@@ -228,7 +232,8 @@ export function getPageMeta(pathname: string): {
     pathname !== "/clients/pending-calls" &&
     pathname !== "/clients/campos" &&
     pathname !== "/clients/checkpoints" &&
-    pathname !== "/clients/wins"
+    pathname !== "/clients/wins" &&
+    pathname !== "/clients/revision"
   ) {
     return { title: "Detalle de cliente", subtitle: "Clientes" };
   }

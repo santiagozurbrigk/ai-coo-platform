@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Badge, Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, StaggerFade, StaggerFadeItem } from "@ai-coo/ui";
-import { AlertTriangle, BookOpen, MoonStar, Route, Settings2, SlidersHorizontal, Star, Trash2, Trophy } from "lucide-react";
+import { AlertTriangle, BookOpen, CalendarCheck, MoonStar, Route, Settings2, SlidersHorizontal, Star, Trash2, Trophy } from "lucide-react";
 import { assignClientPlanAction, deleteClientAction } from "@/app/clients/actions";
 import { listPlansAction } from "@/app/clients/plan-actions";
 import { getClientsTableEnrichmentAction } from "@/app/clients/plan-duration-actions";
@@ -348,6 +348,12 @@ export function ClientsList({ clients }: { clients: Client[] }) {
               superior saltea ese grupo entero, así que desde el escritorio no se
               llegaba.
             */}
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link href={paths.platform.clients.weeklyReview}>
+                <CalendarCheck className="h-4 w-4" />
+                Revisión semanal
+              </Link>
+            </Button>
             <Button asChild variant="outline" size="sm" className="gap-2">
               <Link href={paths.platform.clients.wins}>
                 <Trophy className="h-4 w-4" />

@@ -10,7 +10,7 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ai-coo/ui";
 import { PageHeader } from "@/components/shared/page-header";
-import type { Client } from "@/types/clients";
+import type { Client, ClientTracking } from "@/types/clients";
 import type { ClientBaseline, ClientWin } from "@/types/wins";
 import type { FieldDefinition } from "@/types/custom-fields";
 import { getWinsPageDataAction } from "@/app/clients/win-page-actions";
@@ -23,6 +23,7 @@ export type WinsPageData = {
   winFields: FieldDefinition[];
   baselines: Record<string, ClientBaseline>;
   niches: Record<string, string>;
+  tracking: Record<string, ClientTracking>;
 };
 
 export function WinsPage({ initialData }: { initialData: WinsPageData }) {
@@ -58,6 +59,7 @@ export function WinsPage({ initialData }: { initialData: WinsPageData }) {
             clients={data.clients}
             baselines={data.baselines}
             niches={data.niches}
+            tracking={data.tracking}
             onChanged={refresh}
           />
         </TabsContent>

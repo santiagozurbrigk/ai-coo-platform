@@ -9,36 +9,55 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [WINS-PERMISOS] Los wins no registran si el cliente autorizó 🔴
+### [TRACKERS-PERMISOS-VACIOS] Todos los wins ya cargados quedan sin permiso 🔴
 
-**Qué es:** los dos Excel que usan hoy los clientes tienen **"¿Autorizó uso
-público?"** y **"¿Cómo quiere aparecer?"** (nombre y cara / nombre sin números /
-anónimo / no autoriza). **OTC no tiene nada de eso.**
+**Qué es:** los permisos existen desde hoy, así que **cada win cargado antes de
+esta sesión quedó en "sin preguntar"** — o sea, no publicable. Es deliberado: no
+se puede asumir un permiso que nadie dio. Pero significa que la primera vez que
+entres al dashboard vas a ver todo marcado sin permiso.
 
-Hoy se puede registrar el resultado de un cliente y usarlo en una landing **sin
-ningún lugar donde conste que dio permiso**. Con datos de facturación de personas
-reales, eso es un problema concreto.
-
-**Qué haría falta:** `client_wins.consent_status` + `consent_display`, y que el
-dashboard **filtre por defecto** los que no autorizaron.
-
-**Análisis completo:** `docs/TRACKERS_EXCEL_VS_OTC.md`.
+**Qué hacer:** repasar los wins que ya se usaron en material y cargarles el
+permiso que efectivamente dieron, con la nota de cómo lo dijeron.
 
 ---
 
-### [OPERACIONES-ADDON-APAGADO] SOPs es inalcanzable: el add-on está apagado en TODAS las orgs 🔴
+### [TRACKERS-PROBAR-CON-SESION] Probar los cinco cambios con una sesión real 🔴
 
-**Qué es:** el creador de SOPs existe y funciona (Operaciones → SOPs → "Crear
-SOP"), pero **el grupo Operaciones sólo aparece si la organización tiene el add-on
-`operaciones` activado**, y hoy **las 5 organizaciones tienen `enabled_add_ons`
-vacío**. O sea: SOPs, Inteligencia y Reportes ejecutivos **no se ven desde el menú
-para nadie**.
+**Qué es:** las capturas de la revisión semanal, del tracker con permisos y de la
+ficha del cliente se sacaron con el middleware puenteado y datos inventados. Eso
+verifica que la pantalla dibuja, **no** que las Server Actions escriben.
 
-**No es un bug de código, es configuración** — pero el efecto es que todo el
-Encargo D (SOPs desde video) nace inalcanzable.
+**Qué probar:** cargar un permiso y ver que el filtro "Con permiso" lo levanta;
+marcar una reservada; cargar objetivo y fecha de egreso en la ficha; anotar un
+estado en la revisión semanal y ver la fecha del anotado.
 
-**Dos salidas:** activar el add-on por organización desde super-admin, o decidir
-que SOPs deje de estar detrás del add-on.
+**Bloque completo en:** `docs/PLAN_VERIFICACION.md`.
+
+---
+
+### [TRACKERS-EGRESO-MANUAL] La fecha de egreso no se calcula del plan
+
+**Qué es:** `clients.exit_date` se carga a mano. Existe `plan_durations` con la
+duración del plan; calcular la fecha desde ahí y dejarla editable era la propuesta
+del análisis y quedó afuera.
+
+---
+
+### [TRACKERS-RIESGO-PAGOS] "En riesgo" sólo ve las cuotas cargadas
+
+**Qué es:** la señal de pago atrasado sale de `clients.installments`. Un cliente
+sin cuotas cargadas —pago único, o cuotas que nunca se cargaron— **nunca dispara
+esa señal**, así que necesita las otras dos para aparecer en riesgo.
+
+---
+
+### [TRACKERS-RECOMENDACIONES-6-10] Lo que el análisis dejó para después
+
+**Qué es:** de las diez recomendaciones de `docs/TRACKERS_EXCEL_VS_OTC.md` se
+construyeron las cinco primeras. Quedan: ficha de caso (creencias, restricciones,
+proceso), checklist de contenido por caso, revisión mensual de patrones, caso de
+éxito como entidad curada, próximos pasos por llamada de entrega y responsable por
+cliente. **Son producto nuevo, no una migración chica.**
 
 ---
 
@@ -799,6 +818,8 @@ referencias + `brand.domain`.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-09-04 | TRACKERS-EXCEL: las cinco piezas que los Excel tenían y OTC no — permisos del cliente sobre su win (con la forma en que quiere aparecer), estado de uso con el filtro "Sin usar", objetivo con el que entró, fecha de egreso y estado actual en palabras. Más la pantalla de **Revisión semanal** con las cuatro preguntas. 812 tests | `claude/checkpoints-cliente-ccc3ih` |
+| 2026-09-04 | OPERACIONES-ADDON-APAGADO: SOPs salió del add-on `operaciones` y es un módulo propio de la barra superior. El creador de SOPs existía y **nadie podía llegar**, porque las 5 organizaciones tienen `enabled_add_ons` vacío. El resto de Operaciones sigue detrás del add-on | `claude/checkpoints-cliente-ccc3ih` |
 | 2026-09-02 | LLAMADAS-FASE-2: seguimiento del lead. Tabla `sales_leads` que hila los intentos (845 leads, 861 turnos, 15 con reagendas). Próximo paso con fecha y notas — lo que faltaba para que una llamada que no cierra deje de ser un callejón sin salida. Tres estados de trabajo derivados: seguimiento vencido, falta resultado y sin próximo paso. Calificación antes y después. Ciclo lead → cliente cerrado al vender. 577 tests | `Claude-New-Features` |
 | 2026-09-01 | LLAMADAS-ALCANCE: reducción a sólo llamadas de venta. Una grabación lo es cuando el mail de un participante coincide con el del lead de un turno y el horario corresponde; match provisional por horario mientras los turnos no tengan mail. Se retiró lo que quedó fuera de alcance (tipos de reunión, parser de título, match contra clientes, detección de equipo). El mail del lead ahora viaja al cliente al cerrar. 558 tests | `Claude-New-Features` |
 | 2026-09-01 | LLAMADAS-FASE-1: un solo clasificador con dos ejes (con quién / para qué). Se empezaron a leer los invitados de Fathom —con mail e `is_external`— que el parser descartaba, y el cruce grabación↔turno por horario y mail, con FK real. Parser posicional del título como respaldo. UI de mapeo de tipos y cola de sin clasificar. 581 tests | `Claude-New-Features` |

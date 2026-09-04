@@ -14,6 +14,117 @@
 
 ---
 
+### 2026-09-04 — Las cinco piezas de los Excel, y SOPs fuera del add-on
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260904100000_trackers_desde_excel.sql` (nueva), `lib/wins/{consent,usage-state}.ts` (nuevos), `lib/clients/weekly-review.ts` (nuevo), `app/clients/tracking-actions.ts` (nuevo), `app/(platform)/clients/revision/page.tsx` (nueva), `components/clients/weekly-review/` (nuevo), `app/clients/win-actions.ts`, `components/clients/wins/*`, `lib/navigation/sidebar-modules.ts`, `types/{wins,clients}.ts`, `routes/paths.ts`, `lib/navigation/page-meta.ts`
+
+**Qué se hizo:**
+
+Las **cinco primeras recomendaciones** de `docs/TRACKERS_EXCEL_VS_OTC.md`, que en
+ese documento se describían como *"una migración chica y dos pantallas"*. Y de
+paso, el acceso a SOPs.
+
+**⭐ SOPs salió del add-on `operaciones`.** El creador de SOPs (Encargo D) existía
+y **nadie podía llegar**: vivía dentro del grupo Operaciones, que sólo aparece si
+la organización tiene el add-on activado — y las cinco organizaciones lo tienen
+vacío. Ahora SOPs es un módulo propio de la barra superior, con su permiso
+`operations_sops` intacto. **El resto de Operaciones sigue detrás del add-on**,
+que es lo que se pidió.
+
+**🔴 1 · Los permisos del cliente sobre su propio resultado.** `client_wins` ahora
+guarda si **autorizó** (`consent_status`) y **cómo quiere aparecer**
+(`consent_display`: nombre y cara / nombre sin números / sólo números). No es una
+mejora: hasta hoy se podía usar la facturación de una persona real sin que
+constara en ningún lado que dio permiso. Un permiso otorgado **sin decir cómo
+aparecer** queda rechazado por un check en la base y por la misma regla en el
+código, que la explica en castellano.
+
+**2 · El estado de uso y el filtro "Sin usar".** `used`/`unused` **se derivan** de
+si el win tiene usos cargados; sólo `reserved` se declara. El tracker abre con
+pills que cuentan: Sin usar (n), Reservadas, Usadas, Sin permiso, Falta captura.
+Es la pregunta que el Excel contestaba de una mirada y OTC no podía contestar.
+
+**3 · El objetivo con el que entró.** `clients.goal_text` + `goal_metric_*`, al
+lado del baseline que ya existía. El recorrido pasa de *"500 → 8.500"* a
+*"500 → 8.500 de 10.000"*. El objetivo se muestra en la tarjeta **sólo si es la
+misma clave de medida** que el recorrido: comparar dos medidas distintas sería
+inventar el dato.
+
+**4 · La fecha de egreso.** `clients.exit_date`, con índice parcial para
+"¿quién está a menos de dos meses?".
+
+**5 · El estado actual en palabras.** `current_status_note` con su fecha. Un
+checkpoint dice **qué pasó**; esto dice **cómo va**.
+
+**⭐ Y la pantalla que junta todo: `/clients/revision`.** Las cuatro preguntas de
+la revisión semanal como secciones, cada una con su lista de nombres, el motivo
+por el que cada uno está ahí, y el campo para anotar la acción — que es el estado
+actual del punto 5. OTC ya tenía los datos de tres de las cuatro y no los mostraba
+juntos en ningún lado.
+
+**Decisiones de diseño relevantes:**
+
+- **⭐ "Usada" no se declara, se deriva.** Pedir que alguien marque "usada"
+  *además* de cargar dónde la usó es pedir el mismo dato dos veces, y el segundo
+  siempre queda desactualizado. `reserved` es la excepción, porque *"lo guardo
+  para el lanzamiento"* no se deduce de nada.
+- **⭐ El riesgo pide dos señales, no una.** Un cliente trabado una semana está
+  trabado, no en riesgo — y para eso está la primera lista. Una lista de riesgo
+  que se llena de casos que no lo son se deja de mirar a la tercera semana, y
+  entonces no sirve para el que sí lo está.
+- **Ninguna de las cuatro listas inventa una señal.** Sin plazo, sin fecha de
+  egreso o sin medida, el cliente **no aparece** en esa lista en vez de aparecer
+  con un motivo fabricado. Un trabado sin días de atraso tampoco se lista: no se
+  sabe cuánto.
+- **"Por tener un resultado" exige que la medida haya subido y que el win sea
+  reciente.** Bajar no es estar por tener un resultado, y un cliente que subió
+  hace ocho meses no está por tener nada.
+- **El que ya egresó y sigue cargado también aparece** en la lista de egresos: es
+  exactamente el caso que se pasa por alto.
+- **El silencio se cuenta desde lo último que pasó** —un win o un hito— y, si
+  nunca pasó nada, desde el alta. Así un cliente reciente sin actividad no figura
+  como abandonado.
+- **Un permiso que no se entiende cae en "sin preguntar"**, que es lo que bloquea
+  publicar. Nunca al revés.
+- **El dashboard no esconde los wins sin permiso**, los marca: siguen contando
+  para el recorrido, pero hay un filtro "Con permiso (n)" para cuando estás
+  armando material.
+
+**Verificación ejecutada:**
+- `pnpm test`: **812 tests en 52 archivos, todos en verde** (37 nuevos: 15 de
+  permisos y estado de uso, 22 de la revisión semanal).
+- `tsc --noEmit`, `pnpm lint` y `pnpm build` limpios; `/clients/revision` figura
+  en el manifiesto del build.
+- **Migración aplicada**, cortes probados en una transacción revertida (0 filas
+  persistidas): autorizar **sin** decir cómo aparecer **corta**; autorizar **con**
+  forma **pasa**; una forma de aparecer inventada **corta**; un `consent_status`
+  inventado **corta**; un `usage_state` inventado **corta**; y los defaults quedan
+  en `not_asked` / `unused` / captura no pendiente.
+- **Capturas de pantalla** del tracker con las columnas nuevas, del dashboard con
+  el objetivo, de la ficha del cliente y de la revisión semanal, con datos de
+  ejemplo. Sin errores de consola ni de hidratación en las pantallas nuevas.
+
+**Riesgos / deuda técnica pendiente:**
+
+- 🔴 **Nada se probó con una sesión real.** Las capturas se sacaron con el
+  middleware puenteado y datos inventados: verifica que la pantalla dibuja, no que
+  las Server Actions escriben.
+- **Los wins ya cargados quedan en `not_asked`**, o sea **no publicables**. Es
+  deliberado —no se puede asumir un permiso que nadie dio— pero significa que al
+  entrar por primera vez el dashboard va a mostrar todo sin permiso hasta que
+  alguien lo cargue.
+- **La fecha de egreso se carga a mano.** El plan tiene `plan_durations`; calcular
+  la fecha desde la duración del plan y dejarla editable quedó afuera.
+- **"En riesgo" no mira el pago atrasado del CRM más allá de las cuotas
+  cargadas.** Un cliente sin cuotas cargadas nunca dispara esa señal.
+- Las recomendaciones **6 a 10** del análisis (ficha de caso, checklist de
+  contenido por caso, revisión mensual de patrones, caso de éxito curado) siguen
+  sin construir: son producto nuevo, no una migración chica.
+
+---
+
 ### 2026-09-04 — B · LLAMADAS: L0 (keys por miembro) y L1-L2 (contraparte e identidades)
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`

@@ -18,7 +18,14 @@ import {
   isMissingTableError,
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
-import { WIN_USAGE_CHANNELS, type ClientBaseline, type ClientWin } from "@/types/wins";
+import {
+  CONSENT_DISPLAYS,
+  CONSENT_STATUSES,
+  USAGE_STATES,
+  WIN_USAGE_CHANNELS,
+  type ClientBaseline,
+  type ClientWin,
+} from "@/types/wins";
 import type {
   ClientWinRow,
   WinAttachment,
@@ -61,9 +68,36 @@ const winSchema = z.object({
   notes: z.string().trim().max(2000).nullable().default(null),
   /** Adjuntos subidos antes de guardar; se enganchan al win recién creado. */
   draftId: z.string().uuid().nullable().default(null),
+
+  /**
+   * ⭐ Los permisos del cliente. `not_asked` es el estado honesto por defecto:
+   * no preguntamos todavía, así que no se puede usar.
+   */
+  consentStatus: z.enum(CONSENT_STATUSES).default("not_asked"),
+  consentDisplay: z.enum(CONSENT_DISPLAYS).nullable().default(null),
+  consentNote: z.string().trim().max(500).nullable().default(null),
+
+  /** `used` no se manda: se deriva de los usos cargados. */
+  usageState: z.enum(USAGE_STATES).default("unused"),
+  needsScreenshot: z.boolean().default(false),
 });
 
 export type CreateWinInput = z.input<typeof winSchema>;
+
+/**
+ * Un permiso a medias no es un permiso: si autorizó, hay que saber **cómo
+ * quiere aparecer**, porque de eso depende si se puede poner su nombre. Misma
+ * regla que el check `client_wins_consent_check` en la base — acá se valida
+ * para poder explicarla en castellano en vez de mostrar un error de Postgres.
+ */
+function assertConsentIsComplete(values: {
+  consentStatus?: string;
+  consentDisplay?: string | null;
+}) {
+  if (values.consentStatus === "granted" && !values.consentDisplay) {
+    throw new Error("Si el cliente autorizó, elegí cómo quiere aparecer.");
+  }
+}
 
 function revalidate(clientId?: string) {
   revalidatePath(paths.platform.clients.wins);
@@ -204,6 +238,7 @@ export async function createWinAction(
     if (!parsed.success) throw new Error(firstZodError(parsed.error));
     const values = parsed.data;
 
+    assertConsentIsComplete(values);
     const custom = await validateCustom(values.custom);
 
     const supabase = await createClient();
@@ -221,6 +256,13 @@ export async function createWinAction(
         source: "manual",
         notes: values.notes,
         created_by: profile?.id ?? null,
+        consent_status: values.consentStatus,
+        consent_display: values.consentDisplay,
+        consent_note: values.consentNote,
+        consent_updated_at:
+          values.consentStatus === "not_asked" ? null : new Date().toISOString(),
+        usage_state: values.usageState,
+        needs_screenshot: values.needsScreenshot,
       })
       .select("*")
       .single();
@@ -266,6 +308,21 @@ export async function updateWinAction(
     }
     if (values.custom !== undefined) {
       patch.custom = await validateCustom(values.custom);
+    }
+    if (values.usageState !== undefined) patch.usage_state = values.usageState;
+    if (values.needsScreenshot !== undefined) {
+      patch.needs_screenshot = values.needsScreenshot;
+    }
+    if (values.consentNote !== undefined) patch.consent_note = values.consentNote;
+
+    // La fecha del permiso se pisa sólo si el permiso cambió: es el dato que
+    // después responde "¿cuándo dijo que sí?".
+    if (values.consentStatus !== undefined) {
+      assertConsentIsComplete(values);
+      patch.consent_status = values.consentStatus;
+      patch.consent_display = values.consentDisplay ?? null;
+      patch.consent_updated_at =
+        patch.consent_status === "not_asked" ? null : new Date().toISOString();
     }
 
     const supabase = await createClient();

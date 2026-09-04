@@ -9,14 +9,22 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { Button, cn } from "@ai-coo/ui";
-import { Plus, Trash2, Trophy } from "lucide-react";
+import { Camera, Plus, ShieldAlert, ShieldCheck, Trash2, Trophy } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import { useToast } from "@/providers/toast-provider";
 import type { MutationResult } from "@/lib/server/action-result";
 import type { Client } from "@/types/clients";
 import type { ClientWin } from "@/types/wins";
-import { WIN_USAGE_CHANNELS, WIN_USAGE_CHANNEL_LABEL } from "@/types/wins";
+import {
+  CONSENT_DISPLAY_LABEL,
+  CONSENT_STATUS_LABEL,
+  USAGE_STATE_LABEL,
+  WIN_USAGE_CHANNELS,
+  WIN_USAGE_CHANNEL_LABEL,
+  type UsageState,
+} from "@/types/wins";
+import { blockedReason, canPublish, resolveUsageState } from "@/lib/wins";
 import type { FieldDefinition } from "@/types/custom-fields";
 import { activeFields } from "@/lib/custom-fields";
 import { FieldValueCell } from "@/components/clients/custom-fields/field-value-cell";
@@ -43,6 +51,7 @@ export function WinsTracker({
   const { push } = useToast();
   const [pending, startTransition] = useTransition();
   const [clientFilter, setClientFilter] = useState<string>("all");
+  const [stateFilter, setStateFilter] = useState<StateFilter>("all");
   const [modal, setModal] = useState<{ open: boolean; win: ClientWin | null }>({
     open: false,
     win: null,
@@ -56,8 +65,28 @@ export function WinsTracker({
   );
 
   const filtered = useMemo(
-    () => (clientFilter === "all" ? wins : wins.filter((w) => w.clientId === clientFilter)),
-    [wins, clientFilter]
+    () =>
+      wins.filter((win) => {
+        if (clientFilter !== "all" && win.clientId !== clientFilter) return false;
+        return matchesStateFilter(win, stateFilter);
+      }),
+    [wins, clientFilter, stateFilter]
+  );
+
+  /**
+   * ⭐ El contador de "Sin usar" es la razón de ser del tracker: la pregunta que
+   * el Excel contesta y que hasta ahora OTC no podía contestar.
+   */
+  const stateOptions = useMemo(
+    () =>
+      STATE_FILTERS.map((option) => {
+        const count = wins.filter((win) => matchesStateFilter(win, option.value)).length;
+        return {
+          value: option.value,
+          label: option.value === "all" ? option.label : `${option.label} (${count})`,
+        };
+      }),
+    [wins]
   );
 
   /** Sólo los clientes que ya tienen wins: filtrar por uno vacío no sirve. */
@@ -104,6 +133,13 @@ export function WinsTracker({
       metric = { key, value, unit: draft.metricUnit.trim() || null };
     }
 
+    // Misma regla que la base: autorizar sin decir cómo aparecer deja el
+    // permiso a medias, y después nadie sabe si se puede poner el nombre.
+    if (draft.consentStatus === "granted" && draft.consentDisplay === "") {
+      setModalError("Si el cliente autorizó, elegí cómo quiere aparecer.");
+      return;
+    }
+
     startTransition(async () => {
       const payload = {
         clientId: draft.clientId,
@@ -113,6 +149,12 @@ export function WinsTracker({
         custom: draft.custom,
         notes: draft.notes.trim() || null,
         draftId,
+        consentStatus: draft.consentStatus,
+        consentDisplay: draft.consentDisplay || null,
+        consentNote: draft.consentNote.trim() || null,
+        // "usada" no se declara: sale de los usos cargados.
+        usageState: (draft.reserved ? "reserved" : "unused") as UsageState,
+        needsScreenshot: draft.needsScreenshot,
       };
 
       const result = modal.win
@@ -132,15 +174,20 @@ export function WinsTracker({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {clientOptions.length > 1 ? (
+        <div className="flex flex-wrap items-center gap-2">
           <FilterPills
-            options={clientOptions}
-            value={clientFilter}
-            onChange={setClientFilter}
+            options={stateOptions}
+            value={stateFilter}
+            onChange={(value) => setStateFilter(value as StateFilter)}
           />
-        ) : (
-          <span />
-        )}
+          {clientOptions.length > 1 ? (
+            <FilterPills
+              options={clientOptions}
+              value={clientFilter}
+              onChange={setClientFilter}
+            />
+          ) : null}
+        </div>
         <Button
           onClick={() => {
             setModalError(null);
@@ -156,8 +203,12 @@ export function WinsTracker({
       {filtered.length === 0 ? (
         <EmptyState
           icon={<Trophy className="h-6 w-6" />}
-          title="Todavía no hay wins"
-          description="Cada logro con su fecha, su captura y —si aplica— su número. El número es lo que después arma el recorrido del cliente en el dashboard."
+          title={wins.length === 0 ? "Todavía no hay wins" : "Ninguno cae en este filtro"}
+          description={
+            wins.length === 0
+              ? "Cada logro con su fecha, su captura y —si aplica— su número. El número es lo que después arma el recorrido del cliente en el dashboard."
+              : "Probá con otro filtro: los wins siguen cargados."
+          }
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
@@ -173,6 +224,8 @@ export function WinsTracker({
                     {field.label}
                   </th>
                 ))}
+                <th className="px-4 py-3 font-medium">Permiso</th>
+                <th className="px-4 py-3 font-medium">Estado</th>
                 <th className="px-4 py-3 font-medium">Captura</th>
                 <th className="px-4 py-3 font-medium">Se usó en</th>
                 <th className="px-4 py-3 font-medium" />
@@ -218,6 +271,12 @@ export function WinsTracker({
                       <FieldValueCell field={field} value={win.custom[field.key]} />
                     </td>
                   ))}
+                  <td className="px-4 py-3">
+                    <ConsentCell win={win} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <StateCell win={win} />
+                  </td>
                   <td className="px-4 py-3">
                     {win.attachments.length > 0 ? (
                       <div className="flex -space-x-2">
@@ -298,6 +357,89 @@ export function WinsTracker({
         onClose={() => setModal({ open: false, win: null })}
         onSubmit={submit}
       />
+    </div>
+  );
+}
+
+/**
+ * ⭐ Los filtros que hacen del tracker un recordatorio y no un archivo.
+ *
+ * "Sin usar" es el que importa: es la pregunta que el Excel contestaba de una
+ * mirada —*"¿cuáles todavía no aproveché?"*— y que OTC no podía contestar.
+ */
+const STATE_FILTERS = [
+  { value: "all", label: "Todos" },
+  { value: "unused", label: "Sin usar" },
+  { value: "reserved", label: "Reservadas" },
+  { value: "used", label: "Usadas" },
+  { value: "no_consent", label: "Sin permiso" },
+  { value: "needs_screenshot", label: "Falta captura" },
+] as const;
+
+type StateFilter = (typeof STATE_FILTERS)[number]["value"];
+
+function matchesStateFilter(win: ClientWin, filter: StateFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "no_consent") return !canPublish(win.consent);
+  if (filter === "needs_screenshot") return win.needsScreenshot;
+  return resolveUsageState(win.usageState, win.usages.length) === filter;
+}
+
+/** El permiso, con el motivo cuando falta: "no publicable" a secas no destraba nada. */
+function ConsentCell({ win }: { win: ClientWin }) {
+  const allowed = canPublish(win.consent);
+  const reason = blockedReason(win.consent);
+
+  return (
+    <div className="min-w-[9rem] space-y-0.5">
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]",
+          allowed
+            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+            : "bg-muted text-muted-foreground"
+        )}
+      >
+        {allowed ? (
+          <ShieldCheck className="h-3 w-3" />
+        ) : (
+          <ShieldAlert className="h-3 w-3" />
+        )}
+        {CONSENT_STATUS_LABEL[win.consent.status]}
+      </span>
+      {allowed && win.consent.display ? (
+        <p className="text-[11px] text-muted-foreground">
+          {CONSENT_DISPLAY_LABEL[win.consent.display]}
+        </p>
+      ) : reason ? (
+        <p className="text-[11px] text-muted-foreground">{reason}</p>
+      ) : null}
+    </div>
+  );
+}
+
+/** El estado de uso: derivado de los usos, salvo "reservada", que se declara. */
+function StateCell({ win }: { win: ClientWin }) {
+  const state = resolveUsageState(win.usageState, win.usages.length);
+
+  return (
+    <div className="min-w-[7rem] space-y-0.5">
+      <span
+        className={cn(
+          "inline-block rounded-full px-2 py-0.5 text-[11px]",
+          state === "unused" && "bg-primary/10 text-primary",
+          state === "reserved" && "bg-muted text-muted-foreground",
+          state === "used" && "bg-muted text-muted-foreground"
+        )}
+      >
+        {USAGE_STATE_LABEL[state]}
+      </span>
+      {win.needsScreenshot ? (
+        <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+          <Camera className="h-3 w-3" />
+          Falta la captura
+        </p>
+      ) : null}
     </div>
   );
 }

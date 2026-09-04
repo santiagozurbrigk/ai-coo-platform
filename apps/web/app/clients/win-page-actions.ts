@@ -9,16 +9,18 @@ import {
   listClientNichesAction,
   listWinsAction,
 } from "@/app/clients/win-actions";
+import { listClientTrackingAction } from "@/app/clients/tracking-actions";
 import type { WinsPageData } from "@/components/clients/wins/wins-page";
 
 export async function getWinsPageDataAction(): Promise<WinsPageData> {
-  const [wins, clients, winFields, baselines, niches] = await Promise.all([
+  const [wins, clients, winFields, baselines, niches, tracking] = await Promise.all([
     listWinsAction(),
     listClientsAction(),
     listFieldDefinitionsAction("win"),
     listClientBaselinesAction(),
     listClientNichesAction(),
+    listClientTrackingAction(),
   ]);
 
-  return { wins, clients, winFields, baselines, niches };
+  return { wins, clients, winFields, baselines, niches, tracking };
 }

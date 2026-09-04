@@ -981,6 +981,41 @@ y ajustar `verifySignature` en la ruta del token.
 
 ---
 
+## 21. Las cinco piezas de los Excel y la revisión semanal
+
+**Estado:** construido, con la base migrada y los cortes probados en una
+transacción revertida. **Nada probado con una sesión real** — las capturas se
+sacaron con el middleware puenteado y datos inventados.
+
+**Dónde:** `/clients/wins` (tracker y dashboard), `/clients/revision`.
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| Abrir `/clients/wins` con clientes reales | El tracker abre con las pills contando: **Sin usar (n)**, Reservadas, Usadas, Sin permiso, Falta captura |
+| ⚠️ Mirar la columna **Permiso** de los wins ya cargados | Todos dicen **"Sin preguntar"** y el motivo. Es correcto: nadie dio permiso todavía |
+| ⭐ Editar un win, elegir **Autorizado** y guardar sin elegir cómo aparece | **Rechaza** con "Si el cliente autorizó, elegí cómo quiere aparecer". Un permiso a medias no se guarda |
+| Elegir **Nombre, sin los números** y guardar | Guarda. La columna muestra "Autorizado" y debajo la forma elegida |
+| Ir al **Dashboard** y tocar **Con permiso (n)** | Deja sólo los clientes con al menos un win autorizado |
+| ⭐ Marcar un win como **Reservada** y guardar | Queda "Reservada". Cargarle un uso lo pasa a **"Usada"** solo, sin tocar nada más |
+| Marcar **Falta sacar la captura** | Aparece el aviso ámbar en la columna Estado y el win entra en el filtro "Falta captura" |
+| Abrir la **ficha del cliente** (lápiz del dashboard) y cargar objetivo con clave y número | La tarjeta muestra **Punto inicial → Punto final → Objetivo** |
+| ⭐ Cargar el objetivo con **otra clave** que la del recorrido | El objetivo **no** se muestra. Comparar dos medidas distintas sería inventar el dato |
+| Cargar la clave del objetivo **sin** el número | **Rechaza**: "La métrica objetivo necesita la clave y el número, o ninguno" |
+| Cargar una **fecha de egreso** dentro de los próximos 2 meses | El cliente aparece en "¿Quién está cerca del egreso?" de la revisión semanal |
+| Abrir `/clients/revision` | Cuatro secciones con nombres. Las vacías dicen **por qué** están vacías, no se esconden |
+| ⭐ Mirar "¿Quién no se movió?" | Coincide con los trabados de C3. Un cliente **sin plazo cargado** no aparece: no se puede saber |
+| ⭐ Mirar "¿Quién está en riesgo?" | Sólo clientes con **dos señales** o más. Un trabado a secas **no** está acá |
+| Anotar algo en la fila de un cliente y guardar | Aparece "anotado el <fecha>". El mismo texto se ve en cualquier otra sección donde ese cliente figure |
+| Borrar la anotación y guardar | Se borra el texto **y la fecha**: un "cuándo" sin "qué" no dice nada |
+| ⚠️ Mirar el acceso: barra superior → **SOPs** | Aparece **sin** activar el add-on `operaciones`. El resto del grupo Operaciones sigue oculto |
+
+**Qué significa si algo no aparece:** las cuatro listas están hechas para no
+inventar señales. Un cliente que esperabas ver y no está casi siempre es un dato
+que falta —el plazo de su próximo hito, su fecha de egreso, la medida de sus
+wins— y no un error de la pantalla.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

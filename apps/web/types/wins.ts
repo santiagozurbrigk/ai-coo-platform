@@ -32,6 +32,54 @@ export const WIN_USAGE_CHANNEL_LABEL: Record<WinUsageChannel, string> = {
   other: "Otro",
 };
 
+/**
+ * ⭐ Los permisos del cliente sobre su propio resultado.
+ *
+ * Dos preguntas distintas: si **autorizó** el uso público, y **cómo quiere
+ * aparecer**. La segunda no es un detalle — es la diferencia entre usar un caso
+ * bien y publicar la facturación de alguien que no quería que se supiera.
+ */
+export const CONSENT_STATUSES = ["not_asked", "granted", "denied"] as const;
+export type ConsentStatus = (typeof CONSENT_STATUSES)[number];
+
+export const CONSENT_DISPLAYS = [
+  "name_and_face",
+  "name_no_numbers",
+  "anonymous",
+] as const;
+export type ConsentDisplay = (typeof CONSENT_DISPLAYS)[number];
+
+export const CONSENT_STATUS_LABEL: Record<ConsentStatus, string> = {
+  not_asked: "Sin preguntar",
+  granted: "Autorizado",
+  denied: "No autoriza",
+};
+
+export const CONSENT_DISPLAY_LABEL: Record<ConsentDisplay, string> = {
+  name_and_face: "Nombre y cara",
+  name_no_numbers: "Nombre, sin los números",
+  anonymous: "Solo números, anónimo",
+};
+
+/** Lo que las reglas de `lib/wins/consent.ts` necesitan saber de un win. */
+export type WinConsent = {
+  status: ConsentStatus;
+  display: ConsentDisplay | null;
+};
+
+/**
+ * El estado de uso de un win. `used` y `unused` se derivan de si tiene usos
+ * cargados; `reserved` es la única que se declara (ver `lib/wins/usage-state.ts`).
+ */
+export const USAGE_STATES = ["unused", "used", "reserved"] as const;
+export type UsageState = (typeof USAGE_STATES)[number];
+
+export const USAGE_STATE_LABEL: Record<UsageState, string> = {
+  unused: "Sin usar",
+  used: "Usada",
+  reserved: "Reservada",
+};
+
 /** Una medida: clave, valor y unidad. Es lo que hace comparables dos wins. */
 export type WinMetric = {
   key: string;
@@ -81,6 +129,13 @@ export type ClientWin = {
   createdBy: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Qué autorizó el cliente. Sin esto, un win no se ofrece como material. */
+  consent: WinConsent;
+  consentNote: string | null;
+  consentUpdatedAt: string | null;
+  /** Lo declarado. El estado real sale de `resolveUsageState` con los usos. */
+  usageState: UsageState;
+  needsScreenshot: boolean;
   attachments: WinAttachment[];
   usages: WinUsage[];
 };
@@ -109,6 +164,12 @@ export type ClientWinRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  consent_status: string | null;
+  consent_display: string | null;
+  consent_note: string | null;
+  consent_updated_at: string | null;
+  usage_state: string | null;
+  needs_screenshot: boolean | null;
 };
 
 export type WinAttachmentRow = {

@@ -6,10 +6,16 @@
  * regla que sostiene el resto del repo.
  */
 import {
+  CONSENT_DISPLAYS,
+  CONSENT_STATUSES,
+  USAGE_STATES,
   WIN_SOURCES,
   WIN_USAGE_CHANNELS,
   type ClientWin,
   type ClientWinRow,
+  type ConsentDisplay,
+  type ConsentStatus,
+  type UsageState,
   type WinAttachment,
   type WinAttachmentRow,
   type WinMetric,
@@ -38,6 +44,14 @@ export function rowToClientWin(
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    consent: {
+      status: isConsentStatus(row.consent_status) ? row.consent_status : "not_asked",
+      display: isConsentDisplay(row.consent_display) ? row.consent_display : null,
+    },
+    consentNote: row.consent_note ?? null,
+    consentUpdatedAt: row.consent_updated_at ?? null,
+    usageState: isUsageState(row.usage_state) ? row.usage_state : "unused",
+    needsScreenshot: row.needs_screenshot === true,
     attachments: extras.attachments ?? [],
     usages: extras.usages ?? [],
   };
@@ -102,4 +116,24 @@ export function isUsageChannel(value: unknown): value is WinUsageChannel {
     typeof value === "string" &&
     (WIN_USAGE_CHANNELS as readonly string[]).includes(value)
   );
+}
+
+/**
+ * Un permiso que no se entiende es un permiso que no existe: cae en
+ * "sin preguntar", que es lo que bloquea publicar. Nunca al revés.
+ */
+export function isConsentStatus(value: unknown): value is ConsentStatus {
+  return (
+    typeof value === "string" && (CONSENT_STATUSES as readonly string[]).includes(value)
+  );
+}
+
+export function isConsentDisplay(value: unknown): value is ConsentDisplay {
+  return (
+    typeof value === "string" && (CONSENT_DISPLAYS as readonly string[]).includes(value)
+  );
+}
+
+export function isUsageState(value: unknown): value is UsageState {
+  return typeof value === "string" && (USAGE_STATES as readonly string[]).includes(value);
 }

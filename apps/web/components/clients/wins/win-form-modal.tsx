@@ -24,7 +24,18 @@ import {
 } from "@ai-coo/ui";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import type { Client } from "@/types/clients";
-import type { ClientWin, WinAttachment } from "@/types/wins";
+import type {
+  ClientWin,
+  ConsentDisplay,
+  ConsentStatus,
+  WinAttachment,
+} from "@/types/wins";
+import {
+  CONSENT_DISPLAYS,
+  CONSENT_DISPLAY_LABEL,
+  CONSENT_STATUSES,
+  CONSENT_STATUS_LABEL,
+} from "@/types/wins";
 import type { FieldDefinition } from "@/types/custom-fields";
 import { activeFields } from "@/lib/custom-fields";
 import { FieldValueInput } from "@/components/clients/custom-fields/field-value-input";
@@ -46,6 +57,13 @@ export type WinDraft = {
   metricUnit: string;
   custom: Record<string, unknown>;
   notes: string;
+  consentStatus: ConsentStatus;
+  /** `""` = todavía no eligió cómo aparecer. */
+  consentDisplay: ConsentDisplay | "";
+  consentNote: string;
+  /** Sólo se declara "reservada"; "usada" sale de los usos cargados. */
+  reserved: boolean;
+  needsScreenshot: boolean;
 };
 
 function todayISO() {
@@ -62,6 +80,11 @@ function draftFrom(win: ClientWin | null, defaultClientId?: string): WinDraft {
     metricUnit: win?.metric?.unit ?? "",
     custom: win?.custom ?? {},
     notes: win?.notes ?? "",
+    consentStatus: win?.consent.status ?? "not_asked",
+    consentDisplay: win?.consent.display ?? "",
+    consentNote: win?.consentNote ?? "",
+    reserved: win?.usageState === "reserved",
+    needsScreenshot: win?.needsScreenshot ?? false,
   };
 }
 
@@ -313,6 +336,93 @@ export function WinFormModal({
             {uploadError ? (
               <p className="text-xs text-destructive">{uploadError}</p>
             ) : null}
+          </div>
+
+          {/* ⭐ Los permisos. Sin esto, el win existe pero no se puede publicar. */}
+          <div className="space-y-2 rounded-lg border border-border/60 p-3">
+            <Label htmlFor="win-consent">¿El cliente autoriza usarlo?</Label>
+            <select
+              id="win-consent"
+              className={CONTROL_CLASS}
+              value={draft.consentStatus}
+              onChange={(event) =>
+                patch({
+                  consentStatus: event.target.value as ConsentStatus,
+                  // Si deja de autorizar, la forma de aparecer no aplica más.
+                  consentDisplay:
+                    event.target.value === "granted" ? draft.consentDisplay : "",
+                })
+              }
+            >
+              {CONSENT_STATUSES.map((option) => (
+                <option key={option} value={option}>
+                  {CONSENT_STATUS_LABEL[option]}
+                </option>
+              ))}
+            </select>
+
+            {draft.consentStatus === "granted" ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="win-consent-display" className="text-xs">
+                  ¿Cómo quiere aparecer?
+                </Label>
+                <select
+                  id="win-consent-display"
+                  className={CONTROL_CLASS}
+                  value={draft.consentDisplay}
+                  onChange={(event) =>
+                    patch({ consentDisplay: event.target.value as ConsentDisplay | "" })
+                  }
+                >
+                  <option value="">Elegí una opción</option>
+                  {CONSENT_DISPLAYS.map((option) => (
+                    <option key={option} value={option}>
+                      {CONSENT_DISPLAY_LABEL[option]}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  De esto depende si se puede mostrar su nombre o sólo el número.
+                </p>
+              </div>
+            ) : null}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="win-consent-note" className="text-xs">
+                Cómo lo dijo (opcional)
+              </Label>
+              <Input
+                id="win-consent-note"
+                value={draft.consentNote}
+                onChange={(event) => patch({ consentNote: event.target.value })}
+                placeholder="Lo autorizó por DM el 3/9"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-border/60 p-3">
+            <Label>Estado</Label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border"
+                checked={draft.reserved}
+                onChange={(event) => patch({ reserved: event.target.checked })}
+              />
+              Reservada para algo puntual
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border"
+                checked={draft.needsScreenshot}
+                onChange={(event) => patch({ needsScreenshot: event.target.checked })}
+              />
+              Falta sacar la captura
+            </label>
+            <p className="text-xs text-muted-foreground">
+              La captura se saca el día que pasó, no el día que la vas a usar.
+            </p>
           </div>
 
           <div className="space-y-1.5">

@@ -85,6 +85,8 @@ export const paths = {
       checkpoints: `${PLATFORM}/clients/checkpoints`,
       /** A · Tracker de wins y dashboard de casos. */
       wins: `${PLATFORM}/clients/wins`,
+      /** ⭐ La revisión semanal: cuatro preguntas, una lista de nombres. */
+      weeklyReview: `${PLATFORM}/clients/revision`,
     },
 
     operations: {
