@@ -22,6 +22,7 @@ import { useToast } from "@/providers/toast-provider";
 import { paths } from "@/routes";
 import type { GeneratedSop, SopDepartment } from "@/types/sops";
 import { SopGeneratedPreview } from "./sop-generated-preview";
+import { SopVideoCreator } from "./sop-video-creator";
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm dark:border-white/[0.08] dark:bg-[#1A1A1A]";
@@ -67,6 +68,8 @@ export function SopCreatorForm() {
   const [editingContent, setEditingContent] = useState(false);
   const [attachments, setAttachments] = useState<UploadedAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  /** D · El modo video es un modo más: el de texto sigue igual. */
+  const [mode, setMode] = useState<"text" | "video">("text");
   const draftId = useMemo(() => crypto.randomUUID(), []);
 
   const attachmentContext = attachments.length
@@ -201,6 +204,37 @@ export function SopCreatorForm() {
     <div className="grid gap-6 lg:grid-cols-2">
       <Panel title="Crear SOP" subtitle="Completá el contexto y generá con IA">
         <div className="space-y-4">
+          {/* D · Elegir de dónde sale el SOP. */}
+          <div className="inline-flex rounded-lg bg-muted p-1">
+            {(["text", "video"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setMode(option)}
+                className={
+                  mode === option
+                    ? "rounded-md bg-background px-3 py-1 text-sm font-medium shadow-sm"
+                    : "px-3 py-1 text-sm text-muted-foreground hover:text-foreground"
+                }
+              >
+                {option === "text" ? "Desde texto" : "Desde un video"}
+              </button>
+            ))}
+          </div>
+
+          {mode === "video" ? (
+            <SopVideoCreator
+              onGenerated={(markdown, videoTitle) => {
+                setGenerated({
+                  title: videoTitle ?? "SOP desde video",
+                  content: markdown,
+                  tags: [],
+                });
+                setMode("text");
+              }}
+            />
+          ) : (
+          <>
           <FormField label="Objetivo" required description="¿Qué objetivo cumple este SOP?">
             <Textarea
               placeholder="Ej: Activar al cliente en menos de 48 h post-compra…"
@@ -313,6 +347,8 @@ export function SopCreatorForm() {
             )}
             {generating ? "Generando SOP con IA…" : "Generar SOP con IA"}
           </Button>
+          </>
+          )}
         </div>
       </Panel>
 

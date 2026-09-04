@@ -9,6 +9,28 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [D-SOPS-VIDEO-NUNCA-CORRIO] Probar el flujo entero de SOP desde video 🔴
+
+**Qué es:** el encargo D está completo pero **nunca se ejecutó**: no se subió un
+video, no se llamó a Whisper ni a Sonnet, y el worker no corrió una sola vez. La
+lógica pura tiene 25 tests; el resto no tiene ninguna prueba real.
+
+**Lo que más riesgo tiene, en orden:**
+
+1. **ffmpeg en Vercel.** El binario de `@ffmpeg-installer` está en `apps/web` por
+   Trial Reels, pero el worker de SOPs nunca se ejecutó en producción. Si no está
+   disponible en la lambda, falla ahí y no hay forma de saberlo antes.
+2. **El tiempo.** `maxDuration = 800`; un Loom de una hora hace cinco llamadas a
+   Whisper en serie. Puede no alcanzar.
+3. **El peso estimado del audio** (`ESTIMATED_BYTES_PER_SECOND`) se eligió por
+   criterio, no midiendo. Conviene transcribir un audio real y ajustar.
+4. **La calidad del SOP.** La regla de "no inventar pasos" está en el prompt; no
+   hay forma de saber cuánto la respeta sin correrla contra un video real.
+
+**Necesita:** `OPENAI_API_KEY`, `QSTASH_TOKEN` y `NEXT_PUBLIC_APP_URL`.
+
+---
+
 ### [E-D1-DESPLEGAR] Desplegar el bot de Discord 🔴
 
 **Qué es:** el bot está escrito entero y **no corre en ningún lado**. Nada de la

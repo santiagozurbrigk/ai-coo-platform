@@ -909,6 +909,43 @@ Es el paso que más importa de este bloque.
 
 ---
 
+## 19. D · SOPS-VIDEO — un SOP escrito desde un Loom
+
+Construido el 2026-09-04. **25 tests nuevos** de lógica pura (748 en total).
+
+✅ **Migración aplicada**, cortes verificados en transacción revertida: un
+`status` fuera del vocabulario corta; un job sin `video_path` corta; ⭐ la
+transcripción **se conserva** cuando el job pasa a `failed`; realtime habilitado;
+bucket `sop-videos` privado con cero policies que lo nombren.
+
+🔴 **Nada del flujo se ejecutó nunca.** Este bloque es el más importante de todos
+los que quedan: es el único encargo donde lo no verificado es la mayor parte.
+
+🔑 Necesita `OPENAI_API_KEY`, `QSTASH_TOKEN` y `NEXT_PUBLIC_APP_URL`.
+
+| Paso | Resultado esperado |
+|---|---|
+| **Operaciones → SOPs → Crear → "Desde un video"** | El selector de archivo y los tres campos opcionales |
+| Subir un mp4 corto (2-3 min) | Barra de progreso; al terminar, el estado pasa a "En cola…" |
+| ⚠️ **Mirar los logs del worker** | Es donde va a fallar si ffmpeg no está disponible en la lambda. **El riesgo #1** |
+| Esperar | El estado pasa solo a "Transcribiendo…" y después a "Escribiendo el SOP…" sin apretar F5 |
+| Cuando termina | El markdown aparece cargado en el editor del creador |
+| ⭐ Leer el SOP contra el video | **No tiene que haber pasos que no se dijeron.** Es la regla principal del prompt y la única forma de evaluarla es leyendo |
+| ⭐ Mirar "Lo que el video no aclara" | Tiene que listar los huecos reales. Si viene vacío en un video incompleto, el prompt no está funcionando |
+| Cortar el video a mitad de una frase y subirlo | La transcripción no tiene que repetir palabras en el empalme |
+| ⭐ Forzar un fallo de generación y reintentar | **No vuelve a transcribir**: la transcripción quedó guardada. Es lo que evita pagar Whisper dos veces |
+| Subir un video de más de 25 MB de audio (~1 h) | Se parte en varios pedidos y la transcripción sale completa |
+| 💰 Mirar `token_usage` después de transcribir | ⭐ Tiene que haber una fila con `model = 'whisper-1'` y el costo. **Antes no se registraba nada** |
+| Con capturas: subir 2-3 imágenes al SOP | Aparecen dentro de los pasos, no al final |
+| ⭐ Volver al SOP **una semana después** | Las capturas **siguen viéndose**. Es la prueba de que se guardó el marcador y no la URL firmada |
+| Ver un SOP cuyo adjunto se borró | Dice "Captura no disponible", no una imagen rota |
+
+**Qué significa si falla lo de la semana:** si las capturas dejan de verse, en
+algún lado se guardó la URL firmada en vez del marcador, y hay que revisar
+`validateAttachmentMarkers` y el visor antes de que se llene de SOPs rotos.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

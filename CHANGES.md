@@ -14,6 +14,111 @@
 
 ---
 
+### 2026-09-04 — D · SOPS-VIDEO: un SOP escrito desde un Loom
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260903110000_sop_video_jobs.sql` (nueva), `lib/sops/{audio-chunks,video-sop-prompt,attachment-markers,transcription-usage,enqueue-video-job}.ts` (nuevos), `app/sops/video-actions.ts` (nuevo), `app/api/queue/process-sop-video/route.ts` (nuevo), `app/api/agent/transcribe/route.ts`, `components/sops/{sop-video-creator,sop-content-with-attachments}.tsx` (nuevos), `components/sops/{sop-creator-form,sop-markdown-preview,sop-content-viewer}.tsx`, `docs/API_DOCS_PENDIENTES.md`
+
+**Qué se hizo:**
+
+Encargo D completo (S1 + S2 + S3). Un SOP se escribía llenando cuatro campos.
+Ahora se graba un Loom mostrando cómo se hace algo y el SOP sale escrito.
+
+**S1 · El video, el audio y la transcripción.** El navegador sube el mp4 a un
+bucket privado contra una signed URL —cientos de MB no pasan por un Server
+Action— y un job en segundo plano hace el resto. ffmpeg extrae el audio a mp3
+mono 16 kHz (~1 MB por minuto, contra los cientos de MB del video), y si aún así
+no entra en el límite de 25 MB de Whisper, se corta por tiempo **con solape**.
+
+**⭐ El cálculo de los cortes es lógica pura con tests**, como pedía el plan, y
+cubre el caso que colgaría el proceso: un solape más largo que el pedazo haría
+que cada corte avanzara cero segundos y el bucle no terminara nunca.
+
+**⭐ Y el solape se deshace al unir.** Sin `joinTranscriptChunks`, cada corte
+dejaría unas palabras repetidas en la transcripción, y esas repeticiones
+terminarían como **pasos duplicados** en el SOP. La comparación es por texto
+normalizado, no por tiempo, porque Whisper puntúa distinto los dos pedazos.
+
+**S2 · El prompt cambia de naturaleza.** El creador desde texto parte de cuatro
+campos declarativos; acá el input es habla desordenada con muletillas. El prompt
+nuevo hace tres cosas que el viejo no: extrae los pasos en el orden en que se
+muestran, **no inventa pasos que no se dijeron**, y **marca explícitamente lo que
+el video no aclara**. Eso último se guarda en `open_questions` y se muestra: es
+lo que le dice al usuario qué le falta grabar.
+
+**S3 · Las capturas dentro del contenido.** Antes el modelo sólo veía nombres de
+archivo, así que las imágenes nunca aparecían en el SOP. Ahora cada captura se
+presenta con un id corto, el prompt pide insertar `![alt](sop-attachment:<id>)`
+y prohíbe inventar ids.
+
+**⭐ La decisión que sostiene S3: se guarda el marcador, no la URL.** El bucket es
+privado y las URLs firmadas vencen; si el markdown guardara la URL, el SOP se
+vería bien hoy y roto la semana que viene. El visor resuelve el marcador **en el
+momento de mostrar**.
+
+**Decisiones de diseño relevantes:**
+
+- **⭐ Prohibir no es garantizar.** El prompt le prohíbe al modelo inventar ids de
+  captura, pero además `validateAttachmentMarkers` **borra del markdown cualquier
+  id que no exista** y lo registra. Nunca queda un link roto ni una imagen
+  inventada.
+- **⭐ La transcripción se guarda antes de generar.** Es lo caro del proceso
+  (Whisper cobra por minuto): si la generación falla, reintentar **no la vuelve a
+  pagar**. Verificado contra la base: sobrevive a que el job pase a `failed`.
+- **El worker devuelve 200 aunque el job falle.** Devolver 500 haría que QStash
+  reintente y vuelva a pagar Whisper. El job ya quedó marcado con el motivo.
+- **Un SOP vacío no es un SOP:** si el modelo no devuelve markdown utilizable, el
+  job falla con la transcripción guardada, en vez de dejar un documento en blanco
+  que alguien tiene que descubrir.
+- **La duración se lee del stderr de ffmpeg** y no con ffprobe: el instalador trae
+  ffmpeg y no siempre ffprobe, y una dependencia menos es una cosa menos que falla
+  en el deploy.
+- **El modo video es un modo más del creador**, no un reemplazo: el modo texto
+  quedó intacto.
+- **La pantalla escucha por realtime, con respaldo por polling** cada 10 segundos:
+  si el realtime no está habilitado, el usuario no se queda mirando "En cola…"
+  para siempre.
+
+**🔴 El bug del plan, arreglado:** `/api/agent/transcribe` **no registraba nada en
+`token_usage`**, así que el costo de todo lo que usa Whisper era **invisible**. Un
+Loom de 20 minutos son 12 centavos que no aparecían en ningún lado. Ahora se
+registra, pidiendo la duración real a la API (`verbose_json`). Whisper cobra por
+minuto y no por token, así que se guardan **cero tokens y el costo calculado**:
+inventar un número de tokens para que la fila se parezca a las de Claude sería
+peor que dejar el campo en cero.
+
+**Obligación de la regla 3 del `CLAUDE.md` cumplida:** Loom no publica API para
+bajar el video de un share link. Anotado en `docs/API_DOCS_PENDIENTES.md` con lo
+que se asumió y por qué el camino "pegar el link" se descartó para v1.
+
+**Verificación ejecutada:**
+- `pnpm test`: **748 tests en 48 archivos, todos en verde** (25 nuevos de `lib/sops`).
+- `tsc --noEmit`, `pnpm lint` y `pnpm build` limpios.
+- **Migración aplicada**, cortes probados en transacción revertida: un `status`
+  fuera del vocabulario **corta**; un job sin `video_path` **corta**; ⭐ la
+  transcripción **se conserva** cuando el job pasa a `failed`; el realtime quedó
+  habilitado; y el bucket `sop-videos` es **privado con cero policies que lo
+  nombren**.
+
+**Riesgos / deuda técnica pendiente:**
+
+- 🔴 **El flujo entero nunca corrió.** No se subió un video, no se llamó a Whisper
+  ni a Sonnet. La lógica pura tiene 25 tests, pero ffmpeg, el worker y la cola
+  **no se ejecutaron ni una vez**. Es el riesgo más grande de este encargo.
+- **ffmpeg en Vercel es la duda principal:** el binario de `@ffmpeg-installer`
+  está en `apps/web` por Trial Reels, pero **el worker de SOPs nunca se ejecutó en
+  producción**. Si el binario no está disponible en la lambda, falla ahí.
+- **`maxDuration = 800`** puede no alcanzar para un Loom muy largo con varios
+  cortes. Un video de una hora hace cinco llamadas a Whisper en serie.
+- **Los cortes se calculan con un peso estimado** (`ESTIMATED_BYTES_PER_SECOND`),
+  no midiendo el archivo real. Es conservador a propósito, pero conviene medir un
+  audio de verdad y ajustar.
+- **La calidad del SOP generado no se evaluó nunca.** La regla de "no inventar
+  pasos" está en el prompt y no hay forma de saber cuánto la respeta sin correrla.
+
+---
+
 ### 2026-09-03 — E · DISCORD: despliegue, actividad, silencio y testimonios
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
