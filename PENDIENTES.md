@@ -9,6 +9,39 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [WINS-PERMISOS] Los wins no registran si el cliente autorizó 🔴
+
+**Qué es:** los dos Excel que usan hoy los clientes tienen **"¿Autorizó uso
+público?"** y **"¿Cómo quiere aparecer?"** (nombre y cara / nombre sin números /
+anónimo / no autoriza). **OTC no tiene nada de eso.**
+
+Hoy se puede registrar el resultado de un cliente y usarlo en una landing **sin
+ningún lugar donde conste que dio permiso**. Con datos de facturación de personas
+reales, eso es un problema concreto.
+
+**Qué haría falta:** `client_wins.consent_status` + `consent_display`, y que el
+dashboard **filtre por defecto** los que no autorizaron.
+
+**Análisis completo:** `docs/TRACKERS_EXCEL_VS_OTC.md`.
+
+---
+
+### [OPERACIONES-ADDON-APAGADO] SOPs es inalcanzable: el add-on está apagado en TODAS las orgs 🔴
+
+**Qué es:** el creador de SOPs existe y funciona (Operaciones → SOPs → "Crear
+SOP"), pero **el grupo Operaciones sólo aparece si la organización tiene el add-on
+`operaciones` activado**, y hoy **las 5 organizaciones tienen `enabled_add_ons`
+vacío**. O sea: SOPs, Inteligencia y Reportes ejecutivos **no se ven desde el menú
+para nadie**.
+
+**No es un bug de código, es configuración** — pero el efecto es que todo el
+Encargo D (SOPs desde video) nace inalcanzable.
+
+**Dos salidas:** activar el add-on por organización desde super-admin, o decidir
+que SOPs deje de estar detrás del add-on.
+
+---
+
 ### [B-FATHOM-NUNCA-PROBADO] Probar Fathom contra una cuenta real 🔴
 
 **Qué es:** L0 arregló el módulo de keys por miembro —que **nunca funcionó**,
