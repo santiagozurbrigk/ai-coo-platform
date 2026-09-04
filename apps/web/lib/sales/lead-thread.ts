@@ -1,5 +1,6 @@
 import type { ClosingCallStatus } from "@/types/closing";
 import { callIsSale, needsDisposition } from "@/lib/closing/call-status";
+import { BUILT_IN_CATALOG, closingActionSlugs } from "@/lib/sales/follow-up-options";
 
 /**
  * El hilo de un lead: todos sus intentos, y qué necesita ahora.
@@ -18,9 +19,24 @@ import { callIsSale, needsDisposition } from "@/lib/closing/call-status";
  * dato no se rellena con una suposición.
  */
 
-export type NextAction = "reschedule" | "follow_up" | "waiting_lead" | "lost";
+/**
+ * Slug del próximo paso.
+ *
+ * Dejó de ser una lista cerrada: cada organización puede crear los suyos. El
+ * catálogo —los de fábrica más los propios— vive en
+ * `lib/sales/follow-up-options.ts`, y es de ahí de donde sale el comportamiento
+ * de cada valor. No compares contra `"lost"` a mano: preguntá si el valor cierra
+ * el hilo.
+ */
+export type NextAction = string;
 
-export type LeadQualification = "hot" | "warm" | "cold" | "unqualified";
+/** Slug de la calificación. También ampliable por la organización. */
+export type LeadQualification = string;
+
+/** Los valores de fábrica que cierran el hilo. Default cuando no hay catálogo. */
+export const BUILT_IN_CLOSING_ACTIONS: readonly string[] = closingActionSlugs([
+  ...BUILT_IN_CATALOG.nextActions,
+]);
 
 export type LeadAttempt = {
   id: string;
@@ -28,6 +44,10 @@ export type LeadAttempt = {
   status: ClosingCallStatus;
   nextAction: NextAction | null;
   nextActionAt: string | null;
+  /** A quién le quedó el próximo paso. */
+  nextActionOwnerId?: string | null;
+  /** Contexto que dejó el closer al definir el próximo paso. */
+  nextActionNotes?: string | null;
   preCallQualification: LeadQualification | null;
   postCallQualification: LeadQualification | null;
 };
@@ -102,8 +122,16 @@ function time(iso: string | null): number {
  */
 export function buildLeadThread(
   attempts: LeadAttempt[],
-  now: Date = new Date()
+  now: Date = new Date(),
+  /**
+   * Qué próximos pasos cierran el hilo. Se pasa el catálogo de la organización
+   * para que un valor propio como "Derivado a socio" cierre igual que `lost`.
+   */
+  closingActions: readonly string[] = BUILT_IN_CLOSING_ACTIONS
 ): LeadThread {
+  const closes = (action: string | null): boolean =>
+    action !== null && closingActions.includes(action);
+
   // Del más reciente al más viejo. Una fecha inválida va al final en vez de
   // desordenar el resto.
   const sorted = [...attempts].sort((a, b) => {
@@ -135,7 +163,7 @@ export function buildLeadThread(
 
   // Se da por perdido sólo si el intento **más reciente** lo declara: un "lost"
   // viejo seguido de un turno nuevo significa que el lead volvió.
-  if (sorted[0]!.nextAction === "lost") {
+  if (closes(sorted[0]!.nextAction)) {
     return { ...base, state: "lost", actionableAttemptId: null };
   }
 
@@ -146,7 +174,7 @@ export function buildLeadThread(
   // El seguimiento vencido va primero: una fecha que pasó es un compromiso
   // incumplido, y pesa más que un resultado sin cargar.
   const overdue = sorted.find((a) => {
-    if (!a.nextAction || a.nextAction === "lost") return false;
+    if (!a.nextAction || closes(a.nextAction)) return false;
     const due = time(a.nextActionAt);
     return !Number.isNaN(due) && due <= nowMs;
   });
@@ -175,7 +203,7 @@ export function buildLeadThread(
   }
 
   const planned = sorted.find((a) => {
-    if (!a.nextAction || a.nextAction === "lost") return false;
+    if (!a.nextAction || closes(a.nextAction)) return false;
     const due = time(a.nextActionAt);
     return !Number.isNaN(due) && due > nowMs;
   });

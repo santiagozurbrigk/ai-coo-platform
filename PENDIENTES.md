@@ -319,12 +319,11 @@ entrega de servicio quedan para más adelante — cuando se implementen, entran 
 
 ### [LLAMADAS-FASE-2-PULIR] Detalles que quedaron a medias del seguimiento
 
-**Responsable del próximo paso:** la columna `next_action_owner_id` existe y la
-acción lo acepta, pero la UI todavía no deja elegir a quién se le asigna. Hoy
-queda en null.
+~~**Responsable del próximo paso**~~ — resuelto el 2026-09-03: la columna
+`next_action_owner_id` ya se carga desde la columna Responsable de la tabla.
 
-**Calificación previa:** `pre_call_qualification` tiene columna y acción, pero el
-panel sólo expone la posterior. La previa tendría que poder cargarse desde la
+**Calificación previa:** `pre_call_qualification` tiene columna y acción, pero la
+tabla sólo expone la posterior. La previa tendría que poder cargarse desde la
 ficha del turno, antes de la llamada.
 
 **Turnos de Calendly sin lead:** los 186 turnos que no vienen de GHL no tienen
@@ -332,7 +331,22 @@ identidad estable hasta que un sync les complete el mail. Se resuelve solo —el
 mail ya se persiste desde la Fase 0—, pero conviene verificar que efectivamente
 se completen.
 
-**Sin cobertura de Playwright** en el panel de seguimiento.
+**Sin cobertura de Playwright** en la tabla de seguimiento. La lógica pura tiene
+37 tests; la pantalla, ninguno.
+
+---
+
+### [SEGUIMIENTO-ESCALA] El estado se deriva en JS, no en SQL
+
+La tabla de seguimiento lee hasta **2.000 leads** y filtra, ordena y pagina en
+memoria en el servidor, porque el estado del lead se deriva de sus turnos y no
+está persistido. Con 964 leads (medidos el 2026-09-03) sobra, pero el margen
+es menor de lo que parecía: pasado el techo la tabla avisa que hay leads afuera
+en vez de mostrarse incompleta.
+
+Cuando no alcance, hay que derivar el estado en la base (vista o función), **no**
+persistirlo: guardar un estado derivado es lo que haría que la tabla mienta
+cuando los datos cambian por debajo.
 
 ---
 
@@ -820,6 +834,8 @@ referencias + `brand.domain`.
 |-------|------|--------|
 | 2026-09-04 | TRACKERS-EXCEL: las cinco piezas que los Excel tenían y OTC no — permisos del cliente sobre su win (con la forma en que quiere aparecer), estado de uso con el filtro "Sin usar", objetivo con el que entró, fecha de egreso y estado actual en palabras. Más la pantalla de **Revisión semanal** con las cuatro preguntas. 812 tests | `claude/checkpoints-cliente-ccc3ih` |
 | 2026-09-04 | OPERACIONES-ADDON-APAGADO: SOPs salió del add-on `operaciones` y es un módulo propio de la barra superior. El creador de SOPs existía y **nadie podía llegar**, porque las 5 organizaciones tienen `enabled_add_ons` vacío. El resto de Operaciones sigue detrás del add-on | `claude/checkpoints-cliente-ccc3ih` |
+| 2026-09-03 | SEGUIMIENTO-EN-EL-MOMENTO: el modal de resultado de la llamada pide también el seguimiento (calificación, próximo paso, fecha, responsable, nota) en un solo guardado. "No show" pasó de acción directa a modal con el mismo bloque. El panel de detalle ahora usa `acceptsManualOutcome`, así que las llamadas "asistió sin resultado" pueden cerrarse | `claude/seguimientos-tabla-closing-u6arke` |
+| 2026-09-03 | SEGUIMIENTO-TABLA: la pestaña Seguimiento pasa de acordeón a tabla editable celda por celda (calificación, próximo paso, fecha, responsable, notas), con panel lateral para el hilo de intentos, filtros, buscador, orden y paginado. Se ven **todos** los leads, no sólo los tres estados accionables. Valores de seguimiento propios por organización (`sales_follow_up_options`): cada valor declara si pide fecha o cierra el hilo, se archiva en vez de borrarse, y los de fábrica no se pueden pisar. Se completó `next_action_owner_id`, que no tenía UI. 595 tests | `claude/seguimientos-tabla-closing-u6arke` |
 | 2026-09-02 | LLAMADAS-FASE-2: seguimiento del lead. Tabla `sales_leads` que hila los intentos (845 leads, 861 turnos, 15 con reagendas). Próximo paso con fecha y notas — lo que faltaba para que una llamada que no cierra deje de ser un callejón sin salida. Tres estados de trabajo derivados: seguimiento vencido, falta resultado y sin próximo paso. Calificación antes y después. Ciclo lead → cliente cerrado al vender. 577 tests | `Claude-New-Features` |
 | 2026-09-01 | LLAMADAS-ALCANCE: reducción a sólo llamadas de venta. Una grabación lo es cuando el mail de un participante coincide con el del lead de un turno y el horario corresponde; match provisional por horario mientras los turnos no tengan mail. Se retiró lo que quedó fuera de alcance (tipos de reunión, parser de título, match contra clientes, detección de equipo). El mail del lead ahora viaja al cliente al cerrar. 558 tests | `Claude-New-Features` |
 | 2026-09-01 | LLAMADAS-FASE-1: un solo clasificador con dos ejes (con quién / para qué). Se empezaron a leer los invitados de Fathom —con mail e `is_external`— que el parser descartaba, y el cruce grabación↔turno por horario y mail, con FK real. Parser posicional del título como respaldo. UI de mapeo de tipos y cola de sin clasificar. 581 tests | `Claude-New-Features` |

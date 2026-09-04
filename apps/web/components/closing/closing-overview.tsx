@@ -12,6 +12,7 @@ import {
 import { Calendar, ExternalLink, Video } from "lucide-react";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import {
+  acceptsManualOutcome,
   CLOSING_CALL_STATUSES,
   CLOSING_CALL_STATUS_LABEL,
 } from "@/lib/closing/call-status";
@@ -29,9 +30,12 @@ import type { GHLCalendar } from "@/lib/ghl/client";
 import { ClosingCalendar } from "./closing-calendar";
 import { ClosersRanking } from "./closers-ranking";
 import { PaymentModal } from "./payment-modal";
-import { NoCloseModal } from "./no-close-modal";
-import { LeadFollowUpPanel } from "./lead-follow-up-panel";
-import type { LeadSummary } from "@/app/sales/lead-actions";
+import { CallOutcomeModal, type CallOutcomeKind } from "./call-outcome-modal";
+import { LeadsTable } from "./leads-table";
+import { saveCallFollowUpAction } from "@/app/sales/lead-actions";
+import type { FollowUpCatalog, FollowUpOption } from "@/lib/sales/follow-up-options";
+import type { LeadTableResult } from "@/app/sales/lead-actions";
+import type { TeamMember } from "@/types/team";
 
 const TABS = [
   { label: "Calendario", hash: "calendario" },
@@ -81,14 +85,17 @@ function formatCallDate(iso: string) {
 export function ClosingOverview({
   ghlCalendars = [],
   ghlSelectedCalendarIds = [],
-  leadsNeedingAttention = [],
+  leadsTable,
+  teamMembers = [],
 }: {
   /** Calendarios disponibles en GHL (fetched server-side). Vacío si no hay integración. */
   ghlCalendars?: GHLCalendar[];
   /** IDs de calendarios actualmente seleccionados para sync. */
   ghlSelectedCalendarIds?: string[];
-  /** Leads con trabajo pendiente, resueltos en el servidor. */
-  leadsNeedingAttention?: LeadSummary[];
+  /** Primera página de la tabla de seguimiento, resuelta en el servidor. */
+  leadsTable: LeadTableResult;
+  /** Equipo de la organización, para asignar el responsable del próximo paso. */
+  teamMembers?: TeamMember[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -110,7 +117,10 @@ export function ClosingOverview({
   /** Filtro de calendario GHL — "all" o un calendarId específico */
   const [calendarFilter, setCalendarFilter] = useState<string>("all");
   const [paymentOpen, setPaymentOpen] = useState(false);
-  const [noCloseOpen, setNoCloseOpen] = useState(false);
+  /** Qué resultado se está cargando: "no cerrada" o "no show". */
+  const [outcomeKind, setOutcomeKind] = useState<CallOutcomeKind | null>(null);
+  /** Catálogo de valores para el modal — un valor creado ahí queda disponible. */
+  const [catalog, setCatalog] = useState<FollowUpCatalog>(leadsTable.catalog);
   const [calendarMode, setCalendarMode] = useState<"month" | "week">("month");
   const [calendarAnchor, setCalendarAnchor] = useState(() =>
     pickCalendarFocusDate(closingCalls)
@@ -202,7 +212,7 @@ export function ClosingOverview({
       />
 
       {activeTab === "seguimiento" ? (
-        <LeadFollowUpPanel leads={leadsNeedingAttention} />
+        <LeadsTable initial={leadsTable} teamMembers={teamMembers} />
       ) : activeTab === "equipo" ? (
         <div className="space-y-4">
           <ClosersRanking />
@@ -399,19 +409,8 @@ export function ClosingOverview({
             call={selected}
             linkedClient={clients.find((c) => c.closingCallId === selected.id)}
             onMarkClosed={() => setPaymentOpen(true)}
-            onMarkNotClosed={() => setNoCloseOpen(true)}
-            onMarkNoShow={async () => {
-              try {
-                await markCallNoShow(selected.id);
-                push({ title: "Marcado como no show", variant: "success" });
-              } catch (e) {
-                push({
-                  title: "Error al guardar",
-                  description: e instanceof Error ? e.message : undefined,
-                  variant: "default",
-                });
-              }
-            }}
+            onMarkNotClosed={() => setOutcomeKind("not_closed")}
+            onMarkNoShow={() => setOutcomeKind("no_show")}
           />
         )}
       </div>
@@ -441,20 +440,68 @@ export function ClosingOverview({
               }
             }}
           />
-          <NoCloseModal
-            open={noCloseOpen}
-            onOpenChange={setNoCloseOpen}
-            onSubmit={async (reason, notes) => {
+          <CallOutcomeModal
+            open={outcomeKind !== null}
+            onOpenChange={(open) => setOutcomeKind(open ? outcomeKind : null)}
+            kind={outcomeKind ?? "not_closed"}
+            leadName={selected.leadName}
+            catalog={catalog}
+            teamMembers={teamMembers}
+            onCatalogChange={(option: FollowUpOption) =>
+              setCatalog((current) =>
+                option.kind === "next_action"
+                  ? { ...current, nextActions: [...current.nextActions, option] }
+                  : { ...current, qualifications: [...current.qualifications, option] }
+              )
+            }
+            onSubmit={async (payload) => {
               try {
-                await markCallNotClosed(selected.id, reason, notes);
-                push({ title: "Resultado guardado", variant: "success" });
+                // Primero el resultado de la llamada: es el dato que el closer
+                // vino a cargar. Si el seguimiento falla después, el resultado
+                // igual quedó guardado y se lo decimos.
+                if (outcomeKind === "no_show") {
+                  await markCallNoShow(selected.id);
+                } else {
+                  await markCallNotClosed(
+                    selected.id,
+                    payload.reason ?? "other",
+                    payload.notes
+                  );
+                }
               } catch (e) {
                 push({
-                  title: "Error al guardar",
+                  title: "Error al guardar el resultado",
                   description: e instanceof Error ? e.message : undefined,
                   variant: "default",
                 });
+                return;
               }
+
+              const followUp = await saveCallFollowUpAction({
+                callId: selected.id,
+                qualification: payload.qualification,
+                nextAction: payload.nextAction,
+                nextActionAt: payload.nextActionAt,
+                ownerId: payload.ownerId,
+                notes: payload.nextActionNotes,
+              });
+
+              if (!followUp.ok) {
+                push({
+                  title: "El resultado se guardó, el seguimiento no",
+                  description: followUp.error,
+                  variant: "default",
+                });
+                return;
+              }
+
+              push({
+                title: payload.nextAction
+                  ? "Resultado y seguimiento guardados"
+                  : "Resultado guardado — el lead queda sin próximo paso",
+                variant: "success",
+              });
+              router.refresh();
             }}
           />
         </>
@@ -476,7 +523,11 @@ function CallDetailPanel({
   onMarkNotClosed: () => void;
   onMarkNoShow: () => void;
 }) {
-  const isScheduled = call.status === "scheduled";
+  // `attended` también acepta resultado: es una llamada que el proveedor marcó
+  // como asistida y a la que nadie le cargó el desenlace. Comparar contra
+  // `scheduled` a mano dejaba a esas llamadas sin forma de cerrarse desde OTC —
+  // que es exactamente el estado "Falta cargar el resultado" de la tabla.
+  const acceptsOutcome = acceptsManualOutcome(call.status);
 
   return (
     <GlassPanel className="w-full p-5 space-y-5">
@@ -563,7 +614,7 @@ function CallDetailPanel({
         </section>
       )}
 
-      {isScheduled ? (
+      {acceptsOutcome ? (
         <section className="space-y-2 pt-2 border-t border-border">
           <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Resultado de la llamada
