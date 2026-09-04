@@ -9,6 +9,44 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [B-FATHOM-NUNCA-PROBADO] Probar Fathom contra una cuenta real 🔴
+
+**Qué es:** L0 arregló el módulo de keys por miembro —que **nunca funcionó**,
+porque el código usaba una columna inexistente— pero **nada se probó contra
+Fathom**. Ni conectar una key, ni crear un webhook, ni recibir un evento.
+
+**Lo que más riesgo tiene, en orden:**
+
+1. **La verificación de firma.** Se asume HMAC-SHA256 sobre el cuerpo crudo y una
+   lista de headers posibles. **Si Fathom firma distinto, se rechazan todos los
+   webhooks** y no llega ninguna llamada. Es lo primero a mirar con un evento real.
+2. **La forma del payload del webhook** y de `crm_matches`. El extractor acepta
+   variantes y descarta lo que no entiende, pero la primera llamada real manda.
+3. **`POST /webhooks`.** Que devuelva `id` y `secret` como dice el plan.
+
+**Cómo se verifica (del plan):** dos miembros conectan su key → el panel los
+muestra conectados con su mail confirmado → cada uno graba una llamada y **las dos
+llegan solas** → los dos en una misma llamada dan **una sola fila** → uno revoca la
+key y la fila pasa a "revocada" → uno se desconecta y **el webhook desaparece de su
+cuenta de Fathom**.
+
+---
+
+### [B-SEMBRAR-IDENTIDADES] Sembrar `client_identities` 🔴
+
+**Qué es:** la tabla existe y la resolución de contraparte la usa, pero **nadie la
+llena todavía**. Sin la siembra, el módulo arranca resolviendo mucho menos de lo
+que puede: cada llamada iría a la cola de revisión en vez de resolverse sola.
+
+**De dónde sale, todo ya existe en la base:** `clients` (nombre, **apodo**, mail),
+`sales_leads`, `closing_calls` (nombre y mail de cada turno), contactos de GHL, y
+el **mail del comprador** de los pagos.
+
+**Ojo con el apodo:** `clients.nickname` es exactamente el tipo de dato que hace
+match con un nombre de pantalla de Zoom, y hoy no lo usa nadie.
+
+---
+
 ### [D-SOPS-VIDEO-NUNCA-CORRIO] Probar el flujo entero de SOP desde video 🔴
 
 **Qué es:** el encargo D está completo pero **nunca se ejecutó**: no se subió un

@@ -946,6 +946,41 @@ algún lado se guardó la URL firmada en vez del marcador, y hay que revisar
 
 ---
 
+## 20. B · LLAMADAS — keys por miembro, contraparte e identidades
+
+Construido el 2026-09-04. **27 tests nuevos** de lógica pura (775 en total).
+
+✅ **Migración aplicada**, cortes verificados: `encrypted_api_key` **ahora existe**
+(era el bug que impedía conectar a cualquier miembro); el mismo valor apuntando a
+dos personas corta; una identidad con cliente **y** lead corta; una sin dueño
+corta; un `status` inválido corta; la policy de privacidad quedó instalada.
+
+🔑 **Necesita una cuenta real de Fathom.** Es el encargo con más superficie sin
+verificar: todo el mapeo se hizo leyendo el plan.
+
+| Paso | Resultado esperado |
+|---|---|
+| Un miembro conecta su key en Integraciones | Se valida antes de guardar; el panel lo muestra conectado |
+| ⭐ Mirar el mail deducido de la cuenta | Se le **muestra para confirmar**, no se asume. Si sale mal, todas sus llamadas quedarían atribuidas a otro |
+| 🔒 Conectar **sin** `ENCRYPTION_MASTER_KEY` | **Falla con el motivo y no guarda nada.** Antes guardaba la key **en texto plano** diciendo "conectado" |
+| Mirar Fathom → Settings → Webhooks | Apareció un webhook que **OTC creó solo**. El miembro no configuró nada |
+| ⚠️ Grabar una llamada | Llega sola, sin apretar sincronizar. **Si no llega, mirar la firma**: es el riesgo #1 |
+| ⭐ Dos miembros en la **misma** llamada | Llega **una sola fila**, no dos (`triggered_for`) |
+| Mirar `fathom_calls.user_id` | Dice quién grabó cada una |
+| 🔒 ⭐ Una llamada **sin vincular** a un cliente | La ve **sólo quien la grabó**. Otro miembro no la ve |
+| 🔒 Vincularla a un cliente | Ahora **sí** la ve toda la organización |
+| Revocar la key en Fathom | La fila pasa a **"revocada"** y avisa. **Nunca dejar de recibir en silencio** |
+| Desconectarse | El webhook **desaparece** de la cuenta de Fathom de esa persona |
+| ⭐ Mirar el resumen de una llamada | **Llega.** Antes `default_summary` era un objeto y `pickString` devolvía null, así que el resumen **no llegaba nunca** |
+| ⭐ Mirar `resolution_method` de cada llamada | Dice por qué peldaño se resolvió. Es lo que después dice **dónde invertir** |
+| ⚠️ Sembrar `client_identities` y volver a mirar | Muchas más llamadas se resuelven solas. **Sin la siembra el módulo arranca flojo** — ver pendiente |
+
+**Qué significa si falla la firma:** no llega ninguna llamada y el panel muestra
+"firma inválida" en la fila del miembro. Hay que mirar cómo firma Fathom de verdad
+y ajustar `verifySignature` en la ruta del token.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

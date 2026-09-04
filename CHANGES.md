@@ -14,6 +14,113 @@
 
 ---
 
+### 2026-09-04 — B · LLAMADAS: L0 (keys por miembro) y L1-L2 (contraparte e identidades)
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `supabase/migrations/20260903100000_fathom_member_keys.sql` (nueva), `lib/fathom/{resolve-counterparty,crm-matches,webhooks}.ts` (nuevos), `lib/fathom/api.ts`, `app/fathom/member-actions.ts`, `app/api/integrations/fathom/webhook/[token]/route.ts` (nueva), `types/fathom-identities.ts` (nuevo)
+
+**Qué se hizo:**
+
+Quinto y último encargo. La idea central, después de tres rediseños: **el
+propósito de una llamada lo define la contraparte**, no quién grabó ni de qué
+calendario salió. Cliente → entrega. Lead → venta.
+
+**🐛 L0 · Se arregló un módulo que nunca funcionó.** `member-actions.ts` escribe y
+lee `encrypted_api_key`, una columna **que no existe en ninguna migración** — la
+tabla define `api_key`. Conectar un miembro fallaba y sincronizar también, así que
+**hoy sólo llegan las llamadas de la key de la organización**, que es exactamente
+el problema que este cambio viene a resolver.
+
+**🔴 Y se arregló un problema de seguridad de paso.** `storeApiKey` caía al
+`catch` y **guardaba la key en texto plano** si el cifrado fallaba: la persona veía
+"conectado" y su credencial de Fathom quedaba legible en la base. Ahora **si no se
+puede cifrar, no se guarda** y la conexión falla con el motivo.
+
+**⭐ Los webhooks se crean por API.** `POST /webhooks` acepta la key del miembro y
+devuelve id y secreto. El flujo no es "cada miembro configura un webhook a mano en
+Fathom" —impracticable— sino: **pega su key una vez y OTC le crea el webhook
+solo**. Al desconectarse, OTC borra lo que creó en vez de dejar basura en una
+cuenta ajena.
+
+**⭐ Y los duplicados se resuelven eligiendo bien qué se pide, no deduplicando
+después.** `triggered_for: [my_recordings, my_shared_with_team_recordings]` es
+exactamente "todo lo que grabé yo": si dos miembros están en la misma llamada,
+**la entrega su dueño y nadie más**. `shared_team_recordings` queda afuera a
+propósito, porque es justo lo que generaría la fila duplicada.
+
+**La ruta de webhook es por miembro, con un token opaco en la URL.** Reemplaza el
+escaneo de la ruta vieja, que traía **todos** los `fathom_integrations` de todas
+las organizaciones y probaba secreto por secreto. Ahora la firma se verifica
+contra **un solo secreto** y no se cruzan datos entre organizaciones.
+
+**✅ Privacidad, implementada como estaba decidido.** Pedirle a alguien que conecte
+su Fathom significa recibir **todo lo que grabe**. Entonces: una llamada que **no**
+quedó vinculada a un cliente **la ve sólo quien la grabó**; al vincularse pasa a
+ser de la organización. Está en la policy de RLS, no en la UI.
+
+**L1 · 🐛 El resumen nunca llegaba.** `default_summary` de Fathom es un **objeto**
+(`{markdown_formatted: "..."}`) y `pickString` sólo aceptaba strings, así que
+devolvía `undefined` **en silencio**. Además OTC pedía **uno solo** de los cuatro
+`include_`: ahora pide summary, action items y crm matches, que ya vienen sin costo
+extra de request.
+
+**⭐ L2 · Y de `include_crm_matches` sale lo mejor: el alias se aprende solo.**
+Fathom devuelve el par **nombre de pantalla ↔ mail**. Todo cliente fue lead, y su
+llamada de venta **sí estuvo agendada**: de ahí sale su alias gratis, y con eso se
+resuelven todas sus entregas futuras, que muchas veces no tienen agenda ni mail.
+**El lado de ventas le enseña al de entrega.**
+
+**Decisiones de diseño relevantes:**
+
+- **Cinco peldaños, del más fuerte al más débil**, y se detiene en el primero que
+  resuelve: mail de invitado y alias aprendido son **deterministas**; nombre
+  normalizado y cruce de calendario son **candidatos** que piden confirmación,
+  porque dos personas pueden llamarse igual y equivocarse mete la llamada en la
+  ficha de otro cliente.
+- **⭐ `resolution_method` se guarda siempre.** Sin eso, en dos semanas nadie sabría
+  si el módulo funciona porque el alias está haciendo el trabajo o porque alguien
+  lo está corrigiendo a mano.
+- **El upsell se dice entero:** un cliente con turno agendado es `counterparty =
+  client` **y** `purpose = sales`. Las dos columnas son separadas, así que el
+  modelo no tiene que elegir una y perder la otra.
+- **Sin nadie externo es una reunión de equipo**, y sin ninguna señal va a la cola
+  de revisión: **no se inventa una contraparte**.
+- **Una identidad pertenece a un cliente o a un lead, nunca a los dos ni a
+  ninguno**, y el mismo valor no puede apuntar a dos personas — sería justo la
+  confusión que el módulo viene a evitar.
+- **Medio par no enseña nada:** un alias sin mail se descarta, porque asignaría
+  llamadas al cliente equivocado.
+
+**Verificación ejecutada:**
+- `pnpm test`: **775 tests en 50 archivos, todos en verde** (27 nuevos de `lib/fathom`).
+- `tsc --noEmit`, `pnpm lint` y `pnpm build` limpios.
+- **Migración aplicada**, cortes probados en transacción revertida: `encrypted_api_key`
+  **ahora existe**; el mismo valor apuntando a dos personas **corta**; una identidad
+  con cliente **y** lead **corta**; una sin dueño **corta**; un `status` inválido
+  **corta**; y la policy de privacidad quedó instalada.
+
+**Riesgos / deuda técnica pendiente:**
+
+- 🔴 **Nada se probó contra una cuenta real de Fathom.** Ni conectar una key, ni
+  crear un webhook, ni recibir un evento. **Todo el mapeo se hizo leyendo el plan.**
+- 🔴 **La forma exacta del payload del webhook y de `crm_matches` no está
+  verificada.** `extractSpeakerMatches` acepta varias variantes y descarta lo que no
+  entiende, pero la primera llamada real es la que manda.
+- **La verificación de firma asume HMAC-SHA256 sobre el cuerpo crudo** y una lista
+  de headers posibles. Si Fathom firma distinto, **todos los webhooks se rechazan**.
+  Es lo primero a mirar con un evento real.
+- **La siembra de `client_identities` no está hecha.** La tabla existe y la lógica
+  la usa, pero nadie la llena todavía desde `clients`, `sales_leads`,
+  `closing_calls`, GHL ni los pagos. **Sin la siembra, el módulo arranca resolviendo
+  mucho menos de lo que puede.**
+- **L3 y L4 no se construyeron:** el desempate por IA sobre el transcript y el panel
+  de llamadas en la ficha del cliente.
+- **La key de la organización sigue viva**, como corresponde: no se apaga hasta que
+  haya llegado al menos un evento de cada miembro conectado.
+
+---
+
 ### 2026-09-04 — D · SOPS-VIDEO: un SOP escrito desde un Loom
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
