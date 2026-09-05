@@ -14,6 +14,60 @@
 
 ---
 
+### 2026-09-05 — 🐛 Dos bugs que aparecieron desplegando el bot de Discord
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `apps/discord-bot/Dockerfile`, `apps/discord-bot/src/lib/supabase.ts`, `apps/discord-bot/railway.json`, `docs/DISCORD_DEPLOY.md`
+
+**Qué se hizo:**
+
+Los dos salieron del primer despliegue real, y ninguno se podía ver sin él.
+
+**🐛 1 · La imagen corría Node 20 y `@supabase/supabase-js` ya no arranca ahí.**
+El cliente inicia su capa de realtime al crearse y, desde su versión 2.5x, corta
+con `Node.js 20 detected without native WebSocket support`. WebSocket nativo
+llega en Node 22. La imagen pasa a `node:22-alpine`. **El bot no usa realtime**
+—escucha Discord, no la base—, pero `createClient` lo inicializa igual.
+
+**🐛 2 · El cliente de Supabase se creaba al importar el módulo**, o sea **antes**
+de que `index.ts` pudiera validar las variables de entorno. Con `SUPABASE_URL`
+vacía, en vez del mensaje que dice cuáles faltan salía un `supabaseUrl is
+required` de la librería, con veinte líneas de stack y sin decir qué hacer.
+Ahora el cliente se crea la primera vez que se usa, y la validación gana. Se
+verificó corriendo el bot sin variables: sale el mensaje correcto.
+
+**Y dos correcciones de despliegue:** `railway.json` tenía la ruta del Dockerfile
+relativa a la raíz del repo, cuando Railway la resuelve contra el root directory
+del servicio; y el runbook no marcaba que **sin `Root Directory =
+apps/discord-bot` el build falla** construyendo el monorepo entero, con un error
+sobre Nx que no menciona al bot por ningún lado.
+
+**Decisiones de diseño relevantes:**
+
+- **El cliente perezoso no es sólo por el mensaje de error.** Un módulo que abre
+  una conexión al importarse hace que el orden de los `import` decida si el
+  proceso arranca, y eso no se ve en ningún test.
+- **`persistSession: false` y `autoRefreshToken: false`**: es una service role
+  key, no una sesión de usuario. No hay nada que refrescar.
+
+**Verificación ejecutada:**
+- `tsc --noEmit` limpio en el bot.
+- **Arranque sin variables probado a mano**: imprime `Faltan variables de
+  entorno: ...` con las cinco, y sale. Antes moría con el error de la librería.
+- ⚠️ **La imagen con Node 22 no se construyó todavía**: eso pasa en Railway.
+
+**Riesgos / deuda técnica pendiente:**
+
+- 🔴 **Railway despliega desde `main`**, así que estos dos arreglos **no llegan al
+  bot hasta que la rama se mergee**. Hasta entonces el servicio va a seguir
+  cayendo por el WebSocket.
+- El bot sigue **sin correr una sola vez de punta a punta**. Lo que sabemos hasta
+  acá es que el build funciona, que las variables llegan y que el arranque valida
+  bien; lo que falta es que conecte con Discord y guarde un mensaje.
+
+---
+
 ### 2026-09-04 — Los cuatro cables: el buzón de propuestas empieza a recibir
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
