@@ -58,9 +58,18 @@ cargarlo en Railway.
 
 1. Entrá a <https://railway.app> → **New Project** → **Deploy from GitHub repo**
 2. Elegí el repo `ai-coo-platform`
-3. En **Settings → Build**, poné como Dockerfile:
-   `apps/discord-bot/Dockerfile`
-   *(o dejá que tome `apps/discord-bot/railway.json`, que ya lo dice)*
+3. 🔴 **En Settings → Source, poné `Root Directory` = `apps/discord-bot`.**
+
+   **Este es el paso que hace fallar el build si falta**, y el error no lo dice:
+   sin root directory, Railway mira la raíz del repo, encuentra el monorepo con
+   Next.js, intenta construirlo con su detector automático y falla con un
+   mensaje sobre Nx y `RAILPACK_NX_APP` que no tiene nada que ver con el bot.
+
+   El bot es **standalone**: no importa ningún paquete del workspace, y su
+   Dockerfile espera que el contexto sea su propia carpeta. Con el root
+   directory puesto, Railway lee `apps/discord-bot/railway.json` —que ya dice
+   que use el Dockerfile— y no hay nada más que configurar en Build.
+
 4. En **Variables**, cargá estas cinco:
 
 | Variable | De dónde sale |
@@ -76,6 +85,10 @@ cargarlo en Railway.
 
 **Cómo sabés que anduvo:** en los logs de Railway tiene que aparecer una línea de
 "ready". Si aparece un error, va a decir qué hacer.
+
+**Si el build falla antes de arrancar** y el log habla de Nx, de Next.js o de
+`RAILPACK_SPA_OUTPUT_DIR`, es el paso 3: Railway está construyendo el monorepo
+entero en vez del bot.
 
 ---
 

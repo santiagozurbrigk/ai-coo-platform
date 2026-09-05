@@ -6,14 +6,11 @@ import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes";
-import { callClaudeJson } from "@/lib/ai/anthropic";
 import { summarizeByClient, type ClientActivity } from "@/lib/discord/activity";
 import {
-  CLASSIFY_SYSTEM_PROMPT,
-  buildClassifyPrompt,
-  chunkForClassification,
-  parseClassifyResponse,
-} from "@/lib/discord/classify-messages";
+  CLASSIFY_RUN_LIMIT,
+  classifyDiscordMessagesForOrg,
+} from "@/lib/discord/classify-run";
 import type {
   DiscordClientLink,
   DiscordIntegration,
@@ -365,74 +362,124 @@ export async function getClientsDiscordActivityAction(): Promise<
  * Por lote: una llamada cada 25 mensajes. El costo por mensaje no cerraría.
  */
 export async function classifyDiscordMessagesAction(
-  limit = 100
+  limit = CLASSIFY_RUN_LIMIT
 ): Promise<MutationResult<{ clasificados: number; testimonios: number }>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const { clasificados, testimonios } = await classifyDiscordMessagesForOrg(
+      organizationId,
+      { limit }
+    );
+
+    revalidatePath(paths.platform.clients.root);
+    return { clasificados, testimonios };
+  });
+}
+
+// ─── D3 · Los candidatos, todos juntos ──────────────────────────────────────
+
+export type WinCandidate = {
+  messageId: string;
+  clientId: string;
+  clientName: string;
+  content: string;
+  aiSummary: string | null;
+  channelName: string | null;
+  sentAt: string;
+};
+
+/**
+ * ⭐ Los testimonios que todavía no se convirtieron en win, de todos los clientes.
+ *
+ * La ficha de cada cliente ya los mostraba, pero de a uno: había que entrar a
+ * cada cliente para descubrir si tenía algo. Esto es la misma información
+ * puesta donde se trabaja con los wins — que es donde alguien se va a acordar
+ * de mirarla.
+ */
+export async function listWinCandidatesAction(): Promise<WinCandidate[]> {
+  try {
+    if (!isSupabaseConfigured()) return [];
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const [messagesResult, winsResult] = await Promise.all([
+      supabase
+        .from("discord_messages")
+        .select("id, content, ai_summary, channel_name, sent_at, client_id, discord_message_id, clients(name)")
+        .eq("organization_id", organizationId)
+        .eq("is_testimonial", true)
+        .not("client_id", "is", null)
+        .order("sent_at", { ascending: false })
+        .limit(100),
+      supabase
+        .from("client_wins")
+        .select("source_ref")
+        .eq("organization_id", organizationId)
+        .eq("source", "discord"),
+    ]);
+
+    if (messagesResult.error) return [];
+
+    // Los que ya se convirtieron no vuelven a ofrecerse.
+    const yaUsados = new Set(
+      ((winsResult.data as { source_ref: string | null }[]) ?? [])
+        .map((row) => row.source_ref)
+        .filter((ref): ref is string => Boolean(ref))
+    );
+
+    type Row = {
+      id: string;
+      content: string | null;
+      ai_summary: string | null;
+      channel_name: string | null;
+      sent_at: string;
+      client_id: string | null;
+      discord_message_id: string;
+      clients: { name: string } | { name: string }[] | null;
+    };
+
+    return ((messagesResult.data as Row[]) ?? [])
+      .filter((row) => row.client_id && row.content?.trim() && !yaUsados.has(row.discord_message_id))
+      .map((row) => {
+        const cliente = Array.isArray(row.clients) ? row.clients[0] : row.clients;
+        return {
+          messageId: row.id,
+          clientId: row.client_id!,
+          clientName: cliente?.name ?? "Cliente",
+          content: row.content ?? "",
+          aiSummary: row.ai_summary,
+          channelName: row.channel_name,
+          sentAt: row.sent_at,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * "Esto no era un testimonio."
+ *
+ * ⭐ No hace falta una columna nueva para descartarlo: se corrige la marca que
+ * puso el clasificador, que es exactamente lo que la persona está diciendo. Y
+ * la corrección vale también en la ficha del cliente, donde el mensaje deja de
+ * aparecer resaltado.
+ */
+export async function dismissWinCandidateAction(
+  messageId: string
+): Promise<MutationResult<void>> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("discord_messages")
-      .select("id, content, channel_name")
-      .eq("organization_id", organizationId)
-      // Sin clasificar todavía. `ai_sentiment` es la marca de "ya pasó por acá".
-      .is("ai_sentiment", null)
-      .order("sent_at", { ascending: false })
-      .limit(limit);
+      .update({ is_testimonial: false })
+      .eq("id", messageId)
+      .eq("organization_id", organizationId);
 
     if (error) throw new Error(error.message);
-
-    const rows = (data as { id: string; content: string; channel_name: string | null }[]) ?? [];
-    // Un mensaje vacío no se manda a clasificar: es la señal de que el intent
-    // MESSAGE CONTENT no está activado, no un mensaje sin texto.
-    const pending = rows.filter((row) => row.content?.trim());
-
-    if (pending.length === 0) return { clasificados: 0, testimonios: 0 };
-
-    let clasificados = 0;
-    let testimonios = 0;
-
-    for (const batch of chunkForClassification(pending)) {
-      const messages = batch.map((row) => ({
-        id: row.id,
-        content: row.content,
-        channelName: row.channel_name,
-      }));
-
-      const response = await callClaudeJson<{ results?: unknown }>({
-        organizationId,
-        task: "content_labeling",
-        feature: "discord_message_classification",
-        system: CLASSIFY_SYSTEM_PROMPT,
-        user: buildClassifyPrompt(messages),
-        maxTokens: 4096,
-      });
-
-      // Si el lote falla, se sigue con el siguiente: perder un lote es mejor que
-      // perder la corrida entera.
-      if (!response) continue;
-
-      for (const result of parseClassifyResponse(response, messages)) {
-        const { error: updateError } = await supabase
-          .from("discord_messages")
-          .update({
-            is_testimonial: result.isTestimonial,
-            ai_sentiment: result.sentiment,
-            ai_summary: result.summary,
-            requires_attention: result.requiresAttention,
-          })
-          .eq("id", result.id)
-          .eq("organization_id", organizationId);
-
-        if (!updateError) {
-          clasificados += 1;
-          if (result.isTestimonial) testimonios += 1;
-        }
-      }
-    }
-
-    revalidatePath(paths.platform.clients.root);
-    return { clasificados, testimonios };
+    revalidatePath(paths.platform.clients.wins);
   });
 }
 

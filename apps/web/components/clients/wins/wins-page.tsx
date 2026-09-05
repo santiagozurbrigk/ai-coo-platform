@@ -16,6 +16,7 @@ import type { FieldDefinition } from "@/types/custom-fields";
 import { getWinsPageDataAction } from "@/app/clients/win-page-actions";
 import { WinsTracker } from "@/components/clients/wins/wins-tracker";
 import { WinsDashboard } from "@/components/clients/wins/wins-dashboard";
+import { WinCandidates } from "@/components/clients/wins/win-candidates";
 
 export type WinsPageData = {
   wins: ClientWin[];
@@ -42,6 +43,8 @@ export function WinsPage({ initialData }: { initialData: WinsPageData }) {
         <TabsList>
           <TabsTrigger value="tracker">Tracker</TabsTrigger>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          {/* Lo que Discord dejó esperando una decisión. */}
+          <TabsTrigger value="candidatos">Candidatos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="tracker" className="pt-4">
@@ -62,6 +65,10 @@ export function WinsPage({ initialData }: { initialData: WinsPageData }) {
             tracking={data.tracking}
             onChanged={refresh}
           />
+        </TabsContent>
+
+        <TabsContent value="candidatos" className="pt-4">
+          <WinCandidates onChanged={refresh} />
         </TabsContent>
       </Tabs>
     </div>

@@ -1,9 +1,13 @@
 # Imagen del bot de Discord.
 #
+# ⭐ Node 22 y no 20: `@supabase/supabase-js` arranca su cliente de realtime al
+# crearse y, desde su versión 2.5x, en Node 20 corta con "Node.js 20 detected
+# without native WebSocket support". WebSocket nativo llega en Node 22.
+#
 # El bot es standalone a propósito: no importa ningún paquete del workspace, así
 # que la imagen copia sólo su package.json y su src. Eso la hace chica y
 # construible sin el monorepo entero.
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
@@ -14,7 +18,7 @@ COPY src ./src
 RUN npm run build
 
 # ─── Imagen final: sólo lo compilado y las dependencias de producción ────────
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 ENV NODE_ENV=production

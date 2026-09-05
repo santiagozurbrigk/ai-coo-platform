@@ -1086,6 +1086,37 @@ ninguna cuenta externa—, pero **nada se vio renderizado**.
 
 ---
 
+## 22. Los cuatro cables — el buzón de propuestas
+
+**Estado:** construido y con el filtro probado. **La migración de las marcas está
+sin aplicar** y **el matcher nunca corrió contra la API real**.
+
+**Dónde:** cron `/api/cron/daily-signals` · Wins → solapa **Candidatos** · ficha
+del cliente, sección del recorrido.
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| 🔴 Aplicar `20260904110000_checkpoint_proposal_sources.sql` | Sin esto los dos pasos de propuestas fallan. Es lo primero |
+| Correr el cron a mano con `?organizationId=<uuid>` | Devuelve los tres pasos con sus números, o el error de cada uno por separado |
+| ⚠️ Mirar `clasificacion.vacios` en la respuesta | Si es alto, **el intent MESSAGE CONTENT del bot no está activado**: los mensajes llegan en blanco |
+| ⭐ Sin recorrido configurado, correr el cron igual | Los pasos de propuestas devuelven cero **sin llamar a la IA**: sin catálogo no hay contra qué comparar |
+| Correrlo dos veces seguidas | La segunda no vuelve a evaluar lo mismo. Si lo hace, la marca `checkpoint_checked_at` no se está escribiendo |
+| ⭐ Mirar las propuestas que aparecen en la ficha del cliente | Cada una dice de dónde salió y por qué. Ninguna registró el hito sola |
+| ⭐ Aceptar una propuesta | Crea el evento por el mismo camino que el registro manual, con las mismas validaciones |
+| Proponer un hito **ya registrado** | No se propone: no hay nada que decidir |
+| Correr el cron dos días seguidos con la misma propuesta pendiente | No se duplica |
+| ⭐ **Contar aceptadas contra descartadas** en la primera semana | Es la única medida real de calidad. Más de la mitad descartadas → subir `MIN_MATCH_CONFIDENCE` |
+| Wins → **Candidatos** | Están los testimonios de todos los clientes, con el mensaje textual |
+| Convertir un candidato | Crea el win con el mensaje como origen y desaparece de la lista |
+| "No es un testimonio" | Desaparece de la lista **y** deja de estar resaltado en la ficha del cliente |
+
+**Qué significa si no aparece ninguna propuesta:** lo más probable es que no haya
+mensajes (el bot no está desplegado) o que no haya recorrido configurado. El
+tercer motivo es que el umbral de confianza esté cortando todo, y eso se ve
+corriendo el cron y mirando `propuestos` contra `evaluados`.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

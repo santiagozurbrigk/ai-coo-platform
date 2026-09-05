@@ -61,6 +61,21 @@ cliente. **Son producto nuevo, no una migración chica.**
 
 ---
 
+
+### [PROPUESTAS-CALIDAD-SIN-VER] Medir los falsos positivos del matcher de hitos 🔴
+
+**Qué es:** el filtro que decide qué propuesta sobrevive tiene 19 tests, pero
+**el matcher nunca corrió contra la API real**. Los tests cubren que no se
+inventen hitos ni textos y que el umbral corte; no cubren la calidad de las
+coincidencias.
+
+**Qué mirar en la primera corrida real:** cuántas propuestas se aceptan contra
+cuántas se descartan. Si se descartan más de la mitad, hay que subir el piso de
+confianza (`MIN_MATCH_CONFIDENCE`, hoy 0.7) o endurecer el prompt — una lista de
+propuestas que casi siempre están mal se deja de mirar.
+
+---
+
 ### [B-FATHOM-NUNCA-PROBADO] Probar Fathom contra una cuenta real 🔴
 
 **Qué es:** L0 arregló el módulo de keys por miembro —que **nunca funcionó**,
@@ -146,26 +161,7 @@ escrito que diga que el servidor está siendo registrado.
 
 ---
 
-### [E-CLASIFICADOR-SIN-CRON] El clasificador existe pero nadie lo llama
 
-**Qué es:** `classifyDiscordMessagesAction` clasifica mensajes por lote con Haiku
-(sentimiento, atención y testimonios), pero **no hay disparador**: hay que
-llamarla a mano. Debería ser un cron diario, como los demás.
-
-**Además:** nunca corrió contra la API real. Falta ver la calidad de la
-clasificación, sobre todo **cuántos falsos positivos de testimonio** quedan
-después de arreglar el detector del bot.
-
----
-
-### [E-CHECKPOINT-DESDE-MENSAJE] La cuarta conexión del bot quedó afuera
-
-**Qué es:** el plan lista cuatro conexiones entre el bot y el tracking. Se
-construyeron tres (actividad, silencio, testimonio → win). Falta **mensaje →
-propuesta de checkpoint**, que tendría que producir una propuesta para el
-recorrido del cliente (C), nunca un evento directo.
-
----
 
 ### [A-PROBAR-CAPTURAS] La subida de capturas nunca se ejecutó 🔴
 
@@ -209,14 +205,6 @@ en `lib/checkpoints/stalled.ts`, caso 3.
 
 ---
 
-### [C3-CONECTAR-PROPUESTAS] El buzón de propuestas todavía no recibe nada
-
-**Qué es:** `createCheckpointProposalAction` es la entrada del buzón y funciona,
-pero **ninguna fuente escribe todavía**. Lo conectan los Encargos **E** (Discord:
-mensaje marcado como testimonio → propone el hito) y **B** (Fathom: llamada de
-entrega → propone el hito).
-
----
 
 ### [C2-PROBAR-FICHA] Probar el registro de checkpoints en la ficha con sesión real
 
@@ -832,6 +820,8 @@ referencias + `brand.domain`.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-09-05 | MIGRACION-20260904110000: aplicada y verificada — las dos columnas `checkpoint_checked_at` y los dos índices parciales existen. Y se arregló el build del bot en Railway: construía el monorepo en vez del bot porque faltaba el root directory del servicio | `claude/checkpoints-cliente-ccc3ih` |
+| 2026-09-04 | CABLES-PROPUESTAS: el buzón de C3 empieza a recibir. Cron diario `daily-signals` que clasifica los mensajes de Discord y propone hitos desde los mensajes y desde las llamadas de entrega de Fathom. Solapa **Candidatos** en Wins con los testimonios de todos los clientes juntos. Un hito que no está en el catálogo se descarta entero; piso de confianza 0.7; la marca es de "evaluado", no de "propuesto". 849 tests | `claude/checkpoints-cliente-ccc3ih` |
 | 2026-09-04 | TRACKERS-EXCEL: las cinco piezas que los Excel tenían y OTC no — permisos del cliente sobre su win (con la forma en que quiere aparecer), estado de uso con el filtro "Sin usar", objetivo con el que entró, fecha de egreso y estado actual en palabras. Más la pantalla de **Revisión semanal** con las cuatro preguntas. 812 tests | `claude/checkpoints-cliente-ccc3ih` |
 | 2026-09-04 | OPERACIONES-ADDON-APAGADO: SOPs salió del add-on `operaciones` y es un módulo propio de la barra superior. El creador de SOPs existía y **nadie podía llegar**, porque las 5 organizaciones tienen `enabled_add_ons` vacío. El resto de Operaciones sigue detrás del add-on | `claude/checkpoints-cliente-ccc3ih` |
 | 2026-09-03 | SEGUIMIENTO-EN-EL-MOMENTO: el modal de resultado de la llamada pide también el seguimiento (calificación, próximo paso, fecha, responsable, nota) en un solo guardado. "No show" pasó de acción directa a modal con el mismo bloque. El panel de detalle ahora usa `acceptsManualOutcome`, así que las llamadas "asistió sin resultado" pueden cerrarse | `claude/seguimientos-tabla-closing-u6arke` |
