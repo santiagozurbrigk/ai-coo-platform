@@ -95,10 +95,8 @@ las llamadas.
 
 **Riesgos / deuda técnica pendiente:**
 
-- 🔴 **La migración `20260904110000` NO está aplicada**: el MCP de Supabase
-  perdió permisos a mitad de sesión. **Hasta que se aplique a mano, los dos pasos
-  de propuestas fallan** (la columna no existe). El cron lo reporta como error
-  del paso y sigue; la clasificación sí funciona.
+- ✅ **La migración `20260904110000` quedó aplicada el 2026-09-05** y verificada:
+  las dos columnas y los dos índices parciales existen.
 - 🔴 **El matcher nunca corrió contra la API real.** Los 19 tests cubren el
   filtro, no la calidad de las coincidencias. La pregunta abierta es cuántos
   falsos positivos deja el prompt, y eso sólo se ve con mensajes reales.

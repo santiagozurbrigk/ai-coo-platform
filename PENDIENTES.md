@@ -61,20 +61,6 @@ cliente. **Son producto nuevo, no una migración chica.**
 
 ---
 
-### [MIGRACION-20260904110000-SIN-APLICAR] Aplicar a mano la migración de las marcas 🔴
-
-**Qué es:** `supabase/migrations/20260904110000_checkpoint_proposal_sources.sql`
-agrega `checkpoint_checked_at` a `discord_messages` y a `fathom_calls`. **No se
-pudo aplicar**: el MCP de Supabase perdió permisos a mitad de sesión.
-
-**Hasta que se aplique**, los dos pasos de propuestas del cron `daily-signals`
-fallan porque la columna no existe. El cron lo reporta como error del paso y
-sigue; la clasificación de mensajes sí funciona.
-
-**Cómo:** pegar el archivo en el SQL Editor de Supabase, o `supabase db push`.
-Son dos `alter table` y dos índices parciales, todo idempotente.
-
----
 
 ### [PROPUESTAS-CALIDAD-SIN-VER] Medir los falsos positivos del matcher de hitos 🔴
 
@@ -834,6 +820,7 @@ referencias + `brand.domain`.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|
+| 2026-09-05 | MIGRACION-20260904110000: aplicada y verificada — las dos columnas `checkpoint_checked_at` y los dos índices parciales existen. Y se arregló el build del bot en Railway: construía el monorepo en vez del bot porque faltaba el root directory del servicio | `claude/checkpoints-cliente-ccc3ih` |
 | 2026-09-04 | CABLES-PROPUESTAS: el buzón de C3 empieza a recibir. Cron diario `daily-signals` que clasifica los mensajes de Discord y propone hitos desde los mensajes y desde las llamadas de entrega de Fathom. Solapa **Candidatos** en Wins con los testimonios de todos los clientes juntos. Un hito que no está en el catálogo se descarta entero; piso de confianza 0.7; la marca es de "evaluado", no de "propuesto". 849 tests | `claude/checkpoints-cliente-ccc3ih` |
 | 2026-09-04 | TRACKERS-EXCEL: las cinco piezas que los Excel tenían y OTC no — permisos del cliente sobre su win (con la forma en que quiere aparecer), estado de uso con el filtro "Sin usar", objetivo con el que entró, fecha de egreso y estado actual en palabras. Más la pantalla de **Revisión semanal** con las cuatro preguntas. 812 tests | `claude/checkpoints-cliente-ccc3ih` |
 | 2026-09-04 | OPERACIONES-ADDON-APAGADO: SOPs salió del add-on `operaciones` y es un módulo propio de la barra superior. El creador de SOPs existía y **nadie podía llegar**, porque las 5 organizaciones tienen `enabled_add_ons` vacío. El resto de Operaciones sigue detrás del add-on | `claude/checkpoints-cliente-ccc3ih` |
