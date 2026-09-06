@@ -8,6 +8,11 @@ import { es } from "@/lib/locale/es";
 import type { AdminOrganizationListRow } from "@/types/super-admin";
 import { formatOrgDate } from "@/lib/super-admin/format-org-datetime";
 import { setOrganizationStatusAction } from "@/app/super-admin/actions";
+import {
+  deleteOrganizationAction,
+  previewOrganizationDeletionAction,
+} from "@/app/super-admin/delete-actions";
+import { DeletionDialog } from "@/components/super-admin/deletion-dialog";
 
 type Filter = "all" | "active" | "inactive" | "trial";
 
@@ -25,6 +30,7 @@ export function OrganizationsList({
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [aEliminar, setAEliminar] = useState<AdminOrganizationListRow | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -150,12 +156,37 @@ export function OrganizationsList({
                       ? "Suspender"
                       : "Activar"}
                 </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => setAEliminar(r)}
+                >
+                  Eliminar
+                </Button>
               </div>
             ),
           },
         ]}
         data={filtered}
         keyExtractor={(r) => r.id}
+      />
+
+      <DeletionDialog
+        open={aEliminar !== null}
+        onOpenChange={(open) => {
+          if (!open) setAEliminar(null);
+        }}
+        titulo={`Eliminar ${aEliminar?.name ?? ""}`}
+        cargarVistaPrevia={() =>
+          previewOrganizationDeletionAction(aEliminar?.id ?? "")
+        }
+        ejecutar={(confirmacion) =>
+          deleteOrganizationAction({
+            organizationId: aEliminar?.id ?? "",
+            confirmacion,
+          })
+        }
       />
     </div>
   );
