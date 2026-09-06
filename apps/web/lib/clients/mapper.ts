@@ -25,6 +25,8 @@ export type ClientRow = {
   offered_product: string | null;
   plan_id: string | null;
   selected_installment_system_id: string | null;
+  notes?: string | null;
+  notes_updated_at?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -54,6 +56,8 @@ export function rowToClient(row: ClientRow): Client {
       parseOfferedProductFromInsights(row.ai_insights ?? undefined),
     planId: row.plan_id ?? undefined,
     selectedInstallmentSystemId: row.selected_installment_system_id ?? undefined,
+    notes: row.notes ?? null,
+    notesUpdatedAt: row.notes_updated_at ?? null,
   };
 }
 

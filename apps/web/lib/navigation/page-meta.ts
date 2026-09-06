@@ -1,4 +1,24 @@
-const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
+/**
+ * ⭐ El mapa de pantallas: título, bajada y **a dónde se vuelve**.
+ *
+ * La flecha de "volver" no se pone a mano en cada página. Se deriva de la ruta:
+ * `/marketing/content/abc` sube hasta encontrar una pantalla conocida y esa es
+ * su vuelta. Cuando la convención no alcanza —`/operations/inputs`, que no
+ * tiene una pantalla `/operations`— la entrada lo dice con `parent`.
+ *
+ * Que sea derivado y no manual es el punto: **una pantalla nueva no puede
+ * olvidarse de tener vuelta**, igual que no puede olvidarse de tener título.
+ * El test de este archivo recorre las páginas reales y falla si alguna cae en
+ * el fallback.
+ */
+export type PageMeta = {
+  title: string;
+  subtitle?: string;
+  /** Vuelta explícita, cuando subir un segmento no da con la pantalla padre. */
+  parent?: string;
+};
+
+const PAGE_META: Record<string, PageMeta> = {
   "/login": {
     title: "Iniciar sesión",
     subtitle: "Panel cliente — fundadores y equipo",
@@ -196,12 +216,91 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
     title: "Añadir contenido",
     subtitle: "Ampliar el conocimiento global de la plataforma",
   },
+  "/comentarios": {
+    title: "Comentarios",
+    subtitle: "Marketing — conversaciones en tus publicaciones",
+  },
+  "/funnels": {
+    title: "Embudos",
+    subtitle: "Las mismas siete etapas para cualquier oferta",
+  },
+  "/integrations/discord": {
+    title: "Discord",
+    subtitle: "Integraciones — canales, vínculos y actividad",
+  },
+  "/integrations/import": {
+    title: "Importar datos históricos",
+    subtitle: "Integraciones — carga inicial desde GoHighLevel o Excel",
+  },
+  "/intelligence/ai-memory": {
+    title: "Memoria de la IA",
+    subtitle: "Inteligencia — qué recuerda el sistema de tu negocio",
+  },
+  "/intelligence/bottlenecks": {
+    title: "Cuellos de botella",
+    subtitle: "Inteligencia — dónde se traba la operación",
+  },
+  "/intelligence/insights": {
+    title: "Hallazgos",
+    subtitle: "Inteligencia — patrones detectados en tus datos",
+  },
+  "/intelligence/opportunities": {
+    title: "Oportunidades",
+    subtitle: "Inteligencia — dónde hay upside sin explotar",
+  },
+  "/intelligence/recommendations": {
+    title: "Recomendaciones",
+    subtitle: "Inteligencia — qué conviene hacer primero",
+  },
+  "/marketing/administrar": {
+    title: "Administrar",
+    subtitle: "Marketing — cuentas, etiquetas y configuración",
+  },
+  "/marketing/anuncios": {
+    title: "Anuncios",
+    subtitle: "Marketing — Meta Ads por pieza de contenido",
+  },
+  "/marketing/automatizaciones": {
+    title: "Automatizaciones",
+    subtitle: "Marketing — flujos y disparadores",
+  },
+  "/marketing/forms": {
+    title: "Formularios",
+    subtitle: "Marketing — formularios conectados y sus respuestas",
+  },
+  "/marketing/lead-magnets": {
+    title: "Lead Magnets",
+    subtitle: "Marketing — imanes de captación",
+  },
+  "/operations/inputs": {
+    title: "Inputs",
+    subtitle: "Operaciones — contexto que alimenta los análisis",
+    parent: "/operations/overview",
+  },
+  "/redesign-preview": {
+    title: "Vista previa del rediseño",
+    subtitle: "Interno — pruebas del sistema de diseño",
+  },
+  "/sales/llamadas": {
+    title: "Llamadas",
+    subtitle: "Ventas — grabaciones de Fathom y análisis por llamada",
+  },
+  "/sops/create": {
+    title: "Crear SOP",
+    subtitle: "Desde texto o desde un video",
+  },
+  "/team/members": {
+    title: "Miembros",
+    subtitle: "Equipo — personas, roles y accesos",
+  },
+  "/team/roles": {
+    title: "Roles",
+    subtitle: "Equipo — permisos por módulo",
+  },
 };
 
-export function getPageMeta(pathname: string): {
-  title: string;
-  subtitle?: string;
-} {
+/** Título y bajada de una ruta. La vuelta la resuelve `getPageMeta`. */
+function resolveMeta(pathname: string): PageMeta {
   if (PAGE_META[pathname]) {
     return PAGE_META[pathname];
   }
@@ -255,6 +354,15 @@ export function getPageMeta(pathname: string): {
   if (pathname.startsWith("/agent/") && pathname !== "/agent") {
     return { title: "Conversación", subtitle: "Agente de negocio" };
   }
+  if (pathname.startsWith("/funnels/") && pathname.endsWith("/configurar")) {
+    return { title: "Configurar embudo", subtitle: "Fuentes y etapas del embudo" };
+  }
+  if (pathname.startsWith("/funnels/") && pathname !== "/funnels") {
+    return { title: "Embudo", subtitle: "Las siete etapas de esta oferta" };
+  }
+  if (pathname.startsWith("/lanzamientos/") && pathname !== "/lanzamientos") {
+    return { title: "Lanzamiento", subtitle: "Plan, ejecución e impacto" };
+  }
   if (pathname.startsWith("/marketing/content/") && pathname !== "/marketing/content") {
     return { title: "Publicación", subtitle: "Detalle de contenido — Marketing" };
   }
@@ -277,5 +385,60 @@ export function getPageMeta(pathname: string): {
       subtitle: "Cerebro de IA general",
     };
   }
-  return { title: "Panel General", subtitle: undefined };
+  /**
+   * ⭐ Una ruta desconocida **no se disfraza de dashboard**.
+   *
+   * Antes devolvía "Panel General", y eso le mentía al usuario sobre dónde
+   * estaba: la pantalla de importar datos históricos se anunciaba como el panel
+   * general, igual que otras diecinueve. El test de abajo hace que esto sólo se
+   * vea en una ruta que no existe.
+   */
+  return { title: FALLBACK_TITLE };
+}
+
+/** Lo que ve la barra superior: título, bajada y hacia dónde vuelve. */
+export type ResolvedPageMeta = {
+  title: string;
+  subtitle?: string;
+  back?: { href: string; label: string };
+};
+
+export const FALLBACK_TITLE = "OTC";
+
+export function getPageMeta(pathname: string): ResolvedPageMeta {
+  const meta = resolveMeta(pathname);
+  const back = resolveBack(pathname, meta);
+  return back
+    ? { title: meta.title, subtitle: meta.subtitle, back }
+    : { title: meta.title, subtitle: meta.subtitle };
+}
+
+/**
+ * A dónde vuelve la flecha.
+ *
+ * Primero la vuelta explícita de la entrada; si no, se sube segmento a segmento
+ * hasta dar con una pantalla conocida. `/funnels/abc/configurar` prueba
+ * `/funnels/abc` —que no está— y llega a `/funnels`, que sí.
+ *
+ * Una pantalla de primer nivel no tiene vuelta: ya está en la raíz de su
+ * módulo, y una flecha que no lleva a ningún lado es peor que ninguna.
+ */
+function resolveBack(
+  pathname: string,
+  meta: PageMeta
+): { href: string; label: string } | undefined {
+  if (meta.parent) {
+    const padre = PAGE_META[meta.parent];
+    return padre ? { href: meta.parent, label: padre.title } : undefined;
+  }
+
+  const segmentos = pathname.split("/").filter(Boolean);
+  for (let corte = segmentos.length - 1; corte > 0; corte -= 1) {
+    const candidato = `/${segmentos.slice(0, corte).join("/")}`;
+    if (candidato === pathname) continue;
+    const padre = PAGE_META[candidato];
+    if (padre) return { href: candidato, label: padre.title };
+  }
+
+  return undefined;
 }

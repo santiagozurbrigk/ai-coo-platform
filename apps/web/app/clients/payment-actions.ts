@@ -35,12 +35,19 @@ const prepareReceiptUploadSchema = z.object({
   mimeType: z.string().trim().min(1).max(200),
 });
 
+/**
+ * ⭐ El comprobante es opcional: un cobro sin comprobante sigue siendo un cobro.
+ *
+ * Si viene, viene entero —ruta y tipo—; si no viene, no viene ninguno de los
+ * dos. Guardar una ruta sin tipo dejaría un archivo que después no se sabe
+ * cómo abrir.
+ */
 const recordPaymentSchema = z.object({
   clientId: uuidSchema,
   amount: moneySchema,
   paymentDate: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/),
-  storagePath: z.string().trim().min(1),
-  mimeType: z.string().trim().min(1).max(200),
+  storagePath: z.string().trim().min(1).nullish(),
+  mimeType: z.string().trim().min(1).max(200).nullish(),
   installmentNumber: z.number().int().min(1).max(120).nullable().optional(),
   paymentReceivedFrom: z.string().trim().max(500).optional(),
   paymentDestinationPlatformId: uuidSchema.optional(),
@@ -50,8 +57,8 @@ const addInstallmentPaymentSchema = z.object({
   clientId: uuidSchema,
   amount: moneySchema,
   paymentDate: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/),
-  storagePath: z.string().trim().min(1),
-  mimeType: z.string().trim().min(1).max(200),
+  storagePath: z.string().trim().min(1).nullish(),
+  mimeType: z.string().trim().min(1).max(200).nullish(),
 });
 
 async function currentUserId(): Promise<string | null> {
@@ -62,8 +69,17 @@ async function currentUserId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
+/**
+ * Un pago cambia tres pantallas, no una.
+ *
+ * Revalidar la ficha sola dejaba Finanzas y el panel con datos viejos para
+ * quien entra por URL directa. Para quien navega dentro de la app, lo que
+ * manda es `refreshClientPayments` del provider — esto cubre la otra mitad.
+ */
 function revalidateClientDetail(clientId: string) {
   revalidatePath(paths.platform.clients.detail(clientId));
+  revalidatePath(paths.platform.finance.root);
+  revalidatePath(paths.platform.dashboard);
 }
 
 function markInstallmentPaid(
@@ -182,7 +198,9 @@ export async function recordClientPaymentAction(
       paymentDestinationPlatformId,
     } = parsed.data;
 
-    if (!storagePath.startsWith(`${organizationId}/`)) {
+    // La guarda sigue valiendo, pero sólo cuando hay archivo: sin comprobante
+    // no hay ruta que validar.
+    if (storagePath && !storagePath.startsWith(`${organizationId}/`)) {
       throw new Error("Ruta de almacenamiento inválida");
     }
 
@@ -203,8 +221,8 @@ export async function recordClientPaymentAction(
         organization_id: organizationId,
         amount,
         payment_date: paymentDate,
-        storage_path: storagePath,
-        mime_type: mimeType,
+        storage_path: storagePath ?? null,
+        mime_type: mimeType ?? null,
         installment_number: installmentNumber ?? null,
         payment_received_from: paymentReceivedFrom ?? null,
         payment_destination_platform_id: paymentDestinationPlatformId ?? null,

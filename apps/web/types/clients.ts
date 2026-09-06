@@ -35,7 +35,8 @@ export type ClientPayment = {
   clientId: string;
   amount: number;
   paymentDate: string;
-  storagePath: string;
+  /** `null` cuando el pago se registró sin comprobante. */
+  storagePath: string | null;
   mimeType?: string;
   installmentNumber?: number;
   paymentReceivedFrom?: string;
@@ -79,6 +80,14 @@ export type Client = {
   planId?: string;
   /** ID del sistema de cuotas elegido dentro del plan */
   selectedInstallmentSystemId?: string;
+  /**
+   * ⭐ El cuaderno del cliente: lo que no entra en ningún campo estructurado.
+   *
+   * No confundir con `currentStatusNote` de la revisión semanal: ese se pisa
+   * cada semana y dice cómo va hoy. Éste se acumula.
+   */
+  notes?: string | null;
+  notesUpdatedAt?: string | null;
 };
 
 /**

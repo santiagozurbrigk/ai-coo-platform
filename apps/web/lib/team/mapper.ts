@@ -1,5 +1,9 @@
 import type { PermissionModuleId } from "@/constants/permission-modules";
-import { emptyPermissions } from "@/constants/permission-modules";
+import {
+  emptyPermissions,
+  highestPermissionLevel,
+  resolvePermissionModuleId,
+} from "@/constants/permission-modules";
 import { displayName } from "@/lib/workboard/mapper";
 import type {
   CustomRole,
@@ -69,10 +73,24 @@ export function permissionsFromRow(
   const base = emptyPermissions();
   if (!raw) return base;
 
+  /**
+   * ⭐ Una clave que no se reconoce **se traduce**, no se descarta.
+   *
+   * Los roles guardados antes del 2026-09-06 tienen claves de submódulo
+   * (`marketing_content`, `sales_inbox`). Descartarlas —que es lo que pasaba—
+   * les quitaría el permiso sin ningún error visible: alguien dejaría de poder
+   * entrar a Marketing y nadie sabría por qué.
+   *
+   * Cuando varias claves viejas caen en el mismo módulo, gana la más
+   * permisiva: nadie pierde acceso que ya tenía.
+   */
   for (const [key, value] of Object.entries(raw)) {
-    if (key in base) {
-      base[key as PermissionModuleId] = normalizePermissionLevel(value);
-    }
+    const moduleId = resolvePermissionModuleId(key);
+    if (!moduleId) continue;
+    base[moduleId] = highestPermissionLevel(
+      base[moduleId],
+      normalizePermissionLevel(value)
+    );
   }
   return base;
 }

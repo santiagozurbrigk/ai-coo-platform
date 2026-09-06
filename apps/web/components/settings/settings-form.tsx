@@ -33,6 +33,7 @@ import {
   type SettingsTabId,
 } from "./settings-tab-nav";
 import { SignOutButton } from "./sign-out-button";
+import { ChangePasswordSection } from "@/components/settings/change-password-section";
 import { PaymentPlatformsSettingsSection } from "./payment-platforms-settings-section";
 import {
   CURRENCY_OPTIONS,
@@ -607,6 +608,8 @@ export function SettingsForm({
               </span>
             </div>
           </section>
+
+          <ChangePasswordSection email={email} />
 
           <section className="border-t border-red-500/20 pt-8">
             <p className="mb-4 text-xs font-medium uppercase tracking-wide text-red-500">

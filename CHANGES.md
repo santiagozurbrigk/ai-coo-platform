@@ -14,6 +14,107 @@
 
 ---
 
+### 2026-09-06 — 🧭 Volver atrás en todas las pantallas, notas por cliente y nueve arreglos del feedback de testers
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** navegación, clientes, finanzas, equipo/permisos, configuración, Fathom
+
+**Qué se hizo:**
+
+**1 · Volver atrás en toda la plataforma.** `lib/navigation/page-meta.ts` deja de
+ser sólo títulos: cada ruta puede declarar `parent`, y cuando no lo declara la
+vuelta se deriva del path recortando segmentos hasta encontrar una pantalla
+conocida. `PlatformShell` la muestra arriba del `<h1>`. Se agregaron 20 rutas al
+catálogo y reglas de prefijo para embudos y lanzamientos.
+
+El test (`lib/navigation/__tests__/page-meta.test.ts`, 9 casos) **recorre
+`app/(platform)` en disco**, reemplaza los `[param]` y falla si alguna pantalla
+cae en `FALLBACK_TITLE` o dice "Panel General" sin serlo. Ahí apareció el número
+real: **23 pantallas** sin título propio, no las 20 que había contado a ojo — las
+tres extra eran rutas dinámicas.
+
+**2 · Notas por cliente.** Columnas `clients.notes` y `clients.notes_updated_at`,
+`updateClientNotesAction` y `ClientNotesSection`. Es un campo aparte de
+`current_status_note` a propósito: ese se **pisa** cada revisión semanal, este se
+**acumula**. Guardado a mano, no automático: un autosave pisa la nota de otro que
+la abrió al mismo tiempo.
+
+**3 · Los nueve puntos del feedback de testers:**
+
+- **Cobros que no aparecían hasta recargar** — `refreshClientPayments` existía en
+  el provider de finanzas pero **no estaba expuesto en el contexto**. Se expuso y
+  se llama en los dos `onSuccess` de la sección de pagos.
+- **Comprobante obligatorio** — deja de serlo (`storage_path` acepta null). Un
+  depósito de Binance se registra cuando entra la plata; exigir el comprobante
+  obligaba a subir cualquier archivo o a no registrar el cobro. La UI sigue
+  marcando "Sin comprobante", que es información operativa.
+- **Cambiar la contraseña** — `ChangePasswordSection`, y **la contraseña actual se
+  verifica de verdad**: `updateUser({ password })` de Supabase no la pide, así que
+  antes de cambiarla se reintenta el login. Un campo que no se comprueba es peor
+  que no tenerlo.
+- **Dos reglas distintas para la misma comisión** — `lib/metrics/match-closer.ts`
+  (14 tests) queda como única regla: manda el id cuando los dos lo tienen, si no
+  el nombre completo normalizado, y ante la duda no cuenta. Antes
+  `app/finance/actions.ts` hacía `includes`, así que con un "Juan Pérez" en el
+  equipo **cualquier closer llamado Juan le sumaba comisiones**.
+- **Gastos con nombres tipeados a mano** — el miembro se elige de un `<select>`
+  alimentado por `getTeamMembersAction()`, y pasa el `memberId` real. El id
+  sintético queda sólo para gente que no está en la plataforma.
+- **Sync de Fathom por miembro** — usaba un insert propio que perdía el estado de
+  las llamadas ya procesadas y no guardaba invitados ni tipo de reunión. Ahora
+  llama a `upsertFathomCallFromMeeting`, cuenta las fallidas y **lanza si fallan
+  todas** en vez de reportar éxito.
+- **Permisos: 21 filas para 13 decisiones** — se consolidaron los submódulos
+  (`marketing_content`, `sales_inbox`, …) en 13 módulos. Las claves viejas **se
+  traducen al leer** y la migración las consolida en la base tomando el nivel más
+  alto de los hijos: perder permisos en una migración se descubre cuando alguien
+  no puede trabajar.
+- **⭐ El permiso ahora se aplica en el servidor.** Hasta acá sólo escondía links:
+  alguien sin acceso a Finanzas que tipeaba `/finance` entraba igual y veía la
+  facturación entera. `lib/navigation/module-for-path.ts` dice qué módulo protege
+  cada ruta y el layout de `(platform)` corta antes de renderizar.
+
+**Decisiones de diseño relevantes:**
+
+- **El bloqueo muestra una pantalla, no redirige.** Un redirect a `/dashboard`
+  desde alguien que tampoco tiene `dashboard` es un loop, y además esconde qué
+  pasó. `SinAcceso` dice qué módulo falta y a quién pedírselo.
+- **El bloqueo no corre si la persona no tiene rol cargado** (`hasRoleConfigured`).
+  Un miembro invitado sin rol asignado tiene el mapa entero en "none"; tratarlo
+  como "sin acceso a nada" lo dejaría sin poder abrir una sola pantalla. Es la
+  diferencia entre proteger y romper.
+- **La tabla de rutas es explícita, no derivada del sidebar.** Las pantallas que
+  no están en el menú (`/sops/[id]`, `/comentarios`, el detalle de cliente) son
+  justo las que se olvidan. El test recorre el disco y falla si aparece una ruta
+  nueva sin decidir quién la ve.
+- **La vuelta nunca apunta a la pantalla en la que ya estás** — está testeado.
+
+**Verificación ejecutada:**
+- `tsc --noEmit` limpio en `apps/web`.
+- `pnpm test`: **890 tests en 58 archivos**, todos verdes (31 nuevos: 9 de títulos
+  y vuelta, 6 de rutas por módulo, 12 de permisos consolidados, 14 de comisiones —
+  contando los que ya existían de `permission-modules`).
+- `pnpm lint`: sin errores (sólo warnings preexistentes de imports sin usar).
+- `pnpm build`: compila.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Las tres migraciones `20260906*` NO están aplicadas.** El acceso MCP a
+  Supabase volvió a caer a mitad de sesión ("You do not have permission"). Hasta
+  que se corran: las notas del cliente no se guardan (la columna no existe), el
+  comprobante sigue siendo obligatorio en la base y los roles viejos dependen de
+  la traducción en código —que funciona, pero es un parche de lectura, no la
+  consolidación—.
+- El bloqueo por servidor cubre el render de la pantalla, **no las Server
+  Actions una por una**: quien conozca el nombre de una action puede seguir
+  invocándola. Cerrar eso es otro trabajo (un guard en `requireOrganizationId`
+  o un wrapper por módulo).
+- Producto y SOPs cuelgan del permiso `operations` por no tener módulo propio.
+  Si alguna vez se quiere separar, la tabla ya soporta la excepción.
+
+---
+
 ### 2026-09-05 — 🐛 Dos bugs que aparecieron desplegando el bot de Discord
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`

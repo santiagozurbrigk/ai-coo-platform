@@ -1,9 +1,6 @@
 import type { ClosingCall } from "@/types/closing";
 import type { TeamCompensation } from "@/types/expenses";
-
-function normalizeName(name: string): string {
-  return name.trim().toLowerCase();
-}
+import { matchesCloser } from "@/lib/metrics/match-closer";
 
 function isInCurrentMonth(iso: string): boolean {
   // Comparar YYYY-MM como string evita el bug UTC-midnight de new Date("YYYY-MM-DD")
@@ -33,7 +30,6 @@ export function enrichTeamCompensationWithCommissions(
 
     if (member.hasCommission && member.commissionPercent != null) {
       const rate = member.commissionPercent / 100;
-      const memberKey = normalizeName(member.memberName);
 
       if (
         member.commissionBasis === "per_deal" ||
@@ -41,8 +37,9 @@ export function enrichTeamCompensationWithCommissions(
         !member.commissionBasis
       ) {
         for (const call of closedThisMonth) {
-          const closer = normalizeName(call.closedByName ?? "");
-          if (closer && closer === memberKey) {
+          // ⭐ La misma regla que usa el cálculo de la liquidación. Antes eran
+          // dos reglas distintas y el mismo mes daba dos números.
+          if (matchesCloser(member, { closerName: call.closedByName })) {
             commission += (call.outcome?.revenue ?? 0) * rate;
           }
         }
