@@ -1168,6 +1168,36 @@ un rol limitado vea lo que tiene que ver.
 
 ---
 
+## Bajas del super admin — 2026-09-06
+
+**Por qué no se verificó acá:** el borrado de la cuenta de login y el barrido de
+Storage necesitan la service role key, que no está en este entorno. Lo que sí
+está verificado contra la base real es el cascade (medido en una transacción
+revertida) y la forma de las rutas de Storage.
+
+**Hacelo sobre una organización descartable**, no sobre una real. Hay varias de
+prueba dando vueltas.
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| 🔴 Abrir el diálogo de baja de una organización con datos | Muestra cuántas personas, clientes y archivos antes de habilitar nada. Si los números salen en cero teniendo datos, el conteo no está leyendo bien |
+| 🔒 ⭐ Escribir el nombre **mal** y mirar el botón | Sigue deshabilitado. Es la única fricción que tiene una acción sin deshacer |
+| 🔒 Invocar `deleteOrganizationAction` con una confirmación incorrecta (consola) | Falla igual. La barrera está en el servidor, no sólo en el diálogo |
+| 🔴 ⭐ Dar de baja la organización de prueba y **después intentar entrar con el email de su founder** | **No entra.** Este es el paso que define si la baja es de verdad: antes de este cambio, entraba |
+| 🔴 Buscar los archivos de esa organización en Storage | No quedan. Mirar los buckets de comprobantes y adjuntos, que son los que tienen contenido sensible |
+| ⭐ Consultar `super_admin_deletions` | Hay una fila con quién la ejecutó, qué se llevó y los problemas si hubo. Si `problemas` no está vacío, la baja quedó a medias y ahí dice qué falta |
+| 🔒 Intentar borrar tu propia organización | Bloqueado, con el motivo escrito. Probar también invocando la action directo |
+| ⭐ Dar de baja un **holding con negocios** | Avisa que los negocios NO se borran. Después de la baja, los negocios siguen existiendo como organizaciones sueltas |
+| Dar de baja al único founder de una organización | Avisa que la deja sin dueño, pero deja hacerlo |
+| ⭐ Cortar internet a mitad de la baja (o probar con un bucket sin permisos) | El diálogo dice "la baja quedó a medias" y enumera qué quedó. **No dice "listo"** |
+
+**Qué significa si el founder todavía puede entrar:** el borrado de `auth.users`
+falló y el problema tendría que estar listado en el diálogo y en el registro. Si
+entró **sin** que apareciera ningún problema, hay un bug en el reporte, que es
+peor que el fallo.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

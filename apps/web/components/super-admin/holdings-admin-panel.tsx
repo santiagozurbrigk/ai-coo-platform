@@ -18,6 +18,11 @@ import { formatUsd } from "@/lib/super-admin/org-metrics";
 import { EmptyState } from "@/components/shared/empty-state";
 import type { AdminHoldingRow } from "@/lib/super-admin/holdings-admin";
 import { createHoldingOrgAction } from "@/app/super-admin/actions";
+import {
+  deleteOrganizationAction,
+  previewOrganizationDeletionAction,
+} from "@/app/super-admin/delete-actions";
+import { DeletionDialog } from "@/components/super-admin/deletion-dialog";
 import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import { brand } from "@/lib/brand";
@@ -107,6 +112,7 @@ export function HoldingsAdminPanel({
   holdings: AdminHoldingRow[];
 }) {
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [aEliminar, setAEliminar] = useState<AdminHoldingRow | null>(null);
   const detail = holdings.find((h) => h.id === detailId);
 
   return (
@@ -176,6 +182,14 @@ export function HoldingsAdminPanel({
                     Ver detalle
                   </Link>
                 </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => setAEliminar(holding)}
+                >
+                  Eliminar
+                </Button>
               </div>
             </div>
           ))}
@@ -222,6 +236,23 @@ export function HoldingsAdminPanel({
           )}
         </DialogContent>
       </Dialog>
+
+      <DeletionDialog
+        open={aEliminar !== null}
+        onOpenChange={(open) => {
+          if (!open) setAEliminar(null);
+        }}
+        titulo={`Eliminar el holding ${aEliminar?.name ?? ""}`}
+        cargarVistaPrevia={() =>
+          previewOrganizationDeletionAction(aEliminar?.id ?? "")
+        }
+        ejecutar={(confirmacion) =>
+          deleteOrganizationAction({
+            organizationId: aEliminar?.id ?? "",
+            confirmacion,
+          })
+        }
+      />
     </div>
   );
 }

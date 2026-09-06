@@ -9,6 +9,20 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [BAJAS-SIN-PROBAR] La baja del super admin nunca se ejecutó entera 🔴
+
+**Qué es:** el borrado de organizaciones, holdings y personas está construido y
+la migración aplicada, pero **nunca se apretó el botón**. El cascade está medido
+contra la base real; lo que falta probar es el borrado de la cuenta de login y
+el barrido de Storage, que necesitan credenciales que no están en el entorno de
+desarrollo.
+
+**Qué hacer:** dar de baja una organización de prueba y después **intentar
+entrar con el email de su founder**. Si entra, la baja no fue de verdad. Bloque
+completo en `docs/PLAN_VERIFICACION.md`.
+
+---
+
 ### [PERMISOS-SERVER-ACTIONS] El bloqueo cubre pantallas, no actions
 
 **Qué es:** desde hoy el layout de `(platform)` corta el render de un módulo que
@@ -829,6 +843,15 @@ referencias + `brand.domain`.
 ---
 
 ## ✅ Completados (referencia histórica)
+
+### 2026-09-06 — Bajas del super admin
+
+- **Eliminar organizaciones, holdings y personas** desde el super admin, con
+  vista previa del alcance, confirmación escribiendo el nombre exacto
+  (revalidada en el servidor) y registro de la baja en una tabla que no se borra
+  con lo borrado.
+- **El login ya no sobrevive a la baja**: `profiles` no tiene FK a `auth.users`,
+  así que la cuenta se da de baja aparte. Los archivos de Storage también.
 
 ### 2026-09-06 — Volver atrás, notas por cliente y los nueve del feedback
 

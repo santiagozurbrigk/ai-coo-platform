@@ -14,6 +14,97 @@
 
 ---
 
+### 2026-09-06 — 🗑️ Dar de baja organizaciones, holdings y personas desde el super admin — de verdad
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** super admin, Storage, `auth.users`
+
+**Qué se hizo:**
+
+Antes no había ningún botón de borrar. Y el punto del encargo era que borrara
+**de verdad**, así que lo primero fue medir qué hace y qué no hace un
+`delete from organizations`, contra la base real y dentro de una transacción
+revertida:
+
+```
+perfiles 3 → 0 | docs 11 → 0 | orgs 29 → 28   ← el cascade funciona solo
+auth.users siguen vivos: 13                    ← el login sobrevive
+```
+
+Eso confirmó las dos cosas que había que construir. El cascade limpia las ~130
+tablas que cuelgan de `organization_id` sin ayuda. Pero **`profiles` no tiene
+ninguna clave foránea a `auth.users`** —cero, verificado— así que el perfil
+desaparece y la persona **sigue pudiendo entrar**. Y ningún cascade llega a
+Storage: los comprobantes, adjuntos y documentos quedan con su contenido
+intacto.
+
+Lo construido:
+
+- **`lib/super-admin/deletion-plan.ts`** (15 tests) — lógica pura: qué advertir
+  y si el texto de confirmación autoriza la baja. Está separada porque es lo que
+  no se puede probar apretando el botón: probarlo destruye los datos.
+- **`lib/super-admin/execute-deletion.ts`** — los pasos que el `delete` no hace,
+  en orden deliberado: leer rutas e ids **antes**, borrar la fila (si falla acá
+  no se perdió nada), y recién después barrer Storage y dar de baja los logins.
+- **`app/super-admin/delete-actions.ts`** — cuatro actions: vista previa y baja,
+  para organizaciones y para personas.
+- **`components/super-admin/deletion-dialog.tsx`** — el diálogo, conectado en
+  las cuatro pantallas: lista de organizaciones, detalle, usuarios y holdings.
+- **Migración `20260906110000_registro_de_bajas.sql`** — `super_admin_deletions`,
+  **aplicada y verificada** (RLS activo, cero políticas: sólo service role).
+
+**Decisiones de diseño relevantes:**
+
+- **⭐ Se muestra el alcance antes de pedir la confirmación.** El diálogo le
+  pregunta al servidor cuántas personas, clientes y archivos se va a llevar, y
+  lo muestra. Autorizar algo sin saber su alcance es el mismo click automático
+  que un "¿estás seguro? Sí".
+- **⭐ Hay que escribir el nombre exacto**, y **se revalida en el servidor**. La
+  fricción del diálogo es una comodidad del navegador; quien invoque la action
+  directamente tiene que mandar el nombre igual. Una barrera que sólo vive en el
+  cliente no es una barrera.
+- **⭐ Una baja a medias se dice.** Si la fila se borró pero quedó un archivo o
+  un login vivo, el diálogo lo muestra y queda en el registro. Un "listo" verde
+  sobre una baja parcial es peor que un error: nadie vuelve a mirar.
+- **El registro de bajas no tiene FK a `organizations`.** Guarda id y nombre
+  como texto congelado. Con FK, la fila desaparecería justo cuando más sirve —
+  al preguntar meses después qué pasó con una cuenta.
+- **Borrar un holding no borra sus negocios**: quedan sueltos, y la pantalla lo
+  dice antes de habilitar el botón.
+- **Los archivos de una persona no se borran con ella**: son de la organización.
+  Sacar el comprobante de un pago porque se fue quien lo cargó sería borrar
+  información del negocio.
+- **Dos buckets quedan fuera del barrido**: `ai-brain-documents` (biblioteca del
+  super admin) e `import-files` (guarda todo bajo `imports/`, sin separar por
+  cuenta). Barrer por prefijo de organización ahí no borraría nada hoy, pero
+  dejaría escrita la idea de que esos archivos son de alguien.
+- **Nadie se borra a sí mismo** ni borra la organización a la que pertenece, y
+  las dos cosas se revalidan en el servidor.
+
+**Verificación ejecutada:**
+- El cascade, medido en la base real dentro de una transacción revertida (ver
+  arriba). Se confirmó después que no se borró nada: 29 orgs, 13 perfiles.
+- Las rutas de Storage: los archivos de una organización viven bajo `<orgId>/`
+  en 7 buckets, con hasta 3 niveles (`<org>/drafts/<winId>/archivo.png`). El
+  recorrido soporta 5.
+- `tsc --noEmit` limpio · `pnpm test`: **905 tests en 59 archivos** · `pnpm lint`
+  sin errores en lo nuevo · `pnpm build` compila.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **La baja no se ejecutó nunca de punta a punta.** El borrado de la cuenta
+  de login y el barrido de Storage necesitan la service role key, que no está en
+  este entorno. Lo que está verificado es el cascade y la forma de las rutas; lo
+  que falta es apretar el botón una vez sobre una organización descartable. El
+  bloque de pasos está en `docs/PLAN_VERIFICACION.md`.
+- Si la baja de un login falla, la persona queda sin perfil pero con acceso.
+  Eso se reporta y se registra, pero **no se reintenta solo**.
+- Hay 29 organizaciones contra 13 perfiles: ya existen organizaciones huérfanas
+  de antes de esto. Ahora se pueden limpiar.
+
+---
+
 ### 2026-09-06 — 🧭 Volver atrás en todas las pantallas, notas por cliente y nueve arreglos del feedback de testers
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`

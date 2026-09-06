@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Badge, Button, Input, Textarea } from "@ai-coo/ui";
 import { useToast } from "@/providers/toast-provider";
 import { SparklineChart } from "@/components/charts/platform";
@@ -13,6 +14,11 @@ import {
   updateOrganizationMrrAction,
   updateOrgAddOnsAction,
 } from "@/app/super-admin/actions";
+import {
+  deleteOrganizationAction,
+  previewOrganizationDeletionAction,
+} from "@/app/super-admin/delete-actions";
+import { DeletionDialog } from "@/components/super-admin/deletion-dialog";
 import { ADD_ON_IDS } from "@/lib/auth/add-on-ids";
 import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
@@ -55,6 +61,8 @@ export function OrganizationDetailView({
   const [regeneratingUserId, setRegeneratingUserId] = useState<string | null>(
     null
   );
+  const [eliminando, setEliminando] = useState(false);
+  const router = useRouter();
   const { push } = useToast();
 
   const PLAN_LABEL: Record<string, string> = {
@@ -131,8 +139,31 @@ export function OrganizationDetailView({
           >
             Resetear
           </Button>
+          <Button
+            variant="outline"
+            className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            disabled={pending}
+            onClick={() => setEliminando(true)}
+          >
+            Eliminar
+          </Button>
         </div>
       </div>
+
+      <DeletionDialog
+        open={eliminando}
+        onOpenChange={setEliminando}
+        titulo={`Eliminar ${detail.name}`}
+        cargarVistaPrevia={() => previewOrganizationDeletionAction(detail.id)}
+        ejecutar={(confirmacion) =>
+          deleteOrganizationAction({ organizationId: detail.id, confirmacion })
+        }
+        onEliminado={() => {
+          // Esta pantalla ya no tiene qué mostrar: la organización no existe.
+          push({ title: "Organización eliminada", variant: "success" });
+          router.push(paths.superAdmin.organizations);
+        }}
+      />
 
       {message && (
         <p className="text-sm text-destructive" role="alert">
