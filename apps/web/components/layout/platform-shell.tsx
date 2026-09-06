@@ -1,7 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { TooltipProvider } from "@ai-coo/ui";
 import { PlatformNotchNav } from "@/components/navigation/notch-nav/platform-notch-nav";
 import { PlatformDocumentTitle } from "@/components/brand";
@@ -28,7 +30,7 @@ export function PlatformShell({ children }: { children: ReactNode }) {
   // sidebar, que directamente no se muestra en ese estado)
   const showItems = !isHolding || Boolean(viewingBusiness);
   const fullBleed = isFullBleedPath(pathname);
-  const { title, subtitle } = getPageMeta(pathname);
+  const { title, subtitle, back } = getPageMeta(pathname);
 
   return (
     <TooltipProvider>
@@ -43,6 +45,21 @@ export function PlatformShell({ children }: { children: ReactNode }) {
         */}
         {!fullBleed && (
           <div className="shrink-0 border-b border-border/60 px-[var(--space-page-x)] pb-3 pt-5 lg:px-[var(--space-page-x-lg)]">
+            {/*
+              ⭐ La vuelta sale del mismo mapa que el título, así que una
+              pantalla nueva la tiene sin que nadie se acuerde de ponerla. Las
+              de primer nivel no muestran nada: una flecha que no lleva a
+              ningún lado es peor que ninguna.
+            */}
+            {back && (
+              <Link
+                href={back.href}
+                className="mb-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                {back.label}
+              </Link>
+            )}
             <h1 className="text-lg font-semibold leading-tight tracking-tight text-foreground">
               {title}
             </h1>

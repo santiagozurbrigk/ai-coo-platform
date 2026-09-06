@@ -11,6 +11,16 @@ export type UserPermissions = {
   role: string;
   isFounder: boolean;
   modules: Record<PermissionModuleId, PermissionLevel>;
+  /**
+   * ⭐ Si esta persona tiene un rol con permisos cargados.
+   *
+   * Importa porque el bloqueo por módulo del layout **sólo aplica cuando hay
+   * un rol configurado**. Un miembro invitado sin rol asignado tiene el mapa
+   * entero en "none", y tratarlo como "no tiene acceso a nada" lo dejaría sin
+   * poder abrir una sola pantalla. Sin rol, el bloqueo no corre: se comporta
+   * como antes de existir esta protección.
+   */
+  hasRoleConfigured: boolean;
   /** Módulos add-on activados para esta org */
   enabledAddOns: AddOnId[];
 };
@@ -22,7 +32,13 @@ export async function getCurrentUserPermissions(): Promise<UserPermissions> {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { role: "viewer", isFounder: false, modules: emptyPermissions(), enabledAddOns: [] };
+    return {
+      role: "viewer",
+      isFounder: false,
+      modules: emptyPermissions(),
+      enabledAddOns: [],
+      hasRoleConfigured: false,
+    };
   }
 
   const { data: profile } = await supabase
@@ -32,7 +48,13 @@ export async function getCurrentUserPermissions(): Promise<UserPermissions> {
     .maybeSingle();
 
   if (!profile) {
-    return { role: "viewer", isFounder: false, modules: emptyPermissions(), enabledAddOns: [] };
+    return {
+      role: "viewer",
+      isFounder: false,
+      modules: emptyPermissions(),
+      enabledAddOns: [],
+      hasRoleConfigured: false,
+    };
   }
 
   // Leer add-ons habilitados para la org
@@ -56,7 +78,13 @@ export async function getCurrentUserPermissions(): Promise<UserPermissions> {
     for (const key of Object.keys(full) as PermissionModuleId[]) {
       full[key] = "full";
     }
-    return { role: "founder", isFounder: true, modules: full, enabledAddOns };
+    return {
+      role: "founder",
+      isFounder: true,
+      modules: full,
+      enabledAddOns,
+      hasRoleConfigured: true,
+    };
   }
 
   let teamRolePermissions: Record<string, string> | null = null;
@@ -85,5 +113,13 @@ export async function getCurrentUserPermissions(): Promise<UserPermissions> {
     modules
   );
 
-  return { role: profile.role, isFounder: false, modules, enabledAddOns };
+  return {
+    role: profile.role,
+    isFounder: false,
+    modules,
+    enabledAddOns,
+    hasRoleConfigured:
+      teamRolePermissions !== null &&
+      Object.keys(teamRolePermissions).length > 0,
+  };
 }

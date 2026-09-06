@@ -221,6 +221,36 @@ export async function updateClientCurrentStatusAction(
   });
 }
 
+/**
+ * ⭐ El cuaderno del cliente.
+ *
+ * Texto libre, sin estructura y sin validación de contenido: es justamente el
+ * lugar donde va lo que ningún campo previó. Guarda cuándo se tocó por última
+ * vez, que es lo único que después permite saber si sigue vigente.
+ */
+export async function updateClientNotesAction(
+  clientId: string,
+  notes: string | null
+): Promise<MutationResult<{ updatedAt: string | null }>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+
+    const limpio = notes?.trim() ? notes.trim().slice(0, 20000) : null;
+    const updatedAt = limpio ? new Date().toISOString() : null;
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("clients")
+      .update({ notes: limpio, notes_updated_at: updatedAt })
+      .eq("id", clientId)
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+    revalidatePath(paths.platform.clients.detail(clientId));
+    return { updatedAt };
+  });
+}
+
 // ─── Ayudas ─────────────────────────────────────────────────────────────────
 
 function revalidate(clientId: string) {

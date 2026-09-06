@@ -6,7 +6,7 @@ export type ClientPaymentRow = {
   organization_id: string;
   amount: number | string;
   payment_date: string;
-  storage_path: string;
+  storage_path: string | null;
   mime_type: string | null;
   installment_number: number | null;
   payment_received_from: string | null;
@@ -21,7 +21,7 @@ export function rowToClientPayment(row: ClientPaymentRow): ClientPayment {
     clientId: row.client_id,
     amount: Number(row.amount),
     paymentDate: row.payment_date,
-    storagePath: row.storage_path,
+    storagePath: row.storage_path ?? null,
     mimeType: row.mime_type ?? undefined,
     installmentNumber: row.installment_number ?? undefined,
     paymentReceivedFrom: row.payment_received_from ?? undefined,

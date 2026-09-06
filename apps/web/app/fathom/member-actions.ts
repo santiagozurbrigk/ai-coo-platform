@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAuthContext } from "@/lib/auth/require-auth";
 import { validateFathomApiKey, listFathomMeetings } from "@/lib/fathom/api";
+import { upsertFathomCallFromMeeting } from "@/lib/fathom/sync";
 import {
   createFathomWebhook,
   deleteFathomWebhook,
@@ -220,7 +221,10 @@ export async function disconnectMemberFathomAction(): Promise<void> {
   revalidatePath(paths.platform.integrations);
 }
 
-export async function syncMemberFathomAction(): Promise<{ synced: number }> {
+export async function syncMemberFathomAction(): Promise<{
+  synced: number;
+  fallidas: number;
+}> {
   const { user, orgId: organizationId } = await requireAuthContext();
   const admin = createAdminClient();
 
@@ -244,39 +248,32 @@ export async function syncMemberFathomAction(): Promise<{ synced: number }> {
   });
 
   let synced = 0;
+  let fallidas = 0;
 
   for (const meeting of meetings) {
-    const fathomCallId = String(meeting.recording_id ?? meeting.id);
-    const title = meeting.title || meeting.meeting_title || "Sin título";
-    const recordingStart =
-      meeting.recording_start_time ??
-      meeting.scheduled_start_time ??
-      meeting.callDate ??
-      new Date().toISOString();
-
-    const { error: upsertError } = await admin.from("fathom_calls").upsert(
-      {
-        organization_id: organizationId,
-        user_id: user.id,
-        fathom_call_id: fathomCallId,
-        title,
-        raw_title: meeting.meeting_title || meeting.title,
-        fathom_url: meeting.url ?? null,
-        call_date: recordingStart,
-        // La clasificación la resuelve el pipeline con el clasificador único.
-        // Antes acá se clasificaba por keywords y el cron lo sobrescribía con
-        // el resultado de la IA —o con null si fallaba—, así que este trabajo
-        // se tiraba siempre.
-        status: "pending",
-        processed_after: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-        association_candidates: [],
-        ai_next_steps: [],
-        ai_problems_detected: [],
-      },
-      { onConflict: "organization_id,fathom_call_id" }
-    );
-
-    if (!upsertError) synced += 1;
+    /**
+     * ⭐ El mismo upsert que el sync por organización.
+     *
+     * Antes acá había una copia del guardado que se había quedado atrás: no
+     * persistía `calendar_invitees` —sin eso una llamada nunca se puede cruzar
+     * con un turno agendado— y forzaba `status: pending` en cada corrida, así
+     * que una llamada ya procesada y asociada volvía a la cola cada vez que
+     * alguien apretaba el botón.
+     */
+    const ok = await upsertFathomCallFromMeeting(admin, organizationId, meeting);
+    if (ok) {
+      synced += 1;
+      // El dueño de la grabación: es lo que hace que una llamada sin vincular
+      // la vea sólo quien la grabó.
+      await admin
+        .from("fathom_calls")
+        .update({ user_id: user.id })
+        .eq("organization_id", organizationId)
+        .eq("fathom_call_id", String(meeting.recording_id ?? meeting.id))
+        .is("user_id", null);
+    } else {
+      fallidas += 1;
+    }
   }
 
   await admin
@@ -289,5 +286,20 @@ export async function syncMemberFathomAction(): Promise<{ synced: number }> {
     .eq("integration_type", "fathom");
 
   revalidatePath(paths.platform.integrations);
-  return { synced };
+
+  /**
+   * ⭐ Si nada se guardó, esto **no es un éxito**.
+   *
+   * Antes el contador ignoraba el error del guardado y la pantalla cantaba
+   * "Sync completado — 0 llamadas" en verde. Un fallo que se muestra como
+   * éxito es peor que un fallo: nadie lo mira.
+   */
+  if (fallidas > 0 && synced === 0) {
+    throw new Error(
+      `No se pudo guardar ninguna de las ${fallidas} llamadas que trajo Fathom. ` +
+        "Revisá los logs del servidor con el prefijo [Fathom:sync]."
+    );
+  }
+
+  return { synced, fallidas };
 }

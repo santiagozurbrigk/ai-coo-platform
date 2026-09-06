@@ -65,7 +65,7 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
         {
           label: "Gastos",
           href: paths.platform.finance.expenses,
-          permissionId: "expenses",
+          permissionId: "finance",
         },
       ],
     },
@@ -82,7 +82,7 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
         {
           label: "Contenido",
           href: paths.platform.marketing.content,
-          permissionId: "marketing_content",
+          permissionId: "marketing",
         },
         {
           label: "Anuncios",
@@ -98,13 +98,13 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
         {
           label: "Conexión con Ventas",
           href: paths.platform.marketing.salesConnection,
-          permissionId: "marketing_sales",
+          permissionId: "marketing",
           hidden: true,
         },
         {
           label: "Formularios",
           href: paths.platform.marketing.forms,
-          permissionId: "marketing_forms",
+          permissionId: "marketing",
         },
         {
           label: "UTMs",
@@ -131,22 +131,22 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
         {
           label: "Bandeja",
           href: paths.platform.sales.inbox,
-          permissionId: "sales_inbox",
+          permissionId: "sales",
         },
         {
           label: "Métricas",
           href: paths.platform.sales.metrics,
-          permissionId: "sales_metrics",
+          permissionId: "sales",
         },
         {
           label: "Closing",
           href: paths.platform.sales.closing,
-          permissionId: "closing",
+          permissionId: "sales",
         },
         {
           label: "Llamadas",
           href: paths.platform.sales.llamadas,
-          permissionId: "closing",
+          permissionId: "sales",
         },
       ],
     },
@@ -157,12 +157,12 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
         {
           label: "Overview",
           href: paths.platform.operations.overview,
-          permissionId: "operations_overview",
+          permissionId: "operations",
         },
         {
           label: "Inputs",
           href: paths.platform.operations.inputs,
-          permissionId: "operations_overview",
+          permissionId: "operations",
         },
         { label: "Inteligencia", href: paths.platform.intelligence.root },
         // "Reportes" salió del sidebar el 2026-08-30: los reportes ejecutivos
@@ -238,7 +238,7 @@ export const directModules: SidebarDirectModule[] = [
     label: "SOPs",
     href: paths.platform.operations.sops,
     icon: "book-open",
-    permissionId: "operations_sops",
+    permissionId: "operations",
   },
   {
     label: "Equipo",

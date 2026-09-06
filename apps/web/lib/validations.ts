@@ -354,9 +354,12 @@ export const teamPermissionsSchema = z
     "Módulo de permiso no válido"
   );
 
+/** El largo mínimo, en un solo lugar: lo usan el login, el reset y Configuración. */
+export const PASSWORD_MIN_LENGTH = 8;
+
 export const passwordMinLengthSchema = z
   .string()
-  .min(8, "La contraseña debe tener al menos 8 caracteres")
+  .min(PASSWORD_MIN_LENGTH, `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres`)
   .max(200, "Máximo 200 caracteres");
 
 const teamPersonNameSchema = z

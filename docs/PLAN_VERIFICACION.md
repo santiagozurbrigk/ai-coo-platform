@@ -1117,6 +1117,55 @@ corriendo el cron y mirando `propuestos` contra `evaluados`.
 
 ---
 
+## Permisos por módulo y el bloqueo del servidor — 2026-09-06
+
+**Por qué no se verificó acá:** hace falta una segunda cuenta con un rol
+limitado, y en esta sesión sólo hay la del fundador (que pasa siempre por
+diseño).
+
+**Antes de nada:** aplicar `20260906102000_permisos_por_modulo.sql`, si no los
+roles viejos siguen con las claves de submódulo.
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| 🔴 Abrir Equipo → Roles con un rol creado **antes** de hoy | Los permisos siguen ahí, agrupados en 13 módulos. Si aparecen todos en "Sin acceso", la consolidación perdió datos y hay que revisar la migración antes de seguir |
+| Crear un rol con Finanzas en "Sin acceso" y asignarlo a alguien | En su sesión, Finanzas no aparece en la navegación |
+| 🔒 ⭐ Con esa sesión, **tipear `/finance` en la barra del navegador** | Sale "No tenés acceso a Finanzas". Antes de este cambio entraba y veía la facturación entera |
+| 🔒 Probar también `/finance/expenses` y `/team/roles` | Las subrutas heredan el bloqueo del módulo padre |
+| ⭐ Invitar a alguien **sin asignarle rol** y entrar con esa cuenta | **Puede navegar**. El bloqueo no corre sin rol cargado: tratar "sin rol" como "sin acceso a nada" dejaría la cuenta inutilizable |
+| Con el mismo rol limitado, entrar a `/onboarding` | Entra: las rutas previas al rol quedan libres a propósito |
+| 🔒 Invocar una Server Action de Finanzas desde esa sesión (consola del navegador) | ⚠️ **Hoy responde.** El bloqueo cubre el render, no las actions — está anotado en `PENDIENTES.md` |
+
+---
+
+## Notas del cliente y comprobante opcional — 2026-09-06
+
+**Antes de nada:** aplicar `20260906100000_client_notes.sql` y
+`20260906101000_comprobante_opcional.sql`.
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| 🔴 Escribir una nota en la ficha de un cliente y guardar | Aparece "última edición" con la fecha de hoy. Sin la migración, la action falla |
+| Recargar la pantalla | La nota sigue ahí |
+| ⭐ Anotar un estado en la **revisión semanal** del mismo cliente | La nota libre **no se pisa**: son dos campos distintos, y ese es el punto de haberlos separado |
+| 🔴 Registrar un cobro **sin adjuntar comprobante** | Se guarda. Sin la migración, la base lo rechaza |
+| Mirar la lista de pagos | El cobro dice "Sin comprobante" |
+| ⭐ Registrar un cobro y quedarse en la pantalla | El monto aparece **sin recargar**. Si hay que recargar, `refreshClientPayments` no se está llamando |
+
+---
+
+## Volver atrás en todas las pantallas — 2026-09-06
+
+**Cubierto por tests** (el test recorre las rutas en disco), pero la vuelta que
+*tiene sentido* no la decide un test.
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| Recorrer las pantallas hondas: detalle de cliente, SOP, embudo, reporte ejecutivo | Todas tienen la vuelta arriba del título, y lleva al lugar del que se vino |
+| ⭐ Fijarse si alguna vuelta lleva a una pantalla que no sirve | El test garantiza que existe y que no apunta a sí misma; que sea *la correcta* es criterio |
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas
