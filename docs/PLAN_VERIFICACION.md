@@ -1123,12 +1123,14 @@ corriendo el cron y mirando `propuestos` contra `evaluados`.
 limitado, y en esta sesión sólo hay la del fundador (que pasa siempre por
 diseño).
 
-**Antes de nada:** aplicar `20260906102000_permisos_por_modulo.sql`, si no los
-roles viejos siguen con las claves de submódulo.
+**Estado:** la migración **ya está aplicada y verificada** contra la base real
+(63 roles, cero claves viejas, reparto idéntico al ensayo de sólo lectura). Lo
+que queda por probar es lo que ninguna consulta puede probar: que una persona con
+un rol limitado vea lo que tiene que ver.
 
 | Paso | Resultado esperado |
 |------|--------------------|
-| 🔴 Abrir Equipo → Roles con un rol creado **antes** de hoy | Los permisos siguen ahí, agrupados en 13 módulos. Si aparecen todos en "Sin acceso", la consolidación perdió datos y hay que revisar la migración antes de seguir |
+| 🔴 Abrir Equipo → Roles con un rol creado **antes** de hoy | Los permisos siguen ahí, agrupados en 13 módulos. La consulta dice que están; esto confirma que la pantalla los muestra |
 | Crear un rol con Finanzas en "Sin acceso" y asignarlo a alguien | En su sesión, Finanzas no aparece en la navegación |
 | 🔒 ⭐ Con esa sesión, **tipear `/finance` en la barra del navegador** | Sale "No tenés acceso a Finanzas". Antes de este cambio entraba y veía la facturación entera |
 | 🔒 Probar también `/finance/expenses` y `/team/roles` | Las subrutas heredan el bloqueo del módulo padre |
@@ -1140,15 +1142,15 @@ roles viejos siguen con las claves de submódulo.
 
 ## Notas del cliente y comprobante opcional — 2026-09-06
 
-**Antes de nada:** aplicar `20260906100000_client_notes.sql` y
-`20260906101000_comprobante_opcional.sql`.
+**Estado:** las dos migraciones **ya están aplicadas**. Las columnas existen y
+`storage_path` acepta null.
 
 | Paso | Resultado esperado |
 |------|--------------------|
-| 🔴 Escribir una nota en la ficha de un cliente y guardar | Aparece "última edición" con la fecha de hoy. Sin la migración, la action falla |
+| 🔴 Escribir una nota en la ficha de un cliente y guardar | Aparece "última edición" con la fecha de hoy. Es el primer paso que prueba que la Server Action escribe de verdad |
 | Recargar la pantalla | La nota sigue ahí |
 | ⭐ Anotar un estado en la **revisión semanal** del mismo cliente | La nota libre **no se pisa**: son dos campos distintos, y ese es el punto de haberlos separado |
-| 🔴 Registrar un cobro **sin adjuntar comprobante** | Se guarda. Sin la migración, la base lo rechaza |
+| 🔴 Registrar un cobro **sin adjuntar comprobante** | Se guarda |
 | Mirar la lista de pagos | El cobro dice "Sin comprobante" |
 | ⭐ Registrar un cobro y quedarse en la pantalla | El monto aparece **sin recargar**. Si hay que recargar, `refreshClientPayments` no se está llamando |
 

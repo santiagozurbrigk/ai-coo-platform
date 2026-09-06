@@ -9,22 +9,6 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [MIGRACIONES-20260906] Tres migraciones escritas y sin aplicar 🔴
-
-**Qué es:** `20260906100000_client_notes.sql`, `20260906101000_comprobante_opcional.sql`
-y `20260906102000_permisos_por_modulo.sql` están commiteadas pero **no corrieron**:
-el acceso MCP a Supabase se cayó a mitad de sesión.
-
-**Qué pasa hasta que se apliquen:** las notas del cliente no se guardan (la
-columna no existe y la action va a fallar), el comprobante sigue siendo
-obligatorio a nivel base, y los roles viejos dependen de que el código traduzca
-las claves al leer — funciona, pero es un parche de lectura.
-
-**Qué hacer:** `supabase db push`, o pegar los tres archivos en el SQL Editor del
-dashboard en ese orden.
-
----
-
 ### [PERMISOS-SERVER-ACTIONS] El bloqueo cubre pantallas, no actions
 
 **Qué es:** desde hoy el layout de `(platform)` corta el render de un módulo que
@@ -847,6 +831,12 @@ referencias + `brand.domain`.
 ## ✅ Completados (referencia histórica)
 
 ### 2026-09-06 — Volver atrás, notas por cliente y los nueve del feedback
+
+- **Las tres migraciones `20260906*` aplicadas y verificadas** (2026-09-06): las
+  columnas de notas existen, `storage_path` acepta null, y los 63 roles quedaron
+  con las 13 claves nuevas — cero claves viejas, cero desconocidas. La
+  consolidación se corrió primero como consulta de sólo lectura y el resultado
+  real coincidió fila por fila con esa previsión.
 
 - **Volver atrás en todas las pantallas**: `page-meta.ts` con `parent` + derivación
   por path; 23 pantallas que no tenían título propio ahora lo tienen. Test que

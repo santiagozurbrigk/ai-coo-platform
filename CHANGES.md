@@ -98,14 +98,30 @@ la abrió al mismo tiempo.
 - `pnpm lint`: sin errores (sólo warnings preexistentes de imports sin usar).
 - `pnpm build`: compila.
 
+**Verificación de las migraciones (2026-09-06, en la base real):**
+
+La consolidación de permisos se corrió **primero como consulta de sólo lectura**,
+calculando el resultado sin escribir nada. Eso importa: son 63 roles con permisos
+cargados y el modo de falla de esta migración es silencioso — nadie se entera de
+que perdió un acceso hasta que no puede trabajar.
+
+| Chequeo | Esperado | Real |
+|---------|----------|------|
+| Columnas `notes` / `notes_updated_at` en `clients` | 2 | 2 |
+| `client_payments.storage_path` acepta null | YES | YES |
+| Claves viejas de submódulo que quedan | 0 | 0 |
+| Claves que no son de los 13 módulos | 0 | 0 |
+| Roles con permisos | 63 | 63 |
+
+Y el reparto por módulo salió **idéntico al del ensayo, fila por fila**: `sales`
+en 51 roles (la unión de bandeja 50, métricas 40 y closing 28), `operations` en
+39, `finance` en 17 (finanzas ∪ gastos). Ningún rol quedó con menos acceso del
+que tenía.
+
 **Riesgos / deuda técnica pendiente:**
 
-- ⚠️ **Las tres migraciones `20260906*` NO están aplicadas.** El acceso MCP a
-  Supabase volvió a caer a mitad de sesión ("You do not have permission"). Hasta
-  que se corran: las notas del cliente no se guardan (la columna no existe), el
-  comprobante sigue siendo obligatorio en la base y los roles viejos dependen de
-  la traducción en código —que funciona, pero es un parche de lectura, no la
-  consolidación—.
+- ✅ **Las tres migraciones `20260906*` quedaron aplicadas y verificadas** (mismo
+  día, cuando volvió el acceso a Supabase). Ver el bloque de verificación abajo.
 - El bloqueo por servidor cubre el render de la pantalla, **no las Server
   Actions una por una**: quien conozca el nombre de una action puede seguir
   invocándola. Cerrar eso es otro trabajo (un guard en `requireOrganizationId`
