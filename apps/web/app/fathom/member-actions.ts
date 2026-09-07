@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuthContext } from "@/lib/auth/require-auth";
-import { validateFathomApiKey, listFathomMeetings } from "@/lib/fathom/api";
+import {
+  validateFathomApiKey,
+  listFathomMeetings,
+  mensajeDeFathom,
+} from "@/lib/fathom/api";
 import { upsertFathomCallFromMeeting } from "@/lib/fathom/sync";
 import {
   createFathomWebhook,
@@ -14,6 +18,7 @@ import { createClient } from "@/lib/supabase/server";
 import { encrypt, decrypt } from "@/lib/security/encryption";
 import { paths } from "@/routes";
 import { apiKeySchema, firstZodError } from "@/lib/validations";
+import { runMutation, type MutationResult } from "@/lib/server/action-result";
 
 /**
  * 🔴 Si no se puede cifrar, **no se guarda**.
@@ -221,7 +226,24 @@ export async function disconnectMemberFathomAction(): Promise<void> {
   revalidatePath(paths.platform.integrations);
 }
 
-export async function syncMemberFathomAction(): Promise<{
+/**
+ * ⭐ Esta acción **tiene que devolver el error, no lanzarlo**.
+ *
+ * Lanzaba en crudo, y una Server Action que lanza en producción no le muestra
+ * al usuario el mensaje: Next lo reemplaza por "An error occurred in the Server
+ * Components render...", que no dice nada. Así se perdían todos los motivos
+ * reales — "No tenés Fathom conectado", "Fathom te está limitando" — y la
+ * pantalla mostraba un párrafo sobre digests en inglés.
+ */
+export async function syncMemberFathomAction(): Promise<
+  MutationResult<{ synced: number; fallidas: number }>
+> {
+  return runMutation(async () => {
+    return sincronizarLlamadasDelMiembro();
+  });
+}
+
+async function sincronizarLlamadasDelMiembro(): Promise<{
   synced: number;
   fallidas: number;
 }> {
@@ -242,10 +264,16 @@ export async function syncMemberFathomAction(): Promise<{
   }
 
   const apiKey = readApiKey(integration.encrypted_api_key as string);
-  const meetings = await listFathomMeetings(apiKey, {
-    createdAfter: (integration.last_sync_at as string | null) ?? undefined,
-    maxPages: 5,
-  });
+
+  let meetings;
+  try {
+    meetings = await listFathomMeetings(apiKey, {
+      createdAfter: (integration.last_sync_at as string | null) ?? undefined,
+      maxPages: 5,
+    });
+  } catch (fallo) {
+    throw new Error(mensajeDeFathom(fallo));
+  }
 
   let synced = 0;
   let fallidas = 0;

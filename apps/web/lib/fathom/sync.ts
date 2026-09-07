@@ -1,6 +1,11 @@
 import { applyClientMatchToCall } from "@/lib/fathom/apply-call-match";
 import { isManualFathomLink } from "@/lib/fathom/client-matcher";
-import { FathomApiError, listFathomMeetings, type FathomMeetingRecord } from "@/lib/fathom/api";
+import {
+  FathomApiError,
+  listFathomMeetings,
+  mensajeDeFathom,
+  type FathomMeetingRecord,
+} from "@/lib/fathom/api";
 import {
   getFathomIntegrationDiagnostics,
 } from "@/lib/fathom/diagnostics";
@@ -240,7 +245,7 @@ export async function syncFathomMeetingsForOrganization(
     });
   } catch (e) {
     console.error("[Fathom:sync] listFathomMeetings failed:", e);
-    if (e instanceof FathomApiError) throw new Error(e.message);
+    if (e instanceof FathomApiError) throw new Error(mensajeDeFathom(e));
     throw e;
   }
 

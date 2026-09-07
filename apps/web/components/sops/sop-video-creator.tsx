@@ -30,6 +30,10 @@ import {
 import { useToast } from "@/providers/toast-provider";
 import { createClient } from "@/lib/supabase/client";
 import {
+  SOP_VIDEO_MAX_BYTES,
+  formatearLimiteDeVideo,
+} from "@/lib/sops/constants";
+import {
   createSopVideoJobAction,
   getSopVideoJobAction,
   prepareSopVideoUploadAction,
@@ -108,6 +112,25 @@ export function SopVideoCreator({
     }
   }, [job, onGenerated]);
 
+  /**
+   * ⭐ El tamaño se revisa **antes** de subir, no después.
+   *
+   * Antes la pantalla decía "hasta 1 GB" y el límite real era 50 MB, así que un
+   * video grande se transfería entero —35 segundos— y recién ahí Storage lo
+   * rechazaba con un número de error. Frenar acá cuesta cero y evita esa espera.
+   */
+  function elegirArchivo(elegido: File | null) {
+    setError(null);
+    if (elegido && elegido.size > SOP_VIDEO_MAX_BYTES) {
+      setFile(null);
+      setError(
+        `"${elegido.name}" pesa ${Math.round(elegido.size / (1024 * 1024))} MB y el máximo es ${formatearLimiteDeVideo()}. Bajá la resolución al exportarlo, o cortalo en partes.`
+      );
+      return;
+    }
+    setFile(elegido);
+  }
+
   async function start() {
     if (!file) return;
     setUploading(true);
@@ -170,12 +193,12 @@ export function SopVideoCreator({
                 type="file"
                 accept="video/mp4,video/quicktime,video/webm,video/x-matroska"
                 className="hidden"
-                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                onChange={(event) => elegirArchivo(event.target.files?.[0] ?? null)}
               />
             </label>
             <p className="text-xs text-muted-foreground">
               Loom no deja bajar el video por link, así que hay que descargarlo y
-              subirlo. Hasta 1 GB.
+              subirlo. Hasta {formatearLimiteDeVideo()}.
             </p>
           </div>
 
@@ -321,12 +344,37 @@ function uploadWithProgress(
       }
     });
 
-    request.addEventListener("load", () =>
-      request.status >= 200 && request.status < 300
-        ? resolve()
-        : reject(new Error(`La subida falló con código ${request.status}`))
+    request.addEventListener("load", () => {
+      if (request.status >= 200 && request.status < 300) return resolve();
+
+      // ⭐ El cuerpo de la respuesta dice el motivo; el número no dice nada.
+      // Storage devuelve 400 con "Payload too large" adentro, y mostrar sólo
+      // "400" dejaba al usuario sin ninguna pista de qué hacer.
+      reject(new Error(motivoDeLaSubida(request)));
+    });
+    request.addEventListener("error", () =>
+      reject(new Error("La subida se cortó. Revisá tu conexión y probá de nuevo."))
     );
-    request.addEventListener("error", () => reject(new Error("La subida falló")));
     request.send(file);
   });
+}
+
+/** Traduce la respuesta de Storage a algo accionable. */
+function motivoDeLaSubida(request: XMLHttpRequest): string {
+  let detalle = "";
+  try {
+    const cuerpo = JSON.parse(request.responseText) as {
+      error?: string;
+      message?: string;
+    };
+    detalle = cuerpo.message ?? cuerpo.error ?? "";
+  } catch {
+    detalle = request.responseText?.slice(0, 200) ?? "";
+  }
+
+  if (/too large|EntityTooLarge/i.test(detalle)) {
+    return `El video supera el máximo que acepta el almacenamiento (${formatearLimiteDeVideo()}).`;
+  }
+  if (detalle) return `La subida falló: ${detalle}`;
+  return `La subida falló con código ${request.status}.`;
 }

@@ -724,6 +724,14 @@ export const saveAvatarSchema = z.object({
   whereTheyHang: z.string().trim().max(500).optional(),
   languageTheyUse: z.string().trim().max(2000).optional(),
   isPrimary: z.boolean().optional(),
+  /**
+   * ⭐ Pisa el avatar principal que ya exista en vez de sumar otro.
+   *
+   * Lo usa el asistente de alta: ahí "el cliente ideal" es un único avatar que
+   * se está definiendo, no uno más de una lista. Sin esto, cada reintento del
+   * paso final dejaba un duplicado.
+   */
+  replacePrimary: z.boolean().optional(),
 });
 
 export const saveProductSchema = z.object({

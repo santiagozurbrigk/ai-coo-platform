@@ -195,3 +195,81 @@ describe("ayudas del dashboard", () => {
     expect(grouped.get("cl2")).toHaveLength(1);
   });
 });
+
+describe("la clave de la medida se compara normalizada", () => {
+  /**
+   * ⭐ El caso real de producción, con los valores que cargó el tester:
+   * "facturación" 1000 y "facturacion" 3000, el mismo día. Antes daba
+   * "hay un solo número" teniendo dos wins.
+   */
+  const win = (key: string, value: number, fecha: string) => ({
+    id: `w-${key}-${value}`,
+    clientId: "c1",
+    winDate: fecha,
+    achievement: "x",
+    metric: { key, value, unit: "usd" },
+  });
+
+  it("con y sin acento son la misma medida", () => {
+    const caso = deriveClientCase(
+      [
+        win("facturación", 1000, "2026-09-01"),
+        win("facturacion", 3000, "2026-09-30"),
+      ] as never,
+      null
+    );
+    expect(caso.measured).toBe(true);
+    if (caso.measured) {
+      expect(caso.start.value).toBe(1000);
+      expect(caso.end.value).toBe(3000);
+    }
+  });
+
+  it("mayúsculas y espacios de más tampoco separan la medida", () => {
+    const caso = deriveClientCase(
+      [
+        win("  Facturación  ", 1000, "2026-09-01"),
+        win("FACTURACION", 3000, "2026-09-30"),
+      ] as never,
+      null
+    );
+    expect(caso.measured).toBe(true);
+  });
+
+  it("dos medidas realmente distintas siguen sin mezclarse", () => {
+    const caso = deriveClientCase(
+      [
+        win("facturación", 1000, "2026-09-01"),
+        win("seguidores", 3000, "2026-09-30"),
+      ] as never,
+      null
+    );
+    // Cada una queda con un punto: no se inventa un recorrido entre medidas
+    // que no tienen nada que ver.
+    expect(caso.measured).toBe(false);
+  });
+
+  it("la clave que se muestra es la que escribió la persona, no la normalizada", () => {
+    const caso = deriveClientCase(
+      [
+        win("Facturación", 1000, "2026-09-01"),
+        win("facturacion", 3000, "2026-09-30"),
+      ] as never,
+      null
+    );
+    expect(caso.metricKey).toBe("Facturación");
+  });
+
+  it("⭐ las unidades también se comparan sin distinguir mayúsculas", () => {
+    // "USD" y "usd" son la misma moneda. Tratarlas como distintas mandaba a
+    // "sin medir" un recorrido perfectamente medible.
+    const caso = deriveClientCase(
+      [
+        { ...win("facturacion", 1000, "2026-09-01"), metric: { key: "facturacion", value: 1000, unit: "USD" } },
+        { ...win("facturacion", 3000, "2026-09-30"), metric: { key: "facturacion", value: 3000, unit: "usd" } },
+      ] as never,
+      null
+    );
+    expect(caso.measured).toBe(true);
+  });
+});

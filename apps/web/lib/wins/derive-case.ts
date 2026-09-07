@@ -84,11 +84,16 @@ export function deriveClientCase(
   if (!key) {
     return { measured: false, reason: "sin_wins_con_medida", metricKey: null };
   }
+  const claveBuscada = normalizeMetricKey(key);
 
   // Todos los puntos de esa clave, en orden cronológico.
   const points: CasePoint[] = [];
 
-  if (baseline && baseline.metricKey === key && Number.isFinite(baseline.metricValue)) {
+  if (
+    baseline &&
+    normalizeMetricKey(baseline.metricKey) === claveBuscada &&
+    Number.isFinite(baseline.metricValue)
+  ) {
     points.push({
       value: baseline.metricValue,
       unit: normalizeUnit(baseline.metricUnit),
@@ -99,7 +104,7 @@ export function deriveClientCase(
   }
 
   for (const win of measured) {
-    if (win.metric!.key !== key) continue;
+    if (normalizeMetricKey(win.metric!.key) !== claveBuscada) continue;
     points.push({
       value: win.metric!.value,
       unit: normalizeUnit(win.metric!.unit),
@@ -154,15 +159,20 @@ function chooseMetricKey(
   measured: readonly ClientWin[],
   baseline: ClientBaseline | null
 ): string | null {
+  // Se cuenta por clave normalizada, pero se recuerda cómo la escribió la
+  // persona la primera vez: eso es lo que después se muestra en pantalla.
   const counts = new Map<string, number>();
+  const comoSeEscribio = new Map<string, string>();
 
-  for (const win of measured) {
-    const key = win.metric!.key;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  if (baseline) {
-    counts.set(baseline.metricKey, (counts.get(baseline.metricKey) ?? 0) + 1);
-  }
+  const sumar = (bruta: string) => {
+    const clave = normalizeMetricKey(bruta);
+    if (!clave) return;
+    counts.set(clave, (counts.get(clave) ?? 0) + 1);
+    if (!comoSeEscribio.has(clave)) comoSeEscribio.set(clave, bruta);
+  };
+
+  for (const win of measured) sumar(win.metric!.key);
+  if (baseline) sumar(baseline.metricKey);
 
   let best: string | null = null;
   let bestCount = 0;
@@ -170,7 +180,7 @@ function chooseMetricKey(
     a[0].localeCompare(b[0], "es")
   )) {
     if (count > bestCount) {
-      best = key;
+      best = comoSeEscribio.get(key) ?? key;
       bestCount = count;
     }
   }
@@ -179,7 +189,30 @@ function chooseMetricKey(
 
 function normalizeUnit(unit: string | null | undefined): string | null {
   const trimmed = unit?.trim();
-  return trimmed ? trimmed : null;
+  return trimmed ? trimmed.toLowerCase() : null;
+}
+
+/**
+ * ⭐ La clave de la medida, normalizada para comparar.
+ *
+ * Sin esto, "facturación" y "facturacion" eran **dos medidas distintas**: cada
+ * una quedaba con un punto, y el recorrido decía "hay un solo número" teniendo
+ * dos wins cargados. Pasó de verdad en producción, con esos dos valores exactos.
+ *
+ * Es un campo de texto libre que la persona escribe dos veces, con semanas de
+ * diferencia. Esperar que lo tipee idéntico —con el mismo acento y la misma
+ * mayúscula— es pedirle al usuario que compense una comparación estricta.
+ *
+ * Se normaliza sólo para **comparar y agrupar**. Lo que se muestra sigue siendo
+ * lo que la persona escribió.
+ */
+export function normalizeMetricKey(key: string | null | undefined): string {
+  return (key ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
 }
 
 function time(iso: string): number {

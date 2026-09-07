@@ -380,8 +380,30 @@ export async function deleteWinAction(id: string): Promise<MutationResult<void>>
 // ─── Capturas ───────────────────────────────────────────────────────────────
 
 /** Paso 1: pedir el link firmado de subida. Copia de `prepareSopAttachmentUploadAction`. */
-export async function prepareWinAttachmentUploadAction(input: {
-  draftId: string;
+/**
+ * ⭐ Una captura se puede subir a un win que **ya existe**, no sólo a uno nuevo.
+ *
+ * Antes sólo se aceptaba `draftId` —el identificador temporal de un win que
+ * todavía no se guardó—, así que al **editar** un win ya guardado la pantalla
+ * respondía "guardá el win y después agregá la captura". Pero ya estaba
+ * guardado: no había ninguna forma de llegar a agregarla.
+ *
+ * Ahora va uno de los dos: `winId` cuando el win existe, `draftId` cuando se
+ * está creando. Nunca ninguno.
+ */
+type DestinoDeCaptura = { draftId?: string; winId?: string };
+
+function rutaDeCaptura(
+  organizationId: string,
+  destino: DestinoDeCaptura,
+  archivo: string
+): string {
+  if (destino.winId) return `${organizationId}/wins/${destino.winId}/${archivo}`;
+  if (destino.draftId) return `${organizationId}/drafts/${destino.draftId}/${archivo}`;
+  throw new Error("Falta indicar a qué win va la captura.");
+}
+
+export async function prepareWinAttachmentUploadAction(input: DestinoDeCaptura & {
   fileName: string;
   fileSize: number;
   mimeType: string;
@@ -400,7 +422,11 @@ export async function prepareWinAttachmentUploadAction(input: {
 
     const attachmentId = crypto.randomUUID();
     const safeName = sanitizeFilename(input.fileName);
-    const storagePath = `${organizationId}/drafts/${input.draftId}/${attachmentId}-${safeName}`;
+    const storagePath = rutaDeCaptura(
+      organizationId,
+      input,
+      `${attachmentId}-${safeName}`
+    );
 
     const admin = createAdminClient();
     const { data, error } = await admin.storage
@@ -419,8 +445,7 @@ export async function prepareWinAttachmentUploadAction(input: {
 }
 
 /** Paso 2: registrar la captura ya subida. */
-export async function finalizeWinAttachmentAction(input: {
-  draftId: string;
+export async function finalizeWinAttachmentAction(input: DestinoDeCaptura & {
   storagePath: string;
   fileName: string;
   mimeType: string;
@@ -430,11 +455,17 @@ export async function finalizeWinAttachmentAction(input: {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
 
+    if (!input.winId && !input.draftId) {
+      throw new Error("Falta indicar a qué win va la captura.");
+    }
+
     const { data, error } = await supabase
       .from("win_attachments")
       .insert({
         organization_id: organizationId,
-        draft_id: input.draftId,
+        // Uno de los dos, nunca los dos: la base lo hace cumplir.
+        win_id: input.winId ?? null,
+        draft_id: input.winId ? null : (input.draftId ?? null),
         file_name: input.fileName,
         storage_path: input.storagePath,
         mime_type: input.mimeType,

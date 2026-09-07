@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { mapAnthropicCallError, type ClaudeKeySource } from "@/lib/ai/anthropic-errors";
 import {
+  getGlobalAnthropicClient,
   invalidateOrgCredentialCache,
   resolveCredentialForOrg,
 } from "@/lib/ai/credential-resolver";
@@ -192,8 +193,42 @@ async function executeWithCredentialFallback<T>(
     const result = await fn(resolution.client, keySource);
     return { result, keySource };
   } catch (error) {
+    /**
+     * ⭐ Acá estaba el "fallback" que no existía.
+     *
+     * La función se llamaba `executeWithCredentialFallback` pero, si la clave
+     * propia de la organización era inválida, no probaba nada más: lanzaba. En
+     * producción eso eran **221 fallas por día en cuatro organizaciones**, con
+     * `401 API key is invalid` repitiéndose cada diez minutos, y el análisis de
+     * llamadas sin correr para nadie.
+     *
+     * Que alguien haya cargado una clave vencida no es motivo para que su
+     * cuenta deje de funcionar en silencio: se reintenta con la clave global y
+     * se deja escrito en el log cuál organización tiene la suya rota.
+     */
+    if (keySource === "api_key" && esClaveRechazada(error)) {
+      const global = getGlobalAnthropicClient();
+      console.warn(
+        `[anthropic] La clave propia de la organización ${organizationId} fue rechazada. ` +
+          (global
+            ? "Se sigue con la clave global; avisale para que la actualice."
+            : "No hay clave global configurada: el trabajo no se puede hacer.")
+      );
+      invalidateOrgKeyCache(organizationId);
+
+      if (global) {
+        const result = await fn(global, "global");
+        return { result, keySource: "global" };
+      }
+    }
     throw mapAnthropicCallError(error, keySource);
   }
+}
+
+/** Una clave que el proveedor rechaza — vencida, revocada o mal copiada. */
+function esClaveRechazada(error: unknown): boolean {
+  const status = (error as { status?: number } | null)?.status;
+  return status === 401 || status === 403;
 }
 
 export type ClaudeJsonRequest = {

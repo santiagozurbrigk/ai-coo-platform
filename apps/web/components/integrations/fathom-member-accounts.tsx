@@ -80,7 +80,15 @@ export function FathomMemberAccountsSection({
   const handleSync = async () => {
     setPending(true);
     try {
-      const result = await syncMemberFathomAction();
+      const respuesta = await syncMemberFathomAction();
+
+      // El motivo real llega acá, no en un throw: ver el comentario de la
+      // acción. Antes cualquier falla se veía como un párrafo en inglés.
+      if (!respuesta.success) {
+        push({ title: "No se pudo sincronizar", description: respuesta.error });
+        return;
+      }
+      const result = respuesta.data;
 
       /**
        * ⭐ "Completado" sólo si algo entró.

@@ -122,6 +122,8 @@ export function WinFormModal({
     setDraft(draftFrom(win, defaultClientId));
     setAttachments(win?.attachments ?? []);
     setUploadError(null);
+    // Un win nuevo necesita un identificador temporal para agrupar sus
+    // capturas; uno que ya existe no, porque se cuelgan de él directamente.
     draftIdRef.current = win ? null : crypto.randomUUID();
   }, [open, win, defaultClientId]);
 
@@ -132,16 +134,24 @@ export function WinFormModal({
   }
 
   async function upload(file: File) {
-    const draftId = draftIdRef.current;
-    if (!draftId) {
-      setUploadError("Guardá el win y después agregá la captura.");
+    // ⭐ Si el win ya existe, la captura va directo a él. Antes esto exigía un
+    // borrador incluso al editar, así que decía "guardá el win primero" sobre
+    // un win que ya estaba guardado: no había forma de agregar la captura.
+    const destino = win
+      ? { winId: win.id }
+      : draftIdRef.current
+        ? { draftId: draftIdRef.current }
+        : null;
+
+    if (!destino) {
+      setUploadError("Volvé a abrir el formulario para agregar la captura.");
       return;
     }
     setUploading(true);
     setUploadError(null);
     try {
       const prepared = await prepareWinAttachmentUploadAction({
-        draftId,
+        ...destino,
         fileName: file.name,
         fileSize: file.size,
         mimeType: file.type,
@@ -156,7 +166,7 @@ export function WinFormModal({
       if (!uploadResponse.ok) throw new Error("No se pudo subir la captura.");
 
       const finalized = await finalizeWinAttachmentAction({
-        draftId,
+        ...destino,
         storagePath: prepared.data.storagePath,
         fileName: file.name,
         mimeType: prepared.data.contentType,
