@@ -9,6 +9,29 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [FATHOM-429-CRONS] Los crons queman la cuota de Fathom 🔴
+
+**Qué es:** 110 fallas por 429 en 24 horas. Los crons piden reuniones cada diez
+minutos y cuando alguien sincroniza a mano le rebota. El mensaje ahora lo
+explica, pero **el problema de fondo sigue**.
+
+**Qué hacer:** espaciar el cron (cada hora en vez de cada diez minutos) o
+implementar reintento con espera creciente. Mirar primero cuál es el límite real
+que publica Fathom.
+
+---
+
+### [IA-CLAVES-INVALIDAS] Cuatro organizaciones con la clave de IA vencida
+
+**Qué es:** `401 API key is invalid` repitiéndose 221 veces por día. Desde hoy
+esas organizaciones funcionan con la clave global de OTC, así que **no están
+rotas**, pero están gastando la nuestra.
+
+**Qué hacer:** buscar en los logs las líneas `[anthropic] La clave propia de la
+organización ... fue rechazada` y avisarles para que la actualicen.
+
+---
+
 ### [BAJAS-SIN-PROBAR] La baja del super admin nunca se ejecutó entera 🔴
 
 **Qué es:** el borrado de organizaciones, holdings y personas está construido y
@@ -843,6 +866,21 @@ referencias + `brand.domain`.
 ---
 
 ## ✅ Completados (referencia histórica)
+
+### 2026-09-07 — Nueve bugs del feedback de testers
+
+- **El asistente de alta** ya no dice "faltan datos" cuando no faltan, y dejó de
+  crear un avatar duplicado por cada reintento.
+- **Los clientes aparecen sin F5** al cargarlos, importarlos, editarlos o borrarlos.
+- **Las capturas se pueden agregar a un win ya guardado**, que era justamente
+  cuando no se podía.
+- **"facturación" y "facturacion" son la misma medida**: el recorrido del cliente
+  ya no dice "hay un solo número" teniendo dos.
+- **El límite del video de SOPs es el real (50 MB)** y frena al elegir el archivo.
+- **Los errores de Fathom se leen**: se acabó el párrafo en inglés sobre digests.
+- **Una clave de IA vencida ya no deja a la organización sin producto.**
+- **El límite de intentos del login volvió a ser compartido** entre servidores.
+- **Las previews de los links compartidos** vuelven a mostrar el logo.
 
 ### 2026-09-06 — Bajas del super admin
 

@@ -10,6 +10,8 @@ import {
   rowToClient,
   type ClientRow,
 } from "@/lib/clients/mapper";
+import { revalidatePath } from "next/cache";
+import { paths } from "@/routes";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { attributeSaleToUTM } from "@/lib/utm/attribute-booking";
@@ -32,6 +34,25 @@ export type ImportClientsResult = {
   insertedCount: number;
   errors: ImportClientsRowError[];
 };
+
+/**
+ * ⭐ Avisa a las pantallas que la lista de clientes cambió.
+ *
+ * Este archivo no tenía **ninguna** llamada a `revalidatePath`: cargabas un
+ * cliente, volvías a la lista y no estaba hasta apretar F5. Next sirve la
+ * página cacheada hasta que alguien le dice que se quedó vieja, y nadie se lo
+ * decía.
+ *
+ * Se revalidan también el panel y la revisión semanal porque los dos cuentan
+ * clientes: si sólo se refrescara la lista, los números de al lado seguirían
+ * mostrando el total de antes.
+ */
+function revalidarClientes() {
+  revalidatePath(paths.platform.clients.root);
+  revalidatePath(paths.platform.clients.wins);
+  revalidatePath(paths.platform.clients.weeklyReview);
+  revalidatePath(paths.platform.dashboard);
+}
 
 export async function listClientsAction(): Promise<Client[]> {
   if (!isSupabaseConfigured()) return [];
@@ -117,6 +138,7 @@ export async function createClientAction(input: unknown): Promise<Client> {
     console.error("[CreateClient] Error en atribución Lead Magnet:", err);
   });
 
+  revalidarClientes();
   return saved;
 }
 
@@ -162,6 +184,7 @@ export async function importClientsAction(
     throw new Error(error.message);
   }
 
+  revalidarClientes();
   return { insertedCount: parsedRows.length, errors: [] };
 }
 
@@ -187,6 +210,8 @@ export async function deleteClientAction(id: string): Promise<void> {
   if (error) {
     throw new Error(error.message ?? "No se pudo eliminar el cliente");
   }
+
+  revalidarClientes();
 }
 
 export async function assignClientPlanAction(
@@ -235,5 +260,6 @@ export async function updateClientAction(
     throw new Error(error?.message ?? "No se pudo actualizar el cliente");
   }
 
+  revalidarClientes();
   return rowToClient(data as ClientRow);
 }

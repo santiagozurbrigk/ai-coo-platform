@@ -14,6 +14,129 @@
 
 ---
 
+### 2026-09-07 — 🐛 Nueve bugs del feedback de testers, seis reportados y tres que sólo estaban en los logs
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** onboarding, clientes, wins, SOPs desde video, Fathom, IA, rate limiting, previews sociales
+
+**Qué se hizo:**
+
+Los seis que reportó el tester, todos confirmados contra el código y, tres de
+ellos, contra los datos reales de producción. Y tres más que aparecieron al
+mirar los logs de Vercel, que nadie había reportado porque **fallan en silencio**.
+
+**🐛 1 · "Todavía faltan datos" y apretando de nuevo te deja.** El estado del
+onboarding se cachea 60 segundos en memoria. El gate se completa en menos que
+eso, así que la validación final leía la foto de **antes** de que guardaras
+nada. Existía una función para invalidar ese caché y **ninguna de las tres
+pantallas del asistente la llamaba**. Ahora la llaman las tres, y la validación
+que decide si alguien entra al producto invalida antes de mirar.
+
+**Daño colateral que nadie había visto:** cada reintento **insertaba un avatar
+nuevo**. Había 6 avatares para lo que debía ser uno por organización. El paso
+del avatar ahora pisa el principal en vez de sumar otro.
+
+**🐛 2 · Cargás un cliente y no aparece hasta el F5.** `app/clients/actions.ts`
+tenía **cero** llamadas a `revalidatePath`. Se agregaron a crear, importar,
+editar y borrar — y revalidan también el panel y la revisión semanal, que
+cuentan clientes.
+
+**🐛 3 · No deja agregar capturas al editar un win.** La lógica estaba invertida:
+el identificador para agrupar capturas se generaba **sólo para wins nuevos**, así
+que al editar uno ya guardado la pantalla decía "guardá el win y después agregá
+la captura" sobre un win que ya estaba guardado. Ahora la captura va contra el
+win cuando existe, y contra el borrador cuando se está creando.
+
+**🐛 4 · Dos wins y dice "hay un solo número".** Confirmado con los datos que
+cargó el tester:
+
+| clave | valor |
+|---|---|
+| `facturación` | 1000 usd |
+| `facturacion` | 3000 usd |
+
+**Con acento y sin acento.** La clave se comparaba tal cual se tipeó. Dos
+medidas distintas, un punto cada una. Ahora se compara normalizada —sin acentos,
+sin mayúsculas, sin espacios de más— y **se muestra como la escribió la
+persona**. Las unidades también: "USD" y "usd" son la misma moneda.
+
+**🐛 5 · SOPs deja subir un video de +50 MB y falla después.** Era mi error: el
+código decía 1 GB porque miré el bucket sin mirar el techo del plan de Supabase.
+El límite ahora sale de `NEXT_PUBLIC_SOP_VIDEO_MAX_MB` (50 MB por defecto), la
+pantalla lo dice, **frena al elegir el archivo** en vez de después de 35 segundos
+de subida, y el error de Storage muestra el motivo en vez del número 400.
+
+**🐛 6 · "An error occurred in the Server Components render" al sincronizar
+Fathom.** `syncMemberFathomAction` era la única acción **sin envolver** en el
+manejador de errores. Una Server Action que lanza en producción no le muestra el
+mensaje al usuario: Next lo reemplaza por ese párrafo sobre digests. Así se
+perdían todos los motivos reales, **incluido "No tenés Fathom conectado"**.
+
+El error de abajo era un **429 de Fathom**, y los logs explican por qué: 110
+fallas por 429 en 24 horas, porque nuestros propios crons piden reuniones cada
+diez minutos y queman la cuota. Ahora hay un traductor que dice "Fathom está
+limitando los pedidos, tus llamadas no se pierden" en vez de una URL de 600
+caracteres.
+
+**Los tres que sólo estaban en los logs:**
+
+**🐛 7 · 221 fallas por día de `401 API key is invalid` en cuatro
+organizaciones.** La función se llama `executeWithCredentialFallback` y **no
+tenía fallback**: si la clave propia de la organización era inválida, lanzaba.
+El análisis de llamadas no corría para nadie, cada diez minutos, en silencio.
+Ahora reintenta con la clave global y deja escrito en el log qué organización
+tiene la suya rota.
+
+**🐛 8 · El límite de intentos del login se caía a memoria.**
+`consume_rate_limit` declara una columna de salida `reset_at` y adentro hacía
+`DELETE ... WHERE reset_at < ...` sin calificar: `column reference "reset_at" is
+ambiguous`. La app atrapa ese error y se cae a un contador en memoria, o sea que
+cada servidor cuenta por su cuenta y el techo real es varias veces el
+configurado. Un control de seguridad que cree estar funcionando.
+
+**🐛 9 · Las previews de los links compartidos estaban rotas.** El logo se leía
+del disco con `process.cwd()`, y `public/` no viaja dentro de la función
+serverless. Ahora se lee con `import.meta.url`, que sí lo empaqueta, y si
+faltara la preview sale sin logo en vez de dar error.
+
+**Decisiones de diseño relevantes:**
+
+- **La clave de la medida se normaliza para comparar, no para guardar.** Lo que
+  se muestra sigue siendo lo que la persona escribió. Es la misma regla que la
+  del matcher de comisiones de anteayer: un campo de texto libre que se tipea
+  dos veces con semanas de diferencia no se puede comparar carácter por carácter.
+- **El límite del video sale de una variable de entorno.** El día que se pase a
+  Pro se cambia el número en Supabase y en Vercel, sin tocar código.
+- **Un 429 no es culpa del usuario y el mensaje lo dice.** Si no, la reacción
+  natural es desconectar y reconectar la cuenta, que no arregla nada.
+- **Una clave propia vencida no deja a nadie sin producto**: se sigue con la
+  global y se avisa. Perder la funcionalidad entera por eso es peor que gastar
+  la clave de OTC.
+
+**Verificación ejecutada:**
+- `tsc --noEmit` limpio · `pnpm test`: **910 tests en 59 archivos** (5 nuevos
+  sobre la normalización de la clave, incluido el caso exacto de producción) ·
+  `pnpm lint` sin errores · `pnpm build` compila.
+- **La migración del rate limit, aplicada y verificada contra la base real**:
+  300 llamadas seguidas forzando la rama del `DELETE` —con 1% de probabilidad
+  cada una— sin un solo error, y el corte funcionando (`allowed=false` pasado el
+  máximo). La prueba corrió en una transacción revertida.
+- El diagnóstico de los seis salió de leer el código; el de tres, además, de
+  consultar los datos reales; el de Fathom, de los logs de Vercel.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Ninguno de los nueve se probó a mano después del arreglo.** Están
+  verificados por tests y typecheck; falta que el tester repita los pasos.
+- El 429 de Fathom **se traduce, no se evita**: los crons siguen pidiendo cada
+  diez minutos. Si el 429 sigue apareciendo, hay que espaciar el cron o
+  implementar backoff.
+- Las cuatro organizaciones con la clave de IA inválida **siguen teniéndola
+  inválida**: ahora funcionan con la global, pero conviene avisarles.
+
+---
+
 ### 2026-09-06 — 🗑️ Dar de baja organizaciones, holdings y personas desde el super admin — de verdad
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`

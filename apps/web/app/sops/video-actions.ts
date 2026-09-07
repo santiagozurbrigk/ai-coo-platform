@@ -18,7 +18,12 @@ import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { firstZodError } from "@/lib/validations";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { SOP_ATTACHMENTS_BUCKET, SOP_VIDEOS_BUCKET } from "@/lib/sops/constants";
+import {
+  SOP_ATTACHMENTS_BUCKET,
+  SOP_VIDEOS_BUCKET,
+  SOP_VIDEO_MAX_BYTES,
+  formatearLimiteDeVideo,
+} from "@/lib/sops/constants";
 import { sanitizeFilename } from "@/lib/sops/attachment-types";
 import { enqueueSopVideoJob } from "@/lib/sops/enqueue-video-job";
 import { paths } from "@/routes";
@@ -68,8 +73,6 @@ function rowToJob(row: JobRow): SopVideoJob {
   };
 }
 
-const MAX_VIDEO_BYTES = 1024 * 1024 * 1024; // 1 GB, igual que el bucket
-
 /** Paso 1: pedir dónde subir el video. */
 export async function prepareSopVideoUploadAction(input: {
   fileName: string;
@@ -82,8 +85,10 @@ export async function prepareSopVideoUploadAction(input: {
     if (!input.mimeType.startsWith("video/")) {
       throw new Error("El archivo tiene que ser un video (mp4, mov, webm).");
     }
-    if (input.fileSize > MAX_VIDEO_BYTES) {
-      throw new Error("El video no puede superar 1 GB.");
+    if (input.fileSize > SOP_VIDEO_MAX_BYTES) {
+      throw new Error(
+        `El video pesa ${Math.round(input.fileSize / (1024 * 1024))} MB y el máximo es ${formatearLimiteDeVideo()}. Bajá la resolución o cortalo en partes.`
+      );
     }
 
     const videoPath = `${organizationId}/${crypto.randomUUID()}-${sanitizeFilename(input.fileName)}`;

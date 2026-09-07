@@ -19,6 +19,7 @@ import { saveGeneralOrganizationSettingsAction } from "@/app/settings/actions";
 import { saveAvatarAction, saveProductAction } from "@/app/product/actions";
 import {
   dismissOnboardingItem,
+  invalidateOnboardingState,
   markGateCompleted,
   markTourSeen,
 } from "@/lib/onboarding/resolve";
@@ -83,7 +84,7 @@ export type SaveGateBusinessInput = {
 export async function saveGateBusinessAction(
   input: SaveGateBusinessInput
 ): Promise<MutationResult> {
-  return saveGeneralOrganizationSettingsAction({
+  const result = await saveGeneralOrganizationSettingsAction({
     orgName: input.orgName,
     industry: input.industry,
     websiteUrl: input.websiteUrl ?? "",
@@ -91,6 +92,8 @@ export async function saveGateBusinessAction(
     currency: input.currency,
     language: input.language,
   });
+  await olvidarEstadoDeOnboarding();
+  return result;
 }
 
 export type SaveGateOfferInput = {
@@ -103,7 +106,7 @@ export type SaveGateOfferInput = {
 export async function saveGateOfferAction(
   input: SaveGateOfferInput
 ): Promise<MutationResult<{ ok: true }>> {
-  return saveProductAction({
+  const result = await saveProductAction({
     name: input.name,
     description: input.description,
     price: input.price,
@@ -114,6 +117,8 @@ export async function saveGateOfferAction(
     isActive: true,
     valueLadderPosition: 1,
   });
+  await olvidarEstadoDeOnboarding();
+  return result;
 }
 
 export type SaveGateAvatarInput = {
@@ -126,13 +131,39 @@ export type SaveGateAvatarInput = {
 export async function saveGateAvatarAction(
   input: SaveGateAvatarInput
 ): Promise<MutationResult<{ ok: true }>> {
-  return saveAvatarAction({
+  const result = await saveAvatarAction({
     name: input.name,
     mainPain: input.mainPain,
     occupation: input.occupation,
     ageRange: input.ageRange,
     isPrimary: true,
+    // ⭐ Sin esto, cada intento insertaba un avatar nuevo. Al fallar la
+    // validación por el caché de abajo y volver a apretar "Terminar", la
+    // organización terminaba con dos, tres o cuatro avatares idénticos.
+    replacePrimary: true,
   });
+  await olvidarEstadoDeOnboarding();
+  return result;
+}
+
+/**
+ * ⭐ Tira el estado cacheado del onboarding.
+ *
+ * `getOnboardingState` guarda los datos por 60 segundos. El gate se completa en
+ * menos que eso: guardás los tres pasos, apretás "Terminar", y la validación lee
+ * la foto de **antes** de que guardaras nada. Te dice que faltan datos, apretás
+ * de nuevo, y la segunda vez anda porque el minuto ya pasó.
+ *
+ * Por eso cada guardado del gate lo invalida. Y `completeOnboardingGateAction`
+ * lo invalida otra vez antes de mirar: esa lectura es la que decide si alguien
+ * entra al producto, y no puede depender de que nadie se haya olvidado.
+ */
+async function olvidarEstadoDeOnboarding(): Promise<void> {
+  try {
+    invalidateOnboardingState(await requireOrganizationId());
+  } catch {
+    // Sin organización no hay nada que invalidar.
+  }
 }
 
 /** Estado de onboarding de la organización activa, ya derivado. */
@@ -149,6 +180,8 @@ export async function getOnboardingStateAction(): Promise<OnboardingState | null
 export async function completeOnboardingGateAction(): Promise<MutationResult> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
+    // La lectura que decide si alguien entra: siempre contra la base.
+    invalidateOnboardingState(organizationId);
     const state = await getOnboardingStateAction();
 
     if (!state?.gate.satisfied) {

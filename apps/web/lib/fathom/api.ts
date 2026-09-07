@@ -17,6 +17,35 @@ export class FathomApiError extends Error {
   }
 }
 
+/**
+ * ⭐ Traduce una falla de Fathom a algo que se pueda leer y actuar.
+ *
+ * El caso que más aparece —110 veces en 24 horas en producción— es el 429: los
+ * crons piden reuniones cada diez minutos y queman la cuota, así que cuando una
+ * persona aprieta "sincronizar" a mano le rebota. El mensaje crudo de la API es
+ * una URL de 600 caracteres con un cursor codificado y "Too Many Requests" al
+ * final: no le sirve a nadie.
+ *
+ * Un 429 **no es un error del usuario ni una configuración rota**, y el mensaje
+ * tiene que decirlo, porque si no la reacción natural es desconectar y volver a
+ * conectar la cuenta, que no arregla nada.
+ */
+export function mensajeDeFathom(fallo: unknown): string {
+  if (fallo instanceof FathomApiError) {
+    if (fallo.status === 429) {
+      return "Fathom está limitando los pedidos en este momento. Tus llamadas no se pierden: esperá unos minutos y probá de nuevo, o dejá que el sync automático las traiga.";
+    }
+    if (fallo.status === 401 || fallo.status === 403) {
+      return "Fathom rechazó la clave. Puede que la hayas revocado desde su panel: reconectá tu cuenta.";
+    }
+    if (fallo.status && fallo.status >= 500) {
+      return "Fathom está con problemas de su lado. Probá más tarde.";
+    }
+    return fallo.message;
+  }
+  return fallo instanceof Error ? fallo.message : "No se pudo sincronizar con Fathom.";
+}
+
 function fathomHeaders(apiKey: string): HeadersInit {
   return {
     Authorization: `Bearer ${apiKey}`,
