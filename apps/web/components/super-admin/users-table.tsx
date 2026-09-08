@@ -8,6 +8,11 @@ import {
   deactivateUserAction,
   regenerateTempPasswordAction,
 } from "@/app/super-admin/actions";
+import {
+  deleteUserAction,
+  previewUserDeletionAction,
+} from "@/app/super-admin/delete-actions";
+import { DeletionDialog } from "@/components/super-admin/deletion-dialog";
 import { TempCredentialsDialog } from "@/components/shared/temp-credentials-dialog";
 import type { TempCredentials } from "@/lib/auth/temp-credentials";
 import { formatOrgDateTime } from "@/lib/super-admin/format-org-datetime";
@@ -39,6 +44,7 @@ export function UsersTable({ users }: { users: AdminUserRow[] }) {
   const [tempCredentials, setTempCredentials] = useState<TempCredentials | null>(
     null
   );
+  const [aEliminar, setAEliminar] = useState<AdminUserRow | null>(null);
 
   const organizations = useMemo(() => {
     const names = new Map<string, string>();
@@ -190,12 +196,33 @@ export function UsersTable({ users }: { users: AdminUserRow[] }) {
                     </Button>
                   </>
                 )}
+                {/* Fuera del bloque de "activo": una cuenta desactivada es
+                    justamente la que más se quiere dar de baja del todo. */}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => setAEliminar(r)}
+                >
+                  Eliminar
+                </Button>
               </div>
             ),
           },
         ]}
         data={filtered}
         keyExtractor={(r) => r.id}
+      />
+      <DeletionDialog
+        open={aEliminar !== null}
+        onOpenChange={(open) => {
+          if (!open) setAEliminar(null);
+        }}
+        titulo={`Eliminar a ${aEliminar?.name ?? ""}`}
+        cargarVistaPrevia={() => previewUserDeletionAction(aEliminar?.id ?? "")}
+        ejecutar={(confirmacion) =>
+          deleteUserAction({ profileId: aEliminar?.id ?? "", confirmacion })
+        }
       />
       {tempCredentials ? (
         <TempCredentialsDialog

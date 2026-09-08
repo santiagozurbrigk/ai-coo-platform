@@ -2,18 +2,44 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuthContext } from "@/lib/auth/require-auth";
-import { validateFathomApiKey, listFathomMeetings } from "@/lib/fathom/api";
+import {
+  validateFathomApiKey,
+  listFathomMeetings,
+  mensajeDeFathom,
+} from "@/lib/fathom/api";
+import { upsertFathomCallFromMeeting } from "@/lib/fathom/sync";
+import {
+  createFathomWebhook,
+  deleteFathomWebhook,
+  guessFathomAccountEmail,
+} from "@/lib/fathom/webhooks";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { encrypt, decrypt } from "@/lib/security/encryption";
 import { paths } from "@/routes";
 import { apiKeySchema, firstZodError } from "@/lib/validations";
+import { runMutation, type MutationResult } from "@/lib/server/action-result";
 
+/**
+ * 🔴 Si no se puede cifrar, **no se guarda**.
+ *
+ * Antes esto caía al `catch` y guardaba la key **en texto plano** sin avisarle a
+ * nadie: la persona veía "conectado" y su credencial de Fathom quedaba legible en
+ * la base. Fallar la conexión es incómodo; guardar una credencial en claro es un
+ * problema de seguridad que nadie descubre hasta que es tarde.
+ */
 function storeApiKey(apiKey: string): string {
   try {
     return encrypt(apiKey);
-  } catch {
-    return apiKey;
+  } catch (error) {
+    console.error(
+      "[fathom member] no se pudo cifrar la key",
+      error instanceof Error ? error.message : String(error)
+    );
+    throw new Error(
+      "No se puede guardar la credencial de forma segura (falta ENCRYPTION_MASTER_KEY). " +
+        "No se guardó nada."
+    );
   }
 }
 
@@ -71,7 +97,14 @@ export async function listFathomMemberStatusesAction(): Promise<FathomMemberStat
 
 export async function connectMemberFathomAction(
   apiKey: string
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{
+  ok: boolean;
+  error?: string;
+  /** El mail de la cuenta de Fathom, para que el miembro lo confirme. */
+  accountEmail?: string | null;
+  /** Si el webhook no se pudo crear, por qué. La conexión igual sirve. */
+  webhookError?: string | null;
+}> {
   const parsed = apiKeySchema.safeParse(apiKey.trim());
   if (!parsed.success) {
     return { ok: false, error: firstZodError(parsed.error) };
@@ -88,13 +121,62 @@ export async function connectMemberFathomAction(
     };
   }
 
+  // Se cifra ANTES de tocar nada: si no se puede, no se guarda ni se crea el
+  // webhook. (`storeApiKey` lanza.)
+  let encryptedKey: string;
+  try {
+    encryptedKey = storeApiKey(parsed.data);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "No se pudo guardar la credencial",
+    };
+  }
+
+  // ⭐ Quién es el dueño de esta key. Se le muestra para que confirme: asumirlo
+  // en silencio atribuiría todas sus llamadas a otra persona si sale mal.
+  const accountEmail = await guessFathomAccountEmail(parsed.data).catch(() => null);
+
+  // ⭐ El token opaco de la URL de destino. Con esto la verificación de firma es
+  // contra **un solo secreto**, en vez de escanear todas las organizaciones.
+  const webhookToken = crypto.randomUUID().replace(/-/g, "");
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  let webhook: { id: string; secret: string } | null = null;
+  let webhookError: string | null = null;
+
+  if (baseUrl) {
+    try {
+      // ⭐ Limitless le crea el webhook con su propia key: el miembro no configura nada
+      // a mano en Fathom.
+      webhook = await createFathomWebhook(
+        parsed.data,
+        `${baseUrl}/api/integrations/fathom/webhook/${webhookToken}`
+      );
+    } catch (error) {
+      // Si el webhook falla, la conexión igual sirve: queda el poll de
+      // reconciliación. Pero se registra, porque sin webhook las llamadas
+      // llegan tarde y eso hay que poder verlo en el panel.
+      webhookError = error instanceof Error ? error.message : String(error);
+    }
+  } else {
+    webhookError = "NEXT_PUBLIC_APP_URL no configurada: no se pudo crear el webhook.";
+  }
+
   const admin = createAdminClient();
   const { error } = await admin.from("team_member_integrations").upsert(
     {
       organization_id: organizationId,
       user_id: user.id,
       integration_type: "fathom",
-      encrypted_api_key: storeApiKey(parsed.data),
+      encrypted_api_key: encryptedKey,
+      provider_account_email: accountEmail,
+      webhook_id: webhook?.id ?? null,
+      webhook_secret: webhook?.secret ?? null,
+      webhook_token: webhook ? webhookToken : null,
+      status: webhookError ? "error" : "connected",
+      last_error: webhookError,
+      last_error_at: webhookError ? new Date().toISOString() : null,
       connected_at: new Date().toISOString(),
     },
     { onConflict: "organization_id,user_id,integration_type" }
@@ -103,12 +185,35 @@ export async function connectMemberFathomAction(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath(paths.platform.integrations);
-  return { ok: true };
+  return { ok: true, accountEmail, webhookError };
 }
 
 export async function disconnectMemberFathomAction(): Promise<void> {
   const { user, orgId: organizationId } = await requireAuthContext();
   const admin = createAdminClient();
+
+  // ⭐ Desconectarse tiene que **borrar el webhook de la cuenta de esa persona**,
+  // no sólo dejar de leerlo. Si no, Limitless deja basura colgada en una cuenta ajena.
+  const { data: existing } = await admin
+    .from("team_member_integrations")
+    .select("encrypted_api_key, webhook_id")
+    .eq("organization_id", organizationId)
+    .eq("user_id", user.id)
+    .eq("integration_type", "fathom")
+    .maybeSingle();
+
+  const row = existing as { encrypted_api_key: string | null; webhook_id: string | null } | null;
+  if (row?.encrypted_api_key && row.webhook_id) {
+    const result = await deleteFathomWebhook(
+      readApiKey(row.encrypted_api_key),
+      row.webhook_id
+    );
+    if (!result.deleted) {
+      // No se bloquea la desconexión: un webhook huérfano molesta, impedir
+      // desconectarse es peor.
+      console.error("[fathom member] no se pudo borrar el webhook:", result.error);
+    }
+  }
 
   const { error } = await admin
     .from("team_member_integrations")
@@ -121,7 +226,27 @@ export async function disconnectMemberFathomAction(): Promise<void> {
   revalidatePath(paths.platform.integrations);
 }
 
-export async function syncMemberFathomAction(): Promise<{ synced: number }> {
+/**
+ * ⭐ Esta acción **tiene que devolver el error, no lanzarlo**.
+ *
+ * Lanzaba en crudo, y una Server Action que lanza en producción no le muestra
+ * al usuario el mensaje: Next lo reemplaza por "An error occurred in the Server
+ * Components render...", que no dice nada. Así se perdían todos los motivos
+ * reales — "No tenés Fathom conectado", "Fathom te está limitando" — y la
+ * pantalla mostraba un párrafo sobre digests en inglés.
+ */
+export async function syncMemberFathomAction(): Promise<
+  MutationResult<{ synced: number; fallidas: number }>
+> {
+  return runMutation(async () => {
+    return sincronizarLlamadasDelMiembro();
+  });
+}
+
+async function sincronizarLlamadasDelMiembro(): Promise<{
+  synced: number;
+  fallidas: number;
+}> {
   const { user, orgId: organizationId } = await requireAuthContext();
   const admin = createAdminClient();
 
@@ -139,45 +264,44 @@ export async function syncMemberFathomAction(): Promise<{ synced: number }> {
   }
 
   const apiKey = readApiKey(integration.encrypted_api_key as string);
-  const meetings = await listFathomMeetings(apiKey, {
-    createdAfter: (integration.last_sync_at as string | null) ?? undefined,
-    maxPages: 5,
-  });
+
+  let meetings;
+  try {
+    meetings = await listFathomMeetings(apiKey, {
+      createdAfter: (integration.last_sync_at as string | null) ?? undefined,
+      maxPages: 5,
+    });
+  } catch (fallo) {
+    throw new Error(mensajeDeFathom(fallo));
+  }
 
   let synced = 0;
+  let fallidas = 0;
 
   for (const meeting of meetings) {
-    const fathomCallId = String(meeting.recording_id ?? meeting.id);
-    const title = meeting.title || meeting.meeting_title || "Sin título";
-    const recordingStart =
-      meeting.recording_start_time ??
-      meeting.scheduled_start_time ??
-      meeting.callDate ??
-      new Date().toISOString();
-
-    const { error: upsertError } = await admin.from("fathom_calls").upsert(
-      {
-        organization_id: organizationId,
-        user_id: user.id,
-        fathom_call_id: fathomCallId,
-        title,
-        raw_title: meeting.meeting_title || meeting.title,
-        fathom_url: meeting.url ?? null,
-        call_date: recordingStart,
-        // La clasificación la resuelve el pipeline con el clasificador único.
-        // Antes acá se clasificaba por keywords y el cron lo sobrescribía con
-        // el resultado de la IA —o con null si fallaba—, así que este trabajo
-        // se tiraba siempre.
-        status: "pending",
-        processed_after: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-        association_candidates: [],
-        ai_next_steps: [],
-        ai_problems_detected: [],
-      },
-      { onConflict: "organization_id,fathom_call_id" }
-    );
-
-    if (!upsertError) synced += 1;
+    /**
+     * ⭐ El mismo upsert que el sync por organización.
+     *
+     * Antes acá había una copia del guardado que se había quedado atrás: no
+     * persistía `calendar_invitees` —sin eso una llamada nunca se puede cruzar
+     * con un turno agendado— y forzaba `status: pending` en cada corrida, así
+     * que una llamada ya procesada y asociada volvía a la cola cada vez que
+     * alguien apretaba el botón.
+     */
+    const ok = await upsertFathomCallFromMeeting(admin, organizationId, meeting);
+    if (ok) {
+      synced += 1;
+      // El dueño de la grabación: es lo que hace que una llamada sin vincular
+      // la vea sólo quien la grabó.
+      await admin
+        .from("fathom_calls")
+        .update({ user_id: user.id })
+        .eq("organization_id", organizationId)
+        .eq("fathom_call_id", String(meeting.recording_id ?? meeting.id))
+        .is("user_id", null);
+    } else {
+      fallidas += 1;
+    }
   }
 
   await admin
@@ -190,5 +314,20 @@ export async function syncMemberFathomAction(): Promise<{ synced: number }> {
     .eq("integration_type", "fathom");
 
   revalidatePath(paths.platform.integrations);
-  return { synced };
+
+  /**
+   * ⭐ Si nada se guardó, esto **no es un éxito**.
+   *
+   * Antes el contador ignoraba el error del guardado y la pantalla cantaba
+   * "Sync completado — 0 llamadas" en verde. Un fallo que se muestra como
+   * éxito es peor que un fallo: nadie lo mira.
+   */
+  if (fallidas > 0 && synced === 0) {
+    throw new Error(
+      `No se pudo guardar ninguna de las ${fallidas} llamadas que trajo Fathom. ` +
+        "Revisá los logs del servidor con el prefijo [Fathom:sync]."
+    );
+  }
+
+  return { synced, fallidas };
 }

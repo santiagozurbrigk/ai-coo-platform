@@ -1,6 +1,11 @@
 import { applyClientMatchToCall } from "@/lib/fathom/apply-call-match";
 import { isManualFathomLink } from "@/lib/fathom/client-matcher";
-import { FathomApiError, listFathomMeetings, type FathomMeetingRecord } from "@/lib/fathom/api";
+import {
+  FathomApiError,
+  listFathomMeetings,
+  mensajeDeFathom,
+  type FathomMeetingRecord,
+} from "@/lib/fathom/api";
 import {
   getFathomIntegrationDiagnostics,
 } from "@/lib/fathom/diagnostics";
@@ -55,7 +60,16 @@ function buildFathomCallRow(organizationId: string, meeting: FathomMeetingRecord
   };
 }
 
-async function upsertFathomCallFromMeeting(
+/**
+ * ⭐ El único upsert de llamadas de Fathom.
+ *
+ * Lo usan el sync por organización y el sync por miembro. Antes eran dos
+ * implementaciones distintas del mismo guardado, y la del miembro quedó atrás:
+ * no guardaba `calendar_invitees` —la señal de la que cuelga toda la
+ * identificación— y devolvía a "pendiente" llamadas ya procesadas en cada
+ * corrida.
+ */
+export async function upsertFathomCallFromMeeting(
   admin: ReturnType<typeof createAdminClient>,
   organizationId: string,
   meeting: FathomMeetingRecord
@@ -231,7 +245,7 @@ export async function syncFathomMeetingsForOrganization(
     });
   } catch (e) {
     console.error("[Fathom:sync] listFathomMeetings failed:", e);
-    if (e instanceof FathomApiError) throw new Error(e.message);
+    if (e instanceof FathomApiError) throw new Error(mensajeDeFathom(e));
     throw e;
   }
 

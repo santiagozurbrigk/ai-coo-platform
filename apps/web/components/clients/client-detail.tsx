@@ -11,8 +11,11 @@ import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import { ClientLinkedCallsSection } from "@/components/clients/client-linked-calls";
 import { ClientPaymentsSection } from "@/components/clients/client-payments-section";
+import { ClientNotesSection } from "@/components/clients/client-notes-section";
 import { ClientDiscordActivity } from "@/components/clients/client-discord-activity";
 import { ClientTimeline } from "@/components/clients/client-timeline";
+import { ClientJourneySection } from "@/components/clients/checkpoints";
+import { ClientWinsSection } from "@/components/clients/wins";
 import { paths } from "@/routes";
 import type { Client, ClientStatus } from "@/types/clients";
 
@@ -145,6 +148,17 @@ export function ClientDetail({ client: initial }: { client: Client }) {
       </section>
 
       <ClientPaymentsSection client={client} />
+
+      {/* El cuaderno del cliente: lo que no entra en ningún campo. */}
+      <ClientNotesSection
+        clientId={client.id}
+        initialNotes={client.notes ?? null}
+        initialUpdatedAt={client.notesUpdatedAt ?? null}
+      />
+
+      <ClientJourneySection clientId={client.id} />
+
+      <ClientWinsSection clientId={client.id} />
 
       {client.salesFathomUrl && (
         <section className="space-y-3">

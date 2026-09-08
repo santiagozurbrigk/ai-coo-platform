@@ -24,6 +24,7 @@ import {
   uploadPaymentReceiptFile,
 } from "@/components/clients/payment-receipt-dropzone";
 import { usePlatformData } from "@/providers";
+import { useFinanceData } from "@/providers/finance-data-provider";
 import { useToast } from "@/providers/toast-provider";
 import type { Client, ClientPayment } from "@/types/clients";
 
@@ -70,6 +71,14 @@ function PaymentProgressBar({ paid, total }: { paid: number; total: number }) {
 
 export function ClientPaymentsSection({ client }: { client: Client }) {
   const { updateClient } = usePlatformData();
+  /**
+   * ⭐ Un pago recién cargado tiene que verse en Finanzas sin recargar.
+   *
+   * Los pagos viven en un contexto que cuelga del layout de toda la plataforma:
+   * navegar a Finanzas no lo vuelve a montar, así que revalidar la ruta del
+   * servidor no alcanzaba. Hay que pedirle al provider que los relea.
+   */
+  const { refreshClientPayments } = useFinanceData();
   const { push } = useToast();
   const [payments, setPayments] = useState<ClientPayment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -170,7 +179,7 @@ export function ClientPaymentsSection({ client }: { client: Client }) {
           <p className="text-muted-foreground">Cargando pagos…</p>
         ) : payments.length === 0 ? (
           <p className="text-muted-foreground">
-            Aún no hay comprobantes registrados para este cliente.
+            Aún no hay pagos registrados para este cliente.
           </p>
         ) : (
           <ul className="space-y-3">
@@ -185,16 +194,24 @@ export function ClientPaymentsSection({ client }: { client: Client }) {
                     {payment.paymentDate} — {formatMoney(payment.amount)}
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="gap-1"
-                  disabled={openingId === payment.id}
-                  onClick={() => openReceipt(payment.id)}
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Ver comprobante
-                </Button>
+                {/*
+                  ⭐ Sin comprobante se dice, no se esconde. Cuáles faltan es
+                  información operativa: son los que hay que completar después.
+                */}
+                {payment.storagePath ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="gap-1"
+                    disabled={openingId === payment.id}
+                    onClick={() => openReceipt(payment.id)}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Ver comprobante
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Sin comprobante</span>
+                )}
               </li>
             ))}
           </ul>
@@ -235,6 +252,7 @@ export function ClientPaymentsSection({ client }: { client: Client }) {
               installments: updatedClient.installments,
             });
             setPayments(newPayments);
+            void refreshClientPayments();
             push({
               title: "Cuota registrada",
               description: `${nextPending.label} guardada con comprobante`,
@@ -251,9 +269,10 @@ export function ClientPaymentsSection({ client }: { client: Client }) {
           clientId={client.id}
           onSuccess={(newPayment) => {
             setPayments((prev) => [newPayment, ...prev]);
+            void refreshClientPayments();
             push({
               title: "Pago registrado",
-              description: "Comprobante guardado correctamente",
+              description: "Ya aparece en Finanzas",
               variant: "success",
             });
           }}
@@ -297,10 +316,8 @@ function AddInstallmentPaymentDialog({
   }, [open, defaultAmount]);
 
   function handleSubmit() {
-    if (!file) {
-      setError("El comprobante es obligatorio.");
-      return;
-    }
+    // ⭐ El comprobante es opcional: un cobro sin comprobante sigue siendo un
+    // cobro, y obligarlo empujaba a subir cualquier archivo con tal de guardar.
     const parsedAmount = Number(amount);
     if (!parsedAmount || parsedAmount <= 0) {
       setError("Ingresá un monto válido.");
@@ -313,18 +330,25 @@ function AddInstallmentPaymentDialog({
 
     setError(null);
     startTransition(async () => {
-      const uploaded = await uploadPaymentReceiptFile(file, clientId);
-      if (!uploaded.ok) {
-        setError(uploaded.error);
-        return;
+      let storagePath: string | null = null;
+      let mimeType: string | null = null;
+
+      if (file) {
+        const uploaded = await uploadPaymentReceiptFile(file, clientId);
+        if (!uploaded.ok) {
+          setError(uploaded.error);
+          return;
+        }
+        storagePath = uploaded.storagePath;
+        mimeType = uploaded.mimeType;
       }
 
       const res = await addInstallmentPaymentAction({
         clientId,
         amount: parsedAmount,
         paymentDate,
-        storagePath: uploaded.storagePath,
-        mimeType: uploaded.mimeType,
+        storagePath,
+        mimeType,
       });
 
       if (!res.success) {
@@ -366,7 +390,7 @@ function AddInstallmentPaymentDialog({
               disabled={pending}
             />
           </FormField>
-          <FormField label="Comprobante de pago">
+          <FormField label="Comprobante de pago (opcional)">
             <PaymentReceiptDropzone
               file={file}
               onFileChange={setFile}
@@ -378,7 +402,7 @@ function AddInstallmentPaymentDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={pending || !file}>
+          <Button onClick={handleSubmit} disabled={pending}>
             {pending ? "Guardando…" : "Confirmar pago"}
           </Button>
         </DialogFooter>
@@ -416,10 +440,8 @@ function AddGenericPaymentDialog({
   }, [open]);
 
   function handleSubmit() {
-    if (!file) {
-      setError("El comprobante es obligatorio.");
-      return;
-    }
+    // ⭐ El comprobante es opcional: un cobro sin comprobante sigue siendo un
+    // cobro, y obligarlo empujaba a subir cualquier archivo con tal de guardar.
     const parsedAmount = Number(amount);
     if (!parsedAmount || parsedAmount <= 0) {
       setError("Ingresá un monto válido.");
@@ -432,18 +454,25 @@ function AddGenericPaymentDialog({
 
     setError(null);
     startTransition(async () => {
-      const uploaded = await uploadPaymentReceiptFile(file, clientId);
-      if (!uploaded.ok) {
-        setError(uploaded.error);
-        return;
+      let storagePath: string | null = null;
+      let mimeType: string | null = null;
+
+      if (file) {
+        const uploaded = await uploadPaymentReceiptFile(file, clientId);
+        if (!uploaded.ok) {
+          setError(uploaded.error);
+          return;
+        }
+        storagePath = uploaded.storagePath;
+        mimeType = uploaded.mimeType;
       }
 
       const res = await recordClientPaymentAction({
         clientId,
         amount: parsedAmount,
         paymentDate,
-        storagePath: uploaded.storagePath,
-        mimeType: uploaded.mimeType,
+        storagePath,
+        mimeType,
       });
 
       if (!res.success) {
@@ -485,7 +514,7 @@ function AddGenericPaymentDialog({
               disabled={pending}
             />
           </FormField>
-          <FormField label="Comprobante de pago">
+          <FormField label="Comprobante de pago (opcional)">
             <PaymentReceiptDropzone
               file={file}
               onFileChange={setFile}
@@ -497,7 +526,7 @@ function AddGenericPaymentDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={pending || !file}>
+          <Button onClick={handleSubmit} disabled={pending}>
             {pending ? "Guardando…" : "Confirmar pago"}
           </Button>
         </DialogFooter>

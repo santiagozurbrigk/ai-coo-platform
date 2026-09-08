@@ -80,12 +80,38 @@ export function FathomMemberAccountsSection({
   const handleSync = async () => {
     setPending(true);
     try {
-      const result = await syncMemberFathomAction();
-      push({
-        title: "Sync completado",
-        description: `${result.synced} llamada(s) sincronizada(s)`,
-        variant: "success",
-      });
+      const respuesta = await syncMemberFathomAction();
+
+      // El motivo real llega acá, no en un throw: ver el comentario de la
+      // acción. Antes cualquier falla se veía como un párrafo en inglés.
+      if (!respuesta.success) {
+        push({ title: "No se pudo sincronizar", description: respuesta.error });
+        return;
+      }
+      const result = respuesta.data;
+
+      /**
+       * ⭐ "Completado" sólo si algo entró.
+       *
+       * Antes esto cantaba éxito en verde con cero llamadas, sin mirar nada.
+       * Cero llamadas puede ser normal —no hubo grabaciones nuevas— pero
+       * cero **con fallas** no lo es, y hay que decirlo.
+       */
+      if (result.fallidas > 0) {
+        push({
+          title: "Sync con problemas",
+          description: `${result.synced} guardada(s), ${result.fallidas} fallaron`,
+        });
+      } else {
+        push({
+          title: result.synced > 0 ? "Sync completado" : "Sin llamadas nuevas",
+          description:
+            result.synced > 0
+              ? `${result.synced} llamada(s) sincronizada(s)`
+              : "Fathom no devolvió grabaciones nuevas desde el último sync",
+          variant: "success",
+        });
+      }
       await refresh();
     } catch (error) {
       push({

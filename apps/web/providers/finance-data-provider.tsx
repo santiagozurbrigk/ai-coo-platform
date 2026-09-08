@@ -89,6 +89,15 @@ type FinanceDataContextValue = {
   ) => Promise<string | undefined>;
   removeTeamCompensation: (id: string) => Promise<string | undefined>;
   refreshFinanceConfig: () => Promise<void>;
+  /**
+   * ⭐ Vuelve a leer los pagos de clientes.
+   *
+   * Existía y **no se exponía**, así que ningún componente podía pedirlo. Ese
+   * era el motivo real de que un pago recién cargado no apareciera en Finanzas
+   * hasta apretar F5: el provider cuelga del layout de toda la plataforma, así
+   * que navegar de la ficha del cliente a Finanzas no lo vuelve a montar.
+   */
+  refreshClientPayments: () => Promise<void>;
 };
 
 const FinanceDataContext = createContext<FinanceDataContextValue | null>(null);
@@ -465,6 +474,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       addTeamCompensation,
       removeTeamCompensation,
       refreshFinanceConfig,
+      refreshClientPayments,
     }),
     [
       paymentPlatforms,
@@ -490,6 +500,7 @@ export function FinanceDataProvider({ children }: { children: ReactNode }) {
       addTeamCompensation,
       removeTeamCompensation,
       refreshFinanceConfig,
+      refreshClientPayments,
     ]
   );
 

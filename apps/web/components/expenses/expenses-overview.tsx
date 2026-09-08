@@ -16,6 +16,7 @@ import {
 } from "@ai-coo/ui";
 import { PageHeader } from "@/components/shared/page-header";
 import { useFinanceData } from "@/providers";
+import { getTeamMembersAction } from "@/app/team/actions";
 import { TeamPayrollSection } from "@/components/finance/team-payroll-section";
 import { useToast } from "@/providers/toast-provider";
 import { formatMoney, monthlyEquivalent } from "@/lib/finance/format";
@@ -359,7 +360,9 @@ function TeamCompensationSection({ members }: { members: TeamCompensation[] }) {
           if (adding) {
             if (!patch.memberName?.trim() || !patch.roleLabel?.trim()) return;
             void addTeamCompensation({
-              memberId: `member-${Date.now()}`,
+              // El id del perfil cuando se eligió de la lista; sintético sólo
+              // para quien no tiene usuario en la plataforma.
+              memberId: patch.memberId ?? `member-${Date.now()}`,
               memberName: patch.memberName.trim(),
               roleLabel: patch.roleLabel.trim(),
               hasFixed: patch.hasFixed ?? false,
@@ -715,6 +718,19 @@ function TeamCompensationModal({
   mode: "create" | "edit";
 }) {
   const [memberName, setMemberName] = useState("");
+  /**
+   * ⭐ A quién se le paga, elegido de una lista y no tipeado.
+   *
+   * El nombre no era una etiqueta: era la clave con la que se cruzan las
+   * comisiones. Un espacio de más o un acento distinto daba comisión cero, en
+   * silencio, hasta que alguien reclamaba su plata.
+   *
+   * `""` significa "otro": alguien que cobra y no tiene usuario en la
+   * plataforma —un editor freelance— existe, y obligarlo a tener cuenta sería
+   * peor que dejar el nombre libre para ese caso.
+   */
+  const [memberId, setMemberId] = useState<string>("");
+  const [equipo, setEquipo] = useState<{ id: string; name: string }[]>([]);
   const [roleLabel, setRoleLabel] = useState("");
   const [hasFixed, setHasFixed] = useState(false);
   const [fixedMonthly, setFixedMonthly] = useState("");
@@ -729,10 +745,19 @@ function TeamCompensationModal({
 
   useEffect(() => {
     if (!open) return;
+    void getTeamMembersAction().then((miembros) =>
+      setEquipo(miembros.map((m) => ({ id: m.id, name: m.name })))
+    );
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     setNameError(null);
     setRoleError(null);
     if (mode === "edit" && initial) {
       setMemberName(initial.memberName);
+      // Los ids viejos eran sintéticos (`member-1699...`), no de un perfil real.
+      setMemberId(initial.memberId?.startsWith("member-") ? "" : (initial.memberId ?? ""));
       setRoleLabel(initial.roleLabel);
       setHasFixed(initial.hasFixed);
       setFixedMonthly(initial.fixedMonthly != null ? String(initial.fixedMonthly) : "");
@@ -749,6 +774,7 @@ function TeamCompensationModal({
       return;
     }
     setMemberName("");
+    setMemberId("");
     setRoleLabel("");
     setHasFixed(false);
     setFixedMonthly("");
@@ -775,6 +801,7 @@ function TeamCompensationModal({
     if (hasError) return;
 
     onSave({
+      memberId: memberId || undefined,
       memberName: trimmedName,
       roleLabel: trimmedRole,
       hasFixed,
@@ -808,14 +835,41 @@ function TeamCompensationModal({
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
-          <FormField label="Nombre" required error={nameError ?? undefined}>
-            <Input
-              value={memberName}
+          <FormField label="Miembro" required error={nameError ?? undefined}>
+            <select
+              className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+              value={memberId}
               onChange={(e) => {
-                setMemberName(e.target.value);
+                const elegido = e.target.value;
+                setMemberId(elegido);
+                const miembro = equipo.find((m) => m.id === elegido);
+                if (miembro) setMemberName(miembro.name);
                 if (nameError) setNameError(null);
               }}
-            />
+            >
+              <option value="">Otro — escribir el nombre</option>
+              {equipo.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+            {/*
+              Sólo se escribe a mano cuando la persona no está en la plataforma.
+              Con un miembro elegido, el nombre sale de su perfil y no se puede
+              desincronizar.
+            */}
+            {memberId === "" ? (
+              <Input
+                className="mt-2"
+                placeholder="Nombre de quien cobra"
+                value={memberName}
+                onChange={(e) => {
+                  setMemberName(e.target.value);
+                  if (nameError) setNameError(null);
+                }}
+              />
+            ) : null}
           </FormField>
           <FormField label="Rol" required error={roleError ?? undefined}>
             <Input

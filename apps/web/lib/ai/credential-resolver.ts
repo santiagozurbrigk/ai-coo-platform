@@ -20,6 +20,17 @@ const credentialCache = new Map<string, CachedCredential>();
 // TTL corto para minimizar ventana de credenciales stale en entorno serverless multi-instancia
 const CACHE_TTL_MS = 30 * 1000;
 
+/**
+ * El cliente con la clave global de Limitless.
+ *
+ * Se expone para que, si la clave propia de una organización resulta inválida,
+ * el trabajo pueda seguir con la global en vez de fallar. Ver
+ * `executeWithCredentialFallback`.
+ */
+export function getGlobalAnthropicClient(): Anthropic | null {
+  return getGlobalClient();
+}
+
 function getGlobalClient(): Anthropic | null {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
   if (!key) return null;

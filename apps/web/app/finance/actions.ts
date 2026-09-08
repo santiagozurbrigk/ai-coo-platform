@@ -23,6 +23,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { listOrganizationPaymentsAction } from "@/app/clients/payment-actions";
+import { matchesCloser } from "@/lib/metrics/match-closer";
 import type {
   FixedExpense,
   Subscription,
@@ -551,11 +552,19 @@ export async function computeTeamPayrollAction(): Promise<MemberPayrollResult[]>
     if (m.hasCommission && m.commissionBasis) {
       switch (m.commissionBasis) {
         case "per_deal": {
-          const myDeals = closedCalls.filter((c) => {
-            const name = (c.closed_by_name ?? "").toLowerCase();
-            const memberLower = m.memberName.toLowerCase();
-            return name.includes(memberLower) || memberLower.includes((name.split(" ")[0]) ?? "");
-          });
+          /**
+           * ⭐ La misma regla que la estimación del mes.
+           *
+           * Acá había un `incluye` con el primer nombre: con un "Juan" en el
+           * equipo, cualquier closer llamado Juan le sumaba comisiones a esa
+           * fila. Dos pantallas del mismo cálculo daban números distintos.
+           */
+          const myDeals = closedCalls.filter((c) =>
+            matchesCloser(
+              { memberId: m.memberId, memberName: m.memberName },
+              { closerName: c.closed_by_name }
+            )
+          );
           const totalRevenue = myDeals.reduce((s, c) => {
             const rev = (c.outcome as { revenue?: number } | null)?.revenue ?? 0;
             return s + Number(rev);

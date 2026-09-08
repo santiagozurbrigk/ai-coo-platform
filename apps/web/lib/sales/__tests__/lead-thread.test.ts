@@ -206,3 +206,60 @@ describe("vocabulario", () => {
     expect(isActionable("lost")).toBe(false);
   });
 });
+
+describe("valores de seguimiento propios de la organización", () => {
+  // Un valor propio que cierra el hilo tiene que cerrarlo igual que `lost`: si
+  // el motor siguiera comparando contra el string `lost`, "Derivado a socio"
+  // dejaría al lead dando vueltas en la cola para siempre.
+  const CLOSING = ["lost", "derivado_a_socio"];
+
+  it("un próximo paso propio que cierra el hilo lo da por terminado", () => {
+    const thread = buildLeadThread(
+      [attempt({ nextAction: "derivado_a_socio" })],
+      NOW,
+      CLOSING
+    );
+    expect(thread.state).toBe("lost");
+    expect(thread.actionableAttemptId).toBeNull();
+  });
+
+  it("un próximo paso propio que pide fecha vence como cualquier otro", () => {
+    const thread = buildLeadThread(
+      [attempt({ nextAction: "esperando_pago", nextActionAt: day(-1) })],
+      NOW,
+      CLOSING
+    );
+    expect(thread.state).toBe("follow_up_due");
+    expect(thread.actionableAttemptId).toBe("a1");
+  });
+
+  it("un próximo paso propio con fecha por delante es trabajo agendado", () => {
+    const thread = buildLeadThread(
+      [attempt({ nextAction: "esperando_pago", nextActionAt: day(4) })],
+      NOW,
+      CLOSING
+    );
+    expect(thread.state).toBe("follow_up_planned");
+    expect(isActionable(thread.state)).toBe(false);
+  });
+
+  it("sin catálogo propio, sólo `lost` cierra el hilo", () => {
+    // Es el default: una organización que nunca creó un valor sigue funcionando
+    // exactamente igual que antes, y un slug que no conoce no cierra nada.
+    const thread = buildLeadThread(
+      [attempt({ nextAction: "derivado_a_socio", nextActionAt: day(-1) })],
+      NOW
+    );
+    expect(thread.state).toBe("follow_up_due");
+  });
+
+  it("un valor que dejó de cerrar el hilo devuelve el lead a la cola", () => {
+    // Si la organización archiva su valor y deja de pasarlo como terminal, el
+    // lead vuelve a aparecer en vez de quedar escondido como perdido.
+    const attempts = [
+      attempt({ nextAction: "derivado_a_socio", nextActionAt: day(-1) }),
+    ];
+    expect(buildLeadThread(attempts, NOW, CLOSING).state).toBe("lost");
+    expect(buildLeadThread(attempts, NOW, ["lost"]).state).toBe("follow_up_due");
+  });
+});

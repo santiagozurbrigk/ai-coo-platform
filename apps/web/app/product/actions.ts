@@ -82,6 +82,25 @@ export async function saveAvatarAction(
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
 
+    /**
+     * ⭐ El asistente de alta pisa el avatar principal en vez de sumar otro.
+     *
+     * Si no, cada reintento del último paso deja un duplicado — y ese paso se
+     * reintenta, porque es donde el usuario corrige lo que escribió.
+     */
+    let idAPisar = data.id ?? null;
+    if (data.replacePrimary && !idAPisar) {
+      const { data: existente } = await supabase
+        .from("customer_avatars")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .eq("is_primary", true)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      idAPisar = (existente?.id as string | undefined) ?? null;
+    }
+
     if (data.isPrimary) {
       await supabase
         .from("customer_avatars")
@@ -107,11 +126,11 @@ export async function saveAvatarAction(
       updated_at: new Date().toISOString(),
     };
 
-    if (data.id) {
+    if (idAPisar) {
       const { error } = await supabase
         .from("customer_avatars")
         .update(payload)
-        .eq("id", data.id)
+        .eq("id", idAPisar)
         .eq("organization_id", organizationId);
       if (error) throw new Error(error.message);
     } else {

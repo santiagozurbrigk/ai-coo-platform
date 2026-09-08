@@ -65,7 +65,7 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
         {
           label: "Gastos",
           href: paths.platform.finance.expenses,
-          permissionId: "expenses",
+          permissionId: "finance",
         },
       ],
     },
@@ -82,7 +82,7 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
         {
           label: "Contenido",
           href: paths.platform.marketing.content,
-          permissionId: "marketing_content",
+          permissionId: "marketing",
         },
         {
           label: "Anuncios",
@@ -98,13 +98,13 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
         {
           label: "Conexión con Ventas",
           href: paths.platform.marketing.salesConnection,
-          permissionId: "marketing_sales",
+          permissionId: "marketing",
           hidden: true,
         },
         {
           label: "Formularios",
           href: paths.platform.marketing.forms,
-          permissionId: "marketing_forms",
+          permissionId: "marketing",
         },
         {
           label: "UTMs",
@@ -131,22 +131,22 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
         {
           label: "Bandeja",
           href: paths.platform.sales.inbox,
-          permissionId: "sales_inbox",
+          permissionId: "sales",
         },
         {
           label: "Métricas",
           href: paths.platform.sales.metrics,
-          permissionId: "sales_metrics",
+          permissionId: "sales",
         },
         {
           label: "Closing",
           href: paths.platform.sales.closing,
-          permissionId: "closing",
+          permissionId: "sales",
         },
         {
           label: "Llamadas",
           href: paths.platform.sales.llamadas,
-          permissionId: "closing",
+          permissionId: "sales",
         },
       ],
     },
@@ -157,17 +157,12 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
         {
           label: "Overview",
           href: paths.platform.operations.overview,
-          permissionId: "operations_overview",
+          permissionId: "operations",
         },
         {
           label: "Inputs",
           href: paths.platform.operations.inputs,
-          permissionId: "operations_overview",
-        },
-        {
-          label: "SOPs",
-          href: paths.platform.operations.sops,
-          permissionId: "operations_sops",
+          permissionId: "operations",
         },
         { label: "Inteligencia", href: paths.platform.intelligence.root },
         // "Reportes" salió del sidebar el 2026-08-30: los reportes ejecutivos
@@ -231,6 +226,20 @@ export const directModules: SidebarDirectModule[] = [
     icon: "brain",
     permissionId: "knowledge_base",
   },
+  /**
+   * SOPs es un módulo propio y **no depende del add-on `operaciones`**.
+   *
+   * Estaba adentro de ese grupo, así que en una organización sin el add-on
+   * —hoy, todas— el creador de SOPs no se veía desde el menú: existía y no
+   * había cómo llegar. Se sacó afuera; el resto de Operaciones (Overview,
+   * Inputs, Inteligencia, Área del fundador) sigue detrás del add-on.
+   */
+  {
+    label: "SOPs",
+    href: paths.platform.operations.sops,
+    icon: "book-open",
+    permissionId: "operations",
+  },
   {
     label: "Equipo",
     href: paths.platform.team.root,
@@ -253,6 +262,7 @@ const coreRootItems: SidebarNavRootItem[] = [
   { type: "parent", key: "finanzas" },
   { type: "divider" },
   { type: "link", module: byHref(paths.platform.workboard.root) },
+  { type: "link", module: byHref(paths.platform.operations.sops) },
   { type: "parent", key: "configuracion" },
 ];
 
@@ -298,6 +308,8 @@ export function getParentFromPath(pathname: string): SidebarParentKey | null {
   if (pathname.startsWith("/marketing")) return "marketing";
   if (pathname.startsWith(paths.platform.comentarios)) return "marketing";
   if (pathname.startsWith("/sales")) return "ventas";
+  // SOPs es un módulo propio: no marca activo al grupo Operaciones.
+  if (pathname.startsWith(paths.platform.operations.sops)) return null;
   if (pathname.startsWith("/operations")) return "operaciones";
   if (pathname.startsWith("/intelligence")) return "operaciones";
   if (pathname.startsWith("/executive-reports")) return "operaciones";

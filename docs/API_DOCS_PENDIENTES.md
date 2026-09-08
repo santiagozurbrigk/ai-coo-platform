@@ -9,6 +9,36 @@
 
 ---
 
+## Loom — no publica API para bajar el video de un share link
+
+**Agregado el 2026-09-04 (Encargo D, SOPs desde video).**
+
+**Qué se implementó sin documentación:** nada contra la API de Loom, y esa es
+justamente la conclusión. Loom **no publica un endpoint** para descargar el mp4 a
+partir de un link compartido. Lo que existe de su API pública es para crear
+grabaciones embebidas, no para leerlas.
+
+**Qué se asumió, y con qué confianza:**
+
+| Supuesto | Confianza | Cómo se verifica |
+|---|---|---|
+| No hay forma documentada de bajar el video desde un share link | **Alta** — es una decisión de producto de Loom, no un hueco de documentación | Buscar "download" en su referencia de API |
+| Raspar la página pública del video para sacar el mp4 funcionaría | **Baja, y no se construyó** | — |
+
+**La decisión, y por qué:** el flujo pide **subir el archivo**. El usuario baja el
+mp4 desde Loom (que sí se puede desde su interfaz) y lo sube a Limitless. Cero
+fragilidad y cero problema con los términos de uso.
+
+El camino cómodo —pegar el link y que el sistema resuelva el archivo— **se
+descartó a propósito para v1**: depende de que el video sea público y de que el
+HTML de Loom no cambie. Si alguna vez se construye, tiene que **fallar diciendo
+"no se pudo, subí el archivo"** y nunca dejar el job colgado.
+
+**Qué no hace falta verificar:** nada bloquea la feature. Está anotado acá porque
+la regla 3 del `CLAUDE.md` lo pide, no porque haya una deuda técnica escondida.
+
+---
+
 ## Por qué existe este archivo
 
 Ningún dominio de documentación de API era alcanzable desde el entorno de
@@ -44,7 +74,7 @@ desarrollo remoto: la política de red los bloqueaba a todos. Verificado el
 > devuelve **`calendar_invitees[]` con email, dominio e `is_external`**, y un
 > campo **`meeting_type`** configurable por organización. Limitless descarta los dos.
 > El detalle está en
-> [`fathom/RESUMEN-LIMITLESS.md`](./external-apis/fathom/RESUMEN-LIMITLESS.md).
+> [`fathom/RESUMEN-Limitless.md`](./external-apis/fathom/RESUMEN-Limitless.md).
 
 Eso no impide construir, pero cambia **cómo** hay que construir. El patrón que se
 sigue en todas estas integraciones:
@@ -66,19 +96,19 @@ que se escribió a ciegas, y verificar contra cuentas reales.
 
 | Proveedor | Unidad | Estado del código | Documentación | Qué falta |
 |---|---|---|---|---|
-| **Whop** | I-2 | Construido a ciegas | ✅ [resumen](./external-apis/whop/RESUMEN-LIMITLESS.md) | 🔧 **Corregir el campo de monto** — ver §1 |
-| **Commas** (ex Fanbasis) | I-2 | Construido a ciegas | ✅ [resumen](./external-apis/commas/RESUMEN-LIMITLESS.md) | 🔧 Confirmar firma y payloads — ver §2 |
-| **GHL opportunities** | I-4 | Sin empezar | ✅ [resumen](./external-apis/gohighlevel/RESUMEN-LIMITLESS.md) | Construir, sabiendo que **no hay historial de etapas** |
-| **VTurb** | I-6 | Sin empezar | ✅ [resumen](./external-apis/vturb/RESUMEN-LIMITLESS.md) | Construir |
-| **WebinarJam / EverWebinar** | I-5 | Sin empezar | ✅ [resumen](./external-apis/webinarjam/RESUMEN-LIMITLESS.md) | **Pedir la API key** (requiere aprobación) y construir |
-| **Hyros** | I-8 | Sin empezar | ✅ [resumen](./external-apis/hyros/RESUMEN-LIMITLESS.md) | Construir |
+| **Whop** | I-2 | Construido a ciegas | ✅ [resumen](./external-apis/whop/RESUMEN-Limitless.md) | 🔧 **Corregir el campo de monto** — ver §1 |
+| **Commas** (ex Fanbasis) | I-2 | Construido a ciegas | ✅ [resumen](./external-apis/commas/RESUMEN-Limitless.md) | 🔧 Confirmar firma y payloads — ver §2 |
+| **GHL opportunities** | I-4 | Sin empezar | ✅ [resumen](./external-apis/gohighlevel/RESUMEN-Limitless.md) | Construir, sabiendo que **no hay historial de etapas** |
+| **VTurb** | I-6 | Sin empezar | ✅ [resumen](./external-apis/vturb/RESUMEN-Limitless.md) | Construir |
+| **WebinarJam / EverWebinar** | I-5 | Sin empezar | ✅ [resumen](./external-apis/webinarjam/RESUMEN-Limitless.md) | **Pedir la API key** (requiere aprobación) y construir |
+| **Hyros** | I-8 | Sin empezar | ✅ [resumen](./external-apis/hyros/RESUMEN-Limitless.md) | Construir |
 
 ---
 
 ## 1. Whop y Commas — unidad I-2 · ✅ CORREGIDO 2026-08-30
 
-Detalle completo en [`whop/RESUMEN-LIMITLESS.md`](./external-apis/whop/RESUMEN-LIMITLESS.md) y
-[`commas/RESUMEN-LIMITLESS.md`](./external-apis/commas/RESUMEN-LIMITLESS.md).
+Detalle completo en [`whop/RESUMEN-Limitless.md`](./external-apis/whop/RESUMEN-Limitless.md) y
+[`commas/RESUMEN-Limitless.md`](./external-apis/commas/RESUMEN-Limitless.md).
 
 **Fanbasis se llama Commas.** El rebranding cambió la marca y la documentación, no
 los hosts: el API se sigue sirviendo desde `www.fanbasis.com`, así que el id de
@@ -289,7 +319,7 @@ declara arrays pelados; el cliente acepta también un envelope (`{ players: [] }
 [`docs/external-apis/webinarjam/`](./external-apis/webinarjam/) (17 artículos).
 
 **Leer antes de arrancar I-5:**
-[`external-apis/webinarjam/RESUMEN-LIMITLESS.md`](./external-apis/webinarjam/RESUMEN-LIMITLESS.md).
+[`external-apis/webinarjam/RESUMEN-Limitless.md`](./external-apis/webinarjam/RESUMEN-Limitless.md).
 
 ### Las seis preguntas, respondidas
 
@@ -344,7 +374,7 @@ vigentes (REST v1.40, webhooks, MCP), el documento viejo de Apiary (v1.37) y las
 **482 guías** de docs.hyros.com.
 
 **Leer antes de arrancar I-8:**
-[`external-apis/hyros/RESUMEN-LIMITLESS.md`](./external-apis/hyros/RESUMEN-LIMITLESS.md).
+[`external-apis/hyros/RESUMEN-Limitless.md`](./external-apis/hyros/RESUMEN-Limitless.md).
 
 ### Las seis preguntas, respondidas
 

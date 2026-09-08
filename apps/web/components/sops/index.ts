@@ -7,3 +7,5 @@ export { SopStatusBadge } from "./sop-status-badge";
 export { SopDepartmentBadge } from "./sop-department-badge";
 export { SopsOverview } from "./sops-overview";
 export { SopsEmptyState } from "./sops-empty-state";
+export { SopVideoCreator } from "./sop-video-creator";
+export { SopContentWithAttachments } from "./sop-content-with-attachments";

@@ -1,6 +1,6 @@
 import { parseFathomInvitees, type FathomInvitee } from "@/lib/fathom/invitees";
 
-const FATHOM_API_BASE =
+export const FATHOM_API_BASE =
   process.env.FATHOM_API_BASE?.trim() ?? "https://api.fathom.ai/external/v1";
 
 /** Documentado: GET /external/v1/meetings — legacy no oficial: /v1/calls */
@@ -15,6 +15,35 @@ export class FathomApiError extends Error {
     super(message);
     this.name = "FathomApiError";
   }
+}
+
+/**
+ * ⭐ Traduce una falla de Fathom a algo que se pueda leer y actuar.
+ *
+ * El caso que más aparece —110 veces en 24 horas en producción— es el 429: los
+ * crons piden reuniones cada diez minutos y queman la cuota, así que cuando una
+ * persona aprieta "sincronizar" a mano le rebota. El mensaje crudo de la API es
+ * una URL de 600 caracteres con un cursor codificado y "Too Many Requests" al
+ * final: no le sirve a nadie.
+ *
+ * Un 429 **no es un error del usuario ni una configuración rota**, y el mensaje
+ * tiene que decirlo, porque si no la reacción natural es desconectar y volver a
+ * conectar la cuenta, que no arregla nada.
+ */
+export function mensajeDeFathom(fallo: unknown): string {
+  if (fallo instanceof FathomApiError) {
+    if (fallo.status === 429) {
+      return "Fathom está limitando los pedidos en este momento. Tus llamadas no se pierden: esperá unos minutos y probá de nuevo, o dejá que el sync automático las traiga.";
+    }
+    if (fallo.status === 401 || fallo.status === 403) {
+      return "Fathom rechazó la clave. Puede que la hayas revocado desde su panel: reconectá tu cuenta.";
+    }
+    if (fallo.status && fallo.status >= 500) {
+      return "Fathom está con problemas de su lado. Probá más tarde.";
+    }
+    return fallo.message;
+  }
+  return fallo instanceof Error ? fallo.message : "No se pudo sincronizar con Fathom.";
 }
 
 function fathomHeaders(apiKey: string): HeadersInit {
@@ -248,6 +277,18 @@ function pickString(obj: Record<string, unknown>, keys: string[]): string | unde
     if (typeof value === "number" && Number.isFinite(value)) {
       return String(value);
     }
+    // 🐛 Bug arreglado: `default_summary` de Fathom es un **objeto**
+    // (`{ markdown_formatted: "..." }`), no un string. Sin esto `pickString`
+    // devolvía undefined y **el resumen no llegaba nunca**, en silencio.
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      const nested = value as Record<string, unknown>;
+      for (const nestedKey of ["markdown_formatted", "text", "content", "summary"]) {
+        const nestedValue = nested[nestedKey];
+        if (typeof nestedValue === "string" && nestedValue.trim()) {
+          return nestedValue.trim();
+        }
+      }
+    }
   }
   return undefined;
 }
@@ -346,6 +387,12 @@ export function mapFathomMeeting(raw: unknown): FathomMeetingRecord | null {
 export type ListFathomMeetingsOptions = {
   createdAfter?: string;
   includeTranscript?: boolean;
+  /** El resumen ya escrito por Fathom. */
+  includeSummary?: boolean;
+  /** Los próximos pasos, con link al segundo exacto del video. */
+  includeActionItems?: boolean;
+  /** ⭐ De acá sale `matched_speaker_display_name`: el alias, gratis. */
+  includeCrmMatches?: boolean;
   maxPages?: number;
   /** Loguea status, headers, respuesta cruda y shape de paginación (cron/debug). */
   debug?: boolean;
@@ -370,6 +417,30 @@ export async function listFathomMeetings(
     }
     if (options.includeTranscript !== false) {
       url.searchParams.set("include_transcript", "true");
+    }
+    /**
+     * ⭐ Fathom ofrece cuatro `include_` y Limitless pedía **uno solo**, así que se
+     * estaba tirando información que ya viene sin costo extra de request:
+     *
+     * - `include_summary`      — el resumen ya escrito (⚠️ ver el bug de
+     *                            `default_summary` en `pickString`)
+     * - `include_action_items` — los próximos pasos, **con link al segundo exacto**
+     * - `include_crm_matches`  — ⭐ el vínculo entre nombre de pantalla y mail
+     *                            (`matched_speaker_display_name`), que es de
+     *                            donde el alias se aprende solo
+     *
+     * ⚠️ Ojo con el costo: pedir summary o transcript convierte el request en
+     * "pesado" (30/min, y puede bajar a 5). Por eso el camino normal es el
+     * webhook, que no gasta cuota; esto es para el poll de reconciliación.
+     */
+    if (options.includeSummary !== false) {
+      url.searchParams.set("include_summary", "true");
+    }
+    if (options.includeActionItems !== false) {
+      url.searchParams.set("include_action_items", "true");
+    }
+    if (options.includeCrmMatches !== false) {
+      url.searchParams.set("include_crm_matches", "true");
     }
 
     const { res, rawText, endpoint } = await fetchFathomListPage(

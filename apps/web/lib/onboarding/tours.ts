@@ -62,7 +62,7 @@ export const TOURS: readonly Tour[] = [
   {
     id: "marketing_content",
     path: paths.platform.marketing.content,
-    permissionId: "marketing_content",
+    permissionId: "marketing",
     steps: [
       {
         anchor: "content-tabs",
@@ -100,7 +100,7 @@ export const TOURS: readonly Tour[] = [
   {
     id: "sales_inbox",
     path: paths.platform.sales.inbox,
-    permissionId: "sales_inbox",
+    permissionId: "sales",
     steps: [
       {
         anchor: "inbox-conversations",

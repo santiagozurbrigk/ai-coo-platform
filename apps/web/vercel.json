@@ -127,6 +127,10 @@
     {
       "path": "/api/cron/capture-ad-metrics",
       "schedule": "30 5 * * *"
+    },
+    {
+      "path": "/api/cron/daily-signals",
+      "schedule": "20 7 * * *"
     }
   ]
 }

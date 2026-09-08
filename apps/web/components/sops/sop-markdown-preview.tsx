@@ -39,6 +39,35 @@ export function SopMarkdownPreview({ content }: { content: string }) {
     const line = lines[i] ?? "";
     const trimmed = line.trim();
 
+    // D · S3 — Una línea que es sólo una imagen se dibuja como imagen. Antes el
+    // markdown de una captura se mostraba como texto crudo.
+    const image = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(trimmed);
+    if (image) {
+      flushList();
+      const [, alt, src] = image;
+      // Un marcador sin resolver no es una URL: se muestra el aviso en vez de
+      // una imagen rota.
+      nodes.push(
+        src?.startsWith("sop-attachment:") ? (
+          <p
+            key={`missing-${i}`}
+            className="rounded-lg border border-warning/40 px-3 py-2 text-xs text-warning"
+          >
+            Captura no disponible{alt ? `: ${alt}` : ""}
+          </p>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={`img-${i}`}
+            src={src}
+            alt={alt ?? ""}
+            className="my-2 max-w-full rounded-lg border border-border"
+          />
+        )
+      );
+      continue;
+    }
+
     if (!trimmed) {
       flushList();
       continue;

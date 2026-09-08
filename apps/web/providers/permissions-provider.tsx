@@ -11,6 +11,7 @@ const defaultPermissions: UserPermissions = {
   isFounder: false,
   modules: emptyPermissions(),
   enabledAddOns: [],
+  hasRoleConfigured: false,
 };
 
 const PermissionsCtx = createContext<UserPermissions>(defaultPermissions);

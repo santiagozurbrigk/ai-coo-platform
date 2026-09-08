@@ -718,6 +718,486 @@ organización. Hoy dice en qué punto quedó, no si sigue viva — eso lo cubre
 
 ---
 
+## 14. C0 — Campos configurables (Wins y Checkpoints)
+
+Construido el 2026-09-02, rama `claude/checkpoints-cliente`. La lógica pura tiene
+**58 tests en verde**; lo que sigue verifica lo que los tests no pueden ver: la
+migración aplicada, RLS y la pantalla.
+
+🤖 No necesita ninguna cuenta externa.
+
+✅ **Migración aplicada el 2026-09-02** al proyecto Limitless. Los cortes de la base ya
+se verificaron ejecutándolos (en transacciones revertidas, cero filas quedaron):
+clave repetida en la misma entidad **corta**; la misma clave en la otra entidad
+**se permite**; `entity`, `field_type`, `options_source` y `currency` rechazan un
+valor fuera de vocabulario; el trigger de `updated_at` pisa una fecha vieja.
+Lo que sigue es la pasada por la pantalla, que no se hizo.
+
+| Paso | Resultado esperado |
+|---|---|
+| Entrar a **Clientes** → botón **Campos personalizados** (arriba a la derecha, junto a "Crear planes") | Dos solapas (Wins, Checkpoints), las dos vacías, y el encabezado dice "Campos personalizados" |
+| Apretar **Cargar "Tipo de win" de ejemplo** | Aparece una columna de lista con 7 opciones de colores |
+| Recargar la página | La columna sigue ahí, con el mismo orden |
+| ⭐ Renombrar la columna a "Categoría" | Cambia el nombre visible y la **clave interna sigue siendo `tipo_de_win`** — es lo que hace que renombrar no toque un dato cargado |
+| ⭐ Renombrar la opción "Facturación" a "Ingresos" | Cambia la etiqueta; el valor guardado sigue siendo `facturacion` (se ve en la base) |
+| ⭐ Intentar sacar una opción ya guardada de la lista | La app lo rechaza y ofrece archivarla |
+| Archivar una opción | Deja de aparecer en el desplegable de carga |
+| Crear una segunda columna llamada "Tipo de Win" | Se rechaza: choca con la primera (misma clave derivada) |
+| Crear una columna llamada sólo con emojis | Se rechaza pidiendo al menos una letra o un número |
+| Borrar una columna recién creada | Se borra (nadie la usó todavía) |
+| ⚠️ Borrar una columna **con datos cargados**, cuando exista `client_wins` | Se rechaza y ofrece archivar. **Hoy no se puede probar**: la tabla de valores la trae el Encargo A |
+| 🔒 Entrar con un usuario `operator` | **No ve el botón** en Clientes; entrando por la dirección directa ve la configuración sin botones de editar, y las acciones del servidor rechazan igual si se llaman a mano |
+| 🔒 Verificar RLS de `field_definitions` | Un usuario de otra organización no ve ni una fila |
+| ⚠️ Elegir `options_source = 'journey_stages'` | **No se puede desde la UI todavía, y está bien**: el catálogo de fases lo entrega C1. La columna existe en la base desde ahora |
+
+**Qué significa si falla la clave interna:** si al renombrar cambia la clave, el
+mecanismo entero se cae —los datos cargados quedarían apuntando a una columna que
+ya no existe—. Es el paso más importante de este bloque.
+
+---
+
+## 15. C1 — El recorrido del cliente (fases y checkpoints)
+
+Construido el 2026-09-03. **28 tests** sobre la lógica pura.
+
+✅ **Migración aplicada** al proyecto Limitless, y los cortes de la base verificados
+ejecutándolos en transacciones revertidas (cero filas quedaron): un color fuera
+de la paleta corta; un `sets_client_status` que no es uno de los cuatro de
+`clients.status` corta; un plazo de cero días corta; un checkpoint bajo una fase
+inexistente corta.
+
+🤖 No necesita ninguna cuenta externa. Sí necesita **al menos una columna de
+checkpoint** cargada en Campos personalizados para poder elegir métricas.
+
+| Paso | Resultado esperado |
+|---|---|
+| **Clientes → Recorrido del cliente** | Estado vacío con el botón de recorrido de ejemplo |
+| Apretar **Cargar un recorrido de ejemplo** | Tres fases: Onboarding, Primeros resultados, Escala |
+| Agregar un checkpoint a la primera fase | Aparece anidado bajo su fase |
+| Ponerle plazo `5` | Se muestra "5 d" con el reloj. El texto del formulario aclara **desde el checkpoint anterior** |
+| Ponerle "Al alcanzarlo pasa a: Activo" | Se muestra la etiqueta "→ Activo" |
+| Tildarle una métrica y marcarla obligatoria | Aparece con asterisco en la fila del checkpoint |
+| ⭐ Renombrar esa columna en **Campos personalizados** y volver | La métrica sigue enganchada y muestra el **nombre nuevo** — la referencia es por clave |
+| ⭐ Archivar esa columna y volver | La métrica queda marcada en ámbar con el aviso de que apunta a algo que ya no está disponible |
+| ⭐ Intentar **borrar una fase con checkpoints adentro** | **Se rechaza.** Si no lo hiciera, la cascada de la base borraría todos los checkpoints sin avisar |
+| Borrar una fase vacía | Se borra |
+| Subir y bajar fases y checkpoints | El orden persiste al recargar |
+| ⚠️ Borrar un checkpoint que algún cliente alcanzó | **Hoy no se puede probar**: `client_checkpoint_events` la trae C2. Reverificar entonces |
+| 🔒 Entrar con un usuario `operator` | No ve el botón en Clientes; entrando por la dirección directa ve el recorrido sin botones de editar |
+| 🔒 RLS de las dos tablas | Un usuario de otra organización no ve ni una fila |
+
+**Qué significa si falla el renombrado:** si al renombrar una columna la métrica
+del checkpoint se desengancha, el puente entre C0 y C1 está roto y hay que mirar
+`resolveMetricSchema` antes de seguir con C2.
+
+---
+
+## 16. C2 — Registrar que un cliente alcanzó un checkpoint
+
+Construido el 2026-09-03. **10 tests nuevos** sobre la lógica de progreso (683 en total).
+
+✅ **Migración aplicada** al proyecto Limitless, cortes verificados ejecutándolos en
+transacciones revertidas con un cliente fabricado y borrado (cero filas
+quedaron): el índice único corta el mismo checkpoint dos veces por cliente; otro
+checkpoint del mismo cliente se permite; un `source` inválido corta;
+`clients.current_stage_id` acepta la fase; borrar el checkpoint o el cliente se
+lleva sus eventos por cascada.
+
+🤖 Necesita **un recorrido configurado con al menos un checkpoint** (C1) y **al
+menos un cliente**.
+
+| Paso | Resultado esperado |
+|---|---|
+| Entrar a un cliente | Abajo de los pagos, la sección **"Recorrido"** con los checkpoints en orden |
+| Si el recorrido no está configurado | La sección **no aparece**: se configura en su pantalla, no desde la ficha |
+| Apretar **Registrar** en un pendiente sin métricas | Diálogo con fecha (hoy) y nota, nada más |
+| ⭐ Registrar uno que pide métricas | El formulario pide **exactamente** las métricas configuradas, con el control de cada tipo |
+| Cargar un monto ilegible ("mil") | Se rechaza con el motivo; no se guarda como cero |
+| Elegir una fecha futura | Se rechaza (el input ya la limita, y el server también) |
+| Guardar | El hito pasa a "alcanzado" con su fecha y sus números; el resumen de arriba sube |
+| ⭐ Registrar uno con "pasa a: Activo" | El **estado del cliente** cambia a Activo arriba de la ficha |
+| Marcar el tercer hito sin el primero | Se permite; el primero queda como hueco pendiente |
+| ⭐ Deshacer un registro | Pide confirmación; si movía el estado, **avisa que no vuelve solo**. El estado del cliente **no** cambia; la fase actual sí se recalcula |
+| Registrar el mismo checkpoint dos veces | La segunda vez **edita** el registro, no duplica |
+| 🔒 RLS de `client_checkpoint_events` | Un usuario de otra organización no ve ni una fila |
+
+**Qué significa si falla el estado:** si registrar un checkpoint con
+`sets_client_status` no mueve el estado del cliente, revisar `applyClientStatus`
+en `checkpoint-event-actions.ts` antes de C3, que se apoya en esto.
+
+---
+
+## 17. C3 — Clientes trabados, fase en la lista y buzón de propuestas
+
+Construido el 2026-09-03. **14 tests nuevos** sobre "trabado" (687 en total).
+
+✅ **Migración aplicada**, cortes verificados en transacciones revertidas: el
+duplicado pendiente de la misma fuente corta; otra fuente para el mismo hito se
+permite; `source = 'manual'` corta; una confianza fuera de 0–1 corta; tras
+resolver se puede volver a proponer; borrar el cliente se lleva sus propuestas.
+
+🤖 Necesita un recorrido con plazos configurados (C1) y hitos registrados (C2).
+
+| Paso | Resultado esperado |
+|---|---|
+| Entrar a **Clientes** con un recorrido configurado | Columna **"Recorrido"** con la fase actual y su color |
+| Un cliente sin ningún hito registrado | Dice **"Sin empezar"**, no "Fase 1" |
+| Un cliente con todo el recorrido hecho | "N de N", sin aviso |
+| ⭐ Registrar un hito con plazo y esperar a que venza | El cliente muestra **"trabado hace N días"** en rojo |
+| Si no hay ningún trabado | La pill **"Trabados" no aparece** |
+| Con al menos uno | Aparece **"Trabados (N)"**; al tocarla la lista deja sólo ésos |
+| ⚠️ Un cliente que compró y **nunca** registró un hito | **No** aparece como trabado. Es el límite documentado, no un bug |
+| Sin recorrido configurado | La columna **no aparece** |
+| 🔒 RLS de `client_checkpoint_proposals` | Un usuario de otra organización no ve ni una fila |
+
+**Del buzón de propuestas** (necesita que E o B lo alimenten, o un insert a mano):
+
+| Paso | Resultado esperado |
+|---|---|
+| Insertar una propuesta a mano en la tabla | Aparece en la ficha del cliente, arriba del recorrido, con quién propone y por qué |
+| ⭐ Aceptar | Se crea el evento real, con las **mismas validaciones** que el registro manual, y el estado del cliente se mueve si el hito lo declara |
+| Descartar | No crea nada; la propuesta desaparece del buzón y queda como historial |
+| Insertar dos veces la misma propuesta pendiente | La segunda no entra (índice parcial) |
+| Proponer un hito **ya registrado** | No se crea la propuesta |
+
+**Qué significa si falla el aceptar:** si aceptar una propuesta creara el evento
+salteando validaciones, el buzón sería una puerta trasera al registro. Revisar que
+`acceptCheckpointProposalAction` siga llamando a `recordCheckpointAction`.
+
+---
+
+## 18. A · WINS — tracker de logros y dashboard de casos
+
+Construido el 2026-09-03. **14 tests nuevos** sobre `derive-case` (701 en total).
+
+✅ **Migración aplicada**, cortes verificados en transacciones revertidas:
+`source` inválido corta; canal de uso fuera del vocabulario corta; un adjunto sin
+win y sin draft corta; `storage_path` duplicado corta; borrar el win se lleva usos
+y adjuntos; el bucket `client-wins` quedó **privado**.
+
+🤖 Conviene tener al menos una columna de win cargada en Campos personalizados (C0).
+
+**El tracker:**
+
+| Paso | Resultado esperado |
+|---|---|
+| **Clientes → Wins** | Solapas Tracker y Dashboard; el tracker vacío explica para qué sirve el número |
+| Cargar un win sin número | Entra; la columna Medida muestra un guion |
+| ⭐ Cargar la medida a medias (clave sin número) | **Se rechaza** pidiendo las dos o ninguna |
+| Cargar un número ilegible ("mil") | **Se rechaza** con el motivo |
+| ⭐ Las columnas de C0 aparecen como columnas del tracker | Con sus opciones y colores |
+| 🔴 **Subir una captura** | Sube, se ve en miniatura por signed URL. **Nunca se probó** |
+| 🔴 Borrar el win con captura | Se borra la fila **y el archivo del bucket** |
+| Agregar "se usó en" (Landing, VSL…) | Cada uso es un chip; se quita tocándolo |
+
+**El dashboard:**
+
+| Paso | Resultado esperado |
+|---|---|
+| Un cliente con **dos wins** con la misma clave y unidad | Punto inicial → final, la diferencia con su porcentaje, y el plazo en días |
+| ⭐ Un cliente con **un solo** número | "Sin medir · Hay un solo número: falta otro para comparar" |
+| ⭐ Un cliente **sin** números | "Sin medir · Ningún win de este cliente tiene un número cargado" |
+| ⭐ Dos wins con **unidades distintas** (USD y ARS) | "Sin medir · unidades distintas". **No los resta** |
+| Dos números del **mismo día** | "Sin medir · no hay plazo que medir" |
+| Un cliente que **bajó** una métrica | La diferencia se muestra negativa, en rojo, no se esconde |
+| Cargar el baseline del cliente (hoy por base) | El punto inicial pasa a ser el baseline |
+| ⚠️ Nicho y baseline | **No tienen UI**: se cargan por base. Ver pendiente `[A-BASELINE-SIN-UI]` |
+
+**Qué significa si falla "sin medir":** si el dashboard mostrara un número donde
+debería decir "sin medir", estaría inventando el dato más importante del módulo.
+Es el paso que más importa de este bloque.
+
+---
+
+## 19. D · SOPS-VIDEO — un SOP escrito desde un Loom
+
+Construido el 2026-09-04. **25 tests nuevos** de lógica pura (748 en total).
+
+✅ **Migración aplicada**, cortes verificados en transacción revertida: un
+`status` fuera del vocabulario corta; un job sin `video_path` corta; ⭐ la
+transcripción **se conserva** cuando el job pasa a `failed`; realtime habilitado;
+bucket `sop-videos` privado con cero policies que lo nombren.
+
+🔴 **Nada del flujo se ejecutó nunca.** Este bloque es el más importante de todos
+los que quedan: es el único encargo donde lo no verificado es la mayor parte.
+
+🔑 Necesita `OPENAI_API_KEY`, `QSTASH_TOKEN` y `NEXT_PUBLIC_APP_URL`.
+
+| Paso | Resultado esperado |
+|---|---|
+| **Operaciones → SOPs → Crear → "Desde un video"** | El selector de archivo y los tres campos opcionales |
+| Subir un mp4 corto (2-3 min) | Barra de progreso; al terminar, el estado pasa a "En cola…" |
+| ⚠️ **Mirar los logs del worker** | Es donde va a fallar si ffmpeg no está disponible en la lambda. **El riesgo #1** |
+| Esperar | El estado pasa solo a "Transcribiendo…" y después a "Escribiendo el SOP…" sin apretar F5 |
+| Cuando termina | El markdown aparece cargado en el editor del creador |
+| ⭐ Leer el SOP contra el video | **No tiene que haber pasos que no se dijeron.** Es la regla principal del prompt y la única forma de evaluarla es leyendo |
+| ⭐ Mirar "Lo que el video no aclara" | Tiene que listar los huecos reales. Si viene vacío en un video incompleto, el prompt no está funcionando |
+| Cortar el video a mitad de una frase y subirlo | La transcripción no tiene que repetir palabras en el empalme |
+| ⭐ Forzar un fallo de generación y reintentar | **No vuelve a transcribir**: la transcripción quedó guardada. Es lo que evita pagar Whisper dos veces |
+| Subir un video de más de 25 MB de audio (~1 h) | Se parte en varios pedidos y la transcripción sale completa |
+| 💰 Mirar `token_usage` después de transcribir | ⭐ Tiene que haber una fila con `model = 'whisper-1'` y el costo. **Antes no se registraba nada** |
+| Con capturas: subir 2-3 imágenes al SOP | Aparecen dentro de los pasos, no al final |
+| ⭐ Volver al SOP **una semana después** | Las capturas **siguen viéndose**. Es la prueba de que se guardó el marcador y no la URL firmada |
+| Ver un SOP cuyo adjunto se borró | Dice "Captura no disponible", no una imagen rota |
+
+**Qué significa si falla lo de la semana:** si las capturas dejan de verse, en
+algún lado se guardó la URL firmada en vez del marcador, y hay que revisar
+`validateAttachmentMarkers` y el visor antes de que se llene de SOPs rotos.
+
+---
+
+## 20. B · LLAMADAS — keys por miembro, contraparte e identidades
+
+Construido el 2026-09-04. **27 tests nuevos** de lógica pura (775 en total).
+
+✅ **Migración aplicada**, cortes verificados: `encrypted_api_key` **ahora existe**
+(era el bug que impedía conectar a cualquier miembro); el mismo valor apuntando a
+dos personas corta; una identidad con cliente **y** lead corta; una sin dueño
+corta; un `status` inválido corta; la policy de privacidad quedó instalada.
+
+🔑 **Necesita una cuenta real de Fathom.** Es el encargo con más superficie sin
+verificar: todo el mapeo se hizo leyendo el plan.
+
+| Paso | Resultado esperado |
+|---|---|
+| Un miembro conecta su key en Integraciones | Se valida antes de guardar; el panel lo muestra conectado |
+| ⭐ Mirar el mail deducido de la cuenta | Se le **muestra para confirmar**, no se asume. Si sale mal, todas sus llamadas quedarían atribuidas a otro |
+| 🔒 Conectar **sin** `ENCRYPTION_MASTER_KEY` | **Falla con el motivo y no guarda nada.** Antes guardaba la key **en texto plano** diciendo "conectado" |
+| Mirar Fathom → Settings → Webhooks | Apareció un webhook que **Limitless creó solo**. El miembro no configuró nada |
+| ⚠️ Grabar una llamada | Llega sola, sin apretar sincronizar. **Si no llega, mirar la firma**: es el riesgo #1 |
+| ⭐ Dos miembros en la **misma** llamada | Llega **una sola fila**, no dos (`triggered_for`) |
+| Mirar `fathom_calls.user_id` | Dice quién grabó cada una |
+| 🔒 ⭐ Una llamada **sin vincular** a un cliente | La ve **sólo quien la grabó**. Otro miembro no la ve |
+| 🔒 Vincularla a un cliente | Ahora **sí** la ve toda la organización |
+| Revocar la key en Fathom | La fila pasa a **"revocada"** y avisa. **Nunca dejar de recibir en silencio** |
+| Desconectarse | El webhook **desaparece** de la cuenta de Fathom de esa persona |
+| ⭐ Mirar el resumen de una llamada | **Llega.** Antes `default_summary` era un objeto y `pickString` devolvía null, así que el resumen **no llegaba nunca** |
+| ⭐ Mirar `resolution_method` de cada llamada | Dice por qué peldaño se resolvió. Es lo que después dice **dónde invertir** |
+| ⚠️ Sembrar `client_identities` y volver a mirar | Muchas más llamadas se resuelven solas. **Sin la siembra el módulo arranca flojo** — ver pendiente |
+
+**Qué significa si falla la firma:** no llega ninguna llamada y el panel muestra
+"firma inválida" en la fila del miembro. Hay que mirar cómo firma Fathom de verdad
+y ajustar `verifySignature` en la ruta del token.
+
+---
+
+## 21. Las cinco piezas de los Excel y la revisión semanal
+
+**Estado:** construido, con la base migrada y los cortes probados en una
+transacción revertida. **Nada probado con una sesión real** — las capturas se
+sacaron con el middleware puenteado y datos inventados.
+
+**Dónde:** `/clients/wins` (tracker y dashboard), `/clients/revision`.
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| Abrir `/clients/wins` con clientes reales | El tracker abre con las pills contando: **Sin usar (n)**, Reservadas, Usadas, Sin permiso, Falta captura |
+| ⚠️ Mirar la columna **Permiso** de los wins ya cargados | Todos dicen **"Sin preguntar"** y el motivo. Es correcto: nadie dio permiso todavía |
+| ⭐ Editar un win, elegir **Autorizado** y guardar sin elegir cómo aparece | **Rechaza** con "Si el cliente autorizó, elegí cómo quiere aparecer". Un permiso a medias no se guarda |
+| Elegir **Nombre, sin los números** y guardar | Guarda. La columna muestra "Autorizado" y debajo la forma elegida |
+| Ir al **Dashboard** y tocar **Con permiso (n)** | Deja sólo los clientes con al menos un win autorizado |
+| ⭐ Marcar un win como **Reservada** y guardar | Queda "Reservada". Cargarle un uso lo pasa a **"Usada"** solo, sin tocar nada más |
+| Marcar **Falta sacar la captura** | Aparece el aviso ámbar en la columna Estado y el win entra en el filtro "Falta captura" |
+| Abrir la **ficha del cliente** (lápiz del dashboard) y cargar objetivo con clave y número | La tarjeta muestra **Punto inicial → Punto final → Objetivo** |
+| ⭐ Cargar el objetivo con **otra clave** que la del recorrido | El objetivo **no** se muestra. Comparar dos medidas distintas sería inventar el dato |
+| Cargar la clave del objetivo **sin** el número | **Rechaza**: "La métrica objetivo necesita la clave y el número, o ninguno" |
+| Cargar una **fecha de egreso** dentro de los próximos 2 meses | El cliente aparece en "¿Quién está cerca del egreso?" de la revisión semanal |
+| Abrir `/clients/revision` | Cuatro secciones con nombres. Las vacías dicen **por qué** están vacías, no se esconden |
+| ⭐ Mirar "¿Quién no se movió?" | Coincide con los trabados de C3. Un cliente **sin plazo cargado** no aparece: no se puede saber |
+| ⭐ Mirar "¿Quién está en riesgo?" | Sólo clientes con **dos señales** o más. Un trabado a secas **no** está acá |
+| Anotar algo en la fila de un cliente y guardar | Aparece "anotado el <fecha>". El mismo texto se ve en cualquier otra sección donde ese cliente figure |
+| Borrar la anotación y guardar | Se borra el texto **y la fecha**: un "cuándo" sin "qué" no dice nada |
+| ⚠️ Mirar el acceso: barra superior → **SOPs** | Aparece **sin** activar el add-on `operaciones`. El resto del grupo Operaciones sigue oculto |
+
+**Qué significa si algo no aparece:** las cuatro listas están hechas para no
+inventar señales. Un cliente que esperabas ver y no está casi siempre es un dato
+que falta —el plazo de su próximo hito, su fecha de egreso, la medida de sus
+wins— y no un error de la pantalla.
+## 14. Seguimiento en tabla, con valores propios (2026-09-03)
+
+Construido sin poder abrirlo en un navegador: la sesión no tiene la app corriendo
+ni cobertura de Playwright en esta pantalla. Todo lo de acá es 🤖 —no hace falta
+ninguna cuenta externa—, pero **nada se vio renderizado**.
+
+**La migración `20260903120000_sales_follow_up_options.sql` ya está aplicada**
+(2026-09-03, verificada: tabla con RLS, 0 CHECK restantes en `closing_calls`,
+1.139 turnos intactos).
+
+### 14.1 La tabla reemplaza al acordeón
+
+| Paso | Resultado esperado |
+|---|---|
+| Entrar a **Ventas → Closing → Seguimiento** | Una tabla con nueve columnas, no las tarjetas desplegables |
+| Mirar el pill **Pendientes** | El número tiene que coincidir con lo que mostraba el panel anterior |
+| ⭐ Pasar a **Todos** | Aparecen también los ganados, perdidos y agendados — los 964 leads que antes no se veían en ninguna pantalla |
+| Buscar por nombre y por mail | Filtra sobre el total, no sobre la página |
+| Pasar de página | La numeración dice `51–100 de N` y las filas cambian |
+
+### 14.2 Editar en la celda
+
+| Paso | Resultado esperado |
+|---|---|
+| Elegir un **próximo paso** en una fila | Se guarda solo, sin botón. La columna **Estado** cambia en el acto |
+| ⭐ Recargar la página | El cambio sigue ahí: el guardado optimista no mintió |
+| Cambiar la **fecha** | El estado pasa de "Seguimiento vencido" a "Seguimiento agendado" al ponerla a futuro |
+| Elegir **Dar por perdido** | La celda de fecha queda deshabilitada y el estado pasa a "Perdido" |
+| ⭐ Cambiar el próximo paso de una fila que ya tenía nota y responsable | La nota y el responsable **no se borran** |
+| Asignar un **responsable** | Es la primera vez que `next_action_owner_id` se puede cargar desde la UI; verificar en la base que la columna se llenó |
+| Escribir una **nota** y hacer click afuera | Se guarda; con Escape vuelve al valor anterior |
+| Click en el nombre del lead | Se abre el panel lateral con el hilo de intentos completo |
+
+### 14.3 Valores propios ⭐
+
+| Paso | Resultado esperado |
+|---|---|
+| Abrir el selector de próximo paso → **Crear valor…** | Formulario con nombre, color y comportamiento |
+| Crear uno con **Necesita fecha** (ej. "Esperando pago") | Queda seleccionado en esa fila y disponible en todas las demás |
+| ⭐ Crear uno con **Cierra el hilo** (ej. "Derivado a socio") y elegirlo | El estado pasa a "Perdido" y la fecha queda deshabilitada — se comporta igual que `lost` |
+| Crear una **calificación** propia | No pide comportamiento: las calificaciones sólo describen |
+| Intentar crear uno con un nombre que ya existe | Lo rechaza con "Ya existe un valor con ese nombre" |
+| Abrir **Valores** en la barra | Los de fábrica se ven con un candado; los propios se renombran, recolorean y archivan |
+| ⭐ Archivar un valor que **está en uso** | Desaparece del selector, pero las filas que lo tenían lo siguen mostrando tachado. **El dato no se blanquea** |
+| 🔒 Verificar RLS de `sales_follow_up_options` | Un usuario de otra organización no ve ni crea valores ajenos |
+
+### 14.5 Cargar el seguimiento al marcar el resultado ⭐
+
+| Paso | Resultado esperado |
+|---|---|
+| Abrir una llamada agendada → **Marcar como no cerrada** | El modal pide motivo, notas **y** el bloque de seguimiento (calificación, próximo paso, fecha, responsable, nota) |
+| Guardar con un próximo paso cargado | Toast "Resultado y seguimiento guardados". En la pestaña Seguimiento la fila ya aparece con ese próximo paso y su fecha |
+| ⭐ Guardar **sin** próximo paso | El modal avisa antes que el lead queda como "Sin próximo paso", y así aparece en la tabla. No lo bloquea |
+| **Marcar como no show** | Abre el mismo modal, **sin** selector de motivo, con el mismo bloque de seguimiento |
+| Elegir un próximo paso que pide fecha y borrar la fecha | No deja guardar: "El próximo paso necesita una fecha" |
+| Crear un valor propio desde el modal | Queda seleccionado y disponible después en la tabla |
+| Abrir una llamada en estado **"Asistió — sin resultado"** | ⭐ Tiene los tres botones de resultado. Antes no los tenía: la UI comparaba contra `scheduled` a mano |
+| Reabrir el modal con otra llamada | Todos los campos en blanco — no arrastra lo de la llamada anterior |
+
+### 14.4 Lo que puede fallar
+
+- ⚠️ **El techo de 2.000 leads.** El estado se deriva en JS, no en SQL, así que la
+  tabla se resuelve en memoria. Pasado ese número aparece el aviso y **hay leads
+  que no entran en la vista**. Hoy son 964: sobra, con menos margen del esperado. El día que no sobre, hay que
+  derivar el estado en la base.
+- ⚠️ **Fecha por defecto.** Elegir un próximo paso que pide fecha y no la tiene la
+  pone en **pasado mañana** en vez de pedirla. Es deliberado —sin fecha el lead se
+  pierde en silencio— pero hay que confirmar que se entiende al usarlo.
+- ⚠️ **Sin cobertura de Playwright.** La lógica pura tiene 37 tests; la pantalla,
+  ninguno.
+
+---
+
+## 22. Los cuatro cables — el buzón de propuestas
+
+**Estado:** construido y con el filtro probado. **La migración de las marcas está
+sin aplicar** y **el matcher nunca corrió contra la API real**.
+
+**Dónde:** cron `/api/cron/daily-signals` · Wins → solapa **Candidatos** · ficha
+del cliente, sección del recorrido.
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| 🔴 Aplicar `20260904110000_checkpoint_proposal_sources.sql` | Sin esto los dos pasos de propuestas fallan. Es lo primero |
+| Correr el cron a mano con `?organizationId=<uuid>` | Devuelve los tres pasos con sus números, o el error de cada uno por separado |
+| ⚠️ Mirar `clasificacion.vacios` en la respuesta | Si es alto, **el intent MESSAGE CONTENT del bot no está activado**: los mensajes llegan en blanco |
+| ⭐ Sin recorrido configurado, correr el cron igual | Los pasos de propuestas devuelven cero **sin llamar a la IA**: sin catálogo no hay contra qué comparar |
+| Correrlo dos veces seguidas | La segunda no vuelve a evaluar lo mismo. Si lo hace, la marca `checkpoint_checked_at` no se está escribiendo |
+| ⭐ Mirar las propuestas que aparecen en la ficha del cliente | Cada una dice de dónde salió y por qué. Ninguna registró el hito sola |
+| ⭐ Aceptar una propuesta | Crea el evento por el mismo camino que el registro manual, con las mismas validaciones |
+| Proponer un hito **ya registrado** | No se propone: no hay nada que decidir |
+| Correr el cron dos días seguidos con la misma propuesta pendiente | No se duplica |
+| ⭐ **Contar aceptadas contra descartadas** en la primera semana | Es la única medida real de calidad. Más de la mitad descartadas → subir `MIN_MATCH_CONFIDENCE` |
+| Wins → **Candidatos** | Están los testimonios de todos los clientes, con el mensaje textual |
+| Convertir un candidato | Crea el win con el mensaje como origen y desaparece de la lista |
+| "No es un testimonio" | Desaparece de la lista **y** deja de estar resaltado en la ficha del cliente |
+
+**Qué significa si no aparece ninguna propuesta:** lo más probable es que no haya
+mensajes (el bot no está desplegado) o que no haya recorrido configurado. El
+tercer motivo es que el umbral de confianza esté cortando todo, y eso se ve
+corriendo el cron y mirando `propuestos` contra `evaluados`.
+
+---
+
+## Permisos por módulo y el bloqueo del servidor — 2026-09-06
+
+**Por qué no se verificó acá:** hace falta una segunda cuenta con un rol
+limitado, y en esta sesión sólo hay la del fundador (que pasa siempre por
+diseño).
+
+**Estado:** la migración **ya está aplicada y verificada** contra la base real
+(63 roles, cero claves viejas, reparto idéntico al ensayo de sólo lectura). Lo
+que queda por probar es lo que ninguna consulta puede probar: que una persona con
+un rol limitado vea lo que tiene que ver.
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| 🔴 Abrir Equipo → Roles con un rol creado **antes** de hoy | Los permisos siguen ahí, agrupados en 13 módulos. La consulta dice que están; esto confirma que la pantalla los muestra |
+| Crear un rol con Finanzas en "Sin acceso" y asignarlo a alguien | En su sesión, Finanzas no aparece en la navegación |
+| 🔒 ⭐ Con esa sesión, **tipear `/finance` en la barra del navegador** | Sale "No tenés acceso a Finanzas". Antes de este cambio entraba y veía la facturación entera |
+| 🔒 Probar también `/finance/expenses` y `/team/roles` | Las subrutas heredan el bloqueo del módulo padre |
+| ⭐ Invitar a alguien **sin asignarle rol** y entrar con esa cuenta | **Puede navegar**. El bloqueo no corre sin rol cargado: tratar "sin rol" como "sin acceso a nada" dejaría la cuenta inutilizable |
+| Con el mismo rol limitado, entrar a `/onboarding` | Entra: las rutas previas al rol quedan libres a propósito |
+| 🔒 Invocar una Server Action de Finanzas desde esa sesión (consola del navegador) | ⚠️ **Hoy responde.** El bloqueo cubre el render, no las actions — está anotado en `PENDIENTES.md` |
+
+---
+
+## Notas del cliente y comprobante opcional — 2026-09-06
+
+**Estado:** las dos migraciones **ya están aplicadas**. Las columnas existen y
+`storage_path` acepta null.
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| 🔴 Escribir una nota en la ficha de un cliente y guardar | Aparece "última edición" con la fecha de hoy. Es el primer paso que prueba que la Server Action escribe de verdad |
+| Recargar la pantalla | La nota sigue ahí |
+| ⭐ Anotar un estado en la **revisión semanal** del mismo cliente | La nota libre **no se pisa**: son dos campos distintos, y ese es el punto de haberlos separado |
+| 🔴 Registrar un cobro **sin adjuntar comprobante** | Se guarda |
+| Mirar la lista de pagos | El cobro dice "Sin comprobante" |
+| ⭐ Registrar un cobro y quedarse en la pantalla | El monto aparece **sin recargar**. Si hay que recargar, `refreshClientPayments` no se está llamando |
+
+---
+
+## Volver atrás en todas las pantallas — 2026-09-06
+
+**Cubierto por tests** (el test recorre las rutas en disco), pero la vuelta que
+*tiene sentido* no la decide un test.
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| Recorrer las pantallas hondas: detalle de cliente, SOP, embudo, reporte ejecutivo | Todas tienen la vuelta arriba del título, y lleva al lugar del que se vino |
+| ⭐ Fijarse si alguna vuelta lleva a una pantalla que no sirve | El test garantiza que existe y que no apunta a sí misma; que sea *la correcta* es criterio |
+
+---
+
+## Bajas del super admin — 2026-09-06
+
+**Por qué no se verificó acá:** el borrado de la cuenta de login y el barrido de
+Storage necesitan la service role key, que no está en este entorno. Lo que sí
+está verificado contra la base real es el cascade (medido en una transacción
+revertida) y la forma de las rutas de Storage.
+
+**Hacelo sobre una organización descartable**, no sobre una real. Hay varias de
+prueba dando vueltas.
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| 🔴 Abrir el diálogo de baja de una organización con datos | Muestra cuántas personas, clientes y archivos antes de habilitar nada. Si los números salen en cero teniendo datos, el conteo no está leyendo bien |
+| 🔒 ⭐ Escribir el nombre **mal** y mirar el botón | Sigue deshabilitado. Es la única fricción que tiene una acción sin deshacer |
+| 🔒 Invocar `deleteOrganizationAction` con una confirmación incorrecta (consola) | Falla igual. La barrera está en el servidor, no sólo en el diálogo |
+| 🔴 ⭐ Dar de baja la organización de prueba y **después intentar entrar con el email de su founder** | **No entra.** Este es el paso que define si la baja es de verdad: antes de este cambio, entraba |
+| 🔴 Buscar los archivos de esa organización en Storage | No quedan. Mirar los buckets de comprobantes y adjuntos, que son los que tienen contenido sensible |
+| ⭐ Consultar `super_admin_deletions` | Hay una fila con quién la ejecutó, qué se llevó y los problemas si hubo. Si `problemas` no está vacío, la baja quedó a medias y ahí dice qué falta |
+| 🔒 Intentar borrar tu propia organización | Bloqueado, con el motivo escrito. Probar también invocando la action directo |
+| ⭐ Dar de baja un **holding con negocios** | Avisa que los negocios NO se borran. Después de la baja, los negocios siguen existiendo como organizaciones sueltas |
+| Dar de baja al único founder de una organización | Avisa que la deja sin dueño, pero deja hacerlo |
+| ⭐ Cortar internet a mitad de la baja (o probar con un bucket sin permisos) | El diálogo dice "la baja quedó a medias" y enumera qué quedó. **No dice "listo"** |
+
+**Qué significa si el founder todavía puede entrar:** el borrado de `auth.users`
+falló y el problema tendría que estar listado en el diálogo y en el registro. Si
+entró **sin** que apareciera ningún problema, hay un bug en el reporte, que es
+peor que el fallo.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

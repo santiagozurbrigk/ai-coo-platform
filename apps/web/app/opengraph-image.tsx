@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { brand, brandColors } from "@/lib/brand";
 
@@ -10,16 +8,30 @@ export const contentType = "image/png";
 /**
  * Preview social (Open Graph / Twitter). Se prerenderiza en build.
  *
+ * ⭐ El logo se lee con `new URL(..., import.meta.url)` y **no** desde
+ * `public/`. Antes se leía del disco con `process.cwd()`, y eso anda en
+ * desarrollo pero no en producción: `public/` no viaja dentro de la función
+ * serverless, así que la ruta reventaba con "no such file or directory" y las
+ * vistas previas de los links compartidos quedaban rotas. Con `import.meta.url`
+ * el empaquetador incluye el archivo en el bundle.
+ *
  * El lockup se embebe como data URI porque Satori no resuelve rutas de /public.
  * El texto va en la tipografía por defecto del renderer: Satori no soporta WOFF2
  * y las fuentes de `next/font` se sirven en ese formato, así que la carga de
  * marca la aporta el logotipo, que ya trae el wordmark real.
  */
-export default function OpengraphImage() {
-  const logo = readFileSync(
-    join(process.cwd(), "public", "brand", "logo-dark.png")
-  );
-  const logoSrc = `data:image/png;base64,${logo.toString("base64")}`;
+export default async function OpengraphImage() {
+  // Si por lo que sea el logo no está, la preview sale sin él. Una imagen sin
+  // logotipo es mejor que un 500 que deja el link sin ninguna preview.
+  let logoSrc: string | null = null;
+  try {
+    const logo = await fetch(new URL("./opengraph-logo.png", import.meta.url)).then(
+      (respuesta) => respuesta.arrayBuffer()
+    );
+    logoSrc = `data:image/png;base64,${Buffer.from(logo).toString("base64")}`;
+  } catch {
+    logoSrc = null;
+  }
 
   return new ImageResponse(
     (
@@ -45,8 +57,14 @@ export default function OpengraphImage() {
         />
 
         <div style={{ display: "flex", flexDirection: "column" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- Satori solo acepta <img> */}
-          <img src={logoSrc} alt={brand.name} width={520} height={62} />
+          {logoSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element -- Satori solo acepta <img>
+            <img src={logoSrc} alt={brand.name} width={520} height={62} />
+          ) : (
+            <div style={{ display: "flex", fontSize: 64, color: brandColors.white }}>
+              {brand.name}
+            </div>
+          )}
           <div
             style={{
               display: "flex",
