@@ -1,7 +1,8 @@
-export { CalendlyManualSyncNotice } from "./calendly-manual-sync-notice";
-export { GHLConnectDialog } from "./ghl-connect-dialog";
-export { ManyChatConnectDialog } from "./manychat-connect-dialog";
-export { ManyChatWebhookNotice } from "./manychat-webhook-notice";
-export { IntegrationCard } from "./integration-card";
+export { IntegrationsBoard } from "./integrations-board";
 export { IntegrationLogo } from "./integration-logo";
-export { IntegrationGrid } from "./integration-grid";
+export {
+  IntegrationStateBadge,
+  IntegrationStateDot,
+} from "./integration-state-badge";
+export { CalendlyManualSyncNotice } from "./calendly-manual-sync-notice";
+export { ManyChatWebhookNotice } from "./manychat-webhook-notice";

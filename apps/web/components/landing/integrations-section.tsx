@@ -14,13 +14,13 @@ const MAIN_INTEGRATIONS: { name: string; slug: IntegrationProvider }[] = [
   { name: "ManyChat", slug: "manychat" },
   { name: "Typeform", slug: "typeform" },
   { name: "YouTube", slug: "youtube" },
-  { name: "Google Docs", slug: "google_docs" },
+  { name: "Zernio", slug: "zernio" },
 ];
 
 const CENTERED_INTEGRATIONS: { name: string; slug: IntegrationProvider }[] = [
   { name: "WhatsApp", slug: "unipile_whatsapp" },
   { name: "Google Forms", slug: "google_forms" },
-  { name: "Google Sheets", slug: "google_sheets" },
+  { name: "GoHighLevel", slug: "ghl" },
 ];
 
 function IntegrationLogo({

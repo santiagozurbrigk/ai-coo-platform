@@ -14,6 +14,125 @@
 
 ---
 
+### 2026-09-08 — Integraciones: un registro, un contrato y una sola pantalla
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/integrations/{registry,health,brand-colors}.ts` (registry y health nuevos), `app/integrations/actions.ts`, `app/(platform)/integrations/page.tsx`, `components/integrations/*` (rediseño completo), `constants/integrations.ts`, `lib/auth/bootstrap.ts`, `docs/INTEGRACIONES_MAPA.md` (nuevo)
+
+**Qué se hizo:**
+
+Reconstrucción del módulo de Integraciones, de atrás para adelante: primero el
+mapeo de los flujos de datos, después el backend, y recién al final la interfaz.
+
+**⭐ El catálogo era un mock.** `mocks/integrations.ts` era la fuente de verdad de
+qué integraciones existen, y mezclaba las reales con filas inventadas —Notion
+"sincronizando, 318 registros", Airtable "conectado, 890 registros"— que estaban
+ocultas por un flag pero seguían en el arreglo. Alrededor de ese mock había otras
+tres fuentes que decidían lo mismo y podían discrepar: `INTEGRATION_GROUPS`,
+`INTEGRATION_DESCRIPTIONS` y **dos `Set` hardcodeados** (`REAL_PROVIDERS` y
+`HIDDEN_INTEGRATION_PROVIDERS`) que se solapaban entre sí y con el flag `hidden`.
+Agregar una integración obligaba a tocar los cuatro lugares, y olvidarse de uno la
+dejaba a medias **sin que nada fallara**.
+
+Ahora hay un registro único, `lib/integrations/registry.ts`, donde cada integración
+declara su categoría, su autenticación, **qué datos mueve, en qué dirección y por
+qué mecanismo**, y qué módulo de OTC se rompe sin ella. Los tests fallan si un
+proveedor declarado no tiene entrada, o si una integración oculta no explica por qué
+lo está.
+
+**⭐ El estado `error` del badge nunca se producía.** El badge declaraba cuatro
+estados; la acción sólo devolvía `connected` y `not_connected`. Mientras tanto,
+`vturb_integrations`, `hyros_integrations` y `webinarjam_integrations` guardaban un
+`last_error` que **sólo se veía si abrías el panel de ese proveedor**, al final de la
+página. El contrato nuevo (`lib/integrations/health.ts`) tiene cinco estados y todos
+son alcanzables, con `attention` —conectada, trayendo datos, pero con algo que hace
+que una medida salga mal— que es el que faltaba y el que más importa.
+
+Las incidencias que muestra son **todas estado real leído de la base**: el último
+error del proveedor, los videos de VTurb sin pitch time, los webinars sin el segundo
+de la oferta, los eventos de pago que no se supieron interpretar, el secreto de
+webhook de GHL que falta, los calendarios sin seleccionar. Cada una dice qué pasa y
+qué hacer.
+
+**⭐ Cinco de las catorce integraciones no tenían tarjeta.** VTurb, WebinarJam,
+Hyros, Whop y Commas vivían en paneles apilados debajo del grid, cada uno con su
+propio diseño y su propia forma de estado. La pantalla eran dos superficies
+distintas pegadas una debajo de la otra, más un bloque de assets de video que no es
+una integración. Ahora las catorce usan la misma tarjeta y el mismo detalle.
+
+**⭐ Había un flujo de conexión simulado corriendo en producción.** Cualquier
+proveedor sin flujo real caía en un `setTimeout` de 1200 ms que ponía la tarjeta en
+"Conectado" sin conectar nada, con un diálogo que decía "Flujo simulado". Se
+eliminó.
+
+**Rendimiento: ~30 resoluciones de organización pasaron a una.**
+`requireOrganizationId()` hace un `auth.getUser()` contra Supabase Auth más una
+lectura de `profiles` —y en cuentas holding, una verificación extra del negocio
+activo— en **cada** llamada. La página de Integraciones la invocaba una vez por
+acción y por conteo: catorce estados, siete conteos y nueve acciones de página, todas
+resolviendo lo mismo. Ahora está memoizada por request con `cache()` de React. El
+alcance es el request, así que un cambio de negocio activo sigue resolviendo de cero.
+
+**Correcciones contra la documentación capturada:**
+
+- **El secreto de Whop empieza con `ws_`, no con `whsec_`.** La ayuda del formulario
+  decía lo segundo. La doc es explícita: se pasa tal cual, sin sacarle el prefijo.
+- **Fanbasis se llama Commas**, y su documentación vigente está en `commasdocs.com`.
+  La pantalla apuntaba a `apidocs.fan`, que es la vieja.
+- **YouTube conectado no implica Google conectado.** La acción daba el Ecosistema
+  Google por conectado cuando lo único conectado era un canal cargado con su propia
+  API key: Drive y Forms aparecían disponibles sin que nadie hubiera aceptado ningún
+  permiso.
+- El mapeo de pagos de `lib/payments/normalize.ts` **ya estaba corregido** contra
+  ambos resúmenes (`settlement_amount`, centavos por proveedor, eventos literales):
+  el pendiente `[EMBUDOS-PAGOS-CORREGIR]` estaba desactualizado y se cerró.
+
+**Decisiones de diseño relevantes:**
+
+- **No se deriva ninguna alarma de la antigüedad de `last_sync_at`.** Es el cambio
+  que más se resistió: parecía obvio marcar en rojo lo que no sincroniza hace días.
+  Pero varios syncs sólo escriben ese campo cuando ingestaron algo —Fathom lo hace
+  explícitamente— así que una fecha vieja puede ser una semana tranquila. Una alarma
+  ahí sería un número plausible y equivocado, justo lo que el resto del sistema
+  evita. La pantalla dice "últimos datos recibidos", que es lo que el campo significa.
+- **El detalle es una vista, no un modal.** Varios formularios de configuración
+  abren diálogos propios (Fathom, ManyChat, Zernio, GHL, YouTube, Google, ClickUp);
+  anidarlos daría problemas de foco. Además el contenido —flujos de datos,
+  incidencias, secretos que hay que copiar— no entra cómodo en un diálogo.
+- **La tarjeta entera es un botón y no tiene acciones propias.** Antes tenía hasta
+  tres botones cuyo significado cambiaba según el proveedor: "Gestionar" sincronizaba
+  en Calendly, abría un sheet en ManyChat y navegaba a otra página en Discord.
+  Conectar desde la tarjeta también obligaba a decidir a ciegas: el botón mandaba
+  directo a OAuth sin decir qué permisos pedía ni qué alimentaba.
+- **Los proveedores sin logo se dibujan con su inicial.** VTurb, WebinarJam, Hyros,
+  Whop y Commas no tienen SVG en el repo. El componente apuntaba la máscara CSS a un
+  archivo inexistente y el cuadro salía liso, sin ninguna señal de que faltaba.
+  Inventar un logo aproximado de una marca ajena queda peor que una inicial honesta.
+- **Trial Reels quedó en la página pero fuera del tablero.** No es una integración
+  externa; está separado con su propio encabezado hasta que tenga dónde vivir.
+
+**Verificación ejecutada:**
+- `pnpm test`: **599 tests en 36 archivos, todos en verde** (22 nuevos del registro y
+  el contrato de estado).
+- `tsc --noEmit` limpio. `next lint` sin advertencias nuevas.
+- `pnpm build` completo: **133 páginas**.
+- Balance del diff: **~2.100 líneas menos** de las que agrega.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Nada se probó contra cuentas reales.** Las incidencias se derivan de columnas
+  que hoy están vacías o en cero en casi todos los proveedores: el texto que se ve
+  cuando efectivamente hay un error todavía no se vio.
+- La pantalla nueva no tiene cobertura de Playwright.
+- Faltan los SVG de VTurb, WebinarJam, Hyros, Whop y Commas.
+- Discord perdió su acceso desde Integraciones al quedar sin listar, igual que antes;
+  `/integrations/discord` sigue existiendo pero no se llega desde ningún lado.
+- La memoización de `requireOrganizationId` beneficia a toda la app, pero sólo se
+  midió el efecto razonando sobre esta pantalla.
+
+---
+
 ### 2026-09-02 — Llamadas Fase 2: seguimiento del lead
 
 **Rama/branch:** `Claude-New-Features`

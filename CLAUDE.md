@@ -140,6 +140,7 @@ Claude Code usa el prefijo `claude/` asignado por el sistema — está bien, no 
 **Fuentes complementarias (leer si hace falta profundizar):**
 - `CHANGES.md` — **historial de cambios con contexto** (leer siempre al inicio)
 - `docs/external-apis/` — **copia local de la documentación de las APIs externas** (GoHighLevel, VTurb, Whop, Commas, Hyros, WebinarJam)
+- `docs/INTEGRACIONES_MAPA.md` — **qué lee OTC de afuera**: flujo de datos, transporte y qué se rompe sin cada integración. El registro ejecutable es `lib/integrations/registry.ts`
 - `docs/API_DOCS_PENDIENTES.md` — **APIs implementadas sin documentación**, pendientes de verificar
 - `docs/PLAN_VERIFICACION.md` — **qué probar a mano** cuando haya cuentas reales conectadas
 - `PENDIENTES.md` — **backlog de pendientes** (leer siempre al inicio, actualizar al terminar)

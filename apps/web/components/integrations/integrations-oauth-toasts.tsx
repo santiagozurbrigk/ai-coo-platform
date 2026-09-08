@@ -2,44 +2,55 @@
 
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import type { Integration } from "@/types/integrations";
-import { groupIntegrationsByCategory } from "@/lib/integrations/integration-groups";
 import { GOOGLE_PERMISSION_RECONNECT_MESSAGE } from "@/lib/google/errors";
 import { useMarketingData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
-import { IntegrationCard } from "./integration-card";
-import { IntegrationSectionHeader } from "./integration-section-header";
 
-const WEBHOOK_TOAST: Record<string, { title: string; description: string }> = {
+/**
+ * Avisos del regreso de un OAuth.
+ *
+ * Los callbacks vuelven a esta pantalla con el resultado en la query string.
+ * Antes esto vivía adentro del grid, que por eso tenía que ser un Client
+ * Component aunque no lo necesitara para nada más.
+ */
+
+const CALENDLY_WEBHOOK_TOAST: Record<
+  string,
+  { title: string; description: string }
+> = {
   standard_required: {
     title: "Calendly conectado",
     description:
-      "Sin plan Standard no hay sync automática. En Integraciones, pulsa «Sincronizar ahora» en Calendly para traer tus citas a Closing.",
+      "Sin plan Standard no hay sincronización automática. Traé los turnos a mano desde el detalle de Calendly.",
   },
   localhost: {
     title: "Calendly conectado",
     description:
-      "Webhooks no configurados en local. Sincroniza manualmente desde Integraciones.",
+      "Los webhooks no se pueden registrar en local. Sincronizá a mano desde el detalle de Calendly.",
   },
   https_required: {
     title: "Calendly conectado",
     description:
-      "La URL del webhook debe ser HTTPS. La sincronización manual sigue disponible.",
+      "La URL del webhook tiene que ser HTTPS. La sincronización manual sigue disponible.",
   },
   create_failed: {
     title: "Calendly conectado",
     description:
-      "No se pudo registrar el webhook. Puedes sincronizar manualmente desde Integraciones.",
+      "No se pudo registrar el webhook. Podés sincronizar a mano desde el detalle de Calendly.",
   },
   invalid_url: {
     title: "Calendly conectado",
-    description: "URL de webhook inválida. Usa sincronización manual.",
+    description:
+      "La URL del webhook es inválida. Usá la sincronización manual.",
   },
 };
 
 const OAUTH_TOAST: Record<
   string,
-  Record<string, { title: string; description: string; variant?: "success" | "default" }>
+  Record<
+    string,
+    { title: string; description: string; variant?: "success" | "default" }
+  >
 > = {
   google_forms: {
     connected: {
@@ -53,14 +64,15 @@ const OAUTH_TOAST: Record<
       description: GOOGLE_PERMISSION_RECONNECT_MESSAGE,
     },
     error: {
-      title: "Error al conectar Google Forms",
+      title: "Error al conectar Google",
       description: "Revisá las variables de entorno y volvé a intentar.",
     },
   },
   youtube: {
     connected: {
       title: "YouTube conectado",
-      description: "Canal vinculado. Los videos se sincronizan en Content Library.",
+      description:
+        "El canal quedó vinculado. Los videos se sincronizan en Contenido.",
       variant: "success",
     },
     error: {
@@ -71,7 +83,7 @@ const OAUTH_TOAST: Record<
   typeform: {
     connected: {
       title: "Typeform conectado",
-      description: "Formularios y respuestas se sincronizarán automáticamente.",
+      description: "Los formularios y sus respuestas se sincronizan cada hora.",
       variant: "success",
     },
     error: {
@@ -83,34 +95,33 @@ const OAUTH_TOAST: Record<
     connected: {
       title: "Discord conectado",
       description:
-        "El bot está en tu servidor. Configurá canales y vinculaciones en Gestionar.",
+        "El bot está en tu servidor. Configurá canales y vinculaciones.",
       variant: "success",
     },
     error: {
       title: "Error al conectar Discord",
-      description: "Revisá las credenciales y el redirect URI en Discord Developers.",
+      description:
+        "Revisá las credenciales y el redirect URI en Discord Developers.",
     },
   },
 };
 
-export function IntegrationGrid({ integrations }: { integrations: Integration[] }) {
+export function IntegrationsOauthToasts() {
   const searchParams = useSearchParams();
   const { push } = useToast();
   const { setInstagramConnected } = useMarketingData();
   const handled = useRef(false);
-  const visibleIntegrations = integrations.filter((integration) => integration.hidden !== true);
-  const sections = groupIntegrationsByCategory(visibleIntegrations);
 
   useEffect(() => {
     if (handled.current) return;
 
-    const instagramSuccess = searchParams.get("success");
-    if (instagramSuccess === "instagram") {
+    if (searchParams.get("success") === "instagram") {
       handled.current = true;
       setInstagramConnected(true);
       push({
         title: "Instagram conectado",
-        description: "Tu cuenta quedó vinculada. El contenido se sincronizará automáticamente.",
+        description:
+          "La cuenta quedó vinculada. El contenido se sincroniza solo.",
         variant: "success",
       });
       return;
@@ -137,7 +148,7 @@ export function IntegrationGrid({ integrations }: { integrations: Integration[] 
 
     const unipileStatus = searchParams.get("unipile");
     const unipileProvider = searchParams.get("provider");
-    if (unipileStatus === "success" && unipileProvider) {
+    if (unipileStatus && unipileProvider) {
       handled.current = true;
       const label =
         unipileProvider === "whatsapp"
@@ -145,33 +156,30 @@ export function IntegrationGrid({ integrations }: { integrations: Integration[] 
           : unipileProvider === "instagram"
             ? "Instagram DMs"
             : "Unipile";
-      push({
-        title: `${label} conectado`,
-        description:
-          "La cuenta quedó vinculada. Los mensajes llegarán al inbox de ventas.",
-        variant: "success",
-      });
-      return;
-    }
-    if (unipileStatus === "error" && unipileProvider) {
-      handled.current = true;
-      push({
-        title: "No se pudo conectar la cuenta",
-        description: "Volvé a intentar desde Integraciones.",
-      });
+      push(
+        unipileStatus === "success"
+          ? {
+              title: `${label} conectado`,
+              description: "Los mensajes van a llegar al inbox de ventas.",
+              variant: "success",
+            }
+          : {
+              title: "No se pudo conectar la cuenta",
+              description: "Volvé a intentar desde Integraciones.",
+            },
+      );
       return;
     }
 
-    const calendlyStatus = searchParams.get("calendly");
-    if (calendlyStatus === "connected") {
+    if (searchParams.get("calendly") === "connected") {
       handled.current = true;
       const webhook = searchParams.get("calendly_webhook");
-      const custom = webhook ? WEBHOOK_TOAST[webhook] : null;
+      const custom = webhook ? CALENDLY_WEBHOOK_TOAST[webhook] : null;
       push({
         title: custom?.title ?? "Calendly conectado",
         description:
           custom?.description ??
-          "Los eventos nuevos se sincronizarán automáticamente vía webhook.",
+          "Los turnos nuevos se sincronizan solos vía webhook.",
         variant: "success",
       });
       return;
@@ -194,18 +202,5 @@ export function IntegrationGrid({ integrations }: { integrations: Integration[] 
     }
   }, [searchParams, push, setInstagramConnected]);
 
-  return (
-    <div className="flex flex-col gap-6">
-      {sections.map((section) => (
-        <section key={section.label}>
-          <IntegrationSectionHeader label={section.label} />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {section.items.map((integration) => (
-              <IntegrationCard key={integration.id} integration={integration} />
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
-  );
+  return null;
 }

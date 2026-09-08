@@ -19,6 +19,22 @@ listas, para pasar la implementación entera a producción de una vez.
 
 ---
 
+### [INTEGRACIONES-VERIFICAR] Ver las incidencias con datos reales 🟡
+
+**Qué es:** la pantalla de Integraciones ahora muestra incidencias por integración
+—último error del proveedor, videos sin pitch time, eventos de pago sin interpretar,
+secreto de webhook de GHL faltante— derivadas de columnas que **hoy están vacías o en
+cero en casi todos los proveedores**.
+
+**Qué mirar:** que cuando efectivamente falle algo, el texto que aparece sea el
+correcto y accionable. En particular `last_error` de VTurb, Hyros y WebinarJam, que
+antes no se veía en ningún lado y ahora es lo primero que se lee.
+
+**Cómo forzarlo barato:** conectar cualquiera de los tres con una API key inválida.
+El sync guarda el error y la tarjeta tiene que pasar a "Con error".
+
+---
+
 ### [LLAMADAS-VERIFICAR-FATHOM] Probar el cruce con datos reales 🔴
 
 **Qué es:** el motor está construido pero **nada se probó contra una cuenta real
@@ -30,7 +46,8 @@ de Fathom**. El mapeo de campos se hizo leyendo la documentación.
    El schema lo marca obligatorio, pero una reunión sin evento de calendario
    podría traer el array vacío.
 2. **¿Cuántas grabaciones quedan sin turno, y cuáles de esas eran ventas?** Se ve
-   en Integraciones → Llamadas de venta. Estar en esa lista no es un problema:
+   en Integraciones → Fathom → Configuración. Estar en esa lista no es un
+   problema:
    una reunión de equipo o una sesión con un cliente no es una venta.
 3. **¿La ventana de 45 minutos del match provisional es la correcta?** Se eligió
    por criterio, no midiendo cruces reales.
@@ -140,19 +157,6 @@ no se puede usar.
 
 ---
 
-### [EMBUDOS-PAGOS-CORREGIR] Corregir el mapeo de Whop contra su spec real
-
-**Qué es:** con la documentación de Whop ya capturada, quedaron a la vista tres errores concretos en `apps/web/lib/payments/normalize.ts`, que se escribió a ciegas:
-
-1. **El campo de monto no existe.** `KEYS.amount` busca `settled_amount`; el campo real es **`settlement_amount`**. `total` y `subtotal` sí existen pero son *"to show to the creator (excluding buyer fees)"* — no es lo que se cobró.
-2. **Whop manda decimales, no centavos** (*"10.43 for $10.43 USD"*), mientras que **Commas sí manda `amount_cents`**. La regla tiene que ser por proveedor, no una heurística de sufijo `_cents`.
-3. **`membership.created` no existe.** El evento de alta es `membership.activated`. Conviene reemplazar los regex de detección de evento por la lista literal, que ahora se conoce entera.
-
-**Además:** la deduplicación de Whop va por `webhook-id` (entrega *at least once*, 12 reintentos en ~71 h, sin orden garantizado), y el prefijo del secreto de firma es `ws_`, no `whsec_`.
-
-**Dónde está el detalle:** [`docs/external-apis/whop/RESUMEN-OTC.md`](./docs/external-apis/whop/RESUMEN-OTC.md) y [`docs/external-apis/commas/RESUMEN-OTC.md`](./docs/external-apis/commas/RESUMEN-OTC.md).
-
----
 
 ### [EMBUDOS-GHL-ENTREGA] Cerrar cómo llegan los webhooks de oportunidades de GHL
 
@@ -202,7 +206,7 @@ no se puede usar.
 
 ### [EMBUDOS-PAGOS-VERIFICAR] Verificar el mapeo de webhooks de Whop y Commas contra eventos reales
 
-**Qué es:** la capa de pagos (I-2) está construida y su mapeo se escribió a ciegas. **Desde el 2026-08-30 la documentación de los dos proveedores está capturada** en [`docs/external-apis/whop/`](./docs/external-apis/whop/) y [`docs/external-apis/commas/`](./docs/external-apis/commas/), así que buena parte de lo que había que "verificar" ya se puede **corregir leyendo** — ver `[EMBUDOS-PAGOS-CORREGIR]` más arriba.
+**Qué es:** la capa de pagos (I-2) está construida y su mapeo se escribió a ciegas. **Desde el 2026-08-30 la documentación de los dos proveedores está capturada** en [`docs/external-apis/whop/`](./docs/external-apis/whop/) y [`docs/external-apis/commas/`](./docs/external-apis/commas/), y el mapeo ya se corrigió leyéndola (ver `[EMBUDOS-PAGOS-CORREGIR]` en Completados).
 
 Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un payload real de cada proveedor** y confirmar que el mapeo corregido lo lee bien. La firma de los dos ya está documentada (Whop: Standard Webhooks con secreto `ws_`; Commas: `x-webhook-signature`, HMAC-SHA256 hex sobre el body crudo), pero ninguna de las dos se probó contra un evento real.
 
@@ -519,6 +523,43 @@ referencias + `brand.domain`.
 
 ## 🟢 Deuda técnica — Phase 2 (baja urgencia)
 
+### [INTEGRACIONES-LOGOS] Faltan cinco logos
+
+**Qué es:** VTurb, WebinarJam, Hyros, Whop y Commas no tienen SVG en
+`apps/web/public/integrations/`. Se dibujan con su inicial sobre el color de marca,
+que es honesto pero se nota al lado de los que sí tienen logo.
+
+**Antes esto no se veía como un problema** porque el componente apuntaba la máscara
+CSS a un archivo inexistente y el cuadro salía liso: parecía un logo cargando.
+
+**Acción:** bajar los cinco SVG y sumarlos a `PROVIDERS_WITH_LOGO` en
+`lib/integrations/brand-colors.ts`.
+
+---
+
+### [INTEGRACIONES-TRIAL-REELS] Mover los assets de Trial Reels fuera de Integraciones
+
+**Qué es:** la carga de música para las variantes de video vive en `/integrations`
+y no es una integración externa. Quedó ahí, separada del tablero con su propio
+encabezado, porque no tiene todavía otra pantalla donde vivir.
+
+**Dónde debería ir:** Marketing → Contenido, junto al resto de la configuración de
+Trial Reels.
+
+---
+
+### [INTEGRACIONES-PLAYWRIGHT] Cubrir la pantalla nueva con Playwright
+
+**Qué es:** el rediseño de Integraciones no tiene cobertura de e2e. Lo que más
+conviene cubrir es el recorrido completo: filtrar por "requieren atención", abrir el
+detalle, volver al tablero.
+
+**La lógica pura sí está cubierta**: 22 tests en
+`lib/integrations/__tests__/health.test.ts`.
+
+---
+
+
 *(TECH-1 y TECH-2 completados — ver tabla abajo)*
 
 
@@ -539,6 +580,27 @@ referencias + `brand.domain`.
 ---
 
 ## ✅ Completados (referencia histórica)
+
+### 2026-09-08 — [INTEGRACIONES-REDISEÑO] Registro único, contrato de estado y pantalla nueva
+
+Las catorce integraciones pasaron a un registro único (`lib/integrations/registry.ts`)
+y a un contrato de estado común (`lib/integrations/health.ts`). El catálogo dejó de
+ser un mock con filas inventadas; los dos `Set` hardcodeados que decidían qué se
+mostraba desaparecieron. El estado `error` del badge, que se declaraba y nunca se
+producía, ahora se alcanza: los `last_error` de VTurb, Hyros y WebinarJam se ven en
+la tarjeta. Las cinco integraciones que vivían en paneles sueltos debajo del grid
+entraron al tablero. Se eliminó el flujo de conexión simulado que corría en
+producción. `requireOrganizationId` quedó memoizada por request: ~30 resoluciones
+por render pasaron a una. Detalle completo en `CHANGES.md` y el mapa de flujos en
+[`docs/INTEGRACIONES_MAPA.md`](./docs/INTEGRACIONES_MAPA.md).
+
+### 2026-09-08 — [EMBUDOS-PAGOS-CORREGIR] El mapeo de pagos ya estaba corregido
+
+Al revisarlo contra los dos resúmenes se confirmó que `lib/payments/normalize.ts` ya
+usa `settlement_amount`, la unidad de monto por proveedor y la lista literal de
+eventos. Lo que **sí** estaba mal era la ayuda del formulario de conexión, que decía
+que el secreto de Whop empieza con `whsec_` cuando empieza con `ws_`, y que apuntaba
+a `apidocs.fan` en vez de a la documentación vigente de Commas. Corregido.
 
 | Fecha | Ítem | Branch |
 |-------|------|--------|

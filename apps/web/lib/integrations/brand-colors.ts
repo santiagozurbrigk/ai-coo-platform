@@ -1,42 +1,84 @@
 import type { IntegrationProvider } from "@/constants/integrations";
 
 export type IntegrationBrand = {
-  /** Color hex para el fondo sólido del logo */
+  /** Color hex para el fondo sólido del logo. */
   bg: string;
-  /** Clase Tailwind para el fondo (soporte gradientes) */
+  /** Clase Tailwind para el fondo, cuando la marca es un gradiente. */
   bgClass?: string;
-  /** true = ícono blanco sobre fondo, false = ícono oscuro (logos claros) */
-  whiteIcon?: boolean;
 };
 
 /** Colores de marca: ícono blanco sobre fondo sólido (estilo app icon real). */
-export const INTEGRATION_BRAND_COLORS: Record<IntegrationProvider, IntegrationBrand> = {
-  discord:          { bg: "#5865F2" },
-  zernio:           { bg: "#6366F1" },
-  unipile_instagram:{ bg: "#C13584", bgClass: "bg-gradient-to-br from-[#833ab4] via-[#fd1d1d] to-[#fcb045]" },
+export const INTEGRATION_BRAND_COLORS: Record<
+  IntegrationProvider,
+  IntegrationBrand
+> = {
+  // Ventas y conversaciones
+  zernio: { bg: "#6366F1" },
+  manychat: { bg: "#0084FF" },
+  calendly: { bg: "#006BFF" },
+  ghl: { bg: "#E9A700" },
+  fathom: { bg: "#007299" },
+  unipile_instagram: {
+    bg: "#C13584",
+    bgClass: "bg-gradient-to-br from-[#833ab4] via-[#fd1d1d] to-[#fcb045]",
+  },
   unipile_whatsapp: { bg: "#25D366" },
-  instagram:        { bg: "#C13584", bgClass: "bg-gradient-to-br from-[#833ab4] via-[#fd1d1d] to-[#fcb045]" },
-  manychat:         { bg: "#0084FF" },
-  youtube:          { bg: "#FF0000" },
+  // Marketing y contenido
   google_ecosystem: { bg: "#4285F4" },
-  typeform:         { bg: "#262627" },
-  google_forms:     { bg: "#7248B9" },
-  airtable:         { bg: "#18BFFF" },
-  notion:           { bg: "#000000" },
-  google_sheets:    { bg: "#0F9D58" },
-  google_docs:      { bg: "#4285F4" },
-  fathom:           { bg: "#007299" },
-  loom:             { bg: "#625DF5" },
-  calendly:         { bg: "#006BFF" },
-  miro:             { bg: "#050038" },
-  clickup:          { bg: "#7B68EE" },
-  ghl:              { bg: "#E9A700" },
+  youtube: { bg: "#FF0000" },
+  instagram: {
+    bg: "#C13584",
+    bgClass: "bg-gradient-to-br from-[#833ab4] via-[#fd1d1d] to-[#fcb045]",
+  },
+  typeform: { bg: "#262627" },
+  google_forms: { bg: "#7248B9" },
+  // Embudos
+  vturb: { bg: "#1B1B1F" },
+  webinarjam: { bg: "#2E7DD1" },
+  hyros: { bg: "#111827" },
+  // Cobros
+  whop: { bg: "#FF6243" },
+  fanbasis: { bg: "#0F172A" },
+  stripe: { bg: "#635BFF" },
+  mercadopago: { bg: "#00B1EA" },
+  // Operación y datos
+  discord: { bg: "#5865F2" },
+  clickup: { bg: "#7B68EE" },
 };
+
+/**
+ * Proveedores con logo vectorial en `public/integrations/`.
+ *
+ * Los que no están acá se dibujan con su inicial sobre el color de marca. Es
+ * deliberado: inventar un logo aproximado de una marca ajena queda peor que una
+ * inicial honesta, y un `<img>` roto queda peor que las dos.
+ */
+const PROVIDERS_WITH_LOGO = new Set<IntegrationProvider>([
+  "zernio",
+  "manychat",
+  "calendly",
+  "ghl",
+  "fathom",
+  "unipile_instagram",
+  "unipile_whatsapp",
+  "google_ecosystem",
+  "youtube",
+  "instagram",
+  "typeform",
+  "google_forms",
+  "stripe",
+  "mercadopago",
+  "discord",
+  "clickup",
+]);
+
+export function hasIntegrationLogo(provider: IntegrationProvider): boolean {
+  return PROVIDERS_WITH_LOGO.has(provider);
+}
 
 export function integrationLogoSrc(provider: IntegrationProvider): string {
   if (provider === "unipile_instagram") return "/integrations/instagram.svg";
   if (provider === "unipile_whatsapp") return "/integrations/whatsapp.svg";
-  if (provider === "zernio") return "/integrations/zernio.svg";
   if (provider === "google_ecosystem") return "/integrations/google_forms.svg";
   return `/integrations/${provider}.svg`;
 }

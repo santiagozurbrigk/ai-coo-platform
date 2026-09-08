@@ -113,7 +113,12 @@ function RecordingRow({ recording }: { recording: UnlinkedRecording }) {
 
       {options === null ? (
         <div>
-          <Button size="sm" variant="outline" disabled={isPending} onClick={handleOpen}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isPending}
+            onClick={handleOpen}
+          >
             <Link2 className="mr-1.5 h-3.5 w-3.5" />
             Vincular a un turno
           </Button>
@@ -157,30 +162,28 @@ export function UnlinkedRecordingsPanel({
   recordings: UnlinkedRecording[];
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card">
-      <div className="flex flex-col gap-1 border-b border-border px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Unlink className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold">Grabaciones sin turno</h3>
-          {recordings.length > 0 && (
-            <Badge variant="secondary" className="ml-auto text-[10px]">
-              {recordings.length}
-            </Badge>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Estar en esta lista no es un problema: una reunión de equipo o una
-          sesión con un cliente no es una venta. Vinculá sólo las llamadas de
-          venta que no llegaron a cruzarse solas.
-        </p>
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Unlink className="h-3.5 w-3.5 text-primary" aria-hidden />
+        <h4 className="text-xs font-semibold">Grabaciones sin turno</h4>
+        {recordings.length > 0 ? (
+          <Badge variant="secondary" className="ml-auto text-[10px]">
+            {recordings.length}
+          </Badge>
+        ) : null}
       </div>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        Estar en esta lista no es un problema: una reunión de equipo o una
+        sesión con un cliente no es una venta. Vinculá sólo las llamadas de
+        venta que no llegaron a cruzarse solas.
+      </p>
 
       {recordings.length === 0 ? (
-        <p className="px-4 py-4 text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Todas las grabaciones procesadas están asociadas a su turno.
         </p>
       ) : (
-        <div className="flex flex-col">
+        <div className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-lg border border-border/60">
           {recordings.map((recording) => (
             <RecordingRow key={recording.id} recording={recording} />
           ))}

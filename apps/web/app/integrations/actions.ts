@@ -8,27 +8,34 @@ import {
   getTypeformIntegrationStatusAction,
 } from "@/app/forms/actions";
 import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
-import { getDiscordIntegrationStatusAction } from "@/app/discord/actions";
-import {
-  getInstagramIntegrationStatusAction,
-  getYoutubeIntegrationStatusAction,
-} from "@/app/marketing/actions";
-import {
-  countUnipileConversationsAction,
-  getUnipileIntegrationStatusAction,
-} from "@/app/unipile/actions";
+import { getYoutubeIntegrationStatusAction } from "@/app/marketing/actions";
 import { getZernioIntegrationStatusAction } from "@/app/integrations/zernio/actions";
 import { getGHLIntegrationStatusAction } from "@/app/ghl/actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
-import { formatRelativeTime } from "@/lib/format";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { mockIntegrations } from "@/mocks/integrations";
 import type { GoogleIntegrationProvider } from "@/lib/google/oauth-paths";
 import { paths } from "@/routes";
-import type { Integration } from "@/types/integrations";
+import { getVTurbStatusAction } from "@/app/vturb/actions";
+import { getWebinarJamStatusAction } from "@/app/webinarjam/actions";
+import { getHyrosStatusAction } from "@/app/hyros/actions";
+import { getPaymentIntegrationsStatusAction } from "@/app/payments/actions";
+import { getGHLOpportunitiesStatusAction } from "@/app/ghl/opportunity-actions";
+import { listUnlinkedRecordingsAction } from "@/app/fathom/sales-call-actions";
+import {
+  buildHealth,
+  lastErrorIssue,
+  missingConfigIssue,
+  noDataYetIssue,
+  summarize,
+  unmappedEventsIssue,
+  type IntegrationHealth,
+  type IntegrationIssue,
+  type IntegrationsSummary,
+} from "@/lib/integrations/health";
+import { LISTED_INTEGRATIONS } from "@/lib/integrations/registry";
 
 const GOOGLE_INTEGRATION_TABLE: Record<
   GoogleIntegrationProvider,
@@ -39,7 +46,7 @@ const GOOGLE_INTEGRATION_TABLE: Record<
 
 /** Desconecta una integración Google (revoca tokens en DB). */
 export async function disconnectGoogleIntegrationAction(
-  provider: GoogleIntegrationProvider
+  provider: GoogleIntegrationProvider,
 ): Promise<MutationResult> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
@@ -177,128 +184,153 @@ export async function disconnectGHLIntegrationAction(): Promise<MutationResult> 
   });
 }
 
-async function countManyChatConversations(): Promise<number> {
-  if (!isSupabaseConfigured()) return 0;
+// ─── Conteos ──────────────────────────────────────────────────────────────────
+//
+// Cuántas filas hay en OTC gracias a cada integración. Es la respuesta a "¿esto
+// está trayendo algo?", que es distinta de "¿está conectado?": una integración
+// puede estar conectada y no haber traído nunca nada, y eso es exactamente lo
+// que hay que poder ver.
+//
+// Todos comparten la misma resolución de organización, que ahora está memoizada
+// por request (`requireOrganizationId`), así que las ~30 resoluciones que esta
+// pantalla disparaba pasaron a ser una.
+
+/**
+ * Base común de los conteos.
+ *
+ * No devuelve el query builder de Postgrest: es un *thenable*, así que una
+ * función `async` que lo retornara lo ejecutaría al salir y las funciones de
+ * abajo no podrían encadenarle sus filtros.
+ */
+async function countScope() {
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
-  const { count } = await supabase
-    .from("conversations")
+  return { supabase, organizationId };
+}
+
+function baseCount(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  table: string,
+) {
+  return supabase
+    .from(table)
     .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId)
-    .like("external_ref", "manychat:%");
+    .eq("organization_id", organizationId);
+}
+
+async function countManyChatConversations(): Promise<number> {
+  if (!isSupabaseConfigured()) return 0;
+  const { supabase, organizationId } = await countScope();
+  const { count } = await baseCount(
+    supabase,
+    organizationId,
+    "conversations",
+  ).like("external_ref", "manychat:%");
   return count ?? 0;
 }
 
 async function countCalendlyClosingCalls(): Promise<number> {
   if (!isSupabaseConfigured()) return 0;
-  const organizationId = await requireOrganizationId();
-  const supabase = await createClient();
-  const { count } = await supabase
-    .from("closing_calls")
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId)
-    .not("calendly_event_id", "is", null);
+  const { supabase, organizationId } = await countScope();
+  const { count } = await baseCount(
+    supabase,
+    organizationId,
+    "closing_calls",
+  ).not("calendly_event_id", "is", null);
   return count ?? 0;
 }
 
 async function countGHLAppointments(): Promise<number> {
   if (!isSupabaseConfigured()) return 0;
-  const organizationId = await requireOrganizationId();
-  const supabase = await createClient();
-  const { count } = await supabase
-    .from("closing_calls")
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId)
-    .not("ghl_appointment_id", "is", null);
+  const { supabase, organizationId } = await countScope();
+  const { count } = await baseCount(
+    supabase,
+    organizationId,
+    "closing_calls",
+  ).not("ghl_appointment_id", "is", null);
   return count ?? 0;
 }
 
 async function countFathomCalls(): Promise<number> {
   if (!isSupabaseConfigured()) return 0;
-  const organizationId = await requireOrganizationId();
-  const supabase = await createClient();
-  const { count } = await supabase
-    .from("fathom_calls")
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId);
+  const { supabase, organizationId } = await countScope();
+  const { count } = await baseCount(supabase, organizationId, "fathom_calls");
   return count ?? 0;
 }
 
-async function countContentAssets(platform?: string): Promise<number> {
+async function countContentAssets(platform: string): Promise<number> {
   if (!isSupabaseConfigured()) return 0;
-  const organizationId = await requireOrganizationId();
-  const supabase = await createClient();
-  let q = supabase
-    .from("content_assets")
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId);
-  if (platform) q = q.eq("platform", platform);
-  const { count } = await q;
+  const { supabase, organizationId } = await countScope();
+  const { count } = await baseCount(
+    supabase,
+    organizationId,
+    "content_assets",
+  ).eq("platform", platform);
   return count ?? 0;
 }
 
 async function countForms(platform: string): Promise<number> {
   if (!isSupabaseConfigured()) return 0;
-  const organizationId = await requireOrganizationId();
-  const supabase = await createClient();
-  const { count } = await supabase
-    .from("forms")
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId)
-    .eq("platform", platform);
+  const { supabase, organizationId } = await countScope();
+  const { count } = await baseCount(supabase, organizationId, "forms").eq(
+    "platform",
+    platform,
+  );
   return count ?? 0;
 }
 
-const REAL_PROVIDERS = new Set([
-  "calendly",
-  "ghl",
-  "manychat",
-  "fathom",
-  "youtube",
-  "instagram",
-  "zernio",
-  "unipile_whatsapp",
-  "typeform",
-  "google_forms",
-  "google_ecosystem",
-  "discord",
-]);
+// ─── Panorama ─────────────────────────────────────────────────────────────────
 
-const HIDDEN_INTEGRATION_PROVIDERS = new Set([
-  "stripe",
-  "mercadopago",
-  "paypal",
-  "unipile_instagram",
-  "instagram",
-  "unipile_whatsapp",
-  "google_forms",
-]);
+export type IntegrationsOverview = {
+  healths: IntegrationHealth[];
+  summary: IntegrationsSummary;
+};
 
-export async function listIntegrationsAction(): Promise<Integration[]> {
+/**
+ * Estado de todas las integraciones ofrecidas, con la misma forma para todas.
+ *
+ * Reemplaza a `listIntegrationsAction`, que devolvía filas del catálogo mock con
+ * el estado pegado encima y sólo cubría nueve proveedores: los otros cinco
+ * (VTurb, WebinarJam, Hyros, Whop y Commas) vivían en paneles sueltos debajo del
+ * grid, cada uno con su propia forma y su propio diseño.
+ *
+ * Las incidencias que devuelve son todas **estado real leído de la base**, nunca
+ * heurísticas. En particular **no** se deriva ninguna alarma de la antigüedad de
+ * `last_sync_at`: varios syncs sólo lo escriben cuando ingestaron algo, así que
+ * una fecha vieja puede ser una semana tranquila y no una falla.
+ */
+export async function getIntegrationsOverviewAction(): Promise<IntegrationsOverview> {
   const [
     calendlyStatus,
     ghlStatus,
+    ghlOpportunities,
     manychatStatus,
     fathomStatus,
+    unlinkedRecordings,
     youtubeStatus,
-    instagramStatus,
-    unipileWhatsappStatus,
     typeformStatus,
     googleFormsStatus,
-    discordStatus,
     zernioStatus,
+    vturbStatus,
+    webinarJamStatus,
+    hyrosStatus,
+    paymentStatuses,
   ] = await Promise.all([
     getCalendlyIntegrationStatusAction(),
     getGHLIntegrationStatusAction(),
+    getGHLOpportunitiesStatusAction().catch(() => null),
     getManyChatIntegrationStatusAction(),
     getFathomIntegrationStatusAction(),
+    listUnlinkedRecordingsAction().catch(() => []),
     getYoutubeIntegrationStatusAction(),
-    getInstagramIntegrationStatusAction(),
-    getUnipileIntegrationStatusAction("whatsapp"),
     getTypeformIntegrationStatusAction(),
     getGoogleFormsIntegrationStatusAction(),
-    getDiscordIntegrationStatusAction(),
     getZernioIntegrationStatusAction(),
+    getVTurbStatusAction().catch(() => null),
+    getWebinarJamStatusAction().catch(() => null),
+    getHyrosStatusAction().catch(() => null),
+    getPaymentIntegrationsStatusAction().catch(() => []),
   ]);
 
   const [
@@ -307,140 +339,351 @@ export async function listIntegrationsAction(): Promise<Integration[]> {
     manychatRecords,
     fathomRecords,
     youtubeRecords,
-    instagramRecords,
-    unipileWhatsappRecords,
     typeformRecords,
     googleFormsRecords,
-    discordRecords,
-    zernioRecords,
   ] = await Promise.all([
     calendlyStatus.connected ? countCalendlyClosingCalls() : 0,
     ghlStatus.connected ? countGHLAppointments() : 0,
     manychatStatus.connected ? countManyChatConversations() : 0,
     fathomStatus.connected ? countFathomCalls() : 0,
     youtubeStatus.connected ? countContentAssets("youtube") : 0,
-    instagramStatus.connected ? countContentAssets("instagram") : 0,
-    unipileWhatsappStatus.connected ? countUnipileConversationsAction("whatsapp") : 0,
     typeformStatus.connected ? countForms("typeform") : 0,
     googleFormsStatus.connected ? countForms("google_forms") : 0,
-    discordStatus.connected ? discordStatus.stats.messagesCount : 0,
-    zernioStatus.connected ? zernioStatus.connectedAccounts.length : 0,
   ]);
 
-  return mockIntegrations
-    .filter((integration) => !HIDDEN_INTEGRATION_PROVIDERS.has(integration.provider))
-    .filter((integration) => integration.hidden !== true)
-    .map((integration) => {
-    const statusMap: Record<
-      string,
-      { connected: boolean; lastSyncAt: string | null | undefined; records: number }
-    > = {
-      calendly: {
-        connected: calendlyStatus.connected,
-        lastSyncAt: calendlyStatus.lastSyncAt ?? null,
-        records: calendlyRecords,
-      },
-      ghl: {
-        connected: ghlStatus.connected,
-        lastSyncAt: ghlStatus.lastSyncAt,
-        records: ghlRecords,
-      },
-      manychat: {
-        connected: manychatStatus.connected,
-        lastSyncAt: manychatStatus.lastSyncAt,
-        records: manychatRecords,
-      },
-      fathom: {
-        connected: fathomStatus.connected,
-        lastSyncAt: fathomStatus.lastSyncAt,
-        records: fathomRecords,
-      },
-      youtube: {
-        connected: youtubeStatus.connected,
-        lastSyncAt: youtubeStatus.lastSyncAt,
-        records: youtubeRecords,
-      },
-      instagram: {
-        connected: instagramStatus.connected,
-        lastSyncAt: instagramStatus.lastSyncAt,
-        records: instagramRecords,
-      },
-      unipile_whatsapp: {
-        connected: unipileWhatsappStatus.connected,
-        lastSyncAt: unipileWhatsappStatus.connectedAt,
-        records: unipileWhatsappRecords,
-      },
-      typeform: {
-        connected: typeformStatus.connected,
-        lastSyncAt: typeformStatus.lastSyncAt,
-        records: typeformRecords,
-      },
-      google_forms: {
-        connected: googleFormsStatus.connected,
-        lastSyncAt: googleFormsStatus.lastSyncAt,
-        records: googleFormsRecords,
-      },
-      discord: {
-        connected: discordStatus.connected,
-        lastSyncAt: discordStatus.integration?.last_event_at ?? null,
-        records: discordRecords,
-      },
-      google_ecosystem: {
-        connected: googleFormsStatus.connected || youtubeStatus.connected,
-        lastSyncAt:
-          [googleFormsStatus.lastSyncAt, youtubeStatus.lastSyncAt]
-            .filter(Boolean)
-            .sort()
-            .reverse()[0] ?? null,
-        records: googleFormsRecords + youtubeRecords,
-      },
-      zernio: {
-        connected: zernioStatus.connected,
-        lastSyncAt: zernioStatus.lastSyncAt,
-        records: zernioRecords,
-      },
-    };
+  const byProvider = new Map<string, IntegrationHealth>();
 
-    const live = statusMap[integration.provider];
-    if (live) {
-      if (!live.connected) {
-        return { ...integration, status: "not_connected" as const };
-      }
+  // ── Ventas y conversaciones ────────────────────────────────────────────────
 
-      let description = integration.description;
-      if (integration.provider === "unipile_whatsapp" && unipileWhatsappStatus.displayName) {
-        description = `Cuenta: ${unipileWhatsappStatus.displayName}`;
-      }
-      if (integration.provider === "zernio" && zernioStatus.connected) {
-        const accountLabel = zernioStatus.accountName
-          ? `Cuenta: ${zernioStatus.accountName}`
-          : null;
-        const channels = zernioStatus.channelsLabel;
-        description = [accountLabel, `Canales: ${channels}`]
-          .filter(Boolean)
-          .join(" · ");
-      }
+  byProvider.set(
+    "zernio",
+    buildHealth({
+      provider: "zernio",
+      connected: zernioStatus.connected,
+      accountLabel: zernioStatus.accountName,
+      lastSyncAt: zernioStatus.lastSyncAt,
+      records: zernioStatus.connectedAccounts.length,
+      recordsLabel: "cuentas vinculadas",
+      issues:
+        zernioStatus.connectedAccounts.length === 0
+          ? [
+              {
+                level: "warning",
+                message:
+                  "La cuenta está conectada pero no tiene ningún canal vinculado.",
+                action:
+                  "Vinculá Instagram o WhatsApp en Zernio: sin canales, el inbox llega vacío.",
+              },
+            ]
+          : [],
+    }),
+  );
 
-      return {
-        ...integration,
-        description,
-        status: "connected" as const,
-        lastSync: live.lastSyncAt
-          ? formatRelativeTime(live.lastSyncAt)
-          : undefined,
-        recordsSynced: live.records > 0 ? live.records : undefined,
-      };
-    }
+  byProvider.set(
+    "manychat",
+    buildHealth({
+      provider: "manychat",
+      connected: manychatStatus.connected,
+      accountLabel: manychatStatus.pageName ?? null,
+      lastSyncAt: manychatStatus.lastSyncAt ?? null,
+      records: manychatRecords,
+      recordsLabel: "conversaciones",
+      issues: [
+        ...noDataYetIssue(
+          manychatRecords,
+          "ningún mensaje",
+          "Los mensajes entran por una External Request de ManyChat: revisá que el flujo apunte a la URL del webhook.",
+        ),
+      ],
+    }),
+  );
 
-    if (!REAL_PROVIDERS.has(integration.provider)) {
-      return {
-        ...integration,
-        status: "not_connected" as const,
-        lastSync: undefined,
-        recordsSynced: undefined,
-      };
-    }
+  byProvider.set(
+    "calendly",
+    buildHealth({
+      provider: "calendly",
+      connected: calendlyStatus.connected,
+      lastSyncAt: calendlyStatus.lastSyncAt ?? null,
+      records: calendlyRecords,
+      recordsLabel: "turnos",
+      issues: calendlyStatus.webhookEnabled
+        ? []
+        : [
+            {
+              level: "warning",
+              message:
+                "Calendly no aceptó registrar el webhook, así que los turnos nuevos no entran solos.",
+              action:
+                "Sincronizá a mano desde acá, o pasá la cuenta a un plan Standard o superior.",
+            },
+          ],
+    }),
+  );
 
-    return integration;
-  });
+  byProvider.set(
+    "ghl",
+    buildHealth({
+      provider: "ghl",
+      connected: ghlStatus.connected,
+      accountLabel: ghlStatus.locationId,
+      lastSyncAt: ghlStatus.lastSyncAt,
+      records: ghlRecords,
+      recordsLabel: "turnos",
+      issues: ghlIssues(ghlStatus, ghlOpportunities),
+    }),
+  );
+
+  byProvider.set(
+    "fathom",
+    buildHealth({
+      provider: "fathom",
+      connected: fathomStatus.connected,
+      lastSyncAt: fathomStatus.lastSyncAt,
+      records: fathomRecords,
+      recordsLabel: "grabaciones",
+      issues: [
+        ...noDataYetIssue(
+          fathomRecords,
+          "ninguna grabación",
+          "Sincronizá para traer las reuniones de los últimos 90 días.",
+        ),
+        ...(unlinkedRecordings.length > 0
+          ? [
+              {
+                level: "info" as const,
+                message: `${unlinkedRecordings.length} grabaciones no cruzaron con ningún turno agendado.`,
+                action:
+                  "Estar en esa lista no es un error: una reunión de equipo no es una llamada de venta. Vinculá a mano las que sí lo eran.",
+              },
+            ]
+          : []),
+      ],
+    }),
+  );
+
+  // ── Marketing y contenido ──────────────────────────────────────────────────
+
+  // El estado del Ecosistema Google es el del consentimiento OAuth, que es lo
+  // único que ese flujo escribe. La versión anterior lo daba por conectado
+  // también cuando había YouTube, y YouTube se conecta por su cuenta con una API
+  // key: un canal cargado a mano dejaba a Drive y Forms marcados como conectados
+  // sin que nadie hubiera aceptado ningún permiso.
+  byProvider.set(
+    "google_ecosystem",
+    buildHealth({
+      provider: "google_ecosystem",
+      connected: googleFormsStatus.connected,
+      lastSyncAt: googleFormsStatus.lastSyncAt,
+      records: googleFormsRecords,
+      recordsLabel: "formularios",
+      issues: noDataYetIssue(
+        googleFormsRecords,
+        "ningún formulario",
+        "Drive funciona igual: los formularios aparecen cuando el sync horario encuentra alguno en la cuenta.",
+      ),
+    }),
+  );
+
+  byProvider.set(
+    "youtube",
+    buildHealth({
+      provider: "youtube",
+      connected: youtubeStatus.connected,
+      accountLabel: youtubeStatus.channelName,
+      lastSyncAt: youtubeStatus.lastSyncAt,
+      records: youtubeRecords,
+      recordsLabel: "videos",
+      issues: noDataYetIssue(youtubeRecords, "ningún video del canal"),
+    }),
+  );
+
+  byProvider.set(
+    "typeform",
+    buildHealth({
+      provider: "typeform",
+      connected: typeformStatus.connected,
+      lastSyncAt: typeformStatus.lastSyncAt,
+      records: typeformRecords,
+      recordsLabel: "formularios",
+      issues: noDataYetIssue(typeformRecords, "ningún formulario"),
+    }),
+  );
+
+  // ── Medición de embudos ────────────────────────────────────────────────────
+
+  byProvider.set(
+    "vturb",
+    buildHealth({
+      provider: "vturb",
+      connected: Boolean(vturbStatus?.connected),
+      lastSyncAt: vturbStatus?.playersSyncedAt ?? null,
+      records: vturbStatus?.playerCount ?? 0,
+      recordsLabel: "videos",
+      issues: [
+        ...lastErrorIssue(vturbStatus?.lastError),
+        ...missingConfigIssue({
+          missing: vturbStatus?.playersWithoutPitchTime ?? 0,
+          total: vturbStatus?.playerCount ?? 0,
+          what: "videos no tienen configurado el pitch time en VTurb",
+          breaks:
+            'la medida "llegaron al CTA" no se puede calcular: VTurb devuelve un número que parece el correcto y cuenta a casi todo el que abrió el video',
+          action:
+            "Se arregla en VTurb, no acá: entrá a cada player y marcá en qué segundo aparece la oferta.",
+        }),
+      ],
+    }),
+  );
+
+  byProvider.set(
+    "webinarjam",
+    buildHealth({
+      provider: "webinarjam",
+      connected: Boolean(webinarJamStatus?.connected),
+      lastSyncAt:
+        webinarJamStatus?.registrantsSyncedAt ??
+        webinarJamStatus?.webinarsSyncedAt ??
+        null,
+      records: webinarJamStatus?.registrantCount ?? 0,
+      recordsLabel: "registrados",
+      issues: [
+        ...lastErrorIssue(webinarJamStatus?.lastError),
+        ...missingConfigIssue({
+          missing: webinarJamStatus?.webinarsWithoutPitch ?? 0,
+          total: webinarJamStatus?.webinarCount ?? 0,
+          what: "webinars no tienen cargado el segundo en que aparece la oferta",
+          breaks: "no se puede medir cuántos se quedaron hasta la oferta",
+          action: "Cargá ese segundo en el detalle de cada webinar.",
+        }),
+      ],
+    }),
+  );
+
+  byProvider.set(
+    "hyros",
+    buildHealth({
+      provider: "hyros",
+      connected: Boolean(hyrosStatus?.connected),
+      accountLabel: hyrosStatus?.attributionModel ?? null,
+      lastSyncAt: hyrosStatus?.adAccountsSyncedAt ?? null,
+      records: hyrosStatus?.adAccounts.length ?? 0,
+      recordsLabel: "cuentas publicitarias",
+      issues: [
+        ...lastErrorIssue(hyrosStatus?.lastError),
+        ...noDataYetIssue(
+          hyrosStatus?.adAccounts.length ?? 0,
+          "ninguna cuenta publicitaria",
+          "Sin cuentas no se puede pedir ningún número de atribución: sincronizá el catálogo.",
+        ),
+      ],
+    }),
+  );
+
+  // ── Cobros ─────────────────────────────────────────────────────────────────
+
+  for (const provider of ["whop", "fanbasis"] as const) {
+    const status = paymentStatuses.find((row) => row.provider === provider);
+    byProvider.set(
+      provider,
+      buildHealth({
+        provider,
+        connected: Boolean(status?.connected),
+        lastSyncAt: status?.lastEventAt ?? null,
+        records: null,
+        recordsLabel: null,
+        issues: [
+          ...unmappedEventsIssue(status?.unmappedEvents ?? 0),
+          ...(status?.connected && !status.lastEventAt
+            ? [
+                {
+                  level: "info" as const,
+                  message: "Todavía no llegó ningún evento.",
+                  action:
+                    "Registrá la URL del webhook en el panel del proveedor y hacé un cobro de prueba.",
+                },
+              ]
+            : []),
+        ],
+      }),
+    );
+  }
+
+  // ── Operación y datos ──────────────────────────────────────────────────────
+
+  byProvider.set(
+    "clickup",
+    buildHealth({
+      provider: "clickup",
+      // ClickUp no mantiene conexión: es una importación puntual con un token
+      // que se pide en el momento. No hay estado que persistir.
+      connected: false,
+    }),
+  );
+
+  const healths = LISTED_INTEGRATIONS.map(
+    (definition) =>
+      byProvider.get(definition.provider) ??
+      buildHealth({ provider: definition.provider, connected: false }),
+  );
+
+  return { healths, summary: summarize(healths) };
+}
+
+/**
+ * Las oportunidades de GHL son el mismo proveedor que los turnos, pero otro
+ * recurso: se configuran aparte y pueden estar a medias mientras los turnos
+ * funcionan. Por eso sus avisos cuelgan de la misma tarjeta.
+ */
+function ghlIssues(
+  status: { connected: boolean; selectedCalendarIds: string[] },
+  opportunities: {
+    pipelineCount: number;
+    hasWebhookSecret: boolean;
+    transitionCount: number;
+  } | null,
+): IntegrationIssue[] {
+  if (!status.connected) return [];
+
+  const issues: IntegrationIssue[] = [];
+
+  if (status.selectedCalendarIds.length === 0) {
+    issues.push({
+      level: "warning",
+      message: "No hay ningún calendario seleccionado para sincronizar.",
+      action: "Elegí los calendarios de los que salen las llamadas de venta.",
+    });
+  }
+
+  if (opportunities && opportunities.pipelineCount === 0) {
+    issues.push({
+      level: "warning",
+      message: "El catálogo de pipelines y etapas está vacío.",
+      action:
+        "Sincronizalo: sin él no se puede configurar ningún paso del embudo contra una etapa.",
+    });
+  }
+
+  if (opportunities && !opportunities.hasWebhookSecret) {
+    issues.push({
+      level: "warning",
+      message:
+        "Falta el secreto del webhook de oportunidades, así que los cambios de etapa no llegan.",
+      action:
+        "Generalo acá y pegá la URL en una acción «Webhook» de un Workflow de la sub-cuenta.",
+    });
+  }
+
+  if (
+    opportunities &&
+    opportunities.hasWebhookSecret &&
+    opportunities.transitionCount === 0
+  ) {
+    issues.push({
+      level: "info",
+      message: "Todavía no llegó ningún cambio de etapa.",
+      action:
+        "El historial de etapas arranca con el primer evento: GHL no lo expone hacia atrás.",
+    });
+  }
+
+  return issues;
 }
