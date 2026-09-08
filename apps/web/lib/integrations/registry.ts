@@ -641,9 +641,7 @@ const DEFINITIONS: IntegrationDefinition[] = [
     ],
     connect: "redirect",
     connectUrl: "/api/integrations/discord/oauth/start",
-    listed: false,
-    unlistedReason:
-      "El bot todavía no está publicado para instalación por cuenta.",
+    listed: true,
   },
   {
     provider: "clickup",

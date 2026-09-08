@@ -7,6 +7,7 @@ import { Button, cn } from "@ai-coo/ui";
 import type { IntegrationProvider } from "@/constants/integrations";
 import type { IntegrationState } from "@/lib/integrations/health";
 import { getIntegrationDefinition } from "@/lib/integrations/registry";
+import { paths } from "@/routes";
 import { useToast } from "@/providers/toast-provider";
 import { usePlatformData } from "@/providers";
 import {
@@ -81,6 +82,18 @@ const MANUAL_SYNC: Partial<
   fathom: { label: "Traer reuniones ahora", run: syncFathomMeetingsAction },
 };
 
+/**
+ * Proveedores cuya configuración vive en una pantalla propia, no en el panel de
+ * detalle. Conectados, el botón principal lleva ahí en vez de repetir el OAuth.
+ *
+ * Discord es el caso: meter el bot al servidor y elegir qué canales lee son dos
+ * pasos distintos, y el segundo tiene su propia pantalla porque además vincula
+ * cada canal con un cliente.
+ */
+const MANAGE_ROUTE: Partial<Record<IntegrationProvider, string>> = {
+  discord: paths.platform.integrationsDiscord,
+};
+
 export function IntegrationConnectActions({
   provider,
   state,
@@ -112,6 +125,12 @@ export function IntegrationConnectActions({
   const manualSync = MANUAL_SYNC[provider];
 
   function openConnectSurface() {
+    const manageRoute = MANAGE_ROUTE[provider];
+    if (isConnected && manageRoute) {
+      router.push(manageRoute);
+      return;
+    }
+
     if (definition.connect === "redirect" && definition.connectUrl) {
       window.location.href = definition.connectUrl;
       return;
@@ -182,7 +201,9 @@ export function IntegrationConnectActions({
             {definition.auth === "import"
               ? "Importar clientes"
               : isConnected
-                ? "Reconfigurar"
+                ? MANAGE_ROUTE[provider]
+                  ? "Configurar canales"
+                  : "Reconfigurar"
                 : `Conectar ${definition.name}`}
           </Button>
         ) : null}

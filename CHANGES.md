@@ -14,6 +14,62 @@
 
 ---
 
+### 2026-09-08 — Discord vuelve a Integraciones, con los dos avisos que importan
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/integrations/registry.ts`, `app/integrations/actions.ts`, `components/integrations/integration-connect-actions.tsx`
+
+**Qué se hizo:**
+
+El bot de Discord está desplegado en Railway y con sus variables cargadas, pero
+**no había forma de llegar al flujo de conexión desde la aplicación**: Discord
+estaba sin listar en Integraciones desde antes del rediseño. La ruta de OAuth
+funcionaba si se abría a mano; ningún usuario la iba a encontrar.
+
+**La tarjeta existe.** Conectar lleva al selector de servidores de Discord, que
+sólo ofrece aquellos donde la persona es administradora, y pide tres permisos:
+ver el canal, escribir y leer el historial.
+
+**Y conectada lleva a la pantalla de canales, no al OAuth de nuevo.** Ese camino
+existía en la tarjeta vieja y **no se había portado** al rediseño: como Discord
+estaba oculto, la rama nunca se renderizaba y ni los tests ni el compilador lo
+notaban. Entrar el bot al servidor y elegir qué canales lee son dos pasos
+distintos, y el segundo tiene pantalla propia porque además vincula cada canal con
+un cliente.
+
+**Los dos modos de falla del runbook ahora se ven en la tarjeta:**
+
+| Aviso | Qué significa |
+|---|---|
+| Sin canales monitoreados | El bot está en el servidor y **no lee nada**. Desde afuera se ve igual que si funcionara |
+| Mensajes guardados sin texto | Falta activar MESSAGE CONTENT INTENT en el portal de Discord. Es el fallo peligroso: el bot arranca, se conecta y guarda una fila por mensaje, todas en blanco |
+
+**Decisiones de diseño relevantes:**
+
+- **El aviso de mensajes vacíos es `error`, no `warning`.** No es una medida que
+  falte: son datos que se están guardando mal ahora mismo, y cada minuto que pasa
+  se acumulan más filas inservibles.
+- **El conteo de mensajes vacíos sólo se pide si Discord está conectado**, como el
+  resto de los conteos de la pantalla.
+
+**Verificación ejecutada:**
+- Pantalla revisada renderizada: las **16 tarjetas** aparecen y el detalle de
+  Discord abre con su acción correcta.
+- `pnpm test`: 933 tests en verde · `tsc --noEmit` limpio · `pnpm lint` sin
+  errores · `pnpm build`: 139 páginas.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **El flujo entero no se probó contra un servidor real.** Falta hacer el
+  recorrido completo: conectar, elegir canales, escribir un mensaje y confirmar
+  que llega con texto.
+- El aviso de mensajes vacíos no distingue un mensaje legítimamente sin texto —una
+  imagen sin epígrafe— de uno truncado por el intent. Con el intent activado el
+  número debería quedar bajo y estable; si sube, es el intent.
+
+---
+
 ### 2026-09-08 — El producto se llama Limitless: se retiró "Limitless" del código y la documentación
 
 **Rama/branch:** `Claude-New-Features`
