@@ -14,6 +14,94 @@
 
 ---
 
+### 2026-09-08 — Integraciones: logos reales, el panel fantasma y su causa raíz
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `components/layout/page-transition.tsx`, `packages/config/tailwind/preset.ts`, `lib/integrations/brand-colors.ts`, `components/integrations/{integration-logo,integration-connect-actions}.tsx`, `components/integrations/settings/manychat-settings.tsx` (nuevo), `components/integrations/manychat-manage-sheet.tsx` (eliminado), `components/landing/integrations-section.tsx`, `app/(platform)/integrations/page.tsx`, `public/integrations/*`
+
+**Qué se hizo:**
+
+Tres pedidos que resultaron estar conectados.
+
+**⭐ El panel que asomaba en el borde derecho: era un bug de layout global.**
+Reproducido en el navegador y medido: el `<aside>` del panel de ManyChat, con
+`position: fixed; right: 0` y desplazado fuera de pantalla con `translate-x-full`,
+quedaba en `left: 1408` de un viewport de 1440 —**32 px adentro**— y con
+`top: 150; height: 449` en vez de ocupar el alto completo.
+
+La causa no era el panel: **un elemento con `transform` se convierte en el bloque
+contenedor de sus descendientes `position: fixed`**. El wrapper de transición de
+ruta (`PageTransition`) usaba `animate-fade-in`, que anima `translateY`, y Chrome
+deja la matriz identidad computada aun después de terminar la animación. Como ese
+wrapper envuelve **toda** la página, cualquier overlay fijo de adentro se
+posicionaba contra él en vez de contra el viewport.
+
+Eso no afectaba sólo a ManyChat: los cajones laterales de retrospectivas de
+sprint, versiones de SOP, leads de UTM y llamadas del cliente están hechos igual.
+Los diálogos de Radix se salvaban porque hacen portal a `body`.
+
+**El arreglo es de raíz**: `PageTransition` pasó a una animación de **sólo
+opacidad** (`page-fade-in`, nueva en el preset). Se perdió el desplazamiento de
+8 px de la entrada de página; a cambio, `position: fixed` vuelve a significar lo
+que dice en toda la aplicación.
+
+**⭐ El panel de ManyChat se eliminó, no se arregló.** Era el único proveedor que
+configuraba en un cajón lateral en vez del panel de detalle. Su contenido —la URL
+del External Request, las etiquetas de CTA y la importación de contacto— pasó a
+ser la configuración de su tarjeta, como VTurb, Hyros o los cobros.
+
+**⭐ Logos: faltaban cinco y tres estaban mal.** Se auditaron los veinte assets:
+
+| Asset | Qué pasaba |
+|---|---|
+| `fathom.svg` | Era el logo de **Fathom Analytics**, que es otra empresa |
+| `zernio.svg` | Un `<text>` con un signo `=`. En una máscara CSS no dibuja nada: el cuadro salía vacío |
+| `ghl.svg` · `mercadopago.svg` | Dibujos a mano, no las marcas reales |
+| `typeform.svg` | El logotipo con la palabra completa: ilegible a 20 px |
+| `manychat.svg` | Un globo de diálogo genérico, no la marca |
+
+Se bajaron las marcas reales de los sitios de cada proveedor y se sumaron las
+cinco que faltaban (VTurb, WebinarJam, Hyros, Whop y Commas). **Las catorce
+integraciones ofrecidas tienen hoy su logo real**, y un test lo verifica.
+
+Para eso el componente aprendió una segunda forma de dibujar: los **app icons**
+—que traen su propio fondo y sus propios colores— se renderizan tal cual, porque
+pasarlos por la máscara blanca los convertiría en un cuadrado blanco. La landing
+dejó de repetir la lógica de máscara por su cuenta y usa el mismo componente.
+
+**⭐ Se sacó el bloque de música de Trial Reels**, que no es una integración.
+
+**Decisiones de diseño relevantes:**
+
+- **Se arregló la causa, no el síntoma.** Mover el panel de ManyChat a un portal
+  habría tapado el problema y dejado los otros cuatro cajones rotos en silencio.
+- **La animación de página no puede volver a tener `transform`.** Queda escrito
+  en el propio componente y en el keyframe, porque el síntoma aparece lejos de la
+  causa: se rompe un panel de otra pantalla.
+- **Ningún logo inventado.** Lo que no se consiguió auténtico se dibuja con la
+  inicial. Hoy no queda ninguno así, pero el camino existe para el próximo.
+
+**Verificación ejecutada:**
+- Bug reproducido y medido en Chromium **antes** del arreglo (`left: 1408` de
+  1440) y verificado después: **cero elementos tocan el borde derecho**.
+- `pnpm test`: **600 tests en 36 archivos, todos en verde** (1 nuevo: toda
+  integración ofrecida tiene logo real).
+- `tsc --noEmit` limpio · `pnpm build` completo: 133 páginas.
+- Pantalla revisada renderizada en el navegador, tablero y detalle.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **El uploader de música de Trial Reels quedó sin pantalla.** El componente y
+  la acción siguen existiendo y el generador sigue leyendo `reel_music_path`, así
+  que el track ya subido se sigue usando; lo que no hay es dónde cambiarlo.
+  Corresponde montarlo en Marketing → Contenido.
+- Los otros cuatro cajones laterales quedaron arreglados por el cambio de raíz,
+  pero **no se probaron uno por uno**.
+- El ícono de Hyros es de baja resolución: es el único que publica su marca.
+
+---
+
 ### 2026-09-08 — Integraciones: un registro, un contrato y una sola pantalla
 
 **Rama/branch:** `Claude-New-Features`

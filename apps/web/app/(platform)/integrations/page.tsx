@@ -13,7 +13,7 @@ import {
 import { getHyrosStatusAction } from "@/app/hyros/actions";
 import { listUnlinkedRecordingsAction } from "@/app/fathom/sales-call-actions";
 import { getCurrentUserIdAction } from "@/app/auth/current-user-actions";
-import { getReelMusicPathAction } from "@/app/marketing/content/reel-music-actions";
+import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
 import { IntegrationsBoard } from "@/components/integrations";
 import { VTurbSettings } from "@/components/integrations/settings/vturb-settings";
 import { HyrosSettings } from "@/components/integrations/settings/hyros-settings";
@@ -21,7 +21,7 @@ import { WebinarJamSettings } from "@/components/integrations/settings/webinarja
 import { GHLOpportunitiesSettings } from "@/components/integrations/settings/ghl-opportunities-settings";
 import { PaymentSettings } from "@/components/integrations/settings/payment-settings";
 import { FathomSettings } from "@/components/integrations/settings/fathom-settings";
-import { ReelMusicUpload } from "@/components/marketing/trial-reels/reel-music-upload";
+import { ManyChatSettings } from "@/components/integrations/settings/manychat-settings";
 import { PageHeader } from "@/components/shared/page-header";
 import type { IntegrationProvider } from "@/constants/integrations";
 import { paths } from "@/routes";
@@ -45,7 +45,7 @@ export default async function IntegrationsPage() {
     hyros,
     unlinkedRecordings,
     currentUserId,
-    reelMusicPath,
+    manychat,
   ] = await Promise.all([
     getIntegrationsOverviewAction(),
     getPaymentIntegrationsStatusAction(),
@@ -56,7 +56,7 @@ export default async function IntegrationsPage() {
     getHyrosStatusAction(),
     listUnlinkedRecordingsAction(),
     getCurrentUserIdAction(),
-    getReelMusicPathAction(),
+    getManyChatIntegrationStatusAction(),
   ]);
 
   const stateOf = (provider: IntegrationProvider) =>
@@ -76,6 +76,12 @@ export default async function IntegrationsPage() {
 
   if (ghlOpportunities.connected) {
     settings.ghl = <GHLOpportunitiesSettings status={ghlOpportunities} />;
+  }
+
+  if (manychat.connected) {
+    settings.manychat = (
+      <ManyChatSettings webhookUrl={manychat.webhookUrl ?? null} />
+    );
   }
 
   if (stateOf("fathom") !== "not_connected") {
@@ -122,24 +128,6 @@ export default async function IntegrationsPage() {
           settings={settings}
         />
       </Suspense>
-
-      {/*
-        No es una integración: son los assets de producción de las variantes de
-        video. Queda acá porque no tiene todavía otra pantalla donde vivir, pero
-        separado del tablero para no volver a mezclar dos cosas distintas.
-      */}
-      <section className="space-y-3 border-t border-border/60 pt-8">
-        <div>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Trial Reels
-          </h2>
-          <p className="mt-0.5 text-[11px] text-muted-foreground/70">
-            Assets de producción para las variantes de video. No es una
-            integración externa.
-          </p>
-        </div>
-        <ReelMusicUpload currentPath={reelMusicPath} />
-      </section>
     </div>
   );
 }

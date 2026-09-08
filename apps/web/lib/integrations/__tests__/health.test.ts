@@ -17,7 +17,10 @@ import {
   LISTED_INTEGRATIONS,
 } from "../registry";
 import { INTEGRATION_PROVIDERS } from "@/constants/integrations";
-import { INTEGRATION_BRAND_COLORS } from "../brand-colors";
+import {
+  INTEGRATION_BRAND_COLORS,
+  integrationLogoAsset,
+} from "../brand-colors";
 
 const warning: IntegrationIssue = { level: "warning", message: "aviso" };
 const error: IntegrationIssue = { level: "error", message: "roto" };
@@ -177,6 +180,15 @@ describe("registro de integraciones", () => {
   it("todo proveedor declarado tiene color de marca", () => {
     for (const provider of INTEGRATION_PROVIDERS) {
       expect(INTEGRATION_BRAND_COLORS[provider]).toBeDefined();
+    }
+  });
+
+  it("toda integración ofrecida tiene un logo real, no la inicial", () => {
+    for (const definition of LISTED_INTEGRATIONS) {
+      expect(
+        integrationLogoAsset(definition.provider).kind,
+        definition.provider
+      ).not.toBe("monogram");
     }
   });
 

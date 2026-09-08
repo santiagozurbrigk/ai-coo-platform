@@ -21,11 +21,8 @@ import {
 import { disconnectYoutubeAction } from "@/app/youtube/actions";
 import { pullCalendlyScheduledEventsAction } from "@/app/calendly/actions";
 import { syncFathomMeetingsAction } from "@/app/fathom/actions";
-import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
 import { FathomConnectDialog } from "./fathom-connect-dialog";
 import { ManyChatConnectDialog } from "./manychat-connect-dialog";
-import { ManyChatImportDialog } from "./manychat-import-dialog";
-import { ManyChatManageSheet } from "./manychat-manage-sheet";
 import { ZernioConnectModal } from "./zernio-connect-modal";
 import { ClickUpImportWizard } from "./clickup-import-wizard";
 import { YoutubeApiKeyDialog } from "./youtube-api-key-dialog";
@@ -102,8 +99,6 @@ export function IntegrationConnectActions({
   const [openDialog, setOpenDialog] = useState<
     | "fathom"
     | "manychat"
-    | "manychat_manage"
-    | "manychat_import"
     | "zernio"
     | "clickup"
     | "youtube"
@@ -126,13 +121,7 @@ export function IntegrationConnectActions({
       case "fathom":
         return setOpenDialog("fathom");
       case "manychat":
-        if (!isConnected) return setOpenDialog("manychat");
-        // La URL del webhook se pide recién al abrir: contiene el token de la
-        // organización y no hace falta traerla al pintar el grid.
-        void getManyChatIntegrationStatusAction()
-          .then((status) => setManychatWebhookUrl(status.webhookUrl ?? null))
-          .catch(() => setManychatWebhookUrl(null));
-        return setOpenDialog("manychat_manage");
+        return setOpenDialog("manychat");
       case "zernio":
         return setOpenDialog("zernio");
       case "ghl":
@@ -236,20 +225,6 @@ export function IntegrationConnectActions({
           setOpenDialog(open ? "manychat" : null)
         }
         onConnected={() => router.refresh()}
-      />
-      <ManyChatManageSheet
-        open={openDialog === "manychat_manage"}
-        onOpenChange={(open: boolean) =>
-          setOpenDialog(open ? "manychat_manage" : null)
-        }
-        webhookUrl={manychatWebhookUrl}
-        onImportContact={() => setOpenDialog("manychat_import")}
-      />
-      <ManyChatImportDialog
-        open={openDialog === "manychat_import"}
-        onOpenChange={(open: boolean) =>
-          setOpenDialog(open ? "manychat_import" : null)
-        }
       />
       <ZernioConnectModal
         open={openDialog === "zernio"}

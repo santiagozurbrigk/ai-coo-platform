@@ -47,38 +47,64 @@ export const INTEGRATION_BRAND_COLORS: Record<
 };
 
 /**
- * Proveedores con logo vectorial en `public/integrations/`.
+ * Cómo se dibuja el logo de cada proveedor.
  *
- * Los que no están acá se dibujan con su inicial sobre el color de marca. Es
- * deliberado: inventar un logo aproximado de una marca ajena queda peor que una
- * inicial honesta, y un `<img>` roto queda peor que las dos.
+ * Hay dos formas, y la diferencia no es estética sino de qué asset publica cada
+ * marca:
+ *
+ * - **`mask`** — un glifo monocromo de una sola silueta. Se pinta en blanco
+ *   sobre el color de marca con `mask-image`. Es el formato de los íconos de
+ *   Simple Icons.
+ * - **`icon`** — el app icon de la marca, que **ya trae su propio fondo y sus
+ *   propios colores**. Pasarlo por una máscara lo destruiría: un cuadrado
+ *   opaco se convierte en un cuadrado blanco. Se renderiza tal cual.
+ *
+ * Los que no tienen ninguno de los dos se dibujan con su inicial. Hoy no hay
+ * ninguno en ese caso, pero el camino queda porque es lo que corresponde
+ * cuando entra un proveedor nuevo: inventarle un logo aproximado a una marca
+ * ajena queda peor que una inicial honesta.
+ *
+ * ⚠️ Tres assets estaban mal y se reemplazaron por la marca real: `fathom.svg`
+ * era el logo de **Fathom Analytics**, que es otra empresa; `ghl.svg` y
+ * `zernio.svg` eran dibujos hechos a mano (el de Zernio era literalmente un
+ * signo "=" en un `<text>`, que en una máscara no dibuja nada y dejaba el
+ * cuadro vacío).
  */
-const PROVIDERS_WITH_LOGO = new Set<IntegrationProvider>([
-  "zernio",
-  "manychat",
-  "calendly",
-  "ghl",
-  "fathom",
-  "unipile_instagram",
-  "unipile_whatsapp",
-  "google_ecosystem",
-  "youtube",
-  "instagram",
-  "typeform",
-  "google_forms",
-  "stripe",
-  "mercadopago",
-  "discord",
-  "clickup",
-]);
+export type IntegrationLogoAsset =
+  | { kind: "mask"; src: string }
+  | { kind: "icon"; src: string }
+  | { kind: "monogram" };
 
-export function hasIntegrationLogo(provider: IntegrationProvider): boolean {
-  return PROVIDERS_WITH_LOGO.has(provider);
-}
+const LOGO_ASSETS: Partial<Record<IntegrationProvider, IntegrationLogoAsset>> =
+  {
+    // Glifos monocromos sobre el color de marca
+    calendly: { kind: "mask", src: "/integrations/calendly.svg" },
+    discord: { kind: "mask", src: "/integrations/discord.svg" },
+    youtube: { kind: "mask", src: "/integrations/youtube.svg" },
+    instagram: { kind: "mask", src: "/integrations/instagram.svg" },
+    unipile_instagram: { kind: "mask", src: "/integrations/instagram.svg" },
+    unipile_whatsapp: { kind: "mask", src: "/integrations/whatsapp.svg" },
+    clickup: { kind: "mask", src: "/integrations/clickup.svg" },
+    stripe: { kind: "mask", src: "/integrations/stripe.svg" },
+    mercadopago: { kind: "mask", src: "/integrations/mercadopago.svg" },
+    google_forms: { kind: "mask", src: "/integrations/google_forms.svg" },
+    google_ecosystem: { kind: "mask", src: "/integrations/google_forms.svg" },
 
-export function integrationLogoSrc(provider: IntegrationProvider): string {
-  if (provider === "unipile_instagram") return "/integrations/instagram.svg";
-  if (provider === "unipile_whatsapp") return "/integrations/whatsapp.svg";
-  if (provider === "google_ecosystem") return "/integrations/google_forms.svg";
-  return `/integrations/${provider}.svg`;
+    // App icons con su propio fondo
+    zernio: { kind: "icon", src: "/integrations/zernio.svg" },
+    manychat: { kind: "icon", src: "/integrations/manychat.png" },
+    typeform: { kind: "icon", src: "/integrations/typeform.png" },
+    ghl: { kind: "icon", src: "/integrations/ghl.png" },
+    fathom: { kind: "icon", src: "/integrations/fathom.png" },
+    vturb: { kind: "icon", src: "/integrations/vturb.png" },
+    webinarjam: { kind: "icon", src: "/integrations/webinarjam.png" },
+    hyros: { kind: "icon", src: "/integrations/hyros.png" },
+    whop: { kind: "icon", src: "/integrations/whop.png" },
+    fanbasis: { kind: "icon", src: "/integrations/fanbasis.svg" },
+  };
+
+export function integrationLogoAsset(
+  provider: IntegrationProvider,
+): IntegrationLogoAsset {
+  return LOGO_ASSETS[provider] ?? { kind: "monogram" };
 }

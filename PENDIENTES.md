@@ -523,28 +523,34 @@ referencias + `brand.domain`.
 
 ## 🟢 Deuda técnica — Phase 2 (baja urgencia)
 
-### [INTEGRACIONES-LOGOS] Faltan cinco logos
 
-**Qué es:** VTurb, WebinarJam, Hyros, Whop y Commas no tienen SVG en
-`apps/web/public/integrations/`. Se dibujan con su inicial sobre el color de marca,
-que es honesto pero se nota al lado de los que sí tienen logo.
 
-**Antes esto no se veía como un problema** porque el componente apuntaba la máscara
-CSS a un archivo inexistente y el cuadro salía liso: parecía un logo cargando.
+### [TRIAL-REELS-MUSICA] Remontar la carga de música en Marketing
 
-**Acción:** bajar los cinco SVG y sumarlos a `PROVIDERS_WITH_LOGO` en
-`lib/integrations/brand-colors.ts`.
+**Qué es:** el bloque de música de Trial Reels se sacó de Integraciones (no era
+una integración). `ReelMusicUpload` y `uploadReelMusicAction` siguen existiendo,
+pero **ya no hay ninguna pantalla que los monte**: el track que ya está subido se
+sigue usando, pero no se puede cambiar.
+
+**Dónde va:** Marketing → Contenido, junto al resto de la configuración de Trial
+Reels. Es montar el componente, nada más.
 
 ---
 
-### [INTEGRACIONES-TRIAL-REELS] Mover los assets de Trial Reels fuera de Integraciones
+### [LAYOUT-CAJONES] Revisar los otros cuatro cajones laterales
 
-**Qué es:** la carga de música para las variantes de video vive en `/integrations`
-y no es una integración externa. Quedó ahí, separada del tablero con su propio
-encabezado, porque no tiene todavía otra pantalla donde vivir.
+**Qué es:** el arreglo de `PageTransition` (sacarle el `transform` a la animación
+de entrada de página) devolvió el comportamiento correcto a **todos** los
+`position: fixed` de la aplicación. Los cajones de retrospectiva de sprint,
+versiones de SOP, leads de UTM y llamadas del cliente estaban rotos igual que el
+de ManyChat, pero **no se verificaron uno por uno**.
 
-**Dónde debería ir:** Marketing → Contenido, junto al resto de la configuración de
-Trial Reels.
+**Qué mirar:** que abran a pantalla completa contra el borde derecho, y que
+cerrados no asomen.
+
+**Regla que quedó:** ningún wrapper que envuelva la página puede tener
+`transform` —ni siquiera la matriz identidad que queda después de una animación—
+porque se vuelve el bloque contenedor de los `fixed` de adentro.
 
 ---
 
@@ -580,6 +586,24 @@ detalle, volver al tablero.
 ---
 
 ## ✅ Completados (referencia histórica)
+
+### 2026-09-08 — [INTEGRACIONES-LOGOS] Las catorce integraciones tienen su marca real
+
+Se bajaron las cinco que faltaban (VTurb, WebinarJam, Hyros, Whop, Commas) y se
+reemplazaron tres que estaban mal: `fathom.svg` era el logo de **Fathom
+Analytics**, otra empresa; `zernio.svg` era un `<text>` con un `=` que en una
+máscara CSS no dibujaba nada; `ghl.svg` y `mercadopago.svg` eran dibujos a mano.
+También se cambiaron el logotipo completo de Typeform y el globo genérico de
+ManyChat por sus marcas. Un test verifica que ninguna integración ofrecida se
+quede en la inicial.
+
+### 2026-09-08 — [INTEGRACIONES-PANEL-FANTASMA] El panel que asomaba a la derecha
+
+Era el cajón de ManyChat, y la causa era global: el wrapper de transición de ruta
+animaba `translateY`, y un elemento con `transform` se vuelve el bloque
+contenedor de sus descendientes `position: fixed`. Arreglado en la raíz
+(animación de sólo opacidad) y el cajón se eliminó: ManyChat se configura en el
+panel de detalle como todos los demás.
 
 ### 2026-09-08 — [INTEGRACIONES-REDISEÑO] Registro único, contrato de estado y pantalla nueva
 

@@ -5,4 +5,3 @@ export {
   IntegrationStateDot,
 } from "./integration-state-badge";
 export { CalendlyManualSyncNotice } from "./calendly-manual-sync-notice";
-export { ManyChatWebhookNotice } from "./manychat-webhook-notice";
