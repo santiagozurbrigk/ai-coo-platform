@@ -27,6 +27,9 @@ import type { PlanDuration } from "@/types/plan-durations";
 import type { ClientJourneyStatus } from "@/types/checkpoints";
 import { fieldOptionColorVar } from "@/lib/custom-fields";
 import { formatOverdue } from "@/lib/checkpoints";
+import { NewClientDialog } from "@/components/clients/new-client-dialog";
+import { ImportClientsDialog } from "@/components/clients/import-clients-dialog";
+import { useModuleAccess } from "@/providers/permissions-provider";
 import { PlanManagerDialog } from "./plan-manager-dialog";
 
 const STATUS_LABEL: Record<ClientStatus, string> = {
@@ -201,6 +204,20 @@ export function ClientsList({ clients }: { clients: Client[] }) {
   const [paidByClientId, setPaidByClientId] = useState<Record<string, number>>({});
   const [planDurations, setPlanDurations] = useState<PlanDuration[]>([]);
   const [isFounder, setIsFounder] = useState(false);
+  /**
+   * ⭐ Quién puede gestionar clientes: el fundador **o** cualquiera cuyo rol
+   * tenga acceso total al módulo.
+   *
+   * Antes esto miraba sólo `isFounder`, así que un miembro con un rol que le
+   * daba "acceso total a Clientes" entraba y veía una lista pelada: sin planes,
+   * sin revisión semanal, sin wins, sin recorrido y sin campos. El permiso
+   * existía, se podía configurar, y no servía para nada.
+   *
+   * Un permiso que la pantalla ignora es peor que no tenerlo: hace creer que el
+   * acceso está dado.
+   */
+  const permisoClientes = useModuleAccess("clients");
+  const puedeGestionar = isFounder || permisoClientes === "full";
   /** D2 · Actividad en Discord por cliente, para la señal de silencio. */
   const [discordActivity, setDiscordActivity] = useState<Record<string, ClientActivity>>({});
   /** C3 · Fase actual y "trabado" por cliente. Derivado, no guardado. */
@@ -330,8 +347,10 @@ export function ClientsList({ clients }: { clients: Client[] }) {
             </select>
           ) : null}
         </div>
-        {isFounder ? (
-          <div className="flex items-center gap-2">
+        {puedeGestionar ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <NewClientDialog />
+            <ImportClientsDialog />
             <Button
               type="button"
               variant="outline"
@@ -513,7 +532,7 @@ export function ClientsList({ clients }: { clients: Client[] }) {
       </div>
 
       {/* Diálogo de gestión de planes */}
-      {isFounder ? (
+      {puedeGestionar ? (
         <PlanManagerDialog
           open={plansOpen}
           onOpenChange={setPlansOpen}

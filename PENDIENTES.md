@@ -9,6 +9,19 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [ALTA-CLIENTES-PROBAR] Confirmar el alta con una cuenta de equipo 🔴
+
+**Qué es:** se arregló que un miembro con permiso total a Clientes pueda cargar y
+gestionar, y se agregó el botón de alta que no existía. **No se probó con una
+cuenta de miembro real** — no hay una segunda sesión en el entorno de desarrollo.
+
+**Qué hacer, antes de cargar la cartera en serio:** entrar con la cuenta de
+equipo y confirmar que aparecen los seis botones (Nuevo cliente, Cargar
+clientes, Crear planes, Revisión semanal, Wins, Recorrido, Campos) y que se
+puede guardar un cliente de prueba.
+
+---
+
 ### [FATHOM-429-CRONS] Los crons queman la cuota de Fathom 🔴
 
 **Qué es:** 110 fallas por 429 en 24 horas. Los crons piden reuniones cada diez

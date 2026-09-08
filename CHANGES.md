@@ -14,6 +14,78 @@
 
 ---
 
+### 2026-09-08 — 👥 Un miembro del equipo ya puede cargar clientes (y existe el botón para hacerlo)
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `components/clients/clients-list.tsx`, `components/clients/new-client-dialog.tsx` (nuevo)
+
+**Qué se hizo:**
+
+Reporte del tester: *"No me deja agregar clientes desde una cuenta de equipo. Tengo
+un rol con permiso para todo y no me deja."* Con fecha, además: al día siguiente
+empezaban a cargar la cartera.
+
+Buscando la causa aparecieron **tres problemas encadenados**, y el reportado era
+el más chico:
+
+**🐛 1 · El permiso de Clientes no servía para nada.** `clients-list.tsx` gateaba
+con `isFounder` a secas, sin mirar el rol. Un miembro con "acceso total a
+Clientes" entraba y veía una lista pelada: **sin planes, sin revisión semanal,
+sin wins, sin recorrido del cliente y sin campos personalizados**. Los cinco
+botones escondidos. El permiso existía, se podía configurar en Equipo → Roles, y
+la pantalla lo ignoraba.
+
+**🐛 2 · No existía ningún botón de "nuevo cliente".** En toda la aplicación. Un
+cliente sólo podía nacer de dos formas: cerrando una llamada de venta, o
+importando un archivo. **Ni el fundador podía cargar uno a mano.**
+
+**🐛 3 · El diálogo de importar clientes existía y no estaba puesto en ninguna
+pantalla.** `ImportClientsDialog` estaba escrito, terminado, con su botón — y
+ningún componente lo renderizaba. Código muerto que resolvía justo lo que hacía
+falta.
+
+Los tres arreglados: el gate ahora es `isFounder || permiso === "full"`, se
+agregó `NewClientDialog`, y el diálogo de importación quedó montado al lado.
+
+**Verificado en la base:** la política de inserción de `clients` es
+`organization_id = get_my_organization_id()`, y esa función mira **sólo a qué
+organización pertenecés, no tu rol**. O sea que la base nunca bloqueó nada: el
+freno era enteramente de pantalla, y por eso el arreglo no necesitó migración.
+
+**Decisiones de diseño relevantes:**
+
+- **El alta pide lo mínimo: nombre.** El resto tiene valores por defecto
+  razonables y se completa después en la ficha, que ya tiene todos los campos.
+  Quien está pasando veinte clientes de una planilla no debería pelear con
+  quince campos por cada uno.
+- **⭐ El diálogo queda abierto después de guardar**, con el formulario limpio y
+  un contador de cuántos van. Cargar una cartera es una tanda, no una visita.
+  Cerrar y volver a abrir veinte veces es fricción pura.
+- **Un monto vacío es cero, no un error.** Hay clientes que se cargan para
+  seguirlos aunque la plata haya entrado por otro lado.
+- **Se revisó el resto de la app buscando el mismo error.** La navegación ya
+  combinaba bien fundador y permiso. Lo que queda gateado sólo por fundador
+  —la pestaña de pagos en Ajustes, generar el reporte semanal— es defendible:
+  son facturación de la cuenta y una generación cara de IA.
+
+**Verificación ejecutada:**
+- `tsc --noEmit` limpio · `pnpm test`: 910 tests en 59 archivos · `pnpm lint` sin
+  errores · `pnpm build` compila.
+- La política de RLS, leída contra la base real (arriba).
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Sin probar con una cuenta de miembro real.** No tengo una segunda sesión
+  en este entorno. Es lo primero que hay que confirmar mañana antes de cargar en
+  serio: entrar con la cuenta de equipo y ver los seis botones.
+- El alta no permite cargar **cuotas** todavía: para un plan en cuotas se carga
+  el cliente y las cuotas se arman después desde su ficha.
+- `puedeGestionar` pide acceso **total**. Alguien con "solo lectura" en Clientes
+  sigue viendo la lista sin los botones, que es lo correcto.
+
+---
+
 ### 2026-09-07 — 🐛 Nueve bugs del feedback de testers, seis reportados y tres que sólo estaban en los logs
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
