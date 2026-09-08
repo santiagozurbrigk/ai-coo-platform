@@ -43,12 +43,17 @@ import type { ExecutiveReport, ReportPeriod } from "@/types/executive-reports";
  * indexada, una vez.
  */
 
-const SEEN_KEY = "otc:last-seen-report";
+const SEEN_KEY = "limitless:last-seen-report";
+/** Nombre previo al rebranding. Se lee una vez para no marcar todo como nuevo. */
+const LEGACY_SEEN_KEY = "otc:last-seen-report";
 
 /** Lee la marca sin romperse si el navegador bloquea el almacenamiento. */
 function readLastSeen(): string | null {
   try {
-    return window.localStorage.getItem(SEEN_KEY);
+    return (
+      window.localStorage.getItem(SEEN_KEY) ??
+      window.localStorage.getItem(LEGACY_SEEN_KEY)
+    );
   } catch {
     return null;
   }

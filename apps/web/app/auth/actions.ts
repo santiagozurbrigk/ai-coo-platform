@@ -3,7 +3,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { authRateLimit, rateLimitErrorMessage } from "@/lib/rate-limit";
-import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
+import {
+  ACTIVE_ORG_COOKIE,
+  LEGACY_ACTIVE_ORG_COOKIE,
+} from "@/lib/holding/constants";
 import { emailSchema, firstZodError } from "@/lib/validations";
 import { ensureCurrentUserBootstrap, loadProfileOrganizationContext } from "@/lib/auth/bootstrap";
 import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
@@ -295,13 +298,18 @@ export async function signOutAction() {
 
   await supabase.auth.signOut({ scope: "global" });
 
-  cookieStore.set(ACTIVE_ORG_COOKIE, "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 0,
-    path: "/",
-  });
+  // Se borran las dos: mientras la cookie legada se siga leyendo como respaldo,
+  // dejarla viva al cerrar sesión reviviría el negocio activo en el próximo
+  // ingreso.
+  for (const name of [ACTIVE_ORG_COOKIE, LEGACY_ACTIVE_ORG_COOKIE]) {
+    cookieStore.set(name, "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 0,
+      path: "/",
+    });
+  }
 
   redirect(paths.auth.login);
 }

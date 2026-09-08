@@ -41,7 +41,7 @@ export type ParseExcelResult = {
 
 // ─── Columnas de la plantilla Limitless ────────────────────────────────────────────
 
-const OTC_COLUMNS: ColumnMapping = {
+const CLIENT_TEMPLATE_COLUMNS: ColumnMapping = {
   name:        "Nombre",
   email:       "Email",
   phone:       "Teléfono",
@@ -157,7 +157,7 @@ export function parseClientsExcel(
   const headers = headerRow.filter(Boolean);
 
   // Usar plantilla Limitless si no hay mapping manual
-  const mapping: ColumnMapping = columnMapping ?? OTC_COLUMNS;
+  const mapping: ColumnMapping = columnMapping ?? CLIENT_TEMPLATE_COLUMNS;
 
   // Construir mapa header normalizado → key de mapping
   const headersByNorm: Record<string, string> = {};

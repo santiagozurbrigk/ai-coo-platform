@@ -24,5 +24,4 @@ export {
   mockOpportunities,
   mockMemoryChunks,
 } from "./intelligence";
-export { mockIntegrations } from "./integrations";
 export { mockTeamMembers, mockRoles } from "./team";

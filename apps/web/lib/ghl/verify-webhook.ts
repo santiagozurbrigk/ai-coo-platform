@@ -8,11 +8,11 @@
  * GHL sólo firma con su clave de plataforma los webhooks que salen de una **app
  * del Marketplace** (verificado el 2026-08-30 en
  * docs/external-apis/gohighlevel/webhook/WebhookIntegrationGuide.md: los eventos
- * y la URL se configuran dentro de la app). OTC todavía no tiene esa app
+ * y la URL se configuran dentro de la app). Limitless todavía no tiene esa app
  * aprobada — es el pendiente `[FEAT-GHL-OAUTH]`.
  *
  * La vía que funciona hoy sin app es que el cliente arme un **Workflow** en su
- * sub-cuenta con una acción "Webhook" apuntando a OTC. Esos eventos NO llevan la
+ * sub-cuenta con una acción "Webhook" apuntando a Limitless. Esos eventos NO llevan la
  * firma de la plataforma, así que se autentican con un secreto compartido por
  * organización.
  *

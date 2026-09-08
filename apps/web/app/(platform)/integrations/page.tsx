@@ -1,33 +1,42 @@
 import Link from "next/link";
-import { Suspense } from "react";
-import { listIntegrationsAction } from "@/app/integrations/actions";
+import { Suspense, type ReactNode } from "react";
+import { Button } from "@ai-coo/ui";
+import { Upload } from "lucide-react";
+import { getIntegrationsOverviewAction } from "@/app/integrations/actions";
 import { getPaymentIntegrationsStatusAction } from "@/app/payments/actions";
-import { getReelMusicPathAction } from "@/app/marketing/content/reel-music-actions";
-import { IntegrationGrid } from "@/components/integrations";
-import { PaymentsConnectPanel } from "@/components/integrations/payments-connect-panel";
-import { GHLOpportunitiesPanel } from "@/components/integrations/ghl-opportunities-panel";
 import { getGHLOpportunitiesStatusAction } from "@/app/ghl/opportunity-actions";
-import { VTurbConnectPanel } from "@/components/integrations/vturb-connect-panel";
 import { getVTurbStatusAction } from "@/app/vturb/actions";
-import { WebinarJamConnectPanel } from "@/components/integrations/webinarjam-connect-panel";
 import {
   getWebinarJamStatusAction,
   listWebinarJamWebinarOptionsAction,
 } from "@/app/webinarjam/actions";
-import { HyrosConnectPanel } from "@/components/integrations/hyros-connect-panel";
 import { getHyrosStatusAction } from "@/app/hyros/actions";
-import { UnlinkedRecordingsPanel } from "@/components/integrations/unlinked-recordings-panel";
 import { listUnlinkedRecordingsAction } from "@/app/fathom/sales-call-actions";
-import { ReelMusicUpload } from "@/components/marketing/trial-reels/reel-music-upload";
+import { getCurrentUserIdAction } from "@/app/auth/current-user-actions";
+import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
+import { IntegrationsBoard } from "@/components/integrations";
+import { VTurbSettings } from "@/components/integrations/settings/vturb-settings";
+import { HyrosSettings } from "@/components/integrations/settings/hyros-settings";
+import { WebinarJamSettings } from "@/components/integrations/settings/webinarjam-settings";
+import { GHLOpportunitiesSettings } from "@/components/integrations/settings/ghl-opportunities-settings";
+import { PaymentSettings } from "@/components/integrations/settings/payment-settings";
+import { FathomSettings } from "@/components/integrations/settings/fathom-settings";
+import { ManyChatSettings } from "@/components/integrations/settings/manychat-settings";
 import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@ai-coo/ui";
-import { Upload } from "lucide-react";
+import type { IntegrationProvider } from "@/constants/integrations";
 import { paths } from "@/routes";
 
+/**
+ * Integraciones.
+ *
+ * La página arma el panorama —una acción, un contrato para las catorce— y la
+ * configuración propia de cada proveedor, que se renderiza en el servidor y baja
+ * al tablero como props. El tablero decide cuál mostrar según lo que el usuario
+ * abra: no hay más paneles apilados que se cargan siempre y se leen nunca.
+ */
 export default async function IntegrationsPage() {
   const [
-    integrations,
-    reelMusicPath,
+    overview,
     paymentIntegrations,
     ghlOpportunities,
     vturb,
@@ -35,9 +44,10 @@ export default async function IntegrationsPage() {
     webinarJamWebinars,
     hyros,
     unlinkedRecordings,
+    currentUserId,
+    manychat,
   ] = await Promise.all([
-    listIntegrationsAction(),
-    getReelMusicPathAction(),
+    getIntegrationsOverviewAction(),
     getPaymentIntegrationsStatusAction(),
     getGHLOpportunitiesStatusAction(),
     getVTurbStatusAction(),
@@ -45,57 +55,79 @@ export default async function IntegrationsPage() {
     listWebinarJamWebinarOptionsAction(),
     getHyrosStatusAction(),
     listUnlinkedRecordingsAction(),
+    getCurrentUserIdAction(),
+    getManyChatIntegrationStatusAction(),
   ]);
+
+  const stateOf = (provider: IntegrationProvider) =>
+    overview.healths.find((health) => health.provider === provider)?.state ??
+    "not_connected";
+
+  // La configuración se monta sólo cuando hay algo que configurar. GHL y Fathom
+  // no renderizan nada útil sin conexión, y una tarjeta de "Configuración" vacía
+  // es peor que no mostrar la sección.
+  const settings: Partial<Record<IntegrationProvider, ReactNode>> = {
+    vturb: <VTurbSettings status={vturb} />,
+    hyros: <HyrosSettings status={hyros} />,
+    webinarjam: (
+      <WebinarJamSettings status={webinarJam} webinars={webinarJamWebinars} />
+    ),
+  };
+
+  if (ghlOpportunities.connected) {
+    settings.ghl = <GHLOpportunitiesSettings status={ghlOpportunities} />;
+  }
+
+  if (manychat.connected) {
+    settings.manychat = (
+      <ManyChatSettings webhookUrl={manychat.webhookUrl ?? null} />
+    );
+  }
+
+  if (stateOf("fathom") !== "not_connected") {
+    settings.fathom = (
+      <FathomSettings
+        currentUserId={currentUserId}
+        unlinkedRecordings={unlinkedRecordings}
+      />
+    );
+  }
+
+  for (const integration of paymentIntegrations) {
+    settings[integration.provider] = (
+      <PaymentSettings integration={integration} />
+    );
+  }
 
   return (
     <div className="space-y-8">
-      <div className="flex items-start justify-between gap-4 min-w-0">
-        <PageHeader className="min-w-0" description="Conecta herramientas externas para sincronizar ventas, closing y marketing" />
-        <Button asChild variant="outline" size="sm" className="flex-shrink-0 mt-1">
+      <div className="flex min-w-0 items-start justify-between gap-4">
+        <PageHeader
+          className="min-w-0"
+          description="Todo lo que Limitless lee de afuera: qué está conectado, qué está trayendo datos y qué necesita atención"
+        />
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+          className="mt-1 flex-shrink-0"
+        >
           <Link href={paths.platform.integrationsImport}>
-            <Upload className="h-4 w-4 mr-2" />
+            <Upload className="mr-2 h-4 w-4" />
             Importar datos históricos
           </Link>
         </Button>
       </div>
 
-      <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando…</p>}>
-        <IntegrationGrid integrations={integrations} />
+      <Suspense
+        fallback={<p className="text-sm text-muted-foreground">Cargando…</p>}
+      >
+        <IntegrationsBoard
+          healths={overview.healths}
+          summary={overview.summary}
+          settings={settings}
+        />
       </Suspense>
-
-      <PaymentsConnectPanel integrations={paymentIntegrations} />
-
-      <GHLOpportunitiesPanel status={ghlOpportunities} />
-
-      <VTurbConnectPanel status={vturb} />
-
-      <WebinarJamConnectPanel status={webinarJam} webinars={webinarJamWebinars} />
-
-      <HyrosConnectPanel status={hyros} />
-
-      {/* Llamadas de venta — Fase 1 del módulo de llamadas */}
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold">Llamadas de venta</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Una grabación de Fathom es una llamada de venta cuando el mail de un
-            participante coincide con el de un turno agendado y el horario
-            corresponde
-          </p>
-        </div>
-        <UnlinkedRecordingsPanel recordings={unlinkedRecordings} />
-      </section>
-
-      {/* Trial Reels — configuración de assets */}
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold">Trial Reels</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Assets de producción para las variantes de video
-          </p>
-        </div>
-        <ReelMusicUpload currentPath={reelMusicPath} />
-      </section>
     </div>
   );
 }

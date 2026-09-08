@@ -1,4 +1,4 @@
-# CLAUDE.md — Contexto maestro del monorepo OTC
+# CLAUDE.md — Contexto maestro del monorepo Limitless
 
 Documento de referencia para **Claude Code**, Cursor y desarrolladores nuevos.  
 Repo: `ai-coo-platform` · App principal: `apps/web` · Última revisión: agosto 2026.
@@ -43,7 +43,7 @@ Agregar la entrada **al principio del historial** (orden cronológico inverso �
 [`docs/external-apis/`](./docs/external-apis/) tiene copias locales completas y
 navegables de las APIs externas: **GoHighLevel, VTurb, Whop, Commas (ex Fanbasis),
 Hyros y WebinarJam**. Leer de ahí, no de memoria ni de una búsqueda web. Cada carpeta
-tiene un `RESUMEN-OTC.md` con lo que OTC necesita de ese proveedor.
+tiene un `RESUMEN-LIMITLESS.md` con lo que Limitless necesita de ese proveedor.
 
 Si la API que necesitás no está, **probá su URL antes de darla por bloqueada** y fijate
 si publica un spec OpenAPI (cuatro de los seis lo hacen). Bajala con
@@ -140,26 +140,27 @@ Claude Code usa el prefijo `claude/` asignado por el sistema — está bien, no 
 **Fuentes complementarias (leer si hace falta profundizar):**
 - `CHANGES.md` — **historial de cambios con contexto** (leer siempre al inicio)
 - `docs/external-apis/` — **copia local de la documentación de las APIs externas** (GoHighLevel, VTurb, Whop, Commas, Hyros, WebinarJam)
+- `docs/INTEGRACIONES_MAPA.md` — **qué lee Limitless de afuera**: flujo de datos, transporte y qué se rompe sin cada integración. El registro ejecutable es `lib/integrations/registry.ts`
 - `docs/API_DOCS_PENDIENTES.md` — **APIs implementadas sin documentación**, pendientes de verificar
 - `docs/PLAN_VERIFICACION.md` — **qué probar a mano** cuando haya cuentas reales conectadas
 - `PENDIENTES.md` — **backlog de pendientes** (leer siempre al inicio, actualizar al terminar)
-- `OTC_OPERATIONAL_NOTES.md` — operaciones, integraciones, crons, env vars en detalle
-- `DESIGN.md` — design system OTC
+- `OPERATIONAL_NOTES.md` — operaciones, integraciones, crons, env vars en detalle
+- `DESIGN.md` — design system Limitless
 - `docs/PROJECT_CONSTITUTION.md` — visión de producto
 - `routes/paths.ts` — rutas canónicas de navegación
 
 ---
 
-## 1. NEGOCIO — OTC (Optimiza tu Control)
+## 1. NEGOCIO — Limitless
 
-### Qué es OTC
+### Qué es Limitless
 
-**OTC (Optimiza tu Control)** es el producto comercial del monorepo **AI COO Platform**: un sistema operativo con IA para **negocios de infoproductos** (cursos, mentorías, memberships). No es un CRM ni un dashboard genérico — es un **cerebro operativo** que centraliza ventas, marketing, operaciones, finanzas y documentación, y ayuda al founder a entender qué pasa, dónde están los cuellos de botella y qué priorizar.
+**Limitless** es el producto comercial del monorepo **AI COO Platform**: un sistema operativo con IA para **negocios de infoproductos** (cursos, mentorías, memberships). No es un CRM ni un dashboard genérico — es un **cerebro operativo** que centraliza ventas, marketing, operaciones, finanzas y documentación, y ayuda al founder a entender qué pasa, dónde están los cuellos de botella y qué priorizar.
 
 ### A quién sirve
 
 - **Founders** de infoproductos que gestionan equipo, contenido, ventas por DM y llamadas de cierre
-- **Holdings / agencias** que administran **múltiples negocios** desde una cuenta (`account_type = 'holding'`, cookie `otc_active_org`)
+- **Holdings / agencias** que administran **múltiples negocios** desde una cuenta (`account_type = 'holding'`, cookie `limitless_active_org`)
 - **Operadores** (rol `operator`) y **viewers** con permisos por módulo
 
 ### Propuesta de valor
@@ -185,13 +186,13 @@ Claude Code usa el prefijo `claude/` asignado por el sistema — está bien, no 
 | **Finanzas** | `/finance/*` | Gastos, facturación, Mercado Pago |
 | **Base de conocimiento** | `/business-context/documents` | Docs + RAG para el agente |
 | **Integraciones** | `/integrations` | OAuth y API keys por proveedor |
-| **Super Admin** | `/super-admin/*` | Gestión de orgs, costos, waitlist (staff OTC) |
+| **Super Admin** | `/super-admin/*` | Gestión de orgs, costos, waitlist (staff Limitless) |
 
 ### Conexión con Zernio
 
-**[Zernio](https://zernio.com)** es la plataforma externa de gestión de redes sociales. OTC se conecta vía API key por organización (`zernio_integrations`).
+**[Zernio](https://zernio.com)** es la plataforma externa de gestión de redes sociales. Limitless se conecta vía API key por organización (`zernio_integrations`).
 
-Zernio provee a OTC:
+Zernio provee a Limitless:
 - **Contenido publicado** (posts/reels de Instagram, posts externos)
 - **Métricas** por post y por cuenta
 - **Inbox** (DMs Instagram, WhatsApp, etc.)
@@ -479,7 +480,7 @@ Secrets de integraciones → `createAdminClient()` (service role).
 | `app/executive-reports/actions.ts` | reportes ejecutivos |
 | `app/onboarding/actions.ts` | gate de onboarding del founder (negocio, oferta principal, avatar) |
 | `app/(platform)/holding/actions.ts` | switching holding |
-| `app/super-admin/actions.ts` | admin OTC |
+| `app/super-admin/actions.ts` | admin Limitless |
 | `app/auth/actions.ts` | signIn, signUp, signOut |
 
 ### Rutas API (`app/api/`)
@@ -678,7 +679,7 @@ Eventos SSE: ver `lib/agent/sse.ts` (`token`, `thinking`, `tool`, `done`, `error
 | **Unipile** | `UNIPILE_DSN`, `UNIPILE_ACCESS_TOKEN`, `UNIPILE_API_KEY`, `UNIPILE_WEBHOOK_SECRET` |
 | **ManyChat** | (API key por org en DB) |
 | **Zernio** | `ZERNIO_API_KEY`, `ZERNIO_BASE_URL` (opcional) |
-| **Discord** | `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`, `NEXT_PUBLIC_DISCORD_CLIENT_ID`, `OTC_WEBHOOK_SECRET` |
+| **Discord** | `DISCORD_BOT_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`, `NEXT_PUBLIC_DISCORD_CLIENT_ID`, `LIMITLESS_WEBHOOK_SECRET` |
 | **Meta Pixel** | `NEXT_PUBLIC_META_PIXEL_ID`, `META_CONVERSIONS_API_TOKEN` |
 | **UTM landing** | `NEXT_PUBLIC_UTM_ORGANIZATION_ID` |
 | **Vercel** | `VERCEL_URL`, `VERCEL_GIT_COMMIT_SHA` (auto) |
@@ -686,7 +687,7 @@ Eventos SSE: ver `lib/agent/sse.ts` (`token`, `thinking`, `tool`, `done`, `error
 ### Desarrollo local
 
 - Sin Supabase configurado → `isSupabaseConfigured() === false` → modo demo con mocks
-- `CRON_SECRET` puede omitirse en algunos endpoints legacy (ver `OTC_OPERATIONAL_NOTES.md`) — **no en producción**
+- `CRON_SECRET` puede omitirse en algunos endpoints legacy (ver `OPERATIONAL_NOTES.md`) — **no en producción**
 - Google OAuth en modo "Prueba" requiere test users en consent screen
 
 **Helpers:** `apps/web/lib/supabase/env.ts`

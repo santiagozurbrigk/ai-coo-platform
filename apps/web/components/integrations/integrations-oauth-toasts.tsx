@@ -1,0 +1,206 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
+import { GOOGLE_PERMISSION_RECONNECT_MESSAGE } from "@/lib/google/errors";
+import { useMarketingData } from "@/providers";
+import { useToast } from "@/providers/toast-provider";
+
+/**
+ * Avisos del regreso de un OAuth.
+ *
+ * Los callbacks vuelven a esta pantalla con el resultado en la query string.
+ * Antes esto vivía adentro del grid, que por eso tenía que ser un Client
+ * Component aunque no lo necesitara para nada más.
+ */
+
+const CALENDLY_WEBHOOK_TOAST: Record<
+  string,
+  { title: string; description: string }
+> = {
+  standard_required: {
+    title: "Calendly conectado",
+    description:
+      "Sin plan Standard no hay sincronización automática. Traé los turnos a mano desde el detalle de Calendly.",
+  },
+  localhost: {
+    title: "Calendly conectado",
+    description:
+      "Los webhooks no se pueden registrar en local. Sincronizá a mano desde el detalle de Calendly.",
+  },
+  https_required: {
+    title: "Calendly conectado",
+    description:
+      "La URL del webhook tiene que ser HTTPS. La sincronización manual sigue disponible.",
+  },
+  create_failed: {
+    title: "Calendly conectado",
+    description:
+      "No se pudo registrar el webhook. Podés sincronizar a mano desde el detalle de Calendly.",
+  },
+  invalid_url: {
+    title: "Calendly conectado",
+    description:
+      "La URL del webhook es inválida. Usá la sincronización manual.",
+  },
+};
+
+const OAUTH_TOAST: Record<
+  string,
+  Record<
+    string,
+    { title: string; description: string; variant?: "success" | "default" }
+  >
+> = {
+  google_forms: {
+    connected: {
+      title: "Google conectado",
+      description:
+        "Forms, Drive y YouTube quedaron vinculados con los permisos actualizados.",
+      variant: "success",
+    },
+    permissions: {
+      title: "Permisos de Google incompletos",
+      description: GOOGLE_PERMISSION_RECONNECT_MESSAGE,
+    },
+    error: {
+      title: "Error al conectar Google",
+      description: "Revisá las variables de entorno y volvé a intentar.",
+    },
+  },
+  youtube: {
+    connected: {
+      title: "YouTube conectado",
+      description:
+        "El canal quedó vinculado. Los videos se sincronizan en Contenido.",
+      variant: "success",
+    },
+    error: {
+      title: "Error al conectar YouTube",
+      description: "Revisá la configuración OAuth en Google Cloud.",
+    },
+  },
+  typeform: {
+    connected: {
+      title: "Typeform conectado",
+      description: "Los formularios y sus respuestas se sincronizan cada hora.",
+      variant: "success",
+    },
+    error: {
+      title: "Error al conectar Typeform",
+      description: "Verificá el redirect URI en Typeform Developer.",
+    },
+  },
+  discord: {
+    connected: {
+      title: "Discord conectado",
+      description:
+        "El bot está en tu servidor. Configurá canales y vinculaciones.",
+      variant: "success",
+    },
+    error: {
+      title: "Error al conectar Discord",
+      description:
+        "Revisá las credenciales y el redirect URI en Discord Developers.",
+    },
+  },
+};
+
+export function IntegrationsOauthToasts() {
+  const searchParams = useSearchParams();
+  const { push } = useToast();
+  const { setInstagramConnected } = useMarketingData();
+  const handled = useRef(false);
+
+  useEffect(() => {
+    if (handled.current) return;
+
+    if (searchParams.get("success") === "instagram") {
+      handled.current = true;
+      setInstagramConnected(true);
+      push({
+        title: "Instagram conectado",
+        description:
+          "La cuenta quedó vinculada. El contenido se sincroniza solo.",
+        variant: "success",
+      });
+      return;
+    }
+
+    const oauthError = searchParams.get("error");
+    if (oauthError === "instagram_denied") {
+      handled.current = true;
+      push({
+        title: "Conexión cancelada",
+        description: "No se autorizó el acceso a Instagram.",
+      });
+      return;
+    }
+    if (oauthError === "instagram_failed") {
+      handled.current = true;
+      push({
+        title: "Error al conectar Instagram",
+        description:
+          "Revisá que la cuenta sea Instagram Business y esté vinculada a una página de Facebook.",
+      });
+      return;
+    }
+
+    const unipileStatus = searchParams.get("unipile");
+    const unipileProvider = searchParams.get("provider");
+    if (unipileStatus && unipileProvider) {
+      handled.current = true;
+      const label =
+        unipileProvider === "whatsapp"
+          ? "WhatsApp"
+          : unipileProvider === "instagram"
+            ? "Instagram DMs"
+            : "Unipile";
+      push(
+        unipileStatus === "success"
+          ? {
+              title: `${label} conectado`,
+              description: "Los mensajes van a llegar al inbox de ventas.",
+              variant: "success",
+            }
+          : {
+              title: "No se pudo conectar la cuenta",
+              description: "Volvé a intentar desde Integraciones.",
+            },
+      );
+      return;
+    }
+
+    if (searchParams.get("calendly") === "connected") {
+      handled.current = true;
+      const webhook = searchParams.get("calendly_webhook");
+      const custom = webhook ? CALENDLY_WEBHOOK_TOAST[webhook] : null;
+      push({
+        title: custom?.title ?? "Calendly conectado",
+        description:
+          custom?.description ??
+          "Los turnos nuevos se sincronizan solos vía webhook.",
+        variant: "success",
+      });
+      return;
+    }
+
+    for (const provider of Object.keys(OAUTH_TOAST)) {
+      const status = searchParams.get(provider);
+      if (!status) continue;
+
+      handled.current = true;
+      const toast = OAUTH_TOAST[provider]?.[status];
+      if (toast) {
+        push({
+          title: toast.title,
+          description: toast.description,
+          variant: toast.variant ?? "default",
+        });
+      }
+      return;
+    }
+  }, [searchParams, push, setInstagramConnected]);
+
+  return null;
+}

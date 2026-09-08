@@ -2,15 +2,15 @@
  * lib/ghl/stage-transition.ts
  *
  * Deriva la transición de etapa a partir de un webhook de GHL y de la última
- * etapa que OTC conocía de esa oportunidad.
+ * etapa que Limitless conocía de esa oportunidad.
  *
  * ⭐ POR QUÉ ESTE ARCHIVO EXISTE
  *
  * `OpportunityStageUpdate` trae la etapa **nueva** y nada más: ni la anterior ni
  * el momento del cambio (verificado el 2026-08-30, ver
- * docs/external-apis/gohighlevel/RESUMEN-OTC.md §4). Y la API v3 no tiene
+ * docs/external-apis/gohighlevel/RESUMEN-LIMITLESS.md §4). Y la API v3 no tiene
  * endpoint de historial. Así que la transición hay que reconstruirla contra el
- * estado que OTC ya tenía guardado.
+ * estado que Limitless ya tenía guardado.
  *
  * Puro: recibe el estado previo y el evento, devuelve la transición. Se testea
  * sin base de datos.
@@ -32,7 +32,7 @@ export type TransitionDraft = {
   /**
    * `null` en el alta: no hay etapa anterior conocida.
    *
-   * También es `null` la primera vez que OTC ve una oportunidad que ya existía
+   * También es `null` la primera vez que Limitless ve una oportunidad que ya existía
    * en GHL. Poner ahí la primera etapa del pipeline sería inventar un recorrido
    * que nadie observó.
    */
@@ -51,7 +51,7 @@ export type TransitionDraft = {
  * Un `OpportunityUpdate` que sólo cambió el nombre o el responsable no es una
  * transición y no debe sumar a ningún conteo de etapa.
  *
- * `previous` es `null` cuando OTC nunca vio esta oportunidad. Eso puede ser un
+ * `previous` es `null` cuando Limitless nunca vio esta oportunidad. Eso puede ser un
  * alta real (`OpportunityCreate`) o una oportunidad vieja que recién ahora se
  * mueve; en los dos casos la etapa de origen es desconocida y queda en `null`.
  */
@@ -100,12 +100,12 @@ export function deriveTransition(
 }
 
 /**
- * ¿El período pedido cae dentro del historial que OTC realmente observó?
+ * ¿El período pedido cae dentro del historial que Limitless realmente observó?
  *
  * ⭐ REGLA DEL PERÍODO CIEGO (§9.1 de FUNNELS_ARCHITECTURE.md aplicada al tiempo)
  *
  * El historial de etapas arranca con el primer webhook. Preguntar por un período
- * anterior devuelve cero transiciones, pero ese cero significa "OTC no estaba
+ * anterior devuelve cero transiciones, pero ese cero significa "Limitless no estaba
  * mirando", no "no pasó nada". Reportarlo como 0 haría que el módulo marque como
  * rotura de negocio un hueco de instrumentación.
  *

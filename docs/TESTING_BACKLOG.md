@@ -1,4 +1,4 @@
-# TESTING_BACKLOG.md — Tests pendientes del monorepo OTC
+# TESTING_BACKLOG.md — Tests pendientes del monorepo Limitless
 
 > **Para un agente tester de Claude Code, o cualquier dev que venga a sumar cobertura.**
 >

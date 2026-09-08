@@ -4,7 +4,7 @@
  * > *"Cuatro preguntas, quince minutos, y tiene que terminar en una lista de
  * > nombres con una acción para cada uno."*
  *
- * OTC ya tenía los datos de tres de las cuatro y no los mostraba juntos en
+ * Limitless ya tenía los datos de tres de las cuatro y no los mostraba juntos en
  * ningún lado. Lo que faltaba no era el dato: era el ritual.
  *
  * ⭐ Ninguna de las cuatro listas inventa una señal. Cuando un dato no está

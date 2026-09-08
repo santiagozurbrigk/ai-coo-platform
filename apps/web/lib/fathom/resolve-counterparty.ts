@@ -87,7 +87,7 @@ export function normalizeIdentity(value: string): string {
  *
  * La contraparte es el participante que **no** es del equipo. `recorded_by` viene
  * en todas las grabaciones y siempre es alguien de casa, así que después de unas
- * pocas llamadas OTC conoce al equipo sin preguntarle nada a nadie.
+ * pocas llamadas Limitless conoce al equipo sin preguntarle nada a nadie.
  */
 export function externalParticipants(
   participants: readonly RecordingParticipant[],

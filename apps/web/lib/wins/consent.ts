@@ -1,7 +1,7 @@
 /**
  * ⭐ Los permisos del cliente sobre su propio resultado.
  *
- * La Ficha de Caso del Excel pregunta dos cosas que OTC no guardaba: si el
+ * La Ficha de Caso del Excel pregunta dos cosas que Limitless no guardaba: si el
  * cliente **autorizó el uso público** y **cómo quiere aparecer**. Sin eso, se
  * puede publicar la facturación de una persona real sin que conste en ningún
  * lado que dio permiso.

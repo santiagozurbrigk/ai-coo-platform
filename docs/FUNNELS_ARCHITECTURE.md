@@ -4,7 +4,7 @@
 > **Fecha:** 2026-08-29
 > **Rama:** `Claude-New-Features`
 > **Fuente:** `Funnel Metrics Standard v1.0` (Aug 2026) — documento de estándar de medición
-> **Alcance:** define cómo OTC modela, resuelve, evalúa y presenta embudos de venta de cualquier tipo.
+> **Alcance:** define cómo Limitless modela, resuelve, evalúa y presenta embudos de venta de cualquier tipo.
 
 Este documento es la referencia de implementación. Antes de tocar código de embudos,
 leerlo completo. Si una decisión cambia, actualizar acá **antes** de codear.
@@ -37,7 +37,7 @@ Las siete decisiones que gobiernan el diseño, ya resueltas:
 | 3 | ¿Cómo se llenan webinar y VSL? | **Sí o sí con integración** | No hay input manual como salida. Bloquea Fase 3 hasta que existan las integraciones. Ver §7. |
 | 4 | ¿Módulo nuevo o contexto global? | **Lectura A — módulo de medición** | Marketing/Ventas/Finanzas siguen operativos. Embudos es un lente sobre ellos. El resolver igual lleva `funnelInstanceId` desde el día uno. |
 | 5 | Switcher de vistas | **Ruta dinámica + sidebar dinámico + switcher con salud** | Ver §6, análisis completo. |
-| 6 | ¿Quién crea un tipo de embudo? | **Catálogo curado por OTC** (add-on + super-admin), builder para el founder más adelante | Mismo patrón que `enabled_add_ons`. |
+| 6 | ¿Quién crea un tipo de embudo? | **Catálogo curado por Limitless** (add-on + super-admin), builder para el founder más adelante | Mismo patrón que `enabled_add_ons`. |
 | 7 | Atribución, timezone, etiquetado | **Tal cual asume el documento** | Hyros como fuente de atribución, reporte en EST, cada figura etiquetada `[Meta]` / `[Hyros]`. Integración Hyros nueva. |
 
 ---
@@ -147,7 +147,7 @@ Tres reglas del documento son restricciones duras del sistema (decisión 7 — t
 
 1. *"never compare a $27 offer's numbers to a $5k offer's"* → la vista comparativa agrupa o
    advierte por rango de precio. No es opcional.
-2. *"report every metric in EST"* → **timezone de reporte** configurable por org. OTC hoy no
+2. *"report every metric in EST"* → **timezone de reporte** configurable por org. Limitless hoy no
    tiene este concepto.
 3. *"label each figure with its source — [Meta] / [Hyros]"* → cada valor resuelto carga su
    **procedencia**. No es cosmética: es la diferencia entre un reporte confiable y uno que
@@ -240,7 +240,7 @@ export type ResolvedMetric = {
 
 ---
 
-## 4. Qué ya existe en OTC
+## 4. Qué ya existe en Limitless
 
 ### 4.1 Piezas reutilizables
 
@@ -258,7 +258,7 @@ export type ResolvedMetric = {
 
 ### 4.2 Mapeo del spine a fuentes reales
 
-| Etapa | Fuente en OTC hoy | Estado |
+| Etapa | Fuente en Limitless hoy | Estado |
 |---|---|---|
 | **1. Spend** | Meta Ads vía Zernio (`getMarketingAdsAction`), `expenses` | ⚠️ Live fetch, **no persiste** — ver §9 |
 | **2. Click** | `utm_links.clicks`, `ZernioAdMetrics` | ✅ |
@@ -340,7 +340,7 @@ Decisión 5 quedó abierta a análisis. Esta es la resolución, con el razonamie
 - Varias instancias por org, una por oferta (decisión 1). Realista: 1–6, puede crecer.
 - Alcance de módulo, no contexto global (decisión 4).
 - Next.js 15 App Router, Server Components por defecto.
-- Precedente existente: `holding-business-switcher` — cookie global `otc_active_org`.
+- Precedente existente: `holding-business-switcher` — cookie global `limitless_active_org`.
 
 ### 6.2 Opciones evaluadas
 
@@ -404,14 +404,14 @@ da acceso de un click— y reintroduce estado invisible.
 ## 7. Integraciones requeridas (decisión 3 y 7)
 
 > **Mapa completo:** [`FUNNELS_SOURCE_MAP.md`](./FUNNELS_SOURCE_MAP.md) enumera las
-> 34 medidas atómicas del documento, su estado en OTC y el orden de construcción.
+> 34 medidas atómicas del documento, su estado en Limitless y el orden de construcción.
 > Esta sección es el resumen; el mapa es la fuente de verdad.
 
 Las decisiones 3 ("sí o sí con integración") y 7 ("tal cual asume el doc") convierten un
 conjunto de integraciones en **prerrequisito bloqueante**, no en mejora futura. Hay que ser
 explícito sobre esto porque cambia el camino crítico.
 
-| Integración | Alimenta | Estado en OTC | Bloquea |
+| Integración | Alimenta | Estado en Limitless | Bloquea |
 |---|---|---|---|
 | **Hyros** | Atribución real, ROAS by-source, EPL, journeys | ❌ No existe | Etiquetado `[Hyros]`, KPIs universales, sección 03 y 05 del doc |
 | **WebinarJam / Zoom** | Show-up rate, stick rate, CTA clicks | ❌ No existe | **Embudo Webinar entero** (etapa Engaged) |
@@ -512,7 +512,7 @@ embudos siempre se miden en un período. → Extender la firma con `period`, no 
 
 ### 9.5 No existe timezone de reporte por org
 
-El doc lo declara no-negociable (`EST`, y advierte que Hyros default es Mountain Time). OTC no
+El doc lo declara no-negociable (`EST`, y advierte que Hyros default es Mountain Time). Limitless no
 tiene el concepto. → Columna en `funnel_instances`, default `America/New_York`.
 
 ### 9.6 Deriva entre plantilla y documento

@@ -1,6 +1,6 @@
 -- Las cinco piezas que los Excel tienen y a OTC le faltaban.
 --
--- Análisis completo en docs/TRACKERS_EXCEL_VS_OTC.md. Resumen de por qué cada
+-- Análisis completo en docs/TRACKERS_EXCEL_VS_LIMITLESS.md. Resumen de por qué cada
 -- una está acá:
 --
 -- 1. PERMISOS del cliente sobre su win — no es una mejora, es una falta: hoy se

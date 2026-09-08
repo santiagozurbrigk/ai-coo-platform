@@ -1,8 +1,5 @@
 import { cn } from "@ai-coo/ui";
-import {
-  INTEGRATION_BRAND_COLORS,
-  integrationLogoSrc,
-} from "@/lib/integrations/brand-colors";
+import { IntegrationLogo } from "@/components/integrations/integration-logo";
 import type { IntegrationProvider } from "@/constants/integrations";
 import { brand } from "@/lib/brand";
 
@@ -14,43 +11,14 @@ const MAIN_INTEGRATIONS: { name: string; slug: IntegrationProvider }[] = [
   { name: "ManyChat", slug: "manychat" },
   { name: "Typeform", slug: "typeform" },
   { name: "YouTube", slug: "youtube" },
-  { name: "Google Docs", slug: "google_docs" },
+  { name: "Zernio", slug: "zernio" },
 ];
 
 const CENTERED_INTEGRATIONS: { name: string; slug: IntegrationProvider }[] = [
   { name: "WhatsApp", slug: "unipile_whatsapp" },
   { name: "Google Forms", slug: "google_forms" },
-  { name: "Google Sheets", slug: "google_sheets" },
+  { name: "GoHighLevel", slug: "ghl" },
 ];
-
-function IntegrationLogo({
-  slug,
-  className,
-}: {
-  slug: IntegrationProvider;
-  className?: string;
-}) {
-  const brand = INTEGRATION_BRAND_COLORS[slug];
-  const logoSrc = integrationLogoSrc(slug);
-
-  return (
-    <span
-      aria-hidden
-      className={cn("inline-block h-7 w-7 shrink-0", className)}
-      style={{
-        backgroundColor: brand.bg,
-        WebkitMaskImage: `url(${logoSrc})`,
-        maskImage: `url(${logoSrc})`,
-        WebkitMaskSize: "contain",
-        maskSize: "contain",
-        WebkitMaskRepeat: "no-repeat",
-        maskRepeat: "no-repeat",
-        WebkitMaskPosition: "center",
-        maskPosition: "center",
-      }}
-    />
-  );
-}
 
 function IntegrationCard({
   name,
@@ -61,23 +29,19 @@ function IntegrationCard({
   slug: IntegrationProvider;
   className?: string;
 }) {
-  const { bgClass } = INTEGRATION_BRAND_COLORS[slug];
-
   return (
     <div
       className={cn(
         "rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 text-center",
-        className
+        className,
       )}
     >
-      <div
-        className={cn(
-          "mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl",
-          bgClass
-        )}
-      >
-        <IntegrationLogo slug={slug} />
-      </div>
+      {/*
+        El mismo logo que la pantalla de Integraciones. Antes la landing repetía
+        la lógica de máscara por su cuenta, así que un proveedor cuyo asset no
+        fuera un glifo monocromo se rompía sólo acá.
+      */}
+      <IntegrationLogo provider={slug} size="md" className="mx-auto mb-3" />
       <p className="text-sm font-semibold text-white">{name}</p>
     </div>
   );

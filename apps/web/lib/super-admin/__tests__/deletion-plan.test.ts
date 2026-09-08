@@ -104,7 +104,7 @@ describe("advertenciasDeUsuario", () => {
     const avisos = advertenciasDeUsuario({
       esElEjecutor: true,
       esUltimoFounder: false,
-      organizacion: "OTC",
+      organizacion: "Limitless",
     });
     expect(estaBloqueada(avisos)).toBe(true);
   });

@@ -3,7 +3,7 @@ import { normalizeEmail } from "@/lib/fathom/invitees";
 /**
  * Cruce entre una grabación de Fathom y un turno agendado (`closing_calls`).
  *
- * ⭐ **Es toda la regla del módulo.** OTC registra **únicamente llamadas de
+ * ⭐ **Es toda la regla del módulo.** Limitless registra **únicamente llamadas de
  * venta**, y una grabación es una llamada de venta cuando el mail de alguno de
  * sus participantes coincide con el del lead de un turno y el horario
  * corresponde. Lo que no cruza no es un error ni algo a revisar: simplemente no

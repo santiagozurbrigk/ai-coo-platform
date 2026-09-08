@@ -166,7 +166,7 @@ export async function ingestGHLOpportunityEvent(
  * payload.
  *
  * Hace falta para la vía de app del Marketplace, donde el evento no puede traer
- * el `organizationId` en la URL: la URL la configura OTC una sola vez para todas
+ * el `organizationId` en la URL: la URL la configura Limitless una sola vez para todas
  * las sub-cuentas instaladas.
  */
 export async function resolveOrganizationByLocation(

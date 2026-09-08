@@ -4,14 +4,14 @@
  * ⭐ El hallazgo que cambia toda la administración: `POST /webhooks` acepta la key
  * de un miembro y devuelve `id` y `secret`. Entonces el flujo **no** es "cada
  * miembro configura un webhook a mano en Fathom" —impracticable— sino: **pega su
- * key una vez y OTC le crea el webhook solo**. Y al desconectarse, OTC borra lo
+ * key una vez y Limitless le crea el webhook solo**. Y al desconectarse, Limitless borra lo
  * que creó en vez de dejar basura colgada en la cuenta de esa persona.
  *
  * ⭐ Por qué el webhook y no el polling: pedir `include_summary` o
  * `include_transcript` convierte el request en "pesado" — **30 por minuto, y
  * puede bajar a 5**. Con 10 reuniones por página, sincronizar por polling se
  * choca contra ese techo enseguida. El webhook **no gasta cuota**: Fathom empuja
- * el contenido y OTC no pregunta. Y llega en el momento, no en la próxima hora.
+ * el contenido y Limitless no pregunta. Y llega en el momento, no en la próxima hora.
  */
 import { FATHOM_API_BASE } from "@/lib/fathom/api";
 

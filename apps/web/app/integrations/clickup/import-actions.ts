@@ -11,7 +11,7 @@ import {
   type ClickUpList,
   type ClickUpWorkspace,
 } from "@/lib/clickup/client";
-import { buildAutoMapping, type FieldMapping, type ClickUpFieldSource, type OtcClientField } from "@/lib/clickup/field-mapper";
+import { buildAutoMapping, type FieldMapping, type ClickUpFieldSource, type ClientField } from "@/lib/clickup/field-mapper";
 
 export type ClickUpConnectResult =
   | { success: true; workspaces: ClickUpWorkspace[] }
@@ -157,8 +157,8 @@ export async function importClickUpClientsAction(
   });
 
   const activeMapping = effectiveMapping.filter(
-    (m) => m.otcField !== null && m.otcField !== ("null" as OtcClientField)
-  ) as (FieldMapping & { otcField: OtcClientField; isBuiltin?: boolean })[];
+    (m) => m.clientField !== null && m.clientField !== ("null" as ClientField)
+  ) as (FieldMapping & { clientField: ClientField; isBuiltin?: boolean })[];
 
   let inserted = 0;
   let skipped = 0;
@@ -178,12 +178,12 @@ export async function importClickUpClientsAction(
 
     // Apply custom field mappings
     for (const m of activeMapping) {
-      if (m.otcField === "name" || m.isBuiltin) continue; // already set above
+      if (m.clientField === "name" || m.isBuiltin) continue; // already set above
       const cf = (task.custom_fields ?? []).find((f) => f.name === m.clickupField);
       if (!cf) continue;
       const rawValue = resolveCustomFieldValue(cf.value, cf.type ?? "");
-      const coerced = coerceFieldValue(m.otcField, rawValue);
-      if (coerced !== null) clientRow[m.otcField] = coerced;
+      const coerced = coerceFieldValue(m.clientField, rawValue);
+      if (coerced !== null) clientRow[m.clientField] = coerced;
     }
 
     if (!clientRow.join_date) clientRow.join_date = new Date().toISOString().slice(0, 10);
@@ -204,7 +204,7 @@ export async function importClickUpClientsAction(
   return { success: true, inserted, errors: skipped + insertErrors };
 }
 
-function coerceFieldValue(field: OtcClientField, raw: string): unknown {
+function coerceFieldValue(field: ClientField, raw: string): unknown {
   const trimmed = raw.trim();
   if (!trimmed) return null;
 

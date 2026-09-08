@@ -80,7 +80,7 @@ export function TourRunner() {
         prevBtnText: "Atrás",
         doneBtnText: "Entendido",
         progressText: "{{current}} de {{total}}",
-        popoverClass: "otc-tour",
+        popoverClass: "limitless-tour",
         steps: steps.map((step) => ({
           element: anchorSelector(step.anchor),
           popover: { title: step.title, description: step.description },

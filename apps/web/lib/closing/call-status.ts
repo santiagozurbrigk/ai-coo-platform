@@ -104,7 +104,7 @@ export function needsDisposition(
  * ¿Una persona puede cargarle un resultado?
  *
  * Antes la UI exigía `scheduled`, así que una llamada que GHL marcaba como
- * asistida quedaba sin forma de cerrarse desde OTC.
+ * asistida quedaba sin forma de cerrarse desde Limitless.
  */
 export function acceptsManualOutcome(status: ClosingCallStatus): boolean {
   return status === "scheduled" || status === "attended";

@@ -7,18 +7,28 @@ import { log, logError } from "./utils/logger";
 
 dotenv.config();
 
-const required = [
-  "DISCORD_BOT_TOKEN",
-  "SUPABASE_URL",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  // Sin estas dos el bot arranca y guarda mensajes, pero no puede avisarle a OTC
-  // de un testimonio ni de una vinculación pendiente: falla en silencio en cada
-  // request. Es peor que no arrancar.
-  "OTC_API_URL",
-  "OTC_WEBHOOK_SECRET",
+const required = ["DISCORD_BOT_TOKEN", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
+
+/**
+ * Sin estas dos el bot arranca y guarda mensajes, pero no puede avisarle a
+ * Limitless de un testimonio ni de una vinculación pendiente: falla en silencio
+ * en cada request. Es peor que no arrancar.
+ *
+ * Cada una acepta el nombre nuevo o el legado: el renombrado a Limitless no
+ * puede impedir que arranque un servicio cuya configuración todavía no se
+ * actualizó. Cuando `LIMITLESS_*` esté cargada en el host, borrar el alias.
+ */
+const requiredEither: [string, string][] = [
+  ["LIMITLESS_API_URL", "OTC_API_URL"],
+  ["LIMITLESS_WEBHOOK_SECRET", "OTC_WEBHOOK_SECRET"],
 ];
 
-const missing = required.filter((key) => !process.env[key]);
+const missing = [
+  ...required.filter((key) => !process.env[key]),
+  ...requiredEither
+    .filter(([nuevo, legado]) => !process.env[nuevo] && !process.env[legado])
+    .map(([nuevo]) => nuevo),
+];
 if (missing.length > 0) {
   logError(
     `Faltan variables de entorno: ${missing.join(", ")}. ` +

@@ -26,6 +26,7 @@ import { sendTrialReelsDoneEmail } from "@/lib/email";
 import { getPublicAppUrl } from "@/lib/queue/qstash-client";
 import type { ReelVariation } from "@/types/reel-variations";
 import type { ZernioClient, ZernioMediaPresignResponse } from "@/lib/zernio/client";
+import { brand } from "@/lib/brand";
 
 export const runtime = "nodejs";
 // 60s: descarga de Supabase + upload a Zernio + createPost puede tardar 30-50s
@@ -134,7 +135,9 @@ async function notifyOrgAdminDone(
   try {
     appUrl = getPublicAppUrl();
   } catch {
-    appUrl = "https://app.otc.com";
+    // `app.otc.com` no existe: era un marcador que mandaba links rotos por
+    // mail. El dominio real es el único respaldo que sirve.
+    appUrl = `https://${brand.domain}`;
   }
 
   const result = await sendTrialReelsDoneEmail({ to: email, published, failed, appUrl });

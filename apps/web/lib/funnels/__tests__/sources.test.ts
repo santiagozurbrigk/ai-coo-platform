@@ -92,7 +92,7 @@ describe("bindings por defecto", () => {
   });
 
   it("dm.trigger queda sin fuente a propósito", () => {
-    // OTC no tiene hoy una fuente de disparadores (comentarios / historias / ads
+    // Limitless no tiene hoy una fuente de disparadores (comentarios / historias / ads
     // que inician conversación). El hueco es honesto y se muestra como falta de
     // instrumentación, no como cero.
     expect(DEFAULT_DM_BINDINGS["dm.trigger"]).toBeUndefined();

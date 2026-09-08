@@ -1,4 +1,4 @@
-# Dockerfile para el reel-worker de OTC
+# Dockerfile para el reel-worker de Limitless
 # Multi-stage para imagen pequeña (~400 MB con FFmpeg)
 
 # ─── Stage 1: Build ───────────────────────────────────────────────────────────

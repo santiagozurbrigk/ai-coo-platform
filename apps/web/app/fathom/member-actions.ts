@@ -147,7 +147,7 @@ export async function connectMemberFathomAction(
 
   if (baseUrl) {
     try {
-      // ⭐ OTC le crea el webhook con su propia key: el miembro no configura nada
+      // ⭐ Limitless le crea el webhook con su propia key: el miembro no configura nada
       // a mano en Fathom.
       webhook = await createFathomWebhook(
         parsed.data,
@@ -193,7 +193,7 @@ export async function disconnectMemberFathomAction(): Promise<void> {
   const admin = createAdminClient();
 
   // ⭐ Desconectarse tiene que **borrar el webhook de la cuenta de esa persona**,
-  // no sólo dejar de leerlo. Si no, OTC deja basura colgada en una cuenta ajena.
+  // no sólo dejar de leerlo. Si no, Limitless deja basura colgada en una cuenta ajena.
   const { data: existing } = await admin
     .from("team_member_integrations")
     .select("encrypted_api_key, webhook_id")

@@ -85,12 +85,15 @@ const DEFAULT_SELECTED = new Set<AnyMetricKey>(
   ALL_METRIC_DEFS.filter((d) => d.defaultSelected).map((d) => d.key)
 );
 
-const LS_KEY = "otc_ads_columns_v2";
+const LS_KEY = "limitless_ads_columns_v2";
+/** Nombre previo al rebranding. Se lee una vez para no perder la selección. */
+const LEGACY_LS_KEY = "otc_ads_columns_v2";
 
 function loadSavedColumns(): Set<AnyMetricKey> | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(LS_KEY);
+    const raw =
+      localStorage.getItem(LS_KEY) ?? localStorage.getItem(LEGACY_LS_KEY);
     if (!raw) return null;
     const parsed: string[] = JSON.parse(raw);
     return parsed.length > 0 ? new Set(parsed as AnyMetricKey[]) : null;

@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { paths } from "@/routes";
-import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
+import { readActiveOrgCookie } from "@/lib/holding/constants";
 import {
   isTempPasswordExpired,
   TEMP_PASSWORD_EXPIRED_QUERY,
@@ -100,7 +100,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   const requestHeaders = new Headers(request.headers);
-  const activeOrg = request.cookies.get(ACTIVE_ORG_COOKIE)?.value;
+  const activeOrg = readActiveOrgCookie(request.cookies);
   if (activeOrg) {
     requestHeaders.set("x-active-org-id", activeOrg);
   }
@@ -256,7 +256,7 @@ export async function updateSession(request: NextRequest) {
         ? orgField[0]?.account_type
         : orgField?.account_type;
       const hasActiveBusiness = Boolean(
-        request.cookies.get(ACTIVE_ORG_COOKIE)?.value
+        readActiveOrgCookie(request.cookies)
       );
 
       if (accountType === "holding" && !hasActiveBusiness && profile?.organization_id) {
@@ -274,7 +274,7 @@ export async function updateSession(request: NextRequest) {
   if (
     user &&
     pathname === paths.platform.dashboard &&
-    !request.cookies.get(ACTIVE_ORG_COOKIE)?.value
+    !readActiveOrgCookie(request.cookies)
   ) {
     const admin = createAdminClient();
     const { data: profile } = await admin

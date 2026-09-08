@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isDiscordWebhookAuthorized } from "@/lib/discord/webhook-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.OTC_WEBHOOK_SECRET}`) {
+  if (!isDiscordWebhookAuthorized(authHeader)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

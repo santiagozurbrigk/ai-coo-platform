@@ -4,8 +4,8 @@
  * Traduce los webhooks de Whop y Fanbasis al modelo normalizado.
  *
  * VERIFICADO el 2026-08-30 contra la documentación local:
- *   - docs/external-apis/whop/RESUMEN-OTC.md
- *   - docs/external-apis/commas/RESUMEN-OTC.md
+ *   - docs/external-apis/whop/RESUMEN-LIMITLESS.md
+ *   - docs/external-apis/commas/RESUMEN-LIMITLESS.md
  *
  * Los dos proveedores usan convenciones OPUESTAS en casi todo, así que el mapeo
  * es por proveedor y no por heurística global:

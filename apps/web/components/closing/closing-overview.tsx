@@ -525,7 +525,7 @@ function CallDetailPanel({
 }) {
   // `attended` también acepta resultado: es una llamada que el proveedor marcó
   // como asistida y a la que nadie le cargó el desenlace. Comparar contra
-  // `scheduled` a mano dejaba a esas llamadas sin forma de cerrarse desde OTC —
+  // `scheduled` a mano dejaba a esas llamadas sin forma de cerrarse desde Limitless —
   // que es exactamente el estado "Falta cargar el resultado" de la tabla.
   const acceptsOutcome = acceptsManualOutcome(call.status);
 

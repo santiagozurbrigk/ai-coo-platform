@@ -18,7 +18,7 @@ corriendo las 24 horas.
 
 Vercel apaga las funciones cuando terminan de responder, así que no puede
 sostener esa conexión. **No es una decisión de arquitectura revisable: es cómo
-funciona Discord.** Por eso el bot va en Railway y el resto de OTC en Vercel.
+funciona Discord.** Por eso el bot va en Railway y el resto de Limitless en Vercel.
 
 ---
 
@@ -77,7 +77,7 @@ cargarlo en Railway.
 | `DISCORD_BOT_TOKEN` | Paso 2 |
 | `SUPABASE_URL` | Dashboard de Supabase → Settings → API |
 | `SUPABASE_SERVICE_ROLE_KEY` | Mismo lugar. **Es la service role, no la anon** |
-| `OTC_API_URL` | La URL pública de OTC, sin barra al final |
+| `OTC_API_URL` | La URL pública de Limitless, sin barra al final |
 | `OTC_WEBHOOK_SECRET` | **El mismo valor** que ya tenés en Vercel |
 
 **Las cinco son obligatorias.** Si falta alguna el bot no arranca y te dice cuál
@@ -94,7 +94,7 @@ entero en vez del bot.
 
 ## Paso 4 · Instalar el bot en un servidor
 
-Esto ya está construido en OTC: **Integraciones → Discord → Conectar**. Te lleva
+Esto ya está construido en Limitless: **Integraciones → Discord → Conectar**. Te lleva
 a Discord, elegís el servidor y listo.
 
 Necesita que `NEXT_PUBLIC_DISCORD_CLIENT_ID` esté seteada en Vercel (es el
@@ -123,7 +123,7 @@ blanco.
 
 **Esto no es técnico, es una decisión que conviene tomar antes y no después.**
 
-El bot **lee y guarda mensajes de personas que no son usuarias de OTC** — los
+El bot **lee y guarda mensajes de personas que no son usuarias de Limitless** — los
 clientes de tu cliente. Hoy hace dos cosas bien: guarda sólo los canales que
 marcaste como monitoreados, y se presenta cuando se crea un canal nuevo.
 

@@ -8,7 +8,7 @@ se guardan una sola vez y la referencia legible se genera desde ellos.
 
 | Archivo | Qué es |
 | --- | --- |
-| [`RESUMEN-OTC.md`](./RESUMEN-OTC.md) | **Empezar por acá** — lo que OTC necesita de Whop, con las preguntas de `API_DOCS_PENDIENTES.md` §1 respondidas |
+| [`RESUMEN-LIMITLESS.md`](./RESUMEN-LIMITLESS.md) | **Empezar por acá** — lo que Limitless necesita de Whop, con las preguntas de `API_DOCS_PENDIENTES.md` §1 respondidas |
 | [`ENDPOINTS-api-v1-native.md`](./ENDPOINTS-api-v1-native.md) | Referencia de la API versionada (la de integraciones nuevas) |
 | [`ENDPOINTS-api-v1-stable.md`](./ENDPOINTS-api-v1-stable.md) | Referencia de los recursos legacy |
 | [`ENDPOINTS-ledger-stats.md`](./ENDPOINTS-ledger-stats.md) | Wallet Stats API |

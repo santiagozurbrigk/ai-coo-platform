@@ -608,7 +608,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       // `attended` también acepta cierre: es una llamada que el proveedor marcó
       // como asistida y a la que todavía nadie le cargó el resultado. Con el
       // chequeo anterior —sólo `scheduled`— una llamada que GHL marcaba asistida
-      // no se podía cerrar desde OTC.
+      // no se podía cerrar desde Limitless.
       if (call && !acceptsManualOutcome(call.status)) {
         throw new Error("Esta llamada ya tiene un resultado registrado.");
       }
@@ -681,7 +681,7 @@ export function PlatformDataProvider({ children }: { children: ReactNode }) {
       // `attended` también acepta resultado: es una llamada que el proveedor
       // marcó como asistida y a la que todavía nadie le cargó el desenlace.
       // Con el chequeo anterior (sólo `scheduled`) esas llamadas quedaban sin
-      // forma de cerrarse desde OTC.
+      // forma de cerrarse desde Limitless.
       if (call && !acceptsManualOutcome(call.status)) {
         throw new Error("Esta llamada ya tiene un resultado registrado.");
       }

@@ -5,7 +5,7 @@ import { callIsSale } from "@/lib/closing/call-status";
 /**
  * Regresión del defecto más caro de la Fase 0.
  *
- * `showed` estaba mapeado a `closed`, que en OTC es una venta cerrada y alimenta
+ * `showed` estaba mapeado a `closed`, que en Limitless es una venta cerrada y alimenta
  * la etapa Cash del embudo y la facturación: cada lead que se presentaba a una
  * llamada se contaba como una venta.
  */
@@ -28,7 +28,7 @@ describe("mapeo de estados de GHL", () => {
 
   it("una cancelación se importa como cancelada, no como inasistencia", () => {
     // Antes se descartaba en el filtro: la llamada cancelada no existía para
-    // OTC. Y en Calendly se guardaba como `no_show`, que infla la tasa de
+    // Limitless. Y en Calendly se guardaba como `no_show`, que infla la tasa de
     // inasistencia con turnos que nadie dejó plantado.
     expect(mapGHLStatus("cancelled")).toBe("cancelled");
     expect(mapGHLStatus("cancelled")).not.toBe("no_show");

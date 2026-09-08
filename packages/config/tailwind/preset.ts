@@ -134,6 +134,19 @@ const preset: Partial<Config> = {
           from: { opacity: "0", transform: "translateY(8px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        /*
+         * Entrada de página — sólo opacidad, deliberadamente sin `transform`.
+         *
+         * Un elemento con `transform` (incluso la matriz identidad) se vuelve el
+         * bloque contenedor de sus descendientes `position: fixed`. El wrapper de
+         * transición envuelve TODA la página, así que usar `fade-in` acá hacía que
+         * cualquier overlay fijo de adentro se posicionara contra ese div en vez
+         * de contra el viewport: se salían de lugar y quedaban fuera de alcance.
+         */
+        "page-fade-in": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
         "pulse-glow": {
           "0%, 100%": { opacity: "0.4" },
           "50%": { opacity: "0.8" },
@@ -181,6 +194,7 @@ const preset: Partial<Config> = {
       },
       animation: {
         "fade-in": "fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        "page-fade-in": "page-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
         "pulse-glow": "pulse-glow 2.5s ease-in-out infinite",
         shimmer: "shimmer 2s linear infinite",
         "dialog-overlay-show": "dialog-overlay-show 200ms ease-out",

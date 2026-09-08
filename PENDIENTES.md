@@ -37,7 +37,7 @@ que publica Fathom.
 ### [IA-CLAVES-INVALIDAS] Cuatro organizaciones con la clave de IA vencida
 
 **Qué es:** `401 API key is invalid` repitiéndose 221 veces por día. Desde hoy
-esas organizaciones funcionan con la clave global de OTC, así que **no están
+esas organizaciones funcionan con la clave global de Limitless, así que **no están
 rotas**, pero están gastando la nuestra.
 
 **Qué hacer:** buscar en los logs las líneas `[anthropic] La clave propia de la
@@ -115,7 +115,7 @@ esa señal**, así que necesita las otras dos para aparecer en riesgo.
 
 ### [TRACKERS-RECOMENDACIONES-6-10] Lo que el análisis dejó para después
 
-**Qué es:** de las diez recomendaciones de `docs/TRACKERS_EXCEL_VS_OTC.md` se
+**Qué es:** de las diez recomendaciones de `docs/TRACKERS_EXCEL_VS_LIMITLESS.md` se
 construyeron las cinco primeras. Quedan: ficha de caso (creencias, restricciones,
 proceso), checklist de contenido por caso, revisión mensual de patrones, caso de
 éxito como entidad curada, próximos pasos por llamada de entrega y responsable por
@@ -216,7 +216,7 @@ falla peligroso, porque el bot parece andar.
 ### [E-RETENCION] Decidir la retención de mensajes de terceros 🔴
 
 **Qué es:** el bot lee y guarda mensajes de **personas que no son usuarias de
-OTC** (los clientes de tu cliente). Hoy se guardan para siempre y no hay nada
+Limitless** (los clientes de tu cliente). Hoy se guardan para siempre y no hay nada
 escrito que diga que el servidor está siendo registrado.
 
 **Cuándo:** **antes** de instalarlo en el servidor de un cliente, no después.
@@ -335,13 +335,19 @@ Reverificar cuando esas tablas entren.
 
 ---
 
-### [LLAMADAS-PR] Un solo PR al final, no uno por fase
+### [INTEGRACIONES-VERIFICAR] Ver las incidencias con datos reales 🟡
 
-**Decisión del usuario (2026-09-01):** las tres fases del módulo de llamadas se
-acumulan en `Claude-New-Features` y se abre **un único PR** cuando estén todas
-listas, para pasar la implementación entera a producción de una vez.
+**Qué es:** la pantalla de Integraciones ahora muestra incidencias por integración
+—último error del proveedor, videos sin pitch time, eventos de pago sin
+interpretar, secreto de webhook de GHL faltante— derivadas de columnas que **hoy
+están vacías o en cero en casi todos los proveedores**.
 
-**No abrir PR antes de terminar la Fase 2.**
+**Qué mirar:** que cuando efectivamente falle algo, el texto que aparece sea el
+correcto y accionable. En particular `last_error` de VTurb, Hyros y WebinarJam,
+que antes no se veía en ningún lado y ahora es lo primero que se lee.
+
+**Cómo forzarlo barato:** conectar cualquiera de los tres con una API key
+inválida. El sync guarda el error y la tarjeta tiene que pasar a "Con error".
 
 ---
 
@@ -356,12 +362,13 @@ de Fathom**. El mapeo de campos se hizo leyendo la documentación.
    El schema lo marca obligatorio, pero una reunión sin evento de calendario
    podría traer el array vacío.
 2. **¿Cuántas grabaciones quedan sin turno, y cuáles de esas eran ventas?** Se ve
-   en Integraciones → Llamadas de venta. Estar en esa lista no es un problema:
+   en Integraciones → Fathom → Configuración. Estar en esa lista no es un
+   problema:
    una reunión de equipo o una sesión con un cliente no es una venta.
 3. **¿La ventana de 45 minutos del match provisional es la correcta?** Se eligió
    por criterio, no midiendo cruces reales.
 
-**Alcance actual:** OTC registra **únicamente llamadas de venta**. Equipo y
+**Alcance actual:** Limitless registra **únicamente llamadas de venta**. Equipo y
 entrega de servicio quedan para más adelante — cuando se implementen, entran por
 `counterparty` y `purpose`, que ya existen.
 
@@ -434,7 +441,7 @@ no se puede usar.
 
 ### [EMBUDOS-SALUD] Habilitar el estado de salud (bandas de la §04) ⏸️
 
-**Qué es:** el documento define bandas de salud por métrica —qué valor es sano, cuál está en el piso y cuál está roto— y OTC tiene el código construido y testeado en `lib/funnels/health-bands.ts`, con la precedencia de tres niveles (plantilla → override de oferta → baseline de la org).
+**Qué es:** el documento define bandas de salud por métrica —qué valor es sano, cuál está en el piso y cuál está roto— y Limitless tiene el código construido y testeado en `lib/funnels/health-bands.ts`, con la precedencia de tres niveles (plantilla → override de oferta → baseline de la org).
 
 **Está en pausa por decisión tuya**, desde que arrancamos la Fase 2. La UI no pinta ningún número en verde ni en rojo: mostrar un semáforo es hacer una afirmación sobre el negocio, y esa afirmación todavía no se habilitó.
 
@@ -456,14 +463,14 @@ no se puede usar.
 
 - ⚠️ El payload del Workflow de GHL (`PLAN_VERIFICACION.md` §5.2).
 - ⚠️ La semántica de los campos de VTurb, que su spec no describe (§6.2).
-- ⚠️ Que el LTV de OTC coincida con el que el cliente ya usa (§8) — si no, la definición de M32 o M33 está mal elegida.
+- ⚠️ Que el LTV de Limitless coincida con el que el cliente ya usa (§8) — si no, la definición de M32 o M33 está mal elegida.
 
 ---
 
 
 ### [EMBUDOS-FUENTES] Plan de integraciones del módulo de Embudos
 
-**Qué es:** el mapa completo de las 34 medidas atómicas que pide el documento fuente, con su estado en OTC y el orden de construcción, está en **[`docs/FUNNELS_SOURCE_MAP.md`](./docs/FUNNELS_SOURCE_MAP.md)**. Leerlo antes de arrancar cualquier integración de embudos.
+**Qué es:** el mapa completo de las 34 medidas atómicas que pide el documento fuente, con su estado en Limitless y el orden de construcción, está en **[`docs/FUNNELS_SOURCE_MAP.md`](./docs/FUNNELS_SOURCE_MAP.md)**. Leerlo antes de arrancar cualquier integración de embudos.
 
 **Estado actual (2026-08-30):** ✅ **las diez unidades están construidas.** Lo que falta no es código, son **cuentas reales** — ver `docs/PLAN_VERIFICACION.md` §11. La única medida del documento que quedó como imposible es **M16** (clicks al CTA durante un webinar en vivo): la API de WebinarJam no la expone.
 
@@ -474,29 +481,15 @@ no se puede usar.
 
 **Verificación:** nada se prueba contra cuentas reales hasta terminar todas las olas — ver [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md).
 
-**Documentación de las APIs:** ✅ **los seis proveedores están capturados** en [`docs/external-apis/`](./docs/external-apis/) — GoHighLevel, VTurb, Whop, Commas (ex Fanbasis), Hyros y WebinarJam. Cada uno tiene un `RESUMEN-OTC.md` que responde las preguntas que estaban abiertas en `docs/API_DOCS_PENDIENTES.md`. Se refresca con `docs/external-apis/tools/regenerar.sh`. **Leer el resumen del proveedor antes de construir o corregir su unidad.**
+**Documentación de las APIs:** ✅ **los seis proveedores están capturados** en [`docs/external-apis/`](./docs/external-apis/) — GoHighLevel, VTurb, Whop, Commas (ex Fanbasis), Hyros y WebinarJam. Cada uno tiene un `RESUMEN-Limitless.md` que responde las preguntas que estaban abiertas en `docs/API_DOCS_PENDIENTES.md`. Se refresca con `docs/external-apis/tools/regenerar.sh`. **Leer el resumen del proveedor antes de construir o corregir su unidad.**
 
 **Decisiones cerradas:** VSL en VTurb (tiene API pública) · todos los clientes pagan Hyros · landings en Vercel, así que los opt-ins salen de Hyros e I-7 desaparece · clientes repartidos en partes iguales entre los tres embudos. **No queda ninguna pregunta abierta en el plan.**
 
 ---
 
-### [EMBUDOS-PAGOS-CORREGIR] Corregir el mapeo de Whop contra su spec real
-
-**Qué es:** con la documentación de Whop ya capturada, quedaron a la vista tres errores concretos en `apps/web/lib/payments/normalize.ts`, que se escribió a ciegas:
-
-1. **El campo de monto no existe.** `KEYS.amount` busca `settled_amount`; el campo real es **`settlement_amount`**. `total` y `subtotal` sí existen pero son *"to show to the creator (excluding buyer fees)"* — no es lo que se cobró.
-2. **Whop manda decimales, no centavos** (*"10.43 for $10.43 USD"*), mientras que **Commas sí manda `amount_cents`**. La regla tiene que ser por proveedor, no una heurística de sufijo `_cents`.
-3. **`membership.created` no existe.** El evento de alta es `membership.activated`. Conviene reemplazar los regex de detección de evento por la lista literal, que ahora se conoce entera.
-
-**Además:** la deduplicación de Whop va por `webhook-id` (entrega *at least once*, 12 reintentos en ~71 h, sin orden garantizado), y el prefijo del secreto de firma es `ws_`, no `whsec_`.
-
-**Dónde está el detalle:** [`docs/external-apis/whop/RESUMEN-OTC.md`](./docs/external-apis/whop/RESUMEN-OTC.md) y [`docs/external-apis/commas/RESUMEN-OTC.md`](./docs/external-apis/commas/RESUMEN-OTC.md).
-
----
-
 ### [EMBUDOS-GHL-ENTREGA] Cerrar cómo llegan los webhooks de oportunidades de GHL
 
-**Qué es:** I-4 está construido, pero la pregunta que decide si funciona sigue abierta. Los webhooks de plataforma de GHL **se configuran dentro de una app del Marketplace**, que OTC no tiene aprobada (`[FEAT-GHL-OAUTH]`). El endpoint acepta por eso dos vías: la firma Ed25519 de la plataforma, y un **secreto compartido por organización** para eventos entregados desde una acción "Webhook" de un Workflow de la sub-cuenta.
+**Qué es:** I-4 está construido, pero la pregunta que decide si funciona sigue abierta. Los webhooks de plataforma de GHL **se configuran dentro de una app del Marketplace**, que Limitless no tiene aprobada (`[FEAT-GHL-OAUTH]`). El endpoint acepta por eso dos vías: la firma Ed25519 de la plataforma, y un **secreto compartido por organización** para eventos entregados desde una acción "Webhook" de un Workflow de la sub-cuenta.
 
 **Lo que hay que verificar, y es lo único que importa:** que un Workflow de GHL pueda mandar **`pipelineStageId`** en el cuerpo del webhook. Si no pudiera, esa vía sólo serviría para altas (M21) y M22, M23 y M25 quedarían atadas a la aprobación del Marketplace.
 
@@ -520,7 +513,7 @@ no se puede usar.
 
 **Qué es:** VTurb permite marcar en qué segundo del video está la oferta (`pitch_time`). Con eso configurado, la medida **"llegaron al CTA"** del embudo VSL sale directo y sin cálculos.
 
-**Sin eso, esa medida no se puede mostrar.** VTurb devuelve `pitch_time = 0` para los videos que no lo tienen, y su contador pasa a incluir a todo el que abrió el video — un número que parece la métrica correcta y no lo es. OTC lo detecta y muestra "sin datos" en vez de ese número.
+**Sin eso, esa medida no se puede mostrar.** VTurb devuelve `pitch_time = 0` para los videos que no lo tienen, y su contador pasa a incluir a todo el que abrió el video — un número que parece la métrica correcta y no lo es. Limitless lo detecta y muestra "sin datos" en vez de ese número.
 
 **Acción:** entrar a cada player en VTurb y configurarle el pitch time. El panel de Integraciones dice cuántos videos están sin configurar.
 
@@ -542,7 +535,7 @@ no se puede usar.
 
 ### [EMBUDOS-PAGOS-VERIFICAR] Verificar el mapeo de webhooks de Whop y Commas contra eventos reales
 
-**Qué es:** la capa de pagos (I-2) está construida y su mapeo se escribió a ciegas. **Desde el 2026-08-30 la documentación de los dos proveedores está capturada** en [`docs/external-apis/whop/`](./docs/external-apis/whop/) y [`docs/external-apis/commas/`](./docs/external-apis/commas/), así que buena parte de lo que había que "verificar" ya se puede **corregir leyendo** — ver `[EMBUDOS-PAGOS-CORREGIR]` más arriba.
+**Qué es:** la capa de pagos (I-2) está construida y su mapeo se escribió a ciegas. **Desde el 2026-08-30 la documentación de los dos proveedores está capturada** en [`docs/external-apis/whop/`](./docs/external-apis/whop/) y [`docs/external-apis/commas/`](./docs/external-apis/commas/), y el mapeo ya se corrigió leyéndola (ver `[EMBUDOS-PAGOS-CORREGIR]` en Completados).
 
 Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un payload real de cada proveedor** y confirmar que el mapeo corregido lo lee bien. La firma de los dos ya está documentada (Whop: Standard Webhooks con secreto `ws_`; Commas: `x-webhook-signature`, HMAC-SHA256 hex sobre el body crudo), pero ninguna de las dos se probó contra un evento real.
 
@@ -558,7 +551,7 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 ### [EMBUDOS-GHL-PIPELINE] Sync de oportunidades/pipelines de GHL
 
-**Qué es:** la sección 05 del documento fuente le asigna al **GHL pipeline** los "Stage counts, set/close, follow-up" — o sea, los conteos por etapa del embudo DM. La integración GHL de OTC consume `/calendars` y `/contacts`, pero no `/opportunities` ni `/pipelines`.
+**Qué es:** la sección 05 del documento fuente le asigna al **GHL pipeline** los "Stage counts, set/close, follow-up" — o sea, los conteos por etapa del embudo DM. La integración GHL de Limitless consume `/calendars` y `/contacts`, pero no `/opportunities` ni `/pipelines`.
 
 **Efecto:** el embudo DM no se puede medir según el estándar hasta que exista. Contra lo que se asumió en la Fase 1, el DM **no** era construible end-to-end.
 
@@ -683,16 +676,16 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 **Decisión abierta:** qué proveedor de hosting de video se soporta para el VSL (Wistia, Vimeo, YouTube, player propio). Cada uno tiene un modelo de analytics distinto — hay que resolverlo antes de escribir el binding de la etapa Engaged.
 
-**Nota:** Whop / Fanbasis del documento quedan cubiertos por los equivalentes que OTC ya tiene (Stripe + Mercado Pago). No bloquean.
+**Nota:** Whop / Fanbasis del documento quedan cubiertos por los equivalentes que Limitless ya tiene (Stripe + Mercado Pago). No bloquean.
 
 ---
 
 ### [FEAT-GHL-OAUTH] GHL OAuth / Marketplace App — migrar de Private Integration Token a OAuth
 
-**Qué es:** Cuando OTC sea aprobado como app en el GHL Marketplace, reemplazar el flujo de Private Integration Token por OAuth estándar ("Connect with GHL"). El proceso de aprobación de GHL es lento.
+**Qué es:** Cuando Limitless sea aprobado como app en el GHL Marketplace, reemplazar el flujo de Private Integration Token por OAuth estándar ("Connect with GHL"). El proceso de aprobación de GHL es lento.
 **Estado actual:** Integración funcional con Private Integration Token. El usuario pega el token + Location ID manualmente.
 **Pendiente:**
-1. Registrar OTC como app en GHL Marketplace (proceso manual de Santiago)
+1. Registrar Limitless como app en GHL Marketplace (proceso manual de Santiago)
 2. Agregar `GHL_CLIENT_ID` y `GHL_CLIENT_SECRET` a env vars
 3. Implementar `/api/integrations/ghl/oauth/start` → `/api/integrations/ghl/oauth/callback`
 4. Reemplazar StepCredentials en `ghl-connect-dialog.tsx` por botón "Conectar con GHL"
@@ -722,7 +715,7 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 **Preguntas a resolver antes de implementar:**
 - ¿Zernio soporta publicación de historias? ¿Individual o en lote?
 - ¿Qué tipo de contenido va en cada historia (video, imagen, texto)?
-- ¿El founder define la secuencia en OTC o en Zernio?
+- ¿El founder define la secuencia en Limitless o en Zernio?
 - ¿Hay delay entre historias de la misma secuencia?
 - ¿Cómo se integra con el módulo de Marketing/Contenido existente?
 
@@ -810,6 +803,36 @@ de producto, no un bug.
 
 ---
 
+### [REBRAND-EXTERNO] Renombrar lo que vive fuera del repositorio 🟡
+
+**Qué es:** el código y la documentación ya no dicen "Limitless". Lo que sigue
+diciéndolo son **nombres registrados en servicios externos**, que renombrar acá
+no cambia allá — y que en varios casos rompen algo si se cambian sin coordinar:
+
+| Dónde | Nombre actual | Qué pasa si se renombra |
+|---|---|---|
+| Vercel | proyecto `otc-plaform` (con el typo) | Cambia la URL de preview; hay un fallback hardcodeado en `welcome-email.ts` |
+| Supabase | proyecto `OTC` | Sólo cosmético; el `project-ref` no cambia |
+| Fly.io | app `otc-reel-worker` | Cambia la URL del worker → actualizar `REEL_WORKER_URL` |
+| Railway | servicio `otc-discord-bot` | Sólo cosmético |
+| Meta | verify token `otc_instagram_webhook_2024` | **Rompe el webhook de Instagram** hasta actualizarlo en el panel de Meta |
+| Supabase (datos) | holding sembrado `'Limitless Portfolio'` | Es una fila real; requiere una migración nueva, no editar la vieja |
+
+**Variables de entorno:** `OTC_WEBHOOK_SECRET` y `OTC_API_URL` pasaron a
+`LIMITLESS_WEBHOOK_SECRET` y `LIMITLESS_API_URL`. **El código lee las dos**, así
+que nada se cae hasta que se actualicen en Vercel y en Railway. Una vez
+actualizadas, borrar el respaldo de `lib/discord/webhook-auth.ts`,
+`apps/discord-bot/src/lib/limitless-api.ts` y `turbo.json`.
+
+**Cookie:** `otc_active_org` pasó a `limitless_active_org`, y la vieja se sigue
+leyendo. Se puede borrar el respaldo de `lib/holding/constants.ts` después de
+24 h de la primera publicación (es lo que dura la cookie).
+
+**Migraciones aplicadas:** no se tocaron. Editar una migración ya ejecutada no
+cambia nada en la base y rompe la verificación de la CLI de Supabase.
+
+---
+
 ### [BRAND-B] Licenciar Neue Haas Grotesk
 
 **Qué es:** el manual (sección 07) pide Neue Haas Grotesk para títulos. Es de licencia
@@ -849,7 +872,11 @@ referencias sueltas fuera de ese campo:
 - `app/(landing)/privacidad/page.tsx` — `CONTACT_EMAIL` y `APP_URL`
 - `mocks/utm-links.ts`
 - `lib/email/welcome-email.ts` — fallback `https://otc-plaform.vercel.app` (con el typo del original)
-- `app/api/queue/publish-reel-variation/route.ts` — fallback `https://app.otc.com`
+
+~~`app/api/queue/publish-reel-variation/route.ts` — fallback `https://app.otc.com`~~
+**Corregido el 2026-09-08:** ese dominio no existe, así que el mail de aviso de
+Trial Reels salía con links rotos cuando faltaba `NEXT_PUBLIC_APP_URL`. Ahora cae
+en `brand.domain`.
 - `components/super-admin/infrastructure-page.tsx` — hostname de Vercel
 
 **Acción:** al definir el dominio de Limitless, migrar DNS y actualizar estas
@@ -858,6 +885,53 @@ referencias + `brand.domain`.
 ---
 
 ## 🟢 Deuda técnica — Phase 2 (baja urgencia)
+
+### [TRIAL-REELS-MUSICA] Remontar la carga de música en Marketing
+
+**Qué es:** el bloque de música de Trial Reels se sacó de Integraciones (no era
+una integración). `ReelMusicUpload` y `uploadReelMusicAction` siguen existiendo,
+pero **ya no hay ninguna pantalla que los monte**: el track que ya está subido se
+sigue usando, pero no se puede cambiar.
+
+**Dónde va:** Marketing → Contenido, junto al resto de la configuración de Trial
+Reels. Es montar el componente, nada más.
+
+---
+
+### [LAYOUT-CAJONES] Revisar los otros cuatro cajones laterales
+
+**Qué es:** el arreglo de `PageTransition` (sacarle el `transform` a la animación
+de entrada de página) devolvió el comportamiento correcto a **todos** los
+`position: fixed` de la aplicación. Los cajones de retrospectiva de sprint,
+versiones de SOP, leads de UTM y llamadas del cliente estaban rotos igual que el
+de ManyChat, pero **no se verificaron uno por uno**.
+
+**Qué mirar:** que abran a pantalla completa contra el borde derecho, y que
+cerrados no asomen.
+
+**Regla que quedó:** ningún wrapper que envuelva la página puede tener
+`transform` —ni siquiera la matriz identidad que queda después de una animación—
+porque se vuelve el bloque contenedor de los `fixed` de adentro.
+
+---
+
+### [INTEGRACIONES-LOGOS] Faltan logos sólo si entra un proveedor nuevo
+
+**Qué es:** las catorce integraciones ofrecidas tienen su marca real y un test lo
+verifica. Si entra una nueva sin asset, se dibuja su inicial y el test falla.
+
+---
+
+### [INTEGRACIONES-PLAYWRIGHT] Cubrir la pantalla de Integraciones con Playwright
+
+**Qué es:** el rediseño no tiene cobertura de e2e. Lo que más conviene cubrir es
+el recorrido completo: filtrar por "requieren atención", abrir el detalle, volver
+al tablero.
+
+**La lógica pura sí está cubierta**: 23 tests en
+`lib/integrations/__tests__/health.test.ts`.
+
+---
 
 *(TECH-1 y TECH-2 completados — ver tabla abajo)*
 
@@ -879,6 +953,39 @@ referencias + `brand.domain`.
 ---
 
 ## ✅ Completados (referencia histórica)
+
+### 2026-09-08 — [REBRAND-Limitless] "Limitless" salió del código y la documentación
+
+El producto se llama Limitless en todo lo que vive dentro del repositorio. Las
+variables de entorno, la cookie del negocio activo y dos claves de localStorage
+se renombraron **leyendo el nombre viejo como respaldo**, para que publicar no
+dejara caído el bot de Discord ni sacara a las cuentas holding del negocio que
+estaban mirando. Lo que vive afuera quedó inventariado en `[REBRAND-EXTERNO]`.
+
+### 2026-09-08 — [INTEGRACIONES-REDISEÑO] Registro único, contrato de estado y pantalla nueva
+
+Las catorce integraciones pasaron a un registro único y a un contrato de estado
+común. El catálogo dejó de ser un mock con filas inventadas. El estado `error`
+del badge, que se declaraba y nunca se producía, ahora se alcanza. Las cinco
+integraciones que vivían en paneles sueltos debajo del grid entraron al tablero.
+Se eliminó el flujo de conexión simulado que corría en producción.
+`requireOrganizationId` quedó memoizada por request: ~30 resoluciones por render
+pasaron a una. Mapa de flujos en `docs/INTEGRACIONES_MAPA.md`.
+
+### 2026-09-08 — [INTEGRACIONES-PANEL-FANTASMA] El panel que asomaba a la derecha
+
+Era el cajón de ManyChat, y la causa era global: el wrapper de transición de ruta
+animaba `translateY`, y un elemento con `transform` se vuelve el bloque
+contenedor de sus descendientes `position: fixed`. Arreglado en la raíz
+(animación de sólo opacidad) y el cajón se eliminó.
+
+### 2026-09-08 — [EMBUDOS-PAGOS-CORREGIR] El mapeo de pagos ya estaba corregido
+
+Al revisarlo contra los dos resúmenes se confirmó que `lib/payments/normalize.ts`
+ya usa `settlement_amount`, la unidad de monto por proveedor y la lista literal
+de eventos. Lo que **sí** estaba mal era la ayuda del formulario de conexión, que
+decía que el secreto de Whop empieza con `whsec_` cuando empieza con `ws_`, y que
+apuntaba a `apidocs.fan` en vez de a la documentación vigente de Commas.
 
 ### 2026-09-07 — Nueve bugs del feedback de testers
 
@@ -931,7 +1038,7 @@ referencias + `brand.domain`.
 |-------|------|--------|
 | 2026-09-05 | MIGRACION-20260904110000: aplicada y verificada — las dos columnas `checkpoint_checked_at` y los dos índices parciales existen. Y se arregló el build del bot en Railway: construía el monorepo en vez del bot porque faltaba el root directory del servicio | `claude/checkpoints-cliente-ccc3ih` |
 | 2026-09-04 | CABLES-PROPUESTAS: el buzón de C3 empieza a recibir. Cron diario `daily-signals` que clasifica los mensajes de Discord y propone hitos desde los mensajes y desde las llamadas de entrega de Fathom. Solapa **Candidatos** en Wins con los testimonios de todos los clientes juntos. Un hito que no está en el catálogo se descarta entero; piso de confianza 0.7; la marca es de "evaluado", no de "propuesto". 849 tests | `claude/checkpoints-cliente-ccc3ih` |
-| 2026-09-04 | TRACKERS-EXCEL: las cinco piezas que los Excel tenían y OTC no — permisos del cliente sobre su win (con la forma en que quiere aparecer), estado de uso con el filtro "Sin usar", objetivo con el que entró, fecha de egreso y estado actual en palabras. Más la pantalla de **Revisión semanal** con las cuatro preguntas. 812 tests | `claude/checkpoints-cliente-ccc3ih` |
+| 2026-09-04 | TRACKERS-EXCEL: las cinco piezas que los Excel tenían y Limitless no — permisos del cliente sobre su win (con la forma en que quiere aparecer), estado de uso con el filtro "Sin usar", objetivo con el que entró, fecha de egreso y estado actual en palabras. Más la pantalla de **Revisión semanal** con las cuatro preguntas. 812 tests | `claude/checkpoints-cliente-ccc3ih` |
 | 2026-09-04 | OPERACIONES-ADDON-APAGADO: SOPs salió del add-on `operaciones` y es un módulo propio de la barra superior. El creador de SOPs existía y **nadie podía llegar**, porque las 5 organizaciones tienen `enabled_add_ons` vacío. El resto de Operaciones sigue detrás del add-on | `claude/checkpoints-cliente-ccc3ih` |
 | 2026-09-03 | SEGUIMIENTO-EN-EL-MOMENTO: el modal de resultado de la llamada pide también el seguimiento (calificación, próximo paso, fecha, responsable, nota) en un solo guardado. "No show" pasó de acción directa a modal con el mismo bloque. El panel de detalle ahora usa `acceptsManualOutcome`, así que las llamadas "asistió sin resultado" pueden cerrarse | `claude/seguimientos-tabla-closing-u6arke` |
 | 2026-09-03 | SEGUIMIENTO-TABLA: la pestaña Seguimiento pasa de acordeón a tabla editable celda por celda (calificación, próximo paso, fecha, responsable, notas), con panel lateral para el hilo de intentos, filtros, buscador, orden y paginado. Se ven **todos** los leads, no sólo los tres estados accionables. Valores de seguimiento propios por organización (`sales_follow_up_options`): cada valor declara si pide fecha o cierra el hilo, se archiva en vez de borrarse, y los de fábrica no se pueden pisar. Se completó `next_action_owner_id`, que no tenía UI. 595 tests | `claude/seguimientos-tabla-closing-u6arke` |
@@ -950,8 +1057,8 @@ referencias + `brand.domain`.
 | 2026-08-30 | EMBUDOS-I5: integración WebinarJam / EverWebinar — registrantes persistidos por fila (la API no acepta rangos de fecha arbitrarios), stick rate pedido filtrado al servidor, segundo de la oferta configurable. M16 documentado como no medible. 364 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I6: integración VTurb — caché por período (engagement_rate es un promedio y no se puede sumar entre días), M12 sólo cuando el player tiene pitch time, catálogo de videos y selector en el formulario de fuentes. 351 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I4: oportunidades de GHL — historial propio de transiciones de etapa (GHL no lo expone), período ciego explícito, webhook con dos vías de autenticación, tres fuentes de embudo con etapa configurable. 331 tests en verde | `Claude-New-Features` |
-| 2026-08-30 | DOC-EXTERNAL-APIS-2: Whop (897 páginas + 3 specs OpenAPI), Commas ex Fanbasis (42 secciones), Hyros (482 guías + 3 specs) y WebinarJam (17 artículos) bajados a `docs/external-apis/`, con un `RESUMEN-OTC.md` por proveedor. Cierra las seis secciones de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |
-| 2026-08-30 | DOC-EXTERNAL-APIS: documentación completa de GoHighLevel (948 páginas) y VTurb (28 endpoints + `openapi.json`) bajada a `docs/external-apis/`, con scripts de regeneración y dos `RESUMEN-OTC.md` que cierran §3 y §4 de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |
+| 2026-08-30 | DOC-EXTERNAL-APIS-2: Whop (897 páginas + 3 specs OpenAPI), Commas ex Fanbasis (42 secciones), Hyros (482 guías + 3 specs) y WebinarJam (17 artículos) bajados a `docs/external-apis/`, con un `RESUMEN-Limitless.md` por proveedor. Cierra las seis secciones de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |
+| 2026-08-30 | DOC-EXTERNAL-APIS: documentación completa de GoHighLevel (948 páginas) y VTurb (28 endpoints + `openapi.json`) bajada a `docs/external-apis/`, con scripts de regeneración y dos `RESUMEN-Limitless.md` que cierran §3 y §4 de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |
 | 2026-08-26 | FEAT-GHL-MULTI-CALENDAR: multi-selección de calendarios GHL + filtro en closing panel | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-26 | UI-CLEANUP: Eliminación botón flotante del agente (FloatingChat) + fix layout integrations page (min-w-0) | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FEAT-PLANES-CUOTAS-CLIENTES: planes con sistemas de cuotas, eliminar clientes, asignar plan, closing con cuotas manuales — migración SQL pendiente de aplicar en Supabase | `claude/ghl-integration-data-loading-9cd72n` |
@@ -959,7 +1066,7 @@ referencias + `brand.domain`.
 | 2026-08-25 | FIX-BASELINE-GAPS: Baseline fallback en Intelligence module (collect-context.ts) y monthlySeries (finance-data-provider) — cierran los dos últimos vacíos de la arquitectura baseline | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FEAT-BASELINE-ARCHITECTURE: Arquitectura baseline escalable — baseline-service.ts, finance-data-provider fallback, Dashboard, Finance metrics, agente IA, data_source column en metrics_snapshots | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FEAT-METRICS-DERIVE: Auto-derivación de métricas combinadas al importar — deriveSalesMetrics (close_rate, show_rate, tasa_agendamiento, tasa_fantasma, inasistencias, no_cierres) y deriveFinanceMetrics (margen, pct_margen); mapper de filas reducido a solo métricas primarias (11 ventas, 4 finanzas) | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-25 | FEAT-EXCEL-TRANSPOSED-ROW-MAPPER: Mapeo manual de filas en formato pivot — TransposedRowMapper con dropdowns por campo OTC, auto-sugerencia desde diccionario, rowMapping pasado al parser, texto de confirm corregido (upsert) | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FEAT-EXCEL-TRANSPOSED-ROW-MAPPER: Mapeo manual de filas en formato pivot — TransposedRowMapper con dropdowns por campo Limitless, auto-sugerencia desde diccionario, rowMapping pasado al parser, texto de confirm corregido (upsert) | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FEAT-EXCEL-PIVOT: Soporte formato pivot en importación de métricas — auto-detección de meses como columnas, parser transpuesto, banner "Formato tabla detectado", fix preview para archivos con título merged (resuelve __EMPTY) | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FIX-EXCEL-PREVIEW: getExcelPreviewAction ahora usa { header: 1 } y salta filas de título — fix para archivos con celdas merged/título en la primera fila | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FIX-VERCEL-BUILD x4: prefer-const, unused imports/props, SectionDef[] filter inference, keyof Union type — 4 errores de build de Vercel corregidos en serie | `claude/ghl-integration-data-loading-9cd72n` |

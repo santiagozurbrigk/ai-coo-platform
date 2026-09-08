@@ -26,7 +26,7 @@ function event(
 }
 
 describe("deriveTransition", () => {
-  it("registra un alta cuando OTC nunca vio la oportunidad", () => {
+  it("registra un alta cuando Limitless nunca vio la oportunidad", () => {
     const t = deriveTransition(null, event(), RECEIVED_AT);
     expect(t).not.toBeNull();
     expect(t!.kind).toBe("created");
@@ -37,7 +37,7 @@ describe("deriveTransition", () => {
   it("deja la etapa de origen en null en el alta, sin inventar la primera del pipeline", () => {
     const t = deriveTransition(null, event({ stageId: "stage_5" }), RECEIVED_AT);
     // Una oportunidad que apareció por primera vez en la etapa 5 pudo haber
-    // pasado por las anteriores sin que OTC lo viera. Decir que vino de la 1
+    // pasado por las anteriores sin que Limitless lo viera. Decir que vino de la 1
     // sería afirmar un recorrido que nadie observó.
     expect(t!.fromStageId).toBeNull();
   });
@@ -113,7 +113,7 @@ describe("isPeriodCovered", () => {
   });
 
   it("no cubre un período que empieza antes del borde", () => {
-    // Ese período daría cero transiciones, pero el cero significa "OTC no
+    // Ese período daría cero transiciones, pero el cero significa "Limitless no
     // estaba mirando", no "no pasó nada".
     expect(isPeriodCovered("2026-08-15T00:00:00.000Z", "2026-08-01T00:00:00.000Z")).toBe(false);
   });

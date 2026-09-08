@@ -21,7 +21,7 @@ Phase 1 prioriza auth, DB, RLS, integraciones core (ManyChat, Calendly, Fathom, 
 | **Alta** | [Integración Discord](#integración-discord-bot) | Complementa Fathom; ICP infoproductos; costo ~$0/cliente |
 | Media | Testimonios automáticos + vista dedicada | Marketing y prueba social |
 | Media | Timeline cliente unificado (Fathom + Discord) | Single source of truth |
-| Baja | Super Admin: alertas por `requires_attention` | Operaciones OTC |
+| Baja | Super Admin: alertas por `requires_attention` | Operaciones Limitless |
 
 ---
 
@@ -54,7 +54,7 @@ Combinados → visión completa por cliente.
 ### Patrón (igual que ManyChat)
 
 ```
-Una sola app de Discord (equipo OTC)
+Una sola app de Discord (equipo Limitless)
         ↓
 Cada founder invita el bot a su servidor
         ↓
@@ -86,7 +86,7 @@ Costo estimado: $5–10/mes (todos los clientes)
 ```env
 DISCORD_BOT_TOKEN=
 DISCORD_CLIENT_ID=
-OTC_WEBHOOK_SECRET=
+LIMITLESS_WEBHOOK_SECRET=
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 NEXT_PUBLIC_APP_URL=

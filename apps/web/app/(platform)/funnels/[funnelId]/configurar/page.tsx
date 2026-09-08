@@ -60,7 +60,7 @@ export default async function FunnelConfigurePage({
 
       {pendientes.length > 0 ? (
         <div className="rounded-2xl border border-border bg-card p-5 dark:border-glass dark:bg-glass">
-          <h3 className="text-sm font-medium">Herramientas que el estándar pide y OTC no cubre</h3>
+          <h3 className="text-sm font-medium">Herramientas que el estándar pide y Limitless no cubre</h3>
           <p className="mt-1 text-xs text-muted-foreground">
             Mientras no existan, los pasos que dependen de ellas no tienen fuente posible.
           </p>

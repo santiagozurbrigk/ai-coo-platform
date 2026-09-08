@@ -11,7 +11,7 @@
  * - El primer step tiene benchmark "context-set": el documento declara
  *   explícitamente que no hay piso universal para el trigger rate.
  *
- * Es el único de los tres embudos construible end-to-end con las fuentes que OTC
+ * Es el único de los tres embudos construible end-to-end con las fuentes que Limitless
  * ya tiene hoy, y por eso es el que se implementa primero (Fase 1).
  */
 

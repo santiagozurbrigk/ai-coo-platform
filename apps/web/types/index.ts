@@ -41,6 +41,5 @@ export type {
   IntelligenceOpportunity,
   MemoryChunk,
 } from "./intelligence";
-export type { Integration } from "./integrations";
 export type { TeamMember, RoleDefinition } from "./team";
 export type { AdminOrganization, AdminUsageRow } from "./super-admin";

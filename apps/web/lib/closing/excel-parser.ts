@@ -34,7 +34,7 @@ export type ParseClosingResult = {
 
 // ─── Columnas plantilla Limitless ───────────────────────────────────────────────────
 
-const OTC_CLOSING_COLUMNS: ClosingColumnMapping = {
+const CLOSING_TEMPLATE_COLUMNS: ClosingColumnMapping = {
   leadName:    "Nombre prospecto",
   email:       "Email",
   scheduledAt: "Fecha y hora",
@@ -118,7 +118,7 @@ export function parseClosingCallsExcel(
   }
 
   const headers = Object.keys(raw[0]).map((h) => h.trim());
-  const mapping: ClosingColumnMapping = columnMapping ?? OTC_CLOSING_COLUMNS;
+  const mapping: ClosingColumnMapping = columnMapping ?? CLOSING_TEMPLATE_COLUMNS;
 
   const headersByNorm: Record<string, string> = {};
   for (const h of headers) headersByNorm[normalizeHeader(h)] = h;

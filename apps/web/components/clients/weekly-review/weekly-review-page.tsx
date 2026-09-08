@@ -5,7 +5,7 @@
  *
  * Cuatro preguntas, cuatro listas de nombres, y al lado de cada nombre el lugar
  * para anotar en qué anda. Es el ritual que los Excel tenían y el software no:
- * OTC ya calculaba casi todas estas señales, pero no las mostraba juntas en
+ * Limitless ya calculaba casi todas estas señales, pero no las mostraba juntas en
  * ningún lado, y una señal que nadie mira es una señal que no existe.
  *
  * Una lista vacía **se muestra vacía, con su motivo**: "nadie trabado" es una

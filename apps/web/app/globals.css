@@ -57,7 +57,7 @@
    * reescribir su hoja: así el popover sigue el tema como cualquier otra
    * superficie de la app, y una actualización de la librería no lo rompe.
    */
-  .driver-popover.otc-tour {
+  .driver-popover.limitless-tour {
     background-color: hsl(var(--popover));
     color: hsl(var(--popover-foreground));
     border: 1px solid hsl(var(--border));
@@ -66,25 +66,25 @@
     max-width: 22rem;
   }
 
-  .driver-popover.otc-tour .driver-popover-title {
+  .driver-popover.limitless-tour .driver-popover-title {
     font-size: 0.9375rem;
     font-weight: 600;
     color: hsl(var(--popover-foreground));
   }
 
-  .driver-popover.otc-tour .driver-popover-description {
+  .driver-popover.limitless-tour .driver-popover-description {
     font-size: 0.8125rem;
     line-height: 1.55;
     color: hsl(var(--muted-foreground));
   }
 
-  .driver-popover.otc-tour .driver-popover-progress-text {
+  .driver-popover.limitless-tour .driver-popover-progress-text {
     font-size: 0.6875rem;
     font-variant-numeric: tabular-nums;
     color: hsl(var(--muted-foreground));
   }
 
-  .driver-popover.otc-tour .driver-popover-navigation-btns button {
+  .driver-popover.limitless-tour .driver-popover-navigation-btns button {
     background-color: hsl(var(--muted));
     color: hsl(var(--foreground));
     border: 1px solid hsl(var(--border));
@@ -95,21 +95,21 @@
   }
 
   /* El botón que avanza es la acción principal: va en el acento de marca. */
-  .driver-popover.otc-tour .driver-popover-navigation-btns button:last-child {
+  .driver-popover.limitless-tour .driver-popover-navigation-btns button:last-child {
     background-color: hsl(var(--primary));
     color: hsl(var(--primary-foreground));
     border-color: hsl(var(--primary));
   }
 
-  .driver-popover.otc-tour .driver-popover-close-btn {
+  .driver-popover.limitless-tour .driver-popover-close-btn {
     color: hsl(var(--muted-foreground));
   }
 
   /* La flecha se pinta con border-color, así que va token por lado. */
-  .driver-popover.otc-tour .driver-popover-arrow-side-left { border-left-color: hsl(var(--popover)); }
-  .driver-popover.otc-tour .driver-popover-arrow-side-right { border-right-color: hsl(var(--popover)); }
-  .driver-popover.otc-tour .driver-popover-arrow-side-top { border-top-color: hsl(var(--popover)); }
-  .driver-popover.otc-tour .driver-popover-arrow-side-bottom { border-bottom-color: hsl(var(--popover)); }
+  .driver-popover.limitless-tour .driver-popover-arrow-side-left { border-left-color: hsl(var(--popover)); }
+  .driver-popover.limitless-tour .driver-popover-arrow-side-right { border-right-color: hsl(var(--popover)); }
+  .driver-popover.limitless-tour .driver-popover-arrow-side-top { border-top-color: hsl(var(--popover)); }
+  .driver-popover.limitless-tour .driver-popover-arrow-side-bottom { border-bottom-color: hsl(var(--popover)); }
 
   :root {
     --glass-bg: rgba(255, 255, 255, 0.03);

@@ -597,7 +597,7 @@ Todos los comentarios `TODO` / `Phase 2` encontrados en el codebase:
 | `apps/web/lib/metrics/derive-sales-metrics.ts:83` | Mock hasta Phase 2 — detección IA en transcripts y conversaciones (`frequentObjections`) |
 | `apps/web/lib/track-token-usage.ts:59` | Registrar uso de tokens (Phase 2: llamar desde Server Actions de IA) — parcialmente implementado vía anthropic |
 | `apps/web/components/settings/settings-form.tsx:281` | Tab notificaciones: “Phase 2 — por ahora solo configuración visual” |
-| `apps/web/components/settings/settings-form.tsx:302` | Phase 2 — persistir API key encriptada; routing key propia vs OTC |
+| `apps/web/components/settings/settings-form.tsx:302` | Phase 2 — persistir API key encriptada; routing key propia vs Limitless |
 | `apps/web/components/super-admin/holding-portfolio-content.tsx:93` | Phase 2 — tabla `holding_organizations` + rol `holding_admin` |
 | `apps/web/components/super-admin/holding-portfolio-content.tsx:94` | Mock arquitectura multi-tenant holding |
 | `apps/web/components/landing/vsl-player.tsx:37` | Reemplazar src VSL cuando `NEXT_PUBLIC_VSL_URL` esté listo |

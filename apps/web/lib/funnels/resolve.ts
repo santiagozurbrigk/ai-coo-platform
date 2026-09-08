@@ -73,7 +73,7 @@ export type StepProvenance = {
    * Por qué el step no tiene número, cuando la fuente sí está bindeada.
    *
    * Distingue los tres motivos que la UI necesita separar: falta configurar un
-   * parámetro, el período cae antes de que OTC tuviera historial, o la consulta
+   * parámetro, el período cae antes de que Limitless tuviera historial, o la consulta
    * no devolvió señal. Los tres dan `null`, pero se arreglan distinto.
    */
   nullReason: "missing_config" | "outside_history" | null;
@@ -481,7 +481,7 @@ async function countWebinarStayedToPitch(
 // ─── Formularios: aplicaciones enviadas y calificadas ─────────────────────────
 //
 // `form_responses` ya se puebla con las integraciones de Typeform y Google
-// Forms. Es la única fila del documento que OTC cubría entera desde antes del
+// Forms. Es la única fila del documento que Limitless cubría entera desde antes del
 // módulo de embudos, pero no tenía fuente: estas dos la conectan.
 
 async function countFormSubmissions(
@@ -826,7 +826,7 @@ export async function resolveFunnel(
       }
 
       // ⭐ Período ciego: el historial de etapas arranca con el primer webhook.
-      // Antes de esa fecha OTC no estaba mirando, y las cero transiciones que
+      // Antes de esa fecha Limitless no estaba mirando, y las cero transiciones que
       // devolvería la consulta significan "no lo sabemos", no "no pasó nada".
       if (
         GHL_HISTORY_SOURCES.includes(source.id) &&

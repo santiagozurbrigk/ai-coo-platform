@@ -7,7 +7,7 @@ import type { MatchConfidence } from "@/lib/fathom/match-appointment";
 /**
  * Grabaciones que no quedaron asociadas a ningún turno, y vinculación a mano.
  *
- * ⭐ **No es una cola de "clasificar".** OTC registra únicamente llamadas de
+ * ⭐ **No es una cola de "clasificar".** Limitless registra únicamente llamadas de
  * venta: una grabación sin turno normalmente es una reunión de equipo o una
  * sesión con un cliente, y eso está bien. Lo que esta lista resuelve es el caso
  * contrario: **una llamada de venta que existió y no llegó a cruzar** —porque el

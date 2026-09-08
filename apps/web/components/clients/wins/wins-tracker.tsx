@@ -75,7 +75,7 @@ export function WinsTracker({
 
   /**
    * ⭐ El contador de "Sin usar" es la razón de ser del tracker: la pregunta que
-   * el Excel contesta y que hasta ahora OTC no podía contestar.
+   * el Excel contesta y que hasta ahora Limitless no podía contestar.
    */
   const stateOptions = useMemo(
     () =>
@@ -365,7 +365,7 @@ export function WinsTracker({
  * ⭐ Los filtros que hacen del tracker un recordatorio y no un archivo.
  *
  * "Sin usar" es el que importa: es la pregunta que el Excel contestaba de una
- * mirada —*"¿cuáles todavía no aproveché?"*— y que OTC no podía contestar.
+ * mirada —*"¿cuáles todavía no aproveché?"*— y que Limitless no podía contestar.
  */
 const STATE_FILTERS = [
   { value: "all", label: "Todos" },

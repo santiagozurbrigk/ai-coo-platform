@@ -1,7 +1,7 @@
 /**
  * lib/webinarjam/normalize-registrant.ts
  *
- * Traduce un registrante de WebinarJam a la fila que guarda OTC.
+ * Traduce un registrante de WebinarJam a la fila que guarda Limitless.
  *
  * Puro: se testea sin base ni red.
  *

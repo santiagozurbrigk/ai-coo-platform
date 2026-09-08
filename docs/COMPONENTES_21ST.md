@@ -1,6 +1,6 @@
 # Componentes 21st.dev — uso, integración y prompts
 
-> Documento de referencia para incorporar cuatro componentes de [21st.dev](https://21st.dev) al monorepo OTC.
+> Documento de referencia para incorporar cuatro componentes de [21st.dev](https://21st.dev) al monorepo Limitless.
 > Relevado el **2026-08-30** contra el repo en la rama `Claude-New-Features`.
 
 ---
@@ -117,7 +117,7 @@ Antes de las fichas, el contexto que decide cuánto trabajo es cada integración
 | `class-variance-authority` | ✅ `^0.7.1` (en `@ai-coo/ui`) |
 | `@radix-ui/react-tabs`, `@radix-ui/react-dropdown-menu` | ✅ en `@ai-coo/ui` |
 
-**Conclusión: el theming va a funcionar sin tocar nada.** Cualquier componente que use `bg-card`, `text-foreground`, `border-border`, `text-muted-foreground`, `bg-accent`, `ring-ring` toma los colores de OTC (primary `#7C3AED`) automáticamente.
+**Conclusión: el theming va a funcionar sin tocar nada.** Cualquier componente que use `bg-card`, `text-foreground`, `border-border`, `text-muted-foreground`, `bg-accent`, `ring-ring` toma los colores de Limitless (primary `#7C3AED`) automáticamente.
 
 ### 2.2 Lo que falta ❌
 
@@ -149,9 +149,9 @@ Este es el punto que más criterio requiere.
 - `apps/web/components/ui/` casi está vacío (solo `ai-prompt-box.tsx` y `bg-pattern.tsx`).
 - **shadcn y `21st add` escriben en `apps/web/components/ui/`.**
 
-Si se corre `21st add` tal cual, el CLI resuelve las `registryDependencies` y baja **también** las primitivas del autor. Resultado: dos `Card`, dos `Badge`, dos `Tabs`, dos `DropdownMenu` conviviendo, con estilos distintos y sin los tokens glass de OTC.
+Si se corre `21st add` tal cual, el CLI resuelve las `registryDependencies` y baja **también** las primitivas del autor. Resultado: dos `Card`, dos `Badge`, dos `Tabs`, dos `DropdownMenu` conviviendo, con estilos distintos y sin los tokens glass de Limitless.
 
-**Regla para esta integración:** bajar el componente, **borrar las primitivas duplicadas que arrastre**, y reapuntar los imports a `@ai-coo/ui`. Si la primitiva de OTC no tiene la variante que el componente pide, se extiende la primitiva de OTC — no se agrega una segunda.
+**Regla para esta integración:** bajar el componente, **borrar las primitivas duplicadas que arrastre**, y reapuntar los imports a `@ai-coo/ui`. Si la primitiva de Limitless no tiene la variante que el componente pide, se extiende la primitiva de Limitless — no se agrega una segunda.
 
 Diferencias concretas entre nuestras primitivas y las que asumen estos componentes:
 
@@ -298,7 +298,7 @@ export default function NotchNavDemo() {
 }
 ```
 
-#### Integración en OTC
+#### Integración en Limitless
 
 ⚠️ **Advertencia de producto, no técnica.** `CLAUDE.md` dice explícitamente: *"❌ Agregar `MarketingSubnav` — la navegación es solo sidebar"*. Esta barra es un patrón de navegación horizontal que **compite directamente con `lib/navigation/sidebar-modules.ts`**. Antes de integrarla hay que decidir dónde vive:
 
@@ -309,7 +309,7 @@ export default function NotchNavDemo() {
 Ajustes técnicos, en cualquier caso:
 
 1. **Tailwind v3:** reemplazar `shadow-xs` → `shadow-sm` y `h-8.5` → `h-[34px]`, tanto en el demo como dentro del componente bajado.
-2. **Colores hardcodeados:** el demo usa `bg-zinc-800 / dark:bg-zinc-300` en los slots. Cambiar por tokens de OTC (`bg-foreground` / `text-background`) para que respete el tema.
+2. **Colores hardcodeados:** el demo usa `bg-zinc-800 / dark:bg-zinc-300` en los slots. Cambiar por tokens de Limitless (`bg-foreground` / `text-background`) para que respete el tema.
 3. **Slots como Server Components:** `logo` y `rightContent` reciben JSX. `NotchNav` es `"use client"`, así que lo que se le pase se serializa igual — está bien pasarle un `<Link>` de Next.
 4. **Rutas:** los `id` de `NAV_ITEMS` deben salir de `routes/paths.ts`, no hardcodearse.
 5. `onActiveChange` no navega solo: hay que enganchar `useRouter().push()`.
@@ -365,7 +365,7 @@ export default function DropdownRangeDatePickerDemoPage() {
 
 ⚠️ **Esto es un problema real, no una omisión del relevamiento.** Si el componente no expone `value` / `onChange`, **el estado del rango vive adentro y no sale**, lo cual lo hace inservible para filtrar datos. Lo primero al bajarlo es abrir el archivo y ver si acepta callbacks. Si no los acepta, hay que agregarlos — es una modificación obligatoria, no opcional.
 
-#### Integración en OTC
+#### Integración en Limitless
 
 **Es el componente con mejor encaje de producto de los cuatro.** Un filtro de rango de fechas es exactamente lo que falta en:
 
@@ -382,7 +382,7 @@ Ajustes:
    import { es } from "date-fns/locale";
    // <Calendar locale={es} /> y format(date, "d MMM yyyy", { locale: es })
    ```
-3. **Zona horaria:** OTC deploya en `gru1` (São Paulo) y el negocio es argentino. Un rango elegido en el browser tiene que serializarse sin correrse un día contra las queries de Supabase. Fijar el criterio una vez (ISO `yyyy-MM-dd` sin hora, o UTC explícito) y usarlo igual en los cuatro módulos.
+3. **Zona horaria:** Limitless deploya en `gru1` (São Paulo) y el negocio es argentino. Un rango elegido en el browser tiene que serializarse sin correrse un día contra las queries de Supabase. Fijar el criterio una vez (ISO `yyyy-MM-dd` sin hora, o UTC explícito) y usarlo igual en los cuatro módulos.
 4. **Licencia:** resolver antes de mergear (§1.6).
 
 ---
@@ -499,7 +499,7 @@ export default function StatisticCard1() {
 }
 ```
 
-#### Integración en OTC
+#### Integración en Limitless
 
 ⚠️ **Antes de integrar: ya tenemos esto.** `@ai-coo/ui` exporta **`MetricCard`**, **`MetricStat`**, **`MetricBand`** y **`AnimatedNumber`** (`packages/ui/src/components/`), y `apps/web` tiene `@number-flow/react` para valores animados. Lo único que este block agrega sobre lo nuestro es **el menú `⋯` por tarjeta**. La decisión correcta casi seguro es **portar ese menú a `MetricCard`**, no traer un cuarto componente de KPI.
 
@@ -513,7 +513,7 @@ import { Badge, Button, Card, CardContent, CardHeader, CardTitle,
 
 Y los reemplazos de props:
 
-| Del demo | En OTC |
+| Del demo | En Limitless |
 |---|---|
 | `<CardToolbar>` | no existe → agregar a `card.tsx`, o `<div className="ml-auto">` dentro del `CardHeader` |
 | `<Button variant="dim" mode="icon">` | `<Button variant="ghost" size="icon">` |
@@ -591,7 +591,7 @@ export default function TabsDemo() {
 }
 ```
 
-#### Integración en OTC — la decisión importante
+#### Integración en Limitless — la decisión importante
 
 **Ya tenemos `Tabs` en `@ai-coo/ui`** (`packages/ui/src/primitives/tabs.tsx`, sobre `@radix-ui/react-tabs`), usado en toda la plataforma. Nuestro `TabsList` **no tiene prop `variant`** — tiene un solo look (`bg-muted` con pill activo).
 
@@ -766,7 +766,7 @@ Por cada componente que entre al repo:
 
 ## 6. Resumen ejecutivo — qué conviene hacer con cada uno
 
-| Componente | Encaje en OTC | Recomendación |
+| Componente | Encaje en Limitless | Recomendación |
 |---|---|---|
 | **Dropdown Range Date Picker** | 🟢 **Alto** — llena un hueco real en anuncios, finanzas y reportes | **Bajar e integrar.** Es el que más valor agrega. Resolver licencia y verificar que exponga `value`/`onChange`. |
 | **Adaptive Notch Navigation Bar** | 🟡 **Condicionado** — choca con la regla de "solo sidebar" | **Bajar solo si va en landing/founder.** Técnicamente es el más limpio (cero deps de registry). |

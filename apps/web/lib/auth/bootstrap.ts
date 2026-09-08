@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
@@ -169,8 +170,7 @@ export async function getCurrentProfileAccountType(): Promise<
   return getProfileAccountType();
 }
 
-/** Garantiza org + perfil (repara usuarios creados antes del bootstrap). */
-export async function requireOrganizationId(): Promise<string> {
+async function resolveOrganizationId(): Promise<string> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -196,6 +196,21 @@ export async function requireOrganizationId(): Promise<string> {
 
   return resolveEffectiveOrganizationId(organizationId, accountType);
 }
+
+/**
+ * Garantiza org + perfil (repara usuarios creados antes del bootstrap).
+ *
+ * **Memoizada por request** con `cache()` de React. Resolver la organización
+ * cuesta un `auth.getUser()` contra Supabase Auth, una lectura de `profiles` y,
+ * en cuentas holding, una verificación extra del negocio activo. Sin memoizar,
+ * una pantalla que compone varios dominios paga ese costo una vez por acción:
+ * Integraciones llegaba a ~30 resoluciones idénticas en un solo render.
+ *
+ * El alcance de `cache()` es el request, así que dos requests distintos —y por
+ * lo tanto un cambio de negocio activo en una cuenta holding— siguen resolviendo
+ * de cero. La cookie que elige el negocio no cambia dentro de un mismo request.
+ */
+export const requireOrganizationId = cache(resolveOrganizationId);
 
 /** Igual que requireOrganizationId pero sin lanzar (lecturas desde el cliente). */
 export async function tryRequireOrganizationId(): Promise<string | null> {

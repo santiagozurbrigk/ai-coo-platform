@@ -133,7 +133,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
 
   // ⭐ ¿Es una llamada de venta? Es la única pregunta que el módulo responde hoy.
   //
-  // OTC registra únicamente llamadas de venta: una grabación lo es cuando el
+  // Limitless registra únicamente llamadas de venta: una grabación lo es cuando el
   // mail de alguno de sus participantes coincide con el del lead de un turno
   // agendado y el horario corresponde. Lo que no cruza —una reunión de equipo,
   // una sesión con un cliente— existe igual en `fathom_calls`, pero no entra al

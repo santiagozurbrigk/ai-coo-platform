@@ -19,7 +19,7 @@
  * ⛔ **Las historias no se pueden contar en un período.** Meta sólo expone las
  * historias **vigentes**, o sea una ventana de 24 horas
  * (`lib/zernio/client.ts`, `listInstagramStories`). Para cualquier período que
- * no sea "hoy" no hay nada que leer, y no es un problema de OTC: el dato no
+ * no sea "hoy" no hay nada que leer, y no es un problema de Limitless: el dato no
  * existe del lado de Meta. Por eso M34 cubre ads + comentarios, y esa limitación
  * queda dicha en vez de disimulada.
  *

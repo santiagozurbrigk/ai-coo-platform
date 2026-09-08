@@ -419,7 +419,7 @@ export async function listFathomMeetings(
       url.searchParams.set("include_transcript", "true");
     }
     /**
-     * ⭐ Fathom ofrece cuatro `include_` y OTC pedía **uno solo**, así que se
+     * ⭐ Fathom ofrece cuatro `include_` y Limitless pedía **uno solo**, así que se
      * estaba tirando información que ya viene sin costo extra de request:
      *
      * - `include_summary`      — el resumen ya escrito (⚠️ ver el bug de

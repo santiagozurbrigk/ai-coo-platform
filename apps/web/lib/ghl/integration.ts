@@ -224,7 +224,7 @@ export async function setGHLWebhookSecret(
 }
 
 /**
- * Borde del período ciego: desde cuándo OTC tiene historial de etapas.
+ * Borde del período ciego: desde cuándo Limitless tiene historial de etapas.
  *
  * `null` significa que todavía no llegó ningún webhook de oportunidad. El
  * resolver del embudo lo usa para devolver `null` en vez de `0` para cualquier

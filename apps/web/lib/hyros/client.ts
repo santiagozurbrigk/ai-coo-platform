@@ -21,7 +21,7 @@
  * solo lugar y no los arma dinámicamente en ningún lado.
  *
  * ⚠️ **Las escrituras son asíncronas**: un `200` en un POST significa "recibido",
- * no "aplicado". OTC sólo lee, así que no aplica, pero queda anotado.
+ * no "aplicado". Limitless sólo lee, así que no aplica, pero queda anotado.
  */
 
 const HYROS_API_BASE = process.env.HYROS_API_BASE ?? "https://api.hyros.com";

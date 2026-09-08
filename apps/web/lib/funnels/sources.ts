@@ -9,7 +9,7 @@
  *
  * Un step SIN binding resuelve a `null`, nunca a `0` (§9.1).
  *
- * Sólo se listan fuentes respaldadas por tablas que existen hoy en OTC. Las
+ * Sólo se listan fuentes respaldadas por tablas que existen hoy en Limitless. Las
  * etapas que dependen de integraciones faltantes (webinar, VSL) no tienen fuente
  * y por diseño quedan en "sin datos" hasta que esas integraciones existan — ver
  * docs/FUNNELS_ARCHITECTURE.md §7.
@@ -129,7 +129,7 @@ export const FUNNEL_SOURCES = [
     id: "ghl_opportunities_created",
     label: "Oportunidades abiertas (GHL)",
     description:
-      "Oportunidades que OTC vio nacer dentro del período, según el historial propio de transiciones (M21).",
+      "Oportunidades que Limitless vio nacer dentro del período, según el historial propio de transiciones (M21).",
     provenance: "crm_pipeline",
     suitableFor: ["lead"],
     configFields: [],
@@ -321,12 +321,12 @@ export function sourcesForStage(stageId: SpineStageId): FunnelSource[] {
 /**
  * Bindings por defecto del embudo DM.
  *
- * Apuntan al inbox de OTC, que es lo que funciona sin configurar nada. Las
+ * Apuntan al inbox de Limitless, que es lo que funciona sin configurar nada. Las
  * fuentes de GHL (`ghl_*`) son la alternativa fiel al documento —§05 asigna los
  * conteos del DM al pipeline del CRM— pero necesitan que el usuario elija a qué
  * etapa corresponde cada paso, así que no se pueden poner por defecto.
  *
- * `dm.trigger` queda deliberadamente SIN binding: OTC no tiene hoy una fuente de
+ * `dm.trigger` queda deliberadamente SIN binding: Limitless no tiene hoy una fuente de
  * disparadores (comentarios / historias / anuncios que inician una conversación).
  * Ese hueco es correcto y se muestra como problema de instrumentación, no como
  * rotura de negocio.

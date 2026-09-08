@@ -14,6 +14,305 @@
 
 ---
 
+### 2026-09-08 — El producto se llama Limitless: se retiró "Limitless" del código y la documentación
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** transversal — 78 archivos. `lib/discord/webhook-auth.ts` y `apps/discord-bot/src/lib/limitless-api.ts` (nuevos), `lib/holding/constants.ts`, `lib/clickup/field-mapper.ts`, `lib/clients/excel-parser.ts`, `lib/closing/excel-parser.ts`, `turbo.json`, `.env.example`, y toda la documentación
+
+**Qué se hizo:**
+
+El nombre viejo salió de todos lados salvo donde sacarlo rompe algo. La regla que
+ordenó el trabajo: **lo que vive dentro del repositorio se renombra; lo que vive
+afuera se documenta.**
+
+**⭐ Lo que se renombró sin más**, porque es interno y nadie de afuera lo ve: la
+prosa de comentarios, los strings de UI, la documentación entera, y los
+identificadores de código (`OTC_FIELDS` → `CLIENT_FIELDS`, `OtcClientField` →
+`ClientField`, `OTC_COLUMNS` → `CLIENT_TEMPLATE_COLUMNS`, `otc-tour` →
+`limitless-tour`).
+
+**⭐ Lo que se renombró con respaldo**, porque romperlo deja algo caído hasta que
+alguien actualice una consola que no está en este repositorio:
+
+| Qué | Nombre nuevo | Respaldo |
+|---|---|---|
+| Secreto del bot de Discord | `LIMITLESS_WEBHOOK_SECRET` | Lee `OTC_WEBHOOK_SECRET` si el nuevo no está |
+| URL de la app para el bot | `LIMITLESS_API_URL` | Lee `OTC_API_URL` |
+| Cookie del negocio activo | `limitless_active_org` | Lee `otc_active_org` |
+| Columnas guardadas de anuncios | `limitless_ads_columns_v2` | Lee la clave vieja una vez |
+| Último reporte visto | `limitless:last-seen-report` | Lee la clave vieja una vez |
+
+Sin el respaldo, publicar habría dejado el bot de Discord devolviendo 401 hasta
+que alguien entrara a Railway y a Vercel a renombrar la variable, y habría sacado
+a cualquier cuenta holding del negocio que estuviera mirando.
+
+**⭐ Lo que NO se tocó, a propósito:**
+
+- **Las migraciones ya aplicadas.** Editar una migración ejecutada no cambia nada
+  en la base y rompe la verificación de la CLI de Supabase. Los comentarios que
+  dicen "Limitless" ahí adentro son el registro de lo que se escribió ese día.
+- **`'Limitless Portfolio'`**, que es una fila real de la base. Renombrarla necesita
+  una migración nueva.
+- **`otc_medication_sales`**, que es vocabulario de la API de Whop —"over the
+  counter", medicamentos de venta libre— y no tiene nada que ver con la marca.
+- **Los nombres desplegados** en Vercel, Fly, Railway y Supabase, y el verify
+  token de Meta. Renombrarlos acá no los renombra allá; el inventario y qué se
+  rompe con cada uno están en `PENDIENTES.md` → `[REBRAND-EXTERNO]`.
+
+**Dos defectos que aparecieron al pasar por el código:**
+
+- **Las tres rutas del webhook de Discord autorizaban con el secreto sin cargar.**
+  Comparaban contra `` `Bearer ${process.env.OTC_WEBHOOK_SECRET}` ``: con la
+  variable vacía, esa plantilla resuelve a la cadena literal `"Bearer undefined"`,
+  y cualquiera que mandara exactamente ese encabezado entraba. Ahora hay un helper
+  único que **rechaza cuando no hay secreto** y compara en tiempo constante.
+- **El mail de aviso de Trial Reels mandaba links a un dominio inexistente.**
+  Cuando faltaba `NEXT_PUBLIC_APP_URL` caía en `https://app.otc.com`, que no
+  existe. Ahora cae en `brand.domain`.
+
+**Renombres de archivos:** `OTC_OPERATIONAL_NOTES.md` → `OPERATIONAL_NOTES.md` y
+los siete `RESUMEN-Limitless.md` de `docs/external-apis/` → `RESUMEN-LIMITLESS.md`, con
+sus 74 referencias cruzadas.
+
+**Decisiones de diseño relevantes:**
+
+- **`` `OTC` `` entre comillas invertidas quedó protegido del barrido.** Denota el
+  nombre del proyecto de Supabase, que existe afuera: cambiarlo en el changelog
+  habría hecho que el registro dijera que una migración se aplicó a un proyecto
+  que no existe.
+- **El respaldo de lectura tiene fecha de vencimiento escrita.** Cada uno dice en
+  su comentario cuándo se puede borrar, para que no queden dos nombres para
+  siempre.
+- **Se borra la cookie legada al entrar y al salir de un negocio.** Si sólo se
+  leyera como respaldo sin borrarla, una cookie vieja con otro negocio seguiría
+  ganando después de cambiar.
+
+**Verificación ejecutada:**
+- `pnpm test`: **600 tests en 36 archivos, todos en verde.**
+- `tsc --noEmit` limpio en `apps/web` **y en `apps/discord-bot`**.
+- `pnpm build` completo: 133 páginas.
+- Barrido final: no queda ningún `OTC` en el repositorio fuera de los casos
+  documentados arriba.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Hay que cargar `LIMITLESS_WEBHOOK_SECRET` y `LIMITLESS_API_URL`** en Vercel
+  y en Railway. Mientras tanto siguen andando los nombres viejos, pero conviene no
+  dejarlo pendiente: el respaldo es deuda.
+- El monorepo sigue llamándose `ai-coo-platform` y los paquetes `@ai-coo/*`. Es el
+  nombre del repositorio en GitHub, no del producto.
+- `optimizatucontrol.com` sigue siendo el dominio (`[BRAND-E]`, decisión tomada).
+
+---
+
+### 2026-09-08 — Integraciones: logos reales, el panel fantasma y su causa raíz
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `components/layout/page-transition.tsx`, `packages/config/tailwind/preset.ts`, `lib/integrations/brand-colors.ts`, `components/integrations/{integration-logo,integration-connect-actions}.tsx`, `components/integrations/settings/manychat-settings.tsx` (nuevo), `components/integrations/manychat-manage-sheet.tsx` (eliminado), `components/landing/integrations-section.tsx`, `app/(platform)/integrations/page.tsx`, `public/integrations/*`
+
+**Qué se hizo:**
+
+Tres pedidos que resultaron estar conectados.
+
+**⭐ El panel que asomaba en el borde derecho: era un bug de layout global.**
+Reproducido en el navegador y medido: el `<aside>` del panel de ManyChat, con
+`position: fixed; right: 0` y desplazado fuera de pantalla con `translate-x-full`,
+quedaba en `left: 1408` de un viewport de 1440 —**32 px adentro**— y con
+`top: 150; height: 449` en vez de ocupar el alto completo.
+
+La causa no era el panel: **un elemento con `transform` se convierte en el bloque
+contenedor de sus descendientes `position: fixed`**. El wrapper de transición de
+ruta (`PageTransition`) usaba `animate-fade-in`, que anima `translateY`, y Chrome
+deja la matriz identidad computada aun después de terminar la animación. Como ese
+wrapper envuelve **toda** la página, cualquier overlay fijo de adentro se
+posicionaba contra él en vez de contra el viewport.
+
+Eso no afectaba sólo a ManyChat: los cajones laterales de retrospectivas de
+sprint, versiones de SOP, leads de UTM y llamadas del cliente están hechos igual.
+Los diálogos de Radix se salvaban porque hacen portal a `body`.
+
+**El arreglo es de raíz**: `PageTransition` pasó a una animación de **sólo
+opacidad** (`page-fade-in`, nueva en el preset). Se perdió el desplazamiento de
+8 px de la entrada de página; a cambio, `position: fixed` vuelve a significar lo
+que dice en toda la aplicación.
+
+**⭐ El panel de ManyChat se eliminó, no se arregló.** Era el único proveedor que
+configuraba en un cajón lateral en vez del panel de detalle. Su contenido —la URL
+del External Request, las etiquetas de CTA y la importación de contacto— pasó a
+ser la configuración de su tarjeta, como VTurb, Hyros o los cobros.
+
+**⭐ Logos: faltaban cinco y tres estaban mal.** Se auditaron los veinte assets:
+
+| Asset | Qué pasaba |
+|---|---|
+| `fathom.svg` | Era el logo de **Fathom Analytics**, que es otra empresa |
+| `zernio.svg` | Un `<text>` con un signo `=`. En una máscara CSS no dibuja nada: el cuadro salía vacío |
+| `ghl.svg` · `mercadopago.svg` | Dibujos a mano, no las marcas reales |
+| `typeform.svg` | El logotipo con la palabra completa: ilegible a 20 px |
+| `manychat.svg` | Un globo de diálogo genérico, no la marca |
+
+Se bajaron las marcas reales de los sitios de cada proveedor y se sumaron las
+cinco que faltaban (VTurb, WebinarJam, Hyros, Whop y Commas). **Las catorce
+integraciones ofrecidas tienen hoy su logo real**, y un test lo verifica.
+
+Para eso el componente aprendió una segunda forma de dibujar: los **app icons**
+—que traen su propio fondo y sus propios colores— se renderizan tal cual, porque
+pasarlos por la máscara blanca los convertiría en un cuadrado blanco. La landing
+dejó de repetir la lógica de máscara por su cuenta y usa el mismo componente.
+
+**⭐ Se sacó el bloque de música de Trial Reels**, que no es una integración.
+
+**Decisiones de diseño relevantes:**
+
+- **Se arregló la causa, no el síntoma.** Mover el panel de ManyChat a un portal
+  habría tapado el problema y dejado los otros cuatro cajones rotos en silencio.
+- **La animación de página no puede volver a tener `transform`.** Queda escrito
+  en el propio componente y en el keyframe, porque el síntoma aparece lejos de la
+  causa: se rompe un panel de otra pantalla.
+- **Ningún logo inventado.** Lo que no se consiguió auténtico se dibuja con la
+  inicial. Hoy no queda ninguno así, pero el camino existe para el próximo.
+
+**Verificación ejecutada:**
+- Bug reproducido y medido en Chromium **antes** del arreglo (`left: 1408` de
+  1440) y verificado después: **cero elementos tocan el borde derecho**.
+- `pnpm test`: **600 tests en 36 archivos, todos en verde** (1 nuevo: toda
+  integración ofrecida tiene logo real).
+- `tsc --noEmit` limpio · `pnpm build` completo: 133 páginas.
+- Pantalla revisada renderizada en el navegador, tablero y detalle.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **El uploader de música de Trial Reels quedó sin pantalla.** El componente y
+  la acción siguen existiendo y el generador sigue leyendo `reel_music_path`, así
+  que el track ya subido se sigue usando; lo que no hay es dónde cambiarlo.
+  Corresponde montarlo en Marketing → Contenido.
+- Los otros cuatro cajones laterales quedaron arreglados por el cambio de raíz,
+  pero **no se probaron uno por uno**.
+- El ícono de Hyros es de baja resolución: es el único que publica su marca.
+
+---
+
+### 2026-09-08 — Integraciones: un registro, un contrato y una sola pantalla
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/integrations/{registry,health,brand-colors}.ts` (registry y health nuevos), `app/integrations/actions.ts`, `app/(platform)/integrations/page.tsx`, `components/integrations/*` (rediseño completo), `constants/integrations.ts`, `lib/auth/bootstrap.ts`, `docs/INTEGRACIONES_MAPA.md` (nuevo)
+
+**Qué se hizo:**
+
+Reconstrucción del módulo de Integraciones, de atrás para adelante: primero el
+mapeo de los flujos de datos, después el backend, y recién al final la interfaz.
+
+**⭐ El catálogo era un mock.** `mocks/integrations.ts` era la fuente de verdad de
+qué integraciones existen, y mezclaba las reales con filas inventadas —Notion
+"sincronizando, 318 registros", Airtable "conectado, 890 registros"— que estaban
+ocultas por un flag pero seguían en el arreglo. Alrededor de ese mock había otras
+tres fuentes que decidían lo mismo y podían discrepar: `INTEGRATION_GROUPS`,
+`INTEGRATION_DESCRIPTIONS` y **dos `Set` hardcodeados** (`REAL_PROVIDERS` y
+`HIDDEN_INTEGRATION_PROVIDERS`) que se solapaban entre sí y con el flag `hidden`.
+Agregar una integración obligaba a tocar los cuatro lugares, y olvidarse de uno la
+dejaba a medias **sin que nada fallara**.
+
+Ahora hay un registro único, `lib/integrations/registry.ts`, donde cada integración
+declara su categoría, su autenticación, **qué datos mueve, en qué dirección y por
+qué mecanismo**, y qué módulo de Limitless se rompe sin ella. Los tests fallan si un
+proveedor declarado no tiene entrada, o si una integración oculta no explica por qué
+lo está.
+
+**⭐ El estado `error` del badge nunca se producía.** El badge declaraba cuatro
+estados; la acción sólo devolvía `connected` y `not_connected`. Mientras tanto,
+`vturb_integrations`, `hyros_integrations` y `webinarjam_integrations` guardaban un
+`last_error` que **sólo se veía si abrías el panel de ese proveedor**, al final de la
+página. El contrato nuevo (`lib/integrations/health.ts`) tiene cinco estados y todos
+son alcanzables, con `attention` —conectada, trayendo datos, pero con algo que hace
+que una medida salga mal— que es el que faltaba y el que más importa.
+
+Las incidencias que muestra son **todas estado real leído de la base**: el último
+error del proveedor, los videos de VTurb sin pitch time, los webinars sin el segundo
+de la oferta, los eventos de pago que no se supieron interpretar, el secreto de
+webhook de GHL que falta, los calendarios sin seleccionar. Cada una dice qué pasa y
+qué hacer.
+
+**⭐ Cinco de las catorce integraciones no tenían tarjeta.** VTurb, WebinarJam,
+Hyros, Whop y Commas vivían en paneles apilados debajo del grid, cada uno con su
+propio diseño y su propia forma de estado. La pantalla eran dos superficies
+distintas pegadas una debajo de la otra, más un bloque de assets de video que no es
+una integración. Ahora las catorce usan la misma tarjeta y el mismo detalle.
+
+**⭐ Había un flujo de conexión simulado corriendo en producción.** Cualquier
+proveedor sin flujo real caía en un `setTimeout` de 1200 ms que ponía la tarjeta en
+"Conectado" sin conectar nada, con un diálogo que decía "Flujo simulado". Se
+eliminó.
+
+**Rendimiento: ~30 resoluciones de organización pasaron a una.**
+`requireOrganizationId()` hace un `auth.getUser()` contra Supabase Auth más una
+lectura de `profiles` —y en cuentas holding, una verificación extra del negocio
+activo— en **cada** llamada. La página de Integraciones la invocaba una vez por
+acción y por conteo: catorce estados, siete conteos y nueve acciones de página, todas
+resolviendo lo mismo. Ahora está memoizada por request con `cache()` de React. El
+alcance es el request, así que un cambio de negocio activo sigue resolviendo de cero.
+
+**Correcciones contra la documentación capturada:**
+
+- **El secreto de Whop empieza con `ws_`, no con `whsec_`.** La ayuda del formulario
+  decía lo segundo. La doc es explícita: se pasa tal cual, sin sacarle el prefijo.
+- **Fanbasis se llama Commas**, y su documentación vigente está en `commasdocs.com`.
+  La pantalla apuntaba a `apidocs.fan`, que es la vieja.
+- **YouTube conectado no implica Google conectado.** La acción daba el Ecosistema
+  Google por conectado cuando lo único conectado era un canal cargado con su propia
+  API key: Drive y Forms aparecían disponibles sin que nadie hubiera aceptado ningún
+  permiso.
+- El mapeo de pagos de `lib/payments/normalize.ts` **ya estaba corregido** contra
+  ambos resúmenes (`settlement_amount`, centavos por proveedor, eventos literales):
+  el pendiente `[EMBUDOS-PAGOS-CORREGIR]` estaba desactualizado y se cerró.
+
+**Decisiones de diseño relevantes:**
+
+- **No se deriva ninguna alarma de la antigüedad de `last_sync_at`.** Es el cambio
+  que más se resistió: parecía obvio marcar en rojo lo que no sincroniza hace días.
+  Pero varios syncs sólo escriben ese campo cuando ingestaron algo —Fathom lo hace
+  explícitamente— así que una fecha vieja puede ser una semana tranquila. Una alarma
+  ahí sería un número plausible y equivocado, justo lo que el resto del sistema
+  evita. La pantalla dice "últimos datos recibidos", que es lo que el campo significa.
+- **El detalle es una vista, no un modal.** Varios formularios de configuración
+  abren diálogos propios (Fathom, ManyChat, Zernio, GHL, YouTube, Google, ClickUp);
+  anidarlos daría problemas de foco. Además el contenido —flujos de datos,
+  incidencias, secretos que hay que copiar— no entra cómodo en un diálogo.
+- **La tarjeta entera es un botón y no tiene acciones propias.** Antes tenía hasta
+  tres botones cuyo significado cambiaba según el proveedor: "Gestionar" sincronizaba
+  en Calendly, abría un sheet en ManyChat y navegaba a otra página en Discord.
+  Conectar desde la tarjeta también obligaba a decidir a ciegas: el botón mandaba
+  directo a OAuth sin decir qué permisos pedía ni qué alimentaba.
+- **Los proveedores sin logo se dibujan con su inicial.** VTurb, WebinarJam, Hyros,
+  Whop y Commas no tienen SVG en el repo. El componente apuntaba la máscara CSS a un
+  archivo inexistente y el cuadro salía liso, sin ninguna señal de que faltaba.
+  Inventar un logo aproximado de una marca ajena queda peor que una inicial honesta.
+- **Trial Reels quedó en la página pero fuera del tablero.** No es una integración
+  externa; está separado con su propio encabezado hasta que tenga dónde vivir.
+
+**Verificación ejecutada:**
+- `pnpm test`: **599 tests en 36 archivos, todos en verde** (22 nuevos del registro y
+  el contrato de estado).
+- `tsc --noEmit` limpio. `next lint` sin advertencias nuevas.
+- `pnpm build` completo: **133 páginas**.
+- Balance del diff: **~2.100 líneas menos** de las que agrega.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Nada se probó contra cuentas reales.** Las incidencias se derivan de columnas
+  que hoy están vacías o en cero en casi todos los proveedores: el texto que se ve
+  cuando efectivamente hay un error todavía no se vio.
+- La pantalla nueva no tiene cobertura de Playwright.
+- Faltan los SVG de VTurb, WebinarJam, Hyros, Whop y Commas.
+- Discord perdió su acceso desde Integraciones al quedar sin listar, igual que antes;
+  `/integrations/discord` sigue existiendo pero no se llega desde ningún lado.
+- La memoización de `requireOrganizationId` beneficia a toda la app, pero sólo se
+  midió el efecto razonando sobre esta pantalla.
+
+---
+
 ### 2026-09-08 — 👥 Un miembro del equipo ya puede cargar clientes (y existe el botón para hacerlo)
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
@@ -184,7 +483,7 @@ faltara la preview sale sin logo en vez de dar error.
   natural es desconectar y reconectar la cuenta, que no arregla nada.
 - **Una clave propia vencida no deja a nadie sin producto**: se sigue con la
   global y se avisa. Perder la funcionalidad entera por eso es peor que gastar
-  la clave de OTC.
+  la clave de Limitless.
 
 **Verificación ejecutada:**
 - `tsc --noEmit` limpio · `pnpm test`: **910 tests en 59 archivos** (5 nuevos
@@ -574,7 +873,7 @@ las llamadas.
 
 **Qué se hizo:**
 
-Las **cinco primeras recomendaciones** de `docs/TRACKERS_EXCEL_VS_OTC.md`, que en
+Las **cinco primeras recomendaciones** de `docs/TRACKERS_EXCEL_VS_LIMITLESS.md`, que en
 ese documento se describían como *"una migración chica y dos pantallas"*. Y de
 paso, el acceso a SOPs.
 
@@ -596,7 +895,7 @@ código, que la explica en castellano.
 **2 · El estado de uso y el filtro "Sin usar".** `used`/`unused` **se derivan** de
 si el win tiene usos cargados; sólo `reserved` se declara. El tracker abre con
 pills que cuentan: Sin usar (n), Reservadas, Usadas, Sin permiso, Falta captura.
-Es la pregunta que el Excel contestaba de una mirada y OTC no podía contestar.
+Es la pregunta que el Excel contestaba de una mirada y Limitless no podía contestar.
 
 **3 · El objetivo con el que entró.** `clients.goal_text` + `goal_metric_*`, al
 lado del baseline que ya existía. El recorrido pasa de *"500 → 8.500"* a
@@ -613,7 +912,7 @@ checkpoint dice **qué pasó**; esto dice **cómo va**.
 **⭐ Y la pantalla que junta todo: `/clients/revision`.** Las cuatro preguntas de
 la revisión semanal como secciones, cada una con su lista de nombres, el motivo
 por el que cada uno está ahí, y el campo para anotar la acción — que es el estado
-actual del punto 5. OTC ya tenía los datos de tres de las cuatro y no los mostraba
+actual del punto 5. Limitless ya tenía los datos de tres de las cuatro y no los mostraba
 juntos en ningún lado.
 
 **Decisiones de diseño relevantes:**
@@ -702,8 +1001,8 @@ puede cifrar, no se guarda** y la conexión falla con el motivo.
 
 **⭐ Los webhooks se crean por API.** `POST /webhooks` acepta la key del miembro y
 devuelve id y secreto. El flujo no es "cada miembro configura un webhook a mano en
-Fathom" —impracticable— sino: **pega su key una vez y OTC le crea el webhook
-solo**. Al desconectarse, OTC borra lo que creó en vez de dejar basura en una
+Fathom" —impracticable— sino: **pega su key una vez y Limitless le crea el webhook
+solo**. Al desconectarse, Limitless borra lo que creó en vez de dejar basura en una
 cuenta ajena.
 
 **⭐ Y los duplicados se resuelven eligiendo bien qué se pide, no deduplicando
@@ -724,7 +1023,7 @@ ser de la organización. Está en la policy de RLS, no en la UI.
 
 **L1 · 🐛 El resumen nunca llegaba.** `default_summary` de Fathom es un **objeto**
 (`{markdown_formatted: "..."}`) y `pickString` sólo aceptaba strings, así que
-devolvía `undefined` **en silencio**. Además OTC pedía **uno solo** de los cuatro
+devolvía `undefined` **en silencio**. Además Limitless pedía **uno solo** de los cuatro
 `include_`: ahora pide summary, action items y crm matches, que ya vienen sin costo
 extra de request.
 
@@ -1019,7 +1318,7 @@ misma clave **y misma unidad** — facturación en USD y en ARS no se restan.
   contra el que se miden los logros. Un baseline **sin fecha no sirve** para medir
   un plazo, así que no cuenta como punto.
 - **`niche` es del cliente.** `organizations.industry` ya existía pero es el nicho
-  de la organización dueña de OTC, que es otra cosa.
+  de la organización dueña de Limitless, que es otra cosa.
 - **`win_usages` es una tabla y no dos columnas**: un caso bueno se usa en varios
   lados, y "¿dónde está usado este caso?" no se puede responder con texto libre.
 - **Las capturas van a un bucket privado** (`client-wins`, sólo imágenes, 10 MB),
@@ -1035,7 +1334,7 @@ misma clave **y misma unidad** — facturación en USD y en ARS no se restan.
 - `pnpm test`: **701 tests en 44 archivos, todos en verde** (14 nuevos de
   `lib/wins/derive-case`).
 - `tsc --noEmit`, `pnpm lint` y `pnpm build` limpios; `/clients/wins` se construye.
-- **Migración aplicada** al proyecto OTC, cortes probados en transacciones
+- **Migración aplicada** al proyecto Limitless, cortes probados en transacciones
   revertidas con cliente y win fabricados y borrados: `source` inválido **corta**;
   un canal de uso fuera del vocabulario **corta**; un adjunto sin win **y** sin
   draft **corta**; `storage_path` duplicado **corta**; borrar el win **se lleva
@@ -1118,7 +1417,7 @@ sugerida, y dos botones. **Nada se dispara solo.**
 - `pnpm test`: **687 tests en 43 archivos, todos en verde** (14 nuevos de
   `lib/checkpoints/stalled`).
 - `tsc --noEmit`, `pnpm lint` y `pnpm build` limpios.
-- **Migración aplicada** al proyecto OTC, cortes probados en transacciones
+- **Migración aplicada** al proyecto Limitless, cortes probados en transacciones
   revertidas con cliente fabricado y borrado: el duplicado pendiente de la misma
   fuente **corta**; otra fuente para el mismo hito **se permite**; `source =
   'manual'` **corta**; una confianza fuera de 0–1 **corta**; tras resolver una
@@ -1195,7 +1494,7 @@ clientes de C3 no tenga que recomputar el recorrido de cada uno.
 - `pnpm test`: **673 tests en 42 archivos, todos en verde** (10 nuevos de
   `lib/checkpoints/progress`).
 - `tsc --noEmit`, `pnpm lint` y `pnpm build` limpios.
-- **Migración aplicada** al proyecto OTC. Los cortes se probaron ejecutándolos en
+- **Migración aplicada** al proyecto Limitless. Los cortes se probaron ejecutándolos en
   transacciones revertidas, con un cliente fabricado y borrado (cero filas
   quedaron; los 264 clientes reales de otra org, intactos): el índice único
   **corta** el mismo checkpoint dos veces para un cliente; otro checkpoint del
@@ -1275,7 +1574,7 @@ daría un número menor al real y parecería una respuesta.
 **Verificación ejecutada:**
 - `pnpm test`: **663 tests en 41 archivos, todos en verde** (28 nuevos de `lib/checkpoints`).
 - `tsc --noEmit`, `pnpm lint` y `pnpm build` limpios; `/clients/checkpoints` se construye.
-- **Migración aplicada** al proyecto OTC. Los cortes se probaron ejecutándolos en
+- **Migración aplicada** al proyecto Limitless. Los cortes se probaron ejecutándolos en
   transacciones revertidas (cero filas quedaron): un color fuera de la paleta
   **corta**; un estado que no es uno de los cuatro de `clients.status` **corta**;
   un plazo de cero días **corta**; un checkpoint bajo una fase inexistente
@@ -1383,7 +1682,7 @@ errores juntos, no el primero.
 - `pnpm test`: **635 tests en 39 archivos, todos en verde** (58 nuevos de `lib/custom-fields`).
 - `tsc --noEmit` y `pnpm lint` limpios (sin warnings nuevos).
 - `pnpm build` completo; la ruta `/clients/campos` se construye.
-- **Migración aplicada** al proyecto OTC (`nrzlylzbmsuowzhpdnjl`): 16 columnas, 4
+- **Migración aplicada** al proyecto Limitless (`nrzlylzbmsuowzhpdnjl`): 16 columnas, 4
   checks, 3 índices, 4 policies, RLS activo, trigger de `updated_at`.
 - Los cortes de la base se probaron ejecutándolos, dentro de transacciones
   revertidas (cero filas quedaron): la clave repetida dentro de la misma entidad
@@ -1674,7 +1973,7 @@ desaparecía y el cliente aparecía sin nada que dijera que eran la misma person
 
 **Qué se hizo:**
 
-Decisión de producto: OTC registra **únicamente llamadas de venta**. Equipo y
+Decisión de producto: Limitless registra **únicamente llamadas de venta**. Equipo y
 entrega de servicio quedan para más adelante.
 
 **La regla, completa:** una grabación de Fathom es una llamada de venta cuando el
@@ -1713,7 +2012,7 @@ convirtió, y sin ella la Fase 2 no puede seguir el hilo.
 **Corrección de un defecto de la Fase 0:** al agregar el estado `attended` se
 actualizaron los botones de "no cerró" y "no show" para aceptarlo, pero **se
 había salteado el de cerrar la venta**. Una llamada que GHL marcaba como asistida
-no se podía cerrar desde OTC.
+no se podía cerrar desde Limitless.
 
 **Decisiones de diseño relevantes:**
 
@@ -1819,7 +2118,7 @@ clasificar con el motivo y resolución en un clic.
   no expone identificador. Si alguien renombra un tipo el mapeo queda huérfano, y
   la UI lo marca en vez de dejar de clasificar en silencio.
 - **La API de tipos es de sólo lectura.** Los tipos se crean y se asignan dentro
-  de Fathom; OTC sólo los lista. El panel lo dice explícitamente.
+  de Fathom; Limitless sólo los lista. El panel lo dice explícitamente.
 - **Una lista vacía de tipos es una respuesta válida**, distinta de "no se pudo
   preguntar" (`unavailable`). El panel explica que la clasificación funciona
   igual sin tipos.
@@ -1847,7 +2146,7 @@ las trata distinto. Se corrigió el código, no el test.
   reunión configurados.
 - **No se sabe si los tipos de reunión existen en la cuenta del usuario.** La
   documentación de la API no explica dónde se crean y no aparecen en la pantalla
-  de ajustes de Fathom. El panel de OTC responde la pregunta desde el deploy sin
+  de ajustes de Fathom. El panel de Limitless responde la pregunta desde el deploy sin
   que la API key pase por ningún lado.
 - `associateCallWithClients` (el fuzzy match por título) sigue en el pipeline
   como último recurso. Con el match por mail ya no debería activarse; se retira
@@ -1871,14 +2170,14 @@ porque el sync borraba los estados manuales cada hora, así que cualquier
 seguimiento construido primero habría durado hasta el próximo cron.
 
 **⭐ Asistir se estaba contando como vender.** `showed` en GoHighLevel significa
-que el lead asistió. Estaba mapeado a `closed`, que en OTC es una venta cerrada y
+que el lead asistió. Estaba mapeado a `closed`, que en Limitless es una venta cerrada y
 alimenta la etapa Cash del embudo y la facturación. Ahora cae en `attended`, un
 estado nuevo que dice exactamente lo que GHL dice y deja el resultado para que lo
 cargue una persona.
 
 **⭐ Cancelar no es faltar, y en dos lugares distintos era lo mismo.** GHL
 descartaba las canceladas en el filtro del sync —una llamada cancelada no existía
-para OTC— y Calendly las guardaba como `no_show`, en `fetch-scheduled-events.ts`
+para Limitless— y Calendly las guardaba como `no_show`, en `fetch-scheduled-events.ts`
 y en el webhook. En un no-show el lead faltó a una llamada que ocurrió; en una
 cancelación la llamada nunca ocurrió. Confundirlas infla la tasa de inasistencia
 y borra el evento que el seguimiento del lead tiene que registrar. Estado nuevo
@@ -1910,7 +2209,7 @@ llamadas que no vienen de GHL.
 **Documentación de Fathom bajada.** Era el séptimo proveedor y no estaba en
 `docs/external-apis/`. Leerla corrigió un supuesto del plan: `GET /meetings`
 devuelve `calendar_invitees[]` con **email, dominio e `is_external`**, y un campo
-**`meeting_type`** configurable por organización — y OTC descarta los dos, porque
+**`meeting_type`** configurable por organización — y Limitless descarta los dos, porque
 `lib/fathom/api.ts` sólo parsea título, fechas y transcript.
 
 **Decisiones de diseño relevantes:**
@@ -2363,7 +2662,7 @@ Lo que no entra en el gate ya se le muestra al founder: una tarjeta de progreso 
 **Módulo(s) afectado(s):** `app/onboarding/actions.ts`, `app/(platform)/onboarding/page.tsx`, `components/onboarding/onboarding-gate.tsx`, `lib/supabase/middleware.ts`, `layouts/platform-layout.tsx`, `lib/navigation/chromeless.ts`, `constants/organization-options.ts`, `components/settings/settings-form.tsx`, `routes/paths.ts`, `lib/onboarding/derive.ts`, `supabase/migrations/20260831130000_organizations_drop_unit_defaults.sql`, `CLAUDE.md`
 
 **Qué se hizo:**
-Una cuenta founder nueva ya no entra a un panel vacío: cae en `/onboarding` y no sale hasta cargar unidades del negocio, oferta principal y avatar principal. **Las dos migraciones están aplicadas en Supabase** (proyecto OTC).
+Una cuenta founder nueva ya no entra a un panel vacío: cae en `/onboarding` y no sale hasta cargar unidades del negocio, oferta principal y avatar principal. **Las dos migraciones están aplicadas en Supabase** (proyecto Limitless).
 
 **Dos cosas que aparecieron al mirar la base real y cambiaron el diseño:**
 
@@ -2460,7 +2759,7 @@ El criterio elegido no es "qué nos gustaría que cargue" sino **qué se rompe s
 **Riesgos / deuda técnica pendiente:**
 - Nada implementado todavía — el plan está listo, el código no existe.
 - El gate agrega consultas al middleware, que corre en cada request. Medir antes de optimizar.
-- Con el gate duro, la única salida para un cliente trabado es que alguien de OTC le marque `skip_onboarding`. Conviene que el panel de visibilidad (Fase 4) llegue antes de tener muchas altas simultáneas.
+- Con el gate duro, la única salida para un cliente trabado es que alguien de Limitless le marque `skip_onboarding`. Conviene que el panel de visibilidad (Fase 4) llegue antes de tener muchas altas simultáneas.
 - **`CLAUDE.md` tiene dos filas desactualizadas** detectadas de paso: el `app/onboarding/actions.ts` inexistente, y un acento primario violeta `#7C3AED` cuando `DESIGN.md` y los tokens definen naranja `#E15D12`.
 
 ### 2026-08-31 — Sacar el panel contenedor y fijar Embudos en la navegación
@@ -2559,7 +2858,7 @@ Santiago quedó bloqueado 20 minutos intentando conectar GoHighLevel. `integrati
 
 **Por qué sacarlo no pierde protección real:**
 - La acción **ya exige sesión iniciada** y la clave del contador es el `user.id`. No hay fuerza bruta que prevenir: quien llega acá ya está autenticado.
-- Ningún humano tipeando puede acercarse a las cuotas de los proveedores. GHL admite 100 requests cada 10 segundos; el límite de OTC era 5 por hora, unas 700 veces más restrictivo que el del proveedor que decía proteger.
+- Ningún humano tipeando puede acercarse a las cuotas de los proveedores. GHL admite 100 requests cada 10 segundos; el límite de Limitless era 5 por hora, unas 700 veces más restrictivo que el del proveedor que decía proteger.
 
 **Se quitó también la definición**, no sólo los usos, y en su lugar quedó un comentario explicando por qué no existe y qué forma debería tener si alguna vez hace falta volver a ponerlo: ventanas de minutos con decenas de intentos, no de horas con cinco.
 
@@ -2651,7 +2950,7 @@ Decisión de Santiago tras ver la barra funcionando. Cierra `[NAV-3]` de PENDIEN
 **Módulo(s) afectado(s):** todo el rebranding Limitless + notch nav que ya estaba en producción
 
 **Qué se hizo:**
-La rama de embudos estaba **26 commits adelante de `main` pero 1 atrás**: le faltaba el rebranding a Limitless y la notch nav, que ya están mergeados y deployados en producción. El preview de la rama mostraba la identidad vieja (violeta OTC), así que probar "el flujo entero" ahí habría sido probar contra algo que ya no existe.
+La rama de embudos estaba **26 commits adelante de `main` pero 1 atrás**: le faltaba el rebranding a Limitless y la notch nav, que ya están mergeados y deployados en producción. El preview de la rama mostraba la identidad vieja (violeta Limitless), así que probar "el flujo entero" ahí habría sido probar contra algo que ya no existe.
 
 **Por qué el merge fue barato:** un solo conflicto, en `CHANGES.md`, y puramente aditivo — dos bloques de entradas de changelog que no se pisan. Se conservaron los dos.
 
@@ -2726,7 +3025,7 @@ Se agregaron dos medidas nuevas al motor, `attributed_revenue` y `attributed_spe
 **Verificación ejecutada:**
 - `pnpm test`: **408 tests en 23 archivos, todos en verde** (13 nuevos).
 - `tsc --noEmit` limpio, `pnpm lint` sin errores.
-- Migración **aplicada** al proyecto Supabase de OTC.
+- Migración **aplicada** al proyecto Supabase de Limitless.
 
 **Decisiones de diseño:**
 - **Se usa `/attribution/ad-account` y no `/attribution`.** El segundo exige `ids` a nivel campaña o adset: habría que enumerar cada campaña antes de poder preguntar nada. El primero toma la cuenta entera.
@@ -2765,7 +3064,7 @@ Dos unidades de la Ola 3. Ninguna necesitó integración nueva ni migración: la
 
 ⭐ **`listComments` es un inbox, no un historial.** No acepta filtro de fecha ni cursor: devuelve una ventana reciente de tamaño desconocido. Contar lo que cae dentro del período y presentarlo como el total sería reportar un número incompleto como completo. La única evidencia de que la ventana cubre el período es **haber visto un comentario más viejo que su inicio**; si no, el resolver devuelve `null`. Es el período ciego de GHL entrando por otra puerta.
 
-⛔ **Las historias no se pueden contar en un período, y no es un límite de OTC.** Meta sólo expone las historias **vigentes**, o sea 24 horas. Para cualquier período que no sea "hoy" el dato no existe del lado de Meta. M34 queda cubierta por ads (Meta) + comentarios (Zernio), y la parte de historias se documenta como imposible en vez de quedar como un pendiente que nunca se va a cerrar.
+⛔ **Las historias no se pueden contar en un período, y no es un límite de Limitless.** Meta sólo expone las historias **vigentes**, o sea 24 horas. Para cualquier período que no sea "hoy" el dato no existe del lado de Meta. M34 queda cubierta por ads (Meta) + comentarios (Zernio), y la parte de historias se documenta como imposible en vez de quedar como un pendiente que nunca se va a cerrar.
 
 **Verificación ejecutada:**
 - `pnpm test`: **395 tests en 22 archivos, todos en verde** (23 nuevos).
@@ -2779,7 +3078,7 @@ Dos unidades de la Ola 3. Ninguna necesitó integración nueva ni migración: la
 - **El borde de la ventana de comentarios se trata de forma estricta:** si el más antiguo cae justo en el inicio del período, también devuelve `null`. Erramos hacia "sin datos" antes que afirmar un cero que no se puede sostener.
 
 **Riesgos / deuda técnica pendiente:**
-- ⚠️ **Las definiciones de M32 y M33 son una interpretación, no una cita.** El documento escribe `LTV = AOV × purchases × retention` y no define ninguno de los dos últimos factores. La verificación que decide la unidad es **comparar el LTV que muestra OTC contra el que el cliente ya usa** — está en `docs/PLAN_VERIFICACION.md` §8.
+- ⚠️ **Las definiciones de M32 y M33 son una interpretación, no una cita.** El documento escribe `LTV = AOV × purchases × retention` y no define ninguno de los dos últimos factores. La verificación que decide la unidad es **comparar el LTV que muestra Limitless contra el que el cliente ya usa** — está en `docs/PLAN_VERIFICACION.md` §8.
 - Observación sobre la fórmula del documento: `AOV × purchases` ya da "revenue por cliente", y multiplicar eso por una retención < 1 lo **reduce**, cuando lo habitual es que la retención extienda el lifetime. Se implementó **fiel al documento**; si al contrastar contra el número del cliente no cierra, es acá donde hay que mirar.
 - La nota del documento sobre LTV proyectado para suscripciones y planes de pago no está implementada.
 
@@ -2800,7 +3099,7 @@ Santiago propuso quedarse sólo con VTurb y borrar I-5, razonando que las dos pl
 
 **Hueco 1 — M16 (`vturb_cta_clicks`).** VTurb expone `total_clicked` y un endpoint de clicks por segundo del video. Es la medida que WebinarJam no da. Se agregó como fuente sólo para la etapa Intent: un click al CTA es intención declarada, y bindearlo a Sales Conv. contaría clicks como si fueran ventas.
 
-**Hueco 2 — las fuentes de formulario.** M17 y M18 figuraban en el mapa como ✅ "ya medibles" desde antes del módulo de embudos, pero **nunca se creó la fuente**: los datos existían en `form_responses` y el módulo no los podía usar. Es la única fila del documento que OTC cubría entera y estaba desconectada. Se agregaron `form_submissions` y `form_qualified`.
+**Hueco 2 — las fuentes de formulario.** M17 y M18 figuraban en el mapa como ✅ "ya medibles" desde antes del módulo de embudos, pero **nunca se creó la fuente**: los datos existían en `form_responses` y el módulo no los podía usar. Es la única fila del documento que Limitless cubría entera y estaba desconectada. Se agregaron `form_submissions` y `form_qualified`.
 
 **Verificación ejecutada:**
 - `pnpm test`: **372 tests en 20 archivos, todos en verde** (8 nuevos).
@@ -2830,7 +3129,7 @@ Santiago propuso quedarse sólo con VTurb y borrar I-5, razonando que las dos pl
 **Qué se hizo:**
 La unidad I-5, que cierra la Ola 2: M13 (registrados), M14 (asistieron, vivo + replay) y M15 (se quedaron hasta la oferta).
 
-**Se persisten las personas, no los totales.** `/registrants` **no acepta un rango de fechas arbitrario**: su filtro `date_range` es una lista de presets (hoy, esta semana, últimos 30 días). El módulo de embudos pregunta por períodos arbitrarios, así que la única forma de responder es traer las filas y recortarlas del lado de OTC por `signup_date` y por las fechas de asistencia, que sí vienen por registrante. De ahí `webinarjam_registrants`, una fila por persona y sesión.
+**Se persisten las personas, no los totales.** `/registrants` **no acepta un rango de fechas arbitrario**: su filtro `date_range` es una lista de presets (hoy, esta semana, últimos 30 días). El módulo de embudos pregunta por períodos arbitrarios, así que la única forma de responder es traer las filas y recortarlas del lado de Limitless por `signup_date` y por las fechas de asistencia, que sí vienen por registrante. De ahí `webinarjam_registrants`, una fila por persona y sesión.
 
 **M15 se pide filtrada al servidor, no se deriva.** `attended_live=4` con `attended_live_timestamp = <segundo de la oferta>` devuelve exactamente los que asistieron y se fueron después de ese segundo — WebinarJam lo calcula de su lado. Eso evita depender de `time_live`, que la doc declara `string` sin decir si son segundos, `mm:ss` o `hh:mm:ss`. El segundo de la oferta lo carga el usuario en el panel de Integraciones porque **la API no lo publica**, a diferencia de VTurb que sí expone el `pitch_time` de cada player.
 
@@ -2841,7 +3140,7 @@ La unidad I-5, que cierra la Ola 2: M13 (registrados), M14 (asistieron, vivo + r
 **Verificación ejecutada:**
 - `pnpm test`: **364 tests en 20 archivos, todos en verde** (13 nuevos de normalización de registrantes).
 - `tsc --noEmit` limpio, `pnpm lint` sin errores.
-- Migración **aplicada** al proyecto Supabase de OTC.
+- Migración **aplicada** al proyecto Supabase de Limitless.
 
 **Decisiones de diseño:**
 - **Los `schedule` id sólo salen del detalle.** `/webinars` devuelve los horarios como texto ("Every day, 01:00 PM"); `/registrants` necesita el id, que está en `/webinar`. Por eso el sync pide el detalle de cada webinar. Además la doc avisa que **el id de la API no coincide con el que se ve en la pestaña Schedules del panel** — queda anotado en el código.
@@ -2869,12 +3168,12 @@ La unidad I-6: M08 (visitantes de la página), M10 (reproducciones), M11 (% prom
 
 **La decisión de arquitectura que define la unidad: caché por período, no métricas diarias.** `ad_metrics_daily` guarda una fila por día y el resolver suma. Con VTurb eso da un número sin significado, porque **`engagement_rate` es un promedio** y el promedio de los promedios diarios no es el promedio del período — cada día pesa distinto según cuántas sesiones tuvo. Así que se le pide a VTurb el período exacto y se cachea la respuesta cruda por `(player, start_date, end_date)`. Un período que ya terminó se marca `is_final` y no se vuelve a pedir nunca; uno que incluye hoy se refresca cada 30 minutos. Eso además respeta las cuotas de VTurb, que son ajustadas (60-800 requests por minuto según el plan, y una sola llamada HTTP puede contar como más de una query).
 
-**La regla propia de esta integración: `pitch_time = 0` no es un pitch time.** VTurb devuelve `total_over_pitch`, que es exactamente M12 —cuántos vieron el video pasado el segundo de la oferta— y además publica el `pitch_time` configurado de cada player, así que no hay que configurarlo a mano. Pero para los players que no lo tienen puesto, VTurb devuelve `pitch_time = 0`, y entonces `total_over_pitch` cuenta a **los que vieron más de 0 segundos**: casi todo el mundo. Es un número que parece M12 y no lo es, y mostrarlo sería peor que no mostrar nada. `isUsablePitchTime` lo rechaza, la medida resuelve a `null` con el motivo `no_pitch_time`, y el panel de integraciones avisa cuántos videos están en esa situación, porque se arregla en VTurb y no en OTC.
+**La regla propia de esta integración: `pitch_time = 0` no es un pitch time.** VTurb devuelve `total_over_pitch`, que es exactamente M12 —cuántos vieron el video pasado el segundo de la oferta— y además publica el `pitch_time` configurado de cada player, así que no hay que configurarlo a mano. Pero para los players que no lo tienen puesto, VTurb devuelve `pitch_time = 0`, y entonces `total_over_pitch` cuenta a **los que vieron más de 0 segundos**: casi todo el mundo. Es un número que parece M12 y no lo es, y mostrarlo sería peor que no mostrar nada. `isUsablePitchTime` lo rechaza, la medida resuelve a `null` con el motivo `no_pitch_time`, y el panel de integraciones avisa cuántos videos están en esa situación, porque se arregla en VTurb y no en Limitless.
 
 **Verificación ejecutada:**
 - `pnpm test`: **351 tests en 19 archivos, todos en verde** (20 nuevos de VTurb).
 - `tsc --noEmit` limpio, `pnpm lint` sin errores.
-- Migración **aplicada** al proyecto Supabase de OTC.
+- Migración **aplicada** al proyecto Supabase de Limitless.
 
 **Decisiones de diseño:**
 - **`engagement_rate` se toma de `/times/user_engagement`, no de `/sessions/stats`.** Los dos endpoints lo devuelven, pero sólo el primero documenta su fórmula (`average_watched_time / video_duration * 100`). El segundo queda como respaldo.
@@ -2885,7 +3184,7 @@ La unidad I-6: M08 (visitantes de la página), M10 (reproducciones), M11 (% prom
 - **El selector de parámetros del formulario de fuentes se generalizó.** Antes era un selector de etapa de GHL; ahora es un componente que sirve para cualquier fuente configurable, y cambiar de fuente descarta el parámetro anterior — una etapa de GHL no significa nada para una fuente de VTurb.
 
 **Riesgos / deuda técnica pendiente:**
-- ⚠️ **El spec de VTurb no describe ni un solo campo de `Stats`.** Se asumió `total_viewed` = visitantes de página y `total_started` = reproducciones. Falta confirmar contra el dashboard, y sobre todo **qué deduplican los sufijos `_device_uniq` y `_session_uniq`**: si el dashboard muestra el valor único y OTC el bruto, los números no van a coincidir. Anotado en `docs/API_DOCS_PENDIENTES.md` §4 y `docs/PLAN_VERIFICACION.md` §6.2.
+- ⚠️ **El spec de VTurb no describe ni un solo campo de `Stats`.** Se asumió `total_viewed` = visitantes de página y `total_started` = reproducciones. Falta confirmar contra el dashboard, y sobre todo **qué deduplican los sufijos `_device_uniq` y `_session_uniq`**: si el dashboard muestra el valor único y Limitless el bruto, los números no van a coincidir. Anotado en `docs/API_DOCS_PENDIENTES.md` §4 y `docs/PLAN_VERIFICACION.md` §6.2.
 - ⚠️ **`X-Api-Version` sin resolver.** La página de autenticación dice `v1`, el spec declara `v3`. Se manda `v1`; si la primera llamada devuelve 401, es esto.
 - `lib/vturb/stats.ts` no tiene tests de orquestación (caché, TTL, invalidación por `pitch_time`) — quedó como `[T-6c]` en `docs/TESTING_BACKLOG.md`.
 - M09 (opt-ins de landing) sigue sin fuente: sale de Hyros en I-8, no de VTurb.
@@ -2903,11 +3202,11 @@ La unidad I-4 del mapa de fuentes: M21, M22, M23 y M25, que son 4 de los 6 pasos
 
 **El problema que resuelve, y por qué no era un sync más.** La documentación verificada confirmó que **la API v3 de GHL no expone historial de cambios de etapa**: no hay endpoint de historial, la búsqueda no filtra por transición, y `OpportunityStageUpdate` trae la etapa nueva pero no la anterior ni el momento del cambio. El documento fuente, en cambio, pide conteos por etapa **durante un período**. Con sólo el REST, una oportunidad que pasó por Lead → Engaged → Intent dentro del período se contaría una sola vez, en la etapa donde quedó.
 
-Así que OTC construye su propio historial. `ghl_stage_transitions` guarda cada transición derivada contra la última etapa conocida en `ghl_opportunities`, que existe justamente para eso: el webhook no trae la etapa de origen, hay que recordarla.
+Así que Limitless construye su propio historial. `ghl_stage_transitions` guarda cada transición derivada contra la última etapa conocida en `ghl_opportunities`, que existe justamente para eso: el webhook no trae la etapa de origen, hay que recordarla.
 
-**El período ciego, que es la parte que más importa.** Ese historial arranca con el primer webhook. Antes de esa fecha OTC no sabe nada, y las cero transiciones que devolvería la consulta significan "no lo estábamos mirando", no "no pasó nada". `ghl_integrations.stage_history_since` marca el borde; cualquier período que empiece antes resuelve a `null` con motivo `outside_history` y la UI dice "Fuera del historial registrado". Es la regla del `null` vs `0` (§9.1) aplicada al tiempo. Un período que **cruza** el borde también resuelve a `null`: un conteo parcial presentado como completo es peor que un hueco visible.
+**El período ciego, que es la parte que más importa.** Ese historial arranca con el primer webhook. Antes de esa fecha Limitless no sabe nada, y las cero transiciones que devolvería la consulta significan "no lo estábamos mirando", no "no pasó nada". `ghl_integrations.stage_history_since` marca el borde; cualquier período que empiece antes resuelve a `null` con motivo `outside_history` y la UI dice "Fuera del historial registrado". Es la regla del `null` vs `0` (§9.1) aplicada al tiempo. Un período que **cruza** el borde también resuelve a `null`: un conteo parcial presentado como completo es peor que un hueco visible.
 
-**El bloqueo de entrega, y cómo se resolvió sin esperar a GHL.** Los webhooks de plataforma se configuran **dentro de una app del Marketplace**, que OTC no tiene aprobada (`[FEAT-GHL-OAUTH]`). El endpoint acepta por eso **dos vías de autenticación**:
+**El bloqueo de entrega, y cómo se resolvió sin esperar a GHL.** Los webhooks de plataforma se configuran **dentro de una app del Marketplace**, que Limitless no tiene aprobada (`[FEAT-GHL-OAUTH]`). El endpoint acepta por eso **dos vías de autenticación**:
 - **Firma Ed25519** (`X-GHL-Signature`) con la clave pública de GHL, más la RSA legacy por el período de transición. Es lo que va a usar la app del Marketplace cuando exista, y resuelve la org por el `locationId` del payload.
 - **Secreto compartido por organización**, para eventos que el cliente entregue desde una acción "Webhook" de un Workflow de su sub-cuenta. Es la vía que funciona **hoy**.
 
@@ -2918,11 +3217,11 @@ Una firma inválida **no** cae al secreto compartido: si cayera, quien conociera
 **Verificación ejecutada:**
 - `pnpm test`: **331 tests en 17 archivos, todos en verde** (34 nuevos entre `opportunity-event`, `stage-transition`, `verify-webhook` y `missingSourceConfig`).
 - `tsc --noEmit` limpio, `pnpm lint` sin errores.
-- Migración **aplicada** al proyecto Supabase de OTC.
+- Migración **aplicada** al proyecto Supabase de Limitless.
 
 **Decisiones de diseño:**
 - **`occurred_at` es la hora de recepción, no `dateAdded`.** `dateAdded` es la fecha de creación de la oportunidad y no cambia con las transiciones: usarla pondría las tres transiciones de una misma oportunidad en la fecha de su alta, y el conteo por período sería falso. Hay un test que fija esto.
-- **La etapa de origen de la primera transición queda en `NULL`.** Una oportunidad que apareció por primera vez en la etapa 5 pudo haber pasado por las anteriores sin que OTC lo viera; decir que vino de la 1 sería afirmar un recorrido que nadie observó.
+- **La etapa de origen de la primera transición queda en `NULL`.** Una oportunidad que apareció por primera vez en la etapa 5 pudo haber pasado por las anteriores sin que Limitless lo viera; decir que vino de la 1 sería afirmar un recorrido que nadie observó.
 - **Las fuentes cuentan oportunidades distintas, no filas.** Si una vuelve a entrar a la misma etapa dos veces en el período, es una sola oportunidad que llegó ahí.
 - **Una baja no es una transición.** Marca `status = 'deleted'` y no toca el historial: las transiciones que ya ocurrieron siguen siendo ciertas y siguen contando en su período.
 - **Un `OpportunityUpdate` que sólo cambió el nombre no registra nada.** Sumar ahí inflaría los conteos de etapa con ediciones administrativas.
@@ -2944,7 +3243,7 @@ Una firma inválida **no** cae al secreto compartido: si cayera, quien conociera
 **Módulo(s) afectado(s):** `lib/payments/{normalize,verify-signature}.ts`, `app/api/webhooks/{whop,fanbasis}/route.ts`, `lib/payments/__tests__/normalize.test.ts`, `docs/API_DOCS_PENDIENTES.md`, `docs/PLAN_VERIFICACION.md`
 
 **Qué se hizo:**
-Santiago capturó la documentación completa de los seis proveedores en `docs/external-apis/` (5.8 MB, con un `RESUMEN-OTC.md` por proveedor que responde las preguntas abiertas). Eso permitió **corregir el mapeo de pagos que se había construido a ciegas** y responder las preguntas de diseño de las unidades que faltan.
+Santiago capturó la documentación completa de los seis proveedores en `docs/external-apis/` (5.8 MB, con un `RESUMEN-Limitless.md` por proveedor que responde las preguntas abiertas). Eso permitió **corregir el mapeo de pagos que se había construido a ciegas** y responder las preguntas de diseño de las unidades que faltan.
 
 **Bugs reales encontrados y corregidos en I-2:**
 
@@ -3006,7 +3305,7 @@ de red que motivó `API_DOCS_PENDIENTES.md` ya no existe para ningún proveedor.
   `docs.hyros.com`.
 - **`webinarjam/`** — los 17 artículos de API del centro de ayuda, con los links
   internos reescritos al slug real.
-- **Un `RESUMEN-OTC.md` por proveedor**, que responde una por una las preguntas de
+- **Un `RESUMEN-Limitless.md` por proveedor**, que responde una por una las preguntas de
   `API_DOCS_PENDIENTES.md` §1, §2, §5 y §6.
 - **`tools/`**: se sumaron `render.py` (Chromium), `crawl_hyros.py`, `openapi_md.py`
   (OpenAPI 3.x → markdown, reutilizable), y un build por proveedor. `regenerar.sh` ahora
@@ -3063,7 +3362,7 @@ en vez de esperar a que llegue el primer webhook.
 - Hyros tiene dos referencias con versiones distintas (spec v1.40 vs Apiary v1.37). Si
   difieren, manda el spec; está anotado en su INDEX.
 - De GoHighLevel y WebinarJam siguen faltando cosas que la fuente no publica (schemas de
-  respuesta sin expandir, unidades de `time_live`). Están en cada `RESUMEN-OTC.md`.
+  respuesta sin expandir, unidades de `time_live`). Están en cada `RESUMEN-Limitless.md`.
 
 ---
 
@@ -3076,7 +3375,7 @@ en vez de esperar a que llegue el primer webhook.
 **Qué se hizo:**
 Santiago pasó cuatro URLs de componentes de 21st.dev y pidió bajarlos a un documento markdown: uso, prompts y todo lo necesario para integrarlos, investigando primero cómo funciona 21st.dev y qué hay que conectar.
 
-- **`docs/COMPONENTES_21ST.md`**: cómo funciona 21st.dev (CLI `@21st-dev/cli` v1.16.1, registry shadcn, MCP, autenticación con key `21st_sk_…`, modelo de cobro), el estado del repo frente a lo que piden los componentes, una ficha por componente con su comando de instalación, dependencias npm y de registry, código de uso real, API y ajustes concretos para OTC, cinco prompts listos para pegar en una sesión de agente, checklist de integración y un resumen ejecutivo con la recomendación para cada uno.
+- **`docs/COMPONENTES_21ST.md`**: cómo funciona 21st.dev (CLI `@21st-dev/cli` v1.16.1, registry shadcn, MCP, autenticación con key `21st_sk_…`, modelo de cobro), el estado del repo frente a lo que piden los componentes, una ficha por componente con su comando de instalación, dependencias npm y de registry, código de uso real, API y ajustes concretos para Limitless, cinco prompts listos para pegar en una sesión de agente, checklist de integración y un resumen ejecutivo con la recomendación para cada uno.
 - Los cuatro componentes son: `arunachalam/adaptive-notch-navigation-bar`, `ruixen.ui/dropdown-range-date-picker`, `sean0205/statistics-card-1` y `sean0205/tabs` (variante `button`).
 - **`PENDIENTES.md`**: ítem `[UI-21ST]` con las cuatro decisiones abiertas.
 
@@ -3112,7 +3411,7 @@ Santiago pidió bajar a tierra la documentación de las dos APIs que faltan para
 - **`docs/external-apis/vturb/`** — las 8 páginas (pt + en) de `vturb.gitbook.io`, y un
   **`openapi.json`** con los 28 endpoints, reconstruido uniendo los documentos OpenAPI
   3.0.2 que la propia doc embebe uno por endpoint. De ese spec se genera `ENDPOINTS.md`.
-- **Dos `RESUMEN-OTC.md`** que responden una por una las preguntas que
+- **Dos `RESUMEN-Limitless.md`** que responden una por una las preguntas que
   `API_DOCS_PENDIENTES.md` §3 y §4 dejaron abiertas, y dicen qué cambia en el diseño de
   cada unidad.
 - **`docs/external-apis/tools/`** — los scripts que generan todo, con `regenerar.sh`
@@ -3164,7 +3463,7 @@ coopere ese día.
   `pipeline` hay que leerlos del primer payload real.
 - **VTurb declara `v1` en el header y `v3` en el spec**, los campos de `Stats` no tienen
   descripción, y las release notes mencionan `/smart_autoplays/stats_by_player`, que no
-  está en la referencia. Los cuatro puntos quedaron listados en su `RESUMEN-OTC.md`.
+  está en la referencia. Los cuatro puntos quedaron listados en su `RESUMEN-Limitless.md`.
 - Los otros siete dominios de documentación (Whop, Fanbasis, Hyros, Zoom, WebinarJam)
   **no se volvieron a probar**. Puede que alguno también esté disponible.
 
@@ -3348,7 +3647,7 @@ Al verificar el resolver contra datos reales aparecieron dos problemas:
 Resultado: el embudo DM habría renderizado todo en cero, que el diseño lee como catástrofe de negocio. Es el modo de falla de §9.1 entrando por una puerta que no estaba cerrada: se contempló "sin binding → null" pero no "bindeado a una tabla que nunca se puebla → 0".
 
 **3. Lectura del documento sobre la fuente del embudo DM**
-La sección 05 del documento fuente asigna explícitamente **"GHL pipeline — Stage counts, set/close, follow-up"**. El estándar NO mide el embudo DM desde una tabla de mensajes: modela cada conversación como una oportunidad que avanza por etapas del CRM. La integración GHL de OTC consume `/calendars` y `/contacts`, pero **no `/opportunities` ni `/pipelines`** (`lib/ghl/sync-pipeline.ts` es el pipeline de sincronización de OTC, no los pipelines de GHL).
+La sección 05 del documento fuente asigna explícitamente **"GHL pipeline — Stage counts, set/close, follow-up"**. El estándar NO mide el embudo DM desde una tabla de mensajes: modela cada conversación como una oportunidad que avanza por etapas del CRM. La integración GHL de Limitless consume `/calendars` y `/contacts`, pero **no `/opportunities` ni `/pipelines`** (`lib/ghl/sync-pipeline.ts` es el pipeline de sincronización de Limitless, no los pipelines de GHL).
 
 En consecuencia, `crm_pipeline` pasó de `otcStatus: "available"` a un nuevo estado **`partial`**, y `blockingTools()` ahora incluye las herramientas parcialmente cubiertas. **El embudo DM no era "el único construible end-to-end"** — esa afirmación de la Fase 1 era incorrecta.
 
@@ -3394,7 +3693,7 @@ El workflow `.github/workflows/ci.yml` **ya existía** con `pnpm typecheck` y `p
 
 **2. Fase 1 del módulo de Embudos**
 - **Migración `20260829120000_funnels_phase1.sql`:** `funnel_instances` (plantilla + oferta + price_point + currency + reporting_timezone), `funnel_step_bindings` (step → fuente), `funnel_benchmarks` (overrides de nivel 2 y 3) y `funnel_period_snapshots` (serie histórica). RLS por `get_my_organization_id()` en las cuatro.
-- **`lib/funnels/sources.ts`:** catálogo de 8 fuentes respaldadas por tablas reales de OTC, cada una con su procedencia. `DEFAULT_BINDINGS` con los 5 bindings del DM.
+- **`lib/funnels/sources.ts`:** catálogo de 8 fuentes respaldadas por tablas reales de Limitless, cada una con su procedencia. `DEFAULT_BINDINGS` con los 5 bindings del DM.
 - **`lib/funnels/period.ts`:** ventanas de 7/30/90 días con límites inclusivo/exclusivo correctos.
 - **`lib/funnels/compute.ts`:** capa PURA — estados de etapa, cálculo de métricas con resolución recursiva de referencias, transiciones entre etapas ocupadas, y KPIs universales.
 - **`lib/funnels/resolve.ts`:** capa de IO contra Supabase. No se re-exporta desde el barrel para que ningún Client Component arrastre el cliente de base de datos.
@@ -3414,7 +3713,7 @@ Backlog de 24 ítems de testing pendientes, priorizados y con ubicación exacta,
 
 **Decisiones de diseño:**
 - **Separación compute / resolve.** Toda la matemática vive en `compute.ts`, que es puro y no importa Supabase; `resolve.ts` sólo trae números. Es lo que permite testear el cálculo sin base de datos, y explica que los 46 tests nuevos no necesiten mocks.
-- **`dm.trigger` queda deliberadamente sin fuente.** OTC no tiene hoy de dónde sacar disparadores (comentarios / historias / ads que inician conversación). Inventarle un origen habría sido peor: el step se muestra como "Sin fuente" y la página avisa qué integraciones faltan. Es la demostración práctica de la regla §9.1.
+- **`dm.trigger` queda deliberadamente sin fuente.** Limitless no tiene hoy de dónde sacar disparadores (comentarios / historias / ads que inician conversación). Inventarle un origen habría sido peor: el step se muestra como "Sin fuente" y la página avisa qué integraciones faltan. Es la demostración práctica de la regla §9.1.
 - **`spend`, `reach` e `impressions` resuelven a `null`.** El spend de Meta llega vía Zernio como live-fetch y no es periodizable hacia atrás. Cualquier métrica de costo que dependa de spend da `null`, y eso es correcto.
 - **Dividir por cero da `null`, no 0%.** Una tasa sobre cero es indefinida; mostrarla como 0% sería exactamente el error que el diseño quiere evitar.
 - **El conteo de una etapa es el de su primer step.** En el webinar, `engaged` tiene dos steps y el conteo de la etapa son los asistentes (la entrada), no los que se quedaron al pitch.
@@ -3514,7 +3813,7 @@ El documento fuente es un schema con datos semilla, no material de lectura. Norm
 - **`MetricPointer` conserva la etiqueta literal** además del ID resoluble, porque no siempre coinciden: el DM declara "Reply / set rate" como leading indicator y eso no es el nombre exacto de ninguna de sus métricas.
 - **`funnelMetrics` a nivel plantilla** porque el webinar declara "Cost per Sale" como north-star y esa métrica no aparece en ninguna fila de su tabla. El VSL apunta su north-star al KPI universal `cac`.
 - **`otcStatus` en las herramientas de instrumentación** hace legible por máquina el track de integraciones de §7, para que la UI pueda decir "esta etapa necesita WebinarJam y no está conectado" en vez de mostrar un cero.
-- **Tokens del design system en `accentToken`, no hex.** Los colores ámbar/azul/magenta del documento no existen en la paleta de OTC; se mapean a `--chart-accent`, `--chart-secondary` y `--chart-pink`. El validador rechaza un hex.
+- **Tokens del design system en `accentToken`, no hex.** Los colores ámbar/azul/magenta del documento no existen en la paleta de Limitless; se mapean a `--chart-accent`, `--chart-secondary` y `--chart-pink`. El validador rechaza un hex.
 
 **Errata del documento fuente encontrada:**
 La fila "Lead → Intent" de la sección 04 imprime `> −20%` en la columna "Below floor". Por contexto es un error de tipeo: "below floor" es estar *más* de 20% por debajo del benchmark. Se codificó la intención, no la errata, con un comentario en `health-bands.ts` que lo deja explícito.
@@ -3537,7 +3836,7 @@ La fila "Lead → Intent" de la sección 04 imprime `> −20%` en la columna "Be
 - **Lectura estructural del documento:** se identificó que no es material de lectura sino un schema con datos semilla — los tres embudos (Webinar, VSL book-a-call, DM) son instancias de un mismo tipo colapsables a las mismas 7 etapas del "spine".
 - **Normalización del modelo:** se documentaron las ambigüedades que el HTML esconde y su resolución — spine disperso (el VSL no tiene etapa Lead; ninguno tiene fila de Spend), relación step→stage N:1 ordenada, la columna "Healthy range" no es legible por máquina (5 formatos distintos), el denominador es parte de la identidad de la métrica (2–6% sobre asistentes vs 1–3% sobre registrantes es el mismo evento), y precedencia de benchmark de 3 niveles (plantilla → override por oferta → baseline propio a 30 días).
 - **Arquitectura de 5 capas:** definición (plantillas en TS), instancia (DB por org), resolver, evaluación, presentación. Se definieron los tipos núcleo (`SPINE_STAGES`, `FunnelTemplate`, `FunnelStep`, `MetricDefinition`, `Benchmark`, `FunnelInstance`, `ResolvedMetric`).
-- **Mapeo del spine a fuentes reales de OTC:** 5 de 7 etapas están cubiertas hoy; los huecos son la etapa Engaged de Webinar (show-up/stick rate) y de VSL (play rate/watch %).
+- **Mapeo del spine a fuentes reales de Limitless:** 5 de 7 etapas están cubiertas hoy; los huecos son la etapa Engaged de Webinar (show-up/stick rate) y de VSL (play rate/watch %).
 - **Resolución del switcher de vistas** (§6): segmento dinámico `/funnels/[funnelId]` como única fuente de verdad, sin cookie de estado, con índice real en `/funnels`, sidebar dinámico por instancia, switcher con indicador de salud y período persistente entre embudos.
 - **Registro de las 7 decisiones cerradas** por Santiago en §1, y del track de integraciones bloqueante en §7.
 
@@ -3553,11 +3852,11 @@ Santiago va a aportar más documentos, uno por tipo de embudo, y necesita que el
 
 **Riesgos / deuda técnica pendiente:**
 - **Riesgo principal — `null` vs `0`:** si el resolver devuelve 0 por ausencia de datos, el diagnóstico señala como "roturas" lo que son huecos de instrumentación, y el founder pierde confianza en el módulo. `ResolvedMetric.value` es `number | null` y la UI distingue 3 estados (etapa salteada / sin datos / bajo el piso).
-- **Integraciones bloqueantes:** Hyros, WebinarJam/Zoom y hosting de VSL con analytics no existen en OTC. Sin ellas, 2 de los 3 embudos del documento nacen con su etapa central vacía. El track corre en paralelo y debe aterrizar antes de la Fase 3. Queda abierta la decisión de qué proveedor de video se soporta para el VSL.
+- **Integraciones bloqueantes:** Hyros, WebinarJam/Zoom y hosting de VSL con analytics no existen en Limitless. Sin ellas, 2 de los 3 embudos del documento nacen con su etapa central vacía. El track corre en paralelo y debe aterrizar antes de la Fase 3. Queda abierta la decisión de qué proveedor de video se soporta para el VSL.
 - **`metrics_snapshots` no sirve tal cual:** su `CHECK (category IN ('sales','finance'))` no contempla embudos y su `UNIQUE (organization_id, category, period_start)` colisiona con varias instancias por org en el mismo período. Se necesita tabla propia `funnel_period_snapshots`.
 - **Sin snapshot no hay historia de Spend:** los ads de Zernio son live fetch por convención del repo, así que el Spend histórico no es reconstruible. La tabla de snapshots tiene que existir desde la Fase 1 aunque el job llegue en la Fase 5.
 - **`custom_metrics` no tiene noción de período** — `resolveSourceValue` cuenta sobre toda la historia de la org; hay que extender la firma, no duplicar.
-- No existe timezone de reporte por org en OTC.
+- No existe timezone de reporte por org en Limitless.
 - Deriva plantilla/documento: cada `FunnelTemplate` lleva `sourceDocVersion` para detectar cuando el documento fuente avanza y la plantilla no.
 
 ---
@@ -3644,7 +3943,7 @@ La app no tenía preview social — al compartir el link no aparecía imagen. Co
 - **Escala `brand-50…950` en el preset de Tailwind**, anclada en `brand-600 = #E15D12`, con los pasos 400/600/700 coincidiendo con `--primary-light` / `--primary` / `--primary-hover`. Reemplaza a la escala violeta de Tailwind que usaba la identidad anterior.
 - **520 clases de color migradas** en 127 archivos: 462 clases `violet-*`/`purple-*`/`indigo-*` → `brand-*`, más 58 hex y `rgba()` sueltos (`#8B5CF6`, `#A78BFA`, `#6D28D9`, `rgba(124,58,237)`, `rgba(99,102,241)`, `rgba(168,85,247)`…). La auditoría de la fase 1 solo había buscado hex, por eso no las vio.
 - **Contraste corregido.** Blanco sobre `#E15D12` da 3.64:1, por debajo de AA para texto normal; negro da 5.78:1. Se cambió `--primary-foreground` a `0 0% 0%` y se migraron 10 botones que tenían `text-white` sobre `bg-primary` sólido, incluido el `variant="default"` del `Button` de `@ai-coo/ui`.
-- **Assets reales instalados.** `logo-{light,dark}.png` (lockup horizontal recortado, 1764×210, ~14 KB c/u) e `isotipo-{light,dark,naranja}.svg`. Se borraron `logo.png` (1.3 MB, OTC) y los dos isotipos OTC.
+- **Assets reales instalados.** `logo-{light,dark}.png` (lockup horizontal recortado, 1764×210, ~14 KB c/u) e `isotipo-{light,dark,naranja}.svg`. Se borraron `logo.png` (1.3 MB, Limitless) y los dos isotipos Limitless.
 - **`AppLogo` y `AppBrandHeader` ahora siguen el tema:** renderizan la versión negra y la blanca y las alternan con `dark:hidden` / `hidden dark:block`, como pide el manual (logotipo monocromo). `AppBrandHeader` pasó a usar el isotipo — su slot es cuadrado de 32×32 y antes metía ahí el lockup apaisado.
 - **Presets de tamaño de `AppLogo` recalibrados.** El lockup nuevo es ≈8.4:1 contra 1.4:1 del anterior: limitando por alto se desbordaba de la tarjeta de login. Ahora `login`, `sidebar` y `hero` limitan por ancho.
 - **Favicon rehecho** (`app/icon.svg`): cuadrado naranja con el isotipo en blanco, generado desde el path del SVG oficial. Antes era un rect violeta con una letra "M" dibujada a mano.
@@ -3675,7 +3974,7 @@ Completar el rebranding con la identidad visual real, que en la fase 1 no estaba
 
 ---
 
-### 2026-08-29 — REBRAND-LIMITLESS (fase 1): centralización de marca y renombre OTC → Limitless
+### 2026-08-29 — REBRAND-LIMITLESS (fase 1): centralización de marca y renombre Limitless → Limitless
 
 **Rama/branch:** `Claude-Design`  
 **Commits:** pendiente push  
@@ -3686,13 +3985,13 @@ Completar el rebranding con la identidad visual real, que en la fase 1 no estaba
 - **`lib/brand.ts` pasa a ser la fuente única de verdad de la identidad.** Antes solo exportaba `brandAssets` (rutas de logo). Ahora exporta además:
   - `brand` — `name` ("Limitless"), `wordmark` ("LIMITLESS"), `legalName`, `tagline`, `domain`.
   - `brandColors` — paleta hex para los contextos que **no** pueden leer CSS vars: props de color de charts (Visx), estilos inline y HTML de emails.
-- **Renombre completo OTC / "Optimiza Tu Control" → Limitless** en las 87 ocurrencias detectadas. Los strings de UI ahora referencian `brand.*` en lugar de literales; los comentarios, mocks y config se renombraron a texto plano.
+- **Renombre completo Limitless / "Optimiza Tu Control" → Limitless** en las 87 ocurrencias detectadas. Los strings de UI ahora referencian `brand.*` en lugar de literales; los comentarios, mocks y config se renombraron a texto plano.
   - Metadata de Next (`layout.tsx` template `"Limitless | %s"`, landing, prueba, privacidad, redesign-preview)
   - Landing completa (9 secciones + footer) y `cinematic-welcome`
   - Emails Resend: waitlist, welcome, trial-reels (subjects, HTML y texto plano)
-  - System prompt del agente (`lib/agent/prompt.ts`) — antes decía "OTC (Operations & Technology Center)"
+  - System prompt del agente (`lib/agent/prompt.ts`) — antes decía "Limitless (Operations & Technology Center)"
   - Política de privacidad — 17 menciones
-  - Default del bot de Discord: "Asistente OTC" → "Asistente Limitless", sincronizado entre `apps/web` y `apps/discord-bot`
+  - Default del bot de Discord: "Asistente Limitless" → "Asistente Limitless", sincronizado entre `apps/web` y `apps/discord-bot`
 - **Migración de color hardcodeado a tokens.** Había 73 hex de marca sueltos en 36 archivos:
   - 40 clases Tailwind con valor arbitrario (`bg-[#7C3AED]`, `text-[#A78BFA]`, `bg-[#6D28D9]`…) → clases de la escala `primary`.
   - 28 literales en JS (charts, estilos inline, emails) → `brandColors`.
@@ -3714,10 +4013,10 @@ Rebranding del software a la identidad Limitless. Esta fase cubre todo lo que **
 
 **Riesgos / deuda técnica pendiente:**
 
-- **Assets visuales sin reemplazar.** `public/brand/logo.png` (1.3 MB), los dos isotipos OTC y `app/icon.svg` (favicon SVG dibujado a mano, rect violeta + letra "M") siguen siendo de la identidad anterior. La app dice "Limitless" pero muestra el logo de OTC.
+- **Assets visuales sin reemplazar.** `public/brand/logo.png` (1.3 MB), los dos isotipos Limitless y `app/icon.svg` (favicon SVG dibujado a mano, rect violeta + letra "M") siguen siendo de la identidad anterior. La app dice "Limitless" pero muestra el logo de Limitless.
 - **Paleta sin definir.** Los valores violeta en `tokens.css` y `brandColors` son placeholder hasta tener el manual de marca.
 - **Tipografía sin definir.** Sigue Inter + JetBrains Mono en `layout.tsx`.
-- **Cambio de comportamiento menor:** el default del nombre del bot de Discord cambió. Las orgs que nunca lo personalizaron (`bot_name` en null) van a ver "Asistente Limitless" en lugar de "Asistente OTC".
+- **Cambio de comportamiento menor:** el default del nombre del bot de Discord cambió. Las orgs que nunca lo personalizaron (`bot_name` en null) van a ver "Asistente Limitless" en lugar de "Asistente Limitless".
 - **`lib/email/welcome-email.ts`** tiene un fallback hardcodeado `https://otc-plaform.vercel.app` (con el typo original). Es un dominio, queda fuera de alcance, pero conviene revisarlo.
 - La tabla de colores de `DESIGN.md` sigue documentando la paleta violeta; se marcó con un aviso de rebranding en curso pero hay que reescribirla en la fase 2.
 
@@ -4219,7 +4518,7 @@ El usuario quería ingresar únicamente las métricas base y que el sistema deri
   - `importFinanceMetricsTransposedAction`: firma actualizada para aceptar `rowMapping: Record<string, string>` y pasarlo al parser
   - `importSalesMetricsTransposedAction`: ya tenía `rowMapping`; ahora ambas acciones son consistentes
 - `apps/web/components/integrations/data-import-wizard.tsx`:
-  - Reemplaza `TransposedBanner` (solo texto) por `TransposedRowMapper`: UI con dropdowns por campo OTC, donde el usuario selecciona qué fila del Excel corresponde a cada métrica
+  - Reemplaza `TransposedBanner` (solo texto) por `TransposedRowMapper`: UI con dropdowns por campo Limitless, donde el usuario selecciona qué fila del Excel corresponde a cada métrica
   - Agrega `RowField` tipo, `SALES_ROW_FIELDS` y `FINANCE_ROW_FIELDS`: 17 y 5 campos respectivamente, con labels en español
   - Agrega `autoMapTransposedRows()`: sugiere un mapeo inicial usando el diccionario de sinónimos a partir de `rowLabels` del preview
   - Agrega estado `transposedSalesRowMapping` y `transposedFinanceRowMapping`
@@ -4231,7 +4530,7 @@ El usuario quería ingresar únicamente las métricas base y que el sistema deri
   - Texto de confirmación corregido: aclara que métricas hacen upsert (no "no se sobreescribirán")
 
 **Por qué / finalidad:**
-El usuario reportó que al importar su archivo MAESTRO DE METRICAS en formato pivot, (1) el sistema auto-mapeaba solo ~4 filas (las que coincidían exactamente con el diccionario) sin mostrar el resto, (2) no había control manual sobre qué fila corresponde a qué métrica. Ahora el wizard muestra un mapper explícito con todos los campos OTC y todos los nombres de fila del archivo, pre-poblado con las sugerencias automáticas pero editable libremente.
+El usuario reportó que al importar su archivo MAESTRO DE METRICAS en formato pivot, (1) el sistema auto-mapeaba solo ~4 filas (las que coincidían exactamente con el diccionario) sin mostrar el resto, (2) no había control manual sobre qué fila corresponde a qué métrica. Ahora el wizard muestra un mapper explícito con todos los campos Limitless y todos los nombres de fila del archivo, pre-poblado con las sugerencias automáticas pero editable libremente.
 
 **Decisiones de diseño:**
 - El usuario tiene control total: puede ver/cambiar todos los mapeos antes de importar
@@ -4425,22 +4724,22 @@ Archivos Excel reales de CRM suelen tener múltiples hojas (ej. `CRM_VENTAS__AA.
 **Módulo(s) afectado(s):** importación de datos, clientes, closing
 
 **Qué se hizo:**
-- `app/clients/import-actions.ts`: nueva acción `getExcelPreviewAction(fileBase64)` que extrae headers y primeras 5 filas de cualquier archivo .xlsx sin parsear el schema OTC. Importa XLSX directamente en el action.
-- `components/integrations/excel-column-mapper.tsx` (nuevo): componente que muestra dropdowns para mapear cada columna del archivo del usuario a cada campo OTC (Nombre, Email, Teléfono, Estado, Producto, Monto, Fecha, Notas para clientes; Nombre prospecto, Fecha, Email, Estado, Monto cerrado, Notas para closing). Incluye auto-mapeo por nombre de columna y vista previa de filas con las columnas mapeadas.
-- `components/integrations/data-import-wizard.tsx`: se agrega un paso intermedio "mapper" entre "what" y "confirm" exclusivo del flujo Excel. Al avanzar desde "what", se fetchean los headers de los archivos subidos, se pre-mapean automáticamente si los nombres coinciden, y se muestra el `ExcelColumnMapper`. El mapping resultante se pasa a `importClientsFromExcelAction` y `importClosingCallsFromExcelAction` (que ya soportaban `columnMapping?`). El paso de confirmación navega correctamente con el nuevo paso insertado. Eliminado el link a la plantilla OTC (§2.4 descartado).
+- `app/clients/import-actions.ts`: nueva acción `getExcelPreviewAction(fileBase64)` que extrae headers y primeras 5 filas de cualquier archivo .xlsx sin parsear el schema Limitless. Importa XLSX directamente en el action.
+- `components/integrations/excel-column-mapper.tsx` (nuevo): componente que muestra dropdowns para mapear cada columna del archivo del usuario a cada campo Limitless (Nombre, Email, Teléfono, Estado, Producto, Monto, Fecha, Notas para clientes; Nombre prospecto, Fecha, Email, Estado, Monto cerrado, Notas para closing). Incluye auto-mapeo por nombre de columna y vista previa de filas con las columnas mapeadas.
+- `components/integrations/data-import-wizard.tsx`: se agrega un paso intermedio "mapper" entre "what" y "confirm" exclusivo del flujo Excel. Al avanzar desde "what", se fetchean los headers de los archivos subidos, se pre-mapean automáticamente si los nombres coinciden, y se muestra el `ExcelColumnMapper`. El mapping resultante se pasa a `importClientsFromExcelAction` y `importClosingCallsFromExcelAction` (que ya soportaban `columnMapping?`). El paso de confirmación navega correctamente con el nuevo paso insertado. Eliminado el link a la plantilla Limitless (§2.4 descartado).
 
 **Por qué / finalidad:**
-El usuario puede tener sus datos en cualquier formato de Excel, con columnas nombradas de forma arbitraria. El mapper le permite indicar qué columna de su archivo corresponde a cada campo de OTC sin necesidad de reformatear el archivo ni usar una plantilla específica.
+El usuario puede tener sus datos en cualquier formato de Excel, con columnas nombradas de forma arbitraria. El mapper le permite indicar qué columna de su archivo corresponde a cada campo de Limitless sin necesidad de reformatear el archivo ni usar una plantilla específica.
 
 **Decisiones de diseño relevantes:**
-- Auto-mapeo: al cargar el archivo, si algún header coincide (case-insensitive) con los nombres estándar de OTC (ej. "Nombre", "Email", "Teléfono"), se pre-selecciona automáticamente el mapping para evitar trabajo manual.
+- Auto-mapeo: al cargar el archivo, si algún header coincide (case-insensitive) con los nombres estándar de Limitless (ej. "Nombre", "Email", "Teléfono"), se pre-selecciona automáticamente el mapping para evitar trabajo manual.
 - Vista previa toggle: la tabla de preview de filas mapeadas es opcional (toggle per-sección) para no sobrecargar la UI.
 - El mapper se salta completamente si el origen es GHL (no aplica).
 - Se valida que los campos requeridos (name para clientes; leadName + scheduledAt para closing) estén mapeados antes de permitir avanzar.
 
 **Riesgos / deuda técnica pendiente:**
 - Si el usuario sube un archivo con miles de filas, `getExcelPreviewAction` igual lee todo el workbook (solo retorna 5 filas pero parsea todo). Para archivos masivos podría optimizarse con `sheetRowsLimit`.
-- El link a la plantilla OTC fue eliminado del wizard — si se quiere recuperar en el futuro, habría que volver a agregar el CTA.
+- El link a la plantilla Limitless fue eliminado del wizard — si se quiere recuperar en el futuro, habría que volver a agregar el CTA.
 
 ---
 
@@ -4486,7 +4785,7 @@ El founder necesita saber de dónde viene cada agenda de cierre (qué campaña, 
 - **GHL Contacts endpoint** (`lib/ghl/client.ts`): Nuevo tipo `GHLContact` y función `listGHLContacts()` con paginación cursor (`startAfterId`, máx 2000 contactos).
 - **Sync contactos → clients** (`lib/ghl/sync-contacts.ts`): Mapeo idempotente GHL Contacts → `clients`. Dedup por nombre normalizado (case-insensitive). No sobreescribe existentes. Email/teléfono se guardan en `ai_insights`.
 - **Import actions GHL** (`app/ghl/import-actions.ts`): `previewGHLContactsAction` (preview 10 primeros sin importar) + `importGHLContactsAction` (importación real vía admin client).
-- **Parser Excel clientes** (`lib/clients/excel-parser.ts`): Parsea `.xlsx` con plantilla OTC (tab "Clientes") o mapeo de columnas propio. Soporta fechas seriales de Excel, DD/MM/AAAA e ISO. Usa `xlsx` (SheetJS).
+- **Parser Excel clientes** (`lib/clients/excel-parser.ts`): Parsea `.xlsx` con plantilla Limitless (tab "Clientes") o mapeo de columnas propio. Soporta fechas seriales de Excel, DD/MM/AAAA e ISO. Usa `xlsx` (SheetJS).
 - **Parser Excel llamadas** (`lib/closing/excel-parser.ts`): Idem para tab "Llamadas de cierre". Parsea fechas con hora. Status: cerrado → closed, no cerrado → not_closed, etc.
 - **Server actions Excel** (`app/clients/import-actions.ts`): `importClientsFromExcelAction` y `importClosingCallsFromExcelAction`. Reciben el archivo como base64 (serializable en Server Actions). Dedup clientes por nombre.
 - **Wizard UI** (`components/integrations/data-import-wizard.tsx`): Wizard 3 pasos — Origen (GHL/Excel), Qué importar (clientes/llamadas con preview), Confirmación + resultados.
@@ -4495,7 +4794,7 @@ El founder necesita saber de dónde viene cada agenda de cierre (qué campaña, 
 - **Ruta** (`routes/paths.ts`): Agregado `integrationsImport`.
 
 **Por qué / finalidad:**
-Usuarios nuevos de OTC tienen sus datos históricos en GHL o Excel. Sin importación masiva, el onboarding es manual y lento. Esta fase permite cargar clientes y llamadas de cierre de una vez desde ambas fuentes.
+Usuarios nuevos de Limitless tienen sus datos históricos en GHL o Excel. Sin importación masiva, el onboarding es manual y lento. Esta fase permite cargar clientes y llamadas de cierre de una vez desde ambas fuentes.
 
 **Decisiones de diseño relevantes:**
 - Archivos Excel se envían como base64 al Server Action (Next.js 15 no serializa `File` en network calls).
@@ -4505,7 +4804,7 @@ Usuarios nuevos de OTC tienen sus datos históricos en GHL o Excel. Sin importac
 - GHL Appointments ya se sincronizan vía el calendario (Fase 1) — no se duplica en el wizard.
 
 **Riesgos / deuda técnica pendiente:**
-- Mapeo de columnas personalizado (para archivos con formato propio): la UI del wizard no tiene la pantalla de mapeo de columnas todavía — usa la plantilla OTC o las columnas detectadas automáticamente. Pendiente implementar `excel-column-mapper.tsx` para Fase 3.
+- Mapeo de columnas personalizado (para archivos con formato propio): la UI del wizard no tiene la pantalla de mapeo de columnas todavía — usa la plantilla Limitless o las columnas detectadas automáticamente. Pendiente implementar `excel-column-mapper.tsx` para Fase 3.
 - Plantilla `.xlsx` descargable (`public/templates/otc-importacion.xlsx`) no generada todavía — el link en el wizard existe pero el archivo no.
 - Oportunidades de GHL (pipeline) → closing_calls es stretch goal Fase 3.
 
@@ -4535,18 +4834,18 @@ Usuarios nuevos de OTC tienen sus datos históricos en GHL o Excel. Sin importac
 - **vercel.json**: cron `/api/cron/ghl-sync` cada hora.
 
 **Por qué / finalidad:**
-Usuarios que usan GoHighLevel en lugar de Calendly para agendar llamadas de cierre no tenían forma de importar sus citas a OTC. Esta integración los habilita con el mismo flujo que Calendly pero usando Private Integration Tokens de GHL (sin necesidad de registrar la app en el Marketplace todavía).
+Usuarios que usan GoHighLevel en lugar de Calendly para agendar llamadas de cierre no tenían forma de importar sus citas a Limitless. Esta integración los habilita con el mismo flujo que Calendly pero usando Private Integration Tokens de GHL (sin necesidad de registrar la app en el Marketplace todavía).
 
 **Decisiones de diseño relevantes:**
 - Auth por Private Integration Token ahora; OAuth/Marketplace se implementará cuando GHL lo apruebe (proceso lento).
 - Calendly y GHL coexisten simultáneamente; el origen se distingue visualmente en la UI.
 - API key cifrada con AES-256-GCM igual que otras integraciones con secrets; sin RLS SELECT en `ghl_integrations`.
-- Citas canceladas/inválidas se omiten (no se importan); citas ya cerradas/no-cerradas en OTC se actualizan campos pero se preserva el status.
+- Citas canceladas/inválidas se omiten (no se importan); citas ya cerradas/no-cerradas en Limitless se actualizan campos pero se preserva el status.
 - `source` derivado en la capa mapper (no guardado en DB) para no romper schema existente.
 
 **Riesgos / deuda técnica pendiente:**
 - Migración SQL pendiente de aplicar en producción (`supabase/migrations/20260824100000_ghl_integration.sql`).
-- Migrar a OAuth "Connect with GHL" cuando OTC sea aprobado como app en GHL Marketplace.
+- Migrar a OAuth "Connect with GHL" cuando Limitless sea aprobado como app en GHL Marketplace.
 - Phase 2 (carga de datos históricos desde Excel) queda para sesión futura — ver PENDIENTES.
 ### 2026-08-24 — fix(marketing): stories de Instagram no se mostraban en la app
 
@@ -4936,7 +5235,7 @@ TECH-2: `estimateRetentionAtCTA` era un modelo sintético (curva exponencial). C
 - `api/queue/publish-reel-variation/route.ts`: helper `uploadVideoToZernio()` implementa el flujo completo: obtener presigned URL de Zernio → descargar video de Supabase Storage (URL firmada TTL 2h) → `PUT` video buffer a Zernio → retornar `fileUrl` permanente. `createPost()` ahora incluye `mediaItems: [{ type: "video", url: videoFileUrl }]`. `maxDuration` subido de 30 → 60s.
 
 **2. Email de notificación al admin de la org:**
-- `lib/email/trial-reels-email.ts` (nuevo): template HTML con header púrpura OTC, cajas de stats verde/rojo, CTA button. Versión texto plano.
+- `lib/email/trial-reels-email.ts` (nuevo): template HTML con header púrpura Limitless, cajas de stats verde/rojo, CTA button. Versión texto plano.
 - `lib/email.ts`: `sendTrialReelsDoneEmail()` usando Resend con subject dinámico ("N Trial Reels publicados" o "N publicados, M con error").
 - En `publish-reel-variation/route.ts`: cuando `allDone === true`, llama `notifyOrgAdminDone()` best-effort (fire-and-forget, nunca bloquea la respuesta).
 
@@ -4948,7 +5247,7 @@ TECH-2: `estimateRetentionAtCTA` era un modelo sintético (curva exponencial). C
 
 El bug principal del feature era que `createPost` en Zernio no tenía el campo `mediaItems` — los reels se creaban en Zernio como borradores vacíos sin video adjunto. La investigación de la API de Zernio (vía repos GitHub de zernio-dev) reveló el flujo de 2 pasos: presign URL → upload binario → usar fileUrl permanente en mediaItems.
 
-El email de notificación cierra el loop para el founder: sabe cuándo terminaron de publicar sus reels sin tener que abrir OTC manualmente. La limpieza de Storage evita acumulación de videos en el bucket trial-reels (cada job puede pesar ~50-200 MB) con retención de 30 días.
+El email de notificación cierra el loop para el founder: sabe cuándo terminaron de publicar sus reels sin tener que abrir Limitless manualmente. La limpieza de Storage evita acumulación de videos en el bucket trial-reels (cada job puede pesar ~50-200 MB) con retención de 30 días.
 
 **Decisiones de diseño relevantes:**
 
@@ -5197,7 +5496,7 @@ Cada commit a la rama dispara un preview deployment en Vercel. Los errores en ar
 
 **Qué se hizo:**
 
-Feature completa de Trial Reels: el usuario selecciona un reel de `content_pieces` (que tenga un `drive_file_id` vinculado), OTC descarga el video desde Google Drive, lo sube a Supabase Storage y encola un job en QStash. Un worker en Fly.io procesa el video con FFmpeg generando 5 variantes automáticamente. El usuario puede previsualizar cada variante, editar el caption y hashtags, incluir/excluir variantes, y publicarlas en Zernio con delay configurable entre posts.
+Feature completa de Trial Reels: el usuario selecciona un reel de `content_pieces` (que tenga un `drive_file_id` vinculado), Limitless descarga el video desde Google Drive, lo sube a Supabase Storage y encola un job en QStash. Un worker en Fly.io procesa el video con FFmpeg generando 5 variantes automáticamente. El usuario puede previsualizar cada variante, editar el caption y hashtags, incluir/excluir variantes, y publicarlas en Zernio con delay configurable entre posts.
 
 **Archivos creados:**
 - `supabase/migrations/20260810120000_trial_reels_jobs.sql` — Tabla `reel_variation_jobs` + bucket `trial-reels` + RLS + índices + trigger
@@ -5221,7 +5520,7 @@ Feature completa de Trial Reels: el usuario selecciona un reel de `content_piece
 
 **Por qué / finalidad:**
 
-Estrategia de "Trial Reels": publicar 5 variaciones de un reel que funcionó bien, cambiando velocidad, música, subtítulos y colorimetría. Usada por creadores para maximizar alcance y testear qué variante tiene mejor performance. OTC automatiza todo el proceso desde la descarga hasta la publicación.
+Estrategia de "Trial Reels": publicar 5 variaciones de un reel que funcionó bien, cambiando velocidad, música, subtítulos y colorimetría. Usada por creadores para maximizar alcance y testear qué variante tiene mejor performance. Limitless automatiza todo el proceso desde la descarga hasta la publicación.
 
 **Decisiones de diseño relevantes:**
 
@@ -5529,7 +5828,7 @@ Ninguno para este cambio. El build debería pasar limpio.
 3. **`devin/fix-monorepo-toolchain-y-rate-limit`**: correcciones de toolchain monorepo (lint, typecheck, build) y reemplazo de rate limiter in-memory por rate limiter distribuido en PostgreSQL (`consume_rate_limit` RPC en Supabase).
 
 **Por qué / finalidad:**
-Producción mostraba una versión vieja de OTC con módulos eliminados (Operaciones, Producto, Lanzamientos). El usuario había promovido a producción un preview que tampoco tenía los cambios nuevos. La solución correcta era hacer `main` la fuente de verdad y dejar que Vercel auto-deploye desde ahí.
+Producción mostraba una versión vieja de Limitless con módulos eliminados (Operaciones, Producto, Lanzamientos). El usuario había promovido a producción un preview que tampoco tenía los cambios nuevos. La solución correcta era hacer `main` la fuente de verdad y dejar que Vercel auto-deploye desde ahí.
 
 **Decisiones de diseño relevantes:**
 - `redesign/visual-v2` y `design/premium-glass-ui` **no se mergearon**: tienen historias de git no relacionadas (675 archivos de diferencia con main, `--allow-unrelated-histories` hubiera creado un caos). Se dejaron fuera intencionalmente.

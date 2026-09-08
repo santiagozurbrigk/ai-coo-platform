@@ -403,7 +403,7 @@ export type ResolvedPageMeta = {
   back?: { href: string; label: string };
 };
 
-export const FALLBACK_TITLE = "OTC";
+export const FALLBACK_TITLE = "Limitless";
 
 export function getPageMeta(pathname: string): ResolvedPageMeta {
   const meta = resolveMeta(pathname);
