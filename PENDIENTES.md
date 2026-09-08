@@ -52,7 +52,7 @@ de Fathom**. El mapeo de campos se hizo leyendo la documentación.
 3. **¿La ventana de 45 minutos del match provisional es la correcta?** Se eligió
    por criterio, no midiendo cruces reales.
 
-**Alcance actual:** OTC registra **únicamente llamadas de venta**. Equipo y
+**Alcance actual:** Limitless registra **únicamente llamadas de venta**. Equipo y
 entrega de servicio quedan para más adelante — cuando se implementen, entran por
 `counterparty` y `purpose`, que ya existen.
 
@@ -111,7 +111,7 @@ no se puede usar.
 
 ### [EMBUDOS-SALUD] Habilitar el estado de salud (bandas de la §04) ⏸️
 
-**Qué es:** el documento define bandas de salud por métrica —qué valor es sano, cuál está en el piso y cuál está roto— y OTC tiene el código construido y testeado en `lib/funnels/health-bands.ts`, con la precedencia de tres niveles (plantilla → override de oferta → baseline de la org).
+**Qué es:** el documento define bandas de salud por métrica —qué valor es sano, cuál está en el piso y cuál está roto— y Limitless tiene el código construido y testeado en `lib/funnels/health-bands.ts`, con la precedencia de tres niveles (plantilla → override de oferta → baseline de la org).
 
 **Está en pausa por decisión tuya**, desde que arrancamos la Fase 2. La UI no pinta ningún número en verde ni en rojo: mostrar un semáforo es hacer una afirmación sobre el negocio, y esa afirmación todavía no se habilitó.
 
@@ -133,14 +133,14 @@ no se puede usar.
 
 - ⚠️ El payload del Workflow de GHL (`PLAN_VERIFICACION.md` §5.2).
 - ⚠️ La semántica de los campos de VTurb, que su spec no describe (§6.2).
-- ⚠️ Que el LTV de OTC coincida con el que el cliente ya usa (§8) — si no, la definición de M32 o M33 está mal elegida.
+- ⚠️ Que el LTV de Limitless coincida con el que el cliente ya usa (§8) — si no, la definición de M32 o M33 está mal elegida.
 
 ---
 
 
 ### [EMBUDOS-FUENTES] Plan de integraciones del módulo de Embudos
 
-**Qué es:** el mapa completo de las 34 medidas atómicas que pide el documento fuente, con su estado en OTC y el orden de construcción, está en **[`docs/FUNNELS_SOURCE_MAP.md`](./docs/FUNNELS_SOURCE_MAP.md)**. Leerlo antes de arrancar cualquier integración de embudos.
+**Qué es:** el mapa completo de las 34 medidas atómicas que pide el documento fuente, con su estado en Limitless y el orden de construcción, está en **[`docs/FUNNELS_SOURCE_MAP.md`](./docs/FUNNELS_SOURCE_MAP.md)**. Leerlo antes de arrancar cualquier integración de embudos.
 
 **Estado actual (2026-08-30):** ✅ **las diez unidades están construidas.** Lo que falta no es código, son **cuentas reales** — ver `docs/PLAN_VERIFICACION.md` §11. La única medida del documento que quedó como imposible es **M16** (clicks al CTA durante un webinar en vivo): la API de WebinarJam no la expone.
 
@@ -151,7 +151,7 @@ no se puede usar.
 
 **Verificación:** nada se prueba contra cuentas reales hasta terminar todas las olas — ver [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md).
 
-**Documentación de las APIs:** ✅ **los seis proveedores están capturados** en [`docs/external-apis/`](./docs/external-apis/) — GoHighLevel, VTurb, Whop, Commas (ex Fanbasis), Hyros y WebinarJam. Cada uno tiene un `RESUMEN-OTC.md` que responde las preguntas que estaban abiertas en `docs/API_DOCS_PENDIENTES.md`. Se refresca con `docs/external-apis/tools/regenerar.sh`. **Leer el resumen del proveedor antes de construir o corregir su unidad.**
+**Documentación de las APIs:** ✅ **los seis proveedores están capturados** en [`docs/external-apis/`](./docs/external-apis/) — GoHighLevel, VTurb, Whop, Commas (ex Fanbasis), Hyros y WebinarJam. Cada uno tiene un `RESUMEN-LIMITLESS.md` que responde las preguntas que estaban abiertas en `docs/API_DOCS_PENDIENTES.md`. Se refresca con `docs/external-apis/tools/regenerar.sh`. **Leer el resumen del proveedor antes de construir o corregir su unidad.**
 
 **Decisiones cerradas:** VSL en VTurb (tiene API pública) · todos los clientes pagan Hyros · landings en Vercel, así que los opt-ins salen de Hyros e I-7 desaparece · clientes repartidos en partes iguales entre los tres embudos. **No queda ninguna pregunta abierta en el plan.**
 
@@ -160,7 +160,7 @@ no se puede usar.
 
 ### [EMBUDOS-GHL-ENTREGA] Cerrar cómo llegan los webhooks de oportunidades de GHL
 
-**Qué es:** I-4 está construido, pero la pregunta que decide si funciona sigue abierta. Los webhooks de plataforma de GHL **se configuran dentro de una app del Marketplace**, que OTC no tiene aprobada (`[FEAT-GHL-OAUTH]`). El endpoint acepta por eso dos vías: la firma Ed25519 de la plataforma, y un **secreto compartido por organización** para eventos entregados desde una acción "Webhook" de un Workflow de la sub-cuenta.
+**Qué es:** I-4 está construido, pero la pregunta que decide si funciona sigue abierta. Los webhooks de plataforma de GHL **se configuran dentro de una app del Marketplace**, que Limitless no tiene aprobada (`[FEAT-GHL-OAUTH]`). El endpoint acepta por eso dos vías: la firma Ed25519 de la plataforma, y un **secreto compartido por organización** para eventos entregados desde una acción "Webhook" de un Workflow de la sub-cuenta.
 
 **Lo que hay que verificar, y es lo único que importa:** que un Workflow de GHL pueda mandar **`pipelineStageId`** en el cuerpo del webhook. Si no pudiera, esa vía sólo serviría para altas (M21) y M22, M23 y M25 quedarían atadas a la aprobación del Marketplace.
 
@@ -184,7 +184,7 @@ no se puede usar.
 
 **Qué es:** VTurb permite marcar en qué segundo del video está la oferta (`pitch_time`). Con eso configurado, la medida **"llegaron al CTA"** del embudo VSL sale directo y sin cálculos.
 
-**Sin eso, esa medida no se puede mostrar.** VTurb devuelve `pitch_time = 0` para los videos que no lo tienen, y su contador pasa a incluir a todo el que abrió el video — un número que parece la métrica correcta y no lo es. OTC lo detecta y muestra "sin datos" en vez de ese número.
+**Sin eso, esa medida no se puede mostrar.** VTurb devuelve `pitch_time = 0` para los videos que no lo tienen, y su contador pasa a incluir a todo el que abrió el video — un número que parece la métrica correcta y no lo es. Limitless lo detecta y muestra "sin datos" en vez de ese número.
 
 **Acción:** entrar a cada player en VTurb y configurarle el pitch time. El panel de Integraciones dice cuántos videos están sin configurar.
 
@@ -222,7 +222,7 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 ### [EMBUDOS-GHL-PIPELINE] Sync de oportunidades/pipelines de GHL
 
-**Qué es:** la sección 05 del documento fuente le asigna al **GHL pipeline** los "Stage counts, set/close, follow-up" — o sea, los conteos por etapa del embudo DM. La integración GHL de OTC consume `/calendars` y `/contacts`, pero no `/opportunities` ni `/pipelines`.
+**Qué es:** la sección 05 del documento fuente le asigna al **GHL pipeline** los "Stage counts, set/close, follow-up" — o sea, los conteos por etapa del embudo DM. La integración GHL de Limitless consume `/calendars` y `/contacts`, pero no `/opportunities` ni `/pipelines`.
 
 **Efecto:** el embudo DM no se puede medir según el estándar hasta que exista. Contra lo que se asumió en la Fase 1, el DM **no** era construible end-to-end.
 
@@ -347,16 +347,16 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 **Decisión abierta:** qué proveedor de hosting de video se soporta para el VSL (Wistia, Vimeo, YouTube, player propio). Cada uno tiene un modelo de analytics distinto — hay que resolverlo antes de escribir el binding de la etapa Engaged.
 
-**Nota:** Whop / Fanbasis del documento quedan cubiertos por los equivalentes que OTC ya tiene (Stripe + Mercado Pago). No bloquean.
+**Nota:** Whop / Fanbasis del documento quedan cubiertos por los equivalentes que Limitless ya tiene (Stripe + Mercado Pago). No bloquean.
 
 ---
 
 ### [FEAT-GHL-OAUTH] GHL OAuth / Marketplace App — migrar de Private Integration Token a OAuth
 
-**Qué es:** Cuando OTC sea aprobado como app en el GHL Marketplace, reemplazar el flujo de Private Integration Token por OAuth estándar ("Connect with GHL"). El proceso de aprobación de GHL es lento.
+**Qué es:** Cuando Limitless sea aprobado como app en el GHL Marketplace, reemplazar el flujo de Private Integration Token por OAuth estándar ("Connect with GHL"). El proceso de aprobación de GHL es lento.
 **Estado actual:** Integración funcional con Private Integration Token. El usuario pega el token + Location ID manualmente.
 **Pendiente:**
-1. Registrar OTC como app en GHL Marketplace (proceso manual de Santiago)
+1. Registrar Limitless como app en GHL Marketplace (proceso manual de Santiago)
 2. Agregar `GHL_CLIENT_ID` y `GHL_CLIENT_SECRET` a env vars
 3. Implementar `/api/integrations/ghl/oauth/start` → `/api/integrations/ghl/oauth/callback`
 4. Reemplazar StepCredentials en `ghl-connect-dialog.tsx` por botón "Conectar con GHL"
@@ -386,7 +386,7 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 **Preguntas a resolver antes de implementar:**
 - ¿Zernio soporta publicación de historias? ¿Individual o en lote?
 - ¿Qué tipo de contenido va en cada historia (video, imagen, texto)?
-- ¿El founder define la secuencia en OTC o en Zernio?
+- ¿El founder define la secuencia en Limitless o en Zernio?
 - ¿Hay delay entre historias de la misma secuencia?
 - ¿Cómo se integra con el módulo de Marketing/Contenido existente?
 
@@ -474,6 +474,36 @@ de producto, no un bug.
 
 ---
 
+### [REBRAND-EXTERNO] Renombrar lo que vive fuera del repositorio 🟡
+
+**Qué es:** el código y la documentación ya no dicen "OTC". Lo que sigue
+diciéndolo son **nombres registrados en servicios externos**, que renombrar acá
+no cambia allá — y que en varios casos rompen algo si se cambian sin coordinar:
+
+| Dónde | Nombre actual | Qué pasa si se renombra |
+|---|---|---|
+| Vercel | proyecto `otc-plaform` (con el typo) | Cambia la URL de preview; hay un fallback hardcodeado en `welcome-email.ts` |
+| Supabase | proyecto `OTC` | Sólo cosmético; el `project-ref` no cambia |
+| Fly.io | app `otc-reel-worker` | Cambia la URL del worker → actualizar `REEL_WORKER_URL` |
+| Railway | servicio `otc-discord-bot` | Sólo cosmético |
+| Meta | verify token `otc_instagram_webhook_2024` | **Rompe el webhook de Instagram** hasta actualizarlo en el panel de Meta |
+| Supabase (datos) | holding sembrado `'OTC Portfolio'` | Es una fila real; requiere una migración nueva, no editar la vieja |
+
+**Variables de entorno:** `OTC_WEBHOOK_SECRET` y `OTC_API_URL` pasaron a
+`LIMITLESS_WEBHOOK_SECRET` y `LIMITLESS_API_URL`. **El código lee las dos**, así
+que nada se cae hasta que se actualicen en Vercel y en Railway. Una vez
+actualizadas, borrar el respaldo de `lib/discord/webhook-auth.ts`,
+`apps/discord-bot/src/lib/limitless-api.ts` y `turbo.json`.
+
+**Cookie:** `otc_active_org` pasó a `limitless_active_org`, y la vieja se sigue
+leyendo. Se puede borrar el respaldo de `lib/holding/constants.ts` después de
+24 h de la primera publicación (es lo que dura la cookie).
+
+**Migraciones aplicadas:** no se tocaron. Editar una migración ya ejecutada no
+cambia nada en la base y rompe la verificación de la CLI de Supabase.
+
+---
+
 ### [BRAND-B] Licenciar Neue Haas Grotesk
 
 **Qué es:** el manual (sección 07) pide Neue Haas Grotesk para títulos. Es de licencia
@@ -513,8 +543,12 @@ referencias sueltas fuera de ese campo:
 - `app/(landing)/privacidad/page.tsx` — `CONTACT_EMAIL` y `APP_URL`
 - `mocks/utm-links.ts`
 - `lib/email/welcome-email.ts` — fallback `https://otc-plaform.vercel.app` (con el typo del original)
-- `app/api/queue/publish-reel-variation/route.ts` — fallback `https://app.otc.com`
 - `components/super-admin/infrastructure-page.tsx` — hostname de Vercel
+
+~~`app/api/queue/publish-reel-variation/route.ts` — fallback `https://app.otc.com`~~
+**Corregido el 2026-09-08:** ese dominio no existe, así que el mail de aviso de
+Trial Reels salía con links rotos cuando faltaba `NEXT_PUBLIC_APP_URL`. Ahora cae
+en `brand.domain`.
 
 **Acción:** al definir el dominio de Limitless, migrar DNS y actualizar estas
 referencias + `brand.domain`.
@@ -643,8 +677,8 @@ a `apidocs.fan` en vez de a la documentación vigente de Commas. Corregido.
 | 2026-08-30 | EMBUDOS-I5: integración WebinarJam / EverWebinar — registrantes persistidos por fila (la API no acepta rangos de fecha arbitrarios), stick rate pedido filtrado al servidor, segundo de la oferta configurable. M16 documentado como no medible. 364 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I6: integración VTurb — caché por período (engagement_rate es un promedio y no se puede sumar entre días), M12 sólo cuando el player tiene pitch time, catálogo de videos y selector en el formulario de fuentes. 351 tests en verde | `Claude-New-Features` |
 | 2026-08-30 | EMBUDOS-I4: oportunidades de GHL — historial propio de transiciones de etapa (GHL no lo expone), período ciego explícito, webhook con dos vías de autenticación, tres fuentes de embudo con etapa configurable. 331 tests en verde | `Claude-New-Features` |
-| 2026-08-30 | DOC-EXTERNAL-APIS-2: Whop (897 páginas + 3 specs OpenAPI), Commas ex Fanbasis (42 secciones), Hyros (482 guías + 3 specs) y WebinarJam (17 artículos) bajados a `docs/external-apis/`, con un `RESUMEN-OTC.md` por proveedor. Cierra las seis secciones de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |
-| 2026-08-30 | DOC-EXTERNAL-APIS: documentación completa de GoHighLevel (948 páginas) y VTurb (28 endpoints + `openapi.json`) bajada a `docs/external-apis/`, con scripts de regeneración y dos `RESUMEN-OTC.md` que cierran §3 y §4 de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |
+| 2026-08-30 | DOC-EXTERNAL-APIS-2: Whop (897 páginas + 3 specs OpenAPI), Commas ex Fanbasis (42 secciones), Hyros (482 guías + 3 specs) y WebinarJam (17 artículos) bajados a `docs/external-apis/`, con un `RESUMEN-LIMITLESS.md` por proveedor. Cierra las seis secciones de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |
+| 2026-08-30 | DOC-EXTERNAL-APIS: documentación completa de GoHighLevel (948 páginas) y VTurb (28 endpoints + `openapi.json`) bajada a `docs/external-apis/`, con scripts de regeneración y dos `RESUMEN-LIMITLESS.md` que cierran §3 y §4 de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |
 | 2026-08-26 | FEAT-GHL-MULTI-CALENDAR: multi-selección de calendarios GHL + filtro en closing panel | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-26 | UI-CLEANUP: Eliminación botón flotante del agente (FloatingChat) + fix layout integrations page (min-w-0) | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FEAT-PLANES-CUOTAS-CLIENTES: planes con sistemas de cuotas, eliminar clientes, asignar plan, closing con cuotas manuales — migración SQL pendiente de aplicar en Supabase | `claude/ghl-integration-data-loading-9cd72n` |
@@ -652,7 +686,7 @@ a `apidocs.fan` en vez de a la documentación vigente de Commas. Corregido.
 | 2026-08-25 | FIX-BASELINE-GAPS: Baseline fallback en Intelligence module (collect-context.ts) y monthlySeries (finance-data-provider) — cierran los dos últimos vacíos de la arquitectura baseline | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FEAT-BASELINE-ARCHITECTURE: Arquitectura baseline escalable — baseline-service.ts, finance-data-provider fallback, Dashboard, Finance metrics, agente IA, data_source column en metrics_snapshots | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FEAT-METRICS-DERIVE: Auto-derivación de métricas combinadas al importar — deriveSalesMetrics (close_rate, show_rate, tasa_agendamiento, tasa_fantasma, inasistencias, no_cierres) y deriveFinanceMetrics (margen, pct_margen); mapper de filas reducido a solo métricas primarias (11 ventas, 4 finanzas) | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-25 | FEAT-EXCEL-TRANSPOSED-ROW-MAPPER: Mapeo manual de filas en formato pivot — TransposedRowMapper con dropdowns por campo OTC, auto-sugerencia desde diccionario, rowMapping pasado al parser, texto de confirm corregido (upsert) | `claude/ghl-integration-data-loading-9cd72n` |
+| 2026-08-25 | FEAT-EXCEL-TRANSPOSED-ROW-MAPPER: Mapeo manual de filas en formato pivot — TransposedRowMapper con dropdowns por campo Limitless, auto-sugerencia desde diccionario, rowMapping pasado al parser, texto de confirm corregido (upsert) | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FEAT-EXCEL-PIVOT: Soporte formato pivot en importación de métricas — auto-detección de meses como columnas, parser transpuesto, banner "Formato tabla detectado", fix preview para archivos con título merged (resuelve __EMPTY) | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FIX-EXCEL-PREVIEW: getExcelPreviewAction ahora usa { header: 1 } y salta filas de título — fix para archivos con celdas merged/título en la primera fila | `claude/ghl-integration-data-loading-9cd72n` |
 | 2026-08-25 | FIX-VERCEL-BUILD x4: prefer-const, unused imports/props, SectionDef[] filter inference, keyof Union type — 4 errores de build de Vercel corregidos en serie | `claude/ghl-integration-data-loading-9cd72n` |

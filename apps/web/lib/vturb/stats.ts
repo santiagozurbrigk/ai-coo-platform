@@ -94,7 +94,7 @@ export async function getVTurbPeriodMeasures(
   playerId: string,
   startDate: string,
   endDate: string,
-  /** Segundo del CTA configurado en OTC, para players sin `pitch_time` en VTurb. */
+  /** Segundo del CTA configurado en Limitless, para players sin `pitch_time` en VTurb. */
   configuredPitchTime?: number | null
 ): Promise<VTurbPeriodResult> {
   const admin = createAdminClient();
@@ -114,7 +114,7 @@ export async function getVTurbPeriodMeasures(
     return emptyResult(playerId, "El player no está sincronizado todavía");
   }
 
-  // El de VTurb manda; el configurado en OTC es el respaldo para los players que
+  // El de VTurb manda; el configurado en Limitless es el respaldo para los players que
   // no lo tienen puesto.
   const pitchTime = player.pitch_time && player.pitch_time > 0
     ? player.pitch_time

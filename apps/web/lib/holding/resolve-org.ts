@@ -1,5 +1,5 @@
 import { headers, cookies } from "next/headers";
-import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
+import { readActiveOrgCookie } from "@/lib/holding/constants";
 import { verifyHoldingBusinessAccess } from "@/lib/holding/switch-org";
 
 type OrgAccountType = { account_type?: string };
@@ -28,7 +28,7 @@ export async function resolveEffectiveOrganizationId(
   }
 
   const cookieStore = await cookies();
-  const fromCookie = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
+  const fromCookie = readActiveOrgCookie(cookieStore);
   if (
     fromCookie &&
     (await verifyHoldingBusinessAccess(holdingOrgId, fromCookie))

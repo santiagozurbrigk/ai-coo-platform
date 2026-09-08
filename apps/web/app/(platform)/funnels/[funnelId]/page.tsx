@@ -176,7 +176,7 @@ export default async function FunnelDetailPage({
                     ? "Falta elegir un parámetro de la fuente (la etapa del CRM, el video o el webinar). "
                     : ""}
                   {brokenSteps.some((s) => s.nullReason === "outside_history")
-                    ? "El período pedido empieza antes de que OTC tuviera historial de esa fuente: los conteos anteriores no existen, no son cero."
+                    ? "El período pedido empieza antes de que Limitless tuviera historial de esa fuente: los conteos anteriores no existen, no son cero."
                     : ""}
                 </p>
               </div>

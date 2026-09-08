@@ -21,7 +21,7 @@ import {
   type ClickUpPreviewRow,
 } from "@/app/integrations/clickup/import-actions";
 import type { ClickUpWorkspace, ClickUpList } from "@/lib/clickup/client";
-import { OTC_FIELDS, type FieldMapping, type OtcClientField } from "@/lib/clickup/field-mapper";
+import { CLIENT_FIELDS, type FieldMapping, type ClientField } from "@/lib/clickup/field-mapper";
 import { useToast } from "@/providers/toast-provider";
 import { usePlatformData } from "@/providers";
 import { brand } from "@/lib/brand";
@@ -132,11 +132,11 @@ export function ClickUpImportWizard({ open, onOpenChange }: ClickUpImportWizardP
     });
   };
 
-  const updateMapping = (clickupField: string, otcField: OtcClientField | "") => {
+  const updateMapping = (clickupField: string, clientField: ClientField | "") => {
     setMapping((prev) =>
       prev.map((m) =>
         m.clickupField === clickupField
-          ? { ...m, otcField: otcField === "" ? null : (otcField as OtcClientField) }
+          ? { ...m, clientField: clientField === "" ? null : (clientField as ClientField) }
           : m
       )
     );
@@ -270,11 +270,11 @@ export function ClickUpImportWizard({ open, onOpenChange }: ClickUpImportWizardP
                           <span className="w-[45%] shrink-0 truncate text-xs text-foreground font-medium">{f.name}</span>
                           <select
                             className={`${SELECT_CLS} min-w-0 flex-1 text-xs py-1`}
-                            value={m?.otcField ?? ""}
-                            onChange={(e) => updateMapping(f.name, e.target.value as OtcClientField | "")}
+                            value={m?.clientField ?? ""}
+                            onChange={(e) => updateMapping(f.name, e.target.value as ClientField | "")}
                           >
                             <option value="">— omitir —</option>
-                            {OTC_FIELDS.map((of) => (
+                            {CLIENT_FIELDS.map((of) => (
                               <option key={of.key} value={of.key}>{of.label}{of.required ? " *" : ""}</option>
                             ))}
                           </select>
@@ -324,7 +324,7 @@ export function ClickUpImportWizard({ open, onOpenChange }: ClickUpImportWizardP
                 </Button>
                 <Button
                   onClick={handleImport}
-                  disabled={isPending || !selectedList || !mapping.some((m) => m.otcField === "name")}
+                  disabled={isPending || !selectedList || !mapping.some((m) => m.clientField === "name")}
                 >
                   {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
                   {isPending ? "Importando…" : `Importar ${totalTasks} clientes`}

@@ -1,7 +1,7 @@
 /**
  * Invitados de una reunión de Fathom.
  *
- * ⭐ **Por qué importa.** OTC decidía qué era una llamada leyendo el título, y el
+ * ⭐ **Por qué importa.** Limitless decidía qué era una llamada leyendo el título, y el
  * 86% de los títulos reales son `"Impromptu Google Meet Meeting"`. La API viene
  * devolviendo desde siempre algo mucho mejor y el parser lo tiraba:
  * `calendar_invitees`, con el **mail** de cada invitado y si es **externo**.

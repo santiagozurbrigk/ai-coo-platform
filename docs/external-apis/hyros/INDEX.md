@@ -4,7 +4,7 @@ Capturada el **2026-08-30**. Son dos fuentes distintas, y conviene no confundirl
 
 | Archivo | Qué es | Fuente |
 | --- | --- | --- |
-| [`RESUMEN-OTC.md`](./RESUMEN-OTC.md) | **Empezar por acá** — lo que OTC necesita para I-8, con las preguntas de `API_DOCS_PENDIENTES.md` §6 respondidas | — |
+| [`RESUMEN-LIMITLESS.md`](./RESUMEN-LIMITLESS.md) | **Empezar por acá** — lo que Limitless necesita para I-8, con las preguntas de `API_DOCS_PENDIENTES.md` §6 respondidas | — |
 | [`ENDPOINTS-rest-api.md`](./ENDPOINTS-rest-api.md) | **La referencia de la API.** Leads, journeys, ventas, órdenes, llamadas, atribución | `api-docs.hyros.com/ai-context/rest-api.txt` (OpenAPI 3.1) |
 | [`ENDPOINTS-webhooks.md`](./ENDPOINTS-webhooks.md) | Los 10 eventos salientes, con su esquema de firma HMAC | `.../webhooks.txt` |
 | [`ENDPOINTS-mcp.md`](./ENDPOINTS-mcp.md) | El servidor MCP de Hyros | `.../mcp.txt` |

@@ -64,7 +64,7 @@ export function isUsablePitchTime(pitchTime: number | null | undefined): boolean
  * retención.
  *
  * Es el camino alternativo para M12 cuando no hay `pitch_time` en VTurb pero sí
- * un segundo de CTA configurado del lado de OTC. La curva puede no traer el
+ * un segundo de CTA configurado del lado de Limitless. La curva puede no traer el
  * segundo exacto, así que se toma el **último punto en o antes** del segundo
  * buscado: es la última cantidad conocida de gente que seguía mirando.
  */

@@ -15,7 +15,7 @@
 ## Secrets solo server-side
 
 - `SUPABASE_SERVICE_ROLE_KEY` → `lib/supabase/admin.ts`
-- `OTC_WEBHOOK_SECRET` → rutas `/api/discord/*`
+- `LIMITLESS_WEBHOOK_SECRET` → rutas `/api/discord/*` (acepta `OTC_WEBHOOK_SECRET` como respaldo hasta migrar la config del host)
 - `CRON_SECRET` → crons y sync jobs
 - API keys de integraciones → `*_integrations` en DB, leídas con `createAdminClient()`
 

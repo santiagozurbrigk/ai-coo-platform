@@ -7,6 +7,7 @@ import {
   touchIntegrationEvent,
 } from "../lib/supabase";
 import { isTestimonial } from "./testimonial-handler";
+import { limitlessApiUrl, limitlessWebhookSecret } from "../lib/limitless-api";
 
 export async function processMessage(message: Message) {
   if (message.author.bot) return;
@@ -73,11 +74,11 @@ async function notifyTestimonial(data: {
   channelName: string;
 }) {
   try {
-    await fetch(`${process.env.OTC_API_URL}/api/discord/testimonial`, {
+    await fetch(`${limitlessApiUrl()}/api/discord/testimonial`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OTC_WEBHOOK_SECRET}`,
+        Authorization: `Bearer ${limitlessWebhookSecret()}`,
       },
       body: JSON.stringify(data),
     });

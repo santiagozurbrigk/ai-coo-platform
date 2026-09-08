@@ -1,4 +1,4 @@
-# Fathom — lo que OTC necesita
+# Fathom — lo que Limitless necesita
 
 > Documentación bajada el **2026-09-01** desde `developers.fathom.ai`, en el
 > formato markdown que el sitio publica en [`llms.txt`](./llms.txt). 39 archivos.
@@ -10,11 +10,11 @@
 
 ## El hallazgo que cambia el diseño del módulo de llamadas
 
-OTC clasifica las llamadas leyendo el **título**. El 86% de los títulos reales
+Limitless clasifica las llamadas leyendo el **título**. El 86% de los títulos reales
 son `"Impromptu Google Meet Meeting"`, así que la clasificación no tiene de dónde
 agarrarse y la asociación a cliente falla en el 100% de los casos.
 
-**La API ya devuelve lo que hace falta, y OTC lo está descartando.**
+**La API ya devuelve lo que hace falta, y Limitless lo está descartando.**
 `lib/fathom/api.ts` parsea sólo título, fechas y transcript; todo lo demás de la
 respuesta se tira.
 
@@ -53,7 +53,7 @@ improvisadas, que son las que no tienen tipo asignado.
 
 ## Endpoints
 
-| Método | Path | Uso en OTC |
+| Método | Path | Uso en Limitless |
 |---|---|---|
 | GET | `/meetings` | Sync principal. **Hoy se ignoran `calendar_invitees` y `meeting_type`.** |
 | GET | `/meeting_types` | Sin usar. Base del mapeo tipo → propósito de la Fase 1. |

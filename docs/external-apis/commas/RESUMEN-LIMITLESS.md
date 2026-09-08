@@ -1,4 +1,4 @@
-# Commas (ex Fanbasis) para OTC — verificación del mapeo de la unidad I-2
+# Commas (ex Fanbasis) para Limitless — verificación del mapeo de la unidad I-2
 
 Responde, una por una, las preguntas que
 [`docs/API_DOCS_PENDIENTES.md` §2](../../API_DOCS_PENDIENTES.md) dejó abiertas sobre
@@ -31,7 +31,7 @@ Fanbasis, y marca qué hay que **corregir en el código ya escrito**.
 
 ---
 
-## 1. Firma de webhooks — **resuelta, y la asunción de OTC acierta**
+## 1. Firma de webhooks — **resuelta, y la asunción de Limitless acierta**
 
 Era la pregunta más importante: sin esto la ruta rechaza todo.
 
@@ -48,7 +48,7 @@ const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex
 ```
 
 No hay timestamp en la firma, así que **no hay protección de replay del lado del
-proveedor** — la deduplicación por id de evento del lado de OTC es la única defensa.
+proveedor** — la deduplicación por id de evento del lado de Limitless es la única defensa.
 
 > ✅ `verify-signature.ts` ya probaba `x-webhook-signature` entre los nombres
 > candidatos, así que la cabecera es la correcta. Lo que hay que confirmar es el resto:

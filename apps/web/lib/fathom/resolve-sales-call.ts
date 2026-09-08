@@ -10,7 +10,7 @@ import {
 /**
  * Resuelve si una grabación de Fathom es una llamada de venta.
  *
- * ⭐ **OTC registra únicamente llamadas de venta.** Una grabación lo es cuando
+ * ⭐ **Limitless registra únicamente llamadas de venta.** Una grabación lo es cuando
  * el mail de alguno de sus participantes coincide con el del lead de un turno
  * agendado y el horario corresponde. Todo lo demás existe en `fathom_calls` pero
  * no entra al módulo de ventas — no es un error, es otra cosa.

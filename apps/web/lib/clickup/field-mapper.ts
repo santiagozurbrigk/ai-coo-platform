@@ -1,4 +1,4 @@
-export type OtcClientField =
+export type ClientField =
   | "name"
   | "email"
   | "nickname"
@@ -13,7 +13,7 @@ export type OtcClientField =
   | "offered_product"
   | "is_success_case";
 
-export const OTC_FIELDS: { key: OtcClientField; label: string; required?: boolean }[] = [
+export const CLIENT_FIELDS: { key: ClientField; label: string; required?: boolean }[] = [
   { key: "name", label: "Nombre", required: true },
   { key: "email", label: "Email" },
   { key: "nickname", label: "Apodo / Alias" },
@@ -29,7 +29,7 @@ export const OTC_FIELDS: { key: OtcClientField; label: string; required?: boolea
   { key: "is_success_case", label: "Caso de éxito" },
 ];
 
-const SYNONYMS: Record<OtcClientField, string[]> = {
+const SYNONYMS: Record<ClientField, string[]> = {
   name: ["nombre", "name", "cliente", "contact", "contacto", "lead", "fullname", "nombrecompleto"],
   email: ["email", "correo", "mail", "correoelectronico", "emailaddress"],
   nickname: ["apodo", "nickname", "alias", "nick", "sobrenombre"],
@@ -53,11 +53,11 @@ function normalize(str: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
-export function autoMapField(clickupFieldName: string): OtcClientField | null {
+export function autoMapField(clickupFieldName: string): ClientField | null {
   const norm = normalize(clickupFieldName);
-  for (const [otcField, synonyms] of Object.entries(SYNONYMS) as [OtcClientField, string[]][]) {
+  for (const [clientField, synonyms] of Object.entries(SYNONYMS) as [ClientField, string[]][]) {
     if (synonyms.some((s) => normalize(s) === norm || norm.includes(normalize(s)) || normalize(s).includes(norm))) {
-      return otcField;
+      return clientField;
     }
   }
   return null;
@@ -65,7 +65,7 @@ export function autoMapField(clickupFieldName: string): OtcClientField | null {
 
 export type FieldMapping = {
   clickupField: string; // ClickUp field name (task.name for "name", custom field name for others)
-  otcField: OtcClientField | null;
+  clientField: ClientField | null;
 };
 
 export type ClickUpFieldSource = {
@@ -76,6 +76,6 @@ export type ClickUpFieldSource = {
 export function buildAutoMapping(fields: ClickUpFieldSource[]): FieldMapping[] {
   return fields.map((f) => ({
     clickupField: f.name,
-    otcField: f.isBuiltin ? "name" : autoMapField(f.name),
+    clientField: f.isBuiltin ? "name" : autoMapField(f.name),
   }));
 }

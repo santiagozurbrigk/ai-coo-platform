@@ -223,7 +223,7 @@ export type ListRegistrantsOptions = {
  * Registrantes y asistentes, paginando.
  *
  * ⚠️ **No hay filtro por rango de fechas arbitrario.** `date_range` es una lista
- * de presets. El recorte al período del embudo lo hace OTC sobre `signup_date` y
+ * de presets. El recorte al período del embudo lo hace Limitless sobre `signup_date` y
  * las fechas de asistencia, que sí vienen por registrante.
  */
 export async function listWebinarJamRegistrants(

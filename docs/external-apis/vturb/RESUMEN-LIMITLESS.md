@@ -1,4 +1,4 @@
-# VTurb para OTC — lo que hace falta para la unidad I-6
+# VTurb para Limitless — lo que hace falta para la unidad I-6
 
 Responde, una por una, las preguntas que
 [`docs/API_DOCS_PENDIENTES.md` §4](../../API_DOCS_PENDIENTES.md) dejó abiertas.
@@ -26,7 +26,7 @@ respuesta es `401` ([ref](./pt/01-autenticacao-da-api.md)).
 > interno del servicio. **Mandar `v1`** y confirmarlo con la primera llamada real.
 
 La autenticación es **por cuenta (company), no por video**: un token ve todos los
-players de su company. Para OTC eso significa una API key por organización, guardada
+players de su company. Para Limitless eso significa una API key por organización, guardada
 cifrada como las demás integraciones.
 
 ---
@@ -98,11 +98,11 @@ Request: `player_id` y `video_duration` requeridos, más `start_date`, `end_date
 
    Además **`/players/list` devuelve el `pitch_time` configurado de cada player**
    (`0` si no tiene). Eso resuelve también la pregunta de "en qué segundo está el
-   CTA": no hay que configurarlo a mano en OTC, se lee de VTurb.
+   CTA": no hay que configurarlo a mano en Limitless, se lee de VTurb.
 
 Conviene calcular M12 por el camino 2 y usar la curva como verificación cruzada la
 primera vez. Si un player tiene `pitch_time = 0`, `total_over_pitch` no significa
-nada y hay que caer al camino 1 con un segundo de CTA configurado en OTC — o marcar
+nada y hay que caer al camino 1 con un segundo de CTA configurado en Limitless — o marcar
 la medida como no disponible, nunca como cero.
 
 Bonus para el mismo embudo:
@@ -133,7 +133,7 @@ Acepta filtros `start_date`/`end_date`, y **`name` + `name_match`**
 (`contains` por defecto, o `starts_with` / `ends_with` / `exact`). El filtro por
 nombre es case-insensitive y trata `%`, `_`, `\` y los corchetes como literales, así
 que **una convención de nombres tipo `[embudo_vsl_x]` en VTurb funciona como llave
-de vinculación** entre el player y la instancia de embudo en OTC. El valor buscado
+de vinculación** entre el player y la instancia de embudo en Limitless. El valor buscado
 tiene que tener entre 3 y 128 caracteres.
 
 Para atar un player a una instancia de embudo, entonces: guardar el `player_id` en
@@ -181,7 +181,7 @@ Las [release notes](./en/03-release-notes.md) documentan un bug que estuvo vivo 
   `/smart_autoplays/stats_by_player` ignoraban `end_date`** y devolvían datos desde
   `start_date` hasta "ahora", inflando los totales de cualquier ventana histórica
   corta. Ya está corregido, pero es un recordatorio de que **`end_date` es opcional
-  en varios endpoints y omitirlo cambia el significado del resultado**: OTC tiene que
+  en varios endpoints y omitirlo cambia el significado del resultado**: Limitless tiene que
   mandarlo siempre, explícito.
 - El límite superior es inclusivo al final del minuto: pasar `23:59:59` captura todo
   el día.

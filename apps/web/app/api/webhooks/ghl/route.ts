@@ -13,8 +13,8 @@ export const runtime = "nodejs";
  * Webhook de oportunidades de GoHighLevel — I-4 del plan de integraciones.
  *
  * Es la única fuente posible de M21, M22, M23 y M25: la API v3 no expone
- * historial de cambios de etapa, así que el historial lo construye OTC con
- * estos eventos (ver docs/external-apis/gohighlevel/RESUMEN-OTC.md §4).
+ * historial de cambios de etapa, así que el historial lo construye Limitless con
+ * estos eventos (ver docs/external-apis/gohighlevel/RESUMEN-LIMITLESS.md §4).
  *
  * ⭐ DOS VÍAS DE ENTREGA
  *
@@ -22,10 +22,10 @@ export const runtime = "nodejs";
  *    manda el `locationId` en el payload, con el que se resuelve la org. No
  *    necesita nada en la URL:
  *      https://<app>/api/webhooks/ghl
- *    Requiere que OTC tenga app aprobada; hoy no la tiene.
+ *    Requiere que Limitless tenga app aprobada; hoy no la tiene.
  *
  * 2. **Workflow de la sub-cuenta** — el cliente agrega una acción "Webhook" en
- *    un Workflow de GHL apuntando a OTC. No hay firma de plataforma, así que se
+ *    un Workflow de GHL apuntando a Limitless. No hay firma de plataforma, así que se
  *    autentica con un secreto por organización:
  *      https://<app>/api/webhooks/ghl?organizationId=<uuid>&secret=<secreto>
  *    Es la vía que funciona hoy, sin depender de la aprobación del Marketplace.

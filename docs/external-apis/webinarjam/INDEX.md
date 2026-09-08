@@ -8,7 +8,7 @@ salvo por el prefijo, así que las páginas de EverWebinar repiten las de Webina
 
 | Archivo | Qué es |
 | --- | --- |
-| [`RESUMEN-OTC.md`](./RESUMEN-OTC.md) | **Empezar por acá** — lo que OTC necesita para I-5, con las preguntas de `API_DOCS_PENDIENTES.md` §5 respondidas |
+| [`RESUMEN-LIMITLESS.md`](./RESUMEN-LIMITLESS.md) | **Empezar por acá** — lo que Limitless necesita para I-5, con las preguntas de `API_DOCS_PENDIENTES.md` §5 respondidas |
 
 ---
 

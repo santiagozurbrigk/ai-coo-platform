@@ -104,7 +104,7 @@ export default async function IntegrationsPage() {
       <div className="flex min-w-0 items-start justify-between gap-4">
         <PageHeader
           className="min-w-0"
-          description="Todo lo que OTC lee de afuera: qué está conectado, qué está trayendo datos y qué necesita atención"
+          description="Todo lo que Limitless lee de afuera: qué está conectado, qué está trayendo datos y qué necesita atención"
         />
         <Button
           asChild

@@ -5,7 +5,7 @@ import {
 } from "@/lib/auth/bootstrap";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
+import { readActiveOrgCookie } from "@/lib/holding/constants";
 
 export type HoldingBusinessRow = {
   id: string;
@@ -49,7 +49,7 @@ export async function getActiveOrgForHolding(
   holdingOrgId: string
 ): Promise<string> {
   const cookieStore = await cookies();
-  const activeOrg = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
+  const activeOrg = readActiveOrgCookie(cookieStore);
 
   if (activeOrg && (await verifyHoldingBusinessAccess(holdingOrgId, activeOrg))) {
     return activeOrg;

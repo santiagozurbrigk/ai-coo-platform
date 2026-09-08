@@ -7,6 +7,7 @@ import {
   getClientLink,
 } from "../lib/supabase";
 import { fuzzyMatchClients } from "../lib/fuzzy-match";
+import { limitlessApiUrl, limitlessWebhookSecret } from "../lib/limitless-api";
 
 export async function handleLinkCommand(message: Message) {
   const parts = message.content.trim().split(/\s+/);
@@ -15,7 +16,7 @@ export async function handleLinkCommand(message: Message) {
   if (!email || !email.includes("@")) {
     await message.reply(
       "Para vincular tu perfil escribí: **!vincular tu@email.com**\n" +
-        "Usá el mismo email con el que te inscribiste al programa."
+        "Usá el mismo email con el que te inscribiste al programa.",
     );
     return;
   }
@@ -33,7 +34,7 @@ export async function handleLinkCommand(message: Message) {
       (existingLink.clients as { name?: string } | null)?.name ?? "tu perfil";
     await message.reply(
       `Tu perfil ya está vinculado como **${clientName}**. ` +
-        `Si creés que hay un error, contactá al equipo.`
+        `Si creés que hay un error, contactá al equipo.`,
     );
     return;
   }
@@ -54,7 +55,7 @@ export async function handleLinkCommand(message: Message) {
 
     await message.reply(
       `Perfecto, **${clientByEmail.name}**! Tu perfil quedó vinculado correctamente. ` +
-        `A partir de ahora tengo acceso a tu historial y puedo darte seguimiento personalizado.`
+        `A partir de ahora tengo acceso a tu historial y puedo darte seguimiento personalizado.`,
     );
     return;
   }
@@ -77,14 +78,14 @@ export async function handleLinkCommand(message: Message) {
     await message.reply(
       `Hola **${matches[0].client.name}**! Te vinculé por nombre. ` +
         `Si el email que pusiste no estaba en el sistema, ` +
-        `contactá al equipo para actualizarlo.`
+        `contactá al equipo para actualizarlo.`,
     );
     return;
   }
 
   await message.reply(
     `No encontré tu perfil con ese email. ` +
-      `Contactá al equipo para que te vinculen manualmente.`
+      `Contactá al equipo para que te vinculen manualmente.`,
   );
 
   await notifyPendingLink({
@@ -108,11 +109,11 @@ async function notifyPendingLink(data: {
   channelName: string;
 }) {
   try {
-    await fetch(`${process.env.OTC_API_URL}/api/discord/pending-link`, {
+    await fetch(`${limitlessApiUrl()}/api/discord/pending-link`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OTC_WEBHOOK_SECRET}`,
+        Authorization: `Bearer ${limitlessWebhookSecret()}`,
       },
       body: JSON.stringify(data),
     });

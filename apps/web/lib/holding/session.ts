@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { loadProfileOrganizationContext } from "@/lib/auth/bootstrap";
-import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
+import { readActiveOrgCookie } from "@/lib/holding/constants";
 import {
   getHoldingBusinesses,
   type HoldingBusinessRow,
@@ -39,7 +39,7 @@ export async function getHoldingSessionState(): Promise<HoldingSessionState> {
   const holdingOrgId = organizationId;
   const businesses = await getHoldingBusinesses(holdingOrgId);
   const cookieStore = await cookies();
-  const cookieOrg = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
+  const cookieOrg = readActiveOrgCookie(cookieStore);
 
   let activeOrgId = holdingOrgId;
   let viewingBusiness = false;

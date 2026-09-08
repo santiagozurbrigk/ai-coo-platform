@@ -42,9 +42,9 @@ desarrollo remoto: la política de red los bloqueaba a todos. Verificado el
 >
 > Leerla corrigió un supuesto del plan del módulo de llamadas: `GET /meetings`
 > devuelve **`calendar_invitees[]` con email, dominio e `is_external`**, y un
-> campo **`meeting_type`** configurable por organización. OTC descarta los dos.
+> campo **`meeting_type`** configurable por organización. Limitless descarta los dos.
 > El detalle está en
-> [`fathom/RESUMEN-OTC.md`](./external-apis/fathom/RESUMEN-OTC.md).
+> [`fathom/RESUMEN-LIMITLESS.md`](./external-apis/fathom/RESUMEN-LIMITLESS.md).
 
 Eso no impide construir, pero cambia **cómo** hay que construir. El patrón que se
 sigue en todas estas integraciones:
@@ -66,19 +66,19 @@ que se escribió a ciegas, y verificar contra cuentas reales.
 
 | Proveedor | Unidad | Estado del código | Documentación | Qué falta |
 |---|---|---|---|---|
-| **Whop** | I-2 | Construido a ciegas | ✅ [resumen](./external-apis/whop/RESUMEN-OTC.md) | 🔧 **Corregir el campo de monto** — ver §1 |
-| **Commas** (ex Fanbasis) | I-2 | Construido a ciegas | ✅ [resumen](./external-apis/commas/RESUMEN-OTC.md) | 🔧 Confirmar firma y payloads — ver §2 |
-| **GHL opportunities** | I-4 | Sin empezar | ✅ [resumen](./external-apis/gohighlevel/RESUMEN-OTC.md) | Construir, sabiendo que **no hay historial de etapas** |
-| **VTurb** | I-6 | Sin empezar | ✅ [resumen](./external-apis/vturb/RESUMEN-OTC.md) | Construir |
-| **WebinarJam / EverWebinar** | I-5 | Sin empezar | ✅ [resumen](./external-apis/webinarjam/RESUMEN-OTC.md) | **Pedir la API key** (requiere aprobación) y construir |
-| **Hyros** | I-8 | Sin empezar | ✅ [resumen](./external-apis/hyros/RESUMEN-OTC.md) | Construir |
+| **Whop** | I-2 | Construido a ciegas | ✅ [resumen](./external-apis/whop/RESUMEN-LIMITLESS.md) | 🔧 **Corregir el campo de monto** — ver §1 |
+| **Commas** (ex Fanbasis) | I-2 | Construido a ciegas | ✅ [resumen](./external-apis/commas/RESUMEN-LIMITLESS.md) | 🔧 Confirmar firma y payloads — ver §2 |
+| **GHL opportunities** | I-4 | Sin empezar | ✅ [resumen](./external-apis/gohighlevel/RESUMEN-LIMITLESS.md) | Construir, sabiendo que **no hay historial de etapas** |
+| **VTurb** | I-6 | Sin empezar | ✅ [resumen](./external-apis/vturb/RESUMEN-LIMITLESS.md) | Construir |
+| **WebinarJam / EverWebinar** | I-5 | Sin empezar | ✅ [resumen](./external-apis/webinarjam/RESUMEN-LIMITLESS.md) | **Pedir la API key** (requiere aprobación) y construir |
+| **Hyros** | I-8 | Sin empezar | ✅ [resumen](./external-apis/hyros/RESUMEN-LIMITLESS.md) | Construir |
 
 ---
 
 ## 1. Whop y Commas — unidad I-2 · ✅ CORREGIDO 2026-08-30
 
-Detalle completo en [`whop/RESUMEN-OTC.md`](./external-apis/whop/RESUMEN-OTC.md) y
-[`commas/RESUMEN-OTC.md`](./external-apis/commas/RESUMEN-OTC.md).
+Detalle completo en [`whop/RESUMEN-LIMITLESS.md`](./external-apis/whop/RESUMEN-LIMITLESS.md) y
+[`commas/RESUMEN-LIMITLESS.md`](./external-apis/commas/RESUMEN-LIMITLESS.md).
 
 **Fanbasis se llama Commas.** El rebranding cambió la marca y la documentación, no
 los hosts: el API se sigue sirviendo desde `www.fanbasis.com`, así que el id de
@@ -129,7 +129,7 @@ Queda sin construir: la API key ya se guarda en la UI de conexión pero todavía
 | Dato | Valor |
 |---|---|
 | Base URL | `https://services.leadconnectorhq.com` |
-| Auth | `Authorization: Bearer <token>` — el Private Integration Token que OTC ya usa |
+| Auth | `Authorization: Bearer <token>` — el Private Integration Token que Limitless ya usa |
 | Header obligatorio | `Version: 2021-07-28` (los endpoints de opportunities documentan `Version: v3`) |
 | Scopes | `opportunities.readonly`, `opportunities.write` |
 
@@ -164,7 +164,7 @@ Hay además `OpportunityCreate`, `OpportunityStatusUpdate`, `OpportunityMonetary
 `OpportunityUpdate` y `OpportunityDelete`.
 
 **Consecuencia para I-4:** el documento fuente pide conteos por etapa **en un
-período**, así que OTC tiene que **persistir los eventos de cambio de etapa** en
+período**, así que Limitless tiene que **persistir los eventos de cambio de etapa** en
 una tabla propia y armar la serie desde ahí. Con sólo el REST, una oportunidad que
 pasó por Lead → Engaged → Intent dentro del período se contaría una sola vez, en la
 etapa donde quedó.
@@ -184,9 +184,9 @@ nombres de campo que el primer response real resuelve.
 **a) El payload del webhook entregado por un Workflow de GHL.**
 
 El problema de fondo: **los webhooks de plataforma se configuran dentro de una app
-del Marketplace**, que OTC todavía no tiene aprobada (`[FEAT-GHL-OAUTH]`). La vía
+del Marketplace**, que Limitless todavía no tiene aprobada (`[FEAT-GHL-OAUTH]`). La vía
 que funciona hoy sin esa app es que el cliente agregue una acción "Webhook" en un
-Workflow de su sub-cuenta apuntando a OTC.
+Workflow de su sub-cuenta apuntando a Limitless.
 
 Esa vía **no está documentada**: el payload lo arma quien configura el workflow, y
 la guía de webhooks del Marketplace no la cubre. Lo que se asumió:
@@ -289,7 +289,7 @@ declara arrays pelados; el cliente acepta también un envelope (`{ players: [] }
 [`docs/external-apis/webinarjam/`](./external-apis/webinarjam/) (17 artículos).
 
 **Leer antes de arrancar I-5:**
-[`external-apis/webinarjam/RESUMEN-OTC.md`](./external-apis/webinarjam/RESUMEN-OTC.md).
+[`external-apis/webinarjam/RESUMEN-LIMITLESS.md`](./external-apis/webinarjam/RESUMEN-LIMITLESS.md).
 
 ### Las seis preguntas, respondidas
 
@@ -344,7 +344,7 @@ vigentes (REST v1.40, webhooks, MCP), el documento viejo de Apiary (v1.37) y las
 **482 guías** de docs.hyros.com.
 
 **Leer antes de arrancar I-8:**
-[`external-apis/hyros/RESUMEN-OTC.md`](./external-apis/hyros/RESUMEN-OTC.md).
+[`external-apis/hyros/RESUMEN-LIMITLESS.md`](./external-apis/hyros/RESUMEN-LIMITLESS.md).
 
 ### Las seis preguntas, respondidas
 
@@ -364,7 +364,7 @@ vigentes (REST v1.40, webhooks, MCP), el documento viejo de Apiary (v1.37) y las
   Releer para confirmar devuelve datos viejos.
 - **Los parámetros desconocidos se ignoran en silencio** en casi todos los endpoints.
   La propia doc da el ejemplo: `GET /leads?email=...` (el parámetro es `emails`)
-  devuelve `200` con **la lista completa sin filtrar**. OTC tiene que validar su
+  devuelve `200` con **la lista completa sin filtrar**. Limitless tiene que validar su
   propio input.
 
 ---

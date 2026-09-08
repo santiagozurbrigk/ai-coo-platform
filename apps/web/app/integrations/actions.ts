@@ -186,7 +186,7 @@ export async function disconnectGHLIntegrationAction(): Promise<MutationResult> 
 
 // ─── Conteos ──────────────────────────────────────────────────────────────────
 //
-// Cuántas filas hay en OTC gracias a cada integración. Es la respuesta a "¿esto
+// Cuántas filas hay en Limitless gracias a cada integración. Es la respuesta a "¿esto
 // está trayendo algo?", que es distinta de "¿está conectado?": una integración
 // puede estar conectada y no haber traído nunca nada, y eso es exactamente lo
 // que hay que poder ver.

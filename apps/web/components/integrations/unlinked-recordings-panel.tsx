@@ -15,7 +15,7 @@ import { useToast } from "@/providers/toast-provider";
 /**
  * Grabaciones que no quedaron asociadas a ningún turno de venta.
  *
- * ⭐ **Que una grabación esté acá no significa que algo esté mal.** OTC registra
+ * ⭐ **Que una grabación esté acá no significa que algo esté mal.** Limitless registra
  * únicamente llamadas de venta; una reunión de equipo o una sesión con un
  * cliente aparece en esta lista porque no es una venta, y eso es correcto.
  *

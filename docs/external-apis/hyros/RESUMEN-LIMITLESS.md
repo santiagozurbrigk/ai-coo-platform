@@ -1,4 +1,4 @@
-# Hyros para OTC — lo que hace falta para la unidad I-8
+# Hyros para Limitless — lo que hace falta para la unidad I-8
 
 Responde, una por una, las preguntas que
 [`docs/API_DOCS_PENDIENTES.md` §6](../../API_DOCS_PENDIENTES.md) dejó abiertas.
@@ -23,7 +23,7 @@ Hyros publica en `api-docs.hyros.com/ai-context/`, no del documento viejo de Api
 > ⚠️ **Las escrituras son asíncronas.** Un `200` en un `POST`/`PUT`/`DELETE` significa
 > *recibido y validado*, no *aplicado*. Las creaciones se ven en ~10 segundos; las
 > actualizaciones y borrados tardan ~5 minutos, y más con carga. Los `GET` sí son
-> síncronos. Si OTC escribe y relee para confirmar, va a leer datos viejos.
+> síncronos. Si Limitless escribe y relee para confirmar, va a leer datos viejos.
 
 > ⚠️ **La validación de parámetros no es pareja.** Sólo un puñado de endpoints
 > (`/products`, `/carts`, `/custom-costs`, `/sources/{tag}`, `/tags/count`,
@@ -31,7 +31,7 @@ Hyros publica en `api-docs.hyros.com/ai-context/`, no del documento viejo de Api
 > **En todos los demás un parámetro mal escrito se ignora en silencio y la request
 > devuelve `200` con datos distintos a los que se pidieron.** La doc da el ejemplo:
 > `GET /api/v1.0/leads?email=...` no filtra nada — el parámetro es `emails` — y
-> devuelve la lista completa de leads. OTC tiene que validar su propio input.
+> devuelve la lista completa de leads. Limitless tiene que validar su propio input.
 
 ---
 
@@ -119,7 +119,7 @@ cada plataforma.
 Es decir: una fuente **no** es sólo una campaña. Es una entidad de Hyros que puede ser
 un anuncio pagado (con su plataforma y ad account), tráfico orgánico, o una fuente
 manual. El `tag` es su identificador estable — y es lo que hay que guardar del lado de
-OTC para el etiquetado `[Hyros]`.
+Limitless para el etiquetado `[Hyros]`.
 
 Complementos: `GET /api/v1.0/ads` (anuncios), `GET /api/v1.0/ad-accounts`,
 `GET /api/v1.0/keywords`, `POST /api/v1.0/sources` (crear una fuente manual),
@@ -190,9 +190,9 @@ resuelve deshabilita la suscripción** — hay que reactivarla a mano.
 
 Hyros expone un servidor MCP en `https://mcp.hyros.com/mcp`
 ([`ENDPOINTS-mcp.md`](./ENDPOINTS-mcp.md)). No reemplaza la API REST para la ingesta de
-OTC —la doc dice que la referencia de campos y de modelo de atribución sigue siendo la
+Limitless —la doc dice que la referencia de campos y de modelo de atribución sigue siendo la
 REST— pero es una vía razonable para que el **agente de negocio** consulte la cuenta
-del cliente sin que OTC tenga que replicar cada reporte.
+del cliente sin que Limitless tenga que replicar cada reporte.
 
 ---
 
@@ -206,5 +206,5 @@ Va al [`PLAN_VERIFICACION.md`](../../PLAN_VERIFICACION.md):
 3. **Qué combinación de `attributionModel` + `level` + `fields`** reproduce lo que el
    cliente ve en su dashboard de Hyros. Es la verificación que decide si M05 es
    confiable: el mismo período tiene que dar el mismo número.
-4. **Cuánto tarda de verdad la escritura asíncrona**, si OTC llega a escribir algo.
+4. **Cuánto tarda de verdad la escritura asíncrona**, si Limitless llega a escribir algo.
 5. **Si el plan del cliente incluye la API** — la doc no dice qué tier la habilita.

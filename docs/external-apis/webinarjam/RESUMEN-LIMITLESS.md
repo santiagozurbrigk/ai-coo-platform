@@ -1,4 +1,4 @@
-# WebinarJam / EverWebinar para OTC — lo que hace falta para la unidad I-5
+# WebinarJam / EverWebinar para Limitless — lo que hace falta para la unidad I-5
 
 Responde, una por una, las preguntas que
 [`docs/API_DOCS_PENDIENTES.md` §5](../../API_DOCS_PENDIENTES.md) dejó abiertas.
@@ -31,7 +31,7 @@ Son **la misma API con dos prefijos**: `/webinarjam/*` para webinars en vivo y
 respuesta son idénticos; sólo cambia el prefijo. Los artículos de EverWebinar repiten
 literalmente los de WebinarJam.
 
-Para OTC eso significa que **la integración se construye una vez** y el prefijo es un
+Para Limitless eso significa que **la integración se construye una vez** y el prefijo es un
 parámetro de configuración por instancia de embudo. No hay que averiguar cuál usa cada
 cliente antes de construir; sí hay que dejarlo elegible.
 
@@ -95,14 +95,14 @@ asistente — es lo único con lo que se puede calcular el stick rate"*.
 Hay **dos** formas, y conviene usar la segunda:
 
 1. **Por registrante**: `time_live` / `time_replay` traen el tiempo que estuvo en la
-   sala. Sirve para calcular la distribución completa del lado de OTC.
+   sala. Sirve para calcular la distribución completa del lado de Limitless.
 2. **Directo del servidor**: `attended_live=4` con
    `attended_live_timestamp = <segundo de la oferta>` devuelve exactamente
    *"los que asistieron y se fueron después de ese segundo"*. Eso **es** M15
    (`webinar_stayed_to_pitch`), sin tener que procesar la lista entera.
 
 El segundo del pitch no lo da la API — es una configuración de la instancia de embudo
-en OTC. (Contraste con VTurb, que sí publica el `pitch_time` de cada player.)
+en Limitless. (Contraste con VTurb, que sí publica el `pitch_time` de cada player.)
 
 ---
 
@@ -148,7 +148,7 @@ Un `schedule_id` puede referirse a **una serie entera** de webinars, y todas las
 sesiones de la serie comparten el mismo id. Para apuntar a una sesión concreta hay que
 usar el parámetro `date_range` (en `/registrants`) o el campo `date` (en `/register`).
 
-Consecuencia para OTC: **una instancia de embudo no se identifica sólo con
+Consecuencia para Limitless: **una instancia de embudo no se identifica sólo con
 `schedule_id`**. Hay que guardar `webinar_id` + `schedule_id` + la fecha de la sesión.
 
 ---

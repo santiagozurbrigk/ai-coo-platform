@@ -1,4 +1,4 @@
-# Whop para OTC — verificación del mapeo de la unidad I-2
+# Whop para Limitless — verificación del mapeo de la unidad I-2
 
 Responde, una por una, las preguntas que
 [`docs/API_DOCS_PENDIENTES.md` §1](../../API_DOCS_PENDIENTES.md) dejó abiertas sobre
@@ -23,7 +23,7 @@ Whop, y marca qué hay que **corregir en el código ya escrito**.
 ## 1. Tipos de evento de webhook — lista completa
 
 Están todos en [`developer/guides/webhooks.md`](./developer/guides/webhooks.md), con link
-al schema de cada payload. Los que le importan a la capa de pagos de OTC:
+al schema de cada payload. Los que le importan a la capa de pagos de Limitless:
 
 | Grupo | Eventos |
 |---|---|
@@ -37,7 +37,7 @@ al schema de cada payload. Los que le importan a la capa de pagos de OTC:
 Hay además eventos de accounts, cards, payouts, plans, products, shipments,
 transfers, entries, members y verificaciones — la tabla completa está en la guía.
 
-> ⚠️ **El patrón que asumió OTC no matchea.** `normalize.ts` detecta cobros con
+> ⚠️ **El patrón que asumió Limitless no matchea.** `normalize.ts` detecta cobros con
 > `/payment.*(succe|complet|paid)/i` y órdenes con
 > `/membership.*(went_valid|created|activat)/i`. Con los nombres reales:
 > `payment.succeeded` matchea, pero **`membership.created` no existe** — el evento de
@@ -63,7 +63,7 @@ Todo evento llega como un `POST` con este envelope:
 }
 ```
 
-- **El objeto va bajo `data`** — no bajo `object`. OTC acepta las dos, así que anda,
+- **El objeto va bajo `data`** — no bajo `object`. Limitless acepta las dos, así que anda,
   pero se puede simplificar.
 - **`account_id` sólo desde el pin `2026-08-14`.** Los webhooks anclados antes, y los
   que no tienen pin, reciben ese campo como **`company_id`**.
@@ -131,10 +131,10 @@ Dos consecuencias para `lib/payments/normalize.ts`:
 1. **La heurística de `_cents` no aplica a Whop.** No existe ninguna clave
    `*_cents` en sus payloads, así que la división por 100 no se dispara — bien. Pero
    conviene dejar la regla explícita por proveedor en vez de por sufijo, porque
-   **Commas sí manda centavos** (ver su `RESUMEN-OTC.md`). Los dos proveedores de la
+   **Commas sí manda centavos** (ver su `RESUMEN-LIMITLESS.md`). Los dos proveedores de la
    unidad I-2 usan convenciones opuestas.
 
-2. **Ninguna de las claves que busca OTC existe en el `Payment` de Whop.**
+2. **Ninguna de las claves que busca Limitless existe en el `Payment` de Whop.**
    `KEYS.amount` es `["amount", "amount_cents", "final_amount", "total",
    "total_amount", "subtotal", "settled_amount", "value"]`. De esas, en el payload real
    sólo aparecen **`total`** y **`subtotal`**, y ninguna de las dos es lo que se quiere:
@@ -151,13 +151,13 @@ Dos consecuencias para `lib/payments/normalize.ts`:
    - **M30 `refunds`** → `Refund.amount`, o `Payment.refunded_amount`
 
    Además `usd_total` da el total ya convertido a USD, que evita tener que resolver
-   tipos de cambio del lado de OTC.
+   tipos de cambio del lado de Limitless.
 
 ---
 
 ## 5. Backfill histórico — **sí se puede**
 
-Era la duda de fondo: hoy OTC sólo recibe webhooks, así que no tiene historia previa a
+Era la duda de fondo: hoy Limitless sólo recibe webhooks, así que no tiene historia previa a
 la conexión. La API legacy expone los listados:
 
 | Endpoint | Para qué |
@@ -181,7 +181,7 @@ Datos operativos que conviene respetar en el handler:
 - **Responder 2xx en menos de 5 segundos.** Timeout, error o redirect cuentan como
   fallo (Whop no sigue redirects).
 - **Entrega *at least once*.** El mismo evento puede llegar más de una vez, con el
-  mismo `webhook-id`. **Guardar el `webhook-id` y descartar duplicados** — OTC ya
+  mismo `webhook-id`. **Guardar el `webhook-id` y descartar duplicados** — Limitless ya
   persiste el crudo en `payment_webhook_events`, así que la deduplicación va ahí.
 - **Reintentos ~3 días**: 12 reintentos (30 s, 2 min, 8 min, 30 min, 1 h, 3 h, 6 h y
   después cada 12 h), ~71 horas en total.

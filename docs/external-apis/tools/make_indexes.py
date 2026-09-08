@@ -46,7 +46,7 @@ def whop():
         "oficiales y cada página del `api-reference` re-embebe el spec entero. Acá los specs",
         "se guardan una sola vez y la referencia legible se genera desde ellos.", "",
         "| Archivo | Qué es |", "| --- | --- |",
-        "| [`RESUMEN-OTC.md`](./RESUMEN-OTC.md) | **Empezar por acá** — lo que OTC necesita de Whop, con las preguntas de `API_DOCS_PENDIENTES.md` §1 respondidas |",
+        "| [`RESUMEN-LIMITLESS.md`](./RESUMEN-LIMITLESS.md) | **Empezar por acá** — lo que Limitless necesita de Whop, con las preguntas de `API_DOCS_PENDIENTES.md` §1 respondidas |",
         "| [`ENDPOINTS-api-v1-native.md`](./ENDPOINTS-api-v1-native.md) | Referencia de la API versionada (la de integraciones nuevas) |",
         "| [`ENDPOINTS-api-v1-stable.md`](./ENDPOINTS-api-v1-stable.md) | Referencia de los recursos legacy |",
         "| [`ENDPOINTS-ledger-stats.md`](./ENDPOINTS-ledger-stats.md) | Wallet Stats API |",
@@ -88,7 +88,7 @@ def commas():
         "Por eso la copia se guarda como un archivo por sección, con la URL pública de cada una",
         "en su front-matter.", "",
         "| Archivo | Qué es |", "| --- | --- |",
-        "| [`RESUMEN-OTC.md`](./RESUMEN-OTC.md) | **Empezar por acá** — lo que OTC necesita, con las preguntas de `API_DOCS_PENDIENTES.md` §2 respondidas |",
+        "| [`RESUMEN-LIMITLESS.md`](./RESUMEN-LIMITLESS.md) | **Empezar por acá** — lo que Limitless necesita, con las preguntas de `API_DOCS_PENDIENTES.md` §2 respondidas |",
         "", "---", "",
     ]
     for grupo, items in grupos.items():
@@ -112,7 +112,7 @@ def hyros():
         "# Hyros — índice de la documentación capturada", "",
         "Capturada el **%s**. Son dos fuentes distintas, y conviene no confundirlas:" % FECHA, "",
         "| Archivo | Qué es | Fuente |", "| --- | --- | --- |",
-        "| [`RESUMEN-OTC.md`](./RESUMEN-OTC.md) | **Empezar por acá** — lo que OTC necesita para I-8, con las preguntas de `API_DOCS_PENDIENTES.md` §6 respondidas | — |",
+        "| [`RESUMEN-LIMITLESS.md`](./RESUMEN-LIMITLESS.md) | **Empezar por acá** — lo que Limitless necesita para I-8, con las preguntas de `API_DOCS_PENDIENTES.md` §6 respondidas | — |",
         "| [`ENDPOINTS-rest-api.md`](./ENDPOINTS-rest-api.md) | **La referencia de la API.** Leads, journeys, ventas, órdenes, llamadas, atribución | `api-docs.hyros.com/ai-context/rest-api.txt` (OpenAPI 3.1) |",
         "| [`ENDPOINTS-webhooks.md`](./ENDPOINTS-webhooks.md) | Los 10 eventos salientes, con su esquema de firma HMAC | `.../webhooks.txt` |",
         "| [`ENDPOINTS-mcp.md`](./ENDPOINTS-mcp.md) | El servidor MCP de Hyros | `.../mcp.txt` |",
@@ -148,7 +148,7 @@ def webinarjam():
         "vivo y `/everwebinar/*` para automatizados. Los endpoints y los payloads son idénticos",
         "salvo por el prefijo, así que las páginas de EverWebinar repiten las de WebinarJam.", "",
         "| Archivo | Qué es |", "| --- | --- |",
-        "| [`RESUMEN-OTC.md`](./RESUMEN-OTC.md) | **Empezar por acá** — lo que OTC necesita para I-5, con las preguntas de `API_DOCS_PENDIENTES.md` §5 respondidas |",
+        "| [`RESUMEN-LIMITLESS.md`](./RESUMEN-LIMITLESS.md) | **Empezar por acá** — lo que Limitless necesita para I-5, con las preguntas de `API_DOCS_PENDIENTES.md` §5 respondidas |",
         "", "---", "",
     ]
     for grupo, items in grupos.items():

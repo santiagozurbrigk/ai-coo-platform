@@ -14,7 +14,10 @@ import {
 } from "@/lib/holding/billing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { ACTIVE_ORG_COOKIE } from "@/lib/holding/constants";
+import {
+  ACTIVE_ORG_COOKIE,
+  LEGACY_ACTIVE_ORG_COOKIE,
+} from "@/lib/holding/constants";
 import { refreshAuthSessionAfterHoldingSwitch } from "@/lib/holding/refresh-auth-session";
 import { getHoldingBusinesses } from "@/lib/holding/switch-org";
 import {
@@ -338,6 +341,9 @@ export async function enterBusinessAction(businessOrgId: string) {
     maxAge: 60 * 60 * 24,
     path: "/",
   });
+  // La legada se borra al entrar: si quedara viva con otro negocio, sería la que
+  // gana en cualquier lectura donde la nueva todavía no esté.
+  cookieStore.delete(LEGACY_ACTIVE_ORG_COOKIE);
 
   revalidatePath("/", "layout");
   redirect(paths.platform.dashboard);
@@ -360,6 +366,7 @@ export async function exitBusinessAction() {
 
   const cookieStore = await cookies();
   cookieStore.delete(ACTIVE_ORG_COOKIE);
+  cookieStore.delete(LEGACY_ACTIVE_ORG_COOKIE);
 
   revalidatePath("/", "layout");
   redirect(paths.platform.holding);

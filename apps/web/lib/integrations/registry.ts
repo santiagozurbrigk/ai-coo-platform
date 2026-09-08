@@ -93,11 +93,11 @@ export type IntegrationConnectSurface = "redirect" | "dialog" | "panel";
 // ─── Definición ───────────────────────────────────────────────────────────────
 
 export type IntegrationDataFlow = {
-  /** `in` = OTC lee del proveedor · `out` = OTC escribe en el proveedor. */
+  /** `in` = Limitless lee del proveedor · `out` = Limitless escribe en el proveedor. */
   direction: "in" | "out";
   /** Qué se mueve, en palabras del negocio. */
   label: string;
-  /** Dónde queda en OTC (tabla, o "en vivo" si no se persiste). */
+  /** Dónde queda en Limitless (tabla, o "en vivo" si no se persiste). */
   lands: string;
   transport: IntegrationTransport;
 };
@@ -109,7 +109,7 @@ export type IntegrationDefinition = {
   auth: IntegrationAuth;
   /** Una línea: qué resuelve. Se ve en la tarjeta. */
   summary: string;
-  /** Qué módulos de OTC dejan de funcionar sin esto. */
+  /** Qué módulos de Limitless dejan de funcionar sin esto. */
   feeds: string[];
   /** El detalle de qué datos se mueven, en qué dirección y cómo. */
   dataFlows: IntegrationDataFlow[];
@@ -249,7 +249,7 @@ const DEFINITIONS: IntegrationDefinition[] = [
       },
     ],
     connect: "dialog",
-    localDocs: "docs/external-apis/gohighlevel/RESUMEN-OTC.md",
+    localDocs: "docs/external-apis/gohighlevel/RESUMEN-LIMITLESS.md",
     listed: true,
   },
   {
@@ -281,7 +281,7 @@ const DEFINITIONS: IntegrationDefinition[] = [
       },
     ],
     connect: "dialog",
-    localDocs: "docs/external-apis/fathom/RESUMEN-OTC.md",
+    localDocs: "docs/external-apis/fathom/RESUMEN-LIMITLESS.md",
     listed: true,
   },
   {
@@ -470,7 +470,7 @@ const DEFINITIONS: IntegrationDefinition[] = [
       },
     ],
     connect: "panel",
-    localDocs: "docs/external-apis/vturb/RESUMEN-OTC.md",
+    localDocs: "docs/external-apis/vturb/RESUMEN-LIMITLESS.md",
     listed: true,
   },
   {
@@ -496,7 +496,7 @@ const DEFINITIONS: IntegrationDefinition[] = [
       },
     ],
     connect: "panel",
-    localDocs: "docs/external-apis/webinarjam/RESUMEN-OTC.md",
+    localDocs: "docs/external-apis/webinarjam/RESUMEN-LIMITLESS.md",
     listed: true,
   },
   {
@@ -522,7 +522,7 @@ const DEFINITIONS: IntegrationDefinition[] = [
       },
     ],
     connect: "panel",
-    localDocs: "docs/external-apis/hyros/RESUMEN-OTC.md",
+    localDocs: "docs/external-apis/hyros/RESUMEN-LIMITLESS.md",
     listed: true,
   },
 
@@ -550,7 +550,7 @@ const DEFINITIONS: IntegrationDefinition[] = [
       },
     ],
     connect: "panel",
-    localDocs: "docs/external-apis/whop/RESUMEN-OTC.md",
+    localDocs: "docs/external-apis/whop/RESUMEN-LIMITLESS.md",
     listed: true,
   },
   {
@@ -576,7 +576,7 @@ const DEFINITIONS: IntegrationDefinition[] = [
       },
     ],
     connect: "panel",
-    localDocs: "docs/external-apis/commas/RESUMEN-OTC.md",
+    localDocs: "docs/external-apis/commas/RESUMEN-LIMITLESS.md",
     listed: true,
   },
   {

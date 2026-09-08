@@ -1,4 +1,4 @@
-# Plan de onboarding guiado — Limitless / OTC
+# Plan de onboarding guiado — Limitless / Limitless
 
 > Documento de diseño. Estado: **propuesta, sin implementar**.
 > Leer junto con `CLAUDE.md`, `PENDIENTES.md` y `docs/FUNNELS_ARCHITECTURE.md`.
@@ -210,7 +210,7 @@ El gate más el checklist ya son un onboarding completo y **no agregan ninguna d
 ## 6. Riesgos y deuda conocida
 
 - **El gate agrega consultas al middleware**, que corre en cada request. Mitigación: la consulta va sólo cuando hay usuario, el rol es `founder` y no es una request de Server Action; si el costo se nota, `gate_completed_at` se puede cachear en una cookie firmada. **Medirlo antes de optimizar.**
-- **El escape del super-admin es la única salida del gate.** Si un cliente se traba, hoy depende de que alguien de OTC le marque la bandera. Vale la pena que el panel de la Fase 4 —quién está trabado y en qué paso— llegue antes de tener muchas cuentas nuevas a la vez.
+- **El escape del super-admin es la única salida del gate.** Si un cliente se traba, hoy depende de que alguien de Limitless le marque la bandera. Vale la pena que el panel de la Fase 4 —quién está trabado y en qué paso— llegue antes de tener muchas cuentas nuevas a la vez.
 - **Los tours se rompen callados** si un selector desaparece. Cuando llegue la Fase 3: anclajes `data-tour` en el JSX, nunca clases de Tailwind, y un test que verifique que cada selector de `tours.ts` existe en el código.
 - **`CLAUDE.md` tiene dos filas desactualizadas** que conviene corregir en la misma sesión que se implemente esto: lista `app/onboarding/actions.ts` como "onboarding founder" (no existe), y menciona un acento primario violeta `#7C3AED` cuando `DESIGN.md` y los tokens definen **naranja `#E15D12`**.
 - **Sin verificar contra sesión real.** Igual que el resto de lo construido en agosto, el entorno de desarrollo no puede renderizar páginas autenticadas. Suma su bloque a `docs/PLAN_VERIFICACION.md` al implementar: el gate con cuenta founder nueva, el no-gate con cuenta invitada, y el no-gate con org holding.

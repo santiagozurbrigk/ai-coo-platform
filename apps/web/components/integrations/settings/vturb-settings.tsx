@@ -21,7 +21,7 @@ import { useToast } from "@/providers/toast-provider";
  * El panel avisa cuando hay players **sin pitch time configurado**, porque en
  * esos videos la medida "llegaron al CTA" no se puede calcular: VTurb devuelve
  * `pitch_time = 0` y su `total_over_pitch` pasa a contar a casi todo el mundo.
- * Es un problema que se arregla en VTurb, no en OTC, y por eso conviene decirlo
+ * Es un problema que se arregla en VTurb, no en Limitless, y por eso conviene decirlo
  * acá.
  */
 export function VTurbSettings({ status }: { status: VTurbStatus }) {

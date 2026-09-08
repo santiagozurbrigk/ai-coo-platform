@@ -1,4 +1,4 @@
-# GoHighLevel para OTC — lo que hace falta para la unidad I-4
+# GoHighLevel para Limitless — lo que hace falta para la unidad I-4
 
 Este documento responde, una por una, las preguntas que
 [`docs/API_DOCS_PENDIENTES.md` §3](../../API_DOCS_PENDIENTES.md) dejó abiertas sobre
@@ -19,7 +19,7 @@ misma carpeta; cada afirmación linkea a la página de la que sale.
 | Scopes | `opportunities.readonly` para leer, `opportunities.write` para escribir ([tabla completa](./Authorization/Scopes.md)) |
 | Rate limit | 100 req / 10 s (burst) y 200.000 req / día, **por app y por sub-account** ([ref](./other/rate-limits.md)) |
 
-La integración GHL que ya existe en OTC (`apps/web/lib/ghl/client.ts`) resuelve la
+La integración GHL que ya existe en Limitless (`apps/web/lib/ghl/client.ts`) resuelve la
 autenticación con Private Integration Token, así que I-4 es agregar endpoints, no
 resolver auth.
 
@@ -40,7 +40,7 @@ sus etapas.
 
 Complementarios: [crear](./ghl/opportunities/create-pipeline.md),
 [actualizar](./ghl/opportunities/update-pipeline.md),
-[borrar](./ghl/opportunities/delete-pipeline.md) — OTC no los necesita, sólo lee.
+[borrar](./ghl/opportunities/delete-pipeline.md) — Limitless no los necesita, sólo lee.
 
 ---
 
@@ -133,7 +133,7 @@ están hoy en cada etapa"*. El documento fuente pide otra cosa: *"cuántas pasar
 cada etapa durante el período"* (M21, M22, M23, M25). **Eso no se puede reconstruir
 leyendo la API**, ni siquiera con backfill: la información no existe del lado de GHL.
 
-La única forma de tenerlo es que **OTC construya su propio historial** a partir de
+La única forma de tenerlo es que **Limitless construya su propio historial** a partir de
 los webhooks, desde el momento en que se suscribe:
 
 | Webhook | Para qué |
@@ -176,7 +176,7 @@ Se cuentan **por app y por recurso** (una sub-account o una agencia), así que s
 sub-accounts no divide la cuota: cada instalación tiene su propio presupuesto.
 
 Cada respuesta trae headers con la posición actual — conviene leerlos en vez de
-contar del lado de OTC:
+contar del lado de Limitless:
 
 | Header | Qué es |
 |---|---|

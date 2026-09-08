@@ -1,5 +1,5 @@
 /**
- * Proveedores de integración conocidos por OTC.
+ * Proveedores de integración conocidos por Limitless.
  *
  * Es sólo el conjunto de identificadores. Todo lo que *describe* a cada
  * proveedor —cómo se autentica, qué datos mueve, qué módulo alimenta, si se ve

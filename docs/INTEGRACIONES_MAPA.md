@@ -1,6 +1,6 @@
-# Mapa de integraciones de OTC
+# Mapa de integraciones de Limitless
 
-Qué lee OTC de afuera, por dónde entra, dónde queda y qué se rompe si falta.
+Qué lee Limitless de afuera, por dónde entra, dónde queda y qué se rompe si falta.
 
 **Fuente de verdad en código:** [`apps/web/lib/integrations/registry.ts`](../apps/web/lib/integrations/registry.ts).
 Este documento explica el porqué; el registro es lo que la aplicación ejecuta y lo
@@ -19,7 +19,7 @@ fresco está cada número:
 | Mecanismo | Qué significa | Quién lo usa |
 |---|---|---|
 | **Webhook** | El proveedor avisa cuando pasa algo. Es lo más fresco y lo único que sirve cuando el proveedor no guarda historial. | Calendly, ManyChat, GHL (oportunidades), Fathom, Whop, Commas |
-| **Cron** | OTC va a buscar cada tanto. Los horarios están en `apps/web/vercel.json`. | Fathom, Typeform, Google Forms, Calendly (respaldo), GHL (turnos), Zernio (métricas) |
+| **Cron** | Limitless va a buscar cada tanto. Los horarios están en `apps/web/vercel.json`. | Fathom, Typeform, Google Forms, Calendly (respaldo), GHL (turnos), Zernio (métricas) |
 | **Manual** | Lo dispara una persona desde la pantalla. Para catálogos que cambian poco. | VTurb, WebinarJam, Hyros, GHL (pipelines) |
 | **En vivo** | No se persiste: se consulta al abrir la pantalla. | Inbox de Zernio, comentarios, anuncios de Meta, Drive, atribución de Hyros |
 
@@ -43,7 +43,7 @@ guardado hace tres horas ya no dice lo que dice el comentario hoy.
 **Calendly y GoHighLevel son alternativas entre sí** para el mismo dato: los turnos.
 Un negocio usa uno u otro, no los dos.
 
-**GoHighLevel no expone el historial de cambios de etapa.** OTC lo construye desde
+**GoHighLevel no expone el historial de cambios de etapa.** Limitless lo construye desde
 el primer webhook que recibe, y por eso los períodos anteriores a esa fecha dicen
 "sin datos" y no cero. Es la diferencia principal con los proveedores de pago, que
 sí dejan traer la historia previa por API.
@@ -79,7 +79,7 @@ no se pueden calcular hasta que alguien configure algo del lado del proveedor.**
 - Hyros sin cuentas publicitarias sincronizadas no puede responder ninguna consulta:
   su API exige nombrarlas.
 
-En los tres casos OTC dice "sin datos" en vez de mostrar el número equivocado, y
+En los tres casos Limitless dice "sin datos" en vez de mostrar el número equivocado, y
 ahora **también lo dice en Integraciones**, que es donde se arregla.
 
 ### Cobros
@@ -103,8 +103,8 @@ heurística de nombre de campo:
 La deduplicación de Whop vive en `payment_webhook_events`, con índice único sobre
 `(provider, external_event_id)`.
 
-Verificado contra [`docs/external-apis/whop/RESUMEN-OTC.md`](./external-apis/whop/RESUMEN-OTC.md)
-y [`docs/external-apis/commas/RESUMEN-OTC.md`](./external-apis/commas/RESUMEN-OTC.md).
+Verificado contra [`docs/external-apis/whop/RESUMEN-LIMITLESS.md`](./external-apis/whop/RESUMEN-LIMITLESS.md)
+y [`docs/external-apis/commas/RESUMEN-LIMITLESS.md`](./external-apis/commas/RESUMEN-LIMITLESS.md).
 
 ### Operación y datos
 
@@ -141,7 +141,7 @@ La pantalla muestra "últimos datos recibidos", no "última vez que se consultó
 diferencia importa: **varios syncs sólo escriben `last_sync_at` cuando ingestaron
 algo.** Fathom lo hace explícitamente (`last_sync_at unchanged — no calls ingested`).
 
-Por eso OTC **no deriva ninguna alarma de la antigüedad de ese campo**. Una fecha de
+Por eso Limitless **no deriva ninguna alarma de la antigüedad de ese campo**. Una fecha de
 hace seis días puede ser una semana sin llamadas, que no es una falla. Inventar una
 alarma ahí sería exactamente el tipo de número plausible y equivocado que el resto
 del sistema evita.

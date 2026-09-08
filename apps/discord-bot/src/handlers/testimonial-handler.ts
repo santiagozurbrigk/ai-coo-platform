@@ -47,7 +47,7 @@ const TESTIMONIAL_CHANNEL_PATTERNS = [
 export function isTestimonial(
   content: string,
   channelName: string,
-  integration: DiscordIntegration
+  integration: DiscordIntegration,
 ): boolean {
   const contentLower = content.toLowerCase();
   const channelLower = channelName.toLowerCase();
@@ -58,12 +58,12 @@ export function isTestimonial(
 
   const monitoredChannels = integration.monitored_channels || [];
   const channelConfig = monitoredChannels.find(
-    (c) => c.channel_name === channelName
+    (c) => c.channel_name === channelName,
   );
   if (channelConfig?.purpose === "testimonials") return true;
 
   const matches = TESTIMONIAL_KEYWORDS.filter((kw) =>
-    contentLower.includes(kw)
+    contentLower.includes(kw),
   );
   return matches.length >= 2;
 }

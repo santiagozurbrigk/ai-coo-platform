@@ -14,14 +14,14 @@ import { useToast } from "@/providers/toast-provider";
 /**
  * Configuración de un proveedor de cobros.
  *
- * El flujo tiene **dos lados** y por eso no alcanza con pegar un secreto: OTC lo
+ * El flujo tiene **dos lados** y por eso no alcanza con pegar un secreto: Limitless lo
  * guarda, y el proveedor tiene que apuntar sus webhooks a la URL que se muestra
  * después de conectar. Sin ese segundo paso no llega ningún evento, y la
  * integración se ve conectada igual — que es exactamente lo que la incidencia
  * "todavía no llegó ningún evento" viene a decir.
  *
  * Los textos de ayuda salen de la documentación capturada en
- * `docs/external-apis/{whop,commas}/RESUMEN-OTC.md`, no de memoria. Dos detalles
+ * `docs/external-apis/{whop,commas}/RESUMEN-LIMITLESS.md`, no de memoria. Dos detalles
  * que estaban mal antes y la doc corrige:
  *
  * - El secreto de Whop empieza con **`ws_`**, no con `whsec_`. La doc es

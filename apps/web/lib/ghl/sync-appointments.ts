@@ -19,13 +19,13 @@ import { resolveLeadId } from "@/lib/sales/resolve-lead";
 /**
  * ⭐ `showed` significa **que el lead asistió**, no que compró.
  *
- * Estaba mapeado a `closed`, que en OTC es una venta cerrada y alimenta la
+ * Estaba mapeado a `closed`, que en Limitless es una venta cerrada y alimenta la
  * etapa Cash del embudo y la facturación. O sea: cada lead que se presentaba a
  * una llamada se contaba como una venta. Ahora cae en `attended`, que es
  * exactamente lo que GHL está diciendo, y el resultado lo carga una persona.
  *
  * ⭐ `cancelled` **se importa**. Antes se descartaba en el filtro, así que una
- * llamada cancelada no existía para OTC. No es un `no_show`: en un no-show el
+ * llamada cancelada no existía para Limitless. No es un `no_show`: en un no-show el
  * lead faltó a una llamada que ocurrió; acá la llamada nunca ocurrió.
  *
  * `invalid` se sigue omitiendo: GHL lo usa para turnos que no representan una

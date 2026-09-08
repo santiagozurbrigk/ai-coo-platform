@@ -114,7 +114,7 @@ export default async function FunnelsPage() {
         <section className="space-y-2">
           <h3 className="text-sm font-medium">Cobertura de las herramientas del estándar</h3>
           <p className="text-xs text-muted-foreground">
-            Lo que cada una cubre hoy en OTC. Los pasos que dependen de lo que falta
+            Lo que cada una cubre hoy en Limitless. Los pasos que dependen de lo que falta
             quedan <strong>sin datos</strong>, nunca en cero.
           </p>
           <div className="rounded-2xl border border-border bg-card p-4 dark:border-glass dark:bg-glass">

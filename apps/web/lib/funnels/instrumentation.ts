@@ -10,7 +10,7 @@
  * exactamente el riesgo de §9.1.
  */
 
-/** Estado de la herramienta dentro de OTC. */
+/** Estado de la herramienta dentro de Limitless. */
 export type ToolAvailability =
   /** Existe una integración nativa que cubre lo que el documento le asigna. */
   | "available"
@@ -19,7 +19,7 @@ export type ToolAvailability =
    * Las partes no cubiertas se comportan como `missing`.
    */
   | "partial"
-  /** No existe, pero otra integración de OTC cubre la misma función. */
+  /** No existe, pero otra integración de Limitless cubre la misma función. */
   | "equivalent"
   /** No existe. Bloquea las etapas que alimenta. */
   | "missing";
@@ -77,7 +77,7 @@ export const INSTRUMENTATION_TOOLS = [
     owns: "Stage counts, set/close, follow-up",
     otcStatus: "partial",
     otcNote:
-      "La integración GHL de OTC consume /calendars y /contacts, pero NO /opportunities ni /pipelines. " +
+      "La integración GHL de Limitless consume /calendars y /contacts, pero NO /opportunities ni /pipelines. " +
       "Los conteos por etapa y el set/close que el documento le asigna todavía no se sincronizan: es lo que necesita el embudo DM.",
   },
   {

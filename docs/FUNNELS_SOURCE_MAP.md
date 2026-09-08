@@ -33,9 +33,9 @@ hay que traer), después qué paso consume cada una (para qué sirve).
 ### Dueños según la sección 05 del documento
 
 El documento asigna cada etapa a una herramienta. Esa asignación se respeta al
-pie de la letra; donde OTC usa un equivalente, se aclara.
+pie de la letra; donde Limitless usa un equivalente, se aclara.
 
-| Herramienta del doc | Posee | Equivalente en OTC |
+| Herramienta del doc | Posee | Equivalente en Limitless |
 |---|---|---|
 | Meta Ads | Spend, CTR, CPC, cost/lead | Meta vía **Zernio** |
 | Hyros | True attribution, ROAS, EPL, journeys | — |
@@ -141,7 +141,7 @@ pie de la letra; donde OTC usa un equivalente, se aclara.
 > (`webinarjam_registrants`) en vez de guardarse agregados, porque `/registrants`
 > **no acepta un rango de fechas arbitrario**: su filtro `date_range` es una lista
 > de presets (hoy, esta semana, últimos 30 días). El recorte al período del embudo
-> lo hace OTC sobre `signup_date` y las fechas de asistencia de cada fila.
+> lo hace Limitless sobre `signup_date` y las fechas de asistencia de cada fila.
 >
 > ⭐ **M15 se pide filtrada al servidor, no se deriva.** `attended_live=4` con
 > `attended_live_timestamp = <segundo de la oferta>` devuelve exactamente los que
@@ -187,7 +187,7 @@ nada.
 | M17 | `applications_submitted` | Aplicaciones enviadas | ✅ | Nada — `form_responses`, con fuente de embudo desde el 2026-08-30 |
 | M18 | `applications_qualified` | Aplicaciones calificadas | ✅ | Nada — `form_responses.ai_lead_qualification`, con fuente de embudo desde el 2026-08-30 |
 
-> **La única fila del documento que OTC ya cubre entera.** Typeform está en 0 orgs
+> **La única fila del documento que Limitless ya cubre entera.** Typeform está en 0 orgs
 > pero Google Forms en 3, y la calificación por IA ya está construida.
 >
 > 🔨 **Corregido el 2026-08-30.** Estaban marcadas como ✅ pero **no tenían fuente
@@ -229,7 +229,7 @@ nada.
 | M25 | `follow_ups` | Seguimientos | 🟡 | Idem M22. El doc la declara en §05 pero ninguna de sus métricas la usa |
 
 > ✅ **Documentación verificada el 2026-08-30** (`docs/external-apis/gohighlevel/`).
-> La integración GHL de OTC consume `/calendars` y `/contacts`; falta
+> La integración GHL de Limitless consume `/calendars` y `/contacts`; falta
 > `/opportunities/pipelines` y `/opportunities/search`, con el mismo Private
 > Integration Token que ya usa y el header `Version: 2021-07-28`.
 >
@@ -259,7 +259,7 @@ nada.
 > peor que un hueco visible.
 >
 > ⚠️ **Lo que falta no es código, es una decisión de entrega.** Los webhooks de
-> plataforma se configuran dentro de una app del Marketplace que OTC no tiene
+> plataforma se configuran dentro de una app del Marketplace que Limitless no tiene
 > aprobada. Por eso el endpoint acepta **dos vías de autenticación**: la firma
 > Ed25519 de la plataforma (para cuando exista la app) y un secreto compartido por
 > organización (para eventos entregados por un Workflow de la sub-cuenta, que
@@ -307,7 +307,7 @@ nada.
 > tienen fuente: `ad_clicks` para los ads y `zernio_comment_triggers` para los
 > comentarios.
 >
-> ⛔ **Las historias no se pueden contar en un período, y no es un límite de OTC.**
+> ⛔ **Las historias no se pueden contar en un período, y no es un límite de Limitless.**
 > Meta sólo expone las historias **vigentes**, o sea una ventana de 24 horas. Para
 > cualquier período que no sea "hoy" el dato no existe del lado de Meta.
 >
@@ -515,7 +515,7 @@ de leads (con sus journeys), sales y orders cubren M05, M06 y M07.
 
 **Lo comercial no:** Hyros es un SaaS pago, con precio por volumen de ad spend o
 revenue trackeado, y **se contrata por negocio, no por agencia**. Cada org cliente
-necesitaría su propia cuenta y su propia API key — el mismo patrón BYOK que OTC ya
+necesitaría su propia cuenta y su propia API key — el mismo patrón BYOK que Limitless ya
 usa para Anthropic y Zernio.
 
 ✅ **Resuelto: todos los clientes pagan Hyros.** La integración es directa y no
@@ -538,7 +538,7 @@ de Hyros. Ver §8.
 
 Los clientes despliegan sus landings en **Vercel**. Vercel es hosting, no una
 herramienta de analítica de embudo: no tiene un concepto de "opt-in" ni de
-"visitante de página de registro" que OTC pueda leer por API.
+"visitante de página de registro" que Limitless pueda leer por API.
 
 Eso deja tres caminos para M08 (`landing_visitors`) y M09 (`optins`), y el
 primero es claramente el mejor:
@@ -547,7 +547,7 @@ primero es claramente el mejor:
    está en esas páginas y su endpoint de leads da los opt-ins con fecha y fuente.
    **No hay integración nueva que construir**: M08 y M09 se resuelven junto con
    M05–M07 en la unidad `I-8`.
-2. **Vía el tracking propio de OTC.** Ya existe `POST /api/utm/track` que escribe
+2. **Vía el tracking propio de Limitless.** Ya existe `POST /api/utm/track` que escribe
    en `utm_lead_captures`. La landing en Vercel lo llamaría al enviar el
    formulario. Sirve como respaldo o para clientes sin Hyros, pero exige tocar el
    código de cada landing.

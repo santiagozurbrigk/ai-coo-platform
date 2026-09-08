@@ -49,11 +49,11 @@ export type IntegrationHealth = {
    * ⚠️ La diferencia importa: varios syncs sólo escriben `last_sync_at` cuando
    * ingestaron algo (Fathom lo hace explícitamente). Una fecha vieja puede
    * significar "hace una semana que no hay llamadas", que no es una falla. Por
-   * eso OTC **no** deriva alarmas de antigüedad de este campo: sería inventar un
+   * eso Limitless **no** deriva alarmas de antigüedad de este campo: sería inventar un
    * problema donde hay una semana tranquila.
    */
   lastSyncAt: string | null;
-  /** Cuántas filas hay en OTC gracias a esta integración. */
+  /** Cuántas filas hay en Limitless gracias a esta integración. */
   records: number | null;
   /** Qué son esas filas ("turnos", "conversaciones", "videos"). */
   recordsLabel: string | null;

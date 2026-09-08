@@ -7,7 +7,7 @@ capturada el **2026-08-30**.
 
 | Archivo | Qué es |
 |---|---|
-| [`RESUMEN-OTC.md`](./RESUMEN-OTC.md) | **Empezar por acá.** Qué necesita OTC de VTurb para la unidad I-6, con las preguntas de `API_DOCS_PENDIENTES.md` §4 respondidas. |
+| [`RESUMEN-LIMITLESS.md`](./RESUMEN-LIMITLESS.md) | **Empezar por acá.** Qué necesita Limitless de VTurb para la unidad I-6, con las preguntas de `API_DOCS_PENDIENTES.md` §4 respondidas. |
 | [`openapi.json`](./openapi.json) | **Fuente de verdad.** Spec OpenAPI 3.0.2 con los 28 endpoints, reconstruido uniendo los documentos que VTurb embebe uno por endpoint en su página de Analytics. Sirve para generar tipos o un cliente. |
 | [`ENDPOINTS.md`](./ENDPOINTS.md) | Referencia legible generada desde ese spec: request body, parámetros y schema de respuesta de cada endpoint. |
 | [`llms.txt`](./llms.txt) | Índice que la propia GitBook publica para agentes. |

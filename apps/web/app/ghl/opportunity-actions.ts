@@ -93,7 +93,7 @@ export async function syncGHLPipelinesAction(): Promise<
 
 export type GHLOpportunitiesStatus = {
   connected: boolean;
-  /** Desde cuándo OTC tiene historial. `null` = todavía no llegó ningún evento. */
+  /** Desde cuándo Limitless tiene historial. `null` = todavía no llegó ningún evento. */
   stageHistorySince: string | null;
   pipelinesSyncedAt: string | null;
   pipelineCount: number;

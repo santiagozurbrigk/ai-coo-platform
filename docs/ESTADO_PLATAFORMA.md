@@ -332,7 +332,7 @@ Especificación completa en **`docs/PHASE_2.md`**.
 | Vista `/clients/testimonials` | 📋 Planificado | Export marketing |
 | Super Admin: alertas Discord | 📋 Planificado | `requires_attention` |
 
-**Discord — resumen:** Una app OTC; cada founder invita el bot; canales monitoreados; mensajes → API Vercel → clasificación Haiku; vinculación por `!vincular email` o fuzzy (como Fathom). Complementa llamadas con contexto de comunidad.
+**Discord — resumen:** Una app Limitless; cada founder invita el bot; canales monitoreados; mensajes → API Vercel → clasificación Haiku; vinculación por `!vincular email` o fuzzy (como Fathom). Complementa llamadas con contexto de comunidad.
 
 **UI Phase 1:** card Discord en `/integrations` muestra **«Próximamente»** (sin OAuth ni tablas).
 

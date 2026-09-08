@@ -23,7 +23,7 @@ export type PaymentIntegrationRow = {
 /**
  * Resuelve a qué organización pertenece un webhook y con qué secreto verificarlo.
  *
- * El proveedor no conoce el `organization_id` de OTC, así que la URL del webhook
+ * El proveedor no conoce el `organization_id` de Limitless, así que la URL del webhook
  * lo lleva como parámetro. Eso NO es autenticación: el secreto de la firma es lo
  * que prueba que el evento es legítimo.
  */

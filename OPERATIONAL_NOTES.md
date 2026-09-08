@@ -1,4 +1,4 @@
-# OTC — Notas Operacionales
+# Limitless — Notas Operacionales
 
 Documento de referencia para el equipo y para onboarding de clientes.  
 **Última actualización:** 2026-05-28
@@ -37,14 +37,14 @@ Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.m
 
 ### Unipile — mensajería transitoria (Instagram DMs + WhatsApp)
 
-Integración transitoria via Unipile API mientras se espera la aprobación de Meta Business Verification. Permite recibir DMs de Instagram personal y mensajes de WhatsApp en el inbox de ventas de OTC, con el mismo scoring y pipeline que ManyChat.
+Integración transitoria via Unipile API mientras se espera la aprobación de Meta Business Verification. Permite recibir DMs de Instagram personal y mensajes de WhatsApp en el inbox de ventas de Limitless, con el mismo scoring y pipeline que ManyChat.
 
 Una vez aprobada la verificación de Meta:
 → Activar el webhook directo de Meta (ya construido)
 → Retirar Unipile para Instagram
 → WhatsApp puede mantenerse via Unipile (no hay alternativa oficial para WhatsApp personal)
 
-Costo: €49/mes mínimo (hasta 10 cuentas), €5/cuenta/mes adicional. Absorbido por OTC como costo operativo.
+Costo: €49/mes mínimo (hasta 10 cuentas), €5/cuenta/mes adicional. Absorbido por Limitless como costo operativo.
 
 - **Auth:** Hosted Auth Wizard de Unipile (`GET /api/integrations/unipile/connect?provider=instagram|whatsapp`).
 - **Callback:** `POST /api/integrations/unipile/callback` (notify_url de Unipile al completar conexión).
@@ -97,7 +97,7 @@ Costo: €49/mes mínimo (hasta 10 cuentas), €5/cuenta/mes adicional. Absorbid
 
 **Retención hasta el CTA:**
 - El founder marca el minuto del CTA en cada video desde Marketing → Contenido → detalle del video
-- OTC muestra el % estimado de audiencia que llega hasta ese momento
+- Limitless muestra el % estimado de audiencia que llega hasta ese momento
 - Estimación basada en curva típica de retención de YouTube
 - TODO Phase 2: retención real desde YouTube Analytics API (requiere scope `yt-analytics.readonly` + reportes de audiencia)
 
@@ -158,7 +158,7 @@ Costo: €49/mes mínimo (hasta 10 cuentas), €5/cuenta/mes adicional. Absorbid
 - **Auth:** OAuth del bot + `DISCORD_BOT_TOKEN` para registrar el guild.
 - **Proceso separado:** `apps/discord-bot` debe estar desplegado y conectado al servidor del cliente.
 - **Bot escribe directo** en Supabase (`discord_messages`, `discord_client_links`, etc.) con service role.
-- **APIs internas:** `OTC_API_URL` + `OTC_WEBHOOK_SECRET` para `pending-link` y `testimonial`.
+- **APIs internas:** `LIMITLESS_API_URL` + `LIMITLESS_WEBHOOK_SECRET` para `pending-link` y `testimonial`.
 - **`POST /api/discord/message`:** stub (`{ ok: true }`) — no persiste mensajes; la ingestión real es vía el bot.
 
 ---
@@ -209,7 +209,7 @@ principal, productos, frameworks de ventas, guión de ventas).
 **Ahorro estimado:** 90% menos costo en tokens de input para el contexto
 cacheado. El cache dura 5 minutos en Claude y se renueva con cada uso.
 
-**Cache en memoria (OTC):** 10 minutos. Evita consultar DB en cada llamada.
+**Cache en memoria (Limitless):** 10 minutos. Evita consultar DB en cada llamada.
 Se invalida automáticamente cuando cambia:
 - Un SOP (crear/actualizar)
 - El avatar principal
@@ -298,14 +298,14 @@ Se invalida automáticamente cuando cambia:
 
 - **Dónde configurar:** Settings → tab "IA" → campo API key de Claude.
 - **Formato válido:** la key debe empezar con `sk-ant-`.
-- **Validación automática:** al guardar, OTC hace una llamada de prueba a Anthropic para verificar que la key es válida y tiene créditos.
+- **Validación automática:** al guardar, Limitless hace una llamada de prueba a Anthropic para verificar que la key es válida y tiene créditos.
 - **Routing automático:** todos los pipelines de IA (análisis de llamadas, scoring de conversaciones, reportes semanales, SOPs, agente) usan automáticamente la key del cliente si está configurada.
-- **Fallback:** si la key del cliente falla o no está configurada, OTC usa la `ANTHROPIC_API_KEY` global como fallback.
+- **Fallback:** si la key del cliente falla o no está configurada, Limitless usa la `ANTHROPIC_API_KEY` global como fallback.
 - **Cache:** la key se cachea en memoria por 5 minutos para no consultar DB en cada llamada de IA. Si el cliente cambia su key, el cache se invalida automáticamente.
 - **Seguridad:** la key se cifra con AES-256-GCM (`ENCRYPTION_MASTER_KEY`) antes de guardar en DB; el rol `authenticated` no puede leer la columna `claude_api_key_encrypted` (ver migración `20260619100000_byok_real_encryption.sql`).
 - **Preview seguro:** en la UI solo se muestra un masked (`****` + últimos 4 caracteres); nunca la key completa ni el ciphertext.
-- **Recomendación para clientes:** el plan de $100/mes de Claude incluye suficiente capacidad de API para todo el uso de OTC. Es la opción recomendada para reducir costos del software.
-- **Vista Super Admin:** en `/super-admin/costs` aparece columna "Fuente IA": BYOK ✓ (verde) vs OTC Key (gris) por organización.
+- **Recomendación para clientes:** el plan de $100/mes de Claude incluye suficiente capacidad de API para todo el uso de Limitless. Es la opción recomendada para reducir costos del software.
+- **Vista Super Admin:** en `/super-admin/costs` aparece columna "Fuente IA": BYOK ✓ (verde) vs Limitless Key (gris) por organización.
 - **Migración:** `20260615400000_byok_claude.sql` — columnas en `organizations` + vista `organization_claude_status`.
 
 ### Seguridad — Cifrado de BYOK Claude API keys
@@ -746,7 +746,7 @@ Video YouTube → link UTM → lead capturado → booking Calendly → cliente c
 5. **`CRON_SECRET`:** recomendado en producción para crons y re-análisis Fathom.
 6. **`NEXT_PUBLIC_APP_URL`:** URL exacta de producción (OAuth redirects, webhooks ManyChat).
 7. **Landing (opcional):** `NEXT_PUBLIC_UTM_ORGANIZATION_ID` = UUID de la org para waitlist/UTM públicos.
-8. **Discord (opcional):** desplegar `apps/discord-bot` con `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OTC_WEBHOOK_SECRET`, `OTC_API_URL`.
+8. **Discord (opcional):** desplegar `apps/discord-bot` con `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `LIMITLESS_WEBHOOK_SECRET`, `LIMITLESS_API_URL`.
 
 ### Variables de entorno requeridas (mínimo producción)
 
@@ -892,7 +892,7 @@ INSERT INTO super_admin_users (email, role) VALUES ('email@ejemplo.com', 'admin'
 
 **Mecanismo:** Auth Hook de Supabase (`custom_access_token_hook`) agrega un claim `active_business_org_id` al JWT cuando existe una fila válida en `holding_active_sessions` (verificada contra `holding_businesses`). `get_my_organization_id()` prioriza ese claim sobre `profiles.organization_id`, con fallback retrocompatible cuando no existe.
 
-**Tabla `holding_active_sessions`:** fuente de verdad para el hook. Se escribe/borra en `enterBusinessAction` / `exitBusinessAction` y en `signOutAction`, junto con la cookie `otc_active_org` (solo UI).
+**Tabla `holding_active_sessions`:** fuente de verdad para el hook. Se escribe/borra en `enterBusinessAction` / `exitBusinessAction` y en `signOutAction`, junto con la cookie `limitless_active_org` (solo UI).
 
 **Refresh de sesión:** `auth.refreshSession()` al entrar/salir de un negocio (authentication_method `token_refresh` dispara el hook). Sin refresh, el JWT anterior no incluye el claim hasta el próximo refresh natural.
 
@@ -936,7 +936,7 @@ Fix: `getProfileAccountType()` / `loadProfileOrganizationContext()` leen este da
 | Fathom | HMAC SHA-256 + rate limit por IP |
 | Calendly | Firma con `webhook_signing_key` |
 | ManyChat | Token en path URL (`webhook_token`) |
-| Discord → OTC | `Bearer OTC_WEBHOOK_SECRET` |
+| Discord → Limitless | `Bearer LIMITLESS_WEBHOOK_SECRET` |
 | Crons / reanalyze | `Bearer CRON_SECRET` (si configurado) |
 
 ### Bootstrap y errores comunes
@@ -1031,7 +1031,7 @@ desde el Super Admin sin necesidad de cambiar de cuenta.
 - Envía email de bienvenida con credenciales temporales (Resend)
 
 **Tablas:**
-- `holdings` — agrupador de orgs (uno por instancia de OTC)
+- `holdings` — agrupador de orgs (uno por instancia de Limitless)
 - `holding_organizations` — relación holding ↔ org
 - `profiles.is_holding_admin` — flag para admins de holding (futuro)
 - Solo accesibles vía service role (RLS deniega acceso directo)
@@ -1040,10 +1040,10 @@ desde el Super Admin sin necesidad de cambiar de cuenta.
 
 ### Holding — Modelo de negocio multi-empresa
 
-**¿Qué es un holding en OTC?**
-Un holding es un cliente de OTC que gestiona múltiples negocios
+**¿Qué es un holding en Limitless?**
+Un holding es un cliente de Limitless que gestiona múltiples negocios
 de infoproductos. Se asocia con founders (% de revenue u otro acuerdo)
-y escala sus negocios. En OTC, el dueño del holding puede ver y
+y escala sus negocios. En Limitless, el dueño del holding puede ver y
 gestionar todos sus negocios desde una sola cuenta.
 
 **Tipos de cuenta:**
@@ -1051,7 +1051,7 @@ gestionar todos sus negocios desde una sola cuenta.
 - `holding`: múltiples negocios, selector en topbar
 
 **Flujo del dueño de holding:**
-1. Se loguea en OTC con su cuenta
+1. Se loguea en Limitless con su cuenta
 2. Ve el dashboard agregado de todos sus negocios (`/holding`)
 3. Selector en el topbar para cambiar entre negocios
 4. Al seleccionar un negocio → ve TODO el software
@@ -1060,7 +1060,7 @@ gestionar todos sus negocios desde una sola cuenta.
 6. "Vista general del holding" → vuelve al dashboard agregado
 
 **Cambio de org activa:**
-- Se guarda en cookie `otc_active_org` (24hs)
+- Se guarda en cookie `limitless_active_org` (24 h). La anterior, `otc_active_org`, se sigue leyendo como respaldo hasta que venza.
 - Middleware reenvía `x-active-org-id` a server actions
 - `requireOrganizationId()` y `requireAuthContext()` usan la org del negocio activo
 
@@ -1085,7 +1085,7 @@ Super Admin (vos):
 → Ve todos los holdings y sus negocios en el Super Admin
 → No gestiona los negocios dentro del holding (lo hace el dueño)
 
-Dueño del Holding (cliente de OTC):
+Dueño del Holding (cliente de Limitless):
 → Se loguea → va directo a `/holding` (su dashboard de portfolio)
 → Agrega negocios desde `/holding` → "Agregar negocio"
 → Puede crear usuario founder al agregar (opcional)
@@ -1097,7 +1097,7 @@ Founder de un negocio dentro del holding:
 → No sabe que pertenece a un holding (transparente)
 
 **Cookie de negocio activo:**
-- Nombre: `otc_active_org`
+- Nombre: `limitless_active_org` (respaldo de lectura: `otc_active_org`)
 - Duración: 24 horas
 - httpOnly + secure
 - `requireOrganizationId()` / `requireAuthContext()` la leen y cambian el `organization_id` automáticamente
@@ -1120,7 +1120,7 @@ Founder de un negocio dentro del holding:
 **Diferencia con onboarding de founder:**
 El onboarding de un usuario holding NO pasa por configuración de
 producto, avatar o integraciones. Eso se hace en la call de
-onboarding manual con el founder de OTC.
+onboarding manual con el founder de Limitless.
 
 **Flujo:**
 1. Paso 1 — Elegir modelo de cobro global: % de revenue o tarifa fija
@@ -1158,7 +1158,7 @@ con hash fragments) para TODA creación de usuario nuevo:
 2. Se muestra en un modal: email + contraseña temporal + botón copiar
 3. Quien creó el usuario comparte las credenciales manualmente
    (WhatsApp, email, en persona, etc.)
-4. El usuario entra a OTC con esas credenciales
+4. El usuario entra a Limitless con esas credenciales
 5. Es redirigido automáticamente a /auth/force-password-change
 6. No puede acceder a ninguna otra parte del software hasta cambiarla
 7. Una vez cambiada → profiles.must_change_password = false

@@ -139,7 +139,7 @@ Es lo más importante de verificar, porque es la regla que sostiene todo el mód
 El riesgo bajó mucho, pero quedan cosas que sólo se confirman con una cuenta viva.
 
 > **Fanbasis se llama Commas.** El API se sigue sirviendo desde `www.fanbasis.com`,
-> así que el proveedor en OTC sigue siendo `fanbasis`.
+> así que el proveedor en Limitless sigue siendo `fanbasis`.
 
 ### 3.1 Conectar
 
@@ -231,7 +231,7 @@ está documentada en ningún lado.
 
 ### 5.2 Entrega del webhook — la decisión que hay que cerrar ⚠️
 
-Hay dos vías y **hoy sólo una es viable**, porque OTC no tiene app del Marketplace
+Hay dos vías y **hoy sólo una es viable**, porque Limitless no tiene app del Marketplace
 aprobada.
 
 | Paso | Resultado esperado |
@@ -245,7 +245,7 @@ aprobada.
 
 ### 5.3 El historial de transiciones ⭐
 
-Es la razón de ser de la unidad: GHL no tiene historial y OTC construye el suyo.
+Es la razón de ser de la unidad: GHL no tiene historial y Limitless construye el suyo.
 
 | Paso | Resultado esperado |
 |---|---|
@@ -315,7 +315,7 @@ Tomar un período cerrado y comparar contra el dashboard de VTurb:
 | `total_over_pitch` | M12 — llegaron al CTA | Ver 6.3 |
 
 También hay que ver **qué deduplican los sufijos `_device_uniq` y
-`_session_uniq`**: si el dashboard muestra el valor único y OTC el bruto, los
+`_session_uniq`**: si el dashboard muestra el valor único y Limitless el bruto, los
 números no van a coincidir y hay que cambiar de campo.
 
 ### 6.3 El pitch time ⭐
@@ -415,7 +415,7 @@ interpretación.
 
 | Paso | Resultado esperado |
 |---|---|
-| ⚠️ **Comparar el LTV que muestra OTC contra el que el cliente ya usa** | Es la verificación que decide la unidad. Si difieren mucho, la definición de M32 o M33 está mal elegida — no el cálculo |
+| ⚠️ **Comparar el LTV que muestra Limitless contra el que el cliente ya usa** | Es la verificación que decide la unidad. Si difieren mucho, la definición de M32 o M33 está mal elegida — no el cálculo |
 | M32 sobre una org con historial de un año | Un número > 1 en un negocio con recompra. Si da exactamente 1.0, la ventana quedó corta o no hay recompra |
 | ⭐ Cambiar el período del embudo | M32 **casi no debería moverse**: se mide sobre una ventana de 365 días, no sobre el período. "Cuántas veces compra un cliente" es una propiedad lenta del negocio |
 | M33 en una org **sin** planes de cuotas ni suscripciones | Dice "sin datos", **no 0%**. Un cero acá dejaría el LTV en cero y diría que el negocio no vale nada |
@@ -463,8 +463,8 @@ dashboard de Hyros al lado.
 
 | Paso | Resultado esperado |
 |---|---|
-| ⚠️ Comparar el **revenue atribuido** de OTC contra el del dashboard, mismo período y mismo modelo | Tienen que coincidir. Si no, revisar `fields` y `currency` |
-| ⚠️ Verificar qué campo corresponde a "visitantes" | OTC usa **`new_visits`**, no `clicks`: un mismo visitante puede clickear varias veces. Confirmar que es lo que el cliente entiende por visitantes |
+| ⚠️ Comparar el **revenue atribuido** de Limitless contra el del dashboard, mismo período y mismo modelo | Tienen que coincidir. Si no, revisar `fields` y `currency` |
+| ⚠️ Verificar qué campo corresponde a "visitantes" | Limitless usa **`new_visits`**, no `clicks`: un mismo visitante puede clickear varias veces. Confirmar que es lo que el cliente entiende por visitantes |
 | ⭐ Comparar el **ROAS by-source** contra el **blended** | **Tienen que dar distinto.** Si dieran exactamente igual, algo está leyendo las mismas medidas para los dos, que es el bug que se corrigió al construir esta unidad |
 | Cambiar el modelo de atribución | Los números cambian. Si no cambian, la caché no se está invalidando por modelo |
 | ⚠️ Escribir mal un parámetro a propósito (p. ej. `fromDate` como `from_date`) | **Hyros devuelve `200` con datos distintos, sin avisar.** Es su comportamiento documentado: casi todos sus endpoints ignoran en silencio los parámetros desconocidos. Sirve para entender por qué el cliente construye los nombres en un solo lugar |

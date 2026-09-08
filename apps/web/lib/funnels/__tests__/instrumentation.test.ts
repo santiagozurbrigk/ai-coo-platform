@@ -45,9 +45,9 @@ describe("track de integraciones bloqueante (§7)", () => {
     ]);
   });
 
-  it("GHL está parcialmente cubierto: OTC sincroniza calendarios, no pipelines", () => {
+  it("GHL está parcialmente cubierto: Limitless sincroniza calendarios, no pipelines", () => {
     // El documento le asigna "Stage counts, set/close, follow-up", que es lo que
-    // necesita el embudo DM. La integración de OTC consume /calendars y
+    // necesita el embudo DM. La integración de Limitless consume /calendars y
     // /contacts, pero no /opportunities.
     expect(getInstrumentationTool("crm_pipeline").otcStatus).toBe("partial");
   });
@@ -58,7 +58,7 @@ describe("track de integraciones bloqueante (§7)", () => {
 
   it("los tres embudos dependen de alguna herramienta pendiente", () => {
     // El DM también, contra lo que se asumió en la Fase 1: el documento le
-    // asigna sus conteos por etapa al pipeline de GHL, que OTC no sincroniza.
+    // asigna sus conteos por etapa al pipeline de GHL, que Limitless no sincroniza.
     const blocking = new Set(blockingTools().map((t) => t.id));
     for (const template of FUNNEL_TEMPLATES) {
       expect(template.steps.some((s) => blocking.has(s.sourceHint))).toBe(true);
@@ -81,7 +81,7 @@ describe("cadencia de reporte", () => {
     expect(REPORTING_CADENCE.map((c) => c.title)).toEqual(DOC_CADENCE.map((c) => c.title));
   });
 
-  it("el pulso diario todavía no existe en OTC", () => {
+  it("el pulso diario todavía no existe en Limitless", () => {
     expect(REPORTING_CADENCE.find((c) => c.id === "daily")!.otcStatus).toBe("missing");
   });
 

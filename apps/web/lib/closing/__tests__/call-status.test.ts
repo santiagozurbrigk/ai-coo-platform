@@ -102,7 +102,7 @@ describe("needsDisposition", () => {
 describe("acceptsManualOutcome", () => {
   it("acepta resultado en agendada y en asistida", () => {
     // Antes la UI exigía `scheduled`, así que una llamada que GHL marcaba como
-    // asistida no se podía cerrar desde OTC.
+    // asistida no se podía cerrar desde Limitless.
     expect(acceptsManualOutcome("scheduled")).toBe(true);
     expect(acceptsManualOutcome("attended")).toBe(true);
   });

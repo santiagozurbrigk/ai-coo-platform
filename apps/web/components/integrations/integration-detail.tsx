@@ -90,7 +90,7 @@ export function IntegrationDetail({
 
       <IntegrationIssues issues={health.issues} />
 
-      {/* Lo que hay hoy en OTC gracias a esta integración */}
+      {/* Lo que hay hoy en Limitless gracias a esta integración */}
       {isConnected ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <Stat
@@ -141,8 +141,8 @@ export function IntegrationDetail({
                 )}
                 title={
                   flow.direction === "in"
-                    ? `OTC lee de ${definition.name}`
-                    : `OTC escribe en ${definition.name}`
+                    ? `Limitless lee de ${definition.name}`
+                    : `Limitless escribe en ${definition.name}`
                 }
               >
                 {flow.direction === "in" ? (
@@ -167,7 +167,7 @@ export function IntegrationDetail({
 
       {/* Qué deja de funcionar sin esto */}
       <section className="space-y-3">
-        <SectionTitle>Qué alimenta en OTC</SectionTitle>
+        <SectionTitle>Qué alimenta en Limitless</SectionTitle>
         <div className="flex flex-wrap gap-2">
           {definition.feeds.map((feed) => (
             <span
