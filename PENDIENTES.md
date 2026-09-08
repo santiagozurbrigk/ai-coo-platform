@@ -198,20 +198,6 @@ lógica pura tiene 25 tests; el resto no tiene ninguna prueba real.
 
 ---
 
-### [E-D1-DESPLEGAR] Desplegar el bot de Discord 🔴
-
-**Qué es:** el bot está escrito entero y **no corre en ningún lado**. Nada de la
-actividad, el silencio ni los testimonios funciona hasta que esté desplegado.
-
-**Es operación, no código.** El runbook paso a paso está en
-**`docs/DISCORD_DEPLOY.md`**: activar el intent MESSAGE CONTENT, sacar el token,
-desplegar en Railway con cinco variables, e instalar el bot en un servidor.
-
-**Cómo sabés que salió bien:** hay filas en `discord_messages` **con `content` no
-vacío**. Si `content` viene vacío, el intent no está activado — ese es el modo de
-falla peligroso, porque el bot parece andar.
-
----
 
 ### [E-RETENCION] Decidir la retención de mensajes de terceros 🔴
 
@@ -953,6 +939,19 @@ al tablero.
 ---
 
 ## ✅ Completados (referencia histórica)
+
+### 2026-09-08 — [E-D1-DESPLEGAR] El bot de Discord está desplegado y la tarjeta existe
+
+El bot corre en Railway (`@ai-coo/discord-bot`, online) con sus variables
+cargadas, y la app tiene sus credenciales en Vercel. Lo que faltaba era la
+entrada en Integraciones: Discord estaba sin listar desde antes del rediseño, así
+que el flujo de conexión existía pero no había forma de llegar a él. Ahora tiene
+tarjeta, y conectada lleva a la pantalla de canales en vez de repetir el OAuth.
+
+La tarjeta avisa de los dos modos de falla del runbook: **sin canales
+monitoreados** el bot está adentro y no lee nada, y **mensajes guardados sin
+texto** significa que falta activar MESSAGE CONTENT INTENT en el portal de
+Discord — el fallo peligroso, porque el bot parece andar y guarda filas en blanco.
 
 ### 2026-09-08 — [REBRAND-Limitless] "Limitless" salió del código y la documentación
 

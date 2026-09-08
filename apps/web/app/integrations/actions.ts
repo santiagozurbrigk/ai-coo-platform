@@ -10,6 +10,7 @@ import {
 import { getManyChatIntegrationStatusAction } from "@/app/manychat/actions";
 import { getYoutubeIntegrationStatusAction } from "@/app/marketing/actions";
 import { getZernioIntegrationStatusAction } from "@/app/integrations/zernio/actions";
+import { getDiscordIntegrationStatusAction } from "@/app/discord/actions";
 import { getGHLIntegrationStatusAction } from "@/app/ghl/actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
@@ -270,6 +271,25 @@ async function countContentAssets(platform: string): Promise<number> {
   return count ?? 0;
 }
 
+/**
+ * Mensajes de Discord guardados **sin texto**.
+ *
+ * Es el modo de falla que el runbook del bot marca como el peligroso: si el
+ * intent MESSAGE CONTENT no está activado en el portal de Discord, el bot
+ * arranca, se conecta y guarda una fila por mensaje — todas en blanco. Parece
+ * que anda. Contarlas es la única forma de verlo desde acá.
+ */
+async function countDiscordEmptyMessages(): Promise<number> {
+  if (!isSupabaseConfigured()) return 0;
+  const { supabase, organizationId } = await countScope();
+  const { count } = await baseCount(
+    supabase,
+    organizationId,
+    "discord_messages",
+  ).or("content.is.null,content.eq.");
+  return count ?? 0;
+}
+
 async function countForms(platform: string): Promise<number> {
   if (!isSupabaseConfigured()) return 0;
   const { supabase, organizationId } = await countScope();
@@ -312,6 +332,7 @@ export async function getIntegrationsOverviewAction(): Promise<IntegrationsOverv
     typeformStatus,
     googleFormsStatus,
     zernioStatus,
+    discordStatus,
     vturbStatus,
     webinarJamStatus,
     hyrosStatus,
@@ -327,6 +348,7 @@ export async function getIntegrationsOverviewAction(): Promise<IntegrationsOverv
     getTypeformIntegrationStatusAction(),
     getGoogleFormsIntegrationStatusAction(),
     getZernioIntegrationStatusAction(),
+    getDiscordIntegrationStatusAction().catch(() => null),
     getVTurbStatusAction().catch(() => null),
     getWebinarJamStatusAction().catch(() => null),
     getHyrosStatusAction().catch(() => null),
@@ -341,6 +363,7 @@ export async function getIntegrationsOverviewAction(): Promise<IntegrationsOverv
     youtubeRecords,
     typeformRecords,
     googleFormsRecords,
+    discordEmptyMessages,
   ] = await Promise.all([
     calendlyStatus.connected ? countCalendlyClosingCalls() : 0,
     ghlStatus.connected ? countGHLAppointments() : 0,
@@ -349,6 +372,7 @@ export async function getIntegrationsOverviewAction(): Promise<IntegrationsOverv
     youtubeStatus.connected ? countContentAssets("youtube") : 0,
     typeformStatus.connected ? countForms("typeform") : 0,
     googleFormsStatus.connected ? countForms("google_forms") : 0,
+    discordStatus?.connected ? countDiscordEmptyMessages() : 0,
   ]);
 
   const byProvider = new Map<string, IntegrationHealth>();
@@ -610,6 +634,19 @@ export async function getIntegrationsOverviewAction(): Promise<IntegrationsOverv
   // ── Operación y datos ──────────────────────────────────────────────────────
 
   byProvider.set(
+    "discord",
+    buildHealth({
+      provider: "discord",
+      connected: Boolean(discordStatus?.connected),
+      accountLabel: discordStatus?.integration?.guild_name ?? null,
+      lastSyncAt: discordStatus?.integration?.last_event_at ?? null,
+      records: discordStatus?.stats.messagesCount ?? 0,
+      recordsLabel: "mensajes",
+      issues: discordIssues(discordStatus, discordEmptyMessages),
+    }),
+  );
+
+  byProvider.set(
     "clickup",
     buildHealth({
       provider: "clickup",
@@ -626,6 +663,58 @@ export async function getIntegrationsOverviewAction(): Promise<IntegrationsOverv
   );
 
   return { healths, summary: summarize(healths) };
+}
+
+/**
+ * Estado del bot de Discord.
+ *
+ * Entrar el bot al servidor no alcanza: hay que elegir qué canales lee. Sin esa
+ * segunda mitad el bot está adentro y mudo, y desde afuera se ve igual que si
+ * funcionara.
+ */
+function discordIssues(
+  status: {
+    connected: boolean;
+    integration: { monitored_channels?: unknown[] | null } | null;
+    stats: { messagesCount: number };
+  } | null,
+  emptyMessages: number,
+): IntegrationIssue[] {
+  if (!status?.connected) return [];
+
+  const issues: IntegrationIssue[] = [];
+  const monitored = status.integration?.monitored_channels?.length ?? 0;
+
+  if (monitored === 0) {
+    issues.push({
+      level: "warning",
+      message:
+        "El bot está en el servidor pero no hay ningún canal marcado para monitorear.",
+      action:
+        "Elegí los canales en la configuración: hasta entonces el bot está adentro y no lee nada.",
+    });
+  }
+
+  if (emptyMessages > 0) {
+    issues.push({
+      level: "error",
+      message: `${emptyMessages} mensajes se guardaron sin texto.`,
+      action:
+        "Falta activar MESSAGE CONTENT INTENT en discord.com/developers → tu app → Bot. Sin eso el bot guarda una fila por mensaje y todas quedan en blanco.",
+    });
+  }
+
+  issues.push(
+    ...noDataYetIssue(
+      status.stats.messagesCount,
+      "ningún mensaje",
+      monitored > 0
+        ? "El bot sólo lee los canales monitoreados: escribí uno para probar."
+        : undefined,
+    ),
+  );
+
+  return issues;
 }
 
 /**
