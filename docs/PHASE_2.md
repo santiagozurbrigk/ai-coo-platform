@@ -99,7 +99,7 @@ DISCORD_CLIENT_ID=
 DISCORD_CLIENT_SECRET=
 DISCORD_BOT_TOKEN=
 DISCORD_WEBHOOK_SECRET=
-DISCORD_REDIRECT_URI=https://<dominio>/api/integrations/discord/oauth/callback
+DISCORD_REDIRECT_URI=https://<dominio>/api/integrations/discord/callback
 ```
 
 ---
