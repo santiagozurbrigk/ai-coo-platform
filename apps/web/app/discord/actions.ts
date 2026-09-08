@@ -11,6 +11,10 @@ import {
   CLASSIFY_RUN_LIMIT,
   classifyDiscordMessagesForOrg,
 } from "@/lib/discord/classify-run";
+import {
+  listGuildTextChannels,
+  type DiscordGuildChannel,
+} from "@/lib/discord/api";
 import type {
   DiscordClientLink,
   DiscordIntegration,
@@ -129,14 +133,17 @@ export async function getDiscordSettingsAction(): Promise<{
 }
 
 export async function updateDiscordBotNameAction(
-  botName: string
+  botName: string,
 ): Promise<MutationResult> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
     const { error } = await supabase
       .from("discord_integrations")
-      .update({ bot_name: botName.trim(), updated_at: new Date().toISOString() })
+      .update({
+        bot_name: botName.trim(),
+        updated_at: new Date().toISOString(),
+      })
       .eq("organization_id", organizationId);
 
     if (error) throw new Error(error.message);
@@ -145,7 +152,7 @@ export async function updateDiscordBotNameAction(
 }
 
 export async function updateDiscordAutoPatternAction(
-  pattern: string
+  pattern: string,
 ): Promise<MutationResult> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
@@ -163,8 +170,130 @@ export async function updateDiscordAutoPatternAction(
   });
 }
 
+export type DiscordChannelOption = DiscordGuildChannel & {
+  /** Ya está en la lista de monitoreados. */
+  monitored: boolean;
+};
+
+/**
+ * Canales del servidor conectado, marcando cuáles ya se monitorean.
+ *
+ * Se pide a Discord en el momento y no se guarda: la lista de canales de un
+ * servidor cambia todo el tiempo, y una copia vieja ofrecería canales borrados.
+ */
+export async function listDiscordGuildChannelsAction(): Promise<
+  { ok: true; channels: DiscordChannelOption[] } | { ok: false; error: string }
+> {
+  try {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const { data: integration } = await supabase
+      .from("discord_integrations")
+      .select("guild_id, monitored_channels")
+      .eq("organization_id", organizationId)
+      .eq("status", "connected")
+      .maybeSingle();
+
+    if (!integration?.guild_id) {
+      return {
+        ok: false,
+        error: "No hay ningún servidor de Discord conectado.",
+      };
+    }
+
+    const monitored = new Set(
+      ((integration.monitored_channels as MonitoredChannel[]) ?? []).map(
+        (channel) => channel.channel_id,
+      ),
+    );
+
+    const channels = await listGuildTextChannels(
+      integration.guild_id as string,
+    );
+
+    return {
+      ok: true,
+      channels: channels.map((channel) => ({
+        ...channel,
+        monitored: monitored.has(channel.id),
+      })),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "No se pudieron traer los canales.",
+    };
+  }
+}
+
+/**
+ * Suma un canal existente a la lista de monitoreados.
+ *
+ * Antes esto no se podía: un canal sólo entraba si lo **creaba** alguien
+ * después de configurar el patrón de detección automática. En un servidor que ya
+ * existía —que es el caso normal— no había forma de monitorear nada.
+ *
+ * El nombre del canal se resuelve contra Discord y no se acepta del cliente: es
+ * lo que después se muestra en la pantalla, y de paso valida que el canal exista
+ * de verdad en ese servidor.
+ */
+export async function addDiscordMonitoredChannelAction(
+  channelId: string,
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const { data: integration } = await supabase
+      .from("discord_integrations")
+      .select("guild_id, monitored_channels")
+      .eq("organization_id", organizationId)
+      .eq("status", "connected")
+      .maybeSingle();
+
+    if (!integration?.guild_id) throw new Error("Integración no encontrada");
+
+    const channels =
+      (integration.monitored_channels as MonitoredChannel[]) ?? [];
+    if (channels.some((channel) => channel.channel_id === channelId)) return;
+
+    const guildChannels = await listGuildTextChannels(
+      integration.guild_id as string,
+    );
+    const channel = guildChannels.find((c) => c.id === channelId);
+    if (!channel) {
+      throw new Error("Ese canal no existe en el servidor conectado.");
+    }
+
+    const updated: MonitoredChannel[] = [
+      ...channels,
+      {
+        channel_id: channel.id,
+        channel_name: channel.name,
+        purpose: "clients",
+        added_at: new Date().toISOString(),
+      },
+    ];
+
+    const { error } = await supabase
+      .from("discord_integrations")
+      .update({
+        monitored_channels: updated,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+    revalidatePath(paths.platform.integrationsDiscord);
+  });
+}
+
 export async function removeDiscordMonitoredChannelAction(
-  channelId: string
+  channelId: string,
 ): Promise<MutationResult> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
@@ -197,7 +326,7 @@ export async function removeDiscordMonitoredChannelAction(
 
 export async function linkDiscordClientManuallyAction(
   pendingLinkId: string,
-  clientId: string
+  clientId: string,
 ): Promise<MutationResult> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
@@ -224,7 +353,7 @@ export async function linkDiscordClientManuallyAction(
           link_method: "manual",
           link_confidence: 1,
         },
-        { onConflict: "organization_id,discord_user_id" }
+        { onConflict: "organization_id,discord_user_id" },
       );
 
     if (linkError) throw new Error(linkError.message);
@@ -239,7 +368,7 @@ export async function linkDiscordClientManuallyAction(
 }
 
 export async function dismissDiscordPendingLinkAction(
-  pendingLinkId: string
+  pendingLinkId: string,
 ): Promise<MutationResult> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
@@ -276,7 +405,7 @@ export async function disconnectDiscordIntegrationAction(): Promise<MutationResu
 }
 
 export async function getClientDiscordActivityAction(
-  clientId: string
+  clientId: string,
 ): Promise<{
   link: DiscordClientLink | null;
   messages: DiscordMessage[];
@@ -332,18 +461,25 @@ export async function getClientsDiscordActivityAction(): Promise<
       .eq("organization_id", organizationId)
       .not("client_id", "is", null)
       // Más de 90 días atrás no cambia ninguna de las señales que se muestran.
-      .gte("sent_at", new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString());
+      .gte(
+        "sent_at",
+        new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+      );
 
     if (error) return {};
 
     return summarizeByClient(
-      (data as { client_id: string | null; sent_at: string; is_testimonial: boolean }[]).map(
-        (row) => ({
-          clientId: row.client_id,
-          sentAt: row.sent_at,
-          isTestimonial: row.is_testimonial,
-        })
-      )
+      (
+        data as {
+          client_id: string | null;
+          sent_at: string;
+          is_testimonial: boolean;
+        }[]
+      ).map((row) => ({
+        clientId: row.client_id,
+        sentAt: row.sent_at,
+        isTestimonial: row.is_testimonial,
+      })),
     );
   } catch {
     return {};
@@ -362,13 +498,13 @@ export async function getClientsDiscordActivityAction(): Promise<
  * Por lote: una llamada cada 25 mensajes. El costo por mensaje no cerraría.
  */
 export async function classifyDiscordMessagesAction(
-  limit = CLASSIFY_RUN_LIMIT
+  limit = CLASSIFY_RUN_LIMIT,
 ): Promise<MutationResult<{ clasificados: number; testimonios: number }>> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const { clasificados, testimonios } = await classifyDiscordMessagesForOrg(
       organizationId,
-      { limit }
+      { limit },
     );
 
     revalidatePath(paths.platform.clients.root);
@@ -405,7 +541,9 @@ export async function listWinCandidatesAction(): Promise<WinCandidate[]> {
     const [messagesResult, winsResult] = await Promise.all([
       supabase
         .from("discord_messages")
-        .select("id, content, ai_summary, channel_name, sent_at, client_id, discord_message_id, clients(name)")
+        .select(
+          "id, content, ai_summary, channel_name, sent_at, client_id, discord_message_id, clients(name)",
+        )
         .eq("organization_id", organizationId)
         .eq("is_testimonial", true)
         .not("client_id", "is", null)
@@ -424,7 +562,7 @@ export async function listWinCandidatesAction(): Promise<WinCandidate[]> {
     const yaUsados = new Set(
       ((winsResult.data as { source_ref: string | null }[]) ?? [])
         .map((row) => row.source_ref)
-        .filter((ref): ref is string => Boolean(ref))
+        .filter((ref): ref is string => Boolean(ref)),
     );
 
     type Row = {
@@ -439,9 +577,16 @@ export async function listWinCandidatesAction(): Promise<WinCandidate[]> {
     };
 
     return ((messagesResult.data as Row[]) ?? [])
-      .filter((row) => row.client_id && row.content?.trim() && !yaUsados.has(row.discord_message_id))
+      .filter(
+        (row) =>
+          row.client_id &&
+          row.content?.trim() &&
+          !yaUsados.has(row.discord_message_id),
+      )
       .map((row) => {
-        const cliente = Array.isArray(row.clients) ? row.clients[0] : row.clients;
+        const cliente = Array.isArray(row.clients)
+          ? row.clients[0]
+          : row.clients;
         return {
           messageId: row.id,
           clientId: row.client_id!,
@@ -466,7 +611,7 @@ export async function listWinCandidatesAction(): Promise<WinCandidate[]> {
  * aparecer resaltado.
  */
 export async function dismissWinCandidateAction(
-  messageId: string
+  messageId: string,
 ): Promise<MutationResult<void>> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
@@ -496,7 +641,7 @@ export async function dismissWinCandidateAction(
  * siempre se puede volver al original.
  */
 export async function createWinFromTestimonialAction(
-  messageId: string
+  messageId: string,
 ): Promise<MutationResult<{ winId: string }>> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
@@ -525,7 +670,7 @@ export async function createWinFromTestimonialAction(
     // es parte del flujo del bot.
     if (!row.client_id) {
       throw new Error(
-        "Este mensaje no está vinculado a ningún cliente. Vinculá el usuario de Discord primero."
+        "Este mensaje no está vinculado a ningún cliente. Vinculá el usuario de Discord primero.",
       );
     }
 
@@ -541,7 +686,10 @@ export async function createWinFromTestimonialAction(
     if (existing) throw new Error("Este testimonio ya se convirtió en un win.");
 
     // El resumen de la IA si existe; si no, el mensaje. Nunca se inventa el logro.
-    const achievement = (row.ai_summary?.trim() || row.content.trim()).slice(0, 500);
+    const achievement = (row.ai_summary?.trim() || row.content.trim()).slice(
+      0,
+      500,
+    );
 
     const { data: win, error: insertError } = await supabase
       .from("client_wins")
