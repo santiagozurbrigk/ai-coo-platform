@@ -14,6 +14,65 @@
 
 ---
 
+### 2026-09-08 - El bot de Discord fallaba en silencio: ahora se le puede ver el error
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `apps/discord-bot/src/lib/supabase.ts`, `apps/discord-bot/src/handlers/link-handler.ts`, `apps/discord-bot/src/events/messageCreate.ts`
+
+**Que se hizo:**
+
+Probando `!vincular` en un canal ya monitoreado, el bot no respondio nada. Al
+diagnosticarlo apareció algo mas grave que el sintoma: **el bot no tenia forma de
+decir que le pasaba.**
+
+**La capa de lectura descartaba todos los errores.** Cada consulta era
+`const { data } = await db()...`, sin mirar el `error`. Cuando una consulta
+fallaba, el bot se comportaba **exactamente igual** que si no hubiera datos: se
+iba en silencio. Desde afuera no hay diferencia observable entre "este servidor
+no esta vinculado" y "la consulta a la base fallo", y esa es justo la distincion
+que hace falta para arreglar el problema.
+
+**Y habia dos salidas mudas en el camino de un comando:**
+
+- `handleLinkCommand` hacia `return` cuando no encontraba la integracion. Quien
+  escribia `!vincular` no recibia **nada**.
+- `handleMessageCreate` atrapaba cualquier excepcion, la logueaba y seguia. El
+  usuario veia lo mismo: silencio.
+
+Un comando dirigido al bot siempre merece respuesta, aunque la respuesta sea que
+algo se rompio.
+
+**Decisiones de diseno relevantes:**
+
+- **`.single()` paso a `.maybeSingle()`** donde cero filas es un caso normal.
+  `.single()` **da error** cuando no hay filas, asi que el codigo generaba un
+  error esperado en cada consulta sin resultado — y como el error se descartaba,
+  nadie lo notaba. Ahora el codigo pide lo que realmente quiere.
+- **`PGRST116` no se reporta.** Es el codigo de "cero filas": llenar el log de
+  errores esperados es la forma mas rapida de que nadie lea el log.
+- **No se toco el comportamiento**, solo la visibilidad y las respuestas al
+  usuario. El diagnostico del caso concreto sigue estando en los logs de Railway.
+
+**Verificacion ejecutada:**
+- `tsc --noEmit` limpio en `apps/discord-bot` y en `apps/web`.
+- Descartado con datos, no por deduccion: la fila de `discord_integrations`
+  tiene el `guild_id` correcto y los tres canales con sus ids reales; el FK a
+  `organizations` existe, asi que el join embebido resuelve; `discord_messages`
+  esta en cero, que es coherente con que `!vincular` sea un comando y no se
+  guarde como mensaje.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- ADVERTENCIA: **la causa del caso concreto sigue sin identificarse.** Lo que
+  este cambio garantiza es que el proximo intento deje rastro: o el bot responde,
+  o el log dice por que.
+- El resto de la capa de lectura (`getClientByEmail`, `getClients`,
+  `channelMatchesAutoPattern`, `addMonitoredChannel`) sigue descartando el error.
+  Se toco lo que esta en el camino de un mensaje entrante.
+
+---
+
 ### 2026-09-08 — Discord: elegir qué canales lee el bot, que era imposible
 
 **Rama/branch:** `Claude-New-Features`

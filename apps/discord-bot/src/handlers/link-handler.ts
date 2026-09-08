@@ -24,7 +24,14 @@ export async function handleLinkCommand(message: Message) {
   const guildId = message.guildId!;
   const integration = await getOrgByGuildId(guildId);
 
-  if (!integration) return;
+  // Antes se iba en silencio: quien escribía !vincular no recibía nada y no
+  // quedaba rastro. Un comando dirigido al bot siempre merece una respuesta.
+  if (!integration) {
+    await message.reply(
+      "Este servidor no está vinculado a Limitless todavía. Avisale al equipo."
+    );
+    return;
+  }
 
   const orgId = integration.organization_id as string;
 
