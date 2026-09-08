@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { withOAuthNoCache } from "@/lib/integrations/oauth-callback-headers";
+import { discordRedirectUri } from "@/lib/discord/oauth";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   }
 
   const state = crypto.randomBytes(16).toString("hex");
-  const redirectUri = `${origin}/api/integrations/discord/callback`;
+  const redirectUri = discordRedirectUri(origin);
 
   const discordUrl = new URL("https://discord.com/oauth2/authorize");
   discordUrl.searchParams.set("client_id", clientId);

@@ -321,6 +321,25 @@ Reverificar cuando esas tablas entren.
 
 ---
 
+### [DISCORD-URI-PORTAL] Registrar la URI de retorno en el portal de Discord 🔴
+
+**Qué es:** conectar Discord falla con `Invalid OAuth2 redirect_uri` hasta que la
+URI esté cargada en <https://discord.com/developers/applications> → la app →
+**OAuth2 → Redirects**:
+
+```
+https://www.optimizatucontrol.com/api/integrations/discord/callback
+```
+
+⚠️ **Sin `/oauth/` en el medio.** El runbook la documentaba mal y ese es
+probablemente el valor que quedó registrado. Ya está corregido en
+`docs/DISCORD_DEPLOY.md` §4.
+
+**Y setear `DISCORD_REDIRECT_URI` en Vercel** con esa misma URI, para que no
+dependa de si la persona entró por el dominio con `www` o sin él.
+
+---
+
 ### [INTEGRACIONES-VERIFICAR] Ver las incidencias con datos reales 🟡
 
 **Qué es:** la pantalla de Integraciones ahora muestra incidencias por integración

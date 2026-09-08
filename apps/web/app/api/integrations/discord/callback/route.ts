@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes";
 import { withOAuthNoCache } from "@/lib/integrations/oauth-callback-headers";
 import { cookies } from "next/headers";
+import { discordRedirectUri } from "@/lib/discord/oauth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,9 +53,7 @@ export async function GET(request: NextRequest) {
 
   const clientId = process.env.DISCORD_CLIENT_ID ?? process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
   const clientSecret = process.env.DISCORD_CLIENT_SECRET;
-  const redirectUri =
-    process.env.DISCORD_REDIRECT_URI ??
-    `${origin}/api/integrations/discord/callback`;
+  const redirectUri = discordRedirectUri(origin);
   const botToken = process.env.DISCORD_BOT_TOKEN;
 
   if (!clientId || !clientSecret || !botToken) {

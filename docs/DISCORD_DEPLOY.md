@@ -92,16 +92,49 @@ entero en vez del bot.
 
 ---
 
-## Paso 4 · Instalar el bot en un servidor
+## Paso 4 · Registrar la URI de retorno en el portal 🔴
+
+**Sin esto, el botón "Conectar" muestra `Invalid OAuth2 redirect_uri` y no pasa
+nada más.** Discord compara la URI carácter por carácter contra una lista que
+vos cargás; si no está exacta, corta antes de mostrar el selector de servidores.
+
+1. <https://discord.com/developers/applications> → tu app → **OAuth2**
+2. En **Redirects**, **Add Redirect** y pegá la URI del dominio de producción:
+
+   ```
+   https://www.optimizatucontrol.com/api/integrations/discord/callback
+   ```
+
+3. **Save Changes**
+
+⚠️ **La ruta NO lleva `/oauth/` en el medio.** El inicio del flujo vive en
+`/api/integrations/discord/oauth/start`, pero **la vuelta es
+`/api/integrations/discord/callback`**. Es fácil copiar la del inicio y cambiarle
+el final; esa es la que falla.
+
+⚠️ **El `www` cuenta.** `optimizatucontrol.com` y `www.optimizatucontrol.com` son
+dos URIs distintas para Discord. Para no depender de por cuál entró la persona,
+seteá **`DISCORD_REDIRECT_URI`** en Vercel con la misma URI que registraste: el
+código la usa tal cual en los dos lados del flujo, así que con una sola entrada
+en el portal alcanza.
+
+---
+
+## Paso 5 · Instalar el bot en un servidor
 
 Esto ya está construido en Limitless: **Integraciones → Discord → Conectar**. Te lleva
-a Discord, elegís el servidor y listo.
+a Discord, elegís el servidor —sólo aparecen aquellos donde sos administrador— y
+listo.
 
 Necesita que `NEXT_PUBLIC_DISCORD_CLIENT_ID` esté seteada en Vercel (es el
 **Application ID** del portal de Discord, no el token).
 
 Los permisos que pide son los mínimos: ver el canal, escribir y leer el
 historial. Nada más.
+
+**Entrar el bot al servidor no hace que lea nada.** Falta el segundo paso:
+**Integraciones → Discord → Configurar canales**, y ahí marcar qué canales se
+monitorean. La tarjeta avisa mientras no haya ninguno.
 
 ---
 

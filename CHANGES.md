@@ -14,6 +14,61 @@
 
 ---
 
+### 2026-09-08 — Discord: la URI de retorno estaba documentada mal y las dos rutas no la armaban igual
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/discord/oauth.ts` (nuevo), `app/api/integrations/discord/{oauth/start,callback}/route.ts`, `docs/DISCORD_DEPLOY.md`, `docs/PHASE_2.md`
+
+**Qué se hizo:**
+
+Probando la conexión apareció `Invalid OAuth2 redirect_uri`. Discord rechaza el
+pedido antes de mostrar el selector de servidores cuando la URI de retorno no
+está registrada en el portal, y había **tres** motivos por los que podía no
+estarlo.
+
+**⭐ La documentación de despliegue tenía la ruta equivocada.** Decía
+`/api/integrations/discord/oauth/callback`, con un `/oauth/` de más. La ruta real
+es `/api/integrations/discord/callback`: el `oauth` está sólo en el **inicio** del
+flujo (`/api/integrations/discord/oauth/start`), no en la vuelta. Quien siguiera
+el runbook registraba una URI que la aplicación nunca manda.
+
+**⭐ Las dos rutas armaban la URI de forma distinta.** El inicio la derivaba del
+host del request; el callback usaba `DISCORD_REDIRECT_URI` si estaba seteada.
+Discord exige que sean **idénticas** entre el pedido de autorización y el canje
+del código. Con la variable apuntando a un host distinto del que abrió el
+navegador —`optimizatucontrol.com` contra `www.optimizatucontrol.com`— el canje
+fallaba con `invalid_grant` **a la vuelta**, cuando el usuario ya había aceptado:
+el peor momento para fallar, y sin decir por qué.
+
+Ahora las dos usan la misma función, `discordRedirectUri()`.
+
+**⭐ Derivar del host no alcanzaba.** La app responde en el dominio con y sin
+`www`, y cada deploy de preview tiene el suyo. Cada variante es otra URI que
+registrar en el portal. Con `DISCORD_REDIRECT_URI` seteada hay una sola, y el
+código la respeta en los dos lados.
+
+**Decisiones de diseño relevantes:**
+
+- **La variable gana sobre el host, no al revés.** Es la única forma de que la
+  URI sea estable: el host cambia según por dónde entró la persona, y eso no se
+  puede registrar de antemano.
+- **Se mantiene el respaldo derivado del host** para desarrollo local, donde
+  nadie quiere configurar una variable para levantar el proyecto.
+
+**Verificación ejecutada:**
+- `pnpm test`: 933 tests en verde · `tsc --noEmit` limpio · `pnpm lint` sin
+  advertencias en las rutas tocadas (se sacaron dos imports muertos) ·
+  `pnpm build`: 139 páginas.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **El arreglo del código no alcanza por sí solo:** hay que registrar la URI
+  en el portal de Discord. Los pasos quedaron en `docs/DISCORD_DEPLOY.md` §4.
+- El flujo completo sigue sin probarse contra un servidor real.
+
+---
+
 ### 2026-09-08 — Discord vuelve a Integraciones, con los dos avisos que importan
 
 **Rama/branch:** `Claude-New-Features`
