@@ -106,9 +106,6 @@ export function IntegrationConnectActions({
   const { push } = useToast();
   const { refreshClosingCalls } = usePlatformData();
   const [isPending, startTransition] = useTransition();
-  const [manychatWebhookUrl, setManychatWebhookUrl] = useState<string | null>(
-    null,
-  );
   const [openDialog, setOpenDialog] = useState<
     | "fathom"
     | "manychat"

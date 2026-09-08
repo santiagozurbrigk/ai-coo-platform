@@ -14,6 +14,66 @@
 
 ---
 
+### 2026-09-08 — Discord: elegir qué canales lee el bot, que era imposible
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** `lib/discord/api.ts` (nuevo), `app/discord/actions.ts`, `components/integrations/discord-settings.tsx`
+
+**Qué se hizo:**
+
+Con el bot ya conectado a un servidor real apareció que **no había forma de
+asignarle canales**. La pantalla decía "Canales configurados manualmente" y no
+ofrecía ninguna manera de configurar uno: existía `removeDiscordMonitoredChannelAction`
+y **no existía la de agregar**, ni en la interfaz, ni como acción, ni como comando
+del bot.
+
+**El único camino era la detección automática, y llega tarde por definición.** Un
+canal entra a la lista cuando el bot recibe el evento `channelCreate` y el nombre
+coincide con el patrón. Es decir: **sólo los canales que se creen de ahora en
+más**. En un servidor que ya existe —que es el caso normal, el del cliente que ya
+viene trabajando— no se podía monitorear absolutamente nada.
+
+**Lo que se agregó:** un selector que lista los canales de texto del servidor,
+marca cuáles ya se monitorean y deja sumar los que falten.
+
+**Decisiones de diseño relevantes:**
+
+- **La lista se pide a Discord al abrir el selector, no al pintar la página.** Los
+  canales de un servidor cambian todo el tiempo; una copia guardada ofrecería
+  canales borrados. Y quien no toca el selector no paga la llamada.
+- **El nombre del canal se resuelve contra Discord, no se acepta del cliente.** Es
+  lo que después se muestra en pantalla, y de paso valida que el canal exista de
+  verdad **en ese servidor**: el navegador sólo manda un id.
+- **La llamada tiene tiempo límite de 10 segundos.** Sin eso, una respuesta lenta
+  dejaba el botón en "Buscando…" para siempre — indistinguible de un servidor sin
+  canales, y sin forma de reintentar. Se vio al probarlo, no se dedujo.
+- **Discord devuelve sólo los canales que el bot puede ver.** Un canal privado al
+  que no lo invitaron no aparece, y está bien: tampoco podría leerlo. El vacío lo
+  dice explícitamente en vez de mostrar una lista sin explicación.
+
+**El texto de la pantalla también cambió**, porque mentía: donde decía que los
+canales nuevos se agregarían automáticamente, ahora dice que sin canales elegidos
+el bot está en el servidor y no lee nada, y que la detección automática sólo
+alcanza a los que se creen de ahora en más.
+
+**Verificación ejecutada:**
+- Pantalla **probada en el navegador** con una integración conectada: el selector
+  abre, lista, y muestra el error de Discord cuando la credencial no sirve.
+- `pnpm test`: 933 tests en verde · `tsc --noEmit` limpio · `pnpm lint` sin
+  advertencias nuevas (se sacó un estado muerto que quedó del rediseño).
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **El camino feliz no se probó contra un servidor real**: en el entorno de
+  prueba el token es falso, así que se verificó la interfaz y el manejo de error,
+  no la lista poblada.
+- Los canales se agregan con `purpose: "clients"`, que es el único que la pantalla
+  usa hoy. El tipo admite `testimonials` y `general`, pero nada los distingue
+  todavía.
+
+---
+
 ### 2026-09-08 — Discord: la URI de retorno estaba documentada mal y las dos rutas no la armaban igual
 
 **Rama/branch:** `Claude-New-Features`
@@ -125,7 +185,7 @@ un cliente.
 
 ---
 
-### 2026-09-08 — El producto se llama Limitless: se retiró "Limitless" del código y la documentación
+### 2026-09-08 — El producto se llama Limitless: se retiró el nombre viejo del código y la documentación
 
 **Rama/branch:** `Claude-New-Features`
 **Commits:** pendiente push

@@ -7,6 +7,9 @@ import {
   dismissDiscordPendingLinkAction,
   linkDiscordClientManuallyAction,
   removeDiscordMonitoredChannelAction,
+  addDiscordMonitoredChannelAction,
+  listDiscordGuildChannelsAction,
+  type DiscordChannelOption,
   updateDiscordAutoPatternAction,
   updateDiscordBotNameAction,
 } from "@/app/discord/actions";
@@ -122,16 +125,68 @@ export function DiscordSettings({
   clients,
 }: Props) {
   const { push } = useToast();
-  const [botName, setBotName] = useState(integration.bot_name ?? `Asistente ${brand.name}`);
+  const [botName, setBotName] = useState(
+    integration.bot_name ?? `Asistente ${brand.name}`,
+  );
   const [autoPattern, setAutoPattern] = useState(
-    integration.auto_monitor_pattern ?? "cliente-"
+    integration.auto_monitor_pattern ?? "cliente-",
   );
-  const [monitoredChannels, setMonitoredChannels] = useState<MonitoredChannel[]>(
-    integration.monitored_channels ?? []
-  );
+  const [monitoredChannels, setMonitoredChannels] = useState<
+    MonitoredChannel[]
+  >(integration.monitored_channels ?? []);
   const [linkedClients, setLinkedClients] = useState(initialLinked);
   const [pendingLinks, setPendingLinks] = useState(initialPending);
   const [saving, setSaving] = useState(false);
+
+  // Canales del servidor, pedidos a Discord recién al abrir el selector: la
+  // lista cambia todo el tiempo y no tiene sentido traerla al pintar la página.
+  const [picker, setPicker] = useState<DiscordChannelOption[] | null>(null);
+  const [pickerError, setPickerError] = useState<string | null>(null);
+  const [loadingPicker, setLoadingPicker] = useState(false);
+
+  const openPicker = async () => {
+    setLoadingPicker(true);
+    setPickerError(null);
+    try {
+      const res = await listDiscordGuildChannelsAction();
+      if (!res.ok) {
+        setPickerError(res.error);
+        setPicker([]);
+        return;
+      }
+      setPicker(res.channels);
+    } finally {
+      setLoadingPicker(false);
+    }
+  };
+
+  const addChannel = async (channel: DiscordChannelOption) => {
+    setSaving(true);
+    try {
+      const res = await addDiscordMonitoredChannelAction(channel.id);
+      if (!res.success) {
+        push({ title: res.error, variant: "default" });
+        return;
+      }
+      setMonitoredChannels((prev) => [
+        ...prev,
+        {
+          channel_id: channel.id,
+          channel_name: channel.name,
+          purpose: "clients",
+        },
+      ]);
+      setPicker(
+        (prev) =>
+          prev?.map((c) =>
+            c.id === channel.id ? { ...c, monitored: true } : c,
+          ) ?? null,
+      );
+      push({ title: `#${channel.name} monitoreado`, variant: "success" });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const saveBotName = async () => {
     setSaving(true);
@@ -168,7 +223,13 @@ export function DiscordSettings({
       return;
     }
     setMonitoredChannels((prev) =>
-      prev.filter((c) => c.channel_id !== channelId)
+      prev.filter((c) => c.channel_id !== channelId),
+    );
+    setPicker(
+      (prev) =>
+        prev?.map((c) =>
+          c.id === channelId ? { ...c, monitored: false } : c,
+        ) ?? null,
     );
     push({ title: "Canal removido", variant: "success" });
   };
@@ -220,13 +281,25 @@ export function DiscordSettings({
           </div>
         </GlassPanel>
 
-        <p className="text-xs text-muted-foreground">
-          Canales configurados manualmente:
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">
+            Canales que el bot lee hoy
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={loadingPicker || saving}
+            onClick={openPicker}
+          >
+            {loadingPicker ? "Buscando…" : "Elegir canales"}
+          </Button>
+        </div>
+
         {monitoredChannels.length === 0 ? (
           <p className="text-xs text-muted-foreground">
-            Ningún canal monitoreado aún. Los canales nuevos que coincidan con el
-            patrón se agregarán automáticamente.
+            Ninguno todavía, así que el bot está en el servidor y no lee nada.
+            Elegí los canales acá arriba: la detección automática sólo alcanza a
+            los canales que se creen de ahora en más.
           </p>
         ) : (
           monitoredChannels.map((channel) => (
@@ -251,6 +324,60 @@ export function DiscordSettings({
             </div>
           ))
         )}
+
+        {picker ? (
+          <GlassPanel className="space-y-2 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-medium">Canales del servidor</p>
+              <button
+                type="button"
+                onClick={() => setPicker(null)}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Cerrar"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {pickerError ? (
+              <p className="text-xs text-destructive">{pickerError}</p>
+            ) : picker.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                El bot no ve ningún canal de texto. Si el servidor tiene canales
+                privados, hay que darle acceso desde Discord.
+              </p>
+            ) : (
+              <div className="max-h-64 space-y-1 overflow-y-auto">
+                {picker.map((channel) => (
+                  <div
+                    key={channel.id}
+                    className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-muted/40"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Hash className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <span className="truncate text-sm">{channel.name}</span>
+                    </span>
+                    {channel.monitored ? (
+                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                        Ya monitoreado
+                      </span>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 shrink-0 px-2.5 text-[11px]"
+                        disabled={saving}
+                        onClick={() => addChannel(channel)}
+                      >
+                        Monitorear
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </GlassPanel>
+        ) : null}
       </section>
 
       <section className="space-y-3">
@@ -296,7 +423,7 @@ export function DiscordSettings({
                 clients={clients}
                 onResolved={() => {
                   setPendingLinks((prev) =>
-                    prev.filter((p) => p.id !== pending.id)
+                    prev.filter((p) => p.id !== pending.id),
                   );
                 }}
               />

@@ -321,24 +321,6 @@ Reverificar cuando esas tablas entren.
 
 ---
 
-### [DISCORD-URI-PORTAL] Registrar la URI de retorno en el portal de Discord 🔴
-
-**Qué es:** conectar Discord falla con `Invalid OAuth2 redirect_uri` hasta que la
-URI esté cargada en <https://discord.com/developers/applications> → la app →
-**OAuth2 → Redirects**:
-
-```
-https://www.optimizatucontrol.com/api/integrations/discord/callback
-```
-
-⚠️ **Sin `/oauth/` en el medio.** El runbook la documentaba mal y ese es
-probablemente el valor que quedó registrado. Ya está corregido en
-`docs/DISCORD_DEPLOY.md` §4.
-
-**Y setear `DISCORD_REDIRECT_URI` en Vercel** con esa misma URI, para que no
-dependa de si la persona entró por el dominio con `www` o sin él.
-
----
 
 ### [INTEGRACIONES-VERIFICAR] Ver las incidencias con datos reales 🟡
 
@@ -958,6 +940,20 @@ al tablero.
 ---
 
 ## ✅ Completados (referencia histórica)
+
+### 2026-09-08 - [DISCORD-CANALES] Se pueden elegir los canales que lee el bot
+
+No se podia: la pantalla ofrecia quitar canales pero no agregarlos, y el unico
+camino --la deteccion automatica-- solo alcanza a los canales que se **crean**
+despues de configurar el patron. En un servidor que ya existia no se podia
+monitorear nada. Ahora hay un selector que lista los canales del servidor.
+
+### 2026-09-08 - [DISCORD-URI-PORTAL] La URI de retorno quedo registrada
+
+El runbook documentaba `/api/integrations/discord/oauth/callback`, con un
+`/oauth/` de mas; la ruta real es `/api/integrations/discord/callback`. Corregido
+en la documentacion, y las dos rutas del flujo pasaron a armar la URI con la
+misma funcion.
 
 ### 2026-09-08 — [E-D1-DESPLEGAR] El bot de Discord está desplegado y la tarjeta existe
 
