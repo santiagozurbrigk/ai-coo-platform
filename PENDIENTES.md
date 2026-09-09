@@ -941,6 +941,25 @@ al tablero.
 
 ## ✅ Completados (referencia histórica)
 
+### 2026-09-09 — [DISCORD-CLAVE] El bot guardaba en el vacío y ahora lo dice al arrancar
+
+`SUPABASE_SERVICE_ROLE_KEY` en Railway no era una clave de Supabase válida, así
+que cada escritura del bot fallaba y `!vincular` no respondía nada. El bot ahora
+verifica la clave al arrancar, dice qué rol tiene y consulta la base para
+confirmar que puede leer y escribir. Corregida la clave, el flujo anda de punta a
+punta: vincular, responder y guardar.
+
+### 2026-09-09 — [DISCORD-SIN-F5] La pantalla de Discord se actualiza sola
+
+Una vinculación hecha desde Discord no aparecía hasta apretar F5: el cambio
+llega de afuera de la aplicación y no hay mutación propia que dispare el
+refresco. Ahora refresca al volver a la pestaña —que es el recorrido real: irse a
+Discord, escribir el comando y volver— más un intervalo lento con la pestaña
+visible. La mitad que faltaba: el componente guardaba las listas en
+`useState(prop)`, que toma el valor una sola vez, así que el refresco traía datos
+nuevos y la pantalla seguía mostrando los viejos. Verificado en el navegador con
+datos que cambian a mitad de sesión (aparece a los 22 s, sin F5). PR #54.
+
 ### 2026-09-08 - [DISCORD-CANALES] Se pueden elegir los canales que lee el bot
 
 No se podia: la pantalla ofrecia quitar canales pero no agregarlos, y el unico
