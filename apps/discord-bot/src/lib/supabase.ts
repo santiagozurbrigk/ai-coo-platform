@@ -25,6 +25,27 @@ function db(): SupabaseClient {
 }
 
 /**
+ * Host de Supabase al que apunta el bot, para poder nombrarlo en los mensajes.
+ *
+ * Es el dato que decide el diagnostico mas confuso de todos: el bot conectado a
+ * **otra base** se comporta igual que el bot con la base vacia. Todas las
+ * consultas devuelven nada, sin error, y desde afuera parece que la integracion
+ * no existe. Decir contra que host se pregunto convierte media hora de conjeturas
+ * en una linea de log.
+ *
+ * Es un host publico, no un secreto: la service role key nunca se imprime.
+ */
+export function supabaseHost(): string {
+  const url = process.env.SUPABASE_URL;
+  if (!url) return "(SUPABASE_URL sin definir)";
+  try {
+    return new URL(url).host;
+  } catch {
+    return `(SUPABASE_URL invalida: ${url})`;
+  }
+}
+
+/**
  * Registra el error de una consulta en vez de descartarlo.
  *
  * ⚠️ Toda la capa de lectura hacia `const { data } = await db()...` tiraba el
@@ -53,8 +74,10 @@ export async function getOrgByGuildId(guildId: string) {
   reportarError(`getOrgByGuildId(${guildId})`, error);
   if (!data) {
     console.warn(
-      `[discord] Ningún servidor conectado con guild_id ${guildId}. ` +
-        `El bot está en un servidor que Limitless no tiene vinculado.`
+      `[discord] Ningún servidor conectado con guild_id ${guildId} en ` +
+        `${supabaseHost()}. O el servidor no está vinculado en Limitless, o el ` +
+        `bot está mirando otra base: ese host tiene que ser el mismo proyecto ` +
+        `de Supabase que usa la aplicación.`
     );
   }
   return data;
