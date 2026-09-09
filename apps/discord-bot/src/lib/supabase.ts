@@ -24,13 +24,39 @@ function db(): SupabaseClient {
   return client;
 }
 
+/**
+ * Registra el error de una consulta en vez de descartarlo.
+ *
+ * ⚠️ Toda la capa de lectura hacia `const { data } = await db()...` tiraba el
+ * `error` a la basura. Cuando una consulta fallaba, el bot se comportaba
+ * exactamente igual que si no hubiera datos: se iba en silencio, sin responder
+ * y sin dejar rastro. Diagnosticar eso desde afuera es imposible — no hay
+ * diferencia observable entre "no hay integración" y "la consulta falló".
+ *
+ * `.single()` además da error cuando hay **cero** filas, que en varias de estas
+ * consultas es un caso normal: por eso se distingue `PGRST116` y no se reporta
+ * como falla.
+ */
+function reportarError(donde: string, error: { code?: string; message: string } | null) {
+  if (!error) return;
+  if (error.code === "PGRST116") return; // Sin filas: caso esperado.
+  console.error(`[supabase] ${donde}: ${error.message}`);
+}
+
 export async function getOrgByGuildId(guildId: string) {
-  const { data } = await db()
+  const { data, error } = await db()
     .from("discord_integrations")
     .select("*, organizations(*)")
     .eq("guild_id", guildId)
     .eq("status", "connected")
-    .single();
+    .maybeSingle();
+  reportarError(`getOrgByGuildId(${guildId})`, error);
+  if (!data) {
+    console.warn(
+      `[discord] Ningún servidor conectado con guild_id ${guildId}. ` +
+        `El bot está en un servidor que Limitless no tiene vinculado.`
+    );
+  }
   return data;
 }
 
@@ -38,12 +64,13 @@ export async function getClientLink(
   organizationId: string,
   discordUserId: string
 ) {
-  const { data } = await db()
+  const { data, error } = await db()
     .from("discord_client_links")
     .select("*, clients(*)")
     .eq("organization_id", organizationId)
     .eq("discord_user_id", discordUserId)
-    .single();
+    .maybeSingle();
+  reportarError("getClientLink", error);
   return data;
 }
 
@@ -122,16 +149,23 @@ export async function isChannelMonitored(
   guildId: string,
   channelId: string
 ): Promise<boolean> {
-  const { data } = await db()
+  const { data, error } = await db()
     .from("discord_integrations")
     .select("monitored_channels")
     .eq("guild_id", guildId)
-    .single();
+    .maybeSingle();
+  reportarError("isChannelMonitored", error);
 
   if (!data) return false;
 
   const channels = (data.monitored_channels as { channel_id: string }[]) || [];
-  return channels.some((c) => c.channel_id === channelId);
+  const monitored = channels.some((c) => c.channel_id === channelId);
+  if (!monitored) {
+    console.log(
+      `[discord] Canal ${channelId} sin monitorear: se ignora el mensaje.`
+    );
+  }
+  return monitored;
 }
 
 export async function channelMatchesAutoPattern(
