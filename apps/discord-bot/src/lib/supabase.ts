@@ -53,8 +53,16 @@ export function describirClave(): TipoDeClave {
     return { rol: "publishable", sirve: false };
   }
 
+  // Ni prefijo conocido ni puntos: no es ninguna clave de Supabase. Se informa
+  // el largo —que no revela nada— porque distingue de un vistazo un marcador de
+  // relleno de un pegado incompleto.
   const payload = key.split(".")[1];
-  if (!payload) return { rol: "formato desconocido", sirve: false };
+  if (!payload) {
+    return {
+      rol: `formato desconocido (${key.length} caracteres, sin puntos)`,
+      sirve: false,
+    };
+  }
 
   try {
     const { role } = JSON.parse(
@@ -289,4 +297,33 @@ export async function touchIntegrationEvent(guildId: string) {
       updated_at: new Date().toISOString(),
     })
     .eq("guild_id", guildId);
+}
+
+/**
+ * Le pregunta a la base que ve el bot, y lo dice.
+ *
+ * Es el unico chequeo que no depende de adivinar el formato de la clave: se hace
+ * la consulta mas barata posible contra la tabla que el bot necesita y se informa
+ * lo que Supabase respondio. Distingue de un renglon los tres casos que hasta
+ * ahora eran indistinguibles:
+ *
+ *   - **Error** → la clave no sirve o el proyecto es otro. El mensaje lo dice.
+ *   - **Cero filas sin error** → la clave es publica y RLS esta filtrando todo.
+ *   - **N filas** → la conexion esta sana.
+ */
+export async function diagnosticarAcceso(): Promise<string> {
+  const { data, error } = await db()
+    .from("discord_integrations")
+    .select("guild_id");
+
+  if (error) {
+    return `ERROR al leer discord_integrations: ${error.message}`;
+  }
+  if (!data || data.length === 0) {
+    return (
+      "0 servidores visibles. La tabla tiene RLS: con una clave publica esto es " +
+      "lo que se ve aunque la fila exista."
+    );
+  }
+  return `${data.length} servidor(es) visibles en la base.`;
 }

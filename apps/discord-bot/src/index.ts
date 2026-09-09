@@ -39,7 +39,13 @@ if (missing.length > 0) {
 
 const client = createDiscordClient();
 
-client.once("ready", () => handleReady(client));
+client.once("ready", () => {
+  void handleReady(client).catch((error: unknown) =>
+    logError(
+      `Fallo el diagnostico de arranque: ${error instanceof Error ? error.message : String(error)}`
+    )
+  );
+});
 client.on("messageCreate", handleMessageCreate);
 client.on("channelCreate", handleChannelCreate);
 
