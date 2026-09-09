@@ -14,6 +14,64 @@
 
 ---
 
+### 2026-09-09 - La pantalla de Discord se actualiza sola
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `lib/hooks/use-auto-refresh.ts` (nuevo), `components/integrations/discord-settings.tsx`
+
+**Que se hizo:**
+
+El bot ya funciona de punta a punta —vincula, responde y guarda—, pero para ver
+una vinculacion nueva habia que apretar F5.
+
+**Las paginas de la plataforma se renderizan en el servidor** y reciben los datos
+como props. Despues de una mutacion propia se refrescan solas, pero **no cuando
+el cambio viene de afuera de la aplicacion**: el bot escribiendo una vinculacion
+desde Discord no tiene forma de avisarle a una pestaña abierta.
+
+**El disparador principal es volver a la pestaña.** El recorrido real es irse a
+Discord, escribir el comando y volver: refrescar justo ahi resuelve el caso
+completo y no cuesta nada mientras la pestaña esta en segundo plano. Hay ademas
+un intervalo lento para quien se queda mirando la pantalla esperando.
+
+**⭐ Y habia una segunda mitad sin la cual lo anterior no servia de nada.** El
+componente guardaba las listas en `useState(prop)`, que **toma el valor una sola
+vez**. Refrescar traia datos nuevos del servidor y la pantalla seguia mostrando
+los viejos: el F5 tampoco se hubiera evitado. Ahora, cuando llegan props nuevas,
+el servidor gana.
+
+**Decisiones de diseno relevantes:**
+
+- **Con la pestaña oculta no se pide nada.** Una pestaña olvidada en segundo plano
+  no deberia consultar al servidor toda la noche.
+- **`router.refresh()` en vez de `location.reload()`.** Vuelve a pedir los datos
+  sin perder el estado del cliente ni la posicion del scroll.
+- **Se mantuvo el estado local en vez de leer las props directo.** Es lo que
+  permite que agregar un canal se vea al instante sin esperar al servidor; lo que
+  faltaba era que el servidor pudiera corregirlo despues.
+- **Sondeo y no realtime.** Realtime pedia sumar las tablas a la publicacion y
+  suscribirse; para una pantalla de configuracion que se abre durante el armado,
+  el sondeo con la pestaña visible es mas simple y no agrega infraestructura.
+
+**Verificacion ejecutada:**
+- **Probado en el navegador con datos que cambian a mitad de sesion**: al abrir la
+  vinculacion no esta, y 22 segundos despues aparece **sin apretar F5**. Ademas se
+  instrumento el servidor de prueba para confirmar que el refresco efectivamente
+  vuelve a pedir los datos (dos pedidos, 17 segundos aparte).
+- `pnpm test`: 933 tests en verde - `tsc --noEmit` limpio - `pnpm lint` sin
+  advertencias nuevas.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- El intervalo es de 15 segundos y no se puede configurar por pantalla. Alcanza
+  para esta; si se usa en una con datos mas caros, conviene subirlo.
+- Solo se aplico a la pantalla de Discord, que es donde el cambio llega de afuera.
+  El resto de la plataforma sigue refrescando unicamente despues de sus propias
+  mutaciones.
+
+---
+
 ### 2026-09-09 - El bot le pregunta a la base y dice que ve
 
 **Rama/branch:** `Claude-New-Features`
