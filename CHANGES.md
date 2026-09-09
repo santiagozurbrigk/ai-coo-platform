@@ -14,6 +14,60 @@
 
 ---
 
+### 2026-09-09 - El bot verifica que su clave de Supabase sea la correcta
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `apps/discord-bot/src/lib/supabase.ts`, `apps/discord-bot/src/events/ready.ts`
+
+**Que se hizo:**
+
+El log del arranque descarto la hipotesis anterior: el bot **si** apunta al
+proyecto correcto (`nrzlylzbmsuowzhpdnjl.supabase.co`) y **si** ve el servidor
+correcto (`Typo ARG`, con el mismo id que tiene guardado Limitless). Y aun asi
+`getOrgByGuildId` devuelve vacio.
+
+Lo que queda es la clave. Las tres tablas de Discord tienen **RLS activo** con una
+politica `org_access`, verificado en la base. Y eso arma el fallo mas silencioso
+de todos:
+
+- El bot necesita la **service role key**, que saltea RLS.
+- Si en su lugar se carga la clave publica, Supabase **acepta la conexion sin
+  quejarse**.
+- RLS filtra por `get_my_organization_id()`, que sin sesion es NULL.
+- Toda consulta devuelve **cero filas y ningun error**.
+
+O sea: el bot arranca perfecto, se conecta al servidor correcto, pregunta a la
+base correcta, y jura que la integracion no existe. **Nada en el log lo delata**,
+porque desde el punto de vista del cliente no paso nada malo. Es indistinguible
+de una base vacia.
+
+**Ahora el bot lee el rol de su propia clave y lo dice al arrancar.** Si no es la
+service role, escribe un error que explica la consecuencia y que hay que cargar.
+
+**Decisiones de diseno relevantes:**
+
+- **Nunca se imprime la clave**, sólo el rol que declara. En las claves JWT el rol
+  viene en el payload —que no es secreto, no hace falta verificar la firma para
+  leerlo— y en las nuevas viene en el prefijo (`sb_secret_` / `sb_publishable_`).
+  Se leen los dos formatos.
+- **Es un aviso, no un cierre.** El bot arranca igual: si el diagnostico estuviera
+  equivocado, negarse a arrancar convertiria un aviso util en una caida.
+
+**Verificacion ejecutada:**
+- `tsc --noEmit` limpio en `apps/discord-bot`.
+- RLS y politicas confirmadas por consulta directa a produccion antes de escribir
+  el cambio.
+- Host y guild id confirmados contra el log real del arranque.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- ADVERTENCIA: **sigue siendo una hipotesis hasta que el proximo arranque la
+  confirme.** Lo que cambia es que ahora el log la confirma o la descarta en un
+  renglon.
+
+---
+
 ### 2026-09-09 - El bot dice a que base de datos esta conectado
 
 **Rama/branch:** `Claude-New-Features`

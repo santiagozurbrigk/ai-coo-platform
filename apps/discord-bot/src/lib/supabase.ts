@@ -25,6 +25,48 @@ function db(): SupabaseClient {
 }
 
 /**
+ * Que tipo de clave esta usando el bot, sin imprimirla nunca.
+ *
+ * ⭐ Es la unica forma de detectar el fallo mas silencioso de todos. El bot
+ * **necesita la service role key**, que saltea RLS. Si en su lugar se carga la
+ * clave publica (anon / publishable), pasa esto:
+ *
+ *   - Supabase acepta la conexion sin quejarse.
+ *   - RLS filtra por `get_my_organization_id()`, que sin sesion es NULL.
+ *   - Toda consulta devuelve **cero filas y ningun error**.
+ *
+ * O sea: el bot arranca perfecto, se conecta al servidor correcto, pregunta a la
+ * base correcta, y jura que la integracion no existe. No hay nada en el log que
+ * lo delate — porque desde el punto de vista del cliente no paso nada malo.
+ *
+ * Las claves JWT (`eyJ...`) llevan el rol en su payload; las nuevas lo llevan en
+ * el prefijo (`sb_secret_` / `sb_publishable_`). Se leen los dos formatos.
+ */
+type TipoDeClave = { rol: string; sirve: boolean };
+
+export function describirClave(): TipoDeClave {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!key) return { rol: "sin definir", sirve: false };
+
+  if (key.startsWith("sb_secret_")) return { rol: "secreta", sirve: true };
+  if (key.startsWith("sb_publishable_")) {
+    return { rol: "publishable", sirve: false };
+  }
+
+  const payload = key.split(".")[1];
+  if (!payload) return { rol: "formato desconocido", sirve: false };
+
+  try {
+    const { role } = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8")
+    ) as { role?: string };
+    return { rol: role ?? "sin rol", sirve: role === "service_role" };
+  } catch {
+    return { rol: "ilegible", sirve: false };
+  }
+}
+
+/**
  * Host de Supabase al que apunta el bot, para poder nombrarlo en los mensajes.
  *
  * Es el dato que decide el diagnostico mas confuso de todos: el bot conectado a
