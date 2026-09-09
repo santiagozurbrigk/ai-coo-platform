@@ -8,6 +8,21 @@ import crypto from "crypto";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * Permisos que se le piden al servidor al instalar el bot.
+ *
+ * ⭐ Cambiar este número **no toca las instalaciones existentes**: Discord fija
+ * los permisos del rol del bot en el momento de autorizar, y sólo los actualiza
+ * si se vuelve a pasar por este flujo. Un servidor conectado antes de que se
+ * sumara `CHANGE_NICKNAME` va a seguir sin él hasta que reconecte, y el error
+ * de `lib/discord/profile.ts` es el que se lo dice.
+ */
+const BOT_PERMISSIONS =
+  (1 << 10) | // VIEW_CHANNEL — ver los canales monitoreados
+  (1 << 11) | // SEND_MESSAGES — el saludo y las respuestas a !vincular
+  (1 << 16) | // READ_MESSAGE_HISTORY — leer el hilo, no sólo el mensaje suelto
+  (1 << 26); // CHANGE_NICKNAME — ponerse el nombre que eligió la organización
+
 export async function GET(request: NextRequest) {
   const origin = request.nextUrl.origin;
 
@@ -32,7 +47,7 @@ export async function GET(request: NextRequest) {
 
   const discordUrl = new URL("https://discord.com/oauth2/authorize");
   discordUrl.searchParams.set("client_id", clientId);
-  discordUrl.searchParams.set("permissions", "68608");
+  discordUrl.searchParams.set("permissions", String(BOT_PERMISSIONS));
   discordUrl.searchParams.set("scope", "bot");
   discordUrl.searchParams.set("redirect_uri", redirectUri);
   discordUrl.searchParams.set("response_type", "code");

@@ -11,6 +11,12 @@ export type DiscordIntegration = {
   guild_id: string;
   guild_name: string | null;
   bot_name: string | null;
+  /** Foto del bot en este servidor. `null` = usa la de la aplicación. */
+  bot_avatar_url: string | null;
+  /** Última vez que Discord aceptó el perfil. `null` = nunca se aplicó. */
+  bot_profile_applied_at: string | null;
+  /** Motivo del último rechazo de Discord. `null` = el perfil está aplicado. */
+  bot_profile_error: string | null;
   monitored_channels: MonitoredChannel[];
   auto_monitor_pattern: string | null;
   status: string;

@@ -129,8 +129,16 @@ listo.
 Necesita que `NEXT_PUBLIC_DISCORD_CLIENT_ID` esté seteada en Vercel (es el
 **Application ID** del portal de Discord, no el token).
 
-Los permisos que pide son los mínimos: ver el canal, escribir y leer el
-historial. Nada más.
+Los permisos que pide son los mínimos: ver el canal, escribir, leer el historial
+y **cambiar su propio apodo** —este último para poder ponerse el nombre que la
+organización elige en Integraciones → Discord.
+
+⚠️ **Un servidor conectado antes del 2026-09-09 no tiene el permiso de apodo.**
+Discord fija los permisos del rol del bot al autorizar y no los actualiza solo:
+hay que volver a pasar por **Conectar**, o agregarle «Cambiar apodo» al rol del
+bot desde la configuración del servidor. Mientras falte, guardar el nombre
+devuelve un error que lo dice, y la pantalla lo deja visible hasta resolverlo.
+La foto no necesita ningún permiso y funciona igual en instalaciones viejas.
 
 **Entrar el bot al servidor no hace que lea nada.** Falta el segundo paso:
 **Integraciones → Discord → Configurar canales**, y ahí marcar qué canales se

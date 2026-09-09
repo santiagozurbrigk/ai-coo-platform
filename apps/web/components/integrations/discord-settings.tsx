@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Hash, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertTriangle, Hash, Upload, X } from "lucide-react";
 import { Badge, Button, GlassPanel } from "@ai-coo/ui";
 import {
   dismissDiscordPendingLinkAction,
@@ -12,6 +12,8 @@ import {
   type DiscordChannelOption,
   updateDiscordAutoPatternAction,
   updateDiscordBotNameAction,
+  updateDiscordBotAvatarAction,
+  removeDiscordBotAvatarAction,
 } from "@/app/discord/actions";
 import { useToast } from "@/providers/toast-provider";
 import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
@@ -22,6 +24,7 @@ import type {
   MonitoredChannel,
 } from "@/types/discord";
 import { brand } from "@/lib/brand";
+import { MAX_NICKNAME_LENGTH } from "@/lib/discord/limits";
 
 type Props = {
   integration: DiscordIntegration;
@@ -138,6 +141,7 @@ export function DiscordSettings({
   const [linkedClients, setLinkedClients] = useState(initialLinked);
   const [pendingLinks, setPendingLinks] = useState(initialPending);
   const [saving, setSaving] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   // Las vinculaciones las escribe el bot desde Discord, no esta pantalla: sin
   // esto había que apretar F5 para verlas aparecer.
@@ -222,7 +226,38 @@ export function DiscordSettings({
         push({ title: res.error, variant: "default" });
         return;
       }
-      push({ title: "Nombre guardado", variant: "success" });
+      push({ title: "Nombre aplicado en tu servidor", variant: "success" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const uploadAvatar = async (file: File) => {
+    setSaving(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await updateDiscordBotAvatarAction(form);
+      if (!res.success) {
+        push({ title: res.error, variant: "default" });
+        return;
+      }
+      push({ title: "Foto aplicada en tu servidor", variant: "success" });
+    } finally {
+      setSaving(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  };
+
+  const removeAvatar = async () => {
+    setSaving(true);
+    try {
+      const res = await removeDiscordBotAvatarAction();
+      if (!res.success) {
+        push({ title: res.error, variant: "default" });
+        return;
+      }
+      push({ title: "Foto quitada", variant: "success" });
     } finally {
       setSaving(false);
     }
@@ -262,22 +297,95 @@ export function DiscordSettings({
 
   return (
     <div className="space-y-8 max-w-2xl">
+      {/*
+        El rechazo de Discord sobrevive a la recarga. Sin esto, guardar un nombre
+        que Discord no aceptó dejaba la pantalla diciendo que estaba guardado
+        mientras en el servidor seguía el viejo.
+      */}
+      {integration.bot_profile_error ? (
+        <div className="flex gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium">
+              El perfil del bot no se aplicó en tu servidor
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {integration.bot_profile_error}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <section className="space-y-3">
-        <h3 className="text-sm font-medium">Nombre del bot</h3>
+        <h3 className="text-sm font-medium">Identidad del bot</h3>
         <p className="text-sm text-muted-foreground">
-          Así se presentará el bot en tu servidor de Discord
+          El nombre y la foto que ve tu equipo al lado de cada mensaje del bot,
+          sólo en tu servidor. En otros servidores el bot mantiene los suyos.
         </p>
+
         <div className="flex gap-3">
           <input
             value={botName}
             onChange={(e) => setBotName(e.target.value)}
             placeholder={`Asistente ${brand.name}`}
+            maxLength={MAX_NICKNAME_LENGTH}
             className="h-9 flex-1 rounded-lg border border-border/60 bg-muted/20 px-3 text-sm"
           />
           <Button size="sm" disabled={saving} onClick={saveBotName}>
             Guardar
           </Button>
         </div>
+
+        <GlassPanel className="flex items-center gap-4 p-4">
+          {integration.bot_avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element -- URL de Supabase Storage, sin dominio configurado en next/image
+            <img
+              src={integration.bot_avatar_url}
+              alt="Foto del bot"
+              className="h-14 w-14 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-dashed border-border/60 text-muted-foreground">
+              <Upload className="h-4 w-4" />
+            </div>
+          )}
+
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="text-sm font-medium">Foto del bot</p>
+            <p className="text-xs text-muted-foreground">
+              PNG, JPG o GIF, hasta 4 MB. Discord no acepta WebP.
+            </p>
+          </div>
+
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/png,image/jpeg,image/gif"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void uploadAvatar(file);
+            }}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={saving}
+            onClick={() => fileInput.current?.click()}
+          >
+            {integration.bot_avatar_url ? "Cambiar" : "Subir"}
+          </Button>
+          {integration.bot_avatar_url ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={saving}
+              onClick={removeAvatar}
+            >
+              Quitar
+            </Button>
+          ) : null}
+        </GlassPanel>
       </section>
 
       <section className="space-y-3">
