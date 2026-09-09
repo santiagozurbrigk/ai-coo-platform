@@ -14,6 +14,57 @@
 
 ---
 
+### 2026-09-09 - El bot le pregunta a la base y dice que ve
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `apps/discord-bot/src/lib/supabase.ts`, `apps/discord-bot/src/events/ready.ts`, `apps/discord-bot/src/index.ts`
+
+**Que se hizo:**
+
+El chequeo de clave del cambio anterior devolvio **"formato desconocido"**: la
+clave cargada en Railway no empieza con ningun prefijo de Supabase (`sb_secret_`,
+`sb_publishable_`) ni tiene la forma de un JWT. No es una clave de Supabase
+valida.
+
+Pero seguir adivinando el formato es el camino largo. **Lo que importa no es como
+se ve la clave, sino que contesta la base cuando el bot pregunta.**
+
+Ahora el arranque hace la consulta mas barata posible contra la tabla que el bot
+necesita y reporta el resultado. Distingue de un renglon los tres casos que hasta
+hoy eran indistinguibles:
+
+| Lo que sale en el log | Que significa |
+|---|---|
+| `ERROR al leer discord_integrations: ...` | La clave no sirve o el proyecto es otro. El mensaje de Supabase lo dice |
+| `0 servidores visibles` | La clave es publica y RLS filtra todo. La fila existe y el bot no la ve |
+| `N servidor(es) visibles` | La conexion esta sana |
+
+**El diagnostico de formato tambien informa el largo de la clave** cuando no
+reconoce el formato. No revela nada —es un numero— y distingue de un vistazo un
+marcador de relleno de un pegado incompleto.
+
+**Decisiones de diseno relevantes:**
+
+- **La sonda consulta, no infiere.** Mirar la forma de la clave es adivinar; pedir
+  una fila y contar lo que vuelve es medir. Las dos lineas conviven porque la
+  primera es gratis y la segunda es la que cierra.
+- **`handleReady` paso a ser asincrono**, asi que el llamador atrapa el rechazo:
+  un diagnostico que se cae no puede tumbar el arranque del bot.
+- **Se consulta `discord_integrations` y nada mas.** Es la tabla que bloquea todo
+  lo demas, y una sola columna alcanza para contar.
+
+**Verificacion ejecutada:**
+- `tsc --noEmit` limpio en `apps/discord-bot`.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- La sonda corre en cada arranque. Es una consulta trivial, pero es una consulta:
+  si algun dia el arranque tiene que ser instantaneo, este es el primer candidato
+  a sacar.
+
+---
+
 ### 2026-09-09 - El bot verifica que su clave de Supabase sea la correcta
 
 **Rama/branch:** `Claude-New-Features`
