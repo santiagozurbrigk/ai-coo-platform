@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Hash, X } from "lucide-react";
 import { Badge, Button, GlassPanel } from "@ai-coo/ui";
 import {
@@ -14,6 +14,7 @@ import {
   updateDiscordBotNameAction,
 } from "@/app/discord/actions";
 import { useToast } from "@/providers/toast-provider";
+import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
 import type {
   DiscordClientLink,
   DiscordIntegration,
@@ -137,6 +138,31 @@ export function DiscordSettings({
   const [linkedClients, setLinkedClients] = useState(initialLinked);
   const [pendingLinks, setPendingLinks] = useState(initialPending);
   const [saving, setSaving] = useState(false);
+
+  // Las vinculaciones las escribe el bot desde Discord, no esta pantalla: sin
+  // esto había que apretar F5 para verlas aparecer.
+  useAutoRefresh();
+
+  /*
+   * Las listas viven en estado local para poder actualizarlas al toque cuando la
+   * acción sale de esta pantalla (agregar un canal, resolver una vinculación).
+   * Pero `useState(prop)` toma el valor **una sola vez**: sin esto, refrescar
+   * traía datos nuevos del servidor y la pantalla seguía mostrando los viejos —
+   * o sea, el F5 tampoco se hubiera evitado.
+   *
+   * El servidor es la verdad: cuando llegan props nuevas, ganan.
+   */
+  useEffect(() => {
+    setLinkedClients(initialLinked);
+  }, [initialLinked]);
+
+  useEffect(() => {
+    setPendingLinks(initialPending);
+  }, [initialPending]);
+
+  useEffect(() => {
+    setMonitoredChannels(integration.monitored_channels ?? []);
+  }, [integration.monitored_channels]);
 
   // Canales del servidor, pedidos a Discord recién al abrir el selector: la
   // lista cambia todo el tiempo y no tiene sentido traerla al pintar la página.
