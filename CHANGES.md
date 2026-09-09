@@ -14,6 +14,59 @@
 
 ---
 
+### 2026-09-09 - El bot dice a que base de datos esta conectado
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `apps/discord-bot/src/lib/supabase.ts`, `apps/discord-bot/src/events/ready.ts`
+
+**Que se hizo:**
+
+Con los mensajes del cambio anterior, el bot ya dice **donde** falla: al probar
+`!vincular` respondio "Este servidor no esta vinculado a Limitless todavia". O
+sea, `getOrgByGuildId` devuelve vacio.
+
+Pero la fila existe. Verificado contra la base de produccion: una sola fila en
+`discord_integrations`, con el `guild_id` correcto del servidor, `status` en
+`connected`, y actualizada un minuto antes de la prueba. La aplicacion web lee y
+escribe esa misma fila sin problema.
+
+**Un bot conectado a otra base se comporta igual que un bot con la base vacia.**
+Todas las consultas devuelven nada, sin error, y desde afuera parece que la
+integracion no existe. Es el diagnostico mas confuso que hay porque los dos casos
+son observacionalmente identicos.
+
+Por eso ahora el bot **dice contra que host pregunto**: al arrancar, y otra vez en
+la advertencia de "ningun servidor conectado". Convierte media hora de conjeturas
+en una linea de log.
+
+**Al arrancar tambien lista los servidores donde esta**, con su id. Es la otra
+mitad de la comparacion: si el id que Discord reporta no es el que Limitless tiene
+guardado, se ve al lado.
+
+**Decisiones de diseno relevantes:**
+
+- **Se imprime el host, nunca la clave.** El host de Supabase es publico; la
+  service role key no aparece en ningun log.
+- **La advertencia nombra las dos causas posibles** en vez de afirmar una: o el
+  servidor no esta vinculado, o el bot mira otra base. Afirmar la que parece mas
+  probable mandaria a buscar en el lugar equivocado la mitad de las veces.
+
+**Verificacion ejecutada:**
+- `tsc --noEmit` limpio en `apps/discord-bot`.
+- Estado de la base confirmado por consulta directa antes de escribir el cambio.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- ADVERTENCIA: **la causa sigue sin confirmarse.** La hipotesis mas fuerte es que
+  `SUPABASE_URL` del servicio de Railway no apunta al mismo proyecto que usa la
+  aplicacion, pero eso se decide leyendo el log del proximo arranque, no desde
+  aca.
+- Si la causa fuera otra, el log ahora la descarta en un renglon en vez de dejar
+  el mismo silencio.
+
+---
+
 ### 2026-09-08 - El bot de Discord fallaba en silencio: ahora se le puede ver el error
 
 **Rama/branch:** `Claude-New-Features`
