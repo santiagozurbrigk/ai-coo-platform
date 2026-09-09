@@ -1198,6 +1198,38 @@ peor que el fallo.
 
 ---
 
+## Perfil del bot de Discord — nombre y foto por servidor ⚠️
+
+Necesita un servidor de Discord real con el bot adentro. **Nada de esto se
+ejecutó contra Discord**: la capacidad está verificada en la documentación y en
+los tipos de discord.js 14.26.4, y los tests cubren la traducción de cada estado
+de error con `fetch` mockeado — pero ninguno prueba que Discord acepte el PATCH.
+
+Es una capacidad **reciente**: para bots quedó habilitada en septiembre de 2025
+(`discord/discord-api-docs#3881`). Si algo de esto falla con un estado raro,
+sospechar primero de eso y no del código.
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| ⚠️ ⭐ En un servidor **conectado antes del 2026-09-09**, guardar un nombre nuevo | **Falla**, y el texto dice que falta el permiso «Cambiar apodo» y cómo darlo. Es el caso más probable de todos: subir el número de permisos no toca las instalaciones existentes |
+| ⭐ En ese mismo servidor, subir una foto | **Funciona.** La foto no necesita permisos: es lo que prueba que las dos llamadas van separadas y no una sola |
+| Reconectar Discord desde Integraciones y guardar el nombre otra vez | Ahora sí. En Discord, el bot aparece con ese nombre al lado de cada mensaje |
+| ⚠️ Recargar la pantalla después de un rechazo | El aviso ámbar **sigue ahí**. Si desaparece, `bot_profile_error` no se está persistiendo y volvimos al fallo silencioso |
+| Guardar un nombre de más de 32 caracteres | Lo frena la aplicación con un mensaje claro, sin llegar a Discord |
+| Subir un WebP | Lo rechaza la aplicación diciendo que Discord no lo acepta. Si en cambio sale un error de Discord, la validación no está corriendo |
+| Subir un archivo de más de 4 MB | Lo frena la aplicación |
+| ⭐ Subir una foto PNG y después una JPG | En el bucket queda **un solo archivo**. Dos significa que la limpieza de la extensión anterior no corrió |
+| Quitar la foto | El bot vuelve a la foto de la aplicación en ese servidor |
+| 🔒 Con dos organizaciones, mirar los paths del bucket `discord-bot-avatars` | Cada una escribe sólo bajo `{su organization_id}/`. Probar además subir apuntando a la carpeta de la otra: la policy tiene que rechazarlo |
+| ⭐ Mirar el bot desde **otro** servidor donde esté instalado | Conserva el nombre y la foto de la aplicación. Si cambió ahí también, se aplicó el perfil global en vez del perfil por servidor, que es justo lo que este cambio evita |
+| Expulsar el bot y volver a agregarlo | El perfil se pierde y hay que volver a guardarlo. Es conocido, no un bug: no hay reaplicación automática |
+
+**Qué significa si el nombre cambia pero la foto no (o al revés):** son dos
+llamadas independientes a propósito. Mirar cuál de las dos falló en el aviso de
+la pantalla, no asumir que es la misma causa.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

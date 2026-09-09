@@ -941,6 +941,20 @@ al tablero.
 
 ## ✅ Completados (referencia histórica)
 
+### 2026-09-09 — [DISCORD-IDENTIDAD] El bot se llama y se ve como la marca del cliente
+
+El campo "Nombre del bot" existía desde el principio pero **no cambiaba el
+nombre del bot**: sólo se interpolaba dentro del texto del saludo. El nombre que
+Discord muestra al lado de cada mensaje seguía siendo el de la aplicación, igual
+para todos los clientes. Ahora se aplica como apodo por servidor, y se sumó la
+foto. El default `'Asistente OTC'` de la base —que el barrido del rebrand no
+tocó— quedó corregido antes de que se lo llevara el próximo cliente que conecte.
+
+⚠️ **Pendiente de verificación real:** ver el bloque en
+`docs/PLAN_VERIFICACION.md`. Lo más probable de todo: un servidor conectado
+antes de este cambio **no tiene el permiso «Cambiar apodo»** y hay que
+reconectar el bot. La foto funciona igual sin reconectar.
+
 ### 2026-09-09 — [DISCORD-CLAVE] El bot guardaba en el vacío y ahora lo dice al arrancar
 
 `SUPABASE_SERVICE_ROLE_KEY` en Railway no era una clave de Supabase válida, así

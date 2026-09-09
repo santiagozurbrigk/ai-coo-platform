@@ -14,6 +14,98 @@
 
 ---
 
+### 2026-09-09 - El bot de Discord se llama y se ve como la marca del cliente
+
+**Rama/branch:** `Claude-New-Features`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `supabase/migrations/20260909020000_discord_bot_profile.sql` (nueva),
+`lib/discord/{profile,limits,api}.ts`, `app/discord/actions.ts`,
+`app/api/integrations/discord/oauth/start/route.ts`,
+`components/integrations/discord-settings.tsx`, `types/discord.ts`,
+`docs/DISCORD_DEPLOY.md`
+
+**Que se hizo:**
+
+Tres cosas, en orden de gravedad.
+
+1. **El campo "Nombre del bot" no cambiaba el nombre del bot.** Existia desde el
+   principio, se guardaba en `discord_integrations.bot_name`, y ese valor solo se
+   interpolaba **dentro del texto** del saludo ("Hola, soy X, el asistente del
+   equipo"). El nombre que Discord muestra al lado de cada mensaje seguia siendo
+   el de la aplicacion, igual para todos los clientes. La pantalla prometia algo
+   que Discord no cumplia y no habia forma de notarlo salvo mirando el servidor.
+   Ahora el valor se aplica como **apodo por servidor** via
+   `PATCH /guilds/{id}/members/@me`.
+
+2. **Foto del bot por servidor.** Mismo endpoint, campo `avatar`, imagen en data
+   URI base64. Bucket publico `discord-bot-avatars`, 5 MB, PNG/JPG/GIF.
+
+3. **El default de `bot_name` seguia siendo `'Asistente OTC'`.** El barrido del
+   rebrand toco el codigo, no los defaults de la base. La unica fila de
+   produccion ya estaba corregida a mano, asi que no habia nada roto hoy: lo que
+   se evito es que reapareciera con el proximo cliente que conecte.
+
+**Por que / finalidad:**
+
+El nombre y la foto del portal de developers son de la **aplicacion**: uno solo
+para todos los clientes. Cada organizacion quiere que en su servidor el bot sea
+su marca. Discord habilito el perfil por servidor para bots recien en septiembre
+de 2025 (`discord/discord-api-docs#3881`, abierto desde 2021); antes la unica
+salida era una aplicacion de Discord por cliente, con token y gateway propios.
+
+**Decisiones de diseno relevantes:**
+
+- **Se aplica desde la web, no desde el bot.** La web ya tiene `DISCORD_BOT_TOKEN`
+  (es el mismo que lista los canales), asi que el usuario ve el resultado real en
+  el momento de guardar. Hacerlo del lado del bot obligaba a inventar un canal
+  web → bot que no existe —el bot no expone HTTP— y a que el rechazo llegara, si
+  llegaba, a un log de Railway que nadie mira.
+- **Apodo y foto van en llamadas separadas.** El apodo necesita `CHANGE_NICKNAME`
+  y la foto no necesita ningun permiso. Juntos, una instalacion vieja sin ese
+  permiso haria fallar **tambien** la foto, que si podia aplicarse.
+- **`bot_profile_error` se persiste.** Si el rechazo viviera solo en un toast, al
+  recargar la pantalla volveria a decir "guardado" mientras en el servidor sigue
+  el nombre viejo — exactamente el modo de falla silencioso que costo media
+  sesion diagnosticar con la clave de Supabase. Ahora hay un aviso que sobrevive
+  a la recarga.
+- **La foto se aplica en Discord ANTES de subirla al bucket.** Al reves, un
+  rechazo dejaria un archivo huerfano y una URL guardada que la pantalla mostraria
+  como si fuera la foto vigente. Lo guardado es siempre lo que Discord acepto.
+- **Los limites viven en `lib/discord/limits.ts`,** sin imports: la pantalla los
+  necesita para el `maxLength` y el `accept`, e importarlos de `profile.ts`
+  arrastraria al bundle del cliente el modulo que habla con la API de Discord.
+- **WebP queda afuera** aunque el bucket `avatars` lo acepte: Discord lo lee de su
+  CDN pero **no lo acepta para subir** (Reference → Image Data: "supports JPG,
+  GIF, and PNG"). Permitirlo seria dejar pasar un archivo que Discord rechaza
+  despues con un 400 opaco.
+- **`permissions` de la invitacion: 68608 → 67177472** (suma `CHANGE_NICKNAME`),
+  escrito como suma de bits con el nombre de cada permiso al lado en vez de un
+  numero magico.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- ⚠️ **Las instalaciones existentes no tienen `CHANGE_NICKNAME`.** Discord fija los
+  permisos del rol del bot al autorizar y no los actualiza solo: subir el numero
+  no cambia un servidor ya conectado. Hay que reconectar el bot o darle el
+  permiso a mano al rol. El error del 403 lo dice con esas palabras. La foto
+  funciona igual en instalaciones viejas.
+- **Nada de esto se ejecuto contra un servidor real.** La capacidad esta
+  verificada en la documentacion y en los tipos de discord.js 14.26.4
+  (`GuildMemberEditMeOptions { avatar, banner, bio, nick }`), y los 10 tests
+  nuevos cubren la traduccion de cada estado de Discord con `fetch` mockeado —
+  pero ninguno prueba que Discord acepte el PATCH. Bloque de verificacion en
+  `docs/PLAN_VERIFICACION.md`.
+- **Si expulsan y vuelven a agregar el bot, el perfil se pierde** y hay que
+  volver a guardarlo. No se agrego reaplicacion automatica al entrar al servidor
+  porque el bot siempre esta adentro antes de que exista la fila que configurar.
+- La migracion **ya se aplico en produccion** (default corregido, 3 columnas,
+  bucket y 3 policies verificadas).
+
+**Tests:** 943 en verde (10 nuevos en `lib/discord/__tests__/profile.test.ts`).
+`tsc --noEmit` limpio, `pnpm lint` sin avisos nuevos.
+
+---
+
 ### 2026-09-09 - La pantalla de Discord se actualiza sola
 
 **Rama/branch:** `Claude-New-Features`

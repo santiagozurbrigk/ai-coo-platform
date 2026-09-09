@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
-import { runMutation, type MutationResult } from "@/lib/server/action-result";
+import {
+  actionErrorMessage,
+  runMutation,
+  type MutationResult,
+} from "@/lib/server/action-result";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { paths } from "@/routes";
@@ -15,6 +19,13 @@ import {
   listGuildTextChannels,
   type DiscordGuildChannel,
 } from "@/lib/discord/api";
+import { applyGuildProfile, toImageDataUri } from "@/lib/discord/profile";
+import {
+  BOT_AVATAR_MAX_BYTES,
+  DISCORD_IMAGE_MIME_TYPES,
+  MAX_NICKNAME_LENGTH,
+  type DiscordImageMimeType,
+} from "@/lib/discord/limits";
 import type {
   DiscordClientLink,
   DiscordIntegration,
@@ -132,18 +143,223 @@ export async function getDiscordSettingsAction(): Promise<{
   };
 }
 
+/**
+ * El servidor conectado de la organización. Todas las acciones de perfil lo
+ * necesitan: sin `guild_id` no hay a quién aplicarle nada.
+ */
+async function requireConnectedGuild(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+): Promise<string> {
+  const { data } = await supabase
+    .from("discord_integrations")
+    .select("guild_id")
+    .eq("organization_id", organizationId)
+    .eq("status", "connected")
+    .maybeSingle();
+
+  if (!data?.guild_id) {
+    throw new Error("No hay ningún servidor de Discord conectado.");
+  }
+  return data.guild_id as string;
+}
+
+/**
+ * Aplica un cambio de perfil en Discord y **deja registrado si lo rechazó**.
+ *
+ * ⭐ Es la mitad que evita repetir el bug que este cambio arregla. Guardar el
+ * nombre en la base no lo cambia en Discord; si el rechazo viviera nada más en
+ * un toast, al recargar la pantalla volvería a decir que está guardado mientras
+ * en el servidor sigue el nombre viejo. `bot_profile_error` sobrevive a la
+ * recarga y la pantalla lo muestra hasta que se resuelva.
+ *
+ * El error se vuelve a lanzar: para el usuario esto **falló**, aunque la fila se
+ * haya guardado. Lo que quería era ver el cambio en su servidor. Marcar el éxito
+ * queda en manos de quien llama, que además tiene que guardar lo suyo.
+ */
+async function aplicarEnDiscord(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  guildId: string,
+  patch: { nick?: string | null; avatar?: string | null },
+): Promise<void> {
+  try {
+    await applyGuildProfile(guildId, patch);
+  } catch (error) {
+    await supabase
+      .from("discord_integrations")
+      .update({
+        bot_profile_error: actionErrorMessage(error),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("organization_id", organizationId);
+    revalidatePath(paths.platform.integrationsDiscord);
+    throw error;
+  }
+}
+
+/** Lo que se escribe cuando Discord aceptó el cambio. */
+function perfilAplicado(extra: Record<string, unknown> = {}) {
+  return {
+    ...extra,
+    bot_profile_applied_at: new Date().toISOString(),
+    bot_profile_error: null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * El nombre del bot, que ahora sí es el que Discord muestra.
+ *
+ * Antes esto sólo guardaba una fila que se usaba **dentro del texto** del saludo
+ * ("Hola, soy X"): el nombre al lado del mensaje seguía siendo el de la
+ * aplicación, igual para todos los clientes.
+ */
 export async function updateDiscordBotNameAction(
   botName: string,
 ): Promise<MutationResult> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
+
+    const nick = botName.trim();
+    if (!nick) throw new Error("El nombre no puede quedar vacío.");
+    if (nick.length > MAX_NICKNAME_LENGTH) {
+      throw new Error(
+        `Discord no acepta nombres de más de ${MAX_NICKNAME_LENGTH} caracteres.`,
+      );
+    }
+
+    const guildId = await requireConnectedGuild(supabase, organizationId);
+
+    // Primero la intención, después la aplicación: si Discord rechaza, lo que
+    // el usuario pidió queda guardado y el motivo del rechazo también.
     const { error } = await supabase
       .from("discord_integrations")
-      .update({
-        bot_name: botName.trim(),
-        updated_at: new Date().toISOString(),
-      })
+      .update({ bot_name: nick, updated_at: new Date().toISOString() })
+      .eq("organization_id", organizationId);
+    if (error) throw new Error(error.message);
+
+    await aplicarEnDiscord(supabase, organizationId, guildId, { nick });
+
+    const { error: marcaError } = await supabase
+      .from("discord_integrations")
+      .update(perfilAplicado())
+      .eq("organization_id", organizationId);
+    if (marcaError) throw new Error(marcaError.message);
+
+    revalidatePath(paths.platform.integrationsDiscord);
+  });
+}
+
+const BOT_AVATAR_BUCKET = "discord-bot-avatars";
+
+/**
+ * Los tres paths que puede ocupar la foto de una organización.
+ *
+ * El nombre del archivo lleva la extensión, así que subir un JPG encima de un
+ * PNG no lo pisa: deja el anterior colgado en el bucket y sin nadie que lo
+ * referencie. Borrarlos todos antes de subir evita juntar basura.
+ */
+function pathsDeFoto(organizationId: string): string[] {
+  return ["png", "jpg", "gif"].map((ext) => `${organizationId}/bot.${ext}`);
+}
+
+function extensionParaMime(mime: DiscordImageMimeType): string {
+  if (mime === "image/png") return "png";
+  if (mime === "image/gif") return "gif";
+  return "jpg";
+}
+
+/**
+ * La foto del bot en el servidor de la organización.
+ *
+ * ⭐ Se aplica en Discord **antes** de subirla al bucket. Al revés, un rechazo
+ * de Discord dejaría un archivo huérfano y una URL guardada que la pantalla
+ * mostraría como si fuera la foto vigente. Así, lo que está guardado es siempre
+ * lo que Discord aceptó.
+ */
+export async function updateDiscordBotAvatarAction(
+  formData: FormData,
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) {
+      throw new Error("No llegó ninguna imagen.");
+    }
+    if (
+      !DISCORD_IMAGE_MIME_TYPES.includes(file.type as DiscordImageMimeType)
+    ) {
+      throw new Error(
+        "Discord sólo acepta PNG, JPG o GIF para la foto del bot. WebP no sirve.",
+      );
+    }
+    if (file.size > BOT_AVATAR_MAX_BYTES) {
+      throw new Error("La imagen no puede superar 4 MB.");
+    }
+
+    const guildId = await requireConnectedGuild(supabase, organizationId);
+    const mime = file.type as DiscordImageMimeType;
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    await aplicarEnDiscord(supabase, organizationId, guildId, {
+      avatar: toImageDataUri(buffer, mime),
+    });
+
+    await supabase.storage.from(BOT_AVATAR_BUCKET).remove(pathsDeFoto(organizationId));
+
+    const storagePath = `${organizationId}/bot.${extensionParaMime(mime)}`;
+    const { error: uploadError } = await supabase.storage
+      .from(BOT_AVATAR_BUCKET)
+      .upload(storagePath, buffer, {
+        upsert: true,
+        contentType: mime,
+        cacheControl: "3600",
+      });
+
+    if (uploadError) {
+      throw new Error(
+        uploadError.message.includes("Bucket not found")
+          ? `La foto se aplicó en Discord pero no se pudo guardar la copia. ¿Existe el bucket "${BOT_AVATAR_BUCKET}"?`
+          : uploadError.message,
+      );
+    }
+
+    const { data: urlData } = supabase.storage
+      .from(BOT_AVATAR_BUCKET)
+      .getPublicUrl(storagePath);
+
+    // El path se reescribe siempre igual, así que sin este sufijo el navegador
+    // seguiría mostrando la foto anterior desde su caché.
+    const publicUrl = `${urlData.publicUrl}?v=${Date.now()}`;
+
+    const { error } = await supabase
+      .from("discord_integrations")
+      .update(perfilAplicado({ bot_avatar_url: publicUrl }))
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+    revalidatePath(paths.platform.integrationsDiscord);
+  });
+}
+
+/** Vuelve a la foto de la aplicación, la misma para todos los servidores. */
+export async function removeDiscordBotAvatarAction(): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const guildId = await requireConnectedGuild(supabase, organizationId);
+
+    await aplicarEnDiscord(supabase, organizationId, guildId, { avatar: null });
+
+    await supabase.storage.from(BOT_AVATAR_BUCKET).remove(pathsDeFoto(organizationId));
+
+    const { error } = await supabase
+      .from("discord_integrations")
+      .update(perfilAplicado({ bot_avatar_url: null }))
       .eq("organization_id", organizationId);
 
     if (error) throw new Error(error.message);
