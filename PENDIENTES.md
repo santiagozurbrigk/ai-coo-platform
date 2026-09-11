@@ -9,6 +9,38 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [COBROS-PROBAR] Probar Cobros con una sesión real 🔴
+
+**Qué es:** el seguimiento financiero de cada cliente se mudó de Clientes a
+**Ventas → Cobros** (2026-09-11). La pantalla compila, entra en el build y pasa
+los 943 tests, pero **nunca se dibujó**: el entorno de desarrollo no tiene
+Supabase ni sesión.
+
+**Qué probar, en orden de riesgo:**
+
+1. **Registrar una cuota con comprobante** y que el adeudado baje. Es lo más
+   riesgoso: las Server Actions cambiaron de archivo.
+2. **Recargar con F5 después de registrar un pago** y que siga ahí. Prueba la
+   revalidación nueva, que ahora apunta a Cobros y no a la ficha del cliente.
+3. **Comparar el adeudado** de dos o tres clientes contra lo que mostraba
+   Clientes antes: tiene que dar idéntico.
+
+**Bloque completo en:** `docs/PLAN_VERIFICACION.md`.
+
+---
+
+### [COBROS-AVISAR-PERMISOS] Avisar al equipo del cambio de acceso 🔴
+
+**Qué es:** los cobros ahora están bajo el permiso de **Ventas**. Quien tenga
+acceso total a Clientes pero Ventas en "Sin acceso" **deja de ver el monto, el
+adeudado y los comprobantes**, que hasta ayer veía en la tabla de clientes.
+
+**Qué hacer:** repasar los roles configurados y decidir, para cada persona que
+hoy toca plata de clientes, si le corresponde acceso a Ventas. Es un cambio
+buscado, pero se descubre cuando alguien no puede trabajar.
+
+---
+
 ### [ALTA-CLIENTES-PROBAR] Confirmar el alta con una cuenta de equipo 🔴
 
 **Qué es:** se arregló que un miembro con permiso total a Clientes pueda cargar y
@@ -936,6 +968,64 @@ al tablero.
 
 **Contexto:** `packages/ui/src/primitives/badge.tsx` fue corregido, pero hay ~15 archivos pre-existentes con el mismo patrón (`extends React.HTMLAttributes` sin `children?: React.ReactNode`) que Vercel ignora por caché de Turbo. En un rebuild limpio fallarían.  
 **Acción:** Hacer un `grep -rn "HTMLAttributes" packages/ui/src/` y agregar `children?: React.ReactNode` a todos los componentes que lo necesiten.
+
+---
+
+---
+
+## 🟡 Rediseño de Clientes — fases 2 a 5 (acordado 2026-09-11)
+
+La Fase 1 (mudar los cobros a Ventas) está hecha. Lo que sigue, en orden:
+
+### [CLIENTES-F2-PROGRESO-ETAPA] Progreso por etapa y fecha límite del próximo hito
+
+**Qué es:** lógica pura en `lib/checkpoints/`, con tests. Dos cosas que hoy no se
+calculan:
+
+- **"3 de 4"** — cuántos checks de **la etapa actual** están hechos. Hoy
+  `ClientJourneyStatus` cuenta hitos del recorrido entero, no de la etapa.
+- **Fecha límite del próximo hito** = fecha del hito anterior + `expectedDays`.
+  Hoy sólo se deriva `overdueDays`, no la fecha. Cuando no se puede saber (sin
+  plazo cargado, o sin hito anterior registrado) tiene que devolver `null` y la
+  pantalla decirlo — no inventar una fecha.
+
+---
+
+### [CLIENTES-F3-OBJETIVO] El objetivo general en la tabla
+
+**Qué es:** mostrar el objetivo de cada cliente. `clients.goal_text` +
+`goal_metric_key/value/unit` ya existen y se editan en el diálogo de baseline.
+
+**Lo que falta definir:** si el objetivo es texto libre (como hoy) o una lista
+configurable compartida por toda la organización (10k → 50k → 100k). Se barrieron
+las 57 tablas del schema y **no hay un catálogo de objetivos de cliente**. El
+mecanismo que más se le parece es `field_definitions` (campos configurables), que
+hoy sólo cubre `win` y `checkpoint`: extenderlo a `client` requiere una migración
+chica (el `check` de la columna `entity` y un `jsonb` en `clients`).
+
+---
+
+### [CLIENTES-F4-TABLA-NUEVA] La tabla nueva de Clientes
+
+**Qué es:** Cliente · Etapa · Próxima tarea (check + fecha límite) · Objetivo ·
+Progreso de etapa · Estado. Hoy la tabla quedó con tres columnas, esperando esto.
+
+**Decisión ya tomada sobre el check inline:** si el hito no pide métricas se
+marca de una; si las pide, abre el diálogo que ya existe. No se saltean las
+validaciones para que entre en una celda.
+
+---
+
+### [CLIENTES-F5-CALLS-ENTREGA] Reponer la clasificación de llamadas de entrega
+
+**Qué es:** la columna "última call 1-1" **no tiene de dónde salir**.
+`clients.linked_calls` sólo se llena con llamadas de venta, y la migración
+`20260901210000_sales_calls_only.sql` retiró a propósito la clasificación de
+llamadas de entrega.
+
+Es la fase más pesada y va última por decisión de Santiago. Hasta entonces la
+columna no existe: mostrar la fecha de la llamada de cierre disfrazada de 1-1
+sería un dato inventado.
 
 ---
 

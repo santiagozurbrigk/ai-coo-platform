@@ -73,6 +73,18 @@ export const paths = {
       metrics: `${PLATFORM}/sales/metrics`,
       closing: `${PLATFORM}/sales/closing`,
       llamadas: `${PLATFORM}/sales/llamadas`,
+      /**
+       * El seguimiento del cobro de cada cliente: plan, monto, adeudado,
+       * cuotas y comprobantes.
+       *
+       * ⭐ Vive en Ventas y no en Clientes porque es la continuación del cierre:
+       * `/sales/closing` pacta las condiciones de pago y acá se sigue si se
+       * cumplen. Clientes quedó para la entrega —dónde está parado cada uno en
+       * su recorrido—, que es otra pregunta y la hace otra persona.
+       */
+      cobros: `${PLATFORM}/sales/cobros`,
+      /** Cobros con el historial de un cliente ya desplegado. */
+      cobrosDeCliente: (id: string) => `${PLATFORM}/sales/cobros?cliente=${id}`,
     },
 
     clients: {

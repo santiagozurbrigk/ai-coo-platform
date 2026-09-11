@@ -37,7 +37,7 @@ import {
   listClientsAction,
   updateClientAction,
 } from "@/app/clients/actions";
-import { recordClientPaymentAction } from "@/app/clients/payment-actions";
+import { recordClientPaymentAction } from "@/app/sales/payment-actions";
 import { linkLeadToClientAction } from "@/app/sales/lead-actions";
 import {
   getPaidAmountFromClosePayload,

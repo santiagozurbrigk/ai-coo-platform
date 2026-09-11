@@ -24,7 +24,7 @@ import {
   updateSubscriptionAction,
   updateTeamCompensationAction,
 } from "@/app/finance/actions";
-import { listOrganizationPaymentsAction } from "@/app/clients/payment-actions";
+import { listOrganizationPaymentsAction } from "@/app/sales/payment-actions";
 import { getSalesMetricsSnapshotsAction } from "@/app/sales/metrics-actions";
 import {
   mockFinanceSummary,

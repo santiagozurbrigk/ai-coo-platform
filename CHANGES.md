@@ -14,6 +14,113 @@
 
 ---
 
+### 2026-09-11 - La plata de cada cliente se mudó a Ventas (Fase 1 de 5)
+
+**Rama/branch:** `claude/gallant-tesla-ozk5we`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `routes/paths.ts`, `lib/navigation/{sidebar-modules,page-meta}.ts`,
+`app/(platform)/sales/cobros/page.tsx` (nueva), `components/sales/cobros-page.tsx` (nuevo),
+`app/clients/payment-actions.ts` → `app/sales/payment-actions.ts`,
+`components/clients/{client-payments-section,payment-receipt-dropzone}.tsx` → `components/sales/`,
+`components/clients/clients-list.tsx`, `components/clients/client-detail.tsx`,
+`providers/{finance,platform}-data-provider.tsx`, `app/finance/actions.ts`,
+`app/clients/plan-duration-actions.ts`, `components/closing/payment-modal.tsx`
+
+**Que se hizo:**
+
+Todo el seguimiento financiero por cliente salió de Clientes y entró a Ventas,
+en una pantalla nueva: **`/sales/cobros`**.
+
+De la tabla de Clientes se fueron cinco columnas —Plan, Días restantes, Pago,
+Adeudado y Monto— junto con el filtro por plan, el botón "Crear planes" y el
+diálogo de asignar plan. De la ficha del cliente se fue la sección "Información
+de pago" (tipo, plataforma, total) y el historial de pagos entero. En su lugar
+quedó un botón que lleva a Cobros, y en la tabla un atajo "Cobros" en la barra
+de acciones.
+
+Tres archivos se movieron enteros, sin tocar su contenido salvo los imports:
+`payment-actions.ts` a `app/sales/`, y `client-payments-section.tsx` y
+`payment-receipt-dropzone.tsx` a `components/sales/`. Seis archivos actualizaron
+sus imports.
+
+La pantalla nueva muestra las mismas cinco columnas que perdió Clientes, más
+tres tarjetas de totales (clientes, contratado, adeudado) que suman **lo
+filtrado**, dos filtros propios de cobro ("Con saldo" / "Saldados") y un panel
+que se abre abajo con el historial de pagos del cliente elegido.
+
+**Por que / finalidad:**
+
+Correcciones de Santiago sobre la tabla de Clientes: esa pantalla tiene que
+responder **dónde está parado cada cliente en su recorrido** —etapa, próxima
+tarea, progreso— y hoy respondía a medias eso y a medias cuánto debe. Son dos
+preguntas que muchas veces hacen dos personas distintas.
+
+Ventas es el destino natural y no Finanzas: `/sales/closing` es donde se pactan
+las condiciones de pago al cerrar la venta, así que Cobros es literalmente la
+continuación de esa pantalla. Finanzas sigue leyendo los mismos datos para sus
+gráficos de ingresos, sin cambios.
+
+Esta es la **primera de cinco fases**. Las que siguen: lógica del recorrido
+(progreso por etapa y fecha límite del próximo hito), objetivo general del
+cliente, la tabla nueva de Clientes, y reponer la clasificación de llamadas de
+entrega para poder mostrar "última call 1-1".
+
+**Decisiones de diseno relevantes:**
+
+- **No se tocó el schema.** `clients.total_amount`, `payment_type`,
+  `installments` y compañía siguen donde estaban: los leen 152 referencias en 33
+  archivos (Finanzas, Closing, Embudos, Producto, Super Admin). Mover columnas de
+  base por un cambio de dónde se muestran habría roto media plataforma sin ganar
+  nada. Lo que se mudó son **pantallas**, no datos.
+- **La ficha del cliente no quedó con un resumen "de sólo lectura" del monto.**
+  Dos lugares mostrando el mismo número es exactamente donde uno de los dos queda
+  viejo y nadie sabe cuál. Quedó el camino a Cobros, no los números.
+- **Se agregó un atajo "Cobros" en la barra de Clientes.** El monto y el adeudado
+  se veían ahí hasta hoy; sin un cartel que diga a dónde fueron, quien los busque
+  va a concluir que se perdieron.
+- **`revalidateClientDetail` pasó a ser `revalidatePaymentScreens`** y revalida
+  `/sales/cobros` en vez de la ficha del cliente. Dejarlo apuntando a la ficha
+  habría seguido "funcionando" —revalidar una ruta nunca falla— y no habría
+  refrescado nada. Es el modo de falla más silencioso de toda la mudanza.
+- **El permiso que manda en Cobros es el de Ventas, no el de Clientes.**
+  `useModuleAccess` ya devuelve `"full"` para el fundador, así que se pudo borrar
+  el estado `isFounder` que la lista de clientes cargaba con una consulta aparte.
+- **Los totales de arriba suman lo filtrado, no toda la cartera.** Si alguien
+  filtra "Con saldo", el número que quiere ver es cuánto suma ese recorte.
+- **El alta y la importación de clientes se quedaron en Clientes**, aunque piden
+  monto y cuotas. Son la carga inicial de las condiciones, no el seguimiento del
+  cobro. Moverlas era una decisión distinta y no se tomó sola.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- ⚠️ **Nada se vio funcionando.** El entorno de desarrollo no tiene Supabase ni
+  sesión: se levantó el server y la ruta devuelve 307 al login. Lo que sí está
+  verificado: `tsc --noEmit` limpio, **943 tests en verde** (incluido el que
+  exige que toda pantalla nueva tenga título) y `pnpm build` completo con
+  `/sales/cobros` en el manifiesto. Ninguna de las tres cosas prueba que la
+  pantalla se vea bien ni que registrar una cuota escriba. Bloque completo en
+  `docs/PLAN_VERIFICACION.md`.
+- ⚠️ **El paso con más riesgo es registrar una cuota**, porque las Server Actions
+  cambiaron de archivo y la revalidación cambió de ruta.
+- 🔒 **Quien tenga Clientes pero no Ventas deja de ver los cobros.** Es el efecto
+  buscado, pero es un cambio de acceso real para los roles ya configurados: hay
+  que avisarle al equipo antes de que alguien no encuentre la pantalla.
+- La lista de clientes quedó con tres columnas (Cliente, Recorrido, Estado) hasta
+  que la Fase 4 le agregue Etapa, Próxima tarea, Objetivo y la barra de progreso.
+  Es un estado intermedio a propósito, no un descuido.
+- `getClientsTableEnrichmentAction` sigue viviendo en `app/clients/`, aunque
+  ahora sólo la usa Cobros. Se dejó donde estaba porque las duraciones de plan
+  son un catálogo del dominio de clientes; moverla era diff sin ganancia.
+- El aviso de lint `'push' is assigned a value but never used` en
+  `client-payments-section.tsx` es anterior a este cambio y viajó con el archivo.
+  No se tocó para que el movimiento sea un movimiento puro.
+
+**Tests:** 943 en verde (ninguno nuevo — esta fase no agrega lógica pura, mueve
+pantallas). `tsc --noEmit` limpio. `pnpm build` sin errores. `pnpm lint` sin
+avisos nuevos.
+
+---
+
 ### 2026-09-09 - El bot de Discord se llama y se ve como la marca del cliente
 
 **Rama/branch:** `Claude-New-Features`

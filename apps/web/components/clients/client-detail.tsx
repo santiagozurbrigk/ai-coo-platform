@@ -6,11 +6,11 @@ import {
   Button,
   GlassPanel,
 } from "@ai-coo/ui";
-import { ArrowLeft, ExternalLink, Sparkles, Star } from "lucide-react";
+import { ArrowLeft, ExternalLink, Receipt, Sparkles, Star } from "lucide-react";
 import { usePlatformData } from "@/providers";
+import { useModuleAccess } from "@/providers/permissions-provider";
 import { useToast } from "@/providers/toast-provider";
 import { ClientLinkedCallsSection } from "@/components/clients/client-linked-calls";
-import { ClientPaymentsSection } from "@/components/clients/client-payments-section";
 import { ClientNotesSection } from "@/components/clients/client-notes-section";
 import { ClientDiscordActivity } from "@/components/clients/client-discord-activity";
 import { ClientTimeline } from "@/components/clients/client-timeline";
@@ -37,6 +37,8 @@ export function ClientDetail({ client: initial }: { client: Client }) {
   const { clients, updateClient } = usePlatformData();
   const { push } = useToast();
   const client = clients.find((c) => c.id === initial.id) ?? initial;
+  /** El atajo a Cobros no se ofrece a quien no puede entrar a Ventas. */
+  const puedeVerCobros = useModuleAccess("sales") !== "none";
 
   const advanceStatus = async (status: ClientStatus) => {
     try {
@@ -129,25 +131,22 @@ export function ClientDetail({ client: initial }: { client: Client }) {
         </div>
       </GlassPanel>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium">Información de pago</h2>
-        <GlassPanel className="p-5 text-sm space-y-2">
-          <p>
-            <span className="text-muted-foreground">Tipo:</span>{" "}
-            {client.paymentType}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Plataforma:</span>{" "}
-            {client.platform}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Total:</span> $
-            {client.totalAmount.toLocaleString()}
-          </p>
-        </GlassPanel>
-      </section>
+      {/*
+        ⭐ La plata de este cliente ya no se muestra ni se edita acá: se mudó
+        entera a Cobros, en Ventas. Queda el camino, no los números.
 
-      <ClientPaymentsSection client={client} />
+        Dejar un resumen "de sólo lectura" habría sido peor que no dejar nada:
+        dos lugares mostrando el mismo monto es el lugar exacto donde uno de los
+        dos queda viejo y nadie sabe cuál.
+      */}
+      {puedeVerCobros ? (
+        <Button variant="outline" size="sm" className="gap-2" asChild>
+          <Link href={paths.platform.sales.cobrosDeCliente(client.id)}>
+            <Receipt className="h-4 w-4" />
+            Ver cobros de este cliente
+          </Link>
+        </Button>
+      ) : null}
 
       {/* El cuaderno del cliente: lo que no entra en ningún campo. */}
       <ClientNotesSection

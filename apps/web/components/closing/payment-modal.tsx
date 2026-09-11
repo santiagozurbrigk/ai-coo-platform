@@ -17,7 +17,7 @@ import { AlertTriangle } from "lucide-react";
 import {
   PaymentReceiptDropzone,
   uploadPaymentReceiptFile,
-} from "@/components/clients/payment-receipt-dropzone";
+} from "@/components/sales/payment-receipt-dropzone";
 import { useFinanceData } from "@/providers";
 import type { ClosePaymentPayload } from "@/types/closing";
 import type { Plan } from "@/types/plans";

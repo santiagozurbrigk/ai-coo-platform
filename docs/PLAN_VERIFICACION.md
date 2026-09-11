@@ -8,7 +8,7 @@
 > **Para Claude Code:** ver la regla al final. Cada unidad que construyas suma su
 > bloque de verificación acá, con pasos concretos y resultado esperado.
 >
-> **Última actualización:** 2026-08-30 · Cubre hasta la ola 1 completa
+> **Última actualización:** 2026-09-11 · Cubre hasta la mudanza de Cobros a Ventas
 
 ---
 
@@ -1227,6 +1227,43 @@ sospechar primero de eso y no del código.
 **Qué significa si el nombre cambia pero la foto no (o al revés):** son dos
 llamadas independientes a propósito. Mirar cuál de las dos falló en el aviso de
 la pantalla, no asumir que es la misma causa.
+
+---
+
+## Cobros en Ventas — la plata sale de Clientes ⚠️ — 2026-09-11
+
+🤖 **Se puede verificar sin cuentas externas, pero sí con una sesión real.** Nada
+de esto se ejecutó: en el entorno de desarrollo no hay Supabase ni sesión, así
+que la pantalla nueva **compila y entra en el manifiesto de rutas, pero nunca se
+dibujó**. `tsc --noEmit` limpio, 943 tests en verde, `pnpm build` completo con
+`/sales/cobros` listada — ninguna de las tres cosas prueba que la pantalla se vea
+bien ni que los botones escriban.
+
+| Qué hacer | Qué tendría que pasar |
+|---|---|
+| Entrar a **Ventas → Cobros** | Se ve la tabla con una fila por cliente: plan, días restantes, tipo de pago, adeudado y monto. Los mismos números que mostraba Clientes hasta ayer |
+| ⭐ Comparar el **adeudado** de dos o tres clientes contra lo que mostraba Clientes antes | Tienen que dar **idéntico**. Se reusan `computeOutstandingBalance` y `computeRemainingProgramDays` sin tocarlas: si un número cambió, algo se rompió en el armado de las filas, no en el cálculo |
+| Mirar las tres tarjetas de arriba (Clientes / Contratado / Adeudado) | Suman **lo filtrado**, no toda la cartera. Filtrar "Con saldo" tiene que bajar el total contratado |
+| Apretar **Ver pagos** en una fila | Se abre abajo el historial de pagos de ese cliente, con su barra de progreso de cobro y el plan de cuotas |
+| ⚠️ **Registrar una cuota** con comprobante | Se guarda, la cuota queda en "Pagada ✓" y el adeudado de la fila baja. **Es el paso con más riesgo**: las Server Actions se movieron de archivo y la revalidación ahora apunta a Cobros en vez de a la ficha del cliente |
+| Después de registrar el pago, ir a **Finanzas** sin recargar | El pago ya aparece. Lo que lo logra es `refreshClientPayments` del provider, que no se tocó |
+| ⚠️ Recargar `/sales/cobros` con F5 después de registrar un pago | El pago sigue ahí. Esto prueba la revalidación nueva (`revalidatePaymentScreens`). Si al recargar desaparece o vuelve un número viejo, la ruta revalidada quedó mal |
+| Entrar a **Clientes** | Ya **no** están las columnas Plan, Días restantes, Pago, Adeudado ni Monto. Quedan Cliente, Recorrido, Estado y las acciones |
+| Entrar a la **ficha de un cliente** | No está más la sección "Información de pago" ni el historial de pagos. En su lugar hay un botón "Ver cobros de este cliente" |
+| 🔒 Entrar con un miembro que tenga **Clientes en acceso total y Ventas en "Sin acceso"** | En Clientes **no** ve el botón "Cobros", y si tipea `/sales/cobros` a mano el layout le corta el render con la pantalla de sin acceso. Es el efecto buscado del cambio, no un bug |
+| 🔒 Entrar con un miembro que tenga **Ventas en "Solo lectura"** | Ve la tabla de Cobros y puede abrir el historial, pero **no** ve "Crear planes" ni el lápiz para cambiar el plan de un cliente |
+| Apretar **Crear planes** y **el lápiz de un plan** en Cobros | Funcionan igual que cuando vivían en Clientes. Son los mismos diálogos, movidos de pantalla |
+
+**Qué significa si el adeudado da distinto:** no es un problema de cálculo. Las
+filas se arman una sola vez en un `useMemo` que cruza clientes, planes,
+duraciones y pagos; si un cliente quedó sin plan asignado o sin duración, su
+"días restantes" dice "Sin datos de duración" —eso es correcto— pero el adeudado
+tiene que dar bien igual, porque no depende del plan.
+
+**Qué quedó explícitamente afuera:** el alta de cliente (`Nuevo cliente`) y la
+importación siguen pidiendo monto, tipo de pago y cuotas desde **Clientes**. Son
+la carga inicial de las condiciones, no el seguimiento del cobro. Si se decide
+que también tienen que mudarse, es otra tarea.
 
 ---
 

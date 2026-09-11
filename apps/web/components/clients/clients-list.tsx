@@ -3,34 +3,22 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Badge, Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, StaggerFade, StaggerFadeItem } from "@ai-coo/ui";
-import { AlertTriangle, BookOpen, CalendarCheck, MoonStar, Route, Settings2, SlidersHorizontal, Star, Trash2, Trophy } from "lucide-react";
-import { assignClientPlanAction, deleteClientAction } from "@/app/clients/actions";
-import { listPlansAction } from "@/app/clients/plan-actions";
-import { getClientsTableEnrichmentAction } from "@/app/clients/plan-duration-actions";
+import { AlertTriangle, CalendarCheck, MoonStar, Receipt, Route, SlidersHorizontal, Star, Trash2, Trophy } from "lucide-react";
+import { deleteClientAction } from "@/app/clients/actions";
 import { getClientsDiscordActivityAction } from "@/app/discord/actions";
 import type { ClientActivity } from "@/lib/discord/activity";
 import { getClientsJourneyStatusAction } from "@/app/clients/checkpoint-derived-actions";
 import { FilterPills } from "@/components/marketing/filter-pills";
-import {
-  computeOutstandingBalance,
-  computeRemainingProgramDays,
-  distinctPlanNames,
-  formatRemainingDays,
-  getClientPlanName,
-} from "@/lib/clients/plan-utils";
 import { paths } from "@/routes";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import type { Client, ClientStatus } from "@/types/clients";
-import type { Plan } from "@/types/plans";
-import type { PlanDuration } from "@/types/plan-durations";
 import type { ClientJourneyStatus } from "@/types/checkpoints";
 import { fieldOptionColorVar } from "@/lib/custom-fields";
 import { formatOverdue } from "@/lib/checkpoints";
 import { NewClientDialog } from "@/components/clients/new-client-dialog";
 import { ImportClientsDialog } from "@/components/clients/import-clients-dialog";
 import { useModuleAccess } from "@/providers/permissions-provider";
-import { PlanManagerDialog } from "./plan-manager-dialog";
 
 const STATUS_LABEL: Record<ClientStatus, string> = {
   pending_onboarding: "Realizar onboarding",
@@ -48,57 +36,6 @@ const STATUS_FILTERS: { id: ClientListFilter; label: string }[] = [
   { id: "active", label: "Activos" },
   { id: "success_case", label: "Caso de éxito" },
 ];
-
-const PAYMENT_LABEL = {
-  upfront: "Upfront",
-  installments: "Cuotas",
-  upfront_fee: "Upfront + fee",
-};
-
-function formatCurrency(amount: number): string {
-  return `$${amount.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
-}
-
-function RemainingDaysBadge({
-  days,
-  loading,
-  hasDuration,
-}: {
-  days: number | null;
-  loading: boolean;
-  hasDuration: boolean;
-}) {
-  if (loading && !hasDuration) {
-    return <span className="text-muted-foreground">…</span>;
-  }
-
-  const text = formatRemainingDays(days);
-
-  let dotClass: string | null = null;
-  if (days !== null) {
-    if (days < 0) {
-      dotClass = "bg-muted-foreground/40";
-    } else if (days < 15) {
-      dotClass = "bg-red-500";
-    } else if (days < 30) {
-      dotClass = "bg-amber-400";
-    } else {
-      dotClass = "bg-green-500";
-    }
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      {dotClass !== null ? (
-        <span
-          className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`}
-          aria-hidden
-        />
-      ) : null}
-      <span className="text-muted-foreground">{text}</span>
-    </div>
-  );
-}
 
 // ── Diálogo de confirmación de eliminación ─────────────────────────────────
 
@@ -136,74 +73,20 @@ function DeleteClientDialog({
   );
 }
 
-// ── Diálogo de asignación de plan ──────────────────────────────────────────
-
-function AssignPlanDialog({
-  client,
-  plans,
-  onConfirm,
-  onCancel,
-  pending,
-}: {
-  client: Client;
-  plans: Plan[];
-  onConfirm: (planId: string | null) => void;
-  onCancel: () => void;
-  pending: boolean;
-}) {
-  const [selectedPlanId, setSelectedPlanId] = useState<string>(client.planId ?? "");
-
-  return (
-    <Dialog open onOpenChange={(o: boolean) => { if (!o) onCancel(); }}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Asignar plan a {client.name}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Seleccioná el plan contratado por este cliente.
-          </p>
-          <select
-            className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-            value={selectedPlanId}
-            onChange={(e) => setSelectedPlanId(e.target.value)}
-            disabled={pending}
-          >
-            <option value="">Sin plan asignado</option>
-            {plans.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-                {p.durationDays ? ` (${p.durationDays} días)` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={pending}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={() => onConfirm(selectedPlanId || null)}
-            disabled={pending}
-          >
-            {pending ? "Guardando…" : "Guardar"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 // ── Componente principal ───────────────────────────────────────────────────
 
+/**
+ * La lista de clientes — el tablero de **entrega**.
+ *
+ * ⭐ Lo financiero (plan, días restantes, tipo de pago, adeudado y monto) se
+ * mudó a `/sales/cobros`. Acá quedó la pregunta que hace quien acompaña al
+ * cliente: dónde está parado en su recorrido y si se movió. Mezclar las dos
+ * hacía que la tabla respondiera dos preguntas a medias.
+ */
 export function ClientsList({ clients }: { clients: Client[] }) {
   const { refreshClients } = usePlatformData();
   const { push } = useToast();
   const [statusFilter, setStatusFilter] = useState<ClientListFilter>("all");
-  const [planFilter, setPlanFilter] = useState<string>("all");
-  const [paidByClientId, setPaidByClientId] = useState<Record<string, number>>({});
-  const [planDurations, setPlanDurations] = useState<PlanDuration[]>([]);
-  const [isFounder, setIsFounder] = useState(false);
   /**
    * ⭐ Quién puede gestionar clientes: el fundador **o** cualquiera cuyo rol
    * tenga acceso total al módulo.
@@ -214,46 +97,31 @@ export function ClientsList({ clients }: { clients: Client[] }) {
    * existía, se podía configurar, y no servía para nada.
    *
    * Un permiso que la pantalla ignora es peor que no tenerlo: hace creer que el
-   * acceso está dado.
+   * acceso está dado. `useModuleAccess` ya devuelve "full" para el fundador,
+   * así que alcanza con preguntar una sola cosa.
    */
-  const permisoClientes = useModuleAccess("clients");
-  const puedeGestionar = isFounder || permisoClientes === "full";
+  const puedeGestionar = useModuleAccess("clients") === "full";
+  /** ¿Puede además ver los cobros? El atajo no se ofrece si no va a poder entrar. */
+  const puedeVerCobros = useModuleAccess("sales") !== "none";
   /** D2 · Actividad en Discord por cliente, para la señal de silencio. */
   const [discordActivity, setDiscordActivity] = useState<Record<string, ClientActivity>>({});
   /** C3 · Fase actual y "trabado" por cliente. Derivado, no guardado. */
   const [journey, setJourney] = useState<Record<string, ClientJourneyStatus>>({});
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [plansOpen, setPlansOpen] = useState(false);
-  const [loadingEnrichment, startLoad] = useTransition();
+  const [, startLoad] = useTransition();
   const [pending, startTransition] = useTransition();
 
   // Diálogos de acción por cliente
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
-  const [assignPlanTarget, setAssignPlanTarget] = useState<Client | null>(null);
 
   useEffect(() => {
     startLoad(async () => {
-      const [enrichment, fetchedPlans, journeyStatus, activity] = await Promise.all([
-        getClientsTableEnrichmentAction(),
-        listPlansAction(),
+      const [journeyStatus, activity] = await Promise.all([
         getClientsJourneyStatusAction(),
         getClientsDiscordActivityAction(),
       ]);
       setDiscordActivity(activity);
-      setPaidByClientId(enrichment.paidByClientId);
-      setPlanDurations(enrichment.planDurations);
-      setIsFounder(enrichment.isFounder);
-      setPlans(fetchedPlans);
       setJourney(journeyStatus);
     });
-  }, [clients]);
-
-  const planOptions = useMemo(() => {
-    const names = distinctPlanNames(clients);
-    return [
-      { value: "all", label: "Todos los planes" },
-      ...names.map((name) => ({ value: name, label: name })),
-    ];
   }, [clients]);
 
   const stalledCount = useMemo(
@@ -273,13 +141,9 @@ export function ClientsList({ clients }: { clients: Client[] }) {
       } else if (statusFilter !== "all" && client.status !== statusFilter) {
         return false;
       }
-      if (planFilter !== "all") {
-        const plan = getClientPlanName(client);
-        if (plan !== planFilter) return false;
-      }
       return true;
     });
-  }, [clients, statusFilter, planFilter, journey]);
+  }, [clients, statusFilter, journey]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -301,24 +165,6 @@ export function ClientsList({ clients }: { clients: Client[] }) {
     });
   };
 
-  const handleAssignPlanConfirm = (planId: string | null) => {
-    if (!assignPlanTarget) return;
-    const target = assignPlanTarget;
-    setAssignPlanTarget(null);
-    startTransition(async () => {
-      try {
-        await assignClientPlanAction(target.id, planId);
-        await refreshClients();
-        push({ title: "Plan asignado", variant: "success" });
-      } catch (e) {
-        push({
-          title: "No se pudo asignar el plan",
-          description: e instanceof Error ? e.message : undefined,
-        });
-      }
-    });
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -333,34 +179,24 @@ export function ClientsList({ clients }: { clients: Client[] }) {
             value={statusFilter}
             onChange={(value) => setStatusFilter(value as ClientListFilter)}
           />
-          {planOptions.length > 1 ? (
-            <select
-              className="h-9 rounded-md border border-border bg-background px-3 text-sm dark:border-white/[0.08] dark:bg-[#1A1A1A]"
-              value={planFilter}
-              onChange={(e) => setPlanFilter(e.target.value)}
-            >
-              {planOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          ) : null}
         </div>
         {puedeGestionar ? (
           <div className="flex flex-wrap items-center gap-2">
             <NewClientDialog />
             <ImportClientsDialog />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => setPlansOpen(true)}
-            >
-              <Settings2 className="h-4 w-4" />
-              Crear planes
-            </Button>
+            {/*
+              ⭐ El atajo a Cobros existe porque el monto y el adeudado se
+              mostraban acá hasta hoy. Sin él, quien los buscaba en esta tabla
+              concluiría que se perdieron.
+            */}
+            {puedeVerCobros ? (
+              <Button asChild variant="outline" size="sm" className="gap-2">
+                <Link href={paths.platform.sales.cobros}>
+                  <Receipt className="h-4 w-4" />
+                  Cobros
+                </Link>
+              </Button>
+            ) : null}
             {/*
               C0 · Único acceso a la configuración de columnas configurables.
               Va acá y no en el grupo "Configuración" de la navegación: la barra
@@ -400,11 +236,6 @@ export function ClientsList({ clients }: { clients: Client[] }) {
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th className="px-4 py-3 font-medium">Cliente</th>
-              <th className="px-4 py-3 font-medium">Plan</th>
-              <th className="px-4 py-3 font-medium">Días restantes</th>
-              <th className="px-4 py-3 font-medium">Pago</th>
-              <th className="px-4 py-3 font-medium">Adeudado</th>
-              <th className="px-4 py-3 font-medium">Monto</th>
               {hasJourney ? (
                 <th className="px-4 py-3 font-medium">Recorrido</th>
               ) : null}
@@ -413,115 +244,63 @@ export function ClientsList({ clients }: { clients: Client[] }) {
             </tr>
           </thead>
           <StaggerFade as="tbody">
-            {filtered.map((client) => {
-              const planName = getClientPlanName(client);
-              // Usar plan estructurado si está asignado, o buscar por nombre en planDurations
-              const assignedPlan = client.planId
-                ? plans.find((p) => p.id === client.planId)
-                : undefined;
-              const durationDays = assignedPlan?.durationDays ?? (() => {
-                const pd = planDurations.find(
-                  (d) => d.planName.toLowerCase() === (planName ?? "").toLowerCase()
-                );
-                return pd?.durationDays;
-              })();
-              const remainingDays = computeRemainingProgramDays(
-                client.joinDate,
-                durationDays
-              );
-              const paid = paidByClientId[client.id] ?? 0;
-              const owed = computeOutstandingBalance(client, paid);
-
-              return (
-                <StaggerFadeItem
-                  as="tr"
-                  key={client.id}
-                  className="border-b border-border/50 transition-colors hover:bg-muted/40"
-                >
+            {filtered.map((client) => (
+              <StaggerFadeItem
+                as="tr"
+                key={client.id}
+                className="border-b border-border/50 transition-colors hover:bg-muted/40"
+              >
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{client.name}</span>
+                    {client.isSuccessCase && (
+                      <Star className="h-4 w-4 shrink-0 fill-amber-400 text-amber-400" />
+                    )}
+                  </div>
+                </td>
+                {hasJourney ? (
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{client.name}</span>
-                      {client.isSuccessCase && (
-                        <Star className="h-4 w-4 shrink-0 fill-amber-400 text-amber-400" />
-                      )}
-                    </div>
+                    <JourneyCell status={journey[client.id]} />
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                      <span>{assignedPlan?.name ?? planName ?? "—"}</span>
-                      {plans.length > 0 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-muted-foreground/60 hover:text-primary"
-                          title="Modificar plan"
-                          onClick={() => setAssignPlanTarget(client)}
-                          disabled={pending}
-                        >
-                          <BookOpen className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <RemainingDaysBadge
-                      days={remainingDays}
-                      loading={loadingEnrichment}
-                      hasDuration={!!durationDays}
-                    />
-                  </td>
-                  <td className="px-4 py-3">{PAYMENT_LABEL[client.paymentType]}</td>
-                  <td className="px-4 py-3 tabular-nums">
-                    {loadingEnrichment ? "…" : formatCurrency(owed)}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums">
-                    {formatCurrency(client.totalAmount)}
-                  </td>
-                  {hasJourney ? (
-                    <td className="px-4 py-3">
-                      <JourneyCell status={journey[client.id]} />
-                    </td>
-                  ) : null}
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Badge variant="secondary">{STATUS_LABEL[client.status]}</Badge>
-                      {/* D2 · Silencio en Discord: se avisa donde ya se mira el estado. */}
-                      {discordActivity[client.id]?.isSilent ? (
-                        <span
-                          className="inline-flex items-center gap-1 rounded-full border border-warning/40 px-1.5 py-0.5 text-[10px] text-warning"
-                          title={`Sin escribir en Discord hace ${discordActivity[client.id]?.daysSinceLastMessage} días`}
-                        >
-                          <MoonStar className="h-2.5 w-2.5" />
-                          {discordActivity[client.id]?.daysSinceLastMessage}d
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Link
-                        href={paths.platform.clients.detail(client.id)}
-                        className="text-xs font-medium text-primary hover:underline"
+                ) : null}
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant="secondary">{STATUS_LABEL[client.status]}</Badge>
+                    {/* D2 · Silencio en Discord: se avisa donde ya se mira el estado. */}
+                    {discordActivity[client.id]?.isSilent ? (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full border border-warning/40 px-1.5 py-0.5 text-[10px] text-warning"
+                        title={`Sin escribir en Discord hace ${discordActivity[client.id]?.daysSinceLastMessage} días`}
                       >
-                        Ver detalle
-                      </Link>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-muted-foreground/50 hover:text-destructive"
-                        title="Eliminar cliente"
-                        onClick={() => setDeleteTarget(client)}
-                        disabled={pending}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </td>
-                </StaggerFadeItem>
-              );
-            })}
+                        <MoonStar className="h-2.5 w-2.5" />
+                        {discordActivity[client.id]?.daysSinceLastMessage}d
+                      </span>
+                    ) : null}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <Link
+                      href={paths.platform.clients.detail(client.id)}
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      Ver detalle
+                    </Link>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground/50 hover:text-destructive"
+                      title="Eliminar cliente"
+                      onClick={() => setDeleteTarget(client)}
+                      disabled={pending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </td>
+              </StaggerFadeItem>
+            ))}
           </StaggerFade>
         </table>
         {filtered.length === 0 && (
@@ -531,33 +310,12 @@ export function ClientsList({ clients }: { clients: Client[] }) {
         )}
       </div>
 
-      {/* Diálogo de gestión de planes */}
-      {puedeGestionar ? (
-        <PlanManagerDialog
-          open={plansOpen}
-          onOpenChange={setPlansOpen}
-          plans={plans}
-          onUpdated={setPlans}
-        />
-      ) : null}
-
       {/* Confirmación de eliminación */}
       {deleteTarget ? (
         <DeleteClientDialog
           client={deleteTarget}
           onConfirm={handleDeleteConfirm}
           onCancel={() => setDeleteTarget(null)}
-          pending={pending}
-        />
-      ) : null}
-
-      {/* Asignar plan */}
-      {assignPlanTarget ? (
-        <AssignPlanDialog
-          client={assignPlanTarget}
-          plans={plans}
-          onConfirm={handleAssignPlanConfirm}
-          onCancel={() => setAssignPlanTarget(null)}
           pending={pending}
         />
       ) : null}
