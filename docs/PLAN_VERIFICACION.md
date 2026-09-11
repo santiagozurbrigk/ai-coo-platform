@@ -8,7 +8,7 @@
 > **Para Claude Code:** ver la regla al final. Cada unidad que construyas suma su
 > bloque de verificación acá, con pasos concretos y resultado esperado.
 >
-> **Última actualización:** 2026-09-11 · Cubre hasta los campos configurables de cliente
+> **Última actualización:** 2026-09-11 · Cubre hasta la tabla nueva de Clientes
 
 ---
 
@@ -1301,6 +1301,52 @@ configurable (la categoría: "escalar a 50k") y `clients.goal_text` +
 wins para medir si se cumplió). No es duplicación accidental —miden cosas
 distintas— pero los dos se llaman "objetivo" y eso confunde. Decidir si el de
 baseline se renombra o se retira.
+
+---
+
+## La tabla nueva de Clientes ⚠️ — 2026-09-11
+
+🤖 **Sin cuentas externas, pero necesita sesión real, recorrido configurado y la
+migración de campos de cliente aplicada.** Nada se dibujó: no hay Supabase en el
+entorno. `tsc` limpio, 965 tests, build completo.
+
+**Precondiciones para que la tabla muestre algo:**
+
+1. Tener **fases y checkpoints cargados** en Recorrido del cliente, con plazos.
+   Sin recorrido, las tres columnas de recorrido no se muestran (a propósito).
+2. Tener al menos **un cliente con un hito registrado**, o todos van a decir
+   "Sin empezar".
+3. Para la columna de objetivo: la migración de la Fase 3 aplicada y la columna
+   configurada.
+
+| Qué hacer | Qué tendría que pasar |
+|---|---|
+| Entrar a **Clientes** | Columnas: Cliente · Etapa · Próxima tarea · (las configurables) · Progreso de etapa · Estado |
+| ⭐ Comparar la **Etapa** de un cliente con su Recorrido en la ficha | Coinciden. La etapa es la del hito más avanzado alcanzado |
+| ⭐ Mirar el **"3 de 4"** de un cliente y contar sus checks en la ficha | Coincide con los de **esa etapa**, no con los del recorrido entero. Es el error más fácil de cometer y el que hace inútil la barra |
+| Un cliente que **cerró su etapa** y no arrancó la siguiente | Muestra "4 de 4" con el tilde verde, y la próxima tarea es el primer hito de la etapa siguiente |
+| Mirar la **fecha límite** bajo la próxima tarea | Dice "vence el DD/MM/AAAA". Tiene que ser la fecha del hito anterior + el plazo configurado |
+| ⭐ Un hito **sin plazo** configurado, o cuyo hito anterior no está registrado | **No muestra fecha**. Si mostrara una, está inventada |
+| Un cliente atrasado | En vez de la fecha dice "trabado hace N días", en rojo. Nunca las dos cosas |
+| ⚠️ Apretar el **check** de una próxima tarea **sin métricas** | Se registra al toque, la fila avanza sola: cambia la etapa, el progreso y la próxima tarea. **Es el paso con más riesgo de la fase** |
+| ⚠️ Apretar el **check** de una tarea **con métricas** | Abre el diálogo de siempre pidiendo fecha y métricas. **No** se registra sin ellas |
+| Registrar un hito que fija estado de cliente | La columna Estado cambia sola en la misma fila |
+| Recargar con F5 después de marcar un check | El hito sigue registrado |
+| Configurar una **segunda** columna de cliente (ej: "Nicho") | Aparece como segunda columna en la tabla, al lado del objetivo |
+| Archivar la columna "Objetivo general" | Desaparece de la tabla. Los valores siguen en la ficha de cada cliente |
+| 🔒 Entrar con un miembro con **Clientes en "Solo lectura"** | Ve la próxima tarea y su fecha, pero **no** el cuadradito para marcarla, ni la barra de botones de arriba |
+| Filtrar por **Trabados (N)** | Aparecen sólo los que tienen el próximo hito vencido |
+| Una organización **sin recorrido configurado** | La tabla muestra sólo Cliente, las configurables, Estado y acciones. Sin columnas vacías |
+
+**Qué significa si el "3 de 4" no coincide:** mirar si hay hitos **archivados**
+en esa etapa. No entran en el denominador a propósito — son trabajo que nadie va
+a hacer — así que si el Recorrido muestra 5 checks y la tabla dice "de 4", el
+quinto está archivado y está bien.
+
+**Qué significa si marcar un check no hace nada:** el hito pide métricas y el
+diálogo no abrió, o la lista de clientes no se refrescó. La tabla se vuelve a
+pedir cuando `refreshClients()` trae una lista nueva; si eso falla, el check
+queda registrado en la base pero la fila no se mueve hasta recargar.
 
 ---
 

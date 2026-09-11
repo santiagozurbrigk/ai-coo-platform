@@ -975,7 +975,7 @@ al tablero.
 
 ## 🟡 Rediseño de Clientes — fases 2 a 5 (acordado 2026-09-11)
 
-Fases **1, 2 y 3 hechas**. Lo que sigue, en orden:
+Fases **1 a 4 hechas**. Queda la 5:
 
 ### [CLIENTES-F2-PROGRESO-ETAPA] Progreso por etapa y fecha límite ✅ 2026-09-11
 
@@ -1020,14 +1020,14 @@ revisar qué pasa con `deriveClientCase`, que compara contra `goal_metric_value`
 
 ---
 
-### [CLIENTES-F4-TABLA-NUEVA] La tabla nueva de Clientes
+### [CLIENTES-F4-TABLA-NUEVA] La tabla nueva de Clientes ✅ 2026-09-11
 
-**Qué es:** Cliente · Etapa · Próxima tarea (check + fecha límite) · Objetivo ·
-Progreso de etapa · Estado. Hoy la tabla quedó con tres columnas, esperando esto.
+**Hecho.** Cliente · Etapa · Próxima tarea (check + fecha límite) · las columnas
+configurables · Progreso de etapa · Estado. El check inline registra al toque si
+el hito no pide métricas, y abre el diálogo de siempre si las pide.
 
-**Decisión ya tomada sobre el check inline:** si el hito no pide métricas se
-marca de una; si las pide, abre el diálogo que ya existe. No se saltean las
-validaciones para que entre en una celda.
+**🔴 Sin probar con sesión real.** 15 pasos en `docs/PLAN_VERIFICACION.md`. Lo
+más riesgoso: el check inline, que mueve tres columnas de la fila a la vez.
 
 ---
 

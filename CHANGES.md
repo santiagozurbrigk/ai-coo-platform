@@ -14,6 +14,90 @@
 
 ---
 
+### 2026-09-11 - La tabla nueva de Clientes (Fase 4 de 5)
+
+**Rama/branch:** `claude/gallant-tesla-ozk5we`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `components/clients/clients-list.tsx`,
+`app/clients/clients-board-actions.ts` (nuevo)
+
+**Que se hizo:**
+
+La tabla de clientes pasó a ser el tablero de entrega que pedían las
+correcciones. Columnas, en orden:
+
+**Cliente · Etapa · Próxima tarea · (las columnas configurables) · Progreso de
+etapa · Estado · acciones.**
+
+- **Etapa** — la fase del recorrido donde está parado, con su color.
+- **Próxima tarea** — el próximo hito pendiente, con un **check para marcarlo
+  desde la fila** y su **fecha límite** debajo ("vence el 28/08/2026"), o el
+  atraso en rojo si ya venció.
+- **Las configurables** — las columnas que la organización creó en la solapa
+  Clientes de Campos personalizados. Entre ellas, "Objetivo general".
+- **Progreso de etapa** — el "3 de 4" con su barrita.
+
+Todo sale de datos que ya existían: la Fase 2 calculó el progreso por etapa y la
+fecha límite, la Fase 3 trajo las columnas configurables. Esta fase las muestra.
+
+Una action nueva, `getClientsBoardAction`, trae las cuatro piezas en una sola
+vuelta en vez de cuatro round trips desde el navegador.
+
+**Por que / finalidad:**
+
+Es el pedido central de la imagen de correcciones: ver de un vistazo dónde está
+cada cliente, qué le falta y cuán cerca está del próximo hito.
+
+**Decisiones de diseno relevantes:**
+
+- **⭐ El check inline no saltea validaciones.** Si el hito no pide métricas, se
+  registra al toque —ese es el caso que hace útil el check en la fila—. Si pide,
+  abre **el mismo diálogo** que la ficha del cliente. Un hito registrado sin las
+  métricas que pedía es un hito a medias que después nadie completa.
+- **Las columnas configurables son las que la organización configuró**, no una
+  columna "Objetivo" fija. Si creó una, se ve una; si creó tres, tres. Mismo
+  criterio que el tracker de wins: la tabla la decide la configuración. Fijar
+  "Objetivo general" en el código sería volver a la migración por columna que C0
+  vino a eliminar.
+- **Sin recorrido configurado, las tres columnas de recorrido no se muestran.**
+  Tres columnas con un guion en cada fila no informan nada y hacen la tabla
+  ilegible.
+- **La fecha límite sólo aparece cuando se puede saber.** Sin plazo configurado o
+  sin el hito anterior registrado, no se pone nada. Y nunca se muestran la fecha
+  y el atraso juntos: o vence, o venció.
+- **Un cliente sin hitos dice "Sin empezar" y no tiene barra.** El denominador de
+  la primera etapa haría parecer que arrancó el recorrido.
+- **⭐ Un solo fetch por check.** El tablero se vuelve a pedir cuando cambia la
+  lista de clientes, así que los handlers llaman sólo a `refreshClients()`.
+  Pedirlo además a mano sería el mismo fetch dos veces por cada check marcado. La
+  dependencia está documentada en el efecto para que no sea invisible.
+- **Con "Solo lectura" se ve la tarea y su fecha, pero no el check.** Un botón
+  que va a rebotar es peor que no tenerlo.
+- **La barra lleva `role="progressbar"` con sus `aria-*`**: un progreso que sólo
+  existe como ancho en píxeles no se puede leer con un lector de pantalla.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- ⚠️ **Nada se vio funcionando.** Sin Supabase ni sesión en el entorno. Lo
+  verificado: `tsc --noEmit` limpio, 965 tests en verde, `pnpm build` completo.
+  Bloque de verificación con 15 pasos en `docs/PLAN_VERIFICACION.md`.
+- ⚠️ **El paso con más riesgo es el check inline**: registra en la base y mueve
+  tres columnas de la fila a la vez (etapa, progreso, próxima tarea) más el
+  estado del cliente si el hito lo fija.
+- **La tabla puede quedar ancha** si una organización configura muchas columnas
+  de cliente. Tiene scroll horizontal, pero no hay tope: es una decisión de quien
+  configura y por ahora se deja así.
+- **Falta la columna "Última call 1-1"** — es la Fase 5, que necesita reponer la
+  clasificación de llamadas de entrega.
+- Si `refreshClients()` fallara, el check queda registrado en la base pero la
+  fila no se mueve hasta recargar. Se avisa el error con un toast.
+
+**Tests:** 965 en verde (ninguno nuevo — esta fase muestra datos que la Fase 2 ya
+calculó y dejó probados). `tsc --noEmit` limpio. `pnpm build` sin errores.
+`pnpm lint` sin avisos nuevos.
+
+---
+
 ### 2026-09-11 - El objetivo general, como columna configurable (Fase 3 de 5)
 
 **Rama/branch:** `claude/gallant-tesla-ozk5we`
