@@ -14,6 +14,75 @@
 
 ---
 
+### 2026-09-11 - Progreso por etapa y fecha límite del próximo hito (Fase 2 de 5)
+
+**Rama/branch:** `claude/gallant-tesla-ozk5we`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `types/checkpoints.ts`, `lib/checkpoints/stalled.ts`,
+`lib/checkpoints/__tests__/stalled.test.ts`
+
+**Que se hizo:**
+
+Tres datos derivados nuevos en `ClientJourneyStatus`, todos lógica pura:
+
+- **`stageReached` / `stageTotal`** — el "3 de 4": cuántos hitos de **la fase
+  actual** están alcanzados. Hasta ahora sólo existía `reached`/`total`, que
+  cuenta el recorrido entero.
+- **`nextCheckpointDueAt`** — la fecha límite del próximo hito (`YYYY-MM-DD`):
+  el hito anterior más su plazo. Hasta ahora sólo se derivaba `overdueDays`, o
+  sea cuánto se pasó, nunca de cuándo.
+- **`formatDueDate()`** — cómo se lee esa fecha: `28/08/2026`.
+
+Doce tests nuevos. 955 en total, todos en verde.
+
+**Por que / finalidad:**
+
+Las dos cosas que pide la imagen de las correcciones y que el sistema no sabía
+calcular: la barrita de progreso por etapa ("ver de un vistazo qué clientes están
+por lograr el próximo hito") y la fecha límite al lado de la próxima tarea.
+
+La Fase 4 las va a mostrar en la tabla. Esta fase las deja calculadas y
+probadas: son la parte que se puede verificar sin una sesión real, así que se
+hace aparte y con tests.
+
+**Decisiones de diseno relevantes:**
+
+- **El progreso cuenta la fase que la pantalla muestra**, no la del próximo hito
+  pendiente. Si contara la otra, un cliente que cerró Onboarding entero mostraría
+  "Onboarding" al lado de un "0 de 1" que en realidad es de Escala, y la fila se
+  contradiría sola. Un cliente con su fase completa muestra **"2 de 2"** —es
+  verdad y es útil: cerró la etapa— y la columna de próxima tarea dice qué sigue.
+- **Sin ningún hito alcanzado no se cuenta nada** (`0` y `0`), en vez de mostrar
+  "0 de 2" de la primera fase. Mostrar el denominador haría parecer que arrancó
+  el recorrido; la pantalla ya dice "Sin empezar" en ese caso.
+- **La fecha límite y el atraso se derivan juntos, del mismo ancla.** Dos
+  funciones separadas podrían discrepar, y una fila que dice "vence el 12" y
+  "trabado hace 6 días" al mismo tiempo no se puede leer. Si uno da `null`, el
+  otro también — son las mismas tres razones de siempre.
+- **La fecha se corta en el día**, no en la hora: un plazo se mide en días, y
+  decir "vence el 12 a las 14:32" fingiría una precisión que el dato no tiene.
+- **⭐ `formatDueDate` parte la cadena a mano en vez de usar `Date` +
+  `toLocaleDateString`.** `new Date("2026-08-28")` se interpreta como medianoche
+  UTC y en Buenos Aires (UTC-3) se muestra como el 27. Un vencimiento corrido un
+  día no rompe nada visible: sólo miente. Hay un test que lo fija.
+- **Los hitos archivados no entran en el denominador.** `buildJourney` ya los
+  saca antes; contarlos inflaría el "de 4" con trabajo que nadie va a hacer.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- **Nada de esto se ve todavía en ninguna pantalla.** Son datos calculados
+  esperando a la Fase 4. Es deliberado: las dos fases se mergean juntas en el
+  mismo PR, así que no queda código sin consumir en `main`.
+- No hace falta bloque en `docs/PLAN_VERIFICACION.md`: es lógica pura y los 12
+  tests la cubren, incluidos los tres casos de "no se puede saber" y el de la
+  zona horaria. Lo que sí va a necesitar verificación es cómo se ve en la tabla,
+  y eso entra con la Fase 4.
+
+**Tests:** 955 en verde (12 nuevos en `lib/checkpoints/__tests__/stalled.test.ts`).
+`tsc --noEmit` limpio.
+
+---
+
 ### 2026-09-11 - La plata de cada cliente se mudó a Ventas (Fase 1 de 5)
 
 **Rama/branch:** `claude/gallant-tesla-ozk5we`

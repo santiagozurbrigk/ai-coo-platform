@@ -975,19 +975,16 @@ al tablero.
 
 ## 🟡 Rediseño de Clientes — fases 2 a 5 (acordado 2026-09-11)
 
-La Fase 1 (mudar los cobros a Ventas) está hecha. Lo que sigue, en orden:
+Fases **1 y 2 hechas**. Lo que sigue, en orden:
 
-### [CLIENTES-F2-PROGRESO-ETAPA] Progreso por etapa y fecha límite del próximo hito
+### [CLIENTES-F2-PROGRESO-ETAPA] Progreso por etapa y fecha límite ✅ 2026-09-11
 
-**Qué es:** lógica pura en `lib/checkpoints/`, con tests. Dos cosas que hoy no se
-calculan:
+**Hecho.** `stageReached`/`stageTotal`, `nextCheckpointDueAt` y `formatDueDate`
+en `lib/checkpoints/stalled.ts`, con 12 tests nuevos (955 en total).
 
-- **"3 de 4"** — cuántos checks de **la etapa actual** están hechos. Hoy
-  `ClientJourneyStatus` cuenta hitos del recorrido entero, no de la etapa.
-- **Fecha límite del próximo hito** = fecha del hito anterior + `expectedDays`.
-  Hoy sólo se deriva `overdueDays`, no la fecha. Cuando no se puede saber (sin
-  plazo cargado, o sin hito anterior registrado) tiene que devolver `null` y la
-  pantalla decirlo — no inventar una fecha.
+**Todavía no se ve en ninguna pantalla:** son datos calculados que consume la
+Fase 4. Cuando esa fase los muestre, hay que confirmar a ojo que el "3 de 4" de
+un cliente real coincide con sus checks en el Recorrido.
 
 ---
 

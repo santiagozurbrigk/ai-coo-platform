@@ -219,9 +219,30 @@ export type ClientJourneyStatus = {
   currentStageColor: FieldOptionColor | null;
   reached: number;
   total: number;
+  /**
+   * Progreso **dentro de la fase actual**: el "3 de 4" de la tabla.
+   *
+   * ⭐ No confundir con `reached`/`total`, que cuentan el recorrido entero. Son
+   * dos preguntas distintas: cuánto le falta para terminar el programa, y cuánto
+   * le falta para cerrar la etapa en la que está. La segunda es la que dice
+   * quién está por lograr el próximo hito.
+   *
+   * Los dos en `0` cuando el cliente no alcanzó ningún hito: sin fase actual no
+   * hay nada que contar, y mostrar "0 de 3" de la primera fase haría parecer que
+   * arrancó.
+   */
+  stageReached: number;
+  stageTotal: number;
   /** El próximo hito pendiente del recorrido. */
   nextCheckpointId: string | null;
   nextCheckpointName: string | null;
+  /**
+   * Fecha límite del próximo hito (`YYYY-MM-DD`): el hito anterior más su plazo.
+   *
+   * `null` por las **mismas tres razones** que `overdueDays` — es el mismo
+   * cálculo mirado al revés. Si una está en `null`, la otra también.
+   */
+  nextCheckpointDueAt: string | null;
   /**
    * Días de atraso del próximo hito. `null` cuando no se puede saber: sin plazo
    * configurado, sin hito anterior registrado, o recorrido completo.

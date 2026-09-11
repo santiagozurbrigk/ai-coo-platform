@@ -24,7 +24,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * El estado del recorrido de un cliente.
  *
  * ⭐ Las tres razones por las que **no se puede saber** si está trabado, y en las
- * que devuelve `overdueDays: null` en vez de un número inventado:
+ * que devuelve `overdueDays` y `nextCheckpointDueAt` en `null` en vez de un
+ * número o una fecha inventados:
  *
  *   1. El recorrido está completo — no hay próximo hito.
  *   2. El próximo hito **no tiene plazo** configurado.
@@ -52,6 +53,31 @@ export function deriveClientJourneyStatus(
     if (entry.event !== null) currentStage = entry.stage;
   }
 
+  /**
+   * El "3 de 4": cuántos hitos de **la fase actual** están alcanzados.
+   *
+   * Se cuenta sobre la fase que la pantalla muestra, no sobre la del próximo
+   * hito pendiente. Si contara la otra, una fila diría "Onboarding" al lado de
+   * un progreso que en realidad es de Escala, y la fila se contradiría sola.
+   *
+   * Un cliente que completó su fase entera y todavía no arrancó la siguiente
+   * muestra "4 de 4": es verdad y es útil —cerró la etapa—, y la columna de
+   * próxima tarea es la que dice qué sigue.
+   *
+   * ⭐ Los hitos archivados no entran: `buildJourney` ya los sacó del recorrido
+   * antes de llegar acá. Contarlos inflaría el denominador con trabajo que nadie
+   * va a hacer.
+   */
+  let stageReached = 0;
+  let stageTotal = 0;
+  if (currentStage) {
+    for (const entry of progress) {
+      if (entry.stage.id !== currentStage.id) continue;
+      stageTotal += 1;
+      if (entry.event !== null) stageReached += 1;
+    }
+  }
+
   const base: ClientJourneyStatus = {
     clientId,
     currentStageId: currentStage?.id ?? null,
@@ -59,8 +85,11 @@ export function deriveClientJourneyStatus(
     currentStageColor: currentStage?.color ?? null,
     reached,
     total,
+    stageReached,
+    stageTotal,
     nextCheckpointId: null,
     nextCheckpointName: null,
+    nextCheckpointDueAt: null,
     overdueDays: null,
     stalled: false,
   };
@@ -89,8 +118,21 @@ export function deriveClientJourneyStatus(
   const elapsedDays = Math.floor((now.getTime() - anchor) / DAY_MS);
   const overdueDays = elapsedDays - next.checkpoint.expectedDays;
 
+  /**
+   * La fecha límite es el mismo cálculo que el atraso, mirado al revés: el hito
+   * anterior más su plazo. Se derivan juntas a propósito — dos funciones
+   * separadas podrían discrepar, y una fila que dice "vence el 12" y "atrasado
+   * hace 6 días" al mismo tiempo no se puede leer.
+   *
+   * Se corta en el día (`YYYY-MM-DD`) porque un plazo se mide en días, no en
+   * horas: decir "vence el 12 a las 14:32" fingiría una precisión que el dato
+   * no tiene.
+   */
+  const dueAt = new Date(anchor + next.checkpoint.expectedDays * DAY_MS);
+
   return {
     ...withNext,
+    nextCheckpointDueAt: dueAt.toISOString().slice(0, 10),
     overdueDays,
     stalled: overdueDays > 0,
   };
@@ -130,6 +172,23 @@ export function groupEventsByClient(
     map.set(event.clientId, list);
   }
   return map;
+}
+
+/**
+ * Cómo se lee la fecha límite: `12/09/2026`. `null` cuando no se puede saber.
+ *
+ * ⭐ Se parte la cadena a mano en vez de usar `Date` + `toLocaleDateString`.
+ * `new Date("2026-09-12")` se interpreta como medianoche UTC, y en Buenos Aires
+ * (UTC-3) eso se muestra como el 11. Un vencimiento corrido un día no rompe
+ * nada visible: sólo miente.
+ */
+export function formatDueDate(status: ClientJourneyStatus): string | null {
+  const iso = status.nextCheckpointDueAt;
+  if (iso === null) return null;
+
+  const [year, month, day] = iso.split("-");
+  if (!year || !month || !day) return null;
+  return `${day}/${month}/${year}`;
 }
 
 /** Cómo se lee el atraso. `null` cuando no se puede saber. */
