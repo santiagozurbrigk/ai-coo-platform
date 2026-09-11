@@ -14,6 +14,102 @@
 
 ---
 
+### 2026-09-11 - El objetivo general, como columna configurable (Fase 3 de 5)
+
+**Rama/branch:** `claude/gallant-tesla-ozk5we`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `supabase/migrations/20260911120000_campos_configurables_de_cliente.sql` (nueva),
+`types/custom-fields.ts`, `types/clients.ts`, `lib/custom-fields/{field-types,merge,index}.ts`,
+`lib/custom-fields/__tests__/merge.test.ts` (nuevo), `lib/clients/mapper.ts`,
+`app/clients/custom-field-actions.ts`, `app/clients/client-custom-fields-actions.ts` (nuevo),
+`components/clients/custom-fields/custom-fields-page.tsx`,
+`components/clients/client-custom-fields-section.tsx` (nuevo),
+`components/clients/client-detail.tsx`
+
+**Que se hizo:**
+
+El sistema de campos configurables (C0, 2026-09-03) llegaba a dos entidades:
+wins y checkpoints. Ahora llega a **clientes**, que es la tercera.
+
+Concretamente: `field_definitions.entity` acepta `'client'`, `clients` tiene una
+columna `custom jsonb`, la pantalla de Campos personalizados tiene una **tercera
+solapa** y la ficha del cliente una sección "Datos del cliente" donde se cargan
+los valores.
+
+Con eso, "Objetivo general" deja de ser un campo a programar y pasa a ser una
+lista que cada organización configura. Hay un botón que la carga con las
+opciones de las correcciones —10k en primer lanzamiento, escalar a 50k, a 100k,
+a 500k, Otro— pensadas para editarse.
+
+Diez tests nuevos sobre `mergeCustomFieldValues`. 965 en total.
+
+**Por que / finalidad:**
+
+La imagen de las correcciones muestra el objetivo como una lista numerada y
+progresiva. Con texto libre —lo que hay hoy en `goal_text`— tres personas
+escriben la misma meta de tres formas y el software no puede responder
+"¿quiénes van a 50k?". Con una lista compartida, sí.
+
+**Decisiones de diseno relevantes:**
+
+- **⭐ No se creó una tabla de objetivos.** El mecanismo ya existía y su propia
+  migración dice para qué nació: *"agregar una columna a una tabla del producto
+  era una migración; con esto, la lista se define desde una pantalla"*. Un
+  catálogo de objetivos aparte sería el segundo mecanismo para lo mismo. De
+  paso, queda habilitado cualquier otro campo de cliente que pidan después sin
+  tocar código.
+- **Los valores van en `clients.custom` (jsonb), no en una tabla de pares
+  clave-valor.** Mismo patrón que `client_wins.custom` y
+  `client_checkpoint_events.metrics`: leer un cliente sigue siendo leer una
+  fila, sin un join por columna configurada.
+- **`not null default '{}'`**, no nullable: evita el `coalesce` en cada lectura
+  y hace que `custom->>'clave'` se comporte igual en las 264 filas que ya
+  existen.
+- **⭐ La fusión al guardar es una función pura con tests
+  (`mergeCustomFieldValues`).** Lo validado pisa lo que el formulario ofreció
+  —vaciar un campo lo borra, que es la única forma de borrarlo— y lo que el
+  formulario **no** podía tocar se conserva: campos archivados con dato cargado,
+  y claves huérfanas de un campo que alguien borró del catálogo. Sin esto,
+  archivar una columna sería una forma silenciosa de borrar el pasado.
+- **Se valida sólo contra los campos activos.** Validar contra un archivado
+  rebotaría: sus opciones dejaron de estar disponibles, y guardar un cliente sin
+  tocar ese campo fallaría con un error que nadie puede arreglar desde la
+  pantalla.
+- **La sección no se muestra si la organización no configuró ninguna columna.**
+  Mandar a configurar algo desde la ficha de un cliente sería ruido; el lugar
+  para configurarlo es su propia pantalla.
+- **Las opciones de ejemplo se cargan apretando un botón, no en la migración.**
+  Datos que aparecen solos son datos que después hay que borrar. Van en orden de
+  ambición creciente: el orden es lo que permite leer la lista como una escalera.
+- **Índice GIN sobre `custom`**, no uno por clave: sirve para cualquier columna
+  que se configure, hoy y las que vengan.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- ⚠️ **La migración NO se aplicó.** No hay credenciales de Supabase en el
+  entorno. Hasta que se aplique, la solapa Clientes rebota al guardar y la
+  sección de la ficha no aparece. Es el primer paso del bloque en
+  `docs/PLAN_VERIFICACION.md`.
+- ⚠️ **Nada se vio funcionando**, por lo mismo de siempre: no hay sesión en el
+  entorno de desarrollo. Sí está verificado: `tsc --noEmit` limpio, 965 tests en
+  verde, `pnpm build` completo.
+- ⚠️ **El objetivo ahora vive en dos lugares.** Este campo configurable (la
+  categoría) y `clients.goal_text` + `goal_metric_*` del diálogo de baseline (la
+  narrativa y el número con el que los wins miden si se cumplió). No es
+  duplicación accidental —miden cosas distintas— pero los dos se llaman
+  "objetivo". Hay que decidir si el de baseline se renombra o se retira; queda
+  anotado en `PENDIENTES.md`.
+- **Las Server Actions siguen sin guard de permiso por módulo**, igual que el
+  resto del repo (`[PERMISOS-SERVER-ACTIONS]`). `updateClientCustomFieldsAction`
+  usa `requireOrganizationId()` como todas las demás. No se inventó un guard
+  nuevo para una sola action: el problema es sistémico y su arreglo también.
+- **La columna todavía no se ve en la tabla de clientes.** La muestra la Fase 4.
+
+**Tests:** 965 en verde (10 nuevos en `lib/custom-fields/__tests__/merge.test.ts`).
+`tsc --noEmit` limpio. `pnpm build` sin errores. `pnpm lint` sin avisos nuevos.
+
+---
+
 ### 2026-09-11 - Progreso por etapa y fecha límite del próximo hito (Fase 2 de 5)
 
 **Rama/branch:** `claude/gallant-tesla-ozk5we`

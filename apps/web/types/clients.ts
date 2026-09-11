@@ -1,4 +1,5 @@
 import type { PaymentPlatform } from "@/types/closing";
+import type { CustomFieldValues } from "@/types/custom-fields";
 import type { DeepCallAnalysis } from "@/types/call-analysis";
 
 export type ClientLinkedCall = {
@@ -88,6 +89,15 @@ export type Client = {
    */
   notes?: string | null;
   notesUpdatedAt?: string | null;
+  /**
+   * ⭐ Los valores de las columnas configurables del cliente (C0, `entity =
+   * 'client'`). La clave es la del `field_definitions`, no una columna de esta
+   * tabla: agregar "Objetivo general" no es una migración, es abrir una
+   * pantalla.
+   *
+   * Sólo trae lo que se completó. Un campo sin cargar no ocupa lugar acá.
+   */
+  custom?: CustomFieldValues;
 };
 
 /**

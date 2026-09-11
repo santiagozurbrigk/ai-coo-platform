@@ -1,4 +1,5 @@
 import type { Client, ClientInstallment } from "@/types/clients";
+import type { CustomFieldValues } from "@/types/custom-fields";
 import type { PaymentPlatform } from "@/types/closing";
 import { parseOfferedProductFromInsights } from "@/lib/clients/plan-utils";
 
@@ -27,6 +28,7 @@ export type ClientRow = {
   selected_installment_system_id: string | null;
   notes?: string | null;
   notes_updated_at?: string | null;
+  custom?: CustomFieldValues | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -58,6 +60,9 @@ export function rowToClient(row: ClientRow): Client {
     selectedInstallmentSystemId: row.selected_installment_system_id ?? undefined,
     notes: row.notes ?? null,
     notesUpdatedAt: row.notes_updated_at ?? null,
+    // La columna es `not null default '{}'`, pero una fila leída de una base
+    // sin la migración aplicada llega sin ella. Se cae al objeto vacío.
+    custom: row.custom ?? {},
   };
 }
 
@@ -87,6 +92,7 @@ export function clientToInsertRow(
     offered_product: client.offeredProduct ?? null,
     plan_id: client.planId ?? null,
     selected_installment_system_id: client.selectedInstallmentSystemId ?? null,
+    custom: client.custom ?? {},
   };
 }
 
@@ -116,6 +122,9 @@ export function patchToUpdateRow(
   if (patch.planId !== undefined) row.plan_id = patch.planId ?? null;
   if (patch.selectedInstallmentSystemId !== undefined)
     row.selected_installment_system_id = patch.selectedInstallmentSystemId ?? null;
+  // ⭐ Se pisa entero, no se fusiona: el que guarda ya resolvió qué queda
+  // cargado y qué se vació. Fusionar acá haría imposible borrar un valor.
+  if (patch.custom !== undefined) row.custom = patch.custom ?? {};
   row.updated_at = new Date().toISOString();
   return row;
 }

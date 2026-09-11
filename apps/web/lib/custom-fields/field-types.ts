@@ -38,11 +38,13 @@ export const FIELD_TYPE_HINT: Record<FieldType, string> = {
 export const FIELD_ENTITY_LABEL: Record<FieldEntity, string> = {
   win: "Wins",
   checkpoint: "Checkpoints",
+  client: "Clientes",
 };
 
 export const FIELD_ENTITY_HINT: Record<FieldEntity, string> = {
   win: "Columnas del tracker de wins.",
   checkpoint: "Métricas que se piden al registrar un checkpoint.",
+  client: "Columnas de la ficha del cliente y de la tabla de clientes.",
 };
 
 export function isFieldType(value: unknown): value is FieldType {

@@ -8,7 +8,7 @@
 > **Para Claude Code:** ver la regla al final. Cada unidad que construyas suma su
 > bloque de verificación acá, con pasos concretos y resultado esperado.
 >
-> **Última actualización:** 2026-09-11 · Cubre hasta la mudanza de Cobros a Ventas
+> **Última actualización:** 2026-09-11 · Cubre hasta los campos configurables de cliente
 
 ---
 
@@ -1264,6 +1264,43 @@ tiene que dar bien igual, porque no depende del plan.
 importación siguen pidiendo monto, tipo de pago y cuotas desde **Clientes**. Son
 la carga inicial de las condiciones, no el seguimiento del cobro. Si se decide
 que también tienen que mudarse, es otra tarea.
+
+---
+
+## Campos configurables de cliente — el objetivo general ⚠️ — 2026-09-11
+
+🤖 **Sin cuentas externas, pero con sesión real y con la migración aplicada.**
+
+> ⚠️ **Primero:** aplicar
+> `supabase/migrations/20260911120000_campos_configurables_de_cliente.sql`.
+> Sin eso, la solapa "Clientes" de Campos personalizados rebota al guardar con
+> un error del check de `entity`, y la ficha del cliente no muestra la sección.
+> **No se aplicó desde la sesión** — no hay credenciales de Supabase acá.
+
+| Qué hacer | Qué tendría que pasar |
+|---|---|
+| Entrar a **Clientes → Campos personalizados** | Hay **tres** solapas: Wins, Checkpoints y **Clientes** |
+| En la solapa Clientes, apretar **Cargar "Objetivo general" de ejemplo** | Se crea una columna de lista con 5 opciones: 10k en primer lanzamiento, Escalar a 50k, a 100k, a 500k, Otro |
+| Editar la lista: renombrar una opción | El dato ya cargado con esa opción **sigue apareciendo**, con la etiqueta nueva. Se guarda el `value`, no el `label` |
+| ⚠️ Abrir la **ficha de un cliente** | Aparece la sección "Datos del cliente" con el desplegable del objetivo. **Si no aparece, la migración no se aplicó** o no hay columnas de cliente configuradas |
+| Elegir un objetivo y apretar **Guardar** | Toast de guardado. Recargar con F5: el valor sigue ahí |
+| ⭐ Vaciar el objetivo (opción en blanco) y guardar | Queda vacío. Recargar: sigue vacío. Si volviera el valor viejo, la fusión está pisando mal y **no se puede borrar nada** |
+| ⭐ **Archivar** la columna "Objetivo general" en Campos, y volver a la ficha de un cliente que la tenía cargada | El valor sigue mostrándose, en el bloque de abajo, de sólo lectura. Guardar otra cosa en esa ficha **no lo borra**. Es la regla 3 de C0 y hay 10 tests que la cubren, pero nunca corrió contra la base |
+| Intentar **borrar** una columna de cliente que tiene datos cargados | Lo frena diciendo que la archives. Esto prueba que `isFieldInUse` sabe mirar `clients.custom` |
+| Crear una columna de otro tipo (fecha, número, texto) en la solapa Clientes | Se puede cargar en la ficha con el control que corresponde |
+| 🔒 Entrar con un miembro que **no sea founder** | Ve las tres solapas y la configuración, pero no puede cambiarla ("Solo el founder…"). En la ficha del cliente **sí** puede cargar el valor |
+
+**Qué significa si guardar rebota con "no es una opción disponible":** se intentó
+guardar el valor de una opción archivada. No debería poder pasar desde la
+pantalla —el formulario sólo ofrece las activas— así que si ocurre, mirar si
+alguien archivó una opción mientras la ficha estaba abierta.
+
+**Deuda conocida:** el objetivo ahora vive en **dos lugares**. Este campo
+configurable (la categoría: "escalar a 50k") y `clients.goal_text` +
+`goal_metric_*` del diálogo de baseline (la narrativa y el número que usan los
+wins para medir si se cumplió). No es duplicación accidental —miden cosas
+distintas— pero los dos se llaman "objetivo" y eso confunde. Decidir si el de
+baseline se renombra o se retira.
 
 ---
 

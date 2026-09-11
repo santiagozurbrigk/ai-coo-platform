@@ -4,8 +4,11 @@
  * C0 · Pantalla de configuración de columnas.
  *
  * Es la que convierte "hay que hacer una migración" en "hay que abrir una
- * pantalla". Dos solapas —Wins y Checkpoints—, porque una columna pertenece a
- * una entidad y nunca a las dos.
+ * pantalla". Tres solapas —Wins, Checkpoints y Clientes—, porque una columna
+ * pertenece a una entidad y nunca a las dos.
+ *
+ * Las solapas salen de `FIELD_ENTITIES`: una entidad nueva aparece sola, sin
+ * tocar esta pantalla.
  */
 
 import { useMemo, useState, useTransition } from "react";
@@ -50,6 +53,7 @@ import {
   deleteFieldDefinitionAction,
   listFieldDefinitionsAction,
   reorderFieldDefinitionsAction,
+  seedExampleClientGoalFieldAction,
   seedExampleWinFieldAction,
   setFieldDefinitionArchivedAction,
   updateFieldDefinitionAction,
@@ -58,6 +62,36 @@ import {
   FieldDefinitionDialog,
   type FieldDefinitionDraft,
 } from "@/components/clients/custom-fields/field-definition-dialog";
+
+/**
+ * Qué decir cuando una entidad no tiene ninguna columna todavía.
+ *
+ * Por entidad y no un texto genérico: "creá la primera columna" no explica para
+ * qué sirve, y un estado vacío que no dice qué se gana es un estado vacío que
+ * nadie completa.
+ */
+const EMPTY_HINT: Record<FieldEntity, string> = {
+  win: "Creá la primera, o empezá con una propuesta de ejemplo que después vas a poder cambiar.",
+  checkpoint: "Creá la primera columna: es lo que se va a pedir al registrar un checkpoint.",
+  client:
+    "Creá la primera columna de la ficha del cliente. Es donde vive el objetivo con el que entró, y se ve en la tabla de clientes.",
+};
+
+/**
+ * Las entidades que ofrecen un punto de partida cargado.
+ *
+ * Checkpoints no tiene: sus métricas dependen del recorrido de cada negocio, así
+ * que cualquier ejemplo sería ruido que después hay que borrar.
+ */
+const SEED: Partial<
+  Record<FieldEntity, { label: string; action: () => Promise<MutationResult<unknown>> }>
+> = {
+  win: { label: 'Cargar "Tipo de win" de ejemplo', action: seedExampleWinFieldAction },
+  client: {
+    label: 'Cargar "Objetivo general" de ejemplo',
+    action: seedExampleClientGoalFieldAction,
+  },
+};
 
 export function CustomFieldsPage({
   initialFields,
@@ -187,11 +221,7 @@ export function CustomFieldsPage({
               <EmptyState
                 icon={<SlidersHorizontal className="h-6 w-6" />}
                 title="Todavía no hay columnas"
-                description={
-                  key === "win"
-                    ? "Creá la primera, o empezá con una propuesta de ejemplo que después vas a poder cambiar."
-                    : "Creá la primera columna: es lo que se va a pedir al registrar un checkpoint."
-                }
+                description={EMPTY_HINT[key]}
                 action={
                   canManage ? (
                     <div className="flex flex-wrap justify-center gap-2">
@@ -199,13 +229,13 @@ export function CustomFieldsPage({
                         <Plus className="mr-1 h-4 w-4" />
                         Nueva columna
                       </Button>
-                      {key === "win" ? (
+                      {SEED[key] ? (
                         <Button
                           variant="outline"
                           disabled={pending}
-                          onClick={() => run(seedExampleWinFieldAction)}
+                          onClick={() => run(SEED[key]!.action)}
                         >
-                          Cargar &quot;Tipo de win&quot; de ejemplo
+                          {SEED[key]!.label}
                         </Button>
                       ) : null}
                     </div>

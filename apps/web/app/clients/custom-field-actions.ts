@@ -40,13 +40,13 @@ import { paths } from "@/routes";
 /**
  * Tablas donde puede estar cargado el valor de un campo.
  *
- * Ninguna existe todavía: las entrega el Encargo A (wins) y C2 (checkpoints).
- * `isFieldInUse` lo maneja — una tabla que no existe es un campo sin uso, no un
- * error. Cuando esas migraciones entren, el chequeo empieza a funcionar solo.
+ * `isFieldInUse` las consulta para decidir si una columna se puede borrar o hay
+ * que archivarla. Una tabla que no existe cuenta como "sin uso", no como error.
  */
 const VALUES_TABLE: Record<FieldEntity, { table: string; column: string }> = {
   win: { table: "client_wins", column: "custom" },
   checkpoint: { table: "client_checkpoint_events", column: "metrics" },
+  client: { table: "clients", column: "custom" },
 };
 
 const optionSchema = z.object({
@@ -398,6 +398,50 @@ async function isFieldInUse(field: FieldDefinition): Promise<boolean> {
 }
 
 // ─── Ejemplos ───────────────────────────────────────────────────────────────
+
+/**
+ * Carga la columna "Objetivo general" con la lista de las correcciones.
+ *
+ * Mismo criterio que el ejemplo de wins: la pantalla nace vacía y esto es la
+ * salida del estado vacío, a pedido.
+ */
+export async function seedExampleClientGoalFieldAction(): Promise<
+  MutationResult<FieldDefinition>
+> {
+  /**
+   * ⭐ Las opciones son un **punto de partida**, no un estándar.
+   *
+   * Salieron de las correcciones de Santiago ("10k en primer lanzamiento,
+   * escalar a 50k, escalar a 100k, etc"), y están pensadas para editarse: cada
+   * organización acompaña a otra clase de cliente. Por eso se cargan apretando
+   * un botón y no en la migración — datos que aparecen solos son datos que
+   * después hay que borrar.
+   *
+   * Van en orden de ambición creciente. El orden importa: es lo que permite
+   * leer la lista como una escalera y no como un menú.
+   */
+  const labels = [
+    "10k en primer lanzamiento",
+    "Escalar a 50k",
+    "Escalar a 100k",
+    "Escalar a 500k",
+    "Otro",
+  ];
+
+  return createFieldDefinitionAction({
+    entity: "client",
+    label: "Objetivo general",
+    description:
+      "A dónde dijo que quiere llegar, dicho en la call. Cambiá las opciones cuando el uso las revele.",
+    fieldType: "select",
+    options: labels.map((label, index) => ({
+      value: deriveFieldKey(label),
+      label,
+      color: index === labels.length - 1 ? "neutral" : `cat-${(index % 6) + 1}`,
+      archived: false,
+    })),
+  } as CreateFieldDefinitionInput);
+}
 
 /**
  * Carga la columna "Tipo de win" con las opciones que propone el plan.

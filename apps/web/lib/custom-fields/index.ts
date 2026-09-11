@@ -9,6 +9,7 @@
 export * from "@/lib/custom-fields/field-types";
 export * from "@/lib/custom-fields/format";
 export * from "@/lib/custom-fields/key";
+export * from "@/lib/custom-fields/merge";
 export * from "@/lib/custom-fields/mapper";
 export * from "@/lib/custom-fields/resolve";
 export * from "@/lib/custom-fields/validate";

@@ -11,6 +11,7 @@ import { usePlatformData } from "@/providers";
 import { useModuleAccess } from "@/providers/permissions-provider";
 import { useToast } from "@/providers/toast-provider";
 import { ClientLinkedCallsSection } from "@/components/clients/client-linked-calls";
+import { ClientCustomFieldsSection } from "@/components/clients/client-custom-fields-section";
 import { ClientNotesSection } from "@/components/clients/client-notes-section";
 import { ClientDiscordActivity } from "@/components/clients/client-discord-activity";
 import { ClientTimeline } from "@/components/clients/client-timeline";
@@ -147,6 +148,13 @@ export function ClientDetail({ client: initial }: { client: Client }) {
           </Link>
         </Button>
       ) : null}
+
+      {/*
+        Las columnas configurables del cliente — entre ellas el objetivo general.
+        Va antes del cuaderno: primero lo estructurado, después lo que no entra
+        en ningún campo.
+      */}
+      <ClientCustomFieldsSection client={client} />
 
       {/* El cuaderno del cliente: lo que no entra en ningún campo. */}
       <ClientNotesSection

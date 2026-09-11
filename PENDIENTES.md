@@ -975,7 +975,7 @@ al tablero.
 
 ## 🟡 Rediseño de Clientes — fases 2 a 5 (acordado 2026-09-11)
 
-Fases **1 y 2 hechas**. Lo que sigue, en orden:
+Fases **1, 2 y 3 hechas**. Lo que sigue, en orden:
 
 ### [CLIENTES-F2-PROGRESO-ETAPA] Progreso por etapa y fecha límite ✅ 2026-09-11
 
@@ -988,17 +988,35 @@ un cliente real coincide con sus checks en el Recorrido.
 
 ---
 
-### [CLIENTES-F3-OBJETIVO] El objetivo general en la tabla
+### [CLIENTES-F3-OBJETIVO] El objetivo general como campo configurable ✅ 2026-09-11
 
-**Qué es:** mostrar el objetivo de cada cliente. `clients.goal_text` +
-`goal_metric_key/value/unit` ya existen y se editan en el diálogo de baseline.
+**Hecho.** `field_definitions` llega a `entity = 'client'`, `clients.custom`
+guarda los valores, hay una tercera solapa en Campos personalizados y una
+sección "Datos del cliente" en la ficha. Botón que carga "Objetivo general" con
+las opciones de la imagen. 10 tests nuevos sobre la regla de fusión.
 
-**Lo que falta definir:** si el objetivo es texto libre (como hoy) o una lista
-configurable compartida por toda la organización (10k → 50k → 100k). Se barrieron
-las 57 tablas del schema y **no hay un catálogo de objetivos de cliente**. El
-mecanismo que más se le parece es `field_definitions` (campos configurables), que
-hoy sólo cubre `win` y `checkpoint`: extenderlo a `client` requiere una migración
-chica (el `check` de la columna `entity` y un `jsonb` en `clients`).
+**🔴 Falta aplicar la migración**
+`20260911120000_campos_configurables_de_cliente.sql`. Sin eso no funciona nada
+de esto. Pasos en `docs/PLAN_VERIFICACION.md`.
+
+---
+
+### [OBJETIVO-DOS-LUGARES] El objetivo quedó en dos campos 🟡
+
+**Qué es:** ahora hay dos cosas que se llaman "objetivo":
+
+1. El **campo configurable** nuevo — la categoría ("escalar a 50k"), que es lo
+   que se ve en la tabla y permite agrupar.
+2. **`clients.goal_text` + `goal_metric_*`** — la narrativa y el número, que se
+   cargan en el diálogo de baseline y los usan los wins para medir si el cliente
+   llegó a donde iba.
+
+Miden cosas distintas, así que no es duplicación accidental. Pero los dos se
+llaman igual y eso confunde al cargar.
+
+**Qué decidir:** renombrar el de baseline a algo como "Meta medible" (es lo que
+realmente es), o retirarlo si el campo configurable alcanza. Lo segundo implica
+revisar qué pasa con `deriveClientCase`, que compara contra `goal_metric_value`.
 
 ---
 
