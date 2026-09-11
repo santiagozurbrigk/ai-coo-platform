@@ -1,36 +1,69 @@
 "use client";
 
+/**
+ * La lista de clientes — el tablero de **entrega**.
+ *
+ * ⭐ Responde una sola pregunta, de un vistazo: **dónde está parado cada cliente
+ * y qué le falta**. Etapa, próxima tarea con su fecha límite, objetivo y cuánto
+ * le queda para cerrar la etapa.
+ *
+ * Lo financiero (plan, días de programa, pago, adeudado, monto) se mudó a
+ * `/sales/cobros` el 2026-09-11. Mezclarlos hacía que la tabla respondiera dos
+ * preguntas a medias, y son preguntas que muchas veces hacen dos personas
+ * distintas.
+ */
+
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Badge, Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, StaggerFade, StaggerFadeItem } from "@ai-coo/ui";
-import { AlertTriangle, BookOpen, CalendarCheck, MoonStar, Route, Settings2, SlidersHorizontal, Star, Trash2, Trophy } from "lucide-react";
-import { assignClientPlanAction, deleteClientAction } from "@/app/clients/actions";
-import { listPlansAction } from "@/app/clients/plan-actions";
-import { getClientsTableEnrichmentAction } from "@/app/clients/plan-duration-actions";
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  StaggerFade,
+  StaggerFadeItem,
+} from "@ai-coo/ui";
+import {
+  AlertTriangle,
+  CalendarCheck,
+  Check,
+  HelpCircle,
+  MoonStar,
+  Receipt,
+  Route,
+  SlidersHorizontal,
+  Star,
+  Trash2,
+  Trophy,
+} from "lucide-react";
+import { deleteClientAction } from "@/app/clients/actions";
 import { getClientsDiscordActivityAction } from "@/app/discord/actions";
 import type { ClientActivity } from "@/lib/discord/activity";
-import { getClientsJourneyStatusAction } from "@/app/clients/checkpoint-derived-actions";
-import { FilterPills } from "@/components/marketing/filter-pills";
 import {
-  computeOutstandingBalance,
-  computeRemainingProgramDays,
-  distinctPlanNames,
-  formatRemainingDays,
-  getClientPlanName,
-} from "@/lib/clients/plan-utils";
+  getClientsBoardAction,
+  type ClientsBoardData,
+} from "@/app/clients/clients-board-actions";
+import {
+  isConfirmedResolution,
+  type LastOneOnOne,
+} from "@/lib/fathom/one-on-one-types";
+import { recordCheckpointAction } from "@/app/clients/checkpoint-event-actions";
+import { FilterPills } from "@/components/marketing/filter-pills";
+import { FieldValueCell } from "@/components/clients/custom-fields/field-value-cell";
+import { RecordCheckpointDialog } from "@/components/clients/checkpoints/record-checkpoint-dialog";
 import { paths } from "@/routes";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import type { Client, ClientStatus } from "@/types/clients";
-import type { Plan } from "@/types/plans";
-import type { PlanDuration } from "@/types/plan-durations";
-import type { ClientJourneyStatus } from "@/types/checkpoints";
-import { fieldOptionColorVar } from "@/lib/custom-fields";
-import { formatOverdue } from "@/lib/checkpoints";
+import type { Checkpoint, ClientJourneyStatus } from "@/types/checkpoints";
+import { activeFields, fieldOptionColorVar } from "@/lib/custom-fields";
+import { formatDueDate, formatOverdue, resolveMetricSchema } from "@/lib/checkpoints";
+import { useModuleAccess } from "@/providers/permissions-provider";
 import { NewClientDialog } from "@/components/clients/new-client-dialog";
 import { ImportClientsDialog } from "@/components/clients/import-clients-dialog";
-import { useModuleAccess } from "@/providers/permissions-provider";
-import { PlanManagerDialog } from "./plan-manager-dialog";
 
 const STATUS_LABEL: Record<ClientStatus, string> = {
   pending_onboarding: "Realizar onboarding",
@@ -49,56 +82,13 @@ const STATUS_FILTERS: { id: ClientListFilter; label: string }[] = [
   { id: "success_case", label: "Caso de éxito" },
 ];
 
-const PAYMENT_LABEL = {
-  upfront: "Upfront",
-  installments: "Cuotas",
-  upfront_fee: "Upfront + fee",
+const EMPTY_BOARD: ClientsBoardData = {
+  journey: {},
+  checkpoints: [],
+  checkpointFields: [],
+  clientFields: [],
+  lastOneOnOne: {},
 };
-
-function formatCurrency(amount: number): string {
-  return `$${amount.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
-}
-
-function RemainingDaysBadge({
-  days,
-  loading,
-  hasDuration,
-}: {
-  days: number | null;
-  loading: boolean;
-  hasDuration: boolean;
-}) {
-  if (loading && !hasDuration) {
-    return <span className="text-muted-foreground">…</span>;
-  }
-
-  const text = formatRemainingDays(days);
-
-  let dotClass: string | null = null;
-  if (days !== null) {
-    if (days < 0) {
-      dotClass = "bg-muted-foreground/40";
-    } else if (days < 15) {
-      dotClass = "bg-red-500";
-    } else if (days < 30) {
-      dotClass = "bg-amber-400";
-    } else {
-      dotClass = "bg-green-500";
-    }
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      {dotClass !== null ? (
-        <span
-          className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`}
-          aria-hidden
-        />
-      ) : null}
-      <span className="text-muted-foreground">{text}</span>
-    </div>
-  );
-}
 
 // ── Diálogo de confirmación de eliminación ─────────────────────────────────
 
@@ -136,74 +126,12 @@ function DeleteClientDialog({
   );
 }
 
-// ── Diálogo de asignación de plan ──────────────────────────────────────────
-
-function AssignPlanDialog({
-  client,
-  plans,
-  onConfirm,
-  onCancel,
-  pending,
-}: {
-  client: Client;
-  plans: Plan[];
-  onConfirm: (planId: string | null) => void;
-  onCancel: () => void;
-  pending: boolean;
-}) {
-  const [selectedPlanId, setSelectedPlanId] = useState<string>(client.planId ?? "");
-
-  return (
-    <Dialog open onOpenChange={(o: boolean) => { if (!o) onCancel(); }}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Asignar plan a {client.name}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Seleccioná el plan contratado por este cliente.
-          </p>
-          <select
-            className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-            value={selectedPlanId}
-            onChange={(e) => setSelectedPlanId(e.target.value)}
-            disabled={pending}
-          >
-            <option value="">Sin plan asignado</option>
-            {plans.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-                {p.durationDays ? ` (${p.durationDays} días)` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={pending}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={() => onConfirm(selectedPlanId || null)}
-            disabled={pending}
-          >
-            {pending ? "Guardando…" : "Guardar"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 // ── Componente principal ───────────────────────────────────────────────────
 
 export function ClientsList({ clients }: { clients: Client[] }) {
   const { refreshClients } = usePlatformData();
   const { push } = useToast();
   const [statusFilter, setStatusFilter] = useState<ClientListFilter>("all");
-  const [planFilter, setPlanFilter] = useState<string>("all");
-  const [paidByClientId, setPaidByClientId] = useState<Record<string, number>>({});
-  const [planDurations, setPlanDurations] = useState<PlanDuration[]>([]);
-  const [isFounder, setIsFounder] = useState(false);
   /**
    * ⭐ Quién puede gestionar clientes: el fundador **o** cualquiera cuyo rol
    * tenga acceso total al módulo.
@@ -214,54 +142,68 @@ export function ClientsList({ clients }: { clients: Client[] }) {
    * existía, se podía configurar, y no servía para nada.
    *
    * Un permiso que la pantalla ignora es peor que no tenerlo: hace creer que el
-   * acceso está dado.
+   * acceso está dado. `useModuleAccess` ya devuelve "full" para el fundador,
+   * así que alcanza con preguntar una sola cosa.
    */
-  const permisoClientes = useModuleAccess("clients");
-  const puedeGestionar = isFounder || permisoClientes === "full";
+  const puedeGestionar = useModuleAccess("clients") === "full";
+  /** ¿Puede además ver los cobros? El atajo no se ofrece si no va a poder entrar. */
+  const puedeVerCobros = useModuleAccess("sales") !== "none";
+
   /** D2 · Actividad en Discord por cliente, para la señal de silencio. */
   const [discordActivity, setDiscordActivity] = useState<Record<string, ClientActivity>>({});
-  /** C3 · Fase actual y "trabado" por cliente. Derivado, no guardado. */
-  const [journey, setJourney] = useState<Record<string, ClientJourneyStatus>>({});
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [plansOpen, setPlansOpen] = useState(false);
-  const [loadingEnrichment, startLoad] = useTransition();
+  const [board, setBoard] = useState<ClientsBoardData>(EMPTY_BOARD);
+  const [, startLoad] = useTransition();
   const [pending, startTransition] = useTransition();
 
-  // Diálogos de acción por cliente
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
-  const [assignPlanTarget, setAssignPlanTarget] = useState<Client | null>(null);
+  /** El hito que se está registrando desde la tabla, cuando pide métricas. */
+  const [recording, setRecording] = useState<{
+    client: Client;
+    checkpoint: Checkpoint;
+  } | null>(null);
+  const [recordError, setRecordError] = useState<string | null>(null);
 
+  /**
+   * El tablero se vuelve a pedir cada vez que cambia la lista de clientes.
+   *
+   * ⭐ De ahí que los handlers llamen sólo a `refreshClients()`: eso trae una
+   * lista nueva del servidor, cambia la identidad del arreglo y este efecto
+   * vuelve a correr. Pedir el tablero además a mano sería el mismo fetch dos
+   * veces por cada check marcado.
+   */
   useEffect(() => {
     startLoad(async () => {
-      const [enrichment, fetchedPlans, journeyStatus, activity] = await Promise.all([
-        getClientsTableEnrichmentAction(),
-        listPlansAction(),
-        getClientsJourneyStatusAction(),
+      const [boardData, activity] = await Promise.all([
+        getClientsBoardAction(),
         getClientsDiscordActivityAction(),
       ]);
+      setBoard(boardData);
       setDiscordActivity(activity);
-      setPaidByClientId(enrichment.paidByClientId);
-      setPlanDurations(enrichment.planDurations);
-      setIsFounder(enrichment.isFounder);
-      setPlans(fetchedPlans);
-      setJourney(journeyStatus);
     });
   }, [clients]);
 
-  const planOptions = useMemo(() => {
-    const names = distinctPlanNames(clients);
-    return [
-      { value: "all", label: "Todos los planes" },
-      ...names.map((name) => ({ value: name, label: name })),
-    ];
-  }, [clients]);
+  const { journey, checkpoints, checkpointFields, clientFields, lastOneOnOne } = board;
+
+  const checkpointById = useMemo(
+    () => new Map(checkpoints.map((checkpoint) => [checkpoint.id, checkpoint])),
+    [checkpoints]
+  );
+
+  /**
+   * Las columnas configurables que se muestran en la tabla.
+   *
+   * ⭐ Son las que la organización configuró, no una lista fija: si configuró
+   * sólo "Objetivo general", se ve una columna; si configuró tres, tres. La
+   * tabla la decide la configuración, igual que en el tracker de wins.
+   */
+  const customColumns = useMemo(() => activeFields(clientFields), [clientFields]);
 
   const stalledCount = useMemo(
     () => Object.values(journey).filter((entry) => entry.stalled).length,
     [journey]
   );
 
-  /** ¿Hay recorrido configurado? Sin él la columna no se muestra. */
+  /** ¿Hay recorrido configurado? Sin él, sus tres columnas no se muestran. */
   const hasJourney = Object.keys(journey).length > 0;
 
   const filtered = useMemo(() => {
@@ -273,13 +215,9 @@ export function ClientsList({ clients }: { clients: Client[] }) {
       } else if (statusFilter !== "all" && client.status !== statusFilter) {
         return false;
       }
-      if (planFilter !== "all") {
-        const plan = getClientPlanName(client);
-        if (plan !== planFilter) return false;
-      }
       return true;
     });
-  }, [clients, statusFilter, planFilter, journey]);
+  }, [clients, statusFilter, journey]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -301,23 +239,67 @@ export function ClientsList({ clients }: { clients: Client[] }) {
     });
   };
 
-  const handleAssignPlanConfirm = (planId: string | null) => {
-    if (!assignPlanTarget) return;
-    const target = assignPlanTarget;
-    setAssignPlanTarget(null);
+  /**
+   * ⭐ Marcar la próxima tarea desde la tabla.
+   *
+   * Si el hito **no pide métricas**, se registra de una: ese es el caso que
+   * hace útil el check en la fila. Si pide, abre el mismo diálogo que la ficha
+   * del cliente — no se saltean las validaciones de C0 para que algo entre en
+   * una celda. Un hito registrado sin las métricas que pedía es un hito a medias
+   * que después nadie completa.
+   */
+  function toggleNextCheckpoint(client: Client, status: ClientJourneyStatus) {
+    if (!status.nextCheckpointId) return;
+    const checkpoint = checkpointById.get(status.nextCheckpointId);
+    if (!checkpoint) return;
+
+    const asksMetrics = resolveMetricSchema(
+      checkpoint.metricSchema,
+      checkpointFields
+    ).some((entry) => entry.field !== null);
+
+    if (asksMetrics) {
+      setRecordError(null);
+      setRecording({ client, checkpoint });
+      return;
+    }
+
     startTransition(async () => {
-      try {
-        await assignClientPlanAction(target.id, planId);
-        await refreshClients();
-        push({ title: "Plan asignado", variant: "success" });
-      } catch (e) {
-        push({
-          title: "No se pudo asignar el plan",
-          description: e instanceof Error ? e.message : undefined,
-        });
+      const result = await recordCheckpointAction({
+        clientId: client.id,
+        checkpointId: checkpoint.id,
+      });
+      if (!result.success) {
+        push({ title: "No se pudo registrar", description: result.error });
+        return;
       }
+      await refreshClients();
+      push({ title: `"${checkpoint.name}" registrado`, variant: "success" });
     });
-  };
+  }
+
+  function submitRecording(input: {
+    reachedAt: string;
+    metrics: Record<string, unknown>;
+    note: string | null;
+  }) {
+    if (!recording) return;
+    setRecordError(null);
+    startTransition(async () => {
+      const result = await recordCheckpointAction({
+        clientId: recording.client.id,
+        checkpointId: recording.checkpoint.id,
+        ...input,
+      });
+      if (!result.success) {
+        setRecordError(result.error);
+        return;
+      }
+      setRecording(null);
+      await refreshClients();
+      push({ title: "Checkpoint registrado", variant: "success" });
+    });
+  }
 
   return (
     <div className="space-y-4">
@@ -333,34 +315,24 @@ export function ClientsList({ clients }: { clients: Client[] }) {
             value={statusFilter}
             onChange={(value) => setStatusFilter(value as ClientListFilter)}
           />
-          {planOptions.length > 1 ? (
-            <select
-              className="h-9 rounded-md border border-border bg-background px-3 text-sm dark:border-white/[0.08] dark:bg-[#1A1A1A]"
-              value={planFilter}
-              onChange={(e) => setPlanFilter(e.target.value)}
-            >
-              {planOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          ) : null}
         </div>
         {puedeGestionar ? (
           <div className="flex flex-wrap items-center gap-2">
             <NewClientDialog />
             <ImportClientsDialog />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => setPlansOpen(true)}
-            >
-              <Settings2 className="h-4 w-4" />
-              Crear planes
-            </Button>
+            {/*
+              ⭐ El atajo a Cobros existe porque el monto y el adeudado se
+              mostraban acá hasta hoy. Sin él, quien los buscaba en esta tabla
+              concluiría que se perdieron.
+            */}
+            {puedeVerCobros ? (
+              <Button asChild variant="outline" size="sm" className="gap-2">
+                <Link href={paths.platform.sales.cobros}>
+                  <Receipt className="h-4 w-4" />
+                  Cobros
+                </Link>
+              </Button>
+            ) : null}
             {/*
               C0 · Único acceso a la configuración de columnas configurables.
               Va acá y no en el grupo "Configuración" de la navegación: la barra
@@ -400,13 +372,20 @@ export function ClientsList({ clients }: { clients: Client[] }) {
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th className="px-4 py-3 font-medium">Cliente</th>
-              <th className="px-4 py-3 font-medium">Plan</th>
-              <th className="px-4 py-3 font-medium">Días restantes</th>
-              <th className="px-4 py-3 font-medium">Pago</th>
-              <th className="px-4 py-3 font-medium">Adeudado</th>
-              <th className="px-4 py-3 font-medium">Monto</th>
               {hasJourney ? (
-                <th className="px-4 py-3 font-medium">Recorrido</th>
+                <>
+                  <th className="px-4 py-3 font-medium">Etapa</th>
+                  <th className="px-4 py-3 font-medium">Próxima tarea</th>
+                </>
+              ) : null}
+              <th className="px-4 py-3 font-medium">Última 1-1</th>
+              {customColumns.map((field) => (
+                <th key={field.id} className="px-4 py-3 font-medium">
+                  {field.label}
+                </th>
+              ))}
+              {hasJourney ? (
+                <th className="px-4 py-3 font-medium">Progreso de etapa</th>
               ) : null}
               <th className="px-4 py-3 font-medium">Estado</th>
               <th className="px-4 py-3 font-medium" />
@@ -414,24 +393,7 @@ export function ClientsList({ clients }: { clients: Client[] }) {
           </thead>
           <StaggerFade as="tbody">
             {filtered.map((client) => {
-              const planName = getClientPlanName(client);
-              // Usar plan estructurado si está asignado, o buscar por nombre en planDurations
-              const assignedPlan = client.planId
-                ? plans.find((p) => p.id === client.planId)
-                : undefined;
-              const durationDays = assignedPlan?.durationDays ?? (() => {
-                const pd = planDurations.find(
-                  (d) => d.planName.toLowerCase() === (planName ?? "").toLowerCase()
-                );
-                return pd?.durationDays;
-              })();
-              const remainingDays = computeRemainingProgramDays(
-                client.joinDate,
-                durationDays
-              );
-              const paid = paidByClientId[client.id] ?? 0;
-              const owed = computeOutstandingBalance(client, paid);
-
+              const status = journey[client.id];
               return (
                 <StaggerFadeItem
                   as="tr"
@@ -446,43 +408,39 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                      <span>{assignedPlan?.name ?? planName ?? "—"}</span>
-                      {plans.length > 0 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-muted-foreground/60 hover:text-primary"
-                          title="Modificar plan"
-                          onClick={() => setAssignPlanTarget(client)}
+
+                  {hasJourney ? (
+                    <>
+                      <td className="px-4 py-3">
+                        <StageCell status={status} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <NextTaskCell
+                          status={status}
                           disabled={pending}
-                        >
-                          <BookOpen className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  </td>
+                          canCheck={puedeGestionar}
+                          onCheck={() => status && toggleNextCheckpoint(client, status)}
+                        />
+                      </td>
+                    </>
+                  ) : null}
+
                   <td className="px-4 py-3">
-                    <RemainingDaysBadge
-                      days={remainingDays}
-                      loading={loadingEnrichment}
-                      hasDuration={!!durationDays}
-                    />
+                    <LastOneOnOneCell entry={lastOneOnOne[client.id]} />
                   </td>
-                  <td className="px-4 py-3">{PAYMENT_LABEL[client.paymentType]}</td>
-                  <td className="px-4 py-3 tabular-nums">
-                    {loadingEnrichment ? "…" : formatCurrency(owed)}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums">
-                    {formatCurrency(client.totalAmount)}
-                  </td>
+
+                  {customColumns.map((field) => (
+                    <td key={field.id} className="px-4 py-3">
+                      <FieldValueCell field={field} value={client.custom?.[field.key]} />
+                    </td>
+                  ))}
+
                   {hasJourney ? (
                     <td className="px-4 py-3">
-                      <JourneyCell status={journey[client.id]} />
+                      <StageProgressCell status={status} />
                     </td>
                   ) : null}
+
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <Badge variant="secondary">{STATUS_LABEL[client.status]}</Badge>
@@ -498,6 +456,7 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                       ) : null}
                     </div>
                   </td>
+
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Link
@@ -531,16 +490,6 @@ export function ClientsList({ clients }: { clients: Client[] }) {
         )}
       </div>
 
-      {/* Diálogo de gestión de planes */}
-      {puedeGestionar ? (
-        <PlanManagerDialog
-          open={plansOpen}
-          onOpenChange={setPlansOpen}
-          plans={plans}
-          onUpdated={setPlans}
-        />
-      ) : null}
-
       {/* Confirmación de eliminación */}
       {deleteTarget ? (
         <DeleteClientDialog
@@ -551,59 +500,204 @@ export function ClientsList({ clients }: { clients: Client[] }) {
         />
       ) : null}
 
-      {/* Asignar plan */}
-      {assignPlanTarget ? (
-        <AssignPlanDialog
-          client={assignPlanTarget}
-          plans={plans}
-          onConfirm={handleAssignPlanConfirm}
-          onCancel={() => setAssignPlanTarget(null)}
-          pending={pending}
-        />
-      ) : null}
+      {/* El mismo diálogo de la ficha, cuando el hito pide métricas. */}
+      <RecordCheckpointDialog
+        open={recording !== null}
+        checkpoint={recording?.checkpoint ?? null}
+        checkpointFields={checkpointFields}
+        existingEvent={null}
+        saving={pending}
+        error={recordError}
+        onClose={() => setRecording(null)}
+        onSubmit={submitRecording}
+      />
     </div>
   );
 }
 
 /**
- * C3 · La fase del cliente y si está trabado.
+ * La etapa en la que está el cliente.
  *
- * Un cliente sin ningún hito registrado muestra un guion, no "Fase 1": no
- * empezó el recorrido, y decir lo contrario sería inventar.
+ * Un cliente sin ningún hito registrado muestra "Sin empezar", no "Fase 1": no
+ * arrancó el recorrido, y decir lo contrario sería inventar.
  */
-function JourneyCell({ status }: { status: ClientJourneyStatus | undefined }) {
-  if (!status) return <span className="text-muted-foreground">—</span>;
-
-  const overdue = formatOverdue(status);
+function StageCell({ status }: { status: ClientJourneyStatus | undefined }) {
+  if (!status?.currentStageName) {
+    return <span className="text-xs text-muted-foreground">Sin empezar</span>;
+  }
 
   return (
-    <div className="space-y-0.5">
-      {status.currentStageName ? (
-        <span className="inline-flex items-center gap-1.5 text-xs">
-          <span
-            className="h-2 w-2 shrink-0 rounded-full"
-            style={{
-              backgroundColor: status.currentStageColor
-                ? fieldOptionColorVar(status.currentStageColor)
-                : undefined,
-            }}
-          />
-          {status.currentStageName}
-        </span>
-      ) : (
-        <span className="text-xs text-muted-foreground">Sin empezar</span>
-      )}
+    <span className="inline-flex items-center gap-1.5 text-xs">
+      <span
+        className="h-2 w-2 shrink-0 rounded-full"
+        style={{
+          backgroundColor: status.currentStageColor
+            ? fieldOptionColorVar(status.currentStageColor)
+            : undefined,
+        }}
+      />
+      {status.currentStageName}
+    </span>
+  );
+}
 
-      {overdue ? (
-        <span className="flex items-center gap-1 text-[11px] text-destructive">
-          <AlertTriangle className="h-3 w-3" />
-          {overdue}
-        </span>
-      ) : (
-        <span className="block text-[11px] text-muted-foreground">
-          {status.reached} de {status.total}
-        </span>
-      )}
+/**
+ * La próxima tarea, con su check y su fecha límite.
+ *
+ * ⭐ La fecha sólo aparece cuando **se puede saber**: hace falta que el hito
+ * tenga plazo configurado y que el anterior esté registrado. Cuando no, no se
+ * pone nada en vez de una fecha inventada — y el recorrido completo dice que
+ * terminó, que es una respuesta y no un vacío.
+ */
+function NextTaskCell({
+  status,
+  disabled,
+  canCheck,
+  onCheck,
+}: {
+  status: ClientJourneyStatus | undefined;
+  disabled: boolean;
+  /** Con solo lectura se ve la tarea y su fecha, pero no el check. */
+  canCheck: boolean;
+  onCheck: () => void;
+}) {
+  if (!status) return <span className="text-muted-foreground">—</span>;
+
+  if (!status.nextCheckpointName) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {status.total > 0 && status.reached === status.total
+          ? "Recorrido completo"
+          : "—"}
+      </span>
+    );
+  }
+
+  const overdue = formatOverdue(status);
+  const dueAt = formatDueDate(status);
+
+  return (
+    <div className="flex items-start gap-2">
+      {canCheck ? (
+        <button
+          type="button"
+          onClick={onCheck}
+          disabled={disabled}
+          title={`Marcar "${status.nextCheckpointName}" como hecho`}
+          aria-label={`Marcar "${status.nextCheckpointName}" como hecho`}
+          className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border text-transparent transition-colors hover:border-primary hover:text-primary disabled:opacity-40"
+        >
+          <Check className="h-3 w-3" />
+        </button>
+      ) : null}
+      <div className="min-w-0 space-y-0.5">
+        <span className="block text-xs">{status.nextCheckpointName}</span>
+        {overdue ? (
+          <span className="flex items-center gap-1 text-[11px] text-destructive">
+            <AlertTriangle className="h-3 w-3" />
+            {overdue}
+          </span>
+        ) : dueAt ? (
+          <span className="block text-[11px] text-muted-foreground">
+            vence el {dueAt}
+          </span>
+        ) : null}
+      </div>
     </div>
+  );
+}
+
+/**
+ * Cuánto le falta para cerrar la etapa en la que está: el "3 de 4".
+ *
+ * ⭐ Es de la **etapa**, no del recorrido entero. Sirve para ver de un vistazo
+ * quién está por lograr el próximo hito, que es otra pregunta que "cuánto le
+ * falta para terminar el programa".
+ *
+ * Sin hitos alcanzados no hay barra: el denominador de la primera etapa haría
+ * parecer que el cliente arrancó.
+ */
+function StageProgressCell({ status }: { status: ClientJourneyStatus | undefined }) {
+  if (!status || status.stageTotal === 0) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  const pct = Math.round((status.stageReached / status.stageTotal) * 100);
+  const complete = status.stageReached >= status.stageTotal;
+
+  return (
+    <div className="min-w-[88px] space-y-1">
+      <div className="flex items-center justify-between gap-2 text-[11px]">
+        <span className="text-muted-foreground">
+          {status.stageReached} de {status.stageTotal}
+        </span>
+        {complete ? <span className="text-emerald-500">✓</span> : null}
+      </div>
+      <div
+        className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+        role="progressbar"
+        aria-valuenow={status.stageReached}
+        aria-valuemin={0}
+        aria-valuemax={status.stageTotal}
+        aria-label="Progreso de la etapa"
+      >
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${
+            complete ? "bg-emerald-500" : "bg-primary"
+          }`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * La fecha de la última sesión 1-1 con el cliente.
+ *
+ * ⭐ Sale de las grabaciones de Fathom que el clasificador resolvió como
+ * **entrega con este cliente**. La llamada de cierre no cuenta: es con un lead y
+ * su propósito es venta, así que mostrarla acá diría que hubo una sesión de
+ * acompañamiento el día que se firmó el contrato.
+ *
+ * Cuando el vínculo se resolvió por un peldaño **candidato** —un nombre
+ * normalizado, que dos personas pueden compartir— la fecha se muestra igual,
+ * pero avisada. Esconderla hasta que alguien confirme dejaría la columna vacía
+ * durante semanas; mostrarla sin avisar diría una fecha que puede ser de otra
+ * persona.
+ */
+function LastOneOnOneCell({ entry }: { entry: LastOneOnOne | undefined }) {
+  if (!entry) return <span className="text-xs text-muted-foreground">—</span>;
+
+  const [year, month, day] = entry.date.split("-");
+  const label = year && month && day ? `${day}/${month}/${year}` : entry.date;
+  const confirmed = isConfirmedResolution(entry.resolutionMethod);
+
+  const content = (
+    <span className="inline-flex items-center gap-1.5 text-xs">
+      {label}
+      {!confirmed ? (
+        <span
+          className="text-warning"
+          title="Se dedujo por el nombre: puede ser de otra persona. Confirmalo en Llamadas sin asociar."
+        >
+          <HelpCircle className="h-3 w-3" />
+        </span>
+      ) : null}
+    </span>
+  );
+
+  if (!entry.fathomUrl) return content;
+
+  return (
+    <a
+      href={entry.fathomUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="hover:underline"
+      title={entry.title ?? "Abrir la grabación"}
+    >
+      {content}
+    </a>
   );
 }

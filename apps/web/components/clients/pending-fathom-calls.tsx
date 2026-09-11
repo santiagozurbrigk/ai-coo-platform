@@ -7,7 +7,9 @@ import { paths } from "@/routes";
 import {
   associateFathomCallAction,
   listPendingFathomCallsAction,
+  seedClientIdentitiesAction,
 } from "@/app/fathom/actions";
+import { useToast } from "@/providers/toast-provider";
 
 type PendingCall = Awaited<
   ReturnType<typeof listPendingFathomCallsAction>
@@ -25,9 +27,36 @@ export function PendingFathomCallsPage({
 }: {
   initialCalls: PendingCall[];
 }) {
+  const { push } = useToast();
   const [calls, setCalls] = useState(initialCalls);
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState<Record<string, string | null>>({});
+
+  /**
+   * ⭐ Sembrar las identidades es lo que hace que esta lista se vacíe sola.
+   *
+   * Sin `client_identities` cargada, toda grabación cae al último peldaño del
+   * resolvedor y termina acá. Con los mails y nombres del CRM sembrados, las que
+   * se pueden resolver solas dejan de aparecer.
+   */
+  function seedIdentities() {
+    startTransition(async () => {
+      const result = await seedClientIdentitiesAction();
+      if (!result.success) {
+        push({ title: "No se pudieron sembrar", description: result.error });
+        return;
+      }
+      const { total, ambiguous } = result.data;
+      push({
+        title: `${total} identidades cargadas`,
+        description:
+          ambiguous.length > 0
+            ? `${ambiguous.length} quedaron afuera por repetirse en dos personas (ej: "${ambiguous[0]?.value}"). Esas llamadas van a seguir pidiendo confirmación.`
+            : "Las llamadas nuevas se van a resolver solas cuando se pueda.",
+        variant: "success",
+      });
+    });
+  }
 
   useEffect(() => {
     setCalls(initialCalls);
@@ -52,8 +81,18 @@ export function PendingFathomCallsPage({
       <div>
         <h1 className="text-xl font-semibold">Llamadas Fathom sin asociar</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Revisá y confirmá a qué cliente corresponde cada llamada.
+          Revisá y confirmá a qué cliente corresponde cada llamada. Cada
+          confirmación enseña: la próxima vez esa persona se reconoce sola.
         </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3"
+          disabled={pending}
+          onClick={seedIdentities}
+        >
+          Cargar identidades desde el CRM
+        </Button>
       </div>
 
       {calls.length === 0 && (

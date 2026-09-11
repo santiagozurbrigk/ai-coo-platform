@@ -22,7 +22,7 @@ import {
 } from "@/lib/expenses/mapper";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { listOrganizationPaymentsAction } from "@/app/clients/payment-actions";
+import { listOrganizationPaymentsAction } from "@/app/sales/payment-actions";
 import { matchesCloser } from "@/lib/metrics/match-closer";
 import type {
   FixedExpense,

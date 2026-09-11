@@ -72,12 +72,16 @@ async function currentUserId(): Promise<string | null> {
 /**
  * Un pago cambia tres pantallas, no una.
  *
- * Revalidar la ficha sola dejaba Finanzas y el panel con datos viejos para
- * quien entra por URL directa. Para quien navega dentro de la app, lo que
- * manda es `refreshClientPayments` del provider — esto cubre la otra mitad.
+ * Revalidar una sola dejaba a las otras con datos viejos para quien entra por
+ * URL directa. Para quien navega dentro de la app, lo que manda es
+ * `refreshClientPayments` del provider — esto cubre la otra mitad.
+ *
+ * ⭐ La primera de las tres ya no es la ficha del cliente sino Cobros: los
+ * pagos se mudaron a Ventas y la ficha no los muestra más. Revalidar la ficha
+ * seguiría "funcionando" —no falla nunca— y no refrescaría nada.
  */
-function revalidateClientDetail(clientId: string) {
-  revalidatePath(paths.platform.clients.detail(clientId));
+function revalidatePaymentScreens() {
+  revalidatePath(paths.platform.sales.cobros);
   revalidatePath(paths.platform.finance.root);
   revalidatePath(paths.platform.dashboard);
 }
@@ -259,7 +263,7 @@ export async function recordClientPaymentAction(
         .eq("organization_id", organizationId);
     }
 
-    revalidateClientDetail(clientId);
+    revalidatePaymentScreens();
     return rowToClientPayment(paymentRow as ClientPaymentRow);
   });
 }
@@ -425,7 +429,7 @@ export async function addInstallmentPaymentAction(
       throw new Error(reloadError?.message ?? "No se pudo recargar el cliente");
     }
 
-    revalidateClientDetail(clientId);
+    revalidatePaymentScreens();
     return {
       payment: recordResult.data,
       client: rowToClient(updatedClient as ClientRow),

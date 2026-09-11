@@ -285,6 +285,10 @@ const PAGE_META: Record<string, PageMeta> = {
     title: "Llamadas",
     subtitle: "Ventas — grabaciones de Fathom y análisis por llamada",
   },
+  "/sales/cobros": {
+    title: "Cobros",
+    subtitle: "Ventas — plan, monto, adeudado y comprobantes por cliente",
+  },
   "/sops/create": {
     title: "Crear SOP",
     subtitle: "Desde texto o desde un video",

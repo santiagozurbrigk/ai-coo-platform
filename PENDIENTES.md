@@ -9,6 +9,76 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [1-1-SEMBRAR-Y-MEDIR] Sembrar identidades y medir el clasificador 🔴
+
+**Qué es:** la Fase 5 dejó el clasificador de llamadas enchufado, pero **el
+estado de los datos hace que arranque casi apagado**. Medido contra producción el
+2026-09-11:
+
+| Dato | Valor |
+|---|---|
+| Identidades sembradas | **0** |
+| Clientes con mail cargado | **1 de 335** |
+| Grabaciones clasificadas | 20 de 350 |
+| Clientes con llamadas vinculadas | **0** |
+
+**Qué hacer, en este orden:**
+
+1. **Apretar "Cargar identidades desde el CRM"** en Clientes → Llamadas sin
+   asociar. Sin esto el resolvedor no resuelve nada. *(No se ejecutó desde la
+   sesión: escribe ~335 filas en producción.)*
+2. Dejar que corra el cron de procesamiento y mirar
+   `select purpose, count(*) from fathom_calls group by purpose`.
+3. **Medir los falsos positivos** del peldaño del nombre: de las fechas que
+   aparecen con signo de pregunta, cuántas están mal. Más de una de cada cinco →
+   dejar de mostrar los candidatos.
+
+---
+
+### [CLIENTES-SIN-MAIL] 334 de 335 clientes no tienen mail cargado 🔴
+
+**Qué es:** el peldaño determinista del clasificador de llamadas busca el mail
+del invitado. Con 1 mail cargado está prácticamente apagado, y todo el trabajo
+cae en el peldaño del nombre, que es candidato y pide confirmación.
+
+**Es la palanca más grande** para que las llamadas se vinculen solas. La columna
+`clients.email` existe y se hereda del lead al cerrar la venta, así que los
+clientes nuevos deberían venir con mail; lo que falta es completar los viejos.
+
+---
+
+### [COBROS-PROBAR] Probar Cobros con una sesión real 🔴
+
+**Qué es:** el seguimiento financiero de cada cliente se mudó de Clientes a
+**Ventas → Cobros** (2026-09-11). La pantalla compila, entra en el build y pasa
+los 943 tests, pero **nunca se dibujó**: el entorno de desarrollo no tiene
+Supabase ni sesión.
+
+**Qué probar, en orden de riesgo:**
+
+1. **Registrar una cuota con comprobante** y que el adeudado baje. Es lo más
+   riesgoso: las Server Actions cambiaron de archivo.
+2. **Recargar con F5 después de registrar un pago** y que siga ahí. Prueba la
+   revalidación nueva, que ahora apunta a Cobros y no a la ficha del cliente.
+3. **Comparar el adeudado** de dos o tres clientes contra lo que mostraba
+   Clientes antes: tiene que dar idéntico.
+
+**Bloque completo en:** `docs/PLAN_VERIFICACION.md`.
+
+---
+
+### [COBROS-AVISAR-PERMISOS] Avisar al equipo del cambio de acceso 🔴
+
+**Qué es:** los cobros ahora están bajo el permiso de **Ventas**. Quien tenga
+acceso total a Clientes pero Ventas en "Sin acceso" **deja de ver el monto, el
+adeudado y los comprobantes**, que hasta ayer veía en la tabla de clientes.
+
+**Qué hacer:** repasar los roles configurados y decidir, para cada persona que
+hoy toca plata de clientes, si le corresponde acceso a Ventas. Es un cambio
+buscado, pero se descubre cuando alguien no puede trabajar.
+
+---
+
 ### [ALTA-CLIENTES-PROBAR] Confirmar el alta con una cuenta de equipo 🔴
 
 **Qué es:** se arregló que un miembro con permiso total a Clientes pueda cargar y
@@ -936,6 +1006,76 @@ al tablero.
 
 **Contexto:** `packages/ui/src/primitives/badge.tsx` fue corregido, pero hay ~15 archivos pre-existentes con el mismo patrón (`extends React.HTMLAttributes` sin `children?: React.ReactNode`) que Vercel ignora por caché de Turbo. En un rebuild limpio fallarían.  
 **Acción:** Hacer un `grep -rn "HTMLAttributes" packages/ui/src/` y agregar `children?: React.ReactNode` a todos los componentes que lo necesiten.
+
+---
+
+---
+
+## 🟡 Rediseño de Clientes — las cinco fases (acordado 2026-09-11)
+
+**Las cinco fases están hechas.** Lo que queda es verificarlas con datos reales.
+
+### [CLIENTES-F2-PROGRESO-ETAPA] Progreso por etapa y fecha límite ✅ 2026-09-11
+
+**Hecho.** `stageReached`/`stageTotal`, `nextCheckpointDueAt` y `formatDueDate`
+en `lib/checkpoints/stalled.ts`, con 12 tests nuevos (955 en total).
+
+**Todavía no se ve en ninguna pantalla:** son datos calculados que consume la
+Fase 4. Cuando esa fase los muestre, hay que confirmar a ojo que el "3 de 4" de
+un cliente real coincide con sus checks en el Recorrido.
+
+---
+
+### [CLIENTES-F3-OBJETIVO] El objetivo general como campo configurable ✅ 2026-09-11
+
+**Hecho.** `field_definitions` llega a `entity = 'client'`, `clients.custom`
+guarda los valores, hay una tercera solapa en Campos personalizados y una
+sección "Datos del cliente" en la ficha. Botón que carga "Objetivo general" con
+las opciones de la imagen. 10 tests nuevos sobre la regla de fusión.
+
+**🔴 Falta aplicar la migración**
+`20260911120000_campos_configurables_de_cliente.sql`. Sin eso no funciona nada
+de esto. Pasos en `docs/PLAN_VERIFICACION.md`.
+
+---
+
+### [OBJETIVO-DOS-LUGARES] El objetivo quedó en dos campos 🟡
+
+**Qué es:** ahora hay dos cosas que se llaman "objetivo":
+
+1. El **campo configurable** nuevo — la categoría ("escalar a 50k"), que es lo
+   que se ve en la tabla y permite agrupar.
+2. **`clients.goal_text` + `goal_metric_*`** — la narrativa y el número, que se
+   cargan en el diálogo de baseline y los usan los wins para medir si el cliente
+   llegó a donde iba.
+
+Miden cosas distintas, así que no es duplicación accidental. Pero los dos se
+llaman igual y eso confunde al cargar.
+
+**Qué decidir:** renombrar el de baseline a algo como "Meta medible" (es lo que
+realmente es), o retirarlo si el campo configurable alcanza. Lo segundo implica
+revisar qué pasa con `deriveClientCase`, que compara contra `goal_metric_value`.
+
+---
+
+### [CLIENTES-F4-TABLA-NUEVA] La tabla nueva de Clientes ✅ 2026-09-11
+
+**Hecho.** Cliente · Etapa · Próxima tarea (check + fecha límite) · las columnas
+configurables · Progreso de etapa · Estado. El check inline registra al toque si
+el hito no pide métricas, y abre el diálogo de siempre si las pide.
+
+**🔴 Sin probar con sesión real.** 15 pasos en `docs/PLAN_VERIFICACION.md`. Lo
+más riesgoso: el check inline, que mueve tres columnas de la fila a la vez.
+
+---
+
+### [CLIENTES-F5-CALLS-ENTREGA] Clasificación de entrega y "última 1-1" ✅ 2026-09-11
+
+**Hecho.** Se enchufó `resolveCounterparty`, que estaba construido y con 20 tests
+desde septiembre y nunca se había usado. Sin migración: las columnas de la base
+ya estaban todas.
+
+**🔴 Arranca casi apagado por los datos.** Ver el ítem de abajo.
 
 ---
 

@@ -12,7 +12,7 @@ import {
   rowToPlanDuration,
   type PlanDurationRow,
 } from "@/lib/clients/plan-duration-mapper";
-import { listOrganizationPaymentsAction } from "@/app/clients/payment-actions";
+import { listOrganizationPaymentsAction } from "@/app/sales/payment-actions";
 import { listClientsAction } from "@/app/clients/actions";
 import { extractPlanDurationsFromRAG } from "@/lib/rag/extract-plan-durations";
 import {

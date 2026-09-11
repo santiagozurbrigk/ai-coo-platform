@@ -59,8 +59,12 @@ export type ResolveInput = {
 };
 
 export type ResolvedCounterparty = {
-  counterparty: Counterparty;
-  purpose: CallPurpose;
+  /**
+   * `null` cuando **no se puede saber**: la grabación no trae ni un
+   * participante. No es lo mismo que "no hay externos".
+   */
+  counterparty: Counterparty | null;
+  purpose: CallPurpose | null;
   clientId: string | null;
   leadId: string | null;
   /** ⭐ Por qué peldaño se resolvió. Sin esto nadie sabe si el módulo funciona. */
@@ -128,13 +132,38 @@ function findIdentity(
  * resuelve**: una señal determinista nunca se pisa con una más débil.
  */
 export function resolveCounterparty(input: ResolveInput): ResolvedCounterparty {
+  /**
+   * ⭐ Paso 0 bis · Sin lista de participantes no se resuelve nada.
+   *
+   * `calendar_invitees` llega vacío en toda grabación sin evento de calendario
+   * —que es justo el caso de muchas entregas—, y vacío significa "no sabemos",
+   * no "no hay externos". Sin este corte, una sesión 1-1 sin agendar se
+   * clasificaría como **reunión de equipo**: el error se guarda como un hecho,
+   * nadie lo revisa porque no pide confirmación, y la llamada desaparece de la
+   * ficha del cliente sin dejar rastro.
+   *
+   * Devuelve `null` en los dos ejes y pide confirmación.
+   */
+  if (input.participants.length === 0) {
+    return {
+      counterparty: null,
+      purpose: null,
+      clientId: null,
+      leadId: null,
+      resolutionMethod: null,
+      speakerName: null,
+      needsConfirmation: true,
+    };
+  }
+
   const externals = externalParticipants(
     input.participants,
     input.teamNames,
     input.teamEmails
   );
 
-  // Nadie externo: es una reunión de equipo. No hay nada que adivinar.
+  // Había participantes y ninguno es externo: es una reunión de equipo. Eso sí
+  // se sabe, y no hay nada que adivinar.
   if (externals.length === 0) {
     return {
       counterparty: "internal",

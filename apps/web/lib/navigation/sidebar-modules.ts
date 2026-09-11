@@ -144,6 +144,11 @@ export const modulesWithChildren: Record<SidebarParentKey, SidebarParentModule> 
           permissionId: "sales",
         },
         {
+          label: "Cobros",
+          href: paths.platform.sales.cobros,
+          permissionId: "sales",
+        },
+        {
           label: "Llamadas",
           href: paths.platform.sales.llamadas,
           permissionId: "sales",

@@ -14,6 +14,466 @@
 
 ---
 
+### 2026-09-11 - Llamadas de entrega y "última 1-1" (Fase 5 de 5)
+
+**Rama/branch:** `claude/gallant-tesla-ozk5we`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `lib/fathom/{resolve-counterparty,seed-identities,identities,classify-recording,one-on-ones,one-on-one-types}.ts`,
+`lib/fathom/process-call.ts`, `app/fathom/actions.ts`,
+`app/clients/clients-board-actions.ts`, `components/clients/clients-list.tsx`,
+`components/clients/pending-fathom-calls.tsx`,
+`lib/fathom/__tests__/{seed-identities,resolve-counterparty}.test.ts`
+
+**Que se hizo:**
+
+Se repuso la clasificación de llamadas de entrega y con eso la columna
+**"Última 1-1"** de la tabla de clientes.
+
+⭐ **El hallazgo que definió la fase:** `resolveCounterparty` —el resolvedor que
+decide quién está del otro lado de una grabación y si fue venta, entrega o
+equipo— **ya estaba construido y con 20 tests desde el 2026-09-03, y nunca se
+había enchufado**. Las columnas de la base también estaban todas
+(`client_id`, `counterparty`, `purpose`, `resolution_method`,
+`counterparty_lead_id`, `counterparty_speaker_name`). **No hizo falta ninguna
+migración**: la fase fue cablear lo que ya existía y estaba muerto.
+
+Lo construido:
+
+1. **`classify-recording.ts`** — la capa de IO que faltaba: junta participantes,
+   equipo de casa e identidades, y llama al resolvedor puro.
+2. **`process-call.ts`** — donde antes se escribía `purpose: sales | null`, ahora
+   se escribe la clasificación completa.
+3. **`seed-identities.ts` + `identities.ts`** — sembrar `client_identities` desde
+   el CRM (mail, nombre, apodo de clientes y leads), con botón en la pantalla de
+   llamadas sin asociar.
+4. **Aprendizaje del alias** al confirmar una llamada a mano.
+5. **`one-on-ones.ts`** — la última entrega de cada cliente.
+6. **La columna** en la tabla, con link a la grabación.
+
+**Por que / finalidad:**
+
+Última corrección de la imagen. La columna no se podía hacer antes porque
+`clients.linked_calls` sólo se llena con llamadas de venta, y la migración
+`20260901210000_sales_calls_only.sql` había retirado a propósito la
+clasificación de entrega.
+
+**Decisiones de diseno relevantes:**
+
+- **🔴 Se arregló un bug real del resolvedor.** Una grabación **sin
+  participantes** —toda reunión sin evento de calendario, que es justo el caso de
+  muchas entregas— se clasificaba como **reunión de equipo**. Vacío no es "no hay
+  externos": es "no sabemos". El error se habría guardado como un hecho y, al no
+  pedir confirmación, nadie lo habría revisado nunca: la llamada desaparecía de
+  la ficha del cliente sin dejar rastro. Ahora devuelve los dos ejes en `null` y
+  pide confirmación. Dos tests nuevos lo fijan.
+- **⭐ `client_id` sólo se pisa cuando el resolvedor no necesita confirmación.**
+  Escribir un candidato metería la llamada en la ficha de otro cliente sin que
+  nadie lo haya dicho, y dos personas que se llaman igual alcanzan.
+- **⭐ Lo ambiguo no se siembra.** Si dos clientes se llaman igual, el índice
+  único hace que el segundo choque con el primero; sembrar "el primero que
+  aparece" mandaría las llamadas de los dos a una sola ficha, en silencio. Se
+  descartan los dos y se informa cuáles.
+- **El `speaker_alias` no se siembra: se aprende.** Sembrarlo desde el nombre
+  convertiría un candidato en determinista sin que nadie lo confirmara.
+- **La columna muestra los candidatos, avisados.** Un vínculo resuelto por
+  nombre lleva un signo de pregunta. Esconderlos dejaría la columna vacía
+  semanas; mostrarlos sin avisar diría una fecha que puede ser de otra persona.
+- **La llamada de cierre no cuenta como 1-1.** Es con un lead y su propósito es
+  venta: mostrarla diría que hubo acompañamiento el día que se firmó.
+- **⭐ `one-on-one-types.ts` existe aparte, sin imports.** La tabla es un
+  componente cliente y necesita el tipo y el helper; importarlos de
+  `one-on-ones.ts` habría arrastrado al bundle del navegador el módulo que crea
+  el **cliente admin de Supabase**, el que bypassea RLS. Mismo motivo que
+  `lib/discord/limits.ts`. Verificado: el bundle de `/clients` quedó en 498 B.
+- **La siembra es idempotente** y no pisa lo aprendido a mano: degradar un
+  `manual_confirmation` a `seed` perdería la señal de que alguien lo confirmó.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- 🔴 **Los datos hacen que esto arranque casi apagado.** Medido contra
+  producción: **0 identidades sembradas**, **1 de 335 clientes con mail**, 20 de
+  350 grabaciones clasificadas, **0 clientes con llamadas vinculadas**. El
+  peldaño determinista (mail) va a resolver casi nada hasta que se carguen
+  mails; el trabajo lo va a hacer el peldaño del nombre, que es candidato.
+  **Cargar los mails de los clientes es la palanca más grande.**
+- ⚠️ **Nada corrió contra Fathom.** Los 979 tests cubren la lógica pura con
+  `fetch` y base mockeados; ninguno prueba que una grabación real se clasifique
+  bien. Bloque de verificación con el orden obligatorio en
+  `docs/PLAN_VERIFICACION.md`.
+- ⚠️ **Hay que apretar "Cargar identidades desde el CRM" una vez.** Sin eso el
+  resolvedor no resuelve nada. **No se ejecutó desde la sesión**: escribe ~335
+  filas en producción y no estaba autorizado.
+- ⚠️ **Falta medir los falsos positivos del peldaño del nombre.** Si más de una
+  de cada cinco fechas con signo de pregunta está mal, conviene dejar de mostrar
+  los candidatos.
+- Las 350 grabaciones ya procesadas **no se reclasifican solas**: conservan su
+  `purpose` actual hasta que se reprocesen.
+- La pantalla de confirmación sigue mostrando candidatos por título
+  (`association_candidates`), no por identidades. Funciona, pero son dos
+  mecanismos conviviendo.
+
+**Tests:** 979 en verde (14 nuevos: 12 en `seed-identities.test.ts`, 2 en
+`resolve-counterparty.test.ts`). `tsc --noEmit` limpio. `pnpm build` sin errores.
+`pnpm lint` sin avisos nuevos.
+
+---
+
+### 2026-09-11 - La tabla nueva de Clientes (Fase 4 de 5)
+
+**Rama/branch:** `claude/gallant-tesla-ozk5we`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `components/clients/clients-list.tsx`,
+`app/clients/clients-board-actions.ts` (nuevo)
+
+**Que se hizo:**
+
+La tabla de clientes pasó a ser el tablero de entrega que pedían las
+correcciones. Columnas, en orden:
+
+**Cliente · Etapa · Próxima tarea · (las columnas configurables) · Progreso de
+etapa · Estado · acciones.**
+
+- **Etapa** — la fase del recorrido donde está parado, con su color.
+- **Próxima tarea** — el próximo hito pendiente, con un **check para marcarlo
+  desde la fila** y su **fecha límite** debajo ("vence el 28/08/2026"), o el
+  atraso en rojo si ya venció.
+- **Las configurables** — las columnas que la organización creó en la solapa
+  Clientes de Campos personalizados. Entre ellas, "Objetivo general".
+- **Progreso de etapa** — el "3 de 4" con su barrita.
+
+Todo sale de datos que ya existían: la Fase 2 calculó el progreso por etapa y la
+fecha límite, la Fase 3 trajo las columnas configurables. Esta fase las muestra.
+
+Una action nueva, `getClientsBoardAction`, trae las cuatro piezas en una sola
+vuelta en vez de cuatro round trips desde el navegador.
+
+**Por que / finalidad:**
+
+Es el pedido central de la imagen de correcciones: ver de un vistazo dónde está
+cada cliente, qué le falta y cuán cerca está del próximo hito.
+
+**Decisiones de diseno relevantes:**
+
+- **⭐ El check inline no saltea validaciones.** Si el hito no pide métricas, se
+  registra al toque —ese es el caso que hace útil el check en la fila—. Si pide,
+  abre **el mismo diálogo** que la ficha del cliente. Un hito registrado sin las
+  métricas que pedía es un hito a medias que después nadie completa.
+- **Las columnas configurables son las que la organización configuró**, no una
+  columna "Objetivo" fija. Si creó una, se ve una; si creó tres, tres. Mismo
+  criterio que el tracker de wins: la tabla la decide la configuración. Fijar
+  "Objetivo general" en el código sería volver a la migración por columna que C0
+  vino a eliminar.
+- **Sin recorrido configurado, las tres columnas de recorrido no se muestran.**
+  Tres columnas con un guion en cada fila no informan nada y hacen la tabla
+  ilegible.
+- **La fecha límite sólo aparece cuando se puede saber.** Sin plazo configurado o
+  sin el hito anterior registrado, no se pone nada. Y nunca se muestran la fecha
+  y el atraso juntos: o vence, o venció.
+- **Un cliente sin hitos dice "Sin empezar" y no tiene barra.** El denominador de
+  la primera etapa haría parecer que arrancó el recorrido.
+- **⭐ Un solo fetch por check.** El tablero se vuelve a pedir cuando cambia la
+  lista de clientes, así que los handlers llaman sólo a `refreshClients()`.
+  Pedirlo además a mano sería el mismo fetch dos veces por cada check marcado. La
+  dependencia está documentada en el efecto para que no sea invisible.
+- **Con "Solo lectura" se ve la tarea y su fecha, pero no el check.** Un botón
+  que va a rebotar es peor que no tenerlo.
+- **La barra lleva `role="progressbar"` con sus `aria-*`**: un progreso que sólo
+  existe como ancho en píxeles no se puede leer con un lector de pantalla.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- ⚠️ **Nada se vio funcionando.** Sin Supabase ni sesión en el entorno. Lo
+  verificado: `tsc --noEmit` limpio, 965 tests en verde, `pnpm build` completo.
+  Bloque de verificación con 15 pasos en `docs/PLAN_VERIFICACION.md`.
+- ⚠️ **El paso con más riesgo es el check inline**: registra en la base y mueve
+  tres columnas de la fila a la vez (etapa, progreso, próxima tarea) más el
+  estado del cliente si el hito lo fija.
+- **La tabla puede quedar ancha** si una organización configura muchas columnas
+  de cliente. Tiene scroll horizontal, pero no hay tope: es una decisión de quien
+  configura y por ahora se deja así.
+- **Falta la columna "Última call 1-1"** — es la Fase 5, que necesita reponer la
+  clasificación de llamadas de entrega.
+- Si `refreshClients()` fallara, el check queda registrado en la base pero la
+  fila no se mueve hasta recargar. Se avisa el error con un toast.
+
+**Tests:** 965 en verde (ninguno nuevo — esta fase muestra datos que la Fase 2 ya
+calculó y dejó probados). `tsc --noEmit` limpio. `pnpm build` sin errores.
+`pnpm lint` sin avisos nuevos.
+
+---
+
+### 2026-09-11 - El objetivo general, como columna configurable (Fase 3 de 5)
+
+**Rama/branch:** `claude/gallant-tesla-ozk5we`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `supabase/migrations/20260911120000_campos_configurables_de_cliente.sql` (nueva),
+`types/custom-fields.ts`, `types/clients.ts`, `lib/custom-fields/{field-types,merge,index}.ts`,
+`lib/custom-fields/__tests__/merge.test.ts` (nuevo), `lib/clients/mapper.ts`,
+`app/clients/custom-field-actions.ts`, `app/clients/client-custom-fields-actions.ts` (nuevo),
+`components/clients/custom-fields/custom-fields-page.tsx`,
+`components/clients/client-custom-fields-section.tsx` (nuevo),
+`components/clients/client-detail.tsx`
+
+**Que se hizo:**
+
+El sistema de campos configurables (C0, 2026-09-03) llegaba a dos entidades:
+wins y checkpoints. Ahora llega a **clientes**, que es la tercera.
+
+Concretamente: `field_definitions.entity` acepta `'client'`, `clients` tiene una
+columna `custom jsonb`, la pantalla de Campos personalizados tiene una **tercera
+solapa** y la ficha del cliente una sección "Datos del cliente" donde se cargan
+los valores.
+
+Con eso, "Objetivo general" deja de ser un campo a programar y pasa a ser una
+lista que cada organización configura. Hay un botón que la carga con las
+opciones de las correcciones —10k en primer lanzamiento, escalar a 50k, a 100k,
+a 500k, Otro— pensadas para editarse.
+
+Diez tests nuevos sobre `mergeCustomFieldValues`. 965 en total.
+
+**Por que / finalidad:**
+
+La imagen de las correcciones muestra el objetivo como una lista numerada y
+progresiva. Con texto libre —lo que hay hoy en `goal_text`— tres personas
+escriben la misma meta de tres formas y el software no puede responder
+"¿quiénes van a 50k?". Con una lista compartida, sí.
+
+**Decisiones de diseno relevantes:**
+
+- **⭐ No se creó una tabla de objetivos.** El mecanismo ya existía y su propia
+  migración dice para qué nació: *"agregar una columna a una tabla del producto
+  era una migración; con esto, la lista se define desde una pantalla"*. Un
+  catálogo de objetivos aparte sería el segundo mecanismo para lo mismo. De
+  paso, queda habilitado cualquier otro campo de cliente que pidan después sin
+  tocar código.
+- **Los valores van en `clients.custom` (jsonb), no en una tabla de pares
+  clave-valor.** Mismo patrón que `client_wins.custom` y
+  `client_checkpoint_events.metrics`: leer un cliente sigue siendo leer una
+  fila, sin un join por columna configurada.
+- **`not null default '{}'`**, no nullable: evita el `coalesce` en cada lectura
+  y hace que `custom->>'clave'` se comporte igual en las 264 filas que ya
+  existen.
+- **⭐ La fusión al guardar es una función pura con tests
+  (`mergeCustomFieldValues`).** Lo validado pisa lo que el formulario ofreció
+  —vaciar un campo lo borra, que es la única forma de borrarlo— y lo que el
+  formulario **no** podía tocar se conserva: campos archivados con dato cargado,
+  y claves huérfanas de un campo que alguien borró del catálogo. Sin esto,
+  archivar una columna sería una forma silenciosa de borrar el pasado.
+- **Se valida sólo contra los campos activos.** Validar contra un archivado
+  rebotaría: sus opciones dejaron de estar disponibles, y guardar un cliente sin
+  tocar ese campo fallaría con un error que nadie puede arreglar desde la
+  pantalla.
+- **La sección no se muestra si la organización no configuró ninguna columna.**
+  Mandar a configurar algo desde la ficha de un cliente sería ruido; el lugar
+  para configurarlo es su propia pantalla.
+- **Las opciones de ejemplo se cargan apretando un botón, no en la migración.**
+  Datos que aparecen solos son datos que después hay que borrar. Van en orden de
+  ambición creciente: el orden es lo que permite leer la lista como una escalera.
+- **Índice GIN sobre `custom`**, no uno por clave: sirve para cualquier columna
+  que se configure, hoy y las que vengan.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- ⚠️ **La migración NO se aplicó.** No hay credenciales de Supabase en el
+  entorno. Hasta que se aplique, la solapa Clientes rebota al guardar y la
+  sección de la ficha no aparece. Es el primer paso del bloque en
+  `docs/PLAN_VERIFICACION.md`.
+- ⚠️ **Nada se vio funcionando**, por lo mismo de siempre: no hay sesión en el
+  entorno de desarrollo. Sí está verificado: `tsc --noEmit` limpio, 965 tests en
+  verde, `pnpm build` completo.
+- ⚠️ **El objetivo ahora vive en dos lugares.** Este campo configurable (la
+  categoría) y `clients.goal_text` + `goal_metric_*` del diálogo de baseline (la
+  narrativa y el número con el que los wins miden si se cumplió). No es
+  duplicación accidental —miden cosas distintas— pero los dos se llaman
+  "objetivo". Hay que decidir si el de baseline se renombra o se retira; queda
+  anotado en `PENDIENTES.md`.
+- **Las Server Actions siguen sin guard de permiso por módulo**, igual que el
+  resto del repo (`[PERMISOS-SERVER-ACTIONS]`). `updateClientCustomFieldsAction`
+  usa `requireOrganizationId()` como todas las demás. No se inventó un guard
+  nuevo para una sola action: el problema es sistémico y su arreglo también.
+- **La columna todavía no se ve en la tabla de clientes.** La muestra la Fase 4.
+
+**Tests:** 965 en verde (10 nuevos en `lib/custom-fields/__tests__/merge.test.ts`).
+`tsc --noEmit` limpio. `pnpm build` sin errores. `pnpm lint` sin avisos nuevos.
+
+---
+
+### 2026-09-11 - Progreso por etapa y fecha límite del próximo hito (Fase 2 de 5)
+
+**Rama/branch:** `claude/gallant-tesla-ozk5we`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `types/checkpoints.ts`, `lib/checkpoints/stalled.ts`,
+`lib/checkpoints/__tests__/stalled.test.ts`
+
+**Que se hizo:**
+
+Tres datos derivados nuevos en `ClientJourneyStatus`, todos lógica pura:
+
+- **`stageReached` / `stageTotal`** — el "3 de 4": cuántos hitos de **la fase
+  actual** están alcanzados. Hasta ahora sólo existía `reached`/`total`, que
+  cuenta el recorrido entero.
+- **`nextCheckpointDueAt`** — la fecha límite del próximo hito (`YYYY-MM-DD`):
+  el hito anterior más su plazo. Hasta ahora sólo se derivaba `overdueDays`, o
+  sea cuánto se pasó, nunca de cuándo.
+- **`formatDueDate()`** — cómo se lee esa fecha: `28/08/2026`.
+
+Doce tests nuevos. 955 en total, todos en verde.
+
+**Por que / finalidad:**
+
+Las dos cosas que pide la imagen de las correcciones y que el sistema no sabía
+calcular: la barrita de progreso por etapa ("ver de un vistazo qué clientes están
+por lograr el próximo hito") y la fecha límite al lado de la próxima tarea.
+
+La Fase 4 las va a mostrar en la tabla. Esta fase las deja calculadas y
+probadas: son la parte que se puede verificar sin una sesión real, así que se
+hace aparte y con tests.
+
+**Decisiones de diseno relevantes:**
+
+- **El progreso cuenta la fase que la pantalla muestra**, no la del próximo hito
+  pendiente. Si contara la otra, un cliente que cerró Onboarding entero mostraría
+  "Onboarding" al lado de un "0 de 1" que en realidad es de Escala, y la fila se
+  contradiría sola. Un cliente con su fase completa muestra **"2 de 2"** —es
+  verdad y es útil: cerró la etapa— y la columna de próxima tarea dice qué sigue.
+- **Sin ningún hito alcanzado no se cuenta nada** (`0` y `0`), en vez de mostrar
+  "0 de 2" de la primera fase. Mostrar el denominador haría parecer que arrancó
+  el recorrido; la pantalla ya dice "Sin empezar" en ese caso.
+- **La fecha límite y el atraso se derivan juntos, del mismo ancla.** Dos
+  funciones separadas podrían discrepar, y una fila que dice "vence el 12" y
+  "trabado hace 6 días" al mismo tiempo no se puede leer. Si uno da `null`, el
+  otro también — son las mismas tres razones de siempre.
+- **La fecha se corta en el día**, no en la hora: un plazo se mide en días, y
+  decir "vence el 12 a las 14:32" fingiría una precisión que el dato no tiene.
+- **⭐ `formatDueDate` parte la cadena a mano en vez de usar `Date` +
+  `toLocaleDateString`.** `new Date("2026-08-28")` se interpreta como medianoche
+  UTC y en Buenos Aires (UTC-3) se muestra como el 27. Un vencimiento corrido un
+  día no rompe nada visible: sólo miente. Hay un test que lo fija.
+- **Los hitos archivados no entran en el denominador.** `buildJourney` ya los
+  saca antes; contarlos inflaría el "de 4" con trabajo que nadie va a hacer.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- **Nada de esto se ve todavía en ninguna pantalla.** Son datos calculados
+  esperando a la Fase 4. Es deliberado: las dos fases se mergean juntas en el
+  mismo PR, así que no queda código sin consumir en `main`.
+- No hace falta bloque en `docs/PLAN_VERIFICACION.md`: es lógica pura y los 12
+  tests la cubren, incluidos los tres casos de "no se puede saber" y el de la
+  zona horaria. Lo que sí va a necesitar verificación es cómo se ve en la tabla,
+  y eso entra con la Fase 4.
+
+**Tests:** 955 en verde (12 nuevos en `lib/checkpoints/__tests__/stalled.test.ts`).
+`tsc --noEmit` limpio.
+
+---
+
+### 2026-09-11 - La plata de cada cliente se mudó a Ventas (Fase 1 de 5)
+
+**Rama/branch:** `claude/gallant-tesla-ozk5we`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `routes/paths.ts`, `lib/navigation/{sidebar-modules,page-meta}.ts`,
+`app/(platform)/sales/cobros/page.tsx` (nueva), `components/sales/cobros-page.tsx` (nuevo),
+`app/clients/payment-actions.ts` → `app/sales/payment-actions.ts`,
+`components/clients/{client-payments-section,payment-receipt-dropzone}.tsx` → `components/sales/`,
+`components/clients/clients-list.tsx`, `components/clients/client-detail.tsx`,
+`providers/{finance,platform}-data-provider.tsx`, `app/finance/actions.ts`,
+`app/clients/plan-duration-actions.ts`, `components/closing/payment-modal.tsx`
+
+**Que se hizo:**
+
+Todo el seguimiento financiero por cliente salió de Clientes y entró a Ventas,
+en una pantalla nueva: **`/sales/cobros`**.
+
+De la tabla de Clientes se fueron cinco columnas —Plan, Días restantes, Pago,
+Adeudado y Monto— junto con el filtro por plan, el botón "Crear planes" y el
+diálogo de asignar plan. De la ficha del cliente se fue la sección "Información
+de pago" (tipo, plataforma, total) y el historial de pagos entero. En su lugar
+quedó un botón que lleva a Cobros, y en la tabla un atajo "Cobros" en la barra
+de acciones.
+
+Tres archivos se movieron enteros, sin tocar su contenido salvo los imports:
+`payment-actions.ts` a `app/sales/`, y `client-payments-section.tsx` y
+`payment-receipt-dropzone.tsx` a `components/sales/`. Seis archivos actualizaron
+sus imports.
+
+La pantalla nueva muestra las mismas cinco columnas que perdió Clientes, más
+tres tarjetas de totales (clientes, contratado, adeudado) que suman **lo
+filtrado**, dos filtros propios de cobro ("Con saldo" / "Saldados") y un panel
+que se abre abajo con el historial de pagos del cliente elegido.
+
+**Por que / finalidad:**
+
+Correcciones de Santiago sobre la tabla de Clientes: esa pantalla tiene que
+responder **dónde está parado cada cliente en su recorrido** —etapa, próxima
+tarea, progreso— y hoy respondía a medias eso y a medias cuánto debe. Son dos
+preguntas que muchas veces hacen dos personas distintas.
+
+Ventas es el destino natural y no Finanzas: `/sales/closing` es donde se pactan
+las condiciones de pago al cerrar la venta, así que Cobros es literalmente la
+continuación de esa pantalla. Finanzas sigue leyendo los mismos datos para sus
+gráficos de ingresos, sin cambios.
+
+Esta es la **primera de cinco fases**. Las que siguen: lógica del recorrido
+(progreso por etapa y fecha límite del próximo hito), objetivo general del
+cliente, la tabla nueva de Clientes, y reponer la clasificación de llamadas de
+entrega para poder mostrar "última call 1-1".
+
+**Decisiones de diseno relevantes:**
+
+- **No se tocó el schema.** `clients.total_amount`, `payment_type`,
+  `installments` y compañía siguen donde estaban: los leen 152 referencias en 33
+  archivos (Finanzas, Closing, Embudos, Producto, Super Admin). Mover columnas de
+  base por un cambio de dónde se muestran habría roto media plataforma sin ganar
+  nada. Lo que se mudó son **pantallas**, no datos.
+- **La ficha del cliente no quedó con un resumen "de sólo lectura" del monto.**
+  Dos lugares mostrando el mismo número es exactamente donde uno de los dos queda
+  viejo y nadie sabe cuál. Quedó el camino a Cobros, no los números.
+- **Se agregó un atajo "Cobros" en la barra de Clientes.** El monto y el adeudado
+  se veían ahí hasta hoy; sin un cartel que diga a dónde fueron, quien los busque
+  va a concluir que se perdieron.
+- **`revalidateClientDetail` pasó a ser `revalidatePaymentScreens`** y revalida
+  `/sales/cobros` en vez de la ficha del cliente. Dejarlo apuntando a la ficha
+  habría seguido "funcionando" —revalidar una ruta nunca falla— y no habría
+  refrescado nada. Es el modo de falla más silencioso de toda la mudanza.
+- **El permiso que manda en Cobros es el de Ventas, no el de Clientes.**
+  `useModuleAccess` ya devuelve `"full"` para el fundador, así que se pudo borrar
+  el estado `isFounder` que la lista de clientes cargaba con una consulta aparte.
+- **Los totales de arriba suman lo filtrado, no toda la cartera.** Si alguien
+  filtra "Con saldo", el número que quiere ver es cuánto suma ese recorte.
+- **El alta y la importación de clientes se quedaron en Clientes**, aunque piden
+  monto y cuotas. Son la carga inicial de las condiciones, no el seguimiento del
+  cobro. Moverlas era una decisión distinta y no se tomó sola.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- ⚠️ **Nada se vio funcionando.** El entorno de desarrollo no tiene Supabase ni
+  sesión: se levantó el server y la ruta devuelve 307 al login. Lo que sí está
+  verificado: `tsc --noEmit` limpio, **943 tests en verde** (incluido el que
+  exige que toda pantalla nueva tenga título) y `pnpm build` completo con
+  `/sales/cobros` en el manifiesto. Ninguna de las tres cosas prueba que la
+  pantalla se vea bien ni que registrar una cuota escriba. Bloque completo en
+  `docs/PLAN_VERIFICACION.md`.
+- ⚠️ **El paso con más riesgo es registrar una cuota**, porque las Server Actions
+  cambiaron de archivo y la revalidación cambió de ruta.
+- 🔒 **Quien tenga Clientes pero no Ventas deja de ver los cobros.** Es el efecto
+  buscado, pero es un cambio de acceso real para los roles ya configurados: hay
+  que avisarle al equipo antes de que alguien no encuentre la pantalla.
+- La lista de clientes quedó con tres columnas (Cliente, Recorrido, Estado) hasta
+  que la Fase 4 le agregue Etapa, Próxima tarea, Objetivo y la barra de progreso.
+  Es un estado intermedio a propósito, no un descuido.
+- `getClientsTableEnrichmentAction` sigue viviendo en `app/clients/`, aunque
+  ahora sólo la usa Cobros. Se dejó donde estaba porque las duraciones de plan
+  son un catálogo del dominio de clientes; moverla era diff sin ganancia.
+- El aviso de lint `'push' is assigned a value but never used` en
+  `client-payments-section.tsx` es anterior a este cambio y viajó con el archivo.
+  No se tocó para que el movimiento sea un movimiento puro.
+
+**Tests:** 943 en verde (ninguno nuevo — esta fase no agrega lógica pura, mueve
+pantallas). `tsc --noEmit` limpio. `pnpm build` sin errores. `pnpm lint` sin
+avisos nuevos.
+
+---
+
 ### 2026-09-09 - El bot de Discord se llama y se ve como la marca del cliente
 
 **Rama/branch:** `Claude-New-Features`

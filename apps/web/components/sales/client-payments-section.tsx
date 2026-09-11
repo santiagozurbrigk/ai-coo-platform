@@ -18,11 +18,11 @@ import {
   getClientPaymentReceiptUrlAction,
   listClientPaymentsAction,
   recordClientPaymentAction,
-} from "@/app/clients/payment-actions";
+} from "@/app/sales/payment-actions";
 import {
   PaymentReceiptDropzone,
   uploadPaymentReceiptFile,
-} from "@/components/clients/payment-receipt-dropzone";
+} from "@/components/sales/payment-receipt-dropzone";
 import { usePlatformData } from "@/providers";
 import { useFinanceData } from "@/providers/finance-data-provider";
 import { useToast } from "@/providers/toast-provider";

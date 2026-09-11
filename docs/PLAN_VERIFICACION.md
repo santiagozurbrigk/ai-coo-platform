@@ -8,7 +8,7 @@
 > **Para Claude Code:** ver la regla al final. Cada unidad que construyas suma su
 > bloque de verificación acá, con pasos concretos y resultado esperado.
 >
-> **Última actualización:** 2026-08-30 · Cubre hasta la ola 1 completa
+> **Última actualización:** 2026-09-11 · Cubre hasta las llamadas de entrega
 
 ---
 
@@ -1227,6 +1227,181 @@ sospechar primero de eso y no del código.
 **Qué significa si el nombre cambia pero la foto no (o al revés):** son dos
 llamadas independientes a propósito. Mirar cuál de las dos falló en el aviso de
 la pantalla, no asumir que es la misma causa.
+
+---
+
+## Cobros en Ventas — la plata sale de Clientes ⚠️ — 2026-09-11
+
+🤖 **Se puede verificar sin cuentas externas, pero sí con una sesión real.** Nada
+de esto se ejecutó: en el entorno de desarrollo no hay Supabase ni sesión, así
+que la pantalla nueva **compila y entra en el manifiesto de rutas, pero nunca se
+dibujó**. `tsc --noEmit` limpio, 943 tests en verde, `pnpm build` completo con
+`/sales/cobros` listada — ninguna de las tres cosas prueba que la pantalla se vea
+bien ni que los botones escriban.
+
+| Qué hacer | Qué tendría que pasar |
+|---|---|
+| Entrar a **Ventas → Cobros** | Se ve la tabla con una fila por cliente: plan, días restantes, tipo de pago, adeudado y monto. Los mismos números que mostraba Clientes hasta ayer |
+| ⭐ Comparar el **adeudado** de dos o tres clientes contra lo que mostraba Clientes antes | Tienen que dar **idéntico**. Se reusan `computeOutstandingBalance` y `computeRemainingProgramDays` sin tocarlas: si un número cambió, algo se rompió en el armado de las filas, no en el cálculo |
+| Mirar las tres tarjetas de arriba (Clientes / Contratado / Adeudado) | Suman **lo filtrado**, no toda la cartera. Filtrar "Con saldo" tiene que bajar el total contratado |
+| Apretar **Ver pagos** en una fila | Se abre abajo el historial de pagos de ese cliente, con su barra de progreso de cobro y el plan de cuotas |
+| ⚠️ **Registrar una cuota** con comprobante | Se guarda, la cuota queda en "Pagada ✓" y el adeudado de la fila baja. **Es el paso con más riesgo**: las Server Actions se movieron de archivo y la revalidación ahora apunta a Cobros en vez de a la ficha del cliente |
+| Después de registrar el pago, ir a **Finanzas** sin recargar | El pago ya aparece. Lo que lo logra es `refreshClientPayments` del provider, que no se tocó |
+| ⚠️ Recargar `/sales/cobros` con F5 después de registrar un pago | El pago sigue ahí. Esto prueba la revalidación nueva (`revalidatePaymentScreens`). Si al recargar desaparece o vuelve un número viejo, la ruta revalidada quedó mal |
+| Entrar a **Clientes** | Ya **no** están las columnas Plan, Días restantes, Pago, Adeudado ni Monto. Quedan Cliente, Recorrido, Estado y las acciones |
+| Entrar a la **ficha de un cliente** | No está más la sección "Información de pago" ni el historial de pagos. En su lugar hay un botón "Ver cobros de este cliente" |
+| 🔒 Entrar con un miembro que tenga **Clientes en acceso total y Ventas en "Sin acceso"** | En Clientes **no** ve el botón "Cobros", y si tipea `/sales/cobros` a mano el layout le corta el render con la pantalla de sin acceso. Es el efecto buscado del cambio, no un bug |
+| 🔒 Entrar con un miembro que tenga **Ventas en "Solo lectura"** | Ve la tabla de Cobros y puede abrir el historial, pero **no** ve "Crear planes" ni el lápiz para cambiar el plan de un cliente |
+| Apretar **Crear planes** y **el lápiz de un plan** en Cobros | Funcionan igual que cuando vivían en Clientes. Son los mismos diálogos, movidos de pantalla |
+
+**Qué significa si el adeudado da distinto:** no es un problema de cálculo. Las
+filas se arman una sola vez en un `useMemo` que cruza clientes, planes,
+duraciones y pagos; si un cliente quedó sin plan asignado o sin duración, su
+"días restantes" dice "Sin datos de duración" —eso es correcto— pero el adeudado
+tiene que dar bien igual, porque no depende del plan.
+
+**Qué quedó explícitamente afuera:** el alta de cliente (`Nuevo cliente`) y la
+importación siguen pidiendo monto, tipo de pago y cuotas desde **Clientes**. Son
+la carga inicial de las condiciones, no el seguimiento del cobro. Si se decide
+que también tienen que mudarse, es otra tarea.
+
+---
+
+## Campos configurables de cliente — el objetivo general ⚠️ — 2026-09-11
+
+🤖 **Sin cuentas externas, pero con sesión real y con la migración aplicada.**
+
+> ⚠️ **Primero:** aplicar
+> `supabase/migrations/20260911120000_campos_configurables_de_cliente.sql`.
+> Sin eso, la solapa "Clientes" de Campos personalizados rebota al guardar con
+> un error del check de `entity`, y la ficha del cliente no muestra la sección.
+> **No se aplicó desde la sesión** — no hay credenciales de Supabase acá.
+
+| Qué hacer | Qué tendría que pasar |
+|---|---|
+| Entrar a **Clientes → Campos personalizados** | Hay **tres** solapas: Wins, Checkpoints y **Clientes** |
+| En la solapa Clientes, apretar **Cargar "Objetivo general" de ejemplo** | Se crea una columna de lista con 5 opciones: 10k en primer lanzamiento, Escalar a 50k, a 100k, a 500k, Otro |
+| Editar la lista: renombrar una opción | El dato ya cargado con esa opción **sigue apareciendo**, con la etiqueta nueva. Se guarda el `value`, no el `label` |
+| ⚠️ Abrir la **ficha de un cliente** | Aparece la sección "Datos del cliente" con el desplegable del objetivo. **Si no aparece, la migración no se aplicó** o no hay columnas de cliente configuradas |
+| Elegir un objetivo y apretar **Guardar** | Toast de guardado. Recargar con F5: el valor sigue ahí |
+| ⭐ Vaciar el objetivo (opción en blanco) y guardar | Queda vacío. Recargar: sigue vacío. Si volviera el valor viejo, la fusión está pisando mal y **no se puede borrar nada** |
+| ⭐ **Archivar** la columna "Objetivo general" en Campos, y volver a la ficha de un cliente que la tenía cargada | El valor sigue mostrándose, en el bloque de abajo, de sólo lectura. Guardar otra cosa en esa ficha **no lo borra**. Es la regla 3 de C0 y hay 10 tests que la cubren, pero nunca corrió contra la base |
+| Intentar **borrar** una columna de cliente que tiene datos cargados | Lo frena diciendo que la archives. Esto prueba que `isFieldInUse` sabe mirar `clients.custom` |
+| Crear una columna de otro tipo (fecha, número, texto) en la solapa Clientes | Se puede cargar en la ficha con el control que corresponde |
+| 🔒 Entrar con un miembro que **no sea founder** | Ve las tres solapas y la configuración, pero no puede cambiarla ("Solo el founder…"). En la ficha del cliente **sí** puede cargar el valor |
+
+**Qué significa si guardar rebota con "no es una opción disponible":** se intentó
+guardar el valor de una opción archivada. No debería poder pasar desde la
+pantalla —el formulario sólo ofrece las activas— así que si ocurre, mirar si
+alguien archivó una opción mientras la ficha estaba abierta.
+
+**Deuda conocida:** el objetivo ahora vive en **dos lugares**. Este campo
+configurable (la categoría: "escalar a 50k") y `clients.goal_text` +
+`goal_metric_*` del diálogo de baseline (la narrativa y el número que usan los
+wins para medir si se cumplió). No es duplicación accidental —miden cosas
+distintas— pero los dos se llaman "objetivo" y eso confunde. Decidir si el de
+baseline se renombra o se retira.
+
+---
+
+## La tabla nueva de Clientes ⚠️ — 2026-09-11
+
+🤖 **Sin cuentas externas, pero necesita sesión real, recorrido configurado y la
+migración de campos de cliente aplicada.** Nada se dibujó: no hay Supabase en el
+entorno. `tsc` limpio, 965 tests, build completo.
+
+**Precondiciones para que la tabla muestre algo:**
+
+1. Tener **fases y checkpoints cargados** en Recorrido del cliente, con plazos.
+   Sin recorrido, las tres columnas de recorrido no se muestran (a propósito).
+2. Tener al menos **un cliente con un hito registrado**, o todos van a decir
+   "Sin empezar".
+3. Para la columna de objetivo: la migración de la Fase 3 aplicada y la columna
+   configurada.
+
+| Qué hacer | Qué tendría que pasar |
+|---|---|
+| Entrar a **Clientes** | Columnas: Cliente · Etapa · Próxima tarea · (las configurables) · Progreso de etapa · Estado |
+| ⭐ Comparar la **Etapa** de un cliente con su Recorrido en la ficha | Coinciden. La etapa es la del hito más avanzado alcanzado |
+| ⭐ Mirar el **"3 de 4"** de un cliente y contar sus checks en la ficha | Coincide con los de **esa etapa**, no con los del recorrido entero. Es el error más fácil de cometer y el que hace inútil la barra |
+| Un cliente que **cerró su etapa** y no arrancó la siguiente | Muestra "4 de 4" con el tilde verde, y la próxima tarea es el primer hito de la etapa siguiente |
+| Mirar la **fecha límite** bajo la próxima tarea | Dice "vence el DD/MM/AAAA". Tiene que ser la fecha del hito anterior + el plazo configurado |
+| ⭐ Un hito **sin plazo** configurado, o cuyo hito anterior no está registrado | **No muestra fecha**. Si mostrara una, está inventada |
+| Un cliente atrasado | En vez de la fecha dice "trabado hace N días", en rojo. Nunca las dos cosas |
+| ⚠️ Apretar el **check** de una próxima tarea **sin métricas** | Se registra al toque, la fila avanza sola: cambia la etapa, el progreso y la próxima tarea. **Es el paso con más riesgo de la fase** |
+| ⚠️ Apretar el **check** de una tarea **con métricas** | Abre el diálogo de siempre pidiendo fecha y métricas. **No** se registra sin ellas |
+| Registrar un hito que fija estado de cliente | La columna Estado cambia sola en la misma fila |
+| Recargar con F5 después de marcar un check | El hito sigue registrado |
+| Configurar una **segunda** columna de cliente (ej: "Nicho") | Aparece como segunda columna en la tabla, al lado del objetivo |
+| Archivar la columna "Objetivo general" | Desaparece de la tabla. Los valores siguen en la ficha de cada cliente |
+| 🔒 Entrar con un miembro con **Clientes en "Solo lectura"** | Ve la próxima tarea y su fecha, pero **no** el cuadradito para marcarla, ni la barra de botones de arriba |
+| Filtrar por **Trabados (N)** | Aparecen sólo los que tienen el próximo hito vencido |
+| Una organización **sin recorrido configurado** | La tabla muestra sólo Cliente, las configurables, Estado y acciones. Sin columnas vacías |
+
+**Qué significa si el "3 de 4" no coincide:** mirar si hay hitos **archivados**
+en esa etapa. No entran en el denominador a propósito — son trabajo que nadie va
+a hacer — así que si el Recorrido muestra 5 checks y la tabla dice "de 4", el
+quinto está archivado y está bien.
+
+**Qué significa si marcar un check no hace nada:** el hito pide métricas y el
+diálogo no abrió, o la lista de clientes no se refrescó. La tabla se vuelve a
+pedir cuando `refreshClients()` trae una lista nueva; si eso falla, el check
+queda registrado en la base pero la fila no se mueve hasta recargar.
+
+---
+
+## Llamadas de entrega y "última 1-1" ⚠️🔑 — 2026-09-11
+
+🔑 **Necesita Fathom conectado y grabaciones reales.** Es la fase con más
+probabilidad de no funcionar a la primera, y el motivo está en los datos:
+
+**El estado de la base hoy (medido, no estimado):**
+
+| Dato | Valor | Qué significa |
+|---|---|---|
+| Identidades sembradas | **0** | Los peldaños 1 a 3 del resolvedor no pueden resolver nada |
+| Clientes con mail cargado | **1 de 335** | El peldaño 1 (mail, determinista) va a resolver casi nada |
+| Grabaciones | 350 | |
+| Grabaciones clasificadas | **20** | Sólo las que cruzaron un turno agendado |
+| Clientes con llamadas vinculadas | **0** | La columna "Última 1-1" arranca vacía para todos |
+
+**Orden obligatorio de la prueba:**
+
+1. ⚠️ **Apretar "Cargar identidades desde el CRM"** en Clientes → Llamadas sin
+   asociar. Sin esto no funciona nada. Tendría que decir cuántas cargó (esperado:
+   ~335 nombres + 1 mail) y cuántas quedaron afuera por repetirse.
+2. **Procesar grabaciones**: esperar al cron (`/api/integrations/fathom/process`,
+   cada 10 min) o forzarlo.
+3. Recién entonces mirar la columna.
+
+| Qué hacer | Qué tendría que pasar |
+|---|---|
+| ⭐ Mirar `select purpose, count(*) from fathom_calls group by purpose` | Aparecen `delivery` y `team`, no sólo `sales` y `null`. Si sigue todo en `null`, el clasificador no corrió o no hay participantes en `calendar_invitees` |
+| ⚠️ Mirar cuántas quedaron en `team` | **Es el número a vigilar.** Una grabación sin evento de calendario llega sin participantes y ahora se marca "no se sabe" (los dos ejes en `null`), **no** "equipo". Si hay muchas en `team`, revisar que no sean 1-1 mal clasificadas |
+| Entrar a **Clientes** y mirar la columna **Última 1-1** | Los clientes con entregas clasificadas muestran la fecha; el resto, un guion |
+| ⭐ Una fecha con el **signo de pregunta** al lado | El vínculo se dedujo por el nombre y puede ser de otra persona. Es deliberado que se muestre avisada en vez de esconderse |
+| Clic en una fecha | Abre la grabación en Fathom |
+| ⭐ Confirmar una llamada en **Llamadas sin asociar** | Queda vinculada, y **la próxima grabación con ese mismo nombre de pantalla se resuelve sola**. Es la prueba de que el alias se aprendió: mirar que aparezca una fila nueva en `client_identities` con `source = 'manual_confirmation'` |
+| Verificar que la **llamada de cierre no aparece** como 1-1 | Su `purpose` es `sales`. Si apareciera, diría que hubo una sesión de acompañamiento el día que se firmó |
+| Volver a apretar "Cargar identidades" | No duplica ni pisa lo aprendido a mano (`ignoreDuplicates` contra el índice único) |
+| Dos clientes con el mismo nombre | Ninguno de los dos se siembra, y el aviso lo dice. Sembrar el primero mandaría las llamadas de los dos a una sola ficha, en silencio |
+
+**⚠️ Lo que más riesgo tiene, en orden:**
+
+1. **Que `calendar_invitees` venga vacío en la mayoría de las grabaciones.** Es
+   el caso de toda reunión sin evento de calendario. Esas quedan sin clasificar y
+   pidiendo confirmación — correcto, pero significa trabajo manual al principio.
+2. **Que el peldaño del nombre traiga falsos positivos.** Es candidato justamente
+   por eso. Medir: de las que muestran el signo de pregunta, cuántas están mal.
+   Si es más de una de cada cinco, conviene dejar de mostrar los candidatos.
+3. **Que los mails de clientes sigan sin cargarse.** Con 1 de 335, el peldaño
+   determinista está prácticamente apagado. Cargar mails es la palanca más
+   grande para que esto funcione solo.
+
+**Qué significa si la columna queda vacía para todos:** revisar en este orden —
+¿se sembraron las identidades?, ¿corrió el cron de procesamiento?, ¿hay alguna
+grabación con `purpose = 'delivery'` **y** `client_id` no nulo? Las dos
+condiciones juntas son las que llenan la columna.
 
 ---
 

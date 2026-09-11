@@ -7,8 +7,15 @@
  * `client_checkpoint_events.metrics`), nunca acá.
  */
 
-/** A qué tabla pertenece una columna configurable. */
-export const FIELD_ENTITIES = ["win", "checkpoint"] as const;
+/**
+ * A qué tabla pertenece una columna configurable.
+ *
+ * `client` es la tercera y entró el 2026-09-11: la tabla de clientes necesitaba
+ * una columna "Objetivo general" con una lista compartida por la organización.
+ * Se extendió este mecanismo en vez de armar un catálogo de objetivos aparte —
+ * un segundo mecanismo para lo mismo es justo lo que C0 vino a evitar.
+ */
+export const FIELD_ENTITIES = ["win", "checkpoint", "client"] as const;
 export type FieldEntity = (typeof FIELD_ENTITIES)[number];
 
 export const FIELD_TYPES = [

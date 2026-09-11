@@ -4,6 +4,7 @@ import { buildClientProgress } from "@/lib/checkpoints/progress";
 import {
   deriveClientJourneyStatus,
   deriveJourneyStatuses,
+  formatDueDate,
   formatOverdue,
   groupEventsByClient,
 } from "@/lib/checkpoints/stalled";
@@ -161,5 +162,128 @@ describe("cómo se lee el atraso", () => {
 
   it("no dice nada cuando no está trabado", () => {
     expect(formatOverdue(statusFor([]))).toBeNull();
+  });
+});
+
+describe("⭐ el progreso de la fase actual — el \"3 de 4\" de la tabla", () => {
+  it("cuenta sólo los hitos de la fase donde está parado", () => {
+    // Onboarding tiene dos hitos (a, b). Alcanzó 'a' → 1 de 2.
+    const s = statusFor([event({ checkpointId: "a", reachedAt: daysAgo(2) })]);
+    expect(s.currentStageName).toBe("Onboarding");
+    expect(s.stageReached).toBe(1);
+    expect(s.stageTotal).toBe(2);
+  });
+
+  it("⭐ no se confunde con el progreso del recorrido entero", () => {
+    // Dos de tres hitos del recorrido, pero dos de dos de su fase.
+    const s = statusFor([
+      event({ id: "1", checkpointId: "a", reachedAt: daysAgo(30) }),
+      event({ id: "2", checkpointId: "b", reachedAt: daysAgo(10) }),
+    ]);
+    expect(s.reached).toBe(2);
+    expect(s.total).toBe(3);
+    expect(s.stageReached).toBe(2);
+    expect(s.stageTotal).toBe(2);
+  });
+
+  it("⭐ una fase completa muestra 4 de 4, no el 0 de la siguiente", () => {
+    // Cerró Onboarding entero y no arrancó Escala. La fila dice "Onboarding,
+    // 2 de 2" y la próxima tarea dice qué sigue. Contar la fase del próximo
+    // hito pendiente haría que la fila se contradijera sola.
+    const s = statusFor([
+      event({ id: "1", checkpointId: "a", reachedAt: daysAgo(30) }),
+      event({ id: "2", checkpointId: "b", reachedAt: daysAgo(10) }),
+    ]);
+    expect(s.currentStageName).toBe("Onboarding");
+    expect(s.nextCheckpointName).toBe("Cierre");
+    expect(`${s.stageReached} de ${s.stageTotal}`).toBe("2 de 2");
+  });
+
+  it("⭐ sin ningún hito alcanzado no cuenta nada", () => {
+    // Sin fase actual no hay qué contar. Mostrar "0 de 2" de la primera fase
+    // haría parecer que arrancó el recorrido.
+    const s = statusFor([]);
+    expect(s.currentStageName).toBeNull();
+    expect(s.stageReached).toBe(0);
+    expect(s.stageTotal).toBe(0);
+  });
+
+  it("sigue al cliente cuando cambia de fase", () => {
+    const s = statusFor([
+      event({ id: "1", checkpointId: "a", reachedAt: daysAgo(40) }),
+      event({ id: "2", checkpointId: "b", reachedAt: daysAgo(30) }),
+      event({ id: "3", checkpointId: "c", reachedAt: daysAgo(5) }),
+    ]);
+    expect(s.currentStageName).toBe("Escala");
+    expect(s.stageReached).toBe(1);
+    expect(s.stageTotal).toBe(1);
+  });
+});
+
+describe("⭐ la fecha límite del próximo hito", () => {
+  it("es el hito anterior más su plazo", () => {
+    // 'a' alcanzado el 2026-08-14 (20 días antes del NOW), 'b' con plazo de 14
+    // días → vence el 2026-08-28.
+    const s = statusFor([event({ checkpointId: "a", reachedAt: daysAgo(20) })]);
+    expect(s.nextCheckpointDueAt).toBe("2026-08-28");
+  });
+
+  it("⭐ concuerda siempre con el atraso: si venció, está atrasado", () => {
+    const atrasado = statusFor([event({ checkpointId: "a", reachedAt: daysAgo(20) })]);
+    expect(atrasado.overdueDays).toBe(6);
+    expect(atrasado.nextCheckpointDueAt! < "2026-09-03").toBe(true);
+
+    const aTiempo = statusFor([event({ checkpointId: "a", reachedAt: daysAgo(10) })]);
+    expect(aTiempo.overdueDays).toBe(-4);
+    expect(aTiempo.nextCheckpointDueAt! > "2026-09-03").toBe(true);
+  });
+
+  it("las tres razones que dejan el atraso en null dejan la fecha en null", () => {
+    // 1 · recorrido completo
+    const completo = statusFor([
+      event({ id: "1", checkpointId: "a", reachedAt: daysAgo(60) }),
+      event({ id: "2", checkpointId: "b", reachedAt: daysAgo(40) }),
+      event({ id: "3", checkpointId: "c", reachedAt: daysAgo(5) }),
+    ]);
+    expect(completo.nextCheckpointDueAt).toBeNull();
+
+    // 3 · sin hito anterior registrado
+    const sinArrancar = statusFor([]);
+    expect(sinArrancar.nextCheckpointDueAt).toBeNull();
+    expect(sinArrancar.overdueDays).toBeNull();
+  });
+
+  it("2 · sin plazo configurado no hay fecha que calcular", () => {
+    const sinPlazo = buildJourney(
+      [stage({ id: "s1" })],
+      [
+        checkpoint({ id: "a", stageId: "s1", sortOrder: 1, expectedDays: 3 }),
+        checkpoint({ id: "b", stageId: "s1", sortOrder: 2, expectedDays: null }),
+      ]
+    ).stages;
+    const s = deriveClientJourneyStatus(
+      "cl1",
+      buildClientProgress(sinPlazo, [event({ checkpointId: "a", reachedAt: daysAgo(900) })]),
+      NOW
+    );
+    expect(s.nextCheckpointDueAt).toBeNull();
+  });
+});
+
+describe("cómo se lee la fecha límite", () => {
+  it("la escribe en el orden que se lee en es-AR", () => {
+    const s = statusFor([event({ checkpointId: "a", reachedAt: daysAgo(20) })]);
+    expect(formatDueDate(s)).toBe("28/08/2026");
+  });
+
+  it("⭐ no corre el día por zona horaria", () => {
+    // `new Date("2026-08-28").toLocaleDateString("es-AR")` daría 27/08 en
+    // Buenos Aires. Por eso la cadena se parte a mano.
+    const s = statusFor([event({ checkpointId: "a", reachedAt: daysAgo(20) })]);
+    expect(formatDueDate(s)).toContain("28");
+  });
+
+  it("no dice nada cuando no se puede saber", () => {
+    expect(formatDueDate(statusFor([]))).toBeNull();
   });
 });

@@ -124,7 +124,7 @@ export async function uploadPaymentReceiptFile(
   | { ok: false; error: string }
 > {
   const { prepareClientPaymentReceiptUploadAction } = await import(
-    "@/app/clients/payment-actions"
+    "@/app/sales/payment-actions"
   );
 
   const prep = await prepareClientPaymentReceiptUploadAction({

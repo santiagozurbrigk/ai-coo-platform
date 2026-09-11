@@ -8,3 +8,5 @@ export { ConversationStatusBadge } from "./conversation-status-badge";
 export { ConversationSourceBadge } from "./conversation-source-badge";
 export { LeadQualificationBadge } from "./lead-qualification-badge";
 export { ZernioSidePanel } from "./zernio-side-panel";
+export { CobrosPage } from "./cobros-page";
+export { ClientPaymentsSection } from "./client-payments-section";
