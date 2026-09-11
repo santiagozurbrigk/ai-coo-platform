@@ -30,6 +30,7 @@ import {
   AlertTriangle,
   CalendarCheck,
   Check,
+  HelpCircle,
   MoonStar,
   Receipt,
   Route,
@@ -45,6 +46,10 @@ import {
   getClientsBoardAction,
   type ClientsBoardData,
 } from "@/app/clients/clients-board-actions";
+import {
+  isConfirmedResolution,
+  type LastOneOnOne,
+} from "@/lib/fathom/one-on-one-types";
 import { recordCheckpointAction } from "@/app/clients/checkpoint-event-actions";
 import { FilterPills } from "@/components/marketing/filter-pills";
 import { FieldValueCell } from "@/components/clients/custom-fields/field-value-cell";
@@ -82,6 +87,7 @@ const EMPTY_BOARD: ClientsBoardData = {
   checkpoints: [],
   checkpointFields: [],
   clientFields: [],
+  lastOneOnOne: {},
 };
 
 // ── Diálogo de confirmación de eliminación ─────────────────────────────────
@@ -176,7 +182,7 @@ export function ClientsList({ clients }: { clients: Client[] }) {
     });
   }, [clients]);
 
-  const { journey, checkpoints, checkpointFields, clientFields } = board;
+  const { journey, checkpoints, checkpointFields, clientFields, lastOneOnOne } = board;
 
   const checkpointById = useMemo(
     () => new Map(checkpoints.map((checkpoint) => [checkpoint.id, checkpoint])),
@@ -372,6 +378,7 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                   <th className="px-4 py-3 font-medium">Próxima tarea</th>
                 </>
               ) : null}
+              <th className="px-4 py-3 font-medium">Última 1-1</th>
               {customColumns.map((field) => (
                 <th key={field.id} className="px-4 py-3 font-medium">
                   {field.label}
@@ -417,6 +424,10 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                       </td>
                     </>
                   ) : null}
+
+                  <td className="px-4 py-3">
+                    <LastOneOnOneCell entry={lastOneOnOne[client.id]} />
+                  </td>
 
                   {customColumns.map((field) => (
                     <td key={field.id} className="px-4 py-3">
@@ -638,5 +649,55 @@ function StageProgressCell({ status }: { status: ClientJourneyStatus | undefined
         />
       </div>
     </div>
+  );
+}
+
+/**
+ * La fecha de la última sesión 1-1 con el cliente.
+ *
+ * ⭐ Sale de las grabaciones de Fathom que el clasificador resolvió como
+ * **entrega con este cliente**. La llamada de cierre no cuenta: es con un lead y
+ * su propósito es venta, así que mostrarla acá diría que hubo una sesión de
+ * acompañamiento el día que se firmó el contrato.
+ *
+ * Cuando el vínculo se resolvió por un peldaño **candidato** —un nombre
+ * normalizado, que dos personas pueden compartir— la fecha se muestra igual,
+ * pero avisada. Esconderla hasta que alguien confirme dejaría la columna vacía
+ * durante semanas; mostrarla sin avisar diría una fecha que puede ser de otra
+ * persona.
+ */
+function LastOneOnOneCell({ entry }: { entry: LastOneOnOne | undefined }) {
+  if (!entry) return <span className="text-xs text-muted-foreground">—</span>;
+
+  const [year, month, day] = entry.date.split("-");
+  const label = year && month && day ? `${day}/${month}/${year}` : entry.date;
+  const confirmed = isConfirmedResolution(entry.resolutionMethod);
+
+  const content = (
+    <span className="inline-flex items-center gap-1.5 text-xs">
+      {label}
+      {!confirmed ? (
+        <span
+          className="text-warning"
+          title="Se dedujo por el nombre: puede ser de otra persona. Confirmalo en Llamadas sin asociar."
+        >
+          <HelpCircle className="h-3 w-3" />
+        </span>
+      ) : null}
+    </span>
+  );
+
+  if (!entry.fathomUrl) return content;
+
+  return (
+    <a
+      href={entry.fathomUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="hover:underline"
+      title={entry.title ?? "Abrir la grabación"}
+    >
+      {content}
+    </a>
   );
 }

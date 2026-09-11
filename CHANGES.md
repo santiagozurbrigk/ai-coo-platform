@@ -14,6 +14,110 @@
 
 ---
 
+### 2026-09-11 - Llamadas de entrega y "última 1-1" (Fase 5 de 5)
+
+**Rama/branch:** `claude/gallant-tesla-ozk5we`
+**Commits:** pendiente push
+**Modulo(s) afectado(s):** `lib/fathom/{resolve-counterparty,seed-identities,identities,classify-recording,one-on-ones,one-on-one-types}.ts`,
+`lib/fathom/process-call.ts`, `app/fathom/actions.ts`,
+`app/clients/clients-board-actions.ts`, `components/clients/clients-list.tsx`,
+`components/clients/pending-fathom-calls.tsx`,
+`lib/fathom/__tests__/{seed-identities,resolve-counterparty}.test.ts`
+
+**Que se hizo:**
+
+Se repuso la clasificación de llamadas de entrega y con eso la columna
+**"Última 1-1"** de la tabla de clientes.
+
+⭐ **El hallazgo que definió la fase:** `resolveCounterparty` —el resolvedor que
+decide quién está del otro lado de una grabación y si fue venta, entrega o
+equipo— **ya estaba construido y con 20 tests desde el 2026-09-03, y nunca se
+había enchufado**. Las columnas de la base también estaban todas
+(`client_id`, `counterparty`, `purpose`, `resolution_method`,
+`counterparty_lead_id`, `counterparty_speaker_name`). **No hizo falta ninguna
+migración**: la fase fue cablear lo que ya existía y estaba muerto.
+
+Lo construido:
+
+1. **`classify-recording.ts`** — la capa de IO que faltaba: junta participantes,
+   equipo de casa e identidades, y llama al resolvedor puro.
+2. **`process-call.ts`** — donde antes se escribía `purpose: sales | null`, ahora
+   se escribe la clasificación completa.
+3. **`seed-identities.ts` + `identities.ts`** — sembrar `client_identities` desde
+   el CRM (mail, nombre, apodo de clientes y leads), con botón en la pantalla de
+   llamadas sin asociar.
+4. **Aprendizaje del alias** al confirmar una llamada a mano.
+5. **`one-on-ones.ts`** — la última entrega de cada cliente.
+6. **La columna** en la tabla, con link a la grabación.
+
+**Por que / finalidad:**
+
+Última corrección de la imagen. La columna no se podía hacer antes porque
+`clients.linked_calls` sólo se llena con llamadas de venta, y la migración
+`20260901210000_sales_calls_only.sql` había retirado a propósito la
+clasificación de entrega.
+
+**Decisiones de diseno relevantes:**
+
+- **🔴 Se arregló un bug real del resolvedor.** Una grabación **sin
+  participantes** —toda reunión sin evento de calendario, que es justo el caso de
+  muchas entregas— se clasificaba como **reunión de equipo**. Vacío no es "no hay
+  externos": es "no sabemos". El error se habría guardado como un hecho y, al no
+  pedir confirmación, nadie lo habría revisado nunca: la llamada desaparecía de
+  la ficha del cliente sin dejar rastro. Ahora devuelve los dos ejes en `null` y
+  pide confirmación. Dos tests nuevos lo fijan.
+- **⭐ `client_id` sólo se pisa cuando el resolvedor no necesita confirmación.**
+  Escribir un candidato metería la llamada en la ficha de otro cliente sin que
+  nadie lo haya dicho, y dos personas que se llaman igual alcanzan.
+- **⭐ Lo ambiguo no se siembra.** Si dos clientes se llaman igual, el índice
+  único hace que el segundo choque con el primero; sembrar "el primero que
+  aparece" mandaría las llamadas de los dos a una sola ficha, en silencio. Se
+  descartan los dos y se informa cuáles.
+- **El `speaker_alias` no se siembra: se aprende.** Sembrarlo desde el nombre
+  convertiría un candidato en determinista sin que nadie lo confirmara.
+- **La columna muestra los candidatos, avisados.** Un vínculo resuelto por
+  nombre lleva un signo de pregunta. Esconderlos dejaría la columna vacía
+  semanas; mostrarlos sin avisar diría una fecha que puede ser de otra persona.
+- **La llamada de cierre no cuenta como 1-1.** Es con un lead y su propósito es
+  venta: mostrarla diría que hubo acompañamiento el día que se firmó.
+- **⭐ `one-on-one-types.ts` existe aparte, sin imports.** La tabla es un
+  componente cliente y necesita el tipo y el helper; importarlos de
+  `one-on-ones.ts` habría arrastrado al bundle del navegador el módulo que crea
+  el **cliente admin de Supabase**, el que bypassea RLS. Mismo motivo que
+  `lib/discord/limits.ts`. Verificado: el bundle de `/clients` quedó en 498 B.
+- **La siembra es idempotente** y no pisa lo aprendido a mano: degradar un
+  `manual_confirmation` a `seed` perdería la señal de que alguien lo confirmó.
+
+**Riesgos / deuda tecnica pendiente:**
+
+- 🔴 **Los datos hacen que esto arranque casi apagado.** Medido contra
+  producción: **0 identidades sembradas**, **1 de 335 clientes con mail**, 20 de
+  350 grabaciones clasificadas, **0 clientes con llamadas vinculadas**. El
+  peldaño determinista (mail) va a resolver casi nada hasta que se carguen
+  mails; el trabajo lo va a hacer el peldaño del nombre, que es candidato.
+  **Cargar los mails de los clientes es la palanca más grande.**
+- ⚠️ **Nada corrió contra Fathom.** Los 979 tests cubren la lógica pura con
+  `fetch` y base mockeados; ninguno prueba que una grabación real se clasifique
+  bien. Bloque de verificación con el orden obligatorio en
+  `docs/PLAN_VERIFICACION.md`.
+- ⚠️ **Hay que apretar "Cargar identidades desde el CRM" una vez.** Sin eso el
+  resolvedor no resuelve nada. **No se ejecutó desde la sesión**: escribe ~335
+  filas en producción y no estaba autorizado.
+- ⚠️ **Falta medir los falsos positivos del peldaño del nombre.** Si más de una
+  de cada cinco fechas con signo de pregunta está mal, conviene dejar de mostrar
+  los candidatos.
+- Las 350 grabaciones ya procesadas **no se reclasifican solas**: conservan su
+  `purpose` actual hasta que se reprocesen.
+- La pantalla de confirmación sigue mostrando candidatos por título
+  (`association_candidates`), no por identidades. Funciona, pero son dos
+  mecanismos conviviendo.
+
+**Tests:** 979 en verde (14 nuevos: 12 en `seed-identities.test.ts`, 2 en
+`resolve-counterparty.test.ts`). `tsc --noEmit` limpio. `pnpm build` sin errores.
+`pnpm lint` sin avisos nuevos.
+
+---
+
 ### 2026-09-11 - La tabla nueva de Clientes (Fase 4 de 5)
 
 **Rama/branch:** `claude/gallant-tesla-ozk5we`

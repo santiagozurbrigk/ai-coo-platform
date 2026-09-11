@@ -9,6 +9,44 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [1-1-SEMBRAR-Y-MEDIR] Sembrar identidades y medir el clasificador 🔴
+
+**Qué es:** la Fase 5 dejó el clasificador de llamadas enchufado, pero **el
+estado de los datos hace que arranque casi apagado**. Medido contra producción el
+2026-09-11:
+
+| Dato | Valor |
+|---|---|
+| Identidades sembradas | **0** |
+| Clientes con mail cargado | **1 de 335** |
+| Grabaciones clasificadas | 20 de 350 |
+| Clientes con llamadas vinculadas | **0** |
+
+**Qué hacer, en este orden:**
+
+1. **Apretar "Cargar identidades desde el CRM"** en Clientes → Llamadas sin
+   asociar. Sin esto el resolvedor no resuelve nada. *(No se ejecutó desde la
+   sesión: escribe ~335 filas en producción.)*
+2. Dejar que corra el cron de procesamiento y mirar
+   `select purpose, count(*) from fathom_calls group by purpose`.
+3. **Medir los falsos positivos** del peldaño del nombre: de las fechas que
+   aparecen con signo de pregunta, cuántas están mal. Más de una de cada cinco →
+   dejar de mostrar los candidatos.
+
+---
+
+### [CLIENTES-SIN-MAIL] 334 de 335 clientes no tienen mail cargado 🔴
+
+**Qué es:** el peldaño determinista del clasificador de llamadas busca el mail
+del invitado. Con 1 mail cargado está prácticamente apagado, y todo el trabajo
+cae en el peldaño del nombre, que es candidato y pide confirmación.
+
+**Es la palanca más grande** para que las llamadas se vinculen solas. La columna
+`clients.email` existe y se hereda del lead al cerrar la venta, así que los
+clientes nuevos deberían venir con mail; lo que falta es completar los viejos.
+
+---
+
 ### [COBROS-PROBAR] Probar Cobros con una sesión real 🔴
 
 **Qué es:** el seguimiento financiero de cada cliente se mudó de Clientes a
@@ -973,9 +1011,9 @@ al tablero.
 
 ---
 
-## 🟡 Rediseño de Clientes — fases 2 a 5 (acordado 2026-09-11)
+## 🟡 Rediseño de Clientes — las cinco fases (acordado 2026-09-11)
 
-Fases **1 a 4 hechas**. Queda la 5:
+**Las cinco fases están hechas.** Lo que queda es verificarlas con datos reales.
 
 ### [CLIENTES-F2-PROGRESO-ETAPA] Progreso por etapa y fecha límite ✅ 2026-09-11
 
@@ -1031,16 +1069,13 @@ más riesgoso: el check inline, que mueve tres columnas de la fila a la vez.
 
 ---
 
-### [CLIENTES-F5-CALLS-ENTREGA] Reponer la clasificación de llamadas de entrega
+### [CLIENTES-F5-CALLS-ENTREGA] Clasificación de entrega y "última 1-1" ✅ 2026-09-11
 
-**Qué es:** la columna "última call 1-1" **no tiene de dónde salir**.
-`clients.linked_calls` sólo se llena con llamadas de venta, y la migración
-`20260901210000_sales_calls_only.sql` retiró a propósito la clasificación de
-llamadas de entrega.
+**Hecho.** Se enchufó `resolveCounterparty`, que estaba construido y con 20 tests
+desde septiembre y nunca se había usado. Sin migración: las columnas de la base
+ya estaban todas.
 
-Es la fase más pesada y va última por decisión de Santiago. Hasta entonces la
-columna no existe: mostrar la fecha de la llamada de cierre disfrazada de 1-1
-sería un dato inventado.
+**🔴 Arranca casi apagado por los datos.** Ver el ítem de abajo.
 
 ---
 

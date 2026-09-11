@@ -8,6 +8,7 @@ import { isManualFathomLink } from "@/lib/fathom/client-matcher";
 import { fetchFathomMeetingTitle } from "@/lib/fathom/api";
 import { parseFathomInvitees } from "@/lib/fathom/invitees";
 import { resolveSalesCall } from "@/lib/fathom/resolve-sales-call";
+import { classifyRecording } from "@/lib/fathom/classify-recording";
 import { ingestDocument } from "@/lib/rag/ingest";
 import {
   publishFathomAnalysisJob,
@@ -147,13 +148,48 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
     recordingStart: call.call_date ?? null,
   });
 
+  /**
+   * ⭐ Quién estaba del otro lado, y por lo tanto qué era esta llamada.
+   *
+   * Hasta el 2026-09-11 acá se escribía `purpose: sales | null`: lo que no
+   * cruzaba un turno quedaba sin clasificar, y una sesión 1-1 con un cliente era
+   * indistinguible de una reunión de equipo. Por eso no existía "última call
+   * 1-1".
+   *
+   * El cruce con la agenda no se pierde: entra como el peldaño 4 del resolvedor.
+   * Un cliente reconocido por mail **que además** tiene turno agendado es un
+   * upsell —venta con un cliente—, y el modelo puede decir las dos cosas porque
+   * `counterparty` y `purpose` son columnas separadas.
+   */
+  const classification = await classifyRecording({
+    organizationId: call.organization_id,
+    calendarInvitees: call.calendar_invitees,
+    hasCalendarCrossing: salesCall.isSalesCall,
+    calendarLeadId: null,
+  });
+
   await admin
     .from("fathom_calls")
     .update({
-      purpose: salesCall.isSalesCall ? "sales" : null,
-      counterparty: salesCall.isSalesCall ? "lead" : null,
+      purpose: classification.purpose,
+      counterparty: classification.counterparty,
+      resolution_method: classification.resolutionMethod,
+      counterparty_lead_id: classification.leadId,
+      counterparty_speaker_name: classification.speakerName,
       closing_call_id: salesCall.appointmentId,
       appointment_match: salesCall.match,
+      /**
+       * ⭐ El `client_id` sólo se pisa cuando el resolvedor **no necesita
+       * confirmación**. Escribir un candidato acá metería la llamada en la ficha
+       * de otro cliente sin que nadie lo haya dicho, y dos personas que se
+       * llaman igual alcanzan para que pase.
+       *
+       * `undefined` deja la columna como estaba: el vínculo que ya existiera
+       * —manual, o del matcher por título— no se toca.
+       */
+      ...(classification.clientId && !classification.needsConfirmation
+        ? { client_id: classification.clientId }
+        : {}),
     })
     .eq("id", call.id);
 
@@ -184,7 +220,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
       confidence: linkConfidence,
       durationSeconds: call.duration_seconds,
       callDate: call.call_date,
-      purpose: salesCall.isSalesCall ? "sales" : null,
+      purpose: classification.purpose,
     });
     return;
   }
@@ -228,7 +264,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
       await maybeExtractTeamMeetingTasks({
         callId: call.id,
         organizationId: call.organization_id,
-        purpose: salesCall.isSalesCall ? "sales" : null,
+        purpose: classification.purpose,
         transcript: call.transcript,
         summary: analysis?.situation_summary ?? call.summary ?? null,
       });
@@ -272,7 +308,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
     confidence: association.confidence,
     durationSeconds: call.duration_seconds,
     callDate: call.call_date,
-    purpose: salesCall.isSalesCall ? "sales" : null,
+    purpose: classification.purpose,
   });
 }
 

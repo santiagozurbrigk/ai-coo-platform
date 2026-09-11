@@ -14,6 +14,9 @@
 import { listFieldDefinitionsAction } from "@/app/clients/custom-field-actions";
 import { listCheckpointsAction } from "@/app/clients/checkpoint-actions";
 import { getClientsJourneyStatusAction } from "@/app/clients/checkpoint-derived-actions";
+import { requireOrganizationId } from "@/lib/auth/bootstrap";
+import { loadLastOneOnOneByClient } from "@/lib/fathom/one-on-ones";
+import type { LastOneOnOne } from "@/lib/fathom/one-on-one-types";
 import type { Checkpoint, ClientJourneyStatus } from "@/types/checkpoints";
 import type { FieldDefinition } from "@/types/custom-fields";
 
@@ -30,15 +33,26 @@ export type ClientsBoardData = {
   checkpointFields: FieldDefinition[];
   /** Las columnas configurables del cliente — entre ellas, el objetivo general. */
   clientFields: FieldDefinition[];
+  /**
+   * La última sesión 1-1 de cada cliente, por id de cliente.
+   *
+   * Un cliente sin entregas clasificadas no aparece en el diccionario: la tabla
+   * muestra un guion, que es la respuesta honesta a "todavía no hay ninguna".
+   */
+  lastOneOnOne: Record<string, LastOneOnOne>;
 };
 
 export async function getClientsBoardAction(): Promise<ClientsBoardData> {
-  const [journey, checkpoints, checkpointFields, clientFields] = await Promise.all([
-    getClientsJourneyStatusAction(),
-    listCheckpointsAction(),
-    listFieldDefinitionsAction("checkpoint"),
-    listFieldDefinitionsAction("client"),
-  ]);
+  const organizationId = await requireOrganizationId();
 
-  return { journey, checkpoints, checkpointFields, clientFields };
+  const [journey, checkpoints, checkpointFields, clientFields, lastOneOnOne] =
+    await Promise.all([
+      getClientsJourneyStatusAction(),
+      listCheckpointsAction(),
+      listFieldDefinitionsAction("checkpoint"),
+      listFieldDefinitionsAction("client"),
+      loadLastOneOnOneByClient(organizationId),
+    ]);
+
+  return { journey, checkpoints, checkpointFields, clientFields, lastOneOnOne };
 }

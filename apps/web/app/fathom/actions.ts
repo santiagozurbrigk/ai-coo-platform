@@ -18,6 +18,10 @@ import {
 } from "@/lib/fathom/process-call";
 import { syncFathomMeetingsForOrganization } from "@/lib/fathom/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  learnSpeakerAliasFromConfirmation,
+  seedOrganizationIdentities,
+} from "@/lib/fathom/identities";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
@@ -182,6 +186,15 @@ export async function associateFathomCallAction(
       return;
     }
 
+    /**
+     * ⭐ Confirmar a mano es la señal más fuerte que existe: alguien lo dijo.
+     *
+     * Un cliente del otro lado es una entrega, salvo que la grabación haya
+     * cruzado un turno agendado — eso es un upsell, y ahí manda el `sales` que
+     * ya resolvió el cruce. No se pisa.
+     */
+    const purpose = call.purpose === "sales" ? "sales" : "delivery";
+
     await finalizeAssociatedCall({
       callId: call.id,
       organizationId,
@@ -194,6 +207,31 @@ export async function associateFathomCallAction(
       confidence: 1,
       durationSeconds: call.duration_seconds,
       callDate: call.call_date,
+      purpose,
+    });
+
+    await admin
+      .from("fathom_calls")
+      .update({
+        counterparty: "client",
+        purpose,
+        resolution_method: "manual",
+      })
+      .eq("id", call.id);
+
+    /**
+     * ⭐ La confirmación enseña: se guarda el alias de esa persona y no se la
+     * vuelve a preguntar nunca. Es lo que hace que el trabajo manual arranque
+     * alto y tienda a cero.
+     *
+     * No frena la confirmación si falla: el vínculo de la llamada ya quedó bien,
+     * y perder el aprendizaje es molesto, no grave.
+     */
+    await learnSpeakerAliasFromConfirmation({
+      organizationId,
+      speakerName: call.counterparty_speaker_name ?? null,
+      clientId,
+      leadId: null,
     });
 
     revalidatePending();
@@ -332,4 +370,33 @@ export async function getSalesCallsAction(): Promise<
   } catch {
     return [];
   }
+}
+
+/**
+ * Sembrar las identidades con las que se reconoce a la contraparte.
+ *
+ * ⭐ `client_identities` nace vacía, y sin ella el resolvedor no resuelve nada:
+ * cada grabación cae al último peldaño y pide confirmación. Esto la llena con lo
+ * que ya está cargado en el CRM — mail, nombre y apodo de clientes y leads.
+ *
+ * Es idempotente: correrla de nuevo no pisa lo aprendido a mano.
+ *
+ * Los valores ambiguos —dos personas con el mismo nombre— **no se siembran**, y
+ * se devuelven para poder decirlo: sembrar el primero mandaría las llamadas de
+ * los dos a la ficha de uno solo, en silencio.
+ */
+export async function seedClientIdentitiesAction(): Promise<
+  MutationResult<{ total: number; ambiguous: { value: string; owners: number }[] }>
+> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const result = await seedOrganizationIdentities(organizationId);
+    return {
+      total: result.created,
+      ambiguous: result.ambiguous.map((entry) => ({
+        value: entry.value,
+        owners: entry.owners,
+      })),
+    };
+  });
 }

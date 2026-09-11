@@ -8,7 +8,7 @@
 > **Para Claude Code:** ver la regla al final. Cada unidad que construyas suma su
 > bloque de verificación acá, con pasos concretos y resultado esperado.
 >
-> **Última actualización:** 2026-09-11 · Cubre hasta la tabla nueva de Clientes
+> **Última actualización:** 2026-09-11 · Cubre hasta las llamadas de entrega
 
 ---
 
@@ -1347,6 +1347,61 @@ quinto está archivado y está bien.
 diálogo no abrió, o la lista de clientes no se refrescó. La tabla se vuelve a
 pedir cuando `refreshClients()` trae una lista nueva; si eso falla, el check
 queda registrado en la base pero la fila no se mueve hasta recargar.
+
+---
+
+## Llamadas de entrega y "última 1-1" ⚠️🔑 — 2026-09-11
+
+🔑 **Necesita Fathom conectado y grabaciones reales.** Es la fase con más
+probabilidad de no funcionar a la primera, y el motivo está en los datos:
+
+**El estado de la base hoy (medido, no estimado):**
+
+| Dato | Valor | Qué significa |
+|---|---|---|
+| Identidades sembradas | **0** | Los peldaños 1 a 3 del resolvedor no pueden resolver nada |
+| Clientes con mail cargado | **1 de 335** | El peldaño 1 (mail, determinista) va a resolver casi nada |
+| Grabaciones | 350 | |
+| Grabaciones clasificadas | **20** | Sólo las que cruzaron un turno agendado |
+| Clientes con llamadas vinculadas | **0** | La columna "Última 1-1" arranca vacía para todos |
+
+**Orden obligatorio de la prueba:**
+
+1. ⚠️ **Apretar "Cargar identidades desde el CRM"** en Clientes → Llamadas sin
+   asociar. Sin esto no funciona nada. Tendría que decir cuántas cargó (esperado:
+   ~335 nombres + 1 mail) y cuántas quedaron afuera por repetirse.
+2. **Procesar grabaciones**: esperar al cron (`/api/integrations/fathom/process`,
+   cada 10 min) o forzarlo.
+3. Recién entonces mirar la columna.
+
+| Qué hacer | Qué tendría que pasar |
+|---|---|
+| ⭐ Mirar `select purpose, count(*) from fathom_calls group by purpose` | Aparecen `delivery` y `team`, no sólo `sales` y `null`. Si sigue todo en `null`, el clasificador no corrió o no hay participantes en `calendar_invitees` |
+| ⚠️ Mirar cuántas quedaron en `team` | **Es el número a vigilar.** Una grabación sin evento de calendario llega sin participantes y ahora se marca "no se sabe" (los dos ejes en `null`), **no** "equipo". Si hay muchas en `team`, revisar que no sean 1-1 mal clasificadas |
+| Entrar a **Clientes** y mirar la columna **Última 1-1** | Los clientes con entregas clasificadas muestran la fecha; el resto, un guion |
+| ⭐ Una fecha con el **signo de pregunta** al lado | El vínculo se dedujo por el nombre y puede ser de otra persona. Es deliberado que se muestre avisada en vez de esconderse |
+| Clic en una fecha | Abre la grabación en Fathom |
+| ⭐ Confirmar una llamada en **Llamadas sin asociar** | Queda vinculada, y **la próxima grabación con ese mismo nombre de pantalla se resuelve sola**. Es la prueba de que el alias se aprendió: mirar que aparezca una fila nueva en `client_identities` con `source = 'manual_confirmation'` |
+| Verificar que la **llamada de cierre no aparece** como 1-1 | Su `purpose` es `sales`. Si apareciera, diría que hubo una sesión de acompañamiento el día que se firmó |
+| Volver a apretar "Cargar identidades" | No duplica ni pisa lo aprendido a mano (`ignoreDuplicates` contra el índice único) |
+| Dos clientes con el mismo nombre | Ninguno de los dos se siembra, y el aviso lo dice. Sembrar el primero mandaría las llamadas de los dos a una sola ficha, en silencio |
+
+**⚠️ Lo que más riesgo tiene, en orden:**
+
+1. **Que `calendar_invitees` venga vacío en la mayoría de las grabaciones.** Es
+   el caso de toda reunión sin evento de calendario. Esas quedan sin clasificar y
+   pidiendo confirmación — correcto, pero significa trabajo manual al principio.
+2. **Que el peldaño del nombre traiga falsos positivos.** Es candidato justamente
+   por eso. Medir: de las que muestran el signo de pregunta, cuántas están mal.
+   Si es más de una de cada cinco, conviene dejar de mostrar los candidatos.
+3. **Que los mails de clientes sigan sin cargarse.** Con 1 de 335, el peldaño
+   determinista está prácticamente apagado. Cargar mails es la palanca más
+   grande para que esto funcione solo.
+
+**Qué significa si la columna queda vacía para todos:** revisar en este orden —
+¿se sembraron las identidades?, ¿corrió el cron de procesamiento?, ¿hay alguna
+grabación con `purpose = 'delivery'` **y** `client_id` no nulo? Las dos
+condiciones juntas son las que llenan la columna.
 
 ---
 

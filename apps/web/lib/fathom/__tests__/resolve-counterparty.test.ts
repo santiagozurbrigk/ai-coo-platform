@@ -88,6 +88,30 @@ describe("sin nadie externo es una reunión de equipo", () => {
   });
 });
 
+describe("⭐ sin participantes no se sabe, y no se sabe no es reunión de equipo", () => {
+  it("devuelve los dos ejes en null y pide confirmación", () => {
+    // `calendar_invitees` llega vacío en toda grabación sin evento de
+    // calendario, que es justo el caso de muchas entregas. Clasificarla como
+    // "equipo" guardaría el error como un hecho, y sin pedir confirmación nadie
+    // lo revisaría nunca: la llamada desaparecería de la ficha del cliente.
+    const result = resolve([]);
+    expect(result).toMatchObject({
+      counterparty: null,
+      purpose: null,
+      clientId: null,
+      leadId: null,
+      resolutionMethod: null,
+      needsConfirmation: true,
+    });
+  });
+
+  it("no se confunde con la lista que sí tiene gente, toda de casa", () => {
+    const soloEquipo = resolve([{ name: "Santiago Z", email: "santi@otc.com" }]);
+    expect(soloEquipo.purpose).toBe("team");
+    expect(soloEquipo.needsConfirmation).toBe(false);
+  });
+});
+
 describe("⭐ peldaño 1 · el mail resuelve solo", () => {
   it("un cliente reconocido por mail es una entrega", () => {
     const result = resolve(
