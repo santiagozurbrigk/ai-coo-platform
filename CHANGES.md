@@ -14,6 +14,67 @@
 
 ---
 
+### 2026-09-15 — ⚙️ Fathom trae desde la conexión en adelante, no el historial
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** Fathom
+
+**Qué se hizo:**
+
+Quedaba abierta la decisión de qué traer la primera vez que alguien conecta
+Fathom. **Santiago eligió: desde la conexión en adelante.**
+
+Lo que había era peor que indefinido — eran **dos comportamientos distintos**,
+según por dónde entrara:
+
+- La sincronización de la **organización** barría los últimos 90 días.
+- La sincronización de un **miembro** traía **todo** lo que su cuenta tuviera
+  grabado desde siempre, sin ningún filtro.
+
+Ahora hay una sola regla, en `lib/fathom/sync-window.ts`, y las dos la usan.
+
+**Cómo funciona:** al conectar se sella `connected_at` —la línea de largada— y
+la primera sincronización arranca desde ahí. Después manda `last_sync_at`, como
+siempre.
+
+**Decisiones de diseño relevantes:**
+
+- **⭐ Se toma la fecha más vieja entre `last_sync_at` y `connected_at`, no
+  `last_sync_at` a secas.** Si una corrida falla a mitad y `last_sync_at` quedó
+  adelantado, arrancar desde ahí se saltearía **en silencio** las llamadas de
+  ese hueco. Retroceder hasta la conexión, en el peor caso, vuelve a traer algo
+  que ya está — y volver a traer una llamada no la duplica, mientras que
+  perderla no se recupera nunca.
+- **Sin ninguna de las dos fechas no se inventa un filtro**: se trae todo y el
+  motivo queda en el log. Un filtro inventado esconde llamadas sin dejar rastro,
+  y eso es peor que una primera corrida cara. Pasa sólo con filas anteriores a
+  esta decisión que además nunca sincronizaron; hoy no hay ninguna.
+- **`connected_at` se sella también al reconectar**, y es lo correcto: quien
+  reconecta quiere lo que viene, no lo que se perdió mientras estuvo afuera.
+- **Columna propia y no `created_at`**: alguien puede desconectar y reconectar,
+  y ahí la línea es la reconexión, no el día que se creó la fila.
+- **El motivo de la ventana va al log** (`incremental`, `desde-la-conexion`,
+  `sin-referencia`). Cuando alguien reporte "no me llegó una llamada", eso es lo
+  primero que hay que mirar.
+
+**Verificación ejecutada:**
+- **Migración aplicada y verificada**: las 6 integraciones existentes quedaron
+  con `connected_at` cargado, **ninguna sin referencia**.
+- `tsc --noEmit` limpio · `pnpm test`: **1012 tests en 63 archivos** (7 nuevos
+  sobre la ventana de sincronización) · `pnpm lint` sin errores · `pnpm build`
+  compila.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Sin probar contra una cuenta real de Fathom.** Lo que está verificado es
+  la regla (con tests) y la migración (contra la base). Falta conectar y ver que
+  efectivamente no entre el historial.
+- Las integraciones que ya estaban conectadas usan su fecha de alta como línea
+  de largada. Si alguna venía trayendo llamadas más viejas, deja de hacerlo.
+
+---
+
 ### 2026-09-15 — ✨ Aviso por fecha en campos configurables, y satisfacción del cliente
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`

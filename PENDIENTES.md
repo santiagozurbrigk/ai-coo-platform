@@ -24,22 +24,6 @@ probaron a mano**.
 
 ---
 
-### [FATHOM-PRIMERA-SINCRO] Decidir qué trae Fathom la primera vez
-
-**Qué es:** cuando alguien conecta Fathom por primera vez, ¿traemos **todas** las
-llamadas que tiene grabadas desde siempre, o sólo de ese momento en adelante?
-
-**Por qué importa:** traer todo el historial da contexto desde el día uno, pero
-en una cuenta con años de grabaciones son cientos de llamadas, cada una con su
-transcripción y su análisis de IA — eso cuesta plata y tiempo en la primera
-corrida. Traer sólo lo nuevo arranca liviano pero deja al módulo sin nada que
-mostrar hasta que se grabe la primera llamada.
-
-**Qué falta:** decidirlo con Santiago antes de tocar el código. Está planteado
-en la conversación del 15-09.
-
----
-
 ### [1-1-SEMBRAR-Y-MEDIR] Sembrar identidades y medir el clasificador 🔴
 
 **Qué es:** la Fase 5 dejó el clasificador de llamadas enchufado, pero **el
@@ -1099,6 +1083,12 @@ ya estaban todas.
 ---
 
 ## ✅ Completados (referencia histórica)
+
+### 2026-09-15 — Fathom: qué trae la primera vez
+
+Decidido y construido: **desde la conexión en adelante**, no el historial. Antes
+había dos comportamientos distintos —90 días para la organización, todo para un
+miembro— y ahora hay una sola regla para las dos.
 
 ### 2026-09-15 — Observaciones de testers
 

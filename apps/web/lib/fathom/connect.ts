@@ -51,8 +51,20 @@ export async function connectFathomWithApiKey(
       api_key: parsed.data,
       webhook_secret: process.env.FATHOM_WEBHOOK_SECRET ?? null,
       status: "connected",
-      // No setear last_sync_at aquí — sync usa lookback de 90 días en el primer ingest
+      /**
+       * ⭐ La línea de largada: desde acá se traen llamadas, no antes.
+       *
+       * `last_sync_at` queda en null a propósito —todavía no se trajo nada— y
+       * `connected_at` es lo que le dice a la primera sincronización dónde
+       * empezar. Sin esto la primera corrida no tendría referencia y traería
+       * todo el historial de la cuenta, que es justo lo que se decidió no hacer:
+       * cada llamada que entra se transcribe y se analiza con IA.
+       *
+       * Se sella también al reconectar, y eso es lo correcto: quien reconecta
+       * quiere lo que viene, no lo que se perdió mientras estuvo afuera.
+       */
       last_sync_at: null,
+      connected_at: new Date().toISOString(),
     },
     { onConflict: "organization_id" }
   );

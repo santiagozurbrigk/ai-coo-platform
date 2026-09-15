@@ -1,5 +1,6 @@
 import { applyClientMatchToCall } from "@/lib/fathom/apply-call-match";
 import { isManualFathomLink } from "@/lib/fathom/client-matcher";
+import { resolverVentanaDeSync } from "@/lib/fathom/sync-window";
 import {
   FathomApiError,
   listFathomMeetings,
@@ -11,7 +12,6 @@ import {
 } from "@/lib/fathom/diagnostics";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const INITIAL_SYNC_LOOKBACK_DAYS = 90;
 
 function buildFathomCallRow(organizationId: string, meeting: FathomMeetingRecord) {
   const recordingStart =
@@ -174,7 +174,7 @@ export async function syncFathomMeetingsForOrganization(
   const admin = createAdminClient();
   const { data: integration, error } = await admin
     .from("fathom_integrations")
-    .select("api_key, last_sync_at, status")
+    .select("api_key, last_sync_at, status, connected_at")
     .eq("organization_id", organizationId)
     .maybeSingle();
 
@@ -205,28 +205,25 @@ export async function syncFathomMeetingsForOrganization(
     throw new Error("Fathom no está conectado para esta organización.");
   }
 
-  const lookbackIso = new Date(
-    Date.now() - INITIAL_SYNC_LOOKBACK_DAYS * 24 * 60 * 60 * 1000
-  ).toISOString();
-
-  const { count: existingCallsCount } = await admin
-    .from("fathom_calls")
-    .select("*", { count: "exact", head: true })
-    .eq("organization_id", organizationId);
-
-  // Incremental solo si ya hay calls ingestadas; si no, lookback completo.
-  // Evita el caso connect→last_sync_at=now→created_after excluye todo.
-  const useIncremental =
-    Boolean(integration.last_sync_at) && (existingCallsCount ?? 0) > 0;
-  const createdAfter = useIncremental ? integration.last_sync_at! : lookbackIso;
+  /**
+   * ⭐ Desde la conexión en adelante, no el historial.
+   *
+   * Antes esto barría los últimos 90 días en la primera corrida. La regla, y el
+   * porqué, viven ahora en `resolverVentanaDeSync` — una sola para la
+   * sincronización de la organización y la del miembro.
+   */
+  const ventana = resolverVentanaDeSync(
+    integration.last_sync_at as string | null,
+    integration.connected_at as string | null
+  );
+  const createdAfter = ventana.desde ?? undefined;
 
   console.log("[Fathom:sync] Date filter:", {
     organizationId,
     createdAfter,
     last_sync_at: integration.last_sync_at,
-    existingCalls: existingCallsCount ?? 0,
-    mode: useIncremental ? "incremental" : "lookback",
-    lookbackDays: INITIAL_SYNC_LOOKBACK_DAYS,
+    connected_at: integration.connected_at,
+    motivo: ventana.motivo,
   });
 
   console.log("[Fathom:sync] Calling Fathom API...", {

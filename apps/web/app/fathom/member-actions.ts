@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuthContext } from "@/lib/auth/require-auth";
+import { resolverVentanaDeSync } from "@/lib/fathom/sync-window";
 import {
   validateFathomApiKey,
   listFathomMeetings,
@@ -252,7 +253,7 @@ async function sincronizarLlamadasDelMiembro(): Promise<{
 
   const { data: integration, error } = await admin
     .from("team_member_integrations")
-    .select("encrypted_api_key, last_sync_at")
+    .select("encrypted_api_key, last_sync_at, connected_at")
     .eq("organization_id", organizationId)
     .eq("user_id", user.id)
     .eq("integration_type", "fathom")
@@ -265,10 +266,18 @@ async function sincronizarLlamadasDelMiembro(): Promise<{
 
   const apiKey = readApiKey(integration.encrypted_api_key as string);
 
+  const ventana = resolverVentanaDeSync(
+    integration.last_sync_at as string | null,
+    integration.connected_at as string | null
+  );
+
   let meetings;
   try {
     meetings = await listFathomMeetings(apiKey, {
-      createdAfter: (integration.last_sync_at as string | null) ?? undefined,
+      // Misma regla que la sincronización de la organización: desde la
+      // conexión en adelante. Antes esto traía TODO lo que la cuenta tuviera
+      // grabado desde siempre, que es lo que se decidió no hacer.
+      createdAfter: ventana.desde ?? undefined,
       maxPages: 5,
     });
   } catch (fallo) {
