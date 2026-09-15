@@ -662,6 +662,30 @@ Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un
 
 ## 🟠 Bugs conocidos — Verificar en producción
 
+### [EMBUDO-PANEL-DMS] El embudo del panel general ya no mide DMs
+
+**Contexto:** el 2026-09-15 se arregló el embudo del panel general, que se
+dibujaba tapando la card entera con un "26300%". Una de las dos causas era de
+datos: sus tres etapas de arriba —leads, respondidos, agendados— salen de
+`conversations`, la tabla del **inbox viejo** (ManyChat/Unipile), que quedó
+vacía cuando el inbox pasó a Zernio. Hoy el embudo arranca en las llamadas de
+cierre y la bajada de la card lo dice.
+
+**Qué falta:** volver a medir el tramo de DMs. El inbox de Zernio se consume
+**en vivo** (`listZernioConversationsAction`) y no persiste etapas, así que no
+alcanza con cambiarle la fuente: hay que decidir qué se persiste —conteo de
+conversaciones por período, cuáles tuvieron respuesta del negocio— y de dónde
+sale "agendado" ahora que Calendly/GHL son la fuente de las llamadas.
+
+**Mientras tanto no está roto:** el embudo muestra el tramo que sí tiene datos
+reales (agendadas → realizadas → cierres), decreciente por construcción.
+
+**Archivos clave:** `lib/metrics/build-sales-funnel-stages.ts`,
+`components/dashboard/sales-funnel-strip.tsx`,
+`app/integrations/zernio/actions.ts`
+
+---
+
 ### [BUG-1] Stories de Instagram — verificar en producción tras fix
 
 **Contexto:** Fix deployado en `claude/architecture-review-improvements-fdj4ae`. Ahora usa el endpoint correcto `GET /v1/accounts/{accountId}/instagram/stories` + fallbacks. Las historias se fuerzan a `postType='story'` antes del dedup y entran primero en `allPosts`.  
@@ -1104,6 +1128,17 @@ ya estaban todas.
 ---
 
 ## ✅ Completados (referencia histórica)
+
+### 2026-09-15 — El embudo del panel general que se salía de la card
+
+Dos bugs encadenados: el chart normalizaba contra la primera etapa asumiendo que
+siempre es la más grande (263 clientes activos contra 1 cierre daban un trapecio
+230 veces más alto que la card), y las etapas no formaban un embudo porque
+"Clientes activos" es el stock del CRM, no una etapa. La escala quedó acotada a
+`[0, 1]` en `lib/chart/funnel-scale.ts` —protege a los 7 embudos de la app— y el
+armado de etapas, en `lib/metrics/build-sales-funnel-stages.ts`, es decreciente
+por construcción. 12 tests nuevos. Falta mirarlo en pantalla: ver
+`PLAN_VERIFICACION.md`.
 
 ### 2026-09-15 — Fathom: qué trae la primera vez
 

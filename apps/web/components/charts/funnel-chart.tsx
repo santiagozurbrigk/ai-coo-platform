@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { funnelScale } from "@/lib/chart/funnel-scale";
 import { cn } from "@/lib/utils";
 import { useMountProgress } from "./use-mount-progress";
 
@@ -723,13 +724,12 @@ export function FunnelChart({
     return null;
   }
 
-  const first = data[0];
-  if (!first) {
-    return null;
-  }
-  const max = first.value;
   const n = data.length;
-  const norms = data.map((d) => d.value / max);
+  // La escala se calcula en `lib/chart/funnel-scale.ts`: normaliza contra el
+  // máximo y acota a [0, 1]. Un embudo que crece en vez de decrecer —porque le
+  // faltan las etapas de arriba— se dibujaba cientos de veces más alto que su
+  // celda y tapaba la card entera.
+  const { norms, percentages } = funnelScale(data.map((d) => d.value));
   const horiz = orientation === "horizontal";
   const { w: W, h: H } = sz;
 
@@ -904,7 +904,7 @@ export function FunnelChart({
           {/* Label overlays — one per segment, positioned over each segment cell.
               These are the hover triggers for each segment. */}
           {data.map((stage, i) => {
-            const pct = (stage.value / max) * 100;
+            const pct = percentages[i] ?? 0;
             const posStyle: CSSProperties = horiz
               ? {
                   left: (segW + gap) * i,
