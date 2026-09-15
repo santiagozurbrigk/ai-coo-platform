@@ -55,7 +55,7 @@ export function WorkboardTaskDetailDialog() {
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [area, setArea] = useState<TaskArea>("general");
   const [priority, setPriority] = useState<TaskPriority>("medium");
-  const [assigneeId, setAssigneeId] = useState("");
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState("");
   const [tags, setTags] = useState("");
   const [sprintId, setSprintId] = useState("");
@@ -68,7 +68,13 @@ export function WorkboardTaskDetailDialog() {
     setStatus(selectedTask.status);
     setArea(selectedTask.area);
     setPriority(selectedTask.priority);
-    setAssigneeId(selectedTask.assigneeId ?? "");
+    setAssigneeIds(
+      selectedTask.assigneeIds?.length
+        ? selectedTask.assigneeIds
+        : selectedTask.assigneeId
+          ? [selectedTask.assigneeId]
+          : []
+    );
     setDueDate(selectedTask.dueDate ?? "");
     setTags(selectedTask.tags.join(", "));
     setSprintId(selectedTask.sprintId ?? "");
@@ -88,7 +94,7 @@ export function WorkboardTaskDetailDialog() {
       status,
       area,
       priority,
-      assigneeId: assigneeId || null,
+      assigneeIds,
       dueDate: dueDate || null,
       tags: tags
         .split(",")
@@ -204,20 +210,37 @@ export function WorkboardTaskDetailDialog() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="detail-assignee">Responsable</Label>
-            <select
-              id="detail-assignee"
-              className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-              value={assigneeId}
-              onChange={(e) => setAssigneeId(e.target.value)}
-            >
-              <option value="">Sin asignar</option>
-              {members.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.name}
-                </option>
-              ))}
-            </select>
+            <Label>Responsables</Label>
+            <div className="max-h-36 space-y-1 overflow-y-auto rounded-md border border-border p-2">
+              {members.length === 0 ? (
+                <p className="px-1 py-1 text-sm text-muted-foreground">
+                  No hay miembros en el equipo todavía.
+                </p>
+              ) : (
+                members.map((member) => {
+                  const elegido = assigneeIds.includes(member.id);
+                  return (
+                    <label
+                      key={member.id}
+                      className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted/50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={elegido}
+                        onChange={() =>
+                          setAssigneeIds((actuales) =>
+                            elegido
+                              ? actuales.filter((id) => id !== member.id)
+                              : [...actuales, member.id]
+                          )
+                        }
+                      />
+                      {member.name}
+                    </label>
+                  );
+                })
+              )}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="detail-sprint">Sprint</Label>
@@ -299,8 +322,26 @@ export function WorkboardTaskDetailDialog() {
             >
               Prioridad: {PRIORITY_LABELS[priority]}
             </span>
-            {selectedTask.assignee ? (
-              <span>Asignado: {selectedTask.assignee.name}</span>
+            {selectedTask.assignees.length > 0 ? (
+              <span>
+                {selectedTask.assignees.length === 1 ? "Asignado" : "Asignados"}:{" "}
+                {selectedTask.assignees.map((persona) => persona.name).join(", ")}
+              </span>
+            ) : null}
+            {/*
+              ⭐ Quién la cerró. Con varios responsables cualquiera puede darla
+              por terminada, así que sin esto no habría forma de saber quién fue.
+            */}
+            {selectedTask.completedBy ? (
+              <span>
+                Terminada por {selectedTask.completedBy.name}
+                {selectedTask.completedAt
+                  ? ` el ${new Date(selectedTask.completedAt).toLocaleDateString("es-AR", {
+                      day: "numeric",
+                      month: "short",
+                    })}`
+                  : ""}
+              </span>
             ) : null}
           </div>
           <WorkboardTaskResources

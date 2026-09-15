@@ -947,6 +947,11 @@ export const createWorkboardTaskSchema = z.object({
   area: taskAreaSchema,
   priority: taskPrioritySchema,
   assigneeId: nullableUuidSchema.optional(),
+  /**
+   * ⭐ Varios responsables. Un tope de 20 para que un error de la pantalla no
+   * pueda meter una lista arbitrariamente larga.
+   */
+  assigneeIds: z.array(uuidSchema).max(20).optional(),
   dueDate: optionalDueDateSchema,
   tags: z.array(workboardTagSchema).max(20).optional(),
   sprintId: nullableUuidSchema.optional(),
@@ -969,6 +974,11 @@ export const updateWorkboardTaskSchema = z
     area: taskAreaSchema.optional(),
     priority: taskPrioritySchema.optional(),
     assigneeId: nullableUuidSchema.optional(),
+  /**
+   * ⭐ Varios responsables. Un tope de 20 para que un error de la pantalla no
+   * pueda meter una lista arbitrariamente larga.
+   */
+  assigneeIds: z.array(uuidSchema).max(20).optional(),
     dueDate: optionalDueDateSchema,
     tags: z.array(workboardTagSchema).max(20).optional(),
     estimatedMinutes: z.number().int().min(0, "No puede ser negativo").max(100_000).optional(),

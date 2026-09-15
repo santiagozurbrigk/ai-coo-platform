@@ -77,7 +77,7 @@ export function WorkboardShell() {
     description: "",
     area: "general" as TaskArea,
     priority: "medium" as TaskPriority,
-    assigneeId: "" as string,
+    assigneeIds: [] as string[],
     dueDate: "",
     tags: "",
     launchId: "",
@@ -107,7 +107,7 @@ export function WorkboardShell() {
       status: selectedStatus,
       area: newTask.area,
       priority: newTask.priority,
-      assigneeId: newTask.assigneeId || null,
+      assigneeIds: newTask.assigneeIds,
       dueDate: newTask.dueDate || null,
       tags: newTask.tags
         .split(",")
@@ -131,7 +131,7 @@ export function WorkboardShell() {
       description: "",
       area: "general",
       priority: "medium",
-      assigneeId: "",
+      assigneeIds: [],
       dueDate: "",
       tags: "",
       launchId: launchFilterId !== "all" ? launchFilterId : "",
@@ -224,7 +224,12 @@ export function WorkboardShell() {
       </div>
 
       {view === "board" ? (
-        <WorkboardKanban />
+        <WorkboardKanban
+          onAgregarEnColumna={(status) => {
+            setSelectedStatus(status);
+            setIsAddOpen(true);
+          }}
+        />
       ) : view === "calendar" ? (
         <WorkboardCalendar />
       ) : (
@@ -266,7 +271,7 @@ function AddTaskDialogContent({
     description: string;
     area: TaskArea;
     priority: TaskPriority;
-    assigneeId: string;
+    assigneeIds: string[];
     dueDate: string;
     tags: string;
     launchId: string;
@@ -371,22 +376,50 @@ function AddTaskDialogContent({
           </div>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="wb-assignee">Responsable</Label>
-          <select
-            id="wb-assignee"
-            className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-            value={newTask.assigneeId}
-            onChange={(e) =>
-              setNewTask({ ...newTask, assigneeId: e.target.value })
-            }
-          >
-            <option value="">Sin asignar</option>
-            {members.map((member) => (
-              <option key={member.id} value={member.id}>
-                {member.name}
-              </option>
-            ))}
-          </select>
+          {/*
+            ⭐ Varios responsables, con casillas y no con un desplegable.
+            Una tarea que hacen dos personas es una tarea; antes había que
+            duplicarla, y entonces una se marcaba terminada y la otra quedaba
+            viva. Las casillas muestran de un vistazo quiénes están, que es
+            justo lo que un desplegable de selección múltiple esconde.
+          */}
+          <Label>Responsables</Label>
+          <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-border p-2">
+            {members.length === 0 ? (
+              <p className="px-1 py-1 text-sm text-muted-foreground">
+                No hay miembros en el equipo todavía.
+              </p>
+            ) : (
+              members.map((member) => {
+                const elegido = newTask.assigneeIds.includes(member.id);
+                return (
+                  <label
+                    key={member.id}
+                    className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted/50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={elegido}
+                      onChange={() =>
+                        setNewTask({
+                          ...newTask,
+                          assigneeIds: elegido
+                            ? newTask.assigneeIds.filter((id) => id !== member.id)
+                            : [...newTask.assigneeIds, member.id],
+                        })
+                      }
+                    />
+                    {member.name}
+                  </label>
+                );
+              })
+            )}
+          </div>
+          {newTask.assigneeIds.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Sin asignar. Podés dejarla así y asignarla después.
+            </p>
+          ) : null}
         </div>
         <div className="space-y-2">
           <Label htmlFor="wb-due">Fecha límite</Label>

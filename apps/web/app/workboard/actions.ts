@@ -119,6 +119,15 @@ export async function createWorkboardTaskAction(
     sprintId = active?.id ?? null;
   }
 
+  /**
+   * ⭐ La lista de responsables, normalizada.
+   *
+   * `assignee_id` se sigue escribiendo con el primero: los reportes de tiempo y
+   * los filtros viejos lo leen, y romperlos para estrenar la columna nueva
+   * sería cambiar un problema por otro.
+   */
+  const responsables = normalizarResponsables(payload.assigneeIds, payload.assigneeId);
+
   const insertRow: Record<string, unknown> = {
       organization_id: organizationId,
       title: payload.title.trim(),
@@ -126,7 +135,8 @@ export async function createWorkboardTaskAction(
       status: payload.status,
       area: payload.area,
       priority: payload.priority,
-      assignee_id: payload.assigneeId || null,
+      assignee_id: responsables[0] ?? null,
+      assignee_ids: responsables,
       due_date: payload.dueDate || null,
       tags: payload.tags ?? [],
       sprint_id: sprintId || null,
@@ -206,6 +216,21 @@ export async function moveWorkboardTaskAction(
   revalidateWorkboard();
 }
 
+/**
+ * Deja la lista de responsables lista para guardar: sin repetidos, sin vacíos, y
+ * aceptando tanto la forma nueva (varios) como la vieja (uno solo).
+ */
+function normalizarResponsables(
+  varios: readonly (string | null | undefined)[] | null | undefined,
+  uno: string | null | undefined
+): string[] {
+  const crudos = varios && varios.length > 0 ? varios : [uno];
+  const limpios = crudos
+    .map((id) => id?.trim())
+    .filter((id): id is string => Boolean(id));
+  return [...new Set(limpios)];
+}
+
 export async function updateWorkboardTaskAction(
   input: unknown
 ): Promise<WorkboardTask> {
@@ -217,6 +242,7 @@ export async function updateWorkboardTaskAction(
   const { taskId, ...fields } = parsed.data;
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
+  const profile = await getCurrentProfile();
 
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
@@ -226,12 +252,33 @@ export async function updateWorkboardTaskAction(
   if (fields.status !== undefined) patch.status = fields.status;
   if (fields.area !== undefined) patch.area = fields.area;
   if (fields.priority !== undefined) patch.priority = fields.priority;
-  if (fields.assigneeId !== undefined) patch.assignee_id = fields.assigneeId || null;
+  if (fields.assigneeIds !== undefined || fields.assigneeId !== undefined) {
+    const responsables = normalizarResponsables(fields.assigneeIds, fields.assigneeId);
+    patch.assignee_ids = responsables;
+    patch.assignee_id = responsables[0] ?? null;
+  }
   if (fields.dueDate !== undefined) patch.due_date = fields.dueDate || null;
   if (fields.tags !== undefined) patch.tags = fields.tags;
   if (fields.launchId !== undefined) patch.launch_id = fields.launchId || null;
   if (fields.estimatedMinutes !== undefined) {
     patch.estimated_minutes = fields.estimatedMinutes;
+  }
+
+  /**
+   * ⭐ Quién dio la tarea por terminada.
+   *
+   * Con varios responsables cualquiera puede cerrarla, así que la tarjeta tiene
+   * que poder decir quién fue. Si se reabre, el dato se borra: dejar colgado el
+   * nombre de quien la cerró la vez pasada confunde más de lo que ayuda.
+   */
+  if (fields.status !== undefined) {
+    if (fields.status === "done") {
+      patch.completed_by = profile?.id ?? null;
+      patch.completed_at = new Date().toISOString();
+    } else {
+      patch.completed_by = null;
+      patch.completed_at = null;
+    }
   }
 
   if (fields.status !== undefined) {

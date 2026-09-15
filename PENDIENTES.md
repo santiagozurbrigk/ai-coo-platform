@@ -9,6 +9,52 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [FATHOM-PRIMERA-SINCRO] Decidir qué trae Fathom la primera vez
+
+**Qué es:** cuando alguien conecta Fathom por primera vez, ¿traemos **todas** las
+llamadas que tiene grabadas desde siempre, o sólo de ese momento en adelante?
+
+**Por qué importa:** traer todo el historial da contexto desde el día uno, pero
+en una cuenta con años de grabaciones son cientos de llamadas, cada una con su
+transcripción y su análisis de IA — eso cuesta plata y tiempo en la primera
+corrida. Traer sólo lo nuevo arranca liviano pero deja al módulo sin nada que
+mostrar hasta que se grabe la primera llamada.
+
+**Qué falta:** decidirlo con Santiago antes de tocar el código. Está planteado
+en la conversación del 15-09.
+
+---
+
+### [LANZAMIENTO-POR-CLIENTE] Fecha del próximo lanzamiento, sin que sea un campo fijo
+
+**Qué es:** pedido de un tester — anotar en cada cliente cuándo es su próximo
+lanzamiento, y que se ponga en rojo cuando falten menos de 15 días.
+
+**El problema de diseño:** eso le sirve **sólo a una organización** —la que vende
+consultoría de lanzamientos—. Para alguien que vende otra cosa, un campo
+"próximo lanzamiento" es ruido en la ficha de todos sus clientes.
+
+**Hacia dónde va:** ya existe el módulo de **Campos personalizados**, donde cada
+organización define sus propios campos. La idea es que ahí se pueda definir un
+campo de fecha **con aviso**: "avisame en rojo cuando falten N días". Así el que
+vende lanzamientos se arma el suyo, y el que vende otra cosa se arma el que
+necesite.
+
+**Nota:** no tiene nada que ver con el módulo de Lanzamientos que ya existe.
+
+---
+
+### [SATISFACCION-CLIENTE] Nivel de satisfacción, manual primero
+
+**Qué es:** poder anotar a mano qué tan conforme está cada cliente, con fecha y
+autor (un dato de hace cuatro meses no dice nada). Más adelante, que salga solo
+de lo que el bot de Discord lee.
+
+**Ojo:** la parte automática no depende de programar nada nuevo — depende de que
+el bot esté conectado, y hoy tiene cero mensajes guardados.
+
+---
+
 ### [1-1-SEMBRAR-Y-MEDIR] Sembrar identidades y medir el clasificador 🔴
 
 **Qué es:** la Fase 5 dejó el clasificador de llamadas enchufado, pero **el

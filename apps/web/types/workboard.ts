@@ -61,8 +61,18 @@ export type WorkboardTask = {
   description: string;
   area: TaskArea;
   priority: TaskPriority;
+  /**
+   * El primero de `assignees`. Se mantiene porque los reportes de tiempo y los
+   * filtros viejos lo usan; para mostrar la tarea usá `assignees`.
+   */
   assignee?: WorkboardAssignee;
   assigneeId?: string | null;
+  /** ⭐ Todos los responsables. Una tarea que hacen dos personas es una tarea. */
+  assignees: WorkboardAssignee[];
+  assigneeIds: string[];
+  /** Quién la dio por terminada: cualquier responsable puede. */
+  completedBy?: WorkboardAssignee | null;
+  completedAt?: string | null;
   dueDate?: string;
   tags: string[];
   position: number;
