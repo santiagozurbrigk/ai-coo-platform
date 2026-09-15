@@ -1405,6 +1405,35 @@ condiciones juntas son las que llenan la columna.
 
 ---
 
+## Embudo del panel general — que no se salga de la card 🤖 — 2026-09-15
+
+**Contexto:** el embudo del panel general se dibujaba con la card entera pintada
+de naranja y una etiqueta que decía **26300%**. La escala del chart normalizaba
+contra la primera etapa asumiendo que siempre es la más grande, y el embudo
+arrancaba en "1 cierre" seguido de "263 clientes activos".
+
+Lo que está verificado con tests es la escala (acotada a `[0, 1]`) y el armado
+de etapas. **Lo que falta es mirarlo en pantalla con los datos reales.**
+
+| Qué hacer | Qué tendría que pasar |
+|---|---|
+| Entrar a **Panel General** | La card "Embudo de conversión" se ve como un embudo que decrece de izquierda a derecha, sin naranja tapando el título |
+| ⭐ Mirar las etiquetas de porcentaje | Ninguna pasa de **100%**. La primera etapa es la del 100% |
+| Mirar la bajada de la card | Dice "De la llamada agendada al cierre" mientras el inbox viejo siga vacío. Si dijera "De los DMs al cierre", es que `conversations` tiene filas |
+| ⭐ Mirar los nombres de las etapas | Son "Llamadas agendadas · Llamadas realizadas · Cierres". **"Clientes activos" ya no está**: era el stock del CRM, no una etapa |
+| Contrastar con **Ventas → Closing** | "Llamadas agendadas" coincide con las llamadas no canceladas, y "Cierres" con las marcadas como cerradas |
+| Pasar el mouse por cada etapa | Se agranda apenas y vuelve; no se desborda de la card |
+| Una organización sin ninguna llamada ni DM | La card **no aparece** (antes tampoco) |
+| Mirar los otros embudos: **Marketing → Overview**, **Lead magnets**, **Ventas** | Se ven igual que antes. El cambio de escala no toca un embudo que decrece |
+
+**⚠️ Lo que más riesgo tiene:** que una organización tenga DMs viejos cargados en
+`conversations` y pocas llamadas. Ahí el embudo arranca en "Leads DMs" y el
+tramo de llamadas puede no encadenar con el de DMs (una llamada de Calendly
+puede no venir de un DM). Ya no rompe el dibujo —la escala está acotada—, pero
+el escalón entre "Respondidos" y "Llamadas agendadas" puede leerse raro.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

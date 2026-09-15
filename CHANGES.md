@@ -14,6 +14,98 @@
 
 ---
 
+### 2026-09-15 — 🐛 El embudo del panel general pintaba la card entera de naranja
+
+**Rama/branch:** `claude/clever-ptolemy-9ggvo0`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** Panel General · charts
+
+**Qué se hizo:**
+
+El embudo del panel general se veía como dos bloques naranjas que tapaban la
+card, con una etiqueta que decía **26300%**. Eran **dos bugs encadenados**, uno
+de datos y uno del chart, y se arreglaron los dos.
+
+**1. El chart asumía que la primera etapa es la más grande** — `funnel-chart.tsx`
+normalizaba contra `data[0]`:
+
+```ts
+const max = first.value;                       // 1 (Cierres)
+const norms = data.map((d) => d.value / max);  // [1, 263]
+```
+
+Ese `norm` va derecho a la geometría (`norm * H * 0.44 * layerScale`). Con
+`H ≈ 180px` y `norm = 263` el trapecio salía con **~20.800px de media altura**,
+unas 230 veces la card. Como los SVG son `overflow-visible` a propósito (para
+que el hover no se recorte), lo único que evitó que se derramara sobre el resto
+del dashboard fue el `overflow-hidden` de la card.
+
+Ahora la escala vive en **`lib/chart/funnel-scale.ts`**: normaliza contra el
+**máximo** y acota a `[0, 1]`, y los porcentajes salen de ahí. En un embudo sano
+—el que decrece— el máximo *es* la primera etapa, así que **ningún gráfico
+correcto cambia**. Protege a los siete lugares que usan `FunnelChartPanel`.
+
+**2. Las etapas del embudo no formaban un embudo** — `sales-funnel-strip.tsx`
+armaba cinco etapas y filtraba las que estaban en cero. Las tres primeras salen
+de `conversations`, la tabla del inbox viejo (ManyChat/Unipile), que quedó
+**vacía** cuando el inbox pasó a Zernio. El filtro las borraba y quedaba
+`Cierres = 1 → Clientes activos = 263`: un embudo de dos etapas que crece.
+
+El armado se movió a **`lib/metrics/build-sales-funnel-stages.ts`** con tres
+reglas:
+
+- Las etapas de abajo salen todas de `closing_calls`: agendadas (no canceladas)
+  ⊇ realizadas (`callWasAttended`) ⊇ cierres (`callIsSale`). **Decreciente por
+  construcción.**
+- No se filtran los ceros del medio: un cero ahí es información —ahí se corta el
+  embudo—, no ruido. Sacarlos cambiaba el denominador y el orden.
+- Sí se descartan las etapas vacías **de arriba**: si la fuente del tope no tiene
+  datos, el embudo arranca en la primera que sí los tiene, y la bajada de la card
+  lo dice ("De la llamada agendada al cierre").
+
+**Por qué / finalidad:**
+
+La card era ilegible y el número que mostraba estaba mal. Y el bug del chart
+podía repetirse en cualquiera de las otras seis pantallas con embudo apenas los
+datos dejaran de decrecer.
+
+**Decisiones de diseño relevantes:**
+
+- **⭐ Se sacó "Clientes activos" del embudo.** No es una etapa: es el **stock**
+  del CRM, con 263 clientes importados que nunca pasaron por este embudo, contra
+  1 cierre registrado en Limitless. Aunque los DMs volvieran mañana, esa etapa
+  volvería a romper la monotonía. Un embudo compara flujos del mismo circuito.
+- **Se normaliza contra el máximo, no contra la primera etapa.** Es lo que deja
+  el comportamiento **idéntico** para todo embudo sano y sólo cambia el roto.
+  Acotar el path sin arreglar el porcentaje habría dejado un 26300% prolijo.
+- **El acotado va en la escala, no en los paths.** Un solo lugar que garantiza
+  la invariante, en vez de repetir el `clamp` en las cuatro funciones de
+  geometría.
+- **La conversión mínima se muestra `<1%`, no `0%`.** Un "0%" al lado de un
+  cierre real se lee como que no cerró ninguno.
+- **No se tocó `lead-magnets-overview.tsx`**, que filtra ceros igual: es un
+  embudo de dos etapas, donde filtrar el cero de arriba equivale a la regla
+  nueva. El arreglo del chart ya lo cubre.
+
+**Verificación ejecutada:**
+
+- `tsc --noEmit` limpio · `pnpm lint` sin errores nuevos · `pnpm test`:
+  **1024 tests en 69 archivos** (12 nuevos: 5 sobre la escala, 7 sobre el armado
+  de etapas), todos en verde.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Sin verificación visual contra producción.** Lo verificado es la
+  aritmética. El bloque para mirarlo en pantalla está en `PLAN_VERIFICACION.md`.
+- **El embudo ya no mide DMs**, porque no hay de dónde sacarlos: el inbox de
+  Zernio se consume en vivo y no persiste etapas. Queda anotado en
+  `PENDIENTES.md` como `[EMBUDO-PANEL-DMS]`.
+- Si una organización tiene DMs viejos en `conversations`, el escalón entre
+  "Respondidos" y "Llamadas agendadas" puede no encadenar (una llamada de
+  Calendly puede no venir de un DM). Ya no rompe el dibujo, pero se lee raro.
+
+---
+
 ### 2026-09-15 — ⚙️ Fathom trae desde la conexión en adelante, no el historial
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
