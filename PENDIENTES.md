@@ -123,18 +123,6 @@ puede guardar un cliente de prueba.
 
 ---
 
-### [FATHOM-429-CRONS] Los crons queman la cuota de Fathom 🔴
-
-**Qué es:** 110 fallas por 429 en 24 horas. Los crons piden reuniones cada diez
-minutos y cuando alguien sincroniza a mano le rebota. El mensaje ahora lo
-explica, pero **el problema de fondo sigue**.
-
-**Qué hacer:** espaciar el cron (cada hora en vez de cada diez minutos) o
-implementar reintento con espera creciente. Mirar primero cuál es el límite real
-que publica Fathom.
-
----
-
 ### [IA-CLAVES-INVALIDAS] Cuatro organizaciones con la clave de IA vencida
 
 **Qué es:** `401 API key is invalid` repitiéndose 221 veces por día. Desde hoy
