@@ -2,7 +2,15 @@
 
 import { cn } from "@ai-coo/ui";
 
-export function NotificationToggle({
+/**
+ * Una fila con etiqueta, explicación y un interruptor a la derecha.
+ *
+ * Vivía en `settings/notification-toggle.tsx` y sólo la usaban las
+ * notificaciones. Se movió acá sin cambiarle nada al salir el segundo uso —el
+ * «el bot puede escribir» de Discord—: el nombre viejo describía dónde nació,
+ * no qué es.
+ */
+export function SwitchRow({
   label,
   description,
   checked,

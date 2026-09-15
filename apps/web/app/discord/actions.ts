@@ -386,6 +386,32 @@ export async function updateDiscordAutoPatternAction(
   });
 }
 
+/**
+ * ⭐ Prender o apagar «el bot puede escribir en el servidor».
+ *
+ * Lo que cambia es sólo eso: el bot sigue leyendo los canales monitoreados,
+ * midiendo silencio y proponiendo wins e hitos. Apagado, el saludo de un canal
+ * nuevo no sale —el canal se agrega igual— y `!vincular` no contesta.
+ */
+export async function updateDiscordBotCanSpeakAction(
+  canSpeak: boolean,
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("discord_integrations")
+      .update({
+        bot_can_speak: canSpeak,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+    revalidatePath(paths.platform.integrationsDiscord);
+  });
+}
+
 export type DiscordChannelOption = DiscordGuildChannel & {
   /** Ya está en la lista de monitoreados. */
   monitored: boolean;
