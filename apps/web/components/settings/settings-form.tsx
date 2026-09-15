@@ -25,7 +25,7 @@ import { formatRelativeTime } from "@/lib/format";
 import type { SettingsInitialData } from "@/lib/settings/initial-data";
 import { UNIPILE_PROXY_COUNTRY_OPTIONS } from "@/lib/unipile/proxy-countries";
 import { FieldLabel } from "./field-label";
-import { NotificationToggle } from "./notification-toggle";
+import { SwitchRow } from "@/components/shared/switch-row";
 import { SectionHeader } from "@ai-coo/ui";
 import { SettingsFormActions } from "./settings-form-actions";
 import {
@@ -477,7 +477,7 @@ export function SettingsForm({
           <p className="mb-4 text-xs text-muted-foreground">
             Email
           </p>
-          <NotificationToggle
+          <SwitchRow
             label="Reporte semanal listo"
             description="Recibís un email cuando el reporte operacional esté generado"
             checked={notifications.emailWeeklyReport}
@@ -486,7 +486,7 @@ export function SettingsForm({
               handleNotificationChange("emailWeeklyReport", checked)
             }
           />
-          <NotificationToggle
+          <SwitchRow
             label="Nueva conversación"
             description="Cuando llega un lead nuevo al inbox de ventas"
             checked={notifications.emailNewConversation}
@@ -495,7 +495,7 @@ export function SettingsForm({
               handleNotificationChange("emailNewConversation", checked)
             }
           />
-          <NotificationToggle
+          <SwitchRow
             label="Booking confirmado"
             description="Cuando se confirma una llamada de cierre"
             checked={notifications.emailBookingConfirmed}
@@ -504,7 +504,7 @@ export function SettingsForm({
               handleNotificationChange("emailBookingConfirmed", checked)
             }
           />
-          <NotificationToggle
+          <SwitchRow
             label="Venta cerrada"
             description="Cuando se registra un cierre en Closing"
             checked={notifications.emailSaleClosed}
@@ -513,7 +513,7 @@ export function SettingsForm({
               handleNotificationChange("emailSaleClosed", checked)
             }
           />
-          <NotificationToggle
+          <SwitchRow
             label="Sugerencia de SOP"
             description="Cuando la IA sugiere un nuevo procedimiento"
             checked={notifications.emailSopSuggestion}
@@ -525,7 +525,7 @@ export function SettingsForm({
           <p className="mb-4 mt-6 text-xs text-muted-foreground">
             En la app
           </p>
-          <NotificationToggle
+          <SwitchRow
             label="Nueva conversación"
             description="Alerta en tiempo real en el inbox"
             checked={notifications.inappNewConversation}
@@ -534,7 +534,7 @@ export function SettingsForm({
               handleNotificationChange("inappNewConversation", checked)
             }
           />
-          <NotificationToggle
+          <SwitchRow
             label="Booking confirmado"
             description="Notificación al agendar una llamada"
             checked={notifications.inappBookingConfirmed}
@@ -543,7 +543,7 @@ export function SettingsForm({
               handleNotificationChange("inappBookingConfirmed", checked)
             }
           />
-          <NotificationToggle
+          <SwitchRow
             label="Venta cerrada"
             description="Cuando un closer marca un cierre"
             checked={notifications.inappSaleClosed}
@@ -552,7 +552,7 @@ export function SettingsForm({
               handleNotificationChange("inappSaleClosed", checked)
             }
           />
-          <NotificationToggle
+          <SwitchRow
             label="Alerta de ghosting"
             description="Cuando un lead deja de responder"
             checked={notifications.inappGhostingAlert}

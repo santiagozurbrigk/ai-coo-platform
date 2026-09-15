@@ -9,6 +9,27 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [MIGRACION-DISCORD-SIN-APLICAR] Correr la migración del modo silencioso 🔴
+
+**Qué es:** `supabase/migrations/20260915130000_discord_modo_silencioso.sql`
+agrega `discord_integrations.bot_can_speak`. **No se aplicó**: el MCP de Supabase
+estuvo caído (503) toda la sesión del 2026-09-15.
+
+**Mientras no corra:** el switch se ve prendido en el panel, pero al apretarlo
+falla con «column does not exist» y el error sale en el toast. El bot se comporta
+como siempre (habla), que es el default correcto.
+
+**Qué hacer:** aplicar la migración (CLI o SQL Editor del dashboard) y después:
+
+1. Panel de Discord → apagar «El bot puede escribir en tu servidor».
+2. Crear un canal `cliente-prueba` en el servidor → **no** tiene que saludar,
+   pero **sí** tiene que aparecer en canales monitoreados.
+3. Escribir `!vincular loquesea@mail.com` → no tiene que contestar nada, y tiene
+   que aparecer en vinculaciones pendientes.
+4. Volver a prender el switch y repetir el paso 2 → ahora sí saluda.
+
+---
+
 ### [AVISO-Y-SATISFACCION-SIN-PROBAR] Probar el aviso por fecha y la satisfacción 🔴
 
 **Qué es:** se construyeron los dos últimos pedidos de los testers y **no se

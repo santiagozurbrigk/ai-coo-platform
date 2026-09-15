@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Hash, Upload, X } from "lucide-react";
+import { AlertTriangle, Hash, Upload, VolumeX, X } from "lucide-react";
 import { Badge, Button, GlassPanel } from "@ai-coo/ui";
 import {
   dismissDiscordPendingLinkAction,
@@ -14,7 +14,9 @@ import {
   updateDiscordBotNameAction,
   updateDiscordBotAvatarAction,
   removeDiscordBotAvatarAction,
+  updateDiscordBotCanSpeakAction,
 } from "@/app/discord/actions";
+import { SwitchRow } from "@/components/shared/switch-row";
 import { useToast } from "@/providers/toast-provider";
 import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
 import type {
@@ -138,6 +140,9 @@ export function DiscordSettings({
   const [monitoredChannels, setMonitoredChannels] = useState<
     MonitoredChannel[]
   >(integration.monitored_channels ?? []);
+  // `?? true` y no `?? false`: el campo puede no venir de una base sin migrar,
+  // y ahí el bot sí habla. La pantalla tiene que mostrar lo que pasa de verdad.
+  const [canSpeak, setCanSpeak] = useState(integration.bot_can_speak ?? true);
   const [linkedClients, setLinkedClients] = useState(initialLinked);
   const [pendingLinks, setPendingLinks] = useState(initialPending);
   const [saving, setSaving] = useState(false);
@@ -263,6 +268,29 @@ export function DiscordSettings({
     }
   };
 
+  const saveCanSpeak = async (valor: boolean) => {
+    // Optimista: el interruptor se mueve al toque y vuelve solo si falla. Un
+    // switch que tarda medio segundo en reaccionar se aprieta dos veces.
+    setCanSpeak(valor);
+    setSaving(true);
+    try {
+      const res = await updateDiscordBotCanSpeakAction(valor);
+      if (!res.success) {
+        setCanSpeak(!valor);
+        push({ title: res.error, variant: "default" });
+        return;
+      }
+      push({
+        title: valor
+          ? "El bot puede escribir en tu servidor"
+          : "El bot quedó en silencio",
+        variant: "success",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const savePattern = async () => {
     setSaving(true);
     try {
@@ -315,6 +343,46 @@ export function DiscordSettings({
           </div>
         </div>
       ) : null}
+
+      <section className="space-y-3">
+        <h3 className="text-sm font-medium">Qué puede hacer el bot</h3>
+
+        <GlassPanel className="px-4 py-1">
+          <SwitchRow
+            label="El bot puede escribir en tu servidor"
+            description="Apagado, el bot lee y registra pero no manda ningún mensaje."
+            checked={canSpeak}
+            disabled={saving}
+            onChange={saveCanSpeak}
+          />
+        </GlassPanel>
+
+        {/*
+          ⭐ Decir qué se apaga y qué NO se apaga, en la pantalla.
+          El miedo razonable de quien lo apaga es estar desconectando el bot
+          entero. Si eso se aclara sólo en un documento, la mitad no lo va a
+          leer y va a dejar prendido algo que no quiere.
+        */}
+        {!canSpeak ? (
+          <div className="flex items-start gap-2 rounded-lg border border-border/60 px-3 py-2.5">
+            <VolumeX className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="space-y-1 text-xs text-muted-foreground">
+              <p>
+                <span className="text-foreground">Sigue funcionando:</span>{" "}
+                leer los canales monitoreados, medir la actividad y el silencio
+                de cada cliente, y proponer wins e hitos.
+              </p>
+              <p>
+                <span className="text-foreground">Queda apagado:</span> el
+                saludo al crearse un canal nuevo —el canal se agrega igual— y la
+                respuesta a <code>!vincular</code>. Quien lo escriba no recibe
+                nada: si el email es exacto se vincula solo, y si no, aparece acá
+                abajo en vinculaciones pendientes.
+              </p>
+            </div>
+          </div>
+        ) : null}
+      </section>
 
       <section className="space-y-3">
         <h3 className="text-sm font-medium">Identidad del bot</h3>
