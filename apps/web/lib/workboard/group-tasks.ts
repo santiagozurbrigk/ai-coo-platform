@@ -63,15 +63,29 @@ export function filterTasksByLaunch(
   return tasks.filter((t) => t.launchId === launchFilterId);
 }
 
+/**
+ * ⭐ Filtra por responsable mirando **todos** los responsables, no sólo el primero.
+ *
+ * Con tareas compartidas, comparar contra un único id escondía la tarea a todos
+ * menos a uno: filtrabas por tu nombre y no aparecía algo que sí es tuyo. Es el
+ * modo de falla que hace que la gente deje de usar el filtro.
+ *
+ * `assignees` puede venir vacío en tareas viejas, así que se cae a `assigneeId`.
+ */
+function responsablesDe(task: WorkboardTask): string[] {
+  if (task.assigneeIds?.length) return task.assigneeIds;
+  return task.assigneeId ? [task.assigneeId] : [];
+}
+
 export function filterTasksByAssignee(
   tasks: WorkboardTask[],
   assigneeFilterId: string
 ): WorkboardTask[] {
   if (assigneeFilterId === "all") return tasks;
   if (assigneeFilterId === "unassigned") {
-    return tasks.filter((t) => !t.assigneeId);
+    return tasks.filter((t) => responsablesDe(t).length === 0);
   }
-  return tasks.filter((t) => t.assigneeId === assigneeFilterId);
+  return tasks.filter((t) => responsablesDe(t).includes(assigneeFilterId));
 }
 
 export function filterTasksByDoneVisibility(

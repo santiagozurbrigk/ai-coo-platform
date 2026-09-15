@@ -4,7 +4,6 @@ import { probeFathomListEndpoint } from "@/lib/fathom/api";
 import { getFathomIntegrationDiagnostics } from "@/lib/fathom/diagnostics";
 import { processPendingFathomCalls } from "@/lib/fathom/process-call";
 import { reclaimStuckFathomCalls } from "@/lib/fathom/reclaim-stuck";
-import { syncAllFathomIntegrations } from "@/lib/fathom/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -12,10 +11,26 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 /**
- * Cron Fathom:
- * 1. Sync desde API (GET /external/v1/meetings — documentado en developers.fathom.ai)
- * 2. Rescatar las que quedaron trabadas en `processing`
- * 3. Procesar llamadas pending cuyo delay de 30 min ya venció
+ * Cron Fathom — **procesa la cola, no habla con Fathom**.
+ *
+ * ⭐ Este cron corre cada diez minutos y hasta ahora, antes de procesar,
+ * salía a pedirle a Fathom la lista completa de reuniones de **todas** las
+ * organizaciones. Sumado al cron horario que hace exactamente lo mismo, eran
+ * ~168 listados por día por organización cuando con 24 alcanzaba.
+ *
+ * El resultado se veía en producción: **110 respuestas 429 ("Too Many
+ * Requests") en 24 horas**. Nos quemábamos la cuota nosotros mismos, y cuando
+ * una persona apretaba "sincronizar" a mano le rebotaba — así que la
+ * integración era imposible de probar.
+ *
+ * Traer las reuniones quedó donde corresponde: en `/api/integrations/fathom/sync`,
+ * que corre una vez por hora. Acá sólo se trabaja con lo que ya está guardado:
+ *
+ * 1. Rescatar las que quedaron trabadas en `processing`
+ * 2. Procesar las pending cuyo delay de 30 min ya venció
+ *
+ * El delay de 30 minutos es justamente para que el cron horario tenga tiempo de
+ * traerlas: procesar más seguido que eso no acelera nada.
  */
 async function runFathomProcess(request: Request) {
   console.log("[Fathom:process] START - version 3");
@@ -67,9 +82,23 @@ async function runFathomProcess(request: Request) {
     console.error("[Fathom:process] Sample integration query error:", sampleError.message);
   }
 
+  /**
+   * ⭐ La sonda de diagnóstico ahora es a pedido, no automática.
+   *
+   * Servía para depurar el mapeo cuando se construyó la integración, pero le
+   * pega a Fathom **una vez más cada diez minutos**, encima del listado que ya
+   * se sacó de acá. Son ~144 pedidos diarios extra gastados en mirar si el
+   * endpoint responde, cuando nadie está mirando el resultado.
+   *
+   * Sigue disponible agregando `?probe=1` a la URL, que es cuando de verdad se
+   * la necesita: alguien depurando, a mano, mirando la respuesta.
+   */
+  const probeSolicitada =
+    new URL(request.url).searchParams.get("probe") === "1";
+
   let probe: Awaited<ReturnType<typeof probeFathomListEndpoint>> | null = null;
 
-  if (sampleIntegration?.api_key?.trim()) {
+  if (probeSolicitada && sampleIntegration?.api_key?.trim()) {
     console.log("[Fathom:process] Probing documented list endpoint for org", {
       organizationId: sampleIntegration.organization_id,
       hasApiKey: true,
@@ -85,29 +114,13 @@ async function runFathomProcess(request: Request) {
       topLevelKeys: probe.topLevelKeys,
       nextCursor: probe.nextCursor,
     });
-  } else {
-    console.log("[Fathom:process] Early return: probe skipped — no connected org with api_key", {
+  } else if (probeSolicitada) {
+    console.log("[Fathom:process] Probe pedida pero sin org conectada con api_key", {
       sampleFound: Boolean(sampleIntegration),
       sampleStatus: sampleIntegration?.status,
       hasApiKey: Boolean(sampleIntegration?.api_key?.trim()),
       diagnostics,
     });
-  }
-
-  let sync: Awaited<ReturnType<typeof syncAllFathomIntegrations>> = {
-    organizations: 0,
-    ingested: 0,
-    skippedOrgs: [],
-    orgResults: [],
-  };
-  let syncError: string | undefined;
-
-  try {
-    sync = await syncAllFathomIntegrations({ debug: true });
-    console.log("[Fathom:process] Sync result:", JSON.stringify(sync));
-  } catch (e) {
-    syncError = e instanceof Error ? e.message : String(e);
-    console.error("[Fathom:process] Sync error:", syncError, e);
   }
 
   // Antes de procesar la cola, devolver a `pending` lo que quedó colgado en
@@ -122,8 +135,6 @@ async function runFathomProcess(request: Request) {
     version: 3,
     processed,
     reclaimed,
-    sync,
-    syncError: syncError ?? null,
     diagnostics,
     probe: probe
       ? {

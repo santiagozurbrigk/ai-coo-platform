@@ -14,6 +14,88 @@
 
 ---
 
+### 2026-09-15 — 🔧 Cuatro observaciones de testers: Fathom desbloqueado, barra, tablero
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** crons de Fathom, navegación superior, tablero de trabajo
+
+**Qué se hizo:**
+
+**🐛 1 · Fathom: el 429 lo causábamos nosotros, y eran dos pedidos, no uno.**
+
+La semana pasada quedó anotado que el mensaje del 429 se tradujo pero la causa
+seguía. Al ir a buscarla apareció peor de lo estimado: el cron de
+`/api/integrations/fathom/process`, que corre **cada diez minutos**, hacía dos
+llamadas a la API de Fathom antes de tocar la cola:
+
+1. `syncAllFathomIntegrations` — el listado completo de reuniones de **todas**
+   las organizaciones. Exactamente lo mismo que hace el cron horario.
+2. `probeFathomListEndpoint` — una sonda de diagnóstico, dejada de cuando se
+   construyó la integración, cuyo resultado no mira nadie.
+
+Sumado al cron horario eran **~312 pedidos diarios por organización** cuando con
+24 alcanzaba. De ahí las 110 respuestas 429 en 24 horas, y de ahí que nadie
+pudiera probar la integración a mano: la cuota estaba siempre quemada.
+
+El cron ahora hace lo que dice su nombre: procesa la cola. El listado quedó en
+el cron horario; la sonda quedó disponible con `?probe=1` para cuando alguien
+esté depurando de verdad.
+
+**🐛 2 · La barra de arriba se rompía a medida que crecía el negocio.** El
+contador de clientes se dibujaba entero: con 264 son tres dígitos que ensanchan
+la isla y empujan los items de al lado hasta sacarlos de pantalla — "SOPs"
+quedaba cortado. Ahora corta en **99+** con ancho mínimo fijo.
+
+**✨ 3 · Varios responsables por tarea.** Una tarea que hacen dos personas ya no
+necesita duplicarse. `assignee_ids` en la base, casillas en el formulario y en
+el detalle, circulitos superpuestos en la tarjeta (hasta tres, después "+N"), y
+el filtro por responsable mira **todos** los responsables.
+
+**Decisión tomada con Santiago:** cualquiera de los responsables puede darla por
+terminada. Se agregaron `completed_by` y `completed_at` para poder responder
+quién la cerró.
+
+**🐛 4 · "+ Agregar tarea" creaba una tarea vacía.** Creaba al instante una
+tarjeta titulada "Nueva tarea" y había que entrar al detalle a completarla; si
+te distraías, quedaba una tarea fantasma en un tablero compartido. Ahora abre el
+formulario que **ya existía** en el tablero, con la columna preseleccionada.
+
+**Decisiones de diseño relevantes:**
+
+- **Un arreglo y no una tabla de relación** para los responsables: son dos o
+  tres, se leen siempre con la tarea y nunca se consultan solos. Una tabla
+  aparte agregaría un join a cada lectura del tablero sin comprar nada.
+- **`assignee_id` se sigue escribiendo** con el primero de la lista. Los
+  reportes de tiempo y los filtros viejos lo leen; romperlos para estrenar la
+  columna nueva sería cambiar un problema por otro.
+- **El filtro se cae a `assigneeId`** cuando la lista viene vacía: las tareas
+  anteriores a la migración tienen uno solo, y no encontrarlas al filtrar es el
+  modo de falla que hace que la gente deje de usar el filtro.
+- **Al reabrir una tarea se borra quién la cerró.** Dejar colgado ese nombre
+  confunde más de lo que ayuda.
+- **La sonda de Fathom no se borró, se volvió opcional.** Sirve cuando alguien
+  depura a mano; lo que no tenía sentido era pagarla 144 veces por día.
+
+**Verificación ejecutada:**
+- **Migración aplicada y verificada** contra la base real: 90 tareas, 86 con
+  responsable viejo, **86 migradas, 0 mal migradas**.
+- `tsc --noEmit` limpio · `pnpm test`: **985 tests en 60 archivos** (6 nuevos
+  sobre el filtro por responsable) · `pnpm lint` sin errores · `pnpm build`
+  compila.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Nada probado a mano todavía**: falta que el tester recorra los cuatro.
+- Falta decidir, antes de tocarlo, **qué trae Fathom la primera vez** que se
+  sincroniza: todas las llamadas históricas o sólo de ahí en adelante. Está
+  planteado y sin resolver.
+- Quedan dos pedidos sin construir: **fecha de próximo lanzamiento por cliente**
+  (que no puede ser un campo fijo — sólo le sirve a una organización) y **nivel
+  de satisfacción del cliente**.
+
+---
+
 ### 2026-09-11 - Llamadas de entrega y "última 1-1" (Fase 5 de 5)
 
 **Rama/branch:** `claude/gallant-tesla-ozk5we`

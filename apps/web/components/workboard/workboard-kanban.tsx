@@ -31,8 +31,23 @@ function isOverdue(dueDate?: string): boolean {
   return new Date(dueDate + "T23:59:59") < new Date();
 }
 
-export function WorkboardKanban() {
-  const { tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId, moveTask, deleteTask, setSelectedTask, kanbanDoneVisibleUntil, createTask } =
+/**
+ * ⭐ El "+" de cada columna **abre el formulario**, no crea una tarea.
+ *
+ * Antes creaba al instante una tarjeta titulada "Nueva tarea", vacía, y había
+ * que entrar al detalle a completarla. Si te distraías en el medio, quedaba una
+ * tarea fantasma en el tablero — y en un tablero compartido eso es ruido para
+ * todo el equipo.
+ *
+ * Ahora abre el mismo formulario que el botón "Nueva tarea" de arriba, con la
+ * columna ya elegida. Si cancelás, no queda nada.
+ */
+export function WorkboardKanban({
+  onAgregarEnColumna,
+}: {
+  onAgregarEnColumna: (status: TaskStatus) => void;
+}) {
+  const { tasks, areaFilter, sprintFilterId, launchFilterId, assigneeFilterId, moveTask, deleteTask, setSelectedTask, kanbanDoneVisibleUntil } =
     useWorkboard();
   const [draggedTask, setDraggedTask] = useState<{
     task: WorkboardTask;
@@ -208,13 +223,36 @@ export function WorkboardKanban() {
                               })}
                             </span>
                           ) : null}
-                          {task.assignee ? (
-                            <span
-                              className="flex h-6 w-6 items-center justify-center rounded-full border border-background bg-muted text-[10px] font-medium text-foreground"
-                              title={task.assignee.name}
-                            >
-                              {task.assignee.initials}
-                            </span>
+                          {/*
+                            ⭐ Los responsables, superpuestos.
+                            Se muestran hasta tres y el resto se resume en "+N":
+                            una tarjeta de tablero tiene que leerse de un
+                            vistazo, y cinco circulitos en fila la ensanchan
+                            hasta descolocar la columna.
+                          */}
+                          {task.assignees.length > 0 ? (
+                            <div className="flex -space-x-1.5">
+                              {task.assignees.slice(0, 3).map((persona) => (
+                                <span
+                                  key={persona.id}
+                                  className="flex h-6 w-6 items-center justify-center rounded-full border border-background bg-muted text-[10px] font-medium text-foreground"
+                                  title={persona.name}
+                                >
+                                  {persona.initials}
+                                </span>
+                              ))}
+                              {task.assignees.length > 3 ? (
+                                <span
+                                  className="flex h-6 w-6 items-center justify-center rounded-full border border-background bg-muted text-[10px] font-medium text-muted-foreground"
+                                  title={task.assignees
+                                    .slice(3)
+                                    .map((persona) => persona.name)
+                                    .join(", ")}
+                                >
+                                  +{task.assignees.length - 3}
+                                </span>
+                              ) : null}
+                            </div>
                           ) : null}
                         </div>
                       </div>
@@ -227,7 +265,7 @@ export function WorkboardKanban() {
 
           <button
             type="button"
-            onClick={() => void createTask({ title: "Nueva tarea", status: column.id as TaskStatus, area: "general", priority: "medium", assigneeId: null, dueDate: null, tags: [], launchId: null })}
+            onClick={() => onAgregarEnColumna(column.id as TaskStatus)}
             className="mt-2 flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
           >
             <Plus className="h-3.5 w-3.5" />

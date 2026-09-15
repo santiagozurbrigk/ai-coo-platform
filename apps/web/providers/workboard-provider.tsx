@@ -28,6 +28,8 @@ import type {
 } from "@/types/workboard";
 
 type TaskUpdatePatch = Partial<{
+  /** ⭐ Varios responsables. `assigneeId` sigue aceptándose para lo viejo. */
+  assigneeIds: string[];
   title: string;
   description: string;
   status: TaskStatus;
@@ -68,6 +70,8 @@ type WorkboardContextValue = {
     area: TaskArea;
     priority: TaskPriority;
     assigneeId?: string | null;
+    /** ⭐ Varios responsables. `assigneeId` queda para lo que ya lo usaba. */
+    assigneeIds?: string[];
     dueDate?: string | null;
     tags?: string[];
     launchId?: string | null;

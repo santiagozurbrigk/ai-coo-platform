@@ -1,4 +1,5 @@
 import type {
+  WorkboardAssignee,
   TaskArea,
   TaskPriority,
   TaskStatus,
@@ -35,6 +36,9 @@ export type WorkboardTaskRow = {
   title: string;
   description: string;
   assignee_id: string | null;
+  assignee_ids?: string[] | null;
+  completed_by?: string | null;
+  completed_at?: string | null;
   due_date: string | null;
   tags: string[] | null;
   position: number;
@@ -113,6 +117,33 @@ export function rowToTask(
     assignee = { id: m.id, name: m.name, initials: m.initials };
   }
 
+  /**
+   * ⭐ La lista de responsables.
+   *
+   * Se arma desde `assignee_ids`, y si viniera vacía se cae al responsable
+   * único de siempre: las tareas creadas antes de esta columna tienen uno solo,
+   * y no mostrarlo sería perderlo de vista.
+   */
+  const idsDeResponsables =
+    row.assignee_ids && row.assignee_ids.length > 0
+      ? row.assignee_ids
+      : row.assignee_id
+        ? [row.assignee_id]
+        : [];
+
+  const assignees: WorkboardAssignee[] = idsDeResponsables.flatMap((id) => {
+    const m = memberMap?.get(id);
+    if (m) return [{ id: m.id, name: m.name, initials: m.initials }];
+    // El responsable embebido por la consulta, cuando es el principal.
+    if (row.assignee && row.assignee.id === id) {
+      const name = displayName(row.assignee.full_name, row.assignee.email);
+      return [{ id, name, initials: initialsFromName(name) }];
+    }
+    return [];
+  });
+
+  const completadaPor = row.completed_by ? memberMap?.get(row.completed_by) : undefined;
+
   const linkBundle = links ? mergeTaskLinks(row.id, links) : null;
   let linkedSop: WorkboardTaskLinkedSop | null = null;
   if (row.sop) {
@@ -128,8 +159,14 @@ export function rowToTask(
     description: row.description ?? "",
     area,
     priority,
-    assignee,
-    assigneeId: row.assignee_id,
+    assignee: assignee ?? assignees[0],
+    assigneeId: row.assignee_id ?? assignees[0]?.id ?? null,
+    assignees,
+    assigneeIds: idsDeResponsables,
+    completedBy: completadaPor
+      ? { id: completadaPor.id, name: completadaPor.name, initials: completadaPor.initials }
+      : null,
+    completedAt: row.completed_at ?? null,
     dueDate: row.due_date ?? undefined,
     tags: row.tags ?? [],
     position: row.position,

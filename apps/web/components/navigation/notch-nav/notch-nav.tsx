@@ -121,8 +121,22 @@ function ItemChrome({
         {icon}
         <span className="hidden whitespace-nowrap xl:inline">{label}</span>
         {badge ? (
-          <span className="rounded-full bg-muted px-1.5 text-[10px] font-semibold leading-4 text-muted-foreground">
-            {badge}
+          /**
+           * ⭐ El contador se corta en 99+ y tiene ancho mínimo fijo.
+           *
+           * Este número crece con el negocio: con 264 clientes son tres dígitos
+           * que ensanchan la isla y empujan los items de al lado hasta sacarlos
+           * de pantalla — "SOPs" quedaba cortado. Una barra de navegación que se
+           * rompe cuanto mejor le va al usuario está mal de origen.
+           *
+           * `min-w` además evita que la barra se mueva sola cada vez que se
+           * carga un cliente y el número pasa de 9 a 10.
+           */
+          <span
+            title={badge > 99 ? `${badge}` : undefined}
+            className="inline-flex min-w-[1.5rem] justify-center rounded-full bg-muted px-1.5 text-[10px] font-semibold leading-4 text-muted-foreground"
+          >
+            {badge > 99 ? "99+" : badge}
           </span>
         ) : null}
         {chevron && <ChevronDown className="h-3 w-3 opacity-60" />}
