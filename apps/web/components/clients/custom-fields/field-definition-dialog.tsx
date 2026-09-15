@@ -49,6 +49,8 @@ export type FieldDefinitionDraft = {
   fieldType: FieldType;
   options: FieldOption[];
   unit: string;
+  /** Sólo para fechas: días de anticipación del aviso. Vacío = sin aviso. */
+  alertDaysBefore: string;
   currency: "USD" | "ARS";
   isRequired: boolean;
 };
@@ -60,6 +62,8 @@ function draftFrom(field: FieldDefinition | null): FieldDefinitionDraft {
     fieldType: field?.fieldType ?? "select",
     options: field?.options ?? [],
     unit: field?.unit ?? "",
+    alertDaysBefore:
+      field?.alertDaysBefore != null ? String(field.alertDaysBefore) : "",
     currency: field?.currency ?? "USD",
     isRequired: field?.isRequired ?? false,
   };
@@ -204,6 +208,37 @@ export function FieldDefinitionDialog({
                 onChange={(event) => patch({ unit: event.target.value })}
                 placeholder="%, clientes, días"
               />
+            </div>
+          ) : null}
+
+          {/*
+            ⭐ El aviso de una fecha.
+            Es lo que hace que un campo de fecha sirva para algo más que
+            consultarlo: define a partir de cuándo el sistema lo marca. Con
+            esto, "Próximo lanzamiento · avisar a 15 días" lo arma la
+            organización que lo necesita, sin que el producto tenga que saber
+            qué es un lanzamiento.
+          */}
+          {draft.fieldType === "date" ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="field-alert-days">Avisarme cuando falten (opcional)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="field-alert-days"
+                  inputMode="numeric"
+                  className="w-24"
+                  value={draft.alertDaysBefore}
+                  onChange={(event) =>
+                    patch({ alertDaysBefore: event.target.value.replace(/\D/g, "") })
+                  }
+                  placeholder="15"
+                />
+                <span className="text-sm text-muted-foreground">días o menos</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                La fecha se muestra en rojo cuando falte ese tiempo o menos.
+                Dejalo vacío si no querés aviso.
+              </p>
             </div>
           ) : null}
 

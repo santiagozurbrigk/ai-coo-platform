@@ -90,6 +90,13 @@ export type Client = {
   notes?: string | null;
   notesUpdatedAt?: string | null;
   /**
+   * ⭐ Qué tan conforme está el cliente. Una impresión, no una medición — por
+   * eso viene siempre con cuándo se marcó y quién la marcó.
+   */
+  satisfaction?: string | null;
+  satisfactionUpdatedAt?: string | null;
+  satisfactionUpdatedByName?: string | null;
+  /**
    * ⭐ Los valores de las columnas configurables del cliente (C0, `entity =
    * 'client'`). La clave es la del `field_definitions`, no una columna de esta
    * tabla: agregar "Objetivo general" no es una migración, es abrir una

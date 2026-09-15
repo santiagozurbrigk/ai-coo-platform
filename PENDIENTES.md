@@ -9,49 +9,18 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [FATHOM-PRIMERA-SINCRO] Decidir qué trae Fathom la primera vez
+### [AVISO-Y-SATISFACCION-SIN-PROBAR] Probar el aviso por fecha y la satisfacción 🔴
 
-**Qué es:** cuando alguien conecta Fathom por primera vez, ¿traemos **todas** las
-llamadas que tiene grabadas desde siempre, o sólo de ese momento en adelante?
+**Qué es:** se construyeron los dos últimos pedidos de los testers y **no se
+probaron a mano**.
 
-**Por qué importa:** traer todo el historial da contexto desde el día uno, pero
-en una cuenta con años de grabaciones son cientos de llamadas, cada una con su
-transcripción y su análisis de IA — eso cuesta plata y tiempo en la primera
-corrida. Traer sólo lo nuevo arranca liviano pero deja al módulo sin nada que
-mostrar hasta que se grabe la primera llamada.
-
-**Qué falta:** decidirlo con Santiago antes de tocar el código. Está planteado
-en la conversación del 15-09.
-
----
-
-### [LANZAMIENTO-POR-CLIENTE] Fecha del próximo lanzamiento, sin que sea un campo fijo
-
-**Qué es:** pedido de un tester — anotar en cada cliente cuándo es su próximo
-lanzamiento, y que se ponga en rojo cuando falten menos de 15 días.
-
-**El problema de diseño:** eso le sirve **sólo a una organización** —la que vende
-consultoría de lanzamientos—. Para alguien que vende otra cosa, un campo
-"próximo lanzamiento" es ruido en la ficha de todos sus clientes.
-
-**Hacia dónde va:** ya existe el módulo de **Campos personalizados**, donde cada
-organización define sus propios campos. La idea es que ahí se pueda definir un
-campo de fecha **con aviso**: "avisame en rojo cuando falten N días". Así el que
-vende lanzamientos se arma el suyo, y el que vende otra cosa se arma el que
-necesite.
-
-**Nota:** no tiene nada que ver con el módulo de Lanzamientos que ya existe.
-
----
-
-### [SATISFACCION-CLIENTE] Nivel de satisfacción, manual primero
-
-**Qué es:** poder anotar a mano qué tan conforme está cada cliente, con fecha y
-autor (un dato de hace cuatro meses no dice nada). Más adelante, que salga solo
-de lo que el bot de Discord lee.
-
-**Ojo:** la parte automática no depende de programar nada nuevo — depende de que
-el bot esté conectado, y hoy tiene cero mensajes guardados.
+**Qué hacer:**
+1. Clientes → Campos personalizados → crear uno de tipo **fecha** con "avisarme
+   cuando falten 15 días". Cargarle a un cliente una fecha dentro de esos 15
+   días y ver que se pinte en rojo con el "faltan N días".
+2. En la ficha de un cliente, marcar un nivel de satisfacción y confirmar que
+   queda con la fecha y con tu nombre.
+3. Tocar el nivel ya marcado y ver que se borra.
 
 ---
 
@@ -135,18 +104,6 @@ cuenta de miembro real** — no hay una segunda sesión en el entorno de desarro
 equipo y confirmar que aparecen los seis botones (Nuevo cliente, Cargar
 clientes, Crear planes, Revisión semanal, Wins, Recorrido, Campos) y que se
 puede guardar un cliente de prueba.
-
----
-
-### [FATHOM-429-CRONS] Los crons queman la cuota de Fathom 🔴
-
-**Qué es:** 110 fallas por 429 en 24 horas. Los crons piden reuniones cada diez
-minutos y cuando alguien sincroniza a mano le rebota. El mensaje ahora lo
-explica, pero **el problema de fondo sigue**.
-
-**Qué hacer:** espaciar el cron (cada hora en vez de cada diez minutos) o
-implementar reintento con espera creciente. Mirar primero cuál es el límite real
-que publica Fathom.
 
 ---
 
@@ -1126,6 +1083,28 @@ ya estaban todas.
 ---
 
 ## ✅ Completados (referencia histórica)
+
+### 2026-09-15 — Fathom: qué trae la primera vez
+
+Decidido y construido: **desde la conexión en adelante**, no el historial. Antes
+había dos comportamientos distintos —90 días para la organización, todo para un
+miembro— y ahora hay una sola regla para las dos.
+
+### 2026-09-15 — Observaciones de testers
+
+- **Fathom desbloqueado**: el cron de cada 10 minutos hacía dos pedidos de más a
+  la API (el listado completo y una sonda de diagnóstico). ~312 pedidos diarios
+  por organización pasaron a 24.
+- **La barra de arriba** ya no se rompe cuando crece el negocio: el contador
+  corta en 99+.
+- **Varios responsables por tarea**, cualquiera la puede cerrar y se guarda quién
+  la cerró. El filtro mira a todos los responsables, no sólo al primero.
+- **"+ Agregar tarea"** abre el formulario con la columna puesta, en vez de crear
+  una tarjeta vacía.
+- **Aviso por fecha en campos configurables**: cada organización define su fecha
+  con su propio umbral, en vez de una columna "próximo lanzamiento" que sólo le
+  servía a una.
+- **Nivel de satisfacción del cliente**, con fecha, autor y aviso de dato viejo.
 
 ### 2026-09-09 — [DISCORD-IDENTIDAD] El bot se llama y se ve como la marca del cliente
 

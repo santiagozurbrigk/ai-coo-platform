@@ -24,6 +24,7 @@ export function field(
     id: "field-1",
     organizationId: "org-1",
     entity: "win",
+    alertDaysBefore: null,
     key: "tipo_de_win",
     label: "Tipo de win",
     description: null,

@@ -14,6 +14,138 @@
 
 ---
 
+### 2026-09-15 — ⚙️ Fathom trae desde la conexión en adelante, no el historial
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** Fathom
+
+**Qué se hizo:**
+
+Quedaba abierta la decisión de qué traer la primera vez que alguien conecta
+Fathom. **Santiago eligió: desde la conexión en adelante.**
+
+Lo que había era peor que indefinido — eran **dos comportamientos distintos**,
+según por dónde entrara:
+
+- La sincronización de la **organización** barría los últimos 90 días.
+- La sincronización de un **miembro** traía **todo** lo que su cuenta tuviera
+  grabado desde siempre, sin ningún filtro.
+
+Ahora hay una sola regla, en `lib/fathom/sync-window.ts`, y las dos la usan.
+
+**Cómo funciona:** al conectar se sella `connected_at` —la línea de largada— y
+la primera sincronización arranca desde ahí. Después manda `last_sync_at`, como
+siempre.
+
+**Decisiones de diseño relevantes:**
+
+- **⭐ Se toma la fecha más vieja entre `last_sync_at` y `connected_at`, no
+  `last_sync_at` a secas.** Si una corrida falla a mitad y `last_sync_at` quedó
+  adelantado, arrancar desde ahí se saltearía **en silencio** las llamadas de
+  ese hueco. Retroceder hasta la conexión, en el peor caso, vuelve a traer algo
+  que ya está — y volver a traer una llamada no la duplica, mientras que
+  perderla no se recupera nunca.
+- **Sin ninguna de las dos fechas no se inventa un filtro**: se trae todo y el
+  motivo queda en el log. Un filtro inventado esconde llamadas sin dejar rastro,
+  y eso es peor que una primera corrida cara. Pasa sólo con filas anteriores a
+  esta decisión que además nunca sincronizaron; hoy no hay ninguna.
+- **`connected_at` se sella también al reconectar**, y es lo correcto: quien
+  reconecta quiere lo que viene, no lo que se perdió mientras estuvo afuera.
+- **Columna propia y no `created_at`**: alguien puede desconectar y reconectar,
+  y ahí la línea es la reconexión, no el día que se creó la fila.
+- **El motivo de la ventana va al log** (`incremental`, `desde-la-conexion`,
+  `sin-referencia`). Cuando alguien reporte "no me llegó una llamada", eso es lo
+  primero que hay que mirar.
+
+**Verificación ejecutada:**
+- **Migración aplicada y verificada**: las 6 integraciones existentes quedaron
+  con `connected_at` cargado, **ninguna sin referencia**.
+- `tsc --noEmit` limpio · `pnpm test`: **1012 tests en 63 archivos** (7 nuevos
+  sobre la ventana de sincronización) · `pnpm lint` sin errores · `pnpm build`
+  compila.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Sin probar contra una cuenta real de Fathom.** Lo que está verificado es
+  la regla (con tests) y la migración (contra la base). Falta conectar y ver que
+  efectivamente no entre el historial.
+- Las integraciones que ya estaban conectadas usan su fecha de alta como línea
+  de largada. Si alguna venía trayendo llamadas más viejas, deja de hacerlo.
+
+---
+
+### 2026-09-15 — ✨ Aviso por fecha en campos configurables, y satisfacción del cliente
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** campos configurables (C0), clientes
+
+**Qué se hizo:**
+
+Los dos pedidos que quedaban de las observaciones de los testers.
+
+**✨ 1 · Fecha con aviso, sin hornear "lanzamiento" en el producto.**
+
+El pedido era: *"anotar en cada cliente cuándo es el próximo lanzamiento, y que
+se ponga en rojo cuando falten menos de 15 días"*. La aclaración que cambió el
+diseño: **eso le sirve a una sola organización**, la que vende consultoría de
+lanzamientos. Para quien vende otra cosa, una columna "próximo lanzamiento"
+sería ruido en la ficha de todos sus clientes.
+
+Los campos configurables ya permitían una fecha por cliente —`entity = 'client'`
+entró el 11-09 y `date` ya era un tipo—. Lo único que faltaba era el umbral:
+`field_definitions.alert_days_before`.
+
+Ahora quien vende lanzamientos define *"Próximo lanzamiento · avisar a 15 días"*
+y quien vende otra cosa define *"Vence el contrato · avisar a 30"*. Mismo
+mecanismo, cada uno su vocabulario. La celda se pinta en rojo cuando entra en el
+umbral, con el texto de cuánto falta, y tachada cuando ya pasó.
+
+**✨ 2 · Nivel de satisfacción del cliente.** Cinco niveles, de "en riesgo" a
+"muy conforme", marcados a mano desde la ficha.
+
+Van **tres columnas y no una**: `satisfaction`, `satisfaction_updated_at` y
+`satisfaction_updated_by`. Es una impresión de una persona, no una medición; una
+marca de "muy conforme" de hace cuatro meses, mostrada sin fecha, se lee como si
+fuera de hoy — y sobre eso se toman decisiones. Pasados **60 días** la pantalla
+avisa que conviene volver a preguntar, sin borrar el dato.
+
+**Decisiones de diseño relevantes:**
+
+- **⭐ No se agregó una columna al esquema por el vocabulario de un cliente.**
+  Extender los campos configurables sirvió a todos y no dejó columnas muertas.
+- **Un valor de fecha ilegible NO se pinta de alerta.** Teñir de rojo algo que
+  no se entendió es inventar una urgencia. Devuelve `null` y se muestra normal.
+- **Los días son de calendario, no fracciones de hora.** Sin eso, "faltan 15
+  días" cambiaría según la hora a la que mirás la pantalla, y el aviso se
+  prendería antes o después sin motivo visible.
+- **Una fecha de satisfacción futura no vence**: es un reloj mal puesto, no un
+  dato viejo.
+- **Sin fecha, una marca se trata como vencida.** Darla por fresca sería mentir.
+- **Tocar el nivel ya elegido lo borra**, en vez de agregar un botón de borrar.
+- **`origen` (manual / discord) ya está previsto en el tipo.** Cuando llegue lo
+  automático del bot habrá que distinguir "lo dijo alguien" de "lo dedujo el
+  sistema", y agregarlo después obligaría a mirar cada fila vieja y adivinar.
+
+**Verificación ejecutada:**
+- **Migración aplicada y verificada** contra la base real: las 3 columnas de
+  satisfacción y la de aviso existen; el join del autor probado con SQL.
+- `tsc --noEmit` limpio · `pnpm test`: **1005 tests en 62 archivos** (20 nuevos:
+  11 del aviso por fecha, 9 de satisfacción) · `pnpm lint` sin errores ·
+  `pnpm build` compila.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Nada probado a mano**: falta crear un campo de fecha con aviso y ver que
+  se pinte, y marcar la satisfacción de un cliente real.
+- La satisfacción **no se muestra todavía en la lista de clientes**, sólo en la
+  ficha. Si se quiere el puntito de color en la tabla, es otro paso.
+- La parte automática desde Discord **no depende de código nuevo**: depende de
+  que el bot esté conectado, y sigue con cero mensajes guardados.
+
+---
+
 ### 2026-09-15 — 🔧 Cuatro observaciones de testers: Fathom desbloqueado, barra, tablero
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`

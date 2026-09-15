@@ -27,6 +27,10 @@ export type ClientRow = {
   plan_id: string | null;
   selected_installment_system_id: string | null;
   notes?: string | null;
+  satisfaction?: string | null;
+  satisfaction_updated_at?: string | null;
+  satisfaction_updated_by?: string | null;
+  satisfaction_author?: { full_name: string | null; email: string | null } | null;
   notes_updated_at?: string | null;
   custom?: CustomFieldValues | null;
   created_at?: string;
@@ -60,6 +64,10 @@ export function rowToClient(row: ClientRow): Client {
     selectedInstallmentSystemId: row.selected_installment_system_id ?? undefined,
     notes: row.notes ?? null,
     notesUpdatedAt: row.notes_updated_at ?? null,
+    satisfaction: row.satisfaction ?? null,
+    satisfactionUpdatedAt: row.satisfaction_updated_at ?? null,
+    satisfactionUpdatedByName:
+      row.satisfaction_author?.full_name ?? row.satisfaction_author?.email ?? null,
     // La columna es `not null default '{}'`, pero una fila leída de una base
     // sin la migración aplicada llega sin ella. Se cae al objeto vacío.
     custom: row.custom ?? {},

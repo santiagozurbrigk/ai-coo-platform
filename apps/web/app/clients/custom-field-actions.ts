@@ -64,6 +64,13 @@ const createSchema = z.object({
   options: z.array(optionSchema).max(60).default([]),
   unit: z.string().trim().max(20).nullable().default(null),
   currency: z.enum(["USD", "ARS"]).nullable().default(null),
+  /**
+   * ⭐ Sólo para fechas: a cuántos días la fecha se muestra en alerta.
+   *
+   * El tope de 365 no es capricho: un aviso a dos años no avisa nada, se
+   * enciende siempre y deja de significar algo.
+   */
+  alertDaysBefore: z.number().int().min(1).max(365).nullable().default(null),
   isRequired: z.boolean().default(false),
 });
 
@@ -175,6 +182,8 @@ export async function createFieldDefinitionAction(
         options_source: "inline",
         unit: values.fieldType === "number" ? values.unit : null,
         currency: values.fieldType === "currency" ? (values.currency ?? "USD") : null,
+        alert_days_before:
+          values.fieldType === "date" ? values.alertDaysBefore : null,
         is_required: values.isRequired,
         // Al final de la lista: una columna nueva no se mete en el medio de un
         // orden que alguien ya acomodó.
@@ -220,6 +229,12 @@ export async function updateFieldDefinitionAction(
     if (changes.isRequired !== undefined) patch.is_required = changes.isRequired;
     if (changes.unit !== undefined) {
       patch.unit = current.fieldType === "number" ? changes.unit : null;
+    }
+    if (changes.alertDaysBefore !== undefined) {
+      // Como con unidad y moneda: el umbral sólo tiene sentido en su tipo. Si
+      // el campo no es una fecha, se guarda nulo en vez de un dato huérfano.
+      patch.alert_days_before =
+        current.fieldType === "date" ? changes.alertDaysBefore : null;
     }
     if (changes.currency !== undefined) {
       patch.currency = current.fieldType === "currency" ? changes.currency : null;

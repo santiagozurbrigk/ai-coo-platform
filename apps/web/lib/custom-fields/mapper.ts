@@ -34,6 +34,15 @@ export function rowToFieldDefinition(row: FieldDefinitionRow): FieldDefinition |
     optionsSource: isFieldOptionsSource(row.options_source) ? row.options_source : "inline",
     unit: row.unit,
     currency: isFieldCurrency(row.currency) ? row.currency : null,
+    // Un umbral fuera de rango se ignora en vez de romper la pantalla: la
+    // base ya lo restringe, pero una fila vieja o tocada a mano no debería
+    // dejar sin campos a toda la organización.
+    alertDaysBefore:
+      typeof row.alert_days_before === "number" &&
+      row.alert_days_before > 0 &&
+      row.alert_days_before <= 365
+        ? row.alert_days_before
+        : null,
     isRequired: row.is_required,
     sortOrder: row.sort_order,
     archivedAt: row.archived_at,

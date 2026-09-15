@@ -12,6 +12,10 @@ import { Badge, cn } from "@ai-coo/ui";
 import { AlertTriangle } from "lucide-react";
 import type { FieldDefinition } from "@/types/custom-fields";
 import {
+  resolverAvisoDeFecha,
+  textoDelAviso,
+} from "@/lib/custom-fields/date-alert";
+import {
   fieldOptionColorVar,
   formatFieldValue,
   type ResolveOptionsContext,
@@ -35,10 +39,41 @@ export function FieldValueCell({
     return <span className={cn("text-muted-foreground", className)}>—</span>;
   }
 
+  /**
+   * ⭐ Una fecha con umbral configurado se pinta cuando se viene encima.
+   *
+   * Es lo que convierte "anoté una fecha" en "el sistema me avisa". El umbral
+   * lo define cada organización en su campo, así que esto sirve igual para
+   * "Próximo lanzamiento · 15 días" que para "Vence el contrato · 30".
+   */
+  const aviso =
+    field.fieldType === "date"
+      ? resolverAvisoDeFecha(value, field.alertDaysBefore)
+      : null;
+
   const usesBadges = field.fieldType === "select" || field.fieldType === "multi_select";
 
   if (!usesBadges) {
-    return <span className={cn("text-sm tabular-nums", className)}>{formatted.parts[0]?.text}</span>;
+    return (
+      <span
+        className={cn(
+          "text-sm tabular-nums",
+          aviso?.alerta &&
+            (aviso.estado === "pasada"
+              ? "font-medium text-muted-foreground line-through decoration-destructive/60"
+              : "font-medium text-destructive"),
+          className
+        )}
+        title={aviso?.alerta ? textoDelAviso(aviso) : undefined}
+      >
+        {formatted.parts[0]?.text}
+        {aviso?.alerta ? (
+          <span className="ml-1.5 text-xs font-normal">
+            · {textoDelAviso(aviso)}
+          </span>
+        ) : null}
+      </span>
+    );
   }
 
   return (
