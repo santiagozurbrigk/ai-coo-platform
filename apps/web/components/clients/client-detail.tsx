@@ -13,6 +13,7 @@ import { useToast } from "@/providers/toast-provider";
 import { ClientLinkedCallsSection } from "@/components/clients/client-linked-calls";
 import { ClientCustomFieldsSection } from "@/components/clients/client-custom-fields-section";
 import { ClientNotesSection } from "@/components/clients/client-notes-section";
+import { ClientSatisfactionSection } from "@/components/clients/client-satisfaction-section";
 import { ClientDiscordActivity } from "@/components/clients/client-discord-activity";
 import { ClientTimeline } from "@/components/clients/client-timeline";
 import { ClientJourneySection } from "@/components/clients/checkpoints";
@@ -161,6 +162,14 @@ export function ClientDetail({ client: initial }: { client: Client }) {
         clientId={client.id}
         initialNotes={client.notes ?? null}
         initialUpdatedAt={client.notesUpdatedAt ?? null}
+      />
+
+      {/* Qué tan conforme está, marcado a mano, con fecha y autor. */}
+      <ClientSatisfactionSection
+        clientId={client.id}
+        initialLevel={client.satisfaction ?? null}
+        initialUpdatedAt={client.satisfactionUpdatedAt ?? null}
+        updatedByName={client.satisfactionUpdatedByName ?? null}
       />
 
       <ClientJourneySection clientId={client.id} />

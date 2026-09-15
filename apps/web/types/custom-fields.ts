@@ -73,6 +73,15 @@ export type FieldDefinition = {
   optionsSource: FieldOptionsSource;
   unit: string | null;
   currency: FieldCurrency | null;
+  /**
+   * ⭐ Sólo para `date`: a cuántos días de distancia la fecha se muestra en
+   * alerta. Nulo = sin aviso.
+   *
+   * Es lo que permite "Próximo lanzamiento · avisar a 15 días" sin hornear la
+   * palabra "lanzamiento" en el producto: cada organización define su fecha con
+   * su propio umbral.
+   */
+  alertDaysBefore: number | null;
   isRequired: boolean;
   sortOrder: number;
   archivedAt: string | null;
@@ -95,6 +104,7 @@ export type FieldDefinitionRow = {
   options_source: string;
   unit: string | null;
   currency: string | null;
+  alert_days_before: number | null;
   is_required: boolean;
   sort_order: number;
   archived_at: string | null;

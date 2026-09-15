@@ -14,7 +14,12 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { isMissingTableError, requireOrganizationId } from "@/lib/auth/bootstrap";
+import {
+  getCurrentProfile,
+  isMissingTableError,
+  requireOrganizationId,
+} from "@/lib/auth/bootstrap";
+import { esNivelValido } from "@/lib/clients/satisfaction";
 import type { Client, ClientTracking } from "@/types/clients";
 import type { ClientJourneyStatus } from "@/types/checkpoints";
 import { buildWeeklyReview, type WeeklyReview } from "@/lib/clients/weekly-review";
@@ -318,4 +323,52 @@ function maxDate(a: string | null, b: string | null): string | null {
   if (a === null) return b;
   if (b === null) return a;
   return a > b ? a : b;
+}
+
+/**
+ * ⭐ Marcar qué tan conforme está un cliente.
+ *
+ * Se guarda **con fecha y con autor**, y esto no es burocracia: es una
+ * impresión de una persona, no una medición. Una marca de "muy conforme" de
+ * hace cuatro meses, mostrada sin fecha, se lee como si fuera de hoy — y sobre
+ * eso se toman decisiones.
+ *
+ * Más adelante esto puede venir del bot de Discord. Cuando llegue, va a haber
+ * que distinguir "lo dijo alguien" de "lo dedujo el sistema"; guardar el autor
+ * desde ahora es lo que hace que esa distinción sea posible sin adivinar sobre
+ * las filas viejas.
+ */
+export async function updateClientSatisfactionAction(
+  clientId: string,
+  nivel: string | null
+): Promise<MutationResult<{ updatedAt: string | null }>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+
+    if (nivel !== null && !esNivelValido(nivel)) {
+      throw new Error("Ese nivel de satisfacción no existe.");
+    }
+
+    const profile = await getCurrentProfile();
+    const updatedAt = nivel ? new Date().toISOString() : null;
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("clients")
+      .update({
+        satisfaction: nivel,
+        satisfaction_updated_at: updatedAt,
+        // Al borrar la marca se borra también quién la puso: un autor sin dato
+        // no dice nada y confunde al leer la fila.
+        satisfaction_updated_by: nivel ? (profile?.id ?? null) : null,
+      })
+      .eq("id", clientId)
+      .eq("organization_id", organizationId);
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath(paths.platform.clients.detail(clientId));
+    revalidatePath(paths.platform.clients.root);
+    return { updatedAt };
+  });
 }

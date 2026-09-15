@@ -149,6 +149,11 @@ export function CustomFieldsPage({
         options: draft.options,
         unit: draft.unit.trim() || null,
         currency: draft.currency,
+        // Vacío = sin aviso. Un cero tipeado también: un umbral de cero días
+        // no es un aviso, es una fecha que siempre está en alerta.
+        alertDaysBefore: Number(draft.alertDaysBefore) > 0
+          ? Number(draft.alertDaysBefore)
+          : null,
         isRequired: draft.isRequired,
       };
 

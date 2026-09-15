@@ -69,6 +69,7 @@ describe("leer una fila de la base", () => {
     key: "tipo_de_win",
     label: "Tipo de win",
     description: null,
+    alert_days_before: null,
     field_type: "select",
     options: [{ value: "hito", label: "Hito", color: "cat-2" }],
     options_source: "inline",
