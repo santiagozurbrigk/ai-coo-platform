@@ -17,6 +17,8 @@ export type DiscordIntegration = {
   bot_profile_applied_at: string | null;
   /** Motivo del último rechazo de Discord. `null` = el perfil está aplicado. */
   bot_profile_error: string | null;
+  /** `false` = modo silencioso: el bot lee y registra, pero no escribe. */
+  bot_can_speak: boolean;
   monitored_channels: MonitoredChannel[];
   auto_monitor_pattern: string | null;
   status: string;

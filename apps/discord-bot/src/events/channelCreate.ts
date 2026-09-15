@@ -10,7 +10,8 @@ import {
   fuzzyMatchClients,
   extractClientNameFromChannel,
 } from "../lib/fuzzy-match";
-import { logError } from "../utils/logger";
+import { puedeHablar } from "../lib/can-speak";
+import { log, logError } from "../utils/logger";
 
 export async function handleChannelCreate(channel: Channel) {
   if (!channel.isTextBased() || !("guildId" in channel)) return;
@@ -35,6 +36,27 @@ export async function handleChannelCreate(channel: Channel) {
       channel_name: channelName,
       purpose: "auto",
     });
+
+    /**
+     * ⭐ El canal queda monitoreado ANTES de decidir si se saluda.
+     *
+     * Es lo que hace que el modo silencioso no sea un modo degradado: agregar
+     * el canal es lo útil —a partir de acá se leen sus mensajes—, y el saludo
+     * es sólo cortesía. Apagar el interruptor saca la cortesía, no la función.
+     */
+    if (!puedeHablar(fullIntegration)) {
+      log(
+        `[discord] #${channelName} agregado en silencio: el servidor ${guildId} ` +
+          `tiene apagado «el bot puede escribir».`
+      );
+      await savePendingChannel({
+        organization_id: orgId,
+        guild_id: guildId,
+        channel_id: textChannel.id,
+        channel_name: channelName,
+      });
+      return;
+    }
 
     const extractedName = extractClientNameFromChannel(channelName);
     const clients = await getClients(orgId);

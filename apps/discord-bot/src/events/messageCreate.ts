@@ -14,12 +14,8 @@ export async function handleMessageCreate(message: Message) {
 
     await processMessage(message);
   } catch (error) {
+    // El aviso al usuario lo da `handleLinkCommand`, que es quien sabe si el
+    // servidor tiene permitido que el bot escriba. Acá sólo queda el registro.
     logError("Error handling message:", error);
-    // Un comando que falla sin decir nada es indistinguible de un bot dormido.
-    if (message.content.toLowerCase().startsWith("!vincular")) {
-      await message
-        .reply("Algo falló de mi lado procesando el comando. Avisale al equipo.")
-        .catch(() => undefined);
-    }
   }
 }

@@ -106,6 +106,72 @@ datos dejaran de decrecer.
 
 ---
 
+### 2026-09-15 — 🔇 Modo silencioso del bot de Discord
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** Discord (bot + panel de integración)
+
+**Qué se hizo:**
+
+Un interruptor por servidor —**«El bot puede escribir en tu servidor»**, prendido
+por defecto— que apaga los dos únicos momentos en que el bot habla, sin tocar
+nada de lo que hace en silencio.
+
+- Migración `20260915130000_discord_modo_silencioso.sql`: columna
+  `discord_integrations.bot_can_speak boolean not null default true`.
+- `apps/discord-bot/src/lib/can-speak.ts`: `puedeHablar()`, la única regla.
+- `events/channelCreate.ts`: el canal se agrega a monitoreados **antes** de
+  decidir si se saluda; en silencio se agrega y no se saluda.
+- `handlers/link-handler.ts`: reestructurado en `handleLinkCommand` (resuelve
+  integración y modo) + `vincular` (el flujo). El aviso de error bajó acá.
+- `events/messageCreate.ts`: ya no responde errores de `!vincular` — sólo loguea.
+- `app/discord/actions.ts`: `updateDiscordBotCanSpeakAction`.
+- `components/shared/switch-row.tsx`: era `settings/notification-toggle.tsx`,
+  se movió y renombró al salir el segundo uso.
+- `components/integrations/discord-settings.tsx`: sección «Qué puede hacer el
+  bot» con el switch y, cuando está apagado, qué sigue y qué no.
+
+**Por qué / finalidad:**
+
+Pregunta directa del tester: *«para conectarlo y que no mande mensajes y eso. ¿o
+se configura post conexión?»*. Se podía conseguir el silencio maniobrando —no
+usar el patrón automático y agregar los canales a mano— pero era una receta, no
+una opción, y un canal `cliente-juan` creado sin pensar lo rompía igual.
+
+**Decisiones de diseño relevantes:**
+
+- **Default `true`, y `undefined` significa `true`.** La columna aparece en
+  servidores que ya funcionan. Además, si el bot se despliega antes de que corra
+  la migración, el campo llega `undefined`: tratarlo como silencio dejaría mudos
+  a todos sin un error en el log que lo explique.
+- **El canal se monitorea igual.** Apagar el interruptor saca la cortesía, no la
+  función. Ésa es la diferencia entre un modo silencioso y un modo degradado.
+- **`!vincular` con email exacto vincula igual, en silencio.** Es certeza;
+  mandarlo al buzón sería trabajo manual para confirmar algo ya sabido.
+- **`!vincular` por parecido de nombre NO vincula en silencio.** Con el bot
+  hablando se auto-vinculaba *y avisaba* «te vinculé por nombre, si está mal
+  avisá» — ese aviso era lo que hacía aceptable la corazonada. Sin él, una
+  conjetura se volvería un hecho que nadie puede ver ni corregir. Va al buzón.
+- **El aviso de error bajó de `messageCreate` a `handleLinkCommand`.** Arriba
+  habría que volver a consultar la base para saber el modo, y si lo que falló
+  fue la base, esa consulta también falla y el bot rompería el silencio con un
+  mensaje de error en el peor momento.
+- **Un servidor sin integración recibe respuesta igual.** No tiene configuración
+  que respetar, y un comando dirigido al bot merece una respuesta.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **La migración NO se aplicó**: el MCP de Supabase estuvo caído (503) toda la
+  sesión. Hasta que corra, el switch se ve prendido pero guardarlo falla con
+  «column does not exist» (el error se muestra en el toast). El bot mientras
+  tanto se comporta como siempre.
+- `apps/discord-bot` **no tiene arnés de tests** (no hay vitest en ese paquete),
+  así que `puedeHablar()` quedó sin test pese a ser lógica pura.
+- Sin probar a mano: el interruptor no se ejerció contra un servidor real.
+
+---
+
 ### 2026-09-15 — ⚙️ Fathom trae desde la conexión en adelante, no el historial
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
