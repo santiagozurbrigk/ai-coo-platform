@@ -37,6 +37,20 @@ const DialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         "glass-liquid-border fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-modal)]",
+        // ⭐ `grid-cols-[minmax(0,1fr)]` y no la columna `auto` que trae `grid`.
+        //
+        // Una columna `auto` nunca se hace más chica que el contenido más ancho
+        // que no se puede partir: un texto con `truncate` —que es `nowrap`—, un
+        // nombre de archivo largo, una URL. La columna crece a ese ancho y se
+        // desborda del modal, que sí está limitado por `max-w-*`. Como acá
+        // abajo hay `overflow-x-hidden`, lo que sobra no se ve: el borde del
+        // modal corta el texto a la mitad y manda los botones del pie afuera de
+        // la pantalla. El modal se ve bien y su contenido está cortado, que es
+        // la peor combinación para darse cuenta.
+        //
+        // `minmax(0,1fr)` deja que la columna baje de su ancho mínimo, así el
+        // `truncate` recorta el texto en vez de empujar el modal.
+        "grid-cols-[minmax(0,1fr)]",
         "origin-center data-[state=open]:animate-dialog-content-show data-[state=closed]:animate-dialog-content-hide",
         "motion-reduce:data-[state=open]:animate-dialog-content-show-reduced motion-reduce:data-[state=closed]:animate-dialog-content-hide-reduced",
         "dark:border-glass dark:bg-[#111111]/80 dark:backdrop-blur-xl dark:backdrop-saturate-[180%]",
