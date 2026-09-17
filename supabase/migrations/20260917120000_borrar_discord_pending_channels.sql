@@ -1,0 +1,20 @@
+-- Borra una tabla que nadie leyó nunca.
+--
+-- `discord_pending_channels` existe desde la primera migración de Discord
+-- (2026-05-27). El bot le escribía una fila por cada canal auto-detectado, y
+-- **ninguna parte de la aplicación la leyó jamás**: no hay un select, ni una
+-- pantalla, ni un cron que la mire. Dato escrito para nadie durante casi cuatro
+-- meses.
+--
+-- La función que cumplía —"acá hay un canal nuevo que quizás quieras revisar"—
+-- ahora la cumple la pantalla de canales, que muestra cada canal monitoreado con
+-- su tipo, sus dueños y quiénes escribieron. Un canal sin resolver se ve ahí,
+-- con el botón para resolverlo al lado.
+--
+-- Se borra en su propia migración, separada de la entrega que la dejó sin uso:
+-- un `drop table` no se mezcla con cambios que hacen otra cosa, para que
+-- revertirlo sea revertir un solo commit.
+--
+-- ⚠️ Es destructivo y no se puede deshacer. Se verificó antes de escribirlo que
+-- la tabla estaba vacía en producción (0 filas el 2026-09-17).
+drop table if exists public.discord_pending_channels;

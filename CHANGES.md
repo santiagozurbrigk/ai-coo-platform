@@ -14,6 +14,187 @@
 
 ---
 
+### 2026-09-17 — 🧑‍💼 Quién de Discord es del equipo, con sugerencias
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** Discord (bot + panel + clasificador)
+
+**Qué se hizo:**
+
+Un usuario de Discord ahora puede ser **cliente**, **gente del equipo** o **sin
+definir**, y la pantalla sugiere cuál es comparando nombres.
+
+⭐ **Por qué no era opcional.** Medido en el servidor real, de las 7 personas que
+escribieron, **al menos 4 son del propio equipo**:
+
+| Escribió en Discord | En el equipo de Limitless | Nivel |
+|---|---|---|
+| Luckas Falco (4 msgs) | "Luckas Falco" | exacto |
+| Thiago Azcurra (4) | "Thiago" | fuerte |
+| Nazareno Gamero (2) | "Nazareno Gamero" — el founder | exacto |
+| Fede McEwen (1) | "Fede" | fuerte |
+| Santiago Molina (2) | "Santi" | posible |
+| Geronimo Robles (1) | — | — |
+| Osne (1) | — | — |
+
+La entrega anterior las mostraba a las siete bajo un «7 sin asociar»,
+invitando a decir qué cliente era cada una. Hacerle caso cargaba mal más de la
+mitad: **lo entregado empujaba a meter datos equivocados**.
+
+- Migración `20260917110000_discord_equipo.sql`: `discord_team_members`
+  (org, discord_user_id, profile_id nullable) con RLS.
+- Migración `20260917120000_borrar_discord_pending_channels.sql`: borra una
+  tabla que nadie leyó nunca (ver abajo).
+- `apps/web/lib/discord/suggest-identity.ts` (nuevo): `sugerirIdentidad`, con
+  tres niveles. 12 tests, todos sobre los nombres reales del servidor.
+- `apps/discord-bot/src/lib/attribution.ts`: el equipo corta antes que todo.
+- `apps/discord-bot/src/handlers/message-handler.ts`: el equipo no genera logros,
+  y siendo del equipo se saltean las dos consultas siguientes.
+- `app/discord/actions.ts`: `markDiscordPersonAsTeamAction`, exclusividad
+  cliente↔equipo en las dos direcciones, `recalcularAtribucion` con equipo, y
+  sugerencias calculadas al leer.
+- `lib/discord/classify-run.ts`: los mensajes del equipo **no se mandan a la
+  IA**.
+- `components/integrations/discord-channel-card.tsx`: tres estados y el chip de
+  sugerencia con su nivel de certeza a la vista.
+
+**Por qué / finalidad:**
+
+Que el sistema sepa distinguir a un cliente de alguien del propio negocio.
+
+**Decisiones de diseño relevantes:**
+
+- **`profile_id` nullable a propósito.** Alguien que labura con vos y no tiene
+  cuenta en Limitless —un editor, un asistente— igual tiene que poder marcarse
+  como equipo. Obligar a elegir una persona lo dejaría afuera y sus mensajes
+  seguirían contándose como de un cliente.
+- **El equipo corta antes que el vínculo de persona**, en el bot y en el
+  recálculo. Si una fila vieja quedara marcada como las dos cosas, la respuesta
+  segura es no atribuir: un mensaje sin dueño se arregla marcando bien a la
+  persona; uno atribuido de más ya ensució una ficha y nadie va a mirar por qué.
+- **La sugerencia muestra su nivel de certeza en vez de esconderlo.** `posible`
+  —el caso "Santi" contra "Santiago Molina"— dice "revisalo antes de confirmar".
+  Confirmar un parecido apurado es lo que mete a un cliente en el equipo, y eso
+  hace que sus mensajes dejen de contarse **en silencio**.
+- **Un empate entre equipo y cliente se resuelve a favor del equipo**, por
+  asimetría de daño: marcar a alguien del equipo como cliente crea una ficha
+  fantasma que se ve; marcar a un cliente como equipo lo apaga sin señal.
+- **El apodo necesita 3 caracteres.** Con dos, "Na" coincidía con "Nazareno",
+  "Natalia" y "Nahuel" a la vez.
+- **`aplanar()` saca los separadores**, que es lo que hace funcionar el caso más
+  común: `luckasfalco` y "Luckas Falco" son el mismo texto sin espacios.
+- **El filtro de clasificación está duplicado** (SQL + memoria) a propósito: un
+  filtro de costo que falla en silencio es el que nadie mira hasta la factura.
+
+**Huecos que se encontraron revisando lo anterior, y se taparon:**
+
+1. **El clasificador mandaba a la IA lo que escribe el equipo.** Cada mensaje
+   cuesta una porción de llamada a Haiku, y el clasificador además *corrige*
+   `is_testimonial`: un "felicitaciones Thiago, tremendo logro" del coach podía
+   terminar propuesto como win. En el servidor real, más de la mitad del gasto
+   de clasificación no tenía a quién servir.
+2. **`discord_pending_channels` era dato escrito para nadie desde 2026-05-27.**
+   El bot le escribía una fila por canal auto-detectado y ningún select la leyó
+   jamás. Se sacó la escritura y se borró la tabla (verificada vacía antes).
+
+**Riesgos / deuda técnica pendiente:**
+
+- Sin probar a mano contra el servidor real.
+- `apps/discord-bot` sigue sin arnés de tests.
+- `recalcularAtribucion` actualiza fila por fila.
+
+---
+
+### 2026-09-17 — 👥 De quién es cada canal de Discord, y de quién es cada mensaje
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** Discord (bot + panel + ficha de cliente)
+
+**Qué se hizo:**
+
+Pedido: *"poder decirle al sistema: este canal pertenece a este/estos clientes.
+Y por otro lado, este canal es comunitario —por ejemplo el de wins— ahí el bot es
+cuando debe reconocer las wins"*.
+
+Antes de construir se midió producción, y el diagnóstico cambió el diseño:
+
+| Dato | Valor |
+|---|---|
+| Clientes en el sistema | **335** |
+| Personas de Discord vinculadas | **1** |
+| Mensajes guardados | 16 |
+| Mensajes que no pertenecían a nadie | **15** (94%) |
+
+`summarizeByClient` ignora a propósito los mensajes sin cliente, así que con 15
+de 16 huérfanos **la alerta de silencio no podía dispararse para nadie**: estaba
+enchufada y midiendo el vacío. Y los canales reales no eran de un cliente cada
+uno: `wins` (7 personas distintas), `chat-general` (3), `equipo`.
+
+- Migración `20260917100000_discord_canales_por_cliente.sql`:
+  `discord_channel_clients` (org, channel_id, client_id) con RLS, y
+  `discord_messages.attributed_by`.
+- `apps/web/lib/discord/channels.ts` (nuevo): tipos, `normalizarCanal`,
+  `sugerirWins`, `clienteDelCanal`. 10 tests.
+- `apps/web/lib/discord/activity.ts`: dos poblaciones —totales vs. reloj del
+  silencio— y `silenceMeasurable`. 6 tests nuevos.
+- `apps/discord-bot/src/lib/attribution.ts` (nuevo): `atribuirMensaje`.
+- `apps/discord-bot`: `getChannelClients`, `getMonitoredChannel` (reemplaza a
+  `isChannelMonitored`), `saveMessage` con `attributed_by`.
+- `handlers/testimonial-handler.ts`: `isTestimonial` ya no decide **dónde**
+  buscar; sólo juzga el texto.
+- `app/discord/actions.ts`: `recalcularAtribucion` + 6 acciones nuevas.
+- `components/integrations/discord-channel-card.tsx` (nuevo).
+- `components/clients/client-discord-activity.tsx`: muestra el estado «falta
+  vincular» y cuántos mensajes son de otra gente en su canal.
+
+**Por qué / finalidad:**
+
+Que la atribución deje de depender de que el cliente escriba `!vincular` solo.
+
+**Decisiones de diseño relevantes:**
+
+- **`attributed_by` existe para que la alerta de silencio no se apague sola.**
+  En el canal de Juan también escribe el coach; si eso reiniciara el reloj, el
+  cliente que se está yendo queda tapado por la actividad del propio equipo. El
+  reloj lo mueven **sólo** los mensajes `person`.
+- **Canal con dos o más dueños no atribuye nada.** No hay forma de saber cuál
+  escribió y elegir el primero sería inventar. La pantalla lo dice.
+- **Todo migra a `community`, que es el comportamiento exacto de hoy.** Ningún
+  mensaje se atribuye por canal hasta que alguien lo marque. Nadie se despierta
+  con sus mensajes repartidos entre clientes que no eligió.
+- **El tilde `wins` se separó del tipo de canal.** El plan aprobado ataba
+  "comunitario" a "buscar logros", pero `#chat-general` es comunitario y no es
+  de logros: atarlos llenaría el buzón de wins con saludos. Son dos campos.
+- **`wins` se guarda explícito, no se deduce del nombre en cada mensaje.** La
+  heurística pasó a ser sugerencia inicial (al agregar el canal) y el usuario
+  puede corregirla. La lista de palabras quedó duplicada en bot y web porque son
+  paquetes separados, pero **sólo se usa al escribir**: lo que decide siempre es
+  el booleano guardado, así que no pueden contradecirse en caliente.
+- **`recalcularAtribucion` es una sola rutina, no cuatro parches.** El caso que
+  rompe los parches: un mensaje atribuido por canal cuyo autor se vincula después
+  a **otro** cliente. Un parche que sólo mire "mensajes sin dueño" lo deja mal
+  para siempre y nadie lo nota.
+- **Un canal agregado a mano nace `community`; uno auto-detectado nace `client`
+  sin cliente asignado.** El auto-detectado llegó por coincidir con el patrón
+  `cliente-`, pero no se le asigna nadie solo: el bot ya calcula una coincidencia
+  por nombre buena para saludar, y saludar mal es una vergüenza mientras que
+  atribuir mal mete conversaciones ajenas en una ficha.
+
+**Riesgos / deuda técnica pendiente:**
+
+- Sin probar a mano: nada de esto se ejerció contra el servidor real.
+- `recalcularAtribucion` actualiza fila por fila. Con 16 mensajes es gratis; con
+  decenas de miles habría que pasarlo a SQL.
+- `discord_pending_channels` sigue siendo **una tabla que nadie lee**: el bot
+  escribe una fila por cada canal auto-detectado desde el día uno. Ahora que la
+  pantalla muestra los canales con su estado, esa tabla no tiene función.
+- `apps/discord-bot` sigue sin arnés de tests: `atribuirMensaje` y
+  `buscaLogrosPorNombre` son lógica pura sin cobertura.
+
+---
+
 ### 2026-09-15 — 🐛 El embudo del panel general pintaba la card entera de naranja
 
 **Rama/branch:** `claude/clever-ptolemy-9ggvo0`

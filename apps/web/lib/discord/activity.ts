@@ -14,7 +14,21 @@
 export type ActivityMessage = {
   sentAt: string;
   isTestimonial?: boolean;
+  /**
+   * ⭐ Cómo se supo de quién era este mensaje.
+   *
+   * `"person"` = su autor está vinculado a un cliente: **es el cliente
+   * hablando**. `"channel"` = su autor no está vinculado y el canal es de un
+   * solo cliente, así que se dedujo. Ausente cuenta como `"person"`, porque
+   * antes de que existiera la atribución por canal ésa era la única forma.
+   */
+  attributedBy?: "person" | "channel" | null;
 };
+
+/** Un mensaje que mueve el reloj del silencio: lo escribió el cliente. */
+function loEscribioElCliente(message: ActivityMessage): boolean {
+  return message.attributedBy !== "channel";
+}
 
 /**
  * Días sin hablar a partir de los cuales un cliente cuenta como en silencio.
@@ -49,6 +63,20 @@ export type ClientActivity = {
   isSilent: boolean;
   /** Nunca escribió un mensaje. Es un problema distinto al silencio. */
   neverSpoke: boolean;
+  /**
+   * Mensajes en su espacio que **no** escribió él: se dedujeron del canal.
+   * Cuentan como actividad del canal, no como que el cliente habló.
+   */
+  channelMessages: number;
+  /**
+   * ⭐ Si el silencio se puede medir.
+   *
+   * `false` cuando hay actividad en su canal pero ninguna persona vinculada que
+   * la haya escrito. Ahí "nunca escribió" sería una conclusión falsa: el
+   * problema no es el cliente, es que nadie asoció todavía su usuario de
+   * Discord. Son dos cosas distintas y la pantalla las dice distinto.
+   */
+  silenceMeasurable: boolean;
 };
 
 export function summarizeClientActivity(
@@ -57,7 +85,26 @@ export function summarizeClientActivity(
 ): ClientActivity {
   const nowMs = now.getTime();
 
-  const times = messages
+  /**
+   * ⭐ Dos poblaciones, a propósito.
+   *
+   * Los totales cuentan **todo** lo que pasó en el espacio del cliente: es lo
+   * que uno quiere ver al abrir su ficha. El reloj del silencio cuenta **sólo
+   * lo que escribió él**.
+   *
+   * Mezclarlas apaga la alerta sola: en el canal de Juan escribe también el
+   * coach, y si eso reiniciara el reloj, el cliente que se está yendo quedaría
+   * tapado por la actividad del propio equipo — justo lo contrario de para qué
+   * existe la alerta.
+   */
+  const propios = messages.filter(loEscribioElCliente);
+  const channelMessages = messages.length - propios.length;
+
+  const times = propios
+    .map((message) => new Date(message.sentAt).getTime())
+    .filter((value) => !Number.isNaN(value));
+
+  const todos = messages
     .map((message) => new Date(message.sentAt).getTime())
     .filter((value) => !Number.isNaN(value));
 
@@ -65,14 +112,18 @@ export function summarizeClientActivity(
 
   if (times.length === 0) {
     return {
-      totalMessages: 0,
-      messagesLast7Days: 0,
-      messagesLast30Days: 0,
+      totalMessages: todos.length,
+      messagesLast7Days: todos.filter((t) => nowMs - t <= 7 * DAY_MS).length,
+      messagesLast30Days: todos.filter((t) => nowMs - t <= 30 * DAY_MS).length,
       testimonials,
       lastMessageAt: null,
       daysSinceLastMessage: null,
       isSilent: false,
       neverSpoke: true,
+      channelMessages,
+      // Hay movimiento en su canal pero nadie vinculado que lo haya escrito:
+      // el silencio no es medible todavía, y decir "nunca escribió" mentiría.
+      silenceMeasurable: channelMessages === 0,
     };
   }
 
@@ -80,19 +131,26 @@ export function summarizeClientActivity(
   const daysSince = Math.floor((nowMs - lastMs) / DAY_MS);
 
   return {
-    totalMessages: times.length,
-    messagesLast7Days: times.filter((t) => nowMs - t <= 7 * DAY_MS).length,
-    messagesLast30Days: times.filter((t) => nowMs - t <= 30 * DAY_MS).length,
+    totalMessages: todos.length,
+    messagesLast7Days: todos.filter((t) => nowMs - t <= 7 * DAY_MS).length,
+    messagesLast30Days: todos.filter((t) => nowMs - t <= 30 * DAY_MS).length,
     testimonials,
     lastMessageAt: new Date(lastMs).toISOString(),
     daysSinceLastMessage: daysSince,
     isSilent: daysSince >= SILENCE_THRESHOLD_DAYS,
     neverSpoke: false,
+    channelMessages,
+    silenceMeasurable: true,
   };
 }
 
 /** Cómo se lee la actividad de un cliente en una línea. */
 export function describeActivity(activity: ClientActivity): string {
+  // Antes que nada: si hay mensajes en su canal que no escribió nadie
+  // identificado, el problema no es el cliente. Decir "nunca escribió" haría
+  // que alguien se preocupe por una relación que en realidad no se sabe cómo
+  // está, y que nadie toque lo único que lo arregla: vincular a la persona.
+  if (!activity.silenceMeasurable) return "Falta vincular a su usuario";
   if (activity.neverSpoke) return "Nunca escribió";
   if (activity.daysSinceLastMessage === null) return "Sin datos";
   if (activity.daysSinceLastMessage === 0) return "Escribió hoy";

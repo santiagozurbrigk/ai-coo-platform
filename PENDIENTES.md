@@ -9,24 +9,31 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [MIGRACION-DISCORD-SIN-APLICAR] Correr la migración del modo silencioso 🔴
+### [DISCORD-SIN-PROBAR] Probar canales, equipo y sugerencias 🔴
 
-**Qué es:** `supabase/migrations/20260915130000_discord_modo_silencioso.sql`
-agrega `discord_integrations.bot_can_speak`. **No se aplicó**: el MCP de Supabase
-estuvo caído (503) toda la sesión del 2026-09-15.
+**Qué es:** las migraciones ya corrieron y la pantalla está lista, pero **nada se
+probó a mano**. El servidor real sigue con 15 de 16 mensajes sin dueño y 7
+personas sin definir, de las cuales 4 son del propio equipo.
 
-**Mientras no corra:** el switch se ve prendido en el panel, pero al apretarlo
-falla con «column does not exist» y el error sale en el toast. El bot se comporta
-como siempre (habla), que es el default correcto.
+**Qué hacer, en este orden:**
 
-**Qué hacer:** aplicar la migración (CLI o SQL Editor del dashboard) y después:
-
-1. Panel de Discord → apagar «El bot puede escribir en tu servidor».
-2. Crear un canal `cliente-prueba` en el servidor → **no** tiene que saludar,
-   pero **sí** tiene que aparecer en canales monitoreados.
-3. Escribir `!vincular loquesea@mail.com` → no tiene que contestar nada, y tiene
-   que aparecer en vinculaciones pendientes.
-4. Volver a prender el switch y repetir el paso 2 → ahora sí saluda.
+1. Integraciones → Discord. Los 8 canales aparecen como **Comunitario**, y
+   `『🏆』wins` y `『🏆』wins-personales` con la etiqueta «Logros».
+2. Sacar `『👨』equipo` de los canales monitoreados: ahí escribe el equipo.
+3. Abrir «Quiénes escribieron acá» en `『🏆』wins`. Tienen que aparecer 7 nombres
+   **con sugerencias**: Luckas Falco y Nazareno Gamero con "el nombre coincide
+   exacto", Thiago Azcurra y Fede McEwen con "el nombre coincide", Santiago
+   Molina con "puede ser — revisalo antes de confirmar", y Geronimo Robles y
+   Osne sin sugerencia.
+4. Confirmar las de equipo. El contador «sin asociar» tiene que bajar de 7 a 3.
+5. Asociar a un cliente real a alguien, y **mirar la ficha de ese cliente**: los
+   mensajes que ya estaban guardados tienen que aparecer ahí.
+   **Si no aparecen, ése es el primer bug a mirar.**
+6. Marcar un canal como «De un cliente» con **un** cliente, escribir desde una
+   cuenta no asociada, y confirmar que se cuenta para ese cliente pero **no**
+   apaga la alerta de silencio.
+7. Escribir desde una cuenta marcada como equipo en ese mismo canal: **no** tiene
+   que contarse para nadie.
 
 ---
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, Hash, Upload, VolumeX, X } from "lucide-react";
 import { Badge, Button, GlassPanel } from "@ai-coo/ui";
 import {
@@ -15,8 +16,12 @@ import {
   updateDiscordBotAvatarAction,
   removeDiscordBotAvatarAction,
   updateDiscordBotCanSpeakAction,
+  type DiscordChannelPerson,
+  type DiscordTeamOption,
 } from "@/app/discord/actions";
 import { SwitchRow } from "@/components/shared/switch-row";
+import { sugerirWins } from "@/lib/discord/channels";
+import { DiscordChannelCard } from "./discord-channel-card";
 import { useToast } from "@/providers/toast-provider";
 import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
 import type {
@@ -33,6 +38,9 @@ type Props = {
   linkedClients: DiscordClientLink[];
   pendingLinks: DiscordPendingLink[];
   clients: { id: string; name: string }[];
+  channelClients: Record<string, string[]>;
+  channelPeople: Record<string, DiscordChannelPerson[]>;
+  team: DiscordTeamOption[];
 };
 
 function PendingLinkCard({
@@ -129,6 +137,9 @@ export function DiscordSettings({
   linkedClients: initialLinked,
   pendingLinks: initialPending,
   clients,
+  channelClients,
+  channelPeople,
+  team,
 }: Props) {
   const { push } = useToast();
   const [botName, setBotName] = useState(
@@ -151,6 +162,12 @@ export function DiscordSettings({
   // Las vinculaciones las escribe el bot desde Discord, no esta pantalla: sin
   // esto había que apretar F5 para verlas aparecer.
   useAutoRefresh();
+
+  // Las tarjetas de canal mutan datos que llegan como props del servidor
+  // (dueños, personas asociadas), así que después de guardar hay que volver a
+  // pedirlos: el estado local de esta pantalla no los tiene.
+  const router = useRouter();
+  const refresh = () => router.refresh();
 
   /*
    * Las listas viven en estado local para poder actualizarlas al toque cuando la
@@ -208,7 +225,8 @@ export function DiscordSettings({
         {
           channel_id: channel.id,
           channel_name: channel.name,
-          purpose: "clients",
+          purpose: "community",
+        wins: sugerirWins(channel.name),
         },
       ]);
       setPicker(
@@ -505,25 +523,16 @@ export function DiscordSettings({
           </p>
         ) : (
           monitoredChannels.map((channel) => (
-            <div
+            <DiscordChannelCard
               key={channel.channel_id}
-              className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2"
-            >
-              <div className="flex items-center gap-2">
-                <Hash className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-sm">{channel.channel_name}</span>
-                <Badge variant="secondary" className="text-[10px]">
-                  {channel.purpose}
-                </Badge>
-              </div>
-              <button
-                type="button"
-                onClick={() => removeChannel(channel.channel_id)}
-                className="text-muted-foreground hover:text-destructive"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
+              channel={channel}
+              clientIds={channelClients[channel.channel_id] ?? []}
+              people={channelPeople[channel.channel_id] ?? []}
+              clients={clients}
+              team={team}
+              onRemove={() => removeChannel(channel.channel_id)}
+              onChanged={refresh}
+            />
           ))
         )}
 
