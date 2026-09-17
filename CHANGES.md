@@ -14,6 +14,64 @@
 
 ---
 
+### 2026-09-17 — 🐛 Los modales cortaban su propio contenido
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** design system (`@ai-coo/ui`), workboard
+
+**Qué se hizo:**
+
+Reportado con captura en «¿Cuánto tiempo le dedicaste?»: el subtítulo cortado a
+la mitad de una palabra y el botón «Registrar tiempo» fuera de la pantalla.
+
+- `packages/ui/src/primitives/dialog.tsx`: `DialogContent` pasa de la columna
+  `auto` que trae `grid` a `grid-cols-[minmax(0,1fr)]`.
+- `components/workboard/log-time-modal.tsx`: el subtítulo pasa de `truncate` a
+  `line-clamp-2 break-words`.
+
+**Por qué / finalidad:**
+
+⭐ **La causa.** `DialogContent` es un `grid`, y una columna `auto` nunca se hace
+más chica que el contenido más ancho que no se puede partir. El subtítulo tenía
+`truncate`, que es `white-space: nowrap`: el título largo de la tarea hacía que
+la columna creciera a **su ancho completo**, más allá del `max-w-md` del modal.
+Todo lo de abajo —el separador, el pie con sus botones— se acomodaba a ese ancho
+inventado, y el `overflow-x-hidden` del propio modal recortaba lo que sobraba.
+
+Lo peor del síntoma es que **el modal se ve bien**: la caja tiene el tamaño
+correcto y los bordes redondeados en su lugar. Lo único roto es lo que hay
+adentro, así que no se lee como un problema de layout sino como texto faltante.
+
+**Decisiones de diseño relevantes:**
+
+- **El arreglo va en el primitivo, no en el modal.** Esto le puede pasar a
+  cualquiera de los 176 usos de `DialogContent`: basta un `truncate`, un nombre
+  de archivo largo o una URL pegada. Arreglarlo sólo acá dejaba la trampa armada
+  para el próximo.
+- **Verificado con navegador, no razonando.** Se reprodujo el CSS exacto en una
+  página aislada y se sacó captura antes/después con Chromium a 593px de ancho
+  —el mismo de la captura del reporte—. El «antes» reproduce el bug hasta el
+  detalle de la línea divisoria escapándose del borde redondeado.
+- **`line-clamp-2` en vez de `truncate`:** el título de la tarea es el único
+  lugar del modal que dice a qué se le está cargando el tiempo, y cortado en
+  «…del módulo de webinar orgánico al de web» no alcanza para distinguir dos
+  tareas parecidas. `break-words` cubre el texto sin espacios.
+
+**Riesgos / deuda técnica pendiente:**
+
+- El cambio toca un primitivo usado por 176 diálogos. Es seguro por construcción
+  —un diálogo que ya entraba no cambia, y uno que se desbordaba ahora se
+  contiene— pero **no se miraron los 176 a ojo**.
+- ⚠️ **Queda sin tocar el doble padding.** `DialogContent` trae `p-6` y
+  `DialogHeader`/`DialogFooter` agregan `px-6` propio, así que el contenido
+  queda a 48px del borde y las líneas divisorias arrancan 24px adentro en vez de
+  ir de lado a lado (se ve en la captura del reporte). Es cosmético, es previo,
+  y arreglarlo re-estila **todos** los diálogos de la aplicación: no se mezcla
+  con un bugfix.
+
+---
+
 ### 2026-09-17 — 🧑‍💼 Quién de Discord es del equipo, con sugerencias
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`

@@ -9,6 +9,24 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [DIALOG-DOBLE-PADDING] El padding duplicado de los modales 🟡
+
+**Qué es:** `DialogContent` trae `p-6` y `DialogHeader`/`DialogFooter` agregan su
+propio `px-6`. Resultado: el contenido queda a 48px del borde, y las líneas
+divisorias del encabezado y del pie arrancan 24px adentro en vez de ir de lado a
+lado como pide el diseño de esos componentes (que traen `border-b`/`border-t`
+justamente para eso).
+
+**Por qué no se arregló ya:** sacar el `p-6` de `DialogContent` re-estila los
+**176** usos de diálogo de la aplicación. Es un cambio de diseño, no un bugfix,
+y hay que mirarlo pantalla por pantalla.
+
+**Qué hacer:** decidir si el padding vive en el contenedor o en cada sección,
+aplicarlo en `packages/ui/src/primitives/dialog.tsx`, y recorrer los diálogos
+más usados (workboard, clientes, integraciones) antes de mergear.
+
+---
+
 ### [DISCORD-SIN-PROBAR] Probar canales, equipo y sugerencias 🔴
 
 **Qué es:** las migraciones ya corrieron y la pantalla está lista, pero **nada se

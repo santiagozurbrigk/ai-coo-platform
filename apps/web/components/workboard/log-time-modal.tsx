@@ -125,7 +125,17 @@ export function LogTimeModal({
           <>
             <DialogHeader>
               <DialogTitle>¿Cuánto tiempo le dedicaste?</DialogTitle>
-              <DialogDescription className="truncate">
+              {/*
+                Dos líneas y no una: el título de la tarea es el único lugar
+                del modal que dice **a qué** le estás cargando el tiempo, y
+                cortado en "…del módulo de webinar orgánico al de web" no
+                alcanza para distinguir dos tareas parecidas.
+
+                `break-words` cubre el caso del texto sin espacios (una URL
+                pegada), que sin eso sigue siendo una sola palabra imposible
+                de partir.
+              */}
+              <DialogDescription className="line-clamp-2 break-words">
                 {taskTitle}
               </DialogDescription>
             </DialogHeader>
