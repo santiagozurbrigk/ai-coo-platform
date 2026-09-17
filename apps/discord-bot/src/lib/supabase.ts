@@ -209,16 +209,6 @@ export async function getClientByEmail(
   return data;
 }
 
-export async function savePendingChannel(data: {
-  organization_id: string;
-  guild_id: string;
-  channel_id: string;
-  channel_name: string;
-}) {
-  await db()
-    .from("discord_pending_channels")
-    .upsert(data, { onConflict: "channel_id" });
-}
 
 /**
  * Los clientes dueños de un canal.
@@ -240,6 +230,27 @@ export async function getChannelClients(
   reportarError(`getChannelClients(${channelId})`, error);
 
   return (data ?? []).map((fila) => fila.client_id as string);
+}
+
+/**
+ * Si un usuario de Discord es gente del equipo del negocio.
+ *
+ * Se consulta **antes** que el dueño del canal y corta la cadena: si es del
+ * equipo, no hay nada que atribuir y las otras consultas no hacen falta.
+ */
+export async function esPersonaDelEquipo(
+  organizationId: string,
+  discordUserId: string
+): Promise<boolean> {
+  const { data, error } = await db()
+    .from("discord_team_members")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("discord_user_id", discordUserId)
+    .maybeSingle();
+  reportarError(`esPersonaDelEquipo(${discordUserId})`, error);
+
+  return Boolean(data);
 }
 
 /**

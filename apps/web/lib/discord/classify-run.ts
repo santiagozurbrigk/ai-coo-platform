@@ -36,18 +36,71 @@ export async function classifyDiscordMessagesForOrg(
   const limit = options.limit ?? CLASSIFY_RUN_LIMIT;
   const admin = createAdminClient();
 
-  const { data, error } = await admin
+  /**
+   * ⭐ Lo que escribe el equipo no se clasifica.
+   *
+   * Esto es plata: cada mensaje que entra acá cuesta una porción de llamada a
+   * Haiku, y lo que escribe tu propio equipo no es actividad de ningún cliente
+   * —no hay sentimiento de cliente que medir ni logro que detectar—. Peor: el
+   * clasificador **corrige** `is_testimonial`, así que un "felicitaciones
+   * Thiago, tremendo logro" del coach podía terminar marcado como testimonio.
+   *
+   * En el servidor real, 4 de las 7 personas que escribían eran del equipo: más
+   * de la mitad del gasto de clasificación no tenía a quién servir.
+   */
+  const { data: equipo } = await admin
+    .from("discord_team_members")
+    .select("discord_user_id")
+    .eq("organization_id", organizationId);
+
+  const idsDelEquipo = (equipo ?? []).map(
+    (fila) => fila.discord_user_id as string,
+  );
+
+  let query = admin
     .from("discord_messages")
-    .select("id, content, channel_name")
+    .select("id, content, channel_name, discord_user_id")
     .eq("organization_id", organizationId)
     // Sin clasificar todavía. `ai_sentiment` es la marca de "ya pasó por acá".
-    .is("ai_sentiment", null)
+    .is("ai_sentiment", null);
+
+  /**
+   * El filtro va en la consulta —para que el tope de `limit` no se gaste en
+   * mensajes que después se descartan— pero **sólo con ids que sean números**.
+   *
+   * Los ids de Discord son numéricos siempre; interpolar cualquier otra cosa
+   * dentro de un `in (...)` de PostgREST arma una condición que puede fallar o,
+   * peor, no filtrar nada sin avisar. Lo que no se puede interpolar seguro se
+   * filtra abajo en memoria.
+   */
+  const seguros = idsDelEquipo.filter((id) => /^\d+$/.test(id));
+  if (seguros.length > 0) {
+    query = query.not("discord_user_id", "in", `(${seguros.join(",")})`);
+  }
+
+  const { data, error } = await query
     .order("sent_at", { ascending: false })
     .limit(limit);
 
   if (error) throw new Error(error.message);
 
-  const rows = (data as { id: string; content: string | null; channel_name: string | null }[]) ?? [];
+  /**
+   * ⭐ Y se vuelve a filtrar acá.
+   *
+   * La red de seguridad del filtro de arriba: si PostgREST alguna vez lo
+   * ignorara, o si un id no pasó por numérico, lo que escribe el equipo
+   * igual no llega a la IA. Un filtro de costo que falla en silencio es
+   * exactamente el que nadie mira hasta que llega la factura.
+   */
+  const excluidos = new Set(idsDelEquipo);
+  const rows = (
+    (data as {
+      id: string;
+      content: string | null;
+      channel_name: string | null;
+      discord_user_id: string;
+    }[]) ?? []
+  ).filter((row) => !excluidos.has(row.discord_user_id));
 
   /**
    * ⭐ Un mensaje vacío no se manda a clasificar: es la señal de que el intent

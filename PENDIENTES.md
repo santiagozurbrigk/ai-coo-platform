@@ -9,41 +9,31 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [CANALES-Y-PERSONAS-SIN-PROBAR] Asociar las personas del servidor real 🔴
+### [DISCORD-SIN-PROBAR] Probar canales, equipo y sugerencias 🔴
 
-**Qué es:** la migración ya corrió y la pantalla está lista, pero **nada se probó
-a mano** y el servidor real sigue con 15 de 16 mensajes sin dueño.
+**Qué es:** las migraciones ya corrieron y la pantalla está lista, pero **nada se
+probó a mano**. El servidor real sigue con 15 de 16 mensajes sin dueño y 7
+personas sin definir, de las cuales 4 son del propio equipo.
 
 **Qué hacer, en este orden:**
 
 1. Integraciones → Discord. Los 8 canales aparecen como **Comunitario**, y
-   `『🏆』wins` y `『🏆』wins-personales` con la etiqueta «Logros». Confirmar que
-   sea así.
-2. Sacar `『👨』equipo` de los canales monitoreados: ahí escribe el equipo, no
-   clientes, y todo lo que entre de ahí es ruido que además cuesta clasificar.
-3. Abrir «Quiénes escribieron acá» en `『🏆』wins` → tienen que aparecer 7
-   nombres. Asociar los que correspondan a un cliente.
-4. Después de asociar a alguien, mirar su ficha: los mensajes que ya estaban
-   guardados tienen que aparecer ahí (`recalcularAtribucion` los reasigna hacia
-   atrás). **Si no aparecen, eso es el bug a mirar primero.**
-5. Marcar un canal como «De un cliente» con **un** cliente y escribir un mensaje
-   desde una cuenta no asociada → tiene que contarse para ese cliente, y la ficha
-   tiene que decir que ese mensaje es de otra gente en su canal.
-6. Confirmar que ese mensaje **no** apaga la alerta de silencio.
-
----
-
-### [DISCORD-PENDING-CHANNELS-MUERTA] Borrar una tabla que nadie lee 🟡
-
-**Qué es:** `discord_pending_channels` recibe una fila del bot por cada canal
-auto-detectado, **desde el día uno**, y ninguna parte de la aplicación la leyó
-nunca. Ahora que la pantalla muestra cada canal con su tipo y sus dueños, no
-tiene ninguna función.
-
-**Qué hacer:** sacar la llamada a `savePendingChannel` de
-`apps/discord-bot/src/events/channelCreate.ts` (dos usos) y, en una migración
-aparte, borrar la tabla. Se dejó para después porque borrar una tabla no se
-mezcla con una entrega que toca otra cosa.
+   `『🏆』wins` y `『🏆』wins-personales` con la etiqueta «Logros».
+2. Sacar `『👨』equipo` de los canales monitoreados: ahí escribe el equipo.
+3. Abrir «Quiénes escribieron acá» en `『🏆』wins`. Tienen que aparecer 7 nombres
+   **con sugerencias**: Luckas Falco y Nazareno Gamero con "el nombre coincide
+   exacto", Thiago Azcurra y Fede McEwen con "el nombre coincide", Santiago
+   Molina con "puede ser — revisalo antes de confirmar", y Geronimo Robles y
+   Osne sin sugerencia.
+4. Confirmar las de equipo. El contador «sin asociar» tiene que bajar de 7 a 3.
+5. Asociar a un cliente real a alguien, y **mirar la ficha de ese cliente**: los
+   mensajes que ya estaban guardados tienen que aparecer ahí.
+   **Si no aparecen, ése es el primer bug a mirar.**
+6. Marcar un canal como «De un cliente» con **un** cliente, escribir desde una
+   cuenta no asociada, y confirmar que se cuenta para ese cliente pero **no**
+   apaga la alerta de silencio.
+7. Escribir desde una cuenta marcada como equipo en ese mismo canal: **no** tiene
+   que contarse para nadie.
 
 ---
 

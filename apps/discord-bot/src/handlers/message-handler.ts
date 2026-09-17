@@ -5,6 +5,7 @@ import {
   saveMessage,
   getMonitoredChannel,
   getChannelClients,
+  esPersonaDelEquipo,
   touchIntegrationEvent,
 } from "../lib/supabase";
 import { atribuirMensaje } from "../lib/attribution";
@@ -34,13 +35,33 @@ export async function processMessage(message: Message) {
    * el usuario elige. Un canal puede ser de un cliente Y de logros, o
    * comunitario y no serlo: atarlas llenaría el buzón de wins con saludos.
    */
-  const clientLink = await getClientLink(orgId, message.author.id);
+  const delEquipo = await esPersonaDelEquipo(orgId, message.author.id);
+
+  const [clientLink, clientesDelCanal] = delEquipo
+    ? // Siendo del equipo no hay nada que atribuir: las dos consultas
+      // siguientes no cambiarían el resultado y este camino corre por cada
+      // mensaje del servidor.
+      [null, []]
+    : await Promise.all([
+        getClientLink(orgId, message.author.id),
+        getChannelClients(orgId, channelId),
+      ]);
+
   const { clientId, attributedBy } = atribuirMensaje(
     clientLink?.client_id as string | undefined,
-    await getChannelClients(orgId, channelId)
+    clientesDelCanal,
+    delEquipo
   );
 
-  const testimonial = canal.wins && isTestimonial(message.content);
+  /**
+   * ⭐ El equipo no genera logros.
+   *
+   * "Felicitaciones Thiago, tremendo logro" escrito por el coach tiene la
+   * palabra y tiene el largo: pasa el pre-filtro, se manda a clasificar —lo que
+   * cuesta plata— y termina propuesto como win de nadie. Es la felicitación más
+   * común en un canal de wins, así que no es un caso de borde.
+   */
+  const testimonial = canal.wins && !delEquipo && isTestimonial(message.content);
 
   const attachments = message.attachments.map((att) => ({
     url: att.url,

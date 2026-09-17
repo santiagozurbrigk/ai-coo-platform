@@ -32,6 +32,10 @@ import {
   sugerirWins,
   type ChannelPurpose,
 } from "@/lib/discord/channels";
+import {
+  sugerirIdentidad,
+  type Sugerencia,
+} from "@/lib/discord/suggest-identity";
 import type {
   DiscordClientLink,
   DiscordIntegration,
@@ -40,6 +44,44 @@ import type {
   DiscordPendingLink,
   MonitoredChannel,
 } from "@/types/discord";
+
+/**
+ * La mejor sugerencia para una persona: primero el equipo, después los clientes.
+ *
+ * Un empate se resuelve a favor del equipo por una razón asimétrica: marcar a
+ * alguien del equipo como cliente le crea una ficha fantasma que alguien va a
+ * ver y va a tener que deshacer; marcar a un cliente como equipo hace que sus
+ * mensajes dejen de contarse **en silencio**. El error caro es el segundo, y
+ * por eso la sugerencia de equipo se muestra con su nivel de certeza a la vista
+ * en vez de aplicarse sola.
+ */
+function sugerirPara(
+  nombres: (string | null | undefined)[],
+  equipo: DiscordTeamOption[],
+  clientes: { id: string; nombre: string }[],
+): (Sugerencia & { tipo: "team" | "client" }) | null {
+  const delEquipo = sugerirIdentidad(
+    nombres,
+    equipo.map((persona) => ({ id: persona.id, nombre: persona.name })),
+  );
+  if (delEquipo) return { ...delEquipo, tipo: "team" };
+
+  const deClientes = sugerirIdentidad(nombres, clientes);
+  return deClientes ? { ...deClientes, tipo: "client" } : null;
+}
+
+function sugerenciaMemorizada(
+  memoria: Map<string, (Sugerencia & { tipo: "team" | "client" }) | null>,
+  discordUserId: string,
+  nombres: (string | null | undefined)[],
+  equipo: DiscordTeamOption[],
+  clientes: { id: string; nombre: string }[],
+) {
+  if (!memoria.has(discordUserId)) {
+    memoria.set(discordUserId, sugerirPara(nombres, equipo, clientes));
+  }
+  return memoria.get(discordUserId) ?? null;
+}
 
 export type DiscordIntegrationStatus = {
   connected: boolean;
@@ -99,14 +141,25 @@ export async function getDiscordIntegrationStatusAction(): Promise<DiscordIntegr
   };
 }
 
-/** Alguien que escribió en un canal, y a qué cliente está asociado. */
+/** Alguien que escribió en un canal, y qué se sabe de quién es. */
 export type DiscordChannelPerson = {
   discordUserId: string;
   name: string;
   messages: number;
-  /** Cliente al que está vinculado, o `null` si nadie lo asoció todavía. */
+  /** Cliente al que está vinculado, o `null`. */
   clientId: string | null;
+  /** `true` si está marcado como gente del equipo. */
+  isTeam: boolean;
+  /** Persona del equipo a la que corresponde. `null` = equipo sin nombrar. */
+  profileId: string | null;
+  /** A quién se parece, si no está definido todavía. Se confirma con un clic. */
+  suggestion:
+    | (Sugerencia & { tipo: "team" | "client" })
+    | null;
 };
+
+/** Alguien del equipo del negocio, para el desplegable. */
+export type DiscordTeamOption = { id: string; name: string };
 
 export async function getDiscordSettingsAction(): Promise<{
   integration: DiscordIntegration | null;
@@ -117,6 +170,8 @@ export async function getDiscordSettingsAction(): Promise<{
   channelClients: Record<string, string[]>;
   /** Quiénes escribieron en cada canal, por `channel_id`. */
   channelPeople: Record<string, DiscordChannelPerson[]>;
+  /** El equipo del negocio, para marcar equivalencias. */
+  team: DiscordTeamOption[];
 }> {
   if (!isSupabaseConfigured()) {
     return {
@@ -126,14 +181,23 @@ export async function getDiscordSettingsAction(): Promise<{
       clients: [],
       channelClients: {},
       channelPeople: {},
+      team: [],
     };
   }
 
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
-  const [integrationRes, linksRes, pendingRes, clientsRes, duenosRes, autoresRes] =
-    await Promise.all([
+  const [
+    integrationRes,
+    linksRes,
+    pendingRes,
+    clientsRes,
+    duenosRes,
+    autoresRes,
+    equipoRes,
+    perfilesRes,
+  ] = await Promise.all([
     supabase
       .from("discord_integrations")
       .select("*")
@@ -180,7 +244,32 @@ export async function getDiscordSettingsAction(): Promise<{
       .eq("organization_id", organizationId)
       .order("sent_at", { ascending: false })
       .limit(2000),
+    supabase
+      .from("discord_team_members")
+      .select("discord_user_id, profile_id")
+      .eq("organization_id", organizationId),
+    supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .eq("organization_id", organizationId)
+      .order("full_name"),
   ]);
+
+  const team: DiscordTeamOption[] = (
+    (perfilesRes.data as
+      | { id: string; full_name: string | null; email: string }[]
+      | null) ?? []
+  ).map((perfil) => ({
+    id: perfil.id,
+    // Sin nombre cargado queda el mail: es feo pero identifica, que es lo único
+    // que esta lista tiene que hacer.
+    name: perfil.full_name?.trim() || perfil.email,
+  }));
+
+  const equipoPorPersona = new Map<string, string | null>();
+  for (const fila of equipoRes.data ?? []) {
+    equipoPorPersona.set(fila.discord_user_id, fila.profile_id);
+  }
 
   const channelClients: Record<string, string[]> = {};
   for (const fila of duenosRes.data ?? []) {
@@ -191,6 +280,20 @@ export async function getDiscordSettingsAction(): Promise<{
   for (const link of (linksRes.data as DiscordClientLink[] | null) ?? []) {
     clientePorPersona.set(link.discord_user_id, link.client_id);
   }
+
+  const clientesParaSugerir = (
+    (clientsRes.data as { id: string; name: string }[] | null) ?? []
+  ).map((cliente) => ({ id: cliente.id, nombre: cliente.name }));
+
+  /**
+   * La misma persona aparece en varios canales y su sugerencia no cambia entre
+   * uno y otro. Sin esta memoria, alguien que escribió en cinco canales se
+   * compara cinco veces contra los 335 clientes.
+   */
+  const sugerenciaPorPersona = new Map<
+    string,
+    (Sugerencia & { tipo: "team" | "client" }) | null
+  >();
 
   const channelPeople: Record<string, DiscordChannelPerson[]> = {};
   for (const fila of autoresRes.data ?? []) {
@@ -204,12 +307,38 @@ export async function getDiscordSettingsAction(): Promise<{
       continue;
     }
 
+    const clientId = clientePorPersona.get(fila.discord_user_id) ?? null;
+    const isTeam = equipoPorPersona.has(fila.discord_user_id);
+
     personas.push({
       discordUserId: fila.discord_user_id,
       name:
         fila.discord_display_name ?? fila.discord_username ?? fila.discord_user_id,
       messages: 1,
-      clientId: clientePorPersona.get(fila.discord_user_id) ?? null,
+      clientId,
+      isTeam,
+      profileId: equipoPorPersona.get(fila.discord_user_id) ?? null,
+      /**
+       * ⭐ Sólo se sugiere sobre lo que **no está definido**.
+       *
+       * Sugerirle algo a alguien ya resuelto es ruido, y peor: invita a
+       * "corregir" una decisión que alguien ya tomó a mano, que es más
+       * confiable que cualquier parecido de nombres.
+       *
+       * El equipo se prueba primero porque es la lista chica y específica —9
+       * personas contra 335 clientes—, así que una coincidencia ahí pesa mucho
+       * más que la misma coincidencia contra el padrón entero de clientes.
+       */
+      suggestion:
+        clientId || isTeam
+          ? null
+          : sugerenciaMemorizada(
+              sugerenciaPorPersona,
+              fila.discord_user_id,
+              [fila.discord_display_name, fila.discord_username],
+              team,
+              clientesParaSugerir,
+            ),
     });
   }
 
@@ -242,6 +371,7 @@ export async function getDiscordSettingsAction(): Promise<{
     pendingLinks: (pendingRes.data as DiscordPendingLink[]) ?? [],
     channelClients,
     channelPeople,
+    team,
     clients: clientsRes.data ?? [],
   };
 }
@@ -536,7 +666,7 @@ async function recalcularAtribucion(
   organizationId: string,
   alcance: { channelId?: string; discordUserId?: string },
 ) {
-  const [{ data: links }, { data: duenos }] = await Promise.all([
+  const [{ data: links }, { data: duenos }, { data: equipo }] = await Promise.all([
     supabase
       .from("discord_client_links")
       .select("discord_user_id, client_id")
@@ -545,7 +675,15 @@ async function recalcularAtribucion(
       .from("discord_channel_clients")
       .select("channel_id, client_id")
       .eq("organization_id", organizationId),
+    supabase
+      .from("discord_team_members")
+      .select("discord_user_id")
+      .eq("organization_id", organizationId),
   ]);
+
+  const delEquipo = new Set(
+    (equipo ?? []).map((fila) => fila.discord_user_id as string),
+  );
 
   const clientePorPersona = new Map<string, string>();
   for (const link of links ?? []) {
@@ -572,12 +710,22 @@ async function recalcularAtribucion(
   const { data: mensajes } = await query;
 
   for (const mensaje of mensajes ?? []) {
+    /**
+     * ⭐ El equipo corta antes que todo lo demás: lo que escribe el coach en el
+     * canal de Juan no es actividad de Juan en ningún sentido. Misma regla que
+     * `atribuirMensaje` en el bot, y por el mismo motivo.
+     */
+    const esEquipo = delEquipo.has(mensaje.discord_user_id);
+
     // El autor manda: es la única fuente que sabe **quién** escribió. El dueño
     // del canal es una deducción, y sólo sirve si el canal tiene uno solo.
-    const porPersona = clientePorPersona.get(mensaje.discord_user_id) ?? null;
-    const porCanal = porPersona
+    const porPersona = esEquipo
       ? null
-      : clienteDelCanal(duenosPorCanal.get(mensaje.channel_id) ?? []);
+      : (clientePorPersona.get(mensaje.discord_user_id) ?? null);
+    const porCanal =
+      esEquipo || porPersona
+        ? null
+        : clienteDelCanal(duenosPorCanal.get(mensaje.channel_id) ?? []);
 
     const clientId = porPersona ?? porCanal;
     const attributedBy = porPersona ? "person" : porCanal ? "channel" : null;
@@ -749,12 +897,95 @@ export async function linkDiscordPersonAction(
       .eq("organization_id", organizationId)
       .eq("discord_user_id", discordUserId);
 
+    // Nadie es cliente y equipo a la vez: si estaba marcado como equipo, esto
+    // es una corrección y la marca vieja se va.
+    await supabase
+      .from("discord_team_members")
+      .delete()
+      .eq("organization_id", organizationId)
+      .eq("discord_user_id", discordUserId);
+
     await recalcularAtribucion(supabase, organizationId, { discordUserId });
     revalidatePath(paths.platform.integrationsDiscord);
   });
 }
 
-/** Deshace una vinculación. Los mensajes de esa persona vuelven a recalcularse. */
+/**
+ * ⭐ Marca a una persona de Discord como gente del equipo, no cliente.
+ *
+ * @param profileId A quién del equipo corresponde. `null` es legítimo: alguien
+ *   que labura con vos y no tiene cuenta en Limitless —un editor, un
+ *   asistente— igual tiene que poder marcarse, o sus mensajes siguen
+ *   contándose como actividad de un cliente.
+ */
+export async function markDiscordPersonAsTeamAction(
+  discordUserId: string,
+  profileId: string | null,
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    if (profileId) {
+      // Que el perfil sea de esta organización no lo garantiza el `upsert`: sin
+      // esto, un id de otra organización entraría y la pantalla mostraría un
+      // nombre vacío sin decir por qué.
+      const { data: perfil } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", profileId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (!perfil) throw new Error("Esa persona no es de tu equipo.");
+    }
+
+    const { data: ultimo } = await supabase
+      .from("discord_messages")
+      .select("discord_username, discord_display_name")
+      .eq("organization_id", organizationId)
+      .eq("discord_user_id", discordUserId)
+      .order("sent_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const { error } = await supabase.from("discord_team_members").upsert(
+      {
+        organization_id: organizationId,
+        discord_user_id: discordUserId,
+        profile_id: profileId,
+        discord_username: ultimo?.discord_username ?? null,
+        discord_display_name: ultimo?.discord_display_name ?? null,
+      },
+      { onConflict: "organization_id,discord_user_id" },
+    );
+
+    if (error) throw new Error(error.message);
+
+    // Nadie es cliente y equipo a la vez.
+    await supabase
+      .from("discord_client_links")
+      .delete()
+      .eq("organization_id", organizationId)
+      .eq("discord_user_id", discordUserId);
+
+    await supabase
+      .from("discord_pending_links")
+      .update({ status: "resolved" })
+      .eq("organization_id", organizationId)
+      .eq("discord_user_id", discordUserId);
+
+    await recalcularAtribucion(supabase, organizationId, { discordUserId });
+    revalidatePath(paths.platform.integrationsDiscord);
+  });
+}
+
+/**
+ * Deja a una persona sin definir: ni cliente ni equipo.
+ *
+ * Borra las dos marcas aunque en teoría no puedan coexistir: es un botón de
+ * "volver atrás", y uno que dejara la mitad sería peor que no tenerlo.
+ */
 export async function unlinkDiscordPersonAction(
   discordUserId: string,
 ): Promise<MutationResult> {
@@ -762,13 +993,21 @@ export async function unlinkDiscordPersonAction(
     const organizationId = await requireOrganizationId();
     const supabase = await createClient();
 
-    const { error } = await supabase
-      .from("discord_client_links")
-      .delete()
-      .eq("organization_id", organizationId)
-      .eq("discord_user_id", discordUserId);
+    const [{ error: errorCliente }, { error: errorEquipo }] = await Promise.all([
+      supabase
+        .from("discord_client_links")
+        .delete()
+        .eq("organization_id", organizationId)
+        .eq("discord_user_id", discordUserId),
+      supabase
+        .from("discord_team_members")
+        .delete()
+        .eq("organization_id", organizationId)
+        .eq("discord_user_id", discordUserId),
+    ]);
 
-    if (error) throw new Error(error.message);
+    if (errorCliente) throw new Error(errorCliente.message);
+    if (errorEquipo) throw new Error(errorEquipo.message);
 
     await recalcularAtribucion(supabase, organizationId, { discordUserId });
     revalidatePath(paths.platform.integrationsDiscord);

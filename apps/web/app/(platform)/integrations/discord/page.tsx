@@ -36,6 +36,7 @@ export default async function DiscordIntegrationPage() {
         clients={data.clients}
         channelClients={data.channelClients}
         channelPeople={data.channelPeople}
+        team={data.team}
       />
     </div>
   );

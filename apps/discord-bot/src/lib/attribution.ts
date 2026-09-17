@@ -12,6 +12,8 @@
  *
  * - `"person"`: lo escribió alguien vinculado. Es el cliente hablando. Mueve el
  *   reloj del silencio.
+ * - `null`: nadie. O el autor es del equipo —y entonces no es actividad de
+ *   ningún cliente—, o no hay de dónde deducirlo.
  * - `"channel"`: el autor no está vinculado y el canal es de un solo cliente.
  *   Es actividad en su espacio, que no es lo mismo. **No** mueve el reloj: en el
  *   canal de Juan también escribe el coach, y si eso reiniciara el reloj, el
@@ -30,8 +32,28 @@ export function atribuirMensaje(
   /** Cliente al que está vinculado el autor, si lo está. */
   clienteDelAutor: string | null | undefined,
   /** Clientes dueños del canal donde se escribió. */
-  clientesDelCanal: readonly string[]
+  clientesDelCanal: readonly string[],
+  /** Si el autor es gente del equipo del negocio, no un cliente. */
+  autorEsDelEquipo = false
 ): Atribucion {
+  /**
+   * ⭐ El equipo corta antes que todo lo demás.
+   *
+   * En el canal de Juan también escribe el coach. Ese mensaje no es actividad
+   * de Juan **en ningún sentido**: no es él hablando ni es movimiento del que
+   * se pueda deducir algo sobre él. Atribuírselo le mete conversaciones ajenas
+   * en la ficha y le infla los totales.
+   *
+   * Va antes del vínculo de persona a propósito: si alguien quedó marcado como
+   * equipo **y** vinculado a un cliente —la aplicación lo impide, pero una fila
+   * vieja podría—, la respuesta segura es no atribuir. Un mensaje sin dueño se
+   * arregla marcando bien a la persona; uno atribuido de más ya ensució una
+   * ficha y nadie va a mirar por qué.
+   */
+  if (autorEsDelEquipo) {
+    return { clientId: null, attributedBy: null };
+  }
+
   if (clienteDelAutor) {
     return { clientId: clienteDelAutor, attributedBy: "person" };
   }

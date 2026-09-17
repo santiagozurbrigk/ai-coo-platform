@@ -17,16 +17,26 @@
 
 import { useState, useTransition } from "react";
 import { Badge, Button, cn } from "@ai-coo/ui";
-import { ChevronDown, Hash, Trophy, UserPlus, Users, X } from "lucide-react";
+import {
+  Briefcase,
+  Check,
+  ChevronDown,
+  Hash,
+  Trophy,
+  Users,
+  X,
+} from "lucide-react";
 import { useToast } from "@/providers/toast-provider";
 import {
   addDiscordChannelClientAction,
   linkDiscordPersonAction,
+  markDiscordPersonAsTeamAction,
   removeDiscordChannelClientAction,
   setDiscordChannelPurposeAction,
   setDiscordChannelWinsAction,
   unlinkDiscordPersonAction,
   type DiscordChannelPerson,
+  type DiscordTeamOption,
 } from "@/app/discord/actions";
 import type { ChannelPurpose, MonitoredChannel } from "@/types/discord";
 
@@ -37,6 +47,7 @@ export function DiscordChannelCard({
   clientIds,
   people,
   clients,
+  team,
   onRemove,
   onChanged,
 }: {
@@ -44,6 +55,7 @@ export function DiscordChannelCard({
   clientIds: string[];
   people: DiscordChannelPerson[];
   clients: Cliente[];
+  team: DiscordTeamOption[];
   onRemove: () => void;
   onChanged: () => void;
 }) {
@@ -53,7 +65,17 @@ export function DiscordChannelCard({
   const [paraSumar, setParaSumar] = useState("");
 
   const esDeCliente = channel.purpose === "client";
-  const sinAsignar = people.filter((persona) => !persona.clientId).length;
+  /**
+   * ⭐ El equipo no cuenta como pendiente.
+   *
+   * Antes este número incluía a todo el que no fuera cliente, así que la gente
+   * del propio equipo figuraba como "falta asociar" para siempre — un cartel
+   * que nunca se apaga deja de leerse, y con él se dejan de ver los que sí
+   * faltan. En el servidor real eran 4 de 7.
+   */
+  const sinAsignar = people.filter(
+    (persona) => !persona.clientId && !persona.isTeam,
+  ).length;
 
   const correr = (
     accion: () => Promise<{ success: boolean; error?: string }>,
@@ -283,6 +305,7 @@ export function DiscordChannelCard({
                     key={persona.discordUserId}
                     persona={persona}
                     clients={clients}
+                    team={team}
                     disabled={pending}
                     nombreDe={nombreDe}
                     correr={correr}
@@ -297,15 +320,25 @@ export function DiscordChannelCard({
   );
 }
 
+/**
+ * Una persona del canal: quién es, o quién podría ser.
+ *
+ * Tres estados posibles —cliente, equipo, sin definir— y en el tercero, la
+ * sugerencia. La sugerencia **muestra su nivel de certeza** en vez de
+ * esconderlo: confirmar un "puede ser" apurado es exactamente lo que mete a un
+ * cliente en el equipo y hace que sus mensajes dejen de contarse en silencio.
+ */
 function PersonRow({
   persona,
   clients,
+  team,
   disabled,
   nombreDe,
   correr,
 }: {
   persona: DiscordChannelPerson;
   clients: Cliente[];
+  team: DiscordTeamOption[];
   disabled: boolean;
   nombreDe: (id: string) => string;
   correr: (
@@ -315,69 +348,222 @@ function PersonRow({
 }) {
   const [elegido, setElegido] = useState("");
 
-  return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/40">
-      <span className="min-w-0 flex-1 truncate text-xs">
-        {persona.name}
-        <span className="ml-1.5 text-muted-foreground">
-          · {persona.messages}
-          {persona.messages === 1 ? " mensaje" : " mensajes"}
-        </span>
-      </span>
+  const soltar = () =>
+    correr(
+      () => unlinkDiscordPersonAction(persona.discordUserId),
+      "Persona sin definir",
+    );
 
-      {persona.clientId ? (
-        <>
-          <Badge variant="success" className="text-[10px]">
-            {nombreDe(persona.clientId)}
-          </Badge>
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() =>
-              correr(
-                () => unlinkDiscordPersonAction(persona.discordUserId),
-                "Vinculación deshecha",
-              )
-            }
-            className="text-muted-foreground hover:text-destructive disabled:opacity-50"
-            aria-label="Desvincular"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        </>
-      ) : (
-        <>
-          <select
-            value={elegido}
-            onChange={(e) => setElegido(e.target.value)}
-            disabled={disabled}
-            className="h-7 w-44 rounded-lg border border-border/60 bg-muted/20 px-2 text-[11px]"
-          >
-            <option value="">Es el cliente…</option>
+  if (persona.clientId) {
+    return (
+      <FilaBase persona={persona}>
+        <Badge variant="success" className="text-[10px]">
+          {nombreDe(persona.clientId)}
+        </Badge>
+        <BotonSoltar onClick={soltar} disabled={disabled} />
+      </FilaBase>
+    );
+  }
+
+  if (persona.isTeam) {
+    const nombre = team.find((p) => p.id === persona.profileId)?.name;
+    return (
+      <FilaBase persona={persona}>
+        <Badge variant="secondary" className="gap-1 text-[10px]">
+          <Briefcase className="h-2.5 w-2.5" />
+          {/* Sin perfil elegido igual es equipo: el dato no falta, es así. */}
+          {nombre ?? "Equipo"}
+        </Badge>
+        <BotonSoltar onClick={soltar} disabled={disabled} />
+      </FilaBase>
+    );
+  }
+
+  const sugerencia = persona.suggestion;
+
+  return (
+    <div className="space-y-1.5 rounded-lg px-2 py-1.5 hover:bg-muted/40">
+      <div className="flex flex-wrap items-center gap-2">
+        <NombreDe persona={persona} />
+
+        <select
+          value={elegido}
+          onChange={(e) => setElegido(e.target.value)}
+          disabled={disabled}
+          className="h-7 w-52 rounded-lg border border-border/60 bg-muted/20 px-2 text-[11px]"
+        >
+          <option value="">Quién es…</option>
+          <optgroup label="Es un cliente">
             {clients.map((cliente) => (
-              <option key={cliente.id} value={cliente.id}>
+              <option key={cliente.id} value={`client:${cliente.id}`}>
                 {cliente.name}
               </option>
             ))}
-          </select>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 gap-1 px-2 text-[11px]"
-            disabled={!elegido || disabled}
-            onClick={() =>
-              correr(
-                () =>
-                  linkDiscordPersonAction(persona.discordUserId, elegido),
-                "Persona asociada a su cliente",
-              )
-            }
-          >
-            <UserPlus className="h-3 w-3" />
-            Asociar
-          </Button>
-        </>
-      )}
+          </optgroup>
+          <optgroup label="Es de tu equipo">
+            {team.map((persona) => (
+              <option key={persona.id} value={`team:${persona.id}`}>
+                {persona.name}
+              </option>
+            ))}
+            {/*
+              El caso que se olvida: alguien que labura con vos y no tiene
+              cuenta en Limitless. Sin esta opción se queda sin marcar y sus
+              mensajes siguen contándose como de un cliente.
+            */}
+            <option value="team:">Del equipo, sin cuenta en Limitless</option>
+          </optgroup>
+        </select>
+
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 px-2 text-[11px]"
+          disabled={!elegido || disabled}
+          onClick={() => {
+            const [tipo, id] = partirValor(elegido);
+            setElegido("");
+            correr(
+              () =>
+                tipo === "client"
+                  ? linkDiscordPersonAction(persona.discordUserId, id)
+                  : markDiscordPersonAsTeamAction(
+                      persona.discordUserId,
+                      id || null,
+                    ),
+              tipo === "client"
+                ? "Persona asociada a su cliente"
+                : "Marcada como parte del equipo",
+            );
+          }}
+        >
+          Guardar
+        </Button>
+      </div>
+
+      {sugerencia ? (
+        <ChipDeSugerencia
+          persona={persona}
+          sugerencia={sugerencia}
+          disabled={disabled}
+          correr={correr}
+        />
+      ) : null}
     </div>
+  );
+}
+
+/** El valor del desplegable es `tipo:id`; el id puede venir vacío a propósito. */
+function partirValor(valor: string): ["client" | "team", string] {
+  const corte = valor.indexOf(":");
+  const tipo = valor.slice(0, corte) === "client" ? "client" : "team";
+  return [tipo, valor.slice(corte + 1)];
+}
+
+const TEXTO_DEL_NIVEL: Record<string, string> = {
+  exacto: "El nombre coincide exacto",
+  fuerte: "El nombre coincide",
+  posible: "Puede ser",
+};
+
+function ChipDeSugerencia({
+  persona,
+  sugerencia,
+  disabled,
+  correr,
+}: {
+  persona: DiscordChannelPerson;
+  sugerencia: NonNullable<DiscordChannelPerson["suggestion"]>;
+  disabled: boolean;
+  correr: (
+    accion: () => Promise<{ success: boolean; error?: string }>,
+    exito: string,
+  ) => void;
+}) {
+  const esEquipo = sugerencia.tipo === "team";
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 pl-1 text-[11px] text-muted-foreground">
+      <span>
+        {TEXTO_DEL_NIVEL[sugerencia.nivel]} con{" "}
+        <span className="text-foreground">{sugerencia.nombre}</span>
+        {esEquipo ? " de tu equipo" : ", un cliente"}
+        {/*
+          El nivel más flojo se dice con todas las letras. Los otros dos se
+          confirman de un vistazo; éste hay que mirarlo dos veces.
+        */}
+        {sugerencia.nivel === "posible" ? " — revisalo antes de confirmar" : ""}
+      </span>
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-6 gap-1 px-2 text-[11px]"
+        disabled={disabled}
+        onClick={() =>
+          correr(
+            () =>
+              esEquipo
+                ? markDiscordPersonAsTeamAction(
+                    persona.discordUserId,
+                    sugerencia.id,
+                  )
+                : linkDiscordPersonAction(persona.discordUserId, sugerencia.id),
+            esEquipo
+              ? "Marcada como parte del equipo"
+              : "Persona asociada a su cliente",
+          )
+        }
+      >
+        <Check className="h-3 w-3" />
+        Confirmar
+      </Button>
+    </div>
+  );
+}
+
+function NombreDe({ persona }: { persona: DiscordChannelPerson }) {
+  return (
+    <span className="min-w-0 flex-1 truncate text-xs">
+      {persona.name}
+      <span className="ml-1.5 text-muted-foreground">
+        · {persona.messages}
+        {persona.messages === 1 ? " mensaje" : " mensajes"}
+      </span>
+    </span>
+  );
+}
+
+function FilaBase({
+  persona,
+  children,
+}: {
+  persona: DiscordChannelPerson;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/40">
+      <NombreDe persona={persona} />
+      {children}
+    </div>
+  );
+}
+
+function BotonSoltar({
+  onClick,
+  disabled,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="text-muted-foreground hover:text-destructive disabled:opacity-50"
+      aria-label="Dejar sin definir"
+    >
+      <X className="h-3 w-3" />
+    </button>
   );
 }

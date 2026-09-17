@@ -3,7 +3,6 @@ import {
   getOrgByGuildId,
   channelMatchesAutoPattern,
   addMonitoredChannel,
-  savePendingChannel,
   getClients,
 } from "../lib/supabase";
 import {
@@ -63,12 +62,6 @@ export async function handleChannelCreate(channel: Channel) {
         `[discord] #${channelName} agregado en silencio: el servidor ${guildId} ` +
           `tiene apagado «el bot puede escribir».`
       );
-      await savePendingChannel({
-        organization_id: orgId,
-        guild_id: guildId,
-        channel_id: textChannel.id,
-        channel_name: channelName,
-      });
       return;
     }
 
@@ -103,12 +96,6 @@ export async function handleChannelCreate(channel: Channel) {
       );
     }
 
-    await savePendingChannel({
-      organization_id: orgId,
-      guild_id: guildId,
-      channel_id: textChannel.id,
-      channel_name: channelName,
-    });
   } catch (error) {
     logError("Error handling new channel:", error);
   }

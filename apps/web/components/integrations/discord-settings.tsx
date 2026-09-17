@@ -17,6 +17,7 @@ import {
   removeDiscordBotAvatarAction,
   updateDiscordBotCanSpeakAction,
   type DiscordChannelPerson,
+  type DiscordTeamOption,
 } from "@/app/discord/actions";
 import { SwitchRow } from "@/components/shared/switch-row";
 import { sugerirWins } from "@/lib/discord/channels";
@@ -39,6 +40,7 @@ type Props = {
   clients: { id: string; name: string }[];
   channelClients: Record<string, string[]>;
   channelPeople: Record<string, DiscordChannelPerson[]>;
+  team: DiscordTeamOption[];
 };
 
 function PendingLinkCard({
@@ -137,6 +139,7 @@ export function DiscordSettings({
   clients,
   channelClients,
   channelPeople,
+  team,
 }: Props) {
   const { push } = useToast();
   const [botName, setBotName] = useState(
@@ -526,6 +529,7 @@ export function DiscordSettings({
               clientIds={channelClients[channel.channel_id] ?? []}
               people={channelPeople[channel.channel_id] ?? []}
               clients={clients}
+              team={team}
               onRemove={() => removeChannel(channel.channel_id)}
               onChanged={refresh}
             />
