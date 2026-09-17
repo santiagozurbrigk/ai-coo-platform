@@ -11,6 +11,7 @@ import {
   extractClientNameFromChannel,
 } from "../lib/fuzzy-match";
 import { puedeHablar } from "../lib/can-speak";
+import { buscaLogrosPorNombre } from "../lib/wins-channel";
 import { log, logError } from "../utils/logger";
 
 export async function handleChannelCreate(channel: Channel) {
@@ -31,10 +32,23 @@ export async function handleChannelCreate(channel: Channel) {
 
     if (!matches) return;
 
+    /**
+     * ⭐ Nace como canal **de cliente**, sin cliente asignado todavía.
+     *
+     * Llegó acá por coincidir con el patrón —`cliente-` de fábrica—, así que es
+     * el caso que el patrón describe. Pero **no se le asigna nadie solo**:
+     * abajo hay una coincidencia por nombre lo bastante buena como para
+     * saludar, y aun así no alcanza para atribuirle mensajes a alguien. Saludar
+     * mal es una vergüenza; atribuir mal le mete a un cliente conversaciones
+     * de otro y nadie se entera hasta que las ve.
+     *
+     * La pantalla lo muestra como «sin cliente asignado» y ahí se decide.
+     */
     await addMonitoredChannel(guildId, {
       channel_id: textChannel.id,
       channel_name: channelName,
-      purpose: "auto",
+      purpose: "client",
+      wins: buscaLogrosPorNombre(channelName),
     });
 
     /**

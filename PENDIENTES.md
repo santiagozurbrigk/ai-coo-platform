@@ -9,24 +9,41 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [MIGRACION-DISCORD-SIN-APLICAR] Correr la migración del modo silencioso 🔴
+### [CANALES-Y-PERSONAS-SIN-PROBAR] Asociar las personas del servidor real 🔴
 
-**Qué es:** `supabase/migrations/20260915130000_discord_modo_silencioso.sql`
-agrega `discord_integrations.bot_can_speak`. **No se aplicó**: el MCP de Supabase
-estuvo caído (503) toda la sesión del 2026-09-15.
+**Qué es:** la migración ya corrió y la pantalla está lista, pero **nada se probó
+a mano** y el servidor real sigue con 15 de 16 mensajes sin dueño.
 
-**Mientras no corra:** el switch se ve prendido en el panel, pero al apretarlo
-falla con «column does not exist» y el error sale en el toast. El bot se comporta
-como siempre (habla), que es el default correcto.
+**Qué hacer, en este orden:**
 
-**Qué hacer:** aplicar la migración (CLI o SQL Editor del dashboard) y después:
+1. Integraciones → Discord. Los 8 canales aparecen como **Comunitario**, y
+   `『🏆』wins` y `『🏆』wins-personales` con la etiqueta «Logros». Confirmar que
+   sea así.
+2. Sacar `『👨』equipo` de los canales monitoreados: ahí escribe el equipo, no
+   clientes, y todo lo que entre de ahí es ruido que además cuesta clasificar.
+3. Abrir «Quiénes escribieron acá» en `『🏆』wins` → tienen que aparecer 7
+   nombres. Asociar los que correspondan a un cliente.
+4. Después de asociar a alguien, mirar su ficha: los mensajes que ya estaban
+   guardados tienen que aparecer ahí (`recalcularAtribucion` los reasigna hacia
+   atrás). **Si no aparecen, eso es el bug a mirar primero.**
+5. Marcar un canal como «De un cliente» con **un** cliente y escribir un mensaje
+   desde una cuenta no asociada → tiene que contarse para ese cliente, y la ficha
+   tiene que decir que ese mensaje es de otra gente en su canal.
+6. Confirmar que ese mensaje **no** apaga la alerta de silencio.
 
-1. Panel de Discord → apagar «El bot puede escribir en tu servidor».
-2. Crear un canal `cliente-prueba` en el servidor → **no** tiene que saludar,
-   pero **sí** tiene que aparecer en canales monitoreados.
-3. Escribir `!vincular loquesea@mail.com` → no tiene que contestar nada, y tiene
-   que aparecer en vinculaciones pendientes.
-4. Volver a prender el switch y repetir el paso 2 → ahora sí saluda.
+---
+
+### [DISCORD-PENDING-CHANNELS-MUERTA] Borrar una tabla que nadie lee 🟡
+
+**Qué es:** `discord_pending_channels` recibe una fila del bot por cada canal
+auto-detectado, **desde el día uno**, y ninguna parte de la aplicación la leyó
+nunca. Ahora que la pantalla muestra cada canal con su tipo y sus dueños, no
+tiene ninguna función.
+
+**Qué hacer:** sacar la llamada a `savePendingChannel` de
+`apps/discord-bot/src/events/channelCreate.ts` (dos usos) y, en una migración
+aparte, borrar la tabla. Se dejó para después porque borrar una tabla no se
+mezcla con una entrega que toca otra cosa.
 
 ---
 

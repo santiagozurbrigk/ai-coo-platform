@@ -3,9 +3,11 @@ import {
   getOrgByGuildId,
   getClientLink,
   saveMessage,
-  isChannelMonitored,
+  getMonitoredChannel,
+  getChannelClients,
   touchIntegrationEvent,
 } from "../lib/supabase";
+import { atribuirMensaje } from "../lib/attribution";
 import { isTestimonial } from "./testimonial-handler";
 import { limitlessApiUrl, limitlessWebhookSecret } from "../lib/limitless-api";
 
@@ -21,11 +23,24 @@ export async function processMessage(message: Message) {
 
   const orgId = integration.organization_id as string;
 
-  const monitored = await isChannelMonitored(guildId, channelId);
-  if (!monitored) return;
+  const canal = await getMonitoredChannel(guildId, channelId);
+  if (!canal) return;
 
+  /**
+   * ⭐ Dos preguntas distintas, no una.
+   *
+   * A quién pertenece el mensaje sale del autor o del dueño del canal
+   * (`atribuirMensaje`). Si acá se buscan logros sale del tilde del canal, que
+   * el usuario elige. Un canal puede ser de un cliente Y de logros, o
+   * comunitario y no serlo: atarlas llenaría el buzón de wins con saludos.
+   */
   const clientLink = await getClientLink(orgId, message.author.id);
-  const testimonial = isTestimonial(message.content, channelName, integration);
+  const { clientId, attributedBy } = atribuirMensaje(
+    clientLink?.client_id as string | undefined,
+    await getChannelClients(orgId, channelId)
+  );
+
+  const testimonial = canal.wins && isTestimonial(message.content);
 
   const attachments = message.attachments.map((att) => ({
     url: att.url,
@@ -35,7 +50,8 @@ export async function processMessage(message: Message) {
 
   await saveMessage({
     organization_id: orgId,
-    client_id: (clientLink?.client_id as string | undefined) || null,
+    client_id: clientId,
+    attributed_by: attributedBy,
     discord_message_id: message.id,
     discord_user_id: message.author.id,
     discord_username: message.author.username,
@@ -56,7 +72,7 @@ export async function processMessage(message: Message) {
   if (testimonial) {
     await notifyTestimonial({
       organizationId: orgId,
-      clientId: (clientLink?.client_id as string | undefined) || null,
+      clientId,
       messageId: message.id,
       content: message.content,
       discordUsername: message.author.username,

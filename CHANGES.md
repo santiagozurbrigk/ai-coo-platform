@@ -14,6 +14,95 @@
 
 ---
 
+### 2026-09-17 — 👥 De quién es cada canal de Discord, y de quién es cada mensaje
+
+**Rama/branch:** `claude/checkpoints-cliente-ccc3ih`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** Discord (bot + panel + ficha de cliente)
+
+**Qué se hizo:**
+
+Pedido: *"poder decirle al sistema: este canal pertenece a este/estos clientes.
+Y por otro lado, este canal es comunitario —por ejemplo el de wins— ahí el bot es
+cuando debe reconocer las wins"*.
+
+Antes de construir se midió producción, y el diagnóstico cambió el diseño:
+
+| Dato | Valor |
+|---|---|
+| Clientes en el sistema | **335** |
+| Personas de Discord vinculadas | **1** |
+| Mensajes guardados | 16 |
+| Mensajes que no pertenecían a nadie | **15** (94%) |
+
+`summarizeByClient` ignora a propósito los mensajes sin cliente, así que con 15
+de 16 huérfanos **la alerta de silencio no podía dispararse para nadie**: estaba
+enchufada y midiendo el vacío. Y los canales reales no eran de un cliente cada
+uno: `wins` (7 personas distintas), `chat-general` (3), `equipo`.
+
+- Migración `20260917100000_discord_canales_por_cliente.sql`:
+  `discord_channel_clients` (org, channel_id, client_id) con RLS, y
+  `discord_messages.attributed_by`.
+- `apps/web/lib/discord/channels.ts` (nuevo): tipos, `normalizarCanal`,
+  `sugerirWins`, `clienteDelCanal`. 10 tests.
+- `apps/web/lib/discord/activity.ts`: dos poblaciones —totales vs. reloj del
+  silencio— y `silenceMeasurable`. 6 tests nuevos.
+- `apps/discord-bot/src/lib/attribution.ts` (nuevo): `atribuirMensaje`.
+- `apps/discord-bot`: `getChannelClients`, `getMonitoredChannel` (reemplaza a
+  `isChannelMonitored`), `saveMessage` con `attributed_by`.
+- `handlers/testimonial-handler.ts`: `isTestimonial` ya no decide **dónde**
+  buscar; sólo juzga el texto.
+- `app/discord/actions.ts`: `recalcularAtribucion` + 6 acciones nuevas.
+- `components/integrations/discord-channel-card.tsx` (nuevo).
+- `components/clients/client-discord-activity.tsx`: muestra el estado «falta
+  vincular» y cuántos mensajes son de otra gente en su canal.
+
+**Por qué / finalidad:**
+
+Que la atribución deje de depender de que el cliente escriba `!vincular` solo.
+
+**Decisiones de diseño relevantes:**
+
+- **`attributed_by` existe para que la alerta de silencio no se apague sola.**
+  En el canal de Juan también escribe el coach; si eso reiniciara el reloj, el
+  cliente que se está yendo queda tapado por la actividad del propio equipo. El
+  reloj lo mueven **sólo** los mensajes `person`.
+- **Canal con dos o más dueños no atribuye nada.** No hay forma de saber cuál
+  escribió y elegir el primero sería inventar. La pantalla lo dice.
+- **Todo migra a `community`, que es el comportamiento exacto de hoy.** Ningún
+  mensaje se atribuye por canal hasta que alguien lo marque. Nadie se despierta
+  con sus mensajes repartidos entre clientes que no eligió.
+- **El tilde `wins` se separó del tipo de canal.** El plan aprobado ataba
+  "comunitario" a "buscar logros", pero `#chat-general` es comunitario y no es
+  de logros: atarlos llenaría el buzón de wins con saludos. Son dos campos.
+- **`wins` se guarda explícito, no se deduce del nombre en cada mensaje.** La
+  heurística pasó a ser sugerencia inicial (al agregar el canal) y el usuario
+  puede corregirla. La lista de palabras quedó duplicada en bot y web porque son
+  paquetes separados, pero **sólo se usa al escribir**: lo que decide siempre es
+  el booleano guardado, así que no pueden contradecirse en caliente.
+- **`recalcularAtribucion` es una sola rutina, no cuatro parches.** El caso que
+  rompe los parches: un mensaje atribuido por canal cuyo autor se vincula después
+  a **otro** cliente. Un parche que sólo mire "mensajes sin dueño" lo deja mal
+  para siempre y nadie lo nota.
+- **Un canal agregado a mano nace `community`; uno auto-detectado nace `client`
+  sin cliente asignado.** El auto-detectado llegó por coincidir con el patrón
+  `cliente-`, pero no se le asigna nadie solo: el bot ya calcula una coincidencia
+  por nombre buena para saludar, y saludar mal es una vergüenza mientras que
+  atribuir mal mete conversaciones ajenas en una ficha.
+
+**Riesgos / deuda técnica pendiente:**
+
+- Sin probar a mano: nada de esto se ejerció contra el servidor real.
+- `recalcularAtribucion` actualiza fila por fila. Con 16 mensajes es gratis; con
+  decenas de miles habría que pasarlo a SQL.
+- `discord_pending_channels` sigue siendo **una tabla que nadie lee**: el bot
+  escribe una fila por cada canal auto-detectado desde el día uno. Ahora que la
+  pantalla muestra los canales con su estado, esa tabla no tiene función.
+- `apps/discord-bot` sigue sin arnés de tests: `atribuirMensaje` y
+  `buscaLogrosPorNombre` son lógica pura sin cobertura.
+
+---
+
 ### 2026-09-15 — 🐛 El embudo del panel general pintaba la card entera de naranja
 
 **Rama/branch:** `claude/clever-ptolemy-9ggvo0`

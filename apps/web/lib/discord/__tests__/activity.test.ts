@@ -114,3 +114,78 @@ describe("resumir todos los clientes de una", () => {
     expect(Object.keys(result)).toEqual(["a"]);
   });
 });
+
+describe("atribución por canal y el reloj del silencio", () => {
+  const hoy = new Date("2026-09-17T12:00:00Z");
+  const hace = (dias: number) =>
+    new Date(hoy.getTime() - dias * 24 * 60 * 60 * 1000).toISOString();
+
+  it("un mensaje del coach en el canal del cliente no apaga la alerta", () => {
+    const actividad = summarizeClientActivity(
+      [
+        { sentAt: hace(40), attributedBy: "person" },
+        // El equipo escribió ayer en el canal de Juan. Juan sigue callado.
+        { sentAt: hace(1), attributedBy: "channel" },
+      ],
+      hoy
+    );
+
+    expect(actividad.isSilent).toBe(true);
+    expect(actividad.daysSinceLastMessage).toBe(40);
+    expect(actividad.totalMessages).toBe(2);
+    expect(actividad.channelMessages).toBe(1);
+  });
+
+  it("sin atribución explícita se cuenta como del cliente, igual que antes", () => {
+    const actividad = summarizeClientActivity([{ sentAt: hace(2) }], hoy);
+    expect(actividad.daysSinceLastMessage).toBe(2);
+    expect(actividad.channelMessages).toBe(0);
+    expect(actividad.silenceMeasurable).toBe(true);
+  });
+
+  it("sólo actividad de canal: el silencio no se puede medir", () => {
+    const actividad = summarizeClientActivity(
+      [
+        { sentAt: hace(3), attributedBy: "channel" },
+        { sentAt: hace(1), attributedBy: "channel" },
+      ],
+      hoy
+    );
+
+    expect(actividad.silenceMeasurable).toBe(false);
+    expect(actividad.isSilent).toBe(false);
+    expect(actividad.totalMessages).toBe(2);
+    expect(describeActivity(actividad)).toBe("Falta vincular a su usuario");
+  });
+
+  it("sin ningún mensaje sigue siendo «nunca escribió», no «falta vincular»", () => {
+    const actividad = summarizeClientActivity([], hoy);
+    expect(actividad.silenceMeasurable).toBe(true);
+    expect(actividad.neverSpoke).toBe(true);
+    expect(describeActivity(actividad)).toBe("Nunca escribió");
+  });
+
+  it("los totales incluyen lo del canal; el reloj no", () => {
+    const actividad = summarizeClientActivity(
+      [
+        { sentAt: hace(1), attributedBy: "channel" },
+        { sentAt: hace(2), attributedBy: "channel" },
+        { sentAt: hace(5), attributedBy: "person" },
+      ],
+      hoy
+    );
+
+    expect(actividad.totalMessages).toBe(3);
+    expect(actividad.messagesLast7Days).toBe(3);
+    expect(actividad.channelMessages).toBe(2);
+    expect(actividad.daysSinceLastMessage).toBe(5);
+  });
+
+  it("un testimonio cuenta aunque lo haya traído el canal", () => {
+    const actividad = summarizeClientActivity(
+      [{ sentAt: hace(1), attributedBy: "channel", isTestimonial: true }],
+      hoy
+    );
+    expect(actividad.testimonials).toBe(1);
+  });
+});

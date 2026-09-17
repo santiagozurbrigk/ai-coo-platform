@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { AlertTriangle, Hash, MoonStar, Trophy } from "lucide-react";
+import { AlertTriangle, Hash, MoonStar, Trophy, UserRoundX } from "lucide-react";
 import { Badge, Button, GlassPanel } from "@ai-coo/ui";
 import {
   createWinFromTestimonialAction,
@@ -42,6 +42,7 @@ export function ClientDiscordActivity({ clientId }: { clientId: string }) {
     messages.map((message) => ({
       sentAt: message.sent_at,
       isTestimonial: message.is_testimonial,
+      attributedBy: message.attributed_by,
     }))
   );
 
@@ -61,22 +62,46 @@ export function ClientDiscordActivity({ clientId }: { clientId: string }) {
     <section className="space-y-3">
       <h2 className="text-sm font-medium">Actividad en Discord</h2>
       <GlassPanel className="p-5 space-y-4">
-        {!activity.neverSpoke ? (
+        {/*
+          ⭐ Se muestra también cuando el silencio NO se puede medir.
+          Ese caso —hay mensajes en su canal pero nadie vinculado que los haya
+          escrito— antes caía en `neverSpoke` y la franja desaparecía entera:
+          la pantalla quedaba muda justo cuando tenía algo accionable que decir.
+        */}
+        {!activity.neverSpoke || !activity.silenceMeasurable ? (
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span
               className={
-                activity.isSilent
+                activity.isSilent || !activity.silenceMeasurable
                   ? "inline-flex items-center gap-1.5 rounded-full border border-warning/40 px-2 py-0.5 text-warning"
                   : "inline-flex items-center gap-1.5 text-muted-foreground"
               }
             >
               {activity.isSilent ? <MoonStar className="h-3 w-3" /> : null}
+              {!activity.silenceMeasurable ? (
+                <UserRoundX className="h-3 w-3" />
+              ) : null}
               {describeActivity(activity)}
             </span>
             <span className="text-muted-foreground">
               · {activity.messagesLast7Days} en los últimos 7 días
             </span>
           </div>
+        ) : null}
+
+        {!activity.silenceMeasurable ? (
+          <p className="text-xs text-muted-foreground">
+            Hay {activity.channelMessages}{" "}
+            {activity.channelMessages === 1 ? "mensaje" : "mensajes"} en su canal,
+            pero ninguno lo escribió alguien asociado a esta ficha. Asociá su
+            usuario de Discord desde Integraciones → Discord y el silencio pasa a
+            medirse solo.
+          </p>
+        ) : activity.channelMessages > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {activity.channelMessages} de estos mensajes son de otra gente en su
+            canal, así que no cuentan como que el cliente habló.
+          </p>
         ) : null}
         {link && (
           <div className="flex items-center gap-3">

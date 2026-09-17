@@ -160,6 +160,8 @@ export async function saveMessage(message: {
   content: string;
   message_type: string;
   is_testimonial: boolean;
+  /** Cómo se supo el `client_id`. Ver `lib/attribution.ts`. */
+  attributed_by: "person" | "channel" | null;
   attachments: { url: string; type: string; name: string | null }[];
   sent_at: Date;
 }) {
@@ -218,28 +220,63 @@ export async function savePendingChannel(data: {
     .upsert(data, { onConflict: "channel_id" });
 }
 
-export async function isChannelMonitored(
+/**
+ * Los clientes dueños de un canal.
+ *
+ * Devuelve lista vacía tanto para un canal comunitario como para uno sin
+ * asignar: para atribuir un mensaje las dos cosas significan lo mismo —no hay
+ * un dueño único de quien deducir— y distinguirlas es trabajo de la pantalla,
+ * no del bot.
+ */
+export async function getChannelClients(
+  organizationId: string,
+  channelId: string
+): Promise<string[]> {
+  const { data, error } = await db()
+    .from("discord_channel_clients")
+    .select("client_id")
+    .eq("organization_id", organizationId)
+    .eq("channel_id", channelId);
+  reportarError(`getChannelClients(${channelId})`, error);
+
+  return (data ?? []).map((fila) => fila.client_id as string);
+}
+
+/**
+ * La configuración de un canal monitoreado, o `null` si no se monitorea.
+ *
+ * Reemplazó a `isChannelMonitored`: además de decir si se lee, trae el tilde de
+ * logros, que antes se deducía del **nombre** del canal en cada mensaje. Ahora
+ * está guardado y sólo se lee — una decisión del usuario en vez de una regla
+ * invisible que le ganaba siempre.
+ */
+export async function getMonitoredChannel(
   guildId: string,
   channelId: string
-): Promise<boolean> {
+): Promise<{ wins: boolean } | null> {
   const { data, error } = await db()
     .from("discord_integrations")
     .select("monitored_channels")
     .eq("guild_id", guildId)
     .maybeSingle();
-  reportarError("isChannelMonitored", error);
+  reportarError("getMonitoredChannel", error);
 
-  if (!data) return false;
+  if (!data) return null;
 
-  const channels = (data.monitored_channels as { channel_id: string }[]) || [];
-  const monitored = channels.some((c) => c.channel_id === channelId);
-  if (!monitored) {
+  const channels =
+    (data.monitored_channels as { channel_id: string; wins?: boolean }[]) || [];
+  const canal = channels.find((c) => c.channel_id === channelId);
+
+  if (!canal) {
     console.log(
-      `[discord] Canal ${channelId} sin monitorear: se ignora el mensaje.`
+      `[discord] Canal ${channelId} no está en la lista de monitoreados: se ignora.`
     );
+    return null;
   }
-  return monitored;
+
+  return { wins: canal.wins === true };
 }
+
 
 export async function channelMatchesAutoPattern(
   guildId: string,
@@ -263,7 +300,8 @@ export async function addMonitoredChannel(
   channel: {
     channel_id: string;
     channel_name: string;
-    purpose: string;
+    purpose: "client" | "community";
+    wins: boolean;
   }
 ) {
   const { data } = await db()

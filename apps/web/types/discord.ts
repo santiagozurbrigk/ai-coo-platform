@@ -1,9 +1,6 @@
-export type MonitoredChannel = {
-  channel_id: string;
-  channel_name: string;
-  purpose: "clients" | "testimonials" | "general" | "auto";
-  added_at?: string;
-};
+import type { MonitoredChannel } from "@/lib/discord/channels";
+
+export type { ChannelPurpose, MonitoredChannel } from "@/lib/discord/channels";
 
 export type DiscordIntegration = {
   id: string;
@@ -52,6 +49,8 @@ export type DiscordMessage = {
   message_type: string;
   is_testimonial: boolean;
   requires_attention: boolean;
+  /** Cómo se supo de quién era. `channel` no mueve el reloj del silencio. */
+  attributed_by: "person" | "channel" | null;
   sent_at: string;
 };
 

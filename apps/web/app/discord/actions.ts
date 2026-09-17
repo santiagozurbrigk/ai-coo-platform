@@ -26,6 +26,12 @@ import {
   MAX_NICKNAME_LENGTH,
   type DiscordImageMimeType,
 } from "@/lib/discord/limits";
+import {
+  clienteDelCanal,
+  normalizarCanales,
+  sugerirWins,
+  type ChannelPurpose,
+} from "@/lib/discord/channels";
 import type {
   DiscordClientLink,
   DiscordIntegration,
@@ -93,11 +99,24 @@ export async function getDiscordIntegrationStatusAction(): Promise<DiscordIntegr
   };
 }
 
+/** Alguien que escribió en un canal, y a qué cliente está asociado. */
+export type DiscordChannelPerson = {
+  discordUserId: string;
+  name: string;
+  messages: number;
+  /** Cliente al que está vinculado, o `null` si nadie lo asoció todavía. */
+  clientId: string | null;
+};
+
 export async function getDiscordSettingsAction(): Promise<{
   integration: DiscordIntegration | null;
   linkedClients: DiscordClientLink[];
   pendingLinks: DiscordPendingLink[];
   clients: { id: string; name: string }[];
+  /** Dueños de cada canal, por `channel_id`. */
+  channelClients: Record<string, string[]>;
+  /** Quiénes escribieron en cada canal, por `channel_id`. */
+  channelPeople: Record<string, DiscordChannelPerson[]>;
 }> {
   if (!isSupabaseConfigured()) {
     return {
@@ -105,13 +124,16 @@ export async function getDiscordSettingsAction(): Promise<{
       linkedClients: [],
       pendingLinks: [],
       clients: [],
+      channelClients: {},
+      channelPeople: {},
     };
   }
 
   const organizationId = await requireOrganizationId();
   const supabase = await createClient();
 
-  const [integrationRes, linksRes, pendingRes, clientsRes] = await Promise.all([
+  const [integrationRes, linksRes, pendingRes, clientsRes, duenosRes, autoresRes] =
+    await Promise.all([
     supabase
       .from("discord_integrations")
       .select("*")
@@ -133,12 +155,93 @@ export async function getDiscordSettingsAction(): Promise<{
       .select("id, name")
       .eq("organization_id", organizationId)
       .order("name"),
+    supabase
+      .from("discord_channel_clients")
+      .select("channel_id, client_id")
+      .eq("organization_id", organizationId),
+    /**
+     * ⭐ Quiénes escribieron en cada canal sale de los mensajes ya guardados, no
+     * de preguntarle a Discord.
+     *
+     * Listar los miembros de un servidor necesita el intent privilegiado
+     * `GuildMembers`, que el bot **no pide a propósito** para no obligar a
+     * activar un segundo permiso. Y de todos modos los que importan son los que
+     * escribieron: un miembro que nunca habló no tiene actividad que atribuir.
+     *
+     * El tope existe para que un servidor con historia no traiga la tabla
+     * entera a la pantalla; se ordena por fecha para que el corte deje afuera lo
+     * viejo, que es lo que menos se necesita asociar.
+     */
+    supabase
+      .from("discord_messages")
+      .select(
+        "channel_id, discord_user_id, discord_username, discord_display_name",
+      )
+      .eq("organization_id", organizationId)
+      .order("sent_at", { ascending: false })
+      .limit(2000),
   ]);
 
+  const channelClients: Record<string, string[]> = {};
+  for (const fila of duenosRes.data ?? []) {
+    (channelClients[fila.channel_id] ??= []).push(fila.client_id);
+  }
+
+  const clientePorPersona = new Map<string, string>();
+  for (const link of (linksRes.data as DiscordClientLink[] | null) ?? []) {
+    clientePorPersona.set(link.discord_user_id, link.client_id);
+  }
+
+  const channelPeople: Record<string, DiscordChannelPerson[]> = {};
+  for (const fila of autoresRes.data ?? []) {
+    const personas = (channelPeople[fila.channel_id] ??= []);
+    const existente = personas.find(
+      (persona) => persona.discordUserId === fila.discord_user_id,
+    );
+
+    if (existente) {
+      existente.messages += 1;
+      continue;
+    }
+
+    personas.push({
+      discordUserId: fila.discord_user_id,
+      name:
+        fila.discord_display_name ?? fila.discord_username ?? fila.discord_user_id,
+      messages: 1,
+      clientId: clientePorPersona.get(fila.discord_user_id) ?? null,
+    });
+  }
+
+  // Los que más escribieron primero: son los que más urge asociar.
+  for (const personas of Object.values(channelPeople)) {
+    personas.sort((a, b) => b.messages - a.messages);
+  }
+
+  /**
+   * ⭐ Los canales se normalizan al leerlos, no se castean.
+   *
+   * `monitored_channels` es JSONB: una fila escrita antes de la migración llega
+   * con `purpose: "clients"` y sin `wins`, y castearla a `MonitoredChannel`
+   * haría que TypeScript jure que están los campos mientras la pantalla recibe
+   * `undefined`. `normalizarCanales` los completa con el valor que no atribuye
+   * nada, que es lo que esa fila ya hacía.
+   */
+  const integration = integrationRes.data
+    ? ({
+        ...integrationRes.data,
+        monitored_channels: normalizarCanales(
+          integrationRes.data.monitored_channels,
+        ),
+      } as DiscordIntegration)
+    : null;
+
   return {
-    integration: (integrationRes.data as DiscordIntegration | null) ?? null,
+    integration,
     linkedClients: (linksRes.data as DiscordClientLink[]) ?? [],
     pendingLinks: (pendingRes.data as DiscordPendingLink[]) ?? [],
+    channelClients,
+    channelPeople,
     clients: clientsRes.data ?? [],
   };
 }
@@ -412,6 +515,295 @@ export async function updateDiscordBotCanSpeakAction(
   });
 }
 
+// ─── Canales: de quién son y si ahí se buscan logros ────────────────────────
+
+/**
+ * ⭐ Recalcula de quién es cada mensaje del alcance indicado.
+ *
+ * Una sola rutina para los cuatro momentos en que la respuesta cambia: asignar
+ * o sacar un cliente de un canal, y vincular o desvincular una persona.
+ *
+ * Se hace así y no con cuatro parches porque los parches se contradicen. El
+ * caso que los rompe: un mensaje atribuido al dueño del canal cuyo autor se
+ * vincula después a **otro** cliente. Un parche que sólo mire "mensajes sin
+ * dueño" lo deja mal para siempre, y nadie lo va a notar — la ficha del cliente
+ * equivocado simplemente muestra una conversación ajena.
+ *
+ * Recalcular desde cero la regla completa no puede quedar a mitad de camino.
+ */
+async function recalcularAtribucion(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  alcance: { channelId?: string; discordUserId?: string },
+) {
+  const [{ data: links }, { data: duenos }] = await Promise.all([
+    supabase
+      .from("discord_client_links")
+      .select("discord_user_id, client_id")
+      .eq("organization_id", organizationId),
+    supabase
+      .from("discord_channel_clients")
+      .select("channel_id, client_id")
+      .eq("organization_id", organizationId),
+  ]);
+
+  const clientePorPersona = new Map<string, string>();
+  for (const link of links ?? []) {
+    clientePorPersona.set(link.discord_user_id, link.client_id);
+  }
+
+  const duenosPorCanal = new Map<string, string[]>();
+  for (const fila of duenos ?? []) {
+    const lista = duenosPorCanal.get(fila.channel_id) ?? [];
+    lista.push(fila.client_id);
+    duenosPorCanal.set(fila.channel_id, lista);
+  }
+
+  let query = supabase
+    .from("discord_messages")
+    .select("id, channel_id, discord_user_id, client_id, attributed_by")
+    .eq("organization_id", organizationId);
+
+  if (alcance.channelId) query = query.eq("channel_id", alcance.channelId);
+  if (alcance.discordUserId) {
+    query = query.eq("discord_user_id", alcance.discordUserId);
+  }
+
+  const { data: mensajes } = await query;
+
+  for (const mensaje of mensajes ?? []) {
+    // El autor manda: es la única fuente que sabe **quién** escribió. El dueño
+    // del canal es una deducción, y sólo sirve si el canal tiene uno solo.
+    const porPersona = clientePorPersona.get(mensaje.discord_user_id) ?? null;
+    const porCanal = porPersona
+      ? null
+      : clienteDelCanal(duenosPorCanal.get(mensaje.channel_id) ?? []);
+
+    const clientId = porPersona ?? porCanal;
+    const attributedBy = porPersona ? "person" : porCanal ? "channel" : null;
+
+    if (
+      mensaje.client_id === clientId &&
+      mensaje.attributed_by === attributedBy
+    ) {
+      continue;
+    }
+
+    await supabase
+      .from("discord_messages")
+      .update({ client_id: clientId, attributed_by: attributedBy })
+      .eq("id", mensaje.id);
+  }
+}
+
+/** Cambia un canal entre «de un cliente» y «comunitario». */
+export async function setDiscordChannelPurposeAction(
+  channelId: string,
+  purpose: ChannelPurpose,
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const canales = await leerCanales(supabase, organizationId);
+
+    const actualizados = canales.map((canal) =>
+      canal.channel_id === channelId ? { ...canal, purpose } : canal,
+    );
+
+    await guardarCanales(supabase, organizationId, actualizados);
+
+    /**
+     * Pasar a comunitario saca a los dueños: un canal comunitario no atribuye
+     * por canal, y dejar las filas guardadas haría que volvieran a aplicarse
+     * solas si mañana se vuelve a marcar como de cliente — una atribución
+     * fantasma que nadie eligió dos veces.
+     */
+    if (purpose === "community") {
+      await supabase
+        .from("discord_channel_clients")
+        .delete()
+        .eq("organization_id", organizationId)
+        .eq("channel_id", channelId);
+
+      await recalcularAtribucion(supabase, organizationId, { channelId });
+    }
+
+    revalidatePath(paths.platform.integrationsDiscord);
+  });
+}
+
+/** Prende o apaga «acá se comparten logros» en un canal. */
+export async function setDiscordChannelWinsAction(
+  channelId: string,
+  wins: boolean,
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+    const canales = await leerCanales(supabase, organizationId);
+
+    await guardarCanales(
+      supabase,
+      organizationId,
+      canales.map((canal) =>
+        canal.channel_id === channelId ? { ...canal, wins } : canal,
+      ),
+    );
+
+    revalidatePath(paths.platform.integrationsDiscord);
+  });
+}
+
+/** Suma un cliente como dueño de un canal. */
+export async function addDiscordChannelClientAction(
+  channelId: string,
+  clientId: string,
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("discord_channel_clients")
+      .upsert(
+        { organization_id: organizationId, channel_id: channelId, client_id: clientId },
+        { onConflict: "organization_id,channel_id,client_id" },
+      );
+
+    if (error) throw new Error(error.message);
+
+    await recalcularAtribucion(supabase, organizationId, { channelId });
+    revalidatePath(paths.platform.integrationsDiscord);
+  });
+}
+
+/** Saca un cliente de un canal. */
+export async function removeDiscordChannelClientAction(
+  channelId: string,
+  clientId: string,
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("discord_channel_clients")
+      .delete()
+      .eq("organization_id", organizationId)
+      .eq("channel_id", channelId)
+      .eq("client_id", clientId);
+
+    if (error) throw new Error(error.message);
+
+    await recalcularAtribucion(supabase, organizationId, { channelId });
+    revalidatePath(paths.platform.integrationsDiscord);
+  });
+}
+
+/**
+ * Vincula una persona de Discord a un cliente desde la lista del canal.
+ *
+ * Es el mismo vínculo que crea `!vincular`, hecho desde la pantalla y sin que el
+ * cliente tenga que escribir nada. Ésta es la vía que resuelve el caso real:
+ * gente que ya escribió en un canal comunitario y que nadie va a lograr que
+ * escriba un comando.
+ */
+export async function linkDiscordPersonAction(
+  discordUserId: string,
+  clientId: string,
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    // El nombre sale de sus propios mensajes: es el dato más fresco que hay, y
+    // evita pedirle a Discord algo que ya está guardado.
+    const { data: ultimo } = await supabase
+      .from("discord_messages")
+      .select("discord_username, discord_display_name")
+      .eq("organization_id", organizationId)
+      .eq("discord_user_id", discordUserId)
+      .order("sent_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const { error } = await supabase.from("discord_client_links").upsert(
+      {
+        organization_id: organizationId,
+        client_id: clientId,
+        discord_user_id: discordUserId,
+        discord_username: ultimo?.discord_username ?? null,
+        discord_display_name: ultimo?.discord_display_name ?? null,
+        link_method: "manual",
+        link_confidence: 1,
+      },
+      { onConflict: "organization_id,discord_user_id" },
+    );
+
+    if (error) throw new Error(error.message);
+
+    // Una vinculación pendiente de esta misma persona ya no tiene sentido.
+    await supabase
+      .from("discord_pending_links")
+      .update({ status: "resolved" })
+      .eq("organization_id", organizationId)
+      .eq("discord_user_id", discordUserId);
+
+    await recalcularAtribucion(supabase, organizationId, { discordUserId });
+    revalidatePath(paths.platform.integrationsDiscord);
+  });
+}
+
+/** Deshace una vinculación. Los mensajes de esa persona vuelven a recalcularse. */
+export async function unlinkDiscordPersonAction(
+  discordUserId: string,
+): Promise<MutationResult> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("discord_client_links")
+      .delete()
+      .eq("organization_id", organizationId)
+      .eq("discord_user_id", discordUserId);
+
+    if (error) throw new Error(error.message);
+
+    await recalcularAtribucion(supabase, organizationId, { discordUserId });
+    revalidatePath(paths.platform.integrationsDiscord);
+  });
+}
+
+async function leerCanales(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+): Promise<MonitoredChannel[]> {
+  const { data } = await supabase
+    .from("discord_integrations")
+    .select("monitored_channels")
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  return normalizarCanales(data?.monitored_channels);
+}
+
+async function guardarCanales(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  organizationId: string,
+  canales: MonitoredChannel[],
+) {
+  const { error } = await supabase
+    .from("discord_integrations")
+    .update({
+      monitored_channels: canales,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("organization_id", organizationId);
+
+  if (error) throw new Error(error.message);
+}
+
 export type DiscordChannelOption = DiscordGuildChannel & {
   /** Ya está en la lista de monitoreados. */
   monitored: boolean;
@@ -516,7 +908,15 @@ export async function addDiscordMonitoredChannelAction(
       {
         channel_id: channel.id,
         channel_name: channel.name,
-        purpose: "clients",
+        /**
+         * ⭐ Nace comunitario, que es el valor que **no atribuye nada**.
+         *
+         * Elegirlo de cliente por defecto repartiría los mensajes del canal
+         * entre alguien que el usuario todavía no eligió. El default correcto
+         * de una decisión que no se tomó es el que no hace nada.
+         */
+        purpose: "community",
+        wins: sugerirWins(channel.name),
         added_at: new Date().toISOString(),
       },
     ];
@@ -534,6 +934,17 @@ export async function addDiscordMonitoredChannelAction(
   });
 }
 
+/**
+ * Deja de monitorear un canal.
+ *
+ * ⭐ También suelta a sus dueños y recalcula.
+ *
+ * Los mensajes ya guardados se quedan —pasaron, y borrarlos de la ficha del
+ * cliente sería perder historia—, pero **atribuidos a nadie por canal**: sin
+ * esto, un canal que se deja de leer y se vuelve a agregar mañana arrancaría
+ * comunitario mientras sus mensajes viejos siguen contados para el dueño de
+ * antes. Media ficha diciendo una cosa y media otra, sin nada que lo explique.
+ */
 export async function removeDiscordMonitoredChannelAction(
   channelId: string,
 ): Promise<MutationResult> {
@@ -562,6 +973,14 @@ export async function removeDiscordMonitoredChannelAction(
       .eq("organization_id", organizationId);
 
     if (error) throw new Error(error.message);
+
+    await supabase
+      .from("discord_channel_clients")
+      .delete()
+      .eq("organization_id", organizationId)
+      .eq("channel_id", channelId);
+
+    await recalcularAtribucion(supabase, organizationId, { channelId });
     revalidatePath(paths.platform.integrationsDiscord);
   });
 }
@@ -699,7 +1118,7 @@ export async function getClientsDiscordActivityAction(): Promise<
 
     const { data, error } = await supabase
       .from("discord_messages")
-      .select("client_id, sent_at, is_testimonial")
+      .select("client_id, sent_at, is_testimonial, attributed_by")
       .eq("organization_id", organizationId)
       .not("client_id", "is", null)
       // Más de 90 días atrás no cambia ninguna de las señales que se muestran.
@@ -716,11 +1135,13 @@ export async function getClientsDiscordActivityAction(): Promise<
           client_id: string | null;
           sent_at: string;
           is_testimonial: boolean;
+          attributed_by: "person" | "channel" | null;
         }[]
       ).map((row) => ({
         clientId: row.client_id,
         sentAt: row.sent_at,
         isTestimonial: row.is_testimonial,
+        attributedBy: row.attributed_by,
       })),
     );
   } catch {
