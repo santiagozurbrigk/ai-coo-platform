@@ -12,6 +12,7 @@ import { headers } from "next/headers";
 import { permissionModuleForPath } from "@/lib/navigation/module-for-path";
 import { getPermissionModuleLabel } from "@/constants/permission-modules";
 import { SinAcceso } from "@/components/platform/sin-acceso";
+import { AvisoClaveIa } from "@/components/platform/aviso-clave-ia";
 
 export default async function PlatformRouteLayout({
   children,
@@ -53,6 +54,14 @@ export default async function PlatformRouteLayout({
           <OnboardingProvider value={onboarding}>
             <WelcomeGate>
               <PlatformLayout>
+                {/*
+                  El aviso de la clave de IA vencida va arriba de todo y en
+                  todas las pantallas: mientras esté rota, cualquier función de
+                  IA que se toque va a fallar, así que no sirve esconderlo en
+                  una sola página.
+                */}
+                <AvisoClaveIa esFounder={permissions.isFounder} />
+
                 {sinAcceso && moduleId ? (
                   <SinAcceso moduleLabel={getPermissionModuleLabel(moduleId)} />
                 ) : (

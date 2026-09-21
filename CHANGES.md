@@ -14,6 +14,66 @@
 
 ---
 
+### 2026-09-21 — 🔑 Una clave de IA vencida ahora se ve dentro del producto
+
+**Rama/branch:** `claude/nice-thompson-s9zids`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** IA (credenciales BYOK), layout de plataforma
+
+**Qué se hizo:**
+
+- `lib/ai/credential-resolver.ts`: `marcarClaveDeOrgComoRechazada()` escribe
+  `claude_api_key_status = 'invalid'` cuando el proveedor rechaza la clave.
+- `lib/ai/anthropic.ts`: el camino que ya detectaba el rechazo ahora además lo
+  persiste, no sólo lo loguea.
+- `components/platform/aviso-clave-ia.tsx` (nuevo): barra roja en todas las
+  pantallas de la organización afectada, con link a Ajustes → IA para quien
+  puede arreglarlo.
+
+**Por qué / finalidad:**
+
+⭐ **El problema era invisible desde adentro del producto.** La organización
+`familiayformacion` tiene la clave rechazada **desde julio**: 12 llamadas
+fallando con `401` cada diez minutos, el análisis sin correr, y su pantalla sin
+decir nada. El estado guardado seguía en `valid` porque **sólo se escribía al
+cargar la clave** y nunca se actualizaba después. La única forma de enterarse era
+abrir los registros del servidor en Vercel — o sea, nadie.
+
+⭐ **Marcar el estado tiene un segundo efecto que corta la sangría.**
+`decryptApiKeyIfValid` no entrega una clave marcada como `invalid`, así que el
+sistema pasa a la clave global (o falla con un mensaje claro) **antes** de
+pegarle al proveedor, en vez de gastar un `401` en cada intento cada diez
+minutos.
+
+**Decisiones de diseño relevantes:**
+
+- **El cartel no se puede cerrar.** Un aviso descartable desaparece para siempre
+  y el problema sigue: mientras la clave esté vencida, la IA de esa cuenta está
+  degradada.
+- **El `update` lleva `.eq("claude_api_key_status", "valid")`.** Sin esa
+  condición, dos lambdas en carrera podrían pisar una clave que la organización
+  acaba de corregir.
+- **El link a Ajustes va sólo para el fundador.** Mandar a Ajustes a alguien sin
+  acceso es ofrecerle una puerta cerrada; al resto se le dice a quién avisarle.
+- **Se reusó `claude_api_key_status`**, que ya existía con los valores
+  `none|valid|invalid|error` y cuya pantalla de Ajustes ya sabía dibujar el
+  estado `invalid`. Cero migraciones.
+- **El aviso nunca tira**: si la consulta falla, no se muestra. Un cartel no
+  puede voltear la plataforma entera.
+
+**Riesgos / deuda técnica pendiente:**
+
+- El layout hace una consulta más por render de página de plataforma. Es una
+  lectura por clave primaria; si pesa, va a caché.
+- ⚠️ **No se probó con una clave rota de verdad**: la marca se pone sola en el
+  primer rechazo después del deploy, así que la organización afectada debería ver
+  el cartel dentro de los diez minutos. Si no aparece, mirar
+  `claude_api_key_status` de esa organización.
+- Sigue sin haber `ANTHROPIC_API_KEY` global como red de contención: esa cuenta
+  queda sin IA hasta que actualice su clave. Ver `[1A1-CLAVE-ANTHROPIC-ROTA]`.
+
+---
+
 ### 2026-09-21 — 🐛 Las tareas de la 1-1 no aparecían, y no había forma de saber por qué
 
 **Rama/branch:** `claude/nice-thompson-s9zids`

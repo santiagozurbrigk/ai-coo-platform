@@ -60,10 +60,17 @@ esa organización, una y otra vez, desde hace días. En el log se lee:
 `[anthropic] La clave propia de la organización ... fue rechazada. No hay clave
 global configurada: el trabajo no se puede hacer.`
 
-**Qué hacer:** o esa organización carga una clave válida en Integraciones, o se
+**Qué hacer:** o esa organización carga una clave válida en Ajustes → IA, o se
 configura `ANTHROPIC_API_KEY` global en Vercel como red de contención. Mientras
-tanto esas 12 llamadas no se procesan y el cron gasta una corrida cada 10 minutos
-en fallar.
+tanto esas 12 llamadas no se procesan.
+
+**Lo que sí se arregló el 2026-09-21:** el problema **ya no es invisible**. Ahora
+el rechazo se guarda (`claude_api_key_status = 'invalid'`) y la organización ve
+una barra roja en todas sus pantallas, con link a Ajustes. Efecto secundario
+útil: una clave marcada como inválida deja de usarse, así que se dejan de gastar
+`401` cada diez minutos. **Falta confirmar que el cartel aparezca de verdad**:
+la marca se pone sola en el primer rechazo después del deploy. Si a los diez
+minutos no aparece, mirar `claude_api_key_status` de esa organización.
 
 ---
 

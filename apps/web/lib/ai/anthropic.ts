@@ -3,6 +3,7 @@ import { mapAnthropicCallError, type ClaudeKeySource } from "@/lib/ai/anthropic-
 import {
   getGlobalAnthropicClient,
   invalidateOrgCredentialCache,
+  marcarClaveDeOrgComoRechazada,
   resolveCredentialForOrg,
 } from "@/lib/ai/credential-resolver";
 import { trackTokenUsage } from "@/lib/track-token-usage";
@@ -215,6 +216,16 @@ async function executeWithCredentialFallback<T>(
             : "No hay clave global configurada: el trabajo no se puede hacer.")
       );
       invalidateOrgKeyCache(organizationId);
+
+      /**
+       * ⭐ Y se deja escrito, no sólo logueado.
+       *
+       * El log lo ve quien abre Vercel; el estado guardado lo ve la
+       * organización en su propia pantalla. Sin esto, una clave vencida en
+       * julio seguía figurando como válida en septiembre y nadie se enteraba
+       * salvo mirando los registros del servidor.
+       */
+      void marcarClaveDeOrgComoRechazada(organizationId);
 
       if (global) {
         const result = await fn(global, "global");
