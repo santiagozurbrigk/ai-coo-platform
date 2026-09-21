@@ -9,7 +9,6 @@
  */
 
 import { useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge, Button, GlassPanel, cn } from "@ai-coo/ui";
 import {
@@ -71,7 +70,6 @@ export function ClientJourneySection({
 }) {
   const { push } = useToast();
   const { refreshClients } = usePlatformData();
-  const router = useRouter();
   const [data, setData] = useState<JourneyData>(EMPTY);
   const [proposals, setProposals] = useState<CheckpointProposal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -193,16 +191,20 @@ export function ClientJourneySection({
         variant: "success",
       });
       /*
-        ⭐ Las dos cosas, y no una.
+        ⭐ El proveedor de datos, y **no** `router.refresh()`.
 
-        La fase vive en el cliente, así que hay que releerlo — pero la ficha lee
-        el cliente del proveedor de datos (`clients.find(...)`), no del prop que
-        renderiza el servidor. `router.refresh()` solo refresca lo segundo, así
-        que la fase quedaba guardada en la base y la pantalla seguía mostrando
-        la anterior hasta recargar a mano. Encontrado probando contra el preview.
+        La ficha lee el cliente de `clients.find(...)`, no del prop que
+        renderiza el servidor, así que refrescar el servidor no cambiaba nada:
+        la fase quedaba guardada en la base y la pantalla seguía mostrando la
+        anterior hasta recargar a mano.
+
+        Refrescar además el servidor tampoco es gratis: vuelve a montar la
+        columna de contexto entera y las tarjetas que cargan solas —la
+        información del cliente, la facturación— desaparecen unos segundos por
+        un cambio que no las toca. Las dos cosas se vieron probando contra el
+        preview con datos reales.
       */
       await refreshClients();
-      router.refresh();
     });
   }
 
