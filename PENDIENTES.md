@@ -135,6 +135,62 @@ decidir de dónde salen y con qué frecuencia, no copiar un patrón que ya exist
 
 ---
 
+### [FICHA-LENTA] La ficha del cliente tarda más de diez segundos en dibujarse 🟡
+
+**Qué es:** medido contra el preview con un cliente real el 2026-09-21. Abrir
+una ficha dispara del orden de **quince server actions** —recorrido, propuestas,
+sesiones, tareas, wins, Discord, campos configurables, facturación, resumen,
+cobros…— y las tarjetas van apareciendo de a una. La de «Información del
+cliente» puede tardar más de diez segundos.
+
+**Por qué importa:** quien abre una ficha ve media pantalla y cree que lo demás
+no existe. Y como varias tarjetas devuelven `null` mientras cargan, no hay
+siquiera un esqueleto que avise que falta algo.
+
+**Qué hacer, de menor a mayor esfuerzo:**
+1. Que las tarjetas que hoy devuelven `null` mientras cargan muestren un
+   esqueleto: el usuario ve que algo viene.
+2. Juntar las lecturas de la ficha en una sola action, como ya hace
+   `getClientsBoardAction` con la tabla.
+3. Mover a la página (Server Component) lo que no depende de interacción.
+
+---
+
+### [FASE-REFRESCO-CARO] Cambiar la fase recarga los 264 clientes 🟡
+
+**Qué es:** `setClientManualStageAction` termina llamando `refreshClients()`,
+que vuelve a pedir **toda** la lista de clientes de la organización para
+reflejar el cambio de uno solo. En Optimiza tu Control son 264 filas, y el
+selector tarda varios segundos en mostrar la fase nueva.
+
+**Por qué está así:** es lo que arregló el bug del 2026-09-21 —antes no se
+actualizaba nunca—, pero es el martillo más grande disponible.
+
+**Qué hacer:** o bien el proveedor expone una forma de actualizar un cliente
+suelto, o bien `ClientJourneySection` guarda la fase en su propio estado apenas
+la fija (actualización optimista) y deja el `refreshClients()` corriendo por
+detrás para la tabla.
+
+---
+
+### [UI-SIN-TESTS] `packages/ui` no tiene tests 🟡
+
+**Qué es:** el paquete tiene `lint` y `typecheck`, pero no `test`. El
+2026-09-21 se arregló ahí un bug de formato (`parseAnimatableMetricValue` se
+comía un espacio y «0 de 2» se leía «0de 2») y **no se pudo fijar con un test**:
+se verificó a mano contra diez formatos.
+
+**Qué hacer:** sumar Vitest al paquete, con `parse-metric-value` y
+`metric-trend` como primeros casos — son lógica pura y son los que más fácil se
+rompen sin que nadie se entere.
+
+**De paso, algo que quedó sin arreglar:** un valor como «+77%» pierde el signo
+al animarse (queda «77%»). No afecta a lo que se construyó —la facturación
+dibuja su propia píldora— pero sí a cualquier `MetricStat` que reciba un valor
+con signo.
+
+---
+
 ### [CLIENTES-VER-CON-DATOS] Mirar el panel de clientes rediseñado con datos reales 🟡
 
 **Qué es:** el 2026-09-21 se rehizo el panel de clientes (buscador, filtros

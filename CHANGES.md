@@ -14,6 +14,66 @@
 
 ---
 
+### 2026-09-21 — 🐞 Dos bugs que sólo aparecieron probando contra datos reales
+
+**Rama/branch:** `claude/nice-thompson-s9zids`
+**Commits:** `2930681`, `6bf8e2c`
+**Módulo(s) afectado(s):** Clientes (recorrido), `@ai-coo/ui`
+
+**Qué se hizo:**
+
+Se probó la rama entera contra el preview de Vercel, con la base de producción
+y los 264 clientes reales de Optimiza tu Control, manejando el navegador con
+Playwright y un usuario temporal creado y borrado para la ocasión. Salieron dos
+defectos que ni los tests ni las capturas con datos inventados mostraban:
+
+1. **La fase fijada a mano no se veía hasta recargar.** `setClientManualStage`
+   guardaba bien —la fila quedaba con su `manual_stage_id` y su fecha— pero la
+   pantalla seguía mostrando la fase anterior. La ficha lee el cliente de
+   `usePlatformData()` (`clients.find(...)`), no del prop que renderiza el
+   servidor, así que `router.refresh()` refrescaba justo lo que la ficha
+   ignora. Ahora llama `refreshClients()`, y **sólo** eso: refrescar además el
+   servidor volvía a montar la columna de contexto entera y hacía desaparecer
+   unos segundos las tarjetas que cargan solas.
+
+2. **«0 de 2» se dibujaba «0de 2»** en la franja de indicadores de toda ficha.
+   `parseAnimatableMetricValue` separa el número de su sufijo para animarlo y
+   su grupo numérico (`[0-9,.\s]*`) se comía el espacio de atrás, que
+   `normalizeNumPart` después eliminaba. El espacio vuelve al sufijo. Es
+   anterior a estos cambios y afecta a cualquier `MetricStat` con un valor de
+   la forma «N de M».
+
+**Lo que la prueba confirmó que sí andaba:** la columna «Próxima tarea» muestra
+exactamente la tarea que predice `pickNextTask` (comparada contra la misma regla
+escrita en SQL, cliente por cliente); recargar un mes de facturación lo corrige
+sin duplicarlo (US$12.400 → US$15.900, «2 meses cargados», variación recalculada
+a +77%); un monto negativo, una moneda inventada y un mes repetido los rechaza la
+base; el aislamiento entre organizaciones impide leer, escribir y borrar lo
+ajeno; «Cargar plantilla» crea los 22 campos sin duplicar al repetirlo y sin
+invadir la tabla; y las columnas configurables que ya existían siguieron
+visibles después de la migración.
+
+**Por qué / finalidad:**
+
+⭐ **Los dos bugs son del mismo tipo: el dato se guardaba y la pantalla mentía.**
+Ninguno rompe nada visible en un test unitario —la lógica pura estaba bien, y
+sus 40 tests pasaban— ni en una captura con datos de mentira, porque los dos
+aparecen recién cuando alguien guarda algo y mira la pantalla después. Es el
+argumento para probar contra datos reales antes de dar algo por terminado.
+
+**Riesgos / deuda técnica pendiente:**
+
+- `refreshClients()` recarga los 264 clientes para reflejar el cambio de uno: el
+  selector de fase tarda varios segundos en actualizarse. Anotado en
+  `PENDIENTES.md`.
+- La ficha dispara del orden de quince server actions al abrirse y tarda más de
+  diez segundos en terminar de dibujarse. Es anterior, pero estas dos tarjetas
+  nuevas le suman dos llamadas. Anotado.
+- `packages/ui` no tiene tests, así que el arreglo del parseo se verificó a mano
+  contra diez formatos. Anotado.
+
+---
+
 ### 2026-09-21 — 🗂️ Tareas escritas a mano, tres apartados de info, facturación del negocio y fase elegible
 
 **Rama/branch:** `claude/nice-thompson-s9zids`
