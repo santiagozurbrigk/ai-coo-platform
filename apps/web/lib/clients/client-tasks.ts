@@ -31,6 +31,8 @@ export async function maybeExtractOneOnOneTasks(params: {
   transcript: string | null;
   callDate?: string | null;
   createdBy?: string | null;
+  /** Lo pidió una persona desde la ficha: se ignora la marca de "ya corrió". */
+  force?: boolean;
 }): Promise<number> {
   if (params.purpose !== "delivery" || !params.clientId) return 0;
   if (!params.transcript?.trim()) return 0;
@@ -44,7 +46,7 @@ export async function maybeExtractOneOnOneTasks(params: {
       .eq("id", params.callId)
       .maybeSingle();
 
-    if (call?.one_on_one_tasks_extracted_at) return 0;
+    if (call?.one_on_one_tasks_extracted_at && !params.force) return 0;
 
     const { data: client } = await admin
       .from("clients")
@@ -52,7 +54,7 @@ export async function maybeExtractOneOnOneTasks(params: {
       .eq("id", params.clientId)
       .maybeSingle();
 
-    const tasks = await extractOneOnOneTasks({
+    const { tasks, outcome } = await extractOneOnOneTasks({
       organizationId: params.organizationId,
       transcript: params.transcript,
       clientName: client?.name ?? null,
@@ -60,14 +62,20 @@ export async function maybeExtractOneOnOneTasks(params: {
     });
 
     /**
-     * La marca se pone **aunque no haya salido ninguna tarea**. Una llamada
-     * donde no se acordó nada concreto es un resultado válido, y sin la marca se
-     * volvería a pagar el análisis en cada intento posterior.
+     * ⭐ La marca se pone cuando la respuesta **se entendió**, con tareas o sin
+     * ellas: una llamada donde no se acordó nada concreto es un resultado válido
+     * y definitivo, y sin la marca se volvería a pagar el análisis para siempre.
+     *
+     * Pero si la respuesta vino ilegible, **no se marca**. Marcar ahí fue el
+     * error de la primera versión: dejó la llamada con cero tareas y cerrada a
+     * cualquier reintento, que es la peor de las dos opciones posibles.
      */
-    await admin
-      .from("fathom_calls")
-      .update({ one_on_one_tasks_extracted_at: new Date().toISOString() })
-      .eq("id", params.callId);
+    if (outcome !== "ilegible") {
+      await admin
+        .from("fathom_calls")
+        .update({ one_on_one_tasks_extracted_at: new Date().toISOString() })
+        .eq("id", params.callId);
+    }
 
     if (!tasks.length) return 0;
 

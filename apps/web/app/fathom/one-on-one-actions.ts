@@ -10,11 +10,15 @@
  * las 1-1 terminaba como texto suelto en el timeline.
  */
 
+import { revalidatePath } from "next/cache";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { loadClientOneOnOneStats } from "@/lib/fathom/one-on-ones";
+import { maybeExtractOneOnOneTasks } from "@/lib/clients/client-tasks";
+import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import type { OneOnOneStats } from "@/lib/fathom/one-on-one-types";
+import { paths } from "@/routes";
 
 export type ClientOneOnOneCall = {
   id: string;
@@ -28,6 +32,8 @@ export type ClientOneOnOneCall = {
   /** La subió alguien pegando el link, en vez de entrar por la sincronización. */
   uploadedManually: boolean;
   hasTranscript: boolean;
+  /** Cuántas tareas salieron de esta llamada. Cero con transcript = se puede reintentar. */
+  tasksCreated: number;
 };
 
 export type ClientOneOnOnes = {
@@ -98,6 +104,28 @@ export async function getClientOneOnOnesAction(
     transcript: string | null;
   }[];
 
+  /**
+   * Cuántas tareas dejó cada llamada, en una sola consulta.
+   *
+   * ⭐ Es lo que le permite a la ficha ofrecer el reintento sólo donde tiene
+   * sentido: una llamada con transcripción y cero tareas es sospechosa; una sin
+   * transcripción no tiene nada que reintentar.
+   */
+  const { data: tareas } = await admin
+    .from("client_tasks")
+    .select("source_call_id")
+    .eq("organization_id", organizationId)
+    .eq("client_id", clientId)
+    .not("source_call_id", "is", null);
+
+  const tareasPorLlamada = new Map<string, number>();
+  for (const fila of (tareas ?? []) as { source_call_id: string }[]) {
+    tareasPorLlamada.set(
+      fila.source_call_id,
+      (tareasPorLlamada.get(fila.source_call_id) ?? 0) + 1
+    );
+  }
+
   return {
     stats: await loadClientOneOnOneStats(organizationId, clientId),
     calls: rows.map((row) => ({
@@ -114,6 +142,55 @@ export async function getClientOneOnOnesAction(
       nextSteps: row.ai_next_steps ?? [],
       uploadedManually: row.ingest_source === "manual_link",
       hasTranscript: Boolean(row.transcript?.trim()),
+      tasksCreated: tareasPorLlamada.get(row.id) ?? 0,
     })),
   };
+}
+
+/**
+ * Volver a sacarle las tareas a una llamada que ya está subida.
+ *
+ * ⭐ Existe porque la extracción depende de que un modelo conteste en el formato
+ * pedido, y eso puede fallar. Sin este botón, una llamada que falló la primera
+ * vez **no tiene forma de recuperarse**: volver a pegar el link la reconoce como
+ * ya cargada y no reintenta nada.
+ */
+export async function retryOneOnOneTasksAction(input: {
+  callId: string;
+}): Promise<MutationResult<{ tasksCreated: number }>> {
+  return runMutation(async () => {
+    const organizationId = await requireOrganizationId();
+    const admin = createAdminClient();
+
+    // La llamada tiene que ser de la organización de quien lo pide.
+    const { data: call } = await admin
+      .from("fathom_calls")
+      .select("id, client_id, purpose, transcript, call_date")
+      .eq("id", input.callId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (!call) throw new Error("No se encontró esa llamada.");
+    if (!call.transcript?.trim()) {
+      throw new Error(
+        "Esta llamada no tiene transcripción, así que no hay de dónde sacar tareas. Cargalas a mano."
+      );
+    }
+
+    const tasksCreated = await maybeExtractOneOnOneTasks({
+      callId: call.id as string,
+      organizationId,
+      clientId: call.client_id as string | null,
+      purpose: call.purpose as string | null,
+      transcript: call.transcript as string,
+      callDate: call.call_date as string | null,
+      force: true,
+    });
+
+    if (call.client_id) {
+      revalidatePath(paths.platform.clients.detail(call.client_id as string));
+    }
+
+    return { tasksCreated };
+  });
 }

@@ -14,6 +14,90 @@
 
 ---
 
+### 2026-09-21 — 🐛 Las tareas de la 1-1 no aparecían, y no había forma de saber por qué
+
+**Rama/branch:** `claude/nice-thompson-s9zids`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** Fathom (extracción 1-1), Clientes (ficha)
+
+**Qué se hizo:**
+
+Primera prueba real de la feature del día anterior: la llamada se subió bien, con
+su resumen y sus 5 próximos pasos, y la sección **Tareas** quedó en «Sin tareas
+todavía».
+
+- `lib/fathom/one-on-one-tasks.ts`: el parser pasa de un `JSON.parse` del array
+  entero a **tres pasadas** (array completo → objetos sueltos con un escáner que
+  respeta comillas → array vacío explícito), y devuelve **por qué** terminó como
+  terminó: `ok`, `vacio` o `ilegible`.
+- Cuando la respuesta es ilegible, se loguea **una muestra del texto crudo**.
+- `lib/clients/client-tasks.ts`: la marca `one_on_one_tasks_extracted_at` ya
+  **no** se pone si la respuesta vino ilegible, y acepta `force` para reintentar.
+- `app/fathom/one-on-one-actions.ts`: `retryOneOnOneTasksAction` nueva, y cada
+  llamada informa cuántas tareas dejó.
+- Botón **«Buscar tareas»** en la llamada desplegada, visible sólo si hay
+  transcripción y cero tareas.
+- `lib/clients/tasks-events.ts` (nuevo): las dos secciones de la ficha se avisan
+  entre ellas.
+- 16 tests nuevos, uno por cada forma de contestar mal.
+
+**Por qué / finalidad:**
+
+⭐ **El diagnóstico salió de los datos, no de mirar el código.** La base decía que
+la extracción había corrido (`one_on_one_tasks_extracted_at` puesta) y
+`token_usage` decía que el modelo había gastado **570 tokens de salida** — o sea
+que contestó, y contestó algo largo. Los logs de Vercel no tenían ningún error de
+guardado. Conclusión: el modelo devolvió las tareas y **el parser las tiró**.
+
+⭐ **El error de diseño real no fue el parser: fue tragarse el fallo.** Tres
+decisiones se combinaron para que un problema de cinco minutos costara una
+sesión de debug a ciegas:
+
+1. `JSON.parse` del array entero, que es todo o nada: una coma de más en la
+   última tarea tira las cinco.
+2. **Cero tareas significaba dos cosas distintas** —«no había compromisos» y «no
+   entendí la respuesta»— y el código las trataba igual.
+3. Como las trataba igual, **marcaba la llamada como ya procesada**, que cierra
+   la puerta a cualquier reintento. La peor de las dos opciones posibles.
+
+Nada de esto se veía desde afuera: la ficha decía «Sin tareas todavía», que es
+exactamente lo que diría si la llamada no hubiera tenido compromisos.
+
+**Decisiones de diseño relevantes:**
+
+- **El escáner de objetos abandona el objeto en curso al ver un salto de línea
+  crudo dentro de un texto.** No es una heurística: un salto de línea real es
+  JSON inválido —van escapados—, así que verlo prueba que una comilla quedó sin
+  cerrar. Sin esa regla, una tarea mal escrita se come todas las que vienen
+  después.
+- **Se aceptan las claves en castellano** (`titulo`, `responsable`, `fecha`). Al
+  modelo se le habla en castellano; pedirle nombres en inglés y romperse cuando
+  contesta en el idioma de la conversación es pedirle que adivine.
+- **El botón aparece sólo donde tiene sentido**: con transcripción y cero tareas.
+  Con tareas ya cargadas, volver a correrlo las duplicaría.
+- **Un array vacío explícito sigue siendo una respuesta válida** y se marca como
+  procesada: una llamada donde no se acordó nada concreto existe, y volver a
+  pagar el análisis por eso para siempre sería el error opuesto.
+- **El aviso entre secciones es un evento del navegador** y no estado compartido:
+  son dos secciones hermanas sueltas, y subirle el estado a la ficha la
+  obligaría a saber de tareas.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **No se pudo ver qué contestó el modelo.** No hay clave de Anthropic en el
+  entorno de desarrollo, así que la llamada no se pudo reproducir. El parser
+  ahora cubre las formas conocidas de contestar mal y **loguea el texto crudo**
+  si igual falla: el próximo intento va a decir exactamente qué pasó, en vez de
+  dejarlo a la deducción.
+- La causa exacta sigue sin confirmar. Las candidatas, en orden: coma colgante,
+  objetos sin array, o prosa que el `match` no toleraba.
+- ⚠️ **Hallazgo aparte, en los logs**: la organización `997e94be` tiene una clave
+  de Anthropic inválida y **no hay clave global configurada**, así que 12
+  llamadas fallan con `401` cada 10 minutos desde hace días. No lo toca este
+  cambio, pero bloquea el procesamiento automático de esa organización.
+
+---
+
 ### 2026-09-20 — 📞 Subir una 1-1 con un link, y que salgan solas las tareas
 
 **Rama/branch:** `claude/nice-thompson-s9zids`

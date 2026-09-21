@@ -49,6 +49,24 @@ contar desde el primer minuto.
 
 ---
 
+### [1A1-CLAVE-ANTHROPIC-ROTA] Una organización tiene la clave de IA vencida 🔴
+
+**Qué es:** encontrado en los logs de Vercel el 2026-09-21. La organización
+`997e94be-7dac-46bd-8a07-749ef18c9142` tiene su clave propia de Anthropic
+**rechazada con `401`**, y **no hay clave global configurada** como respaldo.
+
+El cron de Fathom corre cada 10 minutos y falla las **12 llamadas** pendientes de
+esa organización, una y otra vez, desde hace días. En el log se lee:
+`[anthropic] La clave propia de la organización ... fue rechazada. No hay clave
+global configurada: el trabajo no se puede hacer.`
+
+**Qué hacer:** o esa organización carga una clave válida en Integraciones, o se
+configura `ANTHROPIC_API_KEY` global en Vercel como red de contención. Mientras
+tanto esas 12 llamadas no se procesan y el cron gasta una corrida cada 10 minutos
+en fallar.
+
+---
+
 ### [1A1-EDITAR-DETALLE] El detalle de una tarea no se puede editar 🟡
 
 **Qué es:** `updateClientTaskAction` ya permite cambiar título, detalle, dueño y

@@ -36,6 +36,7 @@ import {
   type ClientTask,
   type ClientTaskOwner,
 } from "@/types/client-tasks";
+import { CLIENT_TASKS_CHANGED } from "@/lib/clients/tasks-events";
 import { useToast } from "@/providers/toast-provider";
 import { cn } from "@/lib/utils";
 
@@ -342,6 +343,19 @@ export function ClientTasksSection({ clientId }: { clientId: string }) {
   }, [clientId]);
 
   useEffect(() => cargar(), [cargar]);
+
+  /**
+   * ⭐ Recargar cuando las sesiones 1-1 crean tareas.
+   *
+   * Sin esto, subís una llamada, se cargan cinco tareas, y esta sección sigue
+   * diciendo «Sin tareas todavía» hasta que recargues la página — que es
+   * exactamente cuando uno concluye que la feature no anda.
+   */
+  useEffect(() => {
+    const alCambiar = () => cargar();
+    window.addEventListener(CLIENT_TASKS_CHANGED, alCambiar);
+    return () => window.removeEventListener(CLIENT_TASKS_CHANGED, alCambiar);
+  }, [cargar]);
 
   const reemplazar = (task: ClientTask) =>
     setTasks((prev) => prev.map((item) => (item.id === task.id ? task : item)));

@@ -16,15 +16,20 @@ import {
   CalendarClock,
   ChevronDown,
   ExternalLink,
+  Loader2,
   Phone,
   Plus,
+  Sparkles,
   Upload,
 } from "lucide-react";
 import {
   getClientOneOnOnesAction,
+  retryOneOnOneTasksAction,
   type ClientOneOnOnes,
 } from "@/app/fathom/one-on-one-actions";
 import { UploadOneOnOneDialog } from "@/components/clients/upload-one-on-one-dialog";
+import { notifyClientTasksChanged } from "@/lib/clients/tasks-events";
+import { useToast } from "@/providers/toast-provider";
 import { cn } from "@/lib/utils";
 
 const VACIO: ClientOneOnOnes = {
@@ -90,6 +95,67 @@ function Contador({ stats }: { stats: ClientOneOnOnes["stats"] }) {
         </div>
       ) : null}
     </GlassPanel>
+  );
+}
+
+function ReintentarTareas({
+  callId,
+  onDone,
+}: {
+  callId: string;
+  onDone: () => void;
+}) {
+  const { push } = useToast();
+  const [busy, setBusy] = useState(false);
+
+  const reintentar = async () => {
+    setBusy(true);
+    const result = await retryOneOnOneTasksAction({ callId });
+    setBusy(false);
+
+    if (!result.success) {
+      push({ title: "No se pudieron sacar las tareas", description: result.error });
+      return;
+    }
+
+    const { tasksCreated } = result.data;
+    push({
+      title:
+        tasksCreated > 0
+          ? `${tasksCreated} tarea${tasksCreated === 1 ? "" : "s"} cargada${tasksCreated === 1 ? "" : "s"}`
+          : "No se encontraron compromisos",
+      description:
+        tasksCreated > 0
+          ? "Están abajo, en Tareas."
+          : "En esta llamada no quedó nada concreto para hacer. Podés cargar tareas a mano.",
+      variant: tasksCreated > 0 ? "success" : undefined,
+    });
+
+    notifyClientTasksChanged();
+    onDone();
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <p className="text-[11px] text-muted-foreground">
+        Esta llamada no dejó tareas.
+      </p>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-7 gap-1.5 text-xs"
+        disabled={busy}
+        onClick={reintentar}
+      >
+        {busy ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <Sparkles className="h-3 w-3" />
+        )}
+        {busy ? "Buscando…" : "Buscar tareas"}
+      </Button>
+    </div>
   );
 }
 
@@ -240,6 +306,24 @@ export function ClientOneOnOnesSection({ clientId }: { clientId: string }) {
                             </ul>
                           </div>
                         ) : null}
+
+                        {/*
+                          ⭐ El reintento aparece sólo donde tiene sentido: hay
+                          transcripción para leer y no salió ninguna tarea. Si ya
+                          salieron, volver a correrlo las duplicaría.
+                        */}
+                        {call.hasTranscript && call.tasksCreated === 0 ? (
+                          <ReintentarTareas
+                            callId={call.id}
+                            onDone={cargar}
+                          />
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground">
+                            {call.tasksCreated} tarea
+                            {call.tasksCreated === 1 ? "" : "s"} de esta llamada, en
+                            la sección de abajo.
+                          </p>
+                        )}
                       </div>
                     ) : null}
                   </li>
@@ -254,7 +338,10 @@ export function ClientOneOnOnesSection({ clientId }: { clientId: string }) {
         clientId={clientId}
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
-        onUploaded={cargar}
+        onUploaded={() => {
+          notifyClientTasksChanged();
+          cargar();
+        }}
       />
     </section>
   );

@@ -56,73 +56,200 @@ function clamp(value: unknown, max: number): string {
 }
 
 /**
+ * Cómo salió la lectura de la respuesta del modelo.
+ *
+ * ⭐ Existe porque "cero tareas" son **dos cosas distintas** y confundirlas
+ * costó un debug a ciegas: una llamada donde no se acordó nada concreto es un
+ * resultado válido y definitivo; una respuesta que no se pudo leer es una falla
+ * que hay que reintentar y, sobre todo, que hay que poder ver en el log.
+ */
+export type OneOnOneParseOutcome =
+  /** Se entendió la respuesta. Puede traer tareas o ninguna, y las dos son ciertas. */
+  | "ok"
+  /** El modelo no contestó nada. */
+  | "vacio"
+  /** Contestó algo que no se pudo leer como tareas. Hay que reintentar. */
+  | "ilegible";
+
+export type OneOnOneParseResult = {
+  tasks: OneOnOneTask[];
+  outcome: OneOnOneParseOutcome;
+};
+
+/**
+ * Los objetos JSON sueltos que haya en un texto, respetando las comillas.
+ *
+ * ⭐ Es el plan B cuando el array entero no parsea. Un `JSON.parse` del bloque
+ * completo es todo o nada: una coma de más en la última tarea tira las cinco.
+ * Leyendo objeto por objeto se pierde la rota y se salvan las demás.
+ *
+ * Cuenta llaves llevando registro de si está dentro de un string, porque una
+ * llave dentro de una descripción no abre nada.
+ */
+function extraerObjetosJson(text: string): string[] {
+  const objetos: string[] = [];
+  let profundidad = 0;
+  let inicio = -1;
+  let enString = false;
+  let escapado = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+
+    if (enString) {
+      /**
+       * ⭐ Un salto de línea dentro de un texto es JSON inválido: los saltos
+       * reales van como `\n`. Verlo crudo significa que una comilla quedó sin
+       * cerrar y el conteo se desincronizó — de ahí en adelante todo lo que
+       * parece una llave está "dentro" de un texto que nunca termina, y el
+       * objeto siguiente, que puede estar perfecto, se pierde con el roto.
+       *
+       * Al encontrarlo se abandona el objeto en curso y se vuelve a empezar en
+       * la próxima llave. Se pierde la tarea mal escrita, que es inevitable, y
+       * se salvan las que vienen después.
+       */
+      if (ch === "\n") {
+        enString = false;
+        escapado = false;
+        profundidad = 0;
+        inicio = -1;
+        continue;
+      }
+      if (escapado) escapado = false;
+      else if (ch === "\\") escapado = true;
+      else if (ch === '"') enString = false;
+      continue;
+    }
+
+    if (ch === '"') {
+      enString = true;
+    } else if (ch === "{") {
+      if (profundidad === 0) inicio = i;
+      profundidad++;
+    } else if (ch === "}") {
+      profundidad--;
+      if (profundidad === 0 && inicio >= 0) {
+        objetos.push(text.slice(inicio, i + 1));
+        inicio = -1;
+      }
+      if (profundidad < 0) profundidad = 0;
+    }
+  }
+
+  return objetos;
+}
+
+/** Las comas colgantes son lo que más rompe: `{...},]` o `{ "a": 1, }`. */
+function repararComasColgantes(json: string): string {
+  return json.replace(/,(\s*[}\]])/g, "$1");
+}
+
+function parseOrNull(json: string): unknown {
+  try {
+    return JSON.parse(json);
+  } catch {
+    try {
+      return JSON.parse(repararComasColgantes(json));
+    } catch {
+      return null;
+    }
+  }
+}
+
+function aTarea(item: unknown): OneOnOneTask | null {
+  if (!item || typeof item !== "object") return null;
+  const record = item as Record<string, unknown>;
+
+  const title = clamp(record.title ?? record.titulo, TITLE_MAX);
+  if (!title) return null;
+
+  const ownerRaw = String(record.owner ?? record.responsable ?? "").toLowerCase();
+  const owner: OneOnOneTaskOwner =
+    ownerRaw === "coach" || ownerRaw === "equipo" ? "coach" : "client";
+
+  const rawDue = String(record.due_date ?? record.fecha ?? "").trim();
+  // Sólo se acepta la fecha en el formato pedido. Cualquier otra cosa —"la
+  // semana que viene", "15/10"— se descarta: una fecha mal leída vence cuando
+  // no corresponde y el aviso deja de significar algo.
+  const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDue) ? rawDue : null;
+
+  return {
+    title,
+    description: clamp(record.description ?? record.descripcion, DESCRIPTION_MAX),
+    owner,
+    dueDate,
+  };
+}
+
+/**
  * Del texto que devuelve el modelo a las tareas.
  *
  * ⭐ Lo que no se entiende se descarta, no se completa con un valor por defecto
  * inventado. Una tarea sin título no es una tarea vacía: no es nada.
  *
+ * ⭐ Lee en tres pasadas, de la más estricta a la más tolerante: el array
+ * entero, después los objetos sueltos que encuentre, y recién ahí se da por
+ * vencida. Lo que se aguanta así es un modelo que devuelve el JSON dentro de una
+ * explicación, con una coma de más, o un objeto por línea sin array — las tres
+ * formas en que un modelo chico contesta "bien" sin contestar exacto.
+ *
  * Lógica pura: no toca red ni base.
  */
-export function parseOneOnOneTasks(raw: string): OneOnOneTask[] {
-  const trimmed = raw
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/, "");
+export function parseOneOnOneTasks(raw: string): OneOnOneParseResult {
+  const texto = raw.trim().replace(/```(?:json)?/gi, "").trim();
+  if (!texto) return { tasks: [], outcome: "vacio" };
 
-  const arrayMatch = trimmed.match(/\[[\s\S]*\]/);
-  if (!arrayMatch) return [];
+  const recortar = (tasks: OneOnOneTask[]) => tasks.slice(0, MAX_TASKS);
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(arrayMatch[0]);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) return [];
-
-  const tasks: OneOnOneTask[] = [];
-  for (const item of parsed) {
-    if (!item || typeof item !== "object") continue;
-    const record = item as Record<string, unknown>;
-
-    const title = clamp(record.title, TITLE_MAX);
-    if (!title) continue;
-
-    const owner: OneOnOneTaskOwner = record.owner === "coach" ? "coach" : "client";
-
-    const rawDue = typeof record.due_date === "string" ? record.due_date.trim() : "";
-    // Sólo se acepta la fecha en el formato pedido. Cualquier otra cosa —"la
-    // semana que viene", "15/10"— se descarta: una fecha mal leída vence cuando
-    // no corresponde y el aviso deja de significar algo.
-    const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDue) ? rawDue : null;
-
-    tasks.push({
-      title,
-      description: clamp(record.description, DESCRIPTION_MAX),
-      owner,
-      dueDate,
-    });
-
-    if (tasks.length >= MAX_TASKS) break;
+  // 1 · El array completo, que es lo que se pidió.
+  const desdeEl = texto.indexOf("[");
+  const hastaEl = texto.lastIndexOf("]");
+  if (desdeEl >= 0 && hastaEl > desdeEl) {
+    const parsed = parseOrNull(texto.slice(desdeEl, hastaEl + 1));
+    if (Array.isArray(parsed)) {
+      return {
+        tasks: recortar(parsed.map(aTarea).filter((t): t is OneOnOneTask => t !== null)),
+        outcome: "ok",
+      };
+    }
   }
 
-  return tasks;
+  // 2 · Objeto por objeto. Salva la tanda cuando una sola tarea viene rota.
+  const objetos = extraerObjetosJson(texto);
+  if (objetos.length > 0) {
+    const tasks = objetos
+      .map((obj) => aTarea(parseOrNull(obj)))
+      .filter((t): t is OneOnOneTask => t !== null);
+
+    // Si había objetos pero ninguno era una tarea, el modelo contestó otra cosa
+    // (por ejemplo `{"error": ...}`), y eso es ilegible, no "no hay tareas".
+    if (tasks.length > 0) return { tasks: recortar(tasks), outcome: "ok" };
+  }
+
+  // 3 · Un array vacío explícito es una respuesta válida: no hubo compromisos.
+  if (/\[\s*\]/.test(texto)) return { tasks: [], outcome: "ok" };
+
+  return { tasks: [], outcome: "ilegible" };
 }
 
 /**
  * Lee el transcript de una 1-1 y devuelve los compromisos que quedaron.
  *
- * Devuelve `[]` —nunca tira— cuando no hay transcript o el modelo no contesta
- * nada usable: la llamada se sube igual y las tareas se cargan a mano.
+ * Nunca tira: la llamada ya está guardada y contada, y perderla entera porque el
+ * modelo contestó raro sería cambiar un problema chico por uno grande.
+ *
+ * ⭐ Cuando la respuesta no se puede leer, **loguea una muestra del texto
+ * crudo**. Sin eso, "no salieron tareas" es indistinguible de "no había tareas",
+ * y la única forma de saber cuál de las dos fue es adivinar.
  */
 export async function extractOneOnOneTasks(params: {
   organizationId: string;
   transcript: string;
   clientName?: string | null;
   callDate?: string | null;
-}): Promise<OneOnOneTask[]> {
+}): Promise<OneOnOneParseResult> {
   const transcript = params.transcript.trim();
-  if (!transcript) return [];
+  if (!transcript) return { tasks: [], outcome: "vacio" };
 
   /**
    * ⭐ La fecha de la llamada va en el prompt porque sin ella "para el viernes"
@@ -154,6 +281,21 @@ export async function extractOneOnOneTasks(params: {
     maxTokens: 4096,
   });
 
-  if (!rawText?.trim()) return [];
-  return parseOneOnOneTasks(rawText);
+  if (!rawText?.trim()) {
+    console.warn("[1-1:tareas] el modelo no devolvió texto");
+    return { tasks: [], outcome: "vacio" };
+  }
+
+  const result = parseOneOnOneTasks(rawText);
+
+  if (result.outcome === "ilegible") {
+    console.error(
+      "[1-1:tareas] no se pudo leer la respuesta del modelo. Muestra cruda:",
+      rawText.slice(0, 1200)
+    );
+  } else if (result.tasks.length === 0) {
+    console.warn("[1-1:tareas] el modelo no encontró compromisos en la llamada");
+  }
+
+  return result;
 }
