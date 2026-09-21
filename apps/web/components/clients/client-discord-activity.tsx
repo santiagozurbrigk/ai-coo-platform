@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { AlertTriangle, Hash, MoonStar, Trophy, UserRoundX } from "lucide-react";
-import { Badge, Button, GlassPanel } from "@ai-coo/ui";
+import { Badge, Button } from "@ai-coo/ui";
+import { FichaCard } from "@/components/clients/ficha-section";
 import {
   createWinFromTestimonialAction,
   getClientDiscordActivityAction,
@@ -59,9 +60,8 @@ export function ClientDiscordActivity({ clientId }: { clientId: string }) {
   }
 
   return (
-    <section className="space-y-3">
-      <h2 className="text-sm font-medium">Actividad en Discord</h2>
-      <GlassPanel className="p-5 space-y-4">
+    <FichaCard icon={Hash} title="Actividad en Discord">
+      <div className="space-y-4">
         {/*
           ⭐ Se muestra también cuando el silencio NO se puede medir.
           Ese caso —hay mensajes en su canal pero nadie vinculado que los haya
@@ -177,7 +177,7 @@ export function ClientDiscordActivity({ clientId }: { clientId: string }) {
             </div>
           ))
         )}
-      </GlassPanel>
-    </section>
+      </div>
+    </FichaCard>
   );
 }

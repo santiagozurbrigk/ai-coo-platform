@@ -11,7 +11,8 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { Badge, Button, GlassPanel, cn } from "@ai-coo/ui";
-import { CheckCircle2, Circle, Clock, RotateCcw, Sparkles } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Flag, RotateCcw, Sparkles } from "lucide-react";
+import { FichaSection } from "@/components/clients/ficha-section";
 import { useToast } from "@/providers/toast-provider";
 import type {
   Checkpoint,
@@ -136,16 +137,15 @@ export function ClientJourneySection({ clientId }: { clientId: string }) {
   }
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium">Recorrido</h2>
-        {journeyConfigured && summary.total > 0 ? (
-          <span className="text-xs text-muted-foreground">
-            {summary.reached} de {summary.total}
-            {currentStageName ? ` · ${currentStageName}` : ""}
-          </span>
-        ) : null}
-      </div>
+    <FichaSection
+      icon={Flag}
+      title="Recorrido"
+      meta={
+        journeyConfigured && summary.total > 0
+          ? `${summary.reached} de ${summary.total}${currentStageName ? ` · ${currentStageName}` : ""}`
+          : undefined
+      }
+    >
 
       {proposals.length > 0 ? (
         <div className="space-y-2">
@@ -223,7 +223,7 @@ export function ClientJourneySection({ clientId }: { clientId: string }) {
         onClose={() => setDialog({ open: false, checkpoint: null, event: null })}
         onSubmit={submit}
       />
-    </section>
+    </FichaSection>
   );
 }
 

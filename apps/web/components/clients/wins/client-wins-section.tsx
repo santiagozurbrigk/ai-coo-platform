@@ -10,7 +10,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Badge, Button, GlassPanel } from "@ai-coo/ui";
+import { Badge, Button } from "@ai-coo/ui";
+import { FichaCard } from "@/components/clients/ficha-section";
 import { Trophy } from "lucide-react";
 import type { ClientWin } from "@/types/wins";
 import { WIN_USAGE_CHANNEL_LABEL } from "@/types/wins";
@@ -38,20 +39,20 @@ export function ClientWinsSection({ clientId }: { clientId: string }) {
   if (loading || wins.length === 0) return null;
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-sm font-medium">
-          <Trophy className="h-4 w-4" />
-          Wins
-        </h2>
+    <FichaCard
+      icon={Trophy}
+      title="Wins"
+      meta={wins.length}
+      flush
+      action={
         <Button asChild variant="ghost" size="sm">
           <Link href={paths.platform.clients.wins}>Ver el tracker</Link>
         </Button>
-      </div>
-
-      <GlassPanel className="divide-y divide-border/40 p-0">
+      }
+    >
+      <div className="divide-y divide-border/40 border-t border-border/40">
         {wins.map((win) => (
-          <div key={win.id} className="flex items-start gap-3 p-3">
+          <div key={win.id} className="flex items-start gap-3 px-4 py-3">
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm">{win.achievement}</span>
@@ -97,7 +98,7 @@ export function ClientWinsSection({ clientId }: { clientId: string }) {
             ) : null}
           </div>
         ))}
-      </GlassPanel>
-    </section>
+      </div>
+    </FichaCard>
   );
 }

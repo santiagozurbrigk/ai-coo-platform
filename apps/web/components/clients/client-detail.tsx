@@ -1,15 +1,35 @@
 "use client";
 
-import Link from "next/link";
-import {
-  Badge,
-  Button,
-  GlassPanel,
-} from "@ai-coo/ui";
-import { ArrowLeft, ExternalLink, Receipt, Sparkles, Star } from "lucide-react";
+/**
+ * La ficha del cliente.
+ *
+ * ⭐ Está armada en tres capas y dos columnas, y el orden no es estético: es el
+ * orden de las preguntas que trae quien la abre.
+ *
+ * 1. **El encabezado** contesta "¿quién es y en qué estado está?": nombre, alta,
+ *    producto, apodo y el recorrido de estados. Absorbió tres bloques que antes
+ *    eran paneles sueltos (el apodo, el flujo de estado y el botón de caso de
+ *    éxito, que era el último paso de ese mismo flujo y existía dos veces).
+ * 2. **La franja** contesta "¿cómo viene?" sin scrollear: sesiones, pendientes,
+ *    recorrido y satisfacción.
+ * 3. **Las dos columnas** separan el trabajo del contexto. A la izquierda lo que
+ *    se hace con el cliente —recorrido, sesiones, tareas, historial—; a la
+ *    derecha lo que se sabe de él —datos, satisfacción, notas, wins, Discord—.
+ *    Antes eran catorce bloques en una sola columna de ancho fijo, con seis
+ *    estilos de encabezado distintos, que se leían como una pila y no como una
+ *    pantalla.
+ *
+ * En pantallas angostas las columnas se apilan, trabajo primero.
+ */
+
+import { Button } from "@ai-coo/ui";
+import { ExternalLink, History, PhoneCall, Sparkles } from "lucide-react";
 import { usePlatformData } from "@/providers";
 import { useModuleAccess } from "@/providers/permissions-provider";
 import { useToast } from "@/providers/toast-provider";
+import { ClientHeader } from "@/components/clients/client-header";
+import { ClientOverviewStrip } from "@/components/clients/client-overview-strip";
+import { FichaCard, FichaSection } from "@/components/clients/ficha-section";
 import { ClientLinkedCallsSection } from "@/components/clients/client-linked-calls";
 import { ClientOneOnOnesSection } from "@/components/clients/client-one-on-ones";
 import { ClientTasksSection } from "@/components/clients/client-tasks-section";
@@ -20,22 +40,7 @@ import { ClientDiscordActivity } from "@/components/clients/client-discord-activ
 import { ClientTimeline } from "@/components/clients/client-timeline";
 import { ClientJourneySection } from "@/components/clients/checkpoints";
 import { ClientWinsSection } from "@/components/clients/wins";
-import { paths } from "@/routes";
 import type { Client, ClientStatus } from "@/types/clients";
-
-const STATUS_FLOW: ClientStatus[] = [
-  "pending_onboarding",
-  "onboarding_done",
-  "active",
-  "success_case",
-];
-
-const STATUS_LABEL: Record<ClientStatus, string> = {
-  pending_onboarding: "Realizar onboarding",
-  onboarding_done: "Onboarding realizado",
-  active: "Activo",
-  success_case: "Caso de éxito",
-};
 
 export function ClientDetail({ client: initial }: { client: Client }) {
   const { clients, updateClient } = usePlatformData();
@@ -60,186 +65,99 @@ export function ClientDetail({ client: initial }: { client: Client }) {
     }
   };
 
+  const saveNickname = async (nickname: string) => {
+    try {
+      await updateClient(client.id, { nickname: nickname || undefined });
+    } catch (err) {
+      push({
+        title: "No se pudo guardar el apodo",
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
+  };
+
   return (
-    <div className="space-y-8 max-w-4xl">
-      <header className="space-y-2">
-        <Button variant="ghost" size="sm" className="gap-2" asChild>
-          <Link href={paths.platform.clients.root}>
-            <ArrowLeft className="h-4 w-4" />
-            Volver a clientes
-          </Link>
-        </Button>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">{client.name}</h1>
-          {client.isSuccessCase && (
-            <Badge className="gap-1">
-              <Star className="h-3 w-3 fill-current" />
-              Caso de éxito
-            </Badge>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground">Alta: {client.joinDate}</p>
-        <Badge variant="secondary">{STATUS_LABEL[client.status]}</Badge>
-      </header>
-
-      <GlassPanel className="p-5 space-y-3">
-        <label className="text-xs font-medium text-muted-foreground">
-          Apodo / identificador interno (opcional)
-        </label>
-        <input
-          className="h-9 w-full max-w-md rounded-lg border border-border/60 bg-muted/20 px-3 text-sm"
-          placeholder='Ej. "Mati Argentina", "Pedro coaching"'
-          defaultValue={client.nickname ?? ""}
-          onBlur={async (e) => {
-            const nickname = e.target.value.trim();
-            try {
-              await updateClient(client.id, {
-                nickname: nickname || undefined,
-              });
-            } catch (err) {
-              push({
-                title: "No se pudo guardar el apodo",
-                description: err instanceof Error ? err.message : undefined,
-              });
-            }
-          }}
-        />
-        <p className="text-2xs text-muted-foreground">
-          Usado para distinguir clientes con el mismo nombre en asociaciones Fathom.
-        </p>
-      </GlassPanel>
-
-      <GlassPanel className="p-5">
-        <p className="text-xs font-medium text-muted-foreground mb-4">
-          Flujo de estado
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {STATUS_FLOW.map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => advanceStatus(s)}
-                className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
-                  client.status === s
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {STATUS_LABEL[s]}
-              </button>
-              {i < STATUS_FLOW.length - 1 && (
-                <span className="text-muted-foreground">→</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </GlassPanel>
-
-      {/*
-        ⭐ La plata de este cliente ya no se muestra ni se edita acá: se mudó
-        entera a Cobros, en Ventas. Queda el camino, no los números.
-
-        Dejar un resumen "de sólo lectura" habría sido peor que no dejar nada:
-        dos lugares mostrando el mismo monto es el lugar exacto donde uno de los
-        dos queda viejo y nadie sabe cuál.
-      */}
-      {puedeVerCobros ? (
-        <Button variant="outline" size="sm" className="gap-2" asChild>
-          <Link href={paths.platform.sales.cobrosDeCliente(client.id)}>
-            <Receipt className="h-4 w-4" />
-            Ver cobros de este cliente
-          </Link>
-        </Button>
-      ) : null}
-
-      {/*
-        Las columnas configurables del cliente — entre ellas el objetivo general.
-        Va antes del cuaderno: primero lo estructurado, después lo que no entra
-        en ningún campo.
-      */}
-      <ClientCustomFieldsSection client={client} />
-
-      {/* El cuaderno del cliente: lo que no entra en ningún campo. */}
-      <ClientNotesSection
-        clientId={client.id}
-        initialNotes={client.notes ?? null}
-        initialUpdatedAt={client.notesUpdatedAt ?? null}
+    <div className="mx-auto max-w-6xl space-y-6">
+      <ClientHeader
+        client={client}
+        puedeVerCobros={puedeVerCobros}
+        onStatusChange={advanceStatus}
+        onNicknameSave={saveNickname}
       />
 
-      {/* Qué tan conforme está, marcado a mano, con fecha y autor. */}
-      <ClientSatisfactionSection
-        clientId={client.id}
-        initialLevel={client.satisfaction ?? null}
-        initialUpdatedAt={client.satisfactionUpdatedAt ?? null}
-        updatedByName={client.satisfactionUpdatedByName ?? null}
-      />
+      <ClientOverviewStrip clientId={client.id} satisfaction={client.satisfaction} />
 
-      <ClientJourneySection clientId={client.id} />
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] lg:items-start">
+        {/* ── El trabajo ─────────────────────────────────────────────── */}
+        <div className="min-w-0 space-y-8">
+          <ClientJourneySection clientId={client.id} />
 
-      <ClientWinsSection clientId={client.id} />
+          <ClientOneOnOnesSection clientId={client.id} />
 
-      {client.salesFathomUrl && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium">Llamada de ventas</h2>
-          <GlassPanel className="p-5 space-y-3">
-            <div className="aspect-video rounded-lg bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">
-              Vista previa Fathom
-            </div>
-            <Button variant="outline" className="gap-2" asChild>
-              <a href={client.salesFathomUrl} target="_blank" rel="noopener noreferrer">
-                Abrir llamada de ventas
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            </Button>
-          </GlassPanel>
-        </section>
-      )}
+          <ClientTasksSection clientId={client.id} />
 
-      {/*
-        ⭐ Las 1-1 van antes que las de venta, y las tareas justo después.
-        El orden sigue al uso: la ficha se abre para preparar la próxima sesión,
-        no para revisar cómo se vendió hace seis meses.
-      */}
-      <ClientOneOnOnesSection clientId={client.id} />
+          <ClientLinkedCallsSection calls={client.linkedCalls} />
 
-      <ClientTasksSection clientId={client.id} />
+          <FichaSection icon={History} title="Historial">
+            <ClientTimeline clientId={client.id} />
+          </FichaSection>
+        </div>
 
-      <ClientLinkedCallsSection calls={client.linkedCalls} />
+        {/* ── El contexto ────────────────────────────────────────────── */}
+        <aside className="min-w-0 space-y-4">
+          {/* Primero lo estructurado, después lo que no entra en ningún campo. */}
+          <ClientCustomFieldsSection client={client} />
 
-      <ClientDiscordActivity clientId={client.id} />
+          <ClientSatisfactionSection
+            clientId={client.id}
+            initialLevel={client.satisfaction ?? null}
+            initialUpdatedAt={client.satisfactionUpdatedAt ?? null}
+            updatedByName={client.satisfactionUpdatedByName ?? null}
+          />
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium">Timeline</h2>
-        <ClientTimeline clientId={client.id} />
-      </section>
+          <ClientNotesSection
+            clientId={client.id}
+            initialNotes={client.notes ?? null}
+            initialUpdatedAt={client.notesUpdatedAt ?? null}
+          />
 
-      <Button
-        variant="outline"
-        className="gap-2"
-        onClick={() => advanceStatus("success_case")}
-      >
-        <Star className="h-4 w-4" />
-        Marcar como caso de éxito
-      </Button>
+          <ClientWinsSection clientId={client.id} />
 
-      {client.aiInsights.length > 0 ? (
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium">Contexto del cierre</h2>
-          <GlassPanel className="p-5">
-            <ul className="space-y-3">
-              {client.aiInsights.map((line, i) => (
-                <li key={i} className="flex gap-3 text-sm leading-relaxed">
-                  <Sparkles
-                    className="mt-0.5 h-4 w-4 shrink-0 text-primary/70"
-                    aria-hidden
-                  />
-                  <span>{line}</span>
-                </li>
-              ))}
-            </ul>
-          </GlassPanel>
-        </section>
-      ) : null}
+          <ClientDiscordActivity clientId={client.id} />
+
+          {/*
+            La grabación de la venta es un link, no una "vista previa": el
+            recuadro gris que decía «Vista previa Fathom» no previsualizaba nada
+            y ocupaba el alto de un video.
+          */}
+          {client.salesFathomUrl ? (
+            <FichaCard icon={PhoneCall} title="Llamada de venta">
+              <Button variant="outline" size="sm" className="w-full gap-2" asChild>
+                <a href={client.salesFathomUrl} target="_blank" rel="noopener noreferrer">
+                  Abrir la grabación en Fathom
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </Button>
+            </FichaCard>
+          ) : null}
+
+          {client.aiInsights.length > 0 ? (
+            <FichaCard icon={Sparkles} title="Contexto del cierre">
+              <ul className="space-y-2.5">
+                {client.aiInsights.map((line, i) => (
+                  <li key={i} className="flex gap-2.5 text-sm leading-relaxed">
+                    <Sparkles
+                      className="mt-1 h-3.5 w-3.5 shrink-0 text-primary/70"
+                      aria-hidden
+                    />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            </FichaCard>
+          ) : null}
+        </aside>
+      </div>
     </div>
   );
 }

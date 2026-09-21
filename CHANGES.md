@@ -14,6 +14,89 @@
 
 ---
 
+### 2026-09-21 — 🎨 La ficha del cliente, rediseñada: encabezado, franja y dos columnas
+
+**Rama/branch:** `claude/nice-thompson-s9zids`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** Clientes (ficha)
+
+**Qué se hizo:**
+
+- `components/clients/client-header.tsx` (nuevo): nombre, alta, producto, apodo
+  editable en línea, el recorrido de estados como pasos, y «Ver cobros».
+- `components/clients/client-overview-strip.tsx` (nuevo) +
+  `app/clients/overview-actions.ts` (nuevo): franja de cuatro indicadores
+  —sesiones 1-1, tareas pendientes, recorrido, satisfacción— en una llamada.
+- `components/clients/ficha-section.tsx` (nuevo): `FichaSection` (columna
+  principal) y `FichaCard` (columna lateral), con la misma fila de encabezado.
+- `client-detail.tsx`: reescrito como encabezado + franja + grilla de dos
+  columnas (`lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]`), `max-w-6xl`.
+- Nueve secciones adoptan los contenedores nuevos: recorrido, sesiones 1-1,
+  tareas, llamadas de venta, historial, datos del cliente, wins, Discord,
+  contexto del cierre. El contador de la sección 1-1 pasa al lado del título.
+- Se eliminan: el panel del apodo, el panel «Flujo de estado», el botón suelto
+  «Marcar como caso de éxito», el botón suelto «Ver cobros» y el recuadro gris
+  «Vista previa Fathom».
+
+Verificado renderizando la ficha con el cliente de prueba en Chromium, en
+oscuro, claro y a 390px, desde una página temporal que se borró antes del
+commit (el layout de plataforma no funciona en modo demo: `getHoldingSessionState`
+exige Supabase y devuelve 500 — deuda previa, no se tocó).
+
+**Por qué / finalidad:**
+
+⭐ **La ficha se leía como una pila, no como una pantalla.** Eran catorce
+bloques apilados en una columna de ancho fijo, con **seis estilos de encabezado
+distintos** (`h2` pelado, `h2` con ícono, `h3` dentro de un panel, `label`
+gris, panel sin título, botón suelto): cada sección se había escrito en una
+sesión distinta y cada una resolvió el encabezado a su manera.
+
+⭐ **Arriba de todo estaba lo que menos importa.** El primer panel era el apodo
+—un campo opcional para desempatar homónimos— y el segundo el flujo de estado.
+La pregunta por la que se abre la ficha, "¿cómo viene este cliente?", recién se
+contestaba después de scrollear todo.
+
+⭐ **Había cosas dos veces.** «Marcar como caso de éxito», suelto al fondo, era
+el último paso del flujo de estado que estaba arriba. El contador de 1-1 en
+letra grande dentro de su sección repetía lo que ahora dice la franja.
+
+**Decisiones de diseño relevantes:**
+
+- **Dos columnas por función, no por tamaño:** a la izquierda el trabajo (lo que
+  se hace con el cliente), a la derecha el contexto (lo que se sabe de él). En
+  pantallas angostas se apilan, trabajo primero.
+- **El estado como pasos, no como menú.** Es un recorrido —nadie vuelve de
+  «Activo» a «Realizar onboarding»— y dibujado así dice de un vistazo cuánto
+  falta.
+- **La franja usa `MetricStat` del design system** dentro de una grilla propia
+  (2×2 en móvil, 4 en escritorio) en vez de `MetricBand`, que en móvil apila
+  los cuatro en una columna de tiles altos.
+- **El color de la satisfacción va en un mapa de clases estáticas.** Tailwind no
+  genera clases armadas en tiempo de ejecución: `[&_.metric-stat-value]:${color}`
+  compila, no falla, y no pinta.
+- **Timeline pasa a llamarse «Historial»**: toda la ficha está en castellano.
+- **Los datos de la franja los calculan los módulos que ya los saben**
+  (`loadClientOneOnOneStats`, `summarizeJourneyPosition`); la acción sólo los
+  junta. Cero fórmulas nuevas.
+- **Notas y Satisfacción no se tocaron por dentro**: ya tenían el estilo de
+  tarjeta lateral (ícono + título dentro del panel), y `FichaCard` se hizo a su
+  imagen para que el resto se les parezca.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **No se vio con datos reales.** La vista previa corrió sin base, así que
+  recorrido, sesiones, tareas, wins y Discord se vieron vacíos o en su estado de
+  carga. Hay que abrir una ficha con todo cargado y mirar la columna izquierda.
+- La franja hace una llamada más al abrir la ficha, que incluye el recorrido
+  completo. Si pesa, la acción puede devolver sólo el resumen.
+- El botón `ghost` del design system dibuja un borde naranja (se ve en «Clientes»
+  y en «Fathom ↗»). Es del primitivo, no de esta pantalla; para un link de
+  volver es fuerte.
+- El detalle de cada tarea sigue sin poder editarse desde la ficha (pendiente
+  previo `[1A1-EDITAR-DETALLE]`).
+
+---
+
 ### 2026-09-21 — 🔑 Una clave de IA vencida ahora se ve dentro del producto
 
 **Rama/branch:** `claude/nice-thompson-s9zids`

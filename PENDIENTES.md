@@ -74,6 +74,43 @@ minutos no aparece, mirar `claude_api_key_status` de esa organización.
 
 ---
 
+### [FICHA-VER-CON-DATOS] Mirar la ficha rediseñada con un cliente real 🟡
+
+**Qué es:** el 2026-09-21 se rediseñó la ficha del cliente (encabezado, franja
+de indicadores, dos columnas, encabezados uniformes). Se verificó renderizándola
+con el cliente de prueba en oscuro, claro y móvil, pero **sin base de datos**:
+recorrido, sesiones 1-1, tareas, wins y Discord se vieron vacíos.
+
+**Qué hacer:** abrir la ficha de un cliente con todo cargado (el que tiene la
+1-1 subida sirve) y mirar:
+1. La franja de arriba: sesiones, pendientes, recorrido («3 de 8 · sigue: …»)
+   y satisfacción con su color.
+2. Que la columna izquierda —recorrido, sesiones, tareas, llamadas de venta,
+   historial— no quede demasiado angosta con la lateral al lado a 1280px.
+3. Que al subir una llamada el número de «Tareas pendientes» de la franja se
+   actualice solo.
+4. El apodo: escribir uno en el encabezado, salir del campo, recargar.
+
+---
+
+### [DEMO-LAYOUT-500] El layout de plataforma no funciona en modo demo 🟡
+
+**Qué es:** con Supabase sin configurar, cualquier página bajo `(platform)`
+devuelve 500 desde `getHoldingSessionState` (`lib/holding/session.ts:26`),
+antes de que el modo demo del proveedor de datos llegue a correr. El "modo demo
+con mocks" que documenta el `CLAUDE.md` sólo cubre el cliente, no el servidor.
+
+**Por qué importa:** es lo que impide renderizar cualquier pantalla de la
+plataforma en local sin credenciales, para revisar diseño o sacar capturas.
+Encontrado al rediseñar la ficha del cliente; se resolvió con una página
+temporal fuera del layout.
+
+**Qué hacer:** hacer que los cargadores del layout (`getHoldingSessionState`,
+`getCurrentUserPermissions`, `getCurrentOnboardingContext`) devuelvan un valor
+neutro cuando `isSupabaseConfigured()` es falso, en vez de tirar.
+
+---
+
 ### [1A1-EDITAR-DETALLE] El detalle de una tarea no se puede editar 🟡
 
 **Qué es:** `updateClientTaskAction` ya permite cambiar título, detalle, dueño y
