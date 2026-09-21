@@ -1491,6 +1491,78 @@ transcripts completos—, pero conviene confirmarlo a mano con dos organizacione
 
 ---
 
+## Ficha del cliente — apartados, facturación y fase manual (2026-09-21) ⚠️
+
+**Estado:** construido, **cero pruebas contra la base**. El entorno remoto no
+tiene Supabase. La migración `20260921120000_ficha_secciones_facturacion_y_fase_manual.sql`
+**tiene que aplicarse antes** de probar nada de esto.
+
+### Antes de empezar
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| Aplicar la migración | Se crean `client_revenue_entries`, las columnas `section` y `show_in_table` en `field_definitions`, y `manual_stage_id` / `manual_stage_set_at` en `clients` |
+| ⭐ Mirar la tabla de Clientes **antes de cargar la plantilla** | Las columnas configurables que ya existían (el «Objetivo general») **siguen ahí**. La migración las deja en `show_in_table = true` justamente para eso; si desaparecieron, el `update` no corrió |
+
+### Los tres apartados
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| Clientes → Configurar → Campos personalizados → solapa **Clientes** → «Cargar plantilla» | Se crean 22 campos de texto repartidos en Marketing (7), Ventas (7) y Sistemas (8), cada uno con su insignia de apartado |
+| Apretar «Cargar plantilla» **otra vez** | Dice «Ya estaban todos cargados» y **no duplica nada** |
+| Abrir una ficha de cliente | Aparece «Información del cliente» con tres solapas y su contador `0/7`, `0/7`, `0/8` |
+| Editar, pegar un link de Miro en «Narrativa de webinar», guardar | Se ve **clickeable**, con `miro.com` como etiqueta, y abre en otra pestaña |
+| Escribir tres renglones a mano en «Avatar» | Se ven los tres renglones, con sus saltos de línea |
+| Mirar la tabla de clientes | ⭐ **No aparecieron 22 columnas nuevas**. Ninguna de las de la plantilla se dibuja hasta que se le prenda «Mostrarla como columna» |
+| Archivar un campo de un apartado | Desaparece de su solapa. Si era el único de esa sección, la solapa tampoco se dibuja |
+| 🔒 Abrir la ficha con una sesión de **otra organización** | No ve ni los campos ni los valores de la primera |
+
+### La facturación del negocio
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| Ficha → «Facturación del negocio» → «Cargar mes», poner el mes en curso y un monto | Se ve el monto grande, «en <mes> <año>» abajo, y nada de variación todavía |
+| Cargar el mes anterior con un monto menor | Aparece la píldora **+N%** en verde y la línea de tendencia (hacen falta dos puntos) |
+| ⚠️ Cargar **el mismo mes otra vez** con otro monto | Tiene que **corregirlo, no duplicarlo**: un solo renglón para ese mes. Lo garantiza el índice único `(client_id, period)` |
+| Cargar un mes anterior con **cero** | Se acepta —un mes sin vender es un dato— y la variación del mes siguiente queda **sin píldora**, no en «+∞» |
+| Mirar la tabla de clientes, columna «Facturación» | El mismo monto, con el mes abreviado («sep 2026») abajo |
+| ⭐ Comparar con **Cobros** | Son números distintos y ninguna pantalla los suma. Esto es lo que factura el cliente; Cobros es lo que nos paga |
+| 🔒 Probar con dos organizaciones | Ninguna ve las filas de la otra (RLS por `organization_id`) |
+
+### La fase elegida a mano
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| Ficha de un cliente **sin ningún hito registrado** → Recorrido → selector «Fase» → elegir la tercera fase | La tarjeta pasa a mostrar esa fase, y aparece la línea «La fase está fijada a mano…» |
+| ⭐ Mirar los hitos de las fases anteriores | Quedan **en gris, con la insignia «salteado»** y **sin fecha**. Si alguno aparece como alcanzado, el diseño se rompió: fijar la fase **no registra hitos** |
+| Mirar la tabla de clientes, columna «Etapa» | Dice esa misma fase |
+| Registrar un hito de una fase **más avanzada** que la fijada | ⭐ Gana la derivada: la fase efectiva es **la más avanzada de las dos**, un recorrido no retrocede |
+| Volver el selector a «Sin empezar» | La fase vuelve a salir de los hitos registrados, y los salteados dejan de marcarse |
+| Plegar y desplegar las fases | Al abrir la ficha viene abierta **sólo la fase en curso**; las demás plegadas con su `n de m` |
+| 🔒 Intentar fijar una fase de **otra organización** (cambiando el id a mano) | Lo rechaza: la acción valida que la fase pertenezca a la organización antes de guardar |
+
+### Las tareas escritas a mano
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| Ficha → Tareas → escribir un título y apretar **Enter** | Se crea sin abrir ningún formulario, y queda en «le toca al cliente» |
+| Desplegar «Detalles», elegir coach y una fecha | Se crea en el grupo del coach, con su fecha |
+| Mirar cuál tiene la insignia **«Próxima»** | ⭐ Es la pendiente con la fecha más cercana (vencidas primero); sin fechas, la más vieja |
+| Mirar la tabla de clientes, columna «Próxima tarea» | **La misma tarea**, con su dueño y su fecha. Si la ficha y la tabla muestran distintas, `pickNextTask` no se está usando en los dos lados |
+| Tildar el check de la tabla | La tarea se marca hecha y la columna pasa a la siguiente pendiente |
+| Un cliente sin tareas | Dice «Sin tareas», no un hito del recorrido |
+
+**⚠️ Lo que más riesgo tiene, en orden:**
+
+1. **Que el `update` de `show_in_table` no haya corrido** y las columnas
+   configurables que ya se veían desaparezcan de la tabla sin aviso.
+2. **El upsert por `(client_id, period)`**: si el índice único no se creó,
+   cargar dos veces el mismo mes deja dos verdades sobre el mismo período.
+3. **La fase efectiva**: el caso de la manual atrasada contra una derivada más
+   avanzada está cubierto por tests, pero nunca se vio con fases reales.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

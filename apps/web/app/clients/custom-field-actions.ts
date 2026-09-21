@@ -20,6 +20,8 @@ import {
 } from "@/lib/auth/bootstrap";
 import {
   FIELD_ENTITIES,
+  FIELD_SECTIONS,
+  type FieldSection,
   FIELD_OPTION_COLORS,
   FIELD_TYPES,
   type FieldDefinition,
@@ -72,6 +74,10 @@ const createSchema = z.object({
    */
   alertDaysBefore: z.number().int().min(1).max(365).nullable().default(null),
   isRequired: z.boolean().default(false),
+  /** El apartado de la ficha donde se agrupa. `null` = suelta, como siempre. */
+  section: z.enum(FIELD_SECTIONS).nullable().default(null),
+  /** Si se dibuja como columna en la tabla de clientes. */
+  showInTable: z.boolean().default(false),
 });
 
 /** La clave, el tipo y la entidad no se editan: cambiarlos reescribiría el pasado. */
@@ -185,6 +191,10 @@ export async function createFieldDefinitionAction(
         alert_days_before:
           values.fieldType === "date" ? values.alertDaysBefore : null,
         is_required: values.isRequired,
+        // Una sección sólo tiene sentido en las columnas del cliente: son las
+        // únicas que se dibujan en apartados de una ficha.
+        section: values.entity === "client" ? values.section : null,
+        show_in_table: values.showInTable,
         // Al final de la lista: una columna nueva no se mete en el medio de un
         // orden que alguien ya acomodó.
         sort_order: nextSortOrder(existing),
@@ -239,6 +249,10 @@ export async function updateFieldDefinitionAction(
     if (changes.currency !== undefined) {
       patch.currency = current.fieldType === "currency" ? changes.currency : null;
     }
+    if (changes.section !== undefined) {
+      patch.section = current.entity === "client" ? changes.section : null;
+    }
+    if (changes.showInTable !== undefined) patch.show_in_table = changes.showInTable;
 
     if (Object.keys(patch).length === 0) return current;
 
@@ -490,4 +504,117 @@ export async function seedExampleWinFieldAction(): Promise<
       archived: false,
     })),
   } as CreateFieldDefinitionInput);
+}
+
+/**
+ * La plantilla de Limitless: las 22 columnas del cliente, en sus tres apartados.
+ *
+ * ⭐ Va como botón y no como migración por la misma razón que el resto de los
+ * seeds de este archivo: **datos que aparecen solos son datos que después hay
+ * que borrar**. Cada organización decide si los quiere, y una vez cargados son
+ * suyos — se renombran, se archivan, se agregan otros, sin tocar código.
+ *
+ * ⭐ Todos de tipo texto a propósito. Lo que se pega en «Avatar» puede ser un
+ * link a un Miro, a un Google Doc o tres renglones escritos a mano; un tipo más
+ * estricto obligaría a elegir por adelantado, que es justo el error que este
+ * mecanismo existe para no cometer. La ficha se da cuenta sola de si el
+ * contenido es un link y lo muestra clickeable.
+ *
+ * Es idempotente: las que ya existen se saltean, no se duplican.
+ */
+const PLANTILLA_LIMITLESS: { section: FieldSection; labels: string[] }[] = [
+  {
+    section: "marketing",
+    labels: [
+      "Avatar",
+      "Oferta",
+      "Dolores",
+      "Método único",
+      "Narrativa de webinar",
+      "Funnel",
+      "Métricas clave",
+    ],
+  },
+  {
+    section: "ventas",
+    labels: [
+      "Equipo",
+      "Ticket y modalidad",
+      "Flujo de preventa",
+      "Flujo post-webinar",
+      "Script de llamadas",
+      "Métricas",
+      "Cuellos de botella actuales",
+    ],
+  },
+  {
+    section: "sistemas",
+    labels: [
+      "Cuenta WebinarJam",
+      "Addevent",
+      "GHL",
+      "Claude",
+      "Vercel",
+      "Supabase",
+      "WhatsApp Business",
+      "Dominio activo",
+    ],
+  },
+];
+
+export async function seedLimitlessClientFieldsAction(): Promise<
+  MutationResult<{ created: number; skipped: number }>
+> {
+  return runMutation(async () => {
+    await requireFounder();
+    const organizationId = await requireOrganizationId();
+    const supabase = await createClient();
+
+    const existing = await listFieldDefinitionsAction("client");
+    const existingKeys = new Set(existing.map((field) => field.key));
+
+    const filas: Record<string, unknown>[] = [];
+    let skipped = 0;
+    let sortOrder = nextSortOrder(existing);
+
+    for (const grupo of PLANTILLA_LIMITLESS) {
+      for (const label of grupo.labels) {
+        const key = deriveFieldKey(label);
+        // Una clave repetida escribiría en la misma posición del jsonb que la
+        // columna que ya existe: se saltea y se cuenta.
+        if (!key || existingKeys.has(key)) {
+          skipped += 1;
+          continue;
+        }
+        existingKeys.add(key);
+        filas.push({
+          organization_id: organizationId,
+          entity: "client",
+          key,
+          label,
+          description: null,
+          field_type: "text",
+          options: [],
+          options_source: "inline",
+          unit: null,
+          currency: null,
+          alert_days_before: null,
+          is_required: false,
+          section: grupo.section,
+          // Ninguna va a la tabla: 22 columnas más la volverían una planilla.
+          show_in_table: false,
+          sort_order: sortOrder++,
+        });
+      }
+    }
+
+    if (filas.length > 0) {
+      const { error } = await supabase.from("field_definitions").insert(filas);
+      if (error) throw new Error(error.message);
+    }
+
+    revalidate();
+    revalidatePath(paths.platform.clients.root);
+    return { created: filas.length, skipped };
+  });
 }

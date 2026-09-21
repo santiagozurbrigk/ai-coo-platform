@@ -12,6 +12,12 @@
  */
 
 import { listFieldDefinitionsAction } from "@/app/clients/custom-field-actions";
+import { getRevenueByClientAction } from "@/app/clients/revenue-actions";
+import { getManualStagesAction } from "@/app/clients/stage-actions";
+import { pickNextTask } from "@/lib/clients/next-task";
+import { rowToClientTask, type ClientTask, type ClientTaskRow } from "@/types/client-tasks";
+import type { RevenueSummary } from "@/lib/clients/revenue";
+import { createClient } from "@/lib/supabase/server";
 import { listCheckpointsAction } from "@/app/clients/checkpoint-actions";
 import { getClientsJourneyStatusAction } from "@/app/clients/checkpoint-derived-actions";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
@@ -40,19 +46,95 @@ export type ClientsBoardData = {
    * muestra un guion, que es la respuesta honesta a "todavía no hay ninguna".
    */
   lastOneOnOne: Record<string, LastOneOnOne>;
+  /**
+   * La próxima tarea de cada cliente: la que alguien escribió o la que salió de
+   * una llamada.
+   *
+   * ⭐ Es lo que la columna «Próxima tarea» muestra desde ahora. Antes mostraba
+   * el próximo hito del recorrido, que es otra cosa: el recorrido es un catálogo
+   * que se define una vez y vale para todos; esto es lo que decidiste para
+   * **este** cliente.
+   */
+  nextTask: Record<string, ClientTask>;
+  /** La facturación del negocio de cada cliente. No es lo que nos paga. */
+  revenue: Record<string, RevenueSummary>;
+  /** La fase que alguien fijó a mano, cuando la hay. */
+  manualStages: Record<string, string>;
 };
 
 export async function getClientsBoardAction(): Promise<ClientsBoardData> {
   const organizationId = await requireOrganizationId();
 
-  const [journey, checkpoints, checkpointFields, clientFields, lastOneOnOne] =
-    await Promise.all([
-      getClientsJourneyStatusAction(),
-      listCheckpointsAction(),
-      listFieldDefinitionsAction("checkpoint"),
-      listFieldDefinitionsAction("client"),
-      loadLastOneOnOneByClient(organizationId),
-    ]);
+  const [
+    journey,
+    checkpoints,
+    checkpointFields,
+    clientFields,
+    lastOneOnOne,
+    revenue,
+    manualStages,
+    nextTask,
+  ] = await Promise.all([
+    getClientsJourneyStatusAction(),
+    listCheckpointsAction(),
+    listFieldDefinitionsAction("checkpoint"),
+    listFieldDefinitionsAction("client"),
+    loadLastOneOnOneByClient(organizationId),
+    getRevenueByClientAction(),
+    getManualStagesAction(),
+    loadNextTaskByClient(organizationId),
+  ]);
 
-  return { journey, checkpoints, checkpointFields, clientFields, lastOneOnOne };
+  return {
+    journey,
+    checkpoints,
+    checkpointFields,
+    clientFields,
+    lastOneOnOne,
+    nextTask,
+    revenue,
+    manualStages,
+  };
+}
+
+/**
+ * La próxima tarea pendiente de cada cliente, en una sola consulta.
+ *
+ * Trae **todas** las pendientes de la organización y elige en memoria con
+ * `pickNextTask`, que es la misma función que usa la ficha: dos criterios de
+ * "cuál es la próxima" podrían discrepar, y entonces la tabla y la ficha dirían
+ * cosas distintas de la misma tarea.
+ */
+async function loadNextTaskByClient(
+  organizationId: string
+): Promise<Record<string, ClientTask>> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("client_tasks")
+      .select(
+        "id, client_id, title, description, owner, status, due_date, source, source_call_id, workboard_task_id, completed_at, created_at"
+      )
+      .eq("organization_id", organizationId)
+      .eq("status", "pending");
+
+    if (error) return {};
+
+    const porCliente = new Map<string, ClientTask[]>();
+    for (const row of (data ?? []) as unknown as ClientTaskRow[]) {
+      const task = rowToClientTask(row);
+      const lista = porCliente.get(task.clientId) ?? [];
+      lista.push(task);
+      porCliente.set(task.clientId, lista);
+    }
+
+    const result: Record<string, ClientTask> = {};
+    for (const [clientId, tasks] of porCliente) {
+      const next = pickNextTask(tasks);
+      if (next) result[clientId] = next;
+    }
+    return result;
+  } catch {
+    return {};
+  }
 }

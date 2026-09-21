@@ -16,7 +16,6 @@
  */
 
 import Link from "next/link";
-import { useState } from "react";
 import { Badge, Button, cn } from "@ai-coo/ui";
 import { ArrowLeft, Check, ChevronRight, Receipt, Star } from "lucide-react";
 import { paths } from "@/routes";
@@ -45,47 +44,6 @@ function formatearAlta(iso: string): string {
     year: "numeric",
     timeZone: "UTC",
   });
-}
-
-/**
- * El apodo, editable en el lugar.
- *
- * Es un identificador para distinguir homónimos al vincular llamadas; no merece
- * un panel. Se ve como texto, se edita como texto, y se guarda al salir.
- */
-function Apodo({
-  value,
-  onSave,
-}: {
-  value: string;
-  onSave: (nickname: string) => Promise<void>;
-}) {
-  const [saving, setSaving] = useState(false);
-
-  return (
-    <input
-      aria-label="Apodo o identificador interno"
-      className={cn(
-        "h-7 min-w-0 max-w-[220px] rounded-md border border-transparent bg-transparent px-1.5 text-sm text-muted-foreground transition-colors",
-        "placeholder:text-muted-foreground/60 hover:border-border focus:border-border focus:bg-background focus:text-foreground focus:outline-none",
-        saving && "opacity-60"
-      )}
-      defaultValue={value}
-      placeholder="Agregar apodo"
-      title="Apodo interno. Sirve para distinguir clientes con el mismo nombre al vincular llamadas."
-      disabled={saving}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") event.currentTarget.blur();
-      }}
-      onBlur={async (event) => {
-        const next = event.target.value.trim();
-        if (next === value) return;
-        setSaving(true);
-        await onSave(next);
-        setSaving(false);
-      }}
-    />
-  );
 }
 
 function PasosDeEstado({
@@ -135,12 +93,10 @@ export function ClientHeader({
   client,
   puedeVerCobros,
   onStatusChange,
-  onNicknameSave,
 }: {
   client: Client;
   puedeVerCobros: boolean;
   onStatusChange: (status: ClientStatus) => void;
-  onNicknameSave: (nickname: string) => Promise<void>;
 }) {
   return (
     <header className="space-y-4">
@@ -171,8 +127,6 @@ export function ClientHeader({
                 <span>{client.offeredProduct}</span>
               </>
             ) : null}
-            <span aria-hidden>·</span>
-            <Apodo value={client.nickname ?? ""} onSave={onNicknameSave} />
           </div>
         </div>
 

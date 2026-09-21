@@ -74,6 +74,123 @@ minutos no aparece, mirar `claude_api_key_status` de esa organización.
 
 ---
 
+### [FICHA-V2-MIGRACION] Aplicar la migración de apartados, facturación y fase 🔴
+
+**Qué es:** el 2026-09-21 se construyeron cuatro pedidos de la ficha —tareas
+escritas a mano, los tres apartados de información, la facturación del negocio
+del cliente y la fase del recorrido elegible a mano— y la migración
+`20260921120000_ficha_secciones_facturacion_y_fase_manual.sql` **no está
+aplicada**.
+
+**Qué se rompe sin ella:** la tarjeta «Información del cliente» y la de
+facturación no se dibujan (no hay campos con sección ni tabla donde leer), y el
+selector de fase falla al guardar.
+
+**Qué hacer:**
+
+1. Aplicar la migración (`supabase db push` o el SQL Editor del dashboard).
+2. ⭐ Mirar la tabla de clientes **antes de cargar la plantilla**: las columnas
+   configurables que ya existían tienen que seguir ahí. La migración las deja en
+   `show_in_table = true` justamente para eso.
+3. Clientes → Configurar → Campos personalizados → solapa Clientes → **«Cargar
+   plantilla»**: crea los 22 campos de Marketing, Ventas y Sistemas. Apretarlo
+   dos veces no duplica nada.
+4. El resto de los pasos, con su resultado esperado, está en
+   `docs/PLAN_VERIFICACION.md` → «Ficha del cliente — apartados, facturación y
+   fase manual».
+
+---
+
+### [FASE-MANUAL-SIN-PLAZOS] Un cliente con la fase fijada a mano nunca figura trabado 🟡
+
+**Qué es:** `clients.manual_stage_set_at` se guarda cada vez que alguien fija la
+fase, pero **nadie lo lee todavía**. `deriveClientJourneyStatus` cuenta los
+plazos desde el hito inmediatamente anterior, y el primer hito de una fase
+fijada a mano no tiene anterior registrado — así que ese cliente cae en el caso 3
+de `lib/checkpoints/stalled.ts` y nunca aparece como trabado.
+
+**Por qué la columna existe igual:** es el único dato que no se puede
+reconstruir después. Guardarlo desde el principio cuesta nada; inventarlo más
+adelante sería inventar.
+
+**Qué hacer:** cuando el próximo hito pendiente no tiene anterior registrado
+pero la fase fue fijada a mano, contar los días desde `manual_stage_set_at`. Es
+hermano de `[C3-TRABADO-SIN-PRIMER-HITO]` y probablemente se resuelvan juntos.
+
+---
+
+### [FACTURACION-MONEDAS] La facturación mezcla USD y ARS sin convertir 🟡
+
+**Qué es:** cada mes de `client_revenue_entries` guarda su moneda, pero el
+resumen compara el último mes contra el anterior **sin mirar cuál es cuál**. Un
+cliente que cargó agosto en ARS y septiembre en USD ve una variación que no
+significa nada, y el «mejor mes» sale del número más grande, o sea siempre el
+que está en pesos.
+
+**Qué hacer, por orden de esfuerzo:** lo barato es no comparar meses de monedas
+distintas —dejar `changePct` en `null` y decir por qué—, que es una tarde. Lo
+correcto es guardar la cotización del mes junto al monto. Ojo: **ninguna parte
+del repo guarda cotizaciones hoy** (ni Cobros ni Finanzas), así que eso es
+decidir de dónde salen y con qué frecuencia, no copiar un patrón que ya exista.
+
+---
+
+### [FICHA-LENTA] La ficha del cliente tarda más de diez segundos en dibujarse 🟡
+
+**Qué es:** medido contra el preview con un cliente real el 2026-09-21. Abrir
+una ficha dispara del orden de **quince server actions** —recorrido, propuestas,
+sesiones, tareas, wins, Discord, campos configurables, facturación, resumen,
+cobros…— y las tarjetas van apareciendo de a una. La de «Información del
+cliente» puede tardar más de diez segundos.
+
+**Por qué importa:** quien abre una ficha ve media pantalla y cree que lo demás
+no existe. Y como varias tarjetas devuelven `null` mientras cargan, no hay
+siquiera un esqueleto que avise que falta algo.
+
+**Qué hacer, de menor a mayor esfuerzo:**
+1. Que las tarjetas que hoy devuelven `null` mientras cargan muestren un
+   esqueleto: el usuario ve que algo viene.
+2. Juntar las lecturas de la ficha en una sola action, como ya hace
+   `getClientsBoardAction` con la tabla.
+3. Mover a la página (Server Component) lo que no depende de interacción.
+
+---
+
+### [FASE-REFRESCO-CARO] Cambiar la fase recarga los 264 clientes 🟡
+
+**Qué es:** `setClientManualStageAction` termina llamando `refreshClients()`,
+que vuelve a pedir **toda** la lista de clientes de la organización para
+reflejar el cambio de uno solo. En Optimiza tu Control son 264 filas, y el
+selector tarda varios segundos en mostrar la fase nueva.
+
+**Por qué está así:** es lo que arregló el bug del 2026-09-21 —antes no se
+actualizaba nunca—, pero es el martillo más grande disponible.
+
+**Qué hacer:** o bien el proveedor expone una forma de actualizar un cliente
+suelto, o bien `ClientJourneySection` guarda la fase en su propio estado apenas
+la fija (actualización optimista) y deja el `refreshClients()` corriendo por
+detrás para la tabla.
+
+---
+
+### [UI-SIN-TESTS] `packages/ui` no tiene tests 🟡
+
+**Qué es:** el paquete tiene `lint` y `typecheck`, pero no `test`. El
+2026-09-21 se arregló ahí un bug de formato (`parseAnimatableMetricValue` se
+comía un espacio y «0 de 2» se leía «0de 2») y **no se pudo fijar con un test**:
+se verificó a mano contra diez formatos.
+
+**Qué hacer:** sumar Vitest al paquete, con `parse-metric-value` y
+`metric-trend` como primeros casos — son lógica pura y son los que más fácil se
+rompen sin que nadie se entere.
+
+**De paso, algo que quedó sin arreglar:** un valor como «+77%» pierde el signo
+al animarse (queda «77%»). No afecta a lo que se construyó —la facturación
+dibuja su propia píldora— pero sí a cualquier `MetricStat` que reciba un valor
+con signo.
+
+---
+
 ### [CLIENTES-VER-CON-DATOS] Mirar el panel de clientes rediseñado con datos reales 🟡
 
 **Qué es:** el 2026-09-21 se rehizo el panel de clientes (buscador, filtros
@@ -111,7 +228,8 @@ recorrido, sesiones 1-1, tareas, wins y Discord se vieron vacíos.
    historial— no quede demasiado angosta con la lateral al lado a 1280px.
 3. Que al subir una llamada el número de «Tareas pendientes» de la franja se
    actualice solo.
-4. El apodo: escribir uno en el encabezado, salir del campo, recargar.
+4. ~~El apodo~~ — el campo se eliminó de la ficha el 2026-09-21 (estaba
+   cargado en 0 de 307 clientes).
 
 ---
 

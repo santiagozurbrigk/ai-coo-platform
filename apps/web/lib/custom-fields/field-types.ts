@@ -15,6 +15,8 @@ import {
   type FieldOptionColor,
   type FieldOptionsSource,
   type FieldType,
+  FIELD_SECTIONS,
+  type FieldSection,
 } from "@/types/custom-fields";
 
 export const FIELD_TYPE_LABEL: Record<FieldType, string> = {
@@ -59,6 +61,12 @@ export function isFieldOptionsSource(value: unknown): value is FieldOptionsSourc
   return (
     typeof value === "string" &&
     (FIELD_OPTIONS_SOURCES as readonly string[]).includes(value)
+  );
+}
+
+export function isFieldSection(value: unknown): value is FieldSection {
+  return (
+    typeof value === "string" && (FIELD_SECTIONS as readonly string[]).includes(value)
   );
 }
 

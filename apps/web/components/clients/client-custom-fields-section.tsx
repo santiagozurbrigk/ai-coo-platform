@@ -59,7 +59,15 @@ export function ClientCustomFieldsSection({ client }: { client: Client }) {
   }, [client.custom]);
 
   /** Las columnas que se ofrecen para cargar. */
-  const offered = useMemo(() => activeFields(fields), [fields]);
+  /**
+   * ⭐ Sólo las columnas **sin sección**. Las de Marketing, Ventas y Sistemas
+   * viven en su propia tarjeta con solapas: mostrarlas también acá las pondría
+   * dos veces en la misma pantalla, editables desde dos lugares.
+   */
+  const offered = useMemo(
+    () => activeFields(fields).filter((field) => field.section === null),
+    [fields]
+  );
 
   /**
    * Las archivadas que este cliente igual tiene cargadas. Se muestran de sólo

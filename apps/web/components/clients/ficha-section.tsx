@@ -23,6 +23,18 @@ import { GlassPanel, cn } from "@ai-coo/ui";
  * chico a la derecha del título (`meta`) y una acción al borde (`action`).
  */
 
+/**
+ * Una acción secundaria de fila, quieta.
+ *
+ * ⭐ En este design system `ghost` **no** es un botón sin borde: es un botón con
+ * borde naranja. Una fila con dos —editar y deshacer, mandar y borrar— pone dos
+ * anillos encendidos por renglón, y quince renglones después el acento de marca
+ * dejó de marcar nada. Lo que pide acción se queda con el naranja; corregir o
+ * borrar algo que ya está, se queda en gris hasta que le pasás por encima.
+ */
+export const ACCION_DE_FILA =
+  "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground dark:border-transparent dark:text-muted-foreground";
+
 type HeaderProps = {
   icon?: LucideIcon;
   title: string;

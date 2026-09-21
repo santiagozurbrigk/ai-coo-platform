@@ -97,6 +97,15 @@ export type Client = {
   satisfactionUpdatedAt?: string | null;
   satisfactionUpdatedByName?: string | null;
   /**
+   * ⭐ La fase del recorrido fijada a mano.
+   *
+   * Existe porque la fase se **deduce** de los hitos registrados, y un cliente
+   * que entra directo a una fase avanzada quedaba en «Sin empezar» hasta que
+   * alguien tildara hitos que nunca hizo. La fase efectiva es la más avanzada
+   * entre ésta y la derivada: un recorrido no retrocede.
+   */
+  manualStageId?: string | null;
+  /**
    * ⭐ Los valores de las columnas configurables del cliente (C0, `entity =
    * 'client'`). La clave es la del `field_definitions`, no una columna de esta
    * tabla: agregar "Objetivo general" no es una migración, es abrir una

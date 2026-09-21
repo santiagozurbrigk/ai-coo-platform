@@ -11,8 +11,24 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { Badge, Button, GlassPanel, cn } from "@ai-coo/ui";
-import { CheckCircle2, Circle, Clock, Flag, RotateCcw, Sparkles } from "lucide-react";
-import { FichaSection } from "@/components/clients/ficha-section";
+import {
+  CheckCircle2,
+  ChevronDown,
+  Circle,
+  Clock,
+  Flag,
+  MinusCircle,
+  Pencil,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react";
+import { ACCION_DE_FILA, FichaSection } from "@/components/clients/ficha-section";
+import { setClientManualStageAction } from "@/app/clients/stage-actions";
+import {
+  resolveEffectiveStage,
+  skippedCheckpointIds,
+} from "@/lib/checkpoints/effective-stage";
+import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import type {
   Checkpoint,
@@ -44,12 +60,25 @@ const EMPTY: JourneyData = {
   journeyConfigured: false,
 };
 
-export function ClientJourneySection({ clientId }: { clientId: string }) {
+export function ClientJourneySection({
+  clientId,
+  manualStageId = null,
+}: {
+  clientId: string;
+  /** La fase fijada a mano, si la hay. Viene del cliente. */
+  manualStageId?: string | null;
+}) {
   const { push } = useToast();
+  const { refreshClients } = usePlatformData();
   const [data, setData] = useState<JourneyData>(EMPTY);
   const [proposals, setProposals] = useState<CheckpointProposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [pending, startTransition] = useTransition();
+  /**
+   * Qué fases están desplegadas. `null` = todavía nadie tocó nada, así que
+   * manda el criterio por defecto: abierta la fase en curso, cerradas las demás.
+   */
+  const [abiertas, setAbiertas] = useState<Set<string> | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -83,8 +112,101 @@ export function ClientJourneySection({ clientId }: { clientId: string }) {
   // tampoco: mandar a configurarlo desde la ficha de un cliente sería ruido.
   // El lugar para configurarlo es su propia pantalla.
   if (loading || !journeyConfigured) return null;
-  const currentStageName =
-    progress.find((entry) => entry.stage.id === summary.currentStageId)?.stage.name ?? null;
+  /**
+   * ⭐ Las fases del recorrido, en orden, reconstruidas desde el progreso.
+   *
+   * `progress` ya viene ordenado por el recorrido, así que el orden en que
+   * aparece cada fase **es** su orden. No hace falta pedir el catálogo aparte.
+   */
+  const stages = (() => {
+    const vistas = new Map<string, { id: string; name: string; checkpoints: { id: string }[] }>();
+    for (const entry of progress) {
+      const actual = vistas.get(entry.stage.id) ?? {
+        id: entry.stage.id,
+        name: entry.stage.name,
+        checkpoints: [],
+      };
+      actual.checkpoints.push({ id: entry.checkpoint.id });
+      vistas.set(entry.stage.id, actual);
+    }
+    return [...vistas.values()];
+  })();
+
+  const alcanzados = new Set(
+    progress.filter((entry) => entry.event !== null).map((entry) => entry.checkpoint.id)
+  );
+
+  const efectiva = resolveEffectiveStage(
+    stages as never,
+    summary.currentStageId,
+    manualStageId
+  );
+  const salteados = skippedCheckpointIds(
+    stages as never,
+    efectiva.stageId,
+    alcanzados
+  );
+
+  /**
+   * Los hitos agrupados por fase, en el orden del recorrido.
+   *
+   * ⭐ Antes era una lista plana de quince renglones, cada uno con su botón y su
+   * insignia de fase repetida. Quince acciones a la vista para una sola que
+   * importa: la de la fase en curso. Agrupadas, la ficha muestra cuatro
+   * renglones plegados y abre sólo donde hay algo que hacer.
+   */
+  const grupos = stages.map((stage) => {
+    const entries = progress.filter((entry) => entry.stage.id === stage.id);
+    return {
+      stage,
+      entries,
+      reached: entries.filter((entry) => entry.event !== null).length,
+      salteada: entries.every((entry) => salteados.has(entry.checkpoint.id)),
+    };
+  });
+
+  const estaAbierta = (stageId: string) =>
+    abiertas ? abiertas.has(stageId) : stageId === efectiva.stageId;
+
+  const alternarFase = (stageId: string) => {
+    setAbiertas((actuales) => {
+      const base = new Set(
+        actuales ?? (efectiva.stageId ? [efectiva.stageId] : [])
+      );
+      if (base.has(stageId)) base.delete(stageId);
+      else base.add(stageId);
+      return base;
+    });
+  };
+
+  function fijarFase(stageId: string | null) {
+    startTransition(async () => {
+      const result = await setClientManualStageAction({ clientId, stageId });
+      if (!result.success) {
+        push({ title: "No se pudo cambiar la fase", description: result.error });
+        return;
+      }
+      push({
+        title: stageId ? "Fase actualizada" : "La fase vuelve a salir de los hitos",
+        variant: "success",
+      });
+      /*
+        ⭐ El proveedor de datos, y **no** `router.refresh()`.
+
+        La ficha lee el cliente de `clients.find(...)`, no del prop que
+        renderiza el servidor, así que refrescar el servidor no cambiaba nada:
+        la fase quedaba guardada en la base y la pantalla seguía mostrando la
+        anterior hasta recargar a mano.
+
+        Refrescar además el servidor tampoco es gratis: vuelve a montar la
+        columna de contexto entera y las tarjetas que cargan solas —la
+        información del cliente, la facturación— desaparecen unos segundos por
+        un cambio que no las toca. Las dos cosas se vieron probando contra el
+        preview con datos reales.
+      */
+      await refreshClients();
+    });
+  }
 
   async function refresh() {
     const [next, pending] = await Promise.all([
@@ -142,10 +264,42 @@ export function ClientJourneySection({ clientId }: { clientId: string }) {
       title="Recorrido"
       meta={
         journeyConfigured && summary.total > 0
-          ? `${summary.reached} de ${summary.total}${currentStageName ? ` · ${currentStageName}` : ""}`
+          ? `${summary.reached} de ${summary.total}`
           : undefined
       }
+      action={
+        stages.length > 0 ? (
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            Fase
+            <select
+              className="h-8 max-w-[190px] rounded-md border border-border bg-background px-2 text-xs text-foreground"
+              value={efectiva.stageId ?? ""}
+              disabled={pending}
+              onChange={(event) => fijarFase(event.target.value || null)}
+              title="Elegí en qué fase está el cliente, sin tener que registrar los hitos anteriores"
+            >
+              <option value="">Sin empezar</option>
+              {stages.map((stage) => (
+                <option key={stage.id} value={stage.id}>
+                  {stage.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : undefined
+      }
     >
+      {/*
+        ⭐ El aviso existe porque fijar la fase a mano **no registra hitos**: el
+        historial sigue diciendo la verdad sobre lo que el cliente hizo. Sin
+        esta línea, los hitos en gris de arriba se leerían como un error.
+      */}
+      {efectiva.origin === "manual" ? (
+        <p className="text-xs text-muted-foreground">
+          La fase está fijada a mano. Los hitos de las fases anteriores quedan
+          como salteados — no se dan por cumplidos.
+        </p>
+      ) : null}
 
       {proposals.length > 0 ? (
         <div className="space-y-2">
@@ -197,19 +351,65 @@ export function ClientJourneySection({ clientId }: { clientId: string }) {
         </GlassPanel>
       ) : (
         <GlassPanel className="divide-y divide-border/40 p-0">
-          {progress.map((entry) => (
-            <CheckpointLine
-              key={entry.checkpoint.id}
-              entry={entry}
-              checkpointFields={checkpointFields}
-              pending={pending}
-              onRecord={() => {
-                setDialogError(null);
-                setDialog({ open: true, checkpoint: entry.checkpoint, event: entry.event });
-              }}
-              onUndo={() => undo(entry)}
-            />
-          ))}
+          {grupos.map((grupo) => {
+            const abierta = estaAbierta(grupo.stage.id);
+            const esActual = grupo.stage.id === efectiva.stageId;
+            return (
+              <div key={grupo.stage.id}>
+                <button
+                  type="button"
+                  onClick={() => alternarFase(grupo.stage.id)}
+                  aria-expanded={abierta}
+                  className={cn(
+                    "flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-muted/40 dark:hover:bg-white/[0.03]",
+                    grupo.salteada && !abierta && "opacity-60"
+                  )}
+                >
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                      !abierta && "-rotate-90"
+                    )}
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {grupo.stage.name}
+                  </span>
+                  {esActual ? (
+                    <Badge variant="secondary" className="shrink-0 text-[10px]">
+                      en curso
+                    </Badge>
+                  ) : null}
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {grupo.reached} de {grupo.entries.length}
+                  </span>
+                </button>
+
+                {abierta ? (
+                  <div className="divide-y divide-border/30 border-t border-border/30">
+                    {grupo.entries.map((entry) => (
+                      <CheckpointLine
+                        key={entry.checkpoint.id}
+                        entry={entry}
+                        checkpointFields={checkpointFields}
+                        salteado={salteados.has(entry.checkpoint.id)}
+                        pending={pending}
+                        onRecord={() => {
+                          setDialogError(null);
+                          setDialog({
+                            open: true,
+                            checkpoint: entry.checkpoint,
+                            event: entry.event,
+                          });
+                        }}
+                        onUndo={() => undo(entry)}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
         </GlassPanel>
       )}
 
@@ -230,12 +430,15 @@ export function ClientJourneySection({ clientId }: { clientId: string }) {
 function CheckpointLine({
   entry,
   checkpointFields,
+  salteado,
   pending,
   onRecord,
   onUndo,
 }: {
   entry: CheckpointWithEvent;
   checkpointFields: FieldDefinition[];
+  /** De una fase anterior a la actual y sin registrar: el cliente ya pasó. */
+  salteado: boolean;
   pending: boolean;
   onRecord: () => void;
   onUndo: () => void;
@@ -244,13 +447,18 @@ function CheckpointLine({
   const reached = event !== null;
 
   return (
-    <div className="flex items-start gap-3 p-3">
+    <div className={cn("flex items-start gap-3 p-3", salteado && "opacity-50")}>
       <span
         className="mt-0.5 shrink-0"
         style={{ color: reached ? fieldOptionColorVar(stage.color) : undefined }}
       >
         {reached ? (
           <CheckCircle2 className="h-4 w-4" />
+        ) : salteado ? (
+          <MinusCircle
+            className="h-4 w-4 text-muted-foreground/60"
+            aria-label="Salteado"
+          />
         ) : (
           <Circle className="h-4 w-4 text-muted-foreground/50" />
         )}
@@ -261,9 +469,11 @@ function CheckpointLine({
           <span className={cn("text-sm", !reached && "text-muted-foreground")}>
             {checkpoint.name}
           </span>
-          <Badge variant="outline" className="text-[10px]">
-            {stage.name}
-          </Badge>
+          {salteado ? (
+            <Badge variant="outline" className="text-[10px] font-normal">
+              salteado
+            </Badge>
+          ) : null}
           {!reached && checkpoint.expectedDays !== null ? (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
@@ -294,11 +504,32 @@ function CheckpointLine({
 
       <div className="flex shrink-0 items-center gap-1">
         {reached ? (
+          /*
+            ⭐ Corregir un hito ya registrado es raro; registrarlo es lo
+            frecuente. Con el borde naranja del botón `ghost`, cada hito
+            cumplido ponía dos anillos encendidos al costado y la fila cumplida
+            gritaba más que la pendiente, que es la que pide acción. Quietos
+            —sin borde y en gris— se ven igual, pero ya no compiten.
+          */
           <>
-            <Button variant="ghost" size="sm" disabled={pending} onClick={onRecord}>
-              Editar
+            <Button
+              variant="ghost"
+              size="icon"
+              className={ACCION_DE_FILA}
+              title="Editar la fecha y las métricas"
+              disabled={pending}
+              onClick={onRecord}
+            >
+              <Pencil className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" title="Deshacer" disabled={pending} onClick={onUndo}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={ACCION_DE_FILA}
+              title="Deshacer: el hito vuelve a quedar pendiente"
+              disabled={pending}
+              onClick={onUndo}
+            >
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
           </>

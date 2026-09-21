@@ -50,7 +50,17 @@ export function parseAnimatableMetricValue(
   const match = str.match(/^([^0-9\-+]*)([-+]?[0-9][0-9,.\s]*)(.*)$/);
   if (!match) return null;
 
-  const [, prefix, numPart, suffix] = match;
+  const [, prefix, rawNumPart = "", rawSuffix = ""] = match;
+
+  /*
+   * The numeric group swallows trailing whitespace (`[0-9,.\s]*`), and
+   * `normalizeNumPart` then strips it — so "0 de 2" rendered as "0de 2".
+   * Hand any trailing space back to the suffix, where it belongs.
+   */
+  const trailing = rawNumPart.match(/\s+$/)?.[0] ?? "";
+  const numPart = trailing ? rawNumPart.slice(0, -trailing.length) : rawNumPart;
+  const suffix = `${trailing}${rawSuffix}`;
+
   const normalized = normalizeNumPart(numPart);
   const numeric = Number.parseFloat(normalized);
   if (!Number.isFinite(numeric)) return null;
