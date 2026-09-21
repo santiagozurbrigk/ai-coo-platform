@@ -29,6 +29,7 @@ import {
   resolveEffectiveStage,
   skippedCheckpointIds,
 } from "@/lib/checkpoints/effective-stage";
+import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import type {
   Checkpoint,
@@ -69,6 +70,7 @@ export function ClientJourneySection({
   manualStageId?: string | null;
 }) {
   const { push } = useToast();
+  const { refreshClients } = usePlatformData();
   const router = useRouter();
   const [data, setData] = useState<JourneyData>(EMPTY);
   const [proposals, setProposals] = useState<CheckpointProposal[]>([]);
@@ -190,7 +192,16 @@ export function ClientJourneySection({
         title: stageId ? "Fase actualizada" : "La fase vuelve a salir de los hitos",
         variant: "success",
       });
-      // La fase vive en el cliente, así que la ficha entera tiene que releerlo.
+      /*
+        ⭐ Las dos cosas, y no una.
+
+        La fase vive en el cliente, así que hay que releerlo — pero la ficha lee
+        el cliente del proveedor de datos (`clients.find(...)`), no del prop que
+        renderiza el servidor. `router.refresh()` solo refresca lo segundo, así
+        que la fase quedaba guardada en la base y la pantalla seguía mostrando
+        la anterior hasta recargar a mano. Encontrado probando contra el preview.
+      */
+      await refreshClients();
       router.refresh();
     });
   }
