@@ -14,6 +14,123 @@
 
 ---
 
+### 2026-09-20 — 📞 Subir una 1-1 con un link, y que salgan solas las tareas
+
+**Rama/branch:** `claude/nice-thompson-s9zids`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** Fathom, Clientes (ficha y tabla), Tablero de trabajo
+
+**Qué se hizo:**
+
+Pedido con captura: *"quiero subir manualmente los fathoms de las calls 1-1 con
+los clientes y que automáticamente se pongan en el apartado de tareas las que les
+asigna el coach a cada cliente. Además de que haya algún apartado que diga la
+contabilidad de cuántas calls 1-1 va teniendo el cliente"*.
+
+- **Migración** `20260920100000_calls_1a1_manuales_y_tareas_del_cliente.sql`:
+  `fathom_calls` suma `ingest_source`, `uploaded_by`, `share_token`,
+  `share_payload` y `one_on_one_tasks_extracted_at`; tabla nueva `client_tasks`
+  con RLS por organización.
+- **`lib/fathom/share-link.ts`** (nuevo): del link compartido al ID numérico, el
+  título, la fecha, la duración y el transcript. 13 tests.
+- **`lib/fathom/one-on-one-tasks.ts`** (nuevo): extracción de compromisos con
+  Haiku, separando los del cliente de los del coach.
+- **`lib/clients/client-tasks.ts`** (nuevo): guarda las tareas de una llamada, una
+  sola vez por llamada.
+- **`lib/fathom/process-call.ts`**: `finalizeAssociatedCall` llama al extractor de
+  1-1, al lado del que ya existía para reuniones de equipo.
+- **`lib/fathom/one-on-one-types.ts`**: `computeOneOnOneStats` — total, primera,
+  última, ritmo y antigüedad. 7 tests.
+- **Acciones nuevas**: `app/fathom/manual-upload-actions.ts`,
+  `app/fathom/one-on-one-actions.ts`, `app/clients/task-actions.ts`.
+- **UI**: `client-one-on-ones.tsx` (contador + lista + subir),
+  `client-tasks-section.tsx`, `upload-one-on-one-dialog.tsx`; la columna de última
+  1-1 de la tabla de clientes ahora muestra también el total.
+- **`client-linked-calls.tsx`**: pasa a llamarse «Llamadas de venta» y se oculta
+  cuando no hay ninguna.
+
+**Por qué / finalidad:**
+
+⭐ **El hallazgo que define el diseño.** La API oficial de Fathom pide un
+**entero** (`recording_id`) para devolver un transcript, y un link compartido es
+un **token opaco de 32 caracteres**. No se traducen uno en el otro, así que "pegá
+el link" parecía imposible sin que la grabación estuviera en la cuenta conectada
+— justo lo que no pasa cuando el coach graba con su propio Fathom.
+
+**Pero la página compartida sirve todo.** El `<div data-page>` que usa su propio
+reproductor trae el ID numérico, el título, la fecha, la duración, el mail del
+anfitrión y una URL de transcript con token. Verificado contra una grabación real
+el 2026-09-20: `200` sin clave de API y sin sesión, transcript de 7.861
+caracteres **en castellano**, con nombre y mail de cada quien habla.
+
+⭐ **El bloque «Llamadas del cliente» nunca mostró las 1-1.** Su única fuente es
+`clients.linked_calls`, que escribe sólo el análisis profundo de las llamadas de
+**venta**. Una ficha con diez sesiones de acompañamiento mostraba igual "Sin
+llamadas vinculadas", y encima invitaba a conectar Fathom con Fathom ya
+conectado. Por eso el arreglo no era agregarle un botón: era separarlo en dos
+secciones que dicen lo que muestran.
+
+**Decisiones de diseño relevantes:**
+
+- **Tabla propia y no `workboard_tasks`.** El tablero es el trabajo del equipo:
+  tiene sprint y responsables que son perfiles de la organización. El cliente no
+  tiene usuario, y meter sus deberes ahí llenaría el tablero con las tareas de
+  doscientas personas ajenas al equipo. Lo que **sí** puede pasar —que una tarea
+  resulte del equipo— se resuelve con un botón que la manda al tablero **sin
+  sacarla de la ficha**: moverla haría que el coach no la encuentre donde la dejó.
+- **Dos dueños, no uno.** En una 1-1 se reparten compromisos para los dos lados.
+  Guardarlos todos como "del cliente" hace que el coach cierre la llamada sin
+  registro de lo suyo.
+- **Acá no corre el clasificador.** El cliente y el propósito los dijo una
+  persona; volver a adivinarlos sólo podría empeorar un dato correcto. Es donde
+  hoy se pierden las llamadas: el 86% de los títulos reales son "Impromptu Google
+  Meet Meeting".
+- **El extractor se enganchó en `finalizeAssociatedCall`** y no en el flujo de
+  subida, así que las tareas también salen cuando la llamada entra por la
+  sincronización y se asocia después.
+- **Los action items de Fathom se descartaron como fuente.** Existen, traen el
+  responsable y el segundo exacto, y Limitless ya los pedía sin leerlos — pero su
+  endpoint devolvió `500` en la grabación probada, y la API los documenta como
+  "always displayed in English". La extracción del transcript funciona siempre y
+  queda en castellano.
+- **El ritmo se calcula sobre el período, no promediando huecos**, y con una sola
+  llamada es `null`: con un punto no hay ritmo, y un "cada 0 días" se leería como
+  que el cliente tiene llamadas todos los días.
+- **Nada se inventa.** Una duración que no se lee queda en `null`, no en cero. Una
+  llamada sin transcript se guarda igual —cuenta para el contador— pero sin tareas
+  automáticas, y el aviso lo dice en el momento.
+- **El payload crudo se persiste antes de interpretarlo** (`share_payload`) y todo
+  el parseo vive en un archivo con la advertencia en el encabezado. Registrado en
+  `docs/API_DOCS_PENDIENTES.md`.
+- **Volver a pegar el mismo link no duplica nada.** Las tareas tenían su propio
+  seguro, pero el finalizador también escribe la entrada del timeline y los
+  problemas detectados, y ésos no lo tenían.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **La página compartida no es la API documentada de Fathom.** Puede cambiar
+  sin aviso. Si cambia, se rompe una función con un mensaje claro —no el módulo de
+  llamadas— y el payload crudo guardado permite arreglar el mapeo mirando datos
+  reales.
+- ⚠️ **`props.call.id` se asume igual a `recording_id`.** Coinciden el formato y el
+  uso, pero no está confirmado. Si no lo fuera, subir una llamada ya sincronizada
+  la duplicaría en vez de reusar la fila. Se ve en el primer intento.
+- ⚠️ **`copyTranscriptUrl` se probó en una sola grabación, de la cuenta propia.**
+  El caso que importa —el link de un coach externo— es el supuesto central del
+  diseño y está sin probar.
+- ⚠️ **La calidad de las tareas extraídas no se pudo verificar**: hace falta una
+  llamada real y una clave de Anthropic. El riesgo concreto es que confunda un
+  consejo del coach con un compromiso.
+- El detalle de las tareas (`description`) no se puede editar desde la ficha:
+  `updateClientTaskAction` lo soporta, la UI todavía no lo expone.
+- **Caso de borde sin cubrir:** si una llamada ya procesada para el cliente A se
+  sube después en la ficha del cliente B, la llamada se reasigna a B —que es lo
+  correcto, corrige un error del clasificador— pero **la entrada del timeline de A
+  queda**. Es raro y no se limpió para no ensanchar el cambio.
+- Todo está en `docs/PLAN_VERIFICACION.md` con los pasos concretos.
+
+---
+
 ### 2026-09-17 — 🐛 Los modales cortaban su propio contenido
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`

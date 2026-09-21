@@ -9,6 +9,50 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [1A1-MANUALES-SIN-PROBAR] Probar las 1-1 subidas con un link 🔴
+
+**Qué es:** se construyó todo el pedido —subir la 1-1 pegando el link de Fathom,
+que las tareas salgan solas, y el contador de cuántas lleva cada cliente— y
+**nada se probó contra la base**. Lo que sí está verificado contra una grabación
+real es el camino de red: del link salen el ID, la fecha, la duración y el
+transcript completo en castellano, sin clave de API ni sesión iniciada.
+
+**Antes de nada:** aplicar la migración
+`20260920100000_calls_1a1_manuales_y_tareas_del_cliente.sql`.
+
+**Qué hacer, en este orden** (el detalle completo está en
+`docs/PLAN_VERIFICACION.md`):
+
+1. Abrir una ficha de cliente → **Sesiones 1-1** → «Subir llamada», pegar el link
+   de una 1-1 real. Tiene que aparecer con su fecha y duración de verdad.
+2. Mirar **Tareas**: separadas en «le toca al cliente» y «le toca al coach».
+   ⭐ **Leerlas una por una**: tienen que ser compromisos hacia adelante, no
+   consejos del coach ni cosas que el cliente ya hizo. Éste es el único punto que
+   depende de un modelo y el único que no se pudo probar.
+3. Pegar **el mismo link otra vez**: tiene que decir «Esa llamada ya estaba» y no
+   duplicar ni tareas ni la entrada del timeline.
+4. ⚠️ Subir una llamada que **la sincronización ya había bajado**: tiene que
+   reusar la fila, no crear una segunda. Si se duplica, `props.call.id` no es el
+   mismo número que `recording_id` y hay que mirar `lib/fathom/share-link.ts`.
+5. ⚠️ **Lo más importante:** pegar el link de una grabación **de otra cuenta** —un
+   coach que graba con su propio Fathom—. Es el supuesto central del diseño. Si
+   falla, hay que sumar el camino de pegar el transcript a mano.
+6. Mandar una tarea del coach al tablero: aparece allá con el nombre del cliente
+   adelante y **sigue estando** en la ficha.
+
+---
+
+### [1A1-EDITAR-DETALLE] El detalle de una tarea no se puede editar 🟡
+
+**Qué es:** `updateClientTaskAction` ya permite cambiar título, detalle, dueño y
+fecha, pero la ficha sólo deja tildar, borrar y mandar al tablero. Una tarea que
+la IA escribió medio torcida hay que borrarla y volver a cargarla.
+
+**Qué hacer:** hacer editable la fila en `components/clients/client-tasks-section.tsx`.
+La acción ya está hecha y probada por tipos; es sólo UI.
+
+---
+
 ### [DIALOG-DOBLE-PADDING] El padding duplicado de los modales 🟡
 
 **Qué es:** `DialogContent` trae `p-6` y `DialogHeader`/`DialogFooter` agregan su

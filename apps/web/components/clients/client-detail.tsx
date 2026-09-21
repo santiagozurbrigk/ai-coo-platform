@@ -11,6 +11,8 @@ import { usePlatformData } from "@/providers";
 import { useModuleAccess } from "@/providers/permissions-provider";
 import { useToast } from "@/providers/toast-provider";
 import { ClientLinkedCallsSection } from "@/components/clients/client-linked-calls";
+import { ClientOneOnOnesSection } from "@/components/clients/client-one-on-ones";
+import { ClientTasksSection } from "@/components/clients/client-tasks-section";
 import { ClientCustomFieldsSection } from "@/components/clients/client-custom-fields-section";
 import { ClientNotesSection } from "@/components/clients/client-notes-section";
 import { ClientSatisfactionSection } from "@/components/clients/client-satisfaction-section";
@@ -192,6 +194,15 @@ export function ClientDetail({ client: initial }: { client: Client }) {
           </GlassPanel>
         </section>
       )}
+
+      {/*
+        ⭐ Las 1-1 van antes que las de venta, y las tareas justo después.
+        El orden sigue al uso: la ficha se abre para preparar la próxima sesión,
+        no para revisar cómo se vendió hace seis meses.
+      */}
+      <ClientOneOnOnesSection clientId={client.id} />
+
+      <ClientTasksSection clientId={client.id} />
 
       <ClientLinkedCallsSection calls={client.linkedCalls} />
 

@@ -18,19 +18,6 @@ import type { ClientLinkedCall } from "@/types/clients";
 import type { TeamRankingEntry } from "@/types/call-analysis";
 import { cn } from "@/lib/utils";
 
-function LinkedCallsEmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-      <Phone className="h-8 w-8 text-muted-foreground" />
-      <p className="text-sm font-medium text-foreground">Sin llamadas vinculadas</p>
-      <p className="max-w-xs text-xs text-muted-foreground">
-        Conectá Fathom y vinculá este cliente para ver el análisis de sus llamadas
-        aquí.
-      </p>
-    </div>
-  );
-}
-
 function CallAnalysisEmptyState() {
   return (
     <div className="mt-4 flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 bg-muted/5 px-4 py-8 text-center dark:border-white/[0.08]">
@@ -155,6 +142,20 @@ function CloserEvolutionSheet({
   );
 }
 
+/**
+ * Las llamadas de **venta** del cliente, con el análisis del closer.
+ *
+ * ⭐ Se llamaba «Llamadas del cliente» y no lo era: `clients.linked_calls`, su
+ * única fuente, lo escribe sólo el análisis profundo de las llamadas de venta.
+ * Una ficha con diez sesiones de acompañamiento mostraba igual «Sin llamadas
+ * vinculadas», y el cartel invitaba a conectar Fathom cuando Fathom ya estaba
+ * conectado. Las 1-1 viven en `ClientOneOnOnesSection`, que es la sección de al
+ * lado.
+ *
+ * ⭐ Y no se muestra vacía. Un cliente que entró sin llamada de venta grabada
+ * —importado, o vendido por DM— no tiene nada que ver acá, y un cartel de
+ * "no hay nada" permanente en cada ficha es ruido, no información.
+ */
 export function ClientLinkedCallsSection({
   calls,
 }: {
@@ -169,30 +170,28 @@ export function ClientLinkedCallsSection({
     setEvolutionOpen(true);
   };
 
+  if (calls.length === 0) return null;
+
   return (
     <>
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-medium">Llamadas del cliente</h2>
-          {calls.length > 0 ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() =>
-                openEvolution(calls[0]?.closerName ?? "")
-              }
-            >
-              <TrendingUp className="h-3.5 w-3.5" />
-              Ver evolución del closer
-            </Button>
-          ) : null}
+          <h2 className="flex items-center gap-2 text-sm font-medium">
+            <Phone className="h-4 w-4" />
+            Llamadas de venta
+          </h2>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => openEvolution(calls[0]?.closerName ?? "")}
+          >
+            <TrendingUp className="h-3.5 w-3.5" />
+            Ver evolución del closer
+          </Button>
         </div>
 
-        {calls.length === 0 ? (
-          <LinkedCallsEmptyState />
-        ) : (
         <ul className="space-y-2">
           {calls.map((call) => {
             const expanded = expandedId === call.id;
@@ -247,7 +246,6 @@ export function ClientLinkedCallsSection({
             );
           })}
         </ul>
-        )}
       </section>
 
       <CloserEvolutionSheet
