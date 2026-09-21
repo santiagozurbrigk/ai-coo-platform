@@ -40,6 +40,14 @@ const entrySchema = z.object({
   currency: z.enum(["USD", "ARS"]).default("USD"),
   period: z.string().min(4, "Elegí un mes."),
   note: z.string().trim().max(300).default(""),
+  /**
+   * ⭐ El mes que se está corrigiendo, si se entró por «Editar».
+   *
+   * Existe por un solo caso: alguien cargó agosto y en realidad era julio. El
+   * upsert de abajo escribe julio, pero agosto quedaría ahí — corregir el mes
+   * habría creado un mes de más en vez de mover el que estaba.
+   */
+  replacesEntryId: z.string().uuid().nullish(),
 });
 
 export async function listClientRevenueAction(
@@ -115,9 +123,26 @@ export async function saveClientRevenueAction(
 
     if (error) throw new Error(error.message);
 
+    const guardada = rowToRevenueEntry(data as ClientRevenueRow);
+
+    /*
+      Se estaba corrigiendo un mes y le cambiaron el mes: la fila vieja ya no
+      representa nada. Si el mes no cambió, el upsert la pisó y `id` es el
+      mismo, así que no hay nada que borrar.
+    */
+    if (values.replacesEntryId && values.replacesEntryId !== guardada.id) {
+      const { error: errorBorrado } = await supabase
+        .from("client_revenue_entries")
+        .delete()
+        .eq("id", values.replacesEntryId)
+        .eq("organization_id", organizationId)
+        .eq("client_id", values.clientId);
+      if (errorBorrado) throw new Error(errorBorrado.message);
+    }
+
     revalidatePath(paths.platform.clients.detail(values.clientId));
     revalidatePath(paths.platform.clients.root);
-    return rowToRevenueEntry(data as ClientRevenueRow);
+    return guardada;
   });
 }
 

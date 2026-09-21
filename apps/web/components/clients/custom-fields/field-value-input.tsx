@@ -8,7 +8,7 @@
  * de campo se soporta acá una sola vez.
  */
 
-import { Input, Label, cn } from "@ai-coo/ui";
+import { Input, Label, Textarea, cn } from "@ai-coo/ui";
 import type { FieldDefinition } from "@/types/custom-fields";
 import { resolveFieldOptions, type ResolveOptionsContext } from "@/lib/custom-fields";
 
@@ -137,9 +137,18 @@ export function FieldValueInput({
         );
 
       case "text":
+        /*
+          ⭐ Textarea y no `Input`: un campo de texto guarda tanto «Ticket y
+          modalidad» como un avatar de tres párrafos, y un input de una línea
+          **descarta los saltos al pegarlos** — el texto entra aplastado en un
+          renglón y no hay forma de recuperarlo. Tres filas alcanzan para que
+          se note que se puede escribir de más, y crece tirando de la esquina.
+        */
         return (
-          <Input
+          <Textarea
             id={inputId}
+            rows={3}
+            className="min-h-[72px] resize-y"
             value={typeof value === "string" ? value : ""}
             onChange={(event) => onChange(event.target.value)}
           />
