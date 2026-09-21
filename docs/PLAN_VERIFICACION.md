@@ -1434,6 +1434,63 @@ el escalón entre "Respondidos" y "Llamadas agendadas" puede leerse raro.
 
 ---
 
+## Sesiones 1-1 desde un link de Fathom, tareas y contador ⚠️🔑 — 2026-09-20
+
+**Contexto:** el pedido fue poder **subir a mano** el Fathom de una 1-1, que las
+tareas que el coach le deja al cliente aparezcan solas, y que se vea **cuántas
+1-1 lleva** cada cliente.
+
+**Ya verificado contra una grabación real** (no hace falta repetirlo): que del
+link compartido salgan el ID, el título, la fecha, la duración y el transcript
+completo en castellano, sin clave de API ni sesión; que un link inexistente dé
+`404` y uno vencido `401`. Lo que sigue es lo que **no se pudo probar** sin base
+de datos ni clave de Anthropic.
+
+**La migración ya está aplicada en producción** (2026-09-21), verificada columna
+por columna, con RLS y sus 4 políticas.
+
+⚠️ **Estado de partida, medido el mismo día:** de las 424 grabaciones, **0**
+están clasificadas como llamada de entrega y 421 no tienen cliente. El contador
+va a decir **0 en todas las fichas** hasta que subas la primera por link. Eso no
+es una falla de esta feature: es el pendiente `[1-1-SEMBRAR-Y-MEDIR]`.
+
+| Qué hacer | Qué tendría que pasar |
+|---|---|
+| Abrir la ficha de un cliente | Aparece **Sesiones 1-1** con el contador en cero y **Tareas** con su cartel vacío |
+| ⭐ Pegar el link de una 1-1 real en «Subir llamada» | Vuelve en unos segundos: la llamada aparece en la lista, con su fecha y duración reales y la etiqueta «subida a mano» |
+| Mirar el contador | Dice **1 sesión 1-1** y la fecha de la llamada. **No** muestra ritmo: con una sola no hay ritmo que medir |
+| ⭐ Mirar **Tareas** | Salieron los compromisos de la llamada, **separados en «Le toca al cliente» y «Le toca al coach»**, cada uno con la etiqueta «de la 1-1 del …» |
+| ⭐ Leer las tareas una por una | Son compromisos **hacia adelante**. Lo que el cliente ya hizo, y los consejos generales del coach, **no** tienen que estar. Si aparecen, el prompt de `lib/fathom/one-on-one-tasks.ts` es lo que hay que ajustar |
+| Tildar una tarea y recargar | Sigue tildada, tachada y abajo de las pendientes |
+| En una tarea del **coach**, tocar el botón de mandar al tablero | Aparece en **Tablero de trabajo** con el nombre del cliente adelante, y en la ficha queda con la etiqueta «en el tablero». ⭐ **La tarea no se va de la ficha** |
+| Tocarlo dos veces (si se pudiera) | No crea una segunda tarea en el tablero |
+| ⭐ **Pegar el mismo link otra vez** | Dice «Esa llamada ya estaba» y **no se duplica nada**: ni tareas, ni entrada del timeline, ni problemas detectados |
+| Subir una **segunda** 1-1 del mismo cliente | El contador dice **2** y ahora sí muestra «cada N días» |
+| Mirar la **tabla de Clientes**, columna de última 1-1 | Al lado de la fecha aparece **· 2**, y el globito dice «2 sesiones 1-1, una cada N días» |
+| Mirar el **Timeline** del cliente | La sesión figura una sola vez, con su resumen |
+| Pegar un link de `fathom.video/calls/…` (el privado, no el de compartir) | Lo rechaza pidiendo el link de «Compartir». **No** tiene que dar un error genérico |
+| Pegar cualquier texto que no sea un link | Mismo mensaje, sin romper nada |
+| ⭐ Pegar el link de una grabación **de otra cuenta** (un coach con su propio Fathom) | Tiene que funcionar igual. **Éste es el supuesto central de todo el diseño**: si falla, hay que sumar el camino de pegar el transcript a mano |
+| Subir el link de una llamada que la sincronización **ya había bajado** | ⚠️ Tiene que **reusar la fila**, no crear una segunda. Si aparece duplicada, `props.call.id` no es el mismo número que `recording_id` |
+| Una ficha de cliente **sin** llamada de venta | La sección «Llamadas de venta» **no aparece**. Antes mostraba «Sin llamadas vinculadas» aunque Fathom estuviera conectado |
+
+**⚠️ Lo que más riesgo tiene, en orden:**
+
+1. **La calidad de las tareas extraídas.** Es lo único que depende de un modelo
+   leyendo una conversación, y lo único que no se puede probar sin llamadas
+   reales. El riesgo concreto es que confunda un consejo con un compromiso.
+2. **Que `props.call.id` no sea `recording_id`.** Duplicaría llamadas ya
+   sincronizadas. Se ve en el primer intento con una llamada vieja.
+3. **Que `copyTranscriptUrl` no funcione en grabaciones ajenas.** Probado en una
+   sola, de la cuenta propia.
+
+**Lo que verifica seguridad:** que el `clientId` y el `taskId` de otra
+organización no devuelvan nada. Las dos acciones chequean la pertenencia con la
+sesión del usuario **antes** de tocar el cliente admin —que se saltea RLS y lee
+transcripts completos—, pero conviene confirmarlo a mano con dos organizaciones.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

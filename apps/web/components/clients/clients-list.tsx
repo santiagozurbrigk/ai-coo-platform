@@ -676,6 +676,23 @@ function LastOneOnOneCell({ entry }: { entry: LastOneOnOne | undefined }) {
   const content = (
     <span className="inline-flex items-center gap-1.5 text-xs">
       {label}
+      {/*
+        ⭐ El total va pegado a la fecha y no en una columna aparte: solos, "12
+        de septiembre" y "7" no dicen nada; juntos dicen si el cliente viene con
+        ritmo o si hace rato que no se lo ve.
+      */}
+      {entry.totalCalls > 1 ? (
+        <span
+          className="tabular-nums text-muted-foreground"
+          title={
+            entry.everyDays != null
+              ? `${entry.totalCalls} sesiones 1-1, una cada ${entry.everyDays} días`
+              : `${entry.totalCalls} sesiones 1-1`
+          }
+        >
+          ·&nbsp;{entry.totalCalls}
+        </span>
+      ) : null}
       {!confirmed ? (
         <span
           className="text-warning"

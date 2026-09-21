@@ -279,6 +279,16 @@ const DEFINITIONS: IntegrationDefinition[] = [
         lands: "fathom_calls",
         transport: "cron",
       },
+      {
+        // Alguien pega el link de «Compartir» en la ficha de un cliente y la
+        // sesión 1-1 entra con su transcripción. Es el único camino que anda
+        // cuando la grabación es de la cuenta de otro —un coach externo— porque
+        // no usa la clave de API de la organización.
+        direction: "in",
+        label: "Sesión 1-1 desde un link compartido",
+        lands: "fathom_calls",
+        transport: "manual",
+      },
     ],
     connect: "dialog",
     localDocs: "docs/external-apis/fathom/RESUMEN-LIMITLESS.md",

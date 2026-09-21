@@ -9,6 +9,82 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [1A1-MANUALES-SIN-PROBAR] Probar las 1-1 subidas con un link 🔴
+
+**Qué es:** se construyó todo el pedido —subir la 1-1 pegando el link de Fathom,
+que las tareas salgan solas, y el contador de cuántas lleva cada cliente— y
+**nada se probó contra la base**. Lo que sí está verificado contra una grabación
+real es el camino de red: del link salen el ID, la fecha, la duración y el
+transcript completo en castellano, sin clave de API ni sesión iniciada.
+
+**La migración ya está aplicada en producción** (2026-09-21): la tabla
+`client_tasks` y las columnas nuevas de `fathom_calls` están creadas y con RLS.
+Lo que falta es probar la feature con una llamada de verdad.
+
+⚠️ **Ojo con esto al probar:** el contador va a decir **0 en todos los
+clientes**, porque el clasificador no reconoció ninguna de las 424 grabaciones
+como llamada de entrega. No es un bug de lo nuevo — es el estado de los datos, y
+está medido en `[1-1-SEMBRAR-Y-MEDIR]`. Las sesiones que subas por link sí van a
+contar desde el primer minuto.
+
+**Qué hacer, en este orden** (el detalle completo está en
+`docs/PLAN_VERIFICACION.md`):
+
+1. Abrir una ficha de cliente → **Sesiones 1-1** → «Subir llamada», pegar el link
+   de una 1-1 real. Tiene que aparecer con su fecha y duración de verdad.
+2. Mirar **Tareas**: separadas en «le toca al cliente» y «le toca al coach».
+   ⭐ **Leerlas una por una**: tienen que ser compromisos hacia adelante, no
+   consejos del coach ni cosas que el cliente ya hizo. Éste es el único punto que
+   depende de un modelo y el único que no se pudo probar.
+3. Pegar **el mismo link otra vez**: tiene que decir «Esa llamada ya estaba» y no
+   duplicar ni tareas ni la entrada del timeline.
+4. ⚠️ Subir una llamada que **la sincronización ya había bajado**: tiene que
+   reusar la fila, no crear una segunda. Si se duplica, `props.call.id` no es el
+   mismo número que `recording_id` y hay que mirar `lib/fathom/share-link.ts`.
+5. ⚠️ **Lo más importante:** pegar el link de una grabación **de otra cuenta** —un
+   coach que graba con su propio Fathom—. Es el supuesto central del diseño. Si
+   falla, hay que sumar el camino de pegar el transcript a mano.
+6. Mandar una tarea del coach al tablero: aparece allá con el nombre del cliente
+   adelante y **sigue estando** en la ficha.
+
+---
+
+### [1A1-CLAVE-ANTHROPIC-ROTA] Una organización tiene la clave de IA vencida 🔴
+
+**Qué es:** encontrado en los logs de Vercel el 2026-09-21. La organización
+`997e94be-7dac-46bd-8a07-749ef18c9142` tiene su clave propia de Anthropic
+**rechazada con `401`**, y **no hay clave global configurada** como respaldo.
+
+El cron de Fathom corre cada 10 minutos y falla las **12 llamadas** pendientes de
+esa organización, una y otra vez, desde hace días. En el log se lee:
+`[anthropic] La clave propia de la organización ... fue rechazada. No hay clave
+global configurada: el trabajo no se puede hacer.`
+
+**Qué hacer:** o esa organización carga una clave válida en Ajustes → IA, o se
+configura `ANTHROPIC_API_KEY` global en Vercel como red de contención. Mientras
+tanto esas 12 llamadas no se procesan.
+
+**Lo que sí se arregló el 2026-09-21:** el problema **ya no es invisible**. Ahora
+el rechazo se guarda (`claude_api_key_status = 'invalid'`) y la organización ve
+una barra roja en todas sus pantallas, con link a Ajustes. Efecto secundario
+útil: una clave marcada como inválida deja de usarse, así que se dejan de gastar
+`401` cada diez minutos. **Falta confirmar que el cartel aparezca de verdad**:
+la marca se pone sola en el primer rechazo después del deploy. Si a los diez
+minutos no aparece, mirar `claude_api_key_status` de esa organización.
+
+---
+
+### [1A1-EDITAR-DETALLE] El detalle de una tarea no se puede editar 🟡
+
+**Qué es:** `updateClientTaskAction` ya permite cambiar título, detalle, dueño y
+fecha, pero la ficha sólo deja tildar, borrar y mandar al tablero. Una tarea que
+la IA escribió medio torcida hay que borrarla y volver a cargarla.
+
+**Qué hacer:** hacer editable la fila en `components/clients/client-tasks-section.tsx`.
+La acción ya está hecha y probada por tipos; es sólo UI.
+
+---
+
 ### [DIALOG-DOBLE-PADDING] El padding duplicado de los modales 🟡
 
 **Qué es:** `DialogContent` trae `p-6` y `DialogHeader`/`DialogFooter` agregan su
@@ -74,14 +150,23 @@ probaron a mano**.
 
 **Qué es:** la Fase 5 dejó el clasificador de llamadas enchufado, pero **el
 estado de los datos hace que arranque casi apagado**. Medido contra producción el
-2026-09-11:
+2026-09-11 y **vuelto a medir el 2026-09-21 — no cambió nada**:
 
-| Dato | Valor |
-|---|---|
-| Identidades sembradas | **0** |
-| Clientes con mail cargado | **1 de 335** |
-| Grabaciones clasificadas | 20 de 350 |
-| Clientes con llamadas vinculadas | **0** |
+| Dato | 2026-09-11 | 2026-09-21 |
+|---|---|---|
+| Identidades sembradas | **0** | **0** |
+| Clientes con mail cargado | 1 de 335 | — |
+| Grabaciones clasificadas | 20 de 350 | 99 de 424 (18 venta, 81 equipo) |
+| ⭐ Grabaciones clasificadas como **entrega (1-1)** | — | **0 de 424** |
+| Clientes con llamadas vinculadas | **0** | **0** (421 de 424 sin cliente) |
+| Grabaciones **con transcripción** | — | **424 de 424** |
+
+⭐ **Las dos filas del medio son la noticia.** El clasificador lleva 424
+grabaciones y **no reconoció ni una sola llamada de entrega**, así que el
+contador de 1-1 arranca en cero para todos los clientes aunque las sesiones
+hayan existido. Y las 424 **sí tienen transcripción**: el material está, lo que
+falta es saber de quién es cada llamada. El paso 1 de acá abajo es lo que
+destraba eso.
 
 **Qué hacer, en este orden:**
 

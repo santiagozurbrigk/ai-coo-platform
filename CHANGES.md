@@ -14,6 +14,281 @@
 
 ---
 
+### 2026-09-21 — 🔑 Una clave de IA vencida ahora se ve dentro del producto
+
+**Rama/branch:** `claude/nice-thompson-s9zids`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** IA (credenciales BYOK), layout de plataforma
+
+**Qué se hizo:**
+
+- `lib/ai/credential-resolver.ts`: `marcarClaveDeOrgComoRechazada()` escribe
+  `claude_api_key_status = 'invalid'` cuando el proveedor rechaza la clave.
+- `lib/ai/anthropic.ts`: el camino que ya detectaba el rechazo ahora además lo
+  persiste, no sólo lo loguea.
+- `components/platform/aviso-clave-ia.tsx` (nuevo): barra roja en todas las
+  pantallas de la organización afectada, con link a Ajustes → IA para quien
+  puede arreglarlo.
+
+**Por qué / finalidad:**
+
+⭐ **El problema era invisible desde adentro del producto.** La organización
+`familiayformacion` tiene la clave rechazada **desde julio**: 12 llamadas
+fallando con `401` cada diez minutos, el análisis sin correr, y su pantalla sin
+decir nada. El estado guardado seguía en `valid` porque **sólo se escribía al
+cargar la clave** y nunca se actualizaba después. La única forma de enterarse era
+abrir los registros del servidor en Vercel — o sea, nadie.
+
+⭐ **Marcar el estado tiene un segundo efecto que corta la sangría.**
+`decryptApiKeyIfValid` no entrega una clave marcada como `invalid`, así que el
+sistema pasa a la clave global (o falla con un mensaje claro) **antes** de
+pegarle al proveedor, en vez de gastar un `401` en cada intento cada diez
+minutos.
+
+**Decisiones de diseño relevantes:**
+
+- **El cartel no se puede cerrar.** Un aviso descartable desaparece para siempre
+  y el problema sigue: mientras la clave esté vencida, la IA de esa cuenta está
+  degradada.
+- **El `update` lleva `.eq("claude_api_key_status", "valid")`.** Sin esa
+  condición, dos lambdas en carrera podrían pisar una clave que la organización
+  acaba de corregir.
+- **El link a Ajustes va sólo para el fundador.** Mandar a Ajustes a alguien sin
+  acceso es ofrecerle una puerta cerrada; al resto se le dice a quién avisarle.
+- **Se reusó `claude_api_key_status`**, que ya existía con los valores
+  `none|valid|invalid|error` y cuya pantalla de Ajustes ya sabía dibujar el
+  estado `invalid`. Cero migraciones.
+- **El aviso nunca tira**: si la consulta falla, no se muestra. Un cartel no
+  puede voltear la plataforma entera.
+
+**Riesgos / deuda técnica pendiente:**
+
+- El layout hace una consulta más por render de página de plataforma. Es una
+  lectura por clave primaria; si pesa, va a caché.
+- ⚠️ **No se probó con una clave rota de verdad**: la marca se pone sola en el
+  primer rechazo después del deploy, así que la organización afectada debería ver
+  el cartel dentro de los diez minutos. Si no aparece, mirar
+  `claude_api_key_status` de esa organización.
+- Sigue sin haber `ANTHROPIC_API_KEY` global como red de contención: esa cuenta
+  queda sin IA hasta que actualice su clave. Ver `[1A1-CLAVE-ANTHROPIC-ROTA]`.
+
+---
+
+### 2026-09-21 — 🐛 Las tareas de la 1-1 no aparecían, y no había forma de saber por qué
+
+**Rama/branch:** `claude/nice-thompson-s9zids`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** Fathom (extracción 1-1), Clientes (ficha)
+
+**Qué se hizo:**
+
+Primera prueba real de la feature del día anterior: la llamada se subió bien, con
+su resumen y sus 5 próximos pasos, y la sección **Tareas** quedó en «Sin tareas
+todavía».
+
+- `lib/fathom/one-on-one-tasks.ts`: el parser pasa de un `JSON.parse` del array
+  entero a **tres pasadas** (array completo → objetos sueltos con un escáner que
+  respeta comillas → array vacío explícito), y devuelve **por qué** terminó como
+  terminó: `ok`, `vacio` o `ilegible`.
+- Cuando la respuesta es ilegible, se loguea **una muestra del texto crudo**.
+- `lib/clients/client-tasks.ts`: la marca `one_on_one_tasks_extracted_at` ya
+  **no** se pone si la respuesta vino ilegible, y acepta `force` para reintentar.
+- `app/fathom/one-on-one-actions.ts`: `retryOneOnOneTasksAction` nueva, y cada
+  llamada informa cuántas tareas dejó.
+- Botón **«Buscar tareas»** en la llamada desplegada, visible sólo si hay
+  transcripción y cero tareas.
+- `lib/clients/tasks-events.ts` (nuevo): las dos secciones de la ficha se avisan
+  entre ellas.
+- 16 tests nuevos, uno por cada forma de contestar mal.
+
+**Por qué / finalidad:**
+
+⭐ **El diagnóstico salió de los datos, no de mirar el código.** La base decía que
+la extracción había corrido (`one_on_one_tasks_extracted_at` puesta) y
+`token_usage` decía que el modelo había gastado **570 tokens de salida** — o sea
+que contestó, y contestó algo largo. Los logs de Vercel no tenían ningún error de
+guardado. Conclusión: el modelo devolvió las tareas y **el parser las tiró**.
+
+⭐ **El error de diseño real no fue el parser: fue tragarse el fallo.** Tres
+decisiones se combinaron para que un problema de cinco minutos costara una
+sesión de debug a ciegas:
+
+1. `JSON.parse` del array entero, que es todo o nada: una coma de más en la
+   última tarea tira las cinco.
+2. **Cero tareas significaba dos cosas distintas** —«no había compromisos» y «no
+   entendí la respuesta»— y el código las trataba igual.
+3. Como las trataba igual, **marcaba la llamada como ya procesada**, que cierra
+   la puerta a cualquier reintento. La peor de las dos opciones posibles.
+
+Nada de esto se veía desde afuera: la ficha decía «Sin tareas todavía», que es
+exactamente lo que diría si la llamada no hubiera tenido compromisos.
+
+**Decisiones de diseño relevantes:**
+
+- **El escáner de objetos abandona el objeto en curso al ver un salto de línea
+  crudo dentro de un texto.** No es una heurística: un salto de línea real es
+  JSON inválido —van escapados—, así que verlo prueba que una comilla quedó sin
+  cerrar. Sin esa regla, una tarea mal escrita se come todas las que vienen
+  después.
+- **Se aceptan las claves en castellano** (`titulo`, `responsable`, `fecha`). Al
+  modelo se le habla en castellano; pedirle nombres en inglés y romperse cuando
+  contesta en el idioma de la conversación es pedirle que adivine.
+- **El botón aparece sólo donde tiene sentido**: con transcripción y cero tareas.
+  Con tareas ya cargadas, volver a correrlo las duplicaría.
+- **Un array vacío explícito sigue siendo una respuesta válida** y se marca como
+  procesada: una llamada donde no se acordó nada concreto existe, y volver a
+  pagar el análisis por eso para siempre sería el error opuesto.
+- **El aviso entre secciones es un evento del navegador** y no estado compartido:
+  son dos secciones hermanas sueltas, y subirle el estado a la ficha la
+  obligaría a saber de tareas.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **No se pudo ver qué contestó el modelo.** No hay clave de Anthropic en el
+  entorno de desarrollo, así que la llamada no se pudo reproducir. El parser
+  ahora cubre las formas conocidas de contestar mal y **loguea el texto crudo**
+  si igual falla: el próximo intento va a decir exactamente qué pasó, en vez de
+  dejarlo a la deducción.
+- La causa exacta sigue sin confirmar. Las candidatas, en orden: coma colgante,
+  objetos sin array, o prosa que el `match` no toleraba.
+- ⚠️ **Hallazgo aparte, en los logs**: la organización `997e94be` tiene una clave
+  de Anthropic inválida y **no hay clave global configurada**, así que 12
+  llamadas fallan con `401` cada 10 minutos desde hace días. No lo toca este
+  cambio, pero bloquea el procesamiento automático de esa organización.
+
+---
+
+### 2026-09-20 — 📞 Subir una 1-1 con un link, y que salgan solas las tareas
+
+**Rama/branch:** `claude/nice-thompson-s9zids`
+**Commits:** `bcc24f4`
+**Módulo(s) afectado(s):** Fathom, Clientes (ficha y tabla), Tablero de trabajo
+
+**Migración aplicada en producción el 2026-09-21** (proyecto `OTC`,
+`nrzlylzbmsuowzhpdnjl`). Verificado: las 5 columnas nuevas de `fathom_calls`,
+`client_tasks` con sus 17 columnas, RLS activa con 4 políticas, 4 índices, y las
+424 llamadas existentes quedaron marcadas como `ingest_source = 'sync'`. El
+linter de seguridad de Supabase no reporta nada sobre la tabla nueva.
+
+⭐ **Lo que mostró la base al aplicarla:** de las 424 grabaciones, el
+clasificador reconoció **0 como llamada de entrega** (18 de venta, 81 de equipo,
+325 sin clasificar), y 421 no tienen cliente. Las 424 **sí tienen
+transcripción**. O sea: el contador de 1-1 arranca en cero para todos los
+clientes, y las sesiones viejas no se van a poblar solas — hay que subirlas por
+link, o sembrar las identidades primero (ver `[1-1-SEMBRAR-Y-MEDIR]` en
+`PENDIENTES.md`).
+
+**Qué se hizo:**
+
+Pedido con captura: *"quiero subir manualmente los fathoms de las calls 1-1 con
+los clientes y que automáticamente se pongan en el apartado de tareas las que les
+asigna el coach a cada cliente. Además de que haya algún apartado que diga la
+contabilidad de cuántas calls 1-1 va teniendo el cliente"*.
+
+- **Migración** `20260920100000_calls_1a1_manuales_y_tareas_del_cliente.sql`:
+  `fathom_calls` suma `ingest_source`, `uploaded_by`, `share_token`,
+  `share_payload` y `one_on_one_tasks_extracted_at`; tabla nueva `client_tasks`
+  con RLS por organización.
+- **`lib/fathom/share-link.ts`** (nuevo): del link compartido al ID numérico, el
+  título, la fecha, la duración y el transcript. 13 tests.
+- **`lib/fathom/one-on-one-tasks.ts`** (nuevo): extracción de compromisos con
+  Haiku, separando los del cliente de los del coach.
+- **`lib/clients/client-tasks.ts`** (nuevo): guarda las tareas de una llamada, una
+  sola vez por llamada.
+- **`lib/fathom/process-call.ts`**: `finalizeAssociatedCall` llama al extractor de
+  1-1, al lado del que ya existía para reuniones de equipo.
+- **`lib/fathom/one-on-one-types.ts`**: `computeOneOnOneStats` — total, primera,
+  última, ritmo y antigüedad. 7 tests.
+- **Acciones nuevas**: `app/fathom/manual-upload-actions.ts`,
+  `app/fathom/one-on-one-actions.ts`, `app/clients/task-actions.ts`.
+- **UI**: `client-one-on-ones.tsx` (contador + lista + subir),
+  `client-tasks-section.tsx`, `upload-one-on-one-dialog.tsx`; la columna de última
+  1-1 de la tabla de clientes ahora muestra también el total.
+- **`client-linked-calls.tsx`**: pasa a llamarse «Llamadas de venta» y se oculta
+  cuando no hay ninguna.
+
+**Por qué / finalidad:**
+
+⭐ **El hallazgo que define el diseño.** La API oficial de Fathom pide un
+**entero** (`recording_id`) para devolver un transcript, y un link compartido es
+un **token opaco de 32 caracteres**. No se traducen uno en el otro, así que "pegá
+el link" parecía imposible sin que la grabación estuviera en la cuenta conectada
+— justo lo que no pasa cuando el coach graba con su propio Fathom.
+
+**Pero la página compartida sirve todo.** El `<div data-page>` que usa su propio
+reproductor trae el ID numérico, el título, la fecha, la duración, el mail del
+anfitrión y una URL de transcript con token. Verificado contra una grabación real
+el 2026-09-20: `200` sin clave de API y sin sesión, transcript de 7.861
+caracteres **en castellano**, con nombre y mail de cada quien habla.
+
+⭐ **El bloque «Llamadas del cliente» nunca mostró las 1-1.** Su única fuente es
+`clients.linked_calls`, que escribe sólo el análisis profundo de las llamadas de
+**venta**. Una ficha con diez sesiones de acompañamiento mostraba igual "Sin
+llamadas vinculadas", y encima invitaba a conectar Fathom con Fathom ya
+conectado. Por eso el arreglo no era agregarle un botón: era separarlo en dos
+secciones que dicen lo que muestran.
+
+**Decisiones de diseño relevantes:**
+
+- **Tabla propia y no `workboard_tasks`.** El tablero es el trabajo del equipo:
+  tiene sprint y responsables que son perfiles de la organización. El cliente no
+  tiene usuario, y meter sus deberes ahí llenaría el tablero con las tareas de
+  doscientas personas ajenas al equipo. Lo que **sí** puede pasar —que una tarea
+  resulte del equipo— se resuelve con un botón que la manda al tablero **sin
+  sacarla de la ficha**: moverla haría que el coach no la encuentre donde la dejó.
+- **Dos dueños, no uno.** En una 1-1 se reparten compromisos para los dos lados.
+  Guardarlos todos como "del cliente" hace que el coach cierre la llamada sin
+  registro de lo suyo.
+- **Acá no corre el clasificador.** El cliente y el propósito los dijo una
+  persona; volver a adivinarlos sólo podría empeorar un dato correcto. Es donde
+  hoy se pierden las llamadas: el 86% de los títulos reales son "Impromptu Google
+  Meet Meeting".
+- **El extractor se enganchó en `finalizeAssociatedCall`** y no en el flujo de
+  subida, así que las tareas también salen cuando la llamada entra por la
+  sincronización y se asocia después.
+- **Los action items de Fathom se descartaron como fuente.** Existen, traen el
+  responsable y el segundo exacto, y Limitless ya los pedía sin leerlos — pero su
+  endpoint devolvió `500` en la grabación probada, y la API los documenta como
+  "always displayed in English". La extracción del transcript funciona siempre y
+  queda en castellano.
+- **El ritmo se calcula sobre el período, no promediando huecos**, y con una sola
+  llamada es `null`: con un punto no hay ritmo, y un "cada 0 días" se leería como
+  que el cliente tiene llamadas todos los días.
+- **Nada se inventa.** Una duración que no se lee queda en `null`, no en cero. Una
+  llamada sin transcript se guarda igual —cuenta para el contador— pero sin tareas
+  automáticas, y el aviso lo dice en el momento.
+- **El payload crudo se persiste antes de interpretarlo** (`share_payload`) y todo
+  el parseo vive en un archivo con la advertencia en el encabezado. Registrado en
+  `docs/API_DOCS_PENDIENTES.md`.
+- **Volver a pegar el mismo link no duplica nada.** Las tareas tenían su propio
+  seguro, pero el finalizador también escribe la entrada del timeline y los
+  problemas detectados, y ésos no lo tenían.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **La página compartida no es la API documentada de Fathom.** Puede cambiar
+  sin aviso. Si cambia, se rompe una función con un mensaje claro —no el módulo de
+  llamadas— y el payload crudo guardado permite arreglar el mapeo mirando datos
+  reales.
+- ⚠️ **`props.call.id` se asume igual a `recording_id`.** Coinciden el formato y el
+  uso, pero no está confirmado. Si no lo fuera, subir una llamada ya sincronizada
+  la duplicaría en vez de reusar la fila. Se ve en el primer intento.
+- ⚠️ **`copyTranscriptUrl` se probó en una sola grabación, de la cuenta propia.**
+  El caso que importa —el link de un coach externo— es el supuesto central del
+  diseño y está sin probar.
+- ⚠️ **La calidad de las tareas extraídas no se pudo verificar**: hace falta una
+  llamada real y una clave de Anthropic. El riesgo concreto es que confunda un
+  consejo del coach con un compromiso.
+- El detalle de las tareas (`description`) no se puede editar desde la ficha:
+  `updateClientTaskAction` lo soporta, la UI todavía no lo expone.
+- **Caso de borde sin cubrir:** si una llamada ya procesada para el cliente A se
+  sube después en la ficha del cliente B, la llamada se reasigna a B —que es lo
+  correcto, corrige un error del clasificador— pero **la entrada del timeline de A
+  queda**. Es raro y no se limpió para no ensanchar el cambio.
+- Todo está en `docs/PLAN_VERIFICACION.md` con los pasos concretos.
+
+---
+
 ### 2026-09-17 — 🐛 Los modales cortaban su propio contenido
 
 **Rama/branch:** `claude/checkpoints-cliente-ccc3ih`

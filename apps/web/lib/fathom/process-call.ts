@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { analyzeFathomTranscript } from "@/lib/fathom/analyze-transcript";
 import { generateDeepCallAnalysis } from "@/lib/fathom/deep-call-analysis";
 import { extractTeamMeetingTaskProposals } from "@/lib/fathom/team-task-extraction";
+import { maybeExtractOneOnOneTasks } from "@/lib/clients/client-tasks";
 import { associateCallWithClients } from "@/lib/fathom/associate";
 import { isManualFathomLink } from "@/lib/fathom/client-matcher";
 
@@ -388,6 +389,23 @@ export async function finalizeAssociatedCall(params: {
     purpose: params.purpose ?? null,
     transcript: params.transcript,
     summary: analysis?.situation_summary ?? null,
+  });
+
+  /**
+   * ⭐ El hermano del anterior para el otro tipo de reunión.
+   *
+   * Va acá, en el finalizador que comparten todos los caminos, y no en el flujo
+   * de subida manual: así los compromisos de una 1-1 quedan registrados tanto si
+   * alguien pegó el link como si la llamada entró sola por la sincronización y
+   * se asoció después.
+   */
+  await maybeExtractOneOnOneTasks({
+    callId: params.callId,
+    organizationId: params.organizationId,
+    clientId: params.clientId,
+    purpose: params.purpose ?? null,
+    transcript: params.transcript,
+    callDate: params.callDate ?? null,
   });
 
   await admin.from("client_timeline_entries").insert({

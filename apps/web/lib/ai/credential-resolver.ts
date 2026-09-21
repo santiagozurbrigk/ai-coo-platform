@@ -46,6 +46,47 @@ export function invalidateOrgKeyCache(organizationId: string): void {
   invalidateOrgCredentialCache(organizationId);
 }
 
+/**
+ * Deja escrito que la clave propia de una organización dejó de funcionar.
+ *
+ * ⭐ Hasta acá, una clave vencida sólo se veía en el log del servidor. La
+ * organización `familiayformacion` estuvo **desde julio** con la suya rechazada
+ * —12 llamadas fallando con `401` cada diez minutos— y en su pantalla no decía
+ * nada: el estado guardado seguía siendo `valid` porque nadie lo actualizaba
+ * desde que se validó al cargarla.
+ *
+ * Marcarla tiene dos efectos, y el segundo es el que corta la sangría:
+ *
+ * 1. La pantalla de Ajustes y el cartel de la plataforma pasan a avisarlo.
+ * 2. `decryptApiKeyIfValid` deja de entregar esa clave, así que el sistema pasa
+ *    a la clave global **antes** de pegarle al proveedor, en vez de gastar un
+ *    `401` en cada intento.
+ *
+ * No tira nunca: es un aviso, y no puede romper el trabajo que lo disparó.
+ */
+export async function marcarClaveDeOrgComoRechazada(
+  organizationId: string
+): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("organizations")
+      .update({ claude_api_key_status: "invalid" })
+      .eq("id", organizationId)
+      // Sin esto, una carrera entre dos lambdas podría pisar una clave que la
+      // organización acaba de corregir y volver a marcarla como rota.
+      .eq("claude_api_key_status", "valid");
+
+    if (error) {
+      console.error("[credential-resolver] marcar clave rechazada", error.message);
+      return;
+    }
+    invalidateOrgCredentialCache(organizationId);
+  } catch (error) {
+    console.error("[credential-resolver] marcar clave rechazada", error);
+  }
+}
+
 type OrgCredentialRow = {
   claude_api_key_encrypted: string | null;
   claude_api_key_status: string | null;

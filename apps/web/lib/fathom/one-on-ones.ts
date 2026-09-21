@@ -12,9 +12,13 @@
  * acompañamiento el día que se firmó el contrato.
  */
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { LastOneOnOne } from "@/lib/fathom/one-on-one-types";
+import {
+  computeOneOnOneStats,
+  type LastOneOnOne,
+  type OneOnOneStats,
+} from "@/lib/fathom/one-on-one-types";
 
-export type { LastOneOnOne };
+export type { LastOneOnOne, OneOnOneStats };
 
 /**
  * La última 1-1 de cada cliente de la organización, en una consulta.
@@ -53,7 +57,12 @@ export async function loadLastOneOnOneByClient(
   }[];
 
   const result: Record<string, LastOneOnOne> = {};
+  /** Todas las fechas de cada cliente, para el total y el ritmo. */
+  const fechasPorCliente: Record<string, string[]> = {};
+
   for (const row of rows) {
+    (fechasPorCliente[row.client_id] ??= []).push(row.call_date);
+
     // Vienen ordenadas: la primera de cada cliente es la más reciente.
     if (result[row.client_id]) continue;
     result[row.client_id] = {
@@ -61,8 +70,50 @@ export async function loadLastOneOnOneByClient(
       resolutionMethod: row.resolution_method,
       title: row.title,
       fathomUrl: row.fathom_url,
+      // Se completan abajo, cuando ya están todas las fechas del cliente.
+      totalCalls: 0,
+      everyDays: null,
     };
   }
 
+  for (const [clientId, fechas] of Object.entries(fechasPorCliente)) {
+    const stats = computeOneOnOneStats(fechas);
+    const entrada = result[clientId];
+    if (!entrada) continue;
+    entrada.totalCalls = stats.totalCalls;
+    entrada.everyDays = stats.everyDays;
+  }
+
   return result;
+}
+
+/**
+ * El contador de 1-1 de **un** cliente, para su ficha.
+ *
+ * Trae sólo las fechas: el listado completo de las llamadas lo carga aparte la
+ * sección que las muestra, y traerlas dos veces sería pagar el transcript de
+ * cada una para contar filas.
+ */
+export async function loadClientOneOnOneStats(
+  organizationId: string,
+  clientId: string
+): Promise<OneOnOneStats> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("fathom_calls")
+    .select("call_date")
+    .eq("organization_id", organizationId)
+    .eq("client_id", clientId)
+    .eq("purpose", "delivery")
+    .not("call_date", "is", null);
+
+  if (error) {
+    console.error("[fathom:one-on-ones] stats", error.message);
+    return computeOneOnOneStats([]);
+  }
+
+  return computeOneOnOneStats(
+    ((data ?? []) as { call_date: string }[]).map((row) => row.call_date)
+  );
 }

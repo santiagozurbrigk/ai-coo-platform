@@ -9,6 +9,61 @@
 
 ---
 
+## Fathom — la página de un link compartido, que no está documentada
+
+**Agregado el 2026-09-20 (sesiones 1-1 subidas a mano).**
+
+**El problema, en una línea:** la API oficial de Fathom pide un **entero**
+(`recording_id: 123456789`) para devolver un transcript, y un link compartido
+—`fathom.video/share/iH6knxaB2pFD2P6J3NwazfwwerfBcFxv`— es un **token opaco de 32
+caracteres**. Los dos no se pueden traducir uno en el otro. `GET /meetings` trae
+los dos datos juntos, pero **sólo de las grabaciones de la cuenta conectada**, y
+el pedido era justamente poder subir la de un coach que graba con su propio
+Fathom y sólo comparte el link.
+
+**Qué se implementó sin documentación:** `apps/web/lib/fathom/share-link.ts` lee
+el `<div data-page="…">` que la página compartida sirve para su propio
+reproductor. De ahí salen el ID numérico, el título, la fecha, la duración, el
+mail del anfitrión y una URL de transcript con su token.
+
+**Verificado contra una grabación real el 2026-09-20**, sin clave de API y sin
+sesión iniciada:
+
+| Comprobación | Resultado |
+|---|---|
+| `GET /share/{token}` | `200`, 13.918 bytes |
+| ID numérico en el payload (`props.call.id`) | `829266792` — el mismo formato que `recording_id` |
+| Transcript vía `copyTranscriptUrl` | `200`, JSON `{ html, plain_text }`, 7.861 caracteres |
+| Idioma del transcript | **castellano**, el original hablado |
+| Identificación de quien habla | nombre **y mail**, con marca de tiempo por frase |
+| Link inexistente | `404` limpio |
+| Token que no corresponde | `401` |
+
+**Qué se asumió, y con qué confianza:**
+
+| Supuesto | Confianza | Cómo se verifica |
+|---|---|---|
+| `props.call.id` es el mismo número que `recording_id` de la API oficial | **Media-alta** — coincide el formato (entero de 9 dígitos) y el sync ya usa `recording_id` como `fathom_call_id` | Subir a mano una llamada que la sincronización ya bajó: tiene que **reusar la fila**, no crear una segunda |
+| El atributo `data-page` no contiene comillas dobles literales | **Alta** — verificado; el JSON viene con todas escapadas como `&quot;` | Cubierto por un test |
+| `copyTranscriptUrl` funciona para cualquier grabación compartida | **Media** — probado en una sola | Probar con el link de un coach que no sea de la cuenta conectada |
+| `clipboard_action_items` sirve para sacar las tareas que marca el coach | **Descartado** — devolvió `500` en la grabación probada | Reintentarlo en una llamada que sí tenga action items marcados |
+
+**Las tres precauciones que pide la regla 3, y dónde están:**
+
+1. **El payload crudo se persiste antes de interpretarlo** →
+   `fathom_calls.share_payload`.
+2. **Todo el parseo vive en un archivo, con la advertencia en el encabezado** →
+   `lib/fathom/share-link.ts`.
+3. **Nada se inventa** → una duración que no se lee queda en `null`, no en cero;
+   una llamada sin transcript se guarda igual pero **sin** tareas automáticas, y
+   la pantalla lo dice.
+
+**Qué hay que verificar cuando se pueda:** los dos supuestos de confianza media
+de la tabla. Ninguno bloquea la feature; el primero, si estuviera mal, duplicaría
+una llamada en vez de reusarla.
+
+---
+
 ## Loom — no publica API para bajar el video de un share link
 
 **Agregado el 2026-09-04 (Encargo D, SOPs desde video).**
