@@ -14,8 +14,24 @@
  */
 
 import { useState } from "react";
-import { Button, cn } from "@ai-coo/ui";
-import { Check, ExternalLink, Layers, Loader2, Pencil, X } from "lucide-react";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  cn,
+} from "@ai-coo/ui";
+import {
+  Check,
+  ClipboardCheck,
+  Copy,
+  ExternalLink,
+  Layers,
+  Loader2,
+  Pencil,
+  X,
+} from "lucide-react";
 import { updateClientCustomFieldsAction } from "@/app/clients/client-custom-fields-actions";
 import { ACCION_DE_FILA, FichaCard } from "@/components/clients/ficha-section";
 import { FieldValueCell } from "@/components/clients/custom-fields/field-value-cell";
@@ -56,6 +72,108 @@ function comoLink(value: unknown): { href: string; label: string } | null {
   }
 }
 
+/** El valor como texto, o cadena vacía si no hay nada cargado. */
+function textoDe(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (value == null) return "";
+  return String(value);
+}
+
+/**
+ * El campo, abierto y entero.
+ *
+ * ⭐ En la tarjeta cada valor entra en una columna de 300px: un avatar de tres
+ * párrafos se lee a medias y copiarlo obliga a arrastrar el mouse por un
+ * recuadro que hace scroll solo. Acá el texto se muestra completo, en un ancho
+ * cómodo de leer, y hay un botón que lo copia de una.
+ *
+ * El diálogo crece con el contenido y se frena en el alto de la pantalla: dos
+ * renglones no abren una ventana vacía, y veinte no se salen por abajo.
+ */
+function VisorDelCampo({
+  field,
+  value,
+  onClose,
+  onEditar,
+}: {
+  field: FieldDefinition;
+  value: string;
+  onClose: () => void;
+  onEditar: () => void;
+}) {
+  const [copiado, setCopiado] = useState(false);
+  const link = comoLink(value);
+
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiado(true);
+      window.setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      // Sin permiso de portapapeles el texto sigue estando seleccionable a mano.
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(abierto) => (abierto ? null : onClose())}>
+      <DialogContent className="max-h-[85vh] w-auto max-w-[min(42rem,92vw)] overflow-hidden">
+        <DialogHeader>
+          <DialogTitle>{field.label}</DialogTitle>
+        </DialogHeader>
+
+        {/*
+          `select-text` explícito y `break-words` para que una URL larga no
+          ensanche el diálogo hasta salirse de la pantalla.
+        */}
+        <div className="max-h-[60vh] overflow-y-auto">
+          {link ? (
+            <a
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="break-all text-sm text-primary hover:underline"
+            >
+              {value}
+            </a>
+          ) : (
+            <p className="select-text whitespace-pre-wrap break-words text-sm leading-relaxed">
+              {value}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/50 pt-3">
+          <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={copiar}>
+            {copiado ? (
+              <>
+                <ClipboardCheck className="h-3.5 w-3.5" />
+                Copiado
+              </>
+            ) : (
+              <>
+                <Copy className="h-3.5 w-3.5" />
+                Copiar
+              </>
+            )}
+          </Button>
+          {link ? (
+            <Button type="button" size="sm" variant="ghost" className="gap-1.5" asChild>
+              <a href={link.href} target="_blank" rel="noopener noreferrer">
+                Abrir
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </Button>
+          ) : null}
+          <Button type="button" size="sm" className="gap-1.5" onClick={onEditar}>
+            <Pencil className="h-3 w-3" />
+            Editar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ValorDelCampo({ field, value }: { field: FieldDefinition; value: unknown }) {
   const link = comoLink(value);
 
@@ -68,18 +186,21 @@ function ValorDelCampo({ field, value }: { field: FieldDefinition; value: unknow
     return <FieldValueCell field={field} value={value} />;
   }
 
+  /*
+    ⭐ El link se dibuja como link pero **no** es un `<a>`: todo el renglón vive
+    dentro del botón que abre el visor, y un ancla adentro de un botón es HTML
+    inválido. El link de verdad está en el visor, donde además se lee la URL
+    entera — «miro.com» no dice a qué tablero apunta.
+  */
   if (link) {
     return (
-      <a
-        href={link.href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+      <span
+        className="inline-flex max-w-full items-center gap-1 text-sm text-primary"
         title={link.href}
       >
         <span className="truncate">{link.label}</span>
         <ExternalLink className="h-3 w-3 shrink-0" />
-      </a>
+      </span>
     );
   }
 
@@ -88,8 +209,12 @@ function ValorDelCampo({ field, value }: { field: FieldDefinition; value: unknow
     return <span className="text-sm text-muted-foreground">—</span>;
   }
 
+  /*
+    Tres renglones como máximo en la tarjeta: el resto se lee en el visor.
+    Entero, un solo campo empuja a los otros seis fuera de la pantalla.
+  */
   return (
-    <p className="whitespace-pre-wrap text-sm leading-relaxed">{texto}</p>
+    <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-relaxed">{texto}</p>
   );
 }
 
@@ -106,6 +231,8 @@ export function ClientSectionsCard({
   const [editando, setEditando] = useState(false);
   const [draft, setDraft] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
+  /** El campo abierto a pantalla completa, si hay alguno. */
+  const [viendo, setViendo] = useState<FieldDefinition | null>(null);
 
   const porSeccion = FIELD_SECTIONS.map((section) => ({
     section,
@@ -249,7 +376,26 @@ export function ClientSectionsCard({
                     {field.label}
                   </dt>
                   <dd>
-                    <ValorDelCampo field={field} value={client.custom?.[field.key]} />
+                    {/*
+                      ⭐ Con contenido, el valor entero es un botón que lo abre.
+                      Vacío no: un «—» que se puede apretar promete algo que no
+                      pasa. Un link sigue siendo un link y se abre en su pestaña,
+                      así que ahí el botón envuelve sólo el espacio de al lado.
+                    */}
+                    {textoDe(client.custom?.[field.key]) ? (
+                      <button
+                        type="button"
+                        onClick={() => setViendo(field)}
+                        title={`Ver ${field.label} completo`}
+                        className="block w-full rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60 dark:hover:bg-white/[0.04]"
+                      >
+                        <ValorDelCampo field={field} value={client.custom?.[field.key]} />
+                      </button>
+                    ) : (
+                      <div className="px-1.5 py-1">
+                        <ValorDelCampo field={field} value={client.custom?.[field.key]} />
+                      </div>
+                    )}
                   </dd>
                 </>
               )}
@@ -257,6 +403,18 @@ export function ClientSectionsCard({
           ))}
         </dl>
       </div>
+
+      {viendo ? (
+        <VisorDelCampo
+          field={viendo}
+          value={textoDe(client.custom?.[viendo.key])}
+          onClose={() => setViendo(null)}
+          onEditar={() => {
+            setViendo(null);
+            empezarAEditar();
+          }}
+        />
+      ) : null}
     </FichaCard>
   );
 }

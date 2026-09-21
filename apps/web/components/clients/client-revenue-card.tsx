@@ -16,7 +16,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button, Input, Label, Sparkline, cn } from "@ai-coo/ui";
-import { Loader2, Plus, TrendingDown, TrendingUp, Trash2, Wallet } from "lucide-react";
+import {
+  Loader2,
+  Pencil,
+  Plus,
+  TrendingDown,
+  TrendingUp,
+  Trash2,
+  Wallet,
+} from "lucide-react";
 import {
   deleteClientRevenueAction,
   listClientRevenueAction,
@@ -39,18 +47,28 @@ const CONTROL_CLASS =
 
 function Formulario({
   clientId,
+  editando,
   onSaved,
   onCancel,
 }: {
   clientId: string;
-  onSaved: (entry: ClientRevenueEntry) => void;
+  /** El mes que se está corrigiendo. `null` = se está cargando uno nuevo. */
+  editando: ClientRevenueEntry | null;
+  onSaved: (entry: ClientRevenueEntry, reemplazó: string | null) => void;
   onCancel: () => void;
 }) {
   const { push } = useToast();
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState<RevenueCurrency>("USD");
-  // El mes en curso: es el que casi siempre se está cargando.
-  const [period, setPeriod] = useState(() => currentPeriod().slice(0, 7));
+  const [amount, setAmount] = useState(() =>
+    editando ? String(editando.amount) : ""
+  );
+  const [currency, setCurrency] = useState<RevenueCurrency>(
+    editando?.currency ?? "USD"
+  );
+  // Al corregir, el mes que se está corrigiendo. Al cargar, el mes en curso:
+  // es el que casi siempre se está cargando.
+  const [period, setPeriod] = useState(() =>
+    (editando?.period ?? currentPeriod()).slice(0, 7)
+  );
   const [saving, setSaving] = useState(false);
 
   const guardar = async () => {
@@ -67,6 +85,7 @@ function Formulario({
       currency,
       period,
       note: "",
+      replacesEntryId: editando?.id ?? null,
     });
     setSaving(false);
 
@@ -74,7 +93,7 @@ function Formulario({
       push({ title: "No se pudo guardar", description: result.error });
       return;
     }
-    onSaved(result.data);
+    onSaved(result.data, editando?.id ?? null);
   };
 
   return (
@@ -141,7 +160,11 @@ export function ClientRevenueCard({ clientId }: { clientId: string }) {
   const { push } = useToast();
   const [entries, setEntries] = useState<ClientRevenueEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cargando, setCargando] = useState(false);
+  /**
+   * El formulario abierto: `"nuevo"` para cargar un mes, la entrada para
+   * corregirla, `null` cerrado.
+   */
+  const [form, setForm] = useState<"nuevo" | ClientRevenueEntry | null>(null);
 
   const cargar = useCallback(() => {
     let alive = true;
@@ -180,13 +203,13 @@ export function ClientRevenueCard({ clientId }: { clientId: string }) {
       icon={Wallet}
       title="Facturación del negocio"
       action={
-        cargando ? null : (
+        form ? null : (
           <Button
             type="button"
             size="sm"
             variant="ghost"
             className="gap-1.5"
-            onClick={() => setCargando(true)}
+            onClick={() => setForm("nuevo")}
           >
             <Plus className="h-3.5 w-3.5" />
             Cargar mes
@@ -195,19 +218,29 @@ export function ClientRevenueCard({ clientId }: { clientId: string }) {
       }
     >
       <div className="space-y-3">
-        {cargando ? (
+        {form ? (
           <Formulario
+            key={form === "nuevo" ? "nuevo" : form.id}
             clientId={clientId}
-            onCancel={() => setCargando(false)}
-            onSaved={(entry) => {
-              setEntries((prev) => [
-                entry,
-                // Cargar de nuevo un mes lo corrige, no lo duplica: el upsert de
-                // la base ya lo garantiza, y acá se refleja igual.
-                ...prev.filter((item) => item.period !== entry.period),
-              ]);
-              setCargando(false);
-              push({ title: "Facturación cargada", variant: "success" });
+            editando={form === "nuevo" ? null : form}
+            onCancel={() => setForm(null)}
+            onSaved={(entry, reemplazó) => {
+              setEntries((prev) =>
+                [
+                  entry,
+                  ...prev.filter(
+                    // Cargar de nuevo un mes lo corrige, no lo duplica — el
+                    // upsert de la base ya lo garantiza. Y si al corregir le
+                    // cambiaron el mes, la fila vieja ya no existe.
+                    (item) => item.period !== entry.period && item.id !== reemplazó
+                  ),
+                ].sort((a, b) => b.period.localeCompare(a.period))
+              );
+              setForm(null);
+              push({
+                title: reemplazó ? "Facturación corregida" : "Facturación cargada",
+                variant: "success",
+              });
             }}
           />
         ) : null}
@@ -261,10 +294,16 @@ export function ClientRevenueCard({ clientId }: { clientId: string }) {
               </p>
             ) : null}
 
-            {entries.length > 1 ? (
+            {/*
+              ⭐ Desde el primer mes, no desde el segundo: con uno solo cargado
+              la lista es la única forma de llegar a corregirlo o borrarlo.
+            */}
+            {entries.length > 0 ? (
               <details className="group">
                 <summary className="cursor-pointer list-none text-[11px] text-muted-foreground hover:text-foreground">
-                  Ver los {entries.length} meses cargados
+                  {entries.length === 1
+                    ? "Ver o corregir el mes cargado"
+                    : `Ver o corregir los ${entries.length} meses cargados`}
                 </summary>
                 <ul className="mt-2 space-y-1 border-t border-border/40 pt-2">
                   {entries.map((entry) => (
@@ -279,6 +318,22 @@ export function ClientRevenueCard({ clientId }: { clientId: string }) {
                         <span className="tabular-nums">
                           {formatRevenue(entry.amount, entry.currency)}
                         </span>
+                        {/*
+                          ⭐ Corregir un mes ya se podía —cargarlo de nuevo lo
+                          pisa— pero no había cómo darse cuenta: el formulario
+                          abría siempre en el mes en curso. Un lápiz al lado del
+                          mes lo dice sin que haya que saberlo.
+                        */}
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className={cn(ACCION_DE_FILA, "h-6 w-6")}
+                          title={`Corregir ${formatPeriod(entry.period)}`}
+                          onClick={() => setForm(entry)}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
                         <Button
                           type="button"
                           size="icon"
@@ -296,7 +351,7 @@ export function ClientRevenueCard({ clientId }: { clientId: string }) {
               </details>
             ) : null}
           </>
-        ) : cargando ? null : (
+        ) : form ? null : (
           <p className="text-xs text-muted-foreground">
             Sin datos todavía. Cargá cuánto facturó su negocio este mes y vas a
             poder ver cómo evoluciona.
