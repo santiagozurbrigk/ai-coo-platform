@@ -14,6 +14,81 @@
 
 ---
 
+### 2026-09-21 — 🎨 El panel de clientes: buscador, filtros con gente detrás, fila clickeable
+
+**Rama/branch:** `claude/nice-thompson-s9zids`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** Clientes (lista), design system (`StaggerFadeItem`)
+
+**Qué se hizo:**
+
+- `components/clients/clients-list.tsx`: barra reordenada (acciones a la
+  izquierda; Revisión semanal, Wins, Cobros y un menú «Configurar» con Recorrido
+  y Campos a la derecha), **buscador** por nombre, apodo, mail y producto (sin
+  distinguir tildes), **filtros condicionales** con conteo, **orden** (más
+  recientes, nombre, última 1-1), **fila entera clickeable**, columna «Estado»
+  eliminada, chips de excepción y silencio de Discord al lado del nombre,
+  papelera visible al pasar el mouse o llegar con el teclado.
+- `packages/ui/src/components/stagger-fade.tsx`: `StaggerFadeItem` acepta
+  `onClick` y lo pasa a sus seis variantes.
+
+Verificado renderizando el panel con los clientes de prueba en Chromium, en
+oscuro, claro y a 390px, desde una página temporal borrada antes del commit.
+
+**Por qué / finalidad:**
+
+⭐ **Los filtros se evaluaron contra producción, no contra el catálogo.** Medido
+el 2026-09-21: **306 de 307 clientes en «Activo»**, 1 en «Pendiente de
+onboarding», **cero** en «Onboarding hecho» y **cero** en «Caso de éxito». Las
+cinco pastillas de estado filtraban una dimensión donde el 99,7% es un solo
+valor, y la columna «Estado» decía «Activo» 306 veces. Ninguna de las dos
+decía nada.
+
+⭐ **No se borraron: se volvieron condicionales.** Una organización que recién
+carga clientes va a ver «Pendientes de onboarding (12)»; la que tiene a todos
+activos no ve ninguna pastilla de estado. Una pastilla con cero atrás no aparece,
+y «Todos» sola tampoco: una sola opción no es un filtro.
+
+⭐ **Faltaba lo básico para 264 filas.** La organización principal tiene 264
+clientes en una tabla **sin buscador ni orden**, y el único camino a la ficha
+era un link de once píxeles al final de cada fila.
+
+Otros datos que orientaron qué mostrar: satisfacción marcada en 6 de 307,
+apodo en 0, mail en 1, campos configurables definidos 3 (por eso las columnas
+configurables sí valen), recorrido con eventos en 2 clientes, Discord vinculado
+en 1, wins en 3.
+
+**Decisiones de diseño relevantes:**
+
+- **«Activo» no se etiqueta.** Es el estado normal; una etiqueta que dice lo
+  normal en cada fila es ruido. Se marcan las excepciones: el que no arrancó y
+  el caso de éxito (que ya tenía su estrella).
+- **Los conteos van en la pastilla.** Es la respuesta a la pregunta que hace
+  tocarla: «¿cuántos están trabados?».
+- **La búsqueda normaliza tildes** (`NFD` + quitar marcas): «Gómez» se
+  encuentra con «gomez».
+- **Ordenar por última 1-1 manda al final a los que no tienen**, por nombre: un
+  guion no es "más viejo", es "no hay".
+- **Los controles dentro de la fila frenan la propagación** (check del hito,
+  link de Fathom, papelera), para no abrir la ficha de rebote.
+- **La papelera se esconde hasta el hover** pero sigue accesible por teclado
+  (`focus-visible:opacity-100`): 264 papeleras siempre visibles pesan más que
+  la tabla.
+- **Configurar es un menú** porque no se hace todos los días, y dos botones más
+  convertían la barra en una hilera de siete.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **No se vio con datos reales**: sin base, la tabla mostró sólo «Cliente» y
+  «Última 1-1». En producción hay además 3 columnas configurables y las de
+  recorrido; hay que confirmar que el ancho cierre a 1280px.
+- Si algún día vuelve a haber muchos clientes en «Onboarding hecho», la
+  pastilla aparece sola. Es el comportamiento buscado, no un olvido.
+- La búsqueda es en el navegador sobre la lista ya cargada; con 264 es
+  instantánea. Si una organización llega a miles, va al servidor.
+
+---
+
 ### 2026-09-21 — 🎨 La ficha del cliente, rediseñada: encabezado, franja y dos columnas
 
 **Rama/branch:** `claude/nice-thompson-s9zids`

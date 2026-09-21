@@ -88,24 +88,27 @@ export type StaggerFadeItemProps = {
   as?: StaggerItemTag;
   className?: string;
   children: React.ReactNode;
+  /** Para filas y tarjetas que abren algo al tocarlas. */
+  onClick?: React.MouseEventHandler<HTMLElement>;
 };
 
 export function StaggerFadeItem({
   className,
   children,
   as = "div",
+  onClick,
 }: StaggerFadeItemProps) {
   const reducedMotion = usePrefersReducedMotion();
 
   if (reducedMotion) {
-    if (as === "li") return <li className={className}>{children}</li>;
-    if (as === "tr") return <tr className={className}>{children}</tr>;
-    return <div className={className}>{children}</div>;
+    if (as === "li") return <li className={className} onClick={onClick}>{children}</li>;
+    if (as === "tr") return <tr className={className} onClick={onClick}>{children}</tr>;
+    return <div className={className} onClick={onClick}>{children}</div>;
   }
 
   if (as === "li") {
     return (
-      <motion.li className={className} variants={itemVariants}>
+      <motion.li className={className} variants={itemVariants} onClick={onClick}>
         {children}
       </motion.li>
     );
@@ -113,14 +116,14 @@ export function StaggerFadeItem({
 
   if (as === "tr") {
     return (
-      <motion.tr className={className} variants={itemVariants}>
+      <motion.tr className={className} variants={itemVariants} onClick={onClick}>
         {children}
       </motion.tr>
     );
   }
 
   return (
-    <motion.div className={className} variants={itemVariants}>
+    <motion.div className={className} variants={itemVariants} onClick={onClick}>
       {children}
     </motion.div>
   );

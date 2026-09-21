@@ -11,10 +11,19 @@
  * `/sales/cobros` el 2026-09-11. Mezclarlos hacía que la tabla respondiera dos
  * preguntas a medias, y son preguntas que muchas veces hacen dos personas
  * distintas.
+ *
+ * ⭐ Los filtros se arman con los datos, no con el catálogo. Medido en
+ * producción el 2026-09-21: 306 de 307 clientes en «Activo», cero en
+ * «Onboarding hecho», cero en «Caso de éxito». Una fila de cinco pastillas para
+ * filtrar una dimensión donde el 99,7% es un solo valor no filtra nada, y la
+ * columna «Estado» que decía «Activo» 306 veces tampoco. Los estados siguen
+ * existiendo —una organización que recién carga clientes va a ver «Pendiente de
+ * onboarding (12)»—, pero una pastilla sólo aparece cuando hay alguien detrás.
  */
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Badge,
   Button,
@@ -23,6 +32,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
   StaggerFade,
   StaggerFadeItem,
 } from "@ai-coo/ui";
@@ -30,10 +44,13 @@ import {
   AlertTriangle,
   CalendarCheck,
   Check,
+  ChevronDown,
   HelpCircle,
   MoonStar,
   Receipt,
   Route,
+  Search,
+  Settings2,
   SlidersHorizontal,
   Star,
   Trash2,
@@ -64,23 +81,30 @@ import { formatDueDate, formatOverdue, resolveMetricSchema } from "@/lib/checkpo
 import { useModuleAccess } from "@/providers/permissions-provider";
 import { NewClientDialog } from "@/components/clients/new-client-dialog";
 import { ImportClientsDialog } from "@/components/clients/import-clients-dialog";
+import { cn } from "@/lib/utils";
 
-const STATUS_LABEL: Record<ClientStatus, string> = {
-  pending_onboarding: "Realizar onboarding",
-  onboarding_done: "Onboarding realizado",
-  active: "Activo",
-  success_case: "Caso de éxito",
+/**
+ * Los estados que **vale la pena señalar** en la fila, con su etiqueta.
+ *
+ * «Activo» no está a propósito: es el estado normal de un cliente en programa,
+ * y una etiqueta que dice lo normal en cada fila es ruido. Lo que se marca es
+ * la excepción: el que todavía no arrancó y el que ya es caso de éxito.
+ */
+const STATUS_DESTACADO: Partial<Record<ClientStatus, { label: string; filtro: string }>> = {
+  pending_onboarding: { label: "Pendiente de onboarding", filtro: "Pendientes de onboarding" },
+  onboarding_done: { label: "Onboarding hecho", filtro: "Onboarding hecho" },
+  success_case: { label: "Caso de éxito", filtro: "Casos de éxito" },
 };
 
-type ClientListFilter = ClientStatus | "all" | "stalled";
+type ClientListFilter = ClientStatus | "all" | "stalled" | "silent";
 
-const STATUS_FILTERS: { id: ClientListFilter; label: string }[] = [
-  { id: "all", label: "Todos" },
-  { id: "pending_onboarding", label: "Pendiente onboarding" },
-  { id: "onboarding_done", label: "Onboarding hecho" },
-  { id: "active", label: "Activos" },
-  { id: "success_case", label: "Caso de éxito" },
-];
+type ClientListSort = "recent" | "name" | "last_one_on_one";
+
+const SORT_LABEL: Record<ClientListSort, string> = {
+  recent: "Más recientes",
+  name: "Nombre A–Z",
+  last_one_on_one: "Última 1-1",
+};
 
 const EMPTY_BOARD: ClientsBoardData = {
   journey: {},
@@ -89,6 +113,15 @@ const EMPTY_BOARD: ClientsBoardData = {
   clientFields: [],
   lastOneOnOne: {},
 };
+
+/** Normaliza para buscar: sin tildes, sin mayúsculas. «Gómez» encuentra «gomez». */
+function normalizar(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
 
 // ── Diálogo de confirmación de eliminación ─────────────────────────────────
 
@@ -131,7 +164,10 @@ function DeleteClientDialog({
 export function ClientsList({ clients }: { clients: Client[] }) {
   const { refreshClients } = usePlatformData();
   const { push } = useToast();
-  const [statusFilter, setStatusFilter] = useState<ClientListFilter>("all");
+  const router = useRouter();
+  const [filter, setFilter] = useState<ClientListFilter>("all");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<ClientListSort>("recent");
   /**
    * ⭐ Quién puede gestionar clientes: el fundador **o** cualquiera cuyo rol
    * tenga acceso total al módulo.
@@ -198,26 +234,86 @@ export function ClientsList({ clients }: { clients: Client[] }) {
    */
   const customColumns = useMemo(() => activeFields(clientFields), [clientFields]);
 
-  const stalledCount = useMemo(
-    () => Object.values(journey).filter((entry) => entry.stalled).length,
-    [journey]
-  );
-
   /** ¿Hay recorrido configurado? Sin él, sus tres columnas no se muestran. */
   const hasJourney = Object.keys(journey).length > 0;
 
-  const filtered = useMemo(() => {
-    return clients.filter((client) => {
-      // "Trabado" no es un estado del cliente: es una vista derivada del
-      // recorrido, así que se filtra aparte de los cuatro estados.
-      if (statusFilter === "stalled") {
-        if (!journey[client.id]?.stalled) return false;
-      } else if (statusFilter !== "all" && client.status !== statusFilter) {
-        return false;
+  /**
+   * Cuántos clientes hay detrás de cada filtro posible.
+   *
+   * ⭐ Es lo que decide qué pastillas se dibujan: una con cero atrás no aparece.
+   * Y el número va en la pastilla porque es la respuesta a la pregunta que
+   * hace que alguien la toque: "¿cuántos están trabados?".
+   */
+  const conteos = useMemo(() => {
+    const porEstado: Partial<Record<ClientStatus, number>> = {};
+    let stalled = 0;
+    let silent = 0;
+    for (const client of clients) {
+      porEstado[client.status] = (porEstado[client.status] ?? 0) + 1;
+      if (journey[client.id]?.stalled) stalled += 1;
+      if (discordActivity[client.id]?.isSilent) silent += 1;
+    }
+    return { porEstado, stalled, silent };
+  }, [clients, journey, discordActivity]);
+
+  const filtros = useMemo(() => {
+    const lista: { value: ClientListFilter; label: string }[] = [
+      { value: "all", label: `Todos (${clients.length})` },
+    ];
+    if (conteos.stalled > 0) {
+      lista.push({ value: "stalled", label: `Trabados (${conteos.stalled})` });
+    }
+    if (conteos.silent > 0) {
+      lista.push({ value: "silent", label: `En silencio (${conteos.silent})` });
+    }
+    for (const [status, def] of Object.entries(STATUS_DESTACADO)) {
+      const n = conteos.porEstado[status as ClientStatus] ?? 0;
+      if (n > 0) lista.push({ value: status as ClientStatus, label: `${def.filtro} (${n})` });
+    }
+    return lista;
+  }, [clients.length, conteos]);
+
+  // Si el filtro elegido se quedó sin gente (se borró el último), vuelve a Todos.
+  useEffect(() => {
+    if (!filtros.some((f) => f.value === filter)) setFilter("all");
+  }, [filtros, filter]);
+
+  const visibles = useMemo(() => {
+    const q = normalizar(query);
+    const lista = clients.filter((client) => {
+      if (filter === "stalled" && !journey[client.id]?.stalled) return false;
+      if (filter === "silent" && !discordActivity[client.id]?.isSilent) return false;
+      if (filter !== "all" && filter !== "stalled" && filter !== "silent") {
+        if (client.status !== filter) return false;
+      }
+      if (q) {
+        const pajar = normalizar(
+          [client.name, client.nickname, client.email, client.offeredProduct]
+            .filter(Boolean)
+            .join(" ")
+        );
+        if (!pajar.includes(q)) return false;
       }
       return true;
     });
-  }, [clients, statusFilter, journey]);
+
+    const porNombre = (a: Client, b: Client) => a.name.localeCompare(b.name, "es");
+    if (sort === "name") return lista.sort(porNombre);
+    if (sort === "last_one_on_one") {
+      // Los que tienen sesión, de la más reciente a la más vieja; los que no, al
+      // final por nombre: un guion no es "más viejo", es "no hay".
+      return lista.sort((a, b) => {
+        const da = lastOneOnOne[a.id]?.date ?? "";
+        const db = lastOneOnOne[b.id]?.date ?? "";
+        if (da !== db) return db.localeCompare(da);
+        return porNombre(a, b);
+      });
+    }
+    return lista.sort((a, b) => {
+      const d = b.joinDate.localeCompare(a.joinDate);
+      return d !== 0 ? d : porNombre(a, b);
+    });
+  }, [clients, filter, query, sort, journey, discordActivity, lastOneOnOne]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -301,25 +397,30 @@ export function ClientsList({ clients }: { clients: Client[] }) {
     });
   }
 
+  const abrirFicha = (client: Client) => router.push(paths.platform.clients.detail(client.id));
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <FilterPills
-            options={[
-              ...STATUS_FILTERS,
-              ...(stalledCount > 0
-                ? [{ id: "stalled" as const, label: `Trabados (${stalledCount})` }]
-                : []),
-            ].map((f) => ({ value: f.id, label: f.label }))}
-            value={statusFilter}
-            onChange={(value) => setStatusFilter(value as ClientListFilter)}
-          />
-        </div>
-        {puedeGestionar ? (
+      {/* ── Barra: acciones a la izquierda, atajos y configuración a la derecha ── */}
+      {puedeGestionar ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <NewClientDialog />
             <ImportClientsDialog />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link href={paths.platform.clients.weeklyReview}>
+                <CalendarCheck className="h-4 w-4" />
+                Revisión semanal
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link href={paths.platform.clients.wins}>
+                <Trophy className="h-4 w-4" />
+                Wins
+              </Link>
+            </Button>
             {/*
               ⭐ El atajo a Cobros existe porque el monto y el adeudado se
               mostraban acá hasta hoy. Sin él, quien los buscaba en esta tabla
@@ -334,78 +435,158 @@ export function ClientsList({ clients }: { clients: Client[] }) {
               </Button>
             ) : null}
             {/*
-              C0 · Único acceso a la configuración de columnas configurables.
-              Va acá y no en el grupo "Configuración" de la navegación: la barra
-              superior saltea ese grupo entero, así que desde el escritorio no se
-              llegaba.
+              C0 · Único acceso a la configuración de columnas configurables y
+              del recorrido. Va acá y no en el grupo "Configuración" de la
+              navegación: la barra superior saltea ese grupo entero, así que
+              desde el escritorio no se llegaba. Agrupado en un menú porque
+              configurar no es algo que se haga todos los días, y dos botones
+              más en la barra la convertían en una hilera de siete.
             */}
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link href={paths.platform.clients.weeklyReview}>
-                <CalendarCheck className="h-4 w-4" />
-                Revisión semanal
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link href={paths.platform.clients.wins}>
-                <Trophy className="h-4 w-4" />
-                Wins
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link href={paths.platform.clients.checkpoints}>
-                <Route className="h-4 w-4" />
-                Recorrido del cliente
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link href={paths.platform.clients.customFields}>
-                <SlidersHorizontal className="h-4 w-4" />
-                Campos personalizados
-              </Link>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Settings2 className="h-4 w-4" />
+                  Configurar
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href={paths.platform.clients.checkpoints} className="gap-2">
+                    <Route className="h-4 w-4" />
+                    Recorrido del cliente
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={paths.platform.clients.customFields} className="gap-2">
+                    <SlidersHorizontal className="h-4 w-4" />
+                    Campos personalizados
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Buscar, filtrar, ordenar ─────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative w-full sm:w-72">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar por nombre, apodo, mail o producto"
+            aria-label="Buscar clientes"
+            className="h-9 pl-9"
+          />
+        </div>
+
+        {/* Una sola pastilla («Todos») no es un filtro: no se dibuja. */}
+        {filtros.length > 1 ? (
+          <div className="max-w-full overflow-x-auto">
+            <FilterPills
+              options={filtros.map((f) => ({ value: f.value, label: f.label }))}
+              value={filter}
+              onChange={(value) => setFilter(value as ClientListFilter)}
+            />
           </div>
         ) : null}
+
+        <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+          Ordenar
+          <select
+            className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+            value={sort}
+            onChange={(event) => setSort(event.target.value as ClientListSort)}
+          >
+            {(Object.keys(SORT_LABEL) as ClientListSort[]).map((key) => (
+              <option key={key} value={key}>
+                {SORT_LABEL[key]}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
-              <th className="px-4 py-3 font-medium">Cliente</th>
+              <th className="whitespace-nowrap px-4 py-3 font-medium">Cliente</th>
               {hasJourney ? (
                 <>
-                  <th className="px-4 py-3 font-medium">Etapa</th>
-                  <th className="px-4 py-3 font-medium">Próxima tarea</th>
+                  <th className="whitespace-nowrap px-4 py-3 font-medium">Etapa</th>
+                  <th className="whitespace-nowrap px-4 py-3 font-medium">Próxima tarea</th>
                 </>
               ) : null}
-              <th className="px-4 py-3 font-medium">Última 1-1</th>
+              <th className="whitespace-nowrap px-4 py-3 font-medium">Última 1-1</th>
               {customColumns.map((field) => (
-                <th key={field.id} className="px-4 py-3 font-medium">
+                <th key={field.id} className="whitespace-nowrap px-4 py-3 font-medium">
                   {field.label}
                 </th>
               ))}
               {hasJourney ? (
-                <th className="px-4 py-3 font-medium">Progreso de etapa</th>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Progreso de etapa</th>
               ) : null}
-              <th className="px-4 py-3 font-medium">Estado</th>
               <th className="px-4 py-3 font-medium" />
             </tr>
           </thead>
           <StaggerFade as="tbody">
-            {filtered.map((client) => {
+            {visibles.map((client) => {
               const status = journey[client.id];
+              const destacado = STATUS_DESTACADO[client.status];
+              const silencio = discordActivity[client.id];
               return (
                 <StaggerFadeItem
                   as="tr"
                   key={client.id}
-                  className="border-b border-border/50 transition-colors hover:bg-muted/40"
+                  /*
+                    ⭐ La fila entera abre la ficha. Antes el único camino era
+                    un link de once píxeles al final de la fila; en una tabla
+                    de 264 filas eso es apuntar con el mouse 264 veces. Los
+                    controles de adentro (el check, la papelera) frenan la
+                    propagación para no abrir la ficha de rebote.
+                  */
+                  className="group cursor-pointer border-b border-border/50 transition-colors hover:bg-muted/40"
+                  onClick={() => abrirFicha(client)}
                 >
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{client.name}</span>
-                      {client.isSuccessCase && (
-                        <Star className="h-4 w-4 shrink-0 fill-amber-400 text-amber-400" />
-                      )}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <Link
+                        href={paths.platform.clients.detail(client.id)}
+                        className="font-medium hover:underline"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {client.name}
+                      </Link>
+                      {client.nickname ? (
+                        <span className="text-xs text-muted-foreground">{client.nickname}</span>
+                      ) : null}
+                      {client.isSuccessCase ? (
+                        <Star
+                          className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400"
+                          aria-label="Caso de éxito"
+                        />
+                      ) : destacado ? (
+                        <Badge variant="outline" className="text-[10px] font-normal">
+                          {destacado.label}
+                        </Badge>
+                      ) : null}
+                      {/* D2 · Silencio en Discord, al lado del nombre: es del cliente, no de un estado. */}
+                      {silencio?.isSilent ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border border-warning/40 px-1.5 py-0.5 text-[10px] text-warning"
+                          title={`Sin escribir en Discord hace ${silencio.daysSinceLastMessage} días`}
+                        >
+                          <MoonStar className="h-2.5 w-2.5" />
+                          {silencio.daysSinceLastMessage}d
+                        </span>
+                      ) : null}
                     </div>
                   </td>
 
@@ -414,7 +595,7 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                       <td className="px-4 py-3">
                         <StageCell status={status} />
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                         <NextTaskCell
                           status={status}
                           disabled={pending}
@@ -425,7 +606,7 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                     </>
                   ) : null}
 
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                     <LastOneOnOneCell entry={lastOneOnOne[client.id]} />
                   </td>
 
@@ -441,53 +622,39 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                     </td>
                   ) : null}
 
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Badge variant="secondary">{STATUS_LABEL[client.status]}</Badge>
-                      {/* D2 · Silencio en Discord: se avisa donde ya se mira el estado. */}
-                      {discordActivity[client.id]?.isSilent ? (
-                        <span
-                          className="inline-flex items-center gap-1 rounded-full border border-warning/40 px-1.5 py-0.5 text-[10px] text-warning"
-                          title={`Sin escribir en Discord hace ${discordActivity[client.id]?.daysSinceLastMessage} días`}
-                        >
-                          <MoonStar className="h-2.5 w-2.5" />
-                          {discordActivity[client.id]?.daysSinceLastMessage}d
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Link
-                        href={paths.platform.clients.detail(client.id)}
-                        className="text-xs font-medium text-primary hover:underline"
-                      >
-                        Ver detalle
-                      </Link>
+                  <td className="px-4 py-3 text-right" onClick={(event) => event.stopPropagation()}>
+                    {puedeGestionar ? (
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-7 w-7 p-0 text-muted-foreground/50 hover:text-destructive"
+                        className={cn(
+                          "h-7 w-7 p-0 text-muted-foreground/60 hover:text-destructive",
+                          // Se ve al pasar por la fila o al llegar con el teclado;
+                          // 264 papeleras siempre visibles pesan más que la tabla.
+                          "opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
+                        )}
                         title="Eliminar cliente"
+                        aria-label={`Eliminar a ${client.name}`}
                         onClick={() => setDeleteTarget(client)}
                         disabled={pending}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
-                    </div>
+                    ) : null}
                   </td>
                 </StaggerFadeItem>
               );
             })}
           </StaggerFade>
         </table>
-        {filtered.length === 0 && (
+        {visibles.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No hay clientes con este filtro.
+            {query.trim()
+              ? `Ningún cliente coincide con «${query.trim()}».`
+              : "No hay clientes con este filtro."}
           </p>
-        )}
+        ) : null}
       </div>
 
       {/* Confirmación de eliminación */}

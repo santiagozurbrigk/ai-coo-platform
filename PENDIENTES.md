@@ -74,6 +74,28 @@ minutos no aparece, mirar `claude_api_key_status` de esa organización.
 
 ---
 
+### [CLIENTES-VER-CON-DATOS] Mirar el panel de clientes rediseñado con datos reales 🟡
+
+**Qué es:** el 2026-09-21 se rehizo el panel de clientes (buscador, filtros
+condicionales con conteo, orden, fila clickeable, sin columna «Estado»). Se
+verificó con tres clientes de prueba y **sin base**: no se vieron las columnas
+configurables ni las de recorrido.
+
+**Qué hacer:**
+1. Abrir Clientes en la organización de 264. Arriba tiene que decir
+   «Todos (264) · Pendientes de onboarding (1)» y nada más — no hay pastilla de
+   «Onboarding hecho» ni de «Casos de éxito» porque no hay nadie en esos estados.
+2. Buscar «gomez» sin tilde y confirmar que encuentra a los Gómez.
+3. Ordenar por «Última 1-1»: el que tiene la sesión subida tiene que quedar
+   primero y el resto por nombre.
+4. Clickear en cualquier parte de una fila: abre la ficha. Tildar el check de
+   la próxima tarea **no** tiene que abrirla.
+5. Mirar el ancho de la tabla a 1280px con las 3 columnas configurables y las
+   de recorrido: si desborda, la columna «Progreso de etapa» es la primera
+   candidata a ir a la ficha.
+
+---
+
 ### [FICHA-VER-CON-DATOS] Mirar la ficha rediseñada con un cliente real 🟡
 
 **Qué es:** el 2026-09-21 se rediseñó la ficha del cliente (encabezado, franja
