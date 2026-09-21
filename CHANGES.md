@@ -14,6 +14,78 @@
 
 ---
 
+### 2026-09-21 — 🔍 Abrir un campo para leerlo entero, y corregir un mes de facturación
+
+**Rama/branch:** `claude/nice-thompson-s9zids`
+**Commits:** `8f20f5a`, `4b7606f`
+**Módulo(s) afectado(s):** Clientes (ficha), campos configurables
+
+**Qué se hizo:**
+
+Dos pedidos del founder sobre lo construido el mismo día, más un bug que salió
+al probar el primero.
+
+1. **El campo se abre entero.** En «Información del cliente», el renglón de
+   cada campo cargado abre un visor: el contenido completo en un ancho cómodo
+   de leer, alto que crece con el texto y se frena en la pantalla, un botón que
+   lo copia de una y otro que lleva a editarlo. En la tarjeta el texto pasa a
+   recortarse a tres renglones. Un link también abre el visor en vez de irse
+   directo, y ahí se lee la URL entera.
+
+2. **Corregir un mes de facturación.** Ya se podía —cargar el mes de nuevo lo
+   pisa, por el upsert de `(client_id, period)`— pero no había cómo darse
+   cuenta: el formulario abría siempre en el mes en curso. Ahora cada mes de la
+   lista tiene un lápiz que abre el formulario con su monto y su moneda, y la
+   lista se muestra desde el primer mes y no desde el segundo.
+   `saveClientRevenueAction` acepta `replacesEntryId`: si al corregir le cambian
+   el mes, la fila vieja se borra en la misma operación.
+
+3. **Los campos de texto aplastaban los párrafos.** `FieldValueInput` usaba un
+   `Input` de una línea para el tipo «texto»: pegarle un avatar de tres
+   párrafos guardaba todo en un renglón, sin los saltos y sin forma de
+   recuperarlos. Pasa a `Textarea`.
+
+**Por qué / finalidad:**
+
+⭐ **La columna de la ficha mide 300px y los campos guardan párrafos.** Un
+avatar entero empujaba los otros seis campos fuera de la pantalla, y copiarlo
+obligaba a arrastrar el mouse por un recuadro que hace scroll solo. Recortar sin
+dar forma de ver el resto habría sido esconder el dato; de ahí el visor.
+
+⭐ **«miro.com» no dice a qué tablero apunta.** El link ahora abre el visor, que
+muestra la URL entera y ofrece «Abrir». Además resuelve un problema de HTML: el
+renglón entero es el botón que abre el visor, y un ancla adentro de un botón es
+inválido.
+
+⭐ **El bug del `Input` se vio recién al probar el visor.** El visor mostraba
+bien el texto entero; lo que estaba mal era lo guardado, que ya venía aplastado
+desde la carga. Es el tipo de defecto que sólo aparece usando la pantalla de
+punta a punta con contenido real.
+
+**Decisiones de diseño relevantes:**
+
+- **El borrado de la fila vieja va en el server action, no en el cliente.** Dos
+  llamadas desde el navegador dejarían un mes duplicado si la segunda falla.
+- **La lista de meses se muestra desde el primero.** Con uno solo cargado era
+  la única forma de llegar a corregirlo o borrarlo, y estaba escondida detrás de
+  un «hay más de uno».
+- **El `Textarea` vale para las tres entidades** (cliente, win, checkpoint): el
+  tipo «texto» es justamente el que se usa para lo que no entra en una línea.
+
+**Riesgos / deuda técnica pendiente:**
+
+- El botón «Editar» del visor abre la tarjeta entera en modo edición, no ese
+  campo solo. Alcanza, pero es un paso de más cuando hay siete campos.
+- Los valores ya cargados con el `Input` viejo perdieron sus saltos y no se
+  pueden recuperar: hay que volver a pegarlos.
+
+**Verificado** contra el preview con datos reales: cargar un mes en 5.000 y
+corregirlo a 8.300 deja **una** fila; moverlo de agosto a julio también deja
+una, no dos; el visor conserva los tres párrafos y lo copiado sale idéntico al
+original.
+
+---
+
 ### 2026-09-21 — 🐞 Dos bugs que sólo aparecieron probando contra datos reales
 
 **Rama/branch:** `claude/nice-thompson-s9zids`
