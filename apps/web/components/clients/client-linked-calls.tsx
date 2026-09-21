@@ -15,6 +15,7 @@ import {
   TeamPerformanceSummary,
 } from "@/components/sales/team-call-ranking";
 import type { ClientLinkedCall } from "@/types/clients";
+import { FichaSection } from "@/components/clients/ficha-section";
 import type { TeamRankingEntry } from "@/types/call-analysis";
 import { cn } from "@/lib/utils";
 
@@ -174,12 +175,10 @@ export function ClientLinkedCallsSection({
 
   return (
     <>
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 text-sm font-medium">
-            <Phone className="h-4 w-4" />
-            Llamadas de venta
-          </h2>
+      <FichaSection
+        icon={Phone}
+        title="Llamadas de venta"
+        action={
           <Button
             type="button"
             size="sm"
@@ -190,8 +189,8 @@ export function ClientLinkedCallsSection({
             <TrendingUp className="h-3.5 w-3.5" />
             Ver evolución del closer
           </Button>
-        </div>
-
+        }
+      >
         <ul className="space-y-2">
           {calls.map((call) => {
             const expanded = expandedId === call.id;
@@ -246,7 +245,7 @@ export function ClientLinkedCallsSection({
             );
           })}
         </ul>
-      </section>
+      </FichaSection>
 
       <CloserEvolutionSheet
         open={evolutionOpen}

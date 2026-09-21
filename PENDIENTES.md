@@ -74,6 +74,65 @@ minutos no aparece, mirar `claude_api_key_status` de esa organización.
 
 ---
 
+### [CLIENTES-VER-CON-DATOS] Mirar el panel de clientes rediseñado con datos reales 🟡
+
+**Qué es:** el 2026-09-21 se rehizo el panel de clientes (buscador, filtros
+condicionales con conteo, orden, fila clickeable, sin columna «Estado»). Se
+verificó con tres clientes de prueba y **sin base**: no se vieron las columnas
+configurables ni las de recorrido.
+
+**Qué hacer:**
+1. Abrir Clientes en la organización de 264. Arriba tiene que decir
+   «Todos (264) · Pendientes de onboarding (1)» y nada más — no hay pastilla de
+   «Onboarding hecho» ni de «Casos de éxito» porque no hay nadie en esos estados.
+2. Buscar «gomez» sin tilde y confirmar que encuentra a los Gómez.
+3. Ordenar por «Última 1-1»: el que tiene la sesión subida tiene que quedar
+   primero y el resto por nombre.
+4. Clickear en cualquier parte de una fila: abre la ficha. Tildar el check de
+   la próxima tarea **no** tiene que abrirla.
+5. Mirar el ancho de la tabla a 1280px con las 3 columnas configurables y las
+   de recorrido: si desborda, la columna «Progreso de etapa» es la primera
+   candidata a ir a la ficha.
+
+---
+
+### [FICHA-VER-CON-DATOS] Mirar la ficha rediseñada con un cliente real 🟡
+
+**Qué es:** el 2026-09-21 se rediseñó la ficha del cliente (encabezado, franja
+de indicadores, dos columnas, encabezados uniformes). Se verificó renderizándola
+con el cliente de prueba en oscuro, claro y móvil, pero **sin base de datos**:
+recorrido, sesiones 1-1, tareas, wins y Discord se vieron vacíos.
+
+**Qué hacer:** abrir la ficha de un cliente con todo cargado (el que tiene la
+1-1 subida sirve) y mirar:
+1. La franja de arriba: sesiones, pendientes, recorrido («3 de 8 · sigue: …»)
+   y satisfacción con su color.
+2. Que la columna izquierda —recorrido, sesiones, tareas, llamadas de venta,
+   historial— no quede demasiado angosta con la lateral al lado a 1280px.
+3. Que al subir una llamada el número de «Tareas pendientes» de la franja se
+   actualice solo.
+4. El apodo: escribir uno en el encabezado, salir del campo, recargar.
+
+---
+
+### [DEMO-LAYOUT-500] El layout de plataforma no funciona en modo demo 🟡
+
+**Qué es:** con Supabase sin configurar, cualquier página bajo `(platform)`
+devuelve 500 desde `getHoldingSessionState` (`lib/holding/session.ts:26`),
+antes de que el modo demo del proveedor de datos llegue a correr. El "modo demo
+con mocks" que documenta el `CLAUDE.md` sólo cubre el cliente, no el servidor.
+
+**Por qué importa:** es lo que impide renderizar cualquier pantalla de la
+plataforma en local sin credenciales, para revisar diseño o sacar capturas.
+Encontrado al rediseñar la ficha del cliente; se resolvió con una página
+temporal fuera del layout.
+
+**Qué hacer:** hacer que los cargadores del layout (`getHoldingSessionState`,
+`getCurrentUserPermissions`, `getCurrentOnboardingContext`) devuelvan un valor
+neutro cuando `isSupabaseConfigured()` es falso, en vez de tirar.
+
+---
+
 ### [1A1-EDITAR-DETALLE] El detalle de una tarea no se puede editar 🟡
 
 **Qué es:** `updateClientTaskAction` ya permite cambiar título, detalle, dueño y

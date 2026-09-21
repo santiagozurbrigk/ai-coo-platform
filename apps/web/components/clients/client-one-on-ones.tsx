@@ -29,6 +29,7 @@ import {
 } from "@/app/fathom/one-on-one-actions";
 import { UploadOneOnOneDialog } from "@/components/clients/upload-one-on-one-dialog";
 import { notifyClientTasksChanged } from "@/lib/clients/tasks-events";
+import { FichaSection } from "@/components/clients/ficha-section";
 import { useToast } from "@/providers/toast-provider";
 import { cn } from "@/lib/utils";
 
@@ -61,41 +62,21 @@ function formatearAntiguedad(dias: number | null): string | null {
   return `hace ${dias} días`;
 }
 
-function Contador({ stats }: { stats: ClientOneOnOnes["stats"] }) {
+/**
+ * El resumen que va al lado del título: «3 · última hace 5 días · cada 12 días».
+ *
+ * ⭐ Antes era un panel propio con tres números grandes. La franja de arriba de
+ * la ficha ya dice cuántas sesiones hay y cuándo fue la última; repetirlo a diez
+ * centímetros en letra grande era decir lo mismo dos veces. Lo único que la
+ * franja no dice es el ritmo, y con una sola llamada no hay ritmo que medir.
+ */
+function resumenDeSesiones(stats: ClientOneOnOnes["stats"]): string | undefined {
+  if (stats.totalCalls === 0) return undefined;
+  const partes = [String(stats.totalCalls)];
   const antiguedad = formatearAntiguedad(stats.daysSinceLast);
-
-  return (
-    <GlassPanel className="flex flex-wrap items-center gap-x-8 gap-y-3 p-4">
-      <div>
-        <p className="text-2xl font-semibold tabular-nums">{stats.totalCalls}</p>
-        <p className="text-xs text-muted-foreground">
-          {stats.totalCalls === 1 ? "sesión 1-1" : "sesiones 1-1"}
-        </p>
-      </div>
-
-      {stats.lastDate ? (
-        <div>
-          <p className="text-sm font-medium">{formatearFecha(stats.lastDate)}</p>
-          <p className="text-xs text-muted-foreground">
-            última{antiguedad ? ` · ${antiguedad}` : ""}
-          </p>
-        </div>
-      ) : null}
-
-      {/*
-        El ritmo aparece recién con dos llamadas. Con una sola no hay ritmo que
-        medir, y cualquier número ahí sería inventado.
-      */}
-      {stats.everyDays != null ? (
-        <div>
-          <p className="text-sm font-medium">cada {stats.everyDays} días</p>
-          <p className="text-xs text-muted-foreground">
-            desde el {formatearFecha(stats.firstDate)}
-          </p>
-        </div>
-      ) : null}
-    </GlassPanel>
-  );
+  if (antiguedad) partes.push(`última ${antiguedad}`);
+  if (stats.everyDays != null) partes.push(`cada ${stats.everyDays} días`);
+  return partes.join(" · ");
 }
 
 function ReintentarTareas({
@@ -182,12 +163,11 @@ export function ClientOneOnOnesSection({ clientId }: { clientId: string }) {
   useEffect(() => cargar(), [cargar]);
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-sm font-medium">
-          <Phone className="h-4 w-4" />
-          Sesiones 1-1
-        </h2>
+    <FichaSection
+      icon={Phone}
+      title="Sesiones 1-1"
+      meta={loading ? undefined : resumenDeSesiones(data.stats)}
+      action={
         <Button
           type="button"
           size="sm"
@@ -198,14 +178,12 @@ export function ClientOneOnOnesSection({ clientId }: { clientId: string }) {
           <Upload className="h-3.5 w-3.5" />
           Subir llamada
         </Button>
-      </div>
-
+      }
+    >
       {loading ? (
         <GlassPanel className="h-20 animate-pulse p-4" />
       ) : (
         <>
-          <Contador stats={data.stats} />
-
           {data.calls.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 py-10 text-center dark:border-white/[0.08]">
               <CalendarClock className="h-7 w-7 text-muted-foreground" />
@@ -343,6 +321,6 @@ export function ClientOneOnOnesSection({ clientId }: { clientId: string }) {
           cargar();
         }}
       />
-    </section>
+    </FichaSection>
   );
 }

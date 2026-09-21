@@ -14,7 +14,9 @@
  */
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Button, GlassPanel } from "@ai-coo/ui";
+import { Button } from "@ai-coo/ui";
+import { ListChecks } from "lucide-react";
+import { FichaCard } from "@/components/clients/ficha-section";
 import { useToast } from "@/providers/toast-provider";
 import { usePlatformData } from "@/providers";
 import {
@@ -106,17 +108,18 @@ export function ClientCustomFieldsSection({ client }: { client: Client }) {
   }
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-medium">Datos del cliente</h2>
-        {dirty ? (
+    <FichaCard
+      icon={ListChecks}
+      title="Datos del cliente"
+      action={
+        dirty ? (
           <Button size="sm" onClick={save} disabled={pending}>
             {pending ? "Guardando…" : "Guardar"}
           </Button>
-        ) : null}
-      </div>
-
-      <GlassPanel className="space-y-4 p-5">
+        ) : null
+      }
+    >
+      <div className="space-y-4">
         {offered.map((field) => (
           <FieldValueInput
             key={field.id}
@@ -144,7 +147,7 @@ export function ClientCustomFieldsSection({ client }: { client: Client }) {
             )}
           </div>
         ) : null}
-      </GlassPanel>
-    </section>
+      </div>
+    </FichaCard>
   );
 }

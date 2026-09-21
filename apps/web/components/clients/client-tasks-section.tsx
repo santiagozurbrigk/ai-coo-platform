@@ -37,6 +37,7 @@ import {
   type ClientTaskOwner,
 } from "@/types/client-tasks";
 import { CLIENT_TASKS_CHANGED } from "@/lib/clients/tasks-events";
+import { FichaSection } from "@/components/clients/ficha-section";
 import { useToast } from "@/providers/toast-provider";
 import { cn } from "@/lib/utils";
 
@@ -370,17 +371,11 @@ export function ClientTasksSection({ clientId }: { clientId: string }) {
   if (loading) return null;
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-sm font-medium">
-          <ClipboardList className="h-4 w-4" />
-          Tareas
-          {pendientes > 0 ? (
-            <Badge variant="outline" className="tabular-nums">
-              {pendientes}
-            </Badge>
-          ) : null}
-        </h2>
+    <FichaSection
+      icon={ClipboardList}
+      title="Tareas"
+      meta={pendientes > 0 ? `${pendientes} pendiente${pendientes === 1 ? "" : "s"}` : undefined}
+      action={
         <Button
           type="button"
           size="sm"
@@ -391,7 +386,8 @@ export function ClientTasksSection({ clientId }: { clientId: string }) {
           {adding ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
           {adding ? "Cerrar" : "Agregar"}
         </Button>
-      </div>
+      }
+    >
 
       {adding ? (
         <NuevaTarea
@@ -422,6 +418,6 @@ export function ClientTasksSection({ clientId }: { clientId: string }) {
           />
         </div>
       )}
-    </section>
+    </FichaSection>
   );
 }
