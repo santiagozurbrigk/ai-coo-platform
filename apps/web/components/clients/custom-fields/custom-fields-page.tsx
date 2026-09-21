@@ -27,9 +27,11 @@ import {
   ArchiveRestore,
   ChevronDown,
   ChevronUp,
+  Layers,
   Pencil,
   Plus,
   SlidersHorizontal,
+  Table2,
   Trash2,
 } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -38,6 +40,7 @@ import { useToast } from "@/providers/toast-provider";
 import type { MutationResult } from "@/lib/server/action-result";
 import {
   FIELD_ENTITIES,
+  FIELD_SECTION_LABEL,
   type FieldDefinition,
   type FieldEntity,
 } from "@/types/custom-fields";
@@ -55,6 +58,7 @@ import {
   reorderFieldDefinitionsAction,
   seedExampleClientGoalFieldAction,
   seedExampleWinFieldAction,
+  seedLimitlessClientFieldsAction,
   setFieldDefinitionArchivedAction,
   updateFieldDefinitionAction,
 } from "@/app/clients/custom-field-actions";
@@ -155,6 +159,10 @@ export function CustomFieldsPage({
           ? Number(draft.alertDaysBefore)
           : null,
         isRequired: draft.isRequired,
+        // Sólo la ficha del cliente tiene apartados y tabla; para las otras
+        // entidades el diálogo no los ofrece y viajan en su valor neutro.
+        section: draft.section,
+        showInTable: draft.showInTable,
       };
 
       const result = editing
@@ -222,6 +230,54 @@ export function CustomFieldsPage({
           <TabsContent key={key} value={key} className="space-y-3 pt-4">
             <p className="text-sm text-muted-foreground">{FIELD_ENTITY_HINT[key]}</p>
 
+            {/*
+              ⭐ La plantilla de los tres apartados.
+              Los 22 campos de Marketing, Ventas y Sistemas no están escritos en
+              el código de la ficha: se cargan desde acá con un botón. Así
+              renombrar «Método único» o agregar un sistema más es una edición,
+              no un deploy. Vuelve a apretarse sin miedo: las que ya existen se
+              saltean.
+            */}
+            {key === "client" && canManage ? (
+              <GlassPanel className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Plantilla Limitless</p>
+                  <p className="text-xs text-muted-foreground">
+                    Carga los campos de Marketing, Ventas y Sistemas que usa la
+                    ficha del cliente. Los que ya existen no se duplican.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() =>
+                    startTransition(async () => {
+                      const result = await seedLimitlessClientFieldsAction();
+                      if (!result.success) {
+                        push({ title: "No se pudo cargar", description: result.error });
+                        return;
+                      }
+                      await refresh();
+                      push({
+                        title:
+                          result.data.created === 0
+                            ? "Ya estaban todos cargados"
+                            : `${result.data.created} campos cargados`,
+                        description:
+                          result.data.skipped > 0
+                            ? `${result.data.skipped} ya existían y se saltearon.`
+                            : undefined,
+                        variant: "success",
+                      });
+                    })
+                  }
+                >
+                  <Layers className="mr-1 h-4 w-4" />
+                  Cargar plantilla
+                </Button>
+              </GlassPanel>
+            ) : null}
+
             {byEntity.length === 0 ? (
               <EmptyState
                 icon={<SlidersHorizontal className="h-6 w-6" />}
@@ -274,6 +330,7 @@ export function CustomFieldsPage({
       <FieldDefinitionDialog
         open={dialogOpen}
         field={editing}
+        entity={entity}
         saving={pending}
         error={dialogError}
         onClose={() => setDialogOpen(false)}
@@ -318,6 +375,18 @@ function FieldRow({
             {isArchived ? <Badge variant="warning">Archivada</Badge> : null}
             {field.optionsSource === "journey_stages" ? (
               <Badge variant="secondary">Opciones del recorrido</Badge>
+            ) : null}
+            {field.section ? (
+              <Badge variant="outline" className="gap-1">
+                <Layers className="h-3 w-3" />
+                {FIELD_SECTION_LABEL[field.section]}
+              </Badge>
+            ) : null}
+            {field.entity === "client" && field.showInTable ? (
+              <Badge variant="outline" className="gap-1">
+                <Table2 className="h-3 w-3" />
+                En la tabla
+              </Badge>
             ) : null}
           </div>
 

@@ -29,6 +29,23 @@ export const FIELD_TYPES = [
 export type FieldType = (typeof FIELD_TYPES)[number];
 
 /** De dónde salen las opciones de un campo de lista. */
+/**
+ * Los apartados en que se agrupan las columnas del cliente en su ficha.
+ *
+ * ⭐ Salen de cómo el founder piensa un negocio de infoproductos: qué vende y a
+ * quién (marketing), cómo lo vende (ventas), y con qué herramientas lo sostiene
+ * (sistemas). Una columna sin sección va al bloque suelto de arriba, que es el
+ * comportamiento de siempre.
+ */
+export const FIELD_SECTIONS = ["marketing", "ventas", "sistemas"] as const;
+export type FieldSection = (typeof FIELD_SECTIONS)[number];
+
+export const FIELD_SECTION_LABEL: Record<FieldSection, string> = {
+  marketing: "Marketing",
+  ventas: "Ventas",
+  sistemas: "Sistemas",
+};
+
 export const FIELD_OPTIONS_SOURCES = ["inline", "journey_stages"] as const;
 export type FieldOptionsSource = (typeof FIELD_OPTIONS_SOURCES)[number];
 
@@ -83,6 +100,16 @@ export type FieldDefinition = {
    */
   alertDaysBefore: number | null;
   isRequired: boolean;
+  /** El apartado de la ficha donde se muestra. `null` = suelta. */
+  section: FieldSection | null;
+  /**
+   * Si la columna se dibuja en la tabla de clientes.
+   *
+   * ⭐ Por defecto **no**. Con 22 columnas agrupadas en apartados, el
+   * comportamiento anterior —toda columna activa va a la tabla— convertiría la
+   * lista en una hoja de cálculo de 25 columnas.
+   */
+  showInTable: boolean;
   sortOrder: number;
   archivedAt: string | null;
   createdAt: string;
@@ -106,6 +133,8 @@ export type FieldDefinitionRow = {
   currency: string | null;
   alert_days_before: number | null;
   is_required: boolean;
+  section: string | null;
+  show_in_table: boolean | null;
   sort_order: number;
   archived_at: string | null;
   created_at: string;

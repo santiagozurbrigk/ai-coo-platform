@@ -14,6 +14,118 @@
 
 ---
 
+### 2026-09-21 — 🗂️ Tareas escritas a mano, tres apartados de info, facturación del negocio y fase elegible
+
+**Rama/branch:** `claude/nice-thompson-s9zids`
+**Commits:** pendiente push
+**Módulo(s) afectado(s):** Clientes (ficha y tabla), campos configurables,
+recorrido, migraciones
+
+**Qué se hizo:**
+
+Cuatro pedidos del founder, más un repaso de UI sobre todo lo que tocaron.
+
+1. **Tarea escrita a mano, y es la que muestra la tabla.**
+   `components/clients/client-tasks-section.tsx` abre con un campo siempre
+   visible («Asignar una tarea y apretar Enter») y los detalles —para quién,
+   para cuándo— plegados. `lib/clients/next-task.ts` elige cuál es «la próxima»
+   con una sola regla (pendientes; con fecha antes que sin fecha; la más
+   próxima primero, vencidas incluidas; después la más vieja) y **la usan las
+   dos pantallas**: la ficha la marca con una insignia «Próxima» y la tabla
+   dibuja esa misma en su columna. 11 tests.
+
+2. **Marketing, Ventas y Sistemas.** `client-sections-card.tsx` agrupa los
+   campos del cliente en tres solapas con su contador `cargados/total`. Los 22
+   campos **no están en el código**: se cargan con el botón «Cargar plantilla»
+   en Campos personalizados (`seedLimitlessClientFieldsAction`, idempotente).
+   `field_definitions` ganó `section` y `show_in_table`. Un valor que es un link
+   se dibuja clickeable con el dominio como etiqueta. **Se eliminó el campo de
+   apodo** de la ficha (cargado en 0 de 307 clientes).
+
+3. **Facturación del negocio del cliente.** Tabla nueva
+   `client_revenue_entries`, un registro por mes, con RLS por organización y
+   único por `(client_id, period)`. `lib/clients/revenue.ts` calcula el último
+   mes, la variación contra el anterior, el mejor mes y la serie. Tarjeta en la
+   ficha con sparkline; columna en la tabla con el mes al lado. 18 tests.
+
+4. **La fase del recorrido se elige a mano.** `clients.manual_stage_id`, un
+   selector en el encabezado de Recorrido, y `lib/checkpoints/effective-stage.ts`
+   que resuelve la fase efectiva como **la más avanzada** entre la manual y la
+   derivada de los hitos. Los hitos de fases anteriores que nunca se registraron
+   se dibujan en gris con la insignia «salteado». 11 tests.
+
+5. **Repaso de UI.** Los hitos del recorrido se agrupan por fase, plegados, con
+   sólo la fase en curso abierta. En este design system `ghost` **no** es un
+   botón sin borde sino uno con borde naranja, así que las acciones secundarias
+   que se repiten por fila (editar, deshacer, borrar, mandar al tablero) pasaron
+   a `ACCION_DE_FILA` —gris, sin borde, con hover—: el acento de marca queda
+   para lo que pide acción.
+
+Verificado con `tsc --noEmit`, `pnpm lint` (0 errores), **1128 tests** en verde,
+`pnpm build`, y renderizando ficha y tabla en Chromium —oscuro, claro y a
+420px— desde una página temporal borrada antes del commit.
+
+**Por qué / finalidad:**
+
+⭐ **«Próxima tarea» decía el hito del recorrido, y eso no es una tarea.** El
+recorrido es un catálogo que se define una vez y vale para todos los clientes;
+lo que dice qué hacer mañana con *este* cliente es lo que alguien escribió o lo
+que salió de la última 1-1. El pedido fue explícito y la columna cambió de
+fuente, no de formato.
+
+⭐ **Los 22 campos no se hornearon.** La tentación era escribir la lista en el
+componente. Se extendió el mecanismo de columnas configurables que ya existía
+con dos campos —`section` y `show_in_table`—, así que renombrar «Método único» o
+agregar un sistema más es una edición en una pantalla, no un deploy. El
+`show_in_table` existe por una razón medible: sin él, 22 campos nuevos habrían
+convertido la tabla de clientes en una planilla de 25 columnas.
+
+⭐ **Facturación es lo que gana el cliente, no lo que nos paga.** El founder lo
+corrigió en el medio del diseño. Lo que nos paga vive en `client_payments` y se
+mira en Cobros; son dos números que nunca hay que mezclar, y por eso la tabla
+nueva lleva el aviso en su `comment` de base.
+
+⭐ **Se guarda por mes, no como un número suelto.** Un cliente que facturaba
+4.000 hace seis meses no factura 4.000 hoy, y un número sin fecha se lee como
+actual — el mismo error que `satisfaction` ya había resuelto guardando cuándo y
+quién. Con meses, además, se puede decir cuánto creció, que es lo que hace el
+dato útil para mostrar.
+
+⭐ **Fijar la fase no registra hitos.** Un cliente que entra directo a «Creando
+primer webinar» quedaba en «Sin empezar» hasta que alguien tildara cuatro hitos
+que ese cliente nunca hizo: para decir la verdad sobre dónde está había que
+mentir sobre lo que hizo. La fase manual convive con la derivada y gana la más
+avanzada —un recorrido no retrocede—, y los hitos salteados se ven salteados.
+
+**Decisiones de diseño relevantes:**
+
+- **La misma función elige «la próxima» en los dos lados.** `pickNextTask` la
+  usan la ficha y `clients-board-actions.ts`. Dos criterios distintos habrían
+  hecho que las dos pantallas dijeran cosas distintas de la misma tarea.
+- **El dueño no desempata.** Tentaba priorizar lo del coach, pero la próxima
+  tarea es la próxima tarea: quién la tiene no la adelanta.
+- **`changePct` es `null` cuando el mes anterior fue cero**, no «+∞» ni «+100%».
+- **Una solapa sin campos configurados no se dibuja**, y la tarjeta entera
+  desaparece si no hay ninguna sección cargada.
+- **El período se guarda como `date` con día 1**, no como texto: se ordena y se
+  compara. Y `currentPeriod()` se arma con el reloj local, no con
+  `toISOString()`, que a la noche en Argentina devuelve el mes siguiente.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **La migración `20260921120000` no está aplicada.** Sin ella la ficha no
+  muestra las secciones ni la facturación, y el selector de fase falla.
+- ⚠️ **Nada de esto se probó contra la base**: no hay Supabase en el entorno
+  remoto. Los pasos concretos están en `docs/PLAN_VERIFICACION.md`.
+- `clients.manual_stage_set_at` **se guarda pero nadie lo lee**. Es el dato que
+  haría falta el día que los plazos quieran contar desde una fase fijada a mano;
+  se agrega ahora porque después no se puede reconstruir. Anotado en
+  `PENDIENTES.md`.
+- La conversión de moneda no existe: un cliente que carga meses en USD y en ARS
+  ve la variación entre dos monedas distintas como si fuera una sola.
+
+---
+
 ### 2026-09-21 — 🎨 El panel de clientes: buscador, filtros con gente detrás, fila clickeable
 
 **Rama/branch:** `claude/nice-thompson-s9zids`

@@ -22,7 +22,6 @@ import {
   Plus,
   Send,
   Trash2,
-  X,
 } from "lucide-react";
 import {
   createClientTaskAction,
@@ -36,8 +35,9 @@ import {
   type ClientTask,
   type ClientTaskOwner,
 } from "@/types/client-tasks";
-import { CLIENT_TASKS_CHANGED } from "@/lib/clients/tasks-events";
-import { FichaSection } from "@/components/clients/ficha-section";
+import { CLIENT_TASKS_CHANGED, notifyClientTasksChanged } from "@/lib/clients/tasks-events";
+import { pickNextTask } from "@/lib/clients/next-task";
+import { ACCION_DE_FILA, FichaSection } from "@/components/clients/ficha-section";
 import { useToast } from "@/providers/toast-provider";
 import { cn } from "@/lib/utils";
 
@@ -58,22 +58,33 @@ function estaVencida(task: ClientTask): boolean {
   return task.dueDate < new Date().toISOString().slice(0, 10);
 }
 
-function NuevaTarea({
+/**
+ * El campo para escribir una tarea, siempre visible.
+ *
+ * ⭐ Antes había que apretar «Agregar» para que apareciera un formulario de tres
+ * campos. Asignar una tarea es lo que más se hace en esta sección —el founder lo
+ * pidió así: "escribir manualmente la próxima tarea"—, y una acción frecuente
+ * escondida detrás de un botón se usa menos de lo que debería.
+ *
+ * Los detalles —para quién, para cuándo— siguen existiendo, pero se despliegan:
+ * el 90% de las veces alcanza con el título y Enter.
+ */
+function CampoRapido({
   clientId,
   onCreated,
-  onCancel,
 }: {
   clientId: string;
   onCreated: (task: ClientTask) => void;
-  onCancel: () => void;
 }) {
   const { push } = useToast();
   const [title, setTitle] = useState("");
   const [owner, setOwner] = useState<ClientTaskOwner>("client");
   const [dueDate, setDueDate] = useState("");
+  const [detalles, setDetalles] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const guardar = async () => {
+    if (!title.trim() || saving) return;
     setSaving(true);
     const result = await createClientTaskAction({
       clientId,
@@ -89,79 +100,95 @@ function NuevaTarea({
       return;
     }
     onCreated(result.data);
+    notifyClientTasksChanged();
     setTitle("");
     setDueDate("");
+    setDetalles(false);
   };
 
   return (
-    <GlassPanel className="space-y-3 p-3">
-      <div className="space-y-1.5">
-        <Label htmlFor="nueva-tarea-titulo">Nueva tarea</Label>
-        <Input
-          id="nueva-tarea-titulo"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Qué hay que hacer"
-          disabled={saving}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && title.trim() && !saving) guardar();
-          }}
-        />
-      </div>
-
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="nueva-tarea-owner">Le toca a</Label>
-          <select
-            id="nueva-tarea-owner"
-            className={cn(CONTROL_CLASS, "w-32")}
-            value={owner}
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Plus
+            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Asignar una tarea y apretar Enter"
+            aria-label="Nueva tarea para el cliente"
+            className="h-9 pl-9"
             disabled={saving}
-            onChange={(event) => setOwner(event.target.value as ClientTaskOwner)}
-          >
-            <option value="client">Cliente</option>
-            <option value="coach">Coach</option>
-          </select>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="nueva-tarea-fecha">Para cuándo</Label>
-          <input
-            id="nueva-tarea-fecha"
-            type="date"
-            className={cn(CONTROL_CLASS, "w-40")}
-            value={dueDate}
-            disabled={saving}
-            onChange={(event) => setDueDate(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") guardar();
+            }}
           />
         </div>
-
-        <div className="ml-auto flex gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={saving}>
-            Cancelar
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            onClick={guardar}
-            disabled={saving || !title.trim()}
-            className="gap-1.5"
-          >
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            Agregar
-          </Button>
-        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="shrink-0 text-xs text-muted-foreground"
+          onClick={() => setDetalles((prev) => !prev)}
+          aria-expanded={detalles}
+        >
+          {detalles ? "Menos" : "Detalles"}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          onClick={guardar}
+          disabled={saving || !title.trim()}
+          className="shrink-0 gap-1.5"
+        >
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          Agregar
+        </Button>
       </div>
-    </GlassPanel>
+
+      {detalles ? (
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 p-3 dark:border-white/[0.08]">
+          <div className="space-y-1.5">
+            <Label htmlFor="tarea-owner">Le toca a</Label>
+            <select
+              id="tarea-owner"
+              className={cn(CONTROL_CLASS, "w-32")}
+              value={owner}
+              disabled={saving}
+              onChange={(event) => setOwner(event.target.value as ClientTaskOwner)}
+            >
+              <option value="client">Cliente</option>
+              <option value="coach">Coach</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="tarea-fecha">Para cuándo</Label>
+            <input
+              id="tarea-fecha"
+              type="date"
+              className={cn(CONTROL_CLASS, "w-40")}
+              value={dueDate}
+              disabled={saving}
+              onChange={(event) => setDueDate(event.target.value)}
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
 function Tarea({
   task,
+  esProxima,
   onChanged,
   onRemoved,
 }: {
   task: ClientTask;
+  /** La que la tabla de clientes muestra como «Próxima tarea». */
+  esProxima: boolean;
   onChanged: (task: ClientTask) => void;
   onRemoved: (taskId: string) => void;
 }) {
@@ -222,6 +249,16 @@ function Tarea({
       <div className="min-w-0 flex-1 space-y-1">
         <p className={cn("text-sm", hecha && "text-muted-foreground line-through")}>
           {task.title}
+          {/*
+            ⭐ La marca existe para que la ficha y la tabla no se contradigan:
+            ésta es exactamente la que la lista de clientes muestra en «Próxima
+            tarea», y sin decirlo acá uno se pregunta por qué esa y no otra.
+          */}
+          {esProxima ? (
+            <Badge variant="ai" className="ml-2 align-middle text-[10px] font-normal">
+              Próxima
+            </Badge>
+          ) : null}
         </p>
 
         {task.description ? (
@@ -262,8 +299,9 @@ function Tarea({
         {task.owner === "coach" && !task.workboardTaskId && !hecha ? (
           <Button
             type="button"
-            size="sm"
+            size="icon"
             variant="ghost"
+            className={ACCION_DE_FILA}
             disabled={busy}
             onClick={mandarAlTablero}
             title="Mandar al tablero de trabajo"
@@ -274,13 +312,14 @@ function Tarea({
 
         <Button
           type="button"
-          size="sm"
+          size="icon"
           variant="ghost"
+          className={cn(ACCION_DE_FILA, "hover:text-destructive")}
           disabled={busy}
           onClick={borrar}
           title="Borrar la tarea"
         >
-          <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+          <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
     </li>
@@ -290,11 +329,13 @@ function Tarea({
 function Grupo({
   titulo,
   tasks,
+  proximaId,
   onChanged,
   onRemoved,
 }: {
   titulo: string;
   tasks: ClientTask[];
+  proximaId: string | null;
   onChanged: (task: ClientTask) => void;
   onRemoved: (taskId: string) => void;
 }) {
@@ -314,6 +355,7 @@ function Grupo({
             <Tarea
               key={task.id}
               task={task}
+              esProxima={task.id === proximaId}
               onChanged={onChanged}
               onRemoved={onRemoved}
             />
@@ -327,7 +369,6 @@ function Grupo({
 export function ClientTasksSection({ clientId }: { clientId: string }) {
   const [tasks, setTasks] = useState<ClientTask[]>([]);
   const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
 
   const cargar = useCallback(() => {
     let alive = true;
@@ -364,6 +405,7 @@ export function ClientTasksSection({ clientId }: { clientId: string }) {
   const quitar = (taskId: string) =>
     setTasks((prev) => prev.filter((item) => item.id !== taskId));
 
+  const proximaId = pickNextTask(tasks)?.id ?? null;
   const delCliente = tasks.filter((task) => task.owner === "client");
   const delCoach = tasks.filter((task) => task.owner === "coach");
   const pendientes = tasks.filter((task) => task.status === "pending").length;
@@ -375,49 +417,37 @@ export function ClientTasksSection({ clientId }: { clientId: string }) {
       icon={ClipboardList}
       title="Tareas"
       meta={pendientes > 0 ? `${pendientes} pendiente${pendientes === 1 ? "" : "s"}` : undefined}
-      action={
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className="gap-1.5"
-          onClick={() => setAdding((prev) => !prev)}
-        >
-          {adding ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-          {adding ? "Cerrar" : "Agregar"}
-        </Button>
-      }
     >
-
-      {adding ? (
-        <NuevaTarea
+      <div className="space-y-4">
+        <CampoRapido
           clientId={clientId}
-          onCancel={() => setAdding(false)}
           onCreated={(task) => setTasks((prev) => [...prev, task])}
         />
-      ) : null}
 
-      {tasks.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border/60 px-4 py-6 text-center text-xs text-muted-foreground dark:border-white/[0.08]">
-          Sin tareas todavía. Se cargan solas cuando subís una sesión 1-1, o las
-          podés agregar a mano.
-        </p>
-      ) : (
-        <div className="space-y-4">
-          <Grupo
-            titulo={`Le toca al ${CLIENT_TASK_OWNER_LABEL.client.toLowerCase()}`}
-            tasks={delCliente}
-            onChanged={reemplazar}
-            onRemoved={quitar}
-          />
-          <Grupo
-            titulo={`Le toca al ${CLIENT_TASK_OWNER_LABEL.coach.toLowerCase()}`}
-            tasks={delCoach}
-            onChanged={reemplazar}
-            onRemoved={quitar}
-          />
-        </div>
-      )}
+        {tasks.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border/60 px-4 py-6 text-center text-xs text-muted-foreground dark:border-white/[0.08]">
+            Sin tareas todavía. Escribí una arriba, o subí una sesión 1-1 y se
+            cargan solas.
+          </p>
+        ) : (
+          <>
+            <Grupo
+              titulo={`Le toca al ${CLIENT_TASK_OWNER_LABEL.client.toLowerCase()}`}
+              tasks={delCliente}
+              proximaId={proximaId}
+              onChanged={reemplazar}
+              onRemoved={quitar}
+            />
+            <Grupo
+              titulo={`Le toca al ${CLIENT_TASK_OWNER_LABEL.coach.toLowerCase()}`}
+              tasks={delCoach}
+              proximaId={proximaId}
+              onChanged={reemplazar}
+              onRemoved={quitar}
+            />
+          </>
+        )}
+      </div>
     </FichaSection>
   );
 }

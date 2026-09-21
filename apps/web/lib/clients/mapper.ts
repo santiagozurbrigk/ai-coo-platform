@@ -33,6 +33,8 @@ export type ClientRow = {
   satisfaction_author?: { full_name: string | null; email: string | null } | null;
   notes_updated_at?: string | null;
   custom?: CustomFieldValues | null;
+  manual_stage_id?: string | null;
+  manual_stage_set_at?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -71,6 +73,10 @@ export function rowToClient(row: ClientRow): Client {
     // La columna es `not null default '{}'`, pero una fila leída de una base
     // sin la migración aplicada llega sin ella. Se cae al objeto vacío.
     custom: row.custom ?? {},
+    // La fase del recorrido fijada a mano. La ficha la compara con la derivada
+    // de los checkpoints y se queda con la más avanzada: un recorrido no
+    // retrocede.
+    manualStageId: row.manual_stage_id ?? null,
   };
 }
 

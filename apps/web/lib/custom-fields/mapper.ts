@@ -16,6 +16,7 @@ import {
   isFieldEntity,
   isFieldOptionColor,
   isFieldOptionsSource,
+  isFieldSection,
   isFieldType,
 } from "@/lib/custom-fields/field-types";
 
@@ -44,6 +45,10 @@ export function rowToFieldDefinition(row: FieldDefinitionRow): FieldDefinition |
         ? row.alert_days_before
         : null,
     isRequired: row.is_required,
+    section: isFieldSection(row.section) ? row.section : null,
+    // Una fila vieja, de antes de la columna, se lee como visible: era lo que
+    // hacía la pantalla hasta ese momento.
+    showInTable: row.show_in_table ?? true,
     sortOrder: row.sort_order,
     archivedAt: row.archived_at,
     createdAt: row.created_at,

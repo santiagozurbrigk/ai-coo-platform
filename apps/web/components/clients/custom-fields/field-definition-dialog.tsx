@@ -26,10 +26,14 @@ import {
 import { Archive, ArchiveRestore, Plus, Trash2 } from "lucide-react";
 import {
   FIELD_OPTION_COLORS,
+  FIELD_SECTION_LABEL,
+  FIELD_SECTIONS,
   FIELD_TYPES,
   type FieldDefinition,
+  type FieldEntity,
   type FieldOption,
   type FieldOptionColor,
+  type FieldSection,
   type FieldType,
 } from "@/types/custom-fields";
 import {
@@ -53,6 +57,10 @@ export type FieldDefinitionDraft = {
   alertDaysBefore: string;
   currency: "USD" | "ARS";
   isRequired: boolean;
+  /** El apartado de la ficha donde se agrupa. `null` = suelta. */
+  section: FieldSection | null;
+  /** Si se dibuja como columna en la tabla de clientes. */
+  showInTable: boolean;
 };
 
 function draftFrom(field: FieldDefinition | null): FieldDefinitionDraft {
@@ -66,12 +74,17 @@ function draftFrom(field: FieldDefinition | null): FieldDefinitionDraft {
       field?.alertDaysBefore != null ? String(field.alertDaysBefore) : "",
     currency: field?.currency ?? "USD",
     isRequired: field?.isRequired ?? false,
+    section: field?.section ?? null,
+    // Una columna nueva no entra sola a la tabla: se elige. Es lo que evita
+    // que configurar un dato de la ficha ensanche la planilla sin querer.
+    showInTable: field?.showInTable ?? false,
   };
 }
 
 export function FieldDefinitionDialog({
   open,
   field,
+  entity,
   saving,
   error,
   onClose,
@@ -80,6 +93,8 @@ export function FieldDefinitionDialog({
   open: boolean;
   /** `null` = alta. */
   field: FieldDefinition | null;
+  /** La entidad de la columna. Al editar manda la del campo. */
+  entity: FieldEntity;
   saving: boolean;
   error: string | null;
   onClose: () => void;
@@ -92,6 +107,12 @@ export function FieldDefinitionDialog({
   }, [open, field]);
 
   const isEdit = field !== null;
+  /**
+   * Agrupar en apartados y mostrar en la tabla son decisiones de la ficha del
+   * cliente. Un win o un checkpoint no tienen ni apartados ni tabla, así que
+   * ofrecer los controles ahí sería ofrecer algo que no hace nada.
+   */
+  const esCliente = (field?.entity ?? entity) === "client";
   const usesOptions = fieldTypeUsesOptions(draft.fieldType);
   const derivedKey = isEdit ? field.key : deriveFieldKey(draft.label);
   /** Las opciones que ya están guardadas no se pueden sacar, sólo archivar. */
@@ -333,15 +354,58 @@ export function FieldDefinitionDialog({
             </div>
           ) : null}
 
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={draft.isRequired}
-              onChange={(event) => patch({ isRequired: event.target.checked })}
-              className="h-4 w-4 rounded border-border"
-            />
-            Obligatoria
-          </label>
+          {esCliente ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="field-section">Apartado de la ficha</Label>
+              <select
+                id="field-section"
+                className={CONTROL_CLASS}
+                value={draft.section ?? ""}
+                onChange={(event) =>
+                  patch({
+                    section: event.target.value === ""
+                      ? null
+                      : (event.target.value as FieldSection),
+                  })
+                }
+              >
+                <option value="">Sin apartado (suelta)</option>
+                {FIELD_SECTIONS.map((section) => (
+                  <option key={section} value={section}>
+                    {FIELD_SECTION_LABEL[section]}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Las que tienen apartado se agrupan en «Información del cliente».
+                Las sueltas se muestran aparte, como hasta ahora.
+              </p>
+            </div>
+          ) : null}
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={draft.isRequired}
+                onChange={(event) => patch({ isRequired: event.target.checked })}
+                className="h-4 w-4 rounded border-border"
+              />
+              Obligatoria
+            </label>
+
+            {esCliente ? (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={draft.showInTable}
+                  onChange={(event) => patch({ showInTable: event.target.checked })}
+                  className="h-4 w-4 rounded border-border"
+                />
+                Mostrarla como columna en la tabla de clientes
+              </label>
+            ) : null}
+          </div>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </div>

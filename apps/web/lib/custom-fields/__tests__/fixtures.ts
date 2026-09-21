@@ -31,6 +31,8 @@ export function field(
     fieldType: "select",
     options: [],
     optionsSource: "inline",
+    section: null,
+    showInTable: true,
     unit: null,
     currency: null,
     isRequired: false,

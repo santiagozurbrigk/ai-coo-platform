@@ -57,6 +57,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { deleteClientAction } from "@/app/clients/actions";
+import { toggleClientTaskAction } from "@/app/clients/task-actions";
 import { getClientsDiscordActivityAction } from "@/app/discord/actions";
 import type { ClientActivity } from "@/lib/discord/activity";
 import {
@@ -67,17 +68,26 @@ import {
   isConfirmedResolution,
   type LastOneOnOne,
 } from "@/lib/fathom/one-on-one-types";
-import { recordCheckpointAction } from "@/app/clients/checkpoint-event-actions";
+import { ACCION_DE_FILA } from "@/components/clients/ficha-section";
 import { FilterPills } from "@/components/marketing/filter-pills";
+import { isOverdue } from "@/lib/clients/next-task";
+import {
+  formatPeriodShort,
+  formatRevenue,
+  type RevenueSummary,
+} from "@/lib/clients/revenue";
+import {
+  ETIQUETAS_DE_SATISFACCION,
+  type NivelDeSatisfaccion,
+} from "@/lib/clients/satisfaction";
+import type { ClientTask } from "@/types/client-tasks";
 import { FieldValueCell } from "@/components/clients/custom-fields/field-value-cell";
-import { RecordCheckpointDialog } from "@/components/clients/checkpoints/record-checkpoint-dialog";
 import { paths } from "@/routes";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import type { Client, ClientStatus } from "@/types/clients";
-import type { Checkpoint, ClientJourneyStatus } from "@/types/checkpoints";
+import type { ClientJourneyStatus } from "@/types/checkpoints";
 import { activeFields, fieldOptionColorVar } from "@/lib/custom-fields";
-import { formatDueDate, formatOverdue, resolveMetricSchema } from "@/lib/checkpoints";
 import { useModuleAccess } from "@/providers/permissions-provider";
 import { NewClientDialog } from "@/components/clients/new-client-dialog";
 import { ImportClientsDialog } from "@/components/clients/import-clients-dialog";
@@ -96,7 +106,16 @@ const STATUS_DESTACADO: Partial<Record<ClientStatus, { label: string; filtro: st
   success_case: { label: "Caso de éxito", filtro: "Casos de éxito" },
 };
 
-type ClientListFilter = ClientStatus | "all" | "stalled" | "silent";
+type ClientListFilter =
+  | ClientStatus
+  | "all"
+  | "stalled"
+  | "silent"
+  /** En riesgo o disconforme: los que hay que mirar esta semana. */
+  | "attention";
+
+/** Los niveles que piden atención. El resto no necesita que nadie haga nada hoy. */
+const SATISFACCION_EN_ALERTA: readonly string[] = ["en_riesgo", "disconforme"];
 
 type ClientListSort = "recent" | "name" | "last_one_on_one";
 
@@ -112,6 +131,9 @@ const EMPTY_BOARD: ClientsBoardData = {
   checkpointFields: [],
   clientFields: [],
   lastOneOnOne: {},
+  nextTask: {},
+  revenue: {},
+  manualStages: {},
 };
 
 /** Normaliza para buscar: sin tildes, sin mayúsculas. «Gómez» encuentra «gomez». */
@@ -192,13 +214,6 @@ export function ClientsList({ clients }: { clients: Client[] }) {
   const [pending, startTransition] = useTransition();
 
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
-  /** El hito que se está registrando desde la tabla, cuando pide métricas. */
-  const [recording, setRecording] = useState<{
-    client: Client;
-    checkpoint: Checkpoint;
-  } | null>(null);
-  const [recordError, setRecordError] = useState<string | null>(null);
-
   /**
    * El tablero se vuelve a pedir cada vez que cambia la lista de clientes.
    *
@@ -218,12 +233,14 @@ export function ClientsList({ clients }: { clients: Client[] }) {
     });
   }, [clients]);
 
-  const { journey, checkpoints, checkpointFields, clientFields, lastOneOnOne } = board;
-
-  const checkpointById = useMemo(
-    () => new Map(checkpoints.map((checkpoint) => [checkpoint.id, checkpoint])),
-    [checkpoints]
-  );
+  const {
+    journey,
+    clientFields,
+    lastOneOnOne,
+    nextTask,
+    revenue,
+    manualStages,
+  } = board;
 
   /**
    * Las columnas configurables que se muestran en la tabla.
@@ -232,9 +249,29 @@ export function ClientsList({ clients }: { clients: Client[] }) {
    * sólo "Objetivo general", se ve una columna; si configuró tres, tres. La
    * tabla la decide la configuración, igual que en el tracker de wins.
    */
-  const customColumns = useMemo(() => activeFields(clientFields), [clientFields]);
+  /**
+   * ⭐ Sólo las columnas marcadas para la tabla. Con la plantilla de Marketing,
+   * Ventas y Sistemas cargada son 22 campos: dibujarlos todos convertiría la
+   * lista en una planilla de 25 columnas. Se prenden de a una desde Campos
+   * personalizados.
+   */
+  const customColumns = useMemo(
+    () => activeFields(clientFields).filter((field) => field.showInTable),
+    [clientFields]
+  );
 
-  /** ¿Hay recorrido configurado? Sin él, sus tres columnas no se muestran. */
+  /** Nombre de cada fase, para la etiqueta de la fase fijada a mano. */
+  const stageNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const entry of Object.values(journey)) {
+      if (entry.currentStageId && entry.currentStageName) {
+        map.set(entry.currentStageId, entry.currentStageName);
+      }
+    }
+    return map;
+  }, [journey]);
+
+  /** ¿Hay recorrido configurado? Sin él, sus columnas no se muestran. */
   const hasJourney = Object.keys(journey).length > 0;
 
   /**
@@ -248,18 +285,27 @@ export function ClientsList({ clients }: { clients: Client[] }) {
     const porEstado: Partial<Record<ClientStatus, number>> = {};
     let stalled = 0;
     let silent = 0;
+    let attention = 0;
     for (const client of clients) {
       porEstado[client.status] = (porEstado[client.status] ?? 0) + 1;
       if (journey[client.id]?.stalled) stalled += 1;
       if (discordActivity[client.id]?.isSilent) silent += 1;
+      if (client.satisfaction && SATISFACCION_EN_ALERTA.includes(client.satisfaction)) {
+        attention += 1;
+      }
     }
-    return { porEstado, stalled, silent };
+    return { porEstado, stalled, silent, attention };
   }, [clients, journey, discordActivity]);
 
   const filtros = useMemo(() => {
     const lista: { value: ClientListFilter; label: string }[] = [
       { value: "all", label: `Todos (${clients.length})` },
     ];
+    // Primero lo que pide acción: un cliente en riesgo es más urgente que
+    // cualquier corte por estado.
+    if (conteos.attention > 0) {
+      lista.push({ value: "attention", label: `Atención (${conteos.attention})` });
+    }
     if (conteos.stalled > 0) {
       lista.push({ value: "stalled", label: `Trabados (${conteos.stalled})` });
     }
@@ -283,7 +329,13 @@ export function ClientsList({ clients }: { clients: Client[] }) {
     const lista = clients.filter((client) => {
       if (filter === "stalled" && !journey[client.id]?.stalled) return false;
       if (filter === "silent" && !discordActivity[client.id]?.isSilent) return false;
-      if (filter !== "all" && filter !== "stalled" && filter !== "silent") {
+      if (
+        filter === "attention" &&
+        !(client.satisfaction && SATISFACCION_EN_ALERTA.includes(client.satisfaction))
+      ) {
+        return false;
+      }
+      if (!["all", "stalled", "silent", "attention"].includes(filter)) {
         if (client.status !== filter) return false;
       }
       if (q) {
@@ -336,64 +388,23 @@ export function ClientsList({ clients }: { clients: Client[] }) {
   };
 
   /**
-   * ⭐ Marcar la próxima tarea desde la tabla.
+   * Dar por hecha la próxima tarea desde la tabla.
    *
-   * Si el hito **no pide métricas**, se registra de una: ese es el caso que
-   * hace útil el check en la fila. Si pide, abre el mismo diálogo que la ficha
-   * del cliente — no se saltean las validaciones de C0 para que algo entre en
-   * una celda. Un hito registrado sin las métricas que pedía es un hito a medias
-   * que después nadie completa.
+   * ⭐ Es el reemplazo del check que antes marcaba un hito del recorrido. La
+   * diferencia importa: un hito es del catálogo y vale para todos; esto es lo
+   * que vos decidiste para este cliente, y es lo único que tiene sentido tildar
+   * sin abrir la ficha.
    */
-  function toggleNextCheckpoint(client: Client, status: ClientJourneyStatus) {
-    if (!status.nextCheckpointId) return;
-    const checkpoint = checkpointById.get(status.nextCheckpointId);
-    if (!checkpoint) return;
-
-    const asksMetrics = resolveMetricSchema(
-      checkpoint.metricSchema,
-      checkpointFields
-    ).some((entry) => entry.field !== null);
-
-    if (asksMetrics) {
-      setRecordError(null);
-      setRecording({ client, checkpoint });
-      return;
-    }
-
+  function marcarTareaHecha(task: ClientTask | undefined) {
+    if (!task) return;
     startTransition(async () => {
-      const result = await recordCheckpointAction({
-        clientId: client.id,
-        checkpointId: checkpoint.id,
-      });
+      const result = await toggleClientTaskAction({ taskId: task.id, done: true });
       if (!result.success) {
-        push({ title: "No se pudo registrar", description: result.error });
+        push({ title: "No se pudo marcar", description: result.error });
         return;
       }
       await refreshClients();
-      push({ title: `"${checkpoint.name}" registrado`, variant: "success" });
-    });
-  }
-
-  function submitRecording(input: {
-    reachedAt: string;
-    metrics: Record<string, unknown>;
-    note: string | null;
-  }) {
-    if (!recording) return;
-    setRecordError(null);
-    startTransition(async () => {
-      const result = await recordCheckpointAction({
-        clientId: recording.client.id,
-        checkpointId: recording.checkpoint.id,
-        ...input,
-      });
-      if (!result.success) {
-        setRecordError(result.error);
-        return;
-      }
-      setRecording(null);
-      await refreshClients();
-      push({ title: "Checkpoint registrado", variant: "success" });
+      push({ title: "Tarea completada", variant: "success" });
     });
   }
 
@@ -518,21 +529,18 @@ export function ClientsList({ clients }: { clients: Client[] }) {
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th className="whitespace-nowrap px-4 py-3 font-medium">Cliente</th>
+              <th className="whitespace-nowrap px-4 py-3 font-medium">Próxima tarea</th>
               {hasJourney ? (
-                <>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium">Etapa</th>
-                  <th className="whitespace-nowrap px-4 py-3 font-medium">Próxima tarea</th>
-                </>
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Etapa</th>
               ) : null}
+              <th className="whitespace-nowrap px-4 py-3 font-medium">Satisfacción</th>
+              <th className="whitespace-nowrap px-4 py-3 font-medium">Facturación</th>
               <th className="whitespace-nowrap px-4 py-3 font-medium">Última 1-1</th>
               {customColumns.map((field) => (
                 <th key={field.id} className="whitespace-nowrap px-4 py-3 font-medium">
                   {field.label}
                 </th>
               ))}
-              {hasJourney ? (
-                <th className="whitespace-nowrap px-4 py-3 font-medium">Progreso de etapa</th>
-              ) : null}
               <th className="px-4 py-3 font-medium" />
             </tr>
           </thead>
@@ -590,21 +598,35 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                     </div>
                   </td>
 
+                  <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
+                    <NextTaskCell
+                      task={nextTask[client.id]}
+                      disabled={pending}
+                      canCheck={puedeGestionar}
+                      onCheck={() => marcarTareaHecha(nextTask[client.id])}
+                    />
+                  </td>
+
                   {hasJourney ? (
-                    <>
-                      <td className="px-4 py-3">
-                        <StageCell status={status} />
-                      </td>
-                      <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
-                        <NextTaskCell
-                          status={status}
-                          disabled={pending}
-                          canCheck={puedeGestionar}
-                          onCheck={() => status && toggleNextCheckpoint(client, status)}
-                        />
-                      </td>
-                    </>
+                    <td className="px-4 py-3">
+                      <StageCell
+                        status={status}
+                        manualStageName={
+                          manualStages[client.id]
+                            ? stageNameById.get(manualStages[client.id]!) ?? null
+                            : null
+                        }
+                      />
+                    </td>
                   ) : null}
+
+                  <td className="px-4 py-3">
+                    <SatisfaccionCell level={client.satisfaction} />
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <FacturacionCell summary={revenue[client.id]} />
+                  </td>
 
                   <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                     <LastOneOnOneCell entry={lastOneOnOne[client.id]} />
@@ -616,12 +638,6 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                     </td>
                   ))}
 
-                  {hasJourney ? (
-                    <td className="px-4 py-3">
-                      <StageProgressCell status={status} />
-                    </td>
-                  ) : null}
-
                   <td className="px-4 py-3 text-right" onClick={(event) => event.stopPropagation()}>
                     {puedeGestionar ? (
                       <Button
@@ -629,7 +645,8 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                         variant="ghost"
                         size="sm"
                         className={cn(
-                          "h-7 w-7 p-0 text-muted-foreground/60 hover:text-destructive",
+                          ACCION_DE_FILA,
+                          "h-7 w-7 p-0 hover:text-destructive",
                           // Se ve al pasar por la fila o al llegar con el teclado;
                           // 264 papeleras siempre visibles pesan más que la tabla.
                           "opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
@@ -667,154 +684,215 @@ export function ClientsList({ clients }: { clients: Client[] }) {
         />
       ) : null}
 
-      {/* El mismo diálogo de la ficha, cuando el hito pide métricas. */}
-      <RecordCheckpointDialog
-        open={recording !== null}
-        checkpoint={recording?.checkpoint ?? null}
-        checkpointFields={checkpointFields}
-        existingEvent={null}
-        saving={pending}
-        error={recordError}
-        onClose={() => setRecording(null)}
-        onSubmit={submitRecording}
-      />
     </div>
   );
 }
 
 /**
- * La etapa en la que está el cliente.
+ * La etapa en la que está el cliente, con cuánto le falta para cerrarla.
+ *
+ * ⭐ Absorbió la columna «Progreso de etapa», que era una barra en una columna
+ * aparte diciendo de la misma fase que esta celda nombraba. Dos columnas para un
+ * dato obligan a leer de izquierda a derecha para entender una sola cosa.
  *
  * Un cliente sin ningún hito registrado muestra "Sin empezar", no "Fase 1": no
- * arrancó el recorrido, y decir lo contrario sería inventar.
+ * arrancó el recorrido, y decir lo contrario sería inventar. Salvo que alguien
+ * haya fijado la fase a mano, que es exactamente el caso que esto resuelve.
  */
-function StageCell({ status }: { status: ClientJourneyStatus | undefined }) {
-  if (!status?.currentStageName) {
+function StageCell({
+  status,
+  manualStageName,
+}: {
+  status: ClientJourneyStatus | undefined;
+  manualStageName: string | null;
+}) {
+  const nombre = status?.currentStageName ?? manualStageName;
+
+  if (!nombre) {
     return <span className="text-xs text-muted-foreground">Sin empezar</span>;
   }
 
+  const hayProgreso = status && status.stageTotal > 0;
+  const completa = hayProgreso && status.stageReached >= status.stageTotal;
+
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs">
-      <span
-        className="h-2 w-2 shrink-0 rounded-full"
-        style={{
-          backgroundColor: status.currentStageColor
-            ? fieldOptionColorVar(status.currentStageColor)
-            : undefined,
-        }}
-      />
-      {status.currentStageName}
-    </span>
+    <div className="min-w-[110px] space-y-1">
+      <span className="flex items-center gap-1.5 text-xs">
+        <span
+          className="h-2 w-2 shrink-0 rounded-full"
+          style={{
+            backgroundColor: status?.currentStageColor
+              ? fieldOptionColorVar(status.currentStageColor)
+              : undefined,
+          }}
+        />
+        <span className="truncate">{nombre}</span>
+      </span>
+
+      {hayProgreso ? (
+        <div className="flex items-center gap-1.5">
+          <div
+            className="h-1 w-full overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-valuenow={status.stageReached}
+            aria-valuemin={0}
+            aria-valuemax={status.stageTotal}
+            aria-label="Progreso de la etapa"
+          >
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                completa ? "bg-emerald-500" : "bg-primary"
+              )}
+              style={{
+                width: `${Math.round((status.stageReached / status.stageTotal) * 100)}%`,
+              }}
+            />
+          </div>
+          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+            {status.stageReached}/{status.stageTotal}
+          </span>
+        </div>
+      ) : !status?.currentStageName && manualStageName ? (
+        <span className="text-[11px] text-muted-foreground">fijada a mano</span>
+      ) : null}
+    </div>
   );
 }
 
 /**
- * La próxima tarea, con su check y su fecha límite.
+ * La próxima tarea del cliente: la que alguien escribió o la que salió de una
+ * llamada 1-1.
  *
- * ⭐ La fecha sólo aparece cuando **se puede saber**: hace falta que el hito
- * tenga plazo configurado y que el anterior esté registrado. Cuando no, no se
- * pone nada en vez de una fecha inventada — y el recorrido completo dice que
- * terminó, que es una respuesta y no un vacío.
+ * ⭐ Antes acá iba el próximo **hito del recorrido**. Son dos cosas distintas y
+ * el pedido fue explícito: el recorrido es un catálogo que se define una vez y
+ * vale para todos; esto es lo que decidiste para este cliente. Lo que dice qué
+ * hacer mañana es lo segundo.
  */
 function NextTaskCell({
-  status,
+  task,
   disabled,
   canCheck,
   onCheck,
 }: {
-  status: ClientJourneyStatus | undefined;
+  task: ClientTask | undefined;
   disabled: boolean;
   /** Con solo lectura se ve la tarea y su fecha, pero no el check. */
   canCheck: boolean;
   onCheck: () => void;
 }) {
-  if (!status) return <span className="text-muted-foreground">—</span>;
-
-  if (!status.nextCheckpointName) {
-    return (
-      <span className="text-xs text-muted-foreground">
-        {status.total > 0 && status.reached === status.total
-          ? "Recorrido completo"
-          : "—"}
-      </span>
-    );
+  if (!task) {
+    return <span className="text-xs text-muted-foreground">Sin tareas</span>;
   }
 
-  const overdue = formatOverdue(status);
-  const dueAt = formatDueDate(status);
+  const vencida = isOverdue(task);
 
   return (
-    <div className="flex items-start gap-2">
+    <div className="flex min-w-[170px] items-start gap-2">
       {canCheck ? (
         <button
           type="button"
           onClick={onCheck}
           disabled={disabled}
-          title={`Marcar "${status.nextCheckpointName}" como hecho`}
-          aria-label={`Marcar "${status.nextCheckpointName}" como hecho`}
+          title={`Marcar "${task.title}" como hecha`}
+          aria-label={`Marcar "${task.title}" como hecha`}
           className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border text-transparent transition-colors hover:border-primary hover:text-primary disabled:opacity-40"
         >
           <Check className="h-3 w-3" />
         </button>
       ) : null}
       <div className="min-w-0 space-y-0.5">
-        <span className="block text-xs">{status.nextCheckpointName}</span>
-        {overdue ? (
-          <span className="flex items-center gap-1 text-[11px] text-destructive">
-            <AlertTriangle className="h-3 w-3" />
-            {overdue}
-          </span>
-        ) : dueAt ? (
-          <span className="block text-[11px] text-muted-foreground">
-            vence el {dueAt}
-          </span>
-        ) : null}
+        <span className="block text-xs">{task.title}</span>
+        <span className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+          <span>{task.owner === "coach" ? "coach" : "cliente"}</span>
+          {task.dueDate ? (
+            <span className={cn(vencida && "font-medium text-destructive")}>
+              {vencida ? (
+                <>
+                  <AlertTriangle className="mr-0.5 inline h-3 w-3" />
+                  venció el {formatearDia(task.dueDate)}
+                </>
+              ) : (
+                `para el ${formatearDia(task.dueDate)}`
+              )}
+            </span>
+          ) : null}
+        </span>
       </div>
     </div>
   );
 }
 
+/** `2026-09-21` → `21/09`. Se parte a mano para no correr el día por zona horaria. */
+function formatearDia(iso: string): string {
+  const [, month, day] = iso.split("-");
+  return month && day ? `${day}/${month}` : iso;
+}
+
 /**
- * Cuánto le falta para cerrar la etapa en la que está: el "3 de 4".
+ * Qué tan conforme está el cliente.
  *
- * ⭐ Es de la **etapa**, no del recorrido entero. Sirve para ver de un vistazo
- * quién está por lograr el próximo hito, que es otra pregunta que "cuánto le
- * falta para terminar el programa".
- *
- * Sin hitos alcanzados no hay barra: el denominador de la primera etapa haría
- * parecer que el cliente arrancó.
+ * ⭐ Reemplaza a la columna «Estado», que decía «Activo» en 306 de 307 filas.
+ * Esto es lo que cambia entre un cliente y otro, y lo que hace falta ver de un
+ * vistazo para saber a quién llamar.
  */
-function StageProgressCell({ status }: { status: ClientJourneyStatus | undefined }) {
-  if (!status || status.stageTotal === 0) {
+function SatisfaccionCell({ level }: { level: string | null | undefined }) {
+  if (!level || !(level in ETIQUETAS_DE_SATISFACCION)) {
     return <span className="text-xs text-muted-foreground">—</span>;
   }
 
-  const pct = Math.round((status.stageReached / status.stageTotal) * 100);
-  const complete = status.stageReached >= status.stageTotal;
+  const nivel = ETIQUETAS_DE_SATISFACCION[level as NivelDeSatisfaccion];
+  return (
+    <span
+      className={cn("whitespace-nowrap text-xs font-medium", nivel.color)}
+      title={nivel.descripcion}
+    >
+      {nivel.label}
+    </span>
+  );
+}
+
+/**
+ * La facturación del **negocio del cliente**.
+ *
+ * ⚠️ No es lo que el cliente nos paga a nosotros: eso vive en Cobros. Esto es
+ * lo que el cliente gana, o sea la medida de si el acompañamiento funciona.
+ *
+ * ⭐ Va con el mes al lado, siempre. Un número de facturación sin fecha se lee
+ * como actual, y «12.400» de hace seis meses no dice nada sobre hoy.
+ */
+function FacturacionCell({ summary }: { summary: RevenueSummary | undefined }) {
+  if (!summary?.latest) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+
+  const { latest, changePct } = summary;
+  const subio = changePct != null && changePct > 0;
+  const bajo = changePct != null && changePct < 0;
 
   return (
-    <div className="min-w-[88px] space-y-1">
-      <div className="flex items-center justify-between gap-2 text-[11px]">
-        <span className="text-muted-foreground">
-          {status.stageReached} de {status.stageTotal}
+    <div className="min-w-[110px] space-y-0.5">
+      <span className="flex items-center gap-1.5">
+        <span className="text-sm font-medium tabular-nums">
+          {formatRevenue(latest.amount, latest.currency)}
         </span>
-        {complete ? <span className="text-emerald-500">✓</span> : null}
-      </div>
-      <div
-        className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
-        role="progressbar"
-        aria-valuenow={status.stageReached}
-        aria-valuemin={0}
-        aria-valuemax={status.stageTotal}
-        aria-label="Progreso de la etapa"
-      >
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${
-            complete ? "bg-emerald-500" : "bg-primary"
-          }`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+        {changePct != null ? (
+          <span
+            className={cn(
+              "text-[11px] font-medium tabular-nums",
+              subio && "text-success",
+              bajo && "text-destructive",
+              !subio && !bajo && "text-muted-foreground"
+            )}
+          >
+            {subio ? "+" : ""}
+            {changePct}%
+          </span>
+        ) : null}
+      </span>
+      <span className="block whitespace-nowrap text-[11px] text-muted-foreground">
+        {formatPeriodShort(latest.period)}
+      </span>
     </div>
   );
 }

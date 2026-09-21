@@ -73,6 +73,8 @@ describe("leer una fila de la base", () => {
     field_type: "select",
     options: [{ value: "hito", label: "Hito", color: "cat-2" }],
     options_source: "inline",
+    section: null,
+    show_in_table: true,
     unit: null,
     currency: null,
     is_required: false,

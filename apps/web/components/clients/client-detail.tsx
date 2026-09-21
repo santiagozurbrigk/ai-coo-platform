@@ -22,6 +22,7 @@
  * En pantallas angostas las columnas se apilan, trabajo primero.
  */
 
+import { useEffect, useState } from "react";
 import { Button } from "@ai-coo/ui";
 import { ExternalLink, History, PhoneCall, Sparkles } from "lucide-react";
 import { usePlatformData } from "@/providers";
@@ -34,12 +35,17 @@ import { ClientLinkedCallsSection } from "@/components/clients/client-linked-cal
 import { ClientOneOnOnesSection } from "@/components/clients/client-one-on-ones";
 import { ClientTasksSection } from "@/components/clients/client-tasks-section";
 import { ClientCustomFieldsSection } from "@/components/clients/client-custom-fields-section";
+import { ClientSectionsCard } from "@/components/clients/client-sections-card";
+import { ClientRevenueCard } from "@/components/clients/client-revenue-card";
 import { ClientNotesSection } from "@/components/clients/client-notes-section";
 import { ClientSatisfactionSection } from "@/components/clients/client-satisfaction-section";
 import { ClientDiscordActivity } from "@/components/clients/client-discord-activity";
 import { ClientTimeline } from "@/components/clients/client-timeline";
 import { ClientJourneySection } from "@/components/clients/checkpoints";
 import { ClientWinsSection } from "@/components/clients/wins";
+import { listClientFieldDefinitionsAction } from "@/app/clients/client-custom-fields-actions";
+import { activeFields } from "@/lib/custom-fields";
+import type { FieldDefinition } from "@/types/custom-fields";
 import type { Client, ClientStatus } from "@/types/clients";
 
 export function ClientDetail({ client: initial }: { client: Client }) {
@@ -48,6 +54,28 @@ export function ClientDetail({ client: initial }: { client: Client }) {
   const client = clients.find((c) => c.id === initial.id) ?? initial;
   /** El atajo a Cobros no se ofrece a quien no puede entrar a Ventas. */
   const puedeVerCobros = useModuleAccess("sales") !== "none";
+
+  /**
+   * Las columnas configurables del cliente, pedidas una vez.
+   *
+   * Las usan dos tarjetas —la de secciones y la de campos sueltos—, y pedirlas
+   * por separado sería el mismo fetch dos veces por ficha abierta.
+   */
+  const [clientFields, setClientFields] = useState<FieldDefinition[]>([]);
+  useEffect(() => {
+    let alive = true;
+    listClientFieldDefinitionsAction()
+      .then((next) => {
+        if (alive) setClientFields(activeFields(next));
+      })
+      .catch(() => {
+        // Sin campos configurados la ficha funciona igual: las tarjetas que
+        // dependen de ellos no se dibujan.
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const advanceStatus = async (status: ClientStatus) => {
     try {
@@ -65,24 +93,12 @@ export function ClientDetail({ client: initial }: { client: Client }) {
     }
   };
 
-  const saveNickname = async (nickname: string) => {
-    try {
-      await updateClient(client.id, { nickname: nickname || undefined });
-    } catch (err) {
-      push({
-        title: "No se pudo guardar el apodo",
-        description: err instanceof Error ? err.message : undefined,
-      });
-    }
-  };
-
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <ClientHeader
         client={client}
         puedeVerCobros={puedeVerCobros}
         onStatusChange={advanceStatus}
-        onNicknameSave={saveNickname}
       />
 
       <ClientOverviewStrip clientId={client.id} satisfaction={client.satisfaction} />
@@ -90,7 +106,10 @@ export function ClientDetail({ client: initial }: { client: Client }) {
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] lg:items-start">
         {/* ── El trabajo ─────────────────────────────────────────────── */}
         <div className="min-w-0 space-y-8">
-          <ClientJourneySection clientId={client.id} />
+          <ClientJourneySection
+            clientId={client.id}
+            manualStageId={client.manualStageId ?? null}
+          />
 
           <ClientOneOnOnesSection clientId={client.id} />
 
@@ -105,7 +124,16 @@ export function ClientDetail({ client: initial }: { client: Client }) {
 
         {/* ── El contexto ────────────────────────────────────────────── */}
         <aside className="min-w-0 space-y-4">
-          {/* Primero lo estructurado, después lo que no entra en ningún campo. */}
+          {/*
+            Marketing, Ventas y Sistemas: lo que define el negocio del cliente.
+            Va primero porque es el contexto con el que se lee todo lo demás.
+          */}
+          <ClientSectionsCard client={client} fields={clientFields} />
+
+          {/* Cuánto factura su negocio: la medida de si esto está funcionando. */}
+          <ClientRevenueCard clientId={client.id} />
+
+          {/* Las columnas sueltas, las que no están en ninguna sección. */}
           <ClientCustomFieldsSection client={client} />
 
           <ClientSatisfactionSection
