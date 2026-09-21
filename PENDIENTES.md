@@ -17,8 +17,15 @@ que las tareas salgan solas, y el contador de cuántas lleva cada cliente— y
 real es el camino de red: del link salen el ID, la fecha, la duración y el
 transcript completo en castellano, sin clave de API ni sesión iniciada.
 
-**Antes de nada:** aplicar la migración
-`20260920100000_calls_1a1_manuales_y_tareas_del_cliente.sql`.
+**La migración ya está aplicada en producción** (2026-09-21): la tabla
+`client_tasks` y las columnas nuevas de `fathom_calls` están creadas y con RLS.
+Lo que falta es probar la feature con una llamada de verdad.
+
+⚠️ **Ojo con esto al probar:** el contador va a decir **0 en todos los
+clientes**, porque el clasificador no reconoció ninguna de las 424 grabaciones
+como llamada de entrega. No es un bug de lo nuevo — es el estado de los datos, y
+está medido en `[1-1-SEMBRAR-Y-MEDIR]`. Las sesiones que subas por link sí van a
+contar desde el primer minuto.
 
 **Qué hacer, en este orden** (el detalle completo está en
 `docs/PLAN_VERIFICACION.md`):
@@ -118,14 +125,23 @@ probaron a mano**.
 
 **Qué es:** la Fase 5 dejó el clasificador de llamadas enchufado, pero **el
 estado de los datos hace que arranque casi apagado**. Medido contra producción el
-2026-09-11:
+2026-09-11 y **vuelto a medir el 2026-09-21 — no cambió nada**:
 
-| Dato | Valor |
-|---|---|
-| Identidades sembradas | **0** |
-| Clientes con mail cargado | **1 de 335** |
-| Grabaciones clasificadas | 20 de 350 |
-| Clientes con llamadas vinculadas | **0** |
+| Dato | 2026-09-11 | 2026-09-21 |
+|---|---|---|
+| Identidades sembradas | **0** | **0** |
+| Clientes con mail cargado | 1 de 335 | — |
+| Grabaciones clasificadas | 20 de 350 | 99 de 424 (18 venta, 81 equipo) |
+| ⭐ Grabaciones clasificadas como **entrega (1-1)** | — | **0 de 424** |
+| Clientes con llamadas vinculadas | **0** | **0** (421 de 424 sin cliente) |
+| Grabaciones **con transcripción** | — | **424 de 424** |
+
+⭐ **Las dos filas del medio son la noticia.** El clasificador lleva 424
+grabaciones y **no reconoció ni una sola llamada de entrega**, así que el
+contador de 1-1 arranca en cero para todos los clientes aunque las sesiones
+hayan existido. Y las 424 **sí tienen transcripción**: el material está, lo que
+falta es saber de quién es cada llamada. El paso 1 de acá abajo es lo que
+destraba eso.
 
 **Qué hacer, en este orden:**
 

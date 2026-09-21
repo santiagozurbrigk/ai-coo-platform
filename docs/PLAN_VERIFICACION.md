@@ -1446,8 +1446,13 @@ completo en castellano, sin clave de API ni sesión; que un link inexistente dé
 `404` y uno vencido `401`. Lo que sigue es lo que **no se pudo probar** sin base
 de datos ni clave de Anthropic.
 
-**Antes de empezar:** aplicar la migración
-`20260920100000_calls_1a1_manuales_y_tareas_del_cliente.sql`.
+**La migración ya está aplicada en producción** (2026-09-21), verificada columna
+por columna, con RLS y sus 4 políticas.
+
+⚠️ **Estado de partida, medido el mismo día:** de las 424 grabaciones, **0**
+están clasificadas como llamada de entrega y 421 no tienen cliente. El contador
+va a decir **0 en todas las fichas** hasta que subas la primera por link. Eso no
+es una falla de esta feature: es el pendiente `[1-1-SEMBRAR-Y-MEDIR]`.
 
 | Qué hacer | Qué tendría que pasar |
 |---|---|

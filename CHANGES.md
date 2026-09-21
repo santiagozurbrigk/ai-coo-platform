@@ -17,8 +17,22 @@
 ### 2026-09-20 — 📞 Subir una 1-1 con un link, y que salgan solas las tareas
 
 **Rama/branch:** `claude/nice-thompson-s9zids`
-**Commits:** pendiente push
+**Commits:** `bcc24f4`
 **Módulo(s) afectado(s):** Fathom, Clientes (ficha y tabla), Tablero de trabajo
+
+**Migración aplicada en producción el 2026-09-21** (proyecto `OTC`,
+`nrzlylzbmsuowzhpdnjl`). Verificado: las 5 columnas nuevas de `fathom_calls`,
+`client_tasks` con sus 17 columnas, RLS activa con 4 políticas, 4 índices, y las
+424 llamadas existentes quedaron marcadas como `ingest_source = 'sync'`. El
+linter de seguridad de Supabase no reporta nada sobre la tabla nueva.
+
+⭐ **Lo que mostró la base al aplicarla:** de las 424 grabaciones, el
+clasificador reconoció **0 como llamada de entrega** (18 de venta, 81 de equipo,
+325 sin clasificar), y 421 no tienen cliente. Las 424 **sí tienen
+transcripción**. O sea: el contador de 1-1 arranca en cero para todos los
+clientes, y las sesiones viejas no se van a poblar solas — hay que subirlas por
+link, o sembrar las identidades primero (ver `[1-1-SEMBRAR-Y-MEDIR]` en
+`PENDIENTES.md`).
 
 **Qué se hizo:**
 
