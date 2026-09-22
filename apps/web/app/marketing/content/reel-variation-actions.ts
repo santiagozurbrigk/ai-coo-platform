@@ -647,7 +647,7 @@ export async function regenerateCaptionAction(
 
     const { data: job, error: jobErr } = await admin
       .from("reel_variation_jobs")
-      .select("variations, content_piece_id")
+      .select("variations, content_piece_id:source_piece_id")
       .eq("id", jobId)
       .eq("organization_id", organizationId)
       .maybeSingle();
