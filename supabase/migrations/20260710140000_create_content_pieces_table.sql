@@ -42,6 +42,14 @@ CREATE INDEX content_pieces_status_idx ON public.content_pieces(organization_id,
 CREATE INDEX content_pieces_variants_idx ON public.content_pieces(variants_of) WHERE variants_of IS NOT NULL;
 CREATE UNIQUE INDEX content_pieces_platform_post_unique ON public.content_pieces(organization_id, platform_post_id) WHERE platform_post_id IS NOT NULL;
 
+-- Corregida 2026-09-22: el trigger usaba `set_updated_at()` antes de que
+-- existiera (se crea en 20260806120000) y rompía el armado desde cero. Misma
+-- definición que la de lead_magnets; `create or replace` la deja idéntica.
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN NEW.updated_at = now(); RETURN NEW; END;
+$$;
+
 CREATE TRIGGER set_content_pieces_updated_at
   BEFORE UPDATE ON public.content_pieces
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();

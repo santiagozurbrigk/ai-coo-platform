@@ -4,19 +4,28 @@ ALTER TABLE public.clients
   ADD COLUMN IF NOT EXISTS offered_product text;
 
 -- Backfill desde ai_insights ("Producto ofrecido: …")
-UPDATE public.clients
+-- Corregida 2026-09-22: `UPDATE … FROM LATERAL` referenciando la tabla que se
+-- actualiza es inválido en Postgres y rompía el armado desde cero. Mismo
+-- resultado con una subconsulta correlacionada.
+UPDATE public.clients c
 SET offered_product = trim(
-  regexp_replace(insight, '^Producto ofrecido:\s*', '', 'i')
+  regexp_replace(
+    (
+      SELECT elem::text
+      FROM jsonb_array_elements_text(c.ai_insights) AS elem
+      WHERE elem::text ~* '^Producto ofrecido:'
+      LIMIT 1
+    ),
+    '^Producto ofrecido:\s*', '', 'i'
+  )
 )
-FROM LATERAL (
-  SELECT elem::text AS insight
-  FROM jsonb_array_elements_text(ai_insights) AS elem
-  WHERE elem::text ~* '^Producto ofrecido:'
-  LIMIT 1
-) AS parsed
-WHERE offered_product IS NULL
-  AND ai_insights IS NOT NULL
-  AND jsonb_array_length(ai_insights) > 0;
+WHERE c.offered_product IS NULL
+  AND c.ai_insights IS NOT NULL
+  AND jsonb_array_length(c.ai_insights) > 0
+  AND EXISTS (
+    SELECT 1 FROM jsonb_array_elements_text(c.ai_insights) AS elem
+    WHERE elem::text ~* '^Producto ofrecido:'
+  );
 
 CREATE TABLE IF NOT EXISTS public.plan_durations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
