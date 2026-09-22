@@ -258,24 +258,37 @@ export async function syncGoogleFormsForOrganization(
 
 export async function syncAllGoogleFormsOrganizations(): Promise<{
   orgs: number;
+  orgErrors: number;
   formsSynced: number;
   responsesSynced: number;
   responsesScored: number;
   permissionErrors: number;
 }> {
   const admin = createAdminClient();
-  const { data: integrations } = await admin
+  const { data: integrations, error: integrationsError } = await admin
     .from("google_forms_integrations")
     .select("organization_id")
     .eq("status", "connected");
+  if (integrationsError) throw new Error(integrationsError.message);
 
   let formsSynced = 0;
   let responsesSynced = 0;
   let responsesScored = 0;
   let permissionErrors = 0;
 
+  let orgErrors = 0;
+
   for (const row of integrations ?? []) {
-    const r = await syncGoogleFormsForOrganization(row.organization_id);
+    // Aislado por org: un error de una cuenta no puede frenar la sync de las
+    // que vienen después.
+    let r: Awaited<ReturnType<typeof syncGoogleFormsForOrganization>>;
+    try {
+      r = await syncGoogleFormsForOrganization(row.organization_id);
+    } catch (err) {
+      orgErrors++;
+      console.error("[syncGoogleFormsForOrganization] falló la org", row.organization_id, err);
+      continue;
+    }
     if (r.permissionDenied) permissionErrors++;
     formsSynced += r.formsSynced;
     responsesSynced += r.responsesSynced;
@@ -284,6 +297,7 @@ export async function syncAllGoogleFormsOrganizations(): Promise<{
 
   return {
     orgs: integrations?.length ?? 0,
+    orgErrors,
     formsSynced,
     responsesSynced,
     responsesScored,

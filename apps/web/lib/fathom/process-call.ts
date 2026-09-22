@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { analyzeFathomTranscript } from "@/lib/fathom/analyze-transcript";
 import { generateDeepCallAnalysis } from "@/lib/fathom/deep-call-analysis";
 import { extractTeamMeetingTaskProposals } from "@/lib/fathom/team-task-extraction";
@@ -79,9 +80,19 @@ async function maybeExtractTeamMeetingTasks(params: {
   }
 }
 
-export async function processPendingFathomCalls(limit = 20): Promise<number> {
+/**
+ * Procesa la cola de llamadas pendientes, una por vez, hasta `limit` o hasta
+ * agotar `budgetMs`. El presupuesto importa: cada llamada es un análisis con
+ * Sonnet de decenas de segundos, y pedir 50 dentro de un maxDuration de 60 s
+ * garantizaba que la lambda muriera a mitad de una llamada.
+ */
+export async function processPendingFathomCalls(
+  limit = 20,
+  budgetMs = Number.POSITIVE_INFINITY
+): Promise<number> {
   const admin = createAdminClient();
   const now = new Date().toISOString();
+  const startedAt = Date.now();
 
   const { data: pending, error } = await admin
     .from("fathom_calls")
@@ -95,9 +106,9 @@ export async function processPendingFathomCalls(limit = 20): Promise<number> {
 
   let processed = 0;
   for (const call of pending as FathomCallRow[]) {
+    if (Date.now() - startedAt > budgetMs) break;
     try {
-      await processSingleFathomCall(call);
-      processed++;
+      if (await processSingleFathomCall(call)) processed++;
     } catch (e) {
       console.error("[processPendingFathomCalls]", call.id, e);
     }
@@ -105,10 +116,17 @@ export async function processPendingFathomCalls(limit = 20): Promise<number> {
   return processed;
 }
 
-export async function processSingleFathomCall(call: FathomCallRow): Promise<void> {
+/** Devuelve `false` si otra corrida ya había tomado la llamada. */
+export async function processSingleFathomCall(call: FathomCallRow): Promise<boolean> {
   const admin = createAdminClient();
 
-  await admin
+  /*
+   * ⭐ Toma atómica: sólo pasa a `processing` si nadie la tomó. Antes se leía
+   * `pending` y se escribía `processing` sin condición, y dos corridas
+   * superpuestas analizaban la misma llamada dos veces (doble costo de IA y
+   * entradas duplicadas en el timeline y en problemas del cliente).
+   */
+  const { data: claimed, error: claimError } = await admin
     .from("fathom_calls")
     .update({
       status: "processing",
@@ -116,7 +134,12 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
       // procesando ahora de una que quedó colgada a mitad de camino.
       processing_started_at: new Date().toISOString(),
     })
-    .eq("id", call.id);
+    .eq("id", call.id)
+    .neq("status", "processing")
+    .select("id");
+
+  if (claimError) throw new Error(claimError.message);
+  if (!claimed?.length) return false;
 
   let title = call.title;
   const { data: integration } = await admin
@@ -223,13 +246,24 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
       callDate: call.call_date,
       purpose: classification.purpose,
     });
-    return;
+    return true;
   }
 
-  const { data: clients } = await admin
-    .from("clients")
-    .select("id, name, nickname")
-    .eq("organization_id", call.organization_id);
+  // Todos los clientes, paginado: con el techo de 1000 filas de PostgREST, una
+  // org más grande nunca asociaba llamadas a los clientes que quedaban afuera.
+  const { rows: clients, error: clientsError } = await fetchAllRows<{
+    id: string;
+    name: string;
+    nickname: string | null;
+  }>((from, to) =>
+    admin
+      .from("clients")
+      .select("id, name, nickname")
+      .eq("organization_id", call.organization_id)
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
+  if (clientsError) throw new Error(clientsError);
 
   const association = associateCallWithClients(
     title,
@@ -280,7 +314,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
         })
         .eq("id", call.id);
     }
-    return;
+    return true;
   }
 
   if (association.status === "pending_review") {
@@ -294,7 +328,7 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
         processed_at: new Date().toISOString(),
       })
       .eq("id", call.id);
-    return;
+    return true;
   }
 
   await finalizeAssociatedCall({
@@ -311,6 +345,8 @@ export async function processSingleFathomCall(call: FathomCallRow): Promise<void
     callDate: call.call_date,
     purpose: classification.purpose,
   });
+
+  return true;
 }
 
 export async function finalizeAssociatedCall(params: {

@@ -9,6 +9,7 @@ import {
   type AiBrainDocumentRow,
 } from "@/lib/ai-brain/mapper";
 import { requireSuperAdmin } from "@/lib/auth/require-super-admin";
+import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   countByOrg,
@@ -43,6 +44,25 @@ import type {
   ModelUsageRow,
   AICostsSummary,
 } from "@/types/super-admin";
+
+/**
+ * `token_usage` crece con cada llamada a la IA: las sumas de costo se hacen en
+ * JS y, sin paginar, PostgREST las cortaba en 1000 filas y el dashboard
+ * mostraba menos costo del real. Ver `fetchAllRows`.
+ */
+/* eslint-disable @typescript-eslint/no-explicit-any -- filas sin tipos generados de la base, como el resto del archivo */
+function tokenUsageRows<Q extends { order: (...args: any[]) => any }>(
+  build: () => Q
+): Promise<{ data: any[]; error: string | null }> {
+  return fetchAllRows((from, to) =>
+    build().order("id", { ascending: true }).range(from, to)
+  ).then(({ rows, error }) => {
+    if (error) console.error("[super-admin] token_usage:", error);
+    return { data: rows, error };
+  });
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 
 type FounderProfile = {
   id: string;
@@ -192,12 +212,14 @@ export async function loadAICostsSummary(): Promise<AICostsSummary> {
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   const [{ data: rows }, { data: orgs }, byokByOrg] = await Promise.all([
-    admin
+    tokenUsageRows(() =>
+      admin
       .from("token_usage")
       .select(
         "organization_id, model, input_tokens, output_tokens, total_cost_usd, cache_read_input_tokens, feature, created_at"
       )
-      .gte("created_at", since),
+      .gte("created_at", since)
+    ),
     admin.from("organizations").select("id, name"),
     loadByokEnabledByOrgId(admin),
   ]);
@@ -302,18 +324,22 @@ export async function loadAiCostDashboard(): Promise<AdminAiCostDashboard> {
   const month = getCurrentMonthRange();
 
   const [{ data: tokenRows }, { data: detailedRows }] = await Promise.all([
-    admin
+    tokenUsageRows(() =>
+      admin
       .from("token_usage")
       .select("organization_id, model, total_cost_usd")
       .gte("created_at", month.start)
-      .lte("created_at", month.end),
-    admin
+      .lte("created_at", month.end)
+    ),
+    tokenUsageRows(() =>
+      admin
       .from("token_usage")
       .select(
         "model, input_tokens, output_tokens, input_cost_usd, output_cost_usd"
       )
       .gte("created_at", month.start)
-      .lte("created_at", month.end),
+      .lte("created_at", month.end)
+    ),
   ]);
 
   const costByOrgModel = new Map<string, Map<string, number>>();
@@ -801,16 +827,20 @@ export async function loadProfitabilityData(): Promise<{
       .from("organizations")
       .select("id, name, status, mrr_usd")
       .eq("status", "active"),
-    admin
+    tokenUsageRows(() =>
+      admin
       .from("token_usage")
       .select("organization_id, total_cost_usd")
       .gte("created_at", month.start)
-      .lte("created_at", month.end),
-    admin
+      .lte("created_at", month.end)
+    ),
+    tokenUsageRows(() =>
+      admin
       .from("token_usage")
       .select("organization_id, total_cost_usd")
       .gte("created_at", prevMonth.start)
-      .lte("created_at", prevMonth.end),
+      .lte("created_at", prevMonth.end)
+    ),
   ]);
 
   if (orgsRes.error) throw new Error(orgsRes.error.message);
@@ -877,20 +907,22 @@ export async function loadTokenUsageBreakdown(
   const admin = createAdminClient();
   const range = resolveSuperAdminPeriod(period);
 
-  let query = admin
-    .from("token_usage")
-    .select(
-      "model, feature, input_tokens, output_tokens, total_cost_usd"
-    )
-    .gte("created_at", range.start)
-    .lte("created_at", range.end);
+  const buildQuery = () => {
+    let query = admin
+      .from("token_usage")
+      .select(
+        "model, feature, input_tokens, output_tokens, total_cost_usd"
+      )
+      .gte("created_at", range.start)
+      .lte("created_at", range.end);
+    if (organizationId) {
+      query = query.eq("organization_id", organizationId);
+    }
+    return query;
+  };
 
-  if (organizationId) {
-    query = query.eq("organization_id", organizationId);
-  }
-
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  const { data, error } = await tokenUsageRows(buildQuery);
+  if (error) throw new Error(error);
 
   let inputTokens = 0;
   let outputTokens = 0;
@@ -946,11 +978,13 @@ export async function loadTokenCostDailyByOrg(
   const range = getLastNDaysRange(days);
 
   const [{ data: usage }, { data: orgs }] = await Promise.all([
-    admin
+    tokenUsageRows(() =>
+      admin
       .from("token_usage")
       .select("organization_id, total_cost_usd, created_at")
       .gte("created_at", range.start)
-      .not("organization_id", "is", null),
+      .not("organization_id", "is", null)
+    ),
     admin.from("organizations").select("id, name"),
   ]);
 

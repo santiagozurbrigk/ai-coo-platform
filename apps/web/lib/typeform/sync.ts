@@ -269,22 +269,35 @@ export async function syncTypeformForOrganization(
 
 export async function syncAllTypeformOrganizations(): Promise<{
   orgs: number;
+  orgErrors: number;
   formsSynced: number;
   responsesSynced: number;
   responsesScored: number;
 }> {
   const admin = createAdminClient();
-  const { data: integrations } = await admin
+  const { data: integrations, error: integrationsError } = await admin
     .from("typeform_integrations")
     .select("organization_id")
     .eq("status", "connected");
+  if (integrationsError) throw new Error(integrationsError.message);
 
   let formsSynced = 0;
   let responsesSynced = 0;
   let responsesScored = 0;
 
+  let orgErrors = 0;
+
   for (const row of integrations ?? []) {
-    const r = await syncTypeformForOrganization(row.organization_id);
+    // Aislado por org: un error de una cuenta no puede frenar la sync de las
+    // que vienen después.
+    let r: Awaited<ReturnType<typeof syncTypeformForOrganization>>;
+    try {
+      r = await syncTypeformForOrganization(row.organization_id);
+    } catch (err) {
+      orgErrors++;
+      console.error("[syncTypeformForOrganization] falló la org", row.organization_id, err);
+      continue;
+    }
     formsSynced += r.formsSynced;
     responsesSynced += r.responsesSynced;
     responsesScored += r.responsesScored;
@@ -292,6 +305,7 @@ export async function syncAllTypeformOrganizations(): Promise<{
 
   return {
     orgs: integrations?.length ?? 0,
+    orgErrors,
     formsSynced,
     responsesSynced,
     responsesScored,

@@ -60,6 +60,14 @@ export async function POST(request: Request) {
       period,
       result,
     });
+    // Los generadores atrapan su error y devuelven "failed". Con un 200 QStash
+    // daba el job por hecho y los `retries` configurados no corrían nunca.
+    if (result === "failed") {
+      return NextResponse.json(
+        { ok: false, organizationId, period, result },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ ok: true, organizationId, period, result });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

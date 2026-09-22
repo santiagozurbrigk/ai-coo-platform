@@ -77,13 +77,8 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     console.error("[cron/calendly-sync] Error no controlado:", e);
-    return NextResponse.json({
-      ok: true,
-      synced: 0,
-      inserted: 0,
-      updated: 0,
-      skippedManualStatus: 0,
-      fetched: 0,
-    });
+    // 500 y no `ok: true` con ceros: si no, el monitor de crons de Vercel nunca
+    // ve la falla y una sync rota se confunde con "no había nada nuevo".
+    return NextResponse.json({ ok: false, error: "sync failed" }, { status: 500 });
   }
 }
