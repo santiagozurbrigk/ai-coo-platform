@@ -70,8 +70,8 @@ arreglaron hoy.
 - **`manychat_events` se alineó con el repo, no al revés,** porque estaba vacía.
 
 **Riesgos / deuda técnica pendiente:**
-- El job no se pudo correr localmente con Postgres 17 (no hay Docker en el
-  entorno). La primera corrida real es la del CI de esta rama.
+- Verificado en GitHub Actions (run 35779469866): Postgres 17.11 con pgvector,
+  "OK: las 173 migraciones arman la base desde cero", en ~9 s.
 - El stub no replica los permisos exactos de `auth` y `storage` de Supabase.
   Valida que las migraciones corran, no el comportamiento de RLS contra auth
   real.
