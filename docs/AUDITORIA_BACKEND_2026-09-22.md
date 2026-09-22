@@ -25,8 +25,13 @@ lint sin errores y `next build` de producción OK.
 
 ## 1. Antes de mergear: lo que no se aplica solo
 
-🔴 **Aplicar las dos migraciones en producción.** Vercel deploya el código, no
-las migraciones. Sin ellas, los dos agujeros más graves siguen abiertos:
+✅ **Aplicadas y verificadas en producción el 2026-09-22** (Supabase `OTC`,
+`nrzlylzbmsuowzhpdnjl`). Al aplicarlas apareció otro agujero: en producción
+cualquier miembro podía editar todas las columnas de `organizations`
+(`account_type`, `status`, `enabled_add_ons`, la key de Claude). La segunda
+migración también lo cierra. Detalle en `CHANGES.md`.
+
+Las dos migraciones:
 
 | Migración | Qué cierra |
 |---|---|

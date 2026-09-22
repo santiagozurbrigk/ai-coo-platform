@@ -9,28 +9,6 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [AUDITORIA-MIGRACIONES] Aplicar las dos migraciones de la auditoría de backend 🔴
-
-**Qué es:** la auditoría del 2026-09-22 cerró en código y en migraciones los dos
-agujeros más graves del backend. **Las migraciones no se aplican solas con el
-deploy:**
-
-- `20260922100000_profiles_columnas_protegidas.sql`: hoy cualquier usuario
-  registrado puede cambiarse `organization_id` y `role` con la anon key y
-  volverse founder de otra org.
-- `20260922110000_rpcs_y_policies_entre_organizaciones.sql`: RAG de otra org,
-  RPCs sin verificar, secretos de YouTube/Zernio legibles por viewers, grants
-  faltantes de `organizations` y upserts rotos.
-
-**Qué hacer:** seguir el bloque "Auditoría de backend" de
-`docs/PLAN_VERIFICACION.md` (chequeos antes, aplicar, chequeos después). Correr
-antes `supabase db diff`, porque producción tiene deriva.
-
-**Además:** si el inbox legacy de Unipile sigue en uso, setear
-`UNIPILE_WEBHOOK_SECRET`. El webhook ahora lo exige.
-
----
-
 ### [AUDITORIA-ABIERTOS] Lo que la auditoría de backend dejó para el dev de backend 🟠
 
 **Qué es:** la lista priorizada de lo que se encontró y no se arregló en la
@@ -50,6 +28,10 @@ completa en `docs/AUDITORIA_BACKEND_2026-09-22.md` §3. Lo más importante:
 7. Parsers de montos rotos: import de ClickUp y Excel.
 8. Facturación por closer: `closing_calls.amount_closed` no existe; decidir de
    dónde sale.
+9. Producción no coincide con las migraciones del repo. Por ejemplo, no tiene las
+   columnas OAuth de Claude y le faltaban los grants por columna de
+   `organizations`. Correr `supabase db diff` y reconciliar migración por
+   migración.
 
 ---
 
@@ -1530,6 +1512,24 @@ ya estaban todas.
 ---
 
 ## ✅ Completados (referencia histórica)
+
+### ✅ [AUDITORIA-MIGRACIONES] Migraciones de la auditoría de backend aplicadas en producción — 2026-09-22
+
+Aplicadas en el proyecto Supabase **OTC** (`nrzlylzbmsuowzhpdnjl`), que es la
+base de Limitless, y verificadas ahí mismo, en transacciones con rollback:
+
+- un no-founder que intenta `role = 'founder'` recibe `42501`;
+- editar el nombre propio sigue andando;
+- como usuario común: `search_rag_chunks` no ejecuta, la vista de Claude da una
+  sola fila, zernio y youtube dan 0 filas, `enabled_add_ons` no se puede editar
+  y `name` sí.
+
+**Deriva encontrada al aplicar:** en producción `organizations` tenía UPDATE
+sobre todas las columnas para cualquier usuario, porque la 20260619100000 nunca
+quedó aplicada, y no existen las columnas OAuth de Claude (20260711180000). La
+migración 20260922110000 se ajustó para las dos cosas. Sigue pendiente correr
+`supabase db diff` completo (ver `[AUDITORIA-ABIERTOS]`).
+
 
 ### 2026-09-15 — El embudo del panel general que se salía de la card
 
