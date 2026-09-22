@@ -14,6 +14,59 @@
 
 ---
 
+### 2026-09-22 — 🔒 Migraciones de la auditoría aplicadas en producción (y un agujero más en `organizations`)
+
+**Rama/branch:** `claude/cool-rubin-ssi5x7` (después del squash de #70)
+**Commits:** este
+**Módulo(s) afectado(s):** base de datos de producción (Supabase `OTC`,
+`nrzlylzbmsuowzhpdnjl`), `supabase/migrations/20260922110000_*`.
+
+**Qué se hizo:**
+
+1. Antes de aplicar, se chequeó el estado real:
+   - las columnas de `profiles`;
+   - que no hubiera duplicados en `content_pieces` ni en `call_analyses`;
+   - las ACL de las funciones: todas ejecutables por `anon`/`authenticated`;
+   - policies, índices, grants y la vista.
+2. Se aplicaron `profiles_columnas_protegidas` y
+   `rpcs_y_policies_entre_organizaciones` con `apply_migration`.
+3. Se verificó en producción, como `authenticated` y en transacciones con
+   rollback:
+   - el ataque de cambiarse el rol devuelve 42501;
+   - editar el nombre propio sigue andando;
+   - `search_rag_chunks` no ejecuta;
+   - la vista de Claude da una fila;
+   - zernio y youtube dan 0 filas;
+   - `enabled_add_ons` no se puede editar y `name` sí.
+
+**Por qué / finalidad:** los arreglos más graves de la auditoría (#70) vivían en
+migraciones, y Vercel no las aplica.
+
+**Decisiones de diseño relevantes:**
+- **La migración 20260922110000 se ajustó a la deriva de producción:**
+  - La vista `organization_claude_status` se arma con las columnas que existan.
+    Producción no tiene las OAuth de 20260711180000, y el
+    `create or replace` del repo fallaba.
+  - **Agujero nuevo:** en producción `authenticated` tenía UPDATE sobre **todas**
+    las columnas de `organizations`, porque la 20260619100000 no quedó aplicada.
+    Cualquier miembro podía cambiar `account_type`, `status`, `mrr_usd`, activarse
+    `enabled_add_ons` pagos o pisar `claude_api_key_encrypted`. Se restringe
+    UPDATE a las columnas de Configuración (`name`, `industry`, `website_url`,
+    `timezone`, `currency`, `language`, `country`), que son las únicas que la app
+    escribe con el cliente de usuario.
+- **SELECT de `organizations` no se tocó.** El ciphertext de la key sigue legible
+  para miembros de la propia org. Sirve de poco sin `ENCRYPTION_MASTER_KEY`, y
+  restringir SELECT por columna rompe cualquier `select("*")` con cliente de
+  usuario. Queda para la reconciliación con `db diff`.
+- La migración ajustada se probó antes en el Postgres local con la deriva
+  simulada (vista de 4 columnas y UPDATE total).
+
+**Riesgos / deuda técnica pendiente:** la base de producción no coincide con el
+repo en más lugares que estos. `supabase db diff` sigue pendiente
+(`[AUDITORIA-ABIERTOS]` punto 9).
+
+---
+
 ### 2026-09-22 — 🔒 Auditoría de backend: 3 críticos, 10 altos y los crons que fallaban en silencio
 
 **Rama/branch:** `claude/cool-rubin-ssi5x7`

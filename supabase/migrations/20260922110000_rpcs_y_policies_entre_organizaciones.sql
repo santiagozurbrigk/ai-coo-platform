@@ -22,26 +22,48 @@ revoke execute on function public.search_rag_chunks(vector, uuid, integer, text[
 -- `claude_api_key_encrypted`, que authenticated no puede ver; se filtra por org.
 -- En una vista `current_user` sigue siendo el que consulta.
 -- Callers: app/settings/actions.ts (usuario, su org), lib/super-admin/queries.ts (admin).
-create or replace view public.organization_claude_status as
-select
-  id,
-  case
-    when claude_api_key_encrypted is not null then true
-    else false
-  end as has_claude_key,
-  claude_api_key_status,
-  claude_api_key_last_validated_at,
-  case
-    when claude_oauth_token_encrypted is not null then true
-    else false
-  end as has_claude_oauth,
-  claude_credential_mode,
-  claude_oauth_failed_at,
-  claude_oauth_last_probe_at,
-  claude_oauth_last_success_at
-from public.organizations
-where current_user not in ('authenticated', 'anon')
-   or id = public.get_my_organization_id();
+--
+-- ⚠️ Producción no tiene las columnas OAuth de 20260711180000 (deriva): la vista
+-- se arma con las columnas que existan, para que esto aplique en las dos.
+do $$
+declare
+  v_has_oauth boolean := exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'organizations'
+      and column_name = 'claude_oauth_token_encrypted'
+  );
+begin
+  if v_has_oauth then
+    execute $v$
+      create or replace view public.organization_claude_status as
+      select
+        id,
+        case when claude_api_key_encrypted is not null then true else false end as has_claude_key,
+        claude_api_key_status,
+        claude_api_key_last_validated_at,
+        case when claude_oauth_token_encrypted is not null then true else false end as has_claude_oauth,
+        claude_credential_mode,
+        claude_oauth_failed_at,
+        claude_oauth_last_probe_at,
+        claude_oauth_last_success_at
+      from public.organizations
+      where current_user not in ('authenticated', 'anon')
+         or id = public.get_my_organization_id()
+    $v$;
+  else
+    execute $v$
+      create or replace view public.organization_claude_status as
+      select
+        id,
+        case when claude_api_key_encrypted is not null then true else false end as has_claude_key,
+        claude_api_key_status,
+        claude_api_key_last_validated_at
+      from public.organizations
+      where current_user not in ('authenticated', 'anon')
+         or id = public.get_my_organization_id()
+    $v$;
+  end if;
+end $$;
 
 revoke all on public.organization_claude_status from anon;
 grant select on public.organization_claude_status to authenticated;
@@ -64,6 +86,7 @@ revoke execute on function public.get_holding_dashboard_stats(uuid) from public,
 -- Se saltea su chequeo cuando `auth.uid()` es null: anon sembraba roles en
 -- cualquier org. authenticated la sigue usando desde app/team/actions.ts.
 revoke execute on function public.create_default_roles(uuid) from public, anon;
+grant execute on function public.create_default_roles(uuid) to authenticated, service_role;
 
 -- ─── 4. Secretos de integraciones legibles por cualquier miembro ─────────────
 -- `youtube_integrations` (access/refresh token, API key) y `zernio_integrations`
@@ -75,13 +98,22 @@ drop policy if exists "Users manage own org youtube integration" on public.youtu
 drop policy if exists "org members can read zernio_integrations" on public.zernio_integrations;
 drop policy if exists "org admins can manage zernio_integrations" on public.zernio_integrations;
 
--- ─── 5. Columnas de organizations que nunca se habilitaron ───────────────────
--- 20260619100000 pasó organizations a grants por columna. Las columnas que se
--- agregaron después quedaron sin grant y leerlas con el cliente de usuario
--- falla con "permission denied": el país de Configuración no carga ni guarda,
--- y `enabled_add_ons` se lee siempre vacío en los permisos del usuario.
+-- ─── 5. organizations: qué columnas puede tocar un usuario ───────────────────
+-- 20260619100000 pasó organizations a grants por columna (y le sacó al usuario
+-- el ciphertext de la key de Claude), pero en producción nunca quedó aplicado:
+-- authenticated tenía UPDATE sobre TODAS las columnas. Cualquier miembro podía
+-- cambiar `account_type`, `status`, `mrr_usd`, `holding_billing_model`, activarse
+-- `enabled_add_ons` pagos o pisar `claude_api_key_encrypted`.
+-- La app escribe con el cliente de usuario sólo lo de Configuración
+-- (app/settings/actions.ts); todo lo demás va con service role.
+revoke update on public.organizations from anon, authenticated;
+grant update (name, industry, website_url, timezone, currency, language, country)
+  on public.organizations to authenticated;
+
+-- Columnas agregadas después de 20260619100000 que en una base armada desde el
+-- repo quedaban sin SELECT (en producción ya lo tenían): el país de
+-- Configuración y los add-ons se leían con "permission denied".
 grant select (country, enabled_add_ons, reel_music_path) on public.organizations to authenticated;
-grant update (country) on public.organizations to authenticated;
 
 -- ─── 6. Upserts contra índices únicos parciales ──────────────────────────────
 -- `ON CONFLICT (cols)` no usa un índice parcial si no se repite su WHERE, y
