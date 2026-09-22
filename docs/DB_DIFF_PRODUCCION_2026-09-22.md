@@ -48,7 +48,8 @@ secretos de integraciones y columnas editables de `organizations`.
 ### Diferencias que quedan, a propósito
 
 **Sólo en producción, sin uso en el código.** Son restos de migraciones aplicadas
-a mano. Borrarlas es destructivo, así que no se tocaron:
+a mano. ✅ Las columnas y la tabla `metric_snapshots` se borraron el mismo día
+(ver "Qué queda para adelante", punto 3). Las dos funciones siguen:
 
 | Objeto | Qué es |
 |---|---|
@@ -102,7 +103,18 @@ columnas lee la app así.
    `20260717100001_fix_utm_youtube_video_external_ids` y
    `20260825100001_plans_client_plan_delete`. El orden de aplicación no cambia.
    `RUN_ALL_PHASE1.sql` pasó a `supabase/scripts/` con aviso de no ejecutar.
-3. **Limpieza de los restos legacy** de la primera tabla de arriba, cuando se
-   confirme que no hay datos que valga la pena conservar.
-4. **Chequeo en CI.** Sumar un job que arme una base desde cero con las
-   migraciones, igual que acá. Habría detectado las tres migraciones rotas.
+3. ✅ **Restos legacy limpiados (2026-09-22).**
+   - `20260922130000_limpiar_restos_legacy_de_produccion`: borra 15 columnas.
+     Antes se midió que estaban vacías en todas las filas (las 9 de
+     `closing_calls` sobre 1.443 llamadas, `fathom_calls.member_user_id` y las 3
+     de `zernio_integrations`). También deja `manychat_events`, vacía, igual que
+     en el repo.
+   - `20260922140000_borrar_metric_snapshots`: borra la tabla vieja. Tenía 36
+     valores de histórico importado de una org, que la app ya no mostraba; se
+     borró por decisión del usuario.
+   - Las dos son `if exists`, así que en una base nueva no hacen nada.
+4. ✅ **Chequeo en CI (2026-09-22).** Job `migrations` en
+   `.github/workflows/ci.yml`: Postgres 17 con pgvector y
+   `supabase/ci/check-migrations.sh`. Valida los nombres y que las versiones sean
+   únicas, y aplica todas las migraciones desde cero, una transacción cada una.
+   Localmente tarda ~7 s con las 173.

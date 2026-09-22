@@ -34,9 +34,9 @@ completa en `docs/AUDITORIA_BACKEND_2026-09-22.md` §3. Lo más importante:
    - ✅ historial de migraciones ordenado: prod tiene exactamente las 171
      versiones del repo. Mantenerlo con la regla de CLAUDE.md
      ("Migraciones Supabase");
-   - borrar los restos legacy que sólo están en prod (`metric_snapshots`,
-     columnas de import en `closing_calls` y otras);
-   - sumar un job de CI que arme la base desde cero.
+   - ✅ restos legacy de prod borrados: 15 columnas vacías y la tabla
+     `metric_snapshots`;
+   - ✅ job `migrations` en el CI, que arma la base desde cero en cada push.
 
 ---
 

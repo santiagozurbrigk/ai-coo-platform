@@ -1,0 +1,12 @@
+-- Borra la tabla legacy `metric_snapshots`, que sólo existía en producción.
+--
+-- Era la versión anterior de `metrics_snapshots` (con "s"), que es la que usa la
+-- app. El código no la leía ni la escribía desde que se reemplazó, y ninguna
+-- vista, función ni foreign key depende de ella.
+--
+-- Tenía 36 filas: histórico mensual enero–junio 2026 de una organización,
+-- importado el 2026-08-24, que la app ya no mostraba. Se borró por decisión del
+-- usuario el 2026-09-22 (entre archivarla, migrarla a la tabla nueva o dejarla).
+--
+-- En una base armada desde el repo la tabla no existe: `if exists` la vuelve no-op.
+drop table if exists public.metric_snapshots;
