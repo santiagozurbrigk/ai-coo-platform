@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withOAuthNoCache } from "@/lib/integrations/oauth-callback-headers";
 import { getUnipileConfig } from "@/lib/unipile/config";
 import { processUnipileHostedAuthNotify } from "@/lib/unipile/process-hosted-auth";
+import { verifyUnipileSecret } from "@/lib/unipile/incoming-webhook";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,10 +10,8 @@ export const revalidate = 0;
 
 function verifyCallbackSecret(req: Request): boolean {
   const { webhookSecret } = getUnipileConfig();
-  if (!webhookSecret) return true;
-
-  const { searchParams } = new URL(req.url);
-  return searchParams.get("secret") === webhookSecret;
+  // Fail-closed y en tiempo constante: antes, sin secreto configurado, aceptaba todo.
+  return verifyUnipileSecret(req, webhookSecret);
 }
 
 /** @deprecated Usar /api/integrations/unipile/webhook — se mantiene por compatibilidad. */

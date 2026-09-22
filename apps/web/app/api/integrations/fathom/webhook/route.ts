@@ -54,19 +54,42 @@ export async function POST(request: NextRequest) {
   const globalSecret = process.env.FATHOM_WEBHOOK_SECRET;
 
   const admin = createAdminClient();
-  const { data: integrations } = await admin
+  const { data: integrations, error: integrationsError } = await admin
     .from("fathom_integrations")
     .select("organization_id, webhook_secret");
+  if (integrationsError) {
+    return NextResponse.json({ error: "Unavailable" }, { status: 503 });
+  }
 
-  const match = (integrations ?? []).find((i) => {
+  const matches = (integrations ?? []).filter((i) => {
     const secret = i.webhook_secret ?? globalSecret;
     return secret && verifySignature(rawBody, webhookSecret, secret);
   });
 
-  const organizationId = match?.organization_id ?? "";
-  if (!organizationId) {
+  if (matches.length === 0) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  /*
+   * ⚠️ Ruta legacy: `connectFathomWithApiKey` guarda el mismo
+   * FATHOM_WEBHOOK_SECRET en todas las orgs, así que una firma válida puede
+   * servir para varias. Antes se tomaba la primera (`.find`) y la llamada —con
+   * su transcript— terminaba en otra organización. Si la firma no identifica a
+   * una sola org, se rechaza: la ruta por miembro `/webhook/[token]` es la que
+   * atribuye bien.
+   */
+  if (matches.length > 1) {
+    console.warn(
+      "[fathom/webhook] firma válida para varias orgs; se rechaza (usar /webhook/[token])",
+      { candidates: matches.length }
+    );
+    return NextResponse.json(
+      { error: "Ambiguous signature: use the per-member webhook URL" },
+      { status: 409 }
+    );
+  }
+
+  const organizationId = matches[0].organization_id as string;
 
   await ingestFathomWebhookCall({
     organizationId,

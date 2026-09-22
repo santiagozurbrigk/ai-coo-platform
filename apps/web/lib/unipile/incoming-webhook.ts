@@ -17,19 +17,34 @@ import {
 import { processUnipileMessageWebhook } from "@/lib/unipile/process-message";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
-function verifyUnipileSecret(req: Request): boolean {
-  const secret = process.env.UNIPILE_WEBHOOK_SECRET;
+/**
+ * Secreto compartido con Unipile. Llega de dos formas:
+ * - header `Unipile-Auth`, que es el que registra `ensureUnipileMessagingWebhook`;
+ * - `?secret=` en la URL, que es como viaja en el `notify_url` del hosted auth
+ *   (Unipile no manda headers propios en esa notificación).
+ *
+ * ⚠️ Fail-closed: sin UNIPILE_WEBHOOK_SECRET no se procesa nada. Antes era
+ * opcional y, además, se buscaba un header distinto del registrado, así que en
+ * la práctica no se verificaba nunca. Con eso cualquiera podía re-vincular la
+ * cuenta conectada de otra org (hosted auth) o inyectarle DMs.
+ */
+export function verifyUnipileSecret(req: Request, secret: string): boolean {
   if (!secret) return false;
-  const headerToken = req.headers.get("x-unipile-secret") ?? req.headers.get("x-webhook-secret");
-  if (!headerToken) return false;
-  try {
-    const expected = Buffer.from(secret);
-    const received = Buffer.from(headerToken);
-    if (expected.length !== received.length) return false;
-    return crypto.timingSafeEqual(expected, received);
-  } catch {
-    return false;
-  }
+  const candidates = [
+    req.headers.get("unipile-auth"),
+    req.headers.get("x-unipile-secret"),
+    req.headers.get("x-webhook-secret"),
+    new URL(req.url).searchParams.get("secret"),
+  ];
+  const expected = Buffer.from(secret);
+  return candidates.some((token) => {
+    if (!token) return false;
+    const received = Buffer.from(token);
+    return (
+      received.length === expected.length &&
+      crypto.timingSafeEqual(expected, received)
+    );
+  });
 }
 
 export async function handleUnipileIncomingWebhook(req: Request) {
@@ -37,8 +52,14 @@ export async function handleUnipileIncomingWebhook(req: Request) {
     return NextResponse.json({ error: "Supabase no configurado" }, { status: 500 });
   }
 
-  // Verificar secret compartido si está configurado
-  if (process.env.UNIPILE_WEBHOOK_SECRET && !verifyUnipileSecret(req)) {
+  const secret = process.env.UNIPILE_WEBHOOK_SECRET?.trim() ?? "";
+  if (!secret) {
+    return NextResponse.json(
+      { error: "UNIPILE_WEBHOOK_SECRET no configurado" },
+      { status: 503 }
+    );
+  }
+  if (!verifyUnipileSecret(req, secret)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
