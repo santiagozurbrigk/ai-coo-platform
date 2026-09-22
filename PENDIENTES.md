@@ -20,8 +20,8 @@ completa en `docs/AUDITORIA_BACKEND_2026-09-22.md` §3. Lo más importante:
    Fathom, ManyChat.
 3. Sin timeouts en los clientes de APIs externas.
 4. ✅ (2026-09-22) Las tres migraciones rotas se corrigieron y las 171 arman una
-   base desde cero. Quedan las versiones duplicadas y `RUN_ALL_PHASE1.sql` en la
-   carpeta.
+   base desde cero. Las versiones duplicadas están resueltas y `RUN_ALL_PHASE1.sql`
+   se movió a `supabase/scripts/`.
 5. El techo de 1000 filas sigue en otros lugares, y hay 290 lecturas que no
    miran `error`.
 6. Calendly: dos crons se pisan y la sync hace N+1. Typeform pierde respuestas
@@ -31,9 +31,9 @@ completa en `docs/AUDITORIA_BACKEND_2026-09-22.md` §3. Lo más importante:
    dónde sale.
 9. ✅ (2026-09-22) Se corrió el diff contra producción y se reconcilió lo que
    importaba (`docs/DB_DIFF_PRODUCCION_2026-09-22.md`). Queda pendiente:
-   - reconciliar el **historial** de migraciones: 55 del repo aplicadas a mano,
-     y 18 de prod sin archivo en el repo. Hasta hacerlo, aplicar con
-     `apply_migration` o el SQL Editor, no con `supabase db push`;
+   - ✅ historial de migraciones ordenado: prod tiene exactamente las 171
+     versiones del repo. Mantenerlo con la regla de CLAUDE.md
+     ("Migraciones Supabase");
    - borrar los restos legacy que sólo están en prod (`metric_snapshots`,
      columnas de import en `closing_calls` y otras);
    - sumar un job de CI que arme la base desde cero.

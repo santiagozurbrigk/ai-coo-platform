@@ -227,7 +227,7 @@ limitless-system/
 │   ├── ai/               # reservado
 │   ├── integrations/     # reservado
 │   └── queue/            # reservado
-├── supabase/migrations/  # ~97 migraciones SQL (fuente de verdad del schema)
+├── supabase/migrations/  # 171 migraciones SQL (fuente de verdad del schema; arman la base desde cero)
 └── docs/                 # specs de producto
 ```
 
@@ -712,11 +712,21 @@ Tiempo estimado de build: ~2 minutos.
 
 ### Migraciones Supabase
 
-1. Crear archivo `supabase/migrations/YYYYMMDDHHMMSS_descripcion.sql`
-2. Aplicar:
-   - `supabase db push` (CLI vinculada al proyecto), o
-   - Ejecutar SQL en Supabase Dashboard → SQL Editor
+Proyecto de producción: Supabase **OTC** (`nrzlylzbmsuowzhpdnjl`).
+
+1. Crear archivo `supabase/migrations/YYYYMMDDHHMMSS_descripcion.sql`, con versión
+   **única** (no puede haber dos archivos con el mismo prefijo)
+2. Aplicar, y que el historial quede con **la misma versión que el archivo**:
+   - `supabase db push` (CLI vinculada al proyecto) — registra la versión del archivo, o
+   - MCP `apply_migration` / SQL Editor. ⚠️ `apply_migration` registra una versión
+     nueva (la hora actual), no la del archivo: después, renombrar el archivo a esa
+     versión, o corregir la fila en `supabase_migrations.schema_migrations`. El SQL
+     Editor no registra nada: insertar la fila a mano
 3. Verificar RLS policies en la misma migración
+
+**Invariante:** el historial de producción tiene exactamente las versiones de
+`supabase/migrations/` (ordenado el 2026-09-22, ver `docs/DB_DIFF_PRODUCCION_2026-09-22.md`).
+Si se rompe, `supabase db push` intenta re-aplicar o se niega a correr.
 
 ### Typecheck / lint local
 

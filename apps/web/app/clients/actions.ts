@@ -111,7 +111,7 @@ export async function createClientAction(input: unknown): Promise<Client> {
     const msg = error?.message ?? "No se pudo crear el cliente";
     if (isMissingTableError(msg)) {
       throw new Error(
-        "Falta la tabla clients en Supabase. Ejecuta supabase/migrations/RUN_ALL_PHASE1.sql en el SQL Editor."
+        "Falta la tabla clients en Supabase. Aplicá las migraciones de supabase/migrations."
       );
     }
     if (msg.includes("infinite recursion")) {

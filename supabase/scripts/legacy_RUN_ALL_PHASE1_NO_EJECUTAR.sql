@@ -1,3 +1,10 @@
+-- ⚠️ NO EJECUTAR. Script histórico de la fase 1, movido desde supabase/migrations
+-- el 2026-09-22 al ordenar el historial de migraciones.
+-- Su `create or replace get_my_organization_id()` pisa la versión actual, que
+-- resuelve el negocio activo de un holding: correrlo rompe el switch de holding.
+-- El esquema completo se arma con `supabase/migrations/` (171 archivos, corren
+-- desde cero sin errores).
+
 -- Ejecutar TODO este archivo en Supabase → SQL Editor → Run
 -- (seguro re-ejecutar: usa IF NOT EXISTS / políticas con drop previo)
 
