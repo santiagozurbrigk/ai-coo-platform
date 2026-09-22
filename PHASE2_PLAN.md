@@ -1,6 +1,6 @@
 # AI COO Platform — Estado del proyecto (Phase 2 planning)
 
-Documento de referencia generado desde el código en `ai-coo-platform`. Solo hechos del repositorio; sin opiniones.
+Documento de referencia generado desde el código en `limitless-system` (ex `ai-coo-platform`). Solo hechos del repositorio; sin opiniones.
 
 **Última revisión:** 2026-05-27  
 **Branch de referencia:** `main` (post `fix(clients): show calls tab always with empty state for real clients`)
@@ -32,7 +32,7 @@ Documento de referencia generado desde el código en `ai-coo-platform`. Solo hec
 ### Estructura de carpetas principal
 
 ```
-ai-coo-platform/
+limitless-system/
 ├── apps/
 │   ├── web/                    # App principal Next.js
 │   │   ├── app/                # Rutas (platform), API, server actions

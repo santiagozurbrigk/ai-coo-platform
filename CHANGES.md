@@ -14,6 +14,42 @@
 
 ---
 
+### 2026-09-22 — 📝 El repo pasa a llamarse `limitless-system`
+
+**Rama/branch:** `claude/cool-rubin-ssi5x7`
+**Commits:** (este)
+**Módulo(s) afectado(s):** Documentación (`CLAUDE.md`, `OPERATIONAL_NOTES.md`, `PHASE2_PLAN.md`, `docs/DISCORD_DEPLOY.md`, `docs/ESTADO_ACTUAL.md`)
+
+**Qué se hizo:**
+
+1. Las menciones del repo en la documentación pasan de `ai-coo-platform` a
+   `limitless-system`: el encabezado de `CLAUDE.md`, los árboles de carpetas, el
+   paso de Railway en `docs/DISCORD_DEPLOY.md` y las notas de fuente.
+2. Las rutas de lectura obligatoria de `CLAUDE.md` pasan a
+   `/home/user/limitless-system/…`, que es donde las sesiones en la nube clonan el
+   repo con el nombre nuevo.
+3. `CLAUDE.md` aclara que el nombre interno del workspace no cambia.
+
+**Por qué / finalidad:** el usuario renombró el repo en GitHub a
+`santiagozurbrigk/limitless-system`. La documentación nombraba el repo viejo.
+
+**Decisiones de diseño relevantes:**
+
+- **`package.json` (`"name": "ai-coo-platform"`) y los paquetes `@ai-coo/*` no se
+  tocan.** Son nombres internos del workspace, no los ve nadie y no dependen del
+  nombre del repo. Renombrar `@ai-coo/*` implica ~200 imports y el lockfile
+  (misma decisión que en el rebranding a Limitless).
+- **Las entradas viejas de este archivo no se reescriben.** Son historia: dicen
+  el nombre que tenía el repo en ese momento.
+- El código y el CI no usan el nombre del repo en ningún lado, así que no hubo
+  que cambiar nada fuera de la documentación.
+
+**Riesgos / deuda técnica pendiente:** falta confirmar que Vercel y Railway
+siguieron el renombre y siguen deployando con cada push. Ver
+`[REPO-RENOMBRADO-DEPLOYS]` en `PENDIENTES.md`.
+
+---
+
 ### 2026-09-22 — 📝 Los campos de la ficha dejan de cortar a los 2.000 caracteres
 
 **Rama/branch:** `claude/pensive-curie-tkxngo`
