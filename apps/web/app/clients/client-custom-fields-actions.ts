@@ -89,7 +89,11 @@ export async function updateClientCustomFieldsAction(
 
     const validation = validateFieldValues(offered, values);
     if (!validation.ok) {
-      throw new Error(Object.values(validation.errors)[0] ?? "Datos inválidos");
+      // ⭐ Todos los errores, no el primero. La tarjeta guarda los 22 campos de
+      // una sola vez: quedarse con uno obliga a apretar Guardar, corregir,
+      // apretar de nuevo y recién ahí enterarse del siguiente.
+      const mensajes = Object.values(validation.errors);
+      throw new Error(mensajes.join(" · ") || "Datos inválidos");
     }
 
     const loaded = (current.custom ?? {}) as CustomFieldValues;

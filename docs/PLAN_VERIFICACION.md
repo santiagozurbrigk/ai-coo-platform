@@ -8,7 +8,7 @@
 > **Para Claude Code:** ver la regla al final. Cada unidad que construyas suma su
 > bloque de verificación acá, con pasos concretos y resultado esperado.
 >
-> **Última actualización:** 2026-09-11 · Cubre hasta las llamadas de entrega
+> **Última actualización:** 2026-09-22 · Cubre hasta los campos largos de la ficha
 
 ---
 
@@ -1560,6 +1560,30 @@ tiene Supabase. La migración `20260921120000_ficha_secciones_facturacion_y_fase
    cargar dos veces el mismo mes deja dos verdades sobre el mismo período.
 3. **La fase efectiva**: el caso de la manual atrasada contra una derivada más
    avanzada está cubierto por tests, pero nunca se vio con fases reales.
+
+---
+
+### Los campos largos de Marketing, Ventas y Sistemas 🤖
+
+Construido el 2026-09-22. Es lógica pura y está cubierta por tests, pero nadie
+pegó todavía un texto largo en un cliente real.
+
+| Paso | Resultado esperado |
+|------|--------------------|
+| Ficha de un cliente → «Información del cliente» → lápiz → Marketing → pegar en **«Método único»** un texto de unas 5.000 palabras (el que antes rebotaba) | Guarda. Ningún cartel «No se pudo guardar» |
+| Volver a abrir la ficha y abrir el campo con el visor | ⭐ El texto está **entero**, con sus saltos de línea. Si llegó recortado, algo lo truncó en silencio — que es justo lo que el diseño prohíbe |
+| Escribir hasta pasar los **16.000 caracteres** | Aparece abajo a la derecha el contador `16.xxx / 20.000` |
+| Seguir hasta pasar los **20.000** | El contador se pone rojo, el borde del recuadro también, y dice «no entra, recortá o dejá un link» |
+| Apretar Guardar igual | ⚠️ Rebota con «"Método único" tiene 20.xxx caracteres y el máximo es 20.000. Recortá xxx o dejá un link al documento» — **con los números de verdad**, no con un texto genérico |
+| Pasarse del techo en **dos campos a la vez** y guardar | ⭐ El cartel nombra **los dos**, separados por « · ». Si nombra sólo uno, `updateClientCustomFieldsAction` volvió a quedarse con el primer error |
+| Recortar y guardar | Guarda, y lo escrito en los **otros** campos de la misma tarjeta sigue ahí — el rebote anterior no lo perdió |
+| Pegar en un campo de Sistemas (por ejemplo **«GHL»**) un link solo | Sigue mostrándose clickeable, como antes. El cambio de techo no tocó la detección de links |
+| Mirar `/clients` después de cargar textos largos | ⚠️ La tabla no debería tardar más que antes, pero el `jsonb` viaja entero al navegador — es `[FICHA-CUSTOM-EN-LA-LISTA]` en `PENDIENTES.md`. Si se nota lento, ese es el motivo, no el techo |
+
+**⚠️ Lo que más riesgo tiene:** que un texto largo ya cargado en la base —no
+debería haberlo, el límite viejo lo impedía— haga rebotar el guardado de la
+tarjeta entera al editar cualquier otro campo. La tarjeta manda los 22 campos
+juntos, incluidos los que no se tocaron.
 
 ---
 

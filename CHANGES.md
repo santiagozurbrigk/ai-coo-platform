@@ -14,6 +14,89 @@
 
 ---
 
+### 2026-09-22 — 📝 Los campos de la ficha dejan de cortar a los 2.000 caracteres
+
+**Rama/branch:** `claude/pensive-curie-tkxngo`
+**Commits:** (este)
+**Módulo(s) afectado(s):** Clientes (ficha — Marketing, Ventas y Sistemas), campos configurables
+
+**Qué se hizo:**
+
+1. **El techo de un campo de texto pasa de 2.000 a 20.000 caracteres.**
+   `MAX_TEXT_LENGTH` en `lib/custom-fields/validate.ts` ahora es `20_000` y se
+   exporta, para que la UI pueda mostrar el mismo número que valida el servidor
+   en vez de repetirlo a mano.
+
+2. **El error dice cuánto sobra, no sólo que sobra.** Antes: «"Método único" no
+   puede pasar de 2000 caracteres». Ahora: «tiene 20.500 caracteres y el máximo
+   es 20.000. Recortá 500 o dejá un link al documento». Los números van con
+   separador de miles es-AR.
+
+3. **Contador en el área de texto, desde el 80% del techo.** `FieldValueInput`
+   muestra `16.400 / 20.000` abajo a la derecha cuando el texto se acerca, y
+   pinta el borde en `destructive` cuando lo pasa. Antes del 80% no se muestra
+   nada.
+
+4. **El guardado informa todos los campos que fallan, no el primero.**
+   `updateClientCustomFieldsAction` junta los mensajes de `validation.errors`
+   con « · ».
+
+5. **Tests:** cuatro casos nuevos en `validate.test.ts` — 2.001 caracteres ahora
+   entran (el límite viejo), 20.000 exactos entran, 20.001 rebotan, el mensaje
+   trae los tres números, y los espacios de los bordes no gastan cupo porque se
+   mide después del `trim()`. 82 tests de `custom-fields` en verde, 1.131 en
+   toda la app.
+
+**Por qué / finalidad:**
+
+⭐ **Los 22 campos de Marketing, Ventas y Sistemas son todos de tipo texto y
+guardan narrativa.** «Avatar», «Método único», «Script de llamadas», «Narrativa
+de webinar»: 2.000 caracteres son unas 330 palabras, media carilla. El founder
+chocó contra el techo cargando «Método único» y el guardado rebotó entero.
+
+⭐ **Los 2.000 no venían de ningún límite de la base.** El valor vive en
+`clients.custom`, un `jsonb` que Postgres guarda comprimido y fuera de página.
+Era un número elegido cuando los campos configurables eran sólo de wins y
+checkpoints, donde un campo de texto es una nota de un renglón.
+
+⭐ **La tarjeta guarda los 22 campos de una sola vez.** Por eso el error de un
+campo tiraba abajo lo escrito en los otros, y por eso importa que el error
+nombre todos los campos que fallan y que el contador avise antes de apretar
+Guardar y no después.
+
+**Decisiones de diseño relevantes:**
+
+- **Sigue habiendo techo, y no es infinito a propósito.** `listClientsAction`
+  hace `select("*")` y la lista entera de clientes —con su `custom`— viaja al
+  navegador a través de `PlatformDataProvider`. Un campo sin límite es una
+  pantalla de clientes que tarda por culpa de un texto que ahí nadie lee.
+  20.000 caracteres son unas 3.300 palabras por campo.
+- **20.000 y no 50.000**: por lo de arriba, y porque el diseño de estos campos
+  ya contempla que lo muy largo viva afuera — la ficha detecta un link pegado y
+  lo muestra clickeable. El mensaje de error lo dice explícito («o dejá un link
+  al documento») en vez de dejarlo como folklore.
+- **Se rechaza, no se recorta.** La regla dura del repo no se toca: un texto
+  truncado en silencio es un dato perdido que parece guardado.
+- **Un solo número, exportado.** El contador de la UI importa `MAX_TEXT_LENGTH`
+  del validador. Hardcodear `20000` en el componente era la forma segura de que
+  dentro de seis meses la UI y el servidor digan cosas distintas.
+
+**Riesgos / deuda técnica pendiente:**
+
+- ⚠️ **Sin probar contra la base.** El cambio es de lógica pura y está cubierto
+  por tests, pero nadie pegó todavía un texto de 5.000 caracteres en un cliente
+  real. Queda en `docs/PLAN_VERIFICACION.md`.
+- ⚠️ **El payload de la lista de clientes no se tocó.** Con el techo 10x, una
+  organización con muchos clientes y los 22 campos cargados a full manda más
+  bytes al navegador en cada carga de `/clients`. Queda anotado en
+  `PENDIENTES.md` — la solución es que la lista no traiga `custom`, no bajar el
+  techo.
+- `checkpoint-event-actions.ts` y `win-actions.ts` siguen tirando sólo el
+  primer error de `validateFieldValues`. Mismo arreglo de una línea, fuera del
+  alcance de este pedido; anotado en `PENDIENTES.md`.
+
+---
+
 ### 2026-09-21 — 🔍 Abrir un campo para leerlo entero, y corregir un mes de facturación
 
 **Rama/branch:** `claude/nice-thompson-s9zids`
