@@ -23,8 +23,8 @@ reconciliación.
 
 ## Resultado
 
-**Las 144 tablas del repo existen en producción.** Producción tiene una tabla de
-más (`metric_snapshots`). **Las 17 funciones tienen el mismo cuerpo**; sólo cambian
+**Las 144 tablas del repo existen en producción.** Producción tenía una tabla de
+más (`metric_snapshots`), ya borrada. **Las 17 funciones tienen el mismo cuerpo**; sólo cambian
 espacios y comentarios.
 
 ### Diferencias que importaban, ya resueltas
@@ -53,11 +53,6 @@ a mano. ✅ Las columnas y la tabla `metric_snapshots` se borraron el mismo día
 
 | Objeto | Qué es |
 |---|---|
-| Tabla `metric_snapshots` (con policy y 5 índices) | Versión anterior de `metrics_snapshots` (con "s"), que es la que usa la app |
-| `closing_calls`: `amount`, `amount_local`, `notes`, `origin`, `program`, `setter_name`, `no_close_reason`, `import_batch_id`, `import_source` | Del sistema de importación histórica, después removido (`remove_import_system`) |
-| `fathom_calls.member_user_id` (+ índice) | Reemplazada por `user_id` |
-| `manychat_events.raw_data`, `synced_at`, unique `(org, subscriber, event_type, triggered_at)` | Versión de prod de la tabla. El repo tiene `created_at` y un check de `event_type` en su lugar |
-| `zernio_integrations.profile_id`, `instagram_connected`, `whatsapp_connected` | Anteriores a `zernio_profile_id` / `connected_accounts` |
 | Función `current_user_is_founder_or_admin()` | La usa la policy consolidada de `profiles` en prod |
 | Función `rls_auto_enable()` | De la plataforma Supabase, no de Limitless |
 
