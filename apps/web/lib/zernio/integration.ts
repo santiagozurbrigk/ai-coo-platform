@@ -1,6 +1,6 @@
 import { createZernioClient, type ZernioClient } from "@/lib/zernio/client";
 import { extractProfileId } from "@/lib/zernio/profile-id";
-import { decrypt, encrypt } from "@/lib/security/encryption";
+import { readStoredSecret, encrypt } from "@/lib/security/encryption";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ZernioConnectedAccount = {
@@ -28,20 +28,16 @@ export type ZernioIntegrationRow = {
   updated_at: string;
 };
 
+/**
+ * Sin fallback a texto plano: si falta ENCRYPTION_MASTER_KEY, `encrypt` tira y
+ * no se guarda nada. Antes se guardaba la clave en claro sin avisar.
+ */
 function storeApiKey(apiKey: string): string {
-  try {
-    return encrypt(apiKey);
-  } catch {
-    return apiKey;
-  }
+  return encrypt(apiKey);
 }
 
 export function readStoredApiKey(stored: string): string {
-  try {
-    return decrypt(stored);
-  } catch {
-    return stored;
-  }
+  return readStoredSecret(stored);
 }
 
 export function getZernioChannelStatus(

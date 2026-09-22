@@ -39,6 +39,7 @@ import {
 } from "@/lib/business-context/types";
 import type { ContextDocument, FathomKnowledgeCall } from "@/types/business-context";
 import { paths } from "@/routes";
+import { assertOrgStoragePath } from "@/lib/storage/org-path";
 
 const ROW_COLUMNS =
   "id, organization_id, title, category, source, content_text, content_markdown, storage_path, mime_type, status, index_error, external_source_id, uploaded_by, created_at, updated_at";
@@ -232,7 +233,8 @@ export async function createDocumentFromFileAction(
     const organizationId = await requireOrganizationId();
     const uploadedBy = await currentUserId();
     const admin = createAdminClient();
-    const { title, category, storagePath, mimeType } = parsed.data;
+    const { title, category, mimeType } = parsed.data;
+    const storagePath = assertOrgStoragePath(parsed.data.storagePath, organizationId);
 
     const allowed = isAllowedDocumentFile(parsed.data.fileName, mimeType);
     if (!allowed.ok) throw new Error(allowed.error);

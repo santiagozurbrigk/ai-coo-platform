@@ -9,6 +9,7 @@
  * Consistente con la lógica de verifySignature() en apps/reel-worker/src/index.ts.
  */
 
+import { safeEqual } from "@/lib/security/safe-equal";
 import { verifyQStashRequest } from "./qstash-verify";
 
 export async function verifyQueueRequest(
@@ -20,16 +21,16 @@ export async function verifyQueueRequest(
   if (workerSecret) {
     // a) Header custom (nunca stripeado por proxies ni QStash)
     const xWorkerSecret = request.headers.get("x-worker-secret");
-    if (xWorkerSecret === workerSecret) return { ok: true };
+    if (safeEqual(xWorkerSecret, workerSecret)) return { ok: true };
 
     // b) Authorization: Bearer <secret>
     const authHeader = request.headers.get("authorization");
-    if (authHeader === `Bearer ${workerSecret}`) return { ok: true };
+    if (safeEqual(authHeader, `Bearer ${workerSecret}`)) return { ok: true };
 
     // c) Query param (fallback absoluto — QStash nunca modifica query params)
     const url = new URL(request.url);
     const qSecret = url.searchParams.get("workerSecret");
-    if (qSecret === workerSecret) return { ok: true };
+    if (safeEqual(qSecret, workerSecret)) return { ok: true };
 
     console.warn("[Queue] WORKER_AUTH_SECRET configurado pero ningún método coincidió");
     return { ok: false, status: 401, error: "Invalid WORKER_AUTH_SECRET" };

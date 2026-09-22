@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 import { sendWaitlistConfirmationEmail } from "@/lib/email/waitlist-email";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import {
+  getRequestIp,
+  publicFormRateLimit,
+  rateLimitExceeded,
+} from "@/lib/rate-limit";
 import { trackUTMLeadCapture } from "@/lib/utm/track-lead";
 import { sendMetaLeadEvent } from "@/lib/meta/conversions-api";
 import {
@@ -14,8 +19,11 @@ function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+/** Techo por campo: el endpoint es público y escribe con service role. */
+const MAX_FIELD_LENGTH = 2000;
+
 function readString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+  return typeof value === "string" ? value.trim().slice(0, MAX_FIELD_LENGTH) : "";
 }
 
 function readOptionalString(value: unknown): string | null {
@@ -24,6 +32,11 @@ function readOptionalString(value: unknown): string | null {
 }
 
 export async function POST(request: Request) {
+  const { allowed, resetAt } = await publicFormRateLimit(
+    `waitlist:${getRequestIp(request)}`
+  );
+  if (!allowed) return rateLimitExceeded(resetAt);
+
   let body: unknown;
   try {
     body = await request.json();
@@ -120,8 +133,13 @@ export async function POST(request: Request) {
     .eq("email", email)
     .maybeSingle();
 
+  /*
+   * Un email que ya está anotado no se pisa: el endpoint es público y cualquiera
+   * podía reemplazar los datos de otra persona mandando su email. Se responde
+   * igual que un alta para no revelar quién está en la lista.
+   */
   const { error } = existing
-    ? await admin.from("waitlist_leads").update(row).eq("email", email)
+    ? { error: null }
     : await admin.from("waitlist_leads").insert(row);
 
   if (error) {

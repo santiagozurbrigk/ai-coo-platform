@@ -16,7 +16,7 @@ import {
 } from "@/lib/fathom/webhooks";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { encrypt, decrypt } from "@/lib/security/encryption";
+import { encrypt, readStoredSecret } from "@/lib/security/encryption";
 import { paths } from "@/routes";
 import { apiKeySchema, firstZodError } from "@/lib/validations";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
@@ -45,11 +45,7 @@ function storeApiKey(apiKey: string): string {
 }
 
 function readApiKey(stored: string): string {
-  try {
-    return decrypt(stored);
-  } catch {
-    return stored;
-  }
+  return readStoredSecret(stored);
 }
 
 export type FathomMemberStatus = {

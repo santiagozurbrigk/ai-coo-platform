@@ -5,7 +5,7 @@
  * `webinarjam_integrations` no tiene política de RLS de lectura.
  */
 
-import { decrypt, encrypt } from "@/lib/security/encryption";
+import { readStoredSecret, encrypt } from "@/lib/security/encryption";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type WebinarJamIntegrationRow = {
@@ -18,20 +18,16 @@ export type WebinarJamIntegrationRow = {
   updated_at: string;
 };
 
+/**
+ * Sin fallback a texto plano: si falta ENCRYPTION_MASTER_KEY, `encrypt` tira y
+ * no se guarda nada. Antes se guardaba la clave en claro sin avisar.
+ */
 export function encryptWebinarJamApiKey(plainKey: string): string {
-  try {
-    return encrypt(plainKey);
-  } catch {
-    return plainKey;
-  }
+  return encrypt(plainKey);
 }
 
 export function decryptWebinarJamApiKey(stored: string): string {
-  try {
-    return decrypt(stored);
-  } catch {
-    return stored;
-  }
+  return readStoredSecret(stored);
 }
 
 export async function getWebinarJamIntegrationForOrg(

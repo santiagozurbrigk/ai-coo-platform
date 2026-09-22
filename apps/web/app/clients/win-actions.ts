@@ -49,6 +49,7 @@ import { firstZodError } from "@/lib/validations";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { paths } from "@/routes";
+import { assertOrgStoragePath } from "@/lib/storage/org-path";
 
 const metricSchema = z
   .object({
@@ -458,6 +459,7 @@ export async function finalizeWinAttachmentAction(input: DestinoDeCaptura & {
     if (!input.winId && !input.draftId) {
       throw new Error("Falta indicar a qué win va la captura.");
     }
+    assertOrgStoragePath(input.storagePath, organizationId);
 
     const { data, error } = await supabase
       .from("win_attachments")
