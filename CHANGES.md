@@ -14,6 +14,74 @@
 
 ---
 
+### 2026-09-22 — 🔒 DB diff contra producción: una policy abierta en prod y el repo vuelve a armar la base desde cero
+
+**Rama/branch:** `claude/cool-rubin-ssi5x7`
+**Commits:** este
+**Módulo(s) afectado(s):** base de producción (Supabase `OTC`),
+`supabase/migrations/` (3 migraciones corregidas + `20260922120000_reconciliar_con_produccion.sql`),
+docs.
+
+**Qué se hizo:**
+
+1. **Diff completo repo vs producción.** No había contraseña de la base para
+   `supabase db diff`, así que se hizo así:
+   - el esquema del repo se armó en un Postgres local;
+   - se calculó un inventario hasheado por tabla y categoría (columnas, RLS,
+     índices, constraints, policies, triggers, grants, funciones, vistas);
+   - el inventario del repo viajó dentro de la consulta a producción, y prod
+     devolvió sólo las diferencias;
+   - en esas diferencias se bajó a nivel objeto.
+
+   Resultado en `docs/DB_DIFF_PRODUCCION_2026-09-22.md`.
+2. **Hallazgo de seguridad en prod:** la policy `members_own_integrations` de
+   `team_member_integrations` era `ALL USING (auth.uid() = user_id OR org = mía)`
+   sin WITH CHECK.
+   - Cualquier miembro leía las integraciones de sus compañeros: webhook_secret,
+     webhook_token y key cifrada.
+   - Cualquier usuario insertaba filas en **otra** org.
+
+   Se reemplazó por la policy del repo. Verificado en prod: 0 filas ajenas
+   visibles y el insert cruzado da `42501`.
+3. **Del lado del repo:**
+   - rol `member` en `profiles_role_check`: la app lo usa y en una base nueva las
+     invitaciones fallaban;
+   - dos columnas de `zernio_conversation_analysis` que usa el inbox;
+   - 33 índices de FK que sólo tenía prod;
+   - `clients_status_idx`, que faltaba en prod, se creó allá.
+4. **Tres migraciones rotas corregidas:**
+   - `20260710120000` usaba `organization_members`, que no existe;
+   - `20260710140000` usaba `set_updated_at()` antes de crearse;
+   - `20260720100000` tenía un `UPDATE … FROM LATERAL` inválido.
+
+   Ahora las **171 migraciones arman una base desde cero sin errores**, cada una
+   en su transacción.
+
+**Por qué / finalidad:** era el punto 9 de `[AUDITORIA-ABIERTOS]`. Producción se
+había construido en parte a mano. El dev que entra necesita que una base armada
+desde el repo sea igual a producción en lo que la app usa.
+
+**Decisiones de diseño relevantes:**
+- **Las migraciones viejas se corrigieron en su lugar.** Producción no las vuelve
+  a correr, y sin corregirlas no hay forma de armar una base nueva. Cada
+  corrección deja un comentario con fecha y motivo.
+- **Lo que sólo existe en prod y la app no usa no se borró.** Borrar es
+  destructivo. Queda listado en el documento del diff.
+- **La migración de reconciliación es idempotente** (`if not exists`,
+  `drop … if exists`): deja lo mismo en una base nueva y en prod.
+- **Las funciones no se tocaron:** las 17 tienen el mismo cuerpo en las dos
+  bases, normalizando espacios y comentarios.
+
+**Riesgos / deuda técnica pendiente:**
+- El **historial** de migraciones no coincide: 55 del repo se aplicaron a mano y
+  18 de prod no tienen archivo. `supabase db push` intentaría re-aplicar; hasta
+  un `migration repair`, aplicar con `apply_migration` o el SQL Editor.
+- `authenticated` sigue con SELECT a nivel tabla sobre `organizations` en prod,
+  y ve el ciphertext de la key de Claude de su propia org.
+- Falta un job de CI que arme la base desde cero.
+
+---
+
 ### 2026-09-22 — 🔒 Migraciones de la auditoría aplicadas en producción (y un agujero más en `organizations`)
 
 **Rama/branch:** `claude/cool-rubin-ssi5x7` (después del squash de #70)

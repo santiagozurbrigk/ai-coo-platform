@@ -25,10 +25,9 @@ CREATE TABLE IF NOT EXISTS zernio_conversation_analysis (
 
 ALTER TABLE zernio_conversation_analysis ENABLE ROW LEVEL SECURITY;
 
+-- Corregida 2026-09-22: referenciaba `organization_members`, que no existe, y
+-- rompía el armado de una base desde cero. Producción ya tiene esta policy con
+-- esta definición (aplicada a mano).
 CREATE POLICY "org members can select zernio analysis"
   ON zernio_conversation_analysis FOR SELECT
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
-  );
+  USING (organization_id = public.get_my_organization_id());
