@@ -14,10 +14,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  const data =
+  const raw =
     typeof body === "object" && body !== null
       ? (body as Record<string, unknown>)
       : {};
+  // Endpoint público: se recorta todo string a un largo razonable.
+  const data = Object.fromEntries(
+    Object.entries(raw).map(([k, v]) => [k, typeof v === "string" ? v.slice(0, 500) : v])
+  );
 
   const utm_campaign =
     typeof data.utm_campaign === "string" ? data.utm_campaign : "";
@@ -46,6 +50,7 @@ export async function POST(request: Request) {
     lead_identifier,
     lead_email:
       typeof data.lead_email === "string" ? data.lead_email : null,
+    requireKnownLink: true,
   });
 
   return NextResponse.json(result);
