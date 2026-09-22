@@ -27,7 +27,29 @@ export type FieldValuesResult =
   | { ok: false; errors: Record<string, string> };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const MAX_TEXT_LENGTH = 2000;
+
+/**
+ * El techo de un campo de texto, en caracteres.
+ *
+ * ⭐ Eran 2.000 y el founder chocó contra ellos cargando «Método único» en la
+ * ficha de un cliente. Los 22 campos de Marketing, Ventas y Sistemas son todos
+ * de tipo texto y guardan narrativa —un avatar entero, un script de llamadas,
+ * la narrativa de un webinar—, no un renglón: 2.000 caracteres son unas 330
+ * palabras, media carilla. El número no venía de ningún límite real de la base:
+ * el valor vive en un `jsonb` que Postgres guarda comprimido y fuera de página
+ * sin despeinarse.
+ *
+ * Sigue habiendo techo, y sigue siendo alto a propósito. La lista de clientes
+ * viaja entera al navegador (`select("*")` en `listClientsAction`), así que un
+ * campo sin límite es una pantalla de clientes que tarda por culpa de un texto
+ * que nadie está leyendo ahí. 20.000 caracteres son unas 3.300 palabras por
+ * campo: de sobra para lo que estos campos guardan, y acotado.
+ *
+ * Lo que no cambia es la regla: si no entra **se rechaza diciendo cuánto se
+ * pasó**, nunca se recorta en silencio. Un texto truncado sin aviso es un dato
+ * perdido que parece guardado.
+ */
+export const MAX_TEXT_LENGTH = 20_000;
 
 /**
  * Normaliza y valida un valor suelto.
@@ -69,12 +91,19 @@ function validateText(field: FieldDefinition, raw: unknown): FieldValueResult {
   }
   const value = raw.trim();
   if (value.length > MAX_TEXT_LENGTH) {
+    // Decir sólo "no puede pasar de 20.000" deja a la persona contando a ojo
+    // cuánto sobra. El número propio del texto le dice qué recortar.
     return {
       ok: false,
-      error: `"${field.label}" no puede pasar de ${MAX_TEXT_LENGTH} caracteres.`,
+      error: `"${field.label}" tiene ${formatCount(value.length)} caracteres y el máximo es ${formatCount(MAX_TEXT_LENGTH)}. Recortá ${formatCount(value.length - MAX_TEXT_LENGTH)} o dejá un link al documento.`,
     };
   }
   return { ok: true, value };
+}
+
+/** 20000 → "20.000". Los números largos se leen de un vistazo con separador. */
+function formatCount(n: number): string {
+  return n.toLocaleString("es-AR");
 }
 
 function validateNumber(field: FieldDefinition, raw: unknown): FieldValueResult {

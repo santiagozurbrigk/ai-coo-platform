@@ -10,7 +10,11 @@
 
 import { Input, Label, Textarea, cn } from "@ai-coo/ui";
 import type { FieldDefinition } from "@/types/custom-fields";
-import { resolveFieldOptions, type ResolveOptionsContext } from "@/lib/custom-fields";
+import {
+  MAX_TEXT_LENGTH,
+  resolveFieldOptions,
+  type ResolveOptionsContext,
+} from "@/lib/custom-fields";
 
 const CONTROL_CLASS =
   "h-9 w-full rounded-md border border-border bg-background px-2 text-sm";
@@ -144,15 +148,50 @@ export function FieldValueInput({
           renglón y no hay forma de recuperarlo. Tres filas alcanzan para que
           se note que se puede escribir de más, y crece tirando de la esquina.
         */
-        return (
-          <Textarea
-            id={inputId}
-            rows={3}
-            className="min-h-[72px] resize-y"
-            value={typeof value === "string" ? value : ""}
-            onChange={(event) => onChange(event.target.value)}
-          />
-        );
+        return renderTextarea();
     }
+  }
+
+  /**
+   * El área de texto, con el contador que aparece cuando el texto se acerca al
+   * techo.
+   *
+   * ⭐ Sin esto el límite sólo se conoce **chocándolo**: se pega un texto
+   * largo, se aprieta Guardar y recién ahí aparece un error — y como la tarjeta
+   * guarda los campos del cliente de una sola vez, ese error tira abajo también
+   * lo que se escribió en los otros. El contador se muestra desde el 80% para
+   * no ensuciar el formulario cuando faltan 19.000 caracteres.
+   */
+  function renderTextarea() {
+    const text = typeof value === "string" ? value : "";
+    const usados = text.trim().length;
+    const cerca = usados >= MAX_TEXT_LENGTH * 0.8;
+    const pasado = usados > MAX_TEXT_LENGTH;
+
+    return (
+      <>
+        <Textarea
+          id={inputId}
+          rows={3}
+          className={cn(
+            "min-h-[72px] resize-y",
+            pasado ? "border-destructive focus-visible:ring-destructive" : null
+          )}
+          value={text}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        {cerca ? (
+          <p
+            className={cn(
+              "text-right text-xs tabular-nums",
+              pasado ? "text-destructive" : "text-muted-foreground"
+            )}
+          >
+            {usados.toLocaleString("es-AR")} / {MAX_TEXT_LENGTH.toLocaleString("es-AR")}
+            {pasado ? " — no entra, recortá o dejá un link" : null}
+          </p>
+        ) : null}
+      </>
+    );
   }
 }

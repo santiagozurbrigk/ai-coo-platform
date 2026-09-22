@@ -173,6 +173,46 @@ detrás para la tabla.
 
 ---
 
+### [FICHA-CUSTOM-EN-LA-LISTA] La lista de clientes arrastra el texto de los 22 campos 🟡
+
+**Qué es:** `listClientsAction` hace `select("*")` sobre `clients`, así que el
+`jsonb` de campos configurables de **cada** cliente viaja al navegador por
+`PlatformDataProvider` en cada carga de la plataforma. En `/clients` casi nada
+de eso se dibuja: `showInTable` viene en `false` por defecto.
+
+Importa desde el 2026-09-22, cuando el techo de un campo de texto pasó de 2.000
+a 20.000 caracteres: el peor caso por cliente pasó de ~44 KB a ~440 KB. El caso
+real es mucho más chico, pero la dirección es la que es.
+
+**Qué hacer:** que la lista traiga sólo las columnas que dibuja, y que `custom`
+entero se lea en la ficha —que ya carga el cliente aparte—. Hermano de
+`[FASE-REFRESCO-CARO]` y `[FICHA-LENTA]`: los tres son el mismo problema de
+traer de más.
+
+**Qué NO hacer:** bajar el techo de vuelta. El límite estaba mal por ser bajo,
+no por ser alto.
+
+---
+
+### [CUSTOM-ERRORES-PRIMERO] Wins y checkpoints informan sólo el primer campo inválido
+
+**Qué es:** `validateFieldValues` devuelve **todos** los errores a propósito
+—está en su docstring— pero dos de sus tres llamadores se quedan con el
+primero:
+
+- `app/clients/checkpoint-event-actions.ts:159`
+- `app/clients/win-actions.ts:624`
+
+Con un formulario de varios campos, eso es corregir, guardar, y recién ahí
+enterarse del siguiente.
+
+**Qué hacer:** lo mismo que ya se hizo el 2026-09-22 en
+`client-custom-fields-actions.ts` — juntar `Object.values(validation.errors)`
+con « · ». Una línea en cada archivo. Quedó afuera porque el pedido era sobre la
+ficha del cliente, no sobre wins ni checkpoints.
+
+---
+
 ### [UI-SIN-TESTS] `packages/ui` no tiene tests 🟡
 
 **Qué es:** el paquete tiene `lint` y `typecheck`, pero no `test`. El

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_TEXT_LENGTH,
   validateFieldValue,
   validateFieldValues,
 } from "@/lib/custom-fields/validate";
@@ -27,8 +28,37 @@ describe("texto", () => {
     });
   });
 
+  /*
+    ⭐ Los 2.001 caracteres **entran**: son el límite viejo, el que reventaba al
+    cargar «Método único» en la ficha de un cliente. El techo son 20.000.
+  */
+  it("acepta una narrativa larga: media carilla ya no es el techo", () => {
+    expect(validateFieldValue(text, "x".repeat(2001))).toEqual({
+      ok: true,
+      value: "x".repeat(2001),
+    });
+    expect(validateFieldValue(text, "x".repeat(MAX_TEXT_LENGTH)).ok).toBe(true);
+  });
+
   it("rechaza un texto desmedido en vez de truncarlo en silencio", () => {
-    expect(validateFieldValue(text, "x".repeat(2001)).ok).toBe(false);
+    const result = validateFieldValue(text, "x".repeat(MAX_TEXT_LENGTH + 1));
+    expect(result.ok).toBe(false);
+  });
+
+  it("dice cuánto se pasó, no sólo que se pasó", () => {
+    const result = validateFieldValue(text, "x".repeat(MAX_TEXT_LENGTH + 500));
+    expect(result.ok).toBe(false);
+    // Los tres números: el del texto, el techo y lo que sobra.
+    if (!result.ok) {
+      expect(result.error).toContain("20.500");
+      expect(result.error).toContain("20.000");
+      expect(result.error).toContain("500");
+    }
+  });
+
+  it("mide después de recortar los bordes: los espacios no gastan cupo", () => {
+    const alRas = `  ${"x".repeat(MAX_TEXT_LENGTH)}  `;
+    expect(validateFieldValue(text, alRas).ok).toBe(true);
   });
 
   it("rechaza un número donde va texto", () => {
