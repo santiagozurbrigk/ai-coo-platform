@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, GlassPanel, Input, Label } from "@ai-coo/ui";
 import { completePasswordChangeAction } from "@/app/auth/force-password-change/actions";
-import { createClient } from "@/lib/supabase/client";
 import { paths } from "@/routes";
 
 export default function ForcePasswordChangePage() {
@@ -28,19 +27,13 @@ export default function ForcePasswordChangePage() {
     }
 
     setLoading(true);
-    const supabase = createClient();
 
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
-
-    if (updateError) {
-      setError("Error al actualizar la contraseña");
+    const result = await completePasswordChangeAction(newPassword);
+    if (!result.ok) {
+      setError(result.error);
       setLoading(false);
       return;
     }
-
-    await completePasswordChangeAction();
 
     router.push(paths.platform.dashboard);
     router.refresh();

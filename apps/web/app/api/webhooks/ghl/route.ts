@@ -81,6 +81,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "No autorizado" }, { status: 401 });
   }
 
+  /*
+   * ⭐ La firma de plataforma prueba que el evento lo firmó GHL, no a qué
+   * sub-cuenta pertenece: la clave pública es una sola para todo GHL. En esa vía
+   * la org sale sólo del `locationId` firmado. Si se aceptaba `?organizationId=`,
+   * cualquiera con un evento firmado de su propia sub-cuenta lo reenviaba al
+   * embudo de otra org.
+   */
+  if (check.authPath !== "workflow_shared_secret") {
+    const signedOrg = locationId
+      ? await resolveOrganizationByLocation(locationId)
+      : null;
+    if (!signedOrg || signedOrg !== organizationId) {
+      console.warn("[ghl-webhook] locationId firmado no corresponde a la org");
+      return NextResponse.json({ ok: false, error: "No autorizado" }, { status: 401 });
+    }
+  }
+
   // GHL manda muchos tipos de evento por el mismo endpoint. Los que no son de
   // oportunidad se descartan sin guardar: no aportan al embudo y traen datos
   // personales que no hace falta almacenar.

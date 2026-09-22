@@ -76,14 +76,34 @@ export async function GET(request: NextRequest) {
     }),
   });
 
-  const tokenData = (await tokenResponse.json()) as { access_token?: string };
+  const tokenData = (await tokenResponse.json()) as {
+    access_token?: string;
+    guild?: { id?: string; name?: string };
+  };
 
   if (!tokenData.access_token) {
     return integrationsRedirect(origin, { discord: "error" });
   }
 
+  /*
+   * ⭐ El servidor sale de la respuesta del token, no del query string.
+   *
+   * Con `scope=bot` Discord devuelve en el token el `guild` donde se instaló el
+   * bot. El `guild_id` de la URL lo controla quien completa el flujo: con eso
+   * una org podía registrar como propio el servidor de otra (guild_id es único)
+   * y recibir sus mensajes y testimonios.
+   */
+  const authorizedGuildId = tokenData.guild?.id;
+  if (
+    !authorizedGuildId ||
+    authorizedGuildId !== guildId ||
+    !/^\d{5,25}$/.test(authorizedGuildId)
+  ) {
+    return integrationsRedirect(origin, { discord: "error" });
+  }
+
   const guildResponse = await fetch(
-    `https://discord.com/api/v10/guilds/${guildId}`,
+    `https://discord.com/api/v10/guilds/${authorizedGuildId}`,
     { headers: { Authorization: `Bot ${botToken}` } }
   );
   const guildData = (await guildResponse.json()) as { name?: string };
@@ -92,8 +112,8 @@ export async function GET(request: NextRequest) {
   const { error } = await admin.from("discord_integrations").upsert(
     {
       organization_id: organizationId,
-      guild_id: guildId,
-      guild_name: guildData.name ?? null,
+      guild_id: authorizedGuildId,
+      guild_name: guildData.name ?? tokenData.guild?.name ?? null,
       status: "connected",
       updated_at: new Date().toISOString(),
     },

@@ -27,13 +27,17 @@ async function requireHoldingOrgId(): Promise<string> {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
 
-  const { organizationId, accountType } = await loadProfileOrganizationContext(
+  const { organizationId, accountType, canManageHolding } =
+    await loadProfileOrganizationContext(
     user.id
   );
 
   if (!organizationId) throw new Error("Sin perfil");
   if (accountType !== "holding") {
     throw new Error("Esta acción es solo para cuentas holding");
+  }
+  if (!canManageHolding) {
+    throw new Error("Sólo el founder del holding puede hacer esto");
   }
 
   return organizationId;

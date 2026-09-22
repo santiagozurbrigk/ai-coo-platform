@@ -6,6 +6,32 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
+/*
+ * Nombres de columna reales (ver supabase/migrations). Las consultas de este
+ * archivo pedían columnas que no existen —`paid_at`, `call_summary`,
+ * `weaknesses`, `main_objection`, `base_salary`, `snapshot_date`…— y PostgREST
+ * respondía 42703: las herramientas del agente devolvían vacío o error. Se
+ * usan alias (`paid_at:payment_date`) para no tocar el resto del código.
+ */
+
+function firstObjection(objections: unknown): string | null {
+  if (!Array.isArray(objections) || objections.length === 0) return null;
+  const first = objections[0] as Record<string, unknown> | string;
+  if (typeof first === "string") return first;
+  const text = first?.objection ?? first?.text ?? first?.label;
+  return typeof text === "string" ? text : null;
+}
+
+function summarizeInsights(insights: unknown): string | null {
+  if (!Array.isArray(insights) || insights.length === 0) return null;
+  return insights
+    .map((i) => (i && typeof i === "object" ? (i as { title?: unknown }).title : null))
+    .filter((t): t is string => typeof t === "string")
+    .join(" · ")
+    .slice(0, 500) || null;
+}
+
+
 type HandlerContext = {
   organizationId: string;
   supabase: SupabaseClient;
@@ -52,9 +78,9 @@ export async function handleGetBusinessSnapshot(
           .eq("organization_id", organizationId),
         supabase
           .from("client_payments")
-          .select("amount, paid_at")
+          .select("amount, paid_at:payment_date")
           .eq("organization_id", organizationId)
-          .gte("paid_at", since),
+          .gte("payment_date", since),
         supabase
           .from("call_analyses")
           .select("sold, booked, overall_score, call_date, closer_name")
@@ -262,16 +288,16 @@ export async function handleGetSalesMetrics(
       supabase
         .from("call_analyses")
         .select(
-          "closer_id, closer_name, overall_score, booked, sold, call_date, strengths, weaknesses, call_summary"
+          "closer_id, closer_name, overall_score, booked, sold, call_date, strengths, weaknesses:improvements, call_summary:summary"
         )
         .eq("organization_id", organizationId)
         .gte("call_date", since)
         .order("call_date", { ascending: false }),
       supabase
         .from("client_payments")
-        .select("amount, paid_at")
+        .select("amount, paid_at:payment_date")
         .eq("organization_id", organizationId)
-        .gte("paid_at", since),
+        .gte("payment_date", since),
     ]);
 
     const calls = callsRes.data ?? [];
@@ -382,7 +408,7 @@ export async function handleGetClosingCalls(
     let query = supabase
       .from("call_analyses")
       .select(
-        "id, closer_name, call_date, sold, booked, overall_score, call_summary, strengths, weaknesses, main_objection, transcript_url"
+        "id, closer_name, call_date, sold, booked, overall_score, call_summary:summary, strengths, weaknesses:improvements, objections"
       )
       .eq("organization_id", organizationId)
       .order("call_date", { ascending: false })
@@ -424,7 +450,7 @@ export async function handleGetClosingCalls(
           Array.isArray(c.strengths) ? (c.strengths as string[]).slice(0, 3) : [],
         debilidades:
           Array.isArray(c.weaknesses) ? (c.weaknesses as string[]).slice(0, 3) : [],
-        objecion_principal: c.main_objection ?? null,
+        objecion_principal: firstObjection(c.objections),
       })),
     });
   } catch (err) {
@@ -450,9 +476,9 @@ export async function handleGetFinanceSummary(
     const [paymentsRes, fixedRes, subsRes, teamRes] = await Promise.all([
       supabase
         .from("client_payments")
-        .select("amount, paid_at, client_id")
+        .select("amount, paid_at:payment_date, client_id")
         .eq("organization_id", organizationId)
-        .gte("paid_at", since),
+        .gte("payment_date", since),
       supabase
         .from("fixed_expenses")
         .select("name, amount, frequency")
@@ -464,7 +490,7 @@ export async function handleGetFinanceSummary(
         .eq("status", "active"),
       supabase
         .from("team_compensation")
-        .select("member_name, base_salary, commission_rate")
+        .select("member_name, base_salary:fixed_amount, commission_rate:commission_percentage")
         .eq("organization_id", organizationId),
     ]);
 
@@ -794,9 +820,9 @@ export async function handleGetOperationsSummary(
         .limit(20),
       supabase
         .from("intelligence_snapshots")
-        .select("snapshot_date, summary, key_metrics")
+        .select("snapshot_date:generated_at, insights")
         .eq("organization_id", organizationId)
-        .order("snapshot_date", { ascending: false })
+        .order("generated_at", { ascending: false })
         .limit(1),
     ]);
 
@@ -834,10 +860,7 @@ export async function handleGetOperationsSummary(
       ultimo_snapshot_inteligencia: snapshot
         ? {
             fecha: snapshot.snapshot_date,
-            resumen:
-              typeof snapshot.summary === "string"
-                ? snapshot.summary.slice(0, 500)
-                : null,
+            resumen: summarizeInsights(snapshot.insights),
           }
         : {
             nota: "No hay snapshots de inteligencia generados aún. Se generan automáticamente dos veces al día.",

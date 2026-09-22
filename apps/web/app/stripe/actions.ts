@@ -94,6 +94,9 @@ export async function getStripeTransactionDetailAction(
   transactionId: string
 ): Promise<StripeBalanceTransaction | null> {
   const organizationId = await requireOrganizationId();
+  // El id viaja en el path de la API de Stripe con el token de la org: sin esto,
+  // `../customers?` leía otros endpoints GET de la cuenta.
+  if (!/^txn_[A-Za-z0-9]+$/.test(transactionId)) return null;
   const token = await getActiveStripeToken(organizationId);
   if (!token) return null;
 

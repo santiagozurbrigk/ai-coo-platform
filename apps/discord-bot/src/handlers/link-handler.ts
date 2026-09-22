@@ -83,7 +83,7 @@ async function vincular(
   const parts = message.content.trim().split(/\s+/);
   const email = parts[1]?.toLowerCase();
 
-  if (!email || !email.includes("@")) {
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     await responder(
       "Para vincular tu perfil escribí: **!vincular tu@email.com**\n" +
         "Usá el mismo email con el que te inscribiste al programa.",

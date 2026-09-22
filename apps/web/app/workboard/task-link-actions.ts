@@ -25,6 +25,7 @@ import {
 import { firstZodError, uuidSchema } from "@/lib/validations";
 import { paths } from "@/routes/paths";
 import type { WorkboardTask, WorkboardTaskLinkedDocument } from "@/types/workboard";
+import { assertOrgStoragePath } from "@/lib/storage/org-path";
 
 function revalidateWorkboard() {
   revalidatePath(paths.platform.workboard.root);
@@ -260,7 +261,8 @@ export async function finalizeTaskAttachmentAction(
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
     const uploadedBy = await currentUserId();
-    const { taskId, storagePath, fileName, mimeType, fileSize } = parsed.data;
+    const { taskId, fileName, mimeType, fileSize } = parsed.data;
+    const storagePath = assertOrgStoragePath(parsed.data.storagePath, organizationId);
 
     const allowed = isAllowedWorkboardAttachment(fileName, mimeType, fileSize);
     if (!allowed.ok) throw new Error(allowed.error);

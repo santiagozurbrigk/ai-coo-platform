@@ -2,14 +2,22 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import {
+  getRequestIp,
+  publicFormRateLimit,
+  rateLimitExceeded,
+} from "@/lib/rate-limit";
 import { sendMetaLeadEvent } from "@/lib/meta/conversions-api";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+/** Techo por campo: el endpoint es público y escribe con service role. */
+const MAX_FIELD_LENGTH = 2000;
+
 function readString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+  return typeof value === "string" ? value.trim().slice(0, MAX_FIELD_LENGTH) : "";
 }
 
 function readOptionalString(value: unknown): string | null {
@@ -18,6 +26,11 @@ function readOptionalString(value: unknown): string | null {
 }
 
 export async function POST(request: Request) {
+  const { allowed, resetAt } = await publicFormRateLimit(
+    `trial-confirm:${getRequestIp(request)}`
+  );
+  if (!allowed) return rateLimitExceeded(resetAt);
+
   let body: unknown;
   try {
     body = await request.json();
@@ -84,8 +97,19 @@ export async function POST(request: Request) {
     .eq("email", email)
     .maybeSingle();
 
+  /*
+   * Si el email ya estaba (típicamente desde la waitlist), se marca que confirmó
+   * la prueba sin tocar sus datos personales: el endpoint es público y con el
+   * update completo cualquiera reemplazaba nombre y teléfono de otra persona.
+   */
   const { error } = existing
-    ? await admin.from("waitlist_leads").update(row).eq("email", email)
+    ? await admin
+        .from("waitlist_leads")
+        .update({
+          source: row.source,
+          ...(calendlyEventUrl ? { calendly_event_url: calendlyEventUrl } : {}),
+        })
+        .eq("email", email)
     : await admin.from("waitlist_leads").insert(row);
 
   if (error) {

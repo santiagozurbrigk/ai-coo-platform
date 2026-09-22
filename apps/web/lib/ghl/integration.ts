@@ -4,7 +4,7 @@
  * para leer la API key cifrada (la tabla no tiene RLS SELECT).
  */
 
-import { decrypt, encrypt } from "@/lib/security/encryption";
+import { readStoredSecret, encrypt } from "@/lib/security/encryption";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   listGHLCalendars,
@@ -27,20 +27,16 @@ export type GHLIntegrationRow = {
 
 // ─── Cifrado ─────────────────────────────────────────────────────────────────
 
+/**
+ * Sin fallback a texto plano: si falta ENCRYPTION_MASTER_KEY, `encrypt` tira y
+ * no se guarda nada. Antes se guardaba la clave en claro sin avisar.
+ */
 export function encryptGHLApiKey(plainKey: string): string {
-  try {
-    return encrypt(plainKey);
-  } catch {
-    return plainKey;
-  }
+  return encrypt(plainKey);
 }
 
 export function decryptGHLApiKey(stored: string): string {
-  try {
-    return decrypt(stored);
-  } catch {
-    return stored;
-  }
+  return readStoredSecret(stored);
 }
 
 // ─── Lectura ──────────────────────────────────────────────────────────────────

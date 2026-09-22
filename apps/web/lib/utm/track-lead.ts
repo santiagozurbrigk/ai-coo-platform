@@ -12,6 +12,12 @@ export type TrackUTMLeadInput = UTMParams & {
   organization_id: string;
   lead_identifier: string;
   lead_email?: string | null;
+  /**
+   * Sólo registrar si la campaña es un link UTM creado por la org. Lo usa el
+   * endpoint público `/api/utm/track`, donde org y campaña las manda el
+   * navegador: sin esto cualquiera escribía leads inventados en cualquier org.
+   */
+  requireKnownLink?: boolean;
 };
 
 /** Registra captura de lead con UTM e incrementa contador en utm_links. */
@@ -32,6 +38,10 @@ export async function trackUTMLeadCapture(
     .eq("organization_id", organization_id)
     .eq("utm_campaign", utm_campaign)
     .maybeSingle();
+
+  if (input.requireKnownLink && !utmLink?.id) {
+    return { ok: false };
+  }
 
   const { error: insertError } = await supabase
     .from("utm_lead_captures")

@@ -15,7 +15,7 @@ import { paths } from "@/routes";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { attributeSaleToUTM } from "@/lib/utm/attribute-booking";
-import { attributeLeadMagnetToClientAction } from "@/app/marketing/lead-magnets-actions";
+import { attributeLeadMagnetToClient } from "@/lib/marketing/lead-magnets-internal";
 import { repairClosingConversationLinks } from "@/lib/conversations/repair-links";
 import {
   createClientSchema,
@@ -134,7 +134,7 @@ export async function createClientAction(input: unknown): Promise<Client> {
   });
 
   // Atribuir al último Lead Magnet que recibió este lead (por nombre)
-  await attributeLeadMagnetToClientAction({
+  await attributeLeadMagnetToClient({
     organizationId,
     clientId: saved.id,
     clientName: saved.name,

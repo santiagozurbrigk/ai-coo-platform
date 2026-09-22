@@ -4,6 +4,12 @@ import {
   generateAllMonthlyExecutiveReports,
   generateAndSaveMonthlyExecutiveReport,
 } from "@/lib/executive-reports/generate-monthly";
+import { listActiveOrganizationIds } from "@/lib/intelligence/generate-snapshot";
+import {
+  isQStashConfigured,
+  publishCronFanout,
+  getCronExecutiveReportWorkerUrl,
+} from "@/lib/queue/qstash-client";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -26,6 +32,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, organizationId, result });
     }
 
+    // Fan-out por org, como el diario y el semanal: en serie, una generación con
+    // Sonnet por org dentro de un solo maxDuration dejaba sin reporte a las
+    // últimas orgs en cuanto hubiera más de un puñado, y el mensual no reintenta.
+    if (isQStashConfigured()) {
+      const orgIds = await listActiveOrganizationIds();
+      const { published, failed } = await publishCronFanout(
+        getCronExecutiveReportWorkerUrl(),
+        orgIds,
+        2,
+        { period: "monthly" }
+      );
+      console.log("[cron/executive-report-monthly] fan-out completado", {
+        total: orgIds.length,
+        published,
+        failed,
+      });
+      return NextResponse.json({
+        ok: true,
+        mode: "fanout",
+        total: orgIds.length,
+        published,
+        failed,
+      });
+    }
+
+    // Fallback secuencial (sin QStash)
     const bulk = await generateAllMonthlyExecutiveReports();
     return NextResponse.json({ ok: true, ...bulk });
   } catch (e) {

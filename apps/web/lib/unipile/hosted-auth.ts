@@ -21,7 +21,10 @@ export async function createUnipileHostedAuthLink(params: {
 }): Promise<string> {
   const baseUrl = getAppBaseUrl();
   const expiresOn = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-  const notifyUrl = `${baseUrl}/api/integrations/unipile/webhook`;
+  // El secreto viaja en la URL: Unipile no manda headers propios en la
+  // notificación del hosted auth, y el webhook lo exige (fail-closed).
+  const webhookSecret = process.env.UNIPILE_WEBHOOK_SECRET?.trim() ?? "";
+  const notifyUrl = `${baseUrl}/api/integrations/unipile/webhook?secret=${encodeURIComponent(webhookSecret)}`;
 
   const proxyCountry = await getOrganizationProxyCountry(params.organizationId);
   const apiUrl = normalizeUnipileApiUrl(process.env.UNIPILE_DSN?.trim() ?? "");

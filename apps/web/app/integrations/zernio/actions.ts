@@ -18,9 +18,9 @@ import {
 } from "@/lib/zernio/client";
 import { callClaudeJson } from "@/lib/ai/anthropic";
 import {
-  getLeadMagnetUrlsForOrgAction,
-  registerLeadMagnetFromDmAction,
-} from "@/app/marketing/lead-magnets-actions";
+  getLeadMagnetUrlsForOrg,
+  registerLeadMagnetFromDm,
+} from "@/lib/marketing/lead-magnets-internal";
 import {
   encryptZernioApiKey,
   formatZernioChannelsLabel,
@@ -574,7 +574,7 @@ Devolvé este JSON (sin markdown, solo JSON):
 
     // ── Detección de Lead Magnets en mensajes salientes ──────────────────────
     // Obtener LMs activos de la org con sus URLs
-    const lmUrls = await getLeadMagnetUrlsForOrgAction(organizationId);
+    const lmUrls = await getLeadMagnetUrlsForOrg(organizationId);
     if (lmUrls.length > 0) {
       // Solo mensajes outbound (los que envía el equipo)
       const outboundTexts = messages
@@ -589,7 +589,7 @@ Devolvé este JSON (sin markdown, solo JSON):
         );
         if (found) {
           // Registrar el lead (idempotente por conversationId + leadMagnetId)
-          await registerLeadMagnetFromDmAction({
+          await registerLeadMagnetFromDm({
             organizationId,
             conversationId,
             participantName,

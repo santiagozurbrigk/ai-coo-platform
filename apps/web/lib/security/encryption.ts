@@ -59,6 +59,33 @@ export function decrypt(ciphertext: string): string {
   return decrypted.toString("utf8");
 }
 
+const IV_B64_LENGTH = 16; // 12 bytes
+const TAG_B64_LENGTH = 24; // 16 bytes
+const B64 = /^[A-Za-z0-9+/]+={0,2}$/;
+
+/** ¿Tiene la forma exacta de lo que devuelve `encrypt()`? */
+export function looksEncrypted(value: string): boolean {
+  const parts = value.split(".");
+  return (
+    parts.length === 3 &&
+    parts[0].length === IV_B64_LENGTH &&
+    parts[1].length === TAG_B64_LENGTH &&
+    parts[2].length > 0 &&
+    parts.every((p) => B64.test(p))
+  );
+}
+
+/**
+ * Lee un secreto guardado que puede ser ciphertext o texto plano legacy.
+ *
+ * ⚠️ Si tiene forma de ciphertext y no descifra (clave cambiada o faltante),
+ * tira. Antes los wrappers devolvían el valor guardado tal cual, y el
+ * ciphertext terminaba mandándose al proveedor como si fuera la API key.
+ */
+export function readStoredSecret(stored: string): string {
+  return looksEncrypted(stored) ? decrypt(stored) : stored;
+}
+
 /**
  * Devuelve solo los últimos 4 caracteres de un secreto para
  * mostrar en UI sin exponer el valor completo, ej: "****a8f2"

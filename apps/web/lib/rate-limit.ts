@@ -107,6 +107,16 @@ export const aiRateLimit = rateLimit({
   maxRequests: 10,
 });
 
+/**
+ * Transcripción de audio (Whisper, hasta 25 MB por request) — por usuario.
+ * Más holgado que `aiRateLimit` porque un audio largo llega partido en varios
+ * pedidos seguidos.
+ */
+export const transcriptionRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  maxRequests: 30,
+});
+
 /** Auth — brute force */
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -123,6 +133,12 @@ export const integrationRateLimit = rateLimit({
 export const apiRateLimit = rateLimit({
   windowMs: 60 * 1000,
   maxRequests: 60,
+});
+
+/** Formularios públicos sin sesión (waitlist, confirmación de prueba) — por IP */
+export const publicFormRateLimit = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  maxRequests: 10,
 });
 
 /** Webhooks externos */

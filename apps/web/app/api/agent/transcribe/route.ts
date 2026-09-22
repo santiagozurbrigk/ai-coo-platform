@@ -2,18 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthContext } from "@/lib/auth/require-auth";
 import { trackTranscriptionUsage } from "@/lib/sops/transcription-usage";
 import { ESTIMATED_BYTES_PER_SECOND } from "@/lib/sops/audio-chunks";
+import { rateLimitExceeded, transcriptionRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   let organizationId: string;
+  let userId: string;
   try {
     const auth = await requireAuthContext();
     organizationId = auth.orgId;
+    userId = auth.user.id;
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const { allowed, resetAt } = await transcriptionRateLimit(`transcribe:${userId}`);
+  if (!allowed) return rateLimitExceeded(resetAt);
 
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {

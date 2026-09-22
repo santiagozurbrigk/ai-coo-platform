@@ -127,7 +127,10 @@ async function runFathomProcess(request: Request) {
   // `processing`. Lo rescatado se procesa en la corrida siguiente.
   const reclaimed = await reclaimStuckFathomCalls();
 
-  const processed = await processPendingFathomCalls(50);
+  // Sólo se arrancan llamadas nuevas en los primeros 20 s: una que empieza tarde
+  // todavía necesita sus ~30 s de análisis dentro del maxDuration de 60. Lo que
+  // no entra queda `pending` para la corrida siguiente (cada 10 min).
+  const processed = await processPendingFathomCalls(50, 20_000);
   console.log("[Fathom:process] Pending processed:", processed);
 
   return NextResponse.json({

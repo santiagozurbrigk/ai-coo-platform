@@ -64,6 +64,12 @@ function aggregatePlatformMetrics(
 export function resolvePostAnalytics(analytics: unknown): {
   metrics: ContentMetrics;
   lastUpdated?: string;
+  /**
+   * `false` cuando no se reconoció ningún formato con datos. Las métricas
+   * vienen en cero, pero NO son un cero medido: quien persiste no debe pisar
+   * lo guardado con esto (regla "nunca inventes un valor").
+   */
+  recognized: boolean;
 } {
   const empty: ContentMetrics = {
     likes: 0,
@@ -76,7 +82,7 @@ export function resolvePostAnalytics(analytics: unknown): {
   };
 
   if (!analytics || typeof analytics !== "object") {
-    return { metrics: empty };
+    return { metrics: empty, recognized: false };
   }
 
   const root = analytics as Record<string, unknown>;
@@ -93,6 +99,7 @@ export function resolvePostAnalytics(analytics: unknown): {
     return {
       metrics: mapAnalyticsToMetrics(root as ZernioPostAnalytics),
       lastUpdated,
+      recognized: true,
     };
   }
 
@@ -117,5 +124,6 @@ export function resolvePostAnalytics(analytics: unknown): {
   return {
     metrics: hasData ? aggregated : empty,
     lastUpdated,
+    recognized: Boolean(hasData),
   };
 }

@@ -31,6 +31,7 @@ import {
   uuidSchema,
 } from "@/lib/validations";
 import { paths } from "@/routes/paths";
+import { assertOrgStoragePath } from "@/lib/storage/org-path";
 
 function revalidateSops() {
   revalidatePath(paths.platform.operations.sops);
@@ -446,6 +447,7 @@ export async function finalizeSopAttachmentAction(input: {
     const profile = await getCurrentProfile();
     const allowed = isAllowedSopAttachment(input.fileName, input.mimeType, input.fileSize);
     if (!allowed.ok) throw new Error(allowed.error);
+    assertOrgStoragePath(input.storagePath, organizationId);
 
     const supabase = await createClient();
     const { data, error } = await supabase

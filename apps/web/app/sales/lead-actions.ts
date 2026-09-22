@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireOrganizationId } from "@/lib/auth/bootstrap";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import {
   buildLeadThread,
   isActionable,
@@ -184,11 +185,17 @@ export async function listLeadsTableAction(
   const catalog = await getFollowUpCatalogAction();
   const closing = closingActionSlugs(catalog.nextActions);
 
-  const { data, error } = await supabase
-    .from("sales_leads")
-    .select(`id, name, email, phone, client_id, closing_calls(${ATTEMPT_COLUMNS})`)
-    .eq("organization_id", organizationId)
-    .limit(MAX_LEADS + 1);
+  // Paginado: PostgREST corta en 1000 filas sin avisar, así que el `.limit(2001)`
+  // de antes devolvía 1000 y `truncated` no podía darse nunca.
+  const { rows: data, truncated, error } = await fetchAllRows((from, to) =>
+    supabase
+      .from("sales_leads")
+      .select(`id, name, email, phone, client_id, closing_calls(${ATTEMPT_COLUMNS})`)
+      .eq("organization_id", organizationId)
+      .order("id", { ascending: true })
+      .range(from, to),
+    { maxRows: MAX_LEADS }
+  );
 
   if (error) {
     return {
@@ -202,13 +209,12 @@ export async function listLeadsTableAction(
     };
   }
 
-  const raw = data ?? [];
-  const truncated = raw.length > MAX_LEADS;
+  const raw = data;
   const now = new Date();
   const counts = { ...EMPTY_COUNTS };
   const all: LeadTableRow[] = [];
 
-  for (const row of raw.slice(0, MAX_LEADS)) {
+  for (const row of raw) {
     const attempts = Array.isArray(row.closing_calls)
       ? (row.closing_calls as AttemptRow[]).map(rowToAttempt)
       : [];

@@ -281,7 +281,17 @@ export async function updateReelVariationAction(
     throw new Error("Índice de variante inválido");
   }
 
-  variations[variationIndex] = { ...variations[variationIndex], ...patch };
+  // Sólo los campos editables: el patch llega del cliente y, esparcido entero,
+  // podía pisar `storage_path` con un archivo de otra org que después se firma
+  // con service role.
+  const safePatch: Partial<Pick<ReelVariation, "description" | "hashtags" | "included">> = {};
+  if (typeof patch?.description === "string") safePatch.description = patch.description.slice(0, 5000);
+  if (Array.isArray(patch?.hashtags)) {
+    safePatch.hashtags = patch.hashtags.filter((h): h is string => typeof h === "string").slice(0, 60);
+  }
+  if (typeof patch?.included === "boolean") safePatch.included = patch.included;
+
+  variations[variationIndex] = { ...variations[variationIndex], ...safePatch };
 
   const { error: updateErr } = await supabase
     .from("reel_variation_jobs")
@@ -637,7 +647,7 @@ export async function regenerateCaptionAction(
 
     const { data: job, error: jobErr } = await admin
       .from("reel_variation_jobs")
-      .select("variations, content_piece_id")
+      .select("variations, content_piece_id:source_piece_id")
       .eq("id", jobId)
       .eq("organization_id", organizationId)
       .maybeSingle();

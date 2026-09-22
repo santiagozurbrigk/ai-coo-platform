@@ -8,7 +8,7 @@
 > **Para Claude Code:** ver la regla al final. Cada unidad que construyas suma su
 > bloque de verificación acá, con pasos concretos y resultado esperado.
 >
-> **Última actualización:** 2026-09-22 · Cubre hasta los campos largos de la ficha
+> **Última actualización:** 2026-09-22 · Cubre hasta la auditoría de backend
 
 ---
 
@@ -1584,6 +1584,55 @@ pegó todavía un texto largo en un cliente real.
 debería haberlo, el límite viejo lo impedía— haga rebotar el guardado de la
 tarjeta entera al editar cualquier otro campo. La tarjeta manda los 22 campos
 juntos, incluidos los que no se tocaron.
+
+---
+
+## Auditoría de backend — migraciones y arreglos de seguridad 🔒⚠️ — 2026-09-22
+
+Detalle completo en `docs/AUDITORIA_BACKEND_2026-09-22.md`. Las migraciones se
+probaron contra las 168 del repo en un Postgres local, **no contra producción**.
+
+**1. Antes de aplicar las migraciones** 🔑
+
+| Paso | Qué tendría que pasar |
+|---|---|
+| `supabase db diff` contra producción | Ver la deriva antes de sumar nada. ⚠️ Se sabe que hay (por ejemplo, `profiles` sin FK a `auth.users`) |
+| `select column_name from information_schema.columns where table_name='profiles'` | Existen `must_change_password`, `temp_password_expires_at` e `is_holding_admin`. ⚠️ Si falta alguna, el trigger falla en **todo** update de perfiles: no aplicar hasta resolverlo |
+| `select indexname from pg_indexes where tablename in ('call_analyses','content_pieces')` y buscar duplicados de `(organization_id, platform_post_id)` y de `fathom_call_id` | Sin duplicados. Si hay, el `create unique index` de la migración falla |
+
+**2. Aplicar** `20260922100000_profiles_columnas_protegidas.sql` y
+`20260922110000_rpcs_y_policies_entre_organizaciones.sql`.
+
+**3. Después de aplicar** 🔒⭐
+
+| Paso | Qué tendría que pasar |
+|---|---|
+| Con un usuario **viewer** y la anon key: `PATCH /rest/v1/profiles?id=eq.<su id>` con `{"role":"founder"}` | Error `42501 profiles: columna protegida`. ⭐ Es el agujero principal de la auditoría |
+| Lo mismo con `{"organization_id":"<otra org>"}` | Mismo error |
+| Editar nombre y avatar desde **Mi perfil** | Guarda bien |
+| Como founder, cambiar tarifa por hora y rol de un miembro desde **Equipo** | Guarda bien |
+| `POST /rest/v1/rpc/search_rag_chunks` con JWT de usuario | `permission denied`. El agente sigue encontrando documentos (usa service role) |
+| `GET /rest/v1/zernio_integrations` y `youtube_integrations` con JWT de viewer | Lista vacía. Inbox, contenido y YouTube siguen andando |
+| **Configuración → País**: cambiarlo y guardar | Guarda y se ve al recargar. Antes fallaba en silencio |
+| Dashboard del holding | Muestra MRR y actividad de cada negocio (la RPC ahora va con service role) |
+
+**4. Webhooks que antes no llegaban** 🔑⚠️
+
+| Paso | Qué tendría que pasar |
+|---|---|
+| Disparar un evento de prueba de **Whop** o **Commas** | 200 y la fila en `payment_webhook_events`. Antes era un 307 a `/login` |
+| `curl -i -X POST https://<app>/api/webhooks/mercadopago` sin firma | 401 o 503 (lo responde el handler), **nunca** 307 |
+| El bot de Discord registra un testimonio (`/api/discord/testimonial`) | Aparece en la app. Antes el bot recibía el HTML del login |
+
+**5. Integraciones que cambiaron de comportamiento** 🔑
+
+| Paso | Qué tendría que pasar |
+|---|---|
+| Conectar Discord desde `/integrations` | Conecta y guarda el servidor correcto. ⚠️ El guild sale ahora del token de OAuth (documentado por Discord en "Advanced Bot Authorization"). Si falla con `discord=error`, mirar si la respuesta del token trae `guild` |
+| Unipile (sólo si se sigue usando) | Sin `UNIPILE_WEBHOOK_SECRET` responde 503. Con la variable seteada y el webhook registrado con `Unipile-Auth`, entran mensajes |
+| Webhook legacy de Fathom con dos o más orgs conectadas | 409 "use the per-member webhook URL". Pasar esas orgs a la URL por miembro |
+| **Cambio de contraseña forzado** con un usuario con contraseña temporal | Cambia, entra al dashboard y la marca se baja. Llamar a la acción sin cambiarla ya no la baja |
+| **Sentry**: provocar un error en un route handler en producción | Llega a Sentry. Hasta ahora no llegaba ninguno del servidor |
 
 ---
 

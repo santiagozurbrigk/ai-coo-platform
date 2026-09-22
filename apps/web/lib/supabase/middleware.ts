@@ -10,56 +10,13 @@ import { createAdminClient } from "./admin";
 import { isSuperAdminEmail } from "@/lib/auth/require-super-admin";
 import { shouldRedirectToGate } from "@/lib/onboarding/gate-routing";
 import { getSupabaseAnonKey, getSupabaseUrl, isSupabaseConfigured } from "./env";
+import { isPublicPath } from "./public-paths";
 
 /** POST de Server Actions: no redirigir a login (devolvería HTML y rompe el cliente). */
 function isServerActionRequest(request: NextRequest): boolean {
   return (
     request.headers.has("next-action") ||
     request.headers.has("Next-Action")
-  );
-}
-
-const PUBLIC_PATHS = [
-  paths.auth.login,
-  paths.auth.callback,
-  paths.auth.recover,
-  paths.auth.updatePassword,
-  paths.demo,
-  paths.designSystem,
-  paths.superAdmin.login,
-] as const;
-
-function isPublicPath(pathname: string): boolean {
-  if (pathname === paths.home) return true;
-  if (pathname === paths.superAdmin.login) return true;
-  if (pathname.startsWith(`${paths.superAdmin.login}/`)) return true;
-  if (pathname === "/api/waitlist") return true;
-  if (pathname.startsWith("/api/utm/")) return true;
-  if (pathname.startsWith("/api/cron/")) return true;
-  if (pathname.startsWith("/api/queue/")) return true;
-  if (pathname.startsWith("/api/rag/")) return true;
-  if (pathname === "/prueba" || pathname.startsWith("/prueba/")) return true;
-  if (pathname === "/api/trial-confirm") return true;
-  if (pathname.startsWith("/invite")) return true;
-  if (pathname.startsWith("/api/invite/")) return true;
-  if (pathname.startsWith("/api/webhooks/instagram/")) return true;
-  if (pathname.startsWith("/api/webhooks/unipile")) return true;
-  if (pathname.startsWith("/api/integrations/")) {
-    if (
-      pathname.includes("/webhook") ||
-      pathname.includes("/oauth/callback") ||
-      pathname.includes("/oauth/start") ||
-      pathname.endsWith("/callback") ||
-      pathname.endsWith("/sync") ||
-      pathname.endsWith("/poll") ||
-      pathname.endsWith("/process") ||
-      pathname.endsWith("/reanalyze")
-    ) {
-      return true;
-    }
-  }
-  return PUBLIC_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
 }
 

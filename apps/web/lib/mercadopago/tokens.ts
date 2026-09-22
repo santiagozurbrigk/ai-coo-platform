@@ -131,7 +131,7 @@ export async function refreshAllMercadoPagoTokens(): Promise<{
   const admin = createAdminClient();
   const threshold = new Date(Date.now() + REFRESH_BUFFER_MS).toISOString();
 
-  const { data: rows } = await admin
+  const { data: rows, error } = await admin
     .from("mercadopago_integrations")
     .select(
       "organization_id, refresh_token_encrypted, token_expires_at, status"
@@ -139,6 +139,10 @@ export async function refreshAllMercadoPagoTokens(): Promise<{
     .eq("status", "active")
     .not("refresh_token_encrypted", "is", null)
     .lte("token_expires_at", threshold);
+
+  // Una consulta fallida no es "no hay nada que refrescar": los tokens vencerían
+  // en silencio. Que el cron falle y se vea.
+  if (error) throw new Error(error.message);
 
   let refreshed = 0;
   let failed = 0;

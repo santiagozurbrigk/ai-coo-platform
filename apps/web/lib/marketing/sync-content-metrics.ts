@@ -42,7 +42,11 @@ export async function syncContentMetricsForOrg(
     query = query.in("id", contentPieceIds);
   }
 
-  const { data: pieces, error } = await query.limit(METRICS_BATCH_LIMIT);
+  // Las más viejas primero: sin orden, cada corrida tomaba las mismas 50 piezas
+  // y el resto de una org grande no se actualizaba nunca.
+  const { data: pieces, error } = await query
+    .order("metrics_updated_at", { ascending: true, nullsFirst: true })
+    .limit(METRICS_BATCH_LIMIT);
   if (error) throw new Error(error.message);
   if (!pieces || pieces.length === 0) return empty;
 
@@ -52,7 +56,13 @@ export async function syncContentMetricsForOrg(
     pieces.map(async (piece) => {
       const postId = piece.platform_post_id as string;
       const analytics = await client.getPostAnalytics(postId);
-      const { metrics, lastUpdated } = resolvePostAnalytics(analytics);
+      const { metrics, lastUpdated, recognized } = resolvePostAnalytics(analytics);
+
+      // Respuesta vacía o en un formato desconocido: no es un cero medido, no se
+      // pisan las métricas guardadas ni se marca la pieza como fresca.
+      if (!recognized) {
+        throw new Error(`analytics sin datos reconocibles para ${postId}`);
+      }
 
       const { error: updateError } = await admin
         .from("content_pieces")

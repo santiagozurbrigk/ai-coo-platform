@@ -9,6 +9,50 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [AUDITORIA-MIGRACIONES] Aplicar las dos migraciones de la auditoría de backend 🔴
+
+**Qué es:** la auditoría del 2026-09-22 cerró en código y en migraciones los dos
+agujeros más graves del backend. **Las migraciones no se aplican solas con el
+deploy:**
+
+- `20260922100000_profiles_columnas_protegidas.sql`: hoy cualquier usuario
+  registrado puede cambiarse `organization_id` y `role` con la anon key y
+  volverse founder de otra org.
+- `20260922110000_rpcs_y_policies_entre_organizaciones.sql`: RAG de otra org,
+  RPCs sin verificar, secretos de YouTube/Zernio legibles por viewers, grants
+  faltantes de `organizations` y upserts rotos.
+
+**Qué hacer:** seguir el bloque "Auditoría de backend" de
+`docs/PLAN_VERIFICACION.md` (chequeos antes, aplicar, chequeos después). Correr
+antes `supabase db diff`, porque producción tiene deriva.
+
+**Además:** si el inbox legacy de Unipile sigue en uso, setear
+`UNIPILE_WEBHOOK_SECRET`. El webhook ahora lo exige.
+
+---
+
+### [AUDITORIA-ABIERTOS] Lo que la auditoría de backend dejó para el dev de backend 🟠
+
+**Qué es:** la lista priorizada de lo que se encontró y no se arregló en la
+sesión, porque requiere diseño, migrar datos o una decisión de producto. Está
+completa en `docs/AUDITORIA_BACKEND_2026-09-22.md` §3. Lo más importante:
+
+1. Roles sin enforcement en RLS ni en actions (ver `[PERMISOS-SERVER-ACTIONS]`).
+2. Tokens OAuth en texto plano: Calendly, Stripe, Instagram, Typeform, Google,
+   Fathom, ManyChat.
+3. Sin timeouts en los clientes de APIs externas.
+4. Una base nueva no se arma desde las migraciones: tres fallan, hay versiones
+   duplicadas y `RUN_ALL_PHASE1.sql` está en la carpeta.
+5. El techo de 1000 filas sigue en otros lugares, y hay 290 lecturas que no
+   miran `error`.
+6. Calendly: dos crons se pisan y la sync hace N+1. Typeform pierde respuestas
+   por encima de 1000.
+7. Parsers de montos rotos: import de ClickUp y Excel.
+8. Facturación por closer: `closing_calls.amount_closed` no existe; decidir de
+   dónde sale.
+
+---
+
 ### [REPO-RENOMBRADO-DEPLOYS] Confirmar que los deploys siguen después del renombre 🟡
 
 **Qué es:** el repo pasó de `ai-coo-platform` a `limitless-system` (2026-09-22).
@@ -510,6 +554,13 @@ nombre de una puede invocarla igual.
 explícito en las actions que tocan plata y equipo. Hasta entonces el permiso es
 una barrera de navegación, no de datos.
 
+**Actualizado 2026-09-22 (auditoría de backend):** es más amplio que las actions.
+Las policies de RLS filtran por org y ninguna por rol, así que un viewer también
+escribe `team_roles.permissions`, `organizations` y finanzas con PostgREST
+directo. Acciones concretas abiertas a cualquier miembro: `saveClaudeApiKeyAction`,
+los `disconnect*Action`, el Drive del founder y `updateCloserCommissionAction`.
+Ver `docs/AUDITORIA_BACKEND_2026-09-22.md` §3.
+
 ---
 
 ### [TRACKERS-PERMISOS-VACIOS] Todos los wins ya cargados quedan sin permiso 🔴
@@ -828,6 +879,10 @@ memoria en el servidor, porque el estado del lead se deriva de sus turnos y no
 está persistido. Con 964 leads (medidos el 2026-09-03) sobra, pero el margen
 es menor de lo que parecía: pasado el techo la tabla avisa que hay leads afuera
 en vez de mostrarse incompleta.
+
+**Corregido 2026-09-22:** el aviso no podía dispararse nunca. PostgREST corta en
+1000 filas y el `.limit(2001)` devolvía 1000, así que pasado ese número los leads
+se perdían sin aviso. Ahora se pagina con `fetchAllRows` y el techo real es 2.000.
 
 Cuando no alcance, hay que derivar el estado en la base (vista o función), **no**
 persistirlo: guardar un estado derivado es lo que haría que la tabla mienta

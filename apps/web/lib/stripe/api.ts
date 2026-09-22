@@ -81,7 +81,7 @@ export async function getStripeTransactionDetail(
   });
   return stripeFetch<StripeBalanceTransaction>(
     accessToken,
-    `/balance_transactions/${transactionId}?${params}`
+    `/balance_transactions/${encodeURIComponent(transactionId)}?${params}`
   );
 }
 

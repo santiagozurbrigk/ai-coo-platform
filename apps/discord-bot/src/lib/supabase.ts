@@ -196,6 +196,16 @@ export async function getClients(organizationId: string) {
   return data || [];
 }
 
+/**
+ * `ilike` para que el match no dependa de mayúsculas, pero con los comodines
+ * escapados: el email lo escribe el usuario en Discord, y con `a%@gmail.com`
+ * se podía ir angostando el patrón hasta dar con un cliente ajeno y vincularse
+ * como él.
+ */
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 export async function getClientByEmail(
   email: string,
   organizationId: string
@@ -204,7 +214,7 @@ export async function getClientByEmail(
     .from("clients")
     .select("id, name")
     .eq("organization_id", organizationId)
-    .ilike("email", email)
+    .ilike("email", escapeLikePattern(email))
     .single();
   return data;
 }

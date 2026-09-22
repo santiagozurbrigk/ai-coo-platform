@@ -42,13 +42,17 @@ async function requireHoldingProfile() {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
 
-  const { organizationId, accountType } = await loadProfileOrganizationContext(
+  const { organizationId, accountType, canManageHolding } =
+    await loadProfileOrganizationContext(
     user.id
   );
 
   if (!organizationId) throw new Error("Sin perfil");
   if (accountType !== "holding") {
     throw new Error("No sos dueño de un holding");
+  }
+  if (!canManageHolding) {
+    throw new Error("Sólo el founder del holding puede hacer esto");
   }
 
   const admin = createAdminClient();
@@ -209,12 +213,14 @@ export async function addBusinessToMyHoldingAction(
 
 export async function getHoldingDashboardAction() {
   const { holdingOrgId, billingModel } = await requireHoldingProfile();
-  const supabase = await createClient();
+  // Service role: la RPC recibe el id del holding y no lo verifica, así que no
+  // puede quedar expuesta a authenticated. `requireHoldingProfile` ya verificó.
+  const admin = createAdminClient();
 
   // Cargamos negocios y stats en paralelo — 2 queries en lugar de N×4.
   const [businesses, statsResult] = await Promise.all([
     getHoldingBusinesses(holdingOrgId),
-    supabase.rpc("get_holding_dashboard_stats", {
+    admin.rpc("get_holding_dashboard_stats", {
       p_holding_org_id: holdingOrgId,
     }),
   ]);

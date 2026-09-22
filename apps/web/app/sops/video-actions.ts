@@ -27,6 +27,7 @@ import {
 import { sanitizeFilename } from "@/lib/sops/attachment-types";
 import { enqueueSopVideoJob } from "@/lib/sops/enqueue-video-job";
 import { paths } from "@/routes";
+import { assertOrgStoragePath } from "@/lib/storage/org-path";
 
 export type SopVideoJob = {
   id: string;
@@ -128,6 +129,7 @@ export async function createSopVideoJobAction(
     const parsed = createJobSchema.safeParse(input);
     if (!parsed.success) throw new Error(firstZodError(parsed.error));
     const values = parsed.data;
+    assertOrgStoragePath(values.videoPath, organizationId);
 
     const supabase = await createClient();
     const { data, error } = await supabase
