@@ -249,14 +249,14 @@ Un commit por bloque, todos en la rama. Cada uno trae el porqué en el mensaje.
 1. ✅ **Una base nueva no se podía armar desde las migraciones.** Resuelto el
    2026-09-22: se corrigieron las tres migraciones rotas y ahora las 171 corren
    desde cero sin errores.
-2. **Versiones duplicadas:** `20260706100000`, `20260717100000` y
-   `20260825100000`, dos archivos cada una.
-3. **`RUN_ALL_PHASE1.sql` está en la carpeta de migraciones.** Correrlo a mano
-   pisa la versión de `get_my_organization_id()` que maneja holdings.
+2. ✅ **Versiones duplicadas:** resueltas el 2026-09-22 (`…100001`).
+3. ✅ **`RUN_ALL_PHASE1.sql`:** movido a `supabase/scripts/` con aviso de no
+   ejecutar.
 4. ✅ **Deriva con producción:** el diff completo se hizo el 2026-09-22 y se
    reconcilió lo que importaba. Ver `docs/DB_DIFF_PRODUCCION_2026-09-22.md`.
    `profiles` sí tiene FK a `auth.users` en prod, así que ese dato era falso.
-   Queda reconciliar el **historial** de migraciones (`supabase migration repair`).
+   El historial de migraciones también quedó ordenado: prod tiene exactamente
+   las versiones del repo.
 
 ### ⚪ Salud del código
 

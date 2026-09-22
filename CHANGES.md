@@ -14,6 +14,59 @@
 
 ---
 
+### 2026-09-22 — 🗂️ Historial de migraciones ordenado: producción y repo tienen las mismas 171 versiones
+
+**Rama/branch:** `claude/cool-rubin-ssi5x7`
+**Commits:** este
+**Módulo(s) afectado(s):** `supabase_migrations.schema_migrations` (prod),
+`supabase/migrations/` (3 renombres), `supabase/scripts/`, `CLAUDE.md`, docs,
+`apps/web/app/clients/actions.ts` (mensaje de error).
+
+**Qué se hizo:**
+
+1. **Versiones duplicadas resueltas** sumando un segundo, sin cambiar el orden:
+   `20260706100001_business_context_index_error`,
+   `20260717100001_fix_utm_youtube_video_external_ids` y
+   `20260825100001_plans_client_plan_delete`.
+2. **`RUN_ALL_PHASE1.sql`** pasó a `supabase/scripts/legacy_RUN_ALL_PHASE1_NO_EJECUTAR.sql`,
+   con aviso. El mensaje de error de `clients/actions.ts` y `OPERATIONAL_NOTES.md`
+   ya no mandan a correrlo.
+3. **Historial de prod**, en una transacción, equivalente a `supabase migration
+   repair`:
+   - respaldo de las 118 filas en
+     `supabase_migrations.schema_migrations_backup_20260922`;
+   - borrado de las versiones sin archivo en el repo (las mismas migraciones con
+     otros números, aplicadas por MCP o a mano);
+   - inserción de las 171 versiones del repo como aplicadas, con
+     `created_by = 'repair 2026-09-22 …'`.
+
+   Resultado: 171 registradas, 171 en el repo, 0 sobrantes. Confirmado con
+   `list_migrations`.
+4. **`CLAUDE.md`:** la sección de migraciones ahora nombra el proyecto de prod,
+   explica que `apply_migration` registra otra versión que la del archivo y
+   establece el invariante historial = archivos.
+
+**Por qué / finalidad:** con el historial desordenado, `supabase db push` quería
+re-aplicar 55 migraciones y chocaba con 18 versiones que no conocía. Ahora el dev
+de backend puede usar la CLI normalmente.
+
+**Decisiones de diseño relevantes:**
+- **Se marcó como aplicado sin ejecutar** porque el esquema ya estaba
+  reconciliado. El db diff de esta misma sesión es el que lo respalda.
+- **`20260711180000_org_ai_credentials` figura como aplicada aunque sus columnas
+  no existen en prod.** Dejarla pendiente haría que `db push` recree
+  `organization_claude_status` sin el filtro por org.
+- **Renombrar y no borrar** los duplicados: son migraciones distintas y las dos
+  ya están en prod.
+
+**Riesgos / deuda técnica pendiente:**
+- Si alguien aplica con `apply_migration` y no alinea la versión, el historial
+  se vuelve a desordenar. La regla está en CLAUDE.md.
+- El respaldo del historial viejo queda en prod. Se puede borrar cuando se
+  confirme que no hace falta.
+
+---
+
 ### 2026-09-22 — 🔒 DB diff contra producción: una policy abierta en prod y el repo vuelve a armar la base desde cero
 
 **Rama/branch:** `claude/cool-rubin-ssi5x7`

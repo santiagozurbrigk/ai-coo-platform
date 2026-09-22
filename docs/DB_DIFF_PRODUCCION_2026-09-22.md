@@ -85,15 +85,23 @@ columnas lee la app así.
 
 ## Qué queda para adelante
 
-1. **Historial de migraciones.** Las primeras 55 del repo (hasta `20260629…`) se
-   aplicaron a mano y no figuran en el historial de producción. 18 migraciones del
-   historial de prod no tienen archivo en el repo. `supabase db push` va a querer
-   re-aplicar cosas.
-   Hasta reconciliar el historial (`supabase migration repair`), aplicar cada
-   migración nueva con `apply_migration` o el SQL Editor, como se hizo hoy.
-2. **Versiones duplicadas.** `20260706100000`, `20260717100000` y
-   `20260825100000` tienen dos archivos cada una, y la CLI las registra por
-   versión.
+1. ✅ **Historial de migraciones (ordenado el 2026-09-22).**
+   `supabase_migrations.schema_migrations` tiene ahora exactamente las 171
+   versiones del repo, y `supabase db push` no tiene nada pendiente.
+   - Las 55 migraciones que se habían aplicado a mano se marcaron como aplicadas.
+   - Las 118 entradas anteriores, que tenían otros números y otros nombres, se
+     reemplazaron. Quedaron respaldadas en
+     `supabase_migrations.schema_migrations_backup_20260922`.
+   - ⚠️ `20260711180000_org_ai_credentials` figura como aplicada **aunque sus
+     columnas OAuth no existen en prod**. Es a propósito: si quedara pendiente,
+     `db push` recrearía `organization_claude_status` sin el filtro por org y
+     reabriría la fuga que cerró `20260922110000`. Si algún día se quiere OAuth,
+     hacerlo con una migración nueva.
+2. ✅ **Versiones duplicadas.** Se resolvieron sumando un segundo:
+   `20260706100001_business_context_index_error`,
+   `20260717100001_fix_utm_youtube_video_external_ids` y
+   `20260825100001_plans_client_plan_delete`. El orden de aplicación no cambia.
+   `RUN_ALL_PHASE1.sql` pasó a `supabase/scripts/` con aviso de no ejecutar.
 3. **Limpieza de los restos legacy** de la primera tabla de arriba, cuando se
    confirme que no hay datos que valga la pena conservar.
 4. **Chequeo en CI.** Sumar un job que arme una base desde cero con las

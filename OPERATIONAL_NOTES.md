@@ -942,7 +942,7 @@ Fix: `getProfileAccountType()` / `loadProfileOrganizationContext()` leen este da
 ### Bootstrap y errores comunes
 
 - Error RLS "infinite recursion": ejecutar `20260521200000_fix_rls_recursion.sql`.
-- Tabla ausente: ejecutar migraciones o `RUN_ALL_PHASE1.sql` según mensaje en actions.
+- Tabla ausente: aplicar las migraciones de `supabase/migrations/`. (`RUN_ALL_PHASE1.sql` se movió a `supabase/scripts/` y no hay que correrlo: pisa `get_my_organization_id()`.)
 - `get_active_sales_script`: requiere migración `20260615100000_sales_script_default.sql`.
 - `weekly_inputs` / `weekly_reports`: requiere migración `20260615300000_weekly_inputs.sql`.
 - BYOK Claude: requiere migración `20260615400000_byok_claude.sql`.
