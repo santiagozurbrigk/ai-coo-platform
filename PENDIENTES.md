@@ -9,6 +9,26 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [REPO-RENOMBRADO-DEPLOYS] Confirmar que los deploys siguen después del renombre 🟡
+
+**Qué es:** el repo pasó de `ai-coo-platform` a `limitless-system` (2026-09-22).
+GitHub redirige las URLs viejas, y Vercel y Railway se conectan con su app de
+GitHub, que normalmente sigue el renombre sola. Pero no se verificó.
+
+**Qué hacer:**
+
+1. Vercel → proyecto → Settings → Git: tiene que mostrar
+   `santiagozurbrigk/limitless-system`. El próximo merge a `main` tiene que
+   generar un deploy.
+2. Railway → servicio del bot de Discord → Settings → Source: el mismo repo, con
+   `Root Directory` = `apps/discord-bot` todavía puesto.
+3. En las copias locales:
+   `git remote set-url origin https://github.com/santiagozurbrigk/limitless-system`.
+4. No crear nunca un repo nuevo llamado `ai-coo-platform`, porque anula la
+   redirección.
+
+---
+
 ### [1A1-MANUALES-SIN-PROBAR] Probar las 1-1 subidas con un link 🔴
 
 **Qué es:** se construyó todo el pedido —subir la 1-1 pegando el link de Fathom,

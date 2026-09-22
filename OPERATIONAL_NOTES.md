@@ -3,7 +3,7 @@
 Documento de referencia para el equipo y para onboarding de clientes.  
 **Última actualización:** 2026-05-28
 
-Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.md` y comportamiento verificado en el repositorio `ai-coo-platform`.
+Fuentes: comentarios en código, migraciones SQL, `.env.example`, `PHASE2_PLAN.md` y comportamiento verificado en el repositorio `limitless-system` (ex `ai-coo-platform`).
 
 ---
 

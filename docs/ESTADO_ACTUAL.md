@@ -48,7 +48,7 @@ npx pnpm@9.15.0 --filter @ai-coo/web dev
 ## Estructura del monorepo
 
 ```
-ai-coo-platform/
+limitless-system/
 ├── apps/web/              # Next.js 15 App Router — app principal
 ├── packages/ui/           # Design system (@ai-coo/ui)
 ├── packages/config/       # Preset Tailwind, ESLint, TS

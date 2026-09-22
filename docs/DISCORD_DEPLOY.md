@@ -57,7 +57,7 @@ cargarlo en Railway.
 ## Paso 3 · Desplegar en Railway
 
 1. Entrá a <https://railway.app> → **New Project** → **Deploy from GitHub repo**
-2. Elegí el repo `ai-coo-platform`
+2. Elegí el repo `limitless-system`
 3. 🔴 **En Settings → Source, poné `Root Directory` = `apps/discord-bot`.**
 
    **Este es el paso que hace fallar el build si falta**, y el error no lo dice:

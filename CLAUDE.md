@@ -1,7 +1,8 @@
 # CLAUDE.md — Contexto maestro del monorepo Limitless
 
 Documento de referencia para **Claude Code**, Cursor y desarrolladores nuevos.  
-Repo: `ai-coo-platform` · App principal: `apps/web` · Última revisión: agosto 2026.
+Repo: `santiagozurbrigk/limitless-system` (ex `ai-coo-platform`) · App principal: `apps/web` · Última revisión: septiembre 2026.  
+El nombre interno del workspace (`ai-coo-platform` en `package.json`) y los paquetes `@ai-coo/*` no cambian con el repo.
 
 ---
 
@@ -18,8 +19,8 @@ Repo: `ai-coo-platform` · App principal: `apps/web` · Última revisión: agost
 **[`PENDIENTES.md`](./PENDIENTES.md)** — backlog de trabajo pendiente organizado por prioridad: bugs conocidos, features en progreso, deuda técnica. Actualizar al finalizar cada sesión.
 
 ```
-Read /home/user/ai-coo-platform/CHANGES.md
-Read /home/user/ai-coo-platform/PENDIENTES.md
+Read /home/user/limitless-system/CHANGES.md
+Read /home/user/limitless-system/PENDIENTES.md
 ```
 
 ### 2. Actualizar CHANGES.md al final de cada sesión
@@ -214,7 +215,7 @@ Cliente: `apps/web/lib/zernio/client.ts` · Integración org: `apps/web/lib/zern
 ### Monorepo (Turborepo + pnpm)
 
 ```
-ai-coo-platform/
+limitless-system/
 ├── apps/
 │   ├── web/              # @ai-coo/web — Next.js 15 (app principal)
 │   └── discord-bot/      # @ai-coo/discord-bot — bot Discord + Supabase
