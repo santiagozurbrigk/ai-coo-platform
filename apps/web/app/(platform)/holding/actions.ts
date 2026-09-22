@@ -42,13 +42,17 @@ async function requireHoldingProfile() {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
 
-  const { organizationId, accountType } = await loadProfileOrganizationContext(
+  const { organizationId, accountType, canManageHolding } =
+    await loadProfileOrganizationContext(
     user.id
   );
 
   if (!organizationId) throw new Error("Sin perfil");
   if (accountType !== "holding") {
     throw new Error("No sos dueño de un holding");
+  }
+  if (!canManageHolding) {
+    throw new Error("Sólo el founder del holding puede hacer esto");
   }
 
   const admin = createAdminClient();

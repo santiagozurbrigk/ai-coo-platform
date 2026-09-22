@@ -119,6 +119,11 @@ export async function getCurrentProfile() {
 export type ProfileOrganizationContext = {
   organizationId: string | null;
   accountType: "founder" | "holding" | null;
+  /**
+   * Puede administrar el holding: founder de la org o `is_holding_admin`.
+   * Un miembro invitado al holding comparte `accountType` pero no esto.
+   */
+  canManageHolding: boolean;
 };
 
 export async function loadProfileOrganizationContext(
@@ -127,12 +132,12 @@ export async function loadProfileOrganizationContext(
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("organization_id, organizations(account_type)")
+    .select("organization_id, role, is_holding_admin, organizations(account_type)")
     .eq("id", userId)
     .maybeSingle();
 
   if (!profile) {
-    return { organizationId: null, accountType: null };
+    return { organizationId: null, accountType: null, canManageHolding: false };
   }
 
   const accountTypeRaw = readAccountType(
@@ -142,6 +147,8 @@ export async function loadProfileOrganizationContext(
   return {
     organizationId: profile.organization_id ?? null,
     accountType: accountTypeRaw === "holding" ? "holding" : "founder",
+    canManageHolding:
+      profile.role === "founder" || profile.is_holding_admin === true,
   };
 }
 

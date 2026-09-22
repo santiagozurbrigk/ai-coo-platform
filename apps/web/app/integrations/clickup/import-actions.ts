@@ -18,6 +18,7 @@ export type ClickUpConnectResult =
   | { success: false; error: string };
 
 export async function validateClickUpKeyAction(apiKey: string): Promise<ClickUpConnectResult> {
+  await requireOrganizationId();
   if (!apiKey?.trim()) return { success: false, error: "Ingresá tu API key de ClickUp." };
   try {
     const workspaces = await fetchClickUpWorkspaces(apiKey.trim());
@@ -33,6 +34,7 @@ export type FetchListsResult =
   | { success: false; error: string };
 
 export async function fetchClickUpListsAction(apiKey: string, workspaceId: string): Promise<FetchListsResult> {
+  await requireOrganizationId();
   try {
     const lists = await fetchClickUpLists(apiKey, workspaceId);
     return { success: true, lists };
@@ -57,6 +59,7 @@ export async function fetchClickUpPreviewAction(
   apiKey: string,
   listId: string
 ): Promise<FetchPreviewResult> {
+  await requireOrganizationId();
   try {
     const tasks = await fetchAllClickUpTasks(apiKey, listId);
     if (!tasks.length) {

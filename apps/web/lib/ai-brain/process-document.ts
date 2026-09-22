@@ -1,4 +1,7 @@
-"use server";
+import "server-only";
+
+// Sin "use server": lo llama `processAiBrainDocumentAction` (super-admin), que
+// verifica el rol. Como server action quedaba expuesto sin autenticación.
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { extractTextFromFile } from "@/lib/business-context/extract-text";

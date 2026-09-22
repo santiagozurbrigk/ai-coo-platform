@@ -14,7 +14,6 @@ import {
 } from "@/lib/fathom/connect";
 import {
   finalizeAssociatedCall,
-  processPendingFathomCalls,
 } from "@/lib/fathom/process-call";
 import { syncFathomMeetingsForOrganization } from "@/lib/fathom/sync";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -235,16 +234,6 @@ export async function associateFathomCallAction(
     });
 
     revalidatePending();
-  });
-}
-
-export async function processFathomQueueAction(): Promise<
-  MutationResult<{ processed: number }>
-> {
-  return runMutation(async () => {
-    const processed = await processPendingFathomCalls();
-    revalidatePending();
-    return { processed };
   });
 }
 

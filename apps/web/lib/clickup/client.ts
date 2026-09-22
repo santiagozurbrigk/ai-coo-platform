@@ -49,7 +49,7 @@ export async function fetchClickUpWorkspaces(apiToken: string): Promise<ClickUpW
 export async function fetchClickUpLists(apiToken: string, workspaceId: string): Promise<ClickUpList[]> {
   const spaces = await clickupFetch<{ spaces?: { id: string; name: string }[] }>(
     apiToken,
-    `/team/${workspaceId}/space?archived=false`
+    `/team/${encodeURIComponent(workspaceId)}/space?archived=false`
   );
 
   const lists: ClickUpList[] = [];
@@ -94,7 +94,7 @@ export async function fetchClickUpTasks(
 ): Promise<ClickUpTask[]> {
   const data = await clickupFetch<{ tasks?: ClickUpTask[] }>(
     apiToken,
-    `/list/${listId}/task?include_closed=true&page=${page}`
+    `/list/${encodeURIComponent(listId)}/task?include_closed=true&page=${page}`
   );
   return data.tasks ?? [];
 }
