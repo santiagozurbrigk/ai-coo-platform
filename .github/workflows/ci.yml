@@ -31,3 +31,31 @@ jobs:
       - run: pnpm lint
 
       - run: pnpm test
+
+  # Arma una base desde cero con todas las migraciones de supabase/migrations.
+  # Frena una migración que no corre, una versión repetida o un nombre inválido
+  # antes de que lleguen a producción. Ver supabase/ci/check-migrations.sh.
+  migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        # Misma versión mayor que producción (Supabase, Postgres 17), con pgvector.
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: supabase/ci/check-migrations.sh

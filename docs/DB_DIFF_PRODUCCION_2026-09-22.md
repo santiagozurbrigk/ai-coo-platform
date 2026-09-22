@@ -23,8 +23,8 @@ reconciliación.
 
 ## Resultado
 
-**Las 144 tablas del repo existen en producción.** Producción tiene una tabla de
-más (`metric_snapshots`). **Las 17 funciones tienen el mismo cuerpo**; sólo cambian
+**Las 144 tablas del repo existen en producción.** Producción tenía una tabla de
+más (`metric_snapshots`), ya borrada. **Las 17 funciones tienen el mismo cuerpo**; sólo cambian
 espacios y comentarios.
 
 ### Diferencias que importaban, ya resueltas
@@ -48,15 +48,11 @@ secretos de integraciones y columnas editables de `organizations`.
 ### Diferencias que quedan, a propósito
 
 **Sólo en producción, sin uso en el código.** Son restos de migraciones aplicadas
-a mano. Borrarlas es destructivo, así que no se tocaron:
+a mano. ✅ Las columnas y la tabla `metric_snapshots` se borraron el mismo día
+(ver "Qué queda para adelante", punto 3). Las dos funciones siguen:
 
 | Objeto | Qué es |
 |---|---|
-| Tabla `metric_snapshots` (con policy y 5 índices) | Versión anterior de `metrics_snapshots` (con "s"), que es la que usa la app |
-| `closing_calls`: `amount`, `amount_local`, `notes`, `origin`, `program`, `setter_name`, `no_close_reason`, `import_batch_id`, `import_source` | Del sistema de importación histórica, después removido (`remove_import_system`) |
-| `fathom_calls.member_user_id` (+ índice) | Reemplazada por `user_id` |
-| `manychat_events.raw_data`, `synced_at`, unique `(org, subscriber, event_type, triggered_at)` | Versión de prod de la tabla. El repo tiene `created_at` y un check de `event_type` en su lugar |
-| `zernio_integrations.profile_id`, `instagram_connected`, `whatsapp_connected` | Anteriores a `zernio_profile_id` / `connected_accounts` |
 | Función `current_user_is_founder_or_admin()` | La usa la policy consolidada de `profiles` en prod |
 | Función `rls_auto_enable()` | De la plataforma Supabase, no de Limitless |
 
@@ -102,7 +98,18 @@ columnas lee la app así.
    `20260717100001_fix_utm_youtube_video_external_ids` y
    `20260825100001_plans_client_plan_delete`. El orden de aplicación no cambia.
    `RUN_ALL_PHASE1.sql` pasó a `supabase/scripts/` con aviso de no ejecutar.
-3. **Limpieza de los restos legacy** de la primera tabla de arriba, cuando se
-   confirme que no hay datos que valga la pena conservar.
-4. **Chequeo en CI.** Sumar un job que arme una base desde cero con las
-   migraciones, igual que acá. Habría detectado las tres migraciones rotas.
+3. ✅ **Restos legacy limpiados (2026-09-22).**
+   - `20260922130000_limpiar_restos_legacy_de_produccion`: borra 15 columnas.
+     Antes se midió que estaban vacías en todas las filas (las 9 de
+     `closing_calls` sobre 1.443 llamadas, `fathom_calls.member_user_id` y las 3
+     de `zernio_integrations`). También deja `manychat_events`, vacía, igual que
+     en el repo.
+   - `20260922140000_borrar_metric_snapshots`: borra la tabla vieja. Tenía 36
+     valores de histórico importado de una org, que la app ya no mostraba; se
+     borró por decisión del usuario.
+   - Las dos son `if exists`, así que en una base nueva no hacen nada.
+4. ✅ **Chequeo en CI (2026-09-22).** Job `migrations` en
+   `.github/workflows/ci.yml`: Postgres 17 con pgvector y
+   `supabase/ci/check-migrations.sh`. Valida los nombres y que las versiones sean
+   únicas, y aplica todas las migraciones desde cero, una transacción cada una.
+   Localmente tarda ~7 s con las 173.

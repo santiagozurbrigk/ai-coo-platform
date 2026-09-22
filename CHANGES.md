@@ -14,6 +14,70 @@
 
 ---
 
+### 2026-09-22 — 🧹 Restos legacy borrados de producción y chequeo de migraciones en el CI
+
+**Rama/branch:** `claude/cool-rubin-ssi5x7`
+**Commits:** este
+**Módulo(s) afectado(s):** base de producción (Supabase `OTC`),
+`supabase/migrations/` (2 nuevas), `supabase/ci/` (nuevo),
+`.github/workflows/ci.yml`, docs.
+
+**Qué se hizo:**
+
+1. **Relevamiento antes de borrar.** En producción se midió que las columnas
+   legacy estuvieran vacías:
+   - `closing_calls`: 9 columnas con 0 no nulos sobre 1.443 filas;
+   - `fathom_calls.member_user_id`: 0;
+   - `zernio_integrations`: 3 columnas, 0 sobre 9 filas;
+   - `manychat_events`: 0 filas.
+
+   También se chequeó que ninguna vista, función ni FK dependiera de ellas.
+2. **`20260922130000_limpiar_restos_legacy_de_produccion`**, aplicada:
+   - borra esas 15 columnas;
+   - alinea `manychat_events` con el repo: quita `raw_data`, `synced_at` y la
+     unique de prod, agrega `created_at` y el check de `event_type`, y borra 2
+     índices duplicados.
+
+   Probada antes contra una base nueva (no-op) y contra una con la forma de prod.
+3. **`20260922140000_borrar_metric_snapshots`**, aplicada: la tabla vieja tenía
+   36 valores de histórico importado de una org, que la app no mostraba. Se
+   borró por decisión del usuario; las otras opciones eran archivar, migrar o
+   dejarla.
+4. **Historial:** `apply_migration` registró versiones con la hora actual, y se
+   corrigieron a las del archivo. Resultado: 173 en prod, 173 en el repo.
+5. **CI:**
+   - `supabase/ci/check-migrations.sh` valida el formato de los nombres y que las
+     versiones sean únicas;
+   - después arma una base nueva y aplica cada migración en su propia
+     transacción;
+   - `supabase/ci/supabase-stubs.sql` simula lo que da Supabase (roles, auth,
+     storage, publicación de realtime, default privileges);
+   - el job `migrations` lo corre sobre `pgvector/pgvector:pg17`.
+
+   Probado localmente: pasa con las 173 (~7 s), frena una migración rota
+   diciendo cuál es y frena una versión repetida.
+
+**Por qué / finalidad:** eran los dos pendientes del db diff. Los restos
+confundían a quien lea el esquema. Sin el chequeo, una migración rota se
+descubre recién al armar una base nueva, como pasó con las tres que se
+arreglaron hoy.
+
+**Decisiones de diseño relevantes:**
+- **Postgres pelado con stubs y no `supabase start`:** tarda segundos, no
+  necesita Docker-in-Docker ni un `config.toml`, y el stub se lee en un archivo.
+  El costo es que, si una migración usa otra pieza de la plataforma, hay que
+  sumarla al stub.
+- **`manychat_events` se alineó con el repo, no al revés,** porque estaba vacía.
+
+**Riesgos / deuda técnica pendiente:**
+- Verificado en GitHub Actions (run 35779469866): Postgres 17.11 con pgvector,
+  "OK: las 173 migraciones arman la base desde cero", en ~9 s.
+- El stub no replica los permisos exactos de `auth` y `storage` de Supabase.
+  Valida que las migraciones corran, no el comportamiento de RLS contra auth
+  real.
+
+---
+
 ### 2026-09-22 — 🗂️ Historial de migraciones ordenado: producción y repo tienen las mismas 171 versiones
 
 **Rama/branch:** `claude/cool-rubin-ssi5x7`
