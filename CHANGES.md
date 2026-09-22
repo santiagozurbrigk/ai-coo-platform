@@ -14,6 +14,113 @@
 
 ---
 
+### 2026-09-22 — 🔒 Auditoría de backend: 3 críticos, 10 altos y los crons que fallaban en silencio
+
+**Rama/branch:** `claude/cool-rubin-ssi5x7`
+**Commits:** `53263bb` a `6a58176` (10 commits `fix(...)`) + este
+**Módulo(s) afectado(s):** middleware, auth/perfiles, holding, webhooks (Mercado
+Pago, Whop, Commas, GHL, Fathom, Discord, Unipile), bot de Discord, Storage,
+cifrado de integraciones, formularios públicos, UTM, crons (métricas, reportes,
+Fathom, Typeform, Google Forms, Calendly, GHL, Mercado Pago), super-admin, agente
+(herramientas de datos), Sentry, 2 migraciones.
+
+**Qué se hizo:** una auditoría de backend en cinco pasadas paralelas (rutas de
+API, server actions, esquema/RLS, secretos/integraciones, confiabilidad) antes de
+que entre un dev senior de backend. Cada hallazgo se verificó en el código antes
+de arreglarlo. El informe completo, con lo arreglado y lo que queda abierto por
+prioridad, está en **`docs/AUDITORIA_BACKEND_2026-09-22.md`**. Lo principal:
+
+1. **Perfiles (crítico):** trigger `protect_profile_columns`. Un usuario ya no
+   puede cambiarse `organization_id`, `role`, `is_holding_admin` ni la contraseña
+   temporal vía PostgREST, y un no-founder sólo edita nombre, email y avatar.
+2. **RPCs y policies (crítico/alto):**
+   - revocadas a `anon`/`authenticated`: `search_rag_chunks`,
+     `get_active_sales_script`, `increment_utm_*`, `get_holding_dashboard_stats`;
+   - `organization_claude_status` filtra por org;
+   - se eliminan las policies de miembro de `youtube_integrations` y
+     `zernio_integrations`;
+   - grants de `organizations.country/enabled_add_ons/reel_music_path`;
+   - índices únicos no parciales para dos upserts que fallaban.
+3. **Middleware (crítico):** `/api/webhooks/*` y `/api/discord/*` eran
+   redirigidos a `/login`. `isPublicPath` pasa a `lib/supabase/public-paths.ts`
+   con tests.
+4. **Server actions (alto):**
+   - holding exige founder o `is_holding_admin`;
+   - los helpers de lead magnets y `processAiBrainDocument` dejan de ser
+     actions;
+   - se elimina `processFathomQueueAction`;
+   - ClickUp exige sesión;
+   - Stripe valida el txn id;
+   - el cambio de contraseña forzado se hace en el servidor.
+5. **Webhooks (alto):** en todos los casos el problema era que el evento podía
+   terminar en la org equivocada.
+   - Fathom legacy rechaza firmas ambiguas.
+   - El guild de Discord sale del token de OAuth.
+   - Unipile pasa a fail-closed, con el header correcto y `?secret=` en el
+     `notify_url`.
+   - En GHL, la vía de plataforma sólo confía en el `locationId` firmado.
+6. **Bot de Discord:** `!vincular` escapa los comodines de `ilike`.
+7. **Medio:**
+   - `lib/storage/org-path.ts` en cinco finalizaciones de subida y un patch de
+     reel acotado;
+   - `lib/security/safe-equal.ts` en cron-auth y en la cola;
+   - rate limit y techo de largo en waitlist y trial-confirm, que ya no pisan
+     leads existentes;
+   - UTM sólo registra links existentes;
+   - rate limit en transcribe;
+   - cifrado sin fallback a texto plano (`readStoredSecret`).
+8. **Funcional:**
+   - `instrumentation.ts` para Sentry;
+   - `lib/supabase/fetch-all-rows.ts`, aplicado a leads, costos de IA y
+     asociación de llamadas;
+   - las métricas de contenido rotan y no se pisan con ceros
+     (`resolvePostAnalytics().recognized`);
+   - el worker de reportes devuelve 500 en `failed`, y el mensual hace fan-out;
+   - Fathom: toma atómica más presupuesto de tiempo;
+   - Typeform y Google Forms aíslan el error por org;
+   - calendly-sync, ghl-sync y el refresh de Mercado Pago ya no esconden
+     errores;
+   - las herramientas del agente usan los nombres de columna reales.
+9. **Tests:** 37 nuevos. Cubren public-paths, org-path, safe-equal, cifrado,
+   fetch-all-rows y el secreto de Unipile. 1.168 en verde, `tsc` y lint limpios,
+   `next build` OK.
+
+**Por qué / finalidad:** entra un dev senior a llevar el backend y se pidió
+dejarlo sin fallas conocidas graves. Tres eran críticas:
+- cualquier registrado podía volverse founder de otra org;
+- se podía leer la base de conocimiento de cualquier org;
+- los webhooks de pagos no llegaban.
+
+Varias más mezclaban datos entre organizaciones.
+
+**Decisiones de diseño relevantes:**
+- **Trigger y no grants por columna en `profiles`:** el founder sigue editando
+  tarifas, comisión y rol custom de su equipo con el cliente de usuario. Con
+  grants por columna habría que mover esas escrituras a service role. El trigger
+  es `SECURITY INVOKER` a propósito, porque en un DEFINER `current_user` es el
+  dueño y la regla nunca vería al usuario. Ese error se detectó en la prueba
+  local.
+- **La vista de estado de Claude filtra con `current_user` y no con
+  `security_invoker`:** lee `claude_api_key_encrypted`, que authenticated no
+  puede ver.
+- **Unipile fail-closed** aunque corte el inbox legacy si no hay secreto: dejarlo
+  abierto permitía re-vincular cuentas de otras orgs, y la UI ya usa Zernio.
+- **Fathom legacy rechaza con 409 y no "elige mejor":** con un secreto
+  compartido no hay forma correcta de elegir.
+- **Facturación por closer no se tocó:** `amount_closed` no existe, y
+  arreglar sólo la consulta mostraría $0, que es inventar un valor.
+
+**Riesgos / deuda técnica pendiente:**
+- 🔴 **Las migraciones no están aplicadas en producción**. No hubo acceso a esa
+  base. Ver `[AUDITORIA-MIGRACIONES]` y el bloque de `docs/PLAN_VERIFICACION.md`.
+- Unipile deja de recibir sin `UNIPILE_WEBHOOK_SECRET`.
+- El guild de Discord asume el `guild` del token, como documenta Discord en
+  "Advanced Bot Authorization". Verificar con una conexión real.
+- Lo no arreglado está priorizado en el informe (§3) y en
+  `[AUDITORIA-ABIERTOS]`.
+
+---
+
 ### 2026-09-22 — 📝 El repo pasa a llamarse `limitless-system`
 
 **Rama/branch:** `claude/cool-rubin-ssi5x7`
