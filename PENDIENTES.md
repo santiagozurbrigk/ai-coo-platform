@@ -781,7 +781,7 @@ Doc del área: [`docs/areas/ventas.md`](./docs/areas/ventas.md)
 - **Parte de:** `[PERMISOS-SERVER-ACTIONS]` (ítem transversal en Plataforma). Acá, lo específico del área.
 - **Tipo:** seguridad
 - **Severidad:** Alta
-- **Estado verificado:** sigue abierto; ninguna action de `app/sales`, `app/closing`, `app/fathom` verifica permiso de módulo. `updateCloserCommissionAction` (`app/sales/closer-actions.ts:275`) no tiene llamador y deja a cualquier miembro fijar la comisión de cualquier perfil de la org.
+- **Estado verificado:** sigue abierto; ninguna action de `app/sales`, `app/closing`, `app/fathom` verifica permiso de módulo. `updateCloserCommissionAction` (`app/sales/closer-actions.ts:275`) no tiene llamador (código muerto). No es una escalada: usa `createClient()` y en producción la policy de update de `profiles` más el trigger `protect_profile_columns` (`20260922100000_profiles_columnas_protegidas.sql`) sólo dejan a founder/admin cambiar la comisión (verificado en `pg_policies`/`pg_trigger` 2026-09-23).
 - **Riesgo:** Si un miembro con Ventas en «Sin acceso» invoca directamente una action de app/sales, app/closing o app/fathom, entonces lee y escribe turnos, leads, cobros y llamadas igual que alguien con acceso total. updateCloserCommissionAction no agrega riesgo: la policy de update de profiles y el trigger protect_profile_columns (ambos en producción) sólo dejan a founder/admin cambiar la comisión de otro.
 - **Impacto:** Todas las orgs con roles restringidos: el permiso de Ventas es sólo visual, incluidos montos y cobros que [COBROS-AVISAR-PERMISOS] pretende ocultar.
 - **Qué hay que hacer:** borrar `updateCloserCommissionAction` (sin uso) y aplicar el guard por módulo que se diseñe en el ítem general.
@@ -1774,7 +1774,8 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 - **Estado verificado:** `process-sop-video/route.ts` hace `Buffer.from(await file.arrayBuffer())` y
   `writeFile` en `tmpdir()`; el bucket acepta hasta 1 GB (`20260903110000`) y el límite de subida es
   `SOP_VIDEO_MAX_BYTES` (`NEXT_PUBLIC_SOP_VIDEO_MAX_MB`, 50 MB por defecto). `/tmp` de Vercel es de 512 MB y la memoria de la lambda es finita: un Loom grande
-  falla antes de ffmpeg. `probeDurationSeconds` decodifica el video completo (`-f null -`) sólo para leer la
+  falla antes de ffmpeg (hoy latente: el límite global de Supabase del plan gratis corta en 50 MB, ver
+  `lib/sops/constants.ts`; pasa a ser real si se sube ese techo). `probeDurationSeconds` decodifica el video completo (`-f null -`) sólo para leer la
   duración. Si la duración sale 0, `computeAudioChunks(0)` manda todo el audio en un pedido (límite de 25 MB de Whisper).
 - **Riesgo:** Si la duración del video no se puede leer, entonces se manda todo el audio en un solo pedido y Whisper lo rechaza por pasar 25 MB; si se sube el techo de 50 MB, un video grande agota memoria o /tmp. Con el techo actual (50 MB por el plan de Supabase) sólo el primer caso es alcanzable.
 - **Impacto:** Orgs que suban videos para SOP: el job termina en error después de consumir tiempo; no se pierden datos. Hoy acotado por el límite de 50 MB.
@@ -1801,7 +1802,10 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 - **Tipo:** verificación manual
 - **Severidad:** Baja
 - **Estado verificado:** ninguna migración los crea (`grep storage.buckets`); el código los usa con URLs
-  firmadas. `list_tables` muestra 13 buckets en prod pero no sus nombres. Parte de `AUDITORIA_BACKEND` §3.9.
+  firmadas. En prod (catálogo `storage.buckets`, 2026-09-23) **los dos existen y son privados**, pero sin
+  límite de tamaño (`file_size_limit = null`) ni de tipos (`allowed_mime_types = null`), y no hay policies de
+  `storage.objects` para ellos (sólo accede el servidor con admin client). Lo que queda es pasarlos a una
+  migración con límites. Parte de `AUDITORIA_BACKEND` §3.9.
 - **Riesgo:** Si alguien sube un archivo enorme o de tipo no esperado a sop-attachments o workboard-task-attachments, entonces el bucket lo acepta (no tiene límite de tamaño ni de MIME en prod); y si se recrea el proyecto, los buckets no existen porque ninguna migración los crea. La exposición pública ya no es un riesgo: ambos son privados en prod.
 - **Impacto:** Mantenimiento y consumo de storage; no hay datos de otra org alcanzables (privados, sin policies para authenticated, acceso sólo por URL firmada del servidor).
 - **Qué hay que hacer:** mirar en el dashboard que existan y sean privados; pasarlos a una migración
