@@ -70,6 +70,7 @@ Los informes de auditoría con el mismo criterio (hecho · observación · riesg
 | `[EMBUDOS-WEBHOOK-PERDIDA]` | Embudos y Lanzamientos | Crítica | Webhooks de pagos y GHL que responden 200 sin haber guardado el evento |
 | `[1A1-CLAVE-ANTHROPIC-ROTA]` | Agente de negocio e IA | Alta | Una organización sin clave válida y sin clave global |
 | `[EQUIPO-DESACTIVAR-NO-BLOQUEA]` | Operaciones, Finanzas y Producto | Crítica | Un miembro desactivado sigue entrando y viendo todo [Operaciones y equipo] |
+| `[DB-VISTA-CLAUDE-STATUS-ESCRIBIBLE]` | Infraestructura, seguridad y tests (transversal) | Crítica | Cualquier miembro puede borrar su organización entera a través de la vista `organization_claude_status` |
 | `[OAUTH-ESTADO-SIN-FIRMA]` | Infraestructura, seguridad y tests (transversal) | Crítica | Los callbacks OAuth conectan la integración a la org que diga una cookie sin firmar |
 | `[DR-BACKUPS-SUPABASE]` | Infraestructura, seguridad y tests (transversal) | Crítica | La base y los archivos de producción no tienen backups ni se ensayó nunca una restauración |
 | `[SEG-BUCKET-IMPORT-FILES]` | Infraestructura, seguridad y tests (transversal) | Crítica | El bucket `import-files` deja leer y borrar archivos de cualquier organización |
@@ -79,14 +80,14 @@ Los informes de auditoría con el mismo criterio (hecho · observación · riesg
 
 | Área | Doc | P0 | P1 | P2 | P3 |
 |---|---|---|---|---|---|
-| [Plataforma: auth, permisos, holding, super admin, panel, onboarding, UI y Discord](#plataforma-auth-permisos-holding-super-admin-panel-onboarding-ui-y-discord) | [`docs/areas/plataforma.md`](./docs/areas/plataforma.md) | 2 | 12 | 33 | 17 |
+| [Plataforma: auth, permisos, holding, super admin, panel, onboarding, UI y Discord](#plataforma-auth-permisos-holding-super-admin-panel-onboarding-ui-y-discord) | [`docs/areas/plataforma.md`](./docs/areas/plataforma.md) | 2 | 14 | 33 | 17 |
 | [Clientes](#clientes) | [`docs/areas/clientes.md`](./docs/areas/clientes.md) | 0 | 8 | 15 | 11 |
 | [Ventas](#ventas) | [`docs/areas/ventas.md`](./docs/areas/ventas.md) | 2 | 15 | 16 | 8 |
 | [Marketing](#marketing) | [`docs/areas/marketing.md`](./docs/areas/marketing.md) | 1 | 8 | 20 | 5 |
 | [Embudos y Lanzamientos](#embudos-y-lanzamientos) | [`docs/areas/embudos.md`](./docs/areas/embudos.md) | 1 | 7 | 15 | 7 |
 | [Agente de negocio e IA](#agente-de-negocio-e-ia) | [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md) | 1 | 8 | 18 | 7 |
 | [Operaciones, Finanzas y Producto](#operaciones-finanzas-y-producto) | [`docs/areas/operaciones.md`](./docs/areas/operaciones.md) | 1 | 7 | 15 | 10 |
-| [Infraestructura, seguridad y tests (transversal)](#infraestructura-seguridad-y-tests-transversal) | [`docs/arquitectura/vision-general.md`](./docs/arquitectura/vision-general.md) | 4 | 25 | 43 | 10 |
+| [Infraestructura, seguridad y tests (transversal)](#infraestructura-seguridad-y-tests-transversal) | [`docs/arquitectura/vision-general.md`](./docs/arquitectura/vision-general.md) | 5 | 25 | 44 | 13 |
 
 ---
 
@@ -117,6 +118,30 @@ Doc del área: [`docs/areas/plataforma.md`](./docs/areas/plataforma.md)
 - **Dónde:** `apps/web/app/auth/callback/route.ts`.
 
 ### Plataforma · P1
+
+#### [AUTH-MFA-Y-POLITICA] Sin MFA (ni para el super admin), sin protección contra contraseñas filtradas y con la configuración de Auth fuera del repo
+- **Tipo:** seguridad
+- **Severidad:** Alta
+- **Estado verificado:** ningún uso de MFA en `apps/web` (grep `mfa|aal2|totp|two.?factor` vacío). Advisor de Supabase en prod: `auth_leaked_password_protection` desactivada. El signup acepta el mínimo de Supabase (el mensaje de `mapAuthError` dice 6, `apps/web/app/auth/actions.ts:39`); el cambio forzado pide 8 (`app/auth/force-password-change/actions.ts:6`) y `/auth/update-password` pide 8 sólo en el navegador. No existe `supabase/config.toml`: duración del JWT, rotación de refresh tokens, confirmación de email y de cambio de email, y signups habilitados no están versionados ni documentados. El login del super admin tiene su propio contador (`signin-superadmin:<email>`, `app/auth/actions.ts:175`), así que un email admite 10 intentos cada 15 min entre los dos formularios.
+- **Riesgo:** Si la contraseña del super admin o de un founder se filtra en otro sitio (reuso de contraseñas), entonces alcanza con ella para entrar; el rate limit por email (`[LOGIN-RATE-LIMIT]`) no frena probar una lista de contraseñas filtradas contra muchos emails. Probabilidad media: es el ataque más común contra paneles SaaS.
+- **Impacto:** Super admin: todas las orgs. Founder: su org, sus integraciones y su BYOK.
+- **Qué hay que hacer:** en Supabase → Authentication, activar la protección contra contraseñas filtradas y un mínimo de 8 caracteres; MFA TOTP obligatorio para el super admin (enrolamiento + chequeo de `aal2` en `requireSuperAdmin` y en el layout del panel) y ofrecido a founders; documentar la configuración de Auth vigente en `docs/operacion/entorno-y-deploy.md` (o versionarla en `supabase/config.toml`).
+- **Criterio de aceptación:** Un signup o cambio de contraseña con una contraseña conocida como filtrada o de menos de 8 caracteres es rechazado; el super admin no puede abrir ninguna pantalla de `/super-admin` ni ejecutar sus actions sin haber pasado el segundo factor en esa sesión (`aal2`); el advisor ya no reporta `auth_leaked_password_protection`; la duración del JWT, la rotación de refresh tokens y las confirmaciones de email quedaron anotadas en `docs/operacion/entorno-y-deploy.md`
+- **Dónde:** Supabase Auth (dashboard), `apps/web/lib/auth/require-super-admin.ts`, `apps/web/app/(super-admin)/super-admin/layout.tsx`, `apps/web/app/auth/actions.ts`, `docs/operacion/entorno-y-deploy.md`.
+
+Prioridad sugerida P1: el super admin con contraseña sola es la llave de todas las orgs; activar la protección y el mínimo es un cambio de configuración.
+
+#### [AUTH-ALTA-EMAIL-AJENO] Un founder puede crear cuentas confirmadas para cualquier email, y el super admin se decide por email
+- **Tipo:** seguridad
+- **Severidad:** Crítica
+- **Estado verificado:** `inviteTeamMemberAction` (`apps/web/app/team/actions.ts:263-301`) llama `admin.auth.admin.createUser({ email, password: tempPassword, email_confirm: true })` y devuelve `tempPassword` al founder que invita, sin verificar que el email sea de la persona. Lo mismo hacen `addBusinessToMyHoldingAction` (`app/(platform)/holding/actions.ts:174-204`) y las altas del super admin (`app/super-admin/actions.ts:127,197,724`). Para invitar alcanza con ser founder (`requireManagerProfile`), y con `[SIGNUP-PUBLICO]` cualquiera puede serlo. `isSuperAdminEmail` (`apps/web/lib/auth/require-super-admin.ts:6-17`) da acceso al panel interno a todo usuario cuyo `user.email` esté en `super_admin_users`, sin mirar `email_confirmed_at` ni el id. Prod (conteo agregado, 2026-09-23): 1 email en la allowlist, con cuenta confirmada; 0 sin cuenta.
+- **Riesgo:** Si se agrega a `super_admin_users` un email que todavía no tiene cuenta (p. ej. al sumar a alguien del staff antes de que entre), entonces cualquier founder que lo conozca o lo adivine lo invita a su org, recibe la contraseña temporal, entra y el middleware lo manda a `/super-admin`. Aun sin super admin de por medio, cualquier founder puede ocupar el email de otra persona (cuenta confirmada que esa persona ya no puede crear) y hacerse pasar por ella. Hoy la parte de super admin no es explotable (0 emails sin cuenta).
+- **Impacto:** Toma del panel interno: todas las orgs, bajas, add-ons, claves BYOK de clientes (`[IA-CLAVE-DE-CLIENTE-EN-SUPERADMIN]`). Suplantación de identidad entre equipos.
+- **Qué hay que hacer:** (1) identificar al super admin por `user_id` (FK a `auth.users`) en vez de por email, o como mínimo exigir `email_confirmed_at` y que la cuenta no venga de una invitación de org; (2) procedimiento en `docs/operacion/`: crear la cuenta del super admin antes de agregarla a la allowlist; (3) invitaciones por mail (`auth.admin.inviteUserByEmail` o link de un solo uso) en vez de cuentas confirmadas con contraseña visible, o `email_confirm: false` hasta que la persona confirme.
+- **Criterio de aceptación:** Con un email agregado a `super_admin_users` que no tiene cuenta, un founder que lo invita a su org no obtiene acceso a `/super-admin` (la invitación falla o la cuenta queda sin acceso hasta que el dueño del email confirme); `requireSuperAdmin` rechaza a un usuario con email en la allowlist pero sin `email_confirmed_at` (o con otro `user_id`); invitar a un miembro no entrega una cuenta usable sin que la persona confirme su email; hay un test de `requireSuperAdmin`/`isSuperAdmin` con esos casos
+- **Dónde:** `apps/web/lib/auth/require-super-admin.ts`, `apps/web/app/team/actions.ts`, `apps/web/app/(platform)/holding/actions.ts`, `apps/web/app/super-admin/actions.ts`, `super_admin_users` (migración).
+
+Prioridad sugerida P1: la severidad es Crítica, pero la toma del super admin exige una condición que hoy no se da; la suplantación entre equipos sí se puede hoy.
 
 #### [AUTH-RECUPERAR-PASSWORD] (nuevo) "¿Olvidaste tu contraseña?" no hace nada
 - **Tipo:** bug
@@ -202,7 +227,7 @@ Y no hace falta la cookie: `lib/supabase/middleware.ts:61-65` sólo sobrescribe 
 - **Estado verificado:** `/login` tiene toggle "Crear cuenta" → `signUpAction` → `ensureUserBootstrap` crea org + founder. Esa org usa la `ANTHROPIC_API_KEY` global.
 - **Riesgo:** Si alguien descubre el toggle «Crear cuenta», entonces puede crear organizaciones founder sin límite (rate limit sólo por email) y usar el agente de IA con la ANTHROPIC_API_KEY global, que no tiene cupo por organización. Es trivial de hacer.
 - **Impacto:** Costo de IA de Limitless sin techo ni cobro asociado, y orgs basura en la base; no expone datos de otras orgs.
-- **Qué hay que hacer:** decidir si el alta es sólo por super admin/trial. Si sí: sacar el toggle y el action, y desactivar signups en Supabase Auth.
+- **Qué hay que hacer:** decidir si el alta es sólo por super admin/trial. Si sí: sacar el toggle y el action, y desactivar signups en Supabase Auth. Si sigue abierta: rate limit por IP además de por email, mensaje neutro ("si el email es válido te llega un correo") en vez de "Ya existe una cuenta", no devolver el mensaje crudo de Supabase, y resolver antes `[AUTH-ALTA-EMAIL-AJENO]`.
 - **Criterio de aceptación:** Agustín decidió si el alta de cuentas founder es pública o sólo por super admin/prueba y la decisión quedó registrada en docs/arquitectura/auth-organizaciones-y-permisos.md; si es cerrada: /login ya no muestra «Crear cuenta», llamar signUpAction falla y el signup está desactivado en Supabase Auth
 - **Dónde:** `apps/web/components/auth/supabase-login-form.tsx`, `apps/web/app/auth/actions.ts`.
 
@@ -2219,6 +2244,18 @@ Doc del área: [`docs/arquitectura/vision-general.md`](./docs/arquitectura/visio
 
 ### Infraestructura, seguridad y tests (transversal) · P0
 
+#### [DB-VISTA-CLAUDE-STATUS-ESCRIBIBLE] Cualquier miembro puede borrar su organización entera a través de la vista `organization_claude_status`
+- **Tipo:** seguridad
+- **Severidad:** Crítica
+- **Estado verificado:** en prod, `public.organization_claude_status` es una vista simple sobre `organizations` sin `security_invoker` (`pg_class.reloptions` null; advisor `security_definer_view`, nivel ERROR), dueña `postgres` (`rolbypassrls = true`; `organizations` sin `FORCE ROW LEVEL SECURITY`). `information_schema.views`: `is_updatable = YES`, `is_insertable_into = YES`; columnas actualizables `id`, `claude_api_key_status`, `claude_api_key_last_validated_at`. `role_table_grants`: `authenticated` tiene `INSERT`, `UPDATE` y `DELETE` sobre la vista (las migraciones sólo hacen `grant select` y `revoke all … from anon`, `20260922110000_rpcs_y_policies_entre_organizaciones.sql:68-69`; el resto sale de los privilegios por defecto de `public`). Filtro de la vista para `authenticated`: `id = get_my_organization_id()`. 138 FKs hacia `organizations` son `ON DELETE CASCADE` (incluye `profiles`, `clients`, `team_roles`); `organizations` no tiene triggers. Deducido del catálogo; no se ejecutó ninguna escritura.
+- **Riesgo:** Si cualquier usuario logueado (cualquier rol, incluido un member de "sólo lectura" o un miembro de holding con un negocio activo en el JWT) manda `DELETE /rest/v1/organization_claude_status?id=eq.<su org>` con la anon key y su JWT, entonces Postgres borra la fila de `organizations` como `postgres` (sin RLS) y en cascada los datos de la org en 138 tablas. Con `PATCH` puede además cambiar `claude_api_key_status`. Es una sola llamada HTTP con datos que el navegador ya tiene; basta un empleado descontento o una sesión robada.
+- **Impacto:** Pérdida total de los datos de una organización (clientes, ventas, llamadas, finanzas, equipo, integraciones), sin papelera y **sin backups** (producción está en plan Free: `[DR-BACKUPS-SUPABASE]`), así que hoy sería irrecuperable. El borrado alcanza sólo a la org del propio usuario (la vista filtra por `get_my_organization_id()`), pero lo puede hacer cualquier miembro, incluso uno de sólo lectura. Expuestas todas las orgs de producción.
+- **Qué hay que hacer:** migración con `revoke insert, update, delete on public.organization_claude_status from authenticated, anon;` y `alter view public.organization_claude_status set (security_invoker = true);` (confirmar que la RLS y los grants por columna de `organizations` dejan leer esas columnas a la org propia y que `app/settings/actions.ts:386` y `lib/super-admin/queries.ts:99,449` siguen funcionando); chequeo en `supabase/ci/` que falle si una vista de `public` es actualizable y tiene INSERT/UPDATE/DELETE para `authenticated`/`anon`; revisar si ya hubo borrados de `organizations` no hechos por el super admin (logs de PostgREST).
+- **Criterio de aceptación:** Con el JWT de un member, `DELETE` y `PATCH` por PostgREST sobre `organization_claude_status` son rechazados (permiso denegado) y la org sigue existiendo; `information_schema.role_table_grants` no muestra INSERT/UPDATE/DELETE de `authenticated` ni `anon` sobre ninguna vista de `public`; el advisor ya no reporta `security_definer_view`; Ajustes → Claude y el panel del super admin siguen mostrando el estado de la clave; la migración está en `supabase/migrations/` y en el historial de prod
+- **Dónde:** vista `public.organization_claude_status`, migración nueva, `supabase/ci/check-migrations.sh`.
+
+Prioridad sugerida P0: pérdida de datos de una org entera con una sola llamada, disponible hoy para cualquier usuario logueado.
+
 #### [OAUTH-ESTADO-SIN-FIRMA] Los callbacks OAuth conectan la integración a la org que diga una cookie sin firmar
 - **Tipo:** seguridad
 - **Severidad:** Crítica
@@ -2487,7 +2524,7 @@ Prioridad sugerida P1: el margen de Storage es ~200 MB y cruzar el cupo rompe su
 #### [ENV-LIMPIEZA] Variables de entorno desalineadas entre código, `.env.example`, `turbo.json` y Vercel
 - **Tipo:** deuda técnica
 - **Severidad:** Media
-- **Estado verificado:** faltan en `.env.example` y el código las usa: `WORKER_AUTH_SECRET`, `ZERNIO_WEBHOOK_SECRET`, `ZERNIO_BASE_URL`, `CALENDLY_CLOSER_REDIRECT_URI`, `SUPER_ADMIN_GOOGLE_REDIRECT_URI`, `GHL_API_BASE`, `HYROS_API_BASE`, `VTURB_API_BASE`, `WEBINARJAM_API_BASE`, `SENTRY_*`, `NEXT_PUBLIC_SOP_VIDEO_MAX_MB`. Sobra `NEXT_PUBLIC_VSL_URL`. `.env.example` dice que `CRON_SECRET` es "opcional" (es obligatoria). En Vercel sobran `NEXT_PUBLIC_VSL_URL`, `NEXT_PUBLIC_NAV_STYLE`, `REDIS_URL`, `QSTASH_URL`, `GOOGLE_REDIRECT_URI`, `FATHOM_REDIRECT_URI`; faltan `LIMITLESS_WEBHOOK_SECRET` (está `OTC_`), `FATHOM_WEBHOOK_SECRET`, `NEXT_PUBLIC_UTM_ORGANIZATION_ID`. `turbo.json` `build.env` no declara la mayoría de las nuevas y sigue listando `OTC_WEBHOOK_SECRET`.
+- **Estado verificado:** faltan en `.env.example` y el código las usa: `WORKER_AUTH_SECRET`, `ZERNIO_WEBHOOK_SECRET`, `ZERNIO_BASE_URL`, `CALENDLY_CLOSER_REDIRECT_URI`, `SUPER_ADMIN_GOOGLE_REDIRECT_URI`, `GHL_API_BASE`, `HYROS_API_BASE`, `VTURB_API_BASE`, `WEBINARJAM_API_BASE`, `SENTRY_*`, `NEXT_PUBLIC_SOP_VIDEO_MAX_MB`. Sobra `NEXT_PUBLIC_VSL_URL`. `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` tiene en `.env.example:95` un valor literal predecible en vez de vacío (si se usó el mismo en prod, rotarlo). `.env.example` dice que `CRON_SECRET` es "opcional" (es obligatoria). En Vercel sobran `NEXT_PUBLIC_VSL_URL`, `NEXT_PUBLIC_NAV_STYLE`, `REDIS_URL`, `QSTASH_URL`, `GOOGLE_REDIRECT_URI`, `FATHOM_REDIRECT_URI`; faltan `LIMITLESS_WEBHOOK_SECRET` (está `OTC_`), `FATHOM_WEBHOOK_SECRET`, `NEXT_PUBLIC_UTM_ORGANIZATION_ID`. `turbo.json` `build.env` no declara la mayoría de las nuevas y sigue listando `OTC_WEBHOOK_SECRET`.
 - **Riesgo:** Si alguien arma un entorno nuevo desde `.env.example` o borra el respaldo `OTC_WEBHOOK_SECRET` sin cargar `LIMITLESS_WEBHOOK_SECRET`, entonces fallan en silencio el worker, el webhook de Zernio, el bot de Discord o el tracking UTM de la waitlist (sin `NEXT_PUBLIC_UTM_ORGANIZATION_ID` hoy no se registra ningún UTM de la waitlist, `waitlist/route.ts:154`).
 - **Impacto:** Operación y deploys: configuraciones incompletas difíciles de diagnosticar; hoy concretamente la captura UTM de la waitlist está apagada en prod por falta de la variable.
 - **Qué hay que hacer:** actualizar `.env.example` y `turbo.json` con la tabla de `docs/operacion/entorno-y-deploy.md`; limpiar Vercel; renombrar `OTC_WEBHOOK_SECRET` → `LIMITLESS_WEBHOOK_SECRET` en Vercel y Railway y después borrar el respaldo.
@@ -2555,6 +2592,17 @@ Prioridad sugerida P1: el margen de Storage es ~200 MB y cruzar el cupo rompe su
 - **Dónde:** `apps/web/lib/utm/`.
 
 ### Infraestructura, seguridad y tests (transversal) · P2
+
+#### [LOGS-DATOS-SENSIBLES] Logs con textos de DMs y filas de clientes; Sentry sin filtro de headers ni query string
+- **Tipo:** seguridad
+- **Severidad:** Media
+- **Estado verificado:** `apps/web/lib/unipile/process-message.ts:91-99` loguea `messageText` (texto completo del DM), nombre del lead y `senderId` de cada mensaje entrante; `:51` el nombre del lead. `apps/web/app/integrations/clickup/import-actions.ts:200` loguea `JSON.stringify(clientRow)` (fila completa del cliente) cuando falla un insert. `app/api/queue/publish-reel-variation/route.ts:146,148` loguea el email del admin. `lib/google/drive-content.ts:36` y `drive-forms.ts:29,35` loguean el cuerpo completo del error de Google. Sentry: `sentry.edge.config.ts` no tiene `beforeSend` (el middleware corre en Edge); `client` y `server` sólo borran `request.cookies`; ningún config filtra headers (`Authorization` con `CRON_SECRET`, `x-worker-secret`, `upstash-signature`, `unipile-auth`) ni query string (`workerSecret`, `secret` de Unipile, `code`/`state` de OAuth, `token` de invitaciones). No se pudo ver un evento real de Sentry.
+- **Riesgo:** Si alguien con acceso a los logs de Vercel o al proyecto de Sentry (más gente que a la base, y con otra retención) los consulta, entonces lee DMs de leads y datos de clientes, y puede encontrar secretos de cron/cola si alguna de esas rutas tira error. Probable que ya esté pasando con los DMs mientras el inbox legacy de Unipile reciba mensajes.
+- **Impacto:** Datos personales de terceros (leads, clientes de los clientes) fuera de la base y fuera de las bajas del super admin.
+- **Qué hay que hacer:** loguear sólo ids en Unipile y ClickUp; `beforeSend` común a los tres configs de Sentry que borre `authorization`, `cookie`, `x-worker-secret`, `upstash-signature`, `unipile-auth` y limpie de la URL/query `workerSecret`, `secret`, `code`, `state`, `token`; mirar un evento real de Sentry de una ruta de cola para confirmar.
+- **Dónde:** `apps/web/lib/unipile/process-message.ts`, `apps/web/app/integrations/clickup/import-actions.ts`, `apps/web/app/api/queue/publish-reel-variation/route.ts`, `apps/web/lib/google/drive-*.ts`, `apps/web/sentry.{client,server,edge}.config.ts`.
+
+Prioridad sugerida P2: exposición real pero a quien ya tiene acceso a los paneles de Vercel o Sentry.
 
 #### [DB-DRIFT-STORAGE-REALTIME] Producción difiere del repo en Storage, Realtime y grants de funciones
 - **Tipo:** deuda técnica
@@ -2634,7 +2682,7 @@ Prioridad sugerida P2: no hay una filtración conocida; el procedimiento se nece
 #### [AUD-SEG-7] Rate limit de login por email
 - **Tipo:** seguridad
 - **Estado verificado:** `app/auth/actions.ts:119` usa `authRateLimit(\`signin:${email}\`)`: cualquiera bloquea a otro 15 min con 5 intentos, y el spraying (muchos emails, una contraseña) no tiene límite.
-- **Qué hay que hacer:** clave por IP + email y un límite por IP; evaluar captcha.
+- **Qué hay que hacer:** **duplicado de `[LOGIN-RATE-LIMIT]`**: cerrar este ítem y seguir allá. Sumar allá que `signin` y `signin-superadmin` son contadores separados (10 intentos por email cada 15 min en total).
 - **Dónde:** `apps/web/app/auth/actions.ts`, `apps/web/lib/rate-limit.ts`.
 
 #### [AUD-SEG-8] Errores internos devueltos al cliente
@@ -2658,7 +2706,7 @@ Prioridad sugerida P2: no hay una filtración conocida; el procedimiento se nece
 #### [SEG-HEADERS] Sin headers de seguridad HTTP
 - **Tipo:** seguridad
 - **Estado verificado:** ni `vercel.json` ni `next.config.ts` definen CSP, `frame-ancestors`/`X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` ni `X-Content-Type-Options`.
-- **Qué hay que hacer:** `headers()` en `next.config.ts` con lo básico (empezar por `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`); CSP en modo report-only primero.
+- **Qué hay que hacer:** `headers()` en `next.config.ts` con lo básico (empezar por `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`); CSP en modo report-only primero. La CSP es la defensa principal de la sesión: las cookies `sb-*` de `@supabase/ssr` guardan access y refresh token, son legibles por JavaScript (lo necesita el cliente de navegador) y duran 400 días, así que un XSS se lleva la sesión hasta un logout global. Revisar también en Supabase Auth la duración máxima de sesión (time-box / inactividad).
 - **Dónde:** `apps/web/next.config.ts`.
 
 #### [DB-ORGS-SELECT-COLUMNAS] SELECT de tabla entera sobre `organizations` en prod
@@ -2843,6 +2891,41 @@ Prioridad sugerida P2: no hay una filtración conocida; el procedimiento se nece
 - **Dónde:** `.github/workflows/ci.yml`.
 
 ### Infraestructura, seguridad y tests (transversal) · P3
+
+#### [FATHOM-LINK-EN-TEST] Un link compartido de Fathom con aspecto real en un test commiteado
+- **Tipo:** seguridad
+- **Severidad:** Baja
+- **Estado verificado:** `apps/web/lib/fathom/__tests__/share-link.test.ts:57-69` (commit `42534ba`, 2026-09-20, sigue en el árbol) usa `https://fathom.video/share/<token de 32 caracteres>` con aspecto de token real, mientras el resto del archivo usa `TOKENDEPRUEBA` y aclara que los datos son inventados. No se abrió el link.
+- **Riesgo:** Si el token es de una grabación real, entonces cualquiera con acceso al repo (o a un clon) ve la llamada y su transcript; los links compartidos de Fathom no vencen solos.
+- **Impacto:** Una grabación de venta o de entrega de un cliente (datos personales y comerciales). Media si resulta real.
+- **Qué hay que hacer:** abrir el link una vez; si lleva a una grabación, revocar el link compartido desde Fathom y reemplazar el token del test por uno inventado (no hace falta reescribir el historial una vez revocado).
+- **Dónde:** `apps/web/lib/fathom/__tests__/share-link.test.ts`, Fathom.
+
+Prioridad sugerida P3 (P2 si el link resulta real): verificación de un minuto.
+
+---
+
+#### [SERVER-ONLY-GUARDS] El admin client y el cifrado no están marcados como sólo-servidor
+- **Tipo:** deuda técnica
+- **Severidad:** Baja
+- **Estado verificado:** `apps/web/lib/supabase/admin.ts` y `apps/web/lib/security/encryption.ts` no tienen `import "server-only"` (sí lo tienen 6 archivos menos sensibles, p. ej. `lib/auth/add-ons.ts`). `lib/supabase/env.ts`, que incluye `getSupabaseServiceRoleKey()`, llega al bundle del navegador desde 65 archivos `"use client"` vía `lib/supabase/client.ts`; en el navegador la variable vale `undefined` (Next sólo inyecta `NEXT_PUBLIC_*`), así que hoy no hay fuga. Ningún archivo cliente importa `admin.ts` ni `encryption.ts` (grafo de imports de los 428 archivos cliente, 2026-09-23).
+- **Riesgo:** Si un cambio futuro importa el admin client o el cifrado desde un componente cliente, entonces el build no falla y el error aparece en runtime, con la tentación de "arreglarlo" exponiendo la variable como `NEXT_PUBLIC_`.
+- **Impacto:** Prevención; hoy no afecta a nadie.
+- **Qué hay que hacer:** `import "server-only"` en `admin.ts`, `encryption.ts` y `lib/ai/credential-resolver.ts`; mover `getSupabaseServiceRoleKey` de `env.ts` a `admin.ts`.
+- **Dónde:** `apps/web/lib/supabase/{admin,env}.ts`, `apps/web/lib/security/encryption.ts`, `apps/web/lib/ai/credential-resolver.ts`.
+
+Prioridad sugerida P3: preventivo, cambio de minutos.
+
+#### [SERVICE-ROLE-FUERA-DE-VERCEL] El bot de Discord y el worker de Fly tienen la clave de service role completa
+- **Tipo:** seguridad
+- **Severidad:** Media
+- **Estado verificado:** `apps/discord-bot/src` y `apps/reel-worker/src` leen `SUPABASE_SERVICE_ROLE_KEY` (grep de `process.env`), que saltea RLS en todas las tablas, incluidas las de secretos en claro (`[AUD-SEG-2]`). El bot sólo necesita tablas de Discord y clientes; el worker, `reel_variation_jobs`, Storage de `trial-reels` y la música de la org.
+- **Riesgo:** Si se compromete la cuenta o el contenedor de Railway o de Fly (dependencia maliciosa, token de deploy filtrado), entonces el atacante tiene lectura y escritura sobre toda la base de todas las orgs.
+- **Impacto:** Todas las orgs y todas las credenciales guardadas en claro.
+- **Qué hay que hacer:** evaluar un rol de Postgres propio por servicio (JWT firmado con `role` restringido, o funciones RPC `SECURITY DEFINER` acotadas) con permisos sólo sobre sus tablas; como mínimo, inventariar quién tiene acceso a Railway y Fly y rotar la clave de service role si alguien sale del equipo.
+- **Dónde:** `apps/discord-bot/src/lib/supabase.ts`, `apps/reel-worker/src/`, Railway, Fly.io.
+
+Prioridad sugerida P3: reduce el alcance de un compromiso que hoy no está pasando; requiere diseño.
 
 #### [DB-FK-MISMA-ORG] La base no impide que una fila apunte a filas de otra organización
 - **Tipo:** seguridad
