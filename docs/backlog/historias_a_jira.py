@@ -19,6 +19,7 @@ import re
 import sys
 from pathlib import Path
 
+sys.dont_write_bytecode = True  # no dejar __pycache__ en docs/backlog/
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pendientes_a_jira as pendientes  # noqa: E402
 
