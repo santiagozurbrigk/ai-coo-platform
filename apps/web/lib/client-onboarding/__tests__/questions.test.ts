@@ -8,8 +8,21 @@ import { isValidFieldKey } from "@/lib/custom-fields/key";
  * `createFieldDefinitionAction`. Estos tests son esa validación.
  */
 describe("ONBOARDING_QUESTIONS", () => {
-  it("trae las 74 preguntas del formulario original más la del equipo", () => {
-    expect(ONBOARDING_QUESTIONS).toHaveLength(75);
+  it("trae las 74 del formulario original, las 9 de sistemas y las 3 agregadas", () => {
+    // Agregadas: integrantes del equipo, próximo lanzamiento y notas de sistemas.
+    expect(ONBOARDING_QUESTIONS).toHaveLength(86);
+  });
+
+  it("los estados de sistemas van en la solapa Sistemas, sin pisar la plantilla", () => {
+    const estados = ONBOARDING_QUESTIONS.filter((q) => q.step === "sistemas");
+    expect(estados).toHaveLength(10);
+    for (const q of estados) expect(q.section, q.key).toBe("sistemas");
+  });
+
+  it("sólo las fechas llevan aviso", () => {
+    for (const q of ONBOARDING_QUESTIONS) {
+      if (q.alertDaysBefore !== undefined) expect(q.type, q.key).toBe("date");
+    }
   });
 
   it("cada clave es válida, única y con prefijo onb_", () => {

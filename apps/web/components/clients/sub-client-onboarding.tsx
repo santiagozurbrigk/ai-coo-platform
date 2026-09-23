@@ -252,7 +252,6 @@ function HistorialDeEnvios({
   onClose: () => void;
 }) {
   const [abierto, setAbierto] = useState<string | null>(envios[0]?.id ?? null);
-  const porClave = new Map(fields.map((field) => [field.key, field]));
 
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
@@ -285,30 +284,9 @@ function HistorialDeEnvios({
                 </button>
 
                 {esteAbierto ? (
-                  <dl className="space-y-3 border-t border-border/50 px-3 py-3 dark:border-white/[0.06]">
-                    {Object.entries(envio.answers).map(([key, value]) => {
-                      const field = porClave.get(key);
-                      const texto = comoTexto(value, field);
-                      const cambio = key in envio.replaced;
-                      const antes = comoTexto(envio.replaced[key], field);
-                      return (
-                        <div key={key} className="space-y-1">
-                          <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                            {envio.labels[key] ?? field?.label ?? key}
-                            {cambio ? <span className="ml-1.5 normal-case text-primary">cambió</span> : null}
-                          </dt>
-                          <dd className="whitespace-pre-wrap break-words text-sm">
-                            {texto || <span className="text-muted-foreground">(vacío)</span>}
-                          </dd>
-                          {cambio ? (
-                            <dd className="whitespace-pre-wrap break-words text-xs text-muted-foreground">
-                              Antes: {antes || "(vacío)"}
-                            </dd>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </dl>
+                  <div className="border-t border-border/50 px-3 py-3 dark:border-white/[0.06]">
+                    <RespuestasDelEnvio envio={envio} fields={fields} />
+                  </div>
                 ) : null}
               </div>
             );
@@ -316,5 +294,45 @@ function HistorialDeEnvios({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Lo que mandó un envío, pregunta por pregunta. Si pisó algo, muestra qué
+ * había antes. La usan el historial de la ficha y la bandeja sin asignar.
+ */
+export function RespuestasDelEnvio({
+  envio,
+  fields,
+}: {
+  envio: OnboardingSubmission;
+  fields: FieldDefinition[];
+}) {
+  const porClave = new Map(fields.map((field) => [field.key, field]));
+  return (
+    <dl className="space-y-3">
+      {Object.entries(envio.answers).map(([key, value]) => {
+        const field = porClave.get(key);
+        const texto = comoTexto(value, field);
+        const cambio = key in envio.replaced;
+        const antes = comoTexto(envio.replaced[key], field);
+        return (
+          <div key={key} className="space-y-1">
+            <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              {envio.labels[key] ?? field?.label ?? key}
+              {cambio ? <span className="ml-1.5 normal-case text-primary">cambió</span> : null}
+            </dt>
+            <dd className="whitespace-pre-wrap break-words text-sm">
+              {texto || <span className="text-muted-foreground">(vacío)</span>}
+            </dd>
+            {cambio ? (
+              <dd className="whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                Antes: {antes || "(vacío)"}
+              </dd>
+            ) : null}
+          </div>
+        );
+      })}
+    </dl>
   );
 }

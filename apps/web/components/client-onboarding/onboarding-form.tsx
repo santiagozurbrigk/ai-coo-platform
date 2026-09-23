@@ -25,12 +25,13 @@ import {
   type OnboardingField,
   type OnboardingFormStep,
 } from "@/lib/client-onboarding/form";
+import { CREATOR_NAME_ERROR_KEY } from "@/lib/client-onboarding/links";
 import type { CustomFieldValues } from "@/types/custom-fields";
 
 const CONTROL_CLASS =
   "h-10 w-full rounded-md border border-border bg-background px-3 text-sm";
 
-type Borrador = { name: string; answers: CustomFieldValues; step: number };
+type Borrador = { name: string; creator: string; answers: CustomFieldValues; step: number };
 
 function leerBorrador(key: string): Borrador | null {
   try {
@@ -40,6 +41,7 @@ function leerBorrador(key: string): Borrador | null {
     if (!data || typeof data !== "object" || typeof data.answers !== "object") return null;
     return {
       name: typeof data.name === "string" ? data.name : "",
+      creator: typeof data.creator === "string" ? data.creator : "",
       answers: (data.answers ?? {}) as CustomFieldValues,
       step: typeof data.step === "number" ? data.step : 0,
     };
@@ -55,7 +57,11 @@ export function OnboardingForm({
   initial,
 }: {
   token: string;
-  creatorName: string;
+  /**
+   * El creador dueño del link. Nulo en el link general: ahí se pregunta, y el
+   * equipo asigna el envío después.
+   */
+  creatorName: string | null;
   steps: OnboardingFormStep[];
   /** Lo que ya está en la ficha: si vuelve a entrar, edita sobre eso. */
   initial: CustomFieldValues;
@@ -63,6 +69,8 @@ export function OnboardingForm({
   const draftKey = `onboarding-cliente:${token}`;
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
+  const [creator, setCreator] = useState("");
+  const general = creatorName === null;
   const [answers, setAnswers] = useState<CustomFieldValues>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +84,7 @@ export function OnboardingForm({
     const borrador = leerBorrador(draftKey);
     if (borrador) {
       setName(borrador.name);
+      setCreator(borrador.creator);
       setAnswers({ ...initial, ...borrador.answers });
       setStep(Math.min(Math.max(borrador.step, 0), steps.length - 1));
     }
@@ -87,11 +96,11 @@ export function OnboardingForm({
   useEffect(() => {
     if (!draftLoaded || done) return;
     try {
-      window.localStorage.setItem(draftKey, JSON.stringify({ name, answers, step }));
+      window.localStorage.setItem(draftKey, JSON.stringify({ name, creator, answers, step }));
     } catch {
       // Sin almacenamiento (modo incógnito estricto) el formulario anda igual.
     }
-  }, [draftKey, name, answers, step, draftLoaded, done]);
+  }, [draftKey, name, creator, answers, step, draftLoaded, done]);
 
   const actual = steps[step] ?? steps[0]!;
   const esUltimo = step === steps.length - 1;
@@ -106,13 +115,23 @@ export function OnboardingForm({
   const validarPaso = (): boolean => {
     const result = validateOnboardingAnswers(actual.fields, answers);
     const faltaNombre = step === 0 && !name.trim();
-    if (result.ok && !faltaNombre) {
+    const faltaCreador = step === 0 && general && !creator.trim();
+    if (result.ok && !faltaNombre && !faltaCreador) {
       setErrors({});
       setError(null);
       return true;
     }
-    setErrors(result.ok ? {} : result.errors);
-    setError(faltaNombre ? "Poné tu nombre para seguir." : "Hay respuestas para revisar.");
+    setErrors({
+      ...(result.ok ? {} : result.errors),
+      ...(faltaCreador ? { [CREATOR_NAME_ERROR_KEY]: "Completá esta respuesta." } : {}),
+    });
+    setError(
+      faltaNombre
+        ? "Poné tu nombre para seguir."
+        : faltaCreador
+          ? "Poné el nombre del creador para seguir."
+          : "Hay respuestas para revisar."
+    );
     return false;
   };
 
@@ -122,14 +141,19 @@ export function OnboardingForm({
 
   const enviar = async () => {
     if (!validarPaso()) return;
-    if (!name.trim()) {
+    if (!name.trim() || (general && !creator.trim())) {
       irA(0);
-      setError("Poné tu nombre para seguir.");
+      setError(!name.trim() ? "Poné tu nombre para seguir." : "Poné el nombre del creador para seguir.");
       return;
     }
     setSending(true);
     setError(null);
-    const result = await submitClientOnboardingAction({ token, respondentName: name, answers });
+    const result = await submitClientOnboardingAction({
+      token,
+      respondentName: name,
+      creatorName: general ? creator : undefined,
+      answers,
+    });
     setSending(false);
 
     if (!result.ok) {
@@ -137,9 +161,11 @@ export function OnboardingForm({
       if (result.errors) {
         setErrors(result.errors);
         // Lleva al primer paso con algo para revisar.
-        const conError = steps.findIndex((paso) =>
-          paso.fields.some((field) => result.errors?.[field.key])
-        );
+        const conError = result.errors[CREATOR_NAME_ERROR_KEY]
+          ? 0
+          : steps.findIndex((paso) =>
+              paso.fields.some((field) => result.errors?.[field.key])
+            );
         if (conError >= 0 && conError !== step) irA(conError);
       }
       return;
@@ -173,7 +199,9 @@ export function OnboardingForm({
   return (
     <div ref={topRef} className="scroll-mt-6 overflow-hidden rounded-2xl border border-border">
       <div className="border-b border-border px-5 pb-5 pt-6 sm:px-8">
-        <p className="text-sm text-muted-foreground">Onboarding de {creatorName}</p>
+        <p className="text-sm text-muted-foreground">
+          {general ? "Onboarding" : `Onboarding de ${creatorName}`}
+        </p>
         <div className="mt-3 flex items-center justify-between text-xs">
           <span className="font-semibold uppercase tracking-wide text-primary">
             Paso {step + 1} de {steps.length}
@@ -218,6 +246,26 @@ export function OnboardingForm({
                 autoComplete="name"
                 onChange={(event) => setName(event.target.value)}
               />
+            </div>
+          ) : null}
+
+          {step === 0 && general ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="onboarding-creador" className="text-sm font-semibold">
+                Nombre del creador <span className="text-primary">*</span>
+              </Label>
+              <Input
+                id="onboarding-creador"
+                value={creator}
+                maxLength={200}
+                onChange={(event) => setCreator(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Si tenés varios, completá un formulario por cada creador.
+              </p>
+              {errors[CREATOR_NAME_ERROR_KEY] ? (
+                <p className="text-xs text-destructive">{errors[CREATOR_NAME_ERROR_KEY]}</p>
+              ) : null}
             </div>
           ) : null}
 

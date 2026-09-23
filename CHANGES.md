@@ -14,6 +14,109 @@
 
 ---
 
+### 2026-09-23 — 📝 Onboarding de clientes, fases 2 y 3: sistemas, link general, sin novedades y lanzamientos
+
+**Rama/branch:** `claude/gallant-johnson-hczrys`
+**Commits:** este
+**Módulo(s) afectado(s):** `lib/client-onboarding/`, `app/clients/onboarding-link-actions.ts`,
+`app/clients/signals-actions.ts` (nuevo), `lib/clients/signals.ts` (nuevo),
+`components/clients/clients-list.tsx`, `components/clients/client-onboarding-inbox.tsx`
+(nuevo), `components/clients/sub-client-onboarding.tsx`, `components/client-onboarding/onboarding-form.tsx`,
+Campos personalizados, migración `20260923140000_onboarding_de_clientes`
+(ampliada; todavía no estaba aplicada en ningún lado).
+
+**Qué se hizo:**
+
+1. **Estados de sistemas, como campos aparte** (decisión del usuario): 9 campos
+   de lista `onb_sys_*` en la solapa Sistemas, más «Notas sobre los sistemas».
+   - Opciones: «Aún no lo tengo / Ya lo tengo / Ya les di acceso». Claude y
+     WhatsApp Business no llevan la tercera, como en el original.
+   - Van como **paso 12 del mismo formulario**: el original era otro link, y
+     uno solo por creador es más simple. Como el link se vuelve a completar, se
+     actualizan cuando compra la herramienta.
+   - Los 8 campos de texto de la Plantilla Limitless no se tocan.
+   - La ficha separa «Paso 12 — Tus sistemas» de «Cargado por el equipo»
+     (`groupFieldsByStep`).
+2. **Próximo lanzamiento:** pregunta de fecha (`onb_next_launch_date`, paso 2,
+   opcional) con aviso a 15 días. El seed ahora acepta tipo fecha, sección y
+   `alertDaysBefore`. Son 86 preguntas en total.
+3. **Link general y bandeja «sin asignar»:**
+   - `client_onboarding_links.kind` = `creator` | `general`, con un solo general
+     activo por organización;
+   - el formulario general pide «Nombre del creador»;
+   - lo que llega queda en `client_onboarding_submissions` sin cliente;
+   - en la lista de clientes, la tarjeta «Onboarding para clientes nuevos» tiene
+     el link y la bandeja;
+   - desde la bandeja se asigna a un growth partner existente o nuevo, y a un
+     creador existente (se propone solo si coincide el nombre) o nuevo;
+   - también se puede descartar.
+4. **Asignar** (`assignOnboardingSubmissionAction`):
+   - crea lo que falte: el cliente en *pendiente de onboarding*, con monto cero,
+     pago único y transferencia; y el creador;
+   - pisa la ficha del creador guardando `replaced`;
+   - suma la línea de tiempo;
+   - si no puede escribir la ficha, devuelve el envío a la bandeja.
+5. **Sin novedades:**
+   - la función SQL `client_last_activity(p_org)` devuelve la última novedad
+     por cliente, con su fuente: nota, satisfacción, línea de tiempo, llamada
+     de Fathom, mensaje del cliente en Discord, onboarding, win, o el alta si
+     no hubo nada. Sólo la ejecuta service role;
+   - `organizations.client_silence_days` (default 15, entre 1 y 365) se edita
+     en Campos personalizados;
+   - la lista muestra «Sin novedades Nd» y la pastilla «Sin novedades».
+6. **Fechas cerca:** la lista muestra la fecha con aviso más próxima de los
+   creadores de cada growth partner («Próximo lanzamiento · Ana · faltan 7
+   días») y la pastilla «Fechas cerca».
+   - Sale de cualquier campo de fecha con aviso, no sólo del lanzamiento.
+   - Las fechas que ya pasaron no avisan.
+   - De cada creador se leen sólo esas claves (`custom->>key`), no el jsonb
+     entero.
+7. `RespuestasDelEnvio` se separó para usarlo en el historial y en la bandeja.
+8. 8 tests nuevos (`signals.test.ts`, `assign.test.ts`, casos en
+   `questions.test.ts` y `form.test.ts`). En total, 1216 en verde.
+
+**Por qué / finalidad:** completar lo que pidió el cliente en los audios:
+- el formulario de sistemas;
+- «si no está creado el cliente, que se cree con el formulario… y después
+  decir esta ficha pertenece al cliente»;
+- el aviso de 15 días sin novedades;
+- el aviso de próximo lanzamiento.
+
+**Decisiones de diseño relevantes:**
+- **El link general no crea clientes solo:** con un link que circula, un envío
+  de prueba o repetido sería un cliente fantasma. Queda en bandeja y lo asigna
+  una persona, que es lo que describe el audio.
+- **«Novedad» no incluye `clients.updated_at`:** renombrar a alguien no es
+  tener noticias de él.
+- **Umbral en `organizations` y no en una tabla de ajustes:** es el único número
+  así hoy.
+- **Una sola migración:** la de la fase 1 todavía no estaba aplicada en ningún
+  lado, así que se amplió en vez de sumar otra.
+
+**Riesgos / deuda técnica pendiente:**
+- **Migración sin aplicar en producción** (`[ONBOARDING-CLIENTES-APLICAR]`).
+- **Qué se verificó:**
+  - la migración arma la base con las 175 desde cero en Postgres 16 +
+    pgvector local;
+  - sus reglas se probaron con datos: un solo general activo, general sin
+    cliente, envío con cliente pero sin creador rechazado, umbral 0 rechazado;
+  - `client_last_activity` marca bien un cliente con 20 días de silencio y otro
+    con una nota de hace 3, no incluye otras organizaciones, y `authenticated`
+    y `anon` no la pueden ejecutar;
+  - el formulario general y el paso 12 se miraron con Playwright en una página
+    temporal, ya borrada;
+  - `next build` pasa.
+- **Sin probar con datos reales:** la bandeja, asignar, los avisos en la lista y
+  la configuración de días. Ver `docs/PLAN_VERIFICACION.md`, bloques E, F y G.
+- El aviso al equipo cuando alguien completa el formulario **no se hizo**: no
+  hay canal de Discord por organización ni Slack. Ver
+  `[ONBOARDING-CLIENTES-RESTO]`.
+- Los mails de acceso del equipo (Martín y Agustín) quedaron en la ayuda de las
+  preguntas de sistemas, como en el formulario original. Se editan desde Campos
+  personalizados si cambia el equipo.
+
+---
+
 ### 2026-09-23 — 📝 Formulario de onboarding por link, con las respuestas en la ficha (fase 1)
 
 **Rama/branch:** `claude/gallant-johnson-hczrys`

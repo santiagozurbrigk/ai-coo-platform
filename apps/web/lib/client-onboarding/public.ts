@@ -21,8 +21,9 @@ import type { CustomFieldValues, FieldDefinition, FieldDefinitionRow } from "@/t
 export type PublicOnboarding = {
   linkId: string;
   organizationId: string;
-  clientId: string;
-  subClient: { id: string; name: string; custom: CustomFieldValues };
+  /** Nulos en el link general: todavía no se sabe de quién es. */
+  clientId: string | null;
+  subClient: { id: string; name: string; custom: CustomFieldValues } | null;
   fields: OnboardingField[];
 };
 
@@ -32,7 +33,7 @@ export async function loadOnboardingByToken(token: string): Promise<PublicOnboar
 
   const { data: link, error } = await admin
     .from("client_onboarding_links")
-    .select("id, organization_id, client_id, sub_client_id, revoked_at")
+    .select("id, kind, organization_id, client_id, sub_client_id, revoked_at")
     .eq("token", token)
     .maybeSingle();
   if (error) {
@@ -44,13 +45,17 @@ export async function loadOnboardingByToken(token: string): Promise<PublicOnboar
   const organizationId = link.organization_id as string;
   if (!(await orgHasAddOn(organizationId, "growth_partners"))) return null;
 
+  const general = link.kind === "general";
+
   const [{ data: sub, error: subError }, { data: rows, error: fieldsError }] = await Promise.all([
-    admin
-      .from("client_sub_clients")
-      .select("id, name, custom")
-      .eq("id", link.sub_client_id as string)
-      .eq("organization_id", organizationId)
-      .maybeSingle(),
+    general
+      ? Promise.resolve({ data: null, error: null })
+      : admin
+          .from("client_sub_clients")
+          .select("id, name, custom")
+          .eq("id", link.sub_client_id as string)
+          .eq("organization_id", organizationId)
+          .maybeSingle(),
     admin
       .from("field_definitions")
       .select("*")
@@ -62,22 +67,22 @@ export async function loadOnboardingByToken(token: string): Promise<PublicOnboar
     console.error("[onboarding] leer formulario", subError?.message ?? fieldsError?.message);
     return null;
   }
-  if (!sub) return null;
+  if (!general && !sub) return null;
 
   const all = ((rows ?? []) as FieldDefinitionRow[])
     .map(rowToFieldDefinition)
     .filter((field): field is FieldDefinition => field !== null);
 
   const custom =
-    sub.custom && typeof sub.custom === "object" && !Array.isArray(sub.custom)
+    sub?.custom && typeof sub.custom === "object" && !Array.isArray(sub.custom)
       ? (sub.custom as CustomFieldValues)
       : {};
 
   return {
     linkId: link.id as string,
     organizationId,
-    clientId: link.client_id as string,
-    subClient: { id: sub.id as string, name: sub.name as string, custom },
+    clientId: (link.client_id as string | null) ?? null,
+    subClient: sub ? { id: sub.id as string, name: sub.name as string, custom } : null,
     fields: onboardingFields(all),
   };
 }

@@ -185,9 +185,13 @@ export function initialAnswers(
  * Los campos de una solapa de la ficha, agrupados por el paso del formulario.
  *
  * En la ficha, la solapa «Onboarding» tiene decenas de respuestas: sin los
- * títulos de los pasos es una lista de 75 renglones. Un campo que no se
- * pregunta (o con un paso que ya no existe) va al final, en «Otras».
- * Si ningún campo tiene paso, devuelve un solo grupo sin título.
+ * títulos de los pasos es una lista de 80 renglones. En Sistemas conviven los
+ * estados que responde el cliente con los campos de la Plantilla Limitless, que
+ * carga el equipo: van en grupos separados para que se sepa de quién es cada
+ * dato.
+ *
+ * Si ningún campo se pregunta, devuelve un solo grupo sin título (Marketing y
+ * Ventas quedan como siempre).
  */
 export function groupFieldsByStep(
   fields: readonly FieldDefinition[]
@@ -205,8 +209,15 @@ export function groupFieldsByStep(
   grupos.push({
     title: FALLBACK_STEP.title,
     fields: fields.filter(
-      (field) => !field.onboarding || !conocidos.has(field.onboarding.step)
+      (field) => field.onboarding !== null && !conocidos.has(field.onboarding.step)
     ),
+  });
+  grupos.push({
+    title: TEAM_GROUP_TITLE,
+    fields: fields.filter((field) => field.onboarding === null),
   });
   return grupos.filter((grupo) => grupo.fields.length > 0);
 }
+
+/** Los campos que no se preguntan: los carga el equipo. */
+export const TEAM_GROUP_TITLE = "Cargado por el equipo";

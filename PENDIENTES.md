@@ -11,42 +11,45 @@
 
 ### [ONBOARDING-CLIENTES-APLICAR] Aplicar la migración del onboarding y probarlo 🔴
 
-**Qué es:** el formulario de onboarding por link (fase 1) está construido en la
-rama `claude/gallant-johnson-hczrys`. Hasta aplicar la migración, el botón de
-cargar preguntas y el link fallan.
+**Qué es:** el formulario de onboarding por link está construido en la rama
+`claude/gallant-johnson-hczrys`:
+- el link por creador;
+- el link general con su bandeja «sin asignar»;
+- los estados de sistemas;
+- el aviso de clientes sin novedades;
+- el aviso de próximo lanzamiento.
+
+Hasta aplicar la migración, el botón de cargar preguntas, los links y los
+avisos fallan o no aparecen.
 
 **Qué hacer:**
 
 1. Aplicar `20260923140000_onboarding_de_clientes.sql` en **OTC**, con la versión
    del archivo (regla de CLAUDE.md, "Migraciones Supabase").
-2. Mergear el PR y cargar las preguntas en Campos personalizados.
+2. Mergear el PR y cargar las preguntas en Campos personalizados (86).
 3. Seguir `docs/PLAN_VERIFICACION.md` → «Onboarding de clientes por link».
 4. Avisar al equipo que el formulario viejo (`client-onboarding-nine-chi.vercel.app`)
    queda reemplazado. Sus respuestas **no** se importan (decisión del usuario).
 
 ---
 
-### [ONBOARDING-CLIENTES-FASES] Lo que falta del onboarding de clientes 🟡
+### [ONBOARDING-CLIENTES-RESTO] Lo que quedó afuera del onboarding de clientes 🟡
 
-Fase 1 hecha (link por creador, respuestas en la ficha, historial). Falta:
+Fases 1 a 3 hechas en la rama `claude/gallant-johnson-hczrys`. Quedó:
 
-1. **Formulario de sistemas** (9 herramientas con «Aún no lo tengo / Ya lo
-   tengo / Ya les di acceso»). Decidir antes: la Plantilla Limitless ya tiene
-   esos 8 sistemas como texto libre en la solapa Sistemas. ¿Se convierten a
-   lista de opciones (hay que ver qué texto tienen cargado los 15 clientes) o se
-   agregan campos de estado aparte?
-2. **Link general que crea el cliente**: «Tu nombre» crea el growth partner en
-   *pendiente de onboarding* y «Nombre del creador», su creador. `clients` pide
-   `payment_type` y `platform` sin default: decidir qué va.
-3. **Aviso de 15 días sin novedades** y **próximo lanzamiento** (campo de fecha
-   con `alert_days_before`; hoy el formulario lo pregunta como texto dentro de
-   «Objetivo de facturación y próximos lanzamientos»).
-4. Aviso al completar (el formulario viejo posteaba en Slack #onboarding-clientes
-   con un checklist de 72 hs). Limitless no tiene Slack; ¿Discord?
-5. El equipo del paso 9 va como texto con plantilla. Una tabla sería un tipo de
+1. **Aviso al equipo cuando alguien completa el formulario.** El formulario
+   viejo posteaba en Slack #onboarding-clientes con un checklist de 72 hs.
+   Limitless no tiene Slack, y Discord no tiene un canal de avisos por
+   organización (`discord_integrations` no guarda uno, y el token del bot es
+   global). Hoy el aviso es la bandeja «sin asignar» y la línea de tiempo.
+   Decidir: ¿canal de Discord (hay que sumar el canal a la config), mail
+   (Resend) o nada?
+2. El equipo del paso 9 va como texto con plantilla. Una tabla sería un tipo de
    campo nuevo.
-6. La condición («mostrar sólo si») y el aviso de audio se cargan con la
+3. La condición («mostrar sólo si») y el aviso de audio se cargan con la
    plantilla y no se editan desde la pantalla.
+4. La ficha del growth partner no muestra «sin novedades hace N días»: sólo la
+   lista de clientes. Sumarlo si hace falta.
 
 ---
 ### [CLIENTES-DE-CLIENTES-PROBAR] Probar la tarjeta «Clientes» y pasar los datos viejos 🔴

@@ -11,11 +11,12 @@
  * tocar esta pantalla.
  */
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   Badge,
   Button,
   GlassPanel,
+  Input,
   Tabs,
   TabsContent,
   TabsList,
@@ -65,6 +66,10 @@ import {
   setFieldDefinitionArchivedAction,
   updateFieldDefinitionAction,
 } from "@/app/clients/custom-field-actions";
+import {
+  getClientSilenceDaysAction,
+  setClientSilenceDaysAction,
+} from "@/app/clients/signals-actions";
 import {
   FieldDefinitionDialog,
   type FieldDefinitionDraft,
@@ -308,8 +313,9 @@ export function CustomFieldsPage({
                 <div className="min-w-0">
                   <p className="text-sm font-medium">Preguntas del onboarding</p>
                   <p className="text-xs text-muted-foreground">
-                    Carga las 75 preguntas del formulario que completa cada cliente
-                    de un growth partner. Las que ya existen no se duplican.
+                    Carga las 86 preguntas del formulario que completa cada cliente
+                    de un growth partner, con el estado de cada sistema. Las que
+                    ya existen no se duplican.
                   </p>
                 </div>
                 <Button
@@ -322,6 +328,8 @@ export function CustomFieldsPage({
                 </Button>
               </GlassPanel>
             ) : null}
+
+            {key === "client" && canManage && growthPartners ? <AvisoSinNovedades /> : null}
 
             {byEntity.length === 0 ? (
               <EmptyState
@@ -536,6 +544,68 @@ function FieldRow({
             </Button>
           </div>
         ) : null}
+      </div>
+    </GlassPanel>
+  );
+}
+
+/**
+ * ⭐ «Avisos de hace 15 días que no tenemos update del cliente.» Los 15 son de
+ * la organización: la lista de clientes marca a los que pasaron ese umbral.
+ */
+function AvisoSinNovedades() {
+  const { push } = useToast();
+  const [dias, setDias] = useState<string>("");
+  const [guardado, setGuardado] = useState<number | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    getClientSilenceDaysAction()
+      .then((valor) => {
+        setGuardado(valor);
+        setDias(String(valor));
+      })
+      .catch(() => undefined);
+  }, []);
+
+  if (guardado === null) return null;
+
+  const guardar = () =>
+    startTransition(async () => {
+      const result = await setClientSilenceDaysAction(Number(dias));
+      if (!result.success) {
+        push({ title: "No se pudo guardar", description: result.error });
+        return;
+      }
+      setGuardado(result.data);
+      push({ title: "Aviso actualizado", variant: "success" });
+    });
+
+  return (
+    <GlassPanel className="flex flex-wrap items-center justify-between gap-3 p-4">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">Clientes sin novedades</p>
+        <p className="text-xs text-muted-foreground">
+          La lista de clientes marca a quien no tiene novedades (llamadas, notas,
+          mensajes, onboarding) desde hace esta cantidad de días.
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Input
+          inputMode="numeric"
+          className="h-9 w-20"
+          value={dias}
+          onChange={(event) => setDias(event.target.value.replace(/\D/g, ""))}
+          aria-label="Días sin novedades"
+        />
+        <span className="text-sm text-muted-foreground">días</span>
+        <Button
+          variant="outline"
+          disabled={pending || dias === "" || Number(dias) === guardado}
+          onClick={guardar}
+        >
+          Guardar
+        </Button>
       </div>
     </GlassPanel>
   );

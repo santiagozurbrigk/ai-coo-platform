@@ -18,6 +18,12 @@
  *     queda en el envío.
  *   · El repetidor de personas del paso 9 es un texto con plantilla
  *     (`onb_team_members`). Una tabla es un tipo de campo que todavía no existe.
+ *   · Se sumó «Próximo lanzamiento» como fecha con aviso a 15 días: en el
+ *     original era texto libre, y una fecha escrita en prosa no puede avisar.
+ *   · El formulario de sistemas (otro link en el original) es el paso 12. Cada
+ *     sistema es un **campo de estado aparte** en la solapa Sistemas, al lado
+ *     del campo de texto de la Plantilla Limitless, que queda para el equipo
+ *     (decisión del usuario, 2026-09-23).
  *
  * ⭐ Las claves llevan el prefijo `onb_` porque el formulario viejo usaba
  * `avatar`, que choca con el «Avatar» de la Plantilla Limitless.
@@ -34,10 +40,16 @@ export type OnboardingQuestionSeed = {
   question?: string;
   help?: string;
   audio?: string;
+  /** Por defecto texto, o lista si trae `options`. */
+  type?: "date";
   options?: { value: string; label: string }[];
   showIf?: { key: string; equals: string };
   /** Por defecto obligatoria. */
   required?: boolean;
+  /** Por defecto «onboarding» (solapa propia en la ficha). */
+  section?: "sistemas";
+  /** Sólo fechas: a cuántos días se marca en alerta. */
+  alertDaysBefore?: number;
 };
 
 export const ONBOARDING_QUESTIONS: readonly OnboardingQuestionSeed[] = [
@@ -139,6 +151,17 @@ export const ONBOARDING_QUESTIONS: readonly OnboardingQuestionSeed[] = [
     step: "numeros",
     question: "Tu objetivo de facturación a 6-12 meses y qué lanzamientos, eventos o cambios de precio tenés previstos en los próximos 120 días",
     audio: "2 min",
+  },
+  {
+    key: "onb_next_launch_date",
+    label: "Próximo lanzamiento",
+    step: "numeros",
+    question: "¿Cuándo es tu próximo lanzamiento?",
+    help: "La fecha del próximo lanzamiento, evento o cambio de precio. Si no tenés uno definido, dejalo vacío.",
+    type: "date",
+    required: false,
+    // ⭐ La ficha y la lista de clientes lo marcan cuando falten 15 días o menos.
+    alertDaysBefore: 15,
   },
   {
     key: "onb_organic_metrics_summary",
@@ -540,5 +563,95 @@ export const ONBOARDING_QUESTIONS: readonly OnboardingQuestionSeed[] = [
     step: "entrega_servicio",
     question: "Material a pedir por escrito al cerrar, con fecha",
     help: "Roadmap documentado, material de onboarding del día 1.",
+  },
+  {
+    key: "onb_sys_webinarjam",
+    label: "Estado de WebinarJam",
+    step: "sistemas",
+    question: "WebinarJam",
+    help: "Será la plataforma donde vas a hacer tus webinars, tiene varias ventajas frente a Zoom Webinar.\nRecomendamos el plan Professional (USD 299/mes, hasta 2.000 asistentes) o Enterprise (USD 499/mes, hasta 5.000 asistentes), según cuánta gente convoques.\nPara darnos acceso, invitá como administradores a martin.capellino@outlook.com y agustinsalas0629@gmail.com.",
+    options: [{ value: "aun_no_lo_tengo", label: "Aún no lo tengo" }, { value: "ya_lo_tengo", label: "Ya lo tengo" }, { value: "ya_les_di_acceso", label: "Ya les di acceso" }],
+    section: "sistemas",
+  },
+  {
+    key: "onb_sys_addevent",
+    label: "Estado de AddEvent",
+    step: "sistemas",
+    question: "AddEvent",
+    help: "Genera los links de \"agregar a mi calendario\" para tus registrados.\nPara darnos acceso, invitá como administradores a martin.capellino@outlook.com y agustinsalas0629@gmail.com.",
+    options: [{ value: "aun_no_lo_tengo", label: "Aún no lo tengo" }, { value: "ya_lo_tengo", label: "Ya lo tengo" }, { value: "ya_les_di_acceso", label: "Ya les di acceso" }],
+    section: "sistemas",
+  },
+  {
+    key: "onb_sys_ghl",
+    label: "Estado de GoHighLevel (GHL)",
+    step: "sistemas",
+    question: "GoHighLevel (GHL)",
+    help: "Tu CRM y plataforma de automatizaciones: ahí armamos tus funnels, pipelines y secuencias.\nPara darnos acceso, invitá como administradores a martin.capellino@outlook.com y agustinsalas0629@gmail.com.",
+    options: [{ value: "aun_no_lo_tengo", label: "Aún no lo tengo" }, { value: "ya_lo_tengo", label: "Ya lo tengo" }, { value: "ya_les_di_acceso", label: "Ya les di acceso" }],
+    section: "sistemas",
+  },
+  {
+    key: "onb_sys_claude",
+    label: "Estado de Claude",
+    step: "sistemas",
+    question: "Claude",
+    help: "Vas a usar también tus agentes, que vas a encontrar en el Campus.\nPodés necesitar el plan Pro o Max según el uso que le den.",
+    options: [{ value: "aun_no_lo_tengo", label: "Aún no lo tengo" }, { value: "ya_lo_tengo", label: "Ya lo tengo" }],
+    section: "sistemas",
+  },
+  {
+    key: "onb_sys_vercel",
+    label: "Estado de Vercel",
+    step: "sistemas",
+    question: "Vercel",
+    help: "Donde alojamos tu landing/funnel.\nNecesitás el plan Pro (USD 20/mes).\nPara darnos acceso, invitá como administradores a martin.capellino@outlook.com y agustinsalas0629@gmail.com.",
+    options: [{ value: "aun_no_lo_tengo", label: "Aún no lo tengo" }, { value: "ya_lo_tengo", label: "Ya lo tengo" }, { value: "ya_les_di_acceso", label: "Ya les di acceso" }],
+    section: "sistemas",
+  },
+  {
+    key: "onb_sys_supabase",
+    label: "Estado de Supabase",
+    step: "sistemas",
+    question: "Supabase",
+    help: "Base de datos de tu landing/funnel (leads, contenido, etc.).\nNecesitás el plan Pro (USD 20/mes).\nPara darnos acceso, invitá como administradores a martin.capellino@outlook.com y agustinsalas0629@gmail.com.",
+    options: [{ value: "aun_no_lo_tengo", label: "Aún no lo tengo" }, { value: "ya_lo_tengo", label: "Ya lo tengo" }, { value: "ya_les_di_acceso", label: "Ya les di acceso" }],
+    section: "sistemas",
+  },
+  {
+    key: "onb_sys_whatsapp_business",
+    label: "Estado de WhatsApp Business",
+    step: "sistemas",
+    question: "WhatsApp Business",
+    help: "Para automatizar mensajes y atención por WhatsApp.",
+    options: [{ value: "aun_no_lo_tengo", label: "Aún no lo tengo" }, { value: "ya_lo_tengo", label: "Ya lo tengo" }],
+    section: "sistemas",
+  },
+  {
+    key: "onb_sys_domain",
+    label: "Estado de Dominio activo",
+    step: "sistemas",
+    question: "Dominio activo",
+    help: "El dominio de tu marca (GoDaddy, Squarespace, etc.), para tu landing y tus mails.\nPara darnos acceso, invitá como administradores a martin.capellino@outlook.com y agustinsalas0629@gmail.com.",
+    options: [{ value: "aun_no_lo_tengo", label: "Aún no lo tengo" }, { value: "ya_lo_tengo", label: "Ya lo tengo" }, { value: "ya_les_di_acceso", label: "Ya les di acceso" }],
+    section: "sistemas",
+  },
+  {
+    key: "onb_sys_brand_board",
+    label: "Estado de Brand board",
+    step: "sistemas",
+    question: "Brand board",
+    help: "Tu manual de marca: colores, tipografías, logo. Puede ser un link a una carpeta de Drive con el contenido de tu marca. Si todavía no tenés uno armado, lo podés generar con IA: Looka, Canva (Brand Kit) o Brandmark.io.\nPara darnos acceso, invitá como administradores a martin.capellino@outlook.com y agustinsalas0629@gmail.com.",
+    options: [{ value: "aun_no_lo_tengo", label: "Aún no lo tengo" }, { value: "ya_lo_tengo", label: "Ya lo tengo" }, { value: "ya_les_di_acceso", label: "Ya les di acceso" }],
+    section: "sistemas",
+  },
+  {
+    key: "onb_sys_notes",
+    label: "Notas sobre los sistemas",
+    step: "sistemas",
+    question: "¿Algo que tengamos que saber de tus sistemas?",
+    help: "Links, aclaraciones, qué te falta comprar o configurar.",
+    required: false,
+    section: "sistemas",
   },
 ];

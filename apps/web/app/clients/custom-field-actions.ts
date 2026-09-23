@@ -722,7 +722,7 @@ export async function seedOnboardingQuestionsAction(): Promise<
         key: q.key,
         label: q.label,
         description: q.help ?? null,
-        field_type: q.options ? "select" : "text",
+        field_type: q.type ?? (q.options ? "select" : "text"),
         options: (q.options ?? []).map((o, index) => ({
           value: o.value,
           label: o.label,
@@ -732,11 +732,11 @@ export async function seedOnboardingQuestionsAction(): Promise<
         options_source: "inline",
         unit: null,
         currency: null,
-        alert_days_before: null,
+        alert_days_before: q.type === "date" ? (q.alertDaysBefore ?? null) : null,
         // Obligatoria en el formulario, no en la ficha: el equipo tiene que
         // poder guardar un cliente a medio cargar.
         is_required: false,
-        section: "onboarding",
+        section: q.section ?? "onboarding",
         onboarding: {
           step: q.step,
           question: q.question ?? null,

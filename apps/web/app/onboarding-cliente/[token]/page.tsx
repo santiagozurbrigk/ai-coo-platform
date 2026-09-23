@@ -52,9 +52,9 @@ export default async function ClientOnboardingPage({
         ) : (
           <OnboardingForm
             token={token}
-            creatorName={form.subClient.name}
+            creatorName={form.subClient?.name ?? null}
             steps={buildOnboardingSteps(form.fields)}
-            initial={initialAnswers(form.fields, form.subClient.custom)}
+            initial={initialAnswers(form.fields, form.subClient?.custom ?? {})}
           />
         )}
       </div>

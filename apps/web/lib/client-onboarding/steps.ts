@@ -98,6 +98,19 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     subtitle: "Cómo es hoy el camino real de tus clientes desde que pagan hasta que terminan.",
     priority: false,
   },
+  /*
+   * ⭐ Era un formulario aparte («Onboarding de sistemas», con su propio link).
+   * Va como último paso del mismo: un solo link por cliente, y como el link se
+   * puede volver a completar, quien todavía no compró una herramienta vuelve y
+   * actualiza su estado.
+   */
+  {
+    id: "sistemas",
+    title: "Paso 12 — Tus sistemas",
+    subtitle:
+      "Las cuentas y accesos que necesitamos para construir todo. Si todavía no tenés alguna, marcalo y volvé a este link cuando la tengas.",
+    priority: false,
+  },
 ];
 
 /**

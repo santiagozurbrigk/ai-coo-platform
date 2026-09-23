@@ -185,16 +185,19 @@ describe("groupFieldsByStep", () => {
     expect(groupFieldsByStep([a])).toEqual([{ title: null, fields: [a] }]);
   });
 
-  it("agrupa por paso en el orden del formulario, y lo suelto va al final", () => {
-    const suelto = field({ key: "suelto", section: "onboarding" });
+  it("agrupa por paso en el orden del formulario; lo del equipo va al final", () => {
+    const equipo = field({ key: "ghl", section: "sistemas" });
+    const perdida = pregunta("p", { step: "paso_borrado" });
     const funnel = pregunta("f", { step: "funnel" });
     const negocio = pregunta("n", { step: "negocio" });
-    const grupos = groupFieldsByStep([suelto, funnel, negocio]);
+    const grupos = groupFieldsByStep([equipo, perdida, funnel, negocio]);
     expect(grupos.map((g) => g.title)).toEqual([
       "Tu negocio",
       "Paso 6 — Tu funnel y tus ads",
       "Otras preguntas",
+      "Cargado por el equipo",
     ]);
-    expect(grupos[2]?.fields.map((f) => f.key)).toEqual(["suelto"]);
+    expect(grupos[2]?.fields.map((f) => f.key)).toEqual(["p"]);
+    expect(grupos[3]?.fields.map((f) => f.key)).toEqual(["ghl"]);
   });
 });

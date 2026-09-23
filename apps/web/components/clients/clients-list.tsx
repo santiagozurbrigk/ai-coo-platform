@@ -46,6 +46,8 @@ import {
   Check,
   ChevronDown,
   HelpCircle,
+  CalendarClock,
+  Hourglass,
   MoonStar,
   Receipt,
   Route,
@@ -92,6 +94,10 @@ import { useHasAddOn, useModuleAccess } from "@/providers/permissions-provider";
 import { NewClientDialog } from "@/components/clients/new-client-dialog";
 import { ImportClientsDialog } from "@/components/clients/import-clients-dialog";
 import { cn } from "@/lib/utils";
+import { getClientSignalsAction, type ClientSignals } from "@/app/clients/signals-actions";
+import { ACTIVITY_SOURCE_LABEL } from "@/lib/clients/signals";
+import { textoDelAviso } from "@/lib/custom-fields/date-alert";
+import { ClientOnboardingInbox } from "@/components/clients/client-onboarding-inbox";
 
 /**
  * Los estados que **vale la pena señalar** en la fila, con su etiqueta.
@@ -112,7 +118,11 @@ type ClientListFilter =
   | "stalled"
   | "silent"
   /** En riesgo o disconforme: los que hay que mirar esta semana. */
-  | "attention";
+  | "attention"
+  /** Growth partners: hace N días que no hay novedades del cliente. */
+  | "no_news"
+  /** Growth partners: una fecha con aviso de uno de sus creadores se acerca. */
+  | "dates";
 
 /** Los niveles que piden atención. El resto no necesita que nadie haga nada hoy. */
 const SATISFACCION_EN_ALERTA: readonly string[] = ["en_riesgo", "disconforme"];
@@ -210,6 +220,8 @@ export function ClientsList({ clients }: { clients: Client[] }) {
   /** D2 · Actividad en Discord por cliente, para la señal de silencio. */
   const [discordActivity, setDiscordActivity] = useState<Record<string, ClientActivity>>({});
   const [board, setBoard] = useState<ClientsBoardData>(EMPTY_BOARD);
+  /** Growth partners: sin novedades y fechas cercanas de sus creadores. */
+  const [signals, setSignals] = useState<ClientSignals | null>(null);
   const [, startLoad] = useTransition();
   const [pending, startTransition] = useTransition();
 
@@ -224,12 +236,15 @@ export function ClientsList({ clients }: { clients: Client[] }) {
    */
   useEffect(() => {
     startLoad(async () => {
-      const [boardData, activity] = await Promise.all([
+      const [boardData, activity, senales] = await Promise.all([
         getClientsBoardAction(),
         getClientsDiscordActivityAction(),
+        // Sin el add-on devuelve vacío: no hace falta preguntar antes.
+        getClientSignalsAction().catch(() => null),
       ]);
       setBoard(boardData);
       setDiscordActivity(activity);
+      setSignals(senales);
     });
   }, [clients]);
 
@@ -296,7 +311,11 @@ export function ClientsList({ clients }: { clients: Client[] }) {
     let stalled = 0;
     let silent = 0;
     let attention = 0;
+    let noNews = 0;
+    let dates = 0;
     for (const client of clients) {
+      if (signals?.silence[client.id]?.isSilent) noNews += 1;
+      if (signals?.dateAlerts[client.id]?.length) dates += 1;
       porEstado[client.status] = (porEstado[client.status] ?? 0) + 1;
       if (journey[client.id]?.stalled) stalled += 1;
       if (discordActivity[client.id]?.isSilent) silent += 1;
@@ -304,8 +323,8 @@ export function ClientsList({ clients }: { clients: Client[] }) {
         attention += 1;
       }
     }
-    return { porEstado, stalled, silent, attention };
-  }, [clients, journey, discordActivity]);
+    return { porEstado, stalled, silent, attention, noNews, dates };
+  }, [clients, journey, discordActivity, signals]);
 
   const filtros = useMemo(() => {
     const lista: { value: ClientListFilter; label: string }[] = [
@@ -315,6 +334,12 @@ export function ClientsList({ clients }: { clients: Client[] }) {
     // cualquier corte por estado.
     if (conteos.attention > 0) {
       lista.push({ value: "attention", label: `Atención (${conteos.attention})` });
+    }
+    if (conteos.dates > 0) {
+      lista.push({ value: "dates", label: `Fechas cerca (${conteos.dates})` });
+    }
+    if (conteos.noNews > 0) {
+      lista.push({ value: "no_news", label: `Sin novedades (${conteos.noNews})` });
     }
     if (conteos.stalled > 0) {
       lista.push({ value: "stalled", label: `Trabados (${conteos.stalled})` });
@@ -339,13 +364,15 @@ export function ClientsList({ clients }: { clients: Client[] }) {
     const lista = clients.filter((client) => {
       if (filter === "stalled" && !journey[client.id]?.stalled) return false;
       if (filter === "silent" && !discordActivity[client.id]?.isSilent) return false;
+      if (filter === "no_news" && !signals?.silence[client.id]?.isSilent) return false;
+      if (filter === "dates" && !signals?.dateAlerts[client.id]?.length) return false;
       if (
         filter === "attention" &&
         !(client.satisfaction && SATISFACCION_EN_ALERTA.includes(client.satisfaction))
       ) {
         return false;
       }
-      if (!["all", "stalled", "silent", "attention"].includes(filter)) {
+      if (!["all", "stalled", "silent", "attention", "no_news", "dates"].includes(filter)) {
         if (client.status !== filter) return false;
       }
       if (q) {
@@ -375,7 +402,7 @@ export function ClientsList({ clients }: { clients: Client[] }) {
       const d = b.joinDate.localeCompare(a.joinDate);
       return d !== 0 ? d : porNombre(a, b);
     });
-  }, [clients, filter, query, sort, journey, discordActivity, lastOneOnOne]);
+  }, [clients, filter, query, sort, journey, discordActivity, lastOneOnOne, signals]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -490,6 +517,14 @@ export function ClientsList({ clients }: { clients: Client[] }) {
         </div>
       ) : null}
 
+      {/*
+        ⭐ El link general del onboarding y lo que llegó por él sin asignar.
+        Sólo con el add-on `growth_partners`.
+      */}
+      {growthPartners && puedeGestionar ? (
+        <ClientOnboardingInbox clients={clients} onAssigned={() => void refreshClients()} />
+      ) : null}
+
       {/* ── Buscar, filtrar, ordenar ─────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full sm:w-72">
@@ -561,6 +596,8 @@ export function ClientsList({ clients }: { clients: Client[] }) {
               const status = journey[client.id];
               const destacado = STATUS_DESTACADO[client.status];
               const silencio = discordActivity[client.id];
+              const sinNovedades = signals?.silence[client.id];
+              const fechas = signals?.dateAlerts[client.id] ?? [];
               return (
                 <StaggerFadeItem
                   as="tr"
@@ -605,6 +642,39 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                         >
                           <MoonStar className="h-2.5 w-2.5" />
                           {silencio.daysSinceLastMessage}d
+                        </span>
+                      ) : null}
+                      {/*
+                        ⭐ Growth partners: sin novedades de ningún tipo (no
+                        sólo Discord) desde hace el umbral de la organización.
+                      */}
+                      {sinNovedades?.isSilent ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border border-destructive/40 px-1.5 py-0.5 text-[10px] text-destructive"
+                          title={`Sin novedades hace ${sinNovedades.days} días. La última fue ${
+                            ACTIVITY_SOURCE_LABEL[sinNovedades.source] ?? sinNovedades.source
+                          }.`}
+                        >
+                          <Hourglass className="h-2.5 w-2.5" />
+                          Sin novedades {sinNovedades.days}d
+                        </span>
+                      ) : null}
+                      {fechas.length > 0 ? (
+                        <span
+                          className="inline-flex max-w-[16rem] items-center gap-1 rounded-full border border-primary/40 px-1.5 py-0.5 text-[10px] text-primary"
+                          title={fechas
+                            .map(
+                              (f) =>
+                                `${f.fieldLabel} de ${f.subClientName}: ${textoDelAviso(f.aviso)}`
+                            )
+                            .join("\n")}
+                        >
+                          <CalendarClock className="h-2.5 w-2.5 shrink-0" />
+                          <span className="truncate">
+                            {fechas[0]!.fieldLabel} · {fechas[0]!.subClientName} ·{" "}
+                            {textoDelAviso(fechas[0]!.aviso)}
+                            {fechas.length > 1 ? ` (+${fechas.length - 1})` : ""}
+                          </span>
                         </span>
                       ) : null}
                     </div>

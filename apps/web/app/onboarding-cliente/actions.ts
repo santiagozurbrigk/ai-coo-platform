@@ -15,6 +15,7 @@ import {
   applyOnboardingAnswers,
   validateOnboardingAnswers,
 } from "@/lib/client-onboarding/form";
+import { CREATOR_NAME_ERROR_KEY } from "@/lib/client-onboarding/links";
 import { loadOnboardingByToken } from "@/lib/client-onboarding/public";
 import { publicFormRateLimit, rateLimitErrorMessage } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -22,6 +23,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const inputSchema = z.object({
   token: z.string().min(1).max(128),
   respondentName: z.string().trim().min(1, "Poné tu nombre.").max(200),
+  /** Sólo en el link general: de qué creador es este formulario. */
+  creatorName: z.string().trim().max(200).optional(),
   answers: z.record(z.string(), z.unknown()),
 });
 
@@ -39,7 +42,7 @@ export async function submitClientOnboardingAction(
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Envío inválido." };
   }
-  const { token, respondentName, answers } = parsed.data;
+  const { token, respondentName, creatorName, answers } = parsed.data;
 
   const h = await headers();
   const ip =
@@ -61,13 +64,43 @@ export async function submitClientOnboardingAction(
     };
   }
 
-  const applied = applyOnboardingAnswers(form.subClient.custom, validation.values);
   const labels: Record<string, string> = {};
   for (const field of form.fields) {
     if (field.key in validation.values) labels[field.key] = field.label;
   }
 
   const admin = createAdminClient();
+
+  /*
+   * ⭐ Link general: todavía no se sabe de qué cliente es. Queda en la bandeja
+   * «sin asignar» y no toca ninguna ficha; lo asigna el equipo (ver
+   * `assignOnboardingSubmissionAction`).
+   */
+  if (!form.subClient) {
+    if (!creatorName) {
+      return {
+        ok: false,
+        error: "Poné el nombre del creador.",
+        errors: { [CREATOR_NAME_ERROR_KEY]: "Completá esta respuesta." },
+      };
+    }
+    const { error } = await admin.from("client_onboarding_submissions").insert({
+      organization_id: form.organizationId,
+      link_id: form.linkId,
+      respondent_name: respondentName,
+      creator_name: creatorName,
+      answers: validation.values,
+      labels,
+    });
+    if (error) {
+      console.error("[onboarding] guardar envío general", error.message);
+      return { ok: false, error: "No pudimos guardar tus respuestas. Probá de nuevo en un rato." };
+    }
+    return { ok: true };
+  }
+
+  const subClient = form.subClient;
+  const applied = applyOnboardingAnswers(subClient.custom, validation.values);
 
   /*
    * ⭐ Primero el historial, después la ficha. Si la segunda escritura falla,
@@ -79,7 +112,7 @@ export async function submitClientOnboardingAction(
     .insert({
       organization_id: form.organizationId,
       client_id: form.clientId,
-      sub_client_id: form.subClient.id,
+      sub_client_id: subClient.id,
       link_id: form.linkId,
       respondent_name: respondentName,
       answers: validation.values,
@@ -97,7 +130,7 @@ export async function submitClientOnboardingAction(
     const { error: updateError } = await admin
       .from("client_sub_clients")
       .update({ custom: applied.custom, updated_at: new Date().toISOString() })
-      .eq("id", form.subClient.id)
+      .eq("id", subClient.id)
       .eq("organization_id", form.organizationId);
     if (updateError) {
       console.error("[onboarding] actualizar ficha", updateError.message);
@@ -112,7 +145,7 @@ export async function submitClientOnboardingAction(
     organization_id: form.organizationId,
     client_id: form.clientId,
     entry_type: "onboarding",
-    title: `Onboarding completado: ${form.subClient.name}`,
+    title: `Onboarding completado: ${subClient.name}`,
     situation_summary: `Lo completó ${respondentName}. ${
       cambios === 0
         ? "No cambió ninguna respuesta."
@@ -120,7 +153,7 @@ export async function submitClientOnboardingAction(
           ? "Cambió 1 respuesta."
           : `Cambiaron ${cambios} respuestas.`
     }`,
-    raw_data: { submission_id: submission.id, sub_client_id: form.subClient.id },
+    raw_data: { submission_id: submission.id, sub_client_id: subClient.id },
   });
   if (timelineError) console.error("[onboarding] línea de tiempo", timelineError.message);
 
