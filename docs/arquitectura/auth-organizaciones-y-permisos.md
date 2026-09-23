@@ -33,7 +33,7 @@ permisos por módulo sólo cortan el render de pantallas**.
 | `organizations` | `id`, `name`, `status`, `account_type` (`founder`/`holding`), `enabled_add_ons text[]`, `skip_onboarding`, `holding_billing_model`, `currency`, `timezone` | Raíz multi-tenant. `enabled_add_ons` no lo puede editar un usuario (20260922110000) |
 | `profiles` | `id` (= `auth.users.id`, FK con `on delete cascade`), `organization_id`, `role`, `custom_role_id`, `is_holding_admin`, `must_change_password`, `temp_password_expires_at`, `is_active`, `last_login_at` | Un usuario → una org. El super admin tiene `organization_id = null` |
 | `team_roles` | `organization_id`, `name`, `permissions jsonb` (`{ "<moduleId>": "none"|"view"|"full" }`), `is_default` | Roles custom por org. Claves consolidadas a 13 módulos en `20260906102000_permisos_por_modulo.sql` |
-| `team_invitations` | `token`, `email`, `custom_role_id`, `status`, `expires_at`, `invited_by` | Aceptar crea `auth.users` + `profiles` con `role = 'member'` |
+| `team_invitations` | `token`, `email`, `custom_role_id`, `status`, `expires_at`, `invited_by` | Aceptar crea `auth.users` + `profiles` con `role = 'member'`. Ningún código inserta filas: invitar crea la cuenta directo (ver Alta de cuentas) |
 | `holding_businesses` | `holding_org_id`, `business_org_id`, `business_name`, `status`, `revenue_share_pct`, `fixed_fee_*` | Portfolio de un holding |
 | `holding_active_sessions` | `profile_id` (PK), `business_org_id` | Negocio activo para el JWT claim. RLS `deny_all`; sólo service role y `supabase_auth_admin` |
 | `super_admin_users` | `email` | Allowlist de staff Limitless |
@@ -91,7 +91,8 @@ page.tsx / Server Actions → requireOrganizationId() → createClient() (RLS) o
 | Signup público | `signUpAction` en `apps/web/app/auth/actions.ts` (toggle "Crear cuenta" en `/login`) | `ensureUserBootstrap` crea org nueva + perfil `founder` + `create_default_roles` |
 | Super admin crea founder | `createFounderAccountAction` (`app/super-admin/actions.ts`) | Contraseña temporal (24 h, `lib/auth/temp-password-expiry.ts`) + `must_change_password` |
 | Holding agrega negocio | `addBusinessToMyHoldingAction` (`app/(platform)/holding/actions.ts`) | Org de negocio con `skip_onboarding = true` y founder con contraseña temporal |
-| Invitación de equipo | `inviteTeamMemberAction` → `/invite?token=` → `acceptInvitationAction` (`app/team/actions.ts`) | `role = 'member'`, `custom_role_id` de la invitación |
+| Invitación de equipo | `inviteTeamMemberAction` (`app/team/actions.ts`, desde `components/team/team-invite-modal.tsx`) | Crea directo `auth.users` + perfil `role = 'member'` con `custom_role_id` y contraseña temporal; el founder ve las credenciales en pantalla (`TempCredentialsDialog`) y se las pasa. **No** manda mail ni crea fila en `team_invitations` |
+| Aceptar invitación (legado) | `/invite?token=` → `acceptInvitationAction` / `completeInvitationForCurrentUserAction` | Sólo sirve para filas de `team_invitations` que ya existan: ningún código las crea hoy |
 | Login con OAuth / magic link | `apps/web/app/auth/callback/route.ts` | `ensureUserBootstrap` salvo que `next` sea `/invite` |
 
 `ensureUserBootstrap` también **repara** usuarios sin perfil: `requireOrganizationId()` lo llama si el

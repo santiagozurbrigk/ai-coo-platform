@@ -35,7 +35,7 @@ de negocio (clientes, ventas, marketing, etc.).
 |---|---|---|
 | `/` | redirect en `next.config.ts` | Temporal (307) a `/login`. La landing pública se borró el 2026-09-23 |
 | `/login`, `/auth/*` | `app/login`, `app/auth/*` | Login + signup, recuperar, actualizar y forzar cambio de contraseña. Sin Supabase: `MockLoginPage` |
-| `/invite` | `app/invite/page.tsx` | Aceptar invitación de equipo |
+| `/invite` | `app/invite/page.tsx` | Aceptar invitación de equipo por token (legado: invitar hoy crea la cuenta con contraseña temporal y no genera filas en `team_invitations`) |
 | `/founder` | `app/(founder)/founder/page.tsx` | Área del fundador: el último `intelligence_snapshots` con layout propio (`layouts/founder-layout.tsx`) |
 | `/prueba` | `app/(landing)/prueba/page.tsx` | Confirmación de prueba gratis → `POST /api/trial-confirm` → `waitlist_leads` (`source = 'trial'`) |
 | `/privacidad` | `app/(landing)/privacidad/page.tsx` | Política de privacidad, pública (la piden las apps OAuth) |

@@ -848,7 +848,7 @@ Doc del área: [`docs/areas/marketing.md`](./docs/areas/marketing.md)
 
 #### [ZERNIO-KEY-GLOBAL] Una org sin Zernio usa la key global de Zernio
 - **Tipo:** seguridad
-- **Estado verificado:** `getZernioApiKeyForOrganization` (`lib/zernio/integration.ts:113-121`) devuelve `process.env.ZERNIO_API_KEY` cuando la org no tiene fila activa. Todo `getZernioClientForOrganization` (anuncios, comentarios, inbox, sync) lo hereda. `captureAdMetricsForAllOrganizations` (`lib/marketing/ad-metrics-snapshot.ts:158`) recorre `zernio_integrations` sin filtrar `is_active`, y una fila inactiva cae al fallback → escribiría en `ad_metrics_daily` anuncios de la cuenta global. `.env.example` la trae como `sk_pending`. No verifiqué si está seteada en Vercel.
+- **Estado verificado:** `getZernioApiKeyForOrganization` (`lib/zernio/integration.ts:113-121`) devuelve `process.env.ZERNIO_API_KEY` cuando la org no tiene fila activa o su fila no tiene `api_key`. Todo `getZernioClientForOrganization` (anuncios, comentarios, inbox, sync) lo hereda. `captureAdMetricsForAllOrganizations` (`lib/marketing/ad-metrics-snapshot.ts:158`) recorre `zernio_integrations` sin filtrar `is_active`, y una fila inactiva cae al fallback → escribiría en `ad_metrics_daily` anuncios de la cuenta global. `.env.example` la trae como `sk_pending`. No verifiqué si está seteada en Vercel.
 - **Qué hay que hacer:** confirmar en Vercel si `ZERNIO_API_KEY` existe en Production; quitar el fallback fuera de dev (`NODE_ENV !== "production"`) o borrarlo; filtrar `is_active` en el cron.
 - **Criterio de aceptación:** Quedó anotado si ZERNIO_API_KEY existe en Production de Vercel; con una org sin Zernio conectado (o con la integración inactiva), /marketing/anuncios y /comentarios muestran 'no conectado' y no traen datos de otra cuenta, y el cron capture-ad-metrics no escribe filas en ad_metrics_daily para integraciones inactivas; hay un test que cubre que getZernioApiKeyForOrganization no devuelve la key global en producción
 - **Dónde:** `apps/web/lib/zernio/integration.ts`, `apps/web/lib/marketing/ad-metrics-snapshot.ts`
@@ -871,9 +871,9 @@ Doc del área: [`docs/areas/marketing.md`](./docs/areas/marketing.md)
 
 #### [TRIAL-REELS-MUSICA] La música propia de Trial Reels no se usa ni se puede subir
 - **Tipo:** bug
-- **Estado verificado:** (a) `jobPayloadSchema` del worker (`apps/reel-worker/src/index.ts`) no declara `reelMusicPath`; `safeParse` de zod descarta la clave, así que `processor.ts` nunca la recibe y V3 cae a `luts/background-music.mp3`, que no existe → sale en silencio. (b) `ReelMusicUpload` no se monta en ninguna pantalla (sólo lo exporta su archivo; ni siquiera `trial-reels/index.ts`).
+- **Estado verificado:** (a) `jobPayloadSchema` del worker (`apps/reel-worker/src/index.ts`) no declara `reelMusicPath`; `safeParse` de zod descarta la clave, así que `processor.ts` nunca la recibe y V3 cae a `luts/background-music.mp3`, que no existe → sale sin música (conserva el audio original con `-c:a copy`; sólo cambian crop y metadatos, `ffmpeg-variants.ts:110-145`). (b) `ReelMusicUpload` no se monta en ninguna pantalla (sólo lo exporta su archivo; ni siquiera `trial-reels/index.ts`).
 - **Qué hay que hacer:** agregar `reelMusicPath: z.string().nullable().optional()` al schema y redeployar Fly; montar `ReelMusicUpload` en Marketing → Contenido.
-- **Criterio de aceptación:** Con una org que subió su música desde Marketing → Contenido, la variante V3 de un Trial Reel nuevo suena con esa música (no sale en silencio); hay un test del schema del worker que confirma que reelMusicPath llega a processor
+- **Criterio de aceptación:** Con una org que subió su música desde Marketing → Contenido, la variante V3 de un Trial Reel nuevo suena con esa música de fondo (hoy sale con el audio original y sin música); hay un test del schema del worker que confirma que reelMusicPath llega a processor
 - **Dónde:** `apps/reel-worker/src/index.ts`, `apps/web/components/marketing/trial-reels/reel-music-upload.tsx`, `apps/web/app/(platform)/marketing/content/page.tsx`
 
 #### [MKT-OVERVIEW-LEGACY] El Overview sale de `content_assets` (legacy)
@@ -993,7 +993,7 @@ Doc del área: [`docs/areas/marketing.md`](./docs/areas/marketing.md)
 
 #### [MKT-CODIGO-MUERTO] Componentes y acciones huérfanos
 - **Tipo:** deuda técnica
-- **Estado verificado:** sin imports: `components/marketing/{marketing-subnav,marketing-content-library,marketing-content-detail,youtube-video-performance,marketing-charts,instagram-empty-state}.tsx`, `overview/{conversion-strip,marketing-stat-card,metrics-sections,rate-bar,index}.ts(x)` (metrics-sections todavía cae a `mockMarketingOverview`); por arrastre quedan inalcanzables `cta-minute-input`, `content-label-badge`, `content-platform-metrics` (minuto de CTA + retención real de YouTube y etiqueta manual). Acciones sin caller: `publishVariantAsZernioDraftAction`, `generateVariantCaptionAction`, `getContentBenchmarkAction`, `deleteContentPieceAction`, `updateSalesAttributionAction`, `syncZernioMetricsAction`, `getContentPatternsAnalysisAction`, `getContentLabelDistributionAction`, `getInstagramIntegrationStatusAction`, `getContentAssetByIdAction`, `syncInstagramContentAction`, `syncInstagramMessagesAction`, `searchDriveFilesAction`, `getDriveFolderPathAction`; en `lib/zernio/client.ts` `validateApiKey`, `listPostAnalytics`, `getAccountAnalytics`, `getPostsAnalytics` y todos los `zernio*` exportados. Cada export de un `"use server"` es un endpoint.
+- **Estado verificado:** sin imports: `components/marketing/{marketing-subnav,marketing-content-library,marketing-content-detail,youtube-video-performance,marketing-charts,instagram-empty-state}.tsx`, `overview/{conversion-strip,marketing-stat-card,metrics-sections,rate-bar,index}.ts(x)` (metrics-sections todavía cae a `mockMarketingOverview`); por arrastre quedan inalcanzables `cta-minute-input`, `content-label-badge`, `content-platform-metrics` (minuto de CTA + retención real de YouTube y etiqueta manual). Acciones sin caller: `publishVariantAsZernioDraftAction`, `generateVariantCaptionAction`, `getContentBenchmarkAction`, `deleteContentPieceAction`, `updateSalesAttributionAction`, `syncZernioMetricsAction`, `getContentPatternsAnalysisAction`, `getContentLabelDistributionAction`, `getInstagramIntegrationStatusAction`, `getContentAssetByIdAction`, `syncInstagramContentAction`, `syncInstagramMessagesAction`, `searchDriveFilesAction`, `getDriveFolderPathAction`, `getDriveFileAction`, `getUtmBaseUrlAction`, `getUTMLeadsAction`, `getReelMusicPathAction`, `getReelVariationJobAction`; en `lib/zernio/client.ts` `validateApiKey`, `listPostAnalytics`, `getAccountAnalytics`, `getPostsAnalytics` y todos los `zernio*` exportados. Cada export de un `"use server"` es un endpoint.
 - **Qué hay que hacer:** decidir si se recupera algo (retención/CTA de YouTube, publicar variante a Zernio) y borrar el resto.
 - **Dónde:** los listados
 
@@ -1023,6 +1023,12 @@ Doc del área: [`docs/areas/marketing.md`](./docs/areas/marketing.md)
 - **Dónde:** `apps/web/app/marketing/content/drive-actions.ts`, `app/forms/actions.ts`
 
 ### Marketing · P3
+
+#### [ZERNIO-WEBHOOK-DISCONNECTED] El webhook de Zernio ignora `account.disconnected`
+- **Tipo:** bug
+- **Estado verificado:** `app/api/integrations/zernio/webhook/route.ts` sólo maneja `message.received`/`message.sent`, `comment.received` y `account.connected` (líneas 94, 136, 168). `account.disconnected` figura en el comentario de eventos a suscribir (línea 3) pero no tiene rama: una cuenta desconectada en Zernio sigue en `zernio_integrations.connected_accounts` hasta que alguien corre `refreshZernioAccountsAction`, y la sync de contenido y `/comentarios` la siguen consultando.
+- **Qué hay que hacer:** manejar `account.disconnected` sacando la cuenta de `connected_accounts` (o llamar al refresh de cuentas).
+- **Dónde:** `apps/web/app/api/integrations/zernio/webhook/route.ts`
 
 #### [BUG-1] Historias de Instagram — verificar en producción
 - **Tipo:** verificación manual
@@ -1283,14 +1289,14 @@ Doc del área: [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md)
 
 #### [INTELIGENCIA-FUENTES-LEGACY] (nuevo) Inteligencia y reportes leen tablas legacy
 - **Tipo:** bug
-- **Estado verificado:** `lib/intelligence/collect-context.ts` lee `conversations` (líneas 128 y 186; 0 filas en prod) y `content_assets` (línea 209; 6 filas) en vez de `sales_leads` (1252) y `content_pieces` (150). `lib/intelligence/memory-chunks.ts` también usa `content_assets`, y el tono del founder (`lib/founder-tone/collect-sources.ts`) también. Los reportes y el snapshot ven marketing y DMs vacíos.
+- **Estado verificado:** `lib/intelligence/collect-context.ts` lee `conversations` (líneas 128 y 186; 0 filas en prod al 2026-09-23) y `content_assets` (línea 209; 6 filas) en vez de `sales_leads` (1252) y `content_pieces` (150). `lib/intelligence/memory-chunks.ts` también usa `content_assets`, y el tono del founder (`lib/founder-tone/collect-sources.ts`) también. Los reportes y el snapshot ven marketing y DMs vacíos.
 - **Qué hay que hacer:** pasar a `sales_leads` y `content_pieces` (métricas vía `content_pieces.metrics`), revisar `hasMeaningfulData`.
 - **Criterio de aceptación:** Para una org con leads en sales_leads y piezas en content_pieces, el snapshot de inteligencia y un reporte ejecutivo generados muestran datos de DMs/leads y de marketing (no vacíos); collect-context y memory-chunks ya no leen conversations ni content_assets
-- **Dónde:** `apps/web/lib/intelligence/collect-context.ts`, `lib/intelligence/memory-chunks.ts`, `lib/executive-reports/compute-departments.ts`, `lib/founder-tone/collect-sources.ts`.
+- **Dónde:** `apps/web/lib/intelligence/collect-context.ts`, `lib/intelligence/memory-chunks.ts:34`, `lib/founder-tone/collect-sources.ts:65`.
 
 #### [AGENTE-SIN-FALLBACK-CLAVE] (nuevo) El agente SSE no cae a la clave global
 - **Tipo:** bug
-- **Estado verificado:** `streamClaudeAgent` (`lib/agent/stream-claude-agent.ts:204`) usa `resolveCredentialForOrg` directo y ante un error lanza `mapAnthropicCallError`, sin el reintento con la global ni `marcarClaveDeOrgComoRechazada` que tiene `executeWithCredentialFallback`. Una clave que vence entre validaciones rompe el chat.
+- **Estado verificado:** `streamClaudeAgent` (`lib/agent/stream-claude-agent.ts:218`) usa `resolveCredentialForOrg` directo y ante un error lanza `mapAnthropicCallError`, sin el reintento con la global ni `marcarClaveDeOrgComoRechazada` que tiene `executeWithCredentialFallback`. Una clave que vence entre validaciones rompe el chat.
 - **Qué hay que hacer:** extraer el fallback a una función reusable y aplicarla al stream (reintentar sólo si el 401 llega antes de emitir deltas).
 - **Criterio de aceptación:** Con una clave de org marcada 'valid' pero revocada en Anthropic, un mensaje en /agent responde igual usando la clave global y claude_api_key_status de la org pasa a 'invalid'; si el error llega después de haber empezado a mostrar texto, no se reintenta ni se duplica la respuesta; hay un test que cubre el reintento del stream
 - **Dónde:** `apps/web/lib/agent/stream-claude-agent.ts`, `lib/ai/anthropic.ts`.
@@ -1325,10 +1331,16 @@ Doc del área: [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md)
 
 ### Agente de negocio e IA · P2
 
-#### [REPORTES-VENTANA-FIJA] (nuevo) Las tres cadencias usan la misma ventana de 14 días
+#### [RAG-INGESTA-SIN-REINTENTO] (nuevo) La cola de indexado no reintenta cuando falla la ingesta
 - **Tipo:** bug
-- **Estado verificado:** `collectIntelligenceData` no recibe ventana; `PERIOD_DAYS = 14` fijo. El pulso "de hoy" y el mensual ven lo mismo.
-- **Qué hay que hacer:** parametrizar `sinceDays` en `collectIntelligenceData` (1 / 7 / mes calendario).
+- **Estado verificado:** `publishRagIngestionJob` publica con `retries: 3` (`apps/web/lib/queue/qstash-client.ts:169`), pero `processRagIngestion` (`lib/queue/processors/rag-ingestion.ts:104-127`) devuelve `{ chunkCount: 0, error }` cuando falla la ingesta (texto vacío, OpenAI caído, verificación de chunks), porque `indexBusinessContextInRag` (`lib/business-context/rag-indexing.ts:176-192`) atrapa el error. El worker (`app/api/queue/process-rag-ingestion/route.ts:58`) responde 200 y QStash no reintenta; sólo un throw inesperado da 500. Un corte transitorio de OpenAI deja el documento en `error` para siempre.
+- **Qué hay que hacer:** en el worker, responder 500 cuando `result.error` viene de una falla transitoria (no para "sin texto"), para que QStash reintente.
+- **Dónde:** `apps/web/app/api/queue/process-rag-ingestion/route.ts`, `lib/queue/processors/rag-ingestion.ts`.
+
+#### [REPORTES-VENTANA-FIJA] (nuevo) El pulso diario y el semanal usan la misma ventana de 14 días
+- **Tipo:** bug
+- **Estado verificado:** `collectIntelligenceData` no recibe ventana; `PERIOD_DAYS = 14` fijo. El pulso "de hoy" (`generate-daily.ts:57`), el semanal (`generate-weekly.ts:30`) y el snapshot de inteligencia ven lo mismo. El mensual no lo usa (resume los semanales del mes).
+- **Qué hay que hacer:** parametrizar `sinceDays` en `collectIntelligenceData` (1 / 7).
 - **Dónde:** `apps/web/lib/intelligence/collect-context.ts`, `lib/executive-reports/generate-*.ts`.
 
 #### [REPORTES-SEMANA-ETIQUETA] (nuevo) El semanal se etiqueta con la semana que empieza
@@ -1351,7 +1363,7 @@ Doc del área: [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md)
 
 #### [CRONS-ORGS-INACTIVAS] (nuevo) Los crons de IA corren sobre orgs dadas de baja
 - **Tipo:** bug
-- **Estado verificado:** `listActiveOrganizationIds()` (`lib/intelligence/generate-snapshot.ts:212`, duplicada en `lib/founder-tone/analyze-tone.ts`) filtra sólo `account_type = 'founder'`, no `status`. Snapshot 2×/día + reportes + tono con Sonnet por cada una.
+- **Estado verificado:** `listActiveOrganizationIds()` (`lib/intelligence/generate-snapshot.ts:215`, duplicada en `lib/founder-tone/analyze-tone.ts:108`) filtra sólo `account_type = 'founder'`, no `status`. Snapshot 2×/día + reportes + tono con Sonnet por cada una.
 - **Qué hay que hacer:** filtrar `status = 'active'` (o equivalente) y unificar la función.
 - **Dónde:** esos dos archivos.
 
@@ -1399,7 +1411,7 @@ Doc del área: [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md)
 
 #### [AUDITORIA-ABIERTOS §3.4] `verifyQStashRequest` no valida la URL
 - **Tipo:** seguridad
-- **Estado verificado:** `lib/queue/qstash-verify.ts` llama `receiver.verify({ signature, body })` sin `url`. Sólo aplica cuando no hay `WORKER_AUTH_SECRET`.
+- **Estado verificado:** `lib/queue/qstash-verify.ts` llama `receiver.verify({ signature, body })` sin `url`. En los workers de crons sólo aplica cuando no hay `WORKER_AUTH_SECRET` (`verify-queue-request.ts`); `process-rag-ingestion` y `process-reel-variations` lo llaman directo, así que ahí aplica siempre.
 - **Qué hay que hacer:** pasar `url: request.url` (o la URL pública esperada).
 - **Dónde:** `apps/web/lib/queue/qstash-verify.ts`.
 
@@ -1411,7 +1423,7 @@ Doc del área: [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md)
 
 #### [AUDITORIA-ABIERTOS §🟠2] `collect-context` sin paginar ni mirar errores
 - **Tipo:** deuda técnica
-- **Estado verificado:** `lib/intelligence/collect-context.ts:220` hace `clients.select("*")` sin `fetchAllRows` (337 filas hoy; se corta en 1000) y varias lecturas no miran `error`.
+- **Estado verificado:** `lib/intelligence/collect-context.ts:220` hace `clients.select("*")` sin `fetchAllRows` (337 filas al 2026-09-23; se corta en 1000) y varias lecturas no miran `error`.
 - **Qué hay que hacer:** `fetchAllRows` o agregado en SQL; manejar `error`.
 - **Dónde:** `apps/web/lib/intelligence/collect-context.ts`.
 
@@ -1428,6 +1440,12 @@ Doc del área: [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md)
 - **Dónde:** `apps/web/lib/agent/stream-agent-message.ts`, `lib/agent/compact-conversation.ts`.
 
 ### Agente de negocio e IA · P3
+
+#### [KB-GOOGLE-SIN-RESYNC] (nuevo) Los Google Docs/Sheets importados no se pueden volver a sincronizar
+- **Tipo:** feature
+- **Estado verificado:** re-importar un archivo ya importado falla con "Este archivo de Google ya está en tu base de conocimiento." (`assertGoogleSourceNotImported`, `apps/web/app/business-context/actions.ts:328-343`). `resyncDocumentMarkdownAction` (`actions.ts:672`) sólo regenera `content_markdown` de un Google Doc para el visor, y el botón sólo aparece si el doc no tiene Markdown (`components/business-context/context-viewer.tsx:132`); no actualiza `content_text` ni re-indexa en RAG. Si el Doc cambia en Google, el agente sigue viendo la versión vieja.
+- **Qué hay que hacer:** acción "Sincronizar" que re-exporte el archivo, actualice `content_text`/`content_markdown` y llame `scheduleBusinessContextRagIndexing`.
+- **Dónde:** `apps/web/app/business-context/actions.ts`, `components/business-context/context-viewer.tsx`.
 
 #### [T-14] Tests de `lib/agent/compact-conversation.ts`
 - **Tipo:** tests
@@ -1449,7 +1467,7 @@ Doc del área: [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md)
 
 #### [RAG-IVFFLAT-FILTRO] (nuevo) Búsqueda vectorial filtra por org después del índice
 - **Tipo:** deuda técnica
-- **Estado verificado:** `search_rag_chunks` ordena por distancia con índice `ivfflat (lists=100)` y filtra `organization_id` en el WHERE; con `probes` por defecto puede devolver menos de `match_count` resultados de la org cuando haya muchas orgs. Con 2010 chunks hoy el planner probablemente hace seq scan; no se midió.
+- **Estado verificado:** `search_rag_chunks` ordena por distancia con índice `ivfflat (lists=100)` y filtra `organization_id` en el WHERE; con `probes` por defecto puede devolver menos de `match_count` resultados de la org cuando haya muchas orgs. Con 2010 chunks (al 2026-09-23) el planner probablemente hace seq scan; no se midió.
 - **Qué hay que hacer:** medir con `EXPLAIN`; evaluar HNSW o subir `ivfflat.probes` dentro de la función.
 - **Dónde:** `supabase/migrations/20260617100000_rag_infrastructure.sql`.
 

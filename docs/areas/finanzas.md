@@ -37,8 +37,8 @@ Migración base: `supabase/migrations/20260521800000_finance_expenses.sql`.
 | `fixed_expenses` | `name`, `category` (`infrastructure/professional/marketing/tools/other`), `amount`, `currency`, `frequency` (`monthly/annual`), `status` (`active/paused`) | |
 | `subscriptions` | `name`, `amount`, `currency`, `billing_cycle` (`monthly/annual`), `status`, `icon` | Sólo se leen las `active` |
 | `team_compensation` | `member_id` (**text**, no FK), `member_name`, `role_label`, `has_fixed_salary`, `fixed_amount`, `has_commission`, `commission_basis`, `commission_percentage`, `commission_fixed_per_event`, `estimated_this_month` | `commission_basis`: `per_deal`, `monthly_revenue`, `upsells`, `per_booking`, `custom` (sin CHECK en la base) |
-| `stripe_integrations` | `stripe_account_id`, `access_token` (**texto plano**), `livemode`, `status` | Sin policies de lectura; sólo service role. 0 filas en producción |
-| `mercadopago_integrations` | `mp_user_id`, `access_token_encrypted`, `refresh_token_encrypted` (AES-256-GCM, `lib/security/encryption`), `token_expires_at`, `status` | 0 filas en producción |
+| `stripe_integrations` | `stripe_account_id`, `access_token` (**texto plano**), `livemode`, `status` | Sin policies de lectura; sólo service role. 0 filas en producción (al 2026-09-23) |
+| `mercadopago_integrations` | `mp_user_id`, `access_token_encrypted`, `refresh_token_encrypted` (AES-256-GCM, `lib/security/encryption`), `token_expires_at`, `status` | 0 filas en producción (al 2026-09-23) |
 
 **RLS:** las cuatro tablas de configuración filtran sólo por `organization_id = get_my_organization_id()`
 (update con `WITH CHECK` desde `20260620200000`). Ninguna mira el rol.
@@ -122,7 +122,7 @@ Finanzas: escriben en `payment_transactions`, que este módulo no lee.
 
 - **Permisos sólo en el render**: cualquier miembro puede invocar las actions de gastos/compensación y escribir
   las tablas por PostgREST; el nivel `view` no impide editar `[PERMISOS-SERVER-ACTIONS]`.
-- **Token de Stripe en texto plano** `[AUDITORIA-ABIERTOS]` §3.2.
+- **Token de Stripe en texto plano** `[FIN-STRIPE-MP-DECIDIR]` (auditoría §3.2).
 - **Webhook de MP:** un `payment` de cualquier cuenta actualiza `last_sync_at` de **todas** las integraciones
   activas de todas las orgs; no valida `ts` (replay) `[FIN-MP-WEBHOOK]`.
 - **Código muerto de Stripe/MP** (actions de lectura, `deriveMercadoPagoBalance` que suma los últimos 100 pagos
@@ -130,7 +130,7 @@ Finanzas: escriben en `payment_transactions`, que este módulo no lee.
 - **`per_booking` no es por setter** y `monthly_revenue` usa `total_amount` (valor del contrato) como MRR `[FIN-PAYROLL-BASES]`.
 - **Monedas mezcladas**: los totales suman USD y ARS sin convertir `[FIN-MONEDAS]` (misma familia que `[FACTURACION-MONEDAS]`, de Clientes).
 - **Mes de la liquidación en UTC** `[FIN-MESES-UTC]`.
-- **Sin timeouts** en `lib/stripe` y `lib/mercadopago` `[AUDITORIA-ABIERTOS]` §3 Confiabilidad.
+- **Sin timeouts** en `lib/stripe` y `lib/mercadopago` `[AUD-CONF-1]`.
 - `components/finance/payment-platforms-section.tsx` es huérfano (lo reemplazó el de Configuración).
 
 ## Tests

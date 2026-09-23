@@ -979,7 +979,7 @@ en `sop_generation_jobs` (`status`, `error`): puede decir dónde falla sin subir
 1. ⭐ Registrar un cobro en Cobros e ir a `/finance` sin recargar. → Aparece en Cash collected y en la plataforma.
 2. Cargar un gasto fijo en USD y otro en ARS. → ⚠️ Hoy se suman como si fueran la misma moneda `[FIN-MONEDAS]`.
 3. Cargar compensación de un setter con `per_booking` y de un closer con `per_deal`. Comparar "Gastos de equipo"
-   con "Liquidación del mes". → ⚠️ Se espera que difieran para `per_booking` `[FIN-PAYROLL-BASES]`.
+   con "Pagos del equipo" → "Calcular mes" (en Gastos). → ⚠️ Se espera que difieran para `per_booking` `[FIN-PAYROLL-BASES]`.
 4. Con una org sin clientes pero con Excel importado. → Si el snapshot no trae cash collected, el KPI muestra
    facturación − gastos `[FINANZAS-BASELINE-CASH-ESTIMADO]`.
 5. 🔒 `curl -i -X POST https://<app>/api/webhooks/mercadopago` sin firma. → 401 o 503, nunca 307.
@@ -992,7 +992,7 @@ en `sop_generation_jobs` (`status`, `error`): puede decir dónde falla sin subir
 2. Crear avatar principal y dos ofertas; marcar una como core offer desde la escalera. → Una sola core offer.
 3. Reordenar la escalera. → El orden persiste al recargar.
 4. Guardar la propuesta de valor. → Persiste; el agente la menciona en una respuesta nueva.
-5. "Sugerir desde el contexto" con Fathom o documentos cargados. → Propuesta revisable; al aplicar, el avatar
+5. "Auto-completar desde el contexto del negocio" con Fathom o documentos cargados. → Propuesta revisable; al aplicar, el avatar
    sugerido queda como principal.
 6. ⚠️ Onboarding: fallar a propósito el paso de oferta y reintentar. → Hoy se esperan dos productos
    `[PRODUCTO-GATE-OFERTA-DUP]`.

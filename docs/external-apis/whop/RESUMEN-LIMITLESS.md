@@ -37,13 +37,12 @@ al schema de cada payload. Los que le importan a la capa de pagos de Limitless:
 Hay además eventos de accounts, cards, payouts, plans, products, shipments,
 transfers, entries, members y verificaciones — la tabla completa está en la guía.
 
-> ⚠️ **El patrón que asumió Limitless no matchea.** `normalize.ts` detecta cobros con
-> `/payment.*(succe|complet|paid)/i` y órdenes con
-> `/membership.*(went_valid|created|activat)/i`. Con los nombres reales:
-> `payment.succeeded` matchea, pero **`membership.created` no existe** — el evento de
-> alta es `membership.activated` (sí matchea `activat`) y `member.created` (que es otra
-> cosa: la fila de miembro, no la membresía). Conviene reemplazar los regex por la
-> lista literal de eventos.
+> ✅ **Corregido en el código.** `normalize.ts` usaba regex (`/payment.*(succe|complet|paid)/i`,
+> `/membership.*(went_valid|created|activat)/i`) y **`membership.created` no existe** en
+> Whop — el alta es `membership.activated` (`member.created` es otra cosa: la fila de
+> miembro, no la membresía). Hoy la config de Whop en `lib/payments/normalize.ts` usa listas
+> literales: cobros `payment.succeeded`; reembolsos `refund.created`, `refund.updated`;
+> órdenes `membership.activated`, `invoice.paid`. Cualquier otro tipo queda `unmapped`.
 
 ---
 
@@ -63,8 +62,8 @@ Todo evento llega como un `POST` con este envelope:
 }
 ```
 
-- **El objeto va bajo `data`** — no bajo `object`. Limitless acepta las dos, así que anda,
-  pero se puede simplificar.
+- **El objeto va bajo `data`** — no bajo `object`. Limitless busca el objeto en `data`,
+  `object`, `payload` o `resource` (`normalize.ts`), así que anda, pero se puede simplificar.
 - **`account_id` sólo desde el pin `2026-08-14`.** Los webhooks anclados antes, y los
   que no tienen pin, reciben ese campo como **`company_id`**.
 - Los eventos `.updated` de account, product, plan y shipment traen además
@@ -110,15 +109,15 @@ Whop usa [Standard Webhooks](https://www.standardwebhooks.com/), como se asumió
 > the prefix, and don't base64-encode it"*, y *"The key is your `ws_...` secret"*.
 > `verify-signature.ts` sólo decodifica desde base64 cuando el secreto empieza con
 > `whsec_`; como Whop nunca manda ese prefijo, cae en la rama correcta —
-> **usa el string `ws_...` tal cual como clave HMAC**. Anda, pero la rama `whsec_`
-> sobra para Whop y conviene documentar por qué está.
+> **usa el string `ws_...` tal cual como clave HMAC**. La rama `whsec_` quedó comentada
+> en el código como compatibilidad con otros proveedores de Standard Webhooks.
 >
 > El secreto se muestra **una sola vez** al crear el webhook (`webhook_secret` en la
 > respuesta de `POST /webhooks`, o la columna Secret del dashboard).
 
 ---
 
-## 4. Montos — **acá sí hay que corregir el código**
+## 4. Montos — **corregido en el código**
 
 > ⚠️ **Whop NO manda centavos.** El spec es explícito en `Refund.amount`:
 > *"The refunded amount as a decimal in the specified currency, such as **10.43 for
@@ -126,7 +125,8 @@ Whop usa [Standard Webhooks](https://www.standardwebhooks.com/), como se asumió
 > `total`, `usd_total`, `refunded_amount`, `tax_amount`) son `number` decimales en la
 > moneda de `currency`.
 
-Dos consecuencias para `lib/payments/normalize.ts`:
+Dos consecuencias para `lib/payments/normalize.ts` (las dos ya aplicadas; se deja el
+razonamiento):
 
 1. **La heurística de `_cents` no aplica a Whop.** No existe ninguna clave
    `*_cents` en sus payloads, así que la división por 100 no se dispara — bien. Pero
@@ -144,8 +144,10 @@ Dos consecuencias para `lib/payments/normalize.ts`:
    payment, including taxes and after any discounts"*. `settled_amount` (que sí está en
    la lista) **no existe**; el campo se llama `settlement_amount`.
 
-   Hay que agregar `settlement_amount` al principio de `KEYS.amount` y decidir
-   explícitamente qué representa cada medida:
+   **Hoy:** `KEYS.amount` ya no existe; la config de Whop declara `amountUnit: "decimal"`,
+   `amountKeys: ["settlement_amount", "amount", "usd_total", "total", "subtotal"]` (cobros y
+   reembolsos) y `contractKeys: ["total", "usd_total", "settlement_amount"]` (valor de la
+   orden). La propuesta original por medida era:
    - **M27 `revenue`** → `total` / `usd_total` (lo que ve el creador)
    - **M28 `cash_collected`** → `settlement_amount` (lo que pagó el cliente)
    - **M30 `refunds`** → `Refund.amount`, o `Payment.refunded_amount`
@@ -181,8 +183,10 @@ Datos operativos que conviene respetar en el handler:
 - **Responder 2xx en menos de 5 segundos.** Timeout, error o redirect cuentan como
   fallo (Whop no sigue redirects).
 - **Entrega *at least once*.** El mismo evento puede llegar más de una vez, con el
-  mismo `webhook-id`. **Guardar el `webhook-id` y descartar duplicados** — Limitless ya
-  persiste el crudo en `payment_webhook_events`, así que la deduplicación va ahí.
+  mismo `webhook-id`. **Guardar el id y descartar duplicados** — Limitless persiste el
+  crudo en `payment_webhook_events` con un índice único sobre (proveedor,
+  `external_event_id`); ese id sale del `id` del cuerpo (`msg_...`), no de la cabecera
+  `webhook-id` (que sólo se usa para la firma).
 - **Reintentos ~3 días**: 12 reintentos (30 s, 2 min, 8 min, 30 min, 1 h, 3 h, 6 h y
   después cada 12 h), ~71 horas en total.
 - **El orden no está garantizado.** Un evento nuevo puede llegar antes que uno viejo.

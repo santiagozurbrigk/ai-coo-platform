@@ -241,6 +241,8 @@ Validación al guardar (`saveClaudeApiKeyAction` en `app/settings/actions.ts`): 
 - Sin índice único en `executive_reports` ni en `intelligence_snapshots`: un reintento duplica `[REPORTES-DUPLICADOS]`.
 - `streamClaudeAgent` no reintenta con la clave global ante 401 ni marca la clave `[AGENTE-SIN-FALLBACK-CLAVE]`.
 - Clave sin créditos (`valid_no_credits`) se sigue usando y no hay fallback `[IA-CLAVE-SIN-CREDITOS]`.
+- Una falla de ingesta en la cola RAG responde 200 y QStash no reintenta `[RAG-INGESTA-SIN-REINTENTO]`.
+- Google Docs/Sheets importados no se re-sincronizan: re-importar falla y el "resync" sólo regenera el Markdown del visor `[KB-GOOGLE-SIN-RESYNC]`.
 - SOP archivado o pasado a draft sigue en RAG `[RAG-SOP-HUERFANO]`; canvas guardado invisible e imborrable `[RAG-CANVAS-INVISIBLE]`.
 - Links de documentos generados vencen a la hora (`SIGNED_URL_EXPIRES_IN = 3600`) y quedan persistidos en `attachments` `[AGENTE-LINKS-VENCIDOS]`.
 - `MODEL_PRICING` de Haiku (0,80/4 USD por MTok) parece el precio de Haiku 3.5; embeddings y Batch no se registran `[IA-COSTOS-INCOMPLETOS]`.

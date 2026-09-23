@@ -1,6 +1,6 @@
 # Producto
 
-> Verificado contra el código el 2026-09-23 (commit 038caca). Backlog del área: `PENDIENTES.md` § Producto.
+> Verificado contra el código el 2026-09-23 (commit 038caca). Backlog del área: `PENDIENTES.md` § Operaciones, Finanzas y Producto.
 
 ## Qué es
 
@@ -36,7 +36,7 @@ el nombre es histórico: no hay mocks). Sin Supabase, lo mismo.
 |---|---|---|
 | `customer_avatars` | `name`, `main_pain`, `secondary_pains`/`desires`/`fears`/`objections` (JSONB `string[]`), `age_range`, `occupation`, `location`, `income_range`, `where_they_hang`, `language_they_use`, `is_primary` | Un solo `is_primary` por org, impuesto por la action |
 | `products` | `name`, `description`, `type` (`curso/mentoria/consultoria/comunidad/evento/otro`), `price`, `currency`, `billing_type` (`unico/mensual/anual/personalizado`), `value_ladder_position`, `is_active`, `is_core_offer`, `bonuses` JSONB, `guarantee`, `target_avatar_id` → `customer_avatars` | Un solo `is_core_offer`, impuesto por la action |
-| `value_ladder` | `product_id`, `level`, `name`, `description`, `price_range`, `goal` | **Nadie inserta filas** (0 en producción). La escalera se arma desde `products` |
+| `value_ladder` | `product_id`, `level`, `name`, `description`, `price_range`, `goal` | **Nadie inserta filas** (0 en producción al 2026-09-23). La escalera se arma desde `products` |
 | `value_propositions` | PK `organization_id`; `avatar_text`, `result_text`, `pain_removed_text`, `timeframe_text` | Una por org. Sin policy de DELETE |
 | `sales_frameworks` | `name`, `description`, `content`, `type` (`script/objeciones/followup/onboarding/otro`), `is_active` | |
 | `business_graph_node_positions` | PK `(organization_id, node_key)`, `x`, `y` | Posición de cada nodo del grafo |
@@ -110,11 +110,11 @@ Ninguna directa. Usa Anthropic (sugerencia desde contexto) y el RAG (OpenAI embe
 - **Métricas de oferta engañosas** (close rate global, objeción vacía, match por nombre) `[PRODUCTO-METRICAS]`.
 - **`value_ladder` es una tabla sin productor** `[PRODUCTO-VALUE-LADDER-TABLA]`.
 - **Nombre del negocio en el grafo** roto por `profiles.org_name` `[PRODUCTO-GRAFO-NOMBRE]`.
-- **Reindexado RAG sin `await`** después de responder; Vercel puede cortarlo `[AUDITORIA-ABIERTOS]` §3 Confiabilidad.6.
+- **Reindexado RAG sin `await`** después de responder; Vercel puede cortarlo `[AUD-CONF-6]`.
 - **Lecturas sin paginar** de `clients`, `client_payments` y `closing_calls` (techo de 1000 filas;
-  `closing_calls` ya tiene ~1.450 en producción) `[AUDITORIA-ABIERTOS]` §3 Confiabilidad.2.
+  `closing_calls` ya tiene ~1.450 en producción al 2026-09-23) `[AUD-CONF-2]`, `[PRODUCTO-METRICAS]`.
 - **Oferta duplicada al reintentar el onboarding** `[PRODUCTO-GATE-OFERTA-DUP]`.
-- **`getProductContextForOrg` exportado desde un archivo `"use server"`** (es un endpoint) `[AUDITORIA-ABIERTOS]` §3 Salud.6.
+- **`getProductContextForOrg` exportado desde un archivo `"use server"`** (es un endpoint) `[AUD-SALUD-6]`.
 - Permisos: módulo prestado de `operations`, sin distinción `view`/`full` `[PERMISOS-SERVER-ACTIONS]`.
 - Avatar principal y core offer únicos sólo por la action `[PRODUCTO-UNICIDAD]`.
 
