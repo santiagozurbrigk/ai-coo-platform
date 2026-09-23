@@ -61,7 +61,7 @@ limitless-system/
 ├── supabase/
 │   ├── migrations/     175 migraciones — fuente de verdad del schema
 │   ├── ci/             check-migrations.sh + supabase-stubs.sql (job del CI)
-│   └── scripts/        SQL manual (legacy_RUN_ALL_PHASE1_NO_EJECUTAR.sql, no correr)
+│   └── scripts/        SQL manual (legacy_RUN_ALL_PHASE1_NO_EJECUTAR.sql, no correr; mark_fathom_business_context_calls.sql)
 ├── docs/               documentación (esta carpeta)
 └── .github/workflows/ci.yml
 ```

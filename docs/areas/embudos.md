@@ -47,7 +47,8 @@ propia al final.
 
 Todas las tablas tienen `organization_id` y RLS `organization_id = get_my_organization_id()`.
 Las tablas que alimenta una integración son **sólo lectura** para miembros (escribe el
-service role); las de credenciales no tienen policy de lectura. Todas las migraciones del
+service role); las de credenciales y las de eventos crudos de webhook (`payment_webhook_events`,
+`ghl_webhook_events`, con `organization_id` nullable) tienen RLS activo pero ninguna policy. Todas las migraciones del
 área están aplicadas en producción (verificado con `list_migrations` el 2026-09-23).
 
 ### Núcleo del módulo — `20260829120000_funnels_phase1.sql`
@@ -110,6 +111,7 @@ Plantilla (lib/funnels/templates/*.ts)          Bindings (funnel_step_bindings)
 
 **Server actions** (`apps/web/app/funnels/actions.ts`): `listFunnelInstancesAction`,
 `getFunnelAction`, `createFunnelInstanceAction` (aplica `DEFAULT_BINDINGS`),
+`listFunnelTemplatesAction` (la única sin `requireOrganizationId()`: sólo lee el registro en código),
 `getFunnelBindingsAction`, `setFunnelStepBindingAction` (valida que la fuente sirva para la
 etapa del step; `config` no se valida), `listFunnelFormOptionsAction`,
 `listFunnelIndexAction`. **No hay** acciones para renombrar, archivar ni borrar un embudo.
@@ -162,7 +164,7 @@ webinar y VSL → sólo `ad_clicks` en su paso Click. Ninguna plantilla tiene st
 | **WebinarJam / EverWebinar** | `lib/webinarjam/client.ts` (api_key en el body; los dos prefijos) | `/webinars`, `/webinar`, `/registrants` (todo, `date_range=allTime`; M15 filtrado con `attended_live=4`) | Fuentes `webinar_*` en `null` |
 | **Hyros** | `lib/hyros/client.ts` (`API-Key`) | `/attribution/ad-account` por cuenta publicitaria activa (`revenue, leads, new_leads, new_visits, cost`) | `attributed_*`, `hyros_*` en `null` |
 | **Whop** | `lib/payments/verify-signature.ts` + `normalize.ts` | Webhooks Standard Webhooks (ventana 5 min) | Cash, AOV, LTV en `null` |
-| **Commas (ex Fanbasis)** | idem; id de proveedor `fanbasis`, host `www.fanbasis.com` | Webhooks HMAC-SHA256 hex sin timestamp. **Nunca reintenta** | idem |
+| **Commas (ex Fanbasis)** | idem; id de proveedor `fanbasis` (el código no llama a su API; el host `www.fanbasis.com` es el de la doc) | Webhooks HMAC-SHA256 hex sin timestamp. **Nunca reintenta** | idem |
 
 Resúmenes por proveedor: `docs/external-apis/<proveedor>/RESUMEN-LIMITLESS.md`.
 Mapa general de integraciones: `docs/integraciones/README.md` y `lib/integrations/registry.ts`.
@@ -224,22 +226,29 @@ Mapa general de integraciones: `docs/integraciones/README.md` y `lib/integration
     secreto verificar. En GHL, con firma de plataforma la org sale del `locationId`
     firmado y tiene que coincidir. Los eventos GHL que no son `Opportunity*` se descartan
     sin guardarse (traen datos personales).
-17. **El texto de `instrumentation.ts` se muestra al usuario** en `/funnels`. Hoy tiene
-    notas desactualizadas (ver deuda).
+17. **El texto de `instrumentation.ts` se muestra al usuario** en `/funnels` y en
+    `/funnels/[funnelId]/configurar`, pero sólo el de las herramientas `partial`/`missing`
+    (`blockingTools()`). Hoy tiene notas desactualizadas (ver deuda).
 
 ## Limitaciones conocidas y deuda
 
 - Medidas org-wide presentadas como si fueran del embudo `[EMBUDOS-MEDIDAS-POR-EMBUDO]`.
-- `otcNote` de GHL ("no consume /opportunities") y de checkout ("cubierto por Stripe y
-  Mercado Pago") son falsos hoy y se ven en `/funnels`; los datos de Stripe/Mercado Pago
-  **no** alimentan los embudos `[EMBUDOS-INSTRUMENTATION-DESACTUALIZADA]`.
+- `otcNote` de GHL ("no consume /opportunities") es falso hoy y se ve en `/funnels` y en
+  "configurar". El de checkout ("cubierto por Stripe y Mercado Pago") también es falso —los
+  datos de Stripe/Mercado Pago **no** alimentan los embudos— pero no se muestra: su
+  `otcStatus` es `equivalent`, así que Whop/Commas no aparece en la lista de pendientes. El de
+  Meta Ads ("live fetch, no persiste") quedó viejo desde `ad_metrics_daily` (tampoco se
+  muestra, es `available`) `[EMBUDOS-INSTRUMENTATION-DESACTUALIZADA]`.
 - Webhooks de pagos y GHL responden 200 aunque no se haya podido guardar el evento, y un
   evento en `error` no se reprocesa (el reintento choca con el dedupe). No existe
   herramienta de reproceso de `unmapped` `[EMBUDOS-WEBHOOK-PERDIDA]`.
 - Sin cron para registrantes de WebinarJam ni catálogos: los números envejecen hasta que
   alguien aprieta "sincronizar" `[EMBUDOS-SYNC-PROGRAMADO]`.
-- Salud (bandas) sin UI `[EMBUDOS-SALUD]`; snapshots y pulso diario sin construir
-  `[EMBUDOS-SNAPSHOTS]`; `/funnels/comparar` sin construir `[EMBUDOS-COMPARAR]`.
+- Salud (bandas) sin UI `[EMBUDOS-SALUD]`; snapshots sin construir `[EMBUDOS-SNAPSHOTS]`
+  (el pulso diario sí existe como reporte ejecutivo de la org —cron `executive-report-daily`,
+  `lib/executive-reports/generate-daily.ts`— pero no lee los embudos, y
+  `REPORTING_CADENCE.daily` en `instrumentation.ts` sigue diciendo "Falta el cron de pulso
+  diario"); `/funnels/comparar` sin construir `[EMBUDOS-COMPARAR]`.
 - Sin backfill del estado de oportunidades de GHL `[EMBUDOS-GHL-BACKFILL]`; webhooks sólo
   por Workflow hasta que exista la app del Marketplace `[FEAT-GHL-OAUTH]`.
 - `ghl_opportunities_won` cuenta cualquier transición con `status = 'won'` en el período,

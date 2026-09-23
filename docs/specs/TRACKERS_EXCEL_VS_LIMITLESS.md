@@ -5,6 +5,24 @@
 >
 > Escrito el 2026-09-04, leyendo los dos archivos completos —incluidas las hojas
 > de instrucciones, que es donde está el criterio real.
+>
+> **Estado al 2026-09-23 (verificado contra el código, commit 038caca).** Lo que sigue describe Limitless al
+> 2026-09-04; varias de las «faltas» ya se construyeron:
+> - Objetivo: `clients.goal_text` + `goal_metric_key/value/unit`.
+> - Revisión semanal: `/clients/revision`, con las cuatro preguntas y la anotación por cliente.
+> - Fecha de egreso: `clients.exit_date`, pero **se carga a mano** (no se calcula de la duración del plan).
+> - Estado actual: `current_status_note`, `current_metric_value`, `current_status_updated_at`.
+> - Permisos en los wins: `consent_status` (`not_asked`/`granted`/`denied`) + `consent_display`
+>   (`name_and_face`/`name_no_numbers`/`anonymous`). El dashboard tiene un filtro «publicables», pero **por defecto
+>   muestra todos**.
+> - Estado de uso (`usage_state`, `used` derivado de `win_usages`) con filtro «Sin usar», y «necesita captura»
+>   (`needs_screenshot`).
+> - Cargar wins no exige ser founder (sólo el catálogo de C0/C1).
+> - Próximos pasos de las llamadas de entrega: hoy salen como tareas del cliente (`client_tasks`) desde la 1-1.
+>
+> Sigue sin existir: responsable por cliente, las dos formas de negocio, el checklist de contenido por caso, el caso
+> de éxito como entidad (`is_case_study`), la ficha de caso (entidad `case_study`), rangos en punto A/B y el conteo de
+> datos por columna en Campos.
 
 ---
 

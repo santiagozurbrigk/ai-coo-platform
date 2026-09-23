@@ -1,6 +1,6 @@
 # Integraciones
 
-> Verificado contra el código el 2026-09-23 (commit 038caca): `apps/web/lib/integrations/registry.ts`, `app/api/integrations/*`, `app/api/webhooks/*`, `apps/web/vercel.json` y conteo de filas de las tablas `*_integrations` en producción. Reemplaza a `docs/integraciones/README.md`. Backlog: `PENDIENTES.md` § Infraestructura y el § de cada área.
+> Verificado contra el código el 2026-09-23 (commit 038caca): `apps/web/lib/integrations/registry.ts`, `app/api/integrations/*`, `app/api/webhooks/*`, `apps/web/vercel.json` y conteo de filas de las tablas `*_integrations` en producción. Reemplaza a `docs/archivo/INTEGRACIONES_MAPA.md` (archivado). Backlog: `PENDIENTES.md` § Infraestructura y el § de cada área.
 
 ## Cómo está armado
 
@@ -12,7 +12,7 @@
 
 Para agregar una: id en `constants/integrations.ts` → entrada en el registro → color y logo → `IntegrationHealth` en `getIntegrationsOverviewAction`. `lib/integrations/__tests__/health.test.ts` (23 tests) falla si falta alguno de los primeros pasos.
 
-Cuatro formas de que entren los datos, que deciden qué tan fresco está cada número:
+Cuatro formas de que entren los datos (el registro suma una quinta, `oneshot`, para la importación puntual de ClickUp), que deciden qué tan fresco está cada número:
 
 | Transporte | Significa |
 |---|---|
@@ -76,7 +76,7 @@ Whop y Commas usan convenciones opuestas (Whop: decimales en la moneda, `settlem
 | Proveedor | Para qué | Transporte | Rutas | Tablas | Áreas | Estado |
 |---|---|---|---|---|---|---|
 | **Discord** | Mensajes de canales de clientes, testimonios, sugerencias de hitos | Bot OAuth (instalación) + proceso permanente en Railway que escribe con service role y llama a `/api/discord/*` | `/api/integrations/discord/{oauth/start,callback}`, `/api/discord/*`, cron `daily-signals` | `discord_integrations`, `discord_messages`, `discord_client_links`, `discord_channel_clients`, `discord_team_members`, `discord_pending_links` | [discord](../areas/discord.md), [clientes](../areas/clientes.md) | activo (2) |
-| **ClickUp** | Importación puntual de clientes con mapeo de campos | Token pedido en el momento · one-shot, no guarda conexión | actions de import (`lib/clickup/`) | `clients` | [clientes](../areas/clientes.md) | activo (su tarjeta nunca dice "conectada") |
+| **ClickUp** | Importación puntual de clientes con mapeo de campos | Token pedido en el momento · one-shot, no guarda conexión | `app/integrations/clickup/import-actions.ts` (cliente en `lib/clickup/`) | `clients` | [clientes](../areas/clientes.md) | activo (su tarjeta nunca dice "conectada") |
 
 ### Servicios de plataforma (fuera del registro)
 
@@ -102,7 +102,7 @@ El registro es lo que pinta la pantalla; donde discrepa con el código, el códi
 | YouTube: `transport: cron`, destino `content_assets` | No hay cron de YouTube en `vercel.json`; `lib/google/sync-youtube.ts` escribe `content_pieces` y corre al conectar y a mano |
 | Discord: mensajes por `webhook` | El bot escribe `discord_messages` directo con service role; `/api/discord/message` es un stub |
 | Stripe / Mercado Pago: cobros → `payments` por webhook | No existe tabla `payments`; Stripe no tiene webhook; MP tiene webhook pero sin tabla de destino propia |
-| `docs/integraciones/README.md`: Discord "no se ofrece" | `listed: true` |
+| `docs/archivo/INTEGRACIONES_MAPA.md` (archivado): Discord "no se ofrece" | `listed: true` |
 
 Ver `[INTEGRACIONES-REGISTRO-DESALINEADO]` en pendientes.
 
@@ -123,7 +123,7 @@ Ver `[INTEGRACIONES-REGISTRO-DESALINEADO]` en pendientes.
 Cómo usarla:
 1. Empezar por `docs/external-apis/<proveedor>/RESUMEN-LIMITLESS.md`: lo que Limitless usa de ese proveedor, con sus trampas. Después `INDEX.md` o `ENDPOINTS*.md`.
 2. Cada archivo tiene la URL de origen en el front-matter; si algo no cierra, manda la fuente viva.
-3. Si falta un proveedor, probar su URL y buscar un spec OpenAPI; bajarlo con `docs/external-apis/tools/regenerar.sh` como modelo (hay un `build_<proveedor>.py` por cada uno) y commitearlo.
+3. Si falta un proveedor, probar su URL y buscar un spec OpenAPI; bajarlo con `docs/external-apis/tools/regenerar.sh` como modelo (hay un `build_<proveedor>.py` por cada uno, salvo Fathom, que se bajó con la lista `tools/fathom-urls.txt` y no está en `regenerar.sh`) y commitearlo.
 4. Si no se puede leer la documentación oficial, registrar lo asumido en `docs/integraciones/apis-sin-documentacion.md`, persistir el payload crudo antes de interpretarlo, nunca inventar un valor (lo no entendido queda `unmapped` con motivo) y aislar el mapeo en un archivo por proveedor.
 
 Zernio, Calendly, ManyChat, Typeform, Google, Meta, Stripe, Mercado Pago, Unipile y Discord **no** tienen copia local.

@@ -77,14 +77,15 @@ AgentDataProvider (providers/agent-data-provider.tsx)
                resolveAgentFlags(): canvas se activa solo por regex de intención
             6. streamClaudeAgent(): hasta 4 iteraciones de tools/pause_turn, emite SSE
             7. post-proceso: [ACTION:CREATE_SOP:{...}] → inserta SOP draft (3/hora por org);
-               canvas si la respuesta es larga con headings/tablas; persiste assistant msg;
+               si canvas está activo y no hubo propuestas: canvas del documento generado o,
+               si no, la respuesta si es larga con headings/tablas; persiste assistant msg;
                vincula propuestas al message_id; emite `done`
             8. título con Haiku (fire-and-forget, sólo en el primer mensaje)
 ```
 
 Eventos SSE (`lib/agent/sse.ts`): `delta`, `tool_start`, `tool_end`, `done`, `error`. No hay eventos `token` ni `thinking` (los nombraba la documentación vieja); el thinking se persiste en `thinking_content` y viaja con el mensaje.
 
-`max_tokens` (`lib/agent/max-tokens.ts`): 8192 normal, 6144 con thinking, 12288 con canvas; budget de thinking 4000. El thinking sólo va en el primer turno; los turnos posteriores a una tool van sin thinking y sin prompt caching.
+`max_tokens` (`lib/agent/max-tokens.ts`): 8192 normal, 6144 con thinking, 12288 con canvas (canvas manda aunque haya thinking); budget de thinking 4000. El thinking sólo va en el primer turno; los turnos posteriores a una tool van sin thinking y sin prompt caching.
 
 ### Tools del agente (`AGENT_CHAT_TOOLS`, 20)
 
@@ -106,17 +107,20 @@ Despacho: `lib/agent/agent-tool-handler.ts`. Aprobación de propuestas: `app/age
 ### Base de conocimiento y RAG
 
 ```
-createTextNoteAction / createDocumentFromFileAction / importGoogleDoc|Sheet / resync
+createTextNoteAction / createDocumentFromFileAction / importGoogleDoc|Sheet
   └─ scheduleBusinessContextRagIndexing()  lib/business-context/schedule-rag-indexing.ts
        ├─ QStash configurado → publishRagIngestionJob (retries 3)
        │     └─ POST /api/queue/process-rag-ingestion → processRagIngestion()
-       │           (idempotente: si ya está indexed + chunks, skip; 500 si falla → QStash reintenta)
+       │           (idempotente: si ya está indexed + chunks, skip. Una falla de ingesta se guarda
+       │            como `error` y responde 200 → QStash NO reintenta; sólo un throw inesperado da 500)
        └─ sin QStash → indexBusinessContextInRag() inline
             └─ ingestDocument()  lib/rag/ingest.ts
                  upsert rag_documents → chunkText (≈2000 chars, overlap 50 palabras)
                  → generateEmbeddings (OpenAI text-embedding-3-small, 1536 dims, 8000 chars por input)
                  → borra chunks viejos → inserta → embedding_status = done
 ```
+
+`resyncDocumentMarkdownAction` sólo regenera `content_markdown` de un Google Doc: no re-indexa en RAG.
 
 Otros que indexan en RAG: SOPs activos al crear/editar (`app/sops/actions.ts`, fire-and-forget), weekly inputs (`app/operations/actions.ts`), contexto de producto al tocar avatar/producto/framework (`app/product/actions.ts`), llamadas de Fathom (`lib/fathom/process-call.ts`). Re-indexado masivo: `POST /api/rag/ingest` con `CRON_SECRET`, body `{ organizationId, types?: ["sops","fathom","product"] }`.
 
@@ -132,9 +136,9 @@ Extracción de texto: PDF con `unpdf`, texto/markdown directo (`lib/business-con
 | `/api/cron/executive-report-monthly` | `0 13 1 * *` | ídem (`monthly`) | `generate-monthly.ts` |
 | `/api/cron/founder-tone-analysis` | `0 12 * * 1` | `/api/queue/process-cron-founder-tone` | `lib/founder-tone/analyze-tone.ts` |
 
-Patrón común: el cron valida `CRON_SECRET`; con `?organizationId=` corre una sola org; con QStash hace fan-out (`publishCronFanout`, retries 2) sobre `listActiveOrganizationIds()` = **todas** las orgs `account_type = 'founder'` (no filtra `status`); sin QStash corre en serie dentro de 60 s. Los workers validan `WORKER_AUTH_SECRET` (header `x-worker-secret`, Bearer o query) o, si no está, la firma de QStash (`lib/queue/verify-queue-request.ts`).
+Patrón común: el cron valida `CRON_SECRET`; con `?organizationId=` corre una sola org; con QStash hace fan-out (`publishCronFanout`, retries 2) sobre `listActiveOrganizationIds()` = **todas** las orgs `account_type = 'founder'` (no filtra `status`); sin QStash corre en serie dentro del `maxDuration` del cron (60 s; 300 s el mensual). Los workers validan `WORKER_AUTH_SECRET` (header `x-worker-secret`, Bearer o query) o, si no está, la firma de QStash (`lib/queue/verify-queue-request.ts`).
 
-Datos de entrada: `collectIntelligenceData()` (`lib/intelligence/collect-context.ts`) con ventana fija de **14 días** para las tres cadencias; lo único que cambia por cadencia es `computeDepartmentStatuses(sinceDays: 1 | 7 | 35)`. El mensual además resume los semanales del mes. Si `hasMeaningfulData` es falso, se saltea sin llamar a Claude.
+Datos de entrada: el snapshot, el diario y el semanal usan `collectIntelligenceData()` (`lib/intelligence/collect-context.ts`) con ventana fija de **14 días**; entre diario y semanal lo único que cambia es `computeDepartmentStatuses(sinceDays: 1 | 7)`. Si `hasMeaningfulData` es falso, se saltean sin llamar a Claude. El mensual no usa `collectIntelligenceData`: resume los semanales del mes (si no hay ninguno, se saltea) más `computeDepartmentStatuses(sinceDays: 35)`.
 
 El botón `GenerateWeeklyPipelineButton` (empty states de Inteligencia y Operaciones, sólo founder) llama `triggerWeeklyPipelineAction`: reporte semanal de Operaciones + ejecutivo semanal + snapshot, en serie dentro de una server action.
 
@@ -177,6 +181,7 @@ El botón `GenerateWeeklyPipelineButton` (empty states de Inteligencia y Operaci
 | `new Anthropic` + Batch API (Haiku, `ai_summary` del cerebro) | `app/super-admin/actions.ts` (`submitBrainSummaryBatchAction` y siguientes) | Global; si falta, **la clave de una org cliente hardcodeada** (`SUPER_ADMIN_CREDENTIAL_ORG_ID`) | No |
 | `fetch api.anthropic.com/v1/messages` (Haiku, validar clave) | `lib/ai/validate-claude-key.ts` | La clave a validar | No |
 | OpenAI embeddings `text-embedding-3-small` | `lib/rag/embeddings.ts` (ingesta, búsqueda del agente, canvas) | Sólo `OPENAI_API_KEY` global | No |
+| `new Anthropic` en el worker de reels (Haiku, captions de variantes) | `apps/reel-worker/src/captions.ts` | Sólo `ANTHROPIC_API_KEY` del worker | No |
 | OpenAI Whisper `whisper-1` | `app/api/agent/transcribe/route.ts`, `app/api/queue/process-sop-video/route.ts`, `lib/content/transcribe-whisper.ts` | Sólo global | Sí en los dos primeros (costo por minuto) |
 
 El bot de Discord (`apps/discord-bot`) no llama a ningún proveedor de IA; su clasificador corre en la web (`lib/discord/classify-run.ts`).
@@ -206,7 +211,7 @@ Validación al guardar (`saveClaudeApiKeyAction` en `app/settings/actions.ts`): 
 |---|---|---|
 | Anthropic | Messages (stream y no stream), tools, web search, extended thinking, visión, Batch API | Sin clave de org ni global: el agente responde error "No pudimos generar la respuesta"; crons se saltean la org |
 | OpenAI | Embeddings y Whisper | Sin `OPENAI_API_KEY`: RAG devuelve vacío (el agente sigue sin contexto semántico), la indexación marca el documento en `error`, transcripción responde 503 |
-| Upstash QStash | Cola de ingesta RAG y fan-out de crons | Sin `QSTASH_TOKEN`: ingesta inline y crons en serie (con el riesgo de timeout de 60 s) |
+| Upstash QStash | Cola de ingesta RAG y fan-out de crons | Sin `QSTASH_TOKEN`: ingesta inline y crons en serie (con el riesgo de timeout: 60 s, 300 s el mensual) |
 | Google Drive | Import de Docs/Sheets a la base de conocimiento (`lib/google/drive-content.ts`) | La página recibe `googleConnected` de `getGoogleFormsIntegrationStatusAction`; sin conexión no hay import |
 | Miro | Contenido de tableros para el cerebro global (`lib/ai-brain/process-document.ts`) | Sólo super-admin |
 
@@ -215,23 +220,23 @@ Validación al guardar (`saveClaudeApiKeyAction` en `app/settings/actions.ts`): 
 - **Dos caminos al agente.** El vivo es `/api/agent/send` (SSE). `sendAgentMessageAction` (`app/agent/actions.ts`, ~570 líneas) es la versión no-stream del chat flotante, que dejó de renderizarse el 2026-08-26; sigue exportada y alcanzable como server action. No tiene compaction ni JIT ni las 8 tools de lectura, y duplica definiciones de tools. Cualquier cambio al agente se hace en `lib/agent/*`.
 - **El resolver de modelo está duplicado** en `lib/agent/stream-claude-agent.ts` (alias y mapa legacy propios). Si se cambia un modelo en `anthropic.ts`, cambiarlo también ahí.
 - **El fallback reintenta la función entera.** En `callClaudeAgent` eso incluye las tools ya ejecutadas; en la práctica el 401 llega en la primera llamada, antes de cualquier tool.
-- **El JIT tiene fallback, la compaction no:** si la selección de contexto falla se usan los 3 bloques más recientes; si falla el resumen de la compaction, falla el mensaje entero.
+- **El JIT tiene fallback, la compaction casi no:** si la selección de contexto falla se usan los 3 bloques más recientes; si la llamada del resumen de la compaction tira error, falla el mensaje entero (si sólo vuelve vacía, se manda el historial sin compactar).
 - **El prompt caching del agente casi no pega:** el bloque cacheado es el contexto elegido por Haiku para *esa* pregunta, que cambia de mensaje a mensaje.
 - **El contexto incluye mensajes de otras conversaciones de la org** (últimos 20, todos los usuarios). Un operador con acceso al agente ve fragmentos de lo que charló el founder.
 - **Las tools de lectura no miran los permisos por módulo.** Alguien con permiso `agent` pero sin `finance` obtiene finanzas vía `get_finance_summary`. RLS sólo separa por org (ver `[PERMISOS-SERVER-ACTIONS]`).
 - **`CREATE_SOP` se dispara por texto** (`[ACTION:CREATE_SOP:{...}]` parseado con regex). Lo puede provocar contenido inyectado vía RAG o tools; queda como draft y con rate limit de 3/hora.
 - **El cerebro global es para todas las orgs:** lo que sube el staff en super-admin entra al JIT de cualquier cliente.
-- **Canvas automático:** además del flag del usuario, `detectCanvasIntent` lo activa por regex ("armá un SOP…") y `shouldExtractCanvas` manda al panel cualquier respuesta >600 caracteres con headings, tabla o bloque de código.
+- **Canvas automático:** además del flag del usuario, `detectCanvasIntent` lo activa por regex ("armá un SOP…"). Con canvas activo y sin propuestas, `shouldExtractCanvas` manda al panel la respuesta si tiene ≥600 caracteres y headings, tabla o bloque de código.
 - **Pulso diario sin recomendaciones:** el prompt lo pide y además el código descarta lo que venga (`recommendations: []`). Deliberado, por la §06 del Funnel Metrics Standard (`lib/executive-reports/cadences.ts`).
 - **No hay generación manual de reportes ejecutivos en su pantalla**, pero el botón del pipeline semanal en Inteligencia/Operaciones genera el ejecutivo semanal (`[REPORTES-GENERACION-MANUAL]`).
 - **Los generadores atrapan su error y devuelven `"failed"`.** El worker de reportes ejecutivos lo convierte en 500 para que QStash reintente; los de inteligencia y tono devuelven 200 y QStash no reintenta.
-- **Prompt injection:** RAG, bloques JIT, datos de reportes y fuentes del tono van envueltos con `wrapUntrustedContent`. No van envueltos: resultados de tools, `pageContext` y la descripción de tono (que la escribió Claude a partir de transcripts). El wrapper no escapa el tag de cierre.
+- **Prompt injection:** RAG, bloques JIT, datos de reportes y fuentes del tono van envueltos con `wrapUntrustedContent`. No van envueltos: resultados de tools, `pageContext`, los mensajes de otras conversaciones de la org y la descripción de tono (que la escribió Claude a partir de transcripts). El wrapper no escapa el tag de cierre.
 
 ## Limitaciones conocidas y deuda
 
 - Reporte mensual: calcula el mes **en curso** el día 1, así que casi nunca encuentra semanales y se saltea `[REPORTES-MENSUAL-MES-EQUIVOCADO]`.
 - El semanal se etiqueta con la semana que empieza el lunes del cron, no con la que terminó `[REPORTES-SEMANA-ETIQUETA]`.
-- Inteligencia y reportes leen `conversations` y `content_assets` (legacy, 0 y 6 filas en prod) en vez de `sales_leads` y `content_pieces` `[INTELIGENCIA-FUENTES-LEGACY]`.
+- Inteligencia y reportes leen `conversations` y `content_assets` (legacy, 0 y 6 filas en prod al 2026-09-23) en vez de `sales_leads` y `content_pieces` `[INTELIGENCIA-FUENTES-LEGACY]`.
 - Ventana fija de 14 días para el pulso diario `[REPORTES-VENTANA-FIJA]`.
 - Sin índice único en `executive_reports` ni en `intelligence_snapshots`: un reintento duplica `[REPORTES-DUPLICADOS]`.
 - `streamClaudeAgent` no reintenta con la clave global ante 401 ni marca la clave `[AGENTE-SIN-FALLBACK-CLAVE]`.
@@ -240,7 +245,7 @@ Validación al guardar (`saveClaudeApiKeyAction` en `app/settings/actions.ts`): 
 - Links de documentos generados vencen a la hora (`SIGNED_URL_EXPIRES_IN = 3600`) y quedan persistidos en `attachments` `[AGENTE-LINKS-VENCIDOS]`.
 - `MODEL_PRICING` de Haiku (0,80/4 USD por MTok) parece el precio de Haiku 3.5; embeddings y Batch no se registran `[IA-COSTOS-INCOMPLETOS]`.
 - Super-admin usa la clave de una org cliente si falta la global `[IA-CLAVE-DE-CLIENTE-EN-SUPERADMIN]`.
-- `sendAgentMessageAction` y `FloatingChatProvider` muertos `[AGENTE-CAMINO-LEGACY]`.
+- `sendAgentMessageAction` sin llamadas desde la UI: su único caller es `FloatingChatProvider`, que sigue montado en `AppProviders` pero nadie lo consume `[AGENTE-CAMINO-LEGACY]`.
 - Sin tests de `lib/agent`, `lib/ai`, `lib/rag`, `lib/queue`, `lib/intelligence` `[T-14]`, `[IA-TESTS]`.
 
 Detalle y prioridades en `PENDIENTES.md` § Agente de negocio e IA.
@@ -279,4 +284,4 @@ Sin cobertura: compaction, JIT, `detectAgentComplexity`, `resolveAgentFlags`, `p
 - OAuth de Claude como credencial (quedan columnas `claude_oauth_*` sin uso).
 - Respuesta mock del agente sin API key (`MOCK_REPLY`): hoy devuelve error.
 - Páginas `/executive-reports/weekly` y `/monthly`: todo pasa por `history` y `[id]`.
-- Botón flotante del agente (componente y provider siguen en el código, sin renderizarse).
+- Botón flotante del agente: `FloatingChat` sigue en el código sin renderizarse; `FloatingChatProvider` sigue montado en `providers/index.tsx` sin consumidores.

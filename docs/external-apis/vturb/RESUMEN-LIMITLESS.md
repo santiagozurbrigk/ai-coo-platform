@@ -105,6 +105,13 @@ primera vez. Si un player tiene `pitch_time = 0`, `total_over_pitch` no signific
 nada y hay que caer al camino 1 con un segundo de CTA configurado en Limitless — o marcar
 la medida como no disponible, nunca como cero.
 
+> **Lo que hace hoy Limitless** (`apps/web/lib/vturb/`): usa `GET /players/list`
+> (catálogo en `vturb_players`, con `pitch_time` y `duration`), `POST /sessions/stats` y
+> `POST /times/user_engagement` (respuestas crudas cacheadas en `vturb_stats_cache`).
+> M12 sale de `total_over_pitch` y, si ese campo no viene, de la curva en el segundo
+> `pitch_time`. Con `pitch_time = 0` la medida queda `null` (`no_pitch_time`): el respaldo
+> `configuredPitchTime` de `lib/vturb/stats.ts` existe pero nadie le pasa un valor.
+
 Bonus para el mismo embudo:
 [`/clicks/total_by_company_timed`](./ENDPOINTS.md#post-clicks-total-by-company-timed)
 da los clicks agrupados por segundo del video, y
@@ -170,6 +177,9 @@ details: { limit_kind, used, limit, remaining, interval_seconds, resets_at } }`.
 
 `/quota/usage` cuenta 1 query contra el límite por minuto.
 
+> En Limitless, `getVTurbQuotaUsage` (`lib/vturb/client.ts`) lee `data.usage` en vez de
+> `quotas`, así que devolvería siempre `[]`; hoy nadie la llama.
+
 ---
 
 ## Trampas conocidas, de las release notes
@@ -190,7 +200,7 @@ Las [release notes](./en/03-release-notes.md) documentan un bug que estuvo vivo 
 
 ## Qué queda por verificar contra una cuenta real
 
-Van al [`docs/operacion/verificacion-manual.md`](../../operacion/verificacion-manual.md) cuando se construya I-6:
+Van al [`docs/operacion/verificacion-manual.md`](../../operacion/verificacion-manual.md) (I-6 ya está construida; falta una cuenta real):
 
 1. **Que `X-Api-Version: v1` sea efectivamente el valor aceptado**, dada la
    discrepancia con el `info.version: v3` del spec.

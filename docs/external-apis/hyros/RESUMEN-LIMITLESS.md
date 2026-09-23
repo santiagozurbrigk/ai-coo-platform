@@ -93,6 +93,15 @@ Variantes: `/attribution/ad-account` (agregado por cuenta publicitaria),
 
 **M05** (`attributed_revenue_by_source`) = este endpoint con `fields=revenue` (o
 `total_revenue`) al `level` que corresponda.
+
+> **Lo que hace hoy Limitless** (`apps/web/lib/hyros/client.ts`): no usa `/attribution`
+> sino **`/attribution/ad-account`**, con `ids` = una cuenta publicitaria, `currency=usd` y
+> `fields=revenue,leads,new_leads,new_visits,cost` (`HYROS_FUNNEL_FIELDS`), porque
+> `/attribution` exige ids a nivel campaña o adset. Las cuentas salen de
+> `GET /api/v1.0/ad-accounts` (`hyros_ad_accounts`) y el reporte se cachea en
+> `hyros_attribution_cache`. `/leads/journey` sólo lo usa `getHyrosLeadJourneyAction`
+> (`app/hyros/actions.ts`), que ninguna pantalla llama; `countHyrosLeadsInPeriod` (`/leads`
+> con `fromDate`/`toDate`) tampoco tiene llamadas, y **no hay ruta de webhooks de Hyros**.
 **M06** (`attributed_leads_by_source`) = el mismo con `fields=leads,new_leads`.
 **M01** (ad spend) = `fields=cost`, que además hace innecesario cruzar con la API de
 cada plataforma.

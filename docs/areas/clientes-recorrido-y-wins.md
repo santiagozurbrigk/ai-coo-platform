@@ -24,7 +24,7 @@ por organización (la columna `product_id` existe pero la UI no la usa).
 
 | Ruta | Archivo | Qué muestra |
 |---|---|---|
-| `/clients/campos` | `components/clients/custom-fields/custom-fields-page.tsx`, `field-definition-dialog.tsx` | Solapas Wins / Checkpoints / Clientes. Botones de ejemplo, «Cargar plantilla» (22 campos Marketing/Ventas/Sistemas) y «Preguntas del onboarding» (86 campos), estos dos sólo con add-on. Umbral «Clientes sin novedades» (add-on) |
+| `/clients/campos` | `components/clients/custom-fields/custom-fields-page.tsx`, `field-definition-dialog.tsx` | Solapas Wins / Checkpoints / Clientes. Botones de ejemplo, «Cargar plantilla» (22 campos Marketing/Ventas/Sistemas) y «Preguntas del onboarding» → «Cargar preguntas» (86 campos), estos dos sólo con add-on. Umbral «Clientes sin novedades» (add-on) |
 | `/clients/checkpoints` | `components/clients/checkpoints/journey-page.tsx`, `stage-dialog.tsx`, `checkpoint-dialog.tsx` | Fases con sus checkpoints: plazo, estado que fija, métricas pedidas. Botón «Cargar un recorrido de ejemplo» |
 | Ficha → Recorrido | `components/clients/checkpoints/client-journey-section.tsx`, `record-checkpoint-dialog.tsx` | Hitos por fase (alcanzado / pendiente / salteado), registrar y deshacer, selector de fase manual, propuestas pendientes del cliente |
 | `/clients/wins` | `components/clients/wins/wins-page.tsx` → `wins-tracker.tsx`, `wins-dashboard.tsx`, `win-candidates.tsx`, `win-form-modal.tsx`, `client-baseline-dialog.tsx` | Solapas Tracker, Dashboard y Candidatos (testimonios de Discord) |
@@ -36,7 +36,8 @@ actions la rechazan con `requireFounder()`.
 
 ## Modelo de datos
 
-Todas con RLS por `organization_id = get_my_organization_id()` en las cuatro operaciones y trigger `set_updated_at`.
+Todas con RLS por `organization_id = get_my_organization_id()` en las cuatro operaciones y trigger `set_updated_at`
+(salvo `win_attachments` y `win_usages`, que no tienen `updated_at`).
 Migraciones aplicadas en producción.
 
 ### C0 — `field_definitions` (`20260903080000`, `20260911120000`, `20260915110000`, `20260921120000`, `20260923140000`)
@@ -141,8 +142,9 @@ Ficha: acceptCheckpointProposalAction → recordCheckpointAction (mismas validac
 - **Una propuesta no se crea para un hito ya registrado** ni se duplica mientras hay otra pendiente de la misma fuente.
 - **Wins comparables = misma `metric_key` y misma `metric_unit`.** Sin dos puntos comparables el caso es «sin medir», con
   motivo (`sin_wins_con_medida`, `un_solo_punto`, `unidades_distintas`, `misma_fecha`). No se interpola.
-- **Medida a medias se rechaza** (clave sin número o al revés) en wins y en el objetivo; el baseline, en cambio, la
-  guarda vacía en silencio.
+- **Medida a medias se rechaza** (clave sin número o al revés): en wins lo hace el servidor (`metricSchema` de
+  `win-actions.ts`); en baseline y objetivo lo hace el diálogo del dashboard, y las actions
+  (`updateClientBaselineAction`, `updateClientTrackingAction`), si les llega a medias, la guardan vacía en silencio.
 - **Lo no autorizado no se ofrece para publicar.** `canPublish` exige `granted` + `consent_display`. Los wins viejos
   quedaron `not_asked` a propósito (`[TRACKERS-PERMISOS-VACIOS]`).
 - **`used`/`unused` se derivan de `win_usages`**; sólo `reserved` se declara.
@@ -155,7 +157,7 @@ Ficha: acceptCheckpointProposalAction → recordCheckpointAction (mismas validac
 | ID | Resumen |
 |---|---|
 | `[C3-TRABADO-SIN-PRIMER-HITO]`, `[FASE-MANUAL-SIN-PLAZOS]` | Sin hito anterior no hay trabado |
-| `[CLIENTES-ETAPA-TABLA-VS-FICHA]` | La tabla y los filtros ignoran la fase manual cuando hay derivada |
+| `[CLIENTES-ETAPA-TABLA-VS-FICHA]` | La tabla ignora la fase manual cuando hay derivada (no hay filtro por fase) |
 | `[C3-ORIGEN-PROPUESTA]` | El evento aceptado desde una propuesta queda como `manual` |
 | `[PROPUESTAS-CALIDAD-SIN-VER]` | Nadie midió aceptadas vs descartadas (hay 9 propuestas en producción) |
 | `[CUSTOM-ERRORES-PRIMERO]` | Wins y checkpoints informan sólo el primer error |

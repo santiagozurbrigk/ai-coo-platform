@@ -194,7 +194,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 **Prerrequisitos:** un miembro con Clientes en «full», otro en «read», otro en «none».
 
-1. Con «full»: `/clients` muestra Nuevo cliente, Cargar clientes, Revisión semanal, Wins, Recorrido, Campos. Crear un cliente de prueba y borrarlo.
+1. Con «full»: `/clients` muestra Nuevo cliente, Cargar clientes, Revisión semanal, Wins, Cobros (si además ve Ventas) y el menú Configurar (Recorrido del cliente, Campos personalizados). Crear un cliente de prueba y borrarlo.
 2. Con «read»: la barra no aparece y la próxima tarea no tiene check.
 3. Con «none»: tipear `/clients` en la barra → «No tenés acceso».
 4. 🔒 ⚠️ Con «read», invocar `deleteClientAction` o `updateClientAction` desde la consola. **Hoy responde** (`[PERMISOS-SERVER-ACTIONS]`). Registrar el resultado.
@@ -723,7 +723,7 @@ Marcas: ⚠️ alta probabilidad de falla · 🔒 verifica seguridad · ⭐ veri
 6. Reenvío con el mismo `webhookId` → sin transición extra. Renombrar sin mover → sin transición. Borrar → `status = 'deleted'`, sin transición.
 7. ⚠️ Mover a otra etapa una oportunidad ya ganada → hoy suma otra vez en "ganadas" del período ([EMBUDOS-GHL-WON]).
 8. ⭐ Período ciego: antes del primer webhook, y con un período que empieza antes del borde → "Fuera del historial registrado"; empezando después → conteo real.
-9. ⭐ `ghl_stage_entered` sin etapa → "Falta elegir la etapa"; con etapa → número.
+9. ⭐ `ghl_stage_entered` sin etapa → "Falta configurar la fuente" en la fila (y el aviso "Falta elegir un parámetro de la fuente…" arriba); con etapa → número.
 10. 🔒 Sin firma ni secreto → 401; secreto incorrecto → 401; `X-GHL-Signature` inventada + secreto correcto → 401; secreto de la org B en su URL → los datos entran en B; evento no `Opportunity*` → 200 `ignored` sin guardar.
 
 ### V6. I-6 VTurb ⚠️⭐
@@ -732,7 +732,7 @@ Marcas: ⚠️ alta probabilidad de falla · 🔒 verifica seguridad · ⭐ veri
 2. ⚠️ Período cerrado vs dashboard de VTurb: `total_viewed` (visitantes de página), `total_started` (plays), `engagement_rate` (% promedio), y qué dedupe muestra el dashboard (`_device_uniq`/`_session_uniq`).
 3. ⭐ Player con `pitch_time` → "Llegaron al CTA" con número; con `pitch_time = 0` → "sin datos". Cruzar `total_over_pitch` con `/times/user_engagement` en ese segundo.
 4. Caché: segunda apertura no llama a la API; tres pasos al mismo video = una llamada; período cerrado `is_final`; abierto se refresca a los 30 min; un 429 guarda `resets_at` en `error_message`.
-5. ⭐ Desconectar → "sin datos"; fuente sin video → "Falta elegir el video"; video sin `duration` → M11 "sin datos".
+5. ⭐ Desconectar → "sin datos"; fuente sin video → "Falta configurar la fuente"; video sin `duration` → M11 "sin datos".
 
 ### V7. I-5 WebinarJam / EverWebinar ⚠️⭐
 **Prerrequisitos:** 🔑 API key aprobada por WebinarJam; un webinar ya realizado.
@@ -741,7 +741,7 @@ Marcas: ⚠️ alta probabilidad de falla · 🔒 verifica seguridad · ⭐ veri
 3. ⚠️ `schedule_external_id` nunca nulo; correr el sync dos veces y verificar que no se duplican filas ([EMBUDOS-WJ-SCHEDULE-NULL]). Un webinar de más de 5.000 registrantes se corta sin aviso.
 4. ⭐ Sin `pitch_second` → "Se quedaron hasta la oferta" "sin datos"; cargarlo y re-sincronizar → stick rate; contrastar con el panel; cambiarlo cambia el conteo; el sync de webinars no lo pisa.
 5. ⭐ El paso "Clicked CTA / booked call" queda "sin fuente" y no se ofrece ninguna fuente de WebinarJam.
-6. ⭐ Registrantes sin ninguna asistencia registrada → "Asistieron" "sin datos"; fuente sin webinar → "Falta elegir el webinar".
+6. ⭐ Registrantes sin ninguna asistencia registrada → "Asistieron" "sin datos"; fuente sin webinar → "Falta configurar la fuente".
 7. Recordar que los números no se actualizan solos: hay que apretar "sincronizar" ([EMBUDOS-SYNC-PROGRAMADO]).
 
 ### V8. I-9 Retención y LTV ⚠️⭐
@@ -889,7 +889,7 @@ en `sop_generation_jobs` (`status`, `error`): puede decir dónde falla sin subir
 1. SOPs (ítem propio del menú) → `#crear` → modo "video". Subir un mp4 de 2–3 min.
    → Barra de progreso; el job aparece "En cola".
 2. ⚠️ Mirar logs de `/api/queue/process-sop-video`. → Sin error de `spawn` de ffmpeg. Es el riesgo #1.
-3. Esperar sin recargar. → El estado pasa solo a "Transcribiendo…" y "Escribiendo el SOP…" (realtime).
+3. Esperar sin recargar. → El estado pasa solo a "Transcribiendo el video…" y "Escribiendo el SOP…" (realtime).
 4. Al terminar. → El markdown aparece en el editor del creador.
 5. ⭐ Leer el SOP contra el video. → No hay pasos que no se dijeron.
 6. ⭐ Mirar "Lo que el video no aclara" con un video incompleto. → Lista huecos reales, no viene vacío.
@@ -897,9 +897,11 @@ en `sop_generation_jobs` (`status`, `error`): puede decir dónde falla sin subir
 8. ⭐ Forzar un fallo de generación (p. ej. clave de Claude inválida) y reintentar. → No vuelve a transcribir:
    `transcript` se conserva y `token_usage` no suma otra fila de Whisper.
 9. 💰 `token_usage` después de transcribir. → Una fila con `model = 'whisper-1'`.
-10. ⚠️ Video de ~1 h (más de 25 MB de audio). → Se parte en varios pedidos y termina antes de 800 s.
+10. ⚠️ Video de ~1 h (más de 25 MB de audio). → Se parte en varios pedidos y termina antes de 800 s. Ojo: el tope
+    de subida es de 50 MB salvo que `NEXT_PUBLIC_SOP_VIDEO_MAX_MB` diga otra cosa (`lib/sops/constants.ts`); con el
+    default, un video de 1 h se rechaza antes de subir.
     Riesgo adicional: el worker baja el video entero a memoria y a `/tmp` (512 MB en Vercel) `[OPS-SOP-VIDEO-MEMORIA]`.
-11. ⚠️ Video de más de 500 MB (si `SOP_VIDEO_MAX_BYTES` lo permite). → Hoy se espera que falle; confirma el ítem.
+11. ⚠️ Video de más de 500 MB (si `NEXT_PUBLIC_SOP_VIDEO_MAX_MB` lo permite). → Hoy se espera que falle; confirma el ítem.
 12. Con 2–3 capturas subidas en el mismo flujo, guardar el SOP. → Las capturas aparecen dentro de los pasos.
 13. ⭐ Volver al SOP una semana después. → Las capturas siguen viéndose (se guardó el marcador, no la URL firmada).
 14. Borrar un adjunto y abrir el SOP. → "Captura no disponible", no imagen rota.

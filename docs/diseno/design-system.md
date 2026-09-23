@@ -64,7 +64,7 @@ sin CSS vars). Si este documento y esos archivos difieren, ganan los archivos.
 | `--ai` / `--ai-muted` / `--ai-glow` | `22 85% 48%` / `22 45% 50%` / `22 90% 62%` | `…` / `22 45% 32%` / `…` | Elementos de IA |
 | `--chart-secondary…quinary` | `22 90% 62%`, `32 80% 55%`, `22 30% 55%`, `0 0% 45%` | `22 90% 62%`, `32 80% 60%`, `22 30% 62%`, `0 0% 62%` | Series HSL heredadas |
 
-Body: light `rgb(241 245 249)`; dark `#000000` con texto `muted-foreground` (`globals.css`).
+Body: fondo light `rgb(241 245 249)`, dark `#000000`; texto `text-foreground` en los dos (`globals.css`).
 
 ### Escala `brand-*` (`preset.ts`)
 
@@ -122,8 +122,9 @@ cambia. El wordmark del logo es Manrope Light, servido como imagen.
 | `text-title` | 20px / 1.75rem |
 | `text-metric-value` | 28px / 2rem |
 
-Clases de métricas (`globals.css`): `.metric-label`, `.metric-stat-label` (13px, 500), `.metric-value`
-(28px, semibold, tabular-nums), `.metric-stat-value` (32px), `.metric-band`, `.metric-band-cell`.
+Clases de métricas (`globals.css`): `.metric-label`, `.metric-stat-label` (13px, 500), `.metric-value` y
+`.metric-stat-value` (los dos 28px, semibold, `letter-spacing: -0.03em`). `.metric-band` y `.metric-band-cell`
+se usan como `className` (`MetricBand`) pero no tienen estilos propios en `globals.css`.
 Texto: `.text-gradient` (foreground → muted), `.text-gradient-ai` (foreground → `#f58747`).
 `::selection`: `rgba(225, 93, 18, 0.35)`.
 
@@ -149,7 +150,7 @@ No hardcodear strings de marca ni rutas de logo.
 | `--space-metric-band-x/y` | 28px / 20px | | `--notch-width/height/radius` | 140px / 36px / `--radius-lg` |
 
 Radios (`rounded-*`): `sm` 6px · `md` 8px · `lg` 12px (default, cards) · `xl` 16px · `2xl` 20px · `page` 20px ·
-`pill` 9999px. Spacing extra: `4.5` (18px), `13` (52px), `18` (72px).
+`pill` 9999px. Spacing extra: `4.5` (18px), `13` (52px), `15` (60px), `18` (72px).
 
 `--shell-sidebar-width` (220px) y `-collapsed` (72px) siguen en tokens por el sidebar de super admin.
 
@@ -167,8 +168,9 @@ Radios (`rounded-*`): `sm` 6px · `md` 8px · `lg` 12px (default, cards) · `xl`
 ## Superficies glass
 
 Clases en `globals.css`: `.glass` (`rounded-lg`), `.glass-strong` (`rounded-xl`), `.glass-nested`
-(`rounded-md`), `.surface-glass`, `.surface-card`. En dark aplican
-`backdrop-filter: blur(20px) saturate(190%) contrast(90%) brightness(80%)` (hardcodeado en la clase).
+(`rounded-md`), `.surface-glass`, `.surface-card`. En dark, `.glass`, `.glass-strong` y `.surface-glass` aplican
+`backdrop-filter: blur(20px) saturate(190%) contrast(90%) brightness(80%)` (hardcodeado en la clase);
+`.glass-nested`, lo mismo con `blur(12px)`.
 Hover genérico: `shadow-float` y borde más visible, **sin glow de marca**. Animaciones decorativas:
 `.glass-liquid`, `.glass-liquid-subtle` (la usa `AiCard`), `.glass-liquid-border`; todas se apagan con
 `prefers-reduced-motion`.
@@ -178,7 +180,7 @@ en dark), pero `globals.css` vuelve a declarar `--glass-bg: rgba(255,255,255,0.0
 `--glass-blur: blur(20px)`) en un `:root` dentro de `@layer base`, que se emite **después** y con la misma
 especificidad que `.dark`. Leyendo la cascada, `.glass` termina casi transparente en **los dos** temas, no
 "card blanca sólida en light". Confirmar con DevTools (computed de `--glass-bg` sobre `<html>`) antes de
-tocarlo: ~97 archivos usan `glass`/`GlassPanel`.
+tocarlo: ~70 archivos usan `glass`/`GlassPanel`.
 
 ## Motion
 

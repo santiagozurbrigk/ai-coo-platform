@@ -59,7 +59,7 @@ Las especificaciones viejas (hoy en `docs/archivo/`) prometen cosas que no exist
 - Un panel general con riesgos, oportunidades y recomendaciones de IA: los componentes existen, pero no se muestran.
 - Integraciones con Loom, Notion, Airtable y Google Docs/Sheets: no existen.
 - Métricas de setters y detección automática de agendas: sólo hay métricas por closer y análisis manual.
-- Comparador de embudos, semáforo de salud e historia por período: no existen.
+- Comparador de embudos, semáforo de salud e historia por período: no existen en pantalla (el semáforo está calculado, pero no se muestra).
 - Exportar reportes a PDF, detección de SOPs desactualizados, pronósticos: no existen.
 - El super admin crea las cuentas a mano: en realidad, cualquiera puede crearse una cuenta desde el login.
 

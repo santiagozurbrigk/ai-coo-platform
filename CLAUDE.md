@@ -84,15 +84,16 @@ migración. Detalle en [`docs/arquitectura/base-de-datos.md`](./docs/arquitectur
   subnavs horizontales por módulo.
 - UI: `@ai-coo/ui` + Tailwind, iconos `lucide-react`, **sin emojis en JSX**, acento de marca por token
   (`bg-primary`, `lib/brand.ts`), nunca el hex. Copy en español (es-AR). Ver `docs/diseno/`.
-- Comentarios y ads de Zernio se leen en vivo, no se guardan en DB.
+- Comentarios y ads de Zernio se leen en vivo (las pantallas no leen de DB; el webhook de Zernio sólo guarda
+  una copia de los comentarios entrantes en `zernio_comments`).
 - Tests: Vitest en `lib/<dominio>/__tests__/` (lógica pura); Playwright en `apps/web/e2e/`.
 
 ## 8. Antes de dar algo por terminado
 
 ```bash
 cd apps/web && node node_modules/typescript/bin/tsc --noEmit   # typecheck
-pnpm lint
-pnpm test                                                        # vitest vía turbo
+pnpm lint                                                        # next lint (script de apps/web)
+pnpm test                                                        # vitest run (script de apps/web)
 ```
 
 - [ ] Typecheck, lint y tests pasan (y la lógica nueva de `lib/` tiene tests)

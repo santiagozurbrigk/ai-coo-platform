@@ -1,6 +1,10 @@
 # FUNNELS_ARCHITECTURE.md — Arquitectura de embudos intercambiables
 
-> **Estado:** análisis aprobado · decisiones cerradas · pendiente de implementación
+> **Estado:** análisis aprobado · decisiones cerradas · **implementado en parte** (Fases 0, 1, 3 y 4; ver §10)
+> **Revisado contra el código:** 2026-09-23. Las secciones 3.8, 4, 5, 6 y 7 conservan el diseño y el
+> inventario del 2026-08-29; donde nombran archivos, funciones o pantallas que hoy no existen o
+> quedaron distintos, hay una nota. El estado actual del módulo está en
+> [`../areas/embudos.md`](../areas/embudos.md).
 > **Fecha:** 2026-08-29
 > **Rama:** `Claude-New-Features`
 > **Fuente:** `Funnel Metrics Standard v1.0` (Aug 2026) — documento de estándar de medición
@@ -147,13 +151,21 @@ Tres reglas del documento son restricciones duras del sistema (decisión 7 — t
 
 1. *"never compare a $27 offer's numbers to a $5k offer's"* → la vista comparativa agrupa o
    advierte por rango de precio. No es opcional.
-2. *"report every metric in EST"* → **timezone de reporte** configurable por org. Limitless hoy no
-   tiene este concepto.
+2. *"report every metric in EST"* → **timezone de reporte** configurable por org. Implementado como
+   `funnel_instances.reporting_timezone` (por instancia, no por org, default `America/New_York`):
+   se guarda y se muestra, pero los períodos se siguen cortando en UTC (`[EMBUDOS-TIMEZONE]`).
 3. *"label each figure with its source — [Meta] / [Hyros]"* → cada valor resuelto carga su
    **procedencia**. No es cosmética: es la diferencia entre un reporte confiable y uno que
    mezcla plataformas silenciosamente.
 
 ### 3.8 Tipos núcleo
+
+> **Boceto de diseño.** Los tipos reales de `lib/funnels/types.ts` difieren: `MetricUnit` no tiene
+> `"minutes"`; `FunnelStep` suma `metricLabel` y `benchmarkLabel` y su `sourceHint` es un
+> `InstrumentationToolId`; `FunnelTemplate` usa `northStar` / `leadingIndicator` / `governingRate`
+> de tipo `MetricPointer` (etiqueta + `metricId`) y suma `sourceDocVersion` y `funnelMetrics`;
+> `ResolvedMetric.provenance` es `InstrumentationToolId | "derived" | "unknown"`. No existe un
+> tipo `FunnelInstance`: la fila es `FunnelInstanceRow` en `lib/funnels/resolve.ts`.
 
 ```ts
 // lib/funnels/spine.ts — INMUTABLE (decisión 2)
@@ -242,11 +254,15 @@ export type ResolvedMetric = {
 
 ## 4. Qué ya existe en Limitless
 
+> Inventario del 2026-08-29, antes de construir el módulo. El módulo terminó **sin** reutilizar
+> `funnel-chart.tsx` ni `custom-metrics.ts` (tiene su propio resolver y su `FunnelSpineStrip`), y
+> la tabla de §4.2 quedó superada por el catálogo de fuentes de `lib/funnels/sources.ts`.
+
 ### 4.1 Piezas reutilizables
 
 | Pieza actual | Uso en la nueva arquitectura |
 |---|---|
-| `components/charts/funnel-chart.tsx` + `platform/funnel-chart-panel.tsx` | Visualización del spine. Lista, no tocar. |
+| `components/charts/funnel-chart.tsx` + `components/charts/platform/funnel-chart-panel.tsx` | Visualización del spine. Lista, no tocar. |
 | `lib/metrics/custom-metrics.ts` (`METRIC_SOURCES`, `resolveSourceValue`) | **Semilla del resolver.** Ya es un catálogo fuente→valor. Extender, no duplicar. |
 | `metrics_snapshots` (period_start, metrics JSONB, data_source) | Almacén de series por período. Necesita cambios — ver §9. |
 | `lib/metrics/baseline-service.ts` | Precedencia nivel 3 de benchmarks (§3.5). |
@@ -275,6 +291,15 @@ export type ResolvedMetric = {
 ## 5. Arquitectura en cinco capas
 
 Principio ordenador: **un tipo de embudo es un dato, no un módulo.**
+
+> **Diagrama de diseño.** Lo construido difiere en la capa 3 y siguientes: el resolver es
+> `resolveFunnel(supabase, instance, bindings, period)` en `lib/funnels/resolve.ts` (no extiende
+> `resolveSourceValue`); la evaluación vive en `lib/funnels/compute.ts` (`computeFunnel`) y
+> `lib/funnels/health-bands.ts` (`resolveBenchmark`, `applyHealthBand`, sin consumidor fuera de los
+> tests); **no existen** `lib/funnels/evaluate.ts`, `diagnoseFunnel()`,
+> `app/(platform)/funnels/comparar/page.tsx` ni `components/funnels/diagnosis-panel.tsx`; la tira
+> del spine es `components/funnels/funnel-spine-strip.tsx`. Las capas 1 y 2 están construidas tal
+> cual, aunque `funnel_benchmarks` y `funnel_period_snapshots` no se usan.
 
 ```
 ┌─ 1. DEFINICIÓN (código, versionado, sin DB) ────────────────┐
@@ -383,6 +408,11 @@ abrir ninguno.
 
 **Comodidad para el usuario — las tres piezas que la resuelven:**
 
+> Estado al 2026-09-23: sólo la 3 está construida (el switcher conserva `?period=`). No hay sidebar
+> dinámico por instancia —la barra tiene un solo acceso "Embudos"— ni indicador de salud en el
+> switcher ni en el índice (`[EMBUDOS-SALUD]`), y `/funnels/comparar` no existe
+> (`[EMBUDOS-COMPARAR]`).
+
 1. **Sidebar dinámico.** "Embudos" como parent con hijos = `Todos` + una entrada por instancia
    activa (hasta 5; con más, solo `Todos` + `Comparar`). Acceso de un click a cualquier embudo,
    sin pasar por el índice. `buildPlatformSidebarNav` ya construye items dinámicamente — hay
@@ -411,6 +441,10 @@ Las decisiones 3 ("sí o sí con integración") y 7 ("tal cual asume el doc") co
 conjunto de integraciones en **prerrequisito bloqueante**, no en mejora futura. Hay que ser
 explícito sobre esto porque cambia el camino crítico.
 
+> La columna "Estado en Limitless" es la del 2026-08-29. Hoy Hyros, WebinarJam/EverWebinar
+> (Zoom no), VTurb (el proveedor de VSL elegido) y Whop/Commas tienen integración construida, sin
+> verificar con cuentas reales; Stripe y Mercado Pago **no** alimentan los embudos. Ver el mapa.
+
 | Integración | Alimenta | Estado en Limitless | Bloquea |
 |---|---|---|---|
 | **Hyros** | Atribución real, ROAS by-source, EPL, journeys | ❌ No existe | Etiquetado `[Hyros]`, KPIs universales, sección 03 y 05 del doc |
@@ -424,7 +458,7 @@ de integraciones corre en paralelo y debe aterrizar antes de la Fase 3**, que es
 instancian el segundo y tercer embudo. La Fase 1 usa el embudo **DM**, que es el único
 construible end-to-end con lo que hay hoy.
 
-**Decisión abierta:** qué proveedor de hosting de video se soporta para el VSL (Wistia, Vimeo,
+**Decisión abierta (cerrada después: VTurb, ver `FUNNELS_SOURCE_MAP.md` §6):** qué proveedor de hosting de video se soporta para el VSL (Wistia, Vimeo,
 YouTube, player propio). Cada uno tiene un modelo de analytics distinto. Hay que resolverlo
 antes de escribir el binding de la etapa Engaged del VSL.
 
@@ -453,13 +487,18 @@ reescritura. El costo de llevar el parámetro ahora es cero; retrofitearlo despu
 - `/sales/metrics` y `/marketing` (overview) van a tener métricas duplicadas → **coexistencia en
   Fase 1**. La migración se decide con datos reales de uso, no por anticipado.
 - Cadencia del doc: `executive-report-weekly` y `-monthly` ya existen. Falta el **pulso diario**
-  (§05 del doc: spend, leads, CPL, bookings, roturas obvias).
+  (§05 del doc: spend, leads, CPL, bookings, roturas obvias). *(Después se construyó el cron
+  `executive-report-daily`, un reporte ejecutivo de la org que no lee los embudos.)*
 
 **Permisos y activación:**
 
 - Nuevo `AddOnId`: `embudos` — activable por org desde super-admin (decisión 6).
 - Nuevas entradas en `PermissionModuleId` / `PERMISSION_MODULES`: `funnels` y probablemente
   `funnels_config` (quién puede editar bindings y umbrales, que es distinto de quién puede leer).
+
+> Cómo quedó: el `AddOnId` `embudos` existe pero **no** decide nada —Embudos aparece siempre en la
+> navegación— y el único permiso es `funnels` (cubre `/funnels` y `/lanzamientos`). `funnels_config`
+> no existe, y las server actions no chequean permiso (`[EMBUDOS-PERMISOS-ACCIONES]`).
 
 ---
 
@@ -513,15 +552,17 @@ embudos siempre se miden en un período. → Extender la firma con `period`, no 
 ### 9.5 No existe timezone de reporte por org
 
 El doc lo declara no-negociable (`EST`, y advierte que Hyros default es Mountain Time). Limitless no
-tiene el concepto. → Columna en `funnel_instances`, default `America/New_York`.
+tenía el concepto. → Columna en `funnel_instances`, default `America/New_York`. *(Existe desde la
+Fase 1, pero no se usa para calcular: los períodos se cortan en UTC.)*
 
 ### 9.6 Deriva entre plantilla y documento
 
 Las plantillas en código son una transcripción del documento fuente. Si el documento se
 actualiza a v1.1 y las plantillas no, el sistema miente en silencio.
 
-→ Cada `FunnelTemplate` lleva `sourceDocVersion: "1.0"` y la UI lo muestra en el detalle del
-embudo. Al llegar un documento nuevo, se compara versión antes de asumir que la plantilla está
+→ Cada `FunnelTemplate` lleva `sourceDocVersion: "1.0"` (hecho, y los tests de conformidad lo
+comparan con el fixture) y la UI lo muestra en el detalle del embudo (**no hecho**: ninguna pantalla
+lo muestra). Al llegar un documento nuevo, se compara versión antes de asumir que la plantilla está
 vigente.
 
 ---
@@ -532,13 +573,13 @@ vigente.
 |---|---|---|---|
 | **0** | Normalizar el documento a schema | `spine.ts`, `types.ts`, las 3 plantillas, `kpis.ts`, `health-bands.ts`. Sin UI, sin DB. | ✅ 2026-08-29 |
 | **1** | Instancias + resolver + página genérica | `/funnels/[id]` con el embudo **DM** end-to-end | ✅ 2026-08-29 |
-| **2** | Evaluación + diagnóstico | Health bands con precedencia de 3 niveles + `diagnoseFunnel()` | ⏸️ **En pausa por decisión del usuario.** El código existe y está testeado; falta la orden de mostrarlo |
+| **2** | Evaluación + diagnóstico | Health bands con precedencia de 3 niveles + `diagnoseFunnel()` | ⏸️ **En pausa por decisión del usuario.** Las bandas y la precedencia existen y están testeadas (`health-bands.ts`), sin consumidor; `diagnoseFunnel()` **no existe** y `funnel_benchmarks` no se lee |
 | **3** | Switcher + configuración de fuentes | Cambiar de embudo sin perder el período; binding por paso con sus parámetros | ✅ 2026-08-30 |
 | **4** | KPIs universales en la UI | Sección 03 completa, con las dos ratios decisivas destacadas y las etiquetas `[Meta]` / `[Hyros]` | ✅ 2026-08-30 |
-| **5** | Snapshots periódicos + pulso diario | Historia y las 3 cadencias del doc | Pendiente |
+| **5** | Snapshots periódicos + pulso diario | Historia y las 3 cadencias del doc | Pendiente (el pulso diario de la org existe como `executive-report-daily`, sin datos de embudos) |
 
-**Track de integraciones:** ✅ **las diez unidades construidas** entre el 2026-08-29 y el
-2026-08-30. Ver `docs/specs/FUNNELS_SOURCE_MAP.md` §5 y el estado de verificación en
+**Track de integraciones:** ✅ **las diez unidades cerradas** entre el 2026-08-29 y el
+2026-08-30 (nueve construidas; `I-7` se absorbió en `I-8`). Ver `docs/specs/FUNNELS_SOURCE_MAP.md` §5 y el estado de verificación en
 `docs/operacion/verificacion-manual.md` (sección Embudos).
 
 > ⚠️ **La Fase 4 destapó un hueco de la Fase 0/1:** `computeFunnel` calculaba los
@@ -572,7 +613,8 @@ conformidad comparan esa transcripción contra las plantillas fila por fila.
 Nunca al revés: si un test falla, el error está en la plantilla, no en el
 documento. No "arreglar" el fixture para que pase.
 
-Lo que cubren los tests hoy:
+Lo que cubren los tests hoy (los principales; en total son 10 archivos `*.test.ts` en
+`lib/funnels/__tests__/`, que además cubren `compute`, `period`, `sources` y `source-signal`):
 
 | Archivo | Qué verifica |
 |---|---|

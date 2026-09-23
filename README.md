@@ -14,6 +14,7 @@ Anthropic), deployada en Vercel (región `gru1`) desde `main`.
 | `apps/discord-bot` | Bot de Discord (Railway) que lee la actividad de los alumnos |
 | `apps/reel-worker` | Worker de video de Trial Reels (Fly.io) |
 | `packages/ui`, `packages/config`, `packages/types` | Design system, configs compartidas, tipos |
+| `packages/ai`, `packages/database`, `packages/integrations`, `packages/queue` | Placeholders vacíos (sólo un comentario "Reserved for Phase 1+"); nada los importa |
 | `supabase/migrations` | Fuente de verdad del schema (se arma la base desde cero con ellas) |
 | `docs/` | Documentación, por área — **empezá por [`docs/README.md`](./docs/README.md)** |
 
@@ -32,9 +33,9 @@ No hay Supabase local: apuntá a un proyecto de desarrollo con las migraciones a
 ## Comandos
 
 ```bash
-pnpm typecheck      # tsc en todo el monorepo (turbo)
+pnpm typecheck      # tsc en todo el monorepo (turbo; apps/reel-worker no tiene script)
 pnpm lint
-pnpm test           # Vitest (lógica pura de lib/)
+pnpm test           # Vitest de apps/web (lógica pura: *.test.ts en lib/, constants/, etc.)
 pnpm build
 ```
 

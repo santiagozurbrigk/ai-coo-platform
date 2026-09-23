@@ -60,7 +60,7 @@ Superficies de Ventas que viven en otras pantallas:
 tabla exige soltar esa FK.
 
 **`closing_calls.status`** mezcla tres ejes; se lee **sólo** con los predicados de
-`lib/closing/call-status.ts` (`callWasAttended`, `callIsSale`, `needsDisposition`,
+`lib/closing/call-status.ts` (`callHappened`, `callWasAttended`, `callIsSale`, `needsDisposition`,
 `acceptsManualOutcome`, `syncMayOverwriteStatus`):
 
 | Estado | Significado |
@@ -104,14 +104,17 @@ GHL            ── cron /api/cron/ghl-sync (hora) ─────────
 
 - **Identidad del lead:** mail (case-insensitive), con `ghl_contact_id` de respaldo. Nunca el nombre.
   Un turno sin mail ni contacto GHL queda sin `lead_id` y **no aparece en la tabla de seguimiento**.
-- **Estado del hilo** (derivado, no persistido): `follow_up_due` > `pending_outcome` > `stalled`
-  (accionables) y `scheduled`, `follow_up_planned`, `won`, `lost`. `lost` sólo si el intento **más
+- **Estado del hilo** (derivado, no persistido; `buildLeadThread`), en este orden: `won` (algún
+  intento es venta) > `lost` > `follow_up_due` > `pending_outcome` > `scheduled` >
+  `follow_up_planned` > `stalled` (nada de lo anterior, o sin intentos). Accionables:
+  `follow_up_due`, `pending_outcome`, `stalled`. `lost` sólo si el intento **más
   reciente** tiene un próximo paso con `behavior = closes_thread`.
 - **Ediciones del closer** (`setNextActionAction`, `setNextActionOwnerAction`,
   `setNextActionNotesAction`, `setLeadQualificationAction`, `saveCallFollowUpAction`) escriben sobre
   el turno accionable (`targetAttemptId`) con el cliente de sesión (RLS).
-- **Los syncs no pisan lo manual:** toda escritura humana pasa por `patchToClosingUpdateRow`
-  (`lib/closing/mapper.ts`), que marca `status_source = 'manual'`; los syncs consultan
+- **Los syncs no pisan lo manual:** todo cambio de estado hecho por una persona pasa por
+  `updateClosingCallAction` → `patchToClosingUpdateRow` (`lib/closing/mapper.ts`), que marca
+  `status_source = 'manual'` (las ediciones de seguimiento de `lead-actions.ts` no tocan `status`); los syncs consultan
   `syncMayOverwriteStatus`.
 
 ### Resultado de un turno (cliente)
@@ -127,6 +130,8 @@ No es atómico: si falla a mitad, queda el turno cerrado sin cliente o el client
 ```
 Key org:     cron /api/integrations/fathom/sync (hora) ─┐
 Key miembro: webhook /api/integrations/fathom/webhook/[token] ─┼→ fathom_calls (status pending)
+             (hoy falla: ver [FATHOM-WEBHOOK-MIEMBRO-ROTO] abajo)
+             + botón "Sincronizar mis llamadas" (syncMemberFathomAction) ┤
 Legacy:      webhook /api/integrations/fathom/webhook (409 si la firma sirve a >1 org) ┘
                          │
 cron /api/integrations/fathom/process (10 min, espera 30 min por llamada) → processSingleFathomCall
@@ -139,9 +144,12 @@ cron /api/integrations/fathom/process (10 min, espera 30 min por llamada) → pr
       si no → asociación por título (associate.ts): unmatched / pending_review / finalize
 ```
 
-- **Ventana de sync:** desde `connected_at` en adelante, nunca el historial (`lib/fathom/sync-window.ts`).
+- **Ventana de sync:** desde `last_sync_at`, pero nunca antes de `connected_at` (el historial no se trae)
+  (`lib/fathom/sync-window.ts`). Excepción: si no hay ninguna de las dos fechas, trae todo.
 - **Keys por miembro:** `app/fathom/member-actions.ts` valida la key, la cifra
   (`ENCRYPTION_MASTER_KEY` obligatoria) y crea el webhook por API (`lib/fathom/webhooks.ts`).
+  `syncMemberFathomAction` (botón "Sincronizar mis llamadas" en Integraciones) trae las reuniones del miembro con la misma
+  ventana y el mismo upsert que el cron de la org (`upsertFathomCallFromMeeting`).
 
 ### Bandeja (Zernio)
 
@@ -193,7 +201,7 @@ El inbox pasó a Zernio y `SalesInboxLayout` sólo renderiza `ZernioInboxPanel`.
 |---|---|---|
 | `SalesInboxClassic` en `components/sales/sales-inbox-layout.tsx` | Función no exportada, código muerto | Nada |
 | `conversation-list/thread/analysis`, `conversation-status/tag/source-badge`, `lead-avatar`, `lead-qualification-badge` | Sólo los usa `SalesInboxClassic` (y `conversation-tag-badge` el design-system preview) | `components/sales/index.ts` los re-exporta |
-| `conversation-tag-select.tsx`, `sales-metrics-page-content.tsx`, `sales-metrics-overview.tsx`, `sales-performance-metrics-section.tsx`, `components/closing/lead-follow-up-panel.tsx` | Sin importadores | Nada |
+| `conversation-tag-select.tsx`, `sales-metrics-page-content.tsx`, `sales-metrics-overview.tsx`, `sales-performance-metrics-section.tsx`, `components/closing/lead-follow-up-panel.tsx` | Sin importadores vivos (`sales-metrics-overview` y `sales-performance-metrics-section` sólo los importa `sales-metrics-page-content`, que nadie importa; `index.ts` re-exporta `SalesMetricsOverview`) | Nada |
 | `app/conversations/actions.ts` | Vivo **por el provider**: `PlatformDataProvider` carga `listConversationsAction` y abre un canal Realtime en **cada** pantalla de la plataforma | `providers/platform-data-provider.tsx`, `sales-funnel-strip.tsx`, `use-sales-metrics.ts`, `syncConversationTagForCall` |
 | `lib/conversations/repair-links.ts` | Se ejecuta (y escribe) en cada `listClosingCallsAction` | `app/closing/actions.ts` |
 | ManyChat (`lib/manychat`, `app/manychat`, webhook, reanalyze, 4 componentes de integración) | **Todavía `listed: true`** en `lib/integrations/registry.ts`, escribe en una tabla que ninguna pantalla muestra | Registro de integraciones |
@@ -248,6 +256,11 @@ Detalle y prioridad en [`PENDIENTES.md` § Ventas](../../PENDIENTES.md#ventas).
 - **Análisis profundo con criterio equivocado** `[FATHOM-DEEP-ANALISIS-ALCANCE]`: corre para toda
   llamada vinculada a cliente de ≥10 min (también 1-1 de entrega) y nunca para ventas con leads;
   `closer_name` queda null → el ranking agrupa todo en "Sin nombre".
+- **El webhook de Fathom por miembro no puede guardar nada** `[FATHOM-WEBHOOK-MIEMBRO-ROTO]`:
+  `app/api/integrations/fathom/webhook/[token]/route.ts` hace upsert en `fathom_calls` con
+  `raw_payload` (columna que no existe) y sin `title` (NOT NULL), y tampoco setea
+  `processed_after`, que el cron exige. Las grabaciones de un miembro sólo entran con el botón
+  de sincronizar.
 - **Peldaño de cruce con agenda desconectado:** `processSingleFathomCall` pasa `calendarLeadId: null`;
   y el peldaño 5 del resolvedor marca `purpose = sales` a cualquier externo no resuelto.
 - **Métricas de leads leen `conversations`** (0) `[EMBUDO-PANEL-DMS]`; show rate incluye canceladas.
@@ -257,7 +270,7 @@ Detalle y prioridad en [`PENDIENTES.md` § Ventas](../../PENDIENTES.md#ventas).
 - Seguridad: DMs de Zernio sin `wrapUntrustedContent` y análisis con mensajes enviados por el
   cliente `[ZERNIO-ANALISIS-UNTRUSTED]`; `clientId` sin validar contra la org en
   `associateFathomCallAction`; tokens de Calendly/Fathom org/ManyChat en texto plano.
-- Emojis en JSX de la bandeja (`TAG_CONFIG` en `zernio-inbox-panel.tsx`), contra la regla de diseño.
+- Emojis en JSX de la bandeja (`TAG_CONFIG` en `zernio-inbox-panel.tsx` y en `zernio-side-panel.tsx`), contra la regla de diseño.
 
 ## Tests
 

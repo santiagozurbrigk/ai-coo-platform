@@ -67,7 +67,7 @@ Lo que falta en los crons (detalle en `pendientes-infra`): no hay lock entre cor
 | `/api/webhooks/instagram/messages` | Meta (Instagram Graph) | `X-Hub-Signature-256` con `INSTAGRAM_APP_SECRET` sobre el raw body; `GET` de verificación con `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` | — | — | legacy |
 | `/api/webhooks/unipile` y `/api/integrations/unipile/webhook` | Unipile | Secreto compartido `UNIPILE_WEBHOOK_SECRET` (header `Unipile-Auth`/`x-unipile-secret`/`x-webhook-secret` o `?secret=`), **fail-closed 503** sin variable | — | — | Las dos rutas llaman a `handleUnipileIncomingWebhook`; legacy |
 | `/api/integrations/unipile/callback` | Unipile (hosted auth) | `verifyUnipileSecret` | — | — | |
-| `/api/integrations/zernio/webhook` | Zernio | HMAC sobre raw body (`x-hub-signature`) con `ZERNIO_WEBHOOK_SECRET`, **503 sin variable** | — | — | Escribe `zernio_messages`/`zernio_comments` |
+| `/api/integrations/zernio/webhook` | Zernio | HMAC sobre raw body (`x-zernio-signature`, `x-hub-signature-256` o `x-signature`) con `ZERNIO_WEBHOOK_SECRET`, **503 sin variable** | — | — | Escribe `zernio_messages`/`zernio_comments` |
 | `/api/integrations/calendly/webhook` | Calendly | HMAC `t.body` con `webhook_signing_key` de la integración + rate limit | **no** valida `t` | índice único en `closing_calls` | |
 | `/api/integrations/fathom/webhook/[token]` | Fathom (por miembro) | token en la URL → un solo secreto; HMAC | — | — | vía recomendada |
 | `/api/integrations/fathom/webhook` | Fathom (legacy) | HMAC contra el `webhook_secret` de cada org (o `FATHOM_WEBHOOK_SECRET`) + rate limit; **409** si la firma valida para más de una org | — | — | |
@@ -107,7 +107,7 @@ Riesgos abiertos: `verifyQStashRequest` no pasa `url` al `Receiver`, así que un
 | `transcriptionRateLimit` | 1 min / 30 | usuario | `/api/agent/transcribe` |
 | `sopGenerateRateLimit` | 1 h / 3 | org | generación de SOPs |
 | `apiRateLimit` | 1 min / 60 | IP | `/api/utm/track`, `/api/utm/click` |
-| `integrationRateLimit` | 1 min / 30 | | sync manual |
+| `integrationRateLimit` | 1 min / 30 | usuario (`fathom-sync:<user>`) | sync manual de Fathom (`app/fathom/actions.ts`) |
 | `publicFormRateLimit` | 10 min / 10 | IP (`getRequestIp`) | `/api/waitlist`, `/api/trial-confirm`, envío de `/onboarding-cliente` (`app/onboarding-cliente/actions.ts`) |
 | `webhookRateLimit` | 1 min / 100 | IP | Fathom legacy, Calendly, Mercado Pago, ManyChat |
 | `unipileWebhookRateLimit` | 1 min / 40 | | Unipile |

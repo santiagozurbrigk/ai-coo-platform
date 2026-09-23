@@ -15,13 +15,16 @@ misma carpeta; cada afirmación linkea a la página de la que sale.
 |---|---|
 | Base URL | `https://services.leadconnectorhq.com` |
 | Auth | `Authorization: Bearer <token>` — Access Token OAuth de **Sub-Account**, o Private Integration Token de Sub-Account ([ref](./ghl/opportunities/opportunities-api-v-3.md)) |
-| Header de versión | `Version: v3` — **obligatorio en todas las llamadas** |
+| Header de versión | `Version: v3` — **obligatorio en todas las llamadas de oportunidades** (el resto del cliente de Limitless —calendarios, contactos— usa `Version: 2021-04-15`) |
 | Scopes | `opportunities.readonly` para leer, `opportunities.write` para escribir ([tabla completa](./Authorization/Scopes.md)) |
-| Rate limit | 100 req / 10 s (burst) y 200.000 req / día, **por app y por sub-account** ([ref](./other/rate-limits.md)) |
+| Rate limit | 100 req / 10 s (burst) y 200.000 req / día, **por app y por sub-account**; la doc los define para llamadas con OAuth ([ref](./other/rate-limits.md)) |
 
-La integración GHL que ya existe en Limitless (`apps/web/lib/ghl/client.ts`) resuelve la
-autenticación con Private Integration Token, así que I-4 es agregar endpoints, no
-resolver auth.
+La integración GHL de Limitless (`apps/web/lib/ghl/client.ts`) resuelve la
+autenticación con Private Integration Token. I-4 ya está construida: `listGHLPipelines`
+(`GET /opportunities/pipelines`, usada por `lib/ghl/sync-pipelines.ts`) y
+`searchGHLOpportunities` (`GET /opportunities/search`, escrita pero hoy sin uso); el
+historial de etapas sale de los webhooks (`app/api/webhooks/ghl/route.ts` →
+`lib/ghl/ingest-opportunity-event.ts` → `ghl_opportunities`, `ghl_stage_transitions`).
 
 ---
 
@@ -34,7 +37,9 @@ sus etapas.
 
 > ⚠️ **La doc oficial no expande el objeto `pipeline`.** Dice literalmente
 > `pipelines: object[] — List of pipelines for the location`, sin detallar campos.
-> Lo mismo pasa en [`GET /opportunities/pipelines/:pipelineId`](./ghl/opportunities/get-pipeline.md).
+> [`GET /opportunities/pipelines/:pipelineId`](./ghl/opportunities/get-pipeline.md) sí
+> expande el pipeline (`id`, `name`, `stages`, `locationId`, `position`…), pero declara
+> `stages: array[]` sin detallar la etapa.
 > Los nombres de campo de una etapa hay que leerlos del primer response real —
 > aplicar la regla 3 de `CLAUDE.md`: persistir el payload crudo antes de mapearlo.
 
@@ -134,7 +139,8 @@ cada etapa durante el período"* (M21, M22, M23, M25). **Eso no se puede reconst
 leyendo la API**, ni siquiera con backfill: la información no existe del lado de GHL.
 
 La única forma de tenerlo es que **Limitless construya su propio historial** a partir de
-los webhooks, desde el momento en que se suscribe:
+los webhooks, desde el momento en que se suscribe (es lo que hace hoy
+`lib/ghl/stage-transition.ts`, que escribe `ghl_stage_transitions`):
 
 | Webhook | Para qué |
 |---|---|
@@ -191,11 +197,13 @@ contar del lado de Limitless:
 ## Qué queda por verificar contra una cuenta real
 
 Estas tres cosas no se pueden cerrar leyendo documentación, porque la documentación
-no las dice. Van al [`docs/operacion/verificacion-manual.md`](../../operacion/verificacion-manual.md) cuando se
-construya I-4:
+no las dice. Van al [`docs/operacion/verificacion-manual.md`](../../operacion/verificacion-manual.md):
 
-1. **La forma real del objeto `pipeline`** y de sus etapas (`GET /opportunities/pipelines`).
+1. **La forma real de las etapas** (`GET /opportunities/pipelines`). Del pipeline ya se
+   sabe que trae `id`, `name` y `stages[]` (`get-pipeline.md`); el código lee el id de la
+   etapa en `id` o `_id` y guarda el crudo en `ghl_pipeline_stages.raw`.
 2. **La forma real del objeto `opportunity`** que devuelve la búsqueda — si coincide
-   con el payload del webhook o si trae más campos.
+   con el payload del webhook o si trae más campos (sólo importa si se usa
+   `searchGHLOpportunities`, hoy sin llamadas).
 3. **Si `stageAggregations` cuenta oportunidades o suma valor monetario**, y qué
    devuelve exactamente cuando no hay filtro de pipeline.

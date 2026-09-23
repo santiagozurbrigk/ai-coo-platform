@@ -9,7 +9,7 @@ estaban bloqueados, y varias integraciones se construyeron a ciegas por eso.
 Teniendo la documentación acá adentro, cualquier sesión de Claude Code o cualquier
 desarrollador puede leerla sin depender de la red.
 
-**Fecha de captura: 2026-08-30.** La fuente viva siempre manda: si algo no cierra,
+**Fecha de captura: 2026-08-30** (Fathom: 2026-09-01). La fuente viva siempre manda: si algo no cierra,
 la URL de origen está en el front-matter de cada archivo.
 
 ---
@@ -24,8 +24,9 @@ la URL de origen está en el front-matter de cada archivo.
 | **Commas** (ex Fanbasis) | [`commas/`](./commas/) | 42 secciones · 36 endpoints | I-2 pagos |
 | **Hyros** | [`hyros/`](./hyros/) | 482 guías · **3 specs OpenAPI** · 51 endpoints · 10 webhooks | I-8 atribución |
 | **WebinarJam / EverWebinar** | [`webinarjam/`](./webinarjam/) | 17 artículos · 10 endpoints | I-5 webinar |
+| **Fathom** | [`fathom/`](./fathom/) | 39 archivos markdown de `developers.fathom.ai` (referencia de API, webhooks, OAuth) | Llamadas (no es de las olas de embudos) |
 
-**Los seis proveedores de las tres olas de integración están cubiertos.**
+**Los seis proveedores de las tres olas de integración están cubiertos**, más Fathom (bajado después, sin script en `regenerar.sh`: se reproduce con `tools/fathom-urls.txt`).
 
 ### Por dónde empezar
 
@@ -125,7 +126,7 @@ referencia que no se puede regenerar.
 
 ## Regla para Claude Code
 
-Antes de implementar contra cualquiera de estos seis proveedores, **leer de acá**, no
+Antes de implementar contra cualquiera de estos siete proveedores, **leer de acá**, no
 de memoria ni de una búsqueda web. Si un campo no está documentado en esta copia,
 tampoco está documentado en el proveedor: aplica la regla 3 de `CLAUDE.md` —persistir
 el payload crudo, no inventar el valor, y dejar la entrada en

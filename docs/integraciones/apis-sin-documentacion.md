@@ -1,7 +1,7 @@
 # APIs implementadas con suposiciones sin verificar
 
 > Verificado contra el código y contra `docs/external-apis/` el 2026-09-23 (commit 038caca).
-> Reemplaza a `docs/integraciones/apis-sin-documentacion.md`. Acá queda **sólo lo que todavía no está
+> Reemplaza a `docs/archivo/API_DOCS_PENDIENTES.md` (archivado). Acá queda **sólo lo que todavía no está
 > verificado**; lo que la documentación local ya resolvió se lista al final, en una línea.
 
 ## Cómo agregar una entrada
@@ -52,8 +52,8 @@ buscó "workflow", "custom webhook", "customData": sólo aparece la vía de app)
 
 | Suposición | Confianza | Qué falta |
 |---|---|---|
-| El cuerpo trae `type` con un nombre `Opportunity*`. Si no, la ruta responde 200 `ignored` y **no guarda nada** | Baja | Primer evento real. Si el Workflow no manda `type`, hay que agregarlo como custom data o todos los eventos se descartan en silencio |
-| El id de la oportunidad viene como `opportunityId` (preferido) o `id`, en la raíz o bajo `data`/`opportunity`/`customData` | Baja | Primer evento real |
+| El cuerpo trae `type` (o `event`/`eventType`) con un nombre `Opportunity*`. Si no, la ruta responde 200 `ignored` y **no guarda nada** | Baja | Primer evento real. Si el Workflow no manda `type`, hay que agregarlo como custom data o todos los eventos se descartan en silencio |
+| El id de la oportunidad viene como `opportunityId`/`opportunity_id` o `id`, en la raíz o bajo `data`/`opportunity`/`customData`. Se recorre capa por capa empezando por la raíz, así que un `id` en la raíz gana sobre un `opportunityId` anidado (en un Workflow ese `id` podría ser el del contacto) | Baja | Primer evento real |
 | Un Workflow puede mandar `pipelineStageId`. Sin eso sólo sirve para altas (M21) y M22/M23/M25 quedan atadas a la app del Marketplace | Baja | **Es la verificación que decide la unidad I-4** (`docs/archivo/PLAN_VERIFICACION.md` §5.2) |
 | El id del evento para deduplicar viene en `webhookId` | Media — la guía de webhooks de app lo usa en su ejemplo; para Workflow no hay nada | Si el Workflow no lo manda, `external_event_id` queda `NULL` y un reintento duplica la transición |
 

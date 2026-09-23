@@ -74,7 +74,7 @@ Browser ──► middleware (updateSession)
    │   ├─ sin user y ruta no pública → /login   (Server Actions: no redirige)
    │   ├─ user en /login → super admin: /super-admin/organizations; holding sin negocio: /holding
    │   │                    u /onboarding/holding; resto: /dashboard
-   │   └─ user en /dashboard, holding sin negocio → /holding
+   │   └─ user en /dashboard, holding sin negocio → /holding u /onboarding/holding
    ▼
 (platform)/layout.tsx  [Server Component]
    getHoldingSessionState · getCurrentUserPermissions · getCurrentOnboardingContext
@@ -135,10 +135,11 @@ Si no está, la app muestra el negocio (cookie) pero RLS filtra por la org del h
 |---|---|---|
 | `requireManagerProfile()` (sólo `founder`) | `app/team/actions.ts` | Invitar, cambiar rol, desactivar, roles custom. Tener `team: full` **no** alcanza |
 | `requireFounderRole()` | `app/finance/actions.ts` | 3 acciones de finanzas |
-| `requireFounder()` | `app/clients/custom-field-actions.ts`, `checkpoint-actions.ts`, `plan-duration-actions.ts`, `signals-actions.ts` | Configuración de clientes |
+| `requireFounder()` | `app/clients/custom-field-actions.ts`, `checkpoint-actions.ts`, `plan-duration-actions.ts` | Configuración de clientes |
+| rol founder (chequeo inline) | `app/clients/signals-actions.ts` | Cambiar el aviso de señales |
 | rol founder | `app/executive-reports/report-generation-actions.ts` | Generar reportes |
 | `requireHoldingProfile()` | `app/(platform)/holding/actions.ts` | founder o `is_holding_admin` |
-| `requireAddOn()` | `app/clients/sub-client-actions.ts`, `onboarding-link-actions.ts`, `custom-field-actions.ts` | Add-on `growth_partners` |
+| `requireAddOn()` | `app/clients/sub-client-actions.ts`, `onboarding-link-actions.ts`, `custom-field-actions.ts`, `revenue-actions.ts`, `signals-actions.ts` | Add-on `growth_partners` |
 | `requireSuperAdmin()` | todo `app/super-admin/*` y `lib/super-admin/queries.ts` | Panel interno |
 
 Todo lo demás sólo exige estar logueado en la org.

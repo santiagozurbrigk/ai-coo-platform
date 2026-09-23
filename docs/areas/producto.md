@@ -60,17 +60,22 @@ getProductPageData (lib/product/queries.ts, server)
   cliente de usuario): `saveAvatarAction`, `deleteAvatarAction`, `saveProductAction`, `deleteProductAction`,
   `saveSalesFrameworkAction`, `deleteSalesFrameworkAction`, `saveValuePropositionAction` (upsert),
   `reorderValueLadderAction`, `setCoreOfferAction`, `updateValueLadderStepAction`.
-  Después de guardar: `revalidateProduct()`, `invalidateOrgContext()` y `ingestProductContext()` **sin `await`**
-  (reindexa avatares, productos y frameworks en el RAG, `lib/rag/ingest.ts`).
+  Todas llaman `revalidateProduct()`. Los `save*` (avatar, producto, framework, propuesta) además llaman
+  `invalidateOrgContext()` e `ingestProductContext()` **sin `await`** (reindexa avatares, productos y frameworks
+  en el RAG, `lib/rag/ingest.ts`); `deleteSalesFrameworkAction`, `reorderValueLadderAction`, `setCoreOfferAction`
+  y `updateValueLadderStepAction` sólo invalidan el contexto, y `deleteAvatarAction` / `deleteProductAction` no
+  hacen ninguna de las dos (el agente y el RAG siguen viendo lo borrado hasta el próximo guardado).
+  `deleteProductAction` no borra: pone `is_active = false`.
 - **Sugerir desde el contexto:** `extractAndSuggestProductContextAction` exige fuentes
-  (`hasProductContextSources`: Fathom, SOPs o documentos), busca en el RAG y pide a Claude
+  (`hasProductContextSources`, `lib/rag/product-context-sources.ts`: algún chunk en el RAG, SOPs activos,
+  llamadas de Fathom o documentos), busca en el RAG y pide a Claude
   (`task: "product_extraction"`, `lib/rag/extract-product-context.ts`) un avatar, productos, frameworks y
   propuesta. El usuario revisa y `applySuggestedProductContextAction` los guarda **reusando las actions de
   arriba** (el avatar entra como principal).
 - **Grafo:** cada `onNodeDragStop` llama `saveGraphNodePositionAction` (`app/product/graph-positions.ts`), que
   hace upsert y traga cualquier error.
 - **Consumidores externos:**
-  - `lib/ai/org-context.ts`: el agente recibe el avatar principal, hasta 5 productos activos y los frameworks.
+  - `lib/ai/org-context.ts`: el agente recibe el avatar principal, hasta 5 productos activos y hasta 5 frameworks activos.
   - `app/onboarding/actions.ts`: `saveGateOfferAction` (producto con `isCoreOffer: true`,
     `valueLadderPosition: 1`) y `saveGateAvatarAction` (`isPrimary` + `replacePrimary`).
   - `lib/agent/graph-proposal-tools.ts`: tools del agente que proponen cambios al grafo.

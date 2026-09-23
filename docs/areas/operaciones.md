@@ -1,6 +1,6 @@
 # Operaciones y equipo
 
-> Verificado contra el código el 2026-09-23 (commit 038caca). Backlog del área: `PENDIENTES.md` § Operaciones y equipo.
+> Verificado contra el código el 2026-09-23 (commit 038caca). Backlog del área: `PENDIENTES.md` § Operaciones, Finanzas y Producto.
 >
 > Cubre: SOPs (incluido SOP desde video), Operaciones (overview e inputs semanales), Tablero de trabajo
 > (tareas, sprints, tiempo, links y adjuntos) y Equipo (miembros, roles, invitaciones). Inteligencia,
@@ -54,15 +54,16 @@ Rutas canónicas en `apps/web/routes/paths.ts` (`paths.platform.{operations,sops
 | `sops` | `title`, `goal`, `department`, `content` (markdown), `status` (`draft/active/outdated`), `generated_by_ai`, `ai_model`, `version`, `tags` | |
 | `sop_versions` | `sop_id`, `version`, `content`, `changed_by`, `change_note` | |
 | `sop_attachments` | `sop_id` **o** `draft_id`, `storage_path`, `file_name` | Bucket `sop-attachments`. Mientras el SOP es borrador cuelgan de `draft_id` (el id del job de video, o uno del formulario) |
-| `sop_generation_jobs` | `status` (`pending/transcribing/generating/ready/failed`), `video_path`, `transcript`, `transcript_seconds`, `generated_markdown`, `open_questions` JSONB, `error` | Realtime habilitado. Bucket privado `sop-videos` (1 GB, video/*), creado en la migración |
+| `sop_generation_jobs` | `status` (`pending/transcribing/generating/ready/failed`), `video_path`, `transcript`, `transcript_seconds`, `generated_markdown`, `open_questions` JSONB, `error` | Realtime habilitado. Bucket privado `sop-videos` (1 GB; mp4, mov, webm, mkv), creado en la migración |
 | `weekly_inputs` | `week_start` (lunes), `department` (`ventas/delivery/operaciones/marketing/founder`), `content`, `rating 1-5`, `submitted_by` | Único `(organization_id, week_start, department, submitted_by)` |
 | `weekly_reports` | `week_start`, `executive_summary`, `risks`/`bottlenecks`/`recommendations` JSONB, `status` (`pending/generating/ready/error`) | Único `(organization_id, week_start)` |
 | `team_roles` | `name`, `is_default`, `permissions` JSONB `{moduleId: none/view/full}` | Defaults sembrados por la RPC `create_default_roles` la primera vez que se lee Equipo |
 | `profiles` (parte de equipo) | `role` (`founder/admin/member/…`), `custom_role_id`, `is_active`, `hourly_rate`, `hourly_rate_currency`, `invited_by` | Trigger `protect_profile_columns` (20260922100000): nadie cambia `role`/`organization_id` desde PostgREST; un no-founder/admin sólo edita nombre, email y avatar |
-| `team_invitations` | `token`, `email`, `role`, `status`, `expires_at` | 0 filas en producción: nada las crea hoy |
+| `team_invitations` | `token`, `email`, `role`, `status`, `expires_at` | 0 filas en producción (al 2026-09-23): nada las crea hoy |
 
 **RLS:** todas las tablas del área filtran sólo por `organization_id = get_my_organization_id()`. **Ninguna
-policy mira el rol.** Migraciones: `20260522300000_workboard_tasks`, `20260616100000_workboard_time_tracking`,
+policy mira el rol**, salvo el UPDATE de `profiles` ("Founders update org profiles", founder/admin editan a otros
+miembros de la org; `20260616100000`). Migraciones: `20260522300000_workboard_tasks`, `20260616100000_workboard_time_tracking`,
 `20260616200000_workboard_sprints`, `20260714100000_workboard_task_links`, `20260915100000_tareas_varios_responsables`,
 `20260615300000_weekly_inputs`, `20260616300000_sops_enhanced`, `20260719100000_sop_attachments`,
 `20260903110000_sop_video_jobs`, `20260616400000_team_roles_permissions`, `20260906102000_permisos_por_modulo`.
@@ -75,8 +76,10 @@ policy mira el rol.** Migraciones: `20260522300000_workboard_tasks`, `2026061610
   `listLaunchPickerOptionsAction` de Lanzamientos. Estado en cliente vía `providers/workboard-provider.tsx`.
 - **Crear:** `createWorkboardTaskAction` valida con zod, asigna el sprint activo si no viene uno, escribe
   `assignee_ids` y copia el primero a `assignee_id`, linkea documentos y recalcula el `completion_rate` del sprint.
-- **Mover / editar:** `moveWorkboardTaskAction`, `updateWorkboardTaskAction`. Pasar a `done` setea
-  `completed_by`/`completed_at`; reabrir los borra. Al llegar a `done` la UI abre `log-time-modal.tsx` →
+- **Mover / editar:** `moveWorkboardTaskAction` (arrastrar en el Kanban), `updateWorkboardTaskAction` (detalle).
+  Sólo `updateWorkboardTaskAction` setea `completed_by`/`completed_at` al pasar a `done` y los borra al reabrir;
+  `moveWorkboardTaskAction` sólo cambia `status` y `position`, así que una tarea cerrada **arrastrándola** queda
+  sin `completed_by`. Al llegar a `done` la UI abre `log-time-modal.tsx` →
   `logTaskTimeAction` (acumula en `actual_minutes` y agrega a `time_entries`).
 - **Otros que escriben tareas:** `app/agent/workboard-actions.ts` (`createWorkboardTasksAction`,
   `updateWorkboardTaskAction` homónima), usada por las tools del agente, el modal de propuestas de Fathom
@@ -99,11 +102,14 @@ Video:  prepareSopVideoUploadAction (signed URL a sop-videos) → navegador sube
              bajar video → ffmpeg: duración + mp3 → Whisper (en trozos si es largo; audio-chunks.ts)
              → guarda transcript → Sonnet (video-sop-prompt.ts) → validateAttachmentMarkers → ready
         → la pantalla escucha el job por realtime (sop-video-creator.tsx) y carga el markdown en el creador
-        → el usuario guarda con saveSOPAction (draftId = id del job, así las capturas pasan al SOP)
+        → el usuario guarda con saveSOPAction (draftId = el UUID propio del formulario, sólo si se subieron
+          adjuntos en modo texto; el id del job no se pasa)
 ```
 
 - Si el worker falla responde **200** a propósito (el job queda `failed` con el motivo) para que QStash no
   reintente y vuelva a pagar Whisper. `retrySopVideoJobAction` reencola y **no retranscribe** si ya hay `transcript`.
+- El worker busca capturas en `sop_attachments` con `draft_id = id del job`, pero **ninguna pantalla sube capturas
+  a un job de video** (`sop-video-creator.tsx` sólo sube el video): hoy esa lista siempre llega vacía.
 - Las capturas se guardan como **marcadores** en el markdown, no como URL firmada; se resuelven al mostrar
   (`lib/sops/attachment-markers.ts`, `components/sops/sop-content-with-attachments.tsx`).
 - `trackTranscriptionUsage` registra Whisper en `token_usage` (`model = 'whisper-1'`).
@@ -163,14 +169,15 @@ Video:  prepareSopVideoUploadAction (signed URL a sop-videos) → navegador sube
 ## Limitaciones conocidas y deuda
 
 - **SOP desde video nunca corrió de punta a punta** `[D-SOPS-VIDEO-NUNCA-CORRIO]`. Hay 1 fila en
-  `sop_generation_jobs` en producción; no se sabe si llegó a `ready`.
+  `sop_generation_jobs` en producción (al 2026-09-23); no se sabe si llegó a `ready`.
 - **El video no se borra** del bucket al terminar, aunque la migración dice que sí `[OPS-SOP-VIDEO-NO-SE-BORRA]`.
-- **El worker carga el video entero en memoria y en `/tmp`** (hasta 1 GB) y mide la duración decodificando
+- **El worker carga el video entero en memoria y en `/tmp`** (la subida se corta en `NEXT_PUBLIC_SOP_VIDEO_MAX_MB`,
+  50 MB por defecto; el bucket acepta hasta 1 GB) y mide la duración decodificando
   todo con `-f null` `[OPS-SOP-VIDEO-MEMORIA]`.
 - **Un miembro desactivado sigue entrando**: `is_active` no se mira en login, middleware ni RLS `[EQUIPO-DESACTIVAR-NO-BLOQUEA]`.
 - **Las escrituras del agente/Fathom/clientes no mantienen `assignee_ids`** `[WORKBOARD-ASIGNACION-AGENTE]`.
 - **No hay edición ni borrado de SOPs** en la UI: `updateSOPAction` existe pero nadie la llama, y no hay delete;
-  por eso el versionado nunca se ejercita `[SOPS-EDITAR]`. `sop_versions` tiene 0 filas con 3 SOPs.
+  por eso el versionado nunca se ejercita `[SOPS-EDITAR]`. `sop_versions` tiene 0 filas con 3 SOPs (producción, al 2026-09-23).
 - **`customRoleId` no se valida contra la org** al invitar ni al cambiar rol `[EQUIPO-CUSTOM-ROLE-ORG]`.
 - **Permisos sólo en el render**: actions y RLS abiertas a cualquier miembro `[PERMISOS-SERVER-ACTIONS]`.
 - **Buckets `sop-attachments` y `workboard-task-attachments` no están en migraciones** `[AUDITORIA-ABIERTOS]` §3.9.
@@ -186,9 +193,10 @@ Video:  prepareSopVideoUploadAction (signed URL a sop-videos) → navegador sube
 | `lib/sops/__tests__/attachment-markers.test.ts` | Marcadores de captura: validar, borrar inventados |
 | `lib/workboard/__tests__/filtrar-por-responsable.test.ts` | Filtro por responsable con `assigneeIds` y fallback |
 | `lib/navigation/__tests__/module-for-path.test.ts` | Qué módulo protege cada ruta (recorre `app/(platform)` en disco) |
+| `constants/__tests__/permisos-consolidados.test.ts` | Traducción de claves viejas de permisos a los 13 módulos (`permissionsFromRow` de `lib/team/mapper.ts`) |
 
-Sin tests: `parseVideoSopResponse`, `lib/workboard/{mapper,sprint,time-report,group-tasks}`, `lib/operations/*`,
-`lib/team/mapper.ts`, `suggest-sops.ts`, y ninguna action. No hay e2e del área (`apps/web/e2e/` sólo tiene holding).
+Sin tests: `parseVideoSopResponse`, `lib/workboard/{mapper,sprint,time-report}` (de `group-tasks` sólo
+`filterTasksByAssignee`), `lib/operations/*`, el resto de `lib/team/mapper.ts`, `suggest-sops.ts`, y ninguna action. No hay e2e del área (`apps/web/e2e/` sólo tiene holding).
 
 ## Archivos clave
 

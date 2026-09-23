@@ -61,7 +61,7 @@ El claim `active_business_org_id` lo agrega el Auth Hook `custom_access_token_ho
 
 Lectura de portfolio del holding: `get_my_holding_business_org_ids()` + policies `holding_reads_*` sobre `organizations`, `clients`, `closing_calls`, `conversations` (`20260630100000_holding_portfolio_rls.sql`). **No miran el rol**: cualquier miembro de la org holding lee esas tablas de todos los negocios (`[AUD-SEG-3]`).
 
-**Ninguna policy filtra por rol.** Los permisos por módulo (`team_roles.permissions`) se aplican en el render de `app/(platform)/layout.tsx`, no en la base ni en las actions (`[PERMISOS-SERVER-ACTIONS]`).
+**Casi ninguna policy filtra por rol**: la única excepción en el repo es `Founders update org profiles` (UPDATE de `profiles`, `20260616100000_workboard_time_tracking.sql`), que deja a un `founder`/`admin` editar los perfiles de su org; en prod esa lógica está en la policy consolidada con `current_user_is_founder_or_admin()`. Los permisos por módulo (`team_roles.permissions`) se aplican en el render de `app/(platform)/layout.tsx`, no en la base ni en las actions (`[PERMISOS-SERVER-ACTIONS]`).
 
 ### Tablas sin lectura para el usuario
 
@@ -79,7 +79,7 @@ Excepciones que **sí** son editables por cualquier miembro: `discord_integratio
 
 ### Columnas protegidas
 
-- `profiles`: trigger `protect_profile_columns` (`20260922100000`). Para `anon`/`authenticated` bloquea `id`, `organization_id`, `role`, `is_holding_admin` y la contraseña temporal; un no-founder sólo cambia nombre, email y avatar.
+- `profiles`: trigger `protect_profile_columns` (`20260922100000`). Para `anon`/`authenticated` bloquea `id`, `organization_id`, `role`, `is_holding_admin` y la contraseña temporal; quien no es `founder` ni `admin` de la org sólo cambia nombre, email y avatar.
 - `organizations`: UPDATE por columna sólo en `name, industry, website_url, timezone, currency, language, country`; SELECT por columna en el repo (ver matiz de prod arriba).
 
 ## Funciones SQL

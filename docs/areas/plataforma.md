@@ -22,9 +22,9 @@ de negocio (clientes, ventas, marketing, etc.).
 | `/onboarding` | `app/(platform)/onboarding/page.tsx` → `components/onboarding/onboarding-gate.tsx` | Gate de 3 pasos del founder, sin chrome (`lib/navigation/chromeless.ts`) |
 | `/onboarding/holding` | `app/(platform)/onboarding/holding/page.tsx` | Wizard de alta del holding (`onboarding_responses`) |
 | `/holding` | `app/(platform)/holding/page.tsx` | Portfolio del holding, entrar/salir de un negocio |
-| `/settings` | `app/(platform)/settings/page.tsx` → `components/settings/settings-form.tsx` | Pestañas General, Perfil, Notificaciones, IA (BYOK Claude), Seguridad; Pagos (sólo founder); Mi Calendly (sólo si el rol custom se llama "closer") |
+| `/settings` | `app/(platform)/settings/page.tsx` → `components/settings/settings-form.tsx` | Pestañas General, Perfil, Notificaciones, IA (BYOK Claude), Seguridad; Pagos (sólo founder); Mi Calendly (sólo si el nombre del rol custom contiene "closer") |
 | `/integrations` | `app/(platform)/integrations/page.tsx` → `components/integrations/integrations-board.tsx` | Tablero de las integraciones por categoría, estado y detalle |
-| `/integrations/import` | `app/(platform)/integrations/import/page.tsx` | Importación de históricos (Excel / ClickUp) |
+| `/integrations/import` | `app/(platform)/integrations/import/page.tsx` | Importación de históricos desde Excel o GoHighLevel. El import de ClickUp es un diálogo aparte, desde la tarjeta de ClickUp del tablero |
 | `/integrations/discord` | `app/(platform)/integrations/discord/page.tsx` | Ver [`discord.md`](./discord.md) |
 | `/team`, `/team/members`, `/team/roles` | `app/(platform)/team/*` | Miembros, invitaciones y roles. `/team/members` y `/team/roles` redirigen a `/team#…` (`lib/navigation/redirects.ts`) |
 | `/redesign-preview` | `app/(platform)/redesign-preview/page.tsx` | Pantalla interna de diseño, sin datos, libre de permisos |
@@ -64,6 +64,8 @@ redirige a `/super-admin/organizations`. El panel es `app/(super-admin)/super-ad
 
 Guard doble: `app/(super-admin)/super-admin/layout.tsx` (redirect) y `requireSuperAdmin()` dentro de
 cada query/acción (incluidas las de sólo lectura, vía `lib/super-admin/queries.ts` y `org-health.ts`).
+Excepción: `loadOnboardingProgress()` (`lib/super-admin/onboarding-progress.ts`) no llama a
+`requireSuperAdmin()`; sólo la protege el layout.
 
 ## Modelo de datos
 
@@ -155,7 +157,7 @@ cuenta). El comentario de `execute-deletion.ts` dice "cero FK a `auth.users`": e
 |---|---|---|
 | Supabase Auth | Sesión, signup, recover, `admin.createUser`/`deleteUser` | Modo demo (ver abajo) |
 | Anthropic | Validar la clave BYOK en Ajustes | La org usa la clave global |
-| Resend | Mails de bienvenida y waitlist (`lib/email/*`) | No sale el mail |
+| Resend | Mail de waitlist (sólo desde `/api/waitlist`, sin llamador) y aviso de reels de prueba (`lib/email.ts`, `lib/email/*`). `sendWelcomeEmail` existe pero nadie la llama | No sale el mail |
 | Google Drive (super admin) | Import al cerebro global (`app/super-admin/drive-actions.ts`) | Sección vacía |
 | Meta Pixel | `(landing)/layout.tsx` en `/prueba` y `/privacidad` | No trackea |
 
@@ -193,8 +195,8 @@ configuración (`[DEMO-LAYOUT-500]`). `/demo` y `/design-system` sí funcionan.
 - `[FOUNDER-AREA]` `/founder` es el mismo snapshot de Inteligencia con otro layout, y no pasa por el
   bloqueo de permisos (está fuera de `(platform)`).
 - `[WAITLIST-HUERFANO]` (nuevo) `/api/waitlist` sigue público y sin llamador desde que se borró la landing.
-- `[SETTINGS-CLOSER-POR-NOMBRE]` (nuevo) La pestaña "Mi Calendly" aparece si el rol custom se llama
-  "closer" (ILIKE): renombrar el rol la esconde.
+- `[SETTINGS-CLOSER-POR-NOMBRE]` (nuevo) La pestaña "Mi Calendly" aparece si el nombre del rol custom
+  contiene "closer" (`includes`, sin distinguir mayúsculas): renombrar el rol la esconde.
 - `[INTEGRACIONES-PLAYWRIGHT]` El tablero de Integraciones no tiene e2e.
 - `[BRAND-E]` Dominio `optimizatucontrol.com` en `brand.domain` y en referencias sueltas.
 

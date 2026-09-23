@@ -30,11 +30,11 @@ integraciones, reglas de negocio no obvias, limitaciones, tests y archivos clave
 |---|---|---|
 | Clientes (CRM, ficha, 1-1, import) | [`areas/clientes.md`](./areas/clientes.md) | `/clients` |
 | ↳ Recorrido, campos configurables y wins | [`areas/clientes-recorrido-y-wins.md`](./areas/clientes-recorrido-y-wins.md) | `/clients/checkpoints`, `/clients/wins`, `/clients/campos`, `/clients/revision` |
-| ↳ Add-on growth partners (clientes de clientes, onboarding por link) | [`areas/clientes-growth-partners.md`](./areas/clientes-growth-partners.md) | `/onboarding-cliente` |
+| ↳ Add-on growth partners (clientes de clientes, onboarding por link) | [`areas/clientes-growth-partners.md`](./areas/clientes-growth-partners.md) | `/onboarding-cliente/[token]` |
 | Ventas (bandeja, closing, llamadas, cobros, métricas) | [`areas/ventas.md`](./areas/ventas.md) | `/sales/*` |
 | Marketing (contenido Zernio, anuncios, UTMs, formularios, Trial Reels) | [`areas/marketing.md`](./areas/marketing.md) | `/marketing/*` |
 | Embudos y Lanzamientos | [`areas/embudos.md`](./areas/embudos.md) | `/funnels`, `/lanzamientos` |
-| Agente de negocio e IA (agente, RAG, BYOK, reportes, inteligencia) | [`areas/agente-ia.md`](./areas/agente-ia.md) | `/agent`, `/business-context`, `/executive-reports`, `/intelligence` |
+| Agente de negocio e IA (agente, RAG, BYOK, reportes, inteligencia) | [`areas/agente-ia.md`](./areas/agente-ia.md) | `/agent`, `/business-context/*`, `/executive-reports/*`, `/intelligence` |
 | Operaciones y equipo (tablero, SOPs, inputs, equipo) | [`areas/operaciones.md`](./areas/operaciones.md) | `/workboard`, `/operations/*`, `/team` |
 | Finanzas | [`areas/finanzas.md`](./areas/finanzas.md) | `/finance/*` |
 | Producto (avatares, ofertas, value ladder) | [`areas/producto.md`](./areas/producto.md) | `/product/*` |

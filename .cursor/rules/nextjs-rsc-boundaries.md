@@ -11,13 +11,13 @@ Aplica en **toda** tarea que toque `apps/web/components` o `apps/web/app`.
 1. **`components/shared/index.ts`** — solo exports sin `"use client"`. Nunca añadir `ModuleSubnav`, hooks, `framer-motion`, etc.
 2. **`components/shared/client.ts`** — único barrel para exports `"use client"` de shared.
 3. **Componentes `"use client"`** — importar shared con ruta de archivo (`@/components/shared/panel`) o `@/components/shared/client`, **nunca** `@/components/shared` (index).
-4. **`app/**/page.tsx` y `layout.tsx` (servidor)** — importar el componente por archivo (`.../marketing-dashboard`), **no** desde `@/components/<módulo>` si ese `index.ts` reexporta clientes.
+4. **`app/**/page.tsx` y `layout.tsx` (servidor)** — importar el componente por archivo (p. ej. `@/components/marketing-insights/content-funnel`), **no** desde `@/components/<módulo>` si ese `index.ts` reexporta clientes.
 5. Tras refactors grandes de módulos: borrar `apps/web/.next` y reiniciar `pnpm dev`.
 
 Documentación: `apps/web/components/shared/README.md`
 
-ESLint bloquea violaciones (`no-restricted-imports`).
+ESLint (`no-restricted-imports` en `apps/web/eslint.config.mjs`) bloquea el barrel `@/components/shared` en todo `apps/web` y el de `@/components/marketing-insights` en `app/**`; el resto de las reglas no las chequea.
 
 ## Pestañas por hash en la misma ruta
 
-No uses `<Link href="/equipo#roles">` a mano para cambiar pestañas en la misma página: Next.js no dispara `hashchange`. Usa `ModuleSubnav`, `HashTabLink` o `pushHashTab` (`lib/hooks/use-hash-tab.ts`).
+No uses `<Link href="/ruta#pestaña">` a mano para cambiar pestañas en la misma página: Next.js no dispara `hashchange`. Usa `ModuleSubnav`, `HashTabLink` o `pushHashTab` (`lib/hooks/use-hash-tab.ts`).

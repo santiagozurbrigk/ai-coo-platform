@@ -16,7 +16,9 @@ llamada en Closing (o cargado a mano / importado) y lo sigue hasta caso de éxit
 **Qué NO hace:** no es el seguimiento financiero. Plan, cuotas, pagos y adeudado viven en
 **Ventas → Cobros** (`/sales/cobros`, `app/sales/payment-actions.ts`, ver el doc del área Ventas).
 Los componentes de planes (`components/clients/plan-*.tsx`) y sus actions (`app/clients/plan-actions.ts`,
-`plan-duration-actions.ts`) siguen físicamente en esta carpeta, pero sólo los usa `components/sales/cobros-page.tsx`.
+`plan-duration-actions.ts`) siguen físicamente en esta carpeta, pero sólo los usa `components/sales/cobros-page.tsx`
+(más `listPlansAction`, que también lee el modal de cobro de Closing, `components/closing/payment-modal.tsx`).
+`plan-durations-dialog.tsx` no lo importa nadie.
 La clasificación de grabaciones de Fathom (a qué cliente pertenece cada llamada) es del área de Llamadas/Fathom;
 acá sólo se consume.
 
@@ -27,7 +29,7 @@ Todas bajo el layout `(platform)`; el acceso por pantalla lo corta `app/(platfor
 
 | Ruta | Archivo | Qué muestra |
 |---|---|---|
-| `/clients` | `app/(platform)/clients/page.tsx` → `components/clients/clients-list.tsx` | Tabla de entrega: etapa, próxima tarea, satisfacción, facturación (add-on), última 1-1, columnas configurables con `show_in_table`. Filtros armados con los datos (sólo aparece una pastilla si hay alguien detrás). Botones: nuevo cliente, cargar clientes (CSV), revisión, wins, recorrido, campos. Con el add-on, la bandeja de onboarding «sin asignar» |
+| `/clients` | `app/(platform)/clients/page.tsx` → `components/clients/clients-list.tsx` | Tabla de entrega: etapa, próxima tarea, satisfacción, facturación (add-on), última 1-1, columnas configurables con `show_in_table`. Filtros armados con los datos (sólo aparece una pastilla si hay alguien detrás). Botones: nuevo cliente, cargar clientes (CSV o Excel), revisión, wins, Cobros (si tiene acceso a Ventas) y el menú «Configurar» (recorrido, campos). Con el add-on, la bandeja de onboarding «sin asignar» |
 | `/clients/[id]` | `app/(platform)/clients/[id]/page.tsx` → `components/clients/client-detail.tsx` | La ficha (ver abajo). **Client Component**: toma el cliente de `usePlatformData().clients`, no de una query propia |
 | `/clients/checkpoints` | `app/(platform)/clients/checkpoints/page.tsx` → `components/clients/checkpoints/journey-page.tsx` | Catálogo de fases y checkpoints (C1). Ver doc de recorrido |
 | `/clients/wins` | `app/(platform)/clients/wins/page.tsx` → `components/clients/wins/wins-page.tsx` | Tracker, dashboard de casos y candidatos desde Discord. Ver doc de recorrido |
@@ -91,7 +93,7 @@ Tamaño real en producción (estimado `list_tables`, 2026-09-23): 337 clientes, 
 Closing (markCallClosed en providers/platform-data-provider.tsx)
    └─ createClientAction ── atribución UTM + lead magnet (best-effort, no rompe el alta)
 Alta manual (new-client-dialog) ─┘
-CSV (import-clients-dialog → importClientsAction, todo o nada)
+CSV/Excel (import-clients-dialog → importClientsAction, todo o nada)
 Excel (/integrations/import → importClientsFromExcelAction, dedupe por nombre)
 
 PlatformDataProvider.listClientsAction()  ← select * de clients (incluye custom entero)
@@ -107,7 +109,7 @@ PlatformDataProvider.listClientsAction()  ← select * de clients (incluye custo
 | Lista | `getClientsBoardAction` | `app/clients/clients-board-actions.ts`. `pickNextTask` (`lib/clients/next-task.ts`) es la misma regla en tabla y ficha |
 | Franja de la ficha | `getClientOverviewAction` | `app/clients/overview-actions.ts` |
 | 1-1 por link | `uploadOneOnOneFromShareLinkAction` → `fetchFathomShare` (página pública de Fathom, sin API key) → `finalizeAssociatedCall` | `app/fathom/manual-upload-actions.ts`, `lib/fathom/share-link.ts`. **No corre el clasificador**: el cliente lo eligió una persona |
-| Tareas desde la 1-1 | `lib/fathom/one-on-one-tasks.ts` (Claude) → `lib/clients/client-tasks.ts` | Marca `one_on_one_tasks_extracted_at` sólo si la respuesta se pudo leer. Reintento: `retryOneOnOneTasksAction` (botón «Buscar tareas») |
+| Tareas desde la 1-1 | `lib/fathom/one-on-one-tasks.ts` (Claude) → `lib/clients/client-tasks.ts` | Marca `one_on_one_tasks_extracted_at` sólo si la respuesta se pudo leer. Reintento: `retryOneOnOneTasksAction` (`app/fathom/one-on-one-actions.ts`, botón «Buscar tareas») |
 | Tareas a mano | `create/update/toggle/delete/sendClientTaskToBoardAction` | `app/clients/task-actions.ts`. `sendClientTaskToBoardAction` crea un `workboard_tasks` y guarda `workboard_task_id` (no duplica) |
 | Notas, satisfacción, seguimiento | `updateClientNotesAction`, `updateClientSatisfactionAction`, `updateClientTrackingAction`, `updateClientCurrentStatusAction` | `app/clients/tracking-actions.ts` |
 | Fase manual | `setClientManualStageAction` (valida que la fase sea de la org) | `app/clients/stage-actions.ts`. La UI llama `refreshClients()` después (recarga la lista entera) |
@@ -142,7 +144,7 @@ PlatformDataProvider.listClientsAction()  ← select * de clients (incluye custo
 - **Mail del cliente.** `clients.email` se hereda del lead al cerrar; es la identidad determinista para vincular
   llamadas. Casi todos los clientes viejos no lo tienen (`[CLIENTES-SIN-MAIL]`).
 - **Permisos.** Sólo el founder configura catálogo (recorrido, campos, duración de planes, umbral de silencio): lo
-  hacen cumplir las actions con `requireFounder()`. Todo lo demás (alta, borrado, tareas, notas, hitos, wins) sólo
+  hacen cumplir las actions con `requireFounder()` (el umbral de silencio, con un chequeo equivalente de `profile.role` en `setClientSilenceDaysAction`). Todo lo demás (alta, borrado, tareas, notas, hitos, wins) sólo
   exige estar en la org: el permiso por módulo (`full` / `read` / `none`) corta el render y esconde botones
   (`useModuleAccess("clients")`), **no** las server actions ni la RLS (`[PERMISOS-SERVER-ACTIONS]`).
 - **Add-on `growth_partners`.** `useHasAddOn` esconde las tarjetas; el servidor lo vuelve a exigir con `requireAddOn`
@@ -156,7 +158,7 @@ PlatformDataProvider.listClientsAction()  ← select * de clients (incluye custo
 | `[FICHA-LENTA]` / `[FASE-REFRESCO-CARO]` / `[FICHA-CUSTOM-EN-LA-LISTA]` | Ficha con ~15 actions; fijar fase recarga toda la lista; `listClientsAction` trae `custom` entero |
 | `[CLIENTES-TECHO-1000]` | `listClientsAction`, `getClientsJourneyStatusAction`, próxima tarea, wins y eventos no paginan: pasadas las 1000 filas se trunca en silencio |
 | `[CLIENTES-IMPORT-EXCEL-MONTOS]` | El parser de Excel convierte montos ilegibles en 0 y fechas ilegibles en hoy |
-| `[CLIENTES-SIN-MAIL]` | Casi ningún cliente viejo tiene mail; el import de Excel lee la columna Email y **no la guarda** |
+| `[CLIENTES-SIN-MAIL]` | Casi ningún cliente viejo tiene mail; el import de Excel lee la columna Email y **no la guarda** en `clients.email` (queda como texto en `ai_insights`) |
 | `[CLIENTES-PENDING-CALLS-HUERFANA]` | `/clients/pending-calls` no tiene link en la navegación de escritorio |
 | `[1A1-EDITAR-DETALLE]` | La acción de editar tarea existe; la UI no la ofrece |
 | `[PERMISOS-SERVER-ACTIONS]` | Roles sin enforcement en actions/RLS |

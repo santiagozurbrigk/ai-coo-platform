@@ -84,7 +84,7 @@ hondas tengan "volver" y que no apunte a sí mismas.
 ## `@ai-coo/ui` (`packages/ui`)
 
 Paquete interno, se consume desde el código fuente (`transpilePackages` en `next.config.ts`, sin build).
-Exporta `./src/index.ts` y `./styles/tokens.css`.
+Exporta `./src/index.ts` y `./styles/tokens.css` (el archivo está en `src/styles/tokens.css`).
 
 | Grupo | Contenido |
 |---|---|
@@ -100,7 +100,7 @@ vienen los gráficos de `components/charts/`).
 
 ### Gráficos
 
-`components/charts/` (~50 archivos): wrappers Visx estilo Bklit (área, barras, embudo, gauge, grilla,
+`components/charts/` (78 archivos: 51 en la raíz más `platform/` y `tooltip/`): wrappers Visx estilo Bklit (área, barras, embudo, gauge, grilla,
 tooltip) y `components/charts/platform/` con los paneles que usan las pantallas (`ChartShell`,
 `FunnelChartPanel`, `CategoryBarChart`, etc.). Colores por token CSS (`--chart-*`, ver design-system) o
 `brandColors` de `lib/brand.ts` cuando el prop no acepta variables. Galería en `/design-system/charts`.
@@ -139,13 +139,14 @@ servidor, `client.ts` los `"use client"`; nunca importar un barrel con clientes 
 ## Limitaciones conocidas y deuda
 
 - `[NAV-1]` La notch nav nunca se validó con sesión real (pill activo, dropdowns, switcher, drawer mobile).
-- `[NAV-2]` Renombrar `sidebar-modules.ts` a `platform-modules.ts` (cosmético, ~15 imports).
+- `[NAV-2]` Renombrar `sidebar-modules.ts` a `platform-modules.ts` (cosmético: 3 imports y algunas menciones en comentarios).
 - `[NAV-3]` La etiqueta "Fase 1 · Beta" se perdió con el sidebar; decidir si vuelve.
 - `[NAV-PALETA-PERMISOS]` (nuevo) La paleta ⌘K ofrece todos los módulos aunque el rol o el add-on no los
   incluya. Junto con `[PERMISOS-LAYOUT-NAV-SUAVE]` (ver arquitectura) puede abrir un módulo bloqueado.
 - `[NAV-ISLAS-1280]` Con 10 módulos las islas se superponen a 1280 px; medir antes de activar Operaciones
   y Producto juntos.
-- `[UI-EMOJIS]` (nuevo) 20 archivos de `components/` tienen emojis en JSX o strings de UI, contra la regla
+- `[UI-EMOJIS]` (nuevo) 20 archivos de `components/` tienen emojis o símbolos (✓, ✗, ⚠) en JSX o strings de UI
+  (10 si se cuentan sólo emojis; los ⭐ de los comentarios no cuentan), contra la regla
   (p. ej. `components/sales/zernio-inbox-panel.tsx` "🔥 Caliente", `components/sales/team-call-ranking.tsx`
   medallas, `components/settings/theme-selector.tsx`, `components/lanzamientos/launch-post-mortem-panel.tsx`).
 - `[UI-CODIGO-MUERTO]` (nuevo) `components/marketing/marketing-subnav.tsx` y `SidebarShell` no se usan en la app.

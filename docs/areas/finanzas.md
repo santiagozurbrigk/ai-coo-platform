@@ -1,6 +1,6 @@
 # Finanzas
 
-> Verificado contra el código el 2026-09-23 (commit 038caca). Backlog del área: `PENDIENTES.md` § Finanzas.
+> Verificado contra el código el 2026-09-23 (commit 038caca). Backlog del área: `PENDIENTES.md` § Operaciones, Finanzas y Producto.
 
 ## Qué es
 
@@ -21,7 +21,7 @@ calcula en el navegador** a través de `providers/finance-data-provider.tsx` + `
 | Ruta | Archivo | Qué muestra | Datos |
 |---|---|---|---|
 | `/finance` | `app/(platform)/finance/page.tsx` → `components/finance/finance-overview.tsx` | KPIs (Facturación con filtro de período, Cash collected, Margen vs. objetivo 60%, Por cobrar), gastos del período, ingresos por plataforma y facturación por tipo de pago (`finance-metrics.tsx`, `finance-charts.tsx`). Empty state si no hay plataformas, gastos ni clientes | Reales. Fallback a métricas importadas de Excel (ver reglas). Mock sólo sin Supabase |
-| `/finance/expenses` | `app/(platform)/finance/expenses/page.tsx` → `components/expenses/expenses-overview.tsx` | Liquidación del mes (`team-payroll-section.tsx`), Gastos fijos, Suscripciones, Gastos de equipo (compensación por miembro) | Reales. Mock sólo sin Supabase |
+| `/finance/expenses` | `app/(platform)/finance/expenses/page.tsx` → `components/expenses/expenses-overview.tsx` | Liquidación del mes (`components/finance/team-payroll-section.tsx`), Gastos fijos, Suscripciones, Gastos de equipo (compensación por miembro) | Reales. Mock sólo sin Supabase |
 | Configuración → Pagos | `components/settings/payment-platforms-settings-section.tsx` | CRUD de plataformas de cobro (`payment_platforms`) | Reales |
 
 Navegación: grupo "Finanzas" (Overview, Gastos) en `lib/navigation/sidebar-modules.ts`, siempre visible si el
@@ -51,7 +51,8 @@ Además lee (no escribe): `clients`, `client_payments`, `closing_calls`, `conver
 FinanceDataProvider (cliente)
   loadFinanceConfigAction ─────────── fixed_expenses, subscriptions(active), team_compensation, payment_platforms
                                       + totales por plataforma sumando listOrganizationPaymentsAction()
-  usePlatformData ─────────────────── clients, closingCalls, clientPayments
+  usePlatformData ─────────────────── clients, closingCalls
+  listOrganizationPaymentsAction ──── clientPayments (client_payments)
   getSalesMetricsSnapshotsAction ──── último metrics_snapshots (Excel importado) como "baseline"
         │
         ├─ computeExpensesSummary (lib/metrics/compute-expenses-summary.ts)
@@ -72,7 +73,7 @@ FinanceDataProvider (cliente)
 | `monthly_revenue` | % sobre la suma de `clients.total_amount` de clientes `active` (lo llama "MRR") |
 | `upsells` | % sobre `total_amount` de clientes con `join_date` en el mes |
 | `per_booking` | `commission_fixed_per_event` × **todas** las `conversations` `booked` del mes de la org |
-| `custom` | `estimated_this_month − fijo` |
+| `custom` | `max(0, estimated_this_month − fijo)`, con la columna de la base: se crea en 0 y ninguna pantalla la escribe, así que da 0 |
 
 - **Stripe / Mercado Pago:** OAuth con cookie de `state` (MP con PKCE) en
   `app/api/integrations/{stripe,mercadopago}/{connect,callback,disconnect}/route.ts`. Las actions de lectura
@@ -102,7 +103,8 @@ Finanzas: escriben en `payment_transactions`, que este módulo no lee.
   en `client_payments`, para Finanzas no existió.
 - **Fallback a baseline:** si la facturación en vivo es 0 y hay un `metrics_snapshots` importado, los KPIs usan
   el snapshot. Si el snapshot no trae `cash_collected`, se **estima** como `facturación − gastos`
-  (`finance-data-provider.tsx`), y la serie mensual pinta el último mes con esos valores. Es un número
+  (`finance-data-provider.tsx`), y la serie mensual pinta el último mes con `max(0, facturación − gastos)`
+  **siempre** (aunque el snapshot traiga `cash_collected`). Es un número
   derivado presentado como dato; ver `[FINANZAS-BASELINE-CASH-ESTIMADO]`.
 - **Monedas:** cada gasto y plataforma guarda su `currency`, pero las sumas no convierten. `formatMoney`
   (`lib/finance/format.ts`) sólo formatea.

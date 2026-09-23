@@ -16,7 +16,7 @@ preguntas ni modera: su única escritura en el servidor es el saludo de canal nu
 
 | Ruta | Archivo | Qué muestra |
 |---|---|---|
-| `/integrations` (tarjeta Discord) | `components/integrations/discord-channel-card.tsx` | Estado, conectar/desconectar |
+| `/integrations` (tarjeta Discord) | tablero genérico (`lib/integrations/registry.ts` + `discordIssues()` en `app/integrations/actions.ts`) | Estado, conectar; avisa si no hay canales monitoreados o hay mensajes sin texto. `components/integrations/discord-channel-card.tsx` es la tarjeta de **cada canal** dentro de `/integrations/discord` |
 | `/integrations/discord` | `app/(platform)/integrations/discord/page.tsx` → `components/integrations/discord-settings.tsx` | Canales monitoreados (propósito, logros, dueños), personas sin asociar con sugerencias, buzón de vinculaciones pendientes, nombre y foto del bot, modo silencioso, patrón de auto-monitoreo |
 | Ficha del cliente | `components/clients/client-discord-activity.tsx` | Mensajes, última actividad, silencio |
 | Lista de clientes | `components/clients/clients-list.tsx` | Actividad por cliente |
@@ -90,7 +90,8 @@ Migraciones: `20260527100000_discord_bot`, `20260909020000_discord_bot_profile`,
 |---|---|---|
 | Email exacto de un cliente de la org | Vincula (`email_command`) y responde | Vincula y no responde |
 | Nombre visible parecido (>0.85, un solo match) | Vincula (`name_fuzzy`) y avisa | **No** vincula: va al buzón |
-| Sin match o email inválido | Responde y va al buzón | Va al buzón |
+| Sin match | Responde y va al buzón | Va al buzón |
+| Email inválido o faltante | Responde con el formato; **no** va al buzón | Va al buzón (con `email_attempted` vacío) |
 
 ### Canal nuevo (`events/channelCreate.ts`)
 
@@ -99,7 +100,7 @@ Si el nombre matchea `auto_monitor_pattern`, lo agrega como `purpose: "client"` 
 
 ### Configuración (`app/discord/actions.ts`)
 
-Todo cambio de propósito, dueños, vínculo, equipo o canales llama `recalcularAtribucion()`, que reescribe
+Todo cambio de propósito, dueños, vínculo por persona (`linkDiscordPersonAction`), equipo o la baja de un canal llama `recalcularAtribucion()` (agregar un canal o cambiar su tilde de logros no), que reescribe
 `client_id`/`attributed_by` de los mensajes ya guardados en ese alcance. Las sugerencias de identidad
 (`lib/discord/suggest-identity.ts`) se muestran con su nivel (`exacto`/`fuerte`/`posible`) y **nunca se
 aplican solas**; ante empate gana "equipo".
@@ -107,7 +108,7 @@ aplican solas**; ante empate gana "equipo".
 ### Señales diarias (`app/api/cron/daily-signals/route.ts`, `20 7 * * *`)
 
 Por org, en serie y aislando errores: `classifyDiscordMessagesForOrg` (Haiku, hasta 100 mensajes nuevos,
-salteando los del equipo; llena `ai_sentiment`/`ai_summary` y corrige `is_testimonial`) →
+salteando los del equipo; llena `ai_sentiment`/`ai_summary`/`requires_attention` y corrige `is_testimonial`) →
 `proposeCheckpointsFromDiscordForOrg` → propuestas desde llamadas. Nada se registra solo: todo queda como
 propuesta para que alguien acepte.
 
@@ -128,7 +129,7 @@ en `bot_profile_error` y queda visible hasta que se resuelva.
 |---|---|---|
 | Bot (Railway) | `DISCORD_BOT_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Obligatorias; sin ellas el bot sale con error |
 | Bot | `LIMITLESS_API_URL` (o legado `OTC_API_URL`), `LIMITLESS_WEBHOOK_SECRET` (o `OTC_WEBHOOK_SECRET`) | Obligatorias (una de cada par) |
-| Web (Vercel) | `DISCORD_CLIENT_ID` o `NEXT_PUBLIC_DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN`, `DISCORD_REDIRECT_URI` | OAuth de instalación y REST del bot |
+| Web (Vercel) | `NEXT_PUBLIC_DISCORD_CLIENT_ID` (el inicio del OAuth sólo lee ésta; el callback acepta también `DISCORD_CLIENT_ID`), `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN`, `DISCORD_REDIRECT_URI` | OAuth de instalación y REST del bot |
 | Web | `LIMITLESS_WEBHOOK_SECRET` (o `OTC_WEBHOOK_SECRET`) | Valida las llamadas del bot (`lib/discord/webhook-auth.ts`, fail-closed, tiempo constante) |
 
 Los nombres `OTC_*` siguen funcionando como respaldo; los vigentes son los `LIMITLESS_*`.

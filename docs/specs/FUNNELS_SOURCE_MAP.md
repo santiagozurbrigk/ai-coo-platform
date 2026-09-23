@@ -8,6 +8,11 @@
 > cualquiera, mirar acá qué tiene que entregar.
 >
 > **Fecha:** 2026-08-29 · **Documento fuente:** v1.0 · **Arquitectura:** [`FUNNELS_ARCHITECTURE.md`](./FUNNELS_ARCHITECTURE.md)
+>
+> **Revisado contra el código el 2026-09-23.** El estado de las medidas (§1) y de las
+> unidades (§5) está al día; las tablas de cobertura de §2 y los textos de "qué falta"
+> que nombran un plan son del 2026-08-29. El estado actual del módulo, completo, está en
+> [`../areas/embudos.md`](../areas/embudos.md).
 
 ---
 
@@ -38,12 +43,12 @@ pie de la letra; donde Limitless usa un equivalente, se aclara.
 | Herramienta del doc | Posee | Equivalente en Limitless |
 |---|---|---|
 | Meta Ads | Spend, CTR, CPC, cost/lead | Meta vía **Zernio** |
-| Hyros | True attribution, ROAS, EPL, journeys | — |
-| Landing / VSL page | Opt-in %, play rate, watch % | — |
-| WebinarJam / Zoom | Show-up, stick rate, CTA clicks | — |
+| Hyros | True attribution, ROAS, EPL, journeys | **Hyros** (I-8) |
+| Landing / VSL page | Opt-in %, play rate, watch % | **VTurb** (I-6) para el VSL; opt-ins vía Hyros |
+| WebinarJam / Zoom | Show-up, stick rate, CTA clicks | **WebinarJam / EverWebinar** (I-5); Zoom no |
 | Typeform / application | Qualified rate, booking | **Typeform + Google Forms** |
 | Calendly | Booked calls, show rate | Calendly + GHL |
-| GHL pipeline | Stage counts, set/close, follow-up | GHL (sólo calendarios y contactos) |
+| GHL pipeline | Stage counts, set/close, follow-up | GHL: calendarios, contactos y, desde I-4, pipelines + webhook de oportunidades |
 | Whop / Fanbasis | AOV, cash collected, refunds | **Whop + Fanbasis**, tal cual el documento |
 
 ---
@@ -70,7 +75,7 @@ pie de la letra; donde Limitless usa un equivalente, se aclara.
 |---|---|---|---|---|
 | M05 | `attributed_revenue_by_source` | Revenue atribuido por fuente | 🟡 | Construido (I-8); falta conectar una cuenta real |
 | M06 | `attributed_leads_by_source` | Leads atribuidos por fuente | 🟡 | Idem M05 |
-| M07 | `journey_touchpoints` | Recorrido del lead entre touchpoints | 🟡 | Idem M05 — consulta en vivo, máx. 50 leads por llamada |
+| M07 | `journey_touchpoints` | Recorrido del lead entre touchpoints | 🟡 | Idem M05 — consulta en vivo, máx. 50 leads por llamada. Hay cliente y action (`getHyrosLeadJourneyAction`) pero **ninguna pantalla la llama** |
 
 > El documento es explícito: *"Report both blended (all revenue ÷ all spend) and
 > by-source from Hyros. Blended is the truth; by-source is the steering wheel."*
@@ -141,7 +146,7 @@ pie de la letra; donde Limitless usa un equivalente, se aclara.
 > (`webinarjam_registrants`) en vez de guardarse agregados, porque `/registrants`
 > **no acepta un rango de fechas arbitrario**: su filtro `date_range` es una lista
 > de presets (hoy, esta semana, últimos 30 días). El recorte al período del embudo
-> lo hace Limitless sobre `signup_date` y las fechas de asistencia de cada fila.
+> lo hace Limitless sobre `signup_at` y las fechas de asistencia de cada fila.
 >
 > ⭐ **M15 se pide filtrada al servidor, no se deriva.** `attended_live=4` con
 > `attended_live_timestamp = <segundo de la oferta>` devuelve exactamente los que
@@ -188,7 +193,8 @@ nada.
 | M18 | `applications_qualified` | Aplicaciones calificadas | ✅ | Nada — `form_responses.ai_lead_qualification`, con fuente de embudo desde el 2026-08-30 |
 
 > **La única fila del documento que Limitless ya cubre entera.** Typeform está en 0 orgs
-> pero Google Forms en 3, y la calificación por IA ya está construida.
+> pero Google Forms en 3 (datos de producción al 2026-08-29), y la calificación por IA ya
+> está construida.
 >
 > 🔨 **Corregido el 2026-08-30.** Estaban marcadas como ✅ pero **no tenían fuente
 > de embudo**: los datos existían y el módulo no los podía usar. Ahora hay dos
@@ -205,7 +211,7 @@ nada.
 
 | # | Medida | Qué es | Estado | Qué falta |
 |---|---|---|---|---|
-| M19 | `calls_booked` | Llamadas agendadas | ✅ | Nada — `closing_calls`, 282 filas en 4 orgs |
+| M19 | `calls_booked` | Llamadas agendadas | ✅ | Nada — `closing_calls`, 282 filas en 4 orgs (producción, al 2026-08-29) |
 | M20 | `calls_showed` | Asistieron a la llamada | ✅ | Nada — el flujo existe y el resolver distingue "nadie asistió" de "nadie cargó el resultado" |
 
 > ✅ **Cerrado el 2026-08-30 (unidad I-3).** El flujo de carga ya existía
@@ -229,9 +235,11 @@ nada.
 | M25 | `follow_ups` | Seguimientos | 🟡 | Idem M22. El doc la declara en §05 pero ninguna de sus métricas la usa |
 
 > ✅ **Documentación verificada el 2026-08-30** (`docs/external-apis/gohighlevel/`).
-> La integración GHL de Limitless consume `/calendars` y `/contacts`; falta
-> `/opportunities/pipelines` y `/opportunities/search`, con el mismo Private
-> Integration Token que ya usa y el header `Version: 2021-07-28`.
+> Antes de I-4 la integración GHL de Limitless consumía sólo `/calendars` y `/contacts`.
+> Hoy consume también `/opportunities/pipelines` (sync manual del catálogo), con el mismo
+> Private Integration Token y el header `Version: v3` que exigen los endpoints de
+> oportunidades (`lib/ghl/client.ts`). `/opportunities/search` tiene cliente
+> (`searchGHLOpportunities`) pero nadie lo llama: no hay backfill del estado.
 >
 > ⭐ **No existe endpoint de historial de cambios de etapa.** El REST da sólo el
 > estado actual. Pero **sí existe el webhook `OpportunityStageUpdate`**, que
@@ -292,7 +300,8 @@ nada.
 > desarrollo. Por eso cada webhook se persiste crudo en `payment_webhook_events`
 > ANTES de interpretarlo: el primer evento real de cada proveedor es la fuente de
 > verdad para corregir `lib/payments/normalize.ts`. Un evento que no se sabe leer
-> queda en estado `unmapped` y se puede reprocesar; nunca se inventa un número.
+> queda en estado `unmapped`; nunca se inventa un número. **No existe todavía** una
+> herramienta para reprocesarlo (`[EMBUDOS-WEBHOOK-PERDIDA]` en `PENDIENTES.md`).
 
 ### Sin dueño explícito en el documento
 
@@ -322,6 +331,11 @@ nada.
 ## 2. Cobertura por embudo
 
 Qué medidas consume cada paso, y si ese paso se puede medir hoy.
+
+> ⚠️ Las columnas "¿Medible hoy?" y los conteos de los títulos son del 2026-08-29, antes
+> de construir I-4 a I-10. Desde entonces Meta ya está periodizado (`ad_metrics_daily`) y
+> Hyros, VTurb, WebinarJam, GHL y pagos tienen código; lo que falta en todos es conectar
+> cuentas reales (`[EMBUDOS-CUENTAS-REALES]`).
 
 ### Webinar Funnel — 2 de 7 pasos medibles
 

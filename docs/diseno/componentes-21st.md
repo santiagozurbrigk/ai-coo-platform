@@ -121,7 +121,7 @@ Antes de las fichas, el contexto que decide cuánto trabajo es cada integración
 | `class-variance-authority` | ✅ `^0.7.1` (en `@ai-coo/ui`) |
 | `@radix-ui/react-tabs`, `@radix-ui/react-dropdown-menu` | ✅ en `@ai-coo/ui` |
 
-**Conclusión: el theming va a funcionar sin tocar nada.** Cualquier componente que use `bg-card`, `text-foreground`, `border-border`, `text-muted-foreground`, `bg-accent`, `ring-ring` toma los colores de Limitless (primary `#7C3AED`) automáticamente.
+**Conclusión: el theming va a funcionar sin tocar nada.** Cualquier componente que use `bg-card`, `text-foreground`, `border-border`, `text-muted-foreground`, `bg-accent`, `ring-ring` toma los colores de Limitless (primary `#E15D12`, naranja de marca) automáticamente.
 
 ### 2.2 Lo que falta ❌
 
@@ -135,7 +135,7 @@ Antes de las fichas, el contexto que decide cuánto trabajo es cada integración
 
 ### 2.3 ⚠️ Tailwind v3, no v4
 
-`apps/web/tailwind.config.ts` usa **Tailwind CSS 3.4.17**. Los componentes de 21st.dev publicados en 2026 asumen mayormente **v4**. Clases que aparecen en estos demos y **no existen en v3**:
+`apps/web/tailwind.config.ts` usa **Tailwind CSS 3.4** (`^3.4.17` en `package.json`; el lockfile resuelve 3.4.19). Los componentes de 21st.dev publicados en 2026 asumen mayormente **v4**. Clases que aparecen en estos demos y **no existen en v3**:
 
 | Clase v4 | Equivalente v3 |
 |---|---|
@@ -375,7 +375,7 @@ export default function DropdownRangeDatePickerDemoPage() {
 
 - `/marketing/anuncios` — `getMarketingAdsAction` ya recibe rango (`fromDate` / `toDate` van a `listAds` de Zernio)
 - `/finance/*` — gastos y facturación por período
-- `/executive-reports` — selección de ventana del reporte
+- `/executive-reports/history` — selección de ventana del reporte
 - `/sales/closing` — llamadas de cierre por rango
 
 Ajustes:

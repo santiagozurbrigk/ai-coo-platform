@@ -24,7 +24,7 @@ notch nav pero la ruta funciona).
 |---|---|---|---|
 | `/marketing` | `marketing/page.tsx` → `components/marketing/marketing-overview.tsx` | KPIs, funnel, heatmap, distribución por etiqueta (AUTORIDAD/ATRACCIÓN/NUTRICIÓN/VENTA) con insight de Haiku, tarjeta UTM | Sí |
 | `/marketing/content` | `marketing/content/page.tsx` | Biblioteca (`content_pieces` con `variants_of IS NULL`, **máx. 50**) y tab `?tab=borradores` (variantes IA). Dispara `maybeSyncZernioContentAction` al cargar | Sí |
-| `/marketing/content/[id]` | `marketing/content/[id]/page.tsx` → `content-piece-detail.tsx` | Tabs Métricas, Análisis, Comentarios, Anuncios, Variantes, Trial Reels. `maxDuration = 300` | — |
+| `/marketing/content/[id]` | `marketing/content/[id]/page.tsx` → `marketing-content-detail-page-client.tsx` → `content-piece-detail.tsx` | Tabs Métricas, Análisis, Comentarios, Anuncios, Variantes, Trial Reels. `maxDuration = 300` | — |
 | `/marketing/anuncios` | `marketing/anuncios/page.tsx` → `ads-dashboard.tsx` | Anuncios de Meta en vivo desde Zernio (`getMarketingAdsAction`) | Sí |
 | `/marketing/administrar` | `marketing/administrar/page.tsx` → `drive-admin-view.tsx` | Explorador del Google Drive de la org para vincular archivos a piezas | Oculto |
 | `/marketing/sales-connection` | `marketing/sales-connection/page.tsx` → `marketing-sales-connection.tsx` (client) | Ranking de contenido por revenue, recorridos de compradores, reporte de patrones IA | Oculto |
@@ -37,6 +37,8 @@ notch nav pero la ruta funciona).
 `app/(platform)/marketing/layout.tsx` es un passthrough: no hay subnav (la notch nav lo reemplaza).
 
 ## Modelo de datos
+
+Los conteos de filas en prod son al 2026-09-22/23.
 
 | Tabla | Columnas clave | Notas |
 |---|---|---|
@@ -52,7 +54,7 @@ notch nav pero la ruta funciona).
 | `utm_links` | `utm_campaign`, `youtube_video_id` (external id de YouTube), `full_url`, `manychat_ref` (`yt-<campaign>`), contadores `clicks`, `leads_captured`, `bookings_attributed`, `sales_attributed`, `revenue_attributed` | Contadores vía RPC `increment_utm_*` (revocadas a anon/authenticated; sólo service role) |
 | `utm_lead_captures`, `utm_booking_attributions`, `utm_sale_attributions` | índices únicos por `closing_call_id` / `client_id` | Cadena lead → booking → venta |
 | `lead_magnets`, `lead_magnet_leads` | `channel`, `asset_url`, `redirect_url`, `attributed_client_id`, `conversation_id` | `lead_magnet_clicks` existe pero ningún código la usa |
-| `content_assets` | `platform`, `external_id`, `platform_metadata`, `ai_content_label`, contadores de conversión | **Legacy** (Instagram Graph). Sólo la escribe `lib/instagram/sync.ts`. 6 filas en prod, pero el Overview todavía lee de acá |
+| `content_assets` | `platform`, `external_id`, `platform_metadata`, `ai_content_label`, contadores de conversión | **Legacy** (Instagram Graph). Sólo `lib/instagram/sync.ts` crea filas; el Overview le reescribe los contadores en cada carga (`recomputeContentAssetAttribution`) y dos acciones huérfanas editan etiqueta y minuto de CTA. 6 filas en prod, pero el Overview todavía lee de acá |
 | `story_sequences`/`story_frames`, `competitors`/`competitor_posts` | — | Creadas para `[FEAT-1]`/`[FEAT-2]`, sin código |
 
 Buckets: `trial-reels` (privado; fuente, variantes y música) y `content-thumbnails` (**público**, thumbnails
@@ -90,7 +92,7 @@ cron 06:00 UTC /api/cron/sync-content-metrics
   `analysis`, `transcript`, `format_type`, `hook_type`, `cta_type`.
 - **Variantes** (`createContentVariantsAction`, 1–5): Claude genera briefs y se insertan como
   `content_pieces` `source='ai_generated'`, `status='draft'`, `variants_of=<padre>`. Hoy sólo las invoca el
-  **agente** (`lib/agent/agent-tool-handler.ts`); se ven en el tab "Borradores".
+  **agente** (`lib/agent/agent-tool-handler.ts` y `app/agent/actions.ts`); se ven en el tab "Borradores".
 - **Reporte de patrones** (`generateContentPatternReportAction`): Claude sobre las piezas analizadas → fila
   nueva en `content_pattern_reports`.
 
@@ -105,7 +107,7 @@ TrialReelsButton (detalle de pieza) → createTrialReelsJobAction   app/marketin
 apps/reel-worker (Express)
   ├─ auth: WORKER_AUTH_SECRET (header X-Worker-Secret, Bearer o ?workerSecret=) o firma QStash
   ├─ procesa sincrónicamente (si responde antes, Fly apaga la máquina)
-  ├─ baja de Drive, 5 variantes FFmpeg (V1 +25 %, V2 −15 %, V3 música, V4 subtítulos, V5 LUT warm.cube)
+  ├─ baja de Drive, 5 variantes FFmpeg (V1 +25 %, V2 ≈ −13 % (`setpts=1.15`, `atempo=0.87`), V3 música (sin archivo de música conserva el audio original), V4 subtítulos, V5 LUT warm.cube)
   ├─ anti-fingerprint: metadatos falsos, bitrate ±5 %, crop 1–2 px
   ├─ sube a trial-reels/{org}/variations/{job}/…, signed URL 7 días, captions con Haiku
   └─ job → preview_ready  (la UI escucha por Supabase Realtime)
@@ -120,7 +122,8 @@ cron 03:00 UTC /api/cron/cleanup-trial-reels: borra del bucket los archivos de j
 Cron horario `/api/integrations/typeform/sync` y `/api/integrations/google-forms/sync` (o botón "Sincronizar",
 `syncFormAction`). Cada sync upsertea `forms`, trae respuestas desde `last_synced_at` (Typeform `page_size=1000`,
 Google `pageSize=1000`, **sin paginar**), y puntúa hasta 20 pendientes por form con Haiku
-(`lib/forms/sync-scoring.ts` → `score-response.ts`). `scoreFormResponsesAction` hace el análisis agregado.
+(`lib/forms/sync-scoring.ts` → `score-response.ts`). `scoreFormResponsesAction` (botón del detalle) puntúa hasta 20
+pendientes y después hace el análisis agregado del form (Sonnet).
 
 ### UTMs
 
@@ -149,7 +152,8 @@ Overview → recomputeContentAssetAttribution (escribe contadores en content_ass
   `getContentPieceCommentsAction` pagina `GET /inbox/comments/{postId}`.
 - **Webhook Zernio** (`/api/integrations/zernio/webhook`): HMAC SHA-256 con **`ZERNIO_WEBHOOK_SECRET`
   global** (503 si falta), headers `x-zernio-signature` / `x-hub-signature-256` / `x-signature`. Guarda
-  `message.*` y `comment.received`; `account.connected/disconnected` actualizan `connected_accounts`.
+  `message.received`/`message.sent` y `comment.received`; `account.connected` agrega la cuenta a `connected_accounts`.
+  `account.disconnected` no se maneja (sólo figura en el comentario de eventos a suscribir).
 - **Lead magnets:** CRUD en `lead-magnets-actions.ts`. Los leads sólo se registran cuando alguien corre el
   análisis IA de una conversación de Zernio (`analyzeZernioConversationAction`) y un mensaje saliente contiene
   el `asset_url`/`redirect_url` (`lib/marketing/lead-magnets-internal.ts`). La atribución a cliente se hace
@@ -169,7 +173,7 @@ Overview → recomputeContentAssetAttribution (escribe contadores en content_ass
 | YouTube (API key alternativa) | Canal y videos | `app/youtube/actions.ts`, `lib/google/sync-youtube.ts` | — |
 | Typeform (OAuth) | Forms y respuestas | `lib/typeform/sync.ts` | Empty state |
 | OpenAI Whisper | Transcripción para el análisis | `lib/content/transcribe-whisper.ts` | El análisis de video falla |
-| Anthropic | Análisis, variantes, captions, scoring, insight de distribución, patrones | `lib/ai/anthropic.ts` (BYOK) | — |
+| Anthropic | Análisis, variantes, captions, scoring, insight de distribución, patrones | `lib/ai/anthropic.ts` (BYOK); los captions del worker usan el SDK directo con `ANTHROPIC_API_KEY` (`apps/reel-worker/src/captions.ts`, sin BYOK) | — |
 | QStash + Fly.io | Trial Reels, fan-out de métricas | `lib/queue/qstash-client.ts`, `apps/reel-worker` | Sin QStash el job queda `failed` |
 | ManyChat | Flows (Automatizaciones), refs UTM | `lib/manychat/*` | Empty state |
 | Meta CAPI | Evento Lead de la landing | `lib/meta/conversions-api.ts` | No-op |
@@ -187,8 +191,8 @@ timeout. **No hay copia local de la documentación de Zernio** en `docs/external
 | `validateApiKey` | — | alias de `listAccounts` | — | nadie |
 | `listConversations` | GET | `/inbox/conversations[?accountId=]` | — | inbox (Ventas), `content-sales-attribution.ts` |
 | `getMessages` | GET | `/inbox/conversations/{id}/messages?accountId=` | — | inbox |
-| `sendMessage` | POST | `/inbox/conversations/{id}/messages` body `{message, accountId}` | — | inbox, agente |
-| `listComments` | GET | `/inbox/comments[?accountId=]` | — | `/comentarios`, Embudos (triggers) |
+| `sendMessage` | POST | `/inbox/conversations/{id}/messages` body `{message, accountId}` | — | inbox (`sendZernioMessageAction`) |
+| `listComments` | GET | `/inbox/comments[?accountId=]` | — | `/comentarios`, Embudos (triggers), `content-sales-attribution.ts` |
 | `getPostComments` | GET | `/inbox/comments/{postId}?accountId=&limit=25&cursor=` | ✓ | detalle de pieza, `lib/sales/lead-journey.ts` |
 | `replyToComment` | POST | `/inbox/comments/{postId}` body `{accountId, commentId, message}` | — | `/comentarios` |
 | `hideComment` | POST | `/inbox/comments/{postId}/{commentId}/hide` | — | `/comentarios` |
@@ -227,7 +231,8 @@ como JSON.
   Zernio de un borrador publicado). `resolveContentPieceRow` acepta UUID interno o ID de plataforma.
 - **Throttle de 30 min basado en `updated_at`:** cualquier update (vincular Drive, analizar) también lo
   refresca y posterga la próxima sync.
-- **Trial Reels salen como borrador en Zernio** (`status: "draft"`). Decisión registrada en CHANGES (2026-08-10):
+- **Trial Reels salen como borrador en Zernio** (`status: "draft"`). Decisión registrada en
+  `docs/historial/CHANGES-2026-07-a-08.md` (entrada 2026-08-10):
   para reels de Instagram Zernio pide terminar la publicación desde su UI. En Limitless la variación queda `published`.
 - **El worker procesa sincrónicamente** y responde 200 aun si falla (el job ya queda `failed`): un 5xx haría
   reintentar a QStash. Idempotencia: si el job no está `pending`, se saltea.
@@ -235,7 +240,7 @@ como JSON.
   en vez de `requireOrganizationId()`, así que **ignoran el negocio activo** del holding (auditoría §3 salud 7).
   El resto del área (overview, ads, comentarios, forms, UTMs, lead magnets) usa `requireOrganizationId()`.
 - **Fallback a `ZERNIO_API_KEY`:** `getZernioApiKeyForOrganization` devuelve la key global si la org no tiene
-  fila activa. Si esa variable está seteada en producción, una org sin Zernio vería los datos de la cuenta
+  fila activa (o si la fila no tiene `api_key`). Si esa variable está seteada en producción, una org sin Zernio vería los datos de la cuenta
   global y el cron `capture-ad-metrics` (que recorre `zernio_integrations` **sin** filtrar `is_active`)
   guardaría anuncios ajenos. `.env.example` la trae como `sk_pending`.
 - **Scope Google:** `drive.readonly`; por eso `createDriveFolderAction` es un stub que siempre tira error
@@ -262,10 +267,14 @@ como JSON.
   `youtube-video-performance.tsx` (y con ellos el minuto de CTA / retención de YouTube y la etiqueta manual),
   `marketing-charts.tsx`, `instagram-empty-state.tsx`, `overview/conversion-strip.tsx`,
   `overview/marketing-stat-card.tsx`, `overview/metrics-sections.tsx` (con fallback a mocks), `overview/rate-bar.tsx`,
-  `reel-music-upload.tsx`; acciones sin caller:
+  `overview/index.ts`, `reel-music-upload.tsx`; por arrastre, `content-platform-metrics.tsx`, `cta-minute-input.tsx`,
+  `content-label-badge.tsx`; acciones sin caller:
   `publishVariantAsZernioDraftAction`, `generateVariantCaptionAction`, `getContentBenchmarkAction`,
   `deleteContentPieceAction`, `updateSalesAttributionAction`, `syncZernioMetricsAction`,
-  `getContentPatternsAnalysisAction`, `syncInstagram*Action` `[MKT-CODIGO-MUERTO]`.
+  `getContentPatternsAnalysisAction`, `getContentLabelDistributionAction`, `getInstagramIntegrationStatusAction`,
+  `getContentAssetByIdAction`, `getUtmBaseUrlAction`, `getUTMLeadsAction`, `getDriveFileAction`,
+  `getDriveFolderPathAction`, `searchDriveFilesAction`, `getReelMusicPathAction`, `getReelVariationJobAction`,
+  `syncInstagram*Action` `[MKT-CODIGO-MUERTO]`.
 
 Detalle y prioridades: `PENDIENTES.md` (entregado al integrador del backlog).
 
@@ -275,11 +284,11 @@ Detalle y prioridades: `PENDIENTES.md` (entregado al integrador del backlog).
 |---|---|
 | Mapeo y dedupe de la foto diaria de anuncios | `apps/web/lib/marketing/__tests__/ad-metrics-snapshot.test.ts` |
 | Triggers de comentarios Zernio (Embudos) | `apps/web/lib/zernio/__tests__/triggers.test.ts` |
-| `/api/utm/*` y `/api/content/analyze` en la lista de rutas públicas | `apps/web/lib/supabase/__tests__/public-paths.test.ts` |
+| `/api/cron/sync-content-metrics` pasa sin sesión y `/api/content/analyze` exige sesión (`isPublicPath`; `/api/utm/*` no tiene caso de test) | `apps/web/lib/supabase/__tests__/public-paths.test.ts` |
 
 Sin cubrir: `resolve-analytics.ts` `[T-11]`, `lib/utm/*` `[T-5]`, `overview-metrics.ts` `[T-12]`,
 `lib/typeform` y el mapeo de la sync de contenido. `apps/reel-worker` no tiene tests. No hay e2e del área
-(`apps/web/e2e/` sólo tiene `holding.spec.ts`).
+(el único spec de `apps/web/e2e/` es `holding.spec.ts`).
 
 ## Archivos clave
 

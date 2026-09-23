@@ -32,7 +32,7 @@ El detalle de sesión, organización efectiva, holding y permisos por módulo es
 
 - Roles del sistema en `constants/roles.ts`; roles custom en `team_roles.permissions`, agrupados en 13 módulos (`constants/permission-modules.ts`).
 - El layout de `(platform)` calcula el módulo de la URL (`lib/navigation/module-for-path.ts`) y, si el rol lo tiene en `none`, muestra `<SinAcceso/>`. El founder pasa siempre; un usuario sin rol cargado navega todo (a propósito).
-- **Es una barrera de navegación, no de datos**: ninguna policy RLS filtra por rol y las Server Actions no chequean permisos. Abierto como `[PERMISOS-SERVER-ACTIONS]`.
+- **Es una barrera de navegación, no de datos**: salvo el UPDATE de `profiles` (`Founders update org profiles`, founder/admin), ninguna policy RLS filtra por rol y las Server Actions no chequean permisos. Abierto como `[PERMISOS-SERVER-ACTIONS]`.
 
 ## Service role y cliente
 
@@ -63,7 +63,7 @@ Rotar `ENCRYPTION_MASTER_KEY` invalida todo lo cifrado: no hay re-cifrado autom�
 - `assertCronAuthorized`: `Bearer CRON_SECRET` en tiempo constante (`safeEqual` hashea ambos lados con SHA-256 antes de `timingSafeEqual`, así tampoco filtra el largo). **Lanza si `CRON_SECRET` no está**: un cron sin la variable responde 500, nunca queda abierto.
 - `verifyQueueRequest`: `WORKER_AUTH_SECRET` (tiempo constante) o, si no está, firma QStash con las dos signing keys (503 sin ellas).
 - Bot de Discord → app: `isDiscordWebhookAuthorized` con `LIMITLESS_WEBHOOK_SECRET` (respaldo `OTC_WEBHOOK_SECRET`), tiempo constante, **fail-closed** (antes una variable vacía aceptaba `"Bearer undefined"`).
-- El worker de Fly (`apps/reel-worker/src/index.ts`) compara el secreto con `===` (no constante), loguea los primeros 4 caracteres del secreto esperado cuando falla, y sin secreto ni signing keys acepta requests de IPs `10.*`/`172.*` o con `NODE_ENV` que no incluya `prod`. Ver `[SEG-REEL-WORKER-AUTH]`.
+- El worker de Fly (`apps/reel-worker/src/index.ts`) compara el secreto con `===` (no constante), loguea los primeros 4 caracteres del secreto esperado cuando falla, y sin secreto ni signing keys acepta requests de `127.0.0.1` o IPs `10.*`/`172.*`, o con `NODE_ENV` que no incluya `prod`. Ver `[SEG-REEL-WORKER-AUTH]`.
 
 ## Webhooks
 

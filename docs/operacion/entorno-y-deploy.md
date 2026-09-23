@@ -102,7 +102,7 @@ El bot valida al arrancar que estén las cinco (`apps/discord-bot/src/index.ts`)
 
 ### `apps/reel-worker` (Fly.io)
 
-`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY` (captions con Haiku), `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `WORKER_AUTH_SECRET`, `PORT` (8080), `NODE_ENV`. `WORKER_AUTH_SECRET` **falta** en la lista de `fly.toml` y en el README del worker, aunque el código lo usa como método principal de auth.
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY` (captions con Haiku), `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `WORKER_AUTH_SECRET`, `PORT` (8080), `NODE_ENV`. `WORKER_AUTH_SECRET` **falta** en la lista de secrets comentada en `fly.toml`, aunque el código lo usa como método principal de auth (el README del worker sí lo lista).
 
 ## Deploy de `apps/web` (Vercel)
 

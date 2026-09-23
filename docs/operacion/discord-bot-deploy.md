@@ -1,9 +1,11 @@
 # Desplegar el bot de Discord — runbook
 
-> **Para Santiago.** El bot está escrito entero y no corre en ningún lado. Esto
-> es **operación, no código**: son cuatro pasos y ninguno requiere programar.
+> **Para Santiago.** Esto es **operación, no código**: son cinco pasos y ninguno
+> requiere programar.
 >
-> Escrito el 2026-09-03 (Encargo E, fase D1).
+> Escrito el 2026-09-03 (Encargo E, fase D1), cuando el bot todavía no corría. Según
+> `CHANGES.md`, después se desplegó en Railway con sus variables cargadas; este
+> runbook sirve para volver a desplegarlo o para un servicio nuevo.
 
 ---
 
@@ -83,8 +85,8 @@ cargarlo en Railway.
 **Las cinco son obligatorias.** Si falta alguna el bot no arranca y te dice cuál
 —antes fallaba en silencio con las dos últimas, que ahora también se validan.
 
-**Cómo sabés que anduvo:** en los logs de Railway tiene que aparecer una línea de
-"ready". Si aparece un error, va a decir qué hacer.
+**Cómo sabés que anduvo:** en los logs de Railway tiene que aparecer la línea
+`Discord bot online: …`. Si aparece un error, va a decir qué hacer.
 
 **Si el build falla antes de arrancar** y el log habla de Nx, de Next.js o de
 `RAILPACK_SPA_OUTPUT_DIR`, es el paso 3: Railway está construyendo el monorepo
