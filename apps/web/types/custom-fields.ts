@@ -37,13 +37,19 @@ export type FieldType = (typeof FIELD_TYPES)[number];
  * (sistemas). Una columna sin sección va al bloque suelto de arriba, que es el
  * comportamiento de siempre.
  */
-export const FIELD_SECTIONS = ["marketing", "ventas", "sistemas"] as const;
+export const FIELD_SECTIONS = ["marketing", "ventas", "sistemas", "onboarding"] as const;
 export type FieldSection = (typeof FIELD_SECTIONS)[number];
 
+/**
+ * ⭐ «onboarding» (2026-09-23) guarda las respuestas crudas del formulario de
+ * onboarding, en su propia solapa. Marketing, Ventas y Sistemas son el resumen
+ * que arma el equipo; mezclar 70 preguntas con esos 22 campos los enterraría.
+ */
 export const FIELD_SECTION_LABEL: Record<FieldSection, string> = {
   marketing: "Marketing",
   ventas: "Ventas",
   sistemas: "Sistemas",
+  onboarding: "Onboarding",
 };
 
 export const FIELD_OPTIONS_SOURCES = ["inline", "journey_stages"] as const;
@@ -102,6 +108,8 @@ export type FieldDefinition = {
   isRequired: boolean;
   /** El apartado de la ficha donde se muestra. `null` = suelta. */
   section: FieldSection | null;
+  /** Si se pregunta en el formulario de onboarding. `null` = no. */
+  onboarding: FieldOnboardingConfig | null;
   /**
    * Si la columna se dibuja en la tabla de clientes.
    *
@@ -114,6 +122,25 @@ export type FieldDefinition = {
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+/**
+ * Cómo se pregunta un campo en el formulario público de onboarding.
+ *
+ * ⭐ `required` es del formulario, no de la ficha: `isRequired` se valida
+ * también cuando el equipo edita, y marcar obligatorias las preguntas le
+ * impediría guardar un cliente a medio cargar.
+ */
+export type FieldOnboardingConfig = {
+  /** El id del paso (ver `lib/client-onboarding/steps.ts`). */
+  step: string;
+  /** La pregunta tal como la lee el cliente. Nulo = se usa la etiqueta. */
+  question: string | null;
+  required: boolean;
+  /** Mostrarla sólo si otro campo del formulario tiene ese valor. */
+  showIf: { key: string; equals: string } | null;
+  /** Si se sugiere mandar un audio, cuánto («5 min»). */
+  audio: string | null;
 };
 
 /** El jsonb con los valores cargados de una fila (win o evento de checkpoint). */
@@ -134,6 +161,8 @@ export type FieldDefinitionRow = {
   alert_days_before: number | null;
   is_required: boolean;
   section: string | null;
+  /** Ausente en filas leídas antes de la migración del onboarding. */
+  onboarding?: unknown;
   show_in_table: boolean | null;
   sort_order: number;
   archived_at: string | null;

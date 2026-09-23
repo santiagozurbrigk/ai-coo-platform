@@ -1680,6 +1680,116 @@ Requiere la migración `20260923100000_clientes_de_clientes.sql` aplicada.
 
 ---
 
+## Onboarding de clientes por link (growth partners) — 2026-09-23 🔒⭐
+
+Requiere la migración `20260923140000_onboarding_de_clientes.sql` aplicada y el
+add-on `growth_partners` prendido (sólo Limitless). No se pudo probar contra
+Supabase: el formulario se recorrió en un navegador con las 75 preguntas reales
+pero sin base, y la migración se probó en un Postgres 16 local.
+
+### A. Cargar las preguntas ⭐
+
+1. Campos personalizados → Clientes → «Preguntas del onboarding» → Cargar preguntas.
+   **Esperado:** «86 campos cargados». Apretar de nuevo: «Ya estaban todos cargados».
+2. **Esperado:** 76 con la marca «Onboarding» y 10 con «Sistemas», todas con
+   «Formulario». Ninguna «Obligatoria» (es obligatoria en el formulario, no en
+   la ficha). «Próximo lanzamiento» es de tipo Fecha.
+3. Editar «Cliente ideal». **Esperado:** el recuadro «Preguntarla en el
+   formulario de onboarding» tildado, en «Paso 3 — Tu oferta y tu cliente», con
+   la pregunta larga. Cambiar la pregunta → Guardar → reabrir: quedó.
+4. ⭐ Editar «¿Qué campañas corrés?» y guardar sin tocar nada. Abrir un link.
+   **Esperado:** la pregunta sigue apareciendo sólo con «¿Corrés anuncios?» = Sí
+   (la condición no se edita desde la pantalla y no se tiene que perder).
+
+### B. El link 🔒
+
+1. Ficha de un growth partner → tarjeta «Clientes» → elegir un creador →
+   «Generar link». **Esperado:** aparece «Copiar link».
+2. Apretar «Generar link» en otra pestaña con la ficha vieja. **Esperado:**
+   devuelve el mismo link, no uno nuevo.
+3. 🔒 Abrir el link en una ventana de incógnito (sin sesión). **Esperado:** el
+   formulario, con «Onboarding de {creador}». No pide login.
+4. 🔒 Cambiar una letra del token. **Esperado:** «Este link no está activo».
+5. 🔒 Desactivar el link desde la ficha y recargar la ventana de incógnito.
+   **Esperado:** «Este link no está activo».
+6. 🔒 Apagar el add-on de Limitless desde Super Admin y abrir un link vivo.
+   **Esperado:** «Este link no está activo». Volver a prenderlo.
+
+### C. Completarlo ⭐
+
+1. Continuar sin completar nada. **Esperado:** «Completá esta respuesta» debajo
+   de cada pregunta y «Poné tu nombre para seguir».
+2. Completar varios pasos, cerrar la pestaña y volver a abrir el link.
+   **Esperado:** vuelve al mismo paso con lo escrito.
+3. «¿Corrés anuncios?» = No. **Esperado:** no aparecen las dos preguntas de
+   campañas, y el paso deja seguir.
+4. Enviar. **Esperado:** «¡Listo, gracias!».
+5. ⭐ En la ficha → «Historial (1)». **Esperado:** el envío con el nombre de
+   quien lo completó. La solapa «Onboarding» muestra las respuestas agrupadas
+   por paso. En la línea de tiempo del growth partner: «Onboarding completado:
+   {creador}».
+6. ⭐ Editar una respuesta desde la ficha. Volver a abrir el link: aparece lo
+   editado. Cambiarla en el formulario y enviar. **Esperado:** la ficha muestra
+   lo nuevo (pisa), y el historial marca «cambió» con «Antes: …».
+7. ⚠️ Enviar más de 10 veces en 10 minutos desde la misma IP. **Esperado:** «Demasiadas
+   solicitudes. Intentá de nuevo en N segundos», no un error. (Límite
+   `publicFormRateLimit`.)
+
+### D. Lo que no se tiene que romper
+
+1. Marketing, Ventas y Sistemas de un creador se ven igual que antes, sin
+   títulos de pasos.
+2. ⭐ Intentar borrar (no archivar) una pregunta que sólo respondió un creador.
+   **Esperado:** no deja borrarla; ofrece archivar. (Antes sólo se miraba la
+   tabla de clientes, no la de sus creadores.)
+
+### E. Sistemas (paso 12) ⭐
+
+1. En el formulario, el último paso es «Paso 12 — Tus sistemas», con los 9
+   sistemas. Claude y WhatsApp Business ofrecen dos opciones; el resto, tres.
+2. Enviar con WebinarJam = «Ya les di acceso».
+   **Esperado:** en la solapa Sistemas del creador aparece el grupo «Paso 12 —
+   Tus sistemas» con el estado, y abajo «Cargado por el equipo» con los campos
+   de la Plantilla Limitless, sin tocar.
+
+### F. Link general y bandeja 🔒⭐
+
+1. Lista de clientes → tarjeta «Onboarding para clientes nuevos» → «Generar
+   link general» → Copiar. Generar otra vez: mismo link.
+2. Abrirlo sin sesión. **Esperado:** pide «Tu nombre» y «Nombre del creador»;
+   no deja seguir sin el creador.
+3. Enviar. **Esperado:** en la lista aparece «1 sin asignar». Ninguna ficha
+   cambió.
+4. «1 sin asignar» → «Respuestas» muestra lo que mandó.
+5. ⭐ Asignar a un growth partner que ya tiene un creador con ese nombre.
+   **Esperado:** el selector de creador lo propone solo. Asignar → las
+   respuestas caen en ese creador; el envío sale de la bandeja; la línea de
+   tiempo del growth partner lo registra.
+6. Otro envío → «+ Cliente nuevo» con el nombre de quien completó.
+   **Esperado:** aparece un cliente nuevo en *pendiente de onboarding*, con
+   monto cero, y un creador con las respuestas.
+7. Otro envío → Descartar. **Esperado:** sale de la bandeja y no toca nada.
+8. 🔒 Desactivar el link general y abrirlo. **Esperado:** «Este link no está
+   activo». La bandeja sigue ahí.
+
+### G. Sin novedades y próximo lanzamiento ⭐
+
+1. Campos personalizados → «Clientes sin novedades» muestra 15. Poner 0.
+   **Esperado:** no deja (mínimo 1). Poner 10 → Guardar.
+2. En la lista, un growth partner sin notas, llamadas, línea de tiempo,
+   Discord, wins ni onboarding en los últimos 10 días.
+   **Esperado:** «Sin novedades Nd» al lado del nombre. El tooltip dice cuál fue
+   la última novedad. Aparece la pastilla «Sin novedades (N)».
+3. Cargarle una nota y recargar. **Esperado:** el aviso desaparece.
+4. ⚠️ Un cliente que sólo tuvo cambios de datos (nombre, fase) sigue marcado: a
+   propósito, editar no es tener noticias. Confirmar que es lo que se quiere.
+5. A un creador, «Próximo lanzamiento» = dentro de 7 días.
+   **Esperado:** en la lista, el growth partner muestra «Próximo lanzamiento ·
+   {creador} · faltan 7 días» y la pastilla «Fechas cerca». Con una fecha a 30
+   días o ya pasada, no aparece.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

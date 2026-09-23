@@ -28,6 +28,13 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      /*
+       * La landing pública de `/` se eliminó (2026-09-23): la raíz lleva al
+       * login. Temporal y no permanente: si algún día vuelve una página en
+       * `/`, un 308 cacheado en los navegadores la seguiría escondiendo.
+       * Quien ya tiene sesión rebota de `/login` a su panel (middleware).
+       */
+      { source: "/", destination: "/login", permanent: false },
       ...sectionRedirects.map(({ source, destination }) => ({
         source,
         destination,

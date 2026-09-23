@@ -16,6 +16,7 @@ describe("isPublicPath", () => {
     "/api/integrations/fathom/webhook",
     "/api/integrations/calendly/oauth/callback",
     "/login",
+    "/onboarding-cliente/abc123",
   ])("deja pasar %s sin sesión", (pathname) => {
     expect(isPublicPath(pathname)).toBe(true);
   });
@@ -29,6 +30,10 @@ describe("isPublicPath", () => {
     "/api/integrations/stripe/disconnect",
     "/api/webhooksfake",
     "/api/discordx",
+    // El onboarding del founder no es el del cliente: comparten el prefijo.
+    "/onboarding",
+    "/onboarding/holding",
+    "/onboarding-cliente",
   ])("exige sesión en %s", (pathname) => {
     expect(isPublicPath(pathname)).toBe(false);
   });

@@ -11,11 +11,12 @@
  * tocar esta pantalla.
  */
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   Badge,
   Button,
   GlassPanel,
+  Input,
   Tabs,
   TabsContent,
   TabsList,
@@ -27,6 +28,7 @@ import {
   ArchiveRestore,
   ChevronDown,
   ChevronUp,
+  ClipboardList,
   Layers,
   Pencil,
   Plus,
@@ -60,9 +62,14 @@ import {
   seedExampleClientGoalFieldAction,
   seedExampleWinFieldAction,
   seedLimitlessClientFieldsAction,
+  seedOnboardingQuestionsAction,
   setFieldDefinitionArchivedAction,
   updateFieldDefinitionAction,
 } from "@/app/clients/custom-field-actions";
+import {
+  getClientSilenceDaysAction,
+  setClientSilenceDaysAction,
+} from "@/app/clients/signals-actions";
 import {
   FieldDefinitionDialog,
   type FieldDefinitionDraft,
@@ -141,6 +148,31 @@ export function CustomFieldsPage({
     setDialogOpen(true);
   }
 
+  /** Carga una plantilla de campos y cuenta cuántos entraron. */
+  function sembrar(
+    action: () => Promise<MutationResult<{ created: number; skipped: number }>>
+  ) {
+    startTransition(async () => {
+      const result = await action();
+      if (!result.success) {
+        push({ title: "No se pudo cargar", description: result.error });
+        return;
+      }
+      await refresh();
+      push({
+        title:
+          result.data.created === 0
+            ? "Ya estaban todos cargados"
+            : `${result.data.created} campos cargados`,
+        description:
+          result.data.skipped > 0
+            ? `${result.data.skipped} ya existían y se saltearon.`
+            : undefined,
+        variant: "success",
+      });
+    });
+  }
+
   function openEdit(field: FieldDefinition) {
     setEditing(field);
     setDialogError(null);
@@ -166,6 +198,16 @@ export function CustomFieldsPage({
         // entidades el diálogo no los ofrece y viajan en su valor neutro.
         section: draft.section,
         showInTable: draft.showInTable,
+        // Sólo se pregunta un campo con apartado: sin él no hay dónde mostrar
+        // la respuesta.
+        onboarding:
+          draft.inOnboarding && draft.section !== null
+            ? {
+                step: draft.onboardingStep,
+                question: draft.onboardingQuestion.trim() || null,
+                required: draft.onboardingRequired,
+              }
+            : null,
       };
 
       const result = editing
@@ -253,33 +295,41 @@ export function CustomFieldsPage({
                 <Button
                   variant="outline"
                   disabled={pending}
-                  onClick={() =>
-                    startTransition(async () => {
-                      const result = await seedLimitlessClientFieldsAction();
-                      if (!result.success) {
-                        push({ title: "No se pudo cargar", description: result.error });
-                        return;
-                      }
-                      await refresh();
-                      push({
-                        title:
-                          result.data.created === 0
-                            ? "Ya estaban todos cargados"
-                            : `${result.data.created} campos cargados`,
-                        description:
-                          result.data.skipped > 0
-                            ? `${result.data.skipped} ya existían y se saltearon.`
-                            : undefined,
-                        variant: "success",
-                      });
-                    })
-                  }
+                  onClick={() => sembrar(seedLimitlessClientFieldsAction)}
                 >
                   <Layers className="mr-1 h-4 w-4" />
                   Cargar plantilla
                 </Button>
               </GlassPanel>
             ) : null}
+
+            {/*
+              ⭐ Las preguntas del formulario de onboarding: la misma idea que la
+              plantilla. Se cargan una vez, en la solapa «Onboarding» de la
+              ficha, y desde ahí son columnas como cualquier otra.
+            */}
+            {key === "client" && canManage && growthPartners ? (
+              <GlassPanel className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Preguntas del onboarding</p>
+                  <p className="text-xs text-muted-foreground">
+                    Carga las 86 preguntas del formulario que completa cada cliente
+                    de un growth partner, con el estado de cada sistema. Las que
+                    ya existen no se duplican.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => sembrar(seedOnboardingQuestionsAction)}
+                >
+                  <ClipboardList className="mr-1 h-4 w-4" />
+                  Cargar preguntas
+                </Button>
+              </GlassPanel>
+            ) : null}
+
+            {key === "client" && canManage && growthPartners ? <AvisoSinNovedades /> : null}
 
             {byEntity.length === 0 ? (
               <EmptyState
@@ -385,6 +435,12 @@ function FieldRow({
                 {FIELD_SECTION_LABEL[field.section]}
               </Badge>
             ) : null}
+            {field.onboarding ? (
+              <Badge variant="outline" className="gap-1">
+                <ClipboardList className="h-3 w-3" />
+                Formulario
+              </Badge>
+            ) : null}
             {field.entity === "client" && field.showInTable ? (
               <Badge variant="outline" className="gap-1">
                 <Table2 className="h-3 w-3" />
@@ -488,6 +544,68 @@ function FieldRow({
             </Button>
           </div>
         ) : null}
+      </div>
+    </GlassPanel>
+  );
+}
+
+/**
+ * ⭐ «Avisos de hace 15 días que no tenemos update del cliente.» Los 15 son de
+ * la organización: la lista de clientes marca a los que pasaron ese umbral.
+ */
+function AvisoSinNovedades() {
+  const { push } = useToast();
+  const [dias, setDias] = useState<string>("");
+  const [guardado, setGuardado] = useState<number | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    getClientSilenceDaysAction()
+      .then((valor) => {
+        setGuardado(valor);
+        setDias(String(valor));
+      })
+      .catch(() => undefined);
+  }, []);
+
+  if (guardado === null) return null;
+
+  const guardar = () =>
+    startTransition(async () => {
+      const result = await setClientSilenceDaysAction(Number(dias));
+      if (!result.success) {
+        push({ title: "No se pudo guardar", description: result.error });
+        return;
+      }
+      setGuardado(result.data);
+      push({ title: "Aviso actualizado", variant: "success" });
+    });
+
+  return (
+    <GlassPanel className="flex flex-wrap items-center justify-between gap-3 p-4">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">Clientes sin novedades</p>
+        <p className="text-xs text-muted-foreground">
+          La lista de clientes marca a quien no tiene novedades (llamadas, notas,
+          mensajes, onboarding) desde hace esta cantidad de días.
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Input
+          inputMode="numeric"
+          className="h-9 w-20"
+          value={dias}
+          onChange={(event) => setDias(event.target.value.replace(/\D/g, ""))}
+          aria-label="Días sin novedades"
+        />
+        <span className="text-sm text-muted-foreground">días</span>
+        <Button
+          variant="outline"
+          disabled={pending || dias === "" || Number(dias) === guardado}
+          onClick={guardar}
+        >
+          Guardar
+        </Button>
       </div>
     </GlassPanel>
   );

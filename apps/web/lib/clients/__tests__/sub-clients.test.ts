@@ -24,6 +24,7 @@ function field(key: string, section: FieldSection | null): FieldDefinition {
     alertDaysBefore: null,
     isRequired: false,
     section,
+    onboarding: null,
     showInTable: false,
     sortOrder: 0,
     archivedAt: null,

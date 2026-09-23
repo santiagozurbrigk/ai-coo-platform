@@ -9,6 +9,56 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [ONBOARDING-CLIENTES-PROBAR] Probar el onboarding de clientes en producción 🔴
+
+**Qué es:** el formulario de onboarding por link está en producción:
+- la migración se aplicó en OTC el 2026-09-23;
+- el código entró a `main` con el PR de la rama `claude/gallant-johnson-hczrys`.
+
+Incluye el link por creador, el link general con su bandeja, los estados de
+sistemas, el aviso de clientes sin novedades y el de próximo lanzamiento.
+
+**Qué hacer:**
+
+1. Campos personalizados → «Preguntas del onboarding» → Cargar preguntas (86).
+2. Seguir `docs/PLAN_VERIFICACION.md` → «Onboarding de clientes por link»,
+   bloques A a G.
+3. Avisar al equipo que el formulario viejo (`client-onboarding-nine-chi.vercel.app`)
+   queda reemplazado. Sus respuestas **no** se importan (decisión del usuario).
+
+---
+
+### [PRIVACIDAD-NO-PUBLICA] `/privacidad` pide iniciar sesión 🟠
+
+**Qué es:** la política de privacidad no está en `isPublicPath`, así que sin
+sesión redirige al login. Pasaba desde antes de borrar la landing
+(2026-09-23). Si una app OAuth (Google, Meta) la tiene configurada como URL de
+privacidad, quien revisa la app no la puede leer.
+
+**Qué hacer:** decidir si tiene que ser pública. Si sí, sumarla a
+`lib/supabase/public-paths.ts` con su caso en el test.
+
+---
+
+### [ONBOARDING-CLIENTES-RESTO] Lo que quedó afuera del onboarding de clientes 🟡
+
+Fases 1 a 3 hechas en la rama `claude/gallant-johnson-hczrys`. Quedó:
+
+1. **Aviso al equipo cuando alguien completa el formulario.** El formulario
+   viejo posteaba en Slack #onboarding-clientes con un checklist de 72 hs.
+   Limitless no tiene Slack, y Discord no tiene un canal de avisos por
+   organización (`discord_integrations` no guarda uno, y el token del bot es
+   global). Hoy el aviso es la bandeja «sin asignar» y la línea de tiempo.
+   Decidir: ¿canal de Discord (hay que sumar el canal a la config), mail
+   (Resend) o nada?
+2. El equipo del paso 9 va como texto con plantilla. Una tabla sería un tipo de
+   campo nuevo.
+3. La condición («mostrar sólo si») y el aviso de audio se cargan con la
+   plantilla y no se editan desde la pantalla.
+4. La ficha del growth partner no muestra «sin novedades hace N días»: sólo la
+   lista de clientes. Sumarlo si hace falta.
+
+---
 ### [CLIENTES-DE-CLIENTES-PROBAR] Probar la tarjeta «Clientes» y pasar los datos viejos 🔴
 
 **Qué es:** la tarjeta «Clientes» (los infoproductores de cada growth partner,

@@ -14,6 +14,264 @@
 
 ---
 
+### 2026-09-23 — 🧹 Landing de `/` eliminada; la raíz redirige a `/login`. Migración del onboarding aplicada en producción
+
+**Rama/branch:** `claude/gallant-johnson-hczrys`
+**Commits:** este
+**Módulo(s) afectado(s):** `app/(landing)/page.tsx` (borrado), `components/landing/`
+(11 componentes borrados), `next.config.ts`; base de producción (Supabase **OTC**).
+
+**Qué se hizo:**
+
+1. **Landing borrada** (pedido del usuario): la página de `/` y todo lo que
+   sólo ella usaba: `landing-page`, las 8 secciones (hero, problemas, cómo
+   funciona, qué incluye, agendar prueba, integraciones, FAQ, CTA final),
+   `vsl-player` y `waitlist-form`, que ya no se importaba en ningún lado.
+2. **`/` redirige a `/login`** con un redirect de `next.config.ts` (temporal,
+   307). Quien tiene sesión rebota de `/login` a su panel, como antes.
+   Verificado con `next start`: `/` → 307 a `/login`.
+3. **Se quedaron**, porque no son la landing de `/`:
+   - `/prueba` (confirmar la prueba gratis) y `/privacidad`, con su layout
+     `(landing)`;
+   - `confirm-trial-form`, `landing-glass`, `meta-pixel` y `utm-capture`, que
+     esas páginas usan;
+   - `/api/waitlist`, que puede tener llamadas externas;
+   - las imágenes `public/screenshots/problem-*.png`, que ya no referenciaba
+     ningún código.
+4. **Migración `20260923140000_onboarding_de_clientes` aplicada en OTC** con
+   `apply_migration`, y la versión del historial corregida a la del archivo:
+   175 en producción, 175 en el repo. Verificado:
+   - las dos tablas nuevas con RLS y sus 4 policies;
+   - `client_last_activity` no la pueden ejecutar `authenticated` ni `anon`;
+   - las 29 organizaciones con `client_silence_days` = 15;
+   - la función devuelve los 37 clientes de Limitless, ninguno con 15 días o
+     más sin novedades hoy.
+
+**Por qué / finalidad:** el producto no se vende más desde esa landing; quien
+entra a la raíz es un usuario que va a iniciar sesión.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **`/privacidad` no es pública:** sin sesión redirige al login, y ya pasaba
+  antes de este cambio (no está en `isPublicPath`). Si Google o Meta la tienen
+  como URL de política de privacidad de una app OAuth, su revisión no la puede
+  leer. Ver `[PRIVACIDAD-NO-PUBLICA]` en PENDIENTES.
+- Los links viejos a `/` (anuncios, bio) ahora terminan en el login.
+- `/prueba` sigue viva, pero ya no hay página que lleve a ella. Si el
+  embudo de prueba gratis también se abandonó, borrarla en otro cambio.
+
+---
+
+### 2026-09-23 — 📝 Onboarding de clientes, fases 2 y 3: sistemas, link general, sin novedades y lanzamientos
+
+**Rama/branch:** `claude/gallant-johnson-hczrys`
+**Commits:** este
+**Módulo(s) afectado(s):** `lib/client-onboarding/`, `app/clients/onboarding-link-actions.ts`,
+`app/clients/signals-actions.ts` (nuevo), `lib/clients/signals.ts` (nuevo),
+`components/clients/clients-list.tsx`, `components/clients/client-onboarding-inbox.tsx`
+(nuevo), `components/clients/sub-client-onboarding.tsx`, `components/client-onboarding/onboarding-form.tsx`,
+Campos personalizados, migración `20260923140000_onboarding_de_clientes`
+(ampliada; todavía no estaba aplicada en ningún lado).
+
+**Qué se hizo:**
+
+1. **Estados de sistemas, como campos aparte** (decisión del usuario): 9 campos
+   de lista `onb_sys_*` en la solapa Sistemas, más «Notas sobre los sistemas».
+   - Opciones: «Aún no lo tengo / Ya lo tengo / Ya les di acceso». Claude y
+     WhatsApp Business no llevan la tercera, como en el original.
+   - Van como **paso 12 del mismo formulario**: el original era otro link, y
+     uno solo por creador es más simple. Como el link se vuelve a completar, se
+     actualizan cuando compra la herramienta.
+   - Los 8 campos de texto de la Plantilla Limitless no se tocan.
+   - La ficha separa «Paso 12 — Tus sistemas» de «Cargado por el equipo»
+     (`groupFieldsByStep`).
+2. **Próximo lanzamiento:** pregunta de fecha (`onb_next_launch_date`, paso 2,
+   opcional) con aviso a 15 días. El seed ahora acepta tipo fecha, sección y
+   `alertDaysBefore`. Son 86 preguntas en total.
+3. **Link general y bandeja «sin asignar»:**
+   - `client_onboarding_links.kind` = `creator` | `general`, con un solo general
+     activo por organización;
+   - el formulario general pide «Nombre del creador»;
+   - lo que llega queda en `client_onboarding_submissions` sin cliente;
+   - en la lista de clientes, la tarjeta «Onboarding para clientes nuevos» tiene
+     el link y la bandeja;
+   - desde la bandeja se asigna a un growth partner existente o nuevo, y a un
+     creador existente (se propone solo si coincide el nombre) o nuevo;
+   - también se puede descartar.
+4. **Asignar** (`assignOnboardingSubmissionAction`):
+   - crea lo que falte: el cliente en *pendiente de onboarding*, con monto cero,
+     pago único y transferencia; y el creador;
+   - pisa la ficha del creador guardando `replaced`;
+   - suma la línea de tiempo;
+   - si no puede escribir la ficha, devuelve el envío a la bandeja.
+5. **Sin novedades:**
+   - la función SQL `client_last_activity(p_org)` devuelve la última novedad
+     por cliente, con su fuente: nota, satisfacción, línea de tiempo, llamada
+     de Fathom, mensaje del cliente en Discord, onboarding, win, o el alta si
+     no hubo nada. Sólo la ejecuta service role;
+   - `organizations.client_silence_days` (default 15, entre 1 y 365) se edita
+     en Campos personalizados;
+   - la lista muestra «Sin novedades Nd» y la pastilla «Sin novedades».
+6. **Fechas cerca:** la lista muestra la fecha con aviso más próxima de los
+   creadores de cada growth partner («Próximo lanzamiento · Ana · faltan 7
+   días») y la pastilla «Fechas cerca».
+   - Sale de cualquier campo de fecha con aviso, no sólo del lanzamiento.
+   - Las fechas que ya pasaron no avisan.
+   - De cada creador se leen sólo esas claves (`custom->>key`), no el jsonb
+     entero.
+7. `RespuestasDelEnvio` se separó para usarlo en el historial y en la bandeja.
+8. 8 tests nuevos (`signals.test.ts`, `assign.test.ts`, casos en
+   `questions.test.ts` y `form.test.ts`). En total, 1216 en verde.
+
+**Por qué / finalidad:** completar lo que pidió el cliente en los audios:
+- el formulario de sistemas;
+- «si no está creado el cliente, que se cree con el formulario… y después
+  decir esta ficha pertenece al cliente»;
+- el aviso de 15 días sin novedades;
+- el aviso de próximo lanzamiento.
+
+**Decisiones de diseño relevantes:**
+- **El link general no crea clientes solo:** con un link que circula, un envío
+  de prueba o repetido sería un cliente fantasma. Queda en bandeja y lo asigna
+  una persona, que es lo que describe el audio.
+- **«Novedad» no incluye `clients.updated_at`:** renombrar a alguien no es
+  tener noticias de él.
+- **Umbral en `organizations` y no en una tabla de ajustes:** es el único número
+  así hoy.
+- **Una sola migración:** la de la fase 1 todavía no estaba aplicada en ningún
+  lado, así que se amplió en vez de sumar otra.
+
+**Riesgos / deuda técnica pendiente:**
+- **Migración aplicada en producción el mismo día** (ver la entrada de arriba).
+- **Qué se verificó:**
+  - la migración arma la base con las 175 desde cero en Postgres 16 +
+    pgvector local;
+  - sus reglas se probaron con datos: un solo general activo, general sin
+    cliente, envío con cliente pero sin creador rechazado, umbral 0 rechazado;
+  - `client_last_activity` marca bien un cliente con 20 días de silencio y otro
+    con una nota de hace 3, no incluye otras organizaciones, y `authenticated`
+    y `anon` no la pueden ejecutar;
+  - el formulario general y el paso 12 se miraron con Playwright en una página
+    temporal, ya borrada;
+  - `next build` pasa.
+- **Sin probar con datos reales:** la bandeja, asignar, los avisos en la lista y
+  la configuración de días. Ver `docs/PLAN_VERIFICACION.md`, bloques E, F y G.
+- El aviso al equipo cuando alguien completa el formulario **no se hizo**: no
+  hay canal de Discord por organización ni Slack. Ver
+  `[ONBOARDING-CLIENTES-RESTO]`.
+- Los mails de acceso del equipo (Martín y Agustín) quedaron en la ayuda de las
+  preguntas de sistemas, como en el formulario original. Se editan desde Campos
+  personalizados si cambia el equipo.
+
+---
+
+### 2026-09-23 — 📝 Formulario de onboarding por link, con las respuestas en la ficha (fase 1)
+
+**Rama/branch:** `claude/gallant-johnson-hczrys`
+**Commits:** este
+**Módulo(s) afectado(s):** ficha del cliente (`components/clients/`), Campos
+personalizados, `lib/client-onboarding/` (nuevo), `app/onboarding-cliente/`
+(página pública nueva), `app/clients/onboarding-link-actions.ts` (nuevo),
+`app/clients/custom-field-actions.ts`, `lib/custom-fields/mapper.ts`,
+`types/custom-fields.ts`, `lib/supabase/public-paths.ts`, migración
+`20260923140000_onboarding_de_clientes`.
+
+**Qué se hizo:**
+
+1. **El formulario viejo, adentro de Limitless.** El equipo usaba otra app (repo
+   privado `Limitless-Sistemas/client-onboarding`, analizado desde un zip) con
+   un formulario de 11 pasos y 76 preguntas, y pasaba las respuestas a mano a la
+   ficha. Se trajeron las preguntas tal cual, extraídas con un script de su
+   `formConfig.ts`: 74 más «Integrantes del equipo» (el repetidor de personas
+   del paso 9, como texto con plantilla). «Tu nombre» y «Nombre del Creador» no
+   son campos: el creador es el cliente del growth partner dueño del link, y el
+   nombre de quien completa queda en el envío.
+2. **Cada pregunta es una columna configurable.** No hay catálogo aparte:
+   - `field_definitions` suma la sección `onboarding` (solapa propia en la
+     ficha);
+   - suma también el jsonb `onboarding` = `{ step, question, required, showIf,
+     audio }`;
+   - las 75 se cargan con el botón «Preguntas del onboarding»
+     (`seedOnboardingQuestionsAction`), idempotente, igual que la Plantilla
+     Limitless;
+   - el diálogo de la columna permite elegir paso, pregunta y si es obligatoria.
+3. **Los pasos viven en código** (`lib/client-onboarding/steps.ts`), con su
+   bajada y el «Hacelo hoy». Una pregunta con un paso que no existe va a «Otras
+   preguntas».
+4. **Link por creador**: tabla `client_onboarding_links`. Token de 24 bytes al
+   azar y uno activo por creador (índice único parcial). Desde la tarjeta
+   «Clientes» se genera, se copia, se abre y se desactiva.
+5. **Página pública** `/onboarding-cliente/[token]`, en `isPublicPath`:
+   - paso por paso, con barra de avance;
+   - no deja avanzar con obligatorias vacías y muestra el error debajo de cada
+     pregunta;
+   - las preguntas condicionadas («¿Qué campañas corrés?» sólo si corre ads)
+     aparecen según la respuesta;
+   - el aviso de audio por Discord sigue como antes;
+   - el avance se guarda en `localStorage`;
+   - precarga lo que ya hay en la ficha.
+6. **Envío** (`submitClientOnboardingAction`, service role):
+   - límite de envíos por IP;
+   - valida en el servidor contra las preguntas de la base;
+   - escribe primero el historial (`client_onboarding_submissions`: `answers`,
+     `replaced` con lo que había antes y `labels` con los nombres del momento),
+     después pisa `client_sub_clients.custom`;
+   - suma una entrada `onboarding` a la línea de tiempo del growth partner.
+7. **Historial en la ficha**: cada envío con quién lo completó, qué mandó, qué
+   cambió y qué había antes.
+8. **La solapa «Onboarding» agrupa por paso** (`groupFieldsByStep`). Las otras
+   solapas quedan iguales.
+9. **Arreglo:** `isFieldInUse` sólo miraba `clients.custom`, así que una columna
+   cargada únicamente en creadores (`client_sub_clients.custom`) contaba como
+   "sin uso" y se podía borrar de verdad. Ahora mira las dos tablas.
+10. 25 tests nuevos, en `lib/client-onboarding/__tests__/` y
+    `onboarding-config.test.ts`, más 4 casos en `public-paths.test.ts`.
+
+**Por qué / finalidad:** que el equipo mande un link a cada creador, que las
+respuestas caigan solas en su ficha, editables, y que no haya dos sistemas.
+
+**Decisiones de diseño relevantes:**
+- **Decisiones del usuario (2026-09-23):**
+  - sólo para Limitless, con el add-on;
+  - si vuelven a completar el link, **pisan**, porque queda el historial;
+  - **no** se importan las respuestas viejas.
+- **Solapa propia y no mezclada en Marketing/Ventas/Sistemas:** esos 22 campos
+  son el resumen del equipo. Las 75 respuestas crudas los enterrarían.
+- **`required` del formulario, separado de `is_required`:** `is_required` se
+  valida también cuando el equipo edita la ficha.
+- **Claves con prefijo `onb_`:** el formulario viejo tenía `avatar`, que choca
+  con el «Avatar» de la plantilla.
+- **Las preguntas ocultas no se tocan al enviar:** si responde «No» a los ads,
+  lo que había en «Campañas de ads» queda, en vez de borrarse sin que lo vea.
+- **Historial antes que la ficha:** si falla la segunda escritura, queda un
+  envío registrado que no llegó a la ficha, nunca una ficha pisada sin rastro.
+- **Fuera del layout de la landing:** ese layout carga el píxel de Meta.
+
+**Riesgos / deuda técnica pendiente:**
+- **Migración NO aplicada en producción.** Ver `[ONBOARDING-CLIENTES-APLICAR]`.
+- **Sin probar contra Supabase.** Qué se verificó:
+  - la migración arma la base con las 175 desde cero (`check-migrations.sh`
+    sobre Postgres 16 + pgvector local);
+  - se probaron sus reglas con datos: rechaza config no-objeto, sección
+    inventada y token corto; un solo link activo; revocar y generar otro; el
+    cascade al borrar el creador;
+  - `next build` pasa;
+  - el formulario se recorrió con Playwright usando las 75 preguntas reales
+    montadas en una página temporal ya borrada: errores, pregunta condicional
+    y borrador que sobrevive a recargar.
+
+  El resto está en `docs/PLAN_VERIFICACION.md`.
+- Quien tenga el link ve lo que la ficha tiene en las preguntas del formulario
+  (se precarga). Es a propósito, para editar sobre lo que ya mandó, pero el
+  link hay que tratarlo como privado.
+- El envío es leer, modificar y escribir el jsonb. Si el equipo guarda la solapa
+  en el mismo segundo en que llega un envío, gana el último. El historial guarda
+  lo que se pisó.
+- Pendiente de fases 2 y 3 (formulario de sistemas, link que crea el cliente,
+  avisos de 15 días y de lanzamiento, aviso al completar): ver
+  `[ONBOARDING-CLIENTES-FASES]`.
+
+---
+
 ### 2026-09-23 — 👥 Clientes de clientes (growth partners), sólo para Limitless
 
 **Rama/branch:** `claude/beautiful-galileo-o63avo`
