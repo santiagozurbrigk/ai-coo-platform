@@ -28,7 +28,7 @@ Rutas canónicas en `apps/web/routes/paths.ts` (`paths.platform.{operations,sops
 |---|---|---|---|
 | `/workboard` | `app/(platform)/workboard/page.tsx` → `components/workboard/workboard-shell.tsx` | Tres vistas (`FilterPills`): Kanban (`workboard-kanban.tsx`, 4 columnas), Calendario (`workboard-calendar.tsx`), Tiempo por persona (`workboard-time-report.tsx`). Header de sprint con filtro por área, retrospectiva, detalle de tarea editable con SOP/documentos/adjuntos | Reales. Mock sólo sin Supabase (`mocks/workboard-time.ts` en el reporte de tiempo) |
 | `/operations/sops` | `app/(platform)/operations/sops/page.tsx` → `components/sops/sops-overview.tsx` | Biblioteca (`#biblioteca`) y creador (`#crear`, modos "texto" y "video"). Banner de SOPs sugeridos | Reales |
-| `/sops` | `app/(platform)/sops/page.tsx` | La misma biblioteca **sin** sugerencias. No tiene constante en `paths.ts`; nada la linkea | Reales |
+| `/sops` | redirect a `/operations/sops` (`lib/navigation/redirects.ts`, aplicado en `next.config.ts`) | `app/(platform)/sops/page.tsx` (la biblioteca sin sugerencias) existe pero es inalcanzable: el redirect corre antes | — |
 | `/sops/[id]` | `app/(platform)/sops/[id]/page.tsx` | Detalle de solo lectura: objetivo + markdown con capturas | Reales |
 | `/sops/create` | redirect a `/operations/sops#crear` | — | — |
 | `/operations/overview` | `app/(platform)/operations/overview/page.tsx` → `components/operations/operations-overview.tsx` | Reporte semanal IA (resumen, riesgos, cuellos de botella, recomendaciones) si `status = 'ready'`; grilla de departamentos | Reales. Mock (`mocks/operations-overview.ts`) sólo sin Supabase |
