@@ -429,56 +429,80 @@ Doc del área: [`docs/areas/clientes.md`](./docs/areas/clientes.md)
 #### [PERMISOS-SERVER-ACTIONS/clientes] Los permisos del módulo Clientes no se hacen cumplir en el servidor
 - **Parte de:** `[PERMISOS-SERVER-ACTIONS]` (ítem transversal en Plataforma). Acá, lo específico del área.
 - **Tipo:** seguridad
+- **Severidad:** Alta
 - **Estado verificado:** `app/(platform)/layout.tsx` corta el render por módulo y `clients-list.tsx` esconde botones con `useModuleAccess("clients") === "full"`, pero ninguna action de `app/clients/*.ts` mira el rol ni el permiso de módulo: sólo `requireOrganizationId()`. Un usuario con Clientes en «Solo lectura» o «Sin acceso» puede invocar `deleteClientAction`, `updateClientAction`, `recordCheckpointAction`, `deleteWinAction`, `saveClientRevenueAction`, etc. Las policies de RLS de todas las tablas del área filtran sólo por org. Sólo el catálogo (campos, recorrido, duración de planes, umbral de silencio) exige founder (`requireFounder()`; el umbral, con un chequeo de `profile.role` en `setClientSilenceDaysAction`).
+- **Riesgo:** Si un miembro con Clientes en «Solo lectura» o «Sin acceso» invoca una action desde las herramientas del navegador (el id de la action viaja en el bundle del cliente), entonces puede borrar o editar clientes, hitos, wins y facturación; requiere intención, no pasa por accidente.
+- **Impacto:** Todas las orgs que usan roles personalizados con Clientes restringido: el permiso por módulo es sólo visual. Un borrado de cliente arrastra su historia (timeline, pagos, tareas) y no hay papelera.
 - **Qué hay que hacer:** helper `requireModuleAccess("clients", "full")` en las actions de escritura del área (es transversal: coordinar con el ítem general de la auditoría §3.1).
 - **Criterio de aceptación:** Con un miembro que tiene Clientes en «Solo lectura» o «Sin acceso», invocar directamente una action de escritura del área (borrar cliente, editar cliente, registrar hito, borrar win, guardar facturación, subir 1-1) devuelve error de permiso y no cambia ninguna fila; con Clientes en «full» las mismas acciones siguen funcionando; hay un test que cubre el rechazo por permiso de módulo
 - **Dónde:** `apps/web/app/clients/*.ts`, `apps/web/app/fathom/manual-upload-actions.ts`, `apps/web/lib/auth/`.
 
 #### [CLIENTES-ETAPA-TABLA-VS-FICHA] La tabla ignora la fase manual cuando hay una derivada *(nuevo)*
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** la ficha usa `resolveEffectiveStage` (gana la más avanzada entre manual y derivada: `components/clients/checkpoints/client-journey-section.tsx:139`). La tabla hace `status?.currentStageName ?? manualStageName` (`components/clients/clients-list.tsx:793`): si el cliente tiene cualquier hito registrado, muestra la fase derivada aunque la manual sea más avanzada, y el color y el «n de m» salen siempre de la derivada. El comentario de `getManualStagesAction` dice «para resolver la efectiva en la tabla», pero nadie la resuelve.
+- **Riesgo:** Si un cliente tiene un hito registrado y la fase fijada a mano en una más avanzada, entonces la tabla de /clients muestra una fase atrasada (nombre, color y «n de m»); pasa cada vez que alguien usa la fase manual para adelantar a un cliente.
+- **Impacto:** Quien revisa la cartera desde la tabla ve el avance de esos clientes subestimado; la ficha muestra el dato correcto, así que hay workaround abriendo cada cliente.
 - **Qué hay que hacer:** resolver la fase efectiva en el servidor (`getClientsBoardAction` o `getClientsJourneyStatusAction`) con `resolveEffectiveStage` y que la tabla lea eso (hoy no hay filtro por fase y la revisión semanal no muestra fase). Agregar un test.
 - **Criterio de aceptación:** Un cliente con un hito registrado en una fase temprana y la fase fijada a mano en una más avanzada muestra en la tabla de /clients la misma fase (nombre, color y «n de m») que en su ficha; hay un test que cubre la resolución de la fase efectiva que usa la tabla
 - **Dónde:** `apps/web/components/clients/clients-list.tsx`, `apps/web/app/clients/clients-board-actions.ts`, `apps/web/lib/checkpoints/effective-stage.ts`.
 
 #### [CLIENTES-IMPORT-EXCEL-MONTOS] El import de Excel inventa montos y fechas *(nuevo; viene de la auditoría §3 «Dinero y datos»)*
 - **Tipo:** bug
+- **Severidad:** Alta
 - **Estado verificado:** `lib/clients/excel-parser.ts:69-73`: `resolveAmount` hace `replace(",", ".")` sobre el texto con puntos, así que `"1.500"` → 1,5 y `"1.500,00"` → `NaN` → **0**; cualquier monto ilegible queda en 0. `resolveDate` (líneas 75-95) devuelve **hoy** si la fecha falta o no se entiende. Viola la regla del repo «un cobro cuyo monto no se lee no es un cobro de cero». Además, el dedupe por nombre (`import-actions.ts:182`) lee `clients` sin paginar.
+- **Riesgo:** Si el Excel trae montos como texto con separadores («1.500», «USD 1.500,00») o fechas ilegibles o vacías, entonces el cliente se crea con 1,5 o 0 de monto y con la fecha de hoy, sin error; la vista previa lee las celdas formateadas y no deja ver el valor que se va a guardar. Las celdas numéricas puras se leen bien (el import usa raw: true).
+- **Impacto:** Facturación (clients.total_amount) y fecha de alta falsas en los clientes importados, que alimentan métricas de ingresos, vencimiento de planes y renovaciones; un cobro ilegible queda como cobro de cero. Alcance: cada import de Excel con esas columnas en texto.
 - **Qué hay que hacer:** parser de montos con separadores es-AR/en-US y error por fila cuando no se entiende; fecha ilegible → error por fila, no hoy. Tests (`[T-3]`).
 - **Criterio de aceptación:** Importar un Excel con montos «1.500», «1.500,00» y «1,500.00» guarda 1500 en los tres casos; una fila con monto o fecha ilegible (o fecha vacía) se informa como error de esa fila y no se guarda con monto 0 ni con la fecha de hoy; hay tests del parser con esos casos
 - **Dónde:** `apps/web/lib/clients/excel-parser.ts`, `apps/web/app/clients/import-actions.ts`.
 
 #### [CLIENTES-PENDING-CALLS-HUERFANA] «Llamadas sin asociar» no tiene link en la navegación *(nuevo)*
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** `paths.platform.clients.pendingCalls` no se usa en ningún componente; la notch nav y `clients-list.tsx` no linkean a `/clients/pending-calls`. Sólo `components/layout/mobile-nav.tsx` pinta un badge con el conteo sobre «Clientes». El tooltip de «Última 1-1» dice «Confirmalo en Llamadas sin asociar» sin link. Es la pantalla del botón «Cargar identidades desde el CRM», del que depende `[B-SEMBRAR-IDENTIDADES]`.
+- **Riesgo:** Si nadie llega a «Llamadas sin asociar» (sólo es alcanzable escribiendo la URL o por el badge del menú móvil), entonces las grabaciones que el resolvedor no asoció se acumulan sin confirmar y no se aprieta «Cargar identidades desde el CRM».
+- **Impacto:** Todas las orgs con Fathom: 1-1 que no llegan a la ficha del cliente y «Última 1-1» desactualizada; bloquea en la práctica [B-SEMBRAR-IDENTIDADES]. Hay workaround (URL directa).
 - **Qué hay que hacer:** agregar el acceso desde la barra de `/clients` (con el conteo) y linkear el tooltip.
 - **Criterio de aceptación:** Desde la barra de /clients en escritorio hay un acceso a «Llamadas sin asociar» que muestra la cantidad pendiente y lleva a /clients/pending-calls; el tooltip de «Última 1-1» que dice «Confirmalo en Llamadas sin asociar» es un link a esa pantalla
 - **Dónde:** `apps/web/components/clients/clients-list.tsx`, `apps/web/routes/paths.ts`.
 
 #### [CLIENTES-SIN-MAIL] Los clientes viejos no tienen mail
 - **Tipo:** bug + decisión de negocio
+- **Severidad:** Media
 - **Estado verificado:** `clients.email` existe y se hereda del lead al cerrar (`providers/platform-data-provider.tsx:175`). No hay pantalla para completarlo en masa. El CSV (`parse-client-import.ts`) no tiene columna de mail. ⚠️ El Excel **sí la lee** (`excel-parser.ts:172,200`) pero `importClientsFromExcelAction` **no la inserta** (`import-actions.ts`, el `insertPayload` no tiene `email`): el dato sólo queda como texto «Email: …» en `ai_insights` (`buildClientInsights`, `import-actions.ts:263`), no en `clients.email`. El conteo «334 de 335» es de CHANGES; no se re-midió (sería leer datos).
+- **Riesgo:** Si se importan clientes desde Excel con columna Email, entonces el mail se descarta de clients.email (queda sólo como texto en ai_insights) y el cliente queda sin mail aunque el dato estaba; pasa en cada import.
+- **Impacto:** El resolvedor de grabaciones y el cruce con pagos/leads no pueden usar el peldaño determinista por mail para casi toda la base vieja (334 de 335 según CHANGES, no re-medido); el dato se puede recuperar de ai_insights.
 - **Qué hay que hacer:** agregar `email: row.email ?? null` al insert del Excel (una línea); decidir de dónde se completan los viejos (import, `sales_leads`, pagos). Es la palanca del peldaño determinista del resolvedor.
 - **Criterio de aceptación:** Importar desde Excel una fila con columna Email deja ese mail guardado en el cliente creado; Agustín decidió de dónde se completan los mails de los clientes viejos (import, leads de ventas o pagos) y la decisión quedó registrada en PENDIENTES.md o CHANGES.md
 - **Dónde:** `apps/web/app/clients/import-actions.ts`, `apps/web/lib/clients/parse-client-import.ts`.
 
 #### [ONBOARDING-CLIENTES-PROBAR] Probar el onboarding de clientes en producción
 - **Tipo:** verificación manual
+- **Severidad:** Media
 - **Estado verificado:** migración aplicada; `client_onboarding_links` y `client_onboarding_submissions` con 0 filas y `field_definitions` con 48 filas en toda la base (las 86 preguntas no se cargaron en ninguna org).
+- **Riesgo:** Si el formulario por link tiene un error que sólo aparece con la org real (las 86 preguntas no están cargadas en ninguna org), entonces el primer cliente que lo complete puede perder respuestas o no poder enviarlo.
+- **Impacto:** La org que tiene el add-on de onboarding y sus clientes nuevos; hoy 0 links y 0 envíos, así que nadie está afectado todavía, pero el formulario viejo deja de ser la fuente.
 - **Qué hay que hacer:** bloque 14 «Onboarding por link» de `docs/operacion/verificacion-manual.md` § Clientes. Avisar al equipo que el formulario viejo (`client-onboarding-nine-chi.vercel.app`) queda reemplazado; sus respuestas no se importan.
 - **Criterio de aceptación:** Se ejecutó el bloque 14 «Onboarding por link» de docs/operacion/verificacion-manual.md § Clientes con la organización real que tiene el add-on y el resultado quedó anotado; si algo falló, se abrió un ítem nuevo; el equipo fue avisado de que el formulario viejo queda reemplazado y sus respuestas no se importan
 - **Dónde:** `/clients/campos`, ficha de un growth partner, `/onboarding-cliente/[token]`.
 
 #### [CLIENTES-DE-CLIENTES-PROBAR] Probar la tarjeta «Clientes» y pasar los datos viejos
 - **Tipo:** verificación manual
+- **Severidad:** Media
 - **Estado verificado:** 10 filas en `client_sub_clients` (alguien ya cargó creadores). El aviso de valores de sección en el growth partner existe (`legacySectionValues`); no hay evidencia de que se hayan movido.
+- **Riesgo:** Si los valores de sección siguen cargados en el growth partner y no se pasan a sus creadores, entonces Optimiza tu Control deja de ver apartados que antes veía en la ficha.
+- **Impacto:** Una org (Optimiza tu Control) y los datos cargados antes del cambio; los datos no se pierden (el aviso los muestra y «Pasarlos a…» los mueve), así que hay workaround.
 - **Qué hay que hacer:** bloque «Clientes de clientes» de `docs/operacion/verificacion-manual.md` § Clientes; mover los datos viejos con «Pasarlos a…»; avisar a Optimiza tu Control si deja de ver apartados.
 - **Criterio de aceptación:** Se ejecutó el bloque «Clientes de clientes» de docs/operacion/verificacion-manual.md con cuenta real y el resultado quedó anotado; si falló, se abrió un ítem nuevo; los valores de sección que quedaron cargados en los growth partners se pasaron a sus creadores con «Pasarlos a…» (el aviso ya no aparece) y se avisó a Optimiza tu Control
 - **Dónde:** ficha del growth partner.
 
 #### [1A1-MANUALES-SIN-PROBAR] Terminar de probar las 1-1 subidas con un link
 - **Tipo:** verificación manual
+- **Severidad:** Media
 - **Estado verificado:** la subida y la extracción ya corrieron en producción (CHANGES 2026-09-21; 288 filas en `client_tasks`). Falta: pegar el mismo link dos veces (no duplica), subir una llamada ya sincronizada (reusa la fila si `props.call.id` = `recording_id`), y ⭐ el link de una grabación de **otra cuenta** de Fathom (supuesto central).
+- **Riesgo:** Si el supuesto de que se puede subir una grabación de otra cuenta de Fathom es falso, o el mismo link duplica filas, entonces las 1-1 que graba el cliente (u otro miembro sin key) no entran o se cuentan dos veces.
+- **Impacto:** Seguimiento de 1-1 y tareas extraídas (288 filas en client_tasks) de las orgs que suben por link; la subida base ya funciona en producción, lo abierto son los casos borde.
 - **Qué hay que hacer:** los tres pasos del bloque «Sesiones 1-1» de `docs/operacion/verificacion-manual.md` § Clientes.
 - **Criterio de aceptación:** Se ejecutaron los tres pasos del bloque «Sesiones 1-1» de docs/operacion/verificacion-manual.md con cuenta real (mismo link dos veces no duplica; una llamada ya sincronizada reusa su fila; el link de una grabación de otra cuenta de Fathom se sube) y el resultado quedó anotado; si alguno falló, se abrió un ítem nuevo
 - **Dónde:** ficha → Sesiones 1-1; `apps/web/lib/fathom/share-link.ts`.
@@ -653,14 +677,20 @@ Doc del área: [`docs/areas/ventas.md`](./docs/areas/ventas.md)
 
 #### [LLAMADAS-EMBED-ROTO] `/sales/llamadas` no muestra ninguna llamada
 - **Tipo:** bug
+- **Severidad:** Alta
 - **Estado verificado:** ítem nuevo. `getSalesCallsAction` (`app/fathom/actions.ts:337-349`) hace `.from("fathom_calls").select("…, call_analyses(…)")`. `call_analyses.fathom_call_id` es `TEXT` sin FK (`20260614100000_call_analysis_deep.sql:18`) y en producción la tabla sólo tiene FKs a `organizations` y `profiles`. PostgREST no puede embeber sin relación y responde error; el `catch` devuelve `[]`, así que la pantalla siempre dice que no hay llamadas.
+- **Riesgo:** Siempre: la consulta falla en cada carga (call_analyses no tiene FK a fathom_calls, confirmado en producción) y el error se traga, así que la pantalla muestra «no hay llamadas» sin ningún aviso ni log.
+- **Impacto:** Todas las orgs: Ventas → Llamadas está inutilizable. Los datos no se pierden (están en la base) pero el equipo comercial no puede revisar sus llamadas ni sus análisis desde ahí.
 - **Qué hay que hacer:** consultar `call_analyses` aparte por `fathom_call_id in (…)` y unir en JS (o agregar `fathom_calls.id` como FK en `call_analyses`). Loguear el error en vez de tragarlo.
 - **Criterio de aceptación:** En una org con fathom_calls de purpose = 'sales', Ventas → Llamadas lista la misma cantidad de llamadas que devuelve el count en la base, con su análisis cuando existe en call_analyses; si la consulta falla, el error queda en los logs del servidor en vez de mostrarse la lista vacía; hay un test que cubre la unión de llamadas con sus análisis
 - **Dónde:** `apps/web/app/fathom/actions.ts`, `apps/web/components/sales/sales-calls-list.tsx`.
 
 #### [CLOSING-LIST-1000] El calendario y la lista de Closing pierden los turnos más recientes
 - **Tipo:** bug
+- **Severidad:** Alta
 - **Estado verificado:** ítem nuevo (misma familia que el punto 5 de `[AUDITORIA-ABIERTOS]`). `listClosingCallsAction` (`app/closing/actions.ts:70-74`) hace `select("*")…order("scheduled_at", { ascending: true })` sin `.range()` ni `fetchAllRows`. PostgREST corta en 1.000 (lo documenta el propio `lead-actions.ts`). Producción tiene 1.455 `closing_calls`: si una org supera 1.000, quedan afuera los **más nuevos**, que son los que el closer necesita. Falta confirmar el conteo por organización.
+- **Riesgo:** Si una org (o un usuario holding, que ve el portfolio entero por RLS) supera 1.000 turnos visibles, entonces el calendario y la lista de Closing dejan afuera los más nuevos sin aviso; producción tiene 1.455 turnos en total y no se confirmó el reparto por org.
+- **Impacto:** Los closers de esa org no ven los turnos de hoy y de la semana y no pueden cargar su resultado desde la lista; las métricas que salen de esa lista del provider quedan cortadas.
 - **Qué hay que hacer:** paginar con `fetchAllRows` u ordenar descendente con un rango de fechas; agregar `.eq("organization_id", organizationId)` (hoy depende sólo de RLS, ver `[CLOSING-HOLDING-MEZCLA]`).
 - **Criterio de aceptación:** En una org con más de 1.000 turnos, el calendario y la lista de Closing muestran los turnos del mes actual en la misma cantidad que el count de la base para ese mes; la lectura filtra por la organización activa (un turno de otra org no aparece)
 - **Dónde:** `apps/web/app/closing/actions.ts`, `apps/web/providers/platform-data-provider.tsx`.
@@ -669,56 +699,80 @@ Doc del área: [`docs/areas/ventas.md`](./docs/areas/ventas.md)
 
 #### [FATHOM-WEBHOOK-MIEMBRO-ROTO] El webhook de Fathom por miembro no puede guardar ninguna grabación
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** ítem nuevo (2026-09-23). `app/api/integrations/fathom/webhook/[token]/route.ts:76-87` hace `upsert` en `fathom_calls` con `{ organization_id, fathom_call_id, user_id, raw_payload, status }`. En producción `fathom_calls` **no tiene** columna `raw_payload` (ni en migraciones ni en `information_schema`, consultado 2026-09-23) y `title` es `NOT NULL` sin default (`20260522000000_phase11_integrations.sql`), así que PostgREST rechaza el upsert y la ruta responde 500. Aunque se guardara, la fila quedaría sin `processed_after` (el cron exige `.lte("processed_after", now)`, `lib/fathom/process-call.ts:97-103`), sin `calendar_invitees` ni transcript (el pipeline no vuelve a pedir la reunión, sólo el título y con la key de la org) y con `ingest_source` en `'sync'`. Hoy las grabaciones de un miembro sólo entran con el botón "Sincronizar mis llamadas" (`syncMemberFathomAction`). Lo tapa `[B-FATHOM-NUNCA-PROBADO]`: nunca se probó con una cuenta real.
+- **Riesgo:** Si un miembro configura su key y el webhook de Fathom, entonces cada grabación nueva recibe un 500 (fathom_calls no tiene raw_payload y title es NOT NULL, confirmado en producción) y no se guarda nada, ni siquiera el crudo.
+- **Impacto:** Los miembros que dependen del webhook por miembro; el botón «Sincronizar mis llamadas» sí guarda, así que hay workaround manual. Nunca se usó con cuenta real, así que el alcance actual probablemente es cero.
 - **Qué hay que hacer:** que el webhook reuse `upsertFathomCallFromMeeting` (`lib/fathom/sync.ts`) con el cuerpo del webhook mapeado, o que sólo encole el id y el cron pida la reunión con la key del miembro; guardar el crudo en una columna que exista (o crearla) antes de interpretarlo; setear `processed_after`, `user_id` e `ingest_source = 'webhook'`.
 - **Criterio de aceptación:** Un POST firmado al webhook de un miembro con el cuerpo real de `new-meeting-content-ready` responde 200 y deja una fila en fathom_calls con title, calendar_invitees, user_id del miembro, ingest_source = 'webhook' y processed_after; la siguiente corrida de /api/integrations/fathom/process la clasifica; hay un test de la ruta con un payload de ejemplo
 - **Dónde:** `apps/web/app/api/integrations/fathom/webhook/[token]/route.ts`, `apps/web/lib/fathom/sync.ts`.
 
 #### [CLOSER-AMOUNT-CLOSED] La pestaña Equipo de Closing siempre sale vacía
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** `[AUDITORIA-ABIERTOS]` punto 8 / auditoría §3 "Dinero y datos". `getCloserMetricsAction` (`app/sales/closer-actions.ts:151`) selecciona `closing_calls.amount_closed`, que no existe en ninguna migración ni en producción; el error devuelve `[]`. Lo consume `components/closing/closers-ranking.tsx`.
+- **Riesgo:** Siempre: la consulta pide closing_calls.amount_closed, que no existe, y la pestaña Equipo de Closing sale vacía en cada carga.
+- **Impacto:** Todas las orgs con closers: no ven ranking, conversión, facturación ni comisión por closer. El error es visible (lista vacía), no un número falso, y la facturación se puede reconstruir desde Cobros o Clientes.
 - **Qué hay que hacer:** decidir de dónde sale la facturación por closer (`outcome.revenue`, `clients.total_amount` vía `clients.closing_call_id`, o `client_payments`) y reescribir la agregación.
 - **Criterio de aceptación:** Con al menos una venta cerrada en el período, la pestaña Equipo de Closing muestra a su closer con cierres y facturación distintos de cero; la fuente de la facturación elegida quedó escrita en docs/areas/ventas.md; getCloserMetricsAction no referencia ninguna columna inexistente y no devuelve error
 - **Dónde:** `apps/web/app/sales/closer-actions.ts`.
 
 #### [CALENDLY-CLOSER-SIN-LEAD] Los turnos del Calendly de cada closer no entran al seguimiento
 - **Tipo:** bug
+- **Severidad:** Alta
 - **Estado verificado:** auditoría §3 "Salud del código" 2. `lib/calendly/closer-sync.ts:217-229` inserta sin `lead_id` y el update tampoco lo completa; no llama `resolveLeadId` (sí lo hacen `sync-events.ts:90` y `ghl/sync-appointments.ts:204`). `listLeadsTableAction` sólo ve turnos colgados de un `sales_leads`.
+- **Riesgo:** Si un lead agenda en el Calendly propio de un closer, entonces el turno entra sin lead_id y no aparece en Closing → Seguimiento; pasa con cada turno de esa vía, sin error.
+- **Impacto:** Orgs con closers que conectaron su Calendly personal: esos leads quedan fuera del seguimiento y de las métricas por lead (falla silenciosa del embudo comercial). Cantidad de closers conectados no medida.
 - **Qué hay que hacer:** resolver el lead en `closer-sync` igual que `sync-events`; idealmente unificar las dos syncs en una con `closer_id` opcional. Backfill de `lead_id` para turnos con `lead_email`.
 - **Criterio de aceptación:** Un turno nuevo agendado en el Calendly propio de un closer con un mail nuevo queda, tras el cron, con closer_id y lead_id completos y el lead aparece en Closing → Seguimiento → Todos; después del backfill no quedan closing_calls con lead_email y sin lead_id
 - **Dónde:** `apps/web/lib/calendly/closer-sync.ts`, `apps/web/lib/calendly/sync-events.ts`.
 
 #### [CALENDLY-CRONS-SUPERPUESTOS] `calendly-sync` y `calendly-sync-closers` corren a la misma hora
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** auditoría §3 "Confiabilidad" 3. `vercel.json`: los dos con `0 * * * *`. Ambos insertan por `calendly_event_id`; si compiten, el índice único rechaza el batch entero. Además N+1 por evento (`resolveLeadId` en loop) y `.in()` con URIs largas.
+- **Riesgo:** Si el Calendly de la org y el de un closer devuelven el mismo evento nuevo en la misma corrida, entonces el índice único (organization_id, calendly_event_id) rechaza el insert en lote y se pierden todos los turnos nuevos de ese lote hasta la corrida siguiente.
+- **Impacto:** Orgs que usan las dos syncs de Calendly: turnos que aparecen con una hora de atraso; se autocorrige en la corrida siguiente (el evento ya existe y se actualiza), por eso no hay pérdida permanente.
 - **Qué hay que hacer:** unificar (ver ítem anterior) o desfasar el schedule; insertar con upsert `onConflict` en vez de insert en batch.
 - **Criterio de aceptación:** Los dos syncs de Calendly ya no se disparan en el mismo minuto (o quedaron unificados en uno) en vercel.json; correr el sync con un evento que ya existe actualiza la fila sin rechazar el resto del lote (upsert por calendly_event_id); una hora de logs de cron no muestra errores de clave duplicada
 - **Dónde:** `apps/web/vercel.json`, `apps/web/lib/calendly/*`.
 
 #### [FATHOM-DEEP-ANALISIS-ALCANCE] El análisis de venta corre sobre las llamadas equivocadas
 - **Tipo:** bug
+- **Severidad:** Alta
 - **Estado verificado:** ítem nuevo. El análisis profundo (`generateDeepCallAnalysis` → `call_analyses`) sólo se dispara desde `finalizeAssociatedCall` (`lib/fathom/process-call.ts:470-512`), que corre cuando la grabación quedó vinculada a un **cliente**, sin mirar `purpose`: una 1-1 de entrega de ≥10 min se analiza como venta (costo de Sonnet y ruido en ranking/objeciones), y una venta con un lead nunca se analiza. Además no se pasa `closerName` ni `closer_id`: `call_analyses.closer_name` queda null y `getTeamRankingAction` agrupa todo en "Sin nombre". Busca `form_answers` por `ilike lead_name` en vez de usar `closing_call_id`.
+- **Riesgo:** Siempre que una 1-1 de entrega de 10 min o más se asocia a un cliente, se analiza como venta; y ninguna llamada de venta con un lead (sin cliente) se analiza.
+- **Impacto:** El ranking del equipo y las objeciones en Métricas mezclan entregas con ventas y agrupan todo en «Sin nombre»: datos que el negocio usa para evaluar closers salen incorrectos, más costo de Sonnet en llamadas que no corresponden.
 - **Qué hay que hacer:** disparar el análisis cuando `purpose = 'sales'` (con o sin cliente), usar `closing_call_id` para `form_answers` y `closing_calls.closer_id` para el closer.
 - **Criterio de aceptación:** Una 1-1 de entrega de 10 min o más vinculada a un cliente no genera fila en call_analyses; una llamada con purpose = 'sales' cruzada a un turno de un lead sí la genera, con closer_id y closer_name del turno; el ranking del equipo en Métricas muestra el nombre del closer en vez de «Sin nombre»
 - **Dónde:** `apps/web/lib/fathom/process-call.ts`, `apps/web/lib/fathom/deep-call-analysis.ts`.
 
 #### [CLOSING-CIERRE-ATOMICO] Cerrar una venta son cinco escrituras encadenadas desde el navegador
 - **Tipo:** bug
+- **Severidad:** Crítica
 - **Estado verificado:** ítem nuevo. `markCallClosed` (`providers/platform-data-provider.tsx:595-680`) hace desde el cliente: update del turno → tag en `conversations` → `createClientAction` → `linkLeadToClientAction` → `recordClientPaymentAction`. Si falla a mitad (red, validación del pago), queda un turno `closed` sin cliente o un cliente sin pago, y el guard "ya tiene cliente vinculado" impide reintentar limpio.
+- **Riesgo:** Si falla cualquier paso después de marcar el turno como cerrado (red, validación del cliente o del pago), entonces el turno queda closed sin cliente o el cliente sin pago, y reintentar está bloqueado («Esta llamada ya está marcada como cerrada»); probabilidad baja por cierre, pero se repite con cada venta.
+- **Impacto:** Cualquier org que cierra ventas desde Closing: una venta que no queda como cliente ni como cobro (pérdida de plata registrada), sin aviso posterior; se arregla a mano sólo si alguien lo detecta.
 - **Qué hay que hacer:** una server action única (o RPC) que haga el cierre completo y sea idempotente por `callId`.
 - **Criterio de aceptación:** Marcar un turno como cerrado con pago deja en una sola operación del servidor el turno closed, el cliente creado, el lead vinculado y el pago registrado; si se corta la red a mitad, no queda un estado parcial o reintentar completa lo que faltaba sin duplicar cliente ni pago; hay un test de la idempotencia por callId
 - **Dónde:** `apps/web/providers/platform-data-provider.tsx`, `apps/web/app/closing/actions.ts`.
 
 #### [FATHOM-CLIENTID-SIN-VALIDAR] `associateFathomCallAction` acepta un cliente de otra org
 - **Tipo:** seguridad
+- **Severidad:** Crítica
 - **Estado verificado:** auditoría §3 "Seguridad" 5. `app/fathom/actions.ts:161-200` valida que la llamada sea de la org, pero el `clientId` recibido va directo a `finalizeAssociatedCall` con `createAdminClient()` (bypass RLS): escribe timeline, problemas y `fathom_calls.client_id` apuntando a un cliente ajeno.
+- **Riesgo:** Si un usuario autenticado pasa el UUID de un cliente de otra org (no se expone en la UI, así que hace falta conocerlo), entonces el admin client lee el nombre de ese cliente y escribe en su propia org filas (timeline, problemas, tareas, fathom_calls.client_id) que apuntan a él; difícil de explotar, pero sin ninguna barrera.
+- **Impacto:** Filtración del nombre de un cliente ajeno hacia la org atacante (queda en el análisis y en call_analyses.lead_name) y referencias cruzadas entre orgs que corrompen la integridad; la org víctima no ve esas filas porque su RLS filtra por su org.
 - **Qué hay que hacer:** verificar `clients.id = clientId and organization_id = org` antes de finalizar.
 - **Criterio de aceptación:** Llamar a associateFathomCallAction con un clientId de otra organización devuelve error y no escribe timeline, problemas ni fathom_calls.client_id; con un cliente propio sigue asociando; hay un test que cubre los dos casos
 - **Dónde:** `apps/web/app/fathom/actions.ts`.
 
 #### [CLOSING-HOLDING-MEZCLA] En modo holding, Closing mezcla turnos de varios negocios
 - **Tipo:** seguridad
+- **Severidad:** Alta
 - **Estado verificado:** ítem nuevo, a confirmar con una sesión holding. `listClosingCallsAction` no filtra por `organization_id`; la policy `holding_reads_portfolio_closing_calls` (`20260630100000_holding_portfolio_rls.sql:42`) deja leer los turnos de todos los negocios del portfolio, y `get_my_organization_id()` devuelve la org del perfil, no el negocio activo. Las escrituras (`updateClosingCallAction`, `lead-actions`) filtran por el negocio activo pero pasan por RLS de la org del perfil, así que probablemente fallan para el holding.
+- **Riesgo:** Si un usuario holding abre Closing con un negocio activo, entonces ve mezclados los turnos de todos los negocios del portfolio (la policy lo permite y la lectura no filtra por org) y probablemente no puede guardar resultados, porque la policy de update usa la org del perfil.
+- **Impacto:** Sólo usuarios holding: no es acceso indebido (el holding puede leer su portfolio) pero sí datos de Closing y Seguimiento atribuidos al negocio equivocado y escrituras que fallan. Cantidad de holdings en uso no medida.
 - **Qué hay que hacer:** filtrar explícitamente por `requireOrganizationId()` en todas las lecturas del área; probar Closing y Seguimiento con un holding.
 - **Criterio de aceptación:** Con un usuario holding y el negocio A activo, Closing (calendario, lista) y Seguimiento muestran sólo turnos y leads de A; marcar un resultado y editar una fila de Seguimiento en A se guardan sin error
 - **Dónde:** `apps/web/app/closing/actions.ts`, `apps/web/app/sales/lead-actions.ts`.
@@ -726,42 +780,60 @@ Doc del área: [`docs/areas/ventas.md`](./docs/areas/ventas.md)
 #### [PERMISOS-SERVER-ACTIONS/ventas] (parte Ventas) Las actions del área no miran el rol
 - **Parte de:** `[PERMISOS-SERVER-ACTIONS]` (ítem transversal en Plataforma). Acá, lo específico del área.
 - **Tipo:** seguridad
+- **Severidad:** Alta
 - **Estado verificado:** sigue abierto; ninguna action de `app/sales`, `app/closing`, `app/fathom` verifica permiso de módulo. `updateCloserCommissionAction` (`app/sales/closer-actions.ts:275`) no tiene llamador y deja a cualquier miembro fijar la comisión de cualquier perfil de la org.
+- **Riesgo:** Si un miembro con Ventas en «Sin acceso» invoca directamente una action de app/sales, app/closing o app/fathom, entonces lee y escribe turnos, leads, cobros y llamadas igual que alguien con acceso total. updateCloserCommissionAction no agrega riesgo: la policy de update de profiles y el trigger protect_profile_columns (ambos en producción) sólo dejan a founder/admin cambiar la comisión de otro.
+- **Impacto:** Todas las orgs con roles restringidos: el permiso de Ventas es sólo visual, incluidos montos y cobros que [COBROS-AVISAR-PERMISOS] pretende ocultar.
 - **Qué hay que hacer:** borrar `updateCloserCommissionAction` (sin uso) y aplicar el guard por módulo que se diseñe en el ítem general.
 - **Criterio de aceptación:** updateCloserCommissionAction ya no existe en el código; un miembro con Ventas en «Sin acceso» que invoca una action de app/sales, app/closing o app/fathom recibe error de permiso y no lee ni escribe datos; typecheck y tests pasan
 - **Dónde:** `apps/web/app/sales/*.ts`, `apps/web/app/closing/actions.ts`, `apps/web/app/fathom/*.ts`.
 
 #### [B-SEMBRAR-IDENTIDADES] / [1-1-SEMBRAR-Y-MEDIR] `client_identities` sigue vacía
 - **Tipo:** verificación manual
+- **Severidad:** Alta
 - **Estado verificado:** `client_identities` tiene **0 filas** en producción (2026-09-23). El botón existe (`components/clients/pending-fathom-calls.tsx` → `seedClientIdentitiesAction`). Sin siembra el resolvedor sólo resuelve por mail de invitado.
+- **Riesgo:** Mientras client_identities siga vacía (0 filas), cada grabación sin mail de invitado reconocible cae al último peldaño y queda pendiente de confirmación manual, sin aviso de que el resolvedor está funcionando a medias.
+- **Impacto:** Todas las orgs con Fathom: 1-1 y ventas que no se asocian solas, fichas con «Última 1-1» desactualizada y clasificación purpose incompleta; se resuelve con un botón, pero está en una pantalla sin link ([CLIENTES-PENDING-CALLS-HUERFANA]).
 - **Qué hay que hacer:** apretar "Cargar identidades desde el CRM" en `/clients/pending-calls`, dejar correr el cron y medir `purpose`/`resolution_method`. Medir falsos positivos del peldaño de nombre.
 - **Criterio de aceptación:** Se ejecutó el paso de verificacion-manual.md § Ventas 7 («Cruce grabación ↔ turno y clasificación», siembra de identidades) con la cuenta real: client_identities tiene filas y quedaron anotadas la distribución de purpose/resolution_method y la tasa de falsos positivos por nombre; si falló, se abrió un ítem nuevo
 - **Dónde:** `apps/web/lib/fathom/identities.ts`, `apps/web/lib/fathom/seed-identities.ts`.
 
 #### [B-FATHOM-NUNCA-PROBADO] Keys de Fathom por miembro nunca probadas contra Fathom
 - **Tipo:** verificación manual
+- **Severidad:** Media
 - **Estado verificado:** el código existe (`app/fathom/member-actions.ts`, `lib/fathom/webhooks.ts`, `app/api/integrations/fathom/webhook/[token]/route.ts`). La firma se asume HMAC-SHA256 con tres headers posibles. CHANGES.md no registra una prueba real. Aunque la firma valide, el guardado del webhook falla hoy por código (ver `[FATHOM-WEBHOOK-MIEMBRO-ROTO]`); la sincronización manual por miembro sí guarda.
+- **Riesgo:** Si la firma del webhook no es HMAC-SHA256 con alguno de los tres headers supuestos, entonces todas las entregas se rechazan además del error de guardado ya conocido; la key por miembro para sincronizar puede tener otros supuestos falsos.
+- **Impacto:** Miembros que conecten su propia cuenta de Fathom; hay sincronización manual como alternativa y hoy no hay evidencia de uso real.
 - **Qué hay que hacer:** ver `docs/operacion/verificacion-manual.md` § Ventas ("Fathom por miembro").
 - **Criterio de aceptación:** Se ejecutó el paso de verificacion-manual.md § Ventas 6 («Fathom por miembro») con cuentas reales de Fathom y el resultado quedó anotado (incluido si la firma del webhook valida); si falló, se abrió un ítem nuevo
 - **Dónde:** idem.
 
 #### [LLAMADAS-VERIFICAR-FATHOM] Cruce grabación ↔ turno con datos reales
 - **Tipo:** verificación manual
+- **Severidad:** Media
 - **Estado verificado:** `lib/fathom/match-appointment.ts` (ventanas de 12 h por mail y 45 min sólo horario) sin medición real.
+- **Riesgo:** Si las ventanas de 12 h (por mail) o 45 min (sólo horario) son demasiado amplias o estrechas, entonces grabaciones se cruzan con el turno equivocado o no se cruzan, y quedan mal clasificadas como venta o entrega.
+- **Impacto:** Métricas de ventas, análisis y ranking de closers de las orgs con Fathom y turnos; el efecto real es desconocido hasta medirlo con datos.
 - **Qué hay que hacer:** ver `docs/operacion/verificacion-manual.md` § Ventas 7 ("Cruce grabación ↔ turno y clasificación").
 - **Criterio de aceptación:** Se ejecutó el paso de verificacion-manual.md § Ventas 7 («Cruce grabación ↔ turno y clasificación») con datos reales y quedó anotado cuántas grabaciones de venta cruzaron un turno y si las ventanas de 12 h / 45 min son correctas; si falló, se abrió un ítem nuevo
 - **Dónde:** `apps/web/lib/fathom/match-appointment.ts`, `resolve-sales-call.ts`.
 
 #### [COBROS-PROBAR] Cobros nunca se dibujó con una sesión real
 - **Tipo:** verificación manual
+- **Severidad:** Media
 - **Estado verificado:** `client_payments` tiene 7 filas en prod pero no hay registro de prueba de la pantalla nueva en CHANGES.md.
+- **Riesgo:** Si la pantalla de Cobros tiene un error que sólo aparece con datos y sesión reales, entonces el equipo no puede registrar o ver cobros desde Ventas.
+- **Impacto:** Registro de cobros de todas las orgs; client_payments ya tiene 7 filas, así que el flujo base al menos escribió, y la sección de cobros de la ficha es alternativa.
 - **Qué hay que hacer:** ver `docs/operacion/verificacion-manual.md` § Ventas ("Cobros").
 - **Criterio de aceptación:** Se ejecutó el paso de verificacion-manual.md § Ventas 5 («Cobros en Ventas») con una sesión real y el resultado quedó anotado; si falló, se abrió un ítem nuevo
 - **Dónde:** `apps/web/components/sales/cobros-page.tsx`, `client-payments-section.tsx`, `app/sales/payment-actions.ts`.
 
 #### [COBROS-AVISAR-PERMISOS] Quien no tiene Ventas deja de ver montos en Clientes
 - **Tipo:** decisión de negocio
+- **Severidad:** Baja
 - **Estado verificado:** `useModuleAccess("sales") !== "none"` gatea los cobros en `components/clients/clients-list.tsx:218` y `client-detail.tsx:56`.
+- **Riesgo:** Si un rol que necesita ver montos (p. ej. account manager) no tiene el permiso de Ventas, entonces deja de ver cobros y montos en Clientes sin entender por qué.
+- **Impacto:** Usuarios con roles personalizados sin Ventas; es comportamiento buscado y se ajusta configurando el rol, no hay pérdida de datos.
 - **Qué hay que hacer:** repasar roles configurados y decidir quién necesita `sales`.
 - **Criterio de aceptación:** Agustín decidió qué roles necesitan el permiso de Ventas para ver montos en Clientes y la decisión quedó registrada en docs/areas/ventas.md; los roles configurados en team_roles.permissions quedaron ajustados a esa decisión
 - **Dónde:** `team_roles.permissions`.
@@ -900,7 +972,10 @@ Doc del área: [`docs/areas/marketing.md`](./docs/areas/marketing.md)
 
 #### [ZERNIO-KEY-GLOBAL] Una org sin Zernio usa la key global de Zernio
 - **Tipo:** seguridad
-- **Estado verificado:** `getZernioApiKeyForOrganization` (`lib/zernio/integration.ts:113-121`) devuelve `process.env.ZERNIO_API_KEY` cuando la org no tiene fila activa o su fila no tiene `api_key`. Todo `getZernioClientForOrganization` (anuncios, comentarios, inbox, sync) lo hereda. `captureAdMetricsForAllOrganizations` (`lib/marketing/ad-metrics-snapshot.ts:158`) recorre `zernio_integrations` sin filtrar `is_active`, y una fila inactiva cae al fallback → escribiría en `ad_metrics_daily` anuncios de la cuenta global. `.env.example` la trae como `sk_pending`. No verifiqué si está seteada en Vercel.
+- **Severidad:** Crítica
+- **Estado verificado:** `getZernioApiKeyForOrganization` (`lib/zernio/integration.ts:113-121`) devuelve `process.env.ZERNIO_API_KEY` cuando la org no tiene fila activa o su fila no tiene `api_key`. Todo `getZernioClientForOrganization` (anuncios, comentarios, inbox, sync) lo hereda. `captureAdMetricsForAllOrganizations` (`lib/marketing/ad-metrics-snapshot.ts:158`) recorre `zernio_integrations` sin filtrar `is_active`, y una fila inactiva cae al fallback → escribiría en `ad_metrics_daily` anuncios de la cuenta global. `.env.example` la trae como `sk_pending`. No verifiqué si está seteada en Vercel. También lo hereda Embudos: `countZernioTriggers` (`lib/funnels/resolve.ts:300-313`) contaría los comentarios de la cuenta global en el paso de disparadores de una org sin Zernio.
+- **Riesgo:** Si ZERNIO_API_KEY está seteada en Production, entonces cualquier org sin Zernio activo (o con la integración desactivada) lee anuncios, comentarios y conteos de otra cuenta sin hacer nada especial: basta con abrir /marketing/anuncios o un embudo con el paso de comentarios. Probabilidad desconocida hasta confirmar la variable en Vercel.
+- **Impacto:** Expone datos de la cuenta dueña de la key global (anuncios, comentarios, inbox) a todas las orgs sin Zernio, y mete esos números en sus embudos y en ad_metrics_daily vía el cron. Hay 30 llamadas a getZernioClientForOrganization que heredan el fallback.
 - **Qué hay que hacer:** confirmar en Vercel si `ZERNIO_API_KEY` existe en Production; quitar el fallback fuera de dev (`NODE_ENV !== "production"`) o borrarlo; filtrar `is_active` en el cron.
 - **Criterio de aceptación:** Quedó anotado si ZERNIO_API_KEY existe en Production de Vercel; con una org sin Zernio conectado (o con la integración inactiva), /marketing/anuncios y /comentarios muestran 'no conectado' y no traen datos de otra cuenta, y el cron capture-ad-metrics no escribe filas en ad_metrics_daily para integraciones inactivas; hay un test que cubre que getZernioApiKeyForOrganization no devuelve la key global en producción
 - **Dónde:** `apps/web/lib/zernio/integration.ts`, `apps/web/lib/marketing/ad-metrics-snapshot.ts`
@@ -909,56 +984,80 @@ Doc del área: [`docs/areas/marketing.md`](./docs/areas/marketing.md)
 
 #### [TRIAL-SECRET-EN-URL] `WORKER_AUTH_SECRET` en la URL de QStash y en logs
 - **Tipo:** seguridad
-- **Estado verificado:** `createTrialReelsJobAction` arma `workerUrl = …?workerSecret=<secret>` y loguea `workerUrl` completo en `"[TrialReels] QStash published OK"` (`reel-variation-actions.ts`). Lo mismo en `publishVariationsAction`/`retryVariationAction` (`urlWithSecret`). QStash guarda la URL en su consola. El worker (`apps/reel-worker/src/index.ts`) compara con `===` (no tiempo constante), acepta el query param, y al fallar loguea los 4 primeros caracteres del secret esperado y 20 del header recibido. El payload lleva además el `driveAccessToken` de Google.
+- **Severidad:** Crítica
+- **Estado verificado:** `createTrialReelsJobAction` arma `workerUrl = …?workerSecret=<secret>` y loguea `workerUrl` completo en `"[TrialReels] QStash published OK"` (`reel-variation-actions.ts`). Lo mismo en `publishVariationsAction`/`retryVariationAction` (`urlWithSecret`). QStash guarda la URL en su consola. El worker (`apps/reel-worker/src/index.ts`) compara con `===` (no tiempo constante), acepta el query param, y al fallar loguea los 4 primeros caracteres del secret esperado y 20 del header recibido. El payload lleva además el `driveAccessToken` de Google. Con el secreto, cualquiera puede encolar trabajos: el worker usa service role (`processor.ts:26-30`) y toma `organizationId` y `sourceStoragePath` del payload sin validarlos contra `reel_variation_jobs` (`index.ts:42-54`, `processor.ts:40-54`), así que puede leer archivos de otra org del bucket y escribir en su carpeta.
+- **Riesgo:** Si alguien con acceso a los logs de Vercel/Fly o a la consola de QStash copia el secreto, entonces puede mandarle al worker trabajos arbitrarios: el worker usa service role y acepta cualquier organizationId y sourceStoragePath. Requiere acceso de lectura a logs o a QStash (personas del equipo o una integración de logs comprometida).
+- **Impacto:** Con el secreto se leen videos de cualquier org del bucket de Trial Reels y se escriben archivos y filas de reel_variation_jobs a nombre de otra org; el driveAccessToken de Google del usuario también viaja en el payload. Afecta a todas las orgs que usan Trial Reels.
 - **Qué hay que hacer:** sacar el secret del query (dejar sólo header o firma QStash con `url`), no loguear URLs con secret, rotar `WORKER_AUTH_SECRET`, usar comparación en tiempo constante en el worker y borrar el log del prefijo.
 - **Criterio de aceptación:** Al generar y publicar Trial Reels, ni la URL destino en la consola de QStash ni los logs de Vercel o Fly contienen WORKER_AUTH_SECRET (el worker ya no acepta ?workerSecret=); el worker compara el secreto en tiempo constante y un pedido con secreto inválido responde 401 sin loguear ningún fragmento del secreto; WORKER_AUTH_SECRET fue rotado en Vercel y Fly
 - **Dónde:** `apps/web/app/marketing/content/reel-variation-actions.ts`, `apps/reel-worker/src/index.ts`, `apps/web/lib/queue/verify-queue-request.ts`
 
 #### [MKT-HOLDING-ORG] Contenido, Drive y Trial Reels ignoran el negocio activo del holding
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** `content/actions.ts` (`requireProfileOrganizationId`), `sync-actions.ts` (función local `requireOrganizationId` sobre `getCurrentProfile`), `drive-actions.ts`, `reel-variation-actions.ts`, `reel-music-actions.ts` usan `profile.organization_id`. Con el JWT del holding, RLS devuelve el negocio activo y el `.eq("organization_id", holding)` no matchea → biblioteca vacía o sync contra la org equivocada. Es el punto 7 de "Salud del código" de la auditoría.
+- **Riesgo:** Si un usuario de un holding cambia al negocio activo y entra a Marketing → Contenido, entonces ve la biblioteca vacía, la sync falla con 'Zernio no está conectado' y Drive/Trial Reels operan contra la org del holding. Pasa siempre, sin condición rara.
+- **Impacto:** Sólo cuentas holding (no se contó cuántas; está prohibido leer filas). No hay fuga ni corrupción: el filtro por la org del holding no matchea nada; el workaround es entrar con el usuario founder del negocio.
 - **Qué hay que hacer:** reemplazar por `requireOrganizationId()` de `lib/auth/bootstrap.ts` en los cinco archivos.
 - **Criterio de aceptación:** Con una cuenta holding que cambia al negocio activo con Zernio, /marketing/content muestra las piezas de ese negocio y la sync corre contra él; desde ese negocio, el detalle de pieza, vincular Drive y generar Trial Reels operan sobre el negocio activo; no quedan usos de profile.organization_id en app/marketing/content/*.ts y typecheck pasa
 - **Dónde:** `apps/web/app/marketing/content/*.ts`
 
 #### [TRIAL-REELS-MUSICA] La música propia de Trial Reels no se usa ni se puede subir
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** (a) `jobPayloadSchema` del worker (`apps/reel-worker/src/index.ts`) no declara `reelMusicPath`; `safeParse` de zod descarta la clave, así que `processor.ts` nunca la recibe y V3 cae a `luts/background-music.mp3`, que no existe → sale sin música (conserva el audio original con `-c:a copy`; sólo cambian crop y metadatos, `ffmpeg-variants.ts:110-145`). (b) `ReelMusicUpload` no se monta en ninguna pantalla (sólo lo exporta su archivo; ni siquiera `trial-reels/index.ts`).
+- **Riesgo:** Si una org genera Trial Reels, entonces la variante V3 sale siempre sin la música propia, porque el worker descarta la ruta de la música y el uploader no está en ninguna pantalla. Pasa en el 100% de los trabajos.
+- **Impacto:** Todas las orgs que usan Trial Reels: una de las variantes no cumple lo prometido (se parece más al original, sólo cambia crop y metadatos). El resto de las variantes y la publicación funcionan.
 - **Qué hay que hacer:** agregar `reelMusicPath: z.string().nullable().optional()` al schema y redeployar Fly; montar `ReelMusicUpload` en Marketing → Contenido.
 - **Criterio de aceptación:** Con una org que subió su música desde Marketing → Contenido, la variante V3 de un Trial Reel nuevo suena con esa música de fondo (hoy sale con el audio original y sin música); hay un test del schema del worker que confirma que reelMusicPath llega a processor
 - **Dónde:** `apps/reel-worker/src/index.ts`, `apps/web/components/marketing/trial-reels/reel-music-upload.tsx`, `apps/web/app/(platform)/marketing/content/page.tsx`
 
 #### [MKT-OVERVIEW-LEGACY] El Overview sale de `content_assets` (legacy)
 - **Tipo:** bug
+- **Severidad:** Alta
 - **Estado verificado:** `getMarketingOverviewContextAction` y `buildOverviewMetricsFromAssets` usan `listContentAssetsAction` (`content_assets`, 6 filas en prod, sólo las escribe Instagram Graph). Las 150 `content_pieces` de Zernio sólo entran en el gráfico de distribución. Además cada carga ejecuta `recomputeContentAssetAttribution` (escrituras) y, sin caché caliente, una llamada a Haiku.
+- **Riesgo:** Si una org mira el Overview de Marketing para decidir, entonces ve KPIs, embudo y mapa de calor calculados sobre content_assets (6 filas en prod, sólo Instagram Graph) en vez de su contenido de Zernio. Pasa en cada carga, y cada carga además escribe atribución y puede llamar a Haiku.
+- **Impacto:** Todas las orgs con contenido sólo en Zernio ven números vacíos o de un subconjunto viejo en la pantalla principal del módulo; costo de IA y escrituras innecesarias por cada visita.
 - **Qué hay que hacer:** decidir si el Overview pasa a `content_pieces` (métricas) y cortar el recompute en cada render (moverlo a cron o a la atribución).
 - **Criterio de aceptación:** Agustín decidió si el Overview pasa a leer content_pieces y la decisión quedó registrada en PENDIENTES.md o CHANGES.md; si pasa, una org sólo con Zernio ve KPIs, embudo y mapa de calor con datos de su contenido; abrir /marketing ya no ejecuta recomputeContentAssetAttribution en cada carga
 - **Dónde:** `apps/web/app/marketing/actions.ts`, `apps/web/lib/marketing/overview-metrics.ts`, `apps/web/components/marketing/marketing-overview.tsx`
 
 #### [MKT-SALES-CONN-VACIA] Conexión con Ventas depende del inbox legacy
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** `lib/marketing/content-sales-rank.ts` lee `conversations` (0 filas en prod) y resuelve contra `content_assets`; `closed-buyer-journeys.ts` también. La atribución basada en Zernio (`lib/marketing/content-sales-attribution.ts` → `content_pieces.sales_attributed`) existe pero `updateSalesAttributionAction` no tiene callers, así que `sales_attributed` nunca se escribe y `getTopPerformingContentAction` por ventas (herramienta del agente) devuelve ceros. Pantalla oculta del menú.
+- **Riesgo:** Si el agente de negocio usa getTopPerformingContentAction por ventas, entonces recibe ceros (sales_attributed nunca se escribe) y puede responder que ningún contenido vendió. La pantalla /marketing/sales-connection lee conversations (0 filas) pero está oculta del menú.
+- **Impacto:** Todas las orgs: el ranking de contenido por ventas no existe en la práctica y el agente puede dar una respuesta equivocada; la pantalla sólo la ve quien tenga la URL.
 - **Qué hay que hacer:** conectar el ranking a `content-sales-attribution` (cron o botón) o sacar la pantalla. Relacionado con `[EMBUDO-PANEL-DMS]`.
 - **Criterio de aceptación:** Se decidió conectar o sacar la pantalla y quedó registrado en CHANGES.md; si se conecta, para una org con ventas atribuidas vía Zernio, /marketing/sales-connection muestra el ranking con revenue distinto de cero y content_pieces.sales_attributed se escribe; si se saca, /marketing/sales-connection redirige y no queda link a la pantalla
 - **Dónde:** `apps/web/lib/marketing/content-sales-rank.ts`, `closed-buyer-journeys.ts`, `content-sales-attribution.ts`, `app/marketing/content/actions.ts`
 
 #### [MKT-FORMS-SIN-RESPUESTAS] 38 formularios y 0 respuestas en producción
 - **Tipo:** verificación manual
+- **Severidad:** Alta
 - **Estado verificado:** `list_tables` en prod: `forms` 38 filas, `form_responses` 0, `google_forms_integrations` 3, `typeform_integrations` 0. Google Forms devuelve `permissionDenied` con 401/403 y corta; con otro error hace `continue` sin registrar nada. Puede ser que los forms no tengan respuestas o que la sync falle en silencio.
+- **Riesgo:** Si la sync de Google Forms falla por algo distinto de 401/403, entonces hace continue sin registrar nada y nadie se entera. Con 38 formularios y 0 respuestas en prod, es probable que ya esté pasando (o que los forms no tengan respuestas: no está confirmado).
+- **Impacto:** form_responses alimenta pasos de los embudos (lib/funnels/resolve.ts) y el scoring de leads (lib/forms/sync-scoring.ts): si la sync falla, esos pasos y puntajes quedan en cero para las 3 orgs con Google Forms conectado.
 - **Qué hay que hacer:** correr `/api/integrations/google-forms/sync?organizationId=` a mano y mirar el resultado; registrar errores por form.
 - **Criterio de aceptación:** Se ejecutó el paso V10 de verificacion-manual.md (sync manual de Google Forms con organizationId) con cuenta real y el resultado quedó anotado; los errores de la sync quedan registrados por form en vez de ignorarse; si falló, se abrió un ítem nuevo
 - **Dónde:** `apps/web/lib/google-forms/sync.ts`
 
 #### [AUDITORIA-ABIERTOS §6] Typeform y Google Forms pierden respuestas > 1000 y `external_response_id` es único global
 - **Tipo:** bug
+- **Severidad:** Crítica
 - **Estado verificado:** `lib/typeform/sync.ts:192` (`page_size=1000`, sin `before`/paginación) y `lib/google-forms/sync.ts:186` (`pageSize=1000`, ignora `nextPageToken`) avanzan `last_synced_at` igual. `form_responses.external_response_id text not null unique` y los upserts `onConflict: "external_response_id"`: dos orgs con el mismo form se pisan (el upsert reescribe `organization_id`).
+- **Riesgo:** Si dos orgs sincronizan el mismo formulario, entonces el upsert por external_response_id reescribe organization_id y la respuesta se muda de una org a la otra; si un form recibe más de 1000 respuestas entre syncs, las que sobran se pierden para siempre porque last_synced_at avanza igual. Lo primero requiere un form compartido (raro, posible en holding o agencia); lo segundo, un form con volumen alto.
+- **Impacto:** Pérdida de respuestas y datos de una org que terminan en otra (con nombre, email y respuestas del lead). Hoy form_responses tiene 0 filas, así que no hay daño registrado todavía.
 - **Qué hay que hacer:** paginar; índice único `(organization_id, external_response_id)` y `onConflict` acorde.
 - **Criterio de aceptación:** Un form de Typeform o Google Forms con más de 1000 respuestas nuevas se sincroniza completo (form_responses tiene todas); dos orgs con el mismo form y el mismo external_response_id conservan cada una su respuesta sin pisarse (índice único (organization_id, external_response_id)); hay un test o prueba anotada que cubre la paginación
 - **Dónde:** `apps/web/lib/typeform/sync.ts`, `apps/web/lib/google-forms/sync.ts`, migración nueva
 
 #### [ZERNIO-WEBHOOK-SIN-EVENTOS] El webhook de Zernio no registró nada
 - **Tipo:** verificación manual
-- **Estado verificado:** `zernio_comments` y `zernio_messages` 0 filas en prod con 9 integraciones. El handler exige `ZERNIO_WEBHOOK_SECRET` (503 sin él). El formato de firma (`x-zernio-signature`, hex con o sin `sha256=`) es supuesto, sin doc local de Zernio.
+- **Severidad:** Baja
+- **Estado verificado:** `zernio_comments` y `zernio_messages` 0 filas en prod con 9 integraciones. El handler exige `ZERNIO_WEBHOOK_SECRET` (503 sin él). El formato de firma (`x-zernio-signature`, hex con o sin `sha256=`) es supuesto, sin doc local de Zernio. Ninguna pantalla ni cálculo lee `zernio_comments`/`zernio_messages` (sólo el webhook las escribe y responder/ocultar actualizan flags en `app/integrations/zernio/actions.ts:369,390`): hoy es una copia sin consumidores.
+- **Riesgo:** Si el webhook no está registrado o falta ZERNIO_WEBHOOK_SECRET, entonces zernio_comments y zernio_messages siguen vacías. No hay nada que falle a la vista: las pantallas y el paso de comentarios de los embudos leen de Zernio en vivo.
+- **Impacto:** Ninguna pantalla ni cálculo lee esas tablas (sólo se escriben los flags is_replied/is_hidden, que caen sobre cero filas). Se pierde sólo una copia histórica que hoy nadie consume.
 - **Qué hay que hacer:** confirmar que el webhook está registrado en Zernio y la variable seteada; mandar un evento de prueba.
 - **Criterio de aceptación:** Se ejecutó el paso V8 de verificacion-manual.md con cuenta real (ZERNIO_WEBHOOK_SECRET confirmado en Vercel, webhook registrado en Zernio, evento de prueba enviado) y el resultado quedó anotado; aparece una fila en zernio_comments o zernio_messages; si falló, se abrió un ítem nuevo
 - **Dónde:** `apps/web/app/api/integrations/zernio/webhook/route.ts`
@@ -1115,7 +1214,10 @@ Doc del área: [`docs/areas/embudos.md`](./docs/areas/embudos.md)
 
 #### [EMBUDOS-WEBHOOK-PERDIDA] Webhooks de pagos y GHL que responden 200 sin haber guardado el evento
 - **Tipo:** bug
+- **Severidad:** Crítica
 - **Estado verificado:** `app/api/webhooks/{whop,fanbasis,ghl}/route.ts` devuelven `200 { ok: true, ...result }` siempre que la firma sea válida, incluso cuando `ingestPaymentWebhook` / `ingestGHLOpportunityEvent` devuelven `stored: false, status: "error"` (falló el insert del crudo). Whop y GHL sólo reintentan ante no-2xx, así que el evento se pierde. Además, un evento que quedó en `status = 'error'` (falló el upsert después de guardar) no se reintenta nunca: el reintento del proveedor choca con el índice único y vuelve `duplicate` (AUDITORIA_BACKEND §3 Confiabilidad 5, sigue abierto). No existe ninguna herramienta de reproceso de `unmapped`/`error` aunque varios comentarios lo prometen.
+- **Riesgo:** Si falla el insert del evento crudo (Supabase caído, timeout, error de schema), entonces Whop/Fanbasis/GHL reciben 200 y no reintentan: el cobro o el movimiento de oportunidad se pierde. Si falla el paso posterior, el evento queda en 'error' y ningún reintento ni herramienta lo recupera. Probabilidad baja por evento, pero sin ninguna red.
+- **Impacto:** Cobros que no quedan registrados en payment_orders/payment_transactions: revenue, CAC, ROAS y LTV de los embudos quedan por debajo de lo real. Alcance actual probablemente bajo: ninguna integración de pagos está verificada con cuenta real (EMBUDOS-CUENTAS-REALES).
 - **Qué hay que hacer:** responder 5xx cuando `stored: false` (salvo Commas, que no reintenta: ahí alertar); en `duplicate`, si la fila previa está en `error`, reprocesarla; construir un reproceso (acción de super-admin o script) para `payment_webhook_events` y `ghl_webhook_events` en `unmapped`/`error`.
 - **Criterio de aceptación:** Si falla el guardado del evento crudo, los webhooks de Whop y GHL responden 5xx (no 200) y el proveedor reintenta; en Commas, que no reintenta, queda una alerta registrada. Un reintento de un evento que quedó en 'error' se reprocesa en vez de volver 'duplicate'; hay tests que cubren los dos casos. Existe un reproceso (acción de super-admin o script) que toma los eventos en 'unmapped'/'error' de payment_webhook_events y ghl_webhook_events y los deja en 'processed' si ahora se pueden interpretar
 - **Dónde:** `apps/web/app/api/webhooks/{whop,fanbasis,ghl}/route.ts`, `apps/web/lib/payments/ingest.ts`, `apps/web/lib/ghl/ingest-opportunity-event.ts`.
@@ -1124,49 +1226,70 @@ Doc del área: [`docs/areas/embudos.md`](./docs/areas/embudos.md)
 
 #### [EMBUDOS-MEDIDAS-POR-EMBUDO] Dinero y anuncios son de la org entera en todos los embudos
 - **Tipo:** bug / decisión de negocio
+- **Severidad:** Alta
 - **Estado verificado:** `resolveOrgMeasures` (`lib/funnels/resolve.ts`) lee `payment_orders`, `payment_transactions`, `ad_metrics_daily` y Hyros filtrando sólo por `organization_id`. `funnel_instances.product_id`, `price_point` y `currency` no se usan para filtrar. Dos embudos de la misma org muestran el mismo spend, revenue, CAC, ROAS, EPL, CPL, AOV y LTV. Contradice la decisión 1 de la spec (varias instancias por oferta). `PLAN_VERIFICACION §12` lo reconoce en una línea ("el spend es de la org entera").
+- **Riesgo:** Si una org tiene dos o más embudos, o gasta en anuncios que no son del embudo, entonces cada embudo muestra el gasto y la facturación de toda la org. Pasa siempre, sin rótulo que lo avise.
+- **Impacto:** CAC, ROAS, EPL, CPL, AOV y LTV por embudo son incorrectos para cualquier org con más de una oferta, y son justamente los números con los que se decide dónde poner plata.
 - **Qué hay que hacer:** decidir cómo se asigna dinero y spend a un embudo (producto de Whop/Commas, campaña/cuenta de Meta, cuenta de Hyros) y agregar esos filtros como config de la instancia; mientras tanto, rotular en la UI que esas cifras son de toda la org.
 - **Criterio de aceptación:** Agustín decidió cómo se asignan cobros y gasto a cada embudo (producto de Whop/Commas, campaña o cuenta de Meta, cuenta de Hyros) y la decisión quedó registrada en docs/areas/embudos.md; mientras no esté implementado, el detalle del embudo rotula el gasto, la facturación y los KPIs de dinero como 'de toda la organización'; una vez implementado, dos embudos de la misma org con filtros distintos muestran gasto y revenue distintos
 - **Dónde:** `apps/web/lib/funnels/resolve.ts`, `apps/web/app/(platform)/funnels/[funnelId]/page.tsx`, `components/funnels/funnel-kpi-panel.tsx`.
 
 #### [EMBUDOS-INSTRUMENTATION-DESACTUALIZADA] Texto visible en /funnels que dice cosas falsas
 - **Tipo:** bug
+- **Severidad:** Baja
 - **Estado verificado:** `INSTRUMENTATION_TOOLS` en `lib/funnels/instrumentation.ts` se muestra en `/funnels` y en `/funnels/[funnelId]/configurar` (`blockingTools()` → `otcNote`). Hay otras dos notas viejas que no se ven en pantalla: `meta_ads` dice "Live fetch, no persiste" (hoy se persiste en `ad_metrics_daily`) y `REPORTING_CADENCE.daily` dice `missing` / "Falta el cron de pulso diario" (existe `executive-report-daily`). La nota de `crm_pipeline` dice que GHL "NO consume /opportunities ni /pipelines" (existen `lib/ghl/sync-pipelines.ts` y el webhook). La de `checkout` dice "Cubierto por Stripe y Mercado Pago" con estado `equivalent`, pero el resolver sólo lee Whop/Commas (`payment_orders`): los datos de Stripe/MP no llegan a ningún embudo. Hoy en pantalla se ve sólo la nota de GHL (`partial`): `blockingTools()` filtra `missing`/`partial`, así que la de checkout (`equivalent`) está mal pero no se muestra (revisado 2026-09-23). También el comentario de `DEFAULT_DM_BINDINGS` dice que no hay fuente de disparadores (existe `zernio_comment_triggers`).
+- **Riesgo:** Si un usuario lee la nota de GHL en /funnels o en configurar, entonces cree que los pipelines de GHL no están integrados y puede no conectarlos. Las otras notas falsas (checkout, meta_ads, pulso diario) no se muestran.
+- **Impacto:** Texto engañoso en una sola nota visible; no cambia ningún número ni dato.
 - **Qué hay que hacer:** corregir `otcStatus`/`otcNote` de GHL y checkout (checkout = `available` vía Whop/Commas, aclarando que Stripe/MP no alimentan embudos), la nota de `meta_ads` y `REPORTING_CADENCE.daily` (el pulso diario de la org existe, aunque no lee embudos), actualizar el comentario, y ajustar `instrumentation.test.ts` si fija esos estados.
 - **Criterio de aceptación:** La lista de herramientas de /funnels ya no dice que GHL 'no consume /opportunities ni /pipelines'; checkout figura como disponible vía Whop/Commas y aclara que Stripe y Mercado Pago no alimentan los embudos; instrumentation.test.ts refleja esos estados y los tests pasan
 - **Dónde:** `apps/web/lib/funnels/instrumentation.ts`, `apps/web/lib/funnels/sources.ts`.
 
 #### [EMBUDOS-CUENTAS-REALES] Conectar las cuentas y correr la verificación 🔴
 - **Tipo:** verificación manual
+- **Severidad:** Alta
 - **Estado verificado:** ninguna de las 10 unidades (I-1 a I-10) tiene evidencia en CHANGES.md de haberse probado con una cuenta real. Todas las migraciones están aplicadas en producción.
+- **Riesgo:** Si alguno de los 10 mapeos (WebinarJam, Hyros, GHL, Whop, Commas, VTurb) no coincide con lo que mandan las APIs reales, entonces los pasos del embudo muestran cero, 'no sabemos' o números mal leídos sin que nada avise. Probabilidad alta: nada se probó con cuenta real y varios payloads son supuestos.
+- **Impacto:** Todo el módulo de Embudos: cualquier org que lo use hoy ve números sin validar. Bloquea confiar en el resto de los ítems del área.
 - **Qué hay que hacer:** conseguir API key de WebinarJam, cuenta de Hyros con API, sub-cuenta GHL de prueba, cuentas Whop/Commas, VTurb; correr `docs/operacion/verificacion-manual.md` § Embudos y Lanzamientos.
 - **Criterio de aceptación:** Se ejecutaron los bloques V1 a V11 de verificacion-manual.md § Embudos y Lanzamientos con cuentas reales de WebinarJam, Hyros, GHL, Whop, Commas y VTurb, y el resultado de cada bloque quedó anotado; por cada falla se abrió un ítem nuevo en PENDIENTES.md
 - **Dónde:** `docs/archivo/PLAN_VERIFICACION.md` §1–12 (condensado en `docs/operacion/verificacion-manual.md` § Embudos).
 
 #### [EMBUDOS-GHL-ENTREGA] Cerrar cómo llegan los webhooks de oportunidades de GHL
 - **Tipo:** verificación manual
+- **Severidad:** Alta
 - **Estado verificado:** `app/api/webhooks/ghl/route.ts` acepta firma Ed25519/RSA o secreto por org; el payload del Workflow no está documentado (se buscó en `docs/external-apis/gohighlevel/`). Si el Workflow no manda `type` (o `event`/`eventType`) con valor `Opportunity*`, la ruta descarta todo con 200 `ignored` sin guardar nada. El id de oportunidad se busca capa por capa empezando por la raíz (`lib/ghl/opportunity-event.ts`): un `id` en la raíz del payload del Workflow (que puede ser el del contacto) gana sobre un `opportunityId` anidado.
+- **Riesgo:** Si el Workflow de GHL no manda type/event con valor Opportunity*, entonces la ruta responde 200 'ignored' y no guarda ni el crudo; si manda un id de contacto en la raíz, se lo toma como id de oportunidad. Probabilidad alta: el payload del Workflow no está documentado.
+- **Impacto:** Los pasos de embudo basados en oportunidades de GHL (creadas, etapa alcanzada, ganadas) quedan en cero o mal asignados para cualquier org con GHL, y sin crudo no se puede reprocesar después.
 - **Qué hay que hacer:** armar el Workflow en una sub-cuenta, mirar el crudo, confirmar `type`, id de oportunidad, `pipelineStageId` y `webhookId`. Si no hay `pipelineStageId`, priorizar `[FEAT-GHL-OAUTH]`.
 - **Criterio de aceptación:** Se armó el Workflow de GHL en una sub-cuenta, se movió una oportunidad y quedó anotado el payload crudo recibido (type, id de oportunidad, pipelineStageId, webhookId); el evento quedó guardado en ghl_webhook_events en vez de descartarse como 'ignored'; si no llega pipelineStageId, se abrió o se priorizó FEAT-GHL-OAUTH
 - **Dónde:** `apps/web/lib/ghl/opportunity-event.ts`, `apps/web/app/api/webhooks/ghl/route.ts`.
 
 #### [WEBINARJAM-API-KEY] Pedir la API key de WebinarJam 🔴
 - **Tipo:** decisión de negocio (trámite externo)
+- **Severidad:** Media
 - **Estado verificado:** integración construida (`lib/webinarjam/*`); sin key no hay datos para 3 pasos del embudo Webinar.
+- **Riesgo:** Si no se consigue la key, entonces los 3 pasos de WebinarJam del embudo Webinar quedan sin datos. Es un trámite externo, no un defecto del código.
+- **Impacto:** Sólo orgs que usan el embudo Webinar; el resto del embudo y de los tipos de embudo funciona. Workaround: cargar los números a mano fuera del sistema.
 - **Qué hay que hacer:** pedir la key con `docs/external-apis/webinarjam/15370143-apply-for-an-api-key-for-webinarjam-or-everwebinar.md`; después cargar `pitch_second` por webinar.
 - **Criterio de aceptación:** Agustín decidió pedir la API key de WebinarJam, la pidió, y la decisión quedó registrada en PENDIENTES.md; la key está cargada en /integrations → WebinarJam y la conexión trae los webinars; cada webinar a usar tiene cargado su segundo del pitch
 - **Dónde:** `/integrations` → WebinarJam.
 
 #### [EMBUDOS-PAGOS-VERIFICAR] Verificar el mapeo de Whop y Commas contra eventos reales
 - **Tipo:** verificación manual
+- **Severidad:** Alta
 - **Estado verificado:** mapeo corregido contra la doc (`lib/payments/normalize.ts`), nunca probado con un evento real.
+- **Riesgo:** Si el mapeo de Whop/Commas no coincide con los eventos reales (montos en centavos vs unidades, tipos de evento, reembolsos), entonces los cobros quedan como 'unmapped' o con monto equivocado. Probabilidad media: se corrigió contra la doc pero nunca se vio un evento real.
+- **Impacto:** Revenue, AOV, LTV y ROAS de los embudos (única pantalla que lee payment_orders/payment_transactions); un cobro 'unmapped' no se pierde (queda el crudo) pero no hay reproceso (ver EMBUDOS-WEBHOOK-PERDIDA).
 - **Qué hay que hacer:** compra de prueba, suscripción con y sin `auto_expire_after_x_periods`, reembolso; confirmar `processed` y montos.
 - **Criterio de aceptación:** Se hizo una compra de prueba, una suscripción con y otra sin auto_expire_after_x_periods, y un reembolso, siguiendo el bloque V3 de verificacion-manual.md, y el resultado quedó anotado: los eventos quedan en 'processed' (la suscripción indefinida de Commas, en 'unmapped') y los montos coinciden con el panel del proveedor; si algo falló, se abrió un ítem nuevo
 - **Dónde:** `apps/web/lib/payments/normalize.ts`, `docs/archivo/PLAN_VERIFICACION.md` §3.
 
 #### [EMBUDOS-SYNC-PROGRAMADO] Registrantes de WebinarJam y catálogos sólo se actualizan a mano
 - **Tipo:** feature / deuda técnica
+- **Severidad:** Media
 - **Estado verificado:** `syncWebinarJamRegistrantsForOrg` sólo se llama desde `app/webinarjam/actions.ts`; no hay cron en `apps/web/vercel.json` para WebinarJam, VTurb (players), Hyros (cuentas) ni pipelines de GHL. Los conteos de webinar del embudo quedan congelados en el último click de "sincronizar". El cron `ghl-sync` sólo trae citas.
+- **Riesgo:** Si nadie aprieta 'sincronizar', entonces los registrantes de WebinarJam y los catálogos de VTurb, Hyros y pipelines de GHL quedan congelados. Pasa siempre que no haya intervención manual.
+- **Impacto:** Orgs con embudos Webinar o con estos catálogos: los conteos se ven viejos sin aviso de antigüedad. Workaround: sincronizar a mano antes de mirar.
 - **Qué hay que hacer:** agregar un cron (p. ej. cada 6 h) que sincronice registrantes de WebinarJam y, diario, los catálogos; respetar las cuotas (WebinarJam 20 req/s).
 - **Criterio de aceptación:** Hay un cron en vercel.json que sincroniza los registrantes de WebinarJam varias veces por día (por ejemplo, cada 6 horas) y otro diario que sincroniza los catálogos de WebinarJam, VTurb, Hyros y los pipelines de GHL; sin tocar ningún botón, el conteo de registrantes de un embudo Webinar se actualiza después de la corrida del cron; el cron exige CRON_SECRET y responde 401 sin él
 - **Dónde:** `apps/web/vercel.json`, nuevo `app/api/cron/*`, `lib/webinarjam/sync.ts`.
@@ -1317,7 +1440,10 @@ Doc del área: [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md)
 
 #### [1A1-CLAVE-ANTHROPIC-ROTA] Una organización sin clave válida y sin clave global
 - **Tipo:** verificación manual
+- **Severidad:** Alta
 - **Estado verificado:** el código ya marca la clave (`marcarClaveDeOrgComoRechazada` en `lib/ai/credential-resolver.ts`) y deja de usarla. Pero si no hay `ANTHROPIC_API_KEY` global, `executeWithCredentialFallback` no tiene a dónde caer: todo el trabajo IA de esa org (análisis de llamadas, reportes, agente) queda sin hacer. No se puede saber desde el código si la global ya se cargó en Vercel.
+- **Riesgo:** Si ANTHROPIC_API_KEY no está en Vercel producción, entonces cada llamada IA de la org 997e94be-… falla sin reintento posible y los jobs de fondo (análisis de llamadas, reportes) quedan sin hacer sin que nadie lo note. Pasa hoy si la global falta; no requiere ninguna acción de nadie.
+- **Impacto:** Una org (997e94be-…) pierde todo el trabajo de IA: análisis de llamadas, reportes ejecutivos y agente. Lo que no se procesó mientras tanto no se recupera solo; el alcance real depende de si la global está cargada, que no se puede ver desde el código.
 - **Qué hay que hacer:** confirmar si `ANTHROPIC_API_KEY` está en Vercel producción; si no, cargarla o pedirle a la org `997e94be-…` una clave nueva. Confirmar que `claude_api_key_status` de esa org quedó en `invalid` y que la barra roja aparece.
 - **Criterio de aceptación:** Se ejecutó el paso 1 de verificacion-manual.md § Agente de negocio e IA (clave de IA rechazada) con la org 997e94be-… y el resultado quedó anotado: si ANTHROPIC_API_KEY está en Vercel producción, claude_api_key_status de esa org quedó en 'invalid' y el founder ve la barra roja; con la global cargada, el log dice 'Se sigue con la clave global' y las llamadas de esa org se procesan (o la org cargó una clave nueva válida); si falló, se abrió un ítem nuevo
 - **Dónde:** Vercel env; `organizations.claude_api_key_status`; `lib/ai/anthropic.ts`.
@@ -1327,56 +1453,80 @@ Doc del área: [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md)
 #### [PERMISOS-SERVER-ACTIONS/agente-ia] (parte IA) El agente lee todos los módulos sin mirar permisos
 - **Parte de:** `[PERMISOS-SERVER-ACTIONS]` (ítem transversal en Plataforma). Acá, lo específico del área.
 - **Tipo:** seguridad
+- **Severidad:** Alta
 - **Estado verificado:** `lib/agent/data-reader-handlers.ts` y `agent-tool-handler.ts` no consultan `getCurrentUserPermissions`; sólo RLS por org. Un miembro con permiso `agent` y sin `finance` obtiene finanzas con `get_finance_summary`, clientes con `get_clients_data`, etc. `saveClaudeApiKeyAction` (`app/settings/actions.ts:438`) tampoco exige founder. Además `getRecentOrgMessages` mete en el prompt 20 mensajes de conversaciones de **otros** usuarios de la org.
+- **Riesgo:** Si un miembro con acceso a /agent pero sin Finanzas o Clientes le pregunta al agente por facturación, compensaciones o clientes, entonces obtiene esos datos: basta con escribir la pregunta. Además cualquier miembro puede reemplazar o borrar la clave de Claude de la org (saveClaudeApiKeyAction sólo pide sesión), y las respuestas pueden citar conversaciones de otros usuarios porque la RLS de agent_messages es por org.
+- **Impacto:** Todas las orgs con roles personalizados: el bloqueo por módulo queda anulado por el agente, y un miembro puede cambiar la clave para que la IA de toda la org corra (y se facture) en otra cuenta o caiga a la global de Limitless. No expone datos de otras orgs.
 - **Qué hay que hacer:** filtrar `AGENT_CHAT_TOOLS` según los módulos del rol antes de mandarlas a Claude (y rechazar en el handler); limitar `getRecentOrgMessages` al usuario actual; exigir founder en `saveClaudeApiKeyAction`/`removeClaudeApiKeyAction`.
 - **Criterio de aceptación:** Un miembro con permiso 'agent' y sin 'finance' ni 'clients' pregunta en /agent por facturación y por clientes: el agente no devuelve esos datos (las tools de esos módulos no se le ofrecen y el handler las rechaza); el mismo miembro no ve en las respuestas fragmentos de conversaciones de otros usuarios de la org; un no-founder que invoca saveClaudeApiKeyAction o removeClaudeApiKeyAction recibe un error y la clave no cambia
 - **Dónde:** `apps/web/lib/agent/stream-agent-message.ts`, `lib/agent/agent-tool-handler.ts`, `app/settings/actions.ts`.
 
 #### [REPORTES-MENSUAL-MES-EQUIVOCADO] (nuevo) El reporte mensual mira el mes que empieza
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** el cron corre `0 13 1 * *`; `monthBounds()` en `lib/executive-reports/generate-monthly.ts:30` usa `new Date()` → mes en curso (el que empieza ese día). Busca semanales con `period_start` en ese mes: el día 1 casi nunca hay ninguno, así que se saltea ("sin reportes semanales en …"). Si hay uno (día 1 lunes), el reporte se titula con el mes nuevo.
+- **Riesgo:** Si el cron corre el día 1 (siempre), entonces busca semanales del mes que empieza, casi nunca encuentra y se saltea en silencio; cuando el 1 cae lunes, genera un reporte titulado con el mes nuevo basado en una sola semana.
+- **Impacto:** Todas las orgs con reportes ejecutivos se quedan sin reporte mensual (o con uno engañoso unas pocas veces al año). Los semanales siguen existiendo y son el workaround; no se pierden datos.
 - **Qué hay que hacer:** usar el mes anterior (`monthBounds(fecha del último día del mes previo)`) y agregar un test. Verificar en prod cuántas filas `period = 'monthly'` hay.
 - **Criterio de aceptación:** Con el cron corriendo el día 1 de un mes, el reporte mensual toma el mes anterior (period_start/period_end y título del mes cerrado) y agrupa los semanales de ese mes; hay un test unitario de monthBounds con ese caso; se anotó cuántas filas period='monthly' había en prod
 - **Dónde:** `apps/web/lib/executive-reports/generate-monthly.ts`.
 
 #### [INTELIGENCIA-FUENTES-LEGACY] (nuevo) Inteligencia y reportes leen tablas legacy
 - **Tipo:** bug
+- **Severidad:** Alta
 - **Estado verificado:** `lib/intelligence/collect-context.ts` lee `conversations` (líneas 128 y 186; 0 filas en prod al 2026-09-23) y `content_assets` (línea 209; 6 filas) en vez de `sales_leads` (1252) y `content_pieces` (150). `lib/intelligence/memory-chunks.ts` también usa `content_assets`, y el tono del founder (`lib/founder-tone/collect-sources.ts`) también. Los reportes y el snapshot ven marketing y DMs vacíos.
+- **Riesgo:** Si una org opera con sales_leads y content_pieces (todas las actuales), entonces el snapshot de inteligencia, los reportes ejecutivos, la memoria del agente y el tono del founder se arman como si no hubiera DMs ni marketing. Pasa en cada generación, sin error visible.
+- **Impacto:** Todas las orgs: los reportes que el founder usa para decidir omiten leads (1252 filas en prod) y contenido (150 piezas) y pueden recomendar sobre una foto incompleta del negocio.
 - **Qué hay que hacer:** pasar a `sales_leads` y `content_pieces` (métricas vía `content_pieces.metrics`), revisar `hasMeaningfulData`.
 - **Criterio de aceptación:** Para una org con leads en sales_leads y piezas en content_pieces, el snapshot de inteligencia y un reporte ejecutivo generados muestran datos de DMs/leads y de marketing (no vacíos); collect-context y memory-chunks ya no leen conversations ni content_assets
 - **Dónde:** `apps/web/lib/intelligence/collect-context.ts`, `lib/intelligence/memory-chunks.ts:34`, `lib/founder-tone/collect-sources.ts:65`.
 
 #### [AGENTE-SIN-FALLBACK-CLAVE] (nuevo) El agente SSE no cae a la clave global
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** `streamClaudeAgent` (`lib/agent/stream-claude-agent.ts:218`) usa `resolveCredentialForOrg` directo y ante un error lanza `mapAnthropicCallError`, sin el reintento con la global ni `marcarClaveDeOrgComoRechazada` que tiene `executeWithCredentialFallback`. Una clave que vence entre validaciones rompe el chat.
+- **Riesgo:** Si la clave propia de una org se revoca o se queda sin crédito mientras sigue marcada 'valid', entonces cada mensaje en /agent falla con error hasta que otro proceso (con fallback) la marque 'invalid'. Requiere que la clave caiga entre validaciones, poco frecuente pero ya pasó (ver 1A1).
+- **Impacto:** Las orgs con clave propia (BYOK) pierden el chat del agente por un rato; el error es visible y se destraba solo cuando algún job de fondo marca la clave, o si la org carga una nueva.
 - **Qué hay que hacer:** extraer el fallback a una función reusable y aplicarla al stream (reintentar sólo si el 401 llega antes de emitir deltas).
 - **Criterio de aceptación:** Con una clave de org marcada 'valid' pero revocada en Anthropic, un mensaje en /agent responde igual usando la clave global y claude_api_key_status de la org pasa a 'invalid'; si el error llega después de haber empezado a mostrar texto, no se reintenta ni se duplica la respuesta; hay un test que cubre el reintento del stream
 - **Dónde:** `apps/web/lib/agent/stream-claude-agent.ts`, `lib/ai/anthropic.ts`.
 
 #### [IA-CLAVES-INVALIDAS] Organizaciones con clave vencida que gastan la global
 - **Tipo:** decisión de negocio
+- **Severidad:** Media
 - **Estado verificado:** el fallback a la global está implementado (`lib/ai/anthropic.ts`); la marca `invalid` se escribe. Queda avisar a las orgs.
+- **Riesgo:** Si una org tiene la clave marcada 'invalid' y nadie le avisa, entonces sigue usando la clave global de Limitless sin límite de tiempo ni de consumo. Ya está pasando para las orgs en 'invalid'.
+- **Impacto:** Costo de Anthropic que absorbe Limitless por cada org con clave vencida; no hay pérdida de datos ni corte de servicio para el cliente. El monto depende de cuántas orgs estén en 'invalid' (no consultado).
 - **Qué hay que hacer:** listar orgs con `claude_api_key_status = 'invalid'` y contactarlas; decidir si una org con clave inválida puede seguir consumiendo la clave de Limitless indefinidamente.
 - **Criterio de aceptación:** Agustín decidió si una org con clave inválida puede seguir usando la clave de Limitless indefinidamente (o hasta cuándo) y la decisión quedó registrada en PENDIENTES.md / docs/areas/agente-ia.md; se listaron las orgs con claude_api_key_status='invalid' y se las contactó
 - **Dónde:** `organizations`, logs `[anthropic] La clave propia …`.
 
 #### [IA-CLAVE-DE-CLIENTE-EN-SUPERADMIN] (nuevo) Super-admin usa la clave de una org cliente
 - **Tipo:** seguridad
+- **Severidad:** Alta
 - **Estado verificado:** `resolveSuperAdminAnthropicClient` (`app/super-admin/actions.ts:806-830`) cae a la clave BYOK de la org `46cce98c-…` ("Optimiza tu Control") si falta la global, para el Batch API del cerebro. Se factura a un cliente trabajo de plataforma. No registra `token_usage`.
+- **Riesgo:** Si falta ANTHROPIC_API_KEY global y un super-admin genera o recoge resúmenes del cerebro global, entonces el sistema descifra y usa la clave privada de la org 46cce98c-… ("Optimiza tu Control") sin su consentimiento. Depende de la misma condición que 1A1 (global ausente), hoy desconocida.
+- **Impacto:** Una org cliente paga trabajo de plataforma y su credencial secreta se usa fuera de su propósito (problema de confianza/contractual); los batches quedan en la cuenta de Anthropic del cliente y el gasto no se registra en token_usage. El monto por batch es chico (Haiku, 200 tokens).
 - **Qué hay que hacer:** usar sólo la global y fallar si no está; registrar el costo en `token_usage` con una org de plataforma o una tabla aparte.
 - **Criterio de aceptación:** Sin ANTHROPIC_API_KEY global, la generación de resúmenes del cerebro global en super-admin falla con un error claro y no usa la clave de ninguna org cliente; con la global cargada, cada batch deja registro de su costo en token_usage (u otra tabla de plataforma), no a nombre de un cliente
 - **Dónde:** `apps/web/app/super-admin/actions.ts`.
 
 #### [AUDITORIA-ABIERTOS §3.6] Prompt injection: huecos restantes del área
 - **Tipo:** seguridad
+- **Severidad:** Alta
 - **Estado verificado:** `wrapUntrustedContent` (`lib/ai/wrap-untrusted-content.ts`) no escapa `</label>`. Sin envolver: resultados de tools del agente (`agent-tool-handler.ts` devuelve JSON crudo con nombres, notas, transcripciones), `pageContext` (`lib/agent/page-context.ts`) y el bloque `org:tone` del JIT (`jit-context.ts:160`), que es texto generado por Claude a partir de transcripts. El texto del modelo puede disparar `[ACTION:CREATE_SOP]`.
+- **Riesgo:** Si un tercero (un lead en un DM, un prospecto en una llamada transcripta, un documento subido) mete instrucciones en el texto, entonces al consultarlo desde el agente ese texto llega sin envolver en los resultados de tools y puede hacer que el modelo cree/edite tareas del tablero, emita [ACTION:CREATE_SOP] o sesgue la respuesta. Requiere algo de intención pero el atacante es externo y no necesita cuenta.
+- **Impacto:** Todas las orgs que usan el agente: escrituras no pedidas dentro de la propia org (tareas, SOPs) y respuestas manipuladas sobre datos del negocio. No alcanza datos de otras orgs (RLS) y las escrituras son visibles y reversibles.
 - **Qué hay que hacer:** escapar el tag de cierre en el wrapper; envolver `tool_result` y `pageContext`; envolver el tono.
 - **Criterio de aceptación:** Un documento o dato que contiene el tag de cierre del wrapper no puede salirse del bloque envuelto (hay un test de wrapUntrustedContent con ese caso); los resultados de tools, el pageContext y el bloque de tono llegan a Claude envueltos como contenido no confiable; un documento en la base de conocimiento con el texto '[ACTION:CREATE_SOP:{...}]' no crea un SOP al consultarlo desde el agente
 - **Dónde:** `apps/web/lib/ai/wrap-untrusted-content.ts`, `lib/agent/*`.
 
 #### [REPORTES-PULSO-DIARIO] Revisar la salida real del pulso diario
 - **Tipo:** verificación manual
+- **Severidad:** Media
 - **Estado verificado:** cron `0 11 * * *` y generador existen (`lib/executive-reports/generate-daily.ts`). Nada en CHANGES dice que se revisó una salida real. Agravante: el pulso recibe los datos de 14 días (`PERIOD_DAYS = 14` en `collect-context.ts`); sólo los estados por departamento usan 1 día.
+- **Riesgo:** Si el pulso diario resume 14 días como si fueran 'hoy', entonces repite riesgos viejos o los infla todos los días. Pasa en cada corrida mientras no se ajuste la ventana.
+- **Impacto:** Todas las orgs con reportes: el founder recibe una alerta diaria poco confiable y puede reaccionar a problemas ya resueltos o dejar de leerla. Hay workaround (los semanales y las pantallas en vivo) y no hay pérdida de datos.
 - **Qué hay que hacer:** leer 3–5 pulsos reales; si inflan riesgos, ajustar el prompt y la ventana (ver `[REPORTES-VENTANA-FIJA]`).
 - **Criterio de aceptación:** Se ejecutó el paso 5 de verificacion-manual.md § Agente de negocio e IA leyendo 3–5 pulsos diarios reales contra lo que pasó ese día y el resultado quedó anotado; si inflan riesgos o hablan de la última quincena, se ajustó el prompt/ventana o se abrió un ítem nuevo
 - **Dónde:** `executive_reports where period='daily'`, `lib/executive-reports/generate-daily.ts`.
@@ -1545,12 +1695,15 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 
 #### [EQUIPO-DESACTIVAR-NO-BLOQUEA] Un miembro desactivado sigue entrando y viendo todo [Operaciones y equipo]
 - **Tipo:** seguridad
+- **Severidad:** Crítica
 - **Estado verificado:** `deactivateMemberAction` y `updateMemberRoleAction` (`app/team/actions.ts`) sólo ponen
   `profiles.is_active = false`. Nada lo lee: no está en `lib/supabase/middleware.ts` (que sí lee
   `must_change_password`), ni en `lib/auth/bootstrap.ts`, ni en `get_my_organization_id()`, ni en ninguna policy.
   Los únicos lectores son `app/fathom/member-actions.ts`, `lib/super-admin/queries.ts` y `lib/team/mapper.ts`
   (que sólo lo muestra en la lista de Equipo). `docs/archivo/OPERATIONAL_NOTES.md`
   afirma lo contrario ("Un miembro desactivado no puede iniciar sesión").
+- **Riesgo:** Si el founder desactiva a un miembro (típicamente al despedirlo), entonces esa persona sigue entrando con su sesión o su contraseña y ve y edita todo lo que su rol permitía. Pasa siempre; el founder cree que lo cortó porque la lista de Equipo lo muestra inactivo.
+- **Impacto:** Cualquier org que haya desactivado a alguien: un ex-integrante conserva acceso a clientes, ventas, finanzas y puede borrar o sacar datos. El único corte real hoy es el ban desde super-admin (lo hace Limitless, no el founder).
 - **Qué hay que hacer:** al desactivar, banear el usuario en Auth (`auth.admin.updateUserById(id, { ban_duration })`)
   o revocar sesiones, y además cortar en el middleware si `is_active = false`. Idealmente que
   `get_my_organization_id()` devuelva null para inactivos.
@@ -1562,12 +1715,15 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 #### [PERMISOS-SERVER-ACTIONS/ops-fin-prod] Las actions y la RLS de estas áreas no miran el rol [transversal]
 - **Parte de:** `[PERMISOS-SERVER-ACTIONS]` (ítem transversal en Plataforma). Acá, lo específico del área.
 - **Tipo:** seguridad
+- **Severidad:** Alta
 - **Estado verificado:** sigue abierto como dice PENDIENTES. Específico de estas áreas: `app/finance/actions.ts`
   (gastos, suscripciones, compensación, liquidación: sólo `requireOrganizationId`; plataformas sí piden founder),
   `app/product/actions.ts` (ningún chequeo; `canEdit` siempre `true`), `app/workboard/*`, `app/sops/*`,
   `app/operations/actions.ts` (`generateWeeklyReportAction` gasta IA con cualquier miembro). Además el nivel
   `view` **no se aplica en ningún lado**: `app/(platform)/layout.tsx` sólo compara contra `none`, y no hay otro
   uso de `"view"` en componentes ni actions.
+- **Riesgo:** Si un miembro con Finanzas o Producto en 'Sin acceso' o 'Ver' llama la Server Action desde la consola del navegador (o si el nivel 'Ver' se configura esperando sólo lectura), entonces puede leer y modificar gastos, suscripciones, compensaciones, liquidaciones, productos, SOPs y tablero, y gastar IA con el reporte semanal. Requiere conocimiento técnico básico para 'Sin acceso'; para 'Ver' no requiere nada, porque la pantalla deja editar.
+- **Impacto:** Todas las orgs con roles personalizados: escalamiento de permisos dentro de la org, incluida la compensación del equipo (dato sensible). No cruza organizaciones.
 - **Qué hay que hacer:** helper `requireModuleAccess(moduleId, "full")` sobre `requireOrganizationId()` y
   aplicarlo primero a Finanzas y Equipo; decidir si `view` significa "no puede editar" y ocultar controles.
 - **Criterio de aceptación:** Con un rol que tiene Finanzas o Equipo en "Sin acceso", invocar una Server Action de gastos, compensación, liquidación o equipo desde la consola devuelve error y no escribe nada; con Finanzas en "Ver", intentar editar un gasto falla y los controles de edición no se muestran; hay un test del helper de acceso por módulo con los niveles none, view y full
@@ -1575,19 +1731,25 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 
 #### [EQUIPO-CUSTOM-ROLE-ORG] `customRoleId` no se valida contra la organización [Operaciones y equipo]
 - **Tipo:** seguridad
+- **Severidad:** Baja
 - **Estado verificado:** `inviteTeamMemberAction` inserta `custom_role_id: customRoleId` con admin client sin
   comprobar que el rol sea de la org; `updateMemberRoleAction` tampoco (ahí la RLS de `profiles` no mira el FK).
   Mencionado en `docs/historial/AUDITORIA_BACKEND_2026-09-22.md` §3.5.
+- **Riesgo:** Si el founder (único que puede invitar o cambiar roles, canManageTeam) manda un customRoleId de otra org, entonces el rol no se puede leer por RLS, hasRoleConfigured queda en false y el miembro queda sin bloqueo por módulo. Requiere adivinar o conocer un UUID ajeno y ser founder.
+- **Impacto:** Sólo la propia org: el founder termina dando acceso amplio, lo mismo que ya podía hacer asignando un rol propio. No lee ni cambia nada de la otra org.
 - **Qué hay que hacer:** antes de escribir, `select id from team_roles where id = $1 and organization_id = $org`.
 - **Criterio de aceptación:** Invitar un miembro o cambiarle el rol con un customRoleId de otra organización devuelve error y no crea ni modifica el perfil; con un rol de la propia organización sigue funcionando; hay un test que cubre ambos casos
 - **Dónde:** `apps/web/app/team/actions.ts`.
 
 #### [WORKBOARD-ASIGNACION-AGENTE] El agente, Fathom y "mandar al tablero" no mantienen `assignee_ids` [Operaciones y equipo]
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** `app/agent/workboard-actions.ts` (`createWorkboardTasksAction`, `updateWorkboardTaskAction`)
   escribe sólo `assignee_id`. El mapper (`lib/workboard/mapper.ts`) prefiere `assignee_ids` cuando no está vacío:
   si el agente reasigna una tarea que ya tenía lista, el cambio no se ve. Tampoco setea `completed_by/at` al
   pasar a `done`.
+- **Riesgo:** Si el agente, Fathom o 'mandar al tablero' reasigna una tarea que ya tenía responsables o la pasa a Hecho, entonces la tarjeta sigue mostrando a los responsables viejos y la tarea cerrada no registra quién ni cuándo. Pasa cada vez que se usa ese camino sobre tareas ya asignadas.
+- **Impacto:** Orgs que usan el agente o Fathom sobre el tablero: responsables equivocados a la vista y métricas de cierre incompletas. Workaround: editar la tarea a mano desde el tablero.
 - **Qué hay que hacer:** que los dos caminos compartan la normalización (`normalizarResponsables`) y la lógica de
   cierre; idealmente una sola función de escritura.
 - **Criterio de aceptación:** Pedirle al agente que reasigne una tarea que ya tenía dos responsables hace que la tarjeta muestre al nuevo responsable; una tarea que el agente, Fathom o "mandar al tablero" pasa a Hecho queda con completed_by y completed_at cargados; hay un test de la función de escritura compartida
@@ -1595,9 +1757,12 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 
 #### [D-SOPS-VIDEO-NUNCA-CORRIO] Probar el flujo entero de SOP desde video [Operaciones y equipo]
 - **Tipo:** verificación manual
+- **Severidad:** Media
 - **Estado verificado:** CHANGES no registra ninguna corrida. En producción hay **1 fila** en
   `sop_generation_jobs` (no se leyó su estado): alguien lo intentó al menos una vez. Riesgos del código:
   ffmpeg en la lambda, `maxDuration = 800`, `ESTIMATED_BYTES_PER_SECOND` estimado, calidad del prompt.
+- **Riesgo:** Si el flujo de SOP desde video falla en producción (ffmpeg en la lambda, timeouts, prompt), entonces el usuario sube el video, espera y no obtiene el SOP. Probable: hay 1 job en prod y no consta que haya terminado bien.
+- **Impacto:** Orgs que intenten usar la función (hoy al menos una); pueden perder tiempo y costo de Whisper. Workaround: escribir el SOP a mano o con el agente.
 - **Qué hay que hacer:** correr el bloque de verificación (ver `docs/operacion/verificacion-manual.md` § Operaciones, Finanzas y Producto (1)) y mirar el
   estado/`error` de ese job.
 - **Criterio de aceptación:** Se ejecutó el bloque 1 (SOP desde un video) de verificacion-manual.md con cuenta real, incluido el estado y error de la fila existente en sop_generation_jobs, y el resultado quedó anotado; si falló, se abrió un ítem nuevo
@@ -1605,11 +1770,14 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 
 #### [OPS-SOP-VIDEO-MEMORIA] El worker mete el video entero en memoria y en `/tmp` [Operaciones y equipo]
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** `process-sop-video/route.ts` hace `Buffer.from(await file.arrayBuffer())` y
   `writeFile` en `tmpdir()`; el bucket acepta hasta 1 GB (`20260903110000`) y el límite de subida es
   `SOP_VIDEO_MAX_BYTES` (`NEXT_PUBLIC_SOP_VIDEO_MAX_MB`, 50 MB por defecto). `/tmp` de Vercel es de 512 MB y la memoria de la lambda es finita: un Loom grande
   falla antes de ffmpeg. `probeDurationSeconds` decodifica el video completo (`-f null -`) sólo para leer la
   duración. Si la duración sale 0, `computeAudioChunks(0)` manda todo el audio en un pedido (límite de 25 MB de Whisper).
+- **Riesgo:** Si la duración del video no se puede leer, entonces se manda todo el audio en un solo pedido y Whisper lo rechaza por pasar 25 MB; si se sube el techo de 50 MB, un video grande agota memoria o /tmp. Con el techo actual (50 MB por el plan de Supabase) sólo el primer caso es alcanzable.
+- **Impacto:** Orgs que suban videos para SOP: el job termina en error después de consumir tiempo; no se pierden datos. Hoy acotado por el límite de 50 MB.
 - **Qué hay que hacer:** bajar por stream a disco (o pasar a ffmpeg una URL firmada como input), leer la
   duración con `-i` sin decodificar, y alinear `SOP_VIDEO_MAX_BYTES` con lo que la lambda aguanta. Si la duración
   no se puede leer, fallar con mensaje en vez de mandar un solo pedido.
@@ -1618,9 +1786,12 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 
 #### [CLICKUP-MONTOS] El import de ClickUp lee mal los montos [Clientes / Integraciones]
 - **Tipo:** bug
+- **Severidad:** Alta
 - **Estado verificado:** `coerceFieldValue` en `app/integrations/clickup/import-actions.ts:218`:
   `parseFloat(s.replace(/[^0-9.,]/g, "").replace(",", "."))` → `"1.500"` da 1,5 y `"$2,500.00"` da 2,5.
   Listado en `AUDITORIA_BACKEND` §3 "Dinero y datos". El importador crea `clients`, no tareas.
+- **Riesgo:** Si una org importa clientes desde ClickUp con montos con separador de miles ('1.500', '$2,500.00'), entonces se guardan 1,5 o 2,5 sin avisar. Pasa en cada import con montos de 4 cifras o más, que es lo normal.
+- **Impacto:** Orgs que usen el import de ClickUp: valores de clientes 1000 veces más chicos que cargan los totales y métricas con las que el founder decide. Workaround: corregir a mano cada cliente, si alguien lo nota.
 - **Qué hay que hacer:** reusar el parser de montos que se arregle para el Excel (o uno común con tests para
   formatos es-AR y en-US) y no importar un monto ambiguo.
 - **Criterio de aceptación:** Importar desde ClickUp montos "1.500" (es-AR) y "$2,500.00" (en-US) guarda 1500 y 2500; un monto ambiguo no se importa y queda informado en el resultado del import; hay un test unitario del parser con esos formatos
@@ -1628,8 +1799,11 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 
 #### [OPS-STORAGE-BUCKETS] Confirmar que `sop-attachments` y `workboard-task-attachments` son privados [Operaciones y equipo]
 - **Tipo:** verificación manual
+- **Severidad:** Baja
 - **Estado verificado:** ninguna migración los crea (`grep storage.buckets`); el código los usa con URLs
   firmadas. `list_tables` muestra 13 buckets en prod pero no sus nombres. Parte de `AUDITORIA_BACKEND` §3.9.
+- **Riesgo:** Si alguien sube un archivo enorme o de tipo no esperado a sop-attachments o workboard-task-attachments, entonces el bucket lo acepta (no tiene límite de tamaño ni de MIME en prod); y si se recrea el proyecto, los buckets no existen porque ninguna migración los crea. La exposición pública ya no es un riesgo: ambos son privados en prod.
+- **Impacto:** Mantenimiento y consumo de storage; no hay datos de otra org alcanzables (privados, sin policies para authenticated, acceso sólo por URL firmada del servidor).
 - **Qué hay que hacer:** mirar en el dashboard que existan y sean privados; pasarlos a una migración
   (`insert into storage.buckets ... on conflict do nothing`) con límite de tamaño y MIME.
 - **Criterio de aceptación:** Se verificó en el dashboard de Supabase que sop-attachments y workboard-task-attachments existen y son privados, y el resultado quedó anotado (si alguno era público, se abrió un ítem nuevo); existe una migración que los crea con límite de tamaño y tipos de archivo permitidos
