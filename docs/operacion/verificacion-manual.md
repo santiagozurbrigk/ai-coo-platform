@@ -172,9 +172,9 @@ sumá su bloque en la sección de su área con el mismo formato.
 5. Cajones laterales: retrospectiva de sprint, versiones de SOP, leads de UTM, llamadas del cliente abren contra el borde derecho y no asoman cerrados (`[LAYOUT-CAJONES]`).
 6. Integraciones: conectar VTurb/Hyros/WebinarJam con key inválida → tarjeta "Con error" con texto accionable (`[INTEGRACIONES-VERIFICAR]`).
 
-### 11. Infraestructura tras el renombre del repo
+### 11. Infraestructura tras el renombre del repo — `[REPO-RENOMBRADO-DEPLOYS]`
 
-1. Vercel → Settings → Git muestra `santiagozurbrigk/limitless-system`; el próximo merge a `main` despliega.
+1. ~~Vercel → Settings → Git muestra `santiagozurbrigk/limitless-system`~~ — ya verificado el 2026-09-23 (los deploys de producción salen de ese repo). Queda Railway; mismo chequeo que V-INFRA-9 (§ Infraestructura).
 2. Railway → servicio del bot → Source: mismo repo, Root Directory `apps/discord-bot`.
 3. Vercel y Railway tienen `LIMITLESS_WEBHOOK_SECRET` / `LIMITLESS_API_URL` (para poder borrar los `OTC_*`).
 

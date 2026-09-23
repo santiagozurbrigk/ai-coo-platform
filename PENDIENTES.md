@@ -167,9 +167,15 @@ Doc del área: [`docs/areas/plataforma.md`](./docs/areas/plataforma.md)
 
 ### Plataforma · P2
 
+#### [SUPERADMIN-ONBOARDING-SIN-GUARD] `loadOnboardingProgress` no llama a `requireSuperAdmin` (nuevo)
+- **Tipo:** seguridad
+- **Estado verificado:** `lib/super-admin/onboarding-progress.ts:24` llama la RPC `onboarding_org_progress` con `createAdminClient()` sin `requireSuperAdmin()`. Todas las demás lecturas del panel (`queries.ts`, `org-health.ts`, `client-health.ts`, `waitlist-queries.ts`, `holding-queries.ts`, `holdings-admin.ts`) sí lo llaman. Hoy sólo la protege el redirect de `app/(super-admin)/super-admin/layout.tsx`; es `server-only` y su único llamador es `app/(super-admin)/super-admin/onboarding/page.tsx`, así que no es explotable hoy, pero rompe la regla de guard doble.
+- **Qué hay que hacer:** agregar `await requireSuperAdmin()` al principio de `loadOnboardingProgress`.
+- **Dónde:** `apps/web/lib/super-admin/onboarding-progress.ts`.
+
 #### [NOTIFICACIONES-EMAIL-SIN-ENVIO] (nuevo) Las preferencias de notificación no mandan nada
 - **Tipo:** bug
-- **Estado verificado:** Ajustes guarda 4 switches en `notification_preferences`, pero sólo `app/settings/actions.ts` lee esa tabla; ningún proceso manda mails según ellos. `sendWelcomeEmail` (Resend) no tiene llamador, aunque `docs/areas/plataforma.md` lista mails de bienvenida.
+- **Estado verificado:** Ajustes guarda 9 switches (5 de mail y 4 en la app) en `notification_preferences`, pero sólo `app/settings/actions.ts` lee esa tabla; ningún proceso manda mails según ellos. `sendWelcomeEmail` (Resend) no tiene llamador, aunque `docs/areas/plataforma.md` lista mails de bienvenida.
 - **Qué hay que hacer:** decidir qué notificaciones existen; implementarlas o sacar los switches de Ajustes. Llamar o borrar `sendWelcomeEmail`.
 - **Dónde:** `apps/web/app/settings/actions.ts`, `apps/web/components/settings/`, `apps/web/lib/email.ts`.
 
@@ -271,7 +277,7 @@ Doc del área: [`docs/areas/plataforma.md`](./docs/areas/plataforma.md)
 
 #### [ONBOARDING-VERIFICAR] Gate, checklist, tours y panel de onboarding sin sesión real
 - **Tipo:** verificación manual
-- **Estado verificado:** construido y con tests puros; PENDIENTES [ONBOARDING] dice que falta navegador.
+- **Estado verificado:** construido y con tests puros (`lib/onboarding/__tests__/`, `lib/super-admin/__tests__/onboarding-progress.test.ts`); nunca se recorrió en un navegador con sesión real.
 - **Qué hay que hacer:** bloques de onboarding de `docs/operacion/verificacion-manual.md` § Plataforma.
 - **Dónde:** `/onboarding`, `/dashboard`, `/super-admin/onboarding`.
 
@@ -283,7 +289,7 @@ Doc del área: [`docs/areas/plataforma.md`](./docs/areas/plataforma.md)
 
 #### [SETTINGS-CLOSER-POR-NOMBRE] "Mi Calendly" depende del nombre del rol (nuevo)
 - **Tipo:** deuda técnica
-- **Estado verificado:** `lib/settings/initial-data.ts` detecta closer por `team_roles.name` ILIKE closer.
+- **Estado verificado:** `lib/settings/initial-data.ts:120` detecta closer si `team_roles.name` contiene "closer" (`toLowerCase().includes`), sin importar mayúsculas.
 - **Qué hay que hacer:** usar `profiles.is_closer`/flag de multi-closer si existe, o un permiso explícito.
 - **Dónde:** `apps/web/lib/settings/initial-data.ts`.
 
