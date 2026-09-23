@@ -28,17 +28,6 @@ sistemas, el aviso de clientes sin novedades y el de próximo lanzamiento.
 
 ---
 
-### [PRIVACIDAD-NO-PUBLICA] `/privacidad` pide iniciar sesión 🟠
-
-**Qué es:** la política de privacidad no está en `isPublicPath`, así que sin
-sesión redirige al login. Pasaba desde antes de borrar la landing
-(2026-09-23). Si una app OAuth (Google, Meta) la tiene configurada como URL de
-privacidad, quien revisa la app no la puede leer.
-
-**Qué hacer:** decidir si tiene que ser pública. Si sí, sumarla a
-`lib/supabase/public-paths.ts` con su caso en el test.
-
----
 
 ### [ONBOARDING-CLIENTES-RESTO] Lo que quedó afuera del onboarding de clientes 🟡
 
@@ -1586,6 +1575,11 @@ ya estaban todas.
 ---
 
 ## ✅ Completados (referencia histórica)
+
+### ✅ [PRIVACIDAD-NO-PUBLICA] `/privacidad` se lee sin iniciar sesión — 2026-09-23
+
+Sumada a `isPublicPath`, con su caso en `public-paths.test.ts`. Antes
+redirigía al login, y quien revisa una app OAuth (Google, Meta) no podía leerla.
 
 ### ✅ [AUDITORIA-MIGRACIONES] Migraciones de la auditoría de backend aplicadas en producción — 2026-09-22
 
