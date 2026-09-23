@@ -103,12 +103,12 @@ Riesgos abiertos: `verifyQStashRequest` no pasa `url` al `Receiver`, así que un
 | Limitador | Ventana / máximo | Clave | Dónde |
 |---|---|---|---|
 | `authRateLimit` | 15 min / 5 | `signin:<email>`, `signin-superadmin:<email>` | `app/auth/actions.ts` |
-| `aiRateLimit` | 1 min / 10 | usuario/org | agente, contenido |
+| `aiRateLimit` | 1 min / 10 | usuario | agente (`app/agent/actions.ts`, `lib/agent/stream-agent-message.ts`) |
 | `transcriptionRateLimit` | 1 min / 30 | usuario | `/api/agent/transcribe` |
 | `sopGenerateRateLimit` | 1 h / 3 | org | generación de SOPs |
-| `apiRateLimit` | 1 min / 60 | | 2 usos |
+| `apiRateLimit` | 1 min / 60 | IP | `/api/utm/track`, `/api/utm/click` |
 | `integrationRateLimit` | 1 min / 30 | | sync manual |
-| `publicFormRateLimit` | 10 min / 10 | IP (`getRequestIp`) | `/api/waitlist`, `/api/trial-confirm`, UTM |
+| `publicFormRateLimit` | 10 min / 10 | IP (`getRequestIp`) | `/api/waitlist`, `/api/trial-confirm`, envío de `/onboarding-cliente` (`app/onboarding-cliente/actions.ts`) |
 | `webhookRateLimit` | 1 min / 100 | IP | Fathom legacy, Calendly, Mercado Pago, ManyChat |
 | `unipileWebhookRateLimit` | 1 min / 40 | | Unipile |
 

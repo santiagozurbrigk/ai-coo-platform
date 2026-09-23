@@ -111,6 +111,7 @@ Ninguna directa. Usa Anthropic (sugerencia desde contexto) y el RAG (OpenAI embe
 - **Oferta duplicada al reintentar el onboarding** `[PRODUCTO-GATE-OFERTA-DUP]`.
 - **`getProductContextForOrg` exportado desde un archivo `"use server"`** (es un endpoint) `[AUDITORIA-ABIERTOS]` §3 Salud.6.
 - Permisos: módulo prestado de `operations`, sin distinción `view`/`full` `[PERMISOS-SERVER-ACTIONS]`.
+- Avatar principal y core offer únicos sólo por la action `[PRODUCTO-UNICIDAD]`.
 
 ## Tests
 

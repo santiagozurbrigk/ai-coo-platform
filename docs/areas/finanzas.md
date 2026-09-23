@@ -126,7 +126,8 @@ Finanzas: escriben en `payment_transactions`, que este módulo no lee.
 - **Código muerto de Stripe/MP** (actions de lectura, `deriveMercadoPagoBalance` que suma los últimos 100 pagos
   y lo llama "balance") `[FIN-STRIPE-MP-DECIDIR]`.
 - **`per_booking` no es por setter** y `monthly_revenue` usa `total_amount` (valor del contrato) como MRR `[FIN-PAYROLL-BASES]`.
-- **Monedas mezcladas** `[FACTURACION-MONEDAS]` (el ítem habla de `client_revenue_entries`, pero Finanzas tiene el mismo problema).
+- **Monedas mezcladas**: los totales suman USD y ARS sin convertir `[FIN-MONEDAS]` (misma familia que `[FACTURACION-MONEDAS]`, de Clientes).
+- **Mes de la liquidación en UTC** `[FIN-MESES-UTC]`.
 - **Sin timeouts** en `lib/stripe` y `lib/mercadopago` `[AUDITORIA-ABIERTOS]` §3 Confiabilidad.
 - `components/finance/payment-platforms-section.tsx` es huérfano (lo reemplazó el de Configuración).
 
