@@ -17,6 +17,9 @@ Estos diagramas son el mapa; el detalle está en los documentos hermanos:
 | Caja con borde gris punteado y flecha punteada `-.->` | **Legacy o dormido**: el código existe y a veces corre, pero no es el camino vigente o no tiene uso en producción (0 integraciones) |
 | Caja con borde rojo punteado | **Roto**: está en el camino pero hoy falla o no deja datos. Lleva el ID de `PENDIENTES.md` en la etiqueta |
 | Texto sobre la flecha | Protocolo o transporte (HTTPS, WebSocket, SSE, cola) o qué dispara el paso |
+| Cilindro | Tabla de Postgres |
+
+Por prolijidad las etiquetas no llevan paréntesis: el route group `app/(platform)/` figura como `app/platform`.
 
 Índice:
 1. [Contexto (C4 nivel 1)](#1-contexto-c4-nivel-1)
@@ -129,7 +132,7 @@ flowchart TB
         direction TB
         mw["middleware.ts<br/>lib/supabase/middleware.ts: updateSession"]
         ui["App Router<br/>Server Components en app/platform, super-admin, founder"]
-        actions["Server Actions<br/>app/dominio/actions.ts, 98 archivos use server"]
+        actions["Server Actions<br/>actions.ts por dominio en app, 98 archivos use server"]
         api["Route Handlers app/api, 84<br/>webhooks, integrations, queue, discord, rag"]
         sse["POST /api/agent/send<br/>SSE, maxDuration 300"]
         crons["Vercel Cron<br/>19 entradas en vercel.json"]
@@ -457,7 +460,7 @@ flowchart LR
 
     subgraph consumo["Consumo"]
         funnel["Embudos<br/>lib/funnels/resolve.ts: resolveFunnel<br/>lib/funnels/compute.ts: computeFunnel"]
-        metrics["Métricas de ventas, Finanzas,<br/>panel general"]
+        metrics["Métricas de ventas, Finanzas,<br/>Marketing, panel general, agente"]
         intel["Inteligencia y reportes ejecutivos<br/>lib/intelligence/collect-context.ts"]
     end
 
@@ -482,7 +485,8 @@ flowchart LR
     cache --> funnel
     wj --> funnel
     cc --> metrics
-    content --> intel
+    content --> metrics
+    cc --> intel
 
     fwm["/api/integrations/fathom/webhook/token<br/>FATHOM-WEBHOOK-MIEMBRO-ROTO"]:::roto
     fwl["/api/integrations/fathom/webhook<br/>legacy por org"]:::legacy
@@ -608,7 +612,6 @@ request) y la base lo sabe por el claim `active_business_org_id` del JWT, que ag
 sesión. Para una org común los dos caen en `profiles.organization_id`. El bloqueo por módulo del layout sólo
 esconde pantallas; las Server Actions no lo repiten salvo guards puntuales (founder, add-on, super admin). En
 rojo: las acciones que leen `profile.organization_id` en vez de `requireOrganizationId()` ignoran el negocio
-activo del holding. Nota: la carpeta real es `app/(platform)/`; Mermaid no admite paréntesis sin comillas en
-algunos renderizadores, por eso figura como `app/platform`. Detalle:
+activo del holding. Detalle:
 [auth, organizaciones y permisos](./auth-organizaciones-y-permisos.md), [seguridad](./seguridad.md),
 [base de datos](./base-de-datos.md).
