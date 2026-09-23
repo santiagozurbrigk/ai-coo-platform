@@ -1800,7 +1800,7 @@ Doc del área: [`docs/arquitectura/vision-general.md`](./docs/arquitectura/visio
 #### [PERMISOS-SERVER-ACTIONS/infra] Los roles no se hacen cumplir en la base ni en las actions (incluye AUD-SEG-1)
 - **Parte de:** `[PERMISOS-SERVER-ACTIONS]` (ítem transversal en Plataforma). Acá, lo específico del área.
 - **Tipo:** seguridad
-- **Estado verificado:** ninguna policy RLS filtra por rol (todas por `organization_id`); no existe ningún helper `requireRole`/`requirePermission` en `app/` ni `lib/` (grep vacío). El único bloqueo es el render en `app/(platform)/layout.tsx` (`<SinAcceso/>`). Un viewer puede, vía PostgREST con su JWT, escribir `team_roles.permissions`, tablas de finanzas y lo que tenga policy `FOR ALL` por org (`discord_integrations`, `unipile_integrations`); vía actions, `saveClaudeApiKeyAction`, los `disconnect*Action`, el Drive del founder y `updateCloserCommissionAction`. `organizations` ya está protegido por grants por columna.
+- **Estado verificado:** ninguna policy RLS filtra por rol salvo `Founders update org profiles` (UPDATE de `profiles`, `20260616100000_workboard_time_tracking.sql`: founder/admin editan perfiles de su org); el resto va sólo por `organization_id`. No existe ningún helper `requireRole`/`requirePermission` en `app/` ni `lib/` (grep vacío). El único bloqueo es el render en `app/(platform)/layout.tsx` (`<SinAcceso/>`). Un viewer puede, vía PostgREST con su JWT, escribir `team_roles.permissions`, tablas de finanzas y lo que tenga policy `FOR ALL` por org (`discord_integrations`, `unipile_integrations`); vía actions, `saveClaudeApiKeyAction`, los `disconnect*Action`, el Drive del founder y `updateCloserCommissionAction`. `organizations` ya está protegido por grants por columna.
 - **Qué hay que hacer:** (1) helper `requireRole(minRole | modulo, nivel)` sobre `requireOrganizationId()` y aplicarlo primero en actions de plata, equipo, integraciones y BYOK; (2) policies de escritura por rol en `team_roles`, finanzas y `*_integrations` editables (función SQL `current_user_role()` o similar); (3) test que recorra los exports críticos.
 - **Criterio de aceptación:** Con un usuario viewer, invocar saveClaudeApiKeyAction, un disconnect*Action, updateCloserCommissionAction y una action de Finanzas devuelve error de permiso y no cambia nada en la base; con el JWT de ese viewer, un PATCH por PostgREST a team_roles, a una tabla de finanzas y a discord_integrations/unipile_integrations es rechazado por RLS mientras el founder/admin sigue pudiendo escribir; hay un test que recorre los exports críticos y falla si alguno no llama al chequeo de rol (paso 6 de V-INFRA-1 en verificacion-manual.md rechaza)
 - **Dónde:** `apps/web/lib/auth/`, `app/settings/actions.ts`, `app/sales/closer-actions.ts`, `app/finance/actions.ts`, `app/team/actions.ts`, `app/integrations/**`, `app/marketing/content/drive-actions.ts`, migración nueva.
@@ -1837,7 +1837,7 @@ Doc del área: [`docs/arquitectura/vision-general.md`](./docs/arquitectura/visio
 
 #### [SEG-REEL-WORKER-AUTH] Autenticación débil del worker de Fly.io
 - **Tipo:** seguridad
-- **Estado verificado:** `apps/reel-worker/src/index.ts:67-130`: compara `WORKER_AUTH_SECRET` con `===` (no constante); cuando falla loguea los primeros 4 caracteres del secreto esperado; sin secreto ni signing keys acepta requests de IPs `10.*`/`172.*` o si `NODE_ENV` no contiene `prod`. `fly.toml` y el README del worker no listan `WORKER_AUTH_SECRET` entre los secrets.
+- **Estado verificado:** `apps/reel-worker/src/index.ts:67-130`: compara `WORKER_AUTH_SECRET` con `===` (no constante); cuando falla loguea los primeros 4 caracteres del secreto esperado; sin secreto ni signing keys acepta requests de `127.0.0.1` o IPs `10.*`/`172.*`, o si `NODE_ENV` no contiene `prod`. La lista de secrets comentada en `fly.toml` no incluye `WORKER_AUTH_SECRET` (el README del worker ya lo lista).
 - **Qué hay que hacer:** comparación en tiempo constante, no loguear el secreto, fail-closed sin credenciales, sumar `WORKER_AUTH_SECRET` a `fly.toml`/README y confirmar con `fly secrets list` que está cargado.
 - **Criterio de aceptación:** Un POST sin credenciales al worker (curl sin header, también desde IP 10.*/172.* o con NODE_ENV no productivo) responde 401; un intento con secreto incorrecto no deja ningún fragmento del secreto en los logs; fly secrets list -a otc-reel-worker muestra WORKER_AUTH_SECRET, figura en fly.toml/README y un reel de prueba llega a preview_ready (V-INFRA-8)
 - **Dónde:** `apps/reel-worker/src/index.ts`, `apps/reel-worker/fly.toml`, `apps/reel-worker/README.md`.
@@ -1851,7 +1851,7 @@ Doc del área: [`docs/arquitectura/vision-general.md`](./docs/arquitectura/visio
 
 #### [AUD-CONF-1] Sin timeouts en los clientes de APIs externas
 - **Tipo:** deuda técnica
-- **Estado verificado:** `AbortSignal.timeout`/`signal:` sólo aparece en `lib/discord/api.ts`, `lib/agent/*`, `lib/fathom/share-link.ts` y `lib/marketing/story-thumbnail-storage.ts`. Ninguno en `lib/zernio/client.ts`, `lib/ghl/client.ts`, `lib/hyros/client.ts`, Stripe, Mercado Pago, Calendly, Typeform. Un proveedor colgado retiene la lambda hasta `maxDuration`.
+- **Estado verificado:** `AbortSignal.timeout`/`signal:` sólo aparece en `lib/discord/api.ts`, `lib/agent/*`, `app/api/agent/send/route.ts` (`req.signal`, cancelación y no timeout), `lib/fathom/share-link.ts` y `lib/marketing/story-thumbnail-storage.ts`. Ninguno en `lib/zernio/client.ts`, `lib/ghl/client.ts`, `lib/hyros/client.ts`, Stripe, Mercado Pago, Calendly, Typeform. Un proveedor colgado retiene la lambda hasta `maxDuration`.
 - **Qué hay que hacer:** `signal: AbortSignal.timeout(15_000)` (o similar) en cada `*Fetch` de cliente de proveedor.
 - **Criterio de aceptación:** Todos los clientes de proveedor (Zernio, GHL, Hyros, Stripe, Mercado Pago, Calendly, Typeform) pasan un timeout a cada fetch; con un proveedor simulado que no responde, la llamada falla con error de timeout en ~15 s en vez de colgar la lambda hasta maxDuration; typecheck y tests pasan
 - **Dónde:** `apps/web/lib/<proveedor>/client.ts`.
@@ -1943,7 +1943,7 @@ Doc del área: [`docs/arquitectura/vision-general.md`](./docs/arquitectura/visio
 
 #### [AUD-SEG-5] Mass assignment e ids ajenos
 - **Tipo:** seguridad
-- **Estado verificado:** `updateContentPieceAction` (`app/marketing/content/actions.ts:148`) hace `.update(updates)` sin zod; `customRoleId` en invitaciones (`app/team/actions.ts:242-289`) y `clientId` en `associateFathomCallAction` (`app/fathom/actions.ts:162`) no se validan contra la org.
+- **Estado verificado:** `updateContentPieceAction` (`app/marketing/content/actions.ts:148`) hace `.update(updates)` sin zod; `customRoleId` en invitaciones (`app/team/actions.ts:242-289`) y `clientId` en `associateFathomCallAction` (`app/fathom/actions.ts:161`) no se validan contra la org.
 - **Qué hay que hacer:** schema zod con campos editables; verificar que `custom_role_id` y `client_id` pertenezcan a la org antes de escribir.
 - **Dónde:** archivos citados.
 
@@ -2087,7 +2087,7 @@ Doc del área: [`docs/arquitectura/vision-general.md`](./docs/arquitectura/visio
 
 #### [REBRAND-EXTERNO] Nombres externos que siguen diciendo OTC
 - **Tipo:** deuda técnica
-- **Estado verificado:** Vercel `otc-plaform`, Supabase `OTC`, Fly `otc-reel-worker`, Railway `otc-discord-bot`, verify token `otc_instagram_webhook_2024` (en `.env.example`), fallback `https://otc-plaform.vercel.app` en `lib/email/welcome-email.ts:6` y `components/super-admin/infrastructure-page.tsx:52`, cookie `otc_active_org` leída como respaldo (`lib/holding/constants.ts:12`), `OTC_WEBHOOK_SECRET`/`OTC_API_URL` leídas como respaldo, holding sembrado `'Limitless Portfolio'`.
+- **Estado verificado:** Vercel `otc-plaform`, Supabase `OTC`, Fly `otc-reel-worker`, Railway `otc-discord-bot`, verify token `otc_instagram_webhook_2024` (en `.env.example`), fallback `https://otc-plaform.vercel.app` en `lib/email/welcome-email.ts:6` y `components/super-admin/infrastructure-page.tsx:52`, cookie `otc_active_org` leída como respaldo (`lib/holding/constants.ts:12`), `OTC_WEBHOOK_SECRET`/`OTC_API_URL` leídas como respaldo, holding sembrado `'OTC Portfolio'` (`supabase/migrations/20260618100000_holding.sql:38`).
 - **Qué hay que hacer:** coordinar el renombre externo; borrar los respaldos de cookie (ya pasaron más de 24 h del cambio) y de variables una vez cargadas las nuevas (`[ENV-LIMPIEZA]`).
 - **Dónde:** archivos citados; Vercel, Fly, Railway, Meta.
 

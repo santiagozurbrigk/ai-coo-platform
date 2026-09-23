@@ -31,7 +31,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 1. Permisos por módulo con un rol limitado 🔒⭐
+### 1. Permisos por módulo con un rol limitado 🔒⭐ — `[PERMISOS-VERIFICAR-SESION]`
 
 **Prerrequisitos:** una org de prueba con founder; una segunda cuenta invitada (`role = 'member'`).
 
@@ -50,7 +50,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 2. Onboarding del founder — gate ⭐
+### 2. Onboarding del founder — gate ⭐ — `[ONBOARDING-VERIFICAR]`
 
 **Prerrequisitos:** super admin; `NEXT_PUBLIC_APP_URL` de prod o preview con Supabase.
 
@@ -66,7 +66,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 10. Salir a mitad del gate y volver. Resultado: retoma en el primer paso sin cumplir.
 11. ⚠️ Con el gate abierto, que el agente u otra ruta `/api/` responda. Resultado: no hay redirect a HTML.
 
-### 3. Onboarding — checklist, derivación y cache ⭐
+### 3. Onboarding — checklist, derivación y cache ⭐ — `[ONBOARDING-VERIFICAR]`
 
 1. Entrar al panel con ítems abiertos. Resultado: tarjeta arriba con progreso y links; contador en la isla derecha.
 2. ⭐ Con una org sin actividad (panel en empty state). Resultado: la tarjeta se ve igual.
@@ -81,7 +81,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 **Nota:** OAuth no se prueba desde un preview: las redirect URIs son fijas a producción y la cookie de estado queda en el dominio del preview.
 
-### 4. Onboarding — tours y panel de super admin
+### 4. Onboarding — tours y panel de super admin — `[ONBOARDING-VERIFICAR]`
 
 1. ⭐ Entrar por primera vez a `/funnels`. Resultado: tour de 2 pasos; terminado o cerrado con X/Escape no vuelve.
 2. ⭐ Abrir `/funnels`, navegar a otro módulo sin cerrar el tour y volver. Resultado: vuelve a aparecer.
@@ -94,7 +94,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 5. Bajas del super admin 🔒⭐ ⚠️
+### 5. Bajas del super admin 🔒⭐ ⚠️ — `[BAJAS-SIN-PROBAR]`
 
 **Prerrequisitos:** una org descartable con datos y archivos; acceso a Storage y a `super_admin_deletions`.
 
@@ -133,7 +133,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 8. Discord — canales y personas ⭐ ⚠️
+### 8. Discord — canales y personas ⭐ ⚠️ — `[DISCORD-SIN-PROBAR]`
 
 **Prerrequisitos:** bot desplegado en Railway con `LIMITLESS_*` (o `OTC_*`); servidor real conectado.
 
@@ -149,7 +149,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 10. Mensaje en canal monitoreado → fila en `discord_messages` con `content` lleno (vacío = falta el intent MESSAGE CONTENT).
 11. Al día siguiente (cron `daily-signals` 07:20 UTC): `ai_sentiment` lleno en mensajes nuevos, ninguno del equipo clasificado.
 
-### 9. Discord — perfil del bot por servidor ⚠️
+### 9. Discord — perfil del bot por servidor ⚠️ — `[DISCORD-PERFIL-SIN-PROBAR]`
 
 1. ⚠️⭐ En un servidor conectado antes del 2026-09-09, guardar un nombre. Resultado: falla con el texto del permiso «Cambiar apodo».
 2. ⭐ Subir una foto en ese servidor. Resultado: funciona (llamadas separadas).
@@ -190,7 +190,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 1. Permisos del módulo 🔒
+### 1. Permisos del módulo 🔒 — `[ALTA-CLIENTES-PROBAR]`
 
 **Prerrequisitos:** un miembro con Clientes en «full», otro en «read», otro en «none».
 
@@ -205,7 +205,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 2. Campos personalizados (C0) ⭐
+### 2. Campos personalizados (C0) ⭐ — `[C0-PROBAR-PANTALLA]`, `[AVISO-Y-SATISFACCION-SIN-PROBAR]`
 
 **Prerrequisitos:** founder.
 
@@ -224,7 +224,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 3. Recorrido: catálogo (C1)
+### 3. Recorrido: catálogo (C1) — `[C1-PROBAR-PANTALLA]`
 
 1. `/clients/checkpoints` con recorrido vacío → «Cargar un recorrido de ejemplo» crea 3 fases.
 2. Checkpoint con plazo 5, «pasa a: Activo» y una métrica obligatoria.
@@ -235,7 +235,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 4. Recorrido: registro en la ficha (C2) ⭐
+### 4. Recorrido: registro en la ficha (C2) ⭐ — `[C2-PROBAR-FICHA]`
 
 **Prerrequisitos:** recorrido con al menos un checkpoint con métricas y uno con `sets_client_status`.
 
@@ -247,7 +247,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 5. Fase manual y tabla ⚠️⭐
+### 5. Fase manual y tabla ⚠️⭐ — `[CLIENTES-VER-CON-DATOS]`
 
 1. Cliente sin hitos → selector «Fase» → tercera fase → la ficha la muestra con «fijada a mano»; los hitos anteriores en gris «salteado», sin fecha.
 2. Tabla `/clients`, columna Etapa → dice esa fase.
@@ -274,7 +274,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 7. Wins ⚠️⭐
+### 7. Wins ⚠️⭐ — `[TRACKERS-PROBAR-CON-SESION]`
 
 1. Cargar un win sin número → entra. ⭐ Clave sin número → rechaza.
 2. Columnas de C0 (entity win) aparecen en el tracker.
@@ -298,7 +298,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 9. Ficha: tareas, notas, satisfacción, facturación
+### 9. Ficha: tareas, notas, satisfacción, facturación — `[FICHA-VER-CON-DATOS]`, `[AVISO-Y-SATISFACCION-SIN-PROBAR]`
 
 1. Tareas: Enter crea «le toca al cliente»; con detalles, del coach con fecha. ⭐ «Próxima» = la de fecha más cercana (vencidas primero); la tabla muestra la misma. Tildar en la tabla → pasa a la siguiente.
 2. Mandar una tarea del coach al tablero → aparece en Tablero con el nombre del cliente; sigue en la ficha; segunda vez no duplica.
@@ -309,7 +309,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 10. Sesiones 1-1 por link ⚠️🔒⭐
+### 10. Sesiones 1-1 por link ⚠️🔒⭐ — `[1A1-MANUALES-SIN-PROBAR]`
 
 **Prerrequisitos:** una grabación 1-1 real con link «Compartir»; clave de Anthropic válida (org o global).
 
@@ -323,7 +323,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 11. Identidades y «Última 1-1» ⚠️
+### 11. Identidades y «Última 1-1» ⚠️ — `[B-SEMBRAR-IDENTIDADES]`
 
 **Prerrequisitos:** Fathom conectado.
 
@@ -344,7 +344,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 13. Clientes de clientes (add-on) 🔒⭐
+### 13. Clientes de clientes (add-on) 🔒⭐ — `[CLIENTES-DE-CLIENTES-PROBAR]`
 
 1. 🔒 Org con add-on → tarjetas «Clientes» y «Facturación del negocio»; sin «Información del cliente». Org sin add-on → ninguna, sin columna Facturación, sin plantillas en Campos.
 2. 🔒 Sin add-on, llamar `createSubClientAction` / `saveClientRevenueAction` → «Esta función no está habilitada…».
@@ -354,7 +354,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 
 ---
 
-### 14. Onboarding por link (add-on) 🔒⭐
+### 14. Onboarding por link (add-on) 🔒⭐ — `[ONBOARDING-CLIENTES-PROBAR]`
 
 **Prerrequisitos:** org con add-on (hoy sólo Limitless); ventana de incógnito.
 
@@ -451,7 +451,7 @@ el embed `call_analyses(...)` no tiene FK (`[LLAMADAS-EMBED-ROTO]`). Si da vací
 
 ---
 
-### 5. Cobros en Ventas ⚠️
+### 5. Cobros en Ventas ⚠️ — `[COBROS-PROBAR]`
 
 **Prerrequisitos:** sesión real; un cliente con plan en cuotas.
 
@@ -472,7 +472,7 @@ el embed `call_analyses(...)` no tiene FK (`[LLAMADAS-EMBED-ROTO]`). Si da vací
 
 ---
 
-### 6. Fathom por miembro (keys, webhooks, privacidad) ⚠️🔒
+### 6. Fathom por miembro (keys, webhooks, privacidad) ⚠️🔒 — `[B-FATHOM-NUNCA-PROBADO]`
 
 **Prerrequisitos:** cuenta real de Fathom para dos miembros; `ENCRYPTION_MASTER_KEY` configurada.
 
@@ -494,7 +494,7 @@ el embed `call_analyses(...)` no tiene FK (`[LLAMADAS-EMBED-ROTO]`). Si da vací
 
 ---
 
-### 7. Cruce grabación ↔ turno y clasificación ⚠️⭐
+### 7. Cruce grabación ↔ turno y clasificación ⚠️⭐ — `[LLAMADAS-VERIFICAR-FATHOM]`, `[B-SEMBRAR-IDENTIDADES]`
 
 **Prerrequisitos:** Fathom conectado, turnos de Calendly/GHL con `lead_email`.
 
@@ -620,7 +620,7 @@ Marcas: ⚠️ alta probabilidad de falla · 🔒 verifica seguridad · ⭐ veri
 
 **Esperado:** coinciden. ⚠️ Si difiere por 100, el monto viene en centavos. Hoy la tabla tiene 0 filas en prod.
 
-### V8. Webhook de Zernio 🔒⚠️
+### V8. Webhook de Zernio 🔒⚠️ — `[ZERNIO-WEBHOOK-SIN-EVENTOS]`
 1. Confirmar `ZERNIO_WEBHOOK_SECRET` en Vercel y el webhook registrado en el dashboard de Zernio (eventos `message.*`, `comment.received`, `account.*`).
 2. Mandar un evento de prueba desde Zernio.
 3. POST sin firma → 401; sin la variable → 503.
@@ -672,7 +672,7 @@ Marcas: ⚠️ alta probabilidad de falla · 🔒 verifica seguridad · ⭐ veri
 ## Embudos y Lanzamientos
 
 > Condensado de `docs/archivo/PLAN_VERIFICACION.md` §1–12, verificado contra el código el
-> 2026-09-23 (commit 038caca). Ninguno de estos bloques tiene evidencia de haberse corrido.
+> 2026-09-23 (commit 038caca). Ninguno de estos bloques tiene evidencia de haberse corrido. Los cubre `[EMBUDOS-CUENTAS-REALES]`.
 > Marcas: ⚠️ alta probabilidad de falla · 🔒 verifica seguridad · ⭐ verifica regla central.
 
 ### V1. Módulo base (sin cuentas externas)
@@ -693,7 +693,7 @@ Marcas: ⚠️ alta probabilidad de falla · 🔒 verifica seguridad · ⭐ veri
 3. Correr dos veces el mismo día → no duplica. `?date=YYYY-MM-DD` rellena un día pasado.
 4. ⭐ Con dos embudos en la org, verificar que muestran **el mismo** spend (medida org-wide; documentar hasta resolver [EMBUDOS-MEDIDAS-POR-EMBUDO]).
 
-### V3. I-2 Pagos Whop y Commas ⚠️
+### V3. I-2 Pagos Whop y Commas ⚠️ — `[EMBUDOS-PAGOS-VERIFICAR]`
 **Prerrequisitos:** cuentas Whop y Commas con permisos de webhook; `ENCRYPTION_MASTER_KEY`.
 1. `/integrations` → Pagos → conectar con el secreto (`ws_...` en Whop, `whsk_...` en Commas); `webhook_secret_encrypted` no está en claro.
 2. Registrar la URL `.../api/webhooks/{whop|fanbasis}?organizationId=<uuid>`; compra de prueba.
@@ -713,7 +713,7 @@ Marcas: ⚠️ alta probabilidad de falla · 🔒 verifica seguridad · ⭐ veri
 3. Org sin ninguna conversación jamás → Lead "sin datos". Con conversaciones viejas y ninguna en el período → `0`.
 4. ⚠️ Org sin conversaciones: `dm.replied` y `dm.set` → hoy muestran `0` en vez de "sin datos" ([EMBUDOS-SIGNAL-INCONSISTENTE]).
 
-### V5. I-4 Oportunidades de GHL ⚠️⭐
+### V5. I-4 Oportunidades de GHL ⚠️⭐ — `[EMBUDOS-GHL-ENTREGA]`
 **Prerrequisitos:** sub-cuenta GHL con pipeline y oportunidades; GHL conectado (PIT + Location ID).
 1. "Sincronizar pipelines" → cantidades. ⚠️ Mirar `ghl_pipeline_stages.raw`: id de etapa en `id`/`_id`, `position` coherente con la UI de GHL.
 2. Regenerar el secreto → la URL con secreto se muestra una sola vez.
@@ -726,7 +726,7 @@ Marcas: ⚠️ alta probabilidad de falla · 🔒 verifica seguridad · ⭐ veri
 9. ⭐ `ghl_stage_entered` sin etapa → "Falta configurar la fuente" en la fila (y el aviso "Falta elegir un parámetro de la fuente…" arriba); con etapa → número.
 10. 🔒 Sin firma ni secreto → 401; secreto incorrecto → 401; `X-GHL-Signature` inventada + secreto correcto → 401; secreto de la org B en su URL → los datos entran en B; evento no `Opportunity*` → 200 `ignored` sin guardar.
 
-### V6. I-6 VTurb ⚠️⭐
+### V6. I-6 VTurb ⚠️⭐ — `[EMBUDOS-VTURB-PITCH]` (paso 3)
 **Prerrequisitos:** cuenta VTurb con un VSL con tráfico; API key de Analytics.
 1. Conectar → sincroniza players. ⚠️ Un 401 con key válida → probar `X-Api-Version: v3`.
 2. ⚠️ Período cerrado vs dashboard de VTurb: `total_viewed` (visitantes de página), `total_started` (plays), `engagement_rate` (% promedio), y qué dedupe muestra el dashboard (`_device_uniq`/`_session_uniq`).
@@ -782,7 +782,7 @@ Marcas: ⚠️ alta probabilidad de falla · 🔒 verifica seguridad · ⭐ veri
 
 Marcas: ⚠️ alta probabilidad de falla · 🔒 verifica seguridad · ⭐ verifica regla central.
 
-### 1. Clave de IA rechazada: marca, cartel y fallback ⭐⚠️
+### 1. Clave de IA rechazada: marca, cartel y fallback ⭐⚠️ — `[1A1-CLAVE-ANTHROPIC-ROTA]`
 **Prerrequisitos:** acceso a Vercel (env y logs) y a la base de producción; la org `997e94be-…` (o una de prueba con una clave `sk-ant-` revocada).
 1. Confirmar si `ANTHROPIC_API_KEY` está cargada en Vercel producción.
 2. `select claude_api_key_status from organizations where id = '<org>'`.
@@ -812,7 +812,7 @@ Marcas: ⚠️ alta probabilidad de falla · 🔒 verifica seguridad · ⭐ veri
 
 **Resultado esperado:** 1 → `permission denied`; 2 → la respuesta usa el documento (el agente llama con service role).
 
-### 5. Pulso diario: primera lectura real ⭐
+### 5. Pulso diario: primera lectura real ⭐ — `[REPORTES-PULSO-DIARIO]`
 **Prerrequisitos:** una org con datos (ventas/marketing) y el cron `executive-report-daily` corriendo.
 1. Leer los últimos 3–5 `executive_reports` con `period = 'daily'`.
 2. Comparar con lo que pasó ese día en la operación.
@@ -1008,7 +1008,7 @@ en `sop_generation_jobs` (`status`, `error`): puede decir dónde falla sin subir
 
 ---
 
-### V-INFRA-1 · Variables críticas cargadas en producción ⚠️⭐
+### V-INFRA-1 · Variables críticas cargadas en producción ⚠️⭐ — `[ENV-ANTHROPIC-VERCEL]`
 
 **Prerrequisitos:** acceso de lectura a Vercel (proyecto `otc-plaform`, team `otcteam`, incluidas las Shared Environment Variables del team).
 
@@ -1090,7 +1090,7 @@ en `sop_generation_jobs` (`status`, `error`): puede decir dónde falla sin subir
 
 ---
 
-### V-INFRA-7 · Buckets de Storage privados 🔒⚠️
+### V-INFRA-7 · Buckets de Storage privados 🔒⚠️ — `[AUD-SEG-9]`
 
 **Prerrequisitos:** dashboard de Supabase → Storage.
 
@@ -1114,7 +1114,7 @@ en `sop_generation_jobs` (`status`, `error`): puede decir dónde falla sin subir
 
 ---
 
-### V-INFRA-9 · Railway después del renombre del repo ⚠️
+### V-INFRA-9 · Railway después del renombre del repo ⚠️ — `[REPO-RENOMBRADO-DEPLOYS]`
 
 **Prerrequisitos:** acceso a Railway.
 
